@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/allbert-kernel",
+    "crates/allbert-cli"
+]
+resolver = "2"

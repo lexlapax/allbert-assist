@@ -1,0 +1,13 @@
+[package]
+name = "allbert-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+allbert-kernel = { path = "../allbert-kernel" }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1.0"
+clap = { version = "4.4", features = ["derive"] }
+reedline = "0.36"
+tracing = "0.1"
+async-trait = "0.1"

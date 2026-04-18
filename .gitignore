@@ -1,0 +1,29 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# Environment and local overrides
+.env
+.env.*
+!.env.example
+!.env.sample
+.direnv/
+
+# Editor / IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Coverage and profiling artifacts
+coverage/
+*.profraw
+*.profdata
+
+# Local tool state
+.claude/settings.local.json

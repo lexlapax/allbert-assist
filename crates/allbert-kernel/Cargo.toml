@@ -1,0 +1,17 @@
+[package]
+name = "allbert-kernel"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "ansi"] }
+tracing-appender = "0.2"
+async-trait = "0.1"
+dirs = "5.0"
+uuid = { version = "1", features = ["v4"] }
