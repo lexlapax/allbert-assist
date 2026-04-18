@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -37,6 +37,7 @@ pub struct HookCtx {
     pub paths: Option<AllbertPaths>,
     pub prompt_sections: Vec<String>,
     pub tool_invocation: Option<ToolInvocation>,
+    pub active_allowed_tools: Option<HashSet<String>>,
     pub pending_events: Vec<KernelEvent>,
     pub recorded_cost: Option<CostEntry>,
 }
@@ -53,12 +54,17 @@ impl HookCtx {
             paths: Some(paths.clone()),
             prompt_sections: Vec::new(),
             tool_invocation: None,
+            active_allowed_tools: None,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
     }
 
-    pub fn before_tool(session_id: &str, invocation: ToolInvocation) -> Self {
+    pub fn before_tool(
+        session_id: &str,
+        invocation: ToolInvocation,
+        active_allowed_tools: Option<HashSet<String>>,
+    ) -> Self {
         Self {
             session_id: session_id.into(),
             provider: None,
@@ -69,6 +75,7 @@ impl HookCtx {
             paths: None,
             prompt_sections: Vec::new(),
             tool_invocation: Some(invocation),
+            active_allowed_tools,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -92,6 +99,7 @@ impl HookCtx {
             paths: Some(paths.clone()),
             prompt_sections: Vec::new(),
             tool_invocation: None,
+            active_allowed_tools: None,
             pending_events: Vec::new(),
             recorded_cost: None,
         }

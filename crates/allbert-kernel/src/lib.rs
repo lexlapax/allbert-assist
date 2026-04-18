@@ -31,7 +31,7 @@ pub use hooks::{
 pub use llm::{ChatMessage, ChatRole};
 pub use paths::AllbertPaths;
 pub use security::SecurityHook;
-pub use skills::{ActiveSkill, Skill, SkillStore};
+pub use skills::{ActiveSkill, CreateSkillInput, InvokeSkillInput, Skill, SkillStore};
 pub use tools::{ToolCtx, ToolInvocation, ToolOutput, ToolRegistry};
 pub use trace::TraceHandles;
 
@@ -79,6 +79,7 @@ impl Kernel {
         let session_id = uuid::Uuid::new_v4().to_string();
         let trace = trace::init_tracing(config.trace, &paths, &session_id)?;
         let llm = provider_factory.build(&config.model).await?;
+        let skills = SkillStore::discover(&paths.skills);
         let mut hooks = HookRegistry::default();
         hooks.register(
             HookPoint::BeforeTool,
@@ -99,7 +100,7 @@ impl Kernel {
             paths,
             adapter,
             hooks,
-            skills: SkillStore::new(),
+            skills,
             state: AgentState::new(session_id),
             provider_factory,
             llm,
@@ -208,27 +209,17 @@ impl Kernel {
                     input: invocation.input.clone(),
                 });
 
-                let mut tool_hook_ctx =
-                    HookCtx::before_tool(&self.state.session_id, invocation.clone());
+                let mut tool_hook_ctx = HookCtx::before_tool(
+                    &self.state.session_id,
+                    invocation.clone(),
+                    self.skills.allowed_tool_union(&self.state.active_skills),
+                );
                 let tool_output = match self
                     .hooks
                     .run(HookPoint::BeforeTool, &mut tool_hook_ctx)
                     .await
                 {
-                    HookOutcome::Continue => {
-                        let ctx = ToolCtx {
-                            input: self.adapter.input.clone(),
-                            security: self.config.security.clone(),
-                            web_client: reqwest::Client::new(),
-                        };
-                        match self.tools.dispatch(invocation.clone(), &ctx).await {
-                            Ok(output) => output,
-                            Err(err) => ToolOutput {
-                                content: err.to_string(),
-                                ok: false,
-                            },
-                        }
-                    }
+                    HookOutcome::Continue => self.dispatch_tool(invocation.clone()).await,
                     HookOutcome::Abort(message) => ToolOutput {
                         content: message,
                         ok: false,
@@ -346,6 +337,21 @@ Available tools:\n",
         );
 
         prompt.push_str(&self.tools.prompt_catalog());
+        prompt.push_str("\n- list_skills: List installed skills and their descriptions.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
+        prompt.push_str("\n- invoke_skill: Activate a skill for this session, optionally with JSON args.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"},\"args\":{\"type\":\"object\"}}}\n");
+        prompt.push_str("\n- create_skill: Create a skill under ~/.allbert/skills/<name>/SKILL.md.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"allowed_tools\",\"body\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"body\":{\"type\":\"string\"}}}\n");
+
+        prompt.push_str("\n\nAvailable skill manifests:\n");
+        prompt.push_str(&self.skills.manifest_prompt());
+
+        let active = self.skills.active_prompt(
+            &self.state.active_skills,
+            self.config.limits.max_skill_args_bytes,
+        );
+        if !active.is_empty() {
+            prompt.push_str("\n\nActive skill bodies:\n");
+            prompt.push_str(&active);
+        }
 
         for section in prompt_sections {
             prompt.push_str("\n\n");
@@ -353,6 +359,95 @@ Available tools:\n",
         }
 
         prompt
+    }
+
+    async fn dispatch_tool(&mut self, invocation: ToolInvocation) -> ToolOutput {
+        match invocation.name.as_str() {
+            "list_skills" => ToolOutput {
+                content: self.skills.manifest_prompt(),
+                ok: true,
+            },
+            "invoke_skill" => self.dispatch_invoke_skill(invocation.input),
+            "create_skill" => self.dispatch_create_skill(invocation.input),
+            _ => {
+                let ctx = ToolCtx {
+                    input: self.adapter.input.clone(),
+                    security: self.config.security.clone(),
+                    web_client: reqwest::Client::new(),
+                };
+                match self.tools.dispatch(invocation, &ctx).await {
+                    Ok(output) => output,
+                    Err(err) => ToolOutput {
+                        content: err.to_string(),
+                        ok: false,
+                    },
+                }
+            }
+        }
+    }
+
+    fn dispatch_invoke_skill(&mut self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<InvokeSkillInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid invoke_skill input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+
+        let Some(skill) = self.skills.get(&parsed.name) else {
+            return ToolOutput {
+                content: format!("skill not found: {}", parsed.name),
+                ok: false,
+            };
+        };
+
+        if let Some(args) = &parsed.args {
+            let serialized = serde_json::to_string(args).unwrap_or_default();
+            if serialized.as_bytes().len() > self.config.limits.max_skill_args_bytes {
+                return ToolOutput {
+                    content: "invoke_skill args exceed limits.max_skill_args_bytes".into(),
+                    ok: false,
+                };
+            }
+        }
+
+        SkillStore::upsert_active_skill(&mut self.state.active_skills, &parsed.name, parsed.args);
+        ToolOutput {
+            content: format!("activated skill {}", skill.name),
+            ok: true,
+        }
+    }
+
+    fn dispatch_create_skill(&mut self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<CreateSkillInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid create_skill input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+
+        match self.skills.create(
+            &self.paths.skills,
+            &parsed.name,
+            &parsed.description,
+            &parsed.allowed_tools,
+            &parsed.body,
+        ) {
+            Ok(skill) => ToolOutput {
+                content: format!("created skill {} at {}", skill.name, skill.path.display()),
+                ok: true,
+            },
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
+        }
     }
 }
 
@@ -468,6 +563,24 @@ mod tests {
             confirm,
             input,
         }
+    }
+
+    fn write_skill(
+        paths: &AllbertPaths,
+        name: &str,
+        description: &str,
+        allowed_tools: &str,
+        body: &str,
+    ) {
+        let dir = paths.skills.join(name);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("SKILL.md"),
+            format!(
+                "---\nname: {name}\ndescription: {description}\nallowed-tools: {allowed_tools}\n---\n\n{body}\n"
+            ),
+        )
+        .unwrap();
     }
 
     struct QueueConfirm {
@@ -1280,6 +1393,387 @@ mod tests {
             .expect("second turn should succeed");
 
         assert_eq!(seen.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn skill_discovery_is_fail_soft_for_invalid_files() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+
+        write_skill(
+            &paths,
+            "good-skill",
+            "A valid skill",
+            "request_input",
+            "Do good things.",
+        );
+        let broken_dir = paths.skills.join("broken");
+        fs::create_dir_all(&broken_dir).unwrap();
+        fs::write(broken_dir.join("SKILL.md"), "not frontmatter").unwrap();
+
+        let store = SkillStore::discover(&paths.skills);
+        assert_eq!(store.all().len(), 1);
+        assert_eq!(store.all()[0].name, "good-skill");
+    }
+
+    #[tokio::test]
+    async fn invoke_skill_activates_skill_and_renders_args_into_prompt() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill(
+            &paths,
+            "note-taker",
+            "Capture notes",
+            "write_file request_input",
+            "Use write_file to persist notes.",
+        );
+
+        let captured_requests = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                captured_requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"note-taker\",\"args\":{\"topic\":\"retro\"}}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Skill is active now.".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Using the active skill.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("activate it")
+            .await
+            .expect("turn should pass");
+        kernel.run_turn("use it").await.expect("turn should pass");
+
+        let requests = captured_requests.lock().unwrap();
+        let second_turn_system = requests[2].system.as_ref().unwrap();
+        assert!(second_turn_system.contains("Available skill manifests:"));
+        assert!(second_turn_system.contains("note-taker: Capture notes"));
+        assert!(second_turn_system.contains("Active skill bodies:"));
+        assert!(second_turn_system.contains("Invocation arguments (JSON):"));
+        assert!(second_turn_system.contains("\"topic\": \"retro\""));
+        assert!(second_turn_system.contains("Use write_file to persist notes."));
+    }
+
+    #[tokio::test]
+    async fn invoke_skill_rejects_args_over_limit() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill(
+            &paths,
+            "small-skill",
+            "Small skill",
+            "request_input",
+            "Body",
+        );
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut config = Config::default_template();
+        config.limits.max_skill_args_bytes = 8;
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::clone(&events)),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"small-skill\",\"args\":{\"long\":\"1234567890\"}}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "done".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("activate").await.expect("turn should pass");
+        let recorded = events.lock().unwrap();
+        assert!(recorded.iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "invoke_skill" && !*ok && content.contains("max_skill_args_bytes")
+        )));
+    }
+
+    #[tokio::test]
+    async fn create_skill_writes_file_and_created_skill_can_be_invoked() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let captured_requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths.clone(),
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                captured_requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name":"create_skill",
+                                "input":{
+                                    "name":"weather-note",
+                                    "description":"Capture weather notes",
+                                    "allowed_tools":["request_input"],
+                                    "body":"Ask for weather details with request_input."
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "created".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"weather-note\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "invoked".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "final".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("create skill")
+            .await
+            .expect("create turn should pass");
+        assert!(paths.skills.join("weather-note").join("SKILL.md").exists());
+
+        kernel
+            .run_turn("invoke skill")
+            .await
+            .expect("invoke turn should pass");
+        kernel
+            .run_turn("use skill")
+            .await
+            .expect("use turn should pass");
+
+        let requests = captured_requests.lock().unwrap();
+        let last_system = requests.last().unwrap().system.as_ref().unwrap();
+        assert!(last_system.contains("weather-note"));
+        assert!(last_system.contains("Ask for weather details with request_input."));
+    }
+
+    #[tokio::test]
+    async fn create_skill_overwrite_requires_confirm() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill(&paths, "overwrite-me", "Old", "request_input", "Old body");
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let confirm = Arc::new(QueueConfirm::new(vec![ConfirmDecision::Deny]));
+        let seen = confirm.seen();
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter_with(Arc::clone(&events), confirm, Arc::new(NoopInput)),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name":"create_skill",
+                                "input":{
+                                    "name":"overwrite-me",
+                                    "description":"New",
+                                    "allowed_tools":["request_input"],
+                                    "body":"New body"
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "done".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("overwrite")
+            .await
+            .expect("turn should pass");
+        assert_eq!(seen.lock().unwrap().len(), 1);
+        let persisted =
+            fs::read_to_string(paths.skills.join("overwrite-me").join("SKILL.md")).unwrap();
+        assert!(persisted.contains("Old body"));
+    }
+
+    #[tokio::test]
+    async fn active_skill_fence_blocks_tools_outside_allowed_set() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill(
+            &paths,
+            "writer-only",
+            "Can only write files",
+            "write_file",
+            "Only use write_file.",
+        );
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter_with(
+                Arc::clone(&events),
+                Arc::new(NoopConfirm),
+                Arc::new(QueueInput::new(vec![InputResponse::Submitted("hi".into())])),
+            ),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"writer-only\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"still allowed?\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"process_exec\",\"input\":{\"program\":\"/bin/echo\",\"args\":[\"blocked\"]}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "done".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("activate and continue")
+            .await
+            .expect("turn");
+
+        let recorded = events.lock().unwrap();
+        assert!(recorded.iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "request_input" && *ok && content == "hi"
+        )));
+        assert!(recorded.iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "process_exec" && !*ok && content.contains("not permitted by active skill")
+        )));
+    }
+
+    #[tokio::test]
+    async fn active_skills_do_not_bypass_global_fs_or_exec_policy() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill(
+            &paths,
+            "bypass-attempt",
+            "Attempts to bypass policy",
+            "process_exec write_file",
+            "Try the dangerous thing.",
+        );
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::clone(&events)),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"bypass-attempt\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"process_exec\",\"input\":{\"program\":\"bash\",\"args\":[\"-c\",\"echo nope\"]}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"write_file\",\"input\":{\"path\":\"/tmp/outside.txt\",\"content\":\"oops\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "done".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("activate and continue")
+            .await
+            .expect("turn");
+
+        let recorded = events.lock().unwrap();
+        assert!(recorded.iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "process_exec" && !*ok && content.contains("denied by policy")
+        )));
+        assert!(recorded.iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "write_file" && !*ok && content.contains("outside configured roots")
+        )));
     }
 
     fn test_pricing() -> Pricing {

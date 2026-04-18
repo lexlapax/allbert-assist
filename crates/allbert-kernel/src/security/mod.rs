@@ -10,6 +10,7 @@ use tokio::net::lookup_host;
 use crate::adapter::{ConfirmDecision, ConfirmPrompter, ConfirmRequest};
 use crate::config::{SecurityConfig, WebSecurityConfig};
 use crate::hooks::{Hook, HookCtx, HookOutcome};
+use crate::skills::CreateSkillInput;
 use crate::tools::{ProcessExecInput, WriteFileInput};
 use crate::AllbertPaths;
 
@@ -243,6 +244,12 @@ impl Hook for SecurityHook {
             return HookOutcome::Continue;
         };
 
+        if let Some(allowed) = &ctx.active_allowed_tools {
+            if !tool_allowed_by_active_skills(invocation.name.as_str(), allowed) {
+                return HookOutcome::Abort("tool not permitted by active skill(s)".into());
+            }
+        }
+
         match invocation.name.as_str() {
             "process_exec" => {
                 let parsed =
@@ -330,6 +337,40 @@ impl Hook for SecurityHook {
                     }
                 }
             }
+            "create_skill" => {
+                let parsed =
+                    match serde_json::from_value::<CreateSkillInput>(invocation.input.clone()) {
+                        Ok(parsed) => parsed,
+                        Err(err) => {
+                            return HookOutcome::Abort(format!("invalid create_skill input: {err}"))
+                        }
+                    };
+
+                let target = self.paths.skills.join(&parsed.name).join("SKILL.md");
+
+                let needs_confirm = target.exists();
+                if !needs_confirm || self.security.auto_confirm {
+                    return HookOutcome::Continue;
+                }
+
+                match self
+                    .confirm
+                    .confirm(ConfirmRequest {
+                        program: "create_skill".into(),
+                        args: vec![target.display().to_string()],
+                        cwd: None,
+                        rendered: format!("create_skill {}", target.display()),
+                    })
+                    .await
+                {
+                    ConfirmDecision::Deny => {
+                        HookOutcome::Abort("skill write denied by user".into())
+                    }
+                    ConfirmDecision::AllowOnce | ConfirmDecision::AllowSession => {
+                        HookOutcome::Continue
+                    }
+                }
+            }
             "fetch_url" => {
                 let Some(url) = invocation.input.get("url").and_then(|value| value.as_str()) else {
                     return HookOutcome::Abort("fetch_url.url must be a string".into());
@@ -352,6 +393,11 @@ impl Hook for SecurityHook {
             _ => HookOutcome::Continue,
         }
     }
+}
+
+fn tool_allowed_by_active_skills(tool_name: &str, allowed: &HashSet<String>) -> bool {
+    matches!(tool_name, "request_input" | "invoke_skill" | "list_skills")
+        || allowed.contains(tool_name)
 }
 
 fn host_matches(host: &str, patterns: &[String]) -> bool {
