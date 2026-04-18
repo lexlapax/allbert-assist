@@ -8,6 +8,7 @@ use crate::config::LimitsConfig;
 use crate::cost::{append_cost_entry, build_cost_entry, CostEntry};
 use crate::events::KernelEvent;
 use crate::llm::{Pricing, Usage};
+use crate::memory;
 use crate::paths::AllbertPaths;
 use crate::tools::ToolInvocation;
 
@@ -192,7 +193,17 @@ pub struct MemoryIndexHook;
 
 #[async_trait]
 impl Hook for MemoryIndexHook {
-    async fn call(&self, _ctx: &mut HookCtx) -> HookOutcome {
-        HookOutcome::Continue
+    async fn call(&self, ctx: &mut HookCtx) -> HookOutcome {
+        let (Some(paths), Some(limits)) = (ctx.paths.as_ref(), ctx.limits.as_ref()) else {
+            return HookOutcome::Continue;
+        };
+
+        match memory::load_prompt_memory(paths, limits.max_prompt_memory_bytes) {
+            Ok(sections) => {
+                ctx.prompt_sections.extend(sections);
+                HookOutcome::Continue
+            }
+            Err(err) => HookOutcome::Abort(format!("failed to load prompt memory: {err}")),
+        }
     }
 }

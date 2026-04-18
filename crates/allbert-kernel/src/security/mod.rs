@@ -10,6 +10,7 @@ use tokio::net::lookup_host;
 use crate::adapter::{ConfirmDecision, ConfirmPrompter, ConfirmRequest};
 use crate::config::{SecurityConfig, WebSecurityConfig};
 use crate::hooks::{Hook, HookCtx, HookOutcome};
+use crate::memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 use crate::skills::CreateSkillInput;
 use crate::tools::{ProcessExecInput, WriteFileInput};
 use crate::AllbertPaths;
@@ -299,6 +300,26 @@ impl Hook for SecurityHook {
                     Err(message) => HookOutcome::Abort(message),
                 }
             }
+            "read_memory" => {
+                let parsed =
+                    match serde_json::from_value::<ReadMemoryInput>(invocation.input.clone()) {
+                        Ok(parsed) => parsed,
+                        Err(err) => {
+                            return HookOutcome::Abort(format!("invalid read_memory input: {err}"))
+                        }
+                    };
+                if Path::new(&parsed.path).is_absolute()
+                    || Path::new(&parsed.path).components().any(|component| {
+                        matches!(
+                            component,
+                            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+                        )
+                    })
+                {
+                    return HookOutcome::Abort("memory path escapes memory root".into());
+                }
+                HookOutcome::Continue
+            }
             "write_file" => {
                 let parsed =
                     match serde_json::from_value::<WriteFileInput>(invocation.input.clone()) {
@@ -336,6 +357,35 @@ impl Hook for SecurityHook {
                         HookOutcome::Continue
                     }
                 }
+            }
+            "write_memory" => {
+                let parsed =
+                    match serde_json::from_value::<WriteMemoryInput>(invocation.input.clone()) {
+                        Ok(parsed) => parsed,
+                        Err(err) => {
+                            return HookOutcome::Abort(format!("invalid write_memory input: {err}"))
+                        }
+                    };
+
+                if parsed.mode != WriteMemoryMode::Daily {
+                    let Some(path) = parsed.path.as_ref() else {
+                        return HookOutcome::Abort(
+                            "write_memory.path is required for write/append".into(),
+                        );
+                    };
+                    let path = Path::new(path);
+                    if path.is_absolute()
+                        || path.components().any(|component| {
+                            matches!(
+                                component,
+                                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+                            )
+                        })
+                    {
+                        return HookOutcome::Abort("memory path escapes memory root".into());
+                    }
+                }
+                HookOutcome::Continue
             }
             "create_skill" => {
                 let parsed =
@@ -396,8 +446,10 @@ impl Hook for SecurityHook {
 }
 
 fn tool_allowed_by_active_skills(tool_name: &str, allowed: &HashSet<String>) -> bool {
-    matches!(tool_name, "request_input" | "invoke_skill" | "list_skills")
-        || allowed.contains(tool_name)
+    matches!(
+        tool_name,
+        "request_input" | "invoke_skill" | "list_skills" | "read_memory"
+    ) || allowed.contains(tool_name)
 }
 
 fn host_matches(host: &str, patterns: &[String]) -> bool {

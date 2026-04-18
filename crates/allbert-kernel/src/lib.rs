@@ -29,6 +29,7 @@ pub use hooks::{
     BootstrapContextHook, CostHook, Hook, HookCtx, HookOutcome, HookPoint, MemoryIndexHook,
 };
 pub use llm::{ChatMessage, ChatRole};
+pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
 pub use security::SecurityHook;
 pub use skills::{ActiveSkill, CreateSkillInput, InvokeSkillInput, Skill, SkillStore};
@@ -337,9 +338,16 @@ Available tools:\n",
         );
 
         prompt.push_str(&self.tools.prompt_catalog());
+        prompt.push_str("\n- read_memory: Read a memory file relative to ~/.allbert/memory.\n  schema: {\"type\":\"object\",\"required\":[\"path\"],\"properties\":{\"path\":{\"type\":\"string\"}}}\n");
+        prompt.push_str("\n- write_memory: Write, append, or daily-append memory content.\n  schema: {\"type\":\"object\",\"required\":[\"content\",\"mode\"],\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"mode\":{\"enum\":[\"write\",\"append\",\"daily\"]},\"summary\":{\"type\":\"string\"}}}\n");
         prompt.push_str("\n- list_skills: List installed skills and their descriptions.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
         prompt.push_str("\n- invoke_skill: Activate a skill for this session, optionally with JSON args.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"},\"args\":{\"type\":\"object\"}}}\n");
         prompt.push_str("\n- create_skill: Create a skill under ~/.allbert/skills/<name>/SKILL.md.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"allowed_tools\",\"body\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"body\":{\"type\":\"string\"}}}\n");
+
+        for section in prompt_sections {
+            prompt.push_str("\n\n");
+            prompt.push_str(section);
+        }
 
         prompt.push_str("\n\nAvailable skill manifests:\n");
         prompt.push_str(&self.skills.manifest_prompt());
@@ -353,16 +361,13 @@ Available tools:\n",
             prompt.push_str(&active);
         }
 
-        for section in prompt_sections {
-            prompt.push_str("\n\n");
-            prompt.push_str(section);
-        }
-
         prompt
     }
 
     async fn dispatch_tool(&mut self, invocation: ToolInvocation) -> ToolOutput {
         match invocation.name.as_str() {
+            "read_memory" => self.dispatch_read_memory(invocation.input),
+            "write_memory" => self.dispatch_write_memory(invocation.input),
             "list_skills" => ToolOutput {
                 content: self.skills.manifest_prompt(),
                 ok: true,
@@ -443,6 +448,46 @@ Available tools:\n",
                 content: format!("created skill {} at {}", skill.name, skill.path.display()),
                 ok: true,
             },
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
+        }
+    }
+
+    fn dispatch_read_memory(&self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<ReadMemoryInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid read_memory input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+
+        match memory::read_memory(&self.paths, parsed) {
+            Ok(content) => ToolOutput { content, ok: true },
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
+        }
+    }
+
+    fn dispatch_write_memory(&self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<WriteMemoryInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid write_memory input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+
+        match memory::write_memory(&self.paths, parsed) {
+            Ok(content) => ToolOutput { content, ok: true },
             Err(err) => ToolOutput {
                 content: err.to_string(),
                 ok: false,
@@ -1774,6 +1819,170 @@ mod tests {
             KernelEvent::ToolResult { name, ok, content }
                 if name == "write_file" && !*ok && content.contains("outside configured roots")
         )));
+    }
+
+    #[test]
+    fn write_memory_summary_updates_index_and_deduplicates_entries() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+
+        memory::write_memory(
+            &paths,
+            WriteMemoryInput {
+                path: Some("projects/rust.md".into()),
+                content: "# Rust\n\nFavorite language.\n".into(),
+                mode: WriteMemoryMode::Write,
+                summary: Some("Language preferences".into()),
+            },
+        )
+        .unwrap();
+
+        memory::write_memory(
+            &paths,
+            WriteMemoryInput {
+                path: Some("projects/rust.md".into()),
+                content: "Still Rust.\n".into(),
+                mode: WriteMemoryMode::Append,
+                summary: None,
+            },
+        )
+        .unwrap();
+
+        let index = fs::read_to_string(&paths.memory_index).unwrap();
+        assert!(index.contains("- [[projects/rust.md]] — Language preferences"));
+        assert_eq!(index.matches("[[projects/rust.md]]").count(), 1);
+    }
+
+    #[test]
+    fn write_memory_derives_summary_when_missing() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+
+        memory::write_memory(
+            &paths,
+            WriteMemoryInput {
+                path: Some("people/alex.md".into()),
+                content: "# Alex\n\nPrefers async updates.\n".into(),
+                mode: WriteMemoryMode::Write,
+                summary: None,
+            },
+        )
+        .unwrap();
+
+        let index = fs::read_to_string(&paths.memory_index).unwrap();
+        assert!(index.contains("- [[people/alex.md]] — Alex"));
+    }
+
+    #[test]
+    fn write_memory_daily_appends_to_todays_note() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+
+        memory::write_memory(
+            &paths,
+            WriteMemoryInput {
+                path: None,
+                content: "first note".into(),
+                mode: WriteMemoryMode::Daily,
+                summary: None,
+            },
+        )
+        .unwrap();
+        memory::write_memory(
+            &paths,
+            WriteMemoryInput {
+                path: None,
+                content: "second note".into(),
+                mode: WriteMemoryMode::Daily,
+                summary: None,
+            },
+        )
+        .unwrap();
+
+        let daily = fs::read_dir(&paths.memory_daily)
+            .unwrap()
+            .flatten()
+            .next()
+            .unwrap()
+            .path();
+        let content = fs::read_to_string(daily).unwrap();
+        assert!(content.contains("first note"));
+        assert!(content.contains("second note"));
+    }
+
+    #[test]
+    fn prompt_memory_respects_byte_limit() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        fs::write(
+            &paths.memory_index,
+            "# MEMORY\n\n- [[topics/one.md]] — 1234567890\n- [[topics/two.md]] — abcdefghij\n",
+        )
+        .unwrap();
+
+        let sections = memory::load_prompt_memory(&paths, 30).unwrap();
+        let joined = sections.join("\n");
+        assert!(joined.contains("## MEMORY.md"));
+        assert!(!joined.contains("two.md"));
+    }
+
+    #[tokio::test]
+    async fn fresh_kernel_session_recalls_memory_from_files_not_chat_history() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+
+        memory::write_memory(
+            &paths,
+            WriteMemoryInput {
+                path: Some("topics/preferences.md".into()),
+                content: "# Preferences\n\nFavorite language is Rust.\n".into(),
+                mode: WriteMemoryMode::Write,
+                summary: Some("Favorite language is Rust".into()),
+            },
+        )
+        .unwrap();
+        memory::write_memory(
+            &paths,
+            WriteMemoryInput {
+                path: None,
+                content: "today we confirmed recall".into(),
+                mode: WriteMemoryMode::Daily,
+                summary: None,
+            },
+        )
+        .unwrap();
+
+        let captured_requests = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                captured_requests.clone(),
+                vec![CompletionResponse {
+                    text: "I remember.".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("what do you remember?").await.unwrap();
+
+        let requests = captured_requests.lock().unwrap();
+        let system = requests[0].system.as_ref().unwrap();
+        assert!(system.contains("## MEMORY.md"));
+        assert!(system.contains("Favorite language is Rust"));
+        assert!(system.contains("## Today's daily note"));
+        assert!(system.contains("today we confirmed recall"));
     }
 
     fn test_pricing() -> Pricing {
