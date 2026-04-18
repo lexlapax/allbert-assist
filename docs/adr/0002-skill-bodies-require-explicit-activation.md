@@ -16,6 +16,7 @@ If every `SKILL.md` body is injected by default, base context grows quickly and 
 
 Allbert will separate skill discovery from skill activation.
 
+- This ADR applies to `SKILL.md` files only. Runtime bootstrap files such as `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, and `BOOTSTRAP.md` are governed separately by [ADR 0010](0010-bootstrap-personality-files-are-first-class-runtime-context.md).
 - Skill manifests, meaning lightweight metadata such as name and description, are always available to the model.
 - Full skill bodies are added to prompt context only after an explicit `invoke_skill` step.
 - `SKILL.md` bodies are treated as untrusted prompt input even after activation; they can guide behavior, but they do not bypass runtime policy enforcement.

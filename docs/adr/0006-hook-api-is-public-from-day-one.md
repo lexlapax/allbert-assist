@@ -5,7 +5,7 @@ Status: Proposed
 
 ## Context
 
-Allbert's kernel runs an agent loop that touches several cross-cutting concerns at predictable moments: security policy before a tool runs, cost accounting after a model response, memory injection before a prompt, and — eventually — tracing probes, auto-skill-creation, cost caps, and other extensions the vision anticipates. A reasonable alternative would be to wire these behaviors directly into the agent loop as hardcoded steps and expose nothing to external callers in v0.1.
+Allbert's kernel runs an agent loop that touches several cross-cutting concerns at predictable moments: bootstrap context injection before a prompt, memory injection before a prompt, security policy before a tool runs, cost accounting after a model response, and — eventually — tracing probes, auto-skill-creation, cost caps, and other extensions the vision anticipates. A reasonable alternative would be to wire these behaviors directly into the agent loop as hardcoded steps and expose nothing to external callers in v0.1.
 
 That alternative is cheaper for the first milestone, but it pushes every future cross-cutting concern back into the kernel itself. Once the loop has only hardcoded extension points, adding the next one means editing kernel code, which raises the cost of experimentation and makes the "small, auditable kernel" claim harder to keep as the system grows. Worse, the built-in behaviors end up intertwined with loop mechanics and become difficult to replace or test in isolation.
 
@@ -15,8 +15,10 @@ The kernel will expose a stable hook API as part of its public surface in v0.1.
 
 - `Kernel::register_hook(HookPoint, Arc<dyn Hook>)` is a public method.
 - `HookPoint` enumerates named extension points in the agent loop (before prompt, before model, before tool, after tool, on model response, on turn end).
-- v0.1 ships with security, cost, and memory-index hooks registered by default at boot.
+- v0.1 ships with bootstrap-context, memory-index, security, and cost hooks registered by default at boot.
 - The default hooks are exposed as public types so external callers can compose with them or replace them.
+
+For `BeforePrompt`, registration order is significant and documented: bootstrap context is assembled first, then memory context, then later prompt-builder steps consume that snapshot.
 
 Hooks are the intended extension seam for policy, observability, and future features like auto-skill-creation or cost caps.
 

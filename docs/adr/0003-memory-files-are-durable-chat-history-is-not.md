@@ -15,18 +15,20 @@ Once both exist, the system can begin depending on invisible old context instead
 
 ## Decision
 
-Session message history is ephemeral runtime scratch space. Durable state belongs in markdown memory files.
+Session message history is ephemeral runtime scratch space. Durable state belongs in user-editable markdown files, split into bootstrap/profile files and memory files.
 
 - Each kernel session starts with a fresh in-memory conversation state.
+- `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, and optional `BOOTSTRAP.md` hold durable runtime identity/profile context.
 - Long-term facts, notes, and decisions are persisted under the memory directory, not in hidden chat transcripts.
 - Prompt injection of memory is intentional and bounded: the model gets a small memory index and recent daily context, then pulls more specific files explicitly when needed.
 
-This preserves a single durable memory model for v0.1.
+This preserves a visible durable-state model for v0.1 without making chat transcripts an implicit second memory system.
 
 ## Consequences
 
 **Positive**
 - Durable knowledge remains inspectable, editable, and portable.
+- Durable runtime identity and durable learned memory stay visible and editable in different files instead of collapsing into one hidden blob.
 - The assistant is encouraged to write down facts worth keeping.
 - Memory architecture stays legible early, before retrieval becomes more sophisticated.
 

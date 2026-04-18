@@ -39,6 +39,8 @@ v0.1's tool set is expanded from the origin-note list to include `request_input`
 
 5. **`write_memory.summary`** is a string hint for the `MEMORY.md` index. Derivation on first insert falls back to the first markdown heading or first non-empty line, truncated. Later writes without `summary` preserve the existing index text. The summary field does not change memory sandboxing or path rules.
 
+6. **Bootstrap-file writes** (`SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, `BOOTSTRAP.md`) are treated as durable prompt-surface mutations, not casual file edits. Even though they live under the normal Allbert root, writes or overwrites to them must follow the same explicit confirm path as other sensitive durable-state mutations. This protects the always-on prompt surface defined by [ADR 0010](0010-bootstrap-personality-files-are-first-class-runtime-context.md).
+
 All of the above policy is enforced inside the existing central hooks (`SecurityHook` on `BeforeTool`) and the existing `sandbox::check`, keeping the single-choke-point property intact.
 
 ## Consequences
@@ -48,9 +50,10 @@ All of the above policy is enforced inside the existing central hooks (`Security
 - Every added tool has a documented policy path rather than an implicit one.
 - Web egress gets SSRF guards and host-pattern config from day one instead of being retrofitted after an incident.
 - `create_skill` cannot bypass the activation gate, so the prompt-injection model remains the one established in [ADR 0002](0002-skill-bodies-require-explicit-activation.md).
+- Durable prompt-surface mutation gets explicit guardrails instead of piggybacking silently on generic file-write policy.
 
 **Negative**
-- Larger MVP surface to implement, test, and verify. M3 in particular grows to cover input, web, and SSRF guards.
+- Larger MVP surface to implement, test, and verify. M4 in particular grows to cover input, web, SSRF guards, and bootstrap-file write policy.
 - More config surface (`[security.web]`, `limits.max_skill_args_bytes`).
 - Each new tool is a new attack surface; the policy envelope mitigates but does not eliminate risk.
 

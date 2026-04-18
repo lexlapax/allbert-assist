@@ -1,0 +1,61 @@
+# ADR 0010: Bootstrap personality files are first-class runtime context
+
+Date: 2026-04-18
+Status: Proposed
+
+## Context
+
+Allbert's vision is explicitly personal, not generic. That means the assistant's runtime personality, the user's profile, and local working conventions should be adjustable without code changes or hidden prompt edits. There are a few ways to model that:
+
+1. keep personality mostly hardcoded in the kernel prompt and let memory gradually shape it;
+2. treat personality files as ordinary documents the model may choose to read when it remembers to;
+3. make a small bootstrap bundle of markdown files part of the kernel-owned prompt assembly.
+
+The first option keeps runtime simpler but makes personality drift opaque and harder for the user to inspect. The second keeps files editable, but behavior becomes unreliable because the model may fail to reread the files before acting. The third costs prompt budget, but it gives Allbert a visible, inspectable, user-editable identity layer that the runtime can load deterministically on every turn.
+
+OpenClaw's bootstrap-file pattern strongly supports the third option, but Allbert does not need to copy its full workspace file set in v0.1. In particular, OpenClaw-style `AGENTS.md` and `HEARTBEAT.md` mix in group-chat and proactive-scheduler concerns that Allbert's REPL-first MVP does not yet ship.
+
+## Decision
+
+Allbert will introduce a first-class bootstrap context layer in v0.1.
+
+- The bootstrap bundle is:
+  - `SOUL.md`
+  - `USER.md`
+  - `IDENTITY.md`
+  - `TOOLS.md`
+  - optional `BOOTSTRAP.md`
+- These files live under `~/.allbert/` and are owned by the kernel prompt pipeline rather than by the skills subsystem.
+- At the start of each user turn, the kernel snapshots the bootstrap bundle and injects it ahead of memory and skills for every model round in that turn.
+- `BOOTSTRAP.md`, when present, is treated as a one-time first-run ritual file. The normal completion path is to update the durable bootstrap files and then delete `BOOTSTRAP.md`.
+- Bootstrap files are bounded by dedicated limits, separate from memory and skill budgets.
+- Bootstrap files are distinct from both:
+  - skills, which remain on-demand and explicitly activated;
+  - memory, which remains the durable store for learned facts, notes, and decisions.
+
+Allbert will not adopt `AGENTS.md` or `HEARTBEAT.md` in v0.1. Those can be reconsidered later when Allbert has broader session surfaces, proactive jobs, or group-chat behavior that makes them pull their weight.
+
+## Consequences
+
+**Positive**
+- Runtime personality becomes user-editable and inspectable without recompiling or hiding prompt logic in code.
+- The assistant can reliably "readjust" to updated personality or user-context files on the next turn.
+- Identity/profile context stays separate from memory and from task skills, which keeps each layer conceptually cleaner.
+
+**Negative**
+- Always-on bootstrap files consume prompt budget on every turn.
+- This creates a new sensitive prompt surface: careless edits to `SOUL.md` or related files can change future behavior significantly.
+- The kernel prompt builder and hooks need more explicit ordering and testing.
+
+**Neutral**
+- The bootstrap bundle is intentionally smaller than OpenClaw's workspace bootstrap set.
+- Future versions may add more bootstrap files or context modes, but should do so explicitly rather than turning one file into a catch-all.
+
+## References
+
+- [docs/vision.md](../vision.md)
+- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md)
+- [ADR 0002](0002-skill-bodies-require-explicit-activation.md)
+- [ADR 0003](0003-memory-files-are-durable-chat-history-is-not.md)
+- [ADR 0006](0006-hook-api-is-public-from-day-one.md)
+- [ADR 0009](0009-v0-1-tool-surface-expansion-and-policy-envelope.md)
