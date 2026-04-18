@@ -1,7 +1,7 @@
 # ADR 0003: Memory files are durable; chat history is not
 
 Date: 2026-04-17
-Status: Proposed
+Status: Accepted
 
 ## Context
 

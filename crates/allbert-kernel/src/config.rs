@@ -138,11 +138,9 @@ impl Config {
         if paths.config.exists() {
             let raw = std::fs::read_to_string(&paths.config)
                 .map_err(|e| KernelError::InitFailed(format!("read config: {e}")))?;
-            let parsed: Config = toml::from_str(&raw).map_err(|source| {
-                ConfigError::Parse {
-                    path: paths.config.clone(),
-                    source,
-                }
+            let parsed: Config = toml::from_str(&raw).map_err(|source| ConfigError::Parse {
+                path: paths.config.clone(),
+                source,
             })?;
             Ok(parsed)
         } else {

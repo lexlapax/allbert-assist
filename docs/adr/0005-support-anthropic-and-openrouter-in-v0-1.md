@@ -1,7 +1,7 @@
 # ADR 0005: Support Anthropic and OpenRouter in v0.1
 
 Date: 2026-04-17
-Status: Proposed
+Status: Accepted
 
 ## Context
 

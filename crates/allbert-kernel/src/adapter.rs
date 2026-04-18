@@ -47,4 +47,3 @@ pub enum InputResponse {
     Submitted(String),
     Cancelled,
 }
-

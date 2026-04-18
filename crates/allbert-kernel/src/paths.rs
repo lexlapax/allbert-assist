@@ -55,9 +55,8 @@ impl AllbertPaths {
             &self.memory_decisions,
             &self.traces,
         ] {
-            std::fs::create_dir_all(dir).map_err(|e| {
-                KernelError::InitFailed(format!("create {}: {e}", dir.display()))
-            })?;
+            std::fs::create_dir_all(dir)
+                .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", dir.display())))?;
         }
         Ok(())
     }

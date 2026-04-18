@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use allbert_kernel::{
-    AllbertPaths, Config, FrontendAdapter, Kernel, KernelEvent,
-};
+use allbert_kernel::{AllbertPaths, Config, FrontendAdapter, Kernel, KernelEvent};
 use anyhow::Result;
 use clap::Parser;
 

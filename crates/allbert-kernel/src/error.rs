@@ -6,6 +6,12 @@ pub enum KernelError {
     InitFailed(String),
     #[error("config error: {0}")]
     Config(#[from] ConfigError),
+    #[error("llm error: {0}")]
+    Llm(#[from] LlmError),
+    #[error("hook aborted turn: {0}")]
+    Hook(String),
+    #[error("cost tracking failed: {0}")]
+    Cost(String),
     #[error("tracing init failed: {0}")]
     Trace(String),
     #[error("I/O error: {0}")]
@@ -44,4 +50,16 @@ pub enum SkillError {
     NotFound(String),
     #[error("skill load failed: {0}")]
     Load(String),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum LlmError {
+    #[error("missing API key in environment variable {0}")]
+    MissingApiKeyEnv(String),
+    #[error("unsupported provider: {0}")]
+    UnsupportedProvider(String),
+    #[error("request failed: {0}")]
+    Http(String),
+    #[error("unexpected provider response: {0}")]
+    Response(String),
 }

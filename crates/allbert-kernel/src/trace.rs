@@ -32,9 +32,8 @@ pub fn init_tracing(
         let filename = format!("{session_id}-{ts}.log");
         let file_path = paths.traces.join(&filename);
 
-        std::fs::create_dir_all(&paths.traces).map_err(|e| {
-            KernelError::Trace(format!("create traces dir: {e}"))
-        })?;
+        std::fs::create_dir_all(&paths.traces)
+            .map_err(|e| KernelError::Trace(format!("create traces dir: {e}")))?;
         let file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
