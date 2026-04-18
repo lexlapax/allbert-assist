@@ -96,11 +96,14 @@ fn default_exec_deny() -> Vec<String> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct LimitsConfig {
     pub max_turns: u32,
     pub max_tool_calls_per_turn: u32,
     pub max_tool_output_bytes_per_call: usize,
     pub max_tool_output_bytes_total: usize,
+    pub max_bootstrap_file_bytes: usize,
+    pub max_prompt_bootstrap_bytes: usize,
     pub max_prompt_memory_bytes: usize,
     pub max_skill_args_bytes: usize,
 }
@@ -112,6 +115,8 @@ impl Default for LimitsConfig {
             max_tool_calls_per_turn: 16,
             max_tool_output_bytes_per_call: 8 * 1024,
             max_tool_output_bytes_total: 64 * 1024,
+            max_bootstrap_file_bytes: 2 * 1024,
+            max_prompt_bootstrap_bytes: 6 * 1024,
             max_prompt_memory_bytes: 4 * 1024,
             max_skill_args_bytes: 2 * 1024,
         }

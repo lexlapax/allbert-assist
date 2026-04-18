@@ -1,7 +1,7 @@
 # ADR 0010: Bootstrap personality files are first-class runtime context
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 
@@ -26,12 +26,19 @@ Allbert will introduce a first-class bootstrap context layer in v0.1.
   - `TOOLS.md`
   - optional `BOOTSTRAP.md`
 - These files live under `~/.allbert/` and are owned by the kernel prompt pipeline rather than by the skills subsystem.
+- On first boot, the kernel seeds any missing bootstrap files with small markdown templates so the runtime personality surface is visible and editable immediately.
 - At the start of each user turn, the kernel snapshots the bootstrap bundle and injects it ahead of memory and skills for every model round in that turn.
 - `BOOTSTRAP.md`, when present, is treated as a one-time first-run ritual file. The normal completion path is to update the durable bootstrap files and then delete `BOOTSTRAP.md`.
 - Bootstrap files are bounded by dedicated limits, separate from memory and skill budgets.
 - Bootstrap files are distinct from both:
   - skills, which remain on-demand and explicitly activated;
   - memory, which remains the durable store for learned facts, notes, and decisions.
+- Ownership is explicit:
+  - `SOUL.md` and `IDENTITY.md` are user-owned.
+  - `USER.md` is shared but user-led.
+  - `TOOLS.md` is shared-maintenance.
+  - `BOOTSTRAP.md` is kernel-seeded and ephemeral.
+- Durable edits to bootstrap files require the same explicit confirm path as other sensitive prompt-surface mutations.
 
 Allbert will not adopt `AGENTS.md` or `HEARTBEAT.md` in v0.1. Those can be reconsidered later when Allbert has broader session surfaces, proactive jobs, or group-chat behavior that makes them pull their weight.
 

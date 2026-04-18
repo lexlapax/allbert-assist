@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use crate::bootstrap;
+use crate::config::LimitsConfig;
 use crate::cost::{append_cost_entry, build_cost_entry, CostEntry};
 use crate::events::KernelEvent;
 use crate::llm::{Pricing, Usage};
@@ -30,12 +32,29 @@ pub struct HookCtx {
     pub model: Option<String>,
     pub usage: Option<Usage>,
     pub pricing: Option<Pricing>,
+    pub limits: Option<LimitsConfig>,
     pub paths: Option<AllbertPaths>,
+    pub prompt_sections: Vec<String>,
     pub pending_events: Vec<KernelEvent>,
     pub recorded_cost: Option<CostEntry>,
 }
 
 impl HookCtx {
+    pub fn before_prompt(session_id: &str, paths: &AllbertPaths, limits: &LimitsConfig) -> Self {
+        Self {
+            session_id: session_id.into(),
+            provider: None,
+            model: None,
+            usage: None,
+            pricing: None,
+            limits: Some(limits.clone()),
+            paths: Some(paths.clone()),
+            prompt_sections: Vec::new(),
+            pending_events: Vec::new(),
+            recorded_cost: None,
+        }
+    }
+
     pub fn on_model_response(
         session_id: &str,
         provider: &str,
@@ -50,7 +69,9 @@ impl HookCtx {
             model: Some(model.into()),
             usage: Some(usage),
             pricing,
+            limits: None,
             paths: Some(paths.clone()),
+            prompt_sections: Vec::new(),
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -126,6 +147,25 @@ pub struct SecurityHook;
 impl Hook for SecurityHook {
     async fn call(&self, _ctx: &mut HookCtx) -> HookOutcome {
         HookOutcome::Continue
+    }
+}
+
+pub struct BootstrapContextHook;
+
+#[async_trait]
+impl Hook for BootstrapContextHook {
+    async fn call(&self, ctx: &mut HookCtx) -> HookOutcome {
+        let (Some(paths), Some(limits)) = (ctx.paths.as_ref(), ctx.limits.as_ref()) else {
+            return HookOutcome::Continue;
+        };
+
+        match bootstrap::snapshot_prompt_sections(paths, limits) {
+            Ok(sections) => {
+                ctx.prompt_sections.extend(sections);
+                HookOutcome::Continue
+            }
+            Err(err) => HookOutcome::Abort(format!("failed to load bootstrap context: {err}")),
+        }
     }
 }
 
