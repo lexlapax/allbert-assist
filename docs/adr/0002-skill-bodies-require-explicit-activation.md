@@ -1,7 +1,7 @@
 # ADR 0002: Skill bodies require explicit activation
 
 Date: 2026-04-17
-Status: Proposed
+Status: Accepted
 
 ## Context
 

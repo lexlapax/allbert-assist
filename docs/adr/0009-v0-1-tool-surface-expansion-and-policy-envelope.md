@@ -1,7 +1,7 @@
 # ADR 0009: v0.1 tool-surface expansion and its policy envelope
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

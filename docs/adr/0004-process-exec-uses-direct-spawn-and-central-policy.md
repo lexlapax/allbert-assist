@@ -1,7 +1,7 @@
 # ADR 0004: Process execution uses direct spawn and centralized policy
 
 Date: 2026-04-17
-Status: Proposed
+Status: Accepted
 
 ## Context
 

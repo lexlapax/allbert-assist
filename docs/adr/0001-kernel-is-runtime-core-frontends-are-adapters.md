@@ -1,7 +1,7 @@
 # ADR 0001: Kernel is runtime core; frontends are adapters
 
 Date: 2026-04-17
-Status: Proposed
+Status: Accepted
 
 ## Context
 

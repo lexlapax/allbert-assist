@@ -1,7 +1,7 @@
 # ADR 0007: "Always" confirm scope is session-only and exact-match
 
 Date: 2026-04-17
-Status: Proposed
+Status: Accepted
 
 ## Context
 

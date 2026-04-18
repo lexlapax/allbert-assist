@@ -5,6 +5,7 @@ use anyhow::Result;
 use clap::Parser;
 
 mod repl;
+mod setup;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Allbert v0.1 REPL frontend", long_about = None)]
@@ -23,12 +24,22 @@ async fn main() -> Result<()> {
 
     let paths = AllbertPaths::from_home()?;
     let mut config = Config::load_or_create(&paths)?;
+    if setup::needs_setup(&config, &paths) {
+        match setup::run_setup_wizard(&paths, &config)? {
+            Some(updated) => config = updated,
+            None => {
+                eprintln!("Setup was cancelled. Rerun Allbert when you're ready to finish setup.");
+                return Ok(());
+            }
+        }
+    }
     if args.trace {
         config.trace = true;
     }
     if args.yes {
         config.security.auto_confirm = true;
     }
+    setup::print_startup_warnings(&config);
 
     let adapter = FrontendAdapter {
         on_event: Box::new(|event: &KernelEvent| match event {

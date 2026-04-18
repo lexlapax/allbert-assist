@@ -7,6 +7,8 @@ use async_trait::async_trait;
 use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
 use std::io::{self, Write};
 
+use crate::setup;
+
 pub struct TerminalConfirm;
 
 #[async_trait]
@@ -56,6 +58,8 @@ commands:
   /cost     show session cost and today's recorded total
   /help     show this help
   /model    show or change the active model
+  /setup    rerun guided setup and refresh config for this session
+  /status   show provider, setup, roots, and trace state
   /exit     leave the REPL
   anything else is sent to the kernel as a user turn";
 
@@ -88,6 +92,15 @@ pub async fn run_loop(kernel: &mut Kernel) -> Result<()> {
                     }
                     command if command.starts_with("/model") => {
                         handle_model_command(kernel, command).await?;
+                    }
+                    "/setup" => {
+                        handle_setup_command(kernel).await?;
+                    }
+                    "/status" => {
+                        println!(
+                            "{}",
+                            setup::render_status(&setup::snapshot_from_kernel(kernel))
+                        );
                     }
                     _ => {
                         let summary = kernel.run_turn(trimmed).await?;
@@ -154,6 +167,24 @@ async fn handle_model_command(kernel: &mut Kernel, command: &str) -> Result<()> 
         provider_label(active.provider),
         active.model_id
     );
+    Ok(())
+}
+
+async fn handle_setup_command(kernel: &mut Kernel) -> Result<()> {
+    let updated = match setup::run_setup_wizard(kernel.paths(), kernel.config())? {
+        Some(config) => config,
+        None => {
+            println!("Setup cancelled.");
+            return Ok(());
+        }
+    };
+
+    let warnings = setup::build_startup_warnings(&updated);
+    kernel.apply_config(updated).await?;
+    println!("Setup updated for this session.");
+    for warning in warnings {
+        eprintln!("{warning}");
+    }
     Ok(())
 }
 

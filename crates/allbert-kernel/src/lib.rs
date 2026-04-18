@@ -14,14 +14,16 @@ pub mod skills;
 pub mod tools;
 pub mod trace;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub use adapter::{
     ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter, InputRequest,
     InputResponse,
 };
 pub use agent::AgentState;
-pub use config::{Config, LimitsConfig, ModelConfig, Provider, SecurityConfig, WebSecurityConfig};
+pub use config::{
+    Config, LimitsConfig, ModelConfig, Provider, SecurityConfig, SetupConfig, WebSecurityConfig,
+};
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
 pub use events::KernelEvent;
@@ -53,6 +55,7 @@ pub struct Kernel {
     provider_factory: Arc<dyn ProviderFactory>,
     llm: Box<dyn LlmProvider>,
     tools: ToolRegistry,
+    security_state: Arc<Mutex<SecurityConfig>>,
     #[allow(dead_code)]
     trace: TraceHandles,
 }
@@ -81,11 +84,12 @@ impl Kernel {
         let trace = trace::init_tracing(config.trace, &paths, &session_id)?;
         let llm = provider_factory.build(&config.model).await?;
         let skills = SkillStore::discover(&paths.skills);
+        let security_state = Arc::new(Mutex::new(config.security.clone()));
         let mut hooks = HookRegistry::default();
         hooks.register(
             HookPoint::BeforeTool,
             Arc::new(SecurityHook::new(
-                config.security.clone(),
+                security_state.clone(),
                 paths.clone(),
                 adapter.confirm.clone(),
             )),
@@ -106,6 +110,7 @@ impl Kernel {
             provider_factory,
             llm,
             tools: ToolRegistry::builtins(),
+            security_state,
             trace,
         })
     }
@@ -310,6 +315,17 @@ impl Kernel {
         let llm = self.provider_factory.build(&model).await?;
         self.config.model = model;
         self.llm = llm;
+        Ok(())
+    }
+
+    pub async fn apply_config(&mut self, config: Config) -> Result<(), KernelError> {
+        let model_changed = self.config.model != config.model;
+        if model_changed {
+            self.llm = self.provider_factory.build(&config.model).await?;
+        }
+
+        self.config = config;
+        *self.security_state.lock().unwrap() = self.config.security.clone();
         Ok(())
     }
 

@@ -1,7 +1,7 @@
 # ADR 0008: Skill `allowed-tools` is a narrowing fence, not a sandbox
 
 Date: 2026-04-17
-Status: Proposed
+Status: Accepted
 
 ## Context
 

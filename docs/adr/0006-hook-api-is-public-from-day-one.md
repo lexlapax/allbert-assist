@@ -1,7 +1,7 @@
 # ADR 0006: Hook API is public from day one
 
 Date: 2026-04-17
-Status: Proposed
+Status: Accepted
 
 ## Context
 

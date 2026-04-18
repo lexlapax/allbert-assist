@@ -49,6 +49,7 @@ Usable scripting may eventually be helpful, but it should enter through a delibe
 
 Early Allbert should stay focused:
 
+- a terminal-first, source-based personal assistant for technical users
 - a simple assistant loop
 - bootstrap identity/personality files
 - a small toolset
@@ -57,6 +58,8 @@ Early Allbert should stay focused:
 - security checks
 - cost tracking
 - tracing
+
+End-user usability in v0.1 comes from guided setup for bootstrap identity and explicit workspace-trust configuration, not from packaged installers or a broader app shell.
 
 After that foundation is solid, the project can grow into scheduled jobs, broader integrations, richer memory retrieval, self-generated skills, and additional frontends.
 

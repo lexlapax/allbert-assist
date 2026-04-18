@@ -210,7 +210,7 @@ pub mod sandbox {
 }
 
 pub struct SecurityHook {
-    security: SecurityConfig,
+    security: Arc<Mutex<SecurityConfig>>,
     paths: AllbertPaths,
     confirm: Arc<dyn ConfirmPrompter>,
     approved_session_execs: Arc<Mutex<HashSet<String>>>,
@@ -218,7 +218,7 @@ pub struct SecurityHook {
 
 impl SecurityHook {
     pub fn new(
-        security: SecurityConfig,
+        security: Arc<Mutex<SecurityConfig>>,
         paths: AllbertPaths,
         confirm: Arc<dyn ConfirmPrompter>,
     ) -> Self {
@@ -244,6 +244,7 @@ impl Hook for SecurityHook {
         let Some(invocation) = ctx.tool_invocation.as_ref() else {
             return HookOutcome::Continue;
         };
+        let security = self.security.lock().unwrap().clone();
 
         if let Some(allowed) = &ctx.active_allowed_tools {
             if !tool_allowed_by_active_skills(invocation.name.as_str(), allowed) {
@@ -266,7 +267,7 @@ impl Hook for SecurityHook {
                     cwd: parsed.cwd.map(PathBuf::from),
                 };
                 let approved = self.approved_session_execs.lock().unwrap().clone();
-                match exec_policy(&normalized, &self.security, &approved) {
+                match exec_policy(&normalized, &security, &approved) {
                     PolicyDecision::Deny(message) => HookOutcome::Abort(message),
                     PolicyDecision::AutoAllow => HookOutcome::Continue,
                     PolicyDecision::NeedsConfirm(request) => {
@@ -295,7 +296,7 @@ impl Hook for SecurityHook {
                 else {
                     return HookOutcome::Abort("read_file.path must be a string".into());
                 };
-                match sandbox::check(&path, &self.security.fs_roots) {
+                match sandbox::check(&path, &security.fs_roots) {
                     Ok(_) => HookOutcome::Continue,
                     Err(message) => HookOutcome::Abort(message),
                 }
@@ -331,14 +332,14 @@ impl Hook for SecurityHook {
 
                 let target = match sandbox::check_write_target(
                     Path::new(&parsed.path),
-                    &self.security.fs_roots,
+                    &security.fs_roots,
                 ) {
                     Ok(path) => path,
                     Err(message) => return HookOutcome::Abort(message),
                 };
 
                 let needs_confirm = target.exists() || self.is_bootstrap_path(&target);
-                if !needs_confirm || self.security.auto_confirm {
+                if !needs_confirm || security.auto_confirm {
                     return HookOutcome::Continue;
                 }
 
@@ -399,7 +400,7 @@ impl Hook for SecurityHook {
                 let target = self.paths.skills.join(&parsed.name).join("SKILL.md");
 
                 let needs_confirm = target.exists();
-                if !needs_confirm || self.security.auto_confirm {
+                if !needs_confirm || security.auto_confirm {
                     return HookOutcome::Continue;
                 }
 
@@ -425,7 +426,7 @@ impl Hook for SecurityHook {
                 let Some(url) = invocation.input.get("url").and_then(|value| value.as_str()) else {
                     return HookOutcome::Abort("fetch_url.url must be a string".into());
                 };
-                match web_policy(url, &self.security.web).await {
+                match web_policy(url, &security.web).await {
                     PolicyDecision::Deny(message) => HookOutcome::Abort(message),
                     PolicyDecision::AutoAllow | PolicyDecision::NeedsConfirm(_) => {
                         HookOutcome::Continue
@@ -433,7 +434,7 @@ impl Hook for SecurityHook {
                 }
             }
             "web_search" => {
-                match web_policy("https://html.duckduckgo.com/html/", &self.security.web).await {
+                match web_policy("https://html.duckduckgo.com/html/", &security.web).await {
                     PolicyDecision::Deny(message) => HookOutcome::Abort(message),
                     PolicyDecision::AutoAllow | PolicyDecision::NeedsConfirm(_) => {
                         HookOutcome::Continue

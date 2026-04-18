@@ -9,6 +9,8 @@ use crate::paths::AllbertPaths;
 pub struct Config {
     pub model: ModelConfig,
     #[serde(default)]
+    pub setup: SetupConfig,
+    #[serde(default)]
     pub security: SecurityConfig,
     #[serde(default)]
     pub limits: LimitsConfig,
@@ -16,7 +18,7 @@ pub struct Config {
     pub trace: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ModelConfig {
     pub provider: Provider,
     pub model_id: String,
@@ -29,6 +31,18 @@ pub struct ModelConfig {
 pub enum Provider {
     Anthropic,
     Openrouter,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct SetupConfig {
+    pub version: u8,
+}
+
+impl Default for SetupConfig {
+    fn default() -> Self {
+        Self { version: 0 }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -132,6 +146,7 @@ impl Config {
                 api_key_env: "ANTHROPIC_API_KEY".into(),
                 max_tokens: 4096,
             },
+            setup: SetupConfig::default(),
             security: SecurityConfig::default(),
             limits: LimitsConfig::default(),
             trace: false,
@@ -150,12 +165,93 @@ impl Config {
             Ok(parsed)
         } else {
             let template = Self::default_template();
-            let rendered = toml::to_string_pretty(&template).map_err(ConfigError::from)?;
-            std::fs::write(&paths.config, rendered).map_err(|source| ConfigError::Write {
-                path: paths.config.clone(),
-                source,
-            })?;
+            template.persist(paths)?;
             Ok(template)
         }
+    }
+
+    pub fn persist(&self, paths: &AllbertPaths) -> Result<(), KernelError> {
+        let rendered = toml::to_string_pretty(self).map_err(ConfigError::from)?;
+        std::fs::write(&paths.config, rendered).map_err(|source| ConfigError::Write {
+            path: paths.config.clone(),
+            source,
+        })?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::*;
+
+    static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    struct TempRoot {
+        path: PathBuf,
+    }
+
+    impl TempRoot {
+        fn new() -> Self {
+            let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let unique = format!(
+                "allbert-config-test-{}-{}-{}",
+                std::process::id(),
+                counter,
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("time should be monotonic")
+                    .as_nanos()
+            );
+            let path = std::env::temp_dir().join(unique);
+            std::fs::create_dir_all(&path).expect("temp root should be created");
+            Self { path }
+        }
+
+        fn paths(&self) -> AllbertPaths {
+            AllbertPaths::under(self.path.clone())
+        }
+    }
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[test]
+    fn missing_setup_field_migrates_to_version_zero() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should be created");
+
+        let legacy = r#"
+[model]
+provider = "anthropic"
+model_id = "claude-sonnet-4-5"
+api_key_env = "ANTHROPIC_API_KEY"
+max_tokens = 4096
+
+[security]
+fs_roots = []
+
+[limits]
+max_turns = 8
+max_tool_calls_per_turn = 16
+max_tool_output_bytes_per_call = 8192
+max_tool_output_bytes_total = 65536
+max_bootstrap_file_bytes = 2048
+max_prompt_bootstrap_bytes = 6144
+max_prompt_memory_bytes = 4096
+max_skill_args_bytes = 2048
+
+trace = false
+"#;
+
+        std::fs::write(&paths.config, legacy).expect("legacy config should be written");
+        let config = Config::load_or_create(&paths).expect("config should load");
+        assert_eq!(config.setup.version, 0);
     }
 }
