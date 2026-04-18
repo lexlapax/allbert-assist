@@ -5,14 +5,26 @@ use allbert_kernel::{
 use anyhow::Result;
 use async_trait::async_trait;
 use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
+use std::io::{self, Write};
 
 pub struct TerminalConfirm;
 
 #[async_trait]
 impl ConfirmPrompter for TerminalConfirm {
-    async fn confirm(&self, _req: ConfirmRequest) -> ConfirmDecision {
-        // M1 stub: default-deny until the real y/N/always prompt lands in M3.
-        ConfirmDecision::Deny
+    async fn confirm(&self, req: ConfirmRequest) -> ConfirmDecision {
+        print!("Allbert wants to run: {}\n[y/N/always] ", req.rendered);
+        let _ = io::stdout().flush();
+
+        let mut buf = String::new();
+        if io::stdin().read_line(&mut buf).is_err() {
+            return ConfirmDecision::Deny;
+        }
+
+        match buf.trim().to_ascii_lowercase().as_str() {
+            "y" | "yes" => ConfirmDecision::AllowOnce,
+            "always" | "a" => ConfirmDecision::AllowSession,
+            _ => ConfirmDecision::Deny,
+        }
     }
 }
 
@@ -20,9 +32,22 @@ pub struct TerminalInput;
 
 #[async_trait]
 impl InputPrompter for TerminalInput {
-    async fn request_input(&self, _req: InputRequest) -> InputResponse {
-        // M1 stub: return Cancelled until the real prompt lands in M3.
-        InputResponse::Cancelled
+    async fn request_input(&self, req: InputRequest) -> InputResponse {
+        println!("{}", req.prompt);
+        print!("> ");
+        let _ = io::stdout().flush();
+
+        let mut buf = String::new();
+        if io::stdin().read_line(&mut buf).is_err() {
+            return InputResponse::Cancelled;
+        }
+
+        let value = buf.trim_end_matches(['\r', '\n']).to_string();
+        if !req.allow_empty && value.trim().is_empty() {
+            InputResponse::Cancelled
+        } else {
+            InputResponse::Submitted(value)
+        }
     }
 }
 

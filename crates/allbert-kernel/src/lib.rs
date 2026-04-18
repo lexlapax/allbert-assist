@@ -27,11 +27,12 @@ pub use error::{ConfigError, KernelError, SkillError, ToolError};
 pub use events::KernelEvent;
 pub use hooks::{
     BootstrapContextHook, CostHook, Hook, HookCtx, HookOutcome, HookPoint, MemoryIndexHook,
-    SecurityHook,
 };
 pub use llm::{ChatMessage, ChatRole};
 pub use paths::AllbertPaths;
+pub use security::SecurityHook;
 pub use skills::{ActiveSkill, Skill, SkillStore};
+pub use tools::{ToolCtx, ToolInvocation, ToolOutput, ToolRegistry};
 pub use trace::TraceHandles;
 
 use hooks::HookRegistry;
@@ -50,6 +51,7 @@ pub struct Kernel {
     state: AgentState,
     provider_factory: Arc<dyn ProviderFactory>,
     llm: Box<dyn LlmProvider>,
+    tools: ToolRegistry,
     #[allow(dead_code)]
     trace: TraceHandles,
 }
@@ -78,10 +80,17 @@ impl Kernel {
         let trace = trace::init_tracing(config.trace, &paths, &session_id)?;
         let llm = provider_factory.build(&config.model).await?;
         let mut hooks = HookRegistry::default();
+        hooks.register(
+            HookPoint::BeforeTool,
+            Arc::new(SecurityHook::new(
+                config.security.clone(),
+                paths.clone(),
+                adapter.confirm.clone(),
+            )),
+        );
         hooks.register(HookPoint::BeforePrompt, Arc::new(BootstrapContextHook));
         hooks.register(HookPoint::BeforePrompt, Arc::new(MemoryIndexHook));
         hooks.register(HookPoint::OnModelResponse, Arc::new(CostHook));
-        hooks.register(HookPoint::BeforeTool, Arc::new(SecurityHook));
 
         tracing::info!(session = %session_id, "kernel boot");
 
@@ -94,6 +103,7 @@ impl Kernel {
             state: AgentState::new(session_id),
             provider_factory,
             llm,
+            tools: ToolRegistry::builtins(),
             trace,
         })
     }
@@ -105,64 +115,169 @@ impl Kernel {
             content: user_input.into(),
         });
 
-        let mut prompt_ctx =
-            HookCtx::before_prompt(&self.state.session_id, &self.paths, &self.config.limits);
-        match self
-            .hooks
-            .run(HookPoint::BeforePrompt, &mut prompt_ctx)
-            .await
-        {
-            HookOutcome::Continue => {}
-            HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+        let mut tool_calls_used = 0usize;
+        let mut tool_output_total = 0usize;
+
+        for _round in 0..self.config.limits.max_turns {
+            let mut prompt_ctx =
+                HookCtx::before_prompt(&self.state.session_id, &self.paths, &self.config.limits);
+            match self
+                .hooks
+                .run(HookPoint::BeforePrompt, &mut prompt_ctx)
+                .await
+            {
+                HookOutcome::Continue => {}
+                HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+            }
+
+            let response = self
+                .llm
+                .complete(CompletionRequest {
+                    system: Some(self.system_prompt(&prompt_ctx.prompt_sections)),
+                    messages: self.state.messages.clone(),
+                    model: self.config.model.model_id.clone(),
+                    max_tokens: self.config.model.max_tokens,
+                })
+                .await?;
+
+            let mut hook_ctx = HookCtx::on_model_response(
+                &self.state.session_id,
+                self.llm.provider_name(),
+                &self.config.model.model_id,
+                response.usage.clone(),
+                self.llm.pricing(&self.config.model.model_id),
+                &self.paths,
+            );
+
+            match self
+                .hooks
+                .run(HookPoint::OnModelResponse, &mut hook_ctx)
+                .await
+            {
+                HookOutcome::Continue => {}
+                HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+            }
+
+            if let Some(entry) = hook_ctx.recorded_cost.as_ref() {
+                self.state.cost_total_usd += entry.usd_estimate;
+            }
+
+            self.state.messages.push(ChatMessage {
+                role: ChatRole::Assistant,
+                content: response.text.clone(),
+            });
+
+            for event in hook_ctx.pending_events {
+                (self.adapter.on_event)(&event);
+            }
+
+            let tool_calls = parse_tool_calls(&response.text);
+            if tool_calls.is_empty() {
+                (self.adapter.on_event)(&KernelEvent::AssistantText(response.text));
+                (self.adapter.on_event)(&KernelEvent::TurnDone {
+                    hit_turn_limit: false,
+                });
+                return Ok(TurnSummary {
+                    hit_turn_limit: false,
+                });
+            }
+
+            for invocation in tool_calls {
+                if tool_calls_used >= self.config.limits.max_tool_calls_per_turn as usize {
+                    let content = "tool call budget exhausted".to_string();
+                    self.state.messages.push(ChatMessage {
+                        role: ChatRole::User,
+                        content: format!("Tool result for limit (ok=false):\n{content}"),
+                    });
+                    (self.adapter.on_event)(&KernelEvent::ToolResult {
+                        name: "tool_budget".into(),
+                        ok: false,
+                        content,
+                    });
+                    (self.adapter.on_event)(&KernelEvent::TurnDone {
+                        hit_turn_limit: true,
+                    });
+                    return Ok(TurnSummary {
+                        hit_turn_limit: true,
+                    });
+                }
+
+                tool_calls_used += 1;
+                (self.adapter.on_event)(&KernelEvent::ToolCall {
+                    name: invocation.name.clone(),
+                    input: invocation.input.clone(),
+                });
+
+                let mut tool_hook_ctx =
+                    HookCtx::before_tool(&self.state.session_id, invocation.clone());
+                let tool_output = match self
+                    .hooks
+                    .run(HookPoint::BeforeTool, &mut tool_hook_ctx)
+                    .await
+                {
+                    HookOutcome::Continue => {
+                        let ctx = ToolCtx {
+                            input: self.adapter.input.clone(),
+                            security: self.config.security.clone(),
+                            web_client: reqwest::Client::new(),
+                        };
+                        match self.tools.dispatch(invocation.clone(), &ctx).await {
+                            Ok(output) => output,
+                            Err(err) => ToolOutput {
+                                content: err.to_string(),
+                                ok: false,
+                            },
+                        }
+                    }
+                    HookOutcome::Abort(message) => ToolOutput {
+                        content: message,
+                        ok: false,
+                    },
+                };
+
+                let remaining = self
+                    .config
+                    .limits
+                    .max_tool_output_bytes_total
+                    .saturating_sub(tool_output_total);
+                if remaining == 0 {
+                    (self.adapter.on_event)(&KernelEvent::TurnDone {
+                        hit_turn_limit: true,
+                    });
+                    return Ok(TurnSummary {
+                        hit_turn_limit: true,
+                    });
+                }
+
+                let per_call_limit = self
+                    .config
+                    .limits
+                    .max_tool_output_bytes_per_call
+                    .min(remaining);
+                let content = truncate_to_bytes(&tool_output.content, per_call_limit);
+                tool_output_total += content.as_bytes().len();
+
+                (self.adapter.on_event)(&KernelEvent::ToolResult {
+                    name: invocation.name.clone(),
+                    ok: tool_output.ok,
+                    content: content.clone(),
+                });
+
+                self.state.messages.push(ChatMessage {
+                    role: ChatRole::User,
+                    content: format!(
+                        "Tool result for {} (ok={}):\n{}",
+                        invocation.name, tool_output.ok, content
+                    ),
+                });
+            }
         }
 
-        let response = self
-            .llm
-            .complete(CompletionRequest {
-                system: Some(self.system_prompt(&prompt_ctx.prompt_sections)),
-                messages: self.state.messages.clone(),
-                model: self.config.model.model_id.clone(),
-                max_tokens: self.config.model.max_tokens,
-            })
-            .await?;
-
-        let mut hook_ctx = HookCtx::on_model_response(
-            &self.state.session_id,
-            self.llm.provider_name(),
-            &self.config.model.model_id,
-            response.usage.clone(),
-            self.llm.pricing(&self.config.model.model_id),
-            &self.paths,
-        );
-
-        match self
-            .hooks
-            .run(HookPoint::OnModelResponse, &mut hook_ctx)
-            .await
-        {
-            HookOutcome::Continue => {}
-            HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
-        }
-
-        if let Some(entry) = hook_ctx.recorded_cost.as_ref() {
-            self.state.cost_total_usd += entry.usd_estimate;
-        }
-
-        self.state.messages.push(ChatMessage {
-            role: ChatRole::Assistant,
-            content: response.text.clone(),
-        });
-
-        for event in hook_ctx.pending_events {
-            (self.adapter.on_event)(&event);
-        }
-
-        (self.adapter.on_event)(&KernelEvent::AssistantText(response.text));
         (self.adapter.on_event)(&KernelEvent::TurnDone {
-            hit_turn_limit: false,
+            hit_turn_limit: true,
         });
         Ok(TurnSummary {
-            hit_turn_limit: false,
+            hit_turn_limit: true,
         })
     }
 
@@ -223,9 +338,14 @@ impl Kernel {
             "You are Allbert, a local personal assistant running inside a Rust kernel. \
 Answer helpfully and concisely. Treat the runtime bootstrap context below as durable \
 guidance for tone, identity, and user preferences. If the user's current request \
-directly conflicts with that context, follow the user's current request. Tools are \
-not available in this milestone.",
+directly conflicts with that context, follow the user's current request.\n\n\
+If you need a tool, respond with one or more XML blocks and no prose:\n\
+<tool_call>{\"name\":\"tool_name\",\"input\":{...}}</tool_call>\n\
+After tool results are returned, either emit more <tool_call> blocks or answer normally.\n\n\
+Available tools:\n",
         );
+
+        prompt.push_str(&self.tools.prompt_catalog());
 
         for section in prompt_sections {
             prompt.push_str("\n\n");
@@ -236,17 +356,62 @@ not available in this milestone.",
     }
 }
 
+fn parse_tool_calls(text: &str) -> Vec<ToolInvocation> {
+    let mut calls = Vec::new();
+    let mut start = 0usize;
+    let open = "<tool_call>";
+    let close = "</tool_call>";
+
+    while let Some(open_idx_rel) = text[start..].find(open) {
+        let open_idx = start + open_idx_rel + open.len();
+        let Some(close_idx_rel) = text[open_idx..].find(close) else {
+            break;
+        };
+        let close_idx = open_idx + close_idx_rel;
+        let raw = text[open_idx..close_idx].trim();
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) {
+            if let (Some(name), Some(input)) = (
+                value.get("name").and_then(|value| value.as_str()),
+                value.get("input"),
+            ) {
+                calls.push(ToolInvocation {
+                    name: name.to_string(),
+                    input: input.clone(),
+                });
+            }
+        }
+        start = close_idx + close.len();
+    }
+
+    calls
+}
+
+fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
+    if input.as_bytes().len() <= max_bytes {
+        return input.to_string();
+    }
+
+    let mut end = max_bytes;
+    while end > 0 && !input.is_char_boundary(end) {
+        end -= 1;
+    }
+    input[..end].to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::VecDeque;
+    use std::fs;
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
 
     use async_trait::async_trait;
+    use serde_json::json;
 
     use super::*;
     use crate::error::LlmError;
     use crate::llm::{CompletionRequest, CompletionResponse, Pricing, Usage};
+    use crate::security::{exec_policy, sandbox, web_policy, NormalizedExec, PolicyDecision};
 
     struct TempRoot {
         path: PathBuf,
@@ -288,12 +453,73 @@ mod tests {
     }
 
     fn test_adapter(events: Arc<Mutex<Vec<KernelEvent>>>) -> FrontendAdapter {
+        test_adapter_with(events, Arc::new(NoopConfirm), Arc::new(NoopInput))
+    }
+
+    fn test_adapter_with(
+        events: Arc<Mutex<Vec<KernelEvent>>>,
+        confirm: Arc<dyn ConfirmPrompter>,
+        input: Arc<dyn InputPrompter>,
+    ) -> FrontendAdapter {
         FrontendAdapter {
             on_event: Box::new(move |event| {
                 events.lock().unwrap().push(event.clone());
             }),
-            confirm: Arc::new(NoopConfirm),
-            input: Arc::new(NoopInput),
+            confirm,
+            input,
+        }
+    }
+
+    struct QueueConfirm {
+        decisions: Arc<Mutex<VecDeque<ConfirmDecision>>>,
+        seen: Arc<Mutex<Vec<ConfirmRequest>>>,
+    }
+
+    impl QueueConfirm {
+        fn new(decisions: Vec<ConfirmDecision>) -> Self {
+            Self {
+                decisions: Arc::new(Mutex::new(decisions.into())),
+                seen: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn seen(&self) -> Arc<Mutex<Vec<ConfirmRequest>>> {
+            Arc::clone(&self.seen)
+        }
+    }
+
+    #[async_trait]
+    impl ConfirmPrompter for QueueConfirm {
+        async fn confirm(&self, req: ConfirmRequest) -> ConfirmDecision {
+            self.seen.lock().unwrap().push(req);
+            self.decisions
+                .lock()
+                .unwrap()
+                .pop_front()
+                .unwrap_or(ConfirmDecision::Deny)
+        }
+    }
+
+    struct QueueInput {
+        responses: Arc<Mutex<VecDeque<InputResponse>>>,
+    }
+
+    impl QueueInput {
+        fn new(responses: Vec<InputResponse>) -> Self {
+            Self {
+                responses: Arc::new(Mutex::new(responses.into())),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl InputPrompter for QueueInput {
+        async fn request_input(&self, _req: InputRequest) -> InputResponse {
+            self.responses
+                .lock()
+                .unwrap()
+                .pop_front()
+                .unwrap_or(InputResponse::Cancelled)
         }
     }
 
@@ -712,6 +938,348 @@ mod tests {
         assert!(system.contains("ABCDEFGHIJKLMNOPQRST"));
         assert!(!system.contains("UVWXYZ"));
         assert!(!system.contains("## USER.md"));
+    }
+
+    #[test]
+    fn exec_policy_covers_deny_allow_and_confirm() {
+        let mut security = SecurityConfig::default();
+        security.exec_allow.push("echo".into());
+
+        let deny = exec_policy(
+            &NormalizedExec {
+                program: "bash".into(),
+                args: vec!["-c".into(), "ls".into()],
+                cwd: None,
+            },
+            &security,
+            &Default::default(),
+        );
+        assert!(matches!(deny, PolicyDecision::Deny(_)));
+
+        let allow = exec_policy(
+            &NormalizedExec {
+                program: "echo".into(),
+                args: vec!["hello".into()],
+                cwd: None,
+            },
+            &security,
+            &Default::default(),
+        );
+        assert!(matches!(allow, PolicyDecision::AutoAllow));
+
+        let confirm = exec_policy(
+            &NormalizedExec {
+                program: "ls".into(),
+                args: vec![],
+                cwd: None,
+            },
+            &security,
+            &Default::default(),
+        );
+        assert!(matches!(confirm, PolicyDecision::NeedsConfirm(_)));
+    }
+
+    #[test]
+    fn sandbox_blocks_paths_outside_roots_and_symlink_escapes() {
+        let temp = TempRoot::new();
+        let root = temp.path.join("root");
+        let outside = temp.path.join("outside");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(root.join("inside.txt"), "ok").unwrap();
+        fs::write(outside.join("secret.txt"), "nope").unwrap();
+        std::os::unix::fs::symlink(outside.join("secret.txt"), root.join("link.txt")).unwrap();
+
+        let roots = vec![root.clone()];
+        assert!(sandbox::check(&root.join("inside.txt"), &roots).is_ok());
+        assert!(sandbox::check(&outside.join("secret.txt"), &roots).is_err());
+        assert!(sandbox::check(&root.join("link.txt"), &roots).is_err());
+    }
+
+    #[tokio::test]
+    async fn web_policy_guards_scheme_ssrf_dns_and_host_rules() {
+        let mut config = WebSecurityConfig::default();
+        config.timeout_s = 1;
+
+        assert!(matches!(
+            web_policy("file:///tmp/test", &config).await,
+            PolicyDecision::Deny(_)
+        ));
+        assert!(matches!(
+            web_policy("http://127.0.0.1/test", &config).await,
+            PolicyDecision::Deny(_)
+        ));
+        assert!(matches!(
+            web_policy("http://definitely-not-a-real-host.invalid", &config).await,
+            PolicyDecision::Deny(_)
+        ));
+
+        let mut allow = WebSecurityConfig::default();
+        allow.allow_hosts = vec!["example.com".into()];
+        allow.timeout_s = 0;
+        assert!(matches!(
+            web_policy("https://news.ycombinator.com", &allow).await,
+            PolicyDecision::Deny(_)
+        ));
+
+        let mut timeout = WebSecurityConfig::default();
+        timeout.timeout_s = 0;
+        assert!(matches!(
+            web_policy("https://example.com", &timeout).await,
+            PolicyDecision::Deny(_)
+        ));
+
+        let mut deny = WebSecurityConfig::default();
+        deny.deny_hosts = vec!["example.com".into()];
+        assert!(matches!(
+            web_policy("https://example.com", &deny).await,
+            PolicyDecision::Deny(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn request_input_tool_continues_with_submitted_value() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter_with(
+                Arc::clone(&events),
+                Arc::new(NoopConfirm),
+                Arc::new(QueueInput::new(vec![InputResponse::Submitted("blue".into())])),
+            ),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"favorite color?\",\"allow_empty\":false}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Thanks, I noted blue.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let summary = kernel
+            .run_turn("help me")
+            .await
+            .expect("turn should succeed");
+        let recorded = events.lock().unwrap();
+
+        assert!(!summary.hit_turn_limit);
+        assert!(
+            matches!(&recorded[1], KernelEvent::ToolCall { name, .. } if name == "request_input")
+        );
+        assert!(
+            matches!(&recorded[2], KernelEvent::ToolResult { name, ok, content } if name == "request_input" && *ok && content == "blue")
+        );
+        assert!(
+            matches!(&recorded[4], KernelEvent::AssistantText(text) if text == "Thanks, I noted blue.")
+        );
+    }
+
+    #[tokio::test]
+    async fn request_input_tool_surfaces_cancelled_state() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter_with(
+                Arc::clone(&events),
+                Arc::new(NoopConfirm),
+                Arc::new(QueueInput::new(vec![InputResponse::Cancelled])),
+            ),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"anything else?\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "No extra input arrived.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("help me")
+            .await
+            .expect("turn should succeed");
+        let recorded = events.lock().unwrap();
+
+        assert!(
+            matches!(&recorded[2], KernelEvent::ToolResult { name, ok, content } if name == "request_input" && !*ok && content.contains("cancelled"))
+        );
+    }
+
+    #[tokio::test]
+    async fn tool_output_is_truncated_per_call_limit() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut config = Config::default_template();
+        config.limits.max_tool_output_bytes_per_call = 4;
+
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter_with(
+                Arc::clone(&events),
+                Arc::new(NoopConfirm),
+                Arc::new(QueueInput::new(vec![InputResponse::Submitted("123456789".into())])),
+            ),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"x\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "done".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("truncate")
+            .await
+            .expect("turn should succeed");
+        let recorded = events.lock().unwrap();
+        assert!(
+            matches!(&recorded[2], KernelEvent::ToolResult { content, .. } if content == "1234")
+        );
+    }
+
+    #[tokio::test]
+    async fn tool_loop_budget_enforcement_sets_hit_turn_limit() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut config = Config::default_template();
+        config.limits.max_tool_calls_per_turn = 1;
+
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter_with(
+                Arc::clone(&events),
+                Arc::new(NoopConfirm),
+                Arc::new(QueueInput::new(vec![
+                    InputResponse::Submitted("first".into()),
+                    InputResponse::Submitted("second".into()),
+                ])),
+            ),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"one\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"two\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let summary = kernel
+            .run_turn("budget")
+            .await
+            .expect("turn should succeed");
+        let recorded = events.lock().unwrap();
+        assert!(summary.hit_turn_limit);
+        assert!(
+            matches!(&recorded.last().unwrap(), KernelEvent::TurnDone { hit_turn_limit } if *hit_turn_limit)
+        );
+    }
+
+    #[tokio::test]
+    async fn process_exec_session_approval_is_cached_exactly() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let confirm = Arc::new(QueueConfirm::new(vec![ConfirmDecision::AllowSession]));
+        let seen = confirm.seen();
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter_with(
+                Arc::clone(&events),
+                confirm,
+                Arc::new(NoopInput),
+            ),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({"name":"process_exec","input":{"program":"/bin/echo","args":["hello"]}})
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "done one".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({"name":"process_exec","input":{"program":"/bin/echo","args":["hello"]}})
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "done two".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("one")
+            .await
+            .expect("first turn should succeed");
+        kernel
+            .run_turn("two")
+            .await
+            .expect("second turn should succeed");
+
+        assert_eq!(seen.lock().unwrap().len(), 1);
     }
 
     fn test_pricing() -> Pricing {

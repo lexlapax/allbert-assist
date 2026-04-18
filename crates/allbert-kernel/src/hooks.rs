@@ -9,6 +9,7 @@ use crate::cost::{append_cost_entry, build_cost_entry, CostEntry};
 use crate::events::KernelEvent;
 use crate::llm::{Pricing, Usage};
 use crate::paths::AllbertPaths;
+use crate::tools::ToolInvocation;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum HookPoint {
@@ -35,6 +36,7 @@ pub struct HookCtx {
     pub limits: Option<LimitsConfig>,
     pub paths: Option<AllbertPaths>,
     pub prompt_sections: Vec<String>,
+    pub tool_invocation: Option<ToolInvocation>,
     pub pending_events: Vec<KernelEvent>,
     pub recorded_cost: Option<CostEntry>,
 }
@@ -50,6 +52,23 @@ impl HookCtx {
             limits: Some(limits.clone()),
             paths: Some(paths.clone()),
             prompt_sections: Vec::new(),
+            tool_invocation: None,
+            pending_events: Vec::new(),
+            recorded_cost: None,
+        }
+    }
+
+    pub fn before_tool(session_id: &str, invocation: ToolInvocation) -> Self {
+        Self {
+            session_id: session_id.into(),
+            provider: None,
+            model: None,
+            usage: None,
+            pricing: None,
+            limits: None,
+            paths: None,
+            prompt_sections: Vec::new(),
+            tool_invocation: Some(invocation),
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -72,6 +91,7 @@ impl HookCtx {
             limits: None,
             paths: Some(paths.clone()),
             prompt_sections: Vec::new(),
+            tool_invocation: None,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -138,15 +158,6 @@ impl Hook for CostHook {
             }
             Err(err) => HookOutcome::Abort(format!("failed to build cost entry: {err}")),
         }
-    }
-}
-
-pub struct SecurityHook;
-
-#[async_trait]
-impl Hook for SecurityHook {
-    async fn call(&self, _ctx: &mut HookCtx) -> HookOutcome {
-        HookOutcome::Continue
     }
 }
 
