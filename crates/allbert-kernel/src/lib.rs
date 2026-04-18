@@ -2107,4 +2107,250 @@ mod tests {
             self.provider_name
         }
     }
+
+    fn repo_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root should resolve")
+    }
+
+    fn install_example_skill(paths: &AllbertPaths) {
+        let source = repo_root().join("examples/skills/note-taker/SKILL.md");
+        let target_dir = paths.skills.join("note-taker");
+        fs::create_dir_all(&target_dir).expect("skill dir should exist");
+        fs::write(
+            target_dir.join("SKILL.md"),
+            fs::read_to_string(source).expect("example skill should be readable"),
+        )
+        .expect("example skill should be copied");
+    }
+
+    fn seed_completed_setup(paths: &AllbertPaths, config: &Config) {
+        paths.ensure().expect("paths should exist");
+        fs::write(
+            &paths.user,
+            "# USER\n\n## Preferred name\n- Spuri\n\n## Timezone\n- America/Los_Angeles\n\n## Working style\n- Short updates and concrete next steps.\n\n## Current priorities\n- Ship v0.1 cleanly.\n",
+        )
+        .expect("USER.md should be writable");
+        if paths.bootstrap.exists() {
+            fs::remove_file(&paths.bootstrap).expect("BOOTSTRAP.md should be removable");
+        }
+        config.persist(paths).expect("config should persist");
+    }
+
+    async fn run_tool_via_kernel(kernel: &mut Kernel, invocation: ToolInvocation) -> ToolOutput {
+        let mut tool_hook_ctx = HookCtx::before_tool(
+            &kernel.state.session_id,
+            invocation.clone(),
+            kernel
+                .skills
+                .allowed_tool_union(&kernel.state.active_skills),
+        );
+        match kernel
+            .hooks
+            .run(HookPoint::BeforeTool, &mut tool_hook_ctx)
+            .await
+        {
+            HookOutcome::Continue => kernel.dispatch_tool(invocation).await,
+            HookOutcome::Abort(message) => ToolOutput {
+                content: message,
+                ok: false,
+            },
+        }
+    }
+
+    fn latest_assistant_text(events: &Arc<Mutex<Vec<KernelEvent>>>) -> String {
+        events
+            .lock()
+            .unwrap()
+            .iter()
+            .rev()
+            .find_map(|event| match event {
+                KernelEvent::AssistantText(text) => Some(text.clone()),
+                _ => None,
+            })
+            .expect("assistant text event should exist")
+    }
+
+    fn trace_file_exists(paths: &AllbertPaths) -> bool {
+        fs::read_dir(&paths.traces)
+            .expect("trace dir should exist")
+            .flatten()
+            .any(|entry| entry.path().is_file())
+    }
+
+    async fn run_live_release_smoke(
+        start_provider: Provider,
+        start_model_id: &str,
+        start_api_key_env: &str,
+        switch_provider: Provider,
+        switch_model_id: &str,
+        switch_api_key_env: &str,
+    ) {
+        assert!(
+            std::env::var_os(start_api_key_env).is_some(),
+            "{start_api_key_env} must be set for live smoke"
+        );
+        assert!(
+            std::env::var_os(switch_api_key_env).is_some(),
+            "{switch_api_key_env} must be set for live smoke"
+        );
+
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let workspace_root = repo_root();
+
+        let mut config = Config::default_template();
+        config.trace = true;
+        config.setup.version = 1;
+        config.model.provider = start_provider;
+        config.model.model_id = start_model_id.into();
+        config.model.api_key_env = start_api_key_env.into();
+        config.model.max_tokens = 64;
+        config.security.fs_roots = vec![workspace_root.clone()];
+
+        seed_completed_setup(&paths, &config);
+        install_example_skill(&paths);
+
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(events.clone()),
+            paths.clone(),
+            Arc::new(llm::DefaultProviderFactory::default()),
+        )
+        .await
+        .expect("live kernel should boot");
+
+        kernel
+            .run_turn(
+                "If the runtime context says the preferred name is Spuri, reply with exactly PROFILE_OK and nothing else.",
+            )
+            .await
+            .expect("profile prompt should succeed");
+        assert_eq!(latest_assistant_text(&events).trim(), "PROFILE_OK");
+
+        let cargo_toml = run_tool_via_kernel(
+            &mut kernel,
+            ToolInvocation {
+                name: "read_file".into(),
+                input: json!({ "path": workspace_root.join("Cargo.toml").display().to_string() }),
+            },
+        )
+        .await;
+        assert!(cargo_toml.ok, "trusted-root file read should succeed");
+        assert!(cargo_toml.content.contains("allbert-kernel"));
+
+        let denied = run_tool_via_kernel(
+            &mut kernel,
+            ToolInvocation {
+                name: "read_file".into(),
+                input: json!({ "path": "/etc/passwd" }),
+            },
+        )
+        .await;
+        assert!(!denied.ok, "out-of-root read should be denied");
+
+        let written = run_tool_via_kernel(
+            &mut kernel,
+            ToolInvocation {
+                name: "write_memory".into(),
+                input: json!({
+                    "path": "projects/release-smoke.md",
+                    "content": "# Release Smoke\n\nLive provider smoke succeeded.\n",
+                    "mode": "write",
+                    "summary": "Live provider smoke succeeded"
+                }),
+            },
+        )
+        .await;
+        assert!(written.ok);
+
+        let read_back = run_tool_via_kernel(
+            &mut kernel,
+            ToolInvocation {
+                name: "read_memory".into(),
+                input: json!({ "path": "projects/release-smoke.md" }),
+            },
+        )
+        .await;
+        assert!(read_back.ok);
+        assert!(read_back.content.contains("Live provider smoke succeeded."));
+
+        let skills = run_tool_via_kernel(
+            &mut kernel,
+            ToolInvocation {
+                name: "list_skills".into(),
+                input: json!({}),
+            },
+        )
+        .await;
+        assert!(skills.ok);
+        assert!(skills.content.contains("note-taker"));
+
+        let invoked = run_tool_via_kernel(
+            &mut kernel,
+            ToolInvocation {
+                name: "invoke_skill".into(),
+                input: json!({ "name": "note-taker", "args": { "kind": "release-smoke" } }),
+            },
+        )
+        .await;
+        assert!(invoked.ok);
+        assert_eq!(kernel.active_skills()[0].name, "note-taker");
+
+        assert!(
+            paths.costs.exists(),
+            "cost log should exist after live turn"
+        );
+        assert!(trace_file_exists(&paths), "trace file should exist");
+
+        kernel
+            .set_model(ModelConfig {
+                provider: switch_provider,
+                model_id: switch_model_id.into(),
+                api_key_env: switch_api_key_env.into(),
+                max_tokens: 64,
+            })
+            .await
+            .expect("provider switch should succeed");
+        kernel
+            .run_turn("Reply with exactly SWITCH_OK and nothing else.")
+            .await
+            .expect("switched-provider prompt should succeed");
+        assert_eq!(latest_assistant_text(&events).trim(), "SWITCH_OK");
+        assert!(
+            kernel.today_cost_usd().expect("today cost should sum") > 0.0,
+            "cost tracking should record live provider usage"
+        );
+    }
+
+    #[tokio::test]
+    #[ignore = "live smoke requires ANTHROPIC_API_KEY and OPENROUTER_API_KEY"]
+    async fn anthropic_release_smoke() {
+        run_live_release_smoke(
+            Provider::Anthropic,
+            "claude-sonnet-4-5",
+            "ANTHROPIC_API_KEY",
+            Provider::Openrouter,
+            "anthropic/claude-sonnet-4",
+            "OPENROUTER_API_KEY",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    #[ignore = "live smoke requires ANTHROPIC_API_KEY and OPENROUTER_API_KEY"]
+    async fn openrouter_release_smoke() {
+        run_live_release_smoke(
+            Provider::Openrouter,
+            "anthropic/claude-sonnet-4",
+            "OPENROUTER_API_KEY",
+            Provider::Anthropic,
+            "claude-sonnet-4-5",
+            "ANTHROPIC_API_KEY",
+        )
+        .await;
+    }
 }
