@@ -1,7 +1,7 @@
 # ADR 0027: Durable schedule mutations require preview and explicit confirmation
 
 Date: 2026-04-19
-Status: Proposed
+Status: Accepted
 
 ## Context
 

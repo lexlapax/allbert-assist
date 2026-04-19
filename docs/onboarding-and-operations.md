@@ -156,7 +156,7 @@ Notes:
 
 Jobs are daemon-owned and non-interactive by default.
 
-Job lifecycle management is authoritative through the CLI surfaces below, and daemon-backed prompt job tools now exist for conversational scheduling work. The remaining v0.2 closeout gap is explicit preview-and-confirm for durable schedule mutation, so the CLI remains the clearest operator surface while that work is pending.
+Job lifecycle management is authoritative through the CLI surfaces below, and daemon-backed prompt job tools now exist for conversational scheduling work. Durable schedule mutation now goes through an explicit preview-and-confirm step in interactive sessions. The CLI remains the clearest operator surface while the final v0.2 conversational closeout and smoke pass are still pending.
 
 Canonical commands:
 

@@ -4,7 +4,7 @@ Allbert is a terminal-first personal assistant built around a small Rust kernel,
 
 v0.2 targets a technical source-based user. You build it from source, point it at an Anthropic or OpenRouter API key, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, and recurring jobs.
 
-The daemon-backed jobs substrate and prompt-facing job tools are implemented today, but conversational scheduling is still in closeout. The remaining gap is the safe preview-and-confirm UX for durable schedule mutation.
+The daemon-backed jobs substrate, prompt-facing job tools, and explicit preview-and-confirm flow for durable schedule mutation are implemented today. The remaining v0.2 closeout work is final conversational polish: help text, docs, and end-to-end smoke that make scheduling through normal conversation feel as trustworthy as the operator CLI.
 
 ## What v0.2 includes
 
@@ -181,7 +181,7 @@ Chat history is not the durable store. Important facts need to be written into m
 - no boot-time OS service install yet
 - bundled job templates are intentionally disabled by default
 - live provider use still depends on your network and API-key env vars
-- durable preview-and-confirm for conversational schedule mutation is not complete yet; `allbert-cli jobs ...` remains the clearest operator path while that closeout work is pending
+- final conversational closeout is still pending for v0.2, so `allbert-cli jobs ...` remains the clearest operator escape hatch even though prompt-native scheduling and explicit preview/confirm are now implemented
 
 ## More detail
 

@@ -613,7 +613,26 @@ Available tools:\n",
                 }
             }
         };
-        match job_manager.upsert_job(parsed.into_payload()).await {
+        let definition = parsed.into_payload();
+        let existing = match job_manager.list_jobs().await {
+            Ok(jobs) => jobs
+                .into_iter()
+                .find(|job| job.definition.name == definition.name),
+            Err(err) => {
+                return ToolOutput {
+                    content: err,
+                    ok: false,
+                }
+            }
+        };
+        let preview = render_upsert_job_preview(existing.as_ref(), &definition);
+        if let Err(output) = self
+            .confirm_job_mutation("upsert_job", vec![definition.name.clone()], preview)
+            .await
+        {
+            return output;
+        }
+        match job_manager.upsert_job(definition).await {
             Ok(job) => serialize_tool_value(&job),
             Err(err) => ToolOutput {
                 content: err,
@@ -635,6 +654,25 @@ Available tools:\n",
                 }
             }
         };
+        let current = match job_manager.get_job(&parsed.name).await {
+            Ok(job) => job,
+            Err(err) => {
+                return ToolOutput {
+                    content: err,
+                    ok: false,
+                }
+            }
+        };
+        if let Err(output) = self
+            .confirm_job_mutation(
+                "pause_job",
+                vec![parsed.name.clone()],
+                render_job_status_preview("pause recurring job", &current),
+            )
+            .await
+        {
+            return output;
+        }
         match job_manager.pause_job(&parsed.name).await {
             Ok(job) => serialize_tool_value(&job),
             Err(err) => ToolOutput {
@@ -657,6 +695,25 @@ Available tools:\n",
                 }
             }
         };
+        let current = match job_manager.get_job(&parsed.name).await {
+            Ok(job) => job,
+            Err(err) => {
+                return ToolOutput {
+                    content: err,
+                    ok: false,
+                }
+            }
+        };
+        if let Err(output) = self
+            .confirm_job_mutation(
+                "resume_job",
+                vec![parsed.name.clone()],
+                render_job_status_preview("resume recurring job", &current),
+            )
+            .await
+        {
+            return output;
+        }
         match job_manager.resume_job(&parsed.name).await {
             Ok(job) => serialize_tool_value(&job),
             Err(err) => ToolOutput {
@@ -701,6 +758,25 @@ Available tools:\n",
                 }
             }
         };
+        let current = match job_manager.get_job(&parsed.name).await {
+            Ok(job) => job,
+            Err(err) => {
+                return ToolOutput {
+                    content: err,
+                    ok: false,
+                }
+            }
+        };
+        if let Err(output) = self
+            .confirm_job_mutation(
+                "remove_job",
+                vec![parsed.name.clone()],
+                render_job_status_preview("remove recurring job", &current),
+            )
+            .await
+        {
+            return output;
+        }
         match job_manager.remove_job(&parsed.name).await {
             Ok(()) => serialize_tool_value(&json!({ "removed": parsed.name })),
             Err(err) => ToolOutput {
@@ -735,6 +811,31 @@ Available tools:\n",
             },
         }
     }
+
+    async fn confirm_job_mutation(
+        &self,
+        program: &str,
+        args: Vec<String>,
+        rendered: String,
+    ) -> Result<(), ToolOutput> {
+        match self
+            .adapter
+            .confirm
+            .confirm(ConfirmRequest {
+                program: program.into(),
+                args,
+                cwd: None,
+                rendered,
+            })
+            .await
+        {
+            ConfirmDecision::Deny => Err(ToolOutput {
+                content: "job mutation denied by user".into(),
+                ok: false,
+            }),
+            ConfirmDecision::AllowOnce | ConfirmDecision::AllowSession => Ok(()),
+        }
+    }
 }
 
 fn unavailable_job_manager_output() -> ToolOutput {
@@ -751,6 +852,145 @@ fn serialize_tool_value<T: serde::Serialize>(value: &T) -> ToolOutput {
             content: format!("failed to encode tool result: {err}"),
             ok: false,
         },
+    }
+}
+
+fn render_upsert_job_preview(
+    existing: Option<&allbert_proto::JobStatusPayload>,
+    definition: &allbert_proto::JobDefinitionPayload,
+) -> String {
+    let mut lines = vec![
+        "durable job change preview".to_string(),
+        format!(
+            "action:            {}",
+            if existing.is_some() {
+                "update recurring job"
+            } else {
+                "create recurring job"
+            }
+        ),
+    ];
+    if let Some(existing) = existing {
+        lines.push(format!(
+            "existing schedule: {}",
+            existing.definition.schedule
+        ));
+        lines.push(format!(
+            "existing timezone: {}",
+            existing
+                .definition
+                .timezone
+                .as_deref()
+                .unwrap_or("(default)")
+        ));
+    }
+    lines.extend(render_job_definition_lines(definition));
+    lines.join("\n")
+}
+
+fn render_job_status_preview(action: &str, job: &allbert_proto::JobStatusPayload) -> String {
+    let mut lines = vec![
+        "durable job change preview".to_string(),
+        format!("action:            {action}"),
+    ];
+    lines.extend(render_job_definition_lines(&job.definition));
+    lines.push(format!("currently paused:  {}", yes_no(job.state.paused)));
+    lines.push(format!("currently running: {}", yes_no(job.state.running)));
+    lines.push(format!(
+        "next due:          {}",
+        job.state.next_due_at.as_deref().unwrap_or("(none)")
+    ));
+    lines.push(format!(
+        "last outcome:      {}",
+        job.state.last_outcome.as_deref().unwrap_or("(none)")
+    ));
+    lines.join("\n")
+}
+
+fn render_job_definition_lines(definition: &allbert_proto::JobDefinitionPayload) -> Vec<String> {
+    vec![
+        format!("name:              {}", definition.name),
+        format!("description:       {}", definition.description),
+        format!("enabled:           {}", yes_no(definition.enabled)),
+        format!("schedule:          {}", definition.schedule),
+        format!(
+            "timezone:          {}",
+            definition.timezone.as_deref().unwrap_or("(default)")
+        ),
+        format!(
+            "model override:    {}",
+            render_job_model(definition.model.as_ref())
+        ),
+        format!("skills:            {}", render_list(&definition.skills)),
+        format!(
+            "allowed tools:     {}",
+            render_list(&definition.allowed_tools)
+        ),
+        format!(
+            "report policy:     {}",
+            render_job_report(definition.report)
+        ),
+        format!(
+            "timeout:           {}",
+            definition
+                .timeout_s
+                .map(|value| format!("{value}s"))
+                .unwrap_or_else(|| "(default)".into())
+        ),
+        format!(
+            "max turns:         {}",
+            definition
+                .max_turns
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "(default)".into())
+        ),
+        format!(
+            "prompt:\n{}",
+            indent_block(if definition.prompt.trim().is_empty() {
+                "(empty)"
+            } else {
+                definition.prompt.trim()
+            })
+        ),
+    ]
+}
+
+fn render_job_model(model: Option<&allbert_proto::ModelConfigPayload>) -> String {
+    match model {
+        Some(model) => format!("{:?} / {}", model.provider, model.model_id),
+        None => "(daemon default)".into(),
+    }
+}
+
+fn render_job_report(report: Option<allbert_proto::JobReportPolicyPayload>) -> &'static str {
+    match report {
+        Some(allbert_proto::JobReportPolicyPayload::Always) => "always",
+        Some(allbert_proto::JobReportPolicyPayload::OnFailure) => "on_failure",
+        Some(allbert_proto::JobReportPolicyPayload::OnAnomaly) => "on_anomaly",
+        None => "(default)",
+    }
+}
+
+fn render_list(values: &[String]) -> String {
+    if values.is_empty() {
+        "(none)".into()
+    } else {
+        values.join(", ")
+    }
+}
+
+fn indent_block(text: &str) -> String {
+    text.lines()
+        .map(|line| format!("  {line}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value {
+        "yes"
+    } else {
+        "no"
     }
 }
 

@@ -114,7 +114,7 @@ async fn run_turn(client: &mut DaemonClient, input: &str) -> Result<()> {
         match client.recv().await? {
             ServerMessage::Event(event) => render_event(event),
             ServerMessage::ConfirmRequest(request) => {
-                let decision = prompt_confirm(&request.rendered)?;
+                let decision = prompt_confirm(&request.program, &request.rendered)?;
                 client
                     .send(&ClientMessage::ConfirmReply(
                         allbert_proto::ConfirmReplyPayload {
@@ -221,16 +221,32 @@ async fn handle_setup_command(
     Ok(())
 }
 
-fn prompt_confirm(rendered: &str) -> Result<ConfirmDecisionPayload> {
-    print!("Allbert wants to run: {rendered}\n[y/N/always] ");
+fn prompt_confirm(program: &str, rendered: &str) -> Result<ConfirmDecisionPayload> {
+    let durable_job_change = matches!(
+        program,
+        "upsert_job" | "pause_job" | "resume_job" | "remove_job"
+    );
+    if durable_job_change {
+        print!("Allbert wants to make this durable scheduling change:\n{rendered}\n[y/N] ");
+    } else {
+        print!("Allbert wants your confirmation:\n{rendered}\n[y/N/always] ");
+    }
     io::stdout().flush()?;
 
     let mut buf = String::new();
     io::stdin().read_line(&mut buf)?;
-    Ok(match buf.trim().to_ascii_lowercase().as_str() {
-        "y" | "yes" => ConfirmDecisionPayload::AllowOnce,
-        "always" | "a" => ConfirmDecisionPayload::AllowSession,
-        _ => ConfirmDecisionPayload::Deny,
+    let choice = buf.trim().to_ascii_lowercase();
+    Ok(if durable_job_change {
+        match choice.as_str() {
+            "y" | "yes" => ConfirmDecisionPayload::AllowOnce,
+            _ => ConfirmDecisionPayload::Deny,
+        }
+    } else {
+        match choice.as_str() {
+            "y" | "yes" => ConfirmDecisionPayload::AllowOnce,
+            "always" | "a" => ConfirmDecisionPayload::AllowSession,
+            _ => ConfirmDecisionPayload::Deny,
+        }
     })
 }
 

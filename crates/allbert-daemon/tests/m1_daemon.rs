@@ -106,6 +106,47 @@ async fn run_turn_collect_messages(client: &mut DaemonClient, input: &str) -> Ve
     messages
 }
 
+async fn run_turn_with_confirms(
+    client: &mut DaemonClient,
+    input: &str,
+    decision: ConfirmDecisionPayload,
+) -> (
+    Vec<ServerMessage>,
+    Vec<allbert_proto::ConfirmRequestPayload>,
+) {
+    client
+        .start_turn(input.into())
+        .await
+        .expect("turn should start");
+    let mut messages = Vec::new();
+    let mut confirms = Vec::new();
+    loop {
+        let message = client.recv().await.expect("daemon should respond");
+        match &message {
+            ServerMessage::ConfirmRequest(request) => {
+                confirms.push(request.clone());
+                client
+                    .send(&ClientMessage::ConfirmReply(
+                        allbert_proto::ConfirmReplyPayload {
+                            request_id: request.request_id,
+                            decision,
+                        },
+                    ))
+                    .await
+                    .expect("confirm reply should send");
+            }
+            ServerMessage::InputRequest(_) => panic!("unexpected input request"),
+            _ => {}
+        }
+        let done = matches!(message, ServerMessage::TurnResult(_));
+        messages.push(message);
+        if done {
+            break;
+        }
+    }
+    (messages, confirms)
+}
+
 #[derive(Clone)]
 struct TestFactory {
     responses: Arc<Mutex<VecDeque<CompletionResponse>>>,
@@ -776,7 +817,31 @@ async fn interactive_session_can_upsert_and_inspect_jobs_via_prompt_tools() {
         .await
         .expect("attach should succeed");
 
-    let messages = run_turn_collect_messages(&mut client, "schedule a daily review").await;
+    let (messages, confirms) = run_turn_with_confirms(
+        &mut client,
+        "schedule a daily review",
+        ConfirmDecisionPayload::AllowOnce,
+    )
+    .await;
+    assert_eq!(
+        confirms.len(),
+        1,
+        "upsert should require exactly one confirm"
+    );
+    assert_eq!(confirms[0].program, "upsert_job");
+    assert!(confirms[0].rendered.contains("durable job change preview"));
+    assert!(confirms[0]
+        .rendered
+        .contains("action:            create recurring job"));
+    assert!(confirms[0]
+        .rendered
+        .contains("name:              prompt-daily-review"));
+    assert!(confirms[0]
+        .rendered
+        .contains("schedule:          @daily at 07:00"));
+    assert!(confirms[0]
+        .rendered
+        .contains("Review yesterday and suggest next steps."));
     let mut saw_upsert = false;
     let mut saw_get = false;
     for message in messages {
@@ -853,21 +918,64 @@ async fn interactive_session_can_list_pause_resume_and_remove_jobs_via_prompt_to
             if name == "list_jobs" && content.contains("weekly-review")
     )));
 
-    run_turn_collect_messages(&mut client, "pause weekly review").await;
+    let (pause_messages, pause_confirms) = run_turn_with_confirms(
+        &mut client,
+        "pause weekly review",
+        ConfirmDecisionPayload::AllowOnce,
+    )
+    .await;
+    assert_eq!(pause_confirms.len(), 1, "pause should require confirm");
+    assert_eq!(pause_confirms[0].program, "pause_job");
+    assert!(pause_confirms[0]
+        .rendered
+        .contains("action:            pause recurring job"));
+    assert!(pause_confirms[0]
+        .rendered
+        .contains("name:              weekly-review"));
+    assert!(pause_messages.into_iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: true, .. })
+            if name == "pause_job"
+    )));
     let paused = client
         .get_job("weekly-review")
         .await
         .expect("paused job should exist");
     assert!(paused.state.paused);
 
-    run_turn_collect_messages(&mut client, "resume weekly review").await;
+    let (resume_messages, resume_confirms) = run_turn_with_confirms(
+        &mut client,
+        "resume weekly review",
+        ConfirmDecisionPayload::AllowOnce,
+    )
+    .await;
+    assert_eq!(resume_confirms.len(), 1, "resume should require confirm");
+    assert_eq!(resume_confirms[0].program, "resume_job");
+    assert!(resume_confirms[0]
+        .rendered
+        .contains("action:            resume recurring job"));
+    assert!(resume_messages.into_iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: true, .. })
+            if name == "resume_job"
+    )));
     let resumed = client
         .get_job("weekly-review")
         .await
         .expect("resumed job should exist");
     assert!(!resumed.state.paused);
 
-    let remove_messages = run_turn_collect_messages(&mut client, "remove weekly review").await;
+    let (remove_messages, remove_confirms) = run_turn_with_confirms(
+        &mut client,
+        "remove weekly review",
+        ConfirmDecisionPayload::AllowOnce,
+    )
+    .await;
+    assert_eq!(remove_confirms.len(), 1, "remove should require confirm");
+    assert_eq!(remove_confirms[0].program, "remove_job");
+    assert!(remove_confirms[0]
+        .rendered
+        .contains("action:            remove recurring job"));
     assert!(remove_messages.into_iter().any(|message| matches!(
         message,
         ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: true, content })
@@ -944,6 +1052,112 @@ async fn interactive_session_can_run_jobs_and_inspect_recent_runs_via_prompt_too
         .expect("job should still exist");
     assert_eq!(status.state.last_outcome.as_deref(), Some("success"));
     assert!(status.state.last_run_id.is_some());
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn interactive_job_mutation_denial_does_not_persist() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(concat!(
+                "<tool_call>{\"name\":\"upsert_job\",\"input\":",
+                "{\"name\":\"denied-daily-review\",\"description\":\"Denied review\",",
+                "\"schedule\":\"@daily at 08:00\",\"timezone\":\"America/Los_Angeles\",",
+                "\"prompt\":\"Do not persist this.\"}}",
+                "</tool_call>"
+            )),
+            scripted("okay, I did not save it"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+
+    let (messages, confirms) = run_turn_with_confirms(
+        &mut client,
+        "schedule something but deny it",
+        ConfirmDecisionPayload::Deny,
+    )
+    .await;
+    assert_eq!(confirms.len(), 1, "denied mutation should still prompt");
+    assert_eq!(confirms[0].program, "upsert_job");
+    assert!(messages.into_iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: false, content })
+            if name == "upsert_job" && content.contains("job mutation denied by user")
+    )));
+
+    let err = client
+        .get_job("denied-daily-review")
+        .await
+        .expect_err("denied job should not exist");
+    assert!(matches!(err, DaemonError::Protocol(_)));
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn durable_job_mutations_still_prompt_when_session_auto_confirm_is_enabled() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(
+                concat!(
+                    "<tool_call>{\"name\":\"upsert_job\",\"input\":",
+                    "{\"name\":\"auto-confirm-job\",\"description\":\"Auto confirm should not bypass\",",
+                    "\"schedule\":\"every 2h\",\"timezone\":\"America/Los_Angeles\",",
+                    "\"prompt\":\"Verify durable confirmation.\"}}",
+                    "</tool_call>"
+                ),
+            ),
+            scripted("saved after explicit confirm"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+    client
+        .set_auto_confirm(true)
+        .await
+        .expect("auto confirm should enable");
+
+    let (messages, confirms) = run_turn_with_confirms(
+        &mut client,
+        "schedule with auto confirm still on",
+        ConfirmDecisionPayload::AllowOnce,
+    )
+    .await;
+    assert_eq!(confirms.len(), 1, "durable mutation should still prompt");
+    assert_eq!(confirms[0].program, "upsert_job");
+    assert!(messages.into_iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: true, content })
+            if name == "upsert_job" && content.contains("\"name\": \"auto-confirm-job\"")
+    )));
+
+    let persisted = client
+        .get_job("auto-confirm-job")
+        .await
+        .expect("job should persist after explicit confirm");
+    assert_eq!(persisted.definition.schedule, "every 2h");
 
     shutdown_daemon(handle, &paths).await;
 }
