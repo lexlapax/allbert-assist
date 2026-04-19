@@ -45,38 +45,32 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
     let identity_raw = read_file_or_empty(&paths.identity);
     let cwd = std::env::current_dir().context("resolve current working directory")?;
 
-    let preferred_name = match prompt_required(
-        "Preferred name",
-        non_placeholder_user_value(extract_section_value(&user_raw, "Preferred name")),
-    )? {
-        Some(value) => value,
-        None => return Ok(None),
-    };
-    let timezone = match prompt_required(
-        "Timezone",
-        non_placeholder_user_value(
-            extract_section_value(&user_raw, "Timezone").or_else(|| std::env::var("TZ").ok()),
-        ),
-    )? {
+    let preferred_name =
+        match prompt_required("Your preferred name", suggested_preferred_name(&user_raw))? {
+            Some(value) => value,
+            None => return Ok(None),
+        };
+    let timezone = match prompt_required("Your timezone", suggested_timezone(&user_raw))? {
         Some(value) => value,
         None => return Ok(None),
     };
     let working_style = match prompt_required(
-        "Working style",
-        non_placeholder_user_value(extract_section_value(&user_raw, "Working style")),
+        "How should Allbert usually work with you?",
+        suggested_working_style(&user_raw),
     )? {
         Some(value) => value,
         None => return Ok(None),
     };
     let current_priorities = match prompt_required(
-        "Current priorities",
-        non_placeholder_user_value(extract_section_value(&user_raw, "Current priorities")),
+        "Your current priorities",
+        suggested_current_priorities(&user_raw),
     )? {
         Some(value) => value,
         None => return Ok(None),
     };
 
-    let customize_identity = match prompt_yes_no("Customize assistant identity now?", false)? {
+    println!("\nThe next questions are about Allbert's own identity.");
+    let customize_identity = match prompt_yes_no("Customize Allbert's own identity now?", false)? {
         Some(value) => value,
         None => return Ok(None),
     };
@@ -86,15 +80,15 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         let current_role = extract_section_value(&identity_raw, "Role");
         let current_style = extract_section_value(&identity_raw, "Style");
 
-        let assistant_name = match prompt_optional("Assistant name", current_name.as_deref())? {
+        let assistant_name = match prompt_optional("Allbert's name", current_name.as_deref())? {
             Some(value) => value,
             None => return Ok(None),
         };
-        let assistant_role = match prompt_optional("Assistant role", current_role.as_deref())? {
+        let assistant_role = match prompt_optional("Allbert's role", current_role.as_deref())? {
             Some(value) => value,
             None => return Ok(None),
         };
-        let assistant_style = match prompt_optional("Assistant style", current_style.as_deref())? {
+        let assistant_style = match prompt_optional("Allbert's style", current_style.as_deref())? {
             Some(value) => value,
             None => return Ok(None),
         };
@@ -268,9 +262,11 @@ fn prompt_yes_no(label: &str, default: bool) -> Result<Option<bool>> {
 }
 
 fn prompt_trusted_roots(cwd: &Path, current_roots: &[PathBuf]) -> Result<Option<Vec<PathBuf>>> {
-    println!("\nTrusted roots control which filesystem paths file tools may touch.");
+    println!("\nTrusted roots control which directories Allbert's file tools may read and write.");
     if current_roots.is_empty() {
-        println!("No trusted roots are configured yet.");
+        println!(
+            "No trusted roots are configured yet. If you skip this, file tools stay disabled."
+        );
     } else {
         println!(
             "Current trusted roots:\n  - {}",
@@ -285,7 +281,7 @@ fn prompt_trusted_roots(cwd: &Path, current_roots: &[PathBuf]) -> Result<Option<
     let replace_roots = if current_roots.is_empty() {
         true
     } else {
-        match prompt_yes_no("Replace trusted roots now?", false)? {
+        match prompt_yes_no("Change your trusted filesystem roots now?", false)? {
             Some(value) => value,
             None => return Ok(None),
         }
@@ -299,7 +295,7 @@ fn prompt_trusted_roots(cwd: &Path, current_roots: &[PathBuf]) -> Result<Option<
         let mut roots = Vec::new();
         let add_cwd = match prompt_yes_no(
             &format!(
-                "Add the current working directory as a trusted root? ({})",
+                "Trust the current project directory for file tools? ({})",
                 cwd.display()
             ),
             true,
@@ -314,8 +310,8 @@ fn prompt_trusted_roots(cwd: &Path, current_roots: &[PathBuf]) -> Result<Option<
             );
         }
 
-        println!("Additional trusted roots (comma-separated, blank for none):");
-        let extras = match prompt_line("trusted roots", None)? {
+        println!("More trusted directories (comma-separated paths, blank for none):");
+        let extras = match prompt_line("More trusted directories", None)? {
             PromptLine::Cancelled => return Ok(None),
             PromptLine::Submitted(value) => value,
         };
@@ -332,7 +328,7 @@ fn prompt_trusted_roots(cwd: &Path, current_roots: &[PathBuf]) -> Result<Option<
 
         if roots.is_empty() {
             let confirm_empty = match prompt_yes_no(
-                "Leave trusted roots empty? File tools will stay disabled.",
+                "Continue with no trusted roots? File read/write tools will stay disabled.",
                 false,
             )? {
                 Some(value) => value,
@@ -516,6 +512,76 @@ fn extract_section_value(content: &str, heading: &str) -> Option<String> {
     None
 }
 
+fn suggested_preferred_name(user_raw: &str) -> Option<String> {
+    choose_preferred_name_default(
+        non_placeholder_user_value(extract_section_value(user_raw, "Preferred name")),
+        std::env::var("USER").ok(),
+    )
+}
+
+fn choose_preferred_name_default(
+    saved_value: Option<String>,
+    login_name: Option<String>,
+) -> Option<String> {
+    saved_value.or_else(|| login_name.and_then(|value| prettify_login_name(&value)))
+}
+
+fn suggested_timezone(user_raw: &str) -> Option<String> {
+    choose_timezone_default(
+        non_placeholder_user_value(extract_section_value(user_raw, "Timezone")),
+        std::env::var("TZ").ok(),
+        iana_time_zone::get_timezone().ok(),
+    )
+}
+
+fn suggested_working_style(user_raw: &str) -> Option<String> {
+    non_placeholder_user_value(extract_section_value(user_raw, "Working style"))
+        .or_else(|| Some("Short updates and concrete next steps.".into()))
+}
+
+fn suggested_current_priorities(user_raw: &str) -> Option<String> {
+    non_placeholder_user_value(extract_section_value(user_raw, "Current priorities"))
+        .or_else(|| Some("No durable priorities yet.".into()))
+}
+
+fn choose_timezone_default(
+    saved_value: Option<String>,
+    tz_env: Option<String>,
+    system_guess: Option<String>,
+) -> Option<String> {
+    saved_value.or(tz_env).or(system_guess)
+}
+
+fn prettify_login_name(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let words = trimmed
+        .split(['.', '_', '-'])
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => {
+                    let mut word = first.to_uppercase().collect::<String>();
+                    word.push_str(chars.as_str());
+                    word
+                }
+                None => String::new(),
+            }
+        })
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>();
+
+    if words.is_empty() {
+        None
+    } else {
+        Some(words.join(" "))
+    }
+}
+
 fn non_placeholder_user_value(value: Option<String>) -> Option<String> {
     value.and_then(|value| {
         if value == PLACEHOLDER_UNKNOWN || value == PLACEHOLDER_BOOTSTRAP {
@@ -653,6 +719,54 @@ mod tests {
         assert_eq!(warnings.len(), 2);
         assert!(warnings[0].contains("ANTHROPIC_API_KEY"));
         assert!(warnings[1].contains("trusted filesystem roots"));
+    }
+
+    #[test]
+    fn timezone_default_prefers_saved_then_env_then_system_guess() {
+        assert_eq!(
+            choose_timezone_default(
+                Some("America/New_York".into()),
+                Some("Europe/Berlin".into()),
+                Some("America/Los_Angeles".into())
+            ),
+            Some("America/New_York".into())
+        );
+        assert_eq!(
+            choose_timezone_default(
+                None,
+                Some("Europe/Berlin".into()),
+                Some("America/Los_Angeles".into())
+            ),
+            Some("Europe/Berlin".into())
+        );
+        assert_eq!(
+            choose_timezone_default(None, None, Some("America/Los_Angeles".into())),
+            Some("America/Los_Angeles".into())
+        );
+    }
+
+    #[test]
+    fn preferred_name_default_prefers_saved_then_login_name() {
+        assert_eq!(
+            choose_preferred_name_default(Some("Spuri".into()), Some("lex_lapax".into())),
+            Some("Spuri".into())
+        );
+        assert_eq!(
+            choose_preferred_name_default(None, Some("lex_lapax".into())),
+            Some("Lex Lapax".into())
+        );
+    }
+
+    #[test]
+    fn working_style_and_priorities_have_sane_fallbacks() {
+        assert_eq!(
+            suggested_working_style(""),
+            Some("Short updates and concrete next steps.".into())
+        );
+        assert_eq!(
+            suggested_current_priorities(""),
+            Some("No durable priorities yet.".into())
+        );
     }
 
     #[test]

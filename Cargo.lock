@@ -19,6 +19,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "clap",
+ "iana-time-zone",
  "reedline",
  "tokio",
  "tracing",

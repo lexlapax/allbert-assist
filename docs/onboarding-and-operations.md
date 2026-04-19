@@ -14,12 +14,12 @@ This guide is the operator reference for the source-based v0.1 release.
 
 On first run, Allbert creates `~/.allbert/` and asks for:
 
-- preferred name
-- timezone
-- working style
-- current priorities
-- optional assistant identity edits
-- trusted filesystem roots
+- your preferred name
+- your timezone, with a guessed default when available
+- how Allbert should usually work with you, with a practical default
+- your current priorities, with a safe fallback if you have none to record yet
+- optional assistant identity edits for Allbert itself
+- trusted filesystem roots, with the current project directory offered as the default first root
 
 Type `/cancel` at any setup prompt to abort setup cleanly.
 

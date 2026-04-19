@@ -58,12 +58,12 @@ On first run, Allbert creates `~/.allbert/`, seeds bootstrap files, writes `conf
 
 The setup wizard asks for:
 
-- your preferred name
-- your timezone
-- your working style
-- your current priorities
-- optional assistant identity refinements
-- trusted filesystem roots
+- your preferred name (the name Allbert should call you)
+- your timezone, with a guessed default when available
+- how Allbert should usually work with you, with a practical default
+- your current priorities, with a safe fallback if you have none to record yet
+- optional assistant identity refinements for Allbert itself
+- trusted filesystem roots, with the current project directory offered as the default first root
 
 Trusted roots matter: file tools are disabled outside the directories you explicitly trust. The wizard recommends the current working directory but does not auto-trust it.
 
