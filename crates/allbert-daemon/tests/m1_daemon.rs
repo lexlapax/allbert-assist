@@ -150,12 +150,29 @@ async fn run_turn_with_confirms(
 #[derive(Clone)]
 struct TestFactory {
     responses: Arc<Mutex<VecDeque<CompletionResponse>>>,
+    failing_prompts: Arc<Vec<String>>,
 }
 
 impl TestFactory {
     fn new(responses: Vec<CompletionResponse>) -> Self {
         Self {
             responses: Arc::new(Mutex::new(responses.into())),
+            failing_prompts: Arc::new(Vec::new()),
+        }
+    }
+
+    fn with_failing_prompts(
+        responses: Vec<CompletionResponse>,
+        failing_prompts: Vec<&str>,
+    ) -> Self {
+        Self {
+            responses: Arc::new(Mutex::new(responses.into())),
+            failing_prompts: Arc::new(
+                failing_prompts
+                    .into_iter()
+                    .map(|value| value.to_string())
+                    .collect(),
+            ),
         }
     }
 }
@@ -165,17 +182,31 @@ impl ProviderFactory for TestFactory {
     async fn build(&self, _model_config: &ModelConfig) -> Result<Box<dyn LlmProvider>, LlmError> {
         Ok(Box::new(TestProvider {
             responses: Arc::clone(&self.responses),
+            failing_prompts: Arc::clone(&self.failing_prompts),
         }))
     }
 }
 
 struct TestProvider {
     responses: Arc<Mutex<VecDeque<CompletionResponse>>>,
+    failing_prompts: Arc<Vec<String>>,
 }
 
 #[async_trait]
 impl LlmProvider for TestProvider {
-    async fn complete(&self, _req: CompletionRequest) -> Result<CompletionResponse, LlmError> {
+    async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse, LlmError> {
+        if let Some(message) = req.messages.last() {
+            if self
+                .failing_prompts
+                .iter()
+                .any(|prompt| prompt == &message.content)
+            {
+                return Err(LlmError::Response(format!(
+                    "simulated failure for prompt: {}",
+                    message.content
+                )));
+            }
+        }
         self.responses
             .lock()
             .unwrap()
@@ -197,6 +228,16 @@ fn scripted(text: &str) -> CompletionResponse {
         text: text.into(),
         usage: Usage::default(),
     }
+}
+
+fn tool_call_names(messages: &[ServerMessage]) -> Vec<String> {
+    messages
+        .iter()
+        .filter_map(|message| match message {
+            ServerMessage::Event(KernelEventPayload::ToolCall { name, .. }) => Some(name.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 fn sample_job(name: &str, schedule: &str, prompt: &str) -> JobDefinitionPayload {
@@ -1052,6 +1093,172 @@ async fn interactive_session_can_run_jobs_and_inspect_recent_runs_via_prompt_too
         .expect("job should still exist");
     assert_eq!(status.state.last_outcome.as_deref(), Some("success"));
     assert!(status.state.last_run_id.is_some());
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn conversational_job_management_smoke_stays_within_prompt_and_job_tools() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let failing_prompt = "Run the daily review and intentionally fail for smoke coverage.";
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::with_failing_prompts(
+            vec![
+                scripted(
+                    concat!(
+                        "<tool_call>{\"name\":\"upsert_job\",\"input\":",
+                        "{\"name\":\"daily-review\",\"description\":\"Daily review job\",",
+                        "\"schedule\":\"@daily at 07:00\",\"timezone\":\"America/Los_Angeles\",",
+                        "\"allowed_tools\":[\"read_memory\"],",
+                        "\"prompt\":\"Run the daily review and intentionally fail for smoke coverage.\"}}",
+                        "</tool_call>"
+                    ),
+                ),
+                scripted("Scheduled the daily review."),
+                scripted("<tool_call>{\"name\":\"list_jobs\",\"input\":{}}</tool_call>"),
+                scripted("You have one recurring job."),
+                scripted("<tool_call>{\"name\":\"run_job\",\"input\":{\"name\":\"daily-review\"}}</tool_call>"),
+                scripted("I ran it and it failed."),
+                scripted(
+                    concat!(
+                        "<tool_call>{\"name\":\"get_job\",\"input\":{\"name\":\"daily-review\"}}</tool_call>",
+                        "<tool_call>{\"name\":\"list_job_runs\",\"input\":{\"name\":\"daily-review\",\"only_failures\":true,\"limit\":5}}</tool_call>"
+                    ),
+                ),
+                scripted("It failed because the scheduled run hit a simulated provider failure."),
+                scripted("<tool_call>{\"name\":\"pause_job\",\"input\":{\"name\":\"daily-review\"}}</tool_call>"),
+                scripted("Paused it."),
+                scripted("<tool_call>{\"name\":\"resume_job\",\"input\":{\"name\":\"daily-review\"}}</tool_call>"),
+                scripted("Resumed it."),
+                scripted("<tool_call>{\"name\":\"remove_job\",\"input\":{\"name\":\"daily-review\"}}</tool_call>"),
+                scripted("Removed it."),
+            ],
+            vec![failing_prompt],
+        )),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+
+    let (schedule_messages, schedule_confirms) = run_turn_with_confirms(
+        &mut client,
+        "schedule a daily review at 07:00",
+        ConfirmDecisionPayload::AllowOnce,
+    )
+    .await;
+    assert_eq!(schedule_confirms.len(), 1);
+    assert_eq!(schedule_confirms[0].program, "upsert_job");
+    assert!(schedule_confirms[0]
+        .rendered
+        .contains("schedule:          @daily at 07:00"));
+    let schedule_tools = tool_call_names(&schedule_messages);
+    assert_eq!(schedule_tools, vec!["upsert_job".to_string()]);
+
+    let list_messages = run_turn_collect_messages(&mut client, "what jobs do I have?").await;
+    let list_tools = tool_call_names(&list_messages);
+    assert_eq!(list_tools, vec!["list_jobs".to_string()]);
+    assert!(list_messages.into_iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: true, content })
+            if name == "list_jobs" && content.contains("daily-review")
+    )));
+
+    let run_messages = run_turn_collect_messages(&mut client, "run it now").await;
+    let run_tools = tool_call_names(&run_messages);
+    assert_eq!(run_tools, vec!["run_job".to_string()]);
+    assert!(run_messages.into_iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: true, content })
+            if name == "run_job" && content.contains("\"job_name\": \"daily-review\"")
+    )));
+    let failed_status = client
+        .get_job("daily-review")
+        .await
+        .expect("job should exist after failed run");
+    assert_eq!(failed_status.state.last_outcome.as_deref(), Some("failure"));
+    assert!(failed_status
+        .state
+        .last_stop_reason
+        .as_deref()
+        .unwrap_or_default()
+        .contains("simulated failure"));
+
+    let why_messages = run_turn_collect_messages(&mut client, "why did that job fail?").await;
+    let why_tools = tool_call_names(&why_messages);
+    assert_eq!(
+        why_tools,
+        vec!["get_job".to_string(), "list_job_runs".to_string()]
+    );
+    assert!(why_messages.iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: true, content })
+            if name == "get_job"
+                && content.contains("\"last_outcome\": \"failure\"")
+                && content.contains("simulated failure")
+    )));
+    assert!(why_messages.iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: true, content })
+            if name == "list_job_runs"
+                && content.contains("\"job_name\": \"daily-review\"")
+                && content.contains("simulated failure")
+    )));
+
+    let (pause_messages, pause_confirms) =
+        run_turn_with_confirms(&mut client, "pause it", ConfirmDecisionPayload::AllowOnce).await;
+    assert_eq!(pause_confirms.len(), 1);
+    assert_eq!(pause_confirms[0].program, "pause_job");
+    assert_eq!(
+        tool_call_names(&pause_messages),
+        vec!["pause_job".to_string()]
+    );
+    assert!(
+        client
+            .get_job("daily-review")
+            .await
+            .expect("paused job should exist")
+            .state
+            .paused
+    );
+
+    let (resume_messages, resume_confirms) =
+        run_turn_with_confirms(&mut client, "resume it", ConfirmDecisionPayload::AllowOnce).await;
+    assert_eq!(resume_confirms.len(), 1);
+    assert_eq!(resume_confirms[0].program, "resume_job");
+    assert_eq!(
+        tool_call_names(&resume_messages),
+        vec!["resume_job".to_string()]
+    );
+    assert!(
+        !client
+            .get_job("daily-review")
+            .await
+            .expect("resumed job should exist")
+            .state
+            .paused
+    );
+
+    let (remove_messages, remove_confirms) =
+        run_turn_with_confirms(&mut client, "delete it", ConfirmDecisionPayload::AllowOnce).await;
+    assert_eq!(remove_confirms.len(), 1);
+    assert_eq!(remove_confirms[0].program, "remove_job");
+    assert_eq!(
+        tool_call_names(&remove_messages),
+        vec!["remove_job".to_string()]
+    );
+    let err = client
+        .get_job("daily-review")
+        .await
+        .expect_err("removed job should no longer exist");
+    assert!(matches!(err, DaemonError::Protocol(_)));
 
     shutdown_daemon(handle, &paths).await;
 }

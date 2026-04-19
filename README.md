@@ -4,7 +4,7 @@ Allbert is a terminal-first personal assistant built around a small Rust kernel,
 
 v0.2 targets a technical source-based user. You build it from source, point it at an Anthropic or OpenRouter API key, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, and recurring jobs.
 
-The daemon-backed jobs substrate, prompt-facing job tools, and explicit preview-and-confirm flow for durable schedule mutation are implemented today. The remaining v0.2 closeout work is final conversational polish: help text, docs, and end-to-end smoke that make scheduling through normal conversation feel as trustworthy as the operator CLI.
+The daemon-backed jobs substrate, prompt-facing job tools, and explicit preview-and-confirm flow for durable schedule mutation are all part of the shipped v0.2 experience. You can manage recurring jobs through `allbert-cli jobs ...` or through normal conversation in the REPL, with the CLI preserved as the clearest operator escape hatch.
 
 ## What v0.2 includes
 
@@ -142,6 +142,24 @@ Jobs commands:
 
 The job status surface includes recent outcome, last stop reason, and failure streak so you do not need to inspect JSONL files first.
 
+Conversational scheduling examples:
+
+- `what jobs do I have?`
+- `schedule a daily review at 07:00`
+- `schedule a weekly review on monday at 09:00`
+- `run it now`
+- `why did that job fail?`
+- `pause it`
+- `resume it`
+- `delete it`
+
+Common schedule forms the assistant understands well in v0.2:
+
+- `@daily at HH:MM`
+- `@weekly on monday at HH:MM`
+- `every 2h`
+- `once at 2026-04-20T16:00:00Z`
+
 ## Skills and memory
 
 Skills live under `~/.allbert/skills/`.
@@ -181,7 +199,7 @@ Chat history is not the durable store. Important facts need to be written into m
 - no boot-time OS service install yet
 - bundled job templates are intentionally disabled by default
 - live provider use still depends on your network and API-key env vars
-- final conversational closeout is still pending for v0.2, so `allbert-cli jobs ...` remains the clearest operator escape hatch even though prompt-native scheduling and explicit preview/confirm are now implemented
+- conversational scheduling is optimized for the bounded schedule DSL used by v0.2; raw cron remains an advanced escape hatch
 
 ## More detail
 

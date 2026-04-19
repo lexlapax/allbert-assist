@@ -20,6 +20,16 @@ commands:
   /status   show provider, setup, roots, and trace state
   /exit     leave the REPL
   /quit     leave the REPL
+  ask naturally for recurring work:
+    - \"what jobs do I have?\"
+    - \"schedule a daily review at 07:00\"
+    - \"why did that job fail?\"
+    - \"pause it\" / \"resume it\" / \"delete it\"
+  common schedule forms:
+    - @daily at HH:MM
+    - @weekly on monday at HH:MM
+    - every 2h
+    - once at 2026-04-20T16:00:00Z
   unknown slash commands are rejected locally
   anything else is sent to the daemon-backed kernel session";
 

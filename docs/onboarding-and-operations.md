@@ -156,7 +156,7 @@ Notes:
 
 Jobs are daemon-owned and non-interactive by default.
 
-Job lifecycle management is authoritative through the CLI surfaces below, and daemon-backed prompt job tools now exist for conversational scheduling work. Durable schedule mutation now goes through an explicit preview-and-confirm step in interactive sessions. The CLI remains the clearest operator surface while the final v0.2 conversational closeout and smoke pass are still pending.
+Job lifecycle management is authoritative through the CLI surfaces below, and daemon-backed prompt job tools now make conversational scheduling a first-class path too. Durable schedule mutation goes through an explicit preview-and-confirm step in interactive sessions. The CLI remains the clearest operator surface, but it is no longer the only trustworthy way to manage recurring jobs.
 
 Canonical commands:
 
@@ -185,6 +185,26 @@ Job definitions live in `~/.allbert/jobs/definitions/` as markdown with YAML fro
 - last outcome
 - last stop reason when present
 - failure streak
+
+Conversational scheduling works best when you ask plainly. Good examples:
+
+- `what jobs do I have?`
+- `schedule a daily review at 07:00`
+- `schedule a weekly review on monday at 09:00`
+- `run it now`
+- `why did that job fail?`
+- `pause it`
+- `resume it`
+- `delete it`
+
+Common schedule forms the assistant should compile naturally in v0.2:
+
+- `@daily at HH:MM`
+- `@weekly on monday at HH:MM`
+- `every 2h`
+- `once at 2026-04-20T16:00:00Z`
+
+When you create, update, pause, resume, or remove a job from normal conversation, Allbert shows a durable-change preview and waits for explicit confirmation before persisting it.
 
 ## Bundled maintenance jobs
 
@@ -272,7 +292,7 @@ Setup feels incomplete:
 
 ## Release posture
 
-v0.2 is a technical-user release:
+v0.2 is a shipped technical-user release:
 
 - source-based
 - terminal-first

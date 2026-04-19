@@ -396,6 +396,17 @@ Available tools:\n",
         prompt.push_str("\n- invoke_skill: Activate a skill for this session, optionally with JSON args.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"},\"args\":{\"type\":\"object\"}}}\n");
         prompt.push_str("\n- create_skill: Create a skill under ~/.allbert/skills/<name>/SKILL.md.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"allowed_tools\",\"body\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"body\":{\"type\":\"string\"}}}\n");
         if self.job_manager.is_some() {
+            prompt.push_str(
+                "\nWhen the user asks for recurring or scheduled work, use the daemon-backed job tools instead of generic file edits or subprocesses.\n\
+Common schedule forms you may compile to are:\n\
+- @daily at HH:MM\n\
+- @weekly on monday at HH:MM\n\
+- every <duration> such as every 2h\n\
+- once at <RFC3339>\n\
+- cron: <5-field expression> only when the user explicitly wants cron-like control\n\
+For \"why did that job fail?\" inspect the job with get_job and recent runs with list_job_runs, usually with only_failures=true.\n\
+Do not claim a durable schedule change succeeded until the upsert/pause/resume/remove tool has actually completed after the explicit confirmation step.\n",
+            );
             prompt.push_str("\n- list_jobs: List recurring jobs managed by the daemon.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
             prompt.push_str("\n- get_job: Inspect one recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
             prompt.push_str("\n- upsert_job: Create or update a recurring job through the daemon-owned scheduler.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"schedule\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"enabled\":{\"type\":\"boolean\"},\"schedule\":{\"type\":\"string\"},\"skills\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timezone\":{\"type\":\"string\"},\"model\":{\"type\":\"object\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timeout_s\":{\"type\":\"integer\",\"minimum\":1},\"report\":{\"enum\":[\"always\",\"on_failure\",\"on_anomaly\"]},\"max_turns\":{\"type\":\"integer\",\"minimum\":1},\"prompt\":{\"type\":\"string\"}}}\n");
