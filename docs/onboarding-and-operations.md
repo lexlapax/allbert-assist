@@ -156,6 +156,8 @@ Notes:
 
 Jobs are daemon-owned and non-interactive by default.
 
+Today, job lifecycle management is authoritative through the CLI surfaces below. Prompt-native scheduling is still a v0.2 closeout item, so if you need a recurring job to exist reliably now, use these commands rather than relying on free-form conversation.
+
 Canonical commands:
 
 - `cargo run -p allbert-cli -- jobs list`

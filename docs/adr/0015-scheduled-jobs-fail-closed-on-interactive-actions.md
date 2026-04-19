@@ -18,6 +18,7 @@ Scheduled jobs launched by the daemon-owned job manager fail closed on interacti
 - Job history should record the reason a run stopped when it encounters missing input or denied confirmation.
 - Bundled maintenance jobs should be designed to avoid interactive requirements entirely.
 - Scheduled runs cannot create, edit, pause, resume, or remove other scheduled jobs while they are executing.
+- This restriction applies to unattended scheduled runs, not to an interactive human-driven session. Interactive sessions may mutate jobs, but only through the explicit conversational preview-and-confirm path defined by later closeout ADRs.
 - Output policy should be explicit. At minimum, the design should support `always`, `on_failure`, and `on_anomaly` style reporting rather than assuming every successful run should speak up.
 
 ## Consequences
@@ -36,7 +37,7 @@ Scheduled jobs launched by the daemon-owned job manager fail closed on interacti
 **Neutral**
 - Future versions may add richer non-interactive policy profiles, but the default remains fail-closed.
 - A separate queue-for-review UX could be added later without changing this default rule.
-- This ADR does not decide delivery targets; it only decides that unattended runs must not block on a human or self-modify the scheduler.
+- This ADR does not decide delivery targets; it only decides that unattended runs must not block on a human or self-modify the scheduler. Interactive scheduling UX is a separate concern.
 
 ## References
 

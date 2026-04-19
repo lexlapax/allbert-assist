@@ -17,6 +17,7 @@ v0.2's primary operator surface is unified under `allbert-cli`.
 - `allbert-jobs` remains available as an alias binary over the same thin-client implementation, not as a separate product surface.
 - Source-based docs should use `cargo run -p allbert-cli -- ...` as the canonical example path.
 - Any future shorter installed alias (such as `allbert`) is a packaging concern, not a separate runtime contract.
+- This operator unification does not mean recurring jobs are CLI-only forever. Conversational job management remains an expected v0.2 closeout path, with `allbert-cli` preserved as the authoritative operator escape hatch.
 
 ## Consequences
 
@@ -32,8 +33,10 @@ v0.2's primary operator surface is unified under `allbert-cli`.
 **Neutral**
 - The alias binary can still be useful for users who prefer dedicated job commands.
 - A future packaged release can change the executable name without changing the operator model.
+- Prompt-native job management can still be added without changing this ADR, as long as `allbert-cli` remains the canonical explicit operator surface.
 
 ## References
 
 - [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
 - [ADR 0013](0013-clients-attach-to-a-daemon-hosted-kernel-via-channels.md)
+- [ADR 0026](0026-interactive-sessions-expose-first-class-daemon-backed-job-management-tools.md)

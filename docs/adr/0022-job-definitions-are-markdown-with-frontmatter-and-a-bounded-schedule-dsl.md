@@ -26,7 +26,7 @@ Option 2 for each pairs well: skills already use markdown+frontmatter, and a bou
 
 ## Decision
 
-Job definitions are markdown files with YAML frontmatter. Schedules use a bounded DSL with a cron escape hatch.
+Job definitions are markdown files with YAML frontmatter. Schedules use a bounded DSL with a cron escape hatch. This is the canonical persistence format whether a job is authored from a file, through `allbert-cli jobs upsert`, or later through prompt-native job authoring.
 
 ### File format
 
@@ -101,6 +101,7 @@ Bundled job templates (ADR 0017) must ship with `enabled: false` and use the DSL
 - Future versions can extend the frontmatter schema (e.g. retry policy, resource limits) behind a version bump.
 - `once at …` is the natural seed for a future "queue this job for later" surface without redesigning the format.
 - A future UI for authoring jobs would still target this file format directly.
+- Prompt-authored jobs should compile into this same canonical format rather than introducing a second persisted representation.
 
 ## References
 

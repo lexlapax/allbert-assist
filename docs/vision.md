@@ -18,6 +18,7 @@ The project is centered on a small Rust runtime kernel rather than a bloated app
 
 - Run an agentic loop that can listen, reason, act, and continue a turn until it is done or hits a limit.
 - Run that loop either directly or inside a long-lived local daemon that can host multiple attachable channels.
+- Let a user create and manage recurring work through normal conversation, while still requiring explicit confirmation for durable schedule changes.
 - Load a small bootstrap bundle of markdown files that define persona, user context, identity, and local working conventions.
 - Discover, read, and invoke skills.
 - Execute a small set of core tools, including process execution, input gathering, and memory operations.
@@ -67,7 +68,7 @@ End-user usability in v0.1 comes from guided setup for bootstrap identity and ex
 
 After that foundation is solid, the next step is not just "cron jobs." It is a daemon substrate plus lightweight internal services, especially an internal job manager that can run background and scheduled work without making OS cron the primary runtime mechanism.
 
-From there, the project can grow into scheduled jobs, broader integrations, richer memory retrieval, self-generated skills, and additional frontends.
+From there, the project can grow into richer scheduled-job UX, broader integrations, richer memory retrieval, self-generated skills, and additional frontends.
 
 Even as that happens, Allbert should remain local-first, compact, and understandable. It should not turn into a broad distributed microservice platform just to gain background execution.
 
