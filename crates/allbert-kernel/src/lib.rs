@@ -73,15 +73,36 @@ impl Kernel {
         .await
     }
 
+    pub async fn boot_with_paths_and_factory(
+        config: Config,
+        adapter: FrontendAdapter,
+        paths: AllbertPaths,
+        provider_factory: Arc<dyn ProviderFactory>,
+        session_id: Option<String>,
+    ) -> Result<Self, KernelError> {
+        Self::boot_with_parts_and_session(config, adapter, paths, provider_factory, session_id)
+            .await
+    }
+
     async fn boot_with_parts(
         config: Config,
         adapter: FrontendAdapter,
         paths: AllbertPaths,
         provider_factory: Arc<dyn ProviderFactory>,
     ) -> Result<Self, KernelError> {
+        Self::boot_with_parts_and_session(config, adapter, paths, provider_factory, None).await
+    }
+
+    async fn boot_with_parts_and_session(
+        config: Config,
+        adapter: FrontendAdapter,
+        paths: AllbertPaths,
+        provider_factory: Arc<dyn ProviderFactory>,
+        session_id: Option<String>,
+    ) -> Result<Self, KernelError> {
         paths.ensure()?;
 
-        let session_id = uuid::Uuid::new_v4().to_string();
+        let session_id = session_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let trace = trace::init_tracing(config.trace, &paths, &session_id)?;
         let llm = provider_factory.build(&config.model).await?;
         let skills = SkillStore::discover(&paths.skills);
@@ -302,6 +323,10 @@ impl Kernel {
 
     pub fn session_id(&self) -> &str {
         &self.state.session_id
+    }
+
+    pub fn set_adapter(&mut self, adapter: FrontendAdapter) {
+        self.adapter = adapter;
     }
 
     pub fn provider_name(&self) -> &'static str {

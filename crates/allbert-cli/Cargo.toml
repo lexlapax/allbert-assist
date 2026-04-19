@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+allbert-daemon = { path = "../allbert-daemon" }
 allbert-kernel = { path = "../allbert-kernel" }
+allbert-proto = { path = "../allbert-proto" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 clap = { version = "4.4", features = ["derive"] }

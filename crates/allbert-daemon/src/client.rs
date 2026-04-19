@@ -5,7 +5,8 @@ use std::time::Duration;
 use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
     AttachedChannel, ChannelKind, ClientHello, ClientKind, ClientMessage, DaemonStatus,
-    OpenChannel, ProtocolError, ServerMessage, PROTOCOL_VERSION,
+    ModelConfigPayload, OpenChannel, ProtocolError, ServerMessage, SessionStatus, TurnRequest,
+    PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
@@ -154,8 +155,8 @@ impl DaemonClient {
     }
 
     pub async fn status(&mut self) -> Result<DaemonStatus, DaemonError> {
-        send_message(&mut self.framed, &ClientMessage::Status).await?;
-        match recv_message(&mut self.framed).await? {
+        self.send(&ClientMessage::Status).await?;
+        match self.recv().await? {
             ServerMessage::Status(status) => Ok(status),
             ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
             other => Err(DaemonError::Protocol(format!(
@@ -166,8 +167,8 @@ impl DaemonClient {
     }
 
     pub async fn shutdown(&mut self) -> Result<(), DaemonError> {
-        send_message(&mut self.framed, &ClientMessage::Shutdown).await?;
-        match recv_message(&mut self.framed).await? {
+        self.send(&ClientMessage::Shutdown).await?;
+        match self.recv().await? {
             ServerMessage::Ack => Ok(()),
             ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
             other => Err(DaemonError::Protocol(format!(
@@ -175,6 +176,70 @@ impl DaemonClient {
                 other
             ))),
         }
+    }
+
+    pub async fn session_status(&mut self) -> Result<SessionStatus, DaemonError> {
+        self.send(&ClientMessage::SessionStatus).await?;
+        match self.recv().await? {
+            ServerMessage::SessionStatus(status) => Ok(status),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected session status, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn get_model(&mut self) -> Result<ModelConfigPayload, DaemonError> {
+        self.send(&ClientMessage::GetModel).await?;
+        match self.recv().await? {
+            ServerMessage::Model(model) => Ok(model),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected model, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn set_model(
+        &mut self,
+        model: ModelConfigPayload,
+    ) -> Result<ModelConfigPayload, DaemonError> {
+        self.send(&ClientMessage::SetModel(model)).await?;
+        match self.recv().await? {
+            ServerMessage::Model(model) => Ok(model),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected model, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn reload_session_config(&mut self) -> Result<(), DaemonError> {
+        self.send(&ClientMessage::ReloadSessionConfig).await?;
+        match self.recv().await? {
+            ServerMessage::Ack => Ok(()),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected ack, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn start_turn(&mut self, input: String) -> Result<(), DaemonError> {
+        self.send(&ClientMessage::RunTurn(TurnRequest { input }))
+            .await
+    }
+
+    pub async fn send(&mut self, message: &ClientMessage) -> Result<(), DaemonError> {
+        send_message(&mut self.framed, message).await
+    }
+
+    pub async fn recv(&mut self) -> Result<ServerMessage, DaemonError> {
+        recv_message(&mut self.framed).await
     }
 }
 

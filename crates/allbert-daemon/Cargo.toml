@@ -16,6 +16,7 @@ interprocess = { version = "2.2", features = ["tokio"] }
 bytes = "1.0"
 time = { version = "0.3", features = ["formatting", "macros"] }
 uuid = { version = "1", features = ["v4"] }
+async-trait = "0.1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

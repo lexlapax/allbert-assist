@@ -15,7 +15,9 @@ dependencies = [
 name = "allbert-cli"
 version = "0.1.0"
 dependencies = [
+ "allbert-daemon",
  "allbert-kernel",
+ "allbert-proto",
  "anyhow",
  "async-trait",
  "clap",
@@ -31,6 +33,7 @@ version = "0.1.0"
 dependencies = [
  "allbert-kernel",
  "allbert-proto",
+ "async-trait",
  "bytes",
  "clap",
  "futures-util",
@@ -68,6 +71,7 @@ name = "allbert-proto"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
 ]
 
 [[package]]

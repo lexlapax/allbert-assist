@@ -1,13 +1,21 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicU64, AtomicUsize, Ordering},
     Arc,
 };
 
+use allbert_kernel::{
+    llm::{DefaultProviderFactory, ProviderFactory},
+    ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter, InputRequest,
+    InputResponse, Kernel, KernelError, KernelEvent, ModelConfig,
+};
 use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
-    AttachedChannel, ChannelKind, ClientMessage, DaemonStatus, ProtocolError, ServerHello,
-    ServerMessage, PROTOCOL_VERSION,
+    AttachedChannel, ChannelKind, ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload,
+    ConfirmRequestPayload, DaemonStatus, InputReplyPayload, InputRequestPayload,
+    InputResponsePayload, KernelEventPayload, ModelConfigPayload, ProtocolError, ProviderKind,
+    ServerHello, ServerMessage, SessionStatus, TurnResult, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
@@ -17,7 +25,11 @@ use interprocess::local_socket::{
     ConnectOptions, GenericFilePath, ListenerOptions,
 };
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
-use tokio::{task::JoinHandle, time::Duration};
+use tokio::{
+    sync::{mpsc, oneshot, Mutex, RwLock},
+    task::JoinHandle,
+    time::Duration,
+};
 use tokio_util::{
     codec::{Framed, LengthDelimitedCodec},
     sync::CancellationToken,
@@ -35,8 +47,28 @@ struct SharedState {
     trace_enabled: bool,
     active_clients: Arc<AtomicUsize>,
     next_session: Arc<AtomicU64>,
+    next_request: Arc<AtomicU64>,
     shutdown: CancellationToken,
     log_path: PathBuf,
+    paths: AllbertPaths,
+    default_config: Arc<RwLock<Config>>,
+    provider_factory: Arc<dyn ProviderFactory>,
+    sessions: Arc<RwLock<HashMap<String, Arc<SessionHandle>>>>,
+}
+
+struct SessionHandle {
+    session_id: String,
+    channel: ChannelKind,
+    kernel: Arc<Mutex<Kernel>>,
+}
+
+enum OutboundMessage {
+    Event(ServerMessage),
+    Confirm(
+        ConfirmRequestPayload,
+        oneshot::Sender<ConfirmDecisionPayload>,
+    ),
+    Input(InputRequestPayload, oneshot::Sender<InputResponsePayload>),
 }
 
 pub struct RunningDaemon {
@@ -62,6 +94,14 @@ impl RunningDaemon {
 }
 
 pub async fn spawn(config: Config, paths: AllbertPaths) -> Result<RunningDaemon, DaemonError> {
+    spawn_with_factory(config, paths, Arc::new(DefaultProviderFactory::default())).await
+}
+
+pub async fn spawn_with_factory(
+    config: Config,
+    paths: AllbertPaths,
+    provider_factory: Arc<dyn ProviderFactory>,
+) -> Result<RunningDaemon, DaemonError> {
     paths.ensure()?;
 
     let socket_path = config
@@ -87,8 +127,13 @@ pub async fn spawn(config: Config, paths: AllbertPaths) -> Result<RunningDaemon,
         trace_enabled: config.trace,
         active_clients: Arc::new(AtomicUsize::new(0)),
         next_session: Arc::new(AtomicU64::new(1)),
+        next_request: Arc::new(AtomicU64::new(1)),
         shutdown: shutdown.clone(),
         log_path: log_dir.join("daemon.log"),
+        paths,
+        default_config: Arc::new(RwLock::new(config)),
+        provider_factory,
+        sessions: Arc::new(RwLock::new(HashMap::new())),
     };
     append_log_line(
         &state.log_path,
@@ -96,7 +141,7 @@ pub async fn spawn(config: Config, paths: AllbertPaths) -> Result<RunningDaemon,
             "boot pid={} socket={} trace={}",
             std::process::id(),
             socket_path.display(),
-            config.trace
+            state.trace_enabled
         ),
     )?;
 
@@ -224,6 +269,8 @@ async fn handle_connection(
         }
     }
 
+    let mut attached_session: Option<Arc<SessionHandle>> = None;
+
     while let Ok(message) = recv_client_message(&mut framed).await {
         match message {
             ClientMessage::Hello(_) => {
@@ -247,14 +294,13 @@ async fn handle_connection(
                     }
                 });
 
-                send_server_message(
-                    &mut framed,
-                    &ServerMessage::Attached(AttachedChannel {
-                        channel: open.channel,
-                        session_id,
-                    }),
-                )
-                .await?;
+                let session = get_or_create_session(&state, open.channel, session_id).await?;
+                let attached = AttachedChannel {
+                    channel: session.channel,
+                    session_id: session.session_id.clone(),
+                };
+                attached_session = Some(session);
+                send_server_message(&mut framed, &ServerMessage::Attached(attached)).await?;
             }
             ClientMessage::Status => {
                 send_server_message(
@@ -264,21 +310,434 @@ async fn handle_connection(
                         pid: std::process::id(),
                         socket_path: state.socket_path.display().to_string(),
                         started_at: state.started_at.clone(),
-                        session_count: state.active_clients.load(Ordering::SeqCst),
+                        session_count: state.sessions.read().await.len(),
                         trace_enabled: state.trace_enabled,
                     }),
                 )
                 .await?;
             }
-            ClientMessage::Shutdown => {
-                send_server_message(&mut framed, &ServerMessage::Ack).await?;
-                state.shutdown.cancel();
-                return Ok(());
+            ClientMessage::SessionStatus => {
+                let session = require_session(attached_session.as_ref())?;
+                let status = session_status(session).await?;
+                send_server_message(&mut framed, &ServerMessage::SessionStatus(status)).await?;
             }
+            ClientMessage::GetModel => {
+                let session = require_session(attached_session.as_ref())?;
+                let kernel = session.kernel.lock().await;
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::Model(model_to_payload(kernel.model())),
+                )
+                .await?;
+            }
+            ClientMessage::SetModel(model) => {
+                let session = require_session(attached_session.as_ref())?;
+                let mut kernel = session.kernel.lock().await;
+                kernel
+                    .set_model(model_from_payload(model.clone()))
+                    .await
+                    .map_err(map_kernel_error)?;
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::Model(model_to_payload(kernel.model())),
+                )
+                .await?;
+            }
+            ClientMessage::ReloadSessionConfig => {
+                let session = require_session(attached_session.as_ref())?;
+                let reloaded = Config::load_or_create(&state.paths).map_err(map_kernel_error)?;
+                *state.default_config.write().await = reloaded.clone();
+                let mut kernel = session.kernel.lock().await;
+                let session_model = kernel.model().clone();
+                let mut session_config = reloaded;
+                session_config.model = session_model;
+                kernel
+                    .apply_config(session_config)
+                    .await
+                    .map_err(map_kernel_error)?;
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
+            ClientMessage::RunTurn(turn) => {
+                let session = require_session(attached_session.as_ref())?.clone();
+                run_turn_over_channel(&mut framed, &state, session, turn.input).await?;
+            }
+            ClientMessage::ConfirmReply(_)
+            | ClientMessage::InputReply(_)
+            | ClientMessage::Shutdown => match message {
+                ClientMessage::Shutdown => {
+                    send_server_message(&mut framed, &ServerMessage::Ack).await?;
+                    state.shutdown.cancel();
+                    return Ok(());
+                }
+                _ => {
+                    send_server_message(
+                        &mut framed,
+                        &ServerMessage::Error(ProtocolError {
+                            code: "unexpected_reply".into(),
+                            message: "unexpected interactive reply outside a pending turn".into(),
+                        }),
+                    )
+                    .await?;
+                }
+            },
         }
     }
 
     Ok(())
+}
+
+async fn get_or_create_session(
+    state: &SharedState,
+    channel: ChannelKind,
+    session_id: String,
+) -> Result<Arc<SessionHandle>, DaemonError> {
+    if let Some(existing) = state.sessions.read().await.get(&session_id).cloned() {
+        return Ok(existing);
+    }
+
+    let adapter = disconnected_adapter();
+    let config = state.default_config.read().await.clone();
+    let kernel = Kernel::boot_with_paths_and_factory(
+        config,
+        adapter,
+        state.paths.clone(),
+        state.provider_factory.clone(),
+        Some(session_id.clone()),
+    )
+    .await
+    .map_err(map_kernel_error)?;
+    let handle = Arc::new(SessionHandle {
+        session_id: session_id.clone(),
+        channel,
+        kernel: Arc::new(Mutex::new(kernel)),
+    });
+
+    let mut sessions = state.sessions.write().await;
+    Ok(sessions
+        .entry(session_id)
+        .or_insert_with(|| handle.clone())
+        .clone())
+}
+
+async fn run_turn_over_channel(
+    framed: &mut FramedStream,
+    state: &SharedState,
+    session: Arc<SessionHandle>,
+    input: String,
+) -> Result<(), DaemonError> {
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    let adapter = channel_adapter(tx, state.next_request.clone());
+
+    let kernel = session.kernel.clone();
+    let turn = async move {
+        let mut kernel = kernel.lock().await;
+        kernel.set_adapter(adapter);
+        kernel.run_turn(&input).await
+    };
+    tokio::pin!(turn);
+
+    let mut client_connected = true;
+
+    loop {
+        tokio::select! {
+            outbound = rx.recv() => {
+                let Some(outbound) = outbound else {
+                    continue;
+                };
+                match outbound {
+                    OutboundMessage::Event(message) => {
+                        if client_connected && send_server_message(framed, &message).await.is_err() {
+                            client_connected = false;
+                        }
+                    }
+                    OutboundMessage::Confirm(request, reply) => {
+                        if !client_connected {
+                            let _ = reply.send(ConfirmDecisionPayload::Deny);
+                            continue;
+                        }
+                        if send_server_message(framed, &ServerMessage::ConfirmRequest(request.clone())).await.is_err() {
+                            client_connected = false;
+                            let _ = reply.send(ConfirmDecisionPayload::Deny);
+                            continue;
+                        }
+                        match recv_client_message(framed).await {
+                            Ok(ClientMessage::ConfirmReply(ConfirmReplyPayload { request_id, decision })) if request_id == request.request_id => {
+                                let _ = reply.send(decision);
+                            }
+                            Ok(_) | Err(_) => {
+                                client_connected = false;
+                                let _ = reply.send(ConfirmDecisionPayload::Deny);
+                            }
+                        }
+                    }
+                    OutboundMessage::Input(request, reply) => {
+                        if !client_connected {
+                            let _ = reply.send(InputResponsePayload::Cancelled);
+                            continue;
+                        }
+                        if send_server_message(framed, &ServerMessage::InputRequest(request.clone())).await.is_err() {
+                            client_connected = false;
+                            let _ = reply.send(InputResponsePayload::Cancelled);
+                            continue;
+                        }
+                        match recv_client_message(framed).await {
+                            Ok(ClientMessage::InputReply(InputReplyPayload { request_id, response })) if request_id == request.request_id => {
+                                let _ = reply.send(response);
+                            }
+                            Ok(_) | Err(_) => {
+                                client_connected = false;
+                                let _ = reply.send(InputResponsePayload::Cancelled);
+                            }
+                        }
+                    }
+                }
+            }
+            result = &mut turn => {
+                match result {
+                    Ok(summary) => {
+                        drain_outbound_queue(&mut rx, framed, &mut client_connected).await;
+                        if client_connected {
+                            let _ = send_server_message(
+                                framed,
+                                &ServerMessage::TurnResult(TurnResult {
+                                    hit_turn_limit: summary.hit_turn_limit,
+                                }),
+                            )
+                            .await;
+                        }
+                        return Ok(());
+                    }
+                    Err(error) => {
+                        drain_outbound_queue(&mut rx, framed, &mut client_connected).await;
+                        if client_connected {
+                            let _ = send_server_message(
+                                framed,
+                                &ServerMessage::Error(ProtocolError {
+                                    code: "turn_failed".into(),
+                                    message: error.to_string(),
+                                }),
+                            )
+                            .await;
+                        }
+                        return Err(map_kernel_error(error));
+                    }
+                }
+            }
+        }
+    }
+}
+
+async fn drain_outbound_queue(
+    rx: &mut mpsc::UnboundedReceiver<OutboundMessage>,
+    framed: &mut FramedStream,
+    client_connected: &mut bool,
+) {
+    while let Ok(outbound) = rx.try_recv() {
+        match outbound {
+            OutboundMessage::Event(message) => {
+                if *client_connected && send_server_message(framed, &message).await.is_err() {
+                    *client_connected = false;
+                }
+            }
+            OutboundMessage::Confirm(_, reply) => {
+                let _ = reply.send(ConfirmDecisionPayload::Deny);
+            }
+            OutboundMessage::Input(_, reply) => {
+                let _ = reply.send(InputResponsePayload::Cancelled);
+            }
+        }
+    }
+}
+
+fn require_session(
+    session: Option<&Arc<SessionHandle>>,
+) -> Result<&Arc<SessionHandle>, DaemonError> {
+    session.ok_or_else(|| DaemonError::Protocol("no session is attached to this connection".into()))
+}
+
+async fn session_status(session: &Arc<SessionHandle>) -> Result<SessionStatus, DaemonError> {
+    let kernel = session.kernel.lock().await;
+    let config = kernel.config().clone();
+    let model = kernel.model().clone();
+
+    Ok(SessionStatus {
+        session_id: session.session_id.clone(),
+        provider: kernel.provider_name().into(),
+        model: model_to_payload(&model),
+        api_key_present: std::env::var_os(&model.api_key_env).is_some(),
+        setup_version: config.setup.version,
+        bootstrap_pending: kernel.paths().bootstrap.exists(),
+        trusted_roots: config
+            .security
+            .fs_roots
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect(),
+        skill_count: kernel.list_skills().len(),
+        trace_enabled: config.trace,
+        session_cost_usd: kernel.session_cost_usd(),
+        today_cost_usd: kernel.today_cost_usd().map_err(map_kernel_error)?,
+    })
+}
+
+fn disconnected_adapter() -> FrontendAdapter {
+    FrontendAdapter {
+        on_event: Box::new(|_| {}),
+        confirm: Arc::new(DisconnectedConfirm),
+        input: Arc::new(DisconnectedInput),
+    }
+}
+
+fn channel_adapter(
+    outbound: mpsc::UnboundedSender<OutboundMessage>,
+    next_request: Arc<AtomicU64>,
+) -> FrontendAdapter {
+    let outbound_for_events = outbound.clone();
+    FrontendAdapter {
+        on_event: Box::new(move |event: &KernelEvent| {
+            let _ = outbound_for_events.send(OutboundMessage::Event(ServerMessage::Event(
+                map_kernel_event(event),
+            )));
+        }),
+        confirm: Arc::new(ChannelConfirm {
+            outbound: outbound.clone(),
+            next_request: next_request.clone(),
+        }),
+        input: Arc::new(ChannelInput {
+            outbound,
+            next_request,
+        }),
+    }
+}
+
+struct DisconnectedConfirm;
+
+#[async_trait::async_trait]
+impl ConfirmPrompter for DisconnectedConfirm {
+    async fn confirm(&self, _req: ConfirmRequest) -> ConfirmDecision {
+        ConfirmDecision::Deny
+    }
+}
+
+struct DisconnectedInput;
+
+#[async_trait::async_trait]
+impl InputPrompter for DisconnectedInput {
+    async fn request_input(&self, _req: InputRequest) -> InputResponse {
+        InputResponse::Cancelled
+    }
+}
+
+struct ChannelConfirm {
+    outbound: mpsc::UnboundedSender<OutboundMessage>,
+    next_request: Arc<AtomicU64>,
+}
+
+#[async_trait::async_trait]
+impl ConfirmPrompter for ChannelConfirm {
+    async fn confirm(&self, req: ConfirmRequest) -> ConfirmDecision {
+        let request_id = self.next_request.fetch_add(1, Ordering::SeqCst);
+        let (tx, rx) = oneshot::channel();
+        let payload = ConfirmRequestPayload {
+            request_id,
+            program: req.program,
+            args: req.args,
+            cwd: req.cwd.map(|path| path.display().to_string()),
+            rendered: req.rendered,
+        };
+        if self
+            .outbound
+            .send(OutboundMessage::Confirm(payload, tx))
+            .is_err()
+        {
+            return ConfirmDecision::Deny;
+        }
+
+        match rx.await {
+            Ok(ConfirmDecisionPayload::AllowOnce) => ConfirmDecision::AllowOnce,
+            Ok(ConfirmDecisionPayload::AllowSession) => ConfirmDecision::AllowSession,
+            _ => ConfirmDecision::Deny,
+        }
+    }
+}
+
+struct ChannelInput {
+    outbound: mpsc::UnboundedSender<OutboundMessage>,
+    next_request: Arc<AtomicU64>,
+}
+
+#[async_trait::async_trait]
+impl InputPrompter for ChannelInput {
+    async fn request_input(&self, req: InputRequest) -> InputResponse {
+        let request_id = self.next_request.fetch_add(1, Ordering::SeqCst);
+        let (tx, rx) = oneshot::channel();
+        let payload = InputRequestPayload {
+            request_id,
+            prompt: req.prompt,
+            allow_empty: req.allow_empty,
+        };
+        if self
+            .outbound
+            .send(OutboundMessage::Input(payload, tx))
+            .is_err()
+        {
+            return InputResponse::Cancelled;
+        }
+
+        match rx.await {
+            Ok(InputResponsePayload::Submitted(value)) => InputResponse::Submitted(value),
+            _ => InputResponse::Cancelled,
+        }
+    }
+}
+
+fn model_to_payload(model: &ModelConfig) -> ModelConfigPayload {
+    ModelConfigPayload {
+        provider: match model.provider {
+            allbert_kernel::Provider::Anthropic => ProviderKind::Anthropic,
+            allbert_kernel::Provider::Openrouter => ProviderKind::Openrouter,
+        },
+        model_id: model.model_id.clone(),
+        api_key_env: model.api_key_env.clone(),
+        max_tokens: model.max_tokens,
+    }
+}
+
+fn model_from_payload(model: ModelConfigPayload) -> ModelConfig {
+    ModelConfig {
+        provider: match model.provider {
+            ProviderKind::Anthropic => allbert_kernel::Provider::Anthropic,
+            ProviderKind::Openrouter => allbert_kernel::Provider::Openrouter,
+        },
+        model_id: model.model_id,
+        api_key_env: model.api_key_env,
+        max_tokens: model.max_tokens,
+    }
+}
+
+fn map_kernel_event(event: &KernelEvent) -> KernelEventPayload {
+    match event {
+        KernelEvent::AssistantText(text) => KernelEventPayload::AssistantText(text.clone()),
+        KernelEvent::ToolCall { name, input } => KernelEventPayload::ToolCall {
+            name: name.clone(),
+            input: input.clone(),
+        },
+        KernelEvent::ToolResult { name, ok, content } => KernelEventPayload::ToolResult {
+            name: name.clone(),
+            ok: *ok,
+            content: content.clone(),
+        },
+        KernelEvent::Cost(entry) => KernelEventPayload::Cost {
+            usd_estimate: entry.usd_estimate,
+        },
+        KernelEvent::TurnDone { hit_turn_limit } => KernelEventPayload::TurnDone {
+            hit_turn_limit: *hit_turn_limit,
+        },
+    }
+}
+
+fn map_kernel_error(error: KernelError) -> DaemonError {
+    DaemonError::Protocol(error.to_string())
 }
 
 fn prepare_socket_dir(socket_path: &Path) -> Result<(), DaemonError> {

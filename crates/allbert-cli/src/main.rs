@@ -1,6 +1,6 @@
-use std::sync::Arc;
-
-use allbert_kernel::{AllbertPaths, Config, FrontendAdapter, Kernel, KernelEvent};
+use allbert_daemon::{default_spawn_config, DaemonClient};
+use allbert_kernel::{AllbertPaths, Config};
+use allbert_proto::ClientKind;
 use anyhow::Result;
 use clap::Parser;
 
@@ -8,7 +8,7 @@ mod repl;
 mod setup;
 
 #[derive(Parser, Debug)]
-#[command(author, version, about = "Allbert v0.1 REPL frontend", long_about = None)]
+#[command(author, version, about = "Allbert daemon-backed REPL client", long_about = None)]
 struct Args {
     /// Enable DEBUG file-layer tracing to ~/.allbert/traces/<session>-<ts>.log.
     #[arg(long)]
@@ -41,29 +41,19 @@ async fn main() -> Result<()> {
     }
     setup::print_startup_warnings(&config);
 
-    let adapter = FrontendAdapter {
-        on_event: Box::new(|event: &KernelEvent| match event {
-            KernelEvent::AssistantText(text) => println!("{text}"),
-            KernelEvent::ToolCall { name, .. } => {
-                eprintln!("[tool call: {name}]");
-            }
-            KernelEvent::ToolResult { name, ok, .. } => {
-                let tag = if *ok { "ok" } else { "err" };
-                eprintln!("[tool result: {name} ({tag})]");
-            }
-            KernelEvent::Cost(_) => {}
-            KernelEvent::TurnDone { hit_turn_limit } => {
-                if *hit_turn_limit {
-                    eprintln!("[turn hit max-turns limit]");
-                }
-            }
-        }),
-        confirm: Arc::new(repl::TerminalConfirm),
-        input: Arc::new(repl::TerminalInput),
-    };
+    if args.trace {
+        eprintln!("[note] --trace now affects daemon config, not just a local client session");
+    }
+    if args.yes {
+        eprintln!("[note] --yes is not yet wired through the daemon path in v0.2 M2");
+    }
 
-    let mut kernel = Kernel::boot(config, adapter).await?;
-    tracing::info!(session = kernel.session_id(), "REPL starting");
-    repl::run_loop(&mut kernel).await?;
+    let spawn = default_spawn_config(&paths, &config)?;
+    let mut client = DaemonClient::connect_or_spawn(&paths, ClientKind::Repl, &spawn).await?;
+    let attached = client
+        .attach(allbert_proto::ChannelKind::Repl, None)
+        .await?;
+    tracing::info!(session = attached.session_id, "REPL attached");
+    repl::run_loop(&mut client, &paths).await?;
     Ok(())
 }

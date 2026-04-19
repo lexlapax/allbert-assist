@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 pub const PROTOCOL_VERSION: u32 = 1;
 
@@ -71,21 +72,138 @@ pub struct ProtocolError {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderKind {
+    Anthropic,
+    Openrouter,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ModelConfigPayload {
+    pub provider: ProviderKind,
+    pub model_id: String,
+    pub api_key_env: String,
+    pub max_tokens: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SessionStatus {
+    pub session_id: String,
+    pub provider: String,
+    pub model: ModelConfigPayload,
+    pub api_key_present: bool,
+    pub setup_version: u8,
+    pub bootstrap_pending: bool,
+    pub trusted_roots: Vec<String>,
+    pub skill_count: usize,
+    pub trace_enabled: bool,
+    pub session_cost_usd: f64,
+    pub today_cost_usd: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TurnRequest {
+    pub input: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TurnResult {
+    pub hit_turn_limit: bool,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ConfirmDecisionPayload {
+    Deny,
+    AllowOnce,
+    AllowSession,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ConfirmRequestPayload {
+    pub request_id: u64,
+    pub program: String,
+    pub args: Vec<String>,
+    pub cwd: Option<String>,
+    pub rendered: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ConfirmReplyPayload {
+    pub request_id: u64,
+    pub decision: ConfirmDecisionPayload,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InputRequestPayload {
+    pub request_id: u64,
+    pub prompt: String,
+    pub allow_empty: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
+pub enum InputResponsePayload {
+    Submitted(String),
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InputReplyPayload {
+    pub request_id: u64,
+    pub response: InputResponsePayload,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "kind", content = "payload", rename_all = "snake_case")]
+pub enum KernelEventPayload {
+    AssistantText(String),
+    ToolCall {
+        name: String,
+        input: Value,
+    },
+    ToolResult {
+        name: String,
+        ok: bool,
+        content: String,
+    },
+    Cost {
+        usd_estimate: f64,
+    },
+    TurnDone {
+        hit_turn_limit: bool,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", content = "payload", rename_all = "snake_case")]
 pub enum ClientMessage {
     Hello(ClientHello),
     Attach(OpenChannel),
     Status,
+    SessionStatus,
+    RunTurn(TurnRequest),
+    ConfirmReply(ConfirmReplyPayload),
+    InputReply(InputReplyPayload),
+    GetModel,
+    SetModel(ModelConfigPayload),
+    ReloadSessionConfig,
     Shutdown,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "payload", rename_all = "snake_case")]
 pub enum ServerMessage {
     Hello(ServerHello),
     Attached(AttachedChannel),
     Status(DaemonStatus),
+    SessionStatus(SessionStatus),
+    Event(KernelEventPayload),
+    ConfirmRequest(ConfirmRequestPayload),
+    InputRequest(InputRequestPayload),
+    TurnResult(TurnResult),
+    Model(ModelConfigPayload),
     Ack,
     Error(ProtocolError),
 }

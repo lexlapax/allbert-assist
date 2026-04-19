@@ -2,7 +2,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use allbert_kernel::{AllbertPaths, Config, Kernel};
+use allbert_kernel::{AllbertPaths, Config};
 use anyhow::{Context, Result};
 
 const PLACEHOLDER_UNKNOWN: &str = "Unknown";
@@ -166,22 +166,6 @@ pub fn build_startup_warnings(config: &Config) -> Vec<String> {
 pub fn print_startup_warnings(config: &Config) {
     for warning in build_startup_warnings(config) {
         eprintln!("{warning}");
-    }
-}
-
-pub fn snapshot_from_kernel(kernel: &Kernel) -> StatusSnapshot {
-    let model = kernel.model();
-    let config = kernel.config();
-    StatusSnapshot {
-        provider: kernel.provider_name().into(),
-        model_id: model.model_id.clone(),
-        api_key_env: model.api_key_env.clone(),
-        api_key_present: std::env::var_os(&model.api_key_env).is_some(),
-        setup_version: config.setup.version,
-        bootstrap_pending: kernel.paths().bootstrap.exists(),
-        trusted_roots: config.security.fs_roots.clone(),
-        skill_count: kernel.list_skills().len(),
-        trace_enabled: config.trace,
     }
 }
 
