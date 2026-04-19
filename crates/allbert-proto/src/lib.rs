@@ -133,6 +133,9 @@ pub struct JobStatePayload {
     pub next_due_at: Option<String>,
     pub failure_streak: u32,
     pub running: bool,
+    pub last_run_id: Option<String>,
+    pub last_outcome: Option<String>,
+    pub last_stop_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -211,6 +214,12 @@ pub struct InputReplyPayload {
 #[serde(tag = "kind", content = "payload", rename_all = "snake_case")]
 pub enum KernelEventPayload {
     AssistantText(String),
+    JobFailed {
+        job_name: String,
+        run_id: String,
+        ended_at: String,
+        stop_reason: Option<String>,
+    },
     ToolCall {
         name: String,
         input: Value,

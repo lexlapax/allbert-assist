@@ -1,7 +1,7 @@
 # ADR 0020: Local IPC with client auto-spawn is the v0.2 control-plane default
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

@@ -1245,3 +1245,106 @@ async fn bundled_jobs_fail_closed_when_interactive_input_is_required() {
 
     shutdown_daemon(handle, &paths).await;
 }
+
+#[tokio::test]
+async fn job_failures_are_broadcast_to_attached_repl_clients() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(Vec::new())),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut repl = wait_for_client(&paths).await;
+    repl.attach(ChannelKind::Repl, None)
+        .await
+        .expect("repl attach should succeed");
+
+    let mut jobs = DaemonClient::connect(&paths, ClientKind::Test)
+        .await
+        .expect("jobs client should connect");
+    jobs.attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+    jobs.upsert_job(sample_job("failing-job", "every 1h", "trigger a failure"))
+        .await
+        .expect("job should upsert");
+
+    let run = jobs
+        .run_job("failing-job")
+        .await
+        .expect("manual run should return a record");
+    assert_eq!(run.outcome, "failure");
+
+    let notice = timeout(Duration::from_secs(2), repl.recv())
+        .await
+        .expect("repl should receive a failure notice")
+        .expect("repl receive should succeed");
+    match notice {
+        ServerMessage::Event(KernelEventPayload::JobFailed {
+            job_name,
+            run_id,
+            stop_reason,
+            ..
+        }) => {
+            assert_eq!(job_name, "failing-job");
+            assert_eq!(run_id, run.run_id);
+            assert!(stop_reason
+                .unwrap_or_default()
+                .contains("no scripted response left"));
+        }
+        other => panic!("unexpected notice: {:?}", other),
+    }
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn daemon_shutdown_interrupts_running_jobs_and_records_them() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(ProbeFactory::new(1_500, "finished too late")),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut jobs = wait_for_client(&paths).await;
+    jobs.attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+    jobs.upsert_job(sample_job("slow-job", "every 1h", "slow run"))
+        .await
+        .expect("slow job should upsert");
+
+    let run_task = tokio::spawn(async move { jobs.run_job("slow-job").await });
+    sleep(Duration::from_millis(150)).await;
+
+    let mut shutdown_client = DaemonClient::connect(&paths, ClientKind::Test)
+        .await
+        .expect("shutdown client should connect");
+    shutdown_client
+        .shutdown()
+        .await
+        .expect("shutdown should be acknowledged");
+
+    let run = run_task
+        .await
+        .expect("run task should join")
+        .expect("run should return a record");
+    assert_eq!(run.outcome, "interrupted");
+    assert_eq!(run.stop_reason.as_deref(), Some("daemon shutdown"));
+
+    handle.wait().await.expect("daemon should exit");
+
+    let date = &run.started_at[..10];
+    let failures = std::fs::read_to_string(paths.jobs_failures.join(format!("{date}.jsonl")))
+        .expect("failure log should exist");
+    assert!(failures.contains("\"job_name\":\"slow-job\""));
+    assert!(failures.contains("\"outcome\":\"interrupted\""));
+}

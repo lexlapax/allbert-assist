@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
@@ -26,6 +27,7 @@ pub struct SpawnConfig {
     pub program: PathBuf,
     pub args: Vec<String>,
     pub allbert_home: PathBuf,
+    pub working_dir: Option<PathBuf>,
     pub wait_timeout: Duration,
 }
 
@@ -35,6 +37,7 @@ impl SpawnConfig {
             program,
             args: vec!["run".into()],
             allbert_home,
+            working_dir: None,
             wait_timeout: Duration::from_secs(5),
         }
     }
@@ -42,6 +45,7 @@ impl SpawnConfig {
 
 pub struct DaemonClient {
     framed: FramedStream,
+    pending: VecDeque<ServerMessage>,
 }
 
 impl DaemonClient {
@@ -70,7 +74,10 @@ impl DaemonClient {
         .await?;
 
         match recv_message(&mut framed).await? {
-            ServerMessage::Hello(_) => Ok(Self { framed }),
+            ServerMessage::Hello(_) => Ok(Self {
+                framed,
+                pending: VecDeque::new(),
+            }),
             ServerMessage::Error(error) => Err(map_protocol_error(error, version)),
             other => Err(DaemonError::Protocol(format!(
                 "expected hello, got {:?}",
@@ -88,6 +95,9 @@ impl DaemonClient {
             let mut command = Command::new(&spawn.program);
             command
                 .args(&spawn.args)
+                .current_dir(spawn.working_dir.clone().unwrap_or_else(|| {
+                    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                }))
                 .env("ALLBERT_HOME", &spawn.allbert_home)
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
@@ -144,62 +154,56 @@ impl DaemonClient {
         )
         .await?;
 
-        match recv_message(&mut self.framed).await? {
-            ServerMessage::Attached(attached) => Ok(attached),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected attached, got {:?}",
-                other
-            ))),
+        match self
+            .recv_expected("attached", |message| match message {
+                ServerMessage::Attached(attached) => Some(Ok(attached)),
+                ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+                _ => None,
+            })
+            .await?
+        {
+            attached => Ok(attached),
         }
     }
 
     pub async fn status(&mut self) -> Result<DaemonStatus, DaemonError> {
         self.send(&ClientMessage::Status).await?;
-        match self.recv().await? {
-            ServerMessage::Status(status) => Ok(status),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected status, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("status", |message| match message {
+            ServerMessage::Status(status) => Some(Ok(status)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn shutdown(&mut self) -> Result<(), DaemonError> {
         self.send(&ClientMessage::Shutdown).await?;
-        match self.recv().await? {
-            ServerMessage::Ack => Ok(()),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected ack, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("ack", |message| match message {
+            ServerMessage::Ack => Some(Ok(())),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn session_status(&mut self) -> Result<SessionStatus, DaemonError> {
         self.send(&ClientMessage::SessionStatus).await?;
-        match self.recv().await? {
-            ServerMessage::SessionStatus(status) => Ok(status),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected session status, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("session status", |message| match message {
+            ServerMessage::SessionStatus(status) => Some(Ok(status)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn get_model(&mut self) -> Result<ModelConfigPayload, DaemonError> {
         self.send(&ClientMessage::GetModel).await?;
-        match self.recv().await? {
-            ServerMessage::Model(model) => Ok(model),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected model, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("model", |message| match message {
+            ServerMessage::Model(model) => Some(Ok(model)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn set_model(
@@ -207,50 +211,42 @@ impl DaemonClient {
         model: ModelConfigPayload,
     ) -> Result<ModelConfigPayload, DaemonError> {
         self.send(&ClientMessage::SetModel(model)).await?;
-        match self.recv().await? {
-            ServerMessage::Model(model) => Ok(model),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected model, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("model", |message| match message {
+            ServerMessage::Model(model) => Some(Ok(model)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn reload_session_config(&mut self) -> Result<(), DaemonError> {
         self.send(&ClientMessage::ReloadSessionConfig).await?;
-        match self.recv().await? {
-            ServerMessage::Ack => Ok(()),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected ack, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("ack", |message| match message {
+            ServerMessage::Ack => Some(Ok(())),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn set_auto_confirm(&mut self, enabled: bool) -> Result<(), DaemonError> {
         self.send(&ClientMessage::SetAutoConfirm(enabled)).await?;
-        match self.recv().await? {
-            ServerMessage::Ack => Ok(()),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected ack, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("ack", |message| match message {
+            ServerMessage::Ack => Some(Ok(())),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn set_trace(&mut self, enabled: bool) -> Result<(), DaemonError> {
         self.send(&ClientMessage::SetTrace(enabled)).await?;
-        match self.recv().await? {
-            ServerMessage::Ack => Ok(()),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected ack, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("ack", |message| match message {
+            ServerMessage::Ack => Some(Ok(())),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn start_turn(&mut self, input: String) -> Result<(), DaemonError> {
@@ -260,26 +256,22 @@ impl DaemonClient {
 
     pub async fn list_jobs(&mut self) -> Result<Vec<JobStatusPayload>, DaemonError> {
         self.send(&ClientMessage::ListJobs).await?;
-        match self.recv().await? {
-            ServerMessage::Jobs(jobs) => Ok(jobs),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected jobs, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("jobs", |message| match message {
+            ServerMessage::Jobs(jobs) => Some(Ok(jobs)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn get_job(&mut self, name: &str) -> Result<JobStatusPayload, DaemonError> {
         self.send(&ClientMessage::GetJob(name.to_string())).await?;
-        match self.recv().await? {
-            ServerMessage::Job(job) => Ok(job),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected job, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("job", |message| match message {
+            ServerMessage::Job(job) => Some(Ok(job)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn upsert_job(
@@ -287,65 +279,55 @@ impl DaemonClient {
         definition: JobDefinitionPayload,
     ) -> Result<JobStatusPayload, DaemonError> {
         self.send(&ClientMessage::UpsertJob(definition)).await?;
-        match self.recv().await? {
-            ServerMessage::Job(job) => Ok(job),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected job, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("job", |message| match message {
+            ServerMessage::Job(job) => Some(Ok(job)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn pause_job(&mut self, name: &str) -> Result<JobStatusPayload, DaemonError> {
         self.send(&ClientMessage::PauseJob(name.to_string()))
             .await?;
-        match self.recv().await? {
-            ServerMessage::Job(job) => Ok(job),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected job, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("job", |message| match message {
+            ServerMessage::Job(job) => Some(Ok(job)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn resume_job(&mut self, name: &str) -> Result<JobStatusPayload, DaemonError> {
         self.send(&ClientMessage::ResumeJob(name.to_string()))
             .await?;
-        match self.recv().await? {
-            ServerMessage::Job(job) => Ok(job),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected job, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("job", |message| match message {
+            ServerMessage::Job(job) => Some(Ok(job)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn run_job(&mut self, name: &str) -> Result<JobRunRecordPayload, DaemonError> {
         self.send(&ClientMessage::RunJob(name.to_string())).await?;
-        match self.recv().await? {
-            ServerMessage::JobRun(run) => Ok(run),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected job run, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("job run", |message| match message {
+            ServerMessage::JobRun(run) => Some(Ok(run)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn remove_job(&mut self, name: &str) -> Result<(), DaemonError> {
         self.send(&ClientMessage::RemoveJob(name.to_string()))
             .await?;
-        match self.recv().await? {
-            ServerMessage::Ack => Ok(()),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected ack, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("ack", |message| match message {
+            ServerMessage::Ack => Some(Ok(())),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn sweep_jobs(
@@ -353,14 +335,12 @@ impl DaemonClient {
         now: Option<String>,
     ) -> Result<Vec<JobRunRecordPayload>, DaemonError> {
         self.send(&ClientMessage::SweepJobs(now)).await?;
-        match self.recv().await? {
-            ServerMessage::JobRuns(runs) => Ok(runs),
-            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
-            other => Err(DaemonError::Protocol(format!(
-                "expected job runs, got {:?}",
-                other
-            ))),
-        }
+        self.recv_expected("job runs", |message| match message {
+            ServerMessage::JobRuns(runs) => Some(Ok(runs)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
     }
 
     pub async fn send(&mut self, message: &ClientMessage) -> Result<(), DaemonError> {
@@ -368,7 +348,54 @@ impl DaemonClient {
     }
 
     pub async fn recv(&mut self) -> Result<ServerMessage, DaemonError> {
+        if let Some(message) = self.pending.pop_front() {
+            return Ok(message);
+        }
         recv_message(&mut self.framed).await
+    }
+
+    pub fn take_pending_events(&mut self) -> Vec<ServerMessage> {
+        let mut pending = Vec::new();
+        while let Some(message) = self.pending.pop_front() {
+            pending.push(message);
+        }
+        pending
+    }
+
+    async fn recv_expected<T, F>(
+        &mut self,
+        expected: &str,
+        mut classify: F,
+    ) -> Result<T, DaemonError>
+    where
+        F: FnMut(ServerMessage) -> Option<Result<T, DaemonError>>,
+    {
+        let mut buffered_events = Vec::new();
+        loop {
+            let message = if let Some(message) = self.pending.pop_front() {
+                message
+            } else {
+                recv_message(&mut self.framed).await?
+            };
+            if let Some(result) = classify(message.clone()) {
+                while let Some(buffered) = buffered_events.pop() {
+                    self.pending.push_front(buffered);
+                }
+                return result;
+            }
+            match message {
+                ServerMessage::Event(_) => buffered_events.push(message),
+                other => {
+                    while let Some(buffered) = buffered_events.pop() {
+                        self.pending.push_front(buffered);
+                    }
+                    return Err(DaemonError::Protocol(format!(
+                        "expected {expected}, got {:?}",
+                        other
+                    )));
+                }
+            }
+        }
     }
 }
 
@@ -378,17 +405,138 @@ pub fn default_spawn_config(
 ) -> Result<SpawnConfig, DaemonError> {
     let current_exe = std::env::current_exe()
         .map_err(|e| DaemonError::Spawn(format!("resolve current executable: {e}")))?;
-    let daemon_program = current_exe
-        .parent()
-        .map(|dir| dir.join("allbert-daemon"))
-        .ok_or_else(|| DaemonError::Spawn("resolve allbert-daemon sibling binary".into()))?;
+    spawn_config_for_executable(&current_exe, paths, config)
+}
 
+fn spawn_config_for_executable(
+    current_exe: &Path,
+    paths: &AllbertPaths,
+    config: &Config,
+) -> Result<SpawnConfig, DaemonError> {
     let allbert_home = paths.root.clone();
-    let mut spawn = SpawnConfig::new(daemon_program, allbert_home);
+    let mut spawn = if let Some(program) = resolve_daemon_binary(&current_exe) {
+        SpawnConfig::new(program, allbert_home)
+    } else if let Some(workspace_root) = find_workspace_root(&current_exe) {
+        let mut spawn = SpawnConfig::new(PathBuf::from("cargo"), allbert_home);
+        spawn.args = vec![
+            "run".into(),
+            "-q".into(),
+            "-p".into(),
+            "allbert-daemon".into(),
+            "--".into(),
+            "run".into(),
+        ];
+        spawn.working_dir = Some(workspace_root);
+        spawn.wait_timeout = Duration::from_secs(20);
+        spawn
+    } else {
+        return Err(DaemonError::Spawn(
+            "could not resolve a daemon binary sibling or workspace root for cargo-based auto-spawn".into(),
+        ));
+    };
     if !config.daemon.auto_spawn {
         spawn.wait_timeout = Duration::from_millis(1);
     }
     Ok(spawn)
+}
+
+fn resolve_daemon_binary(current_exe: &Path) -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(parent) = current_exe.parent() {
+        candidates.push(parent.join("allbert-daemon"));
+        if let Some(grandparent) = parent.parent() {
+            candidates.push(grandparent.join("allbert-daemon"));
+        }
+    }
+    candidates.into_iter().find(|candidate| candidate.exists())
+}
+
+fn find_workspace_root(current_exe: &Path) -> Option<PathBuf> {
+    let mut cursor = current_exe.parent();
+    while let Some(dir) = cursor {
+        if dir.join("Cargo.toml").exists() {
+            return Some(dir.to_path_buf());
+        }
+        cursor = dir.parent();
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::*;
+
+    static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    struct TempDir {
+        path: PathBuf,
+    }
+
+    impl TempDir {
+        fn new() -> Self {
+            let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "allbert-daemon-client-test-{}-{}",
+                std::process::id(),
+                counter
+            ));
+            std::fs::create_dir_all(&path).expect("temp dir should be created");
+            Self { path }
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[test]
+    fn prefers_built_daemon_binary_when_present() {
+        let temp = TempDir::new();
+        let paths = AllbertPaths::under(temp.path.join(".allbert"));
+        let exe_dir = temp.path.join("target").join("debug");
+        std::fs::create_dir_all(&exe_dir).expect("exe dir should exist");
+        let current_exe = exe_dir.join("allbert-cli");
+        std::fs::write(&current_exe, "").expect("fake cli binary should exist");
+        let daemon = exe_dir.join("allbert-daemon");
+        std::fs::write(&daemon, "").expect("fake daemon binary should exist");
+
+        let spawn = spawn_config_for_executable(&current_exe, &paths, &Config::default_template())
+            .expect("spawn config should resolve");
+        assert_eq!(spawn.program, daemon);
+        assert!(spawn.working_dir.is_none());
+    }
+
+    #[test]
+    fn falls_back_to_cargo_run_when_only_workspace_root_is_available() {
+        let temp = TempDir::new();
+        let paths = AllbertPaths::under(temp.path.join(".allbert"));
+        std::fs::write(temp.path.join("Cargo.toml"), "[workspace]\n").expect("Cargo.toml");
+        let exe_dir = temp.path.join("target").join("debug").join("deps");
+        std::fs::create_dir_all(&exe_dir).expect("deps dir should exist");
+        let current_exe = exe_dir.join("allbert-cli-hash");
+        std::fs::write(&current_exe, "").expect("fake cli binary should exist");
+
+        let spawn = spawn_config_for_executable(&current_exe, &paths, &Config::default_template())
+            .expect("spawn config should resolve");
+        assert_eq!(spawn.program, PathBuf::from("cargo"));
+        assert_eq!(
+            spawn.args,
+            vec![
+                "run".to_string(),
+                "-q".to_string(),
+                "-p".to_string(),
+                "allbert-daemon".to_string(),
+                "--".to_string(),
+                "run".to_string(),
+            ]
+        );
+        assert_eq!(spawn.working_dir.as_deref(), Some(temp.path.as_path()));
+        assert_eq!(spawn.wait_timeout, Duration::from_secs(20));
+    }
 }
 
 async fn connect_stream(path: &Path) -> Result<LocalSocketStream, DaemonError> {

@@ -1,7 +1,7 @@
 # ADR 0023: Local IPC trust is filesystem-scoped; no token auth in v0.2
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

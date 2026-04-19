@@ -1,7 +1,7 @@
 # ADR 0018: The kernel must be capable of running as a long-lived daemon host
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

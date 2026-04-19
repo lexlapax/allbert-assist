@@ -1,7 +1,7 @@
 # ADR 0012: v0.2 target is a daemonized local runtime with an internal job manager
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

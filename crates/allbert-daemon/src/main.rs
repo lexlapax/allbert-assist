@@ -27,8 +27,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let paths = AllbertPaths::from_home()?;
     let config = Config::load_or_create(&paths)?;
     let daemon = spawn(config, paths).await?;
-    tokio::signal::ctrl_c().await?;
-    daemon.shutdown();
+    let shutdown = daemon.shutdown_handle();
+    tokio::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            shutdown.cancel();
+        }
+    });
     daemon.wait().await?;
     Ok(())
 }

@@ -1,7 +1,7 @@
 # ADR 0022: Job definitions are markdown with frontmatter and use a bounded schedule DSL
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

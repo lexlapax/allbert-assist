@@ -1,7 +1,7 @@
 # ADR 0016: Scheduled runs use fresh sessions and may attach ordered skills
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

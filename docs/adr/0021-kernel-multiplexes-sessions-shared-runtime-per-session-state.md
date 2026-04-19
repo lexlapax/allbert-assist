@@ -1,7 +1,7 @@
 # ADR 0021: Kernel multiplexes sessions with shared runtime and per-session state
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

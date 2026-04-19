@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -18,6 +19,10 @@ pub struct SetupAnswers {
     pub assistant_role: Option<String>,
     pub assistant_style: Option<String>,
     pub trusted_roots: Vec<PathBuf>,
+    pub daemon_auto_spawn: bool,
+    pub jobs_enabled: bool,
+    pub jobs_default_timezone: Option<String>,
+    pub enabled_bundled_jobs: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +36,9 @@ pub struct StatusSnapshot {
     pub trusted_roots: Vec<PathBuf>,
     pub skill_count: usize,
     pub trace_enabled: bool,
+    pub daemon_auto_spawn: bool,
+    pub jobs_enabled: bool,
+    pub jobs_default_timezone: Option<String>,
 }
 
 pub fn needs_setup(config: &Config, paths: &AllbertPaths) -> bool {
@@ -101,6 +109,47 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         Some(roots) => roots,
         None => return Ok(None),
     };
+    let daemon_auto_spawn = match prompt_yes_no(
+        "Automatically start the Allbert daemon when the CLI needs it?",
+        config.daemon.auto_spawn,
+    )? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let jobs_enabled = match prompt_yes_no(
+        "Enable recurring jobs in this Allbert profile?",
+        config.jobs.enabled,
+    )? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let jobs_default_timezone = if jobs_enabled {
+        match prompt_required(
+            "Scheduled jobs timezone",
+            config
+                .jobs
+                .default_timezone
+                .clone()
+                .or_else(|| Some(timezone.clone())),
+        )? {
+            Some(value) => Some(value),
+            None => return Ok(None),
+        }
+    } else {
+        config
+            .jobs
+            .default_timezone
+            .clone()
+            .or_else(|| Some(timezone.clone()))
+    };
+    let enabled_bundled_jobs = if jobs_enabled {
+        match prompt_bundled_jobs(paths)? {
+            Some(value) => value,
+            None => return Ok(None),
+        }
+    } else {
+        Vec::new()
+    };
 
     let answers = SetupAnswers {
         preferred_name,
@@ -111,6 +160,10 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         assistant_role,
         assistant_style,
         trusted_roots,
+        daemon_auto_spawn,
+        jobs_enabled,
+        jobs_default_timezone,
+        enabled_bundled_jobs,
     };
 
     let mut updated = config.clone();
@@ -135,8 +188,12 @@ pub fn apply_setup_answers(
         .with_context(|| format!("write {}", paths.identity.display()))?;
 
     config.security.fs_roots = answers.trusted_roots.clone();
+    config.daemon.auto_spawn = answers.daemon_auto_spawn;
+    config.jobs.enabled = answers.jobs_enabled;
+    config.jobs.default_timezone = answers.jobs_default_timezone.clone();
     config.setup.version = 2;
     config.persist(paths)?;
+    enable_bundled_jobs(paths, &answers.enabled_bundled_jobs)?;
 
     if paths.bootstrap.exists() {
         fs::remove_file(&paths.bootstrap)
@@ -182,7 +239,7 @@ pub fn render_status(snapshot: &StatusSnapshot) -> String {
     };
 
     format!(
-        "provider:           {}\nmodel:              {}\napi key env:        {} ({})\nsetup version:      {}\nbootstrap pending:  {}\ntrusted roots:      {}\nskills installed:   {}\ntrace enabled:      {}",
+        "provider:           {}\nmodel:              {}\napi key env:        {} ({})\nsetup version:      {}\nbootstrap pending:  {}\ntrusted roots:      {}\nskills installed:   {}\ntrace enabled:      {}\ndaemon auto-spawn:  {}\njobs enabled:       {}\njobs timezone:      {}",
         snapshot.provider,
         snapshot.model_id,
         snapshot.api_key_env,
@@ -195,7 +252,13 @@ pub fn render_status(snapshot: &StatusSnapshot) -> String {
             format!("\n  - {roots}")
         },
         snapshot.skill_count,
-        if snapshot.trace_enabled { "yes" } else { "no" }
+        if snapshot.trace_enabled { "yes" } else { "no" },
+        if snapshot.daemon_auto_spawn { "yes" } else { "no" },
+        if snapshot.jobs_enabled { "yes" } else { "no" },
+        snapshot
+            .jobs_default_timezone
+            .as_deref()
+            .unwrap_or("(system local)")
     )
 }
 
@@ -326,6 +389,68 @@ fn prompt_trusted_roots(cwd: &Path, current_roots: &[PathBuf]) -> Result<Option<
 
         return Ok(Some(roots));
     }
+}
+
+fn prompt_bundled_jobs(paths: &AllbertPaths) -> Result<Option<Vec<String>>> {
+    let available = list_job_templates(&paths.jobs_templates)?;
+    if available.is_empty() {
+        return Ok(Some(Vec::new()));
+    }
+    let existing = list_job_templates(&paths.jobs_definitions)?
+        .into_iter()
+        .collect::<HashSet<_>>();
+    println!("\nBundled recurring job templates are available but remain disabled by default.");
+    println!("Enable only the ones you want Allbert to schedule for this profile.");
+    let mut selected = Vec::new();
+    for name in available {
+        let default = existing.contains(&name);
+        let prompt = format!("Enable bundled job template `{name}` now?");
+        match prompt_yes_no(&prompt, default)? {
+            Some(true) => selected.push(name),
+            Some(false) => {}
+            None => return Ok(None),
+        }
+    }
+    Ok(Some(selected))
+}
+
+fn enable_bundled_jobs(paths: &AllbertPaths, selected: &[String]) -> Result<()> {
+    for name in selected {
+        let source = paths.jobs_templates.join(format!("{name}.md"));
+        if !source.exists() {
+            continue;
+        }
+        let destination = paths.jobs_definitions.join(format!("{name}.md"));
+        if destination.exists() {
+            continue;
+        }
+        let raw =
+            fs::read_to_string(&source).with_context(|| format!("read {}", source.display()))?;
+        let enabled = raw.replacen("enabled: false", "enabled: true", 1);
+        fs::write(&destination, enabled)
+            .with_context(|| format!("write {}", destination.display()))?;
+    }
+    Ok(())
+}
+
+fn list_job_templates(root: &Path) -> Result<Vec<String>> {
+    let mut names = Vec::new();
+    let Ok(entries) = fs::read_dir(root) else {
+        return Ok(names);
+    };
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("md") {
+            continue;
+        }
+        if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) {
+            names.push(stem.to_string());
+        }
+    }
+    names.sort();
+    names.dedup();
+    Ok(names)
 }
 
 fn prompt_line(label: &str, default: Option<&str>) -> Result<PromptLine> {
@@ -630,6 +755,10 @@ mod tests {
             assistant_role: Some("A local assistant for Spuri.".into()),
             assistant_style: Some("Warm, concise, and practical.".into()),
             trusted_roots: vec![root.to_path_buf()],
+            daemon_auto_spawn: true,
+            jobs_enabled: true,
+            jobs_default_timezone: Some("America/Los_Angeles".into()),
+            enabled_bundled_jobs: vec!["daily-brief".into()],
         }
     }
 
@@ -648,7 +777,14 @@ mod tests {
 
         assert_eq!(config.setup.version, 2);
         assert_eq!(config.security.fs_roots, vec![workspace.clone()]);
+        assert!(config.daemon.auto_spawn);
+        assert!(config.jobs.enabled);
+        assert_eq!(
+            config.jobs.default_timezone.as_deref(),
+            Some("America/Los_Angeles")
+        );
         assert!(!paths.bootstrap.exists());
+        assert!(paths.jobs_definitions.join("daily-brief.md").exists());
 
         let user = fs::read_to_string(&paths.user).expect("USER.md should be readable");
         assert!(user.contains("Spuri"));
@@ -660,6 +796,8 @@ mod tests {
         let loaded = Config::load_or_create(&paths).expect("persisted config should load");
         assert_eq!(loaded.setup.version, 2);
         assert_eq!(loaded.security.fs_roots, vec![workspace]);
+        assert!(loaded.daemon.auto_spawn);
+        assert!(loaded.jobs.enabled);
     }
 
     #[test]
@@ -690,11 +828,16 @@ mod tests {
             trusted_roots: Vec::new(),
             skill_count: 2,
             trace_enabled: true,
+            daemon_auto_spawn: true,
+            jobs_enabled: true,
+            jobs_default_timezone: Some("America/Los_Angeles".into()),
         });
 
         assert!(rendered.contains("ANTHROPIC_API_KEY (missing)"));
         assert!(rendered.contains("trusted roots:      (none)"));
         assert!(rendered.contains("trace enabled:      yes"));
+        assert!(rendered.contains("daemon auto-spawn:  yes"));
+        assert!(rendered.contains("jobs timezone:      America/Los_Angeles"));
     }
 
     #[test]

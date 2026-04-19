@@ -1,7 +1,7 @@
 # ADR 0017: v0.2 ships bundled job templates disabled by default
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

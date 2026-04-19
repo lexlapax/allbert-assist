@@ -1,7 +1,7 @@
 # ADR 0019: v0.2 services are supervised in-process tasks with future subprocess seams
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

@@ -1,7 +1,7 @@
 # ADR 0015: Scheduled jobs fail closed on interactive actions
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

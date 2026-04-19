@@ -54,7 +54,11 @@ pub async fn run_loop(
                     }
                     "/status" => {
                         let status = client.session_status().await?;
-                        println!("{}", setup::render_status(&snapshot_from_proto(&status)));
+                        let config = allbert_kernel::Config::load_or_create(paths)?;
+                        println!(
+                            "{}",
+                            setup::render_status(&snapshot_from_proto(&status, &config))
+                        );
                     }
                     _ => {
                         run_turn(client, trimmed).await?;
@@ -63,6 +67,9 @@ pub async fn run_loop(
             }
             Signal::CtrlC => eprintln!("(ctrl-c) type /exit to leave"),
             Signal::CtrlD => break,
+        }
+        for message in client.take_pending_events() {
+            render_async_server_message(message);
         }
     }
     Ok(())
@@ -212,6 +219,22 @@ fn prompt_input(prompt: &str, allow_empty: bool) -> Result<InputResponsePayload>
 fn render_event(event: KernelEventPayload) {
     match event {
         KernelEventPayload::AssistantText(text) => println!("{text}"),
+        KernelEventPayload::JobFailed {
+            job_name,
+            run_id,
+            ended_at,
+            stop_reason,
+        } => {
+            eprintln!(
+                "[job failure] {} run {} at {}{}",
+                job_name,
+                run_id,
+                ended_at,
+                stop_reason
+                    .map(|value| format!(": {value}"))
+                    .unwrap_or_default()
+            );
+        }
         KernelEventPayload::ToolCall { name, .. } => eprintln!("[tool call: {name}]"),
         KernelEventPayload::ToolResult { name, ok, .. } => {
             let tag = if ok { "ok" } else { "err" };
@@ -223,6 +246,12 @@ fn render_event(event: KernelEventPayload) {
                 eprintln!("[turn hit max-turns limit]");
             }
         }
+    }
+}
+
+pub fn render_async_server_message(message: ServerMessage) {
+    if let ServerMessage::Event(event) = message {
+        render_event(event);
     }
 }
 
@@ -260,7 +289,10 @@ fn default_api_key_env(provider: ProviderKind, current: &ModelConfigPayload) -> 
     }
 }
 
-fn snapshot_from_proto(status: &allbert_proto::SessionStatus) -> StatusSnapshot {
+fn snapshot_from_proto(
+    status: &allbert_proto::SessionStatus,
+    config: &allbert_kernel::Config,
+) -> StatusSnapshot {
     StatusSnapshot {
         provider: status.provider.clone(),
         model_id: status.model.model_id.clone(),
@@ -271,5 +303,8 @@ fn snapshot_from_proto(status: &allbert_proto::SessionStatus) -> StatusSnapshot 
         trusted_roots: status.trusted_roots.iter().map(Into::into).collect(),
         skill_count: status.skill_count,
         trace_enabled: status.trace_enabled,
+        daemon_auto_spawn: config.daemon.auto_spawn,
+        jobs_enabled: config.jobs.enabled,
+        jobs_default_timezone: config.jobs.default_timezone.clone(),
     }
 }

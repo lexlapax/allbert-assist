@@ -1,7 +1,7 @@
 # ADR 0024: v0.2 primary operator surface is unified under allbert-cli
 
 Date: 2026-04-19
-Status: Proposed
+Status: Accepted
 
 ## Context
 

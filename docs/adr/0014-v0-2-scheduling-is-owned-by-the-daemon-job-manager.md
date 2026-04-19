@@ -1,7 +1,7 @@
 # ADR 0014: v0.2 scheduling is owned by the daemon's internal job manager
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

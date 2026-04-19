@@ -1,7 +1,7 @@
 # ADR 0013: Clients attach to a daemon-hosted kernel via channels
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

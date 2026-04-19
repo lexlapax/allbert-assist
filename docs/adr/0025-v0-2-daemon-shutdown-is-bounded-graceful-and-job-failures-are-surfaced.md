@@ -1,7 +1,7 @@
 # ADR 0025: v0.2 daemon shutdown is bounded graceful and job failures are surfaced
 
 Date: 2026-04-19
-Status: Proposed
+Status: Accepted
 
 ## Context
 

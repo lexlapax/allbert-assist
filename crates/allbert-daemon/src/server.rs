@@ -27,13 +27,14 @@ use interprocess::local_socket::{
 };
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::{
-    sync::{mpsc, oneshot, Mutex, RwLock},
+    sync::{broadcast, mpsc, oneshot, Mutex, RwLock},
     task::JoinHandle,
     time::Duration,
 };
 use tokio_util::{
     codec::{Framed, LengthDelimitedCodec},
     sync::CancellationToken,
+    task::TaskTracker,
 };
 
 use crate::error::DaemonError;
@@ -58,6 +59,8 @@ struct SharedState {
     provider_factory: Arc<dyn ProviderFactory>,
     sessions: Arc<RwLock<HashMap<String, Arc<SessionHandle>>>>,
     job_manager: Arc<Mutex<JobManager>>,
+    notifications: broadcast::Sender<ServerMessage>,
+    tasks: Arc<TaskTracker>,
 }
 
 struct SessionHandle {
@@ -90,10 +93,31 @@ impl RunningDaemon {
         self.shutdown.cancel();
     }
 
+    pub fn shutdown_handle(&self) -> CancellationToken {
+        self.shutdown.clone()
+    }
+
     pub async fn wait(self) -> Result<(), DaemonError> {
-        self.join
+        let result = self
+            .join
             .await
-            .map_err(|e| DaemonError::Protocol(format!("daemon task join failed: {e}")))?
+            .map_err(|e| DaemonError::Protocol(format!("daemon task join failed: {e}")))?;
+        self.state.tasks.close();
+        if tokio::time::timeout(Duration::from_secs(3), self.state.tasks.wait())
+            .await
+            .is_err()
+        {
+            append_log_line(
+                &self.state.log_path,
+                "shutdown timeout waiting for connection and job tasks",
+            )
+            .ok();
+        }
+        #[cfg(unix)]
+        if self.state.socket_path.exists() {
+            let _ = std::fs::remove_file(&self.state.socket_path);
+        }
+        result
     }
 }
 
@@ -125,6 +149,7 @@ pub async fn spawn_with_factory(
     let listener = bind_listener(&socket_path).await?;
 
     let shutdown = CancellationToken::new();
+    let (notifications, _) = broadcast::channel(64);
     let state = SharedState {
         daemon_id: uuid::Uuid::new_v4().to_string(),
         started_at: now_rfc3339()?,
@@ -141,6 +166,8 @@ pub async fn spawn_with_factory(
         provider_factory,
         sessions: Arc::new(RwLock::new(HashMap::new())),
         job_manager: Arc::new(Mutex::new(job_manager)),
+        notifications,
+        tasks: Arc::new(TaskTracker::new()),
     };
     append_log_line(
         &state.log_path,
@@ -220,7 +247,7 @@ async fn accept_loop(listener: LocalSocketListener, state: SharedState) -> Resul
                 let stream = stream?;
                 let connection_state = state.clone();
                 connection_state.active_clients.fetch_add(1, Ordering::SeqCst);
-                tokio::spawn(async move {
+                state.tasks.spawn(async move {
                     let result = handle_connection(stream, connection_state.clone()).await;
                     connection_state.active_clients.fetch_sub(1, Ordering::SeqCst);
                     if let Err(error) = result {
@@ -237,6 +264,7 @@ async fn handle_connection(
     state: SharedState,
 ) -> Result<(), DaemonError> {
     let mut framed = Framed::new(stream, LengthDelimitedCodec::new());
+    let mut notifications = state.notifications.subscribe();
 
     let hello = recv_client_message(&mut framed).await?;
     match hello {
@@ -285,7 +313,34 @@ async fn handle_connection(
 
     let mut attached_session: Option<Arc<SessionHandle>> = None;
 
-    while let Ok(message) = recv_client_message(&mut framed).await {
+    loop {
+        let message = if attached_session.is_some() {
+            tokio::select! {
+                _ = state.shutdown.cancelled() => return Ok(()),
+                notification = notifications.recv() => {
+                    match notification {
+                        Ok(message) => {
+                            send_server_message(&mut framed, &message).await?;
+                            continue;
+                        }
+                        Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(broadcast::error::RecvError::Closed) => continue,
+                    }
+                }
+                message = recv_client_message(&mut framed) => match message {
+                    Ok(message) => message,
+                    Err(_) => return Ok(()),
+                }
+            }
+        } else {
+            tokio::select! {
+                _ = state.shutdown.cancelled() => return Ok(()),
+                message = recv_client_message(&mut framed) => match message {
+                    Ok(message) => message,
+                    Err(_) => return Ok(()),
+                }
+            }
+        };
         match message {
             ClientMessage::Hello(_) => {
                 send_server_message(
@@ -393,6 +448,10 @@ async fn handle_connection(
                 let session = require_session(attached_session.as_ref())?;
                 let reloaded = Config::load_or_create(&state.paths).map_err(map_kernel_error)?;
                 *state.default_config.write().await = reloaded.clone();
+                {
+                    let mut manager = state.job_manager.lock().await;
+                    manager.reload(&state.paths, &reloaded)?;
+                }
                 let mut kernel = session.kernel.lock().await;
                 let session_model = kernel.model().clone();
                 let mut session_config = reloaded;
@@ -450,7 +509,8 @@ async fn handle_connection(
             }
             ClientMessage::RunTurn(turn) => {
                 let session = require_session(attached_session.as_ref())?.clone();
-                run_turn_over_channel(&mut framed, &state, session, turn.input).await?;
+                run_turn_over_channel(&mut framed, &state, &mut notifications, session, turn.input)
+                    .await?;
             }
             ClientMessage::ConfirmReply(_)
             | ClientMessage::InputReply(_)
@@ -473,8 +533,6 @@ async fn handle_connection(
             },
         }
     }
-
-    Ok(())
 }
 
 async fn get_or_create_session(
@@ -550,9 +608,11 @@ async fn execute_planned_jobs(
         let paths = state.paths.clone();
         let defaults = defaults.clone();
         let provider_factory = state.provider_factory.clone();
+        let shutdown = state.shutdown.clone();
         async move {
             let name = definition.name.clone();
-            let record = execute_job(&paths, &defaults, provider_factory, &definition).await;
+            let record =
+                execute_job(&paths, &defaults, provider_factory, shutdown, &definition).await;
             (name, record)
         }
     });
@@ -561,7 +621,18 @@ async fn execute_planned_jobs(
     let mut manager = state.job_manager.lock().await;
     let mut completed = Vec::with_capacity(results.len());
     for (name, record) in results {
-        completed.push(manager.finish_run(&state.paths, defaults, &name, record)?);
+        let finished = manager.finish_run(&state.paths, defaults, &name, record)?;
+        if finished.outcome != "success" {
+            let _ = state
+                .notifications
+                .send(ServerMessage::Event(KernelEventPayload::JobFailed {
+                    job_name: finished.job_name.clone(),
+                    run_id: finished.run_id.clone(),
+                    ended_at: finished.ended_at.clone(),
+                    stop_reason: finished.stop_reason.clone(),
+                }));
+        }
+        completed.push(finished);
     }
     Ok(completed)
 }
@@ -569,6 +640,7 @@ async fn execute_planned_jobs(
 async fn run_turn_over_channel(
     framed: &mut FramedStream,
     state: &SharedState,
+    notifications: &mut broadcast::Receiver<ServerMessage>,
     session: Arc<SessionHandle>,
     input: String,
 ) -> Result<(), DaemonError> {
@@ -596,6 +668,30 @@ async fn run_turn_over_channel(
 
     loop {
         tokio::select! {
+            _ = state.shutdown.cancelled() => {
+                if client_connected {
+                    let _ = send_server_message(
+                        framed,
+                        &ServerMessage::Error(ProtocolError {
+                            code: "daemon_shutdown".into(),
+                            message: "daemon shutdown interrupted the active turn".into(),
+                        }),
+                    )
+                    .await;
+                }
+                return Ok(());
+            }
+            notification = notifications.recv() => {
+                match notification {
+                    Ok(message) => {
+                        if client_connected && send_server_message(framed, &message).await.is_err() {
+                            client_connected = false;
+                        }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => {}
+                    Err(broadcast::error::RecvError::Closed) => {}
+                }
+            }
             outbound = rx.recv() => {
                 let Some(outbound) = outbound else {
                     continue;

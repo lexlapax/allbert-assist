@@ -16,10 +16,12 @@ name = "allbert-cli"
 version = "0.1.0"
 dependencies = [
  "allbert-daemon",
+ "allbert-jobs",
  "allbert-kernel",
  "allbert-proto",
  "anyhow",
  "async-trait",
+ "chrono",
  "clap",
  "iana-time-zone",
  "reedline",

@@ -12,6 +12,7 @@ use cron::Schedule as CronSchedule;
 use gray_matter::engine::YAML;
 use gray_matter::Matter;
 use serde::{Deserialize, Serialize};
+use tokio_util::sync::CancellationToken;
 
 use allbert_kernel::{
     llm::ProviderFactory, AllbertPaths, Config, FrontendAdapter, InputPrompter, InputRequest,
@@ -252,9 +253,11 @@ impl JobManager {
             state,
             &definition,
             defaults,
+            &record.run_id,
             parse_rfc3339(&record.started_at)?,
             parse_rfc3339(&record.ended_at)?,
             &record.outcome,
+            record.stop_reason.as_deref(),
         )?;
         self.persist_states(paths)?;
         append_run_record(paths, &record)?;
@@ -275,6 +278,9 @@ impl JobManager {
                 next_due_at: state.next_due_at.map(to_rfc3339),
                 failure_streak: state.failure_streak,
                 running: self.running.contains(name),
+                last_run_id: state.last_run_id,
+                last_outcome: state.last_outcome,
+                last_stop_reason: state.last_stop_reason,
             },
         })
     }
@@ -361,6 +367,12 @@ struct JobState {
     next_due_at: Option<DateTime<Utc>>,
     #[serde(default)]
     failure_streak: u32,
+    #[serde(default)]
+    last_run_id: Option<String>,
+    #[serde(default)]
+    last_outcome: Option<String>,
+    #[serde(default)]
+    last_stop_reason: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -839,11 +851,16 @@ fn update_state_after_run(
     state: &mut JobState,
     definition: &JobDefinition,
     defaults: &Config,
+    run_id: &str,
     started_at: DateTime<Utc>,
     ended_at: DateTime<Utc>,
     outcome: &str,
+    stop_reason: Option<&str>,
 ) -> Result<(), DaemonError> {
     state.last_run_at = Some(ended_at);
+    state.last_run_id = Some(run_id.to_string());
+    state.last_outcome = Some(outcome.to_string());
+    state.last_stop_reason = stop_reason.map(|value| value.to_string());
     if outcome == "success" {
         state.failure_streak = 0;
     } else {
@@ -871,6 +888,7 @@ pub(crate) async fn execute_job(
     paths: &AllbertPaths,
     defaults: &Config,
     provider_factory: Arc<dyn ProviderFactory>,
+    shutdown: CancellationToken,
     definition: &JobDefinition,
 ) -> JobRunRecordPayload {
     let run_id = uuid::Uuid::new_v4().to_string();
@@ -901,30 +919,50 @@ pub(crate) async fn execute_job(
     };
 
     let ended_at;
-    let (outcome, stop_reason, cost_usd) = match Kernel::boot_with_paths_and_factory(
+    let boot = Kernel::boot_with_paths_and_factory(
         config,
         adapter,
         paths.clone(),
         provider_factory,
         Some(session_id.clone()),
-    )
-    .await
-    {
-        Ok(mut kernel) => {
-            let (outcome, stop_reason) = match kernel.run_turn(&definition.prompt).await {
-                Ok(summary) => {
-                    if summary.hit_turn_limit {
-                        ("limit".to_string(), Some("hit max-turns limit".into()))
-                    } else {
-                        ("success".to_string(), None)
+    );
+    tokio::pin!(boot);
+    let (outcome, stop_reason, cost_usd) = match tokio::select! {
+        _ = shutdown.cancelled() => None,
+        result = &mut boot => Some(result),
+    } {
+        None => {
+            ended_at = Utc::now();
+            (
+                "interrupted".to_string(),
+                Some("daemon shutdown".into()),
+                0.0,
+            )
+        }
+        Some(Ok(mut kernel)) => {
+            let (outcome, stop_reason) = {
+                let turn = kernel.run_turn(&definition.prompt);
+                tokio::pin!(turn);
+                tokio::select! {
+                    _ = shutdown.cancelled() => {
+                        ("interrupted".to_string(), Some("daemon shutdown".into()))
+                    }
+                    result = &mut turn => match result {
+                        Ok(summary) => {
+                            if summary.hit_turn_limit {
+                                ("limit".to_string(), Some("hit max-turns limit".into()))
+                            } else {
+                                ("success".to_string(), None)
+                            }
+                        }
+                        Err(err) => ("failure".to_string(), Some(err.to_string())),
                     }
                 }
-                Err(err) => ("failure".to_string(), Some(err.to_string())),
             };
             ended_at = Utc::now();
             (outcome, stop_reason, kernel.session_cost_usd())
         }
-        Err(err) => {
+        Some(Err(err)) => {
             ended_at = Utc::now();
             (
                 "failure".to_string(),
