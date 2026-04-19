@@ -1,7 +1,7 @@
 # ADR 0028: Prompt-authored jobs persist through JobManagerService into canonical markdown, state, and history
 
 Date: 2026-04-19
-Status: Proposed
+Status: Accepted
 
 ## Context
 

@@ -1018,6 +1018,53 @@ fn append_run_record(
     Ok(())
 }
 
+pub(crate) fn list_run_records(
+    paths: &AllbertPaths,
+    name: Option<&str>,
+    only_failures: bool,
+    limit: usize,
+) -> Result<Vec<JobRunRecordPayload>, DaemonError> {
+    let root = if only_failures {
+        &paths.jobs_failures
+    } else {
+        &paths.jobs_runs
+    };
+    let Ok(entries) = fs::read_dir(root) else {
+        return Ok(Vec::new());
+    };
+
+    let mut files = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("jsonl"))
+        .collect::<Vec<_>>();
+    files.sort();
+    files.reverse();
+
+    let mut records = Vec::new();
+    let clamped_limit = limit.max(1).min(100);
+    for path in files {
+        let raw = fs::read_to_string(&path)?;
+        for line in raw.lines().rev() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let record: JobRunRecordPayload = serde_json::from_str(line)
+                .map_err(|e| DaemonError::Protocol(format!("parse {}: {e}", path.display())))?;
+            if let Some(job_name) = name {
+                if record.job_name != job_name {
+                    continue;
+                }
+            }
+            records.push(record);
+            if records.len() >= clamped_limit {
+                return Ok(records);
+            }
+        }
+    }
+    Ok(records)
+}
+
 fn map_kernel_error(error: KernelError) -> DaemonError {
     DaemonError::Protocol(error.to_string())
 }

@@ -6,6 +6,7 @@ pub mod cost;
 pub mod error;
 pub mod events;
 pub mod hooks;
+pub mod job_manager;
 pub mod llm;
 pub mod memory;
 pub mod paths;
@@ -15,6 +16,8 @@ pub mod tools;
 pub mod trace;
 
 use std::sync::{Arc, Mutex};
+
+use serde_json::json;
 
 pub use adapter::{
     ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter, InputRequest,
@@ -31,6 +34,7 @@ pub use events::KernelEvent;
 pub use hooks::{
     BootstrapContextHook, CostHook, Hook, HookCtx, HookOutcome, HookPoint, MemoryIndexHook,
 };
+pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
 pub use llm::{ChatMessage, ChatRole};
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
@@ -56,6 +60,7 @@ pub struct Kernel {
     provider_factory: Arc<dyn ProviderFactory>,
     llm: Box<dyn LlmProvider>,
     tools: ToolRegistry,
+    job_manager: Option<Arc<dyn JobManager>>,
     security_state: Arc<Mutex<SecurityConfig>>,
     #[allow(dead_code)]
     trace: TraceHandles,
@@ -132,6 +137,7 @@ impl Kernel {
             provider_factory,
             llm,
             tools: ToolRegistry::builtins(),
+            job_manager: None,
             security_state,
             trace,
         })
@@ -329,6 +335,10 @@ impl Kernel {
         self.adapter = adapter;
     }
 
+    pub fn register_job_manager(&mut self, job_manager: Arc<dyn JobManager>) {
+        self.job_manager = Some(job_manager);
+    }
+
     pub fn provider_name(&self) -> &'static str {
         self.llm.provider_name()
     }
@@ -385,6 +395,16 @@ Available tools:\n",
         prompt.push_str("\n- list_skills: List installed skills and their descriptions.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
         prompt.push_str("\n- invoke_skill: Activate a skill for this session, optionally with JSON args.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"},\"args\":{\"type\":\"object\"}}}\n");
         prompt.push_str("\n- create_skill: Create a skill under ~/.allbert/skills/<name>/SKILL.md.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"allowed_tools\",\"body\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"body\":{\"type\":\"string\"}}}\n");
+        if self.job_manager.is_some() {
+            prompt.push_str("\n- list_jobs: List recurring jobs managed by the daemon.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
+            prompt.push_str("\n- get_job: Inspect one recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
+            prompt.push_str("\n- upsert_job: Create or update a recurring job through the daemon-owned scheduler.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"schedule\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"enabled\":{\"type\":\"boolean\"},\"schedule\":{\"type\":\"string\"},\"skills\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timezone\":{\"type\":\"string\"},\"model\":{\"type\":\"object\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timeout_s\":{\"type\":\"integer\",\"minimum\":1},\"report\":{\"enum\":[\"always\",\"on_failure\",\"on_anomaly\"]},\"max_turns\":{\"type\":\"integer\",\"minimum\":1},\"prompt\":{\"type\":\"string\"}}}\n");
+            prompt.push_str("\n- pause_job: Pause a recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
+            prompt.push_str("\n- resume_job: Resume a recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
+            prompt.push_str("\n- run_job: Manually trigger a recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
+            prompt.push_str("\n- remove_job: Remove a recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
+            prompt.push_str("\n- list_job_runs: Inspect recent job runs, optionally filtered by name or failures only.\n  schema: {\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"only_failures\":{\"type\":\"boolean\"},\"limit\":{\"type\":\"integer\",\"minimum\":1}}}\n");
+        }
 
         for section in prompt_sections {
             prompt.push_str("\n\n");
@@ -416,6 +436,14 @@ Available tools:\n",
             },
             "invoke_skill" => self.dispatch_invoke_skill(invocation.input),
             "create_skill" => self.dispatch_create_skill(invocation.input),
+            "list_jobs" => self.dispatch_list_jobs().await,
+            "get_job" => self.dispatch_get_job(invocation.input).await,
+            "upsert_job" => self.dispatch_upsert_job(invocation.input).await,
+            "pause_job" => self.dispatch_pause_job(invocation.input).await,
+            "resume_job" => self.dispatch_resume_job(invocation.input).await,
+            "run_job" => self.dispatch_run_job(invocation.input).await,
+            "remove_job" => self.dispatch_remove_job(invocation.input).await,
+            "list_job_runs" => self.dispatch_list_job_runs(invocation.input).await,
             _ => {
                 let ctx = ToolCtx {
                     input: self.adapter.input.clone(),
@@ -535,6 +563,194 @@ Available tools:\n",
                 ok: false,
             },
         }
+    }
+
+    async fn dispatch_list_jobs(&self) -> ToolOutput {
+        let Some(job_manager) = self.job_manager.as_ref() else {
+            return unavailable_job_manager_output();
+        };
+        match job_manager.list_jobs().await {
+            Ok(jobs) => serialize_tool_value(&jobs),
+            Err(err) => ToolOutput {
+                content: err,
+                ok: false,
+            },
+        }
+    }
+
+    async fn dispatch_get_job(&self, input: serde_json::Value) -> ToolOutput {
+        let Some(job_manager) = self.job_manager.as_ref() else {
+            return unavailable_job_manager_output();
+        };
+        let parsed = match serde_json::from_value::<NamedJobInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid get_job input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        match job_manager.get_job(&parsed.name).await {
+            Ok(job) => serialize_tool_value(&job),
+            Err(err) => ToolOutput {
+                content: err,
+                ok: false,
+            },
+        }
+    }
+
+    async fn dispatch_upsert_job(&self, input: serde_json::Value) -> ToolOutput {
+        let Some(job_manager) = self.job_manager.as_ref() else {
+            return unavailable_job_manager_output();
+        };
+        let parsed = match serde_json::from_value::<UpsertJobInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid upsert_job input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        match job_manager.upsert_job(parsed.into_payload()).await {
+            Ok(job) => serialize_tool_value(&job),
+            Err(err) => ToolOutput {
+                content: err,
+                ok: false,
+            },
+        }
+    }
+
+    async fn dispatch_pause_job(&self, input: serde_json::Value) -> ToolOutput {
+        let Some(job_manager) = self.job_manager.as_ref() else {
+            return unavailable_job_manager_output();
+        };
+        let parsed = match serde_json::from_value::<NamedJobInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid pause_job input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        match job_manager.pause_job(&parsed.name).await {
+            Ok(job) => serialize_tool_value(&job),
+            Err(err) => ToolOutput {
+                content: err,
+                ok: false,
+            },
+        }
+    }
+
+    async fn dispatch_resume_job(&self, input: serde_json::Value) -> ToolOutput {
+        let Some(job_manager) = self.job_manager.as_ref() else {
+            return unavailable_job_manager_output();
+        };
+        let parsed = match serde_json::from_value::<NamedJobInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid resume_job input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        match job_manager.resume_job(&parsed.name).await {
+            Ok(job) => serialize_tool_value(&job),
+            Err(err) => ToolOutput {
+                content: err,
+                ok: false,
+            },
+        }
+    }
+
+    async fn dispatch_run_job(&self, input: serde_json::Value) -> ToolOutput {
+        let Some(job_manager) = self.job_manager.as_ref() else {
+            return unavailable_job_manager_output();
+        };
+        let parsed = match serde_json::from_value::<NamedJobInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid run_job input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        match job_manager.run_job(&parsed.name).await {
+            Ok(run) => serialize_tool_value(&run),
+            Err(err) => ToolOutput {
+                content: err,
+                ok: false,
+            },
+        }
+    }
+
+    async fn dispatch_remove_job(&self, input: serde_json::Value) -> ToolOutput {
+        let Some(job_manager) = self.job_manager.as_ref() else {
+            return unavailable_job_manager_output();
+        };
+        let parsed = match serde_json::from_value::<NamedJobInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid remove_job input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        match job_manager.remove_job(&parsed.name).await {
+            Ok(()) => serialize_tool_value(&json!({ "removed": parsed.name })),
+            Err(err) => ToolOutput {
+                content: err,
+                ok: false,
+            },
+        }
+    }
+
+    async fn dispatch_list_job_runs(&self, input: serde_json::Value) -> ToolOutput {
+        let Some(job_manager) = self.job_manager.as_ref() else {
+            return unavailable_job_manager_output();
+        };
+        let parsed = match serde_json::from_value::<ListJobRunsInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid list_job_runs input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        let limit = parsed.limit.clamp(1, 100);
+        match job_manager
+            .list_job_runs(parsed.name.as_deref(), parsed.only_failures, limit)
+            .await
+        {
+            Ok(runs) => serialize_tool_value(&runs),
+            Err(err) => ToolOutput {
+                content: err,
+                ok: false,
+            },
+        }
+    }
+}
+
+fn unavailable_job_manager_output() -> ToolOutput {
+    ToolOutput {
+        content: "job management is not available in this session".into(),
+        ok: false,
+    }
+}
+
+fn serialize_tool_value<T: serde::Serialize>(value: &T) -> ToolOutput {
+    match serde_json::to_string_pretty(value) {
+        Ok(content) => ToolOutput { content, ok: true },
+        Err(err) => ToolOutput {
+            content: format!("failed to encode tool result: {err}"),
+            ok: false,
+        },
     }
 }
 

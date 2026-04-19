@@ -6,6 +6,7 @@ use std::sync::{
 };
 
 use allbert_kernel::{
+    job_manager::JobManager as KernelJobManager,
     llm::{DefaultProviderFactory, ProviderFactory},
     ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter, InputRequest,
     InputResponse, Kernel, KernelError, KernelEvent, ModelConfig,
@@ -38,7 +39,7 @@ use tokio_util::{
 };
 
 use crate::error::DaemonError;
-use crate::jobs::{execute_job, parse_rfc3339, JobDefinition, JobManager};
+use crate::jobs::{execute_job, list_run_records, parse_rfc3339, JobDefinition, JobManager};
 
 type FramedStream = Framed<LocalSocketStream, LengthDelimitedCodec>;
 
@@ -67,6 +68,11 @@ struct SessionHandle {
     session_id: String,
     channel: ChannelKind,
     kernel: Arc<Mutex<Kernel>>,
+}
+
+#[derive(Clone)]
+struct DaemonJobManager {
+    state: SharedState,
 }
 
 enum OutboundMessage {
@@ -187,6 +193,69 @@ pub async fn spawn_with_factory(
         shutdown,
         join,
     })
+}
+
+#[async_trait::async_trait]
+impl KernelJobManager for DaemonJobManager {
+    async fn list_jobs(&self) -> Result<Vec<allbert_proto::JobStatusPayload>, String> {
+        let manager = self.state.job_manager.lock().await;
+        Ok(manager.list())
+    }
+
+    async fn get_job(&self, name: &str) -> Result<allbert_proto::JobStatusPayload, String> {
+        let manager = self.state.job_manager.lock().await;
+        manager.get(name).map_err(|err| err.to_string())
+    }
+
+    async fn upsert_job(
+        &self,
+        definition: allbert_proto::JobDefinitionPayload,
+    ) -> Result<allbert_proto::JobStatusPayload, String> {
+        let defaults = self.state.default_config.read().await.clone();
+        let mut manager = self.state.job_manager.lock().await;
+        manager
+            .upsert(&self.state.paths, &defaults, definition)
+            .map_err(|err| err.to_string())
+    }
+
+    async fn pause_job(&self, name: &str) -> Result<allbert_proto::JobStatusPayload, String> {
+        let mut manager = self.state.job_manager.lock().await;
+        manager
+            .pause(&self.state.paths, name)
+            .map_err(|err| err.to_string())
+    }
+
+    async fn resume_job(&self, name: &str) -> Result<allbert_proto::JobStatusPayload, String> {
+        let defaults = self.state.default_config.read().await.clone();
+        let mut manager = self.state.job_manager.lock().await;
+        manager
+            .resume(&self.state.paths, &defaults, name, Utc::now())
+            .map_err(|err| err.to_string())
+    }
+
+    async fn run_job(&self, name: &str) -> Result<allbert_proto::JobRunRecordPayload, String> {
+        let defaults = self.state.default_config.read().await.clone();
+        run_named_job(&self.state, &defaults, name)
+            .await
+            .map_err(|err| err.to_string())
+    }
+
+    async fn remove_job(&self, name: &str) -> Result<(), String> {
+        let mut manager = self.state.job_manager.lock().await;
+        manager
+            .remove(&self.state.paths, name)
+            .map_err(|err| err.to_string())
+    }
+
+    async fn list_job_runs(
+        &self,
+        name: Option<&str>,
+        only_failures: bool,
+        limit: usize,
+    ) -> Result<Vec<allbert_proto::JobRunRecordPayload>, String> {
+        list_run_records(&self.state.paths, name, only_failures, limit)
+            .map_err(|err| err.to_string())
+    }
 }
 
 async fn bind_listener(socket_path: &Path) -> Result<LocalSocketListener, DaemonError> {
@@ -546,7 +615,7 @@ async fn get_or_create_session(
 
     let adapter = disconnected_adapter();
     let config = state.default_config.read().await.clone();
-    let kernel = Kernel::boot_with_paths_and_factory(
+    let mut kernel = Kernel::boot_with_paths_and_factory(
         config,
         adapter,
         state.paths.clone(),
@@ -555,6 +624,9 @@ async fn get_or_create_session(
     )
     .await
     .map_err(map_kernel_error)?;
+    kernel.register_job_manager(Arc::new(DaemonJobManager {
+        state: state.clone(),
+    }));
     let handle = Arc::new(SessionHandle {
         session_id: session_id.clone(),
         channel,

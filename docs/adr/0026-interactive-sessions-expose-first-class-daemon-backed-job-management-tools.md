@@ -1,7 +1,7 @@
 # ADR 0026: Interactive sessions expose first-class daemon-backed job management tools
 
 Date: 2026-04-19
-Status: Proposed
+Status: Accepted
 
 ## Context
 

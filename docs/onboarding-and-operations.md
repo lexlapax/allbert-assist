@@ -156,7 +156,7 @@ Notes:
 
 Jobs are daemon-owned and non-interactive by default.
 
-Today, job lifecycle management is authoritative through the CLI surfaces below. Prompt-native scheduling is still a v0.2 closeout item, so if you need a recurring job to exist reliably now, use these commands rather than relying on free-form conversation.
+Job lifecycle management is authoritative through the CLI surfaces below, and daemon-backed prompt job tools now exist for conversational scheduling work. The remaining v0.2 closeout gap is explicit preview-and-confirm for durable schedule mutation, so the CLI remains the clearest operator surface while that work is pending.
 
 Canonical commands:
 

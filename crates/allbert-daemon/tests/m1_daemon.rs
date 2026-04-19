@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use allbert_daemon::{spawn, spawn_with_factory, DaemonClient, RunningDaemon};
+use allbert_daemon::{spawn, spawn_with_factory, DaemonClient, DaemonError, RunningDaemon};
 use allbert_kernel::error::LlmError;
 use allbert_kernel::llm::{
     CompletionRequest, CompletionResponse, LlmProvider, ProviderFactory, Usage,
@@ -82,6 +82,28 @@ async fn shutdown_daemon(handle: RunningDaemon, paths: &AllbertPaths) {
         .expect("client should connect for shutdown");
     client.shutdown().await.expect("shutdown should succeed");
     handle.wait().await.expect("daemon should stop cleanly");
+}
+
+async fn run_turn_collect_messages(client: &mut DaemonClient, input: &str) -> Vec<ServerMessage> {
+    client
+        .start_turn(input.into())
+        .await
+        .expect("turn should start");
+    let mut messages = Vec::new();
+    loop {
+        let message = client.recv().await.expect("daemon should respond");
+        let done = matches!(message, ServerMessage::TurnResult(_));
+        match &message {
+            ServerMessage::ConfirmRequest(_) => panic!("unexpected confirm request"),
+            ServerMessage::InputRequest(_) => panic!("unexpected input request"),
+            _ => {}
+        }
+        messages.push(message);
+        if done {
+            break;
+        }
+    }
+    messages
 }
 
 #[derive(Clone)]
@@ -720,6 +742,208 @@ async fn trace_toggle_updates_status_and_debug_log() {
         std::fs::read_to_string(&paths.daemon_debug_log).expect("debug log should exist");
     assert!(debug_log.contains("trace=true"));
     assert!(debug_log.contains("run_turn session=repl-primary"));
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn interactive_session_can_upsert_and_inspect_jobs_via_prompt_tools() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(
+                concat!(
+                    "<tool_call>{\"name\":\"upsert_job\",\"input\":",
+                    "{\"name\":\"prompt-daily-review\",\"description\":\"Prompt-created daily review\",",
+                    "\"schedule\":\"@daily at 07:00\",\"timezone\":\"America/Los_Angeles\",",
+                    "\"allowed_tools\":[\"read_memory\"],\"prompt\":\"Review yesterday and suggest next steps.\"}}",
+                    "</tool_call>",
+                    "<tool_call>{\"name\":\"get_job\",\"input\":{\"name\":\"prompt-daily-review\"}}</tool_call>"
+                ),
+            ),
+            scripted("saved and inspected"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+
+    let messages = run_turn_collect_messages(&mut client, "schedule a daily review").await;
+    let mut saw_upsert = false;
+    let mut saw_get = false;
+    for message in messages {
+        if let ServerMessage::Event(KernelEventPayload::ToolResult { name, ok, content }) = message
+        {
+            if name == "upsert_job" {
+                assert!(ok, "upsert_job should succeed: {content}");
+                assert!(content.contains("\"name\": \"prompt-daily-review\""));
+                saw_upsert = true;
+            }
+            if name == "get_job" {
+                assert!(ok, "get_job should succeed: {content}");
+                assert!(content.contains("\"schedule\": \"@daily at 07:00\""));
+                saw_get = true;
+            }
+        }
+    }
+    assert!(saw_upsert);
+    assert!(saw_get);
+
+    let status = client
+        .get_job("prompt-daily-review")
+        .await
+        .expect("job should exist");
+    assert_eq!(status.definition.name, "prompt-daily-review");
+    assert_eq!(
+        status.definition.timezone.as_deref(),
+        Some("America/Los_Angeles")
+    );
+    assert_eq!(status.definition.allowed_tools, vec!["read_memory"]);
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn interactive_session_can_list_pause_resume_and_remove_jobs_via_prompt_tools() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted("<tool_call>{\"name\":\"list_jobs\",\"input\":{}}</tool_call>"),
+            scripted("listed"),
+            scripted("<tool_call>{\"name\":\"pause_job\",\"input\":{\"name\":\"weekly-review\"}}</tool_call>"),
+            scripted("paused"),
+            scripted("<tool_call>{\"name\":\"resume_job\",\"input\":{\"name\":\"weekly-review\"}}</tool_call>"),
+            scripted("resumed"),
+            scripted("<tool_call>{\"name\":\"remove_job\",\"input\":{\"name\":\"weekly-review\"}}</tool_call>"),
+            scripted("removed"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+    client
+        .upsert_job(sample_job(
+            "weekly-review",
+            "every 1h",
+            "review weekly work",
+        ))
+        .await
+        .expect("job should upsert");
+
+    let list_messages = run_turn_collect_messages(&mut client, "what jobs do I have?").await;
+    assert!(list_messages.into_iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: true, content })
+            if name == "list_jobs" && content.contains("weekly-review")
+    )));
+
+    run_turn_collect_messages(&mut client, "pause weekly review").await;
+    let paused = client
+        .get_job("weekly-review")
+        .await
+        .expect("paused job should exist");
+    assert!(paused.state.paused);
+
+    run_turn_collect_messages(&mut client, "resume weekly review").await;
+    let resumed = client
+        .get_job("weekly-review")
+        .await
+        .expect("resumed job should exist");
+    assert!(!resumed.state.paused);
+
+    let remove_messages = run_turn_collect_messages(&mut client, "remove weekly review").await;
+    assert!(remove_messages.into_iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: true, content })
+            if name == "remove_job" && content.contains("\"removed\": \"weekly-review\"")
+    )));
+    let err = client
+        .get_job("weekly-review")
+        .await
+        .expect_err("removed job should no longer exist");
+    assert!(matches!(err, DaemonError::Protocol(_)));
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn interactive_session_can_run_jobs_and_inspect_recent_runs_via_prompt_tools() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(
+                concat!(
+                    "<tool_call>{\"name\":\"run_job\",\"input\":{\"name\":\"manual-check\"}}</tool_call>",
+                    "<tool_call>{\"name\":\"list_job_runs\",\"input\":{\"name\":\"manual-check\",\"limit\":5}}</tool_call>"
+                ),
+            ),
+            scripted("job body completed"),
+            scripted("ran and inspected"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+    client
+        .upsert_job(sample_job(
+            "manual-check",
+            "every 1h",
+            "perform manual check",
+        ))
+        .await
+        .expect("job should upsert");
+
+    let messages = run_turn_collect_messages(&mut client, "run the manual check job now").await;
+    let mut saw_run = false;
+    let mut saw_history = false;
+    for message in messages {
+        if let ServerMessage::Event(KernelEventPayload::ToolResult { name, ok, content }) = message
+        {
+            if name == "run_job" {
+                assert!(ok, "run_job should succeed: {content}");
+                assert!(content.contains("\"job_name\": \"manual-check\""));
+                saw_run = true;
+            }
+            if name == "list_job_runs" {
+                assert!(ok, "list_job_runs should succeed: {content}");
+                assert!(content.contains("\"job_name\": \"manual-check\""));
+                saw_history = true;
+            }
+        }
+    }
+    assert!(saw_run);
+    assert!(saw_history);
+
+    let status = client
+        .get_job("manual-check")
+        .await
+        .expect("job should still exist");
+    assert_eq!(status.state.last_outcome.as_deref(), Some("success"));
+    assert!(status.state.last_run_id.is_some());
 
     shutdown_daemon(handle, &paths).await;
 }

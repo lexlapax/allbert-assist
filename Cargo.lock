@@ -73,6 +73,7 @@ dependencies = [
 name = "allbert-kernel"
 version = "0.1.0"
 dependencies = [
+ "allbert-proto",
  "async-trait",
  "dirs",
  "gray_matter",
