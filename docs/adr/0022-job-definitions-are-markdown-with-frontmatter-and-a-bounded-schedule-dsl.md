@@ -1,0 +1,96 @@
+# ADR 0022: Job definitions are markdown with frontmatter and use a bounded schedule DSL
+
+Date: 2026-04-18
+Status: Proposed
+
+## Context
+
+The v0.2 plan introduces `JobManagerService` with job definitions under `~/.allbert/jobs/definitions/`, but never specifies the file format or how schedules are expressed. Both are load-bearing decisions:
+
+- The file format dictates parser choice, diff-friendliness, edit UX, and how bundled templates look.
+- The schedule expression dictates what users can and cannot automate, how due-job evaluation works, and how portable job definitions are across systems.
+
+Format options considered:
+
+1. TOML/YAML config files — machine-friendly but clumsy for the prompt body.
+2. Markdown + YAML frontmatter — matches the existing skills format (v0.1 uses `gray_matter` for skills), lets the job prompt be a readable markdown body, and keeps metadata declarative.
+3. A bespoke jobs DSL — new parser, new mental model, poor fit for local-first editing.
+
+Schedule expression options considered:
+
+1. Full cron syntax — expressive but easy to get wrong, hard to read at a glance, and different platforms ship slightly different variants.
+2. A bounded DSL that covers the realistic cases (`@daily`, `@hourly`, `@weekly`, `every <duration>`, `at <HH:MM>`) plus a pass-through for explicit cron expressions when needed.
+3. Structured interval objects in frontmatter only (`every: 1h`) — simpler but loses one-shot and fixed-time cases.
+
+Option 2 for each pairs well: skills already use markdown+frontmatter, and a bounded DSL with a cron escape hatch covers the maintenance-first scope of v0.2 without forcing users to learn cron.
+
+## Decision
+
+Job definitions are markdown files with YAML frontmatter. Schedules use a bounded DSL with a cron escape hatch.
+
+### File format
+
+- Job definitions live at `~/.allbert/jobs/definitions/<name>.md`.
+- The filename (minus `.md`) is the canonical job name; it must be kebab-case, unique, and stable.
+- The file has YAML frontmatter followed by a markdown body.
+- The markdown body is the job prompt, layered on top of any attached skills' prompts (per ADR 0016).
+
+### Frontmatter schema (v0.2)
+
+```yaml
+---
+name: daily-brief                  # required, matches filename
+description: Morning summary ...    # required, one-line
+enabled: false                      # required, defaults to false for bundled templates
+schedule: "@daily at 07:00"         # required, schedule expression (DSL or cron)
+skills: [morning-review]            # optional, ordered list (ADR 0016)
+allowed-tools: [read_memory, write_memory]  # optional; intersects global policy
+timeout_s: 600                      # optional, per-run wall-clock cap
+report: on_anomaly                  # optional: always | on_failure | on_anomaly
+max_turns: 8                        # optional override of global limits
+---
+```
+
+Unknown frontmatter keys are rejected at parse time (v0.2) to keep the format auditable. A future version may introduce an `extensions` block if user-defined metadata becomes necessary.
+
+### Schedule DSL (v0.2)
+
+Supported expressions:
+
+- `@hourly`, `@daily`, `@weekly`, `@monthly` — fixed presets anchored to local time
+- `@daily at HH:MM` — daily at a specific local time
+- `@weekly on <weekday> at HH:MM` — e.g. `@weekly on monday at 09:00`
+- `every <duration>` — `every 15m`, `every 2h`, `every 12h`; evaluated from daemon start or last run
+- `cron: <expression>` — explicit 5-field cron expression as an escape hatch
+- `once at <RFC3339>` — one-shot runs; the job becomes disabled after the run completes
+
+All time-of-day fields resolve against the system local timezone. The DSL is parsed into a single internal `Schedule` representation so due-job evaluation has one code path regardless of surface syntax.
+
+### Bundled templates
+
+Bundled job templates (ADR 0017) must ship with `enabled: false` and use the DSL form (not raw cron) so they read clearly to a user inspecting `~/.allbert/jobs/definitions/`.
+
+## Consequences
+
+**Positive**
+- Reuses the skills file shape users already understand.
+- Makes the prompt body the primary readable surface, with metadata confined to frontmatter.
+- Bounds the surface area of the schedule syntax so due-job evaluation and docs stay small.
+- Keeps a cron escape hatch for power users without forcing everyone into cron.
+- Rejecting unknown frontmatter keys prevents silent drift as the schema evolves.
+
+**Negative**
+- Adds a small DSL parser plus a cron parser to the daemon. Both must be well-tested.
+- Local-time anchoring means jobs can skip or double-fire around DST transitions; behavior must be explicitly documented.
+
+**Neutral**
+- Future versions can extend the frontmatter schema (e.g. retry policy, resource limits) behind a version bump.
+- `once at …` is the natural seed for a future "queue this job for later" surface without redesigning the format.
+- A future UI for authoring jobs would still target this file format directly.
+
+## References
+
+- [ADR 0002](0002-skill-bodies-require-explicit-activation.md)
+- [ADR 0016](0016-scheduled-runs-use-fresh-sessions-and-may-attach-ordered-skills.md)
+- [ADR 0017](0017-v0-2-ships-bundled-job-templates-disabled-by-default.md)
+- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
