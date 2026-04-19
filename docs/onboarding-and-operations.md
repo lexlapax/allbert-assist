@@ -111,8 +111,12 @@ The CLI may override some of this for the current REPL session:
 
 Useful REPL commands:
 
+- `/h`
+  Alias for `/help`.
 - `/help`
   Shows the command list.
+- `/s`
+  Alias for `/status`.
 - `/status`
   Shows provider, model, API-key env presence, setup version, bootstrap pending state, trusted roots, daemon auto-spawn, jobs enablement, jobs timezone, skill count, and trace mode.
 - `/setup`
@@ -125,6 +129,8 @@ Useful REPL commands:
   Shows session cost and today's recorded total from `~/.allbert/costs.jsonl`.
 - `/exit`
   Leaves the REPL without stopping the daemon.
+
+Unknown slash commands are rejected locally with a short hint to use `/help`; they are not forwarded to the model.
 
 Scheduled job failures are surfaced live to attached REPL clients as one-line notices, and they also remain recorded durably under `~/.allbert/jobs/failures/`.
 

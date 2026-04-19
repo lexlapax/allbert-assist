@@ -11,13 +11,28 @@ use crate::setup::{self, StatusSnapshot};
 
 const HELP_TEXT: &str = "\
 commands:
+  /h        show this help
   /cost     show session cost and today's recorded total
   /help     show this help
   /model    show or change the active model
+  /s        show provider, setup, roots, and trace state
   /setup    rerun guided setup and reload config for this session
   /status   show provider, setup, roots, and trace state
   /exit     leave the REPL
+  /quit     leave the REPL
+  unknown slash commands are rejected locally
   anything else is sent to the daemon-backed kernel session";
+
+enum LocalCommand<'a> {
+    Exit,
+    Help,
+    Cost,
+    Model(&'a str),
+    Setup,
+    Status,
+    UnknownSlash(&'a str),
+    Turn(&'a str),
+}
 
 pub async fn run_loop(
     client: &mut DaemonClient,
@@ -36,23 +51,23 @@ pub async fn run_loop(
                 if trimmed.is_empty() {
                     continue;
                 }
-                match trimmed {
-                    "/exit" | "/quit" => break,
-                    "/help" => println!("{HELP_TEXT}"),
-                    "/cost" => {
+                match parse_local_command(trimmed) {
+                    LocalCommand::Exit => break,
+                    LocalCommand::Help => println!("{HELP_TEXT}"),
+                    LocalCommand::Cost => {
                         let status = client.session_status().await?;
                         println!(
                             "session: ${:.6}\ntoday:   ${:.6}",
                             status.session_cost_usd, status.today_cost_usd
                         );
                     }
-                    command if command.starts_with("/model") => {
+                    LocalCommand::Model(command) => {
                         handle_model_command(client, command).await?;
                     }
-                    "/setup" => {
+                    LocalCommand::Setup => {
                         handle_setup_command(client, paths).await?;
                     }
-                    "/status" => {
+                    LocalCommand::Status => {
                         let status = client.session_status().await?;
                         let config = allbert_kernel::Config::load_or_create(paths)?;
                         println!(
@@ -60,8 +75,13 @@ pub async fn run_loop(
                             setup::render_status(&snapshot_from_proto(&status, &config))
                         );
                     }
-                    _ => {
-                        run_turn(client, trimmed).await?;
+                    LocalCommand::UnknownSlash(command) => {
+                        eprintln!(
+                            "unknown command: {command}\nuse /help to see supported REPL commands"
+                        );
+                    }
+                    LocalCommand::Turn(command) => {
+                        run_turn(client, command).await?;
                     }
                 }
             }
@@ -73,6 +93,19 @@ pub async fn run_loop(
         }
     }
     Ok(())
+}
+
+fn parse_local_command(input: &str) -> LocalCommand<'_> {
+    match input {
+        "/exit" | "/quit" => LocalCommand::Exit,
+        "/help" | "/h" => LocalCommand::Help,
+        "/cost" => LocalCommand::Cost,
+        "/setup" => LocalCommand::Setup,
+        "/status" | "/s" => LocalCommand::Status,
+        command if command.starts_with("/model") => LocalCommand::Model(command),
+        command if command.starts_with('/') => LocalCommand::UnknownSlash(command),
+        other => LocalCommand::Turn(other),
+    }
 }
 
 async fn run_turn(client: &mut DaemonClient, input: &str) -> Result<()> {
@@ -306,5 +339,28 @@ fn snapshot_from_proto(
         daemon_auto_spawn: config.daemon.auto_spawn,
         jobs_enabled: config.jobs.enabled,
         jobs_default_timezone: config.jobs.default_timezone.clone(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_local_command, LocalCommand};
+
+    #[test]
+    fn short_help_alias_is_local() {
+        assert!(matches!(parse_local_command("/h"), LocalCommand::Help));
+    }
+
+    #[test]
+    fn short_status_alias_is_local() {
+        assert!(matches!(parse_local_command("/s"), LocalCommand::Status));
+    }
+
+    #[test]
+    fn unknown_slash_command_does_not_fall_through_to_model() {
+        assert!(matches!(
+            parse_local_command("/not-a-command"),
+            LocalCommand::UnknownSlash("/not-a-command")
+        ));
     }
 }

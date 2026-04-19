@@ -108,13 +108,17 @@ If you cancel setup, Allbert exits without entering the REPL and leaves setup in
 
 REPL slash commands:
 
+- `/h` is an alias for `/help`
 - `/help` shows command help
+- `/s` is an alias for `/status`
 - `/status` shows provider, setup state, trusted roots, daemon/jobs defaults, API-key presence, installed skill count, and trace mode
 - `/setup` reruns guided setup and reloads config for the current daemon session
 - `/model` shows the active session model
 - `/model <anthropic|openrouter> <model_id> [api_key_env]` switches model/provider for the attached session only
 - `/cost` shows session cost and today's recorded total
 - `/exit` leaves the REPL without stopping the daemon
+
+Unknown slash commands are rejected locally instead of being sent through to the model.
 
 Daemon commands:
 
