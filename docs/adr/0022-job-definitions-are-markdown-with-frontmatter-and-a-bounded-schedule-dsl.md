@@ -44,6 +44,10 @@ description: Morning summary ...    # required, one-line
 enabled: false                      # required, defaults to false for bundled templates
 schedule: "@daily at 07:00"         # required, schedule expression (DSL or cron)
 skills: [morning-review]            # optional, ordered list (ADR 0016)
+timezone: America/Los_Angeles       # optional; falls back to jobs.default_timezone, then system local time
+model:                              # optional; same shape as ModelConfig if overriding the daemon default
+  provider: anthropic
+  model_id: claude-sonnet-4-5
 allowed-tools: [read_memory, write_memory]  # optional; intersects global policy
 timeout_s: 600                      # optional, per-run wall-clock cap
 report: on_anomaly                  # optional: always | on_failure | on_anomaly
@@ -60,11 +64,19 @@ Supported expressions:
 - `@hourly`, `@daily`, `@weekly`, `@monthly` — fixed presets anchored to local time
 - `@daily at HH:MM` — daily at a specific local time
 - `@weekly on <weekday> at HH:MM` — e.g. `@weekly on monday at 09:00`
-- `every <duration>` — `every 15m`, `every 2h`, `every 12h`; evaluated from daemon start or last run
+- `every <duration>` — `every 15m`, `every 2h`, `every 12h`; evaluated from persisted schedule state
 - `cron: <expression>` — explicit 5-field cron expression as an escape hatch
 - `once at <RFC3339>` — one-shot runs; the job becomes disabled after the run completes
 
-All time-of-day fields resolve against the system local timezone. The DSL is parsed into a single internal `Schedule` representation so due-job evaluation has one code path regardless of surface syntax.
+Timezone resolution order is explicit:
+
+1. `timezone:` in the job frontmatter
+2. `config.jobs.default_timezone`
+3. system local timezone
+
+The schedule engine persists `next_due_at` for every enabled job. If the daemon was down and `next_due_at <= now` at startup, the job becomes due once immediately as a coalesced catch-up run, and then `next_due_at` is advanced until it lands in the future. Missed intervals are not replayed one-by-one. The same coalesced catch-up rule applies to fixed-time schedules and cron expressions.
+
+All time-of-day fields resolve through that timezone order. The DSL is parsed into a single internal `Schedule` representation so due-job evaluation has one code path regardless of surface syntax.
 
 ### Bundled templates
 
@@ -78,10 +90,12 @@ Bundled job templates (ADR 0017) must ship with `enabled: false` and use the DSL
 - Bounds the surface area of the schedule syntax so due-job evaluation and docs stay small.
 - Keeps a cron escape hatch for power users without forcing everyone into cron.
 - Rejecting unknown frontmatter keys prevents silent drift as the schema evolves.
+- Makes job timing deterministic across daemon restarts and machines whose host timezone differs from the user's intended timezone.
 
 **Negative**
 - Adds a small DSL parser plus a cron parser to the daemon. Both must be well-tested.
 - Local-time anchoring means jobs can skip or double-fire around DST transitions; behavior must be explicitly documented.
+- Coalesced catch-up means v0.2 intentionally prefers "at most one make-up run" over replaying every missed interval during long downtime.
 
 **Neutral**
 - Future versions can extend the frontmatter schema (e.g. retry policy, resource limits) behind a version bump.
