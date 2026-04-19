@@ -11,9 +11,12 @@ use allbert_kernel::llm::{
 use allbert_kernel::{AllbertPaths, Config, ModelConfig};
 use allbert_proto::{
     ChannelKind, ClientKind, ClientMessage, ConfirmDecisionPayload, InputReplyPayload,
-    InputResponsePayload, KernelEventPayload, ModelConfigPayload, ProviderKind, ServerMessage,
+    InputResponsePayload, JobDefinitionPayload, KernelEventPayload, ModelConfigPayload,
+    ProviderKind, ServerMessage,
 };
 use async_trait::async_trait;
+use chrono::{Duration as ChronoDuration, NaiveTime, TimeZone, Utc};
+use chrono_tz::Tz;
 use std::collections::VecDeque;
 use tokio::time::{sleep, timeout};
 
@@ -46,6 +49,13 @@ impl Drop for TempHome {
 fn sample_config() -> Config {
     let mut config = Config::default_template();
     config.setup.version = 2;
+    config
+}
+
+fn jobs_test_config() -> Config {
+    let mut config = sample_config();
+    config.jobs.enabled = false;
+    config.jobs.default_timezone = Some("America/Los_Angeles".into());
     config
 }
 
@@ -120,6 +130,47 @@ fn scripted(text: &str) -> CompletionResponse {
         text: text.into(),
         usage: Usage::default(),
     }
+}
+
+fn sample_job(name: &str, schedule: &str, prompt: &str) -> JobDefinitionPayload {
+    JobDefinitionPayload {
+        name: name.into(),
+        description: format!("{name} description"),
+        enabled: true,
+        schedule: schedule.into(),
+        skills: Vec::new(),
+        timezone: None,
+        model: None,
+        allowed_tools: Vec::new(),
+        timeout_s: None,
+        report: None,
+        max_turns: None,
+        prompt: prompt.into(),
+    }
+}
+
+fn next_daily_due(
+    now: chrono::DateTime<Utc>,
+    timezone: &str,
+    hour: u32,
+    minute: u32,
+) -> chrono::DateTime<Utc> {
+    let tz: Tz = timezone.parse().expect("timezone should parse");
+    let local = now.with_timezone(&tz);
+    let time = NaiveTime::from_hms_opt(hour, minute, 0).expect("time should be valid");
+    let date = local.date_naive();
+    let candidate = tz
+        .from_local_datetime(&date.and_time(time))
+        .single()
+        .expect("daily candidate should be unambiguous");
+    let next = if candidate > local {
+        candidate
+    } else {
+        tz.from_local_datetime(&((date + ChronoDuration::days(1)).and_time(time)))
+            .single()
+            .expect("next daily candidate should be unambiguous")
+    };
+    next.with_timezone(&Utc)
 }
 
 #[tokio::test]
@@ -558,4 +609,280 @@ async fn trace_toggle_updates_status_and_debug_log() {
     assert!(debug_log.contains("run_turn session=repl-primary"));
 
     shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn jobs_can_be_upserted_updated_and_swept_when_due() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted("job completed")])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+
+    let created = client
+        .upsert_job(sample_job(
+            "daily-brief",
+            "once at 2026-04-19T10:00:00Z",
+            "summarize",
+        ))
+        .await
+        .expect("job should upsert");
+    assert_eq!(created.definition.name, "daily-brief");
+
+    let mut updated_job = sample_job(
+        "daily-brief",
+        "once at 2026-04-19T11:00:00Z",
+        "summarize again",
+    );
+    updated_job.description = "updated description".into();
+    let updated = client
+        .upsert_job(updated_job)
+        .await
+        .expect("job should update");
+    assert_eq!(updated.definition.description, "updated description");
+    assert_eq!(updated.definition.schedule, "once at 2026-04-19T11:00:00Z");
+
+    let before_due = client
+        .sweep_jobs(Some("2026-04-19T10:30:00Z".into()))
+        .await
+        .expect("early sweep should succeed");
+    assert!(before_due.is_empty());
+
+    let runs = client
+        .sweep_jobs(Some("2026-04-19T11:05:00Z".into()))
+        .await
+        .expect("due sweep should succeed");
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0].job_name, "daily-brief");
+    assert_eq!(runs[0].outcome, "success");
+
+    let status = client
+        .get_job("daily-brief")
+        .await
+        .expect("job status should load");
+    assert!(
+        status.state.paused,
+        "one-shot jobs should pause after running"
+    );
+    assert!(status.state.last_run_at.is_some());
+    assert!(status.state.next_due_at.is_none());
+
+    let run_log_date = &runs[0].started_at[..10];
+    let run_log = std::fs::read_to_string(paths.jobs_runs.join(format!("{run_log_date}.jsonl")))
+        .expect("job run log should be written");
+    assert!(run_log.contains("\"job_name\":\"daily-brief\""));
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn paused_jobs_persist_across_daemon_restart_and_can_resume() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let config = jobs_test_config();
+    let handle = spawn_with_factory(
+        config.clone(),
+        paths.clone(),
+        Arc::new(TestFactory::new(Vec::new())),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+
+    client
+        .upsert_job(sample_job("weekly-review", "every 1h", "review work"))
+        .await
+        .expect("job should upsert");
+    let paused = client
+        .pause_job("weekly-review")
+        .await
+        .expect("pause should succeed");
+    assert!(paused.state.paused);
+
+    shutdown_daemon(handle, &paths).await;
+
+    let restarted = spawn_with_factory(
+        config,
+        paths.clone(),
+        Arc::new(TestFactory::new(Vec::new())),
+    )
+    .await
+    .expect("daemon should restart");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+
+    let reloaded = client
+        .get_job("weekly-review")
+        .await
+        .expect("job should reload after restart");
+    assert!(reloaded.state.paused);
+    assert_eq!(reloaded.definition.prompt, "review work");
+
+    let resumed = client
+        .resume_job("weekly-review")
+        .await
+        .expect("resume should succeed");
+    assert!(!resumed.state.paused);
+    assert!(resumed.state.next_due_at.is_some());
+
+    shutdown_daemon(restarted, &paths).await;
+}
+
+#[tokio::test]
+async fn timezone_resolution_prefers_job_override_then_default_timezone() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(Vec::new())),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+
+    let now = Utc::now();
+
+    let mut east = sample_job("east-coast-brief", "@daily at 09:00", "brief");
+    east.timezone = Some("America/New_York".into());
+    let east = client.upsert_job(east).await.expect("job should upsert");
+    let east_due = chrono::DateTime::parse_from_rfc3339(
+        east.state
+            .next_due_at
+            .as_deref()
+            .expect("next due should exist"),
+    )
+    .expect("next due should parse")
+    .with_timezone(&Utc);
+    let expected_east = next_daily_due(now, "America/New_York", 9, 0);
+    assert!(
+        (east_due - expected_east).num_seconds().abs() <= 5,
+        "east due mismatch: got {east_due}, expected {expected_east}"
+    );
+
+    let west = client
+        .upsert_job(sample_job("default-zone-brief", "@daily at 09:00", "brief"))
+        .await
+        .expect("job should upsert");
+    let west_due = chrono::DateTime::parse_from_rfc3339(
+        west.state
+            .next_due_at
+            .as_deref()
+            .expect("next due should exist"),
+    )
+    .expect("next due should parse")
+    .with_timezone(&Utc);
+    let expected_west = next_daily_due(now, "America/Los_Angeles", 9, 0);
+    assert!(
+        (west_due - expected_west).num_seconds().abs() <= 5,
+        "west due mismatch: got {west_due}, expected {expected_west}"
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn missed_intervals_coalesce_into_one_catch_up_run() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let config = jobs_test_config();
+    let handle = spawn_with_factory(
+        config.clone(),
+        paths.clone(),
+        Arc::new(TestFactory::new(Vec::new())),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+    client
+        .upsert_job(sample_job("memory-compile", "every 1h", "compile memory"))
+        .await
+        .expect("job should upsert");
+
+    std::fs::write(
+        paths.jobs_state.join("memory-compile.json"),
+        r#"{
+  "paused": false,
+  "last_run_at": "2026-04-19T09:00:00Z",
+  "next_due_at": "2026-04-19T10:00:00Z",
+  "failure_streak": 0
+}"#,
+    )
+    .expect("state file should be writable");
+
+    shutdown_daemon(handle, &paths).await;
+
+    let restarted = spawn_with_factory(
+        config,
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted("compiled")])),
+    )
+    .await
+    .expect("daemon should restart");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+
+    let runs = client
+        .sweep_jobs(Some("2026-04-19T13:05:00Z".into()))
+        .await
+        .expect("catch-up sweep should succeed");
+    assert_eq!(
+        runs.len(),
+        1,
+        "missed intervals should coalesce into one run"
+    );
+    assert_eq!(runs[0].job_name, "memory-compile");
+
+    let status = client
+        .get_job("memory-compile")
+        .await
+        .expect("job should still exist");
+    let next_due = chrono::DateTime::parse_from_rfc3339(
+        status
+            .state
+            .next_due_at
+            .as_deref()
+            .expect("next due should exist"),
+    )
+    .expect("next due should parse")
+    .with_timezone(&Utc);
+    assert!(
+        next_due > Utc::now(),
+        "next due should advance into the future"
+    );
+
+    shutdown_daemon(restarted, &paths).await;
 }

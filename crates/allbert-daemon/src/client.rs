@@ -5,8 +5,8 @@ use std::time::Duration;
 use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
     AttachedChannel, ChannelKind, ClientHello, ClientKind, ClientMessage, DaemonStatus,
-    ModelConfigPayload, OpenChannel, ProtocolError, ServerMessage, SessionStatus, TurnRequest,
-    PROTOCOL_VERSION,
+    JobDefinitionPayload, JobRunRecordPayload, JobStatusPayload, ModelConfigPayload, OpenChannel,
+    ProtocolError, ServerMessage, SessionStatus, TurnRequest, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
@@ -256,6 +256,111 @@ impl DaemonClient {
     pub async fn start_turn(&mut self, input: String) -> Result<(), DaemonError> {
         self.send(&ClientMessage::RunTurn(TurnRequest { input }))
             .await
+    }
+
+    pub async fn list_jobs(&mut self) -> Result<Vec<JobStatusPayload>, DaemonError> {
+        self.send(&ClientMessage::ListJobs).await?;
+        match self.recv().await? {
+            ServerMessage::Jobs(jobs) => Ok(jobs),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected jobs, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn get_job(&mut self, name: &str) -> Result<JobStatusPayload, DaemonError> {
+        self.send(&ClientMessage::GetJob(name.to_string())).await?;
+        match self.recv().await? {
+            ServerMessage::Job(job) => Ok(job),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected job, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn upsert_job(
+        &mut self,
+        definition: JobDefinitionPayload,
+    ) -> Result<JobStatusPayload, DaemonError> {
+        self.send(&ClientMessage::UpsertJob(definition)).await?;
+        match self.recv().await? {
+            ServerMessage::Job(job) => Ok(job),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected job, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn pause_job(&mut self, name: &str) -> Result<JobStatusPayload, DaemonError> {
+        self.send(&ClientMessage::PauseJob(name.to_string()))
+            .await?;
+        match self.recv().await? {
+            ServerMessage::Job(job) => Ok(job),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected job, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn resume_job(&mut self, name: &str) -> Result<JobStatusPayload, DaemonError> {
+        self.send(&ClientMessage::ResumeJob(name.to_string()))
+            .await?;
+        match self.recv().await? {
+            ServerMessage::Job(job) => Ok(job),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected job, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn run_job(&mut self, name: &str) -> Result<JobRunRecordPayload, DaemonError> {
+        self.send(&ClientMessage::RunJob(name.to_string())).await?;
+        match self.recv().await? {
+            ServerMessage::JobRun(run) => Ok(run),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected job run, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn remove_job(&mut self, name: &str) -> Result<(), DaemonError> {
+        self.send(&ClientMessage::RemoveJob(name.to_string()))
+            .await?;
+        match self.recv().await? {
+            ServerMessage::Ack => Ok(()),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected ack, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn sweep_jobs(
+        &mut self,
+        now: Option<String>,
+    ) -> Result<Vec<JobRunRecordPayload>, DaemonError> {
+        self.send(&ClientMessage::SweepJobs(now)).await?;
+        match self.recv().await? {
+            ServerMessage::JobRuns(runs) => Ok(runs),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected job runs, got {:?}",
+                other
+            ))),
+        }
     }
 
     pub async fn send(&mut self, message: &ClientMessage) -> Result<(), DaemonError> {

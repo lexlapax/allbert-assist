@@ -18,6 +18,7 @@ use allbert_proto::{
     ServerHello, ServerMessage, SessionStatus, TurnResult, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
+use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
 use interprocess::local_socket::{
     prelude::*,
@@ -36,6 +37,7 @@ use tokio_util::{
 };
 
 use crate::error::DaemonError;
+use crate::jobs::{parse_rfc3339, JobManager};
 
 type FramedStream = Framed<LocalSocketStream, LengthDelimitedCodec>;
 
@@ -55,6 +57,7 @@ struct SharedState {
     default_config: Arc<RwLock<Config>>,
     provider_factory: Arc<dyn ProviderFactory>,
     sessions: Arc<RwLock<HashMap<String, Arc<SessionHandle>>>>,
+    job_manager: Arc<Mutex<JobManager>>,
 }
 
 struct SessionHandle {
@@ -104,6 +107,7 @@ pub async fn spawn_with_factory(
     provider_factory: Arc<dyn ProviderFactory>,
 ) -> Result<RunningDaemon, DaemonError> {
     paths.ensure()?;
+    let job_manager = JobManager::load(&paths, &config)?;
 
     let socket_path = config
         .daemon
@@ -136,6 +140,7 @@ pub async fn spawn_with_factory(
         default_config: Arc::new(RwLock::new(config)),
         provider_factory,
         sessions: Arc::new(RwLock::new(HashMap::new())),
+        job_manager: Arc::new(Mutex::new(job_manager)),
     };
     append_log_line(
         &state.log_path,
@@ -198,11 +203,21 @@ async fn try_connect_existing(socket_path: &Path) -> Result<(), DaemonError> {
 }
 
 async fn accept_loop(listener: LocalSocketListener, state: SharedState) -> Result<(), DaemonError> {
+    let mut tick = tokio::time::interval(Duration::from_secs(1));
     loop {
         tokio::select! {
             _ = state.shutdown.cancelled() => {
                 append_log_line(&state.log_path, "shutdown requested")?;
                 return Ok(());
+            }
+            _ = tick.tick() => {
+                let defaults = state.default_config.read().await.clone();
+                if defaults.jobs.enabled {
+                    let mut manager = state.job_manager.lock().await;
+                    let _ = manager
+                        .sweep_due(&state.paths, &defaults, state.provider_factory.clone(), Utc::now())
+                        .await;
+                }
             }
             stream = listener.accept() => {
                 let stream = stream?;
@@ -390,6 +405,67 @@ async fn handle_connection(
                     .await
                     .map_err(map_kernel_error)?;
                 send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
+            ClientMessage::ListJobs => {
+                let manager = state.job_manager.lock().await;
+                send_server_message(&mut framed, &ServerMessage::Jobs(manager.list())).await?;
+            }
+            ClientMessage::GetJob(name) => {
+                let manager = state.job_manager.lock().await;
+                let job = manager.get(&name)?;
+                send_server_message(&mut framed, &ServerMessage::Job(job)).await?;
+            }
+            ClientMessage::UpsertJob(definition) => {
+                let defaults = state.default_config.read().await.clone();
+                let mut manager = state.job_manager.lock().await;
+                let job = manager.upsert(&state.paths, &defaults, definition)?;
+                send_server_message(&mut framed, &ServerMessage::Job(job)).await?;
+            }
+            ClientMessage::PauseJob(name) => {
+                let mut manager = state.job_manager.lock().await;
+                let job = manager.pause(&state.paths, &name)?;
+                send_server_message(&mut framed, &ServerMessage::Job(job)).await?;
+            }
+            ClientMessage::ResumeJob(name) => {
+                let defaults = state.default_config.read().await.clone();
+                let mut manager = state.job_manager.lock().await;
+                let job = manager.resume(&state.paths, &defaults, &name, Utc::now())?;
+                send_server_message(&mut framed, &ServerMessage::Job(job)).await?;
+            }
+            ClientMessage::RunJob(name) => {
+                let defaults = state.default_config.read().await.clone();
+                let mut manager = state.job_manager.lock().await;
+                let run = manager
+                    .run_job_now(
+                        &state.paths,
+                        &defaults,
+                        state.provider_factory.clone(),
+                        &name,
+                    )
+                    .await?;
+                send_server_message(&mut framed, &ServerMessage::JobRun(run)).await?;
+            }
+            ClientMessage::RemoveJob(name) => {
+                let mut manager = state.job_manager.lock().await;
+                manager.remove(&state.paths, &name)?;
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
+            ClientMessage::SweepJobs(now) => {
+                let sweep_at = match now {
+                    Some(value) => parse_rfc3339(&value)?,
+                    None => Utc::now(),
+                };
+                let defaults = state.default_config.read().await.clone();
+                let mut manager = state.job_manager.lock().await;
+                let runs = manager
+                    .sweep_due(
+                        &state.paths,
+                        &defaults,
+                        state.provider_factory.clone(),
+                        sweep_at,
+                    )
+                    .await?;
+                send_server_message(&mut framed, &ServerMessage::JobRuns(runs)).await?;
             }
             ClientMessage::RunTurn(turn) => {
                 let session = require_session(attached_session.as_ref())?.clone();

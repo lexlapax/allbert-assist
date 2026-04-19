@@ -1,5 +1,6 @@
 mod client;
 mod error;
+mod jobs;
 mod server;
 
 pub use client::{default_spawn_config, DaemonClient, SpawnConfig};

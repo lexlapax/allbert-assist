@@ -102,6 +102,58 @@ pub struct SessionStatus {
     pub today_cost_usd: f64,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum JobReportPolicyPayload {
+    Always,
+    OnFailure,
+    OnAnomaly,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct JobDefinitionPayload {
+    pub name: String,
+    pub description: String,
+    pub enabled: bool,
+    pub schedule: String,
+    pub skills: Vec<String>,
+    pub timezone: Option<String>,
+    pub model: Option<ModelConfigPayload>,
+    pub allowed_tools: Vec<String>,
+    pub timeout_s: Option<u64>,
+    pub report: Option<JobReportPolicyPayload>,
+    pub max_turns: Option<u32>,
+    pub prompt: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct JobStatePayload {
+    pub paused: bool,
+    pub last_run_at: Option<String>,
+    pub next_due_at: Option<String>,
+    pub failure_streak: u32,
+    pub running: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct JobStatusPayload {
+    pub definition: JobDefinitionPayload,
+    pub state: JobStatePayload,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct JobRunRecordPayload {
+    pub run_id: String,
+    pub job_name: String,
+    pub session_id: String,
+    pub started_at: String,
+    pub ended_at: String,
+    pub outcome: String,
+    pub cost_usd: f64,
+    pub skills_attached: Vec<String>,
+    pub stop_reason: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TurnRequest {
     pub input: String,
@@ -191,6 +243,14 @@ pub enum ClientMessage {
     SetAutoConfirm(bool),
     SetTrace(bool),
     ReloadSessionConfig,
+    ListJobs,
+    GetJob(String),
+    UpsertJob(JobDefinitionPayload),
+    PauseJob(String),
+    ResumeJob(String),
+    RunJob(String),
+    RemoveJob(String),
+    SweepJobs(Option<String>),
     Shutdown,
 }
 
@@ -206,6 +266,10 @@ pub enum ServerMessage {
     InputRequest(InputRequestPayload),
     TurnResult(TurnResult),
     Model(ModelConfigPayload),
+    Jobs(Vec<JobStatusPayload>),
+    Job(JobStatusPayload),
+    JobRun(JobRunRecordPayload),
+    JobRuns(Vec<JobRunRecordPayload>),
     Ack,
     Error(ProtocolError),
 }
