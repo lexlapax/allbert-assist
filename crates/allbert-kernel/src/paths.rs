@@ -72,6 +72,61 @@ Ask only for missing essentials. Once the details are written into SOUL.md,
 USER.md, IDENTITY.md, and TOOLS.md, remove BOOTSTRAP.md.
 "#;
 
+const DAILY_BRIEF_TEMPLATE: &str = r#"---
+name: daily-brief
+description: "Generate a short morning brief with recent notes, open work, and suggested next steps."
+enabled: false
+schedule: "@daily at 09:00"
+report: always
+---
+Review recent durable notes, memory, and any recent daily activity.
+Write a short markdown brief to reports/daily-brief.md with concrete next steps.
+"#;
+
+const WEEKLY_REVIEW_TEMPLATE: &str = r#"---
+name: weekly-review
+description: "Generate a weekly review with progress, blockers, and follow-up items."
+enabled: false
+schedule: "@weekly on monday at 09:00"
+report: always
+---
+Summarize the last week of durable notes and memory.
+Write a markdown weekly review to reports/weekly-review.md with completed work, blockers, and next actions.
+"#;
+
+const MEMORY_COMPILE_TEMPLATE: &str = r#"---
+name: memory-compile
+description: "Promote stable facts from recent notes into durable memory and leave a compile report."
+enabled: false
+schedule: "@daily at 18:00"
+report: on_failure
+---
+Review recent daily notes for durable facts worth keeping.
+Prefer write_memory for stable facts and write a short markdown report to reports/memory-compile.md.
+"#;
+
+const TRACE_TRIAGE_TEMPLATE: &str = r#"---
+name: trace-triage
+description: "Review recent traces for anomalies and write a compact triage note when needed."
+enabled: false
+schedule: "every 6h"
+report: on_anomaly
+---
+Inspect recent trace and log files for repeated failures, unusual tool churn, or model issues.
+Write a markdown triage note to reports/trace-triage.md only when there is something actionable to report.
+"#;
+
+const SYSTEM_HEALTH_CHECK_TEMPLATE: &str = r#"---
+name: system-health-check
+description: "Check core local runtime health and write a small status note on failure or anomaly."
+enabled: false
+schedule: "every 12h"
+report: on_anomaly
+---
+Check daemon logs, bootstrap files, and core runtime directories for obvious breakage.
+Write a markdown status note to reports/system-health-check.md only when there is an actionable anomaly.
+"#;
+
 #[derive(Debug, Clone)]
 pub struct AllbertPaths {
     pub root: PathBuf,
@@ -204,6 +259,21 @@ impl AllbertPaths {
 
         if needs_initial_bootstrap {
             self.seed_file_if_missing(&self.bootstrap, BOOTSTRAP_TEMPLATE)?;
+        }
+
+        let daily_brief = self.jobs_templates.join("daily-brief.md");
+        let weekly_review = self.jobs_templates.join("weekly-review.md");
+        let memory_compile = self.jobs_templates.join("memory-compile.md");
+        let trace_triage = self.jobs_templates.join("trace-triage.md");
+        let system_health_check = self.jobs_templates.join("system-health-check.md");
+        for (path, template) in [
+            (&daily_brief, DAILY_BRIEF_TEMPLATE),
+            (&weekly_review, WEEKLY_REVIEW_TEMPLATE),
+            (&memory_compile, MEMORY_COMPILE_TEMPLATE),
+            (&trace_triage, TRACE_TRIAGE_TEMPLATE),
+            (&system_health_check, SYSTEM_HEALTH_CHECK_TEMPLATE),
+        ] {
+            self.seed_file_if_missing(path, template)?;
         }
 
         Ok(())

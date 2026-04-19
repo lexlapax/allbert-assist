@@ -131,6 +131,11 @@ impl JobManager {
     }
 
     pub fn remove(&mut self, paths: &AllbertPaths, name: &str) -> Result<(), DaemonError> {
+        if self.running.contains(name) {
+            return Err(DaemonError::Protocol(format!(
+                "cannot remove running job: {name}"
+            )));
+        }
         self.definitions
             .remove(name)
             .ok_or_else(|| DaemonError::Protocol(format!("job not found: {name}")))?;
@@ -146,13 +151,11 @@ impl JobManager {
         Ok(())
     }
 
-    pub async fn run_job_now(
+    pub fn prepare_run_now(
         &mut self,
-        paths: &AllbertPaths,
         defaults: &Config,
-        provider_factory: Arc<dyn ProviderFactory>,
         name: &str,
-    ) -> Result<JobRunRecordPayload, DaemonError> {
+    ) -> Result<JobDefinition, DaemonError> {
         let definition = self
             .definitions
             .get(name)
@@ -163,34 +166,29 @@ impl JobManager {
                 "job already running: {name}"
             )));
         }
+        if self.running.len() >= defaults.jobs.max_concurrent_runs {
+            return Err(DaemonError::Protocol(format!(
+                "job concurrency limit reached: {}",
+                defaults.jobs.max_concurrent_runs
+            )));
+        }
         self.running.insert(name.to_string());
-        let result = execute_job(paths, defaults, provider_factory, &definition).await;
-        self.running.remove(name);
-
-        let record = result?;
-        let state = self.states.entry(name.to_string()).or_default();
-        update_state_after_run(
-            state,
-            &definition,
-            defaults,
-            parse_rfc3339(&record.started_at)?,
-            parse_rfc3339(&record.ended_at)?,
-            &record.outcome,
-        )?;
-        self.persist_states(paths)?;
-        append_run_record(paths, &record)?;
-        Ok(record)
+        Ok(definition)
     }
 
-    pub async fn sweep_due(
+    pub fn plan_due_runs(
         &mut self,
         paths: &AllbertPaths,
         defaults: &Config,
-        provider_factory: Arc<dyn ProviderFactory>,
         now: DateTime<Utc>,
-    ) -> Result<Vec<JobRunRecordPayload>, DaemonError> {
-        let names = self.definitions.keys().cloned().collect::<Vec<_>>();
-        let mut runs = Vec::new();
+    ) -> Result<Vec<JobDefinition>, DaemonError> {
+        let mut names = self.definitions.keys().cloned().collect::<Vec<_>>();
+        names.sort();
+        let available_slots = defaults
+            .jobs
+            .max_concurrent_runs
+            .saturating_sub(self.running.len());
+        let mut planned = Vec::new();
 
         for name in names {
             let Some(definition) = self.definitions.get(&name).cloned() else {
@@ -224,28 +222,43 @@ impl JobManager {
                 continue;
             }
 
-            self.running.insert(name.clone());
-            let result = execute_job(paths, defaults, provider_factory.clone(), &definition).await;
-            self.running.remove(&name);
+            if planned.len() >= available_slots {
+                continue;
+            }
 
-            let record = result?;
-            let started = parse_rfc3339(&record.started_at)?;
-            let ended = parse_rfc3339(&record.ended_at)?;
-            let state = self.states.entry(name.clone()).or_default();
-            update_state_after_run(
-                state,
-                &definition,
-                defaults,
-                started,
-                ended,
-                &record.outcome,
-            )?;
-            append_run_record(paths, &record)?;
-            runs.push(record);
+            self.running.insert(name.clone());
+            planned.push(definition);
         }
 
         self.persist_states(paths)?;
-        Ok(runs)
+        Ok(planned)
+    }
+
+    pub fn finish_run(
+        &mut self,
+        paths: &AllbertPaths,
+        defaults: &Config,
+        name: &str,
+        record: JobRunRecordPayload,
+    ) -> Result<JobRunRecordPayload, DaemonError> {
+        self.running.remove(name);
+        let definition = self
+            .definitions
+            .get(name)
+            .cloned()
+            .ok_or_else(|| DaemonError::Protocol(format!("job not found: {name}")))?;
+        let state = self.states.entry(name.to_string()).or_default();
+        update_state_after_run(
+            state,
+            &definition,
+            defaults,
+            parse_rfc3339(&record.started_at)?,
+            parse_rfc3339(&record.ended_at)?,
+            &record.outcome,
+        )?;
+        self.persist_states(paths)?;
+        append_run_record(paths, &record)?;
+        Ok(record)
     }
 
     fn status_for(&self, name: &str) -> Result<JobStatusPayload, DaemonError> {
@@ -854,12 +867,12 @@ fn update_state_after_run(
     Ok(())
 }
 
-async fn execute_job(
+pub(crate) async fn execute_job(
     paths: &AllbertPaths,
     defaults: &Config,
     provider_factory: Arc<dyn ProviderFactory>,
     definition: &JobDefinition,
-) -> Result<JobRunRecordPayload, DaemonError> {
+) -> JobRunRecordPayload {
     let run_id = uuid::Uuid::new_v4().to_string();
     let session_id = format!("job-{}-{}", definition.name, &run_id[..8]);
     let started_at = Utc::now();
@@ -887,7 +900,8 @@ async fn execute_job(
         input: Arc::new(JobInputPrompter),
     };
 
-    let mut kernel = Kernel::boot_with_paths_and_factory(
+    let ended_at;
+    let (outcome, stop_reason, cost_usd) = match Kernel::boot_with_paths_and_factory(
         config,
         adapter,
         paths.clone(),
@@ -895,36 +909,42 @@ async fn execute_job(
         Some(session_id.clone()),
     )
     .await
-    .map_err(map_kernel_error)?;
-
-    let mut outcome = "success".to_string();
-    let mut stop_reason = None;
-
-    match kernel.run_turn(&definition.prompt).await {
-        Ok(summary) => {
-            if summary.hit_turn_limit {
-                outcome = "limit".into();
-                stop_reason = Some("hit max-turns limit".into());
-            }
+    {
+        Ok(mut kernel) => {
+            let (outcome, stop_reason) = match kernel.run_turn(&definition.prompt).await {
+                Ok(summary) => {
+                    if summary.hit_turn_limit {
+                        ("limit".to_string(), Some("hit max-turns limit".into()))
+                    } else {
+                        ("success".to_string(), None)
+                    }
+                }
+                Err(err) => ("failure".to_string(), Some(err.to_string())),
+            };
+            ended_at = Utc::now();
+            (outcome, stop_reason, kernel.session_cost_usd())
         }
         Err(err) => {
-            outcome = "failure".into();
-            stop_reason = Some(err.to_string());
+            ended_at = Utc::now();
+            (
+                "failure".to_string(),
+                Some(map_kernel_error(err).to_string()),
+                0.0,
+            )
         }
-    }
+    };
 
-    let ended_at = Utc::now();
-    Ok(JobRunRecordPayload {
+    JobRunRecordPayload {
         run_id,
         job_name: definition.name.clone(),
         session_id,
         started_at: to_rfc3339(started_at),
         ended_at: to_rfc3339(ended_at),
         outcome,
-        cost_usd: kernel.session_cost_usd(),
+        cost_usd,
         skills_attached: definition.skills.clone(),
         stop_reason,
-    })
+    }
 }
 
 fn append_run_record(

@@ -19,7 +19,7 @@ use allbert_proto::{
 };
 use bytes::Bytes;
 use chrono::Utc;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{future::join_all, SinkExt, StreamExt};
 use interprocess::local_socket::{
     prelude::*,
     tokio::{prelude::*, Listener as LocalSocketListener, Stream as LocalSocketStream},
@@ -37,7 +37,7 @@ use tokio_util::{
 };
 
 use crate::error::DaemonError;
-use crate::jobs::{parse_rfc3339, JobManager};
+use crate::jobs::{execute_job, parse_rfc3339, JobDefinition, JobManager};
 
 type FramedStream = Framed<LocalSocketStream, LengthDelimitedCodec>;
 
@@ -213,10 +213,7 @@ async fn accept_loop(listener: LocalSocketListener, state: SharedState) -> Resul
             _ = tick.tick() => {
                 let defaults = state.default_config.read().await.clone();
                 if defaults.jobs.enabled {
-                    let mut manager = state.job_manager.lock().await;
-                    let _ = manager
-                        .sweep_due(&state.paths, &defaults, state.provider_factory.clone(), Utc::now())
-                        .await;
+                    let _ = run_due_jobs(&state, &defaults, Utc::now()).await;
                 }
             }
             stream = listener.accept() => {
@@ -434,15 +431,7 @@ async fn handle_connection(
             }
             ClientMessage::RunJob(name) => {
                 let defaults = state.default_config.read().await.clone();
-                let mut manager = state.job_manager.lock().await;
-                let run = manager
-                    .run_job_now(
-                        &state.paths,
-                        &defaults,
-                        state.provider_factory.clone(),
-                        &name,
-                    )
-                    .await?;
+                let run = run_named_job(&state, &defaults, &name).await?;
                 send_server_message(&mut framed, &ServerMessage::JobRun(run)).await?;
             }
             ClientMessage::RemoveJob(name) => {
@@ -456,15 +445,7 @@ async fn handle_connection(
                     None => Utc::now(),
                 };
                 let defaults = state.default_config.read().await.clone();
-                let mut manager = state.job_manager.lock().await;
-                let runs = manager
-                    .sweep_due(
-                        &state.paths,
-                        &defaults,
-                        state.provider_factory.clone(),
-                        sweep_at,
-                    )
-                    .await?;
+                let runs = run_due_jobs(&state, &defaults, sweep_at).await?;
                 send_server_message(&mut framed, &ServerMessage::JobRuns(runs)).await?;
             }
             ClientMessage::RunTurn(turn) => {
@@ -527,6 +508,62 @@ async fn get_or_create_session(
         .entry(session_id)
         .or_insert_with(|| handle.clone())
         .clone())
+}
+
+async fn run_named_job(
+    state: &SharedState,
+    defaults: &Config,
+    name: &str,
+) -> Result<allbert_proto::JobRunRecordPayload, DaemonError> {
+    let definition = {
+        let mut manager = state.job_manager.lock().await;
+        manager.prepare_run_now(defaults, name)?
+    };
+
+    let mut runs = execute_planned_jobs(state, defaults, vec![definition]).await?;
+    runs.pop()
+        .ok_or_else(|| DaemonError::Protocol(format!("job run did not complete: {name}")))
+}
+
+async fn run_due_jobs(
+    state: &SharedState,
+    defaults: &Config,
+    now: chrono::DateTime<Utc>,
+) -> Result<Vec<allbert_proto::JobRunRecordPayload>, DaemonError> {
+    let planned = {
+        let mut manager = state.job_manager.lock().await;
+        manager.plan_due_runs(&state.paths, defaults, now)?
+    };
+    execute_planned_jobs(state, defaults, planned).await
+}
+
+async fn execute_planned_jobs(
+    state: &SharedState,
+    defaults: &Config,
+    planned: Vec<JobDefinition>,
+) -> Result<Vec<allbert_proto::JobRunRecordPayload>, DaemonError> {
+    if planned.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let futures = planned.into_iter().map(|definition| {
+        let paths = state.paths.clone();
+        let defaults = defaults.clone();
+        let provider_factory = state.provider_factory.clone();
+        async move {
+            let name = definition.name.clone();
+            let record = execute_job(&paths, &defaults, provider_factory, &definition).await;
+            (name, record)
+        }
+    });
+
+    let results = join_all(futures).await;
+    let mut manager = state.job_manager.lock().await;
+    let mut completed = Vec::with_capacity(results.len());
+    for (name, record) in results {
+        completed.push(manager.finish_run(&state.paths, defaults, &name, record)?);
+    }
+    Ok(completed)
 }
 
 async fn run_turn_over_channel(

@@ -17,6 +17,9 @@ use allbert_proto::{
 use async_trait::async_trait;
 use chrono::{Duration as ChronoDuration, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
+use gray_matter::engine::YAML;
+use gray_matter::Matter;
+use serde::Deserialize;
 use std::collections::VecDeque;
 use tokio::time::{sleep, timeout};
 
@@ -55,6 +58,7 @@ fn sample_config() -> Config {
 fn jobs_test_config() -> Config {
     let mut config = sample_config();
     config.jobs.enabled = false;
+    config.jobs.max_concurrent_runs = 2;
     config.jobs.default_timezone = Some("America/Los_Angeles".into());
     config
 }
@@ -149,6 +153,44 @@ fn sample_job(name: &str, schedule: &str, prompt: &str) -> JobDefinitionPayload 
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TemplateFrontmatter {
+    name: String,
+    description: String,
+    enabled: bool,
+    schedule: String,
+    #[serde(default)]
+    skills: Vec<String>,
+    #[serde(default)]
+    timezone: Option<String>,
+    #[serde(default)]
+    report: Option<allbert_proto::JobReportPolicyPayload>,
+}
+
+fn parse_template_job(path: &std::path::Path) -> JobDefinitionPayload {
+    let raw = std::fs::read_to_string(path).expect("template should be readable");
+    let matter = Matter::<YAML>::new();
+    let parsed = matter
+        .parse::<TemplateFrontmatter>(&raw)
+        .expect("template should parse");
+    let data = parsed.data.expect("template frontmatter should exist");
+    JobDefinitionPayload {
+        name: data.name,
+        description: data.description,
+        enabled: data.enabled,
+        schedule: data.schedule,
+        skills: data.skills,
+        timezone: data.timezone,
+        model: None,
+        allowed_tools: Vec::new(),
+        timeout_s: None,
+        report: data.report,
+        max_turns: None,
+        prompt: parsed.content.trim().to_string(),
+    }
+}
+
 fn next_daily_due(
     now: chrono::DateTime<Utc>,
     timezone: &str,
@@ -171,6 +213,77 @@ fn next_daily_due(
             .expect("next daily candidate should be unambiguous")
     };
     next.with_timezone(&Utc)
+}
+
+#[derive(Clone)]
+struct ProbeFactory {
+    delay_ms: u64,
+    response_text: String,
+    active: Arc<AtomicUsize>,
+    max_seen: Arc<AtomicUsize>,
+}
+
+impl ProbeFactory {
+    fn new(delay_ms: u64, response_text: &str) -> Self {
+        Self {
+            delay_ms,
+            response_text: response_text.into(),
+            active: Arc::new(AtomicUsize::new(0)),
+            max_seen: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    fn max_seen(&self) -> usize {
+        self.max_seen.load(Ordering::SeqCst)
+    }
+}
+
+#[async_trait]
+impl ProviderFactory for ProbeFactory {
+    async fn build(&self, _model_config: &ModelConfig) -> Result<Box<dyn LlmProvider>, LlmError> {
+        Ok(Box::new(ProbeProvider {
+            delay_ms: self.delay_ms,
+            response_text: self.response_text.clone(),
+            active: self.active.clone(),
+            max_seen: self.max_seen.clone(),
+        }))
+    }
+}
+
+struct ProbeProvider {
+    delay_ms: u64,
+    response_text: String,
+    active: Arc<AtomicUsize>,
+    max_seen: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl LlmProvider for ProbeProvider {
+    async fn complete(&self, _req: CompletionRequest) -> Result<CompletionResponse, LlmError> {
+        let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
+        let mut seen = self.max_seen.load(Ordering::SeqCst);
+        while active > seen {
+            match self
+                .max_seen
+                .compare_exchange(seen, active, Ordering::SeqCst, Ordering::SeqCst)
+            {
+                Ok(_) => break,
+                Err(current) => seen = current,
+            }
+        }
+
+        sleep(Duration::from_millis(self.delay_ms)).await;
+        self.active.fetch_sub(1, Ordering::SeqCst);
+        Ok(scripted(&self.response_text))
+    }
+
+    fn pricing(&self, _model: &str) -> Option<allbert_kernel::llm::Pricing> {
+        None
+    }
+
+    fn provider_name(&self) -> &'static str {
+        "probe"
+    }
 }
 
 #[tokio::test]
@@ -885,4 +998,250 @@ async fn missed_intervals_coalesce_into_one_catch_up_run() {
     );
 
     shutdown_daemon(restarted, &paths).await;
+}
+
+#[tokio::test]
+async fn due_jobs_run_concurrently_up_to_limit_and_defer_excess() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let probe = ProbeFactory::new(150, "scheduler done");
+    let handle = spawn_with_factory(jobs_test_config(), paths.clone(), Arc::new(probe.clone()))
+        .await
+        .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+
+    for name in ["alpha", "bravo", "charlie"] {
+        client
+            .upsert_job(sample_job(name, "once at 2026-04-19T10:00:00Z", "run it"))
+            .await
+            .expect("job should upsert");
+    }
+
+    let first_batch = client
+        .sweep_jobs(Some("2026-04-19T10:05:00Z".into()))
+        .await
+        .expect("first sweep should succeed");
+    assert_eq!(
+        first_batch.len(),
+        2,
+        "only two jobs should run in the first batch"
+    );
+    assert_eq!(
+        probe.max_seen(),
+        2,
+        "scheduler should honor max_concurrent_runs"
+    );
+
+    let second_batch = client
+        .sweep_jobs(Some("2026-04-19T10:05:00Z".into()))
+        .await
+        .expect("second sweep should succeed");
+    assert_eq!(
+        second_batch.len(),
+        1,
+        "deferred due job should run on the next sweep"
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn running_job_is_not_reentered_while_it_is_still_active() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let probe = ProbeFactory::new(250, "still running");
+    let handle = spawn_with_factory(jobs_test_config(), paths.clone(), Arc::new(probe))
+        .await
+        .expect("daemon should boot");
+
+    let mut setup_client = wait_for_client(&paths).await;
+    setup_client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+    setup_client
+        .upsert_job(sample_job("repeat-job", "every 1s", "repeat"))
+        .await
+        .expect("job should upsert");
+    drop(setup_client);
+
+    let paths_for_run = paths.clone();
+    let runner = tokio::spawn(async move {
+        let mut client = DaemonClient::connect(&paths_for_run, ClientKind::Test)
+            .await
+            .expect("runner should connect");
+        client
+            .attach(ChannelKind::Jobs, None)
+            .await
+            .expect("runner should attach");
+        client
+            .run_job("repeat-job")
+            .await
+            .expect("manual run should succeed")
+    });
+
+    sleep(Duration::from_millis(50)).await;
+
+    let mut observer = DaemonClient::connect(&paths, ClientKind::Test)
+        .await
+        .expect("observer should connect");
+    observer
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("observer should attach");
+
+    let skipped = observer
+        .sweep_jobs(Some("2026-04-19T12:00:00Z".into()))
+        .await
+        .expect("overlap sweep should succeed");
+    assert!(
+        skipped.is_empty(),
+        "same job should not be reentered while running"
+    );
+
+    let status = observer
+        .get_job("repeat-job")
+        .await
+        .expect("job status should load");
+    assert!(status.state.running, "job should still be marked running");
+    let next_due = chrono::DateTime::parse_from_rfc3339(
+        status
+            .state
+            .next_due_at
+            .as_deref()
+            .expect("next due should exist"),
+    )
+    .expect("next due should parse")
+    .with_timezone(&Utc);
+    assert!(
+        next_due > Utc::now(),
+        "skip-if-running should advance next_due_at into the future"
+    );
+
+    runner.await.expect("runner task should join");
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn bundled_templates_seed_disabled_and_can_produce_expected_output() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let config = jobs_test_config();
+    let target_report = paths.memory.join("projects").join("daily-brief.md");
+    let scripted_write = format!(
+        "<tool_call>{{\"name\":\"write_memory\",\"input\":{{\"path\":\"projects/daily-brief.md\",\"content\":\"# Daily Brief\\n\\n- One thing to do next.\",\"mode\":\"write\",\"summary\":\"Daily brief report\"}}}}</tool_call>"
+    );
+    let handle = spawn_with_factory(
+        config,
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(&scripted_write),
+            scripted("brief written"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    for template_name in [
+        "daily-brief.md",
+        "weekly-review.md",
+        "memory-compile.md",
+        "trace-triage.md",
+        "system-health-check.md",
+    ] {
+        let raw = std::fs::read_to_string(paths.jobs_templates.join(template_name))
+            .expect("bundled template should exist");
+        assert!(
+            raw.contains("enabled: false"),
+            "{template_name} should ship disabled"
+        );
+    }
+
+    let trace_triage =
+        std::fs::read_to_string(paths.jobs_templates.join("trace-triage.md")).expect("template");
+    let system_health =
+        std::fs::read_to_string(paths.jobs_templates.join("system-health-check.md"))
+            .expect("template");
+    assert!(trace_triage.contains("report: on_anomaly"));
+    assert!(system_health.contains("report: on_anomaly"));
+
+    let mut daily = parse_template_job(&paths.jobs_templates.join("daily-brief.md"));
+    daily.enabled = true;
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+    client
+        .upsert_job(daily)
+        .await
+        .expect("template job should upsert");
+    drop(client);
+
+    let mut run_client = DaemonClient::connect(&paths, ClientKind::Test)
+        .await
+        .expect("run client should connect");
+    run_client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("run client should attach");
+
+    let run = run_client
+        .run_job("daily-brief")
+        .await
+        .expect("template run should succeed");
+    assert_eq!(run.outcome, "success");
+
+    let report = std::fs::read_to_string(&target_report).expect("report file should be written");
+    assert!(report.contains("# Daily Brief"));
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn bundled_jobs_fail_closed_when_interactive_input_is_required() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted(
+            "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"Need a human\",\"allow_empty\":false}}</tool_call>",
+        )])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut job = parse_template_job(&paths.jobs_templates.join("system-health-check.md"));
+    job.enabled = true;
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+    client
+        .upsert_job(job)
+        .await
+        .expect("template job should upsert");
+    let run = client
+        .run_job("system-health-check")
+        .await
+        .expect("job run should return a record");
+    assert_eq!(run.outcome, "failure");
+    assert!(
+        run.stop_reason
+            .as_deref()
+            .unwrap_or_default()
+            .contains("no scripted response left"),
+        "fail-closed scheduled job should record why it stopped"
+    );
+
+    shutdown_daemon(handle, &paths).await;
 }
