@@ -135,7 +135,7 @@ pub fn apply_setup_answers(
         .with_context(|| format!("write {}", paths.identity.display()))?;
 
     config.security.fs_roots = answers.trusted_roots.clone();
-    config.setup.version = 1;
+    config.setup.version = 2;
     config.persist(paths)?;
 
     if paths.bootstrap.exists() {
@@ -662,7 +662,7 @@ mod tests {
         let answers = sample_answers(&workspace);
         apply_setup_answers(&paths, &mut config, &answers).expect("setup should succeed");
 
-        assert_eq!(config.setup.version, 1);
+        assert_eq!(config.setup.version, 2);
         assert_eq!(config.security.fs_roots, vec![workspace.clone()]);
         assert!(!paths.bootstrap.exists());
 
@@ -674,7 +674,7 @@ mod tests {
         assert!(identity.contains("Warm, concise, and practical."));
 
         let loaded = Config::load_or_create(&paths).expect("persisted config should load");
-        assert_eq!(loaded.setup.version, 1);
+        assert_eq!(loaded.setup.version, 2);
         assert_eq!(loaded.security.fs_roots, vec![workspace]);
     }
 
@@ -689,7 +689,7 @@ mod tests {
         answers.trusted_roots.clear();
 
         apply_setup_answers(&paths, &mut config, &answers).expect("setup should succeed");
-        assert_eq!(config.setup.version, 1);
+        assert_eq!(config.setup.version, 2);
         assert!(config.security.fs_roots.is_empty());
         assert!(!paths.bootstrap.exists());
     }
@@ -701,7 +701,7 @@ mod tests {
             model_id: "claude-sonnet-4-5".into(),
             api_key_env: "ANTHROPIC_API_KEY".into(),
             api_key_present: false,
-            setup_version: 1,
+            setup_version: 2,
             bootstrap_pending: false,
             trusted_roots: Vec::new(),
             skill_count: 2,

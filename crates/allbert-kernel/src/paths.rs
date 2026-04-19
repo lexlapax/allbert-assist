@@ -76,6 +76,11 @@ USER.md, IDENTITY.md, and TOOLS.md, remove BOOTSTRAP.md.
 pub struct AllbertPaths {
     pub root: PathBuf,
     pub config: PathBuf,
+    pub run: PathBuf,
+    pub daemon_socket: PathBuf,
+    pub logs: PathBuf,
+    pub daemon_log: PathBuf,
+    pub daemon_debug_log: PathBuf,
     pub soul: PathBuf,
     pub user: PathBuf,
     pub identity: PathBuf,
@@ -89,12 +94,21 @@ pub struct AllbertPaths {
     pub memory_people: PathBuf,
     pub memory_projects: PathBuf,
     pub memory_decisions: PathBuf,
+    pub jobs: PathBuf,
+    pub jobs_definitions: PathBuf,
+    pub jobs_state: PathBuf,
+    pub jobs_runs: PathBuf,
+    pub jobs_failures: PathBuf,
+    pub jobs_templates: PathBuf,
     pub traces: PathBuf,
     pub costs: PathBuf,
 }
 
 impl AllbertPaths {
     pub fn from_home() -> Result<Self, KernelError> {
+        if let Some(root) = std::env::var_os("ALLBERT_HOME") {
+            return Ok(Self::under(PathBuf::from(root)));
+        }
         let home = dirs::home_dir()
             .ok_or_else(|| KernelError::InitFailed("could not resolve home directory".into()))?;
         Ok(Self::under(home.join(".allbert")))
@@ -102,8 +116,15 @@ impl AllbertPaths {
 
     pub fn under(root: PathBuf) -> Self {
         let memory = root.join("memory");
+        let jobs = root.join("jobs");
         Self {
+            root: root.clone(),
             config: root.join("config.toml"),
+            run: root.join("run"),
+            daemon_socket: root.join("run").join("daemon.sock"),
+            logs: root.join("logs"),
+            daemon_log: root.join("logs").join("daemon.log"),
+            daemon_debug_log: root.join("logs").join("daemon.debug.log"),
             soul: root.join("SOUL.md"),
             user: root.join("USER.md"),
             identity: root.join("IDENTITY.md"),
@@ -116,10 +137,15 @@ impl AllbertPaths {
             memory_people: memory.join("people"),
             memory_projects: memory.join("projects"),
             memory_decisions: memory.join("decisions"),
+            jobs_definitions: jobs.join("definitions"),
+            jobs_state: jobs.join("state"),
+            jobs_runs: jobs.join("runs"),
+            jobs_failures: jobs.join("failures"),
+            jobs_templates: jobs.join("templates"),
             traces: root.join("traces"),
             costs: root.join("costs.jsonl"),
             memory,
-            root,
+            jobs,
         }
     }
 
@@ -132,6 +158,8 @@ impl AllbertPaths {
 
         for dir in [
             &self.root,
+            &self.run,
+            &self.logs,
             &self.skills,
             &self.memory,
             &self.memory_daily,
@@ -139,10 +167,30 @@ impl AllbertPaths {
             &self.memory_people,
             &self.memory_projects,
             &self.memory_decisions,
+            &self.jobs,
+            &self.jobs_definitions,
+            &self.jobs_state,
+            &self.jobs_runs,
+            &self.jobs_failures,
+            &self.jobs_templates,
             &self.traces,
         ] {
             std::fs::create_dir_all(dir)
                 .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", dir.display())))?;
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            std::fs::set_permissions(&self.run, std::fs::Permissions::from_mode(0o700)).map_err(
+                |e| {
+                    KernelError::InitFailed(format!(
+                        "set permissions on {}: {e}",
+                        self.run.display()
+                    ))
+                },
+            )?;
         }
 
         for (path, template) in [

@@ -11,6 +11,10 @@ pub struct Config {
     #[serde(default)]
     pub setup: SetupConfig,
     #[serde(default)]
+    pub daemon: DaemonConfig,
+    #[serde(default)]
+    pub jobs: JobsConfig,
+    #[serde(default)]
     pub security: SecurityConfig,
     #[serde(default)]
     pub limits: LimitsConfig,
@@ -42,6 +46,46 @@ pub struct SetupConfig {
 impl Default for SetupConfig {
     fn default() -> Self {
         Self { version: 0 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct DaemonConfig {
+    pub socket_path: Option<PathBuf>,
+    pub log_dir: Option<PathBuf>,
+    pub log_retention_days: u16,
+    pub auto_spawn: bool,
+}
+
+impl Default for DaemonConfig {
+    fn default() -> Self {
+        Self {
+            socket_path: None,
+            log_dir: None,
+            log_retention_days: 7,
+            auto_spawn: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct JobsConfig {
+    pub enabled: bool,
+    pub max_concurrent_runs: usize,
+    pub default_timeout_s: u64,
+    pub default_timezone: Option<String>,
+}
+
+impl Default for JobsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            max_concurrent_runs: 1,
+            default_timeout_s: 600,
+            default_timezone: None,
+        }
     }
 }
 
@@ -147,6 +191,8 @@ impl Config {
                 max_tokens: 4096,
             },
             setup: SetupConfig::default(),
+            daemon: DaemonConfig::default(),
+            jobs: JobsConfig::default(),
             security: SecurityConfig::default(),
             limits: LimitsConfig::default(),
             trace: false,
@@ -158,10 +204,13 @@ impl Config {
         if paths.config.exists() {
             let raw = std::fs::read_to_string(&paths.config)
                 .map_err(|e| KernelError::InitFailed(format!("read config: {e}")))?;
-            let parsed: Config = toml::from_str(&raw).map_err(|source| ConfigError::Parse {
+            let mut parsed: Config = toml::from_str(&raw).map_err(|source| ConfigError::Parse {
                 path: paths.config.clone(),
                 source,
             })?;
+            if parsed.migrate_for_v0_2() {
+                parsed.persist(paths)?;
+            }
             Ok(parsed)
         } else {
             let template = Self::default_template();
@@ -177,6 +226,14 @@ impl Config {
             source,
         })?;
         Ok(())
+    }
+
+    fn migrate_for_v0_2(&mut self) -> bool {
+        if self.setup.version == 1 {
+            self.setup.version = 2;
+            return true;
+        }
+        false
     }
 }
 
@@ -253,5 +310,47 @@ trace = false
         std::fs::write(&paths.config, legacy).expect("legacy config should be written");
         let config = Config::load_or_create(&paths).expect("config should load");
         assert_eq!(config.setup.version, 0);
+    }
+
+    #[test]
+    fn v0_1_setup_version_migrates_to_two_and_persists() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should be created");
+
+        let legacy = r#"
+[model]
+provider = "anthropic"
+model_id = "claude-sonnet-4-5"
+api_key_env = "ANTHROPIC_API_KEY"
+max_tokens = 4096
+
+[setup]
+version = 1
+
+[security]
+fs_roots = []
+
+[limits]
+max_turns = 8
+max_tool_calls_per_turn = 16
+max_tool_output_bytes_per_call = 8192
+max_tool_output_bytes_total = 65536
+max_bootstrap_file_bytes = 2048
+max_prompt_bootstrap_bytes = 6144
+max_prompt_memory_bytes = 4096
+max_skill_args_bytes = 2048
+
+trace = false
+"#;
+
+        std::fs::write(&paths.config, legacy).expect("legacy config should be written");
+        let config = Config::load_or_create(&paths).expect("config should load");
+        assert_eq!(config.setup.version, 2);
+        assert!(config.daemon.auto_spawn);
+        assert_eq!(config.jobs.max_concurrent_runs, 1);
+
+        let reloaded = Config::load_or_create(&paths).expect("config should reload");
+        assert_eq!(reloaded.setup.version, 2);
     }
 }

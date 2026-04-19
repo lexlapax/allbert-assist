@@ -22,7 +22,8 @@ pub use adapter::{
 };
 pub use agent::AgentState;
 pub use config::{
-    Config, LimitsConfig, ModelConfig, Provider, SecurityConfig, SetupConfig, WebSecurityConfig,
+    Config, DaemonConfig, JobsConfig, LimitsConfig, ModelConfig, Provider, SecurityConfig,
+    SetupConfig, WebSecurityConfig,
 };
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
