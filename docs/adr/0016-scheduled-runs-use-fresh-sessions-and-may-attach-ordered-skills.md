@@ -7,7 +7,7 @@ Status: Proposed
 
 Both OpenClaw and Hermes treat scheduled work as something more deliberate than "resume whatever the agent was last doing." Hermes in particular documents cron runs as fresh sessions and allows one or more attached skills to provide reusable procedure without requiring giant repeated prompts.
 
-That maps well to Allbert's current architecture. The kernel already supports skills and a frontend boundary. What scheduled runs need is a clear rule about context: do they inherit ambient REPL history, or do they start fresh and only load the context the job explicitly names?
+That maps well to Allbert's architecture once the daemon owns sessions and the internal job manager launches scheduled runs. What scheduled runs need is a clear rule about context: do they inherit ambient REPL history, or do they start fresh and only load the context the job explicitly names?
 
 The second option is safer and more auditable.
 
@@ -19,6 +19,7 @@ Scheduled runs will use fresh sessions by default.
 - A job prompt should be self-contained unless reusable procedure is supplied through attached skills.
 - Jobs may attach zero, one, or multiple skills.
 - Attached skills are ordered and should be loaded in declared order before the job prompt is layered on top.
+- `JobManagerService` launches these runs as isolated scheduled sessions.
 - The jobs system should not invent a second procedural format when the existing skills system is already available.
 
 ## Consequences

@@ -11,7 +11,7 @@ That creates a policy choice. The job runtime could auto-allow actions it would 
 
 ## Decision
 
-Scheduled jobs fail closed on interactive actions unless explicit non-interactive policy already permits the step.
+Scheduled jobs launched by the daemon-owned job manager fail closed on interactive actions unless explicit non-interactive policy already permits the step.
 
 - Confirmation requests deny by default in scheduled runs unless the relevant action is already explicitly allowed by job policy or global policy.
 - `request_input` is unavailable in scheduled runs and should resolve as cancelled / unavailable rather than hanging.

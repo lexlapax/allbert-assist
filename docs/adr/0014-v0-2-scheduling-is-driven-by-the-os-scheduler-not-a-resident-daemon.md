@@ -1,53 +1,44 @@
-# ADR 0014: v0.2 scheduling is driven by the OS scheduler, not a resident daemon
+# ADR 0014: v0.2 scheduling is owned by the daemon's internal job manager
 
 Date: 2026-04-18
 Status: Proposed
 
 ## Context
 
-There are two broad ways to make scheduled jobs happen:
+There are two broad ways to make scheduled jobs happen in v0.2:
 
-1. build an always-running internal scheduler daemon into Allbert;
+1. let the daemon own a lightweight internal scheduler and job manager;
 2. let the operating system scheduler invoke Allbert when a job is due.
 
-The original note leans clearly toward the second model by calling out cron or OS-level scheduled jobs. For a technical local-first tool, that is also the smaller and more auditable approach. A resident daemon would add lifecycle management, background process semantics, shutdown/restart behavior, and new failure modes before the product has even shipped its first automation layer.
+The earlier v0.2 plan chose the second model. After revisiting the intended kernel shape, that is no longer the right fit. If Allbert is going to support attachable channels and lightweight internal services, it already needs a long-lived local daemon host. Once that exists, pushing scheduling back out to OS cron weakens the architecture rather than simplifying it.
 
 ## Decision
 
-v0.2 scheduling will be **OS-scheduler-driven**.
+v0.2 scheduling will be **owned by the daemon's internal job manager**.
 
-- Allbert should expose commands such as `run <job-id>` and `run-due`.
-- Those commands should be documented and stable enough to be scheduled by macOS `launchd`, Linux `cron` / `systemd` timers, and Windows Task Scheduler.
-- v0.2 does not add a resident internal scheduler daemon.
-- Scheduler integration is documented for technical users rather than hidden behind a packaged background service.
-- Platform-specific installer helpers may come later, but the scheduler command interface itself is part of the cross-platform v0.2 contract.
-
-More concretely, v0.2's support target is:
-
-- macOS: documented `launchd` scheduling path
-- Linux: documented `cron` and `systemd` timer path
-- Windows: documented Task Scheduler path
-
-This means Windows is included in the scheduler-interface contract for v0.2 rather than deferred to a later release. What remains deferred is convenience around installing or generating those scheduler entries automatically.
+- The daemon runs the scheduler loop itself.
+- Job definitions, mutable job state, and run metadata persist locally.
+- The jobs client talks to the daemon-owned job manager rather than becoming its own scheduler host.
+- OS service management may come later, but OS cron is not the primary scheduler in v0.2.
+- Boot-time service install and management are explicitly deferred.
 
 ## Consequences
 
 **Positive**
-- Keeps the implementation smaller, more inspectable, and more local-first.
-- Matches the technical-user audience already chosen for the current product phase.
-- Avoids inventing daemon management before the jobs model itself is proven valuable.
-- Gives the jobs frontend one portable command contract across macOS, Linux, and Windows.
+- Keeps scheduling aligned with the daemon-capable runtime architecture.
+- Gives Allbert one internal scheduling model across platforms.
+- Creates a cleaner base for future maintenance, background work, and richer services.
 
 **Negative**
-- OS-scheduler setup is less polished than a built-in background service.
-- Cross-platform documentation becomes part of the product surface earlier.
-- Windows support adds one more scheduler surface to test and document in v0.2.
+- Adds a scheduler loop and persistent job state to the daemon's scope.
+- Means scheduled work only runs while the user daemon is up in v0.2.
 
 **Neutral**
-- A future version can still add a resident scheduler if the OS-driven model proves too limiting.
-- The jobs frontend needs a stable command-line contract because the OS scheduler will depend on it.
+- A future version can still add boot-time service install or tighter OS integration if the user-daemon model proves too limiting.
+- Cross-platform concerns shift from OS cron documentation to local IPC and daemon operations.
 
 ## References
 
 - [docs/notes/origin-2026-04-17.md](../notes/origin-2026-04-17.md)
+- [docs/notes/v0.2-target-2026-04-18.md](../notes/v0.2-target-2026-04-18.md)
 - [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)

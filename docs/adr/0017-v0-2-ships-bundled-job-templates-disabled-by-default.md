@@ -13,7 +13,7 @@ Given Allbert's local-first and explicit-trust posture, auto-enabling background
 
 ## Decision
 
-v0.2 will ship bundled first-party job templates, and they will be disabled by default.
+v0.2 will ship bundled first-party job templates owned by the daemon-managed jobs system, and they will be disabled by default.
 
 - The user can inspect, enable, edit, or copy them.
 - The initial bundled set should include `daily-brief`, `weekly-review`, `memory-compile`, `trace-triage`, and `system-health-check`.
