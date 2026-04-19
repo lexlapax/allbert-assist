@@ -46,6 +46,8 @@ Enable debug trace logging:
 cargo run -p allbert-cli -- --trace
 ```
 
+This enables daemon debug logging for the running daemon at `~/.allbert/logs/daemon.debug.log`.
+
 Auto-confirm risky actions for the current session only:
 
 ```bash
@@ -128,7 +130,7 @@ Chat history is not the durable store. Important facts need to be written into m
 
 - terminal-only in v0.1
 - source-based install only
-- no runtime `/trace` toggle; use `--trace` at startup
+- no dedicated `allbert trace on|off` command yet; use `--trace` at startup
 - no streaming responses
 - no persisted chat transcript memory
 - live provider use depends on your network and API-key env vars

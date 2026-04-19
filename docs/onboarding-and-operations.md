@@ -88,8 +88,8 @@ max_skill_args_bytes = 2048
 
 The CLI may override some of this in memory for the current run:
 
-- `--trace` enables trace logging for the current process
-- `--yes` enables session-only auto-confirm
+- `--trace` enables daemon debug logging for the running daemon at `~/.allbert/logs/daemon.debug.log`
+- `--yes` enables session-only auto-confirm for the attached daemon-backed session
 
 ## Slash commands
 
@@ -141,7 +141,7 @@ Use the assistant naturally, but remember the architecture rule: durable recall 
 Trace logs:
 
 - enable with `cargo run -p allbert-cli -- --trace`
-- written to `~/.allbert/traces/<session>-<timestamp>.log`
+- written to `~/.allbert/logs/daemon.debug.log` for the running daemon
 
 Cost logs:
 
@@ -178,8 +178,9 @@ Setup feels incomplete:
 
 Trace logs missing:
 
-- start the process with `--trace`
-- there is no runtime trace toggle in v0.1
+- start the CLI with `--trace`
+- check `~/.allbert/logs/daemon.debug.log`
+- there is not yet a dedicated `allbert trace on|off` command in the CLI
 
 ## Release posture
 

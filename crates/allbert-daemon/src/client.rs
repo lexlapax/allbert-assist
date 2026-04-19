@@ -229,6 +229,30 @@ impl DaemonClient {
         }
     }
 
+    pub async fn set_auto_confirm(&mut self, enabled: bool) -> Result<(), DaemonError> {
+        self.send(&ClientMessage::SetAutoConfirm(enabled)).await?;
+        match self.recv().await? {
+            ServerMessage::Ack => Ok(()),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected ack, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    pub async fn set_trace(&mut self, enabled: bool) -> Result<(), DaemonError> {
+        self.send(&ClientMessage::SetTrace(enabled)).await?;
+        match self.recv().await? {
+            ServerMessage::Ack => Ok(()),
+            ServerMessage::Error(error) => Err(DaemonError::Protocol(error.message)),
+            other => Err(DaemonError::Protocol(format!(
+                "expected ack, got {:?}",
+                other
+            ))),
+        }
+    }
+
     pub async fn start_turn(&mut self, input: String) -> Result<(), DaemonError> {
         self.send(&ClientMessage::RunTurn(TurnRequest { input }))
             .await

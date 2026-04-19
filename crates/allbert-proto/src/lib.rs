@@ -188,6 +188,8 @@ pub enum ClientMessage {
     InputReply(InputReplyPayload),
     GetModel,
     SetModel(ModelConfigPayload),
+    SetAutoConfirm(bool),
+    SetTrace(bool),
     ReloadSessionConfig,
     Shutdown,
 }

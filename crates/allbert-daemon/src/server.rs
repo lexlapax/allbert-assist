@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    atomic::{AtomicU64, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     Arc,
 };
 
@@ -44,12 +44,13 @@ struct SharedState {
     daemon_id: String,
     started_at: String,
     socket_path: PathBuf,
-    trace_enabled: bool,
+    trace_enabled: Arc<AtomicBool>,
     active_clients: Arc<AtomicUsize>,
     next_session: Arc<AtomicU64>,
     next_request: Arc<AtomicU64>,
     shutdown: CancellationToken,
     log_path: PathBuf,
+    debug_log_path: PathBuf,
     paths: AllbertPaths,
     default_config: Arc<RwLock<Config>>,
     provider_factory: Arc<dyn ProviderFactory>,
@@ -124,12 +125,13 @@ pub async fn spawn_with_factory(
         daemon_id: uuid::Uuid::new_v4().to_string(),
         started_at: now_rfc3339()?,
         socket_path: socket_path.clone(),
-        trace_enabled: config.trace,
+        trace_enabled: Arc::new(AtomicBool::new(config.trace)),
         active_clients: Arc::new(AtomicUsize::new(0)),
         next_session: Arc::new(AtomicU64::new(1)),
         next_request: Arc::new(AtomicU64::new(1)),
         shutdown: shutdown.clone(),
         log_path: log_dir.join("daemon.log"),
+        debug_log_path: log_dir.join("daemon.debug.log"),
         paths,
         default_config: Arc::new(RwLock::new(config)),
         provider_factory,
@@ -141,7 +143,7 @@ pub async fn spawn_with_factory(
             "boot pid={} socket={} trace={}",
             std::process::id(),
             socket_path.display(),
-            state.trace_enabled
+            state.trace_enabled.load(Ordering::SeqCst)
         ),
     )?;
 
@@ -299,6 +301,14 @@ async fn handle_connection(
                     channel: session.channel,
                     session_id: session.session_id.clone(),
                 };
+                append_debug_line(
+                    &state,
+                    &format!(
+                        "attach channel={:?} session={}",
+                        attached.channel, attached.session_id
+                    ),
+                )
+                .ok();
                 attached_session = Some(session);
                 send_server_message(&mut framed, &ServerMessage::Attached(attached)).await?;
             }
@@ -311,14 +321,14 @@ async fn handle_connection(
                         socket_path: state.socket_path.display().to_string(),
                         started_at: state.started_at.clone(),
                         session_count: state.sessions.read().await.len(),
-                        trace_enabled: state.trace_enabled,
+                        trace_enabled: state.trace_enabled.load(Ordering::SeqCst),
                     }),
                 )
                 .await?;
             }
             ClientMessage::SessionStatus => {
                 let session = require_session(attached_session.as_ref())?;
-                let status = session_status(session).await?;
+                let status = session_status(&state, session).await?;
                 send_server_message(&mut framed, &ServerMessage::SessionStatus(status)).await?;
             }
             ClientMessage::GetModel => {
@@ -342,6 +352,30 @@ async fn handle_connection(
                     &ServerMessage::Model(model_to_payload(kernel.model())),
                 )
                 .await?;
+            }
+            ClientMessage::SetAutoConfirm(enabled) => {
+                let session = require_session(attached_session.as_ref())?;
+                let mut kernel = session.kernel.lock().await;
+                let mut session_config = kernel.config().clone();
+                session_config.security.auto_confirm = enabled;
+                kernel
+                    .apply_config(session_config)
+                    .await
+                    .map_err(map_kernel_error)?;
+                append_debug_line(
+                    &state,
+                    &format!("session={} auto_confirm={enabled}", session.session_id),
+                )?;
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
+            ClientMessage::SetTrace(enabled) => {
+                state.trace_enabled.store(enabled, Ordering::SeqCst);
+                {
+                    let mut config = state.default_config.write().await;
+                    config.trace = enabled;
+                }
+                append_debug_line(&state, &format!("trace={enabled}")).ok();
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
             }
             ClientMessage::ReloadSessionConfig => {
                 let session = require_session(attached_session.as_ref())?;
@@ -425,6 +459,15 @@ async fn run_turn_over_channel(
     session: Arc<SessionHandle>,
     input: String,
 ) -> Result<(), DaemonError> {
+    append_debug_line(
+        state,
+        &format!(
+            "run_turn session={} input_len={}",
+            session.session_id,
+            input.len()
+        ),
+    )
+    .ok();
     let (tx, mut rx) = mpsc::unbounded_channel();
     let adapter = channel_adapter(tx, state.next_request.clone());
 
@@ -555,7 +598,10 @@ fn require_session(
     session.ok_or_else(|| DaemonError::Protocol("no session is attached to this connection".into()))
 }
 
-async fn session_status(session: &Arc<SessionHandle>) -> Result<SessionStatus, DaemonError> {
+async fn session_status(
+    state: &SharedState,
+    session: &Arc<SessionHandle>,
+) -> Result<SessionStatus, DaemonError> {
     let kernel = session.kernel.lock().await;
     let config = kernel.config().clone();
     let model = kernel.model().clone();
@@ -574,7 +620,7 @@ async fn session_status(session: &Arc<SessionHandle>) -> Result<SessionStatus, D
             .map(|path| path.display().to_string())
             .collect(),
         skill_count: kernel.list_skills().len(),
-        trace_enabled: config.trace,
+        trace_enabled: state.trace_enabled.load(Ordering::SeqCst),
         session_cost_usd: kernel.session_cost_usd(),
         today_cost_usd: kernel.today_cost_usd().map_err(map_kernel_error)?,
     })
@@ -774,6 +820,14 @@ fn append_log_line(path: &Path, line: &str) -> Result<(), DaemonError> {
         .open(path)?;
     writeln!(file, "{line}")?;
     Ok(())
+}
+
+fn append_debug_line(state: &SharedState, line: &str) -> Result<(), DaemonError> {
+    if !state.trace_enabled.load(Ordering::SeqCst) {
+        return Ok(());
+    }
+
+    append_log_line(&state.debug_log_path, line)
 }
 
 async fn send_server_message(

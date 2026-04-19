@@ -467,3 +467,95 @@ async fn session_local_model_changes_do_not_leak_across_sessions() {
 
     shutdown_daemon(handle, &paths).await;
 }
+
+#[tokio::test]
+async fn session_auto_confirm_skips_confirm_prompt() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(
+                "<tool_call>{\"name\":\"process_exec\",\"input\":{\"program\":\"/bin/echo\",\"args\":[\"hello\"]}}</tool_call>",
+            ),
+            scripted("auto confirmed"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+    client
+        .set_auto_confirm(true)
+        .await
+        .expect("auto confirm should enable");
+    client
+        .start_turn("run".into())
+        .await
+        .expect("turn should start");
+
+    let mut saw_assistant = false;
+    loop {
+        match client.recv().await.expect("daemon should respond") {
+            ServerMessage::ConfirmRequest(_) => panic!("confirm should have been skipped"),
+            ServerMessage::Event(KernelEventPayload::AssistantText(text)) => {
+                if text == "auto confirmed" {
+                    saw_assistant = true;
+                }
+            }
+            ServerMessage::TurnResult(_) => break,
+            ServerMessage::Event(_) => {}
+            other => panic!("unexpected message: {:?}", other),
+        }
+    }
+
+    assert!(saw_assistant);
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn trace_toggle_updates_status_and_debug_log() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted("noop reply")])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+    client.set_trace(true).await.expect("trace should enable");
+
+    let status = client.session_status().await.expect("status should load");
+    assert!(status.trace_enabled);
+
+    client
+        .start_turn("noop".into())
+        .await
+        .expect("turn should start");
+    loop {
+        match client.recv().await.expect("daemon should respond") {
+            ServerMessage::TurnResult(_) => break,
+            ServerMessage::Event(_) => {}
+            other => panic!("unexpected message: {:?}", other),
+        }
+    }
+
+    let debug_log =
+        std::fs::read_to_string(&paths.daemon_debug_log).expect("debug log should exist");
+    assert!(debug_log.contains("trace=true"));
+    assert!(debug_log.contains("run_turn session=repl-primary"));
+
+    shutdown_daemon(handle, &paths).await;
+}

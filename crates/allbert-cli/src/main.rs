@@ -10,10 +10,10 @@ mod setup;
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Allbert daemon-backed REPL client", long_about = None)]
 struct Args {
-    /// Enable DEBUG file-layer tracing to ~/.allbert/traces/<session>-<ts>.log.
+    /// Enable daemon debug logging for the running daemon at ~/.allbert/logs/daemon.debug.log.
     #[arg(long)]
     trace: bool,
-    /// Auto-confirm risky actions (sets security.auto_confirm for this session).
+    /// Auto-confirm risky actions for the attached daemon-backed session.
     #[arg(short, long)]
     yes: bool,
 }
@@ -41,18 +41,17 @@ async fn main() -> Result<()> {
     }
     setup::print_startup_warnings(&config);
 
-    if args.trace {
-        eprintln!("[note] --trace now affects daemon config, not just a local client session");
-    }
-    if args.yes {
-        eprintln!("[note] --yes is not yet wired through the daemon path in v0.2 M2");
-    }
-
     let spawn = default_spawn_config(&paths, &config)?;
     let mut client = DaemonClient::connect_or_spawn(&paths, ClientKind::Repl, &spawn).await?;
     let attached = client
         .attach(allbert_proto::ChannelKind::Repl, None)
         .await?;
+    if args.trace {
+        client.set_trace(true).await?;
+    }
+    if args.yes {
+        client.set_auto_confirm(true).await?;
+    }
     tracing::info!(session = attached.session_id, "REPL attached");
     repl::run_loop(&mut client, &paths).await?;
     Ok(())
