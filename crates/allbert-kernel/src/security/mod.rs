@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -14,6 +14,20 @@ use crate::memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 use crate::skills::CreateSkillInput;
 use crate::tools::{ProcessExecInput, WriteFileInput};
 use crate::AllbertPaths;
+
+#[async_trait]
+pub(crate) trait HostResolver: Send + Sync {
+    async fn lookup_host(&self, host: &str, port: u16) -> std::io::Result<Vec<SocketAddr>>;
+}
+
+struct DefaultHostResolver;
+
+#[async_trait]
+impl HostResolver for DefaultHostResolver {
+    async fn lookup_host(&self, host: &str, port: u16) -> std::io::Result<Vec<SocketAddr>> {
+        Ok(lookup_host((host, port)).await?.collect())
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum PolicyDecision {
@@ -86,6 +100,14 @@ pub fn exec_policy(
 }
 
 pub async fn web_policy(url: &str, config: &WebSecurityConfig) -> PolicyDecision {
+    web_policy_with_resolver(url, config, &DefaultHostResolver).await
+}
+
+pub(crate) async fn web_policy_with_resolver(
+    url: &str,
+    config: &WebSecurityConfig,
+    resolver: &dyn HostResolver,
+) -> PolicyDecision {
     let parsed = match reqwest::Url::parse(url) {
         Ok(parsed) => parsed,
         Err(err) => return PolicyDecision::Deny(format!("invalid url: {err}")),
@@ -111,12 +133,12 @@ pub async fn web_policy(url: &str, config: &WebSecurityConfig) -> PolicyDecision
 
     let port = parsed.port_or_known_default().unwrap_or(80);
     let resolution = tokio::time::timeout(Duration::from_secs(config.timeout_s), async {
-        lookup_host((host.as_str(), port)).await
+        resolver.lookup_host(host.as_str(), port).await
     })
     .await;
 
     let addrs = match resolution {
-        Ok(Ok(addrs)) => addrs.collect::<Vec<_>>(),
+        Ok(Ok(addrs)) => addrs,
         Ok(Err(err)) => return PolicyDecision::Deny(format!("host lookup failed: {err}")),
         Err(_) => return PolicyDecision::Deny("host lookup timed out".into()),
     };

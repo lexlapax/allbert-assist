@@ -239,7 +239,7 @@ async fn handle_setup_command(
 fn prompt_confirm(program: &str, rendered: &str) -> Result<ConfirmDecisionPayload> {
     let durable_job_change = matches!(
         program,
-        "upsert_job" | "pause_job" | "resume_job" | "remove_job"
+        "upsert_job" | "pause_job" | "resume_job" | "remove_job" | "promote_staged_memory"
     );
     if durable_job_change {
         print!("Allbert wants to make this durable scheduling change:\n{rendered}\n[y/N] ");

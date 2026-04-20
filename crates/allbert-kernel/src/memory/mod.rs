@@ -1,8 +1,13 @@
 mod curated;
 
 pub use curated::{
-    bootstrap_curated_memory, memory_status, rebuild_memory_index, MemoryBootstrapReport,
-    MemoryIndexMeta, MemoryManifest, MemoryManifestEntry, MemoryStatusSnapshot, RebuildIndexReport,
+    bootstrap_curated_memory, forget_memory, get_staged_memory, list_staged_memory, memory_status,
+    preview_forget_memory, preview_promote_staged_memory, promote_staged_memory,
+    rebuild_memory_index, reject_staged_memory, search_memory, stage_memory, ForgetTarget,
+    MemoryBootstrapReport, MemoryForgetPreview, MemoryIndexMeta, MemoryManifest,
+    MemoryManifestEntry, MemoryPromotionPreview, MemoryStatusSnapshot, MemoryTier,
+    RebuildIndexReport, SearchMemoryHit, SearchMemoryInput, StageMemoryInput, StageMemoryRequest,
+    StagedMemoryKind, StagedMemoryRecord,
 };
 
 use std::path::{Component, Path, PathBuf};

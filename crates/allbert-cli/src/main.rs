@@ -95,11 +95,65 @@ enum SkillsCommand {
 enum MemoryCommand {
     /// Show curated-memory status for the current profile.
     Status,
+    /// Search curated memory.
+    Search {
+        query: String,
+        #[arg(long, default_value = "durable")]
+        tier: String,
+        #[arg(long)]
+        limit: Option<usize>,
+        #[arg(long, default_value = "text")]
+        format: String,
+    },
+    /// Inspect staged-memory entries.
+    Staged {
+        #[command(subcommand)]
+        command: MemoryStagedCommand,
+    },
+    /// Promote a staged-memory entry into durable notes.
+    Promote {
+        id: String,
+        #[arg(long)]
+        path: Option<String>,
+        #[arg(long)]
+        summary: Option<String>,
+        #[arg(long)]
+        confirm: bool,
+    },
+    /// Reject a staged-memory entry.
+    Reject {
+        id: String,
+        #[arg(long)]
+        reason: Option<String>,
+    },
+    /// Forget one or more durable memory entries.
+    Forget {
+        target: String,
+        #[arg(long)]
+        confirm: bool,
+    },
     /// Rebuild the curated-memory index.
     RebuildIndex {
         #[arg(long)]
         force: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+enum MemoryStagedCommand {
+    /// List staged-memory entries.
+    List {
+        #[arg(long)]
+        kind: Option<String>,
+        #[arg(long)]
+        since: Option<String>,
+        #[arg(long)]
+        limit: Option<usize>,
+        #[arg(long, default_value = "text")]
+        format: String,
+    },
+    /// Show one staged-memory entry by id.
+    Show { id: String },
 }
 
 #[tokio::main]
@@ -178,6 +232,73 @@ async fn run_memory_command(
     match command {
         MemoryCommand::Status => {
             println!("{}", memory_cli::status(paths, config)?);
+            Ok(())
+        }
+        MemoryCommand::Search {
+            query,
+            tier,
+            limit,
+            format,
+        } => {
+            println!(
+                "{}",
+                memory_cli::search(paths, config, &query, &tier, limit, &format)?
+            );
+            Ok(())
+        }
+        MemoryCommand::Staged { command } => match command {
+            MemoryStagedCommand::List {
+                kind,
+                since,
+                limit,
+                format,
+            } => {
+                println!(
+                    "{}",
+                    memory_cli::staged_list(
+                        paths,
+                        config,
+                        kind.as_deref(),
+                        since.as_deref(),
+                        limit,
+                        &format,
+                    )?
+                );
+                Ok(())
+            }
+            MemoryStagedCommand::Show { id } => {
+                println!("{}", memory_cli::staged_show(paths, config, &id)?);
+                Ok(())
+            }
+        },
+        MemoryCommand::Promote {
+            id,
+            path,
+            summary,
+            confirm,
+        } => {
+            println!(
+                "{}",
+                memory_cli::promote(
+                    paths,
+                    config,
+                    &id,
+                    path.as_deref(),
+                    summary.as_deref(),
+                    confirm
+                )?
+            );
+            Ok(())
+        }
+        MemoryCommand::Reject { id, reason } => {
+            println!(
+                "{}",
+                memory_cli::reject(paths, config, &id, reason.as_deref())?
+            );
+            Ok(())
+        }
+        MemoryCommand::Forget { target, confirm } => {
+            println!("{}", memory_cli::forget(paths, config, &target, confirm)?);
             Ok(())
         }
         MemoryCommand::RebuildIndex { force } => {

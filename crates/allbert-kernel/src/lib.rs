@@ -38,6 +38,7 @@ pub use hooks::{
 pub use intent::Intent;
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
 pub use llm::{ChatMessage, ChatRole};
+pub use memory::{MemoryTier, SearchMemoryInput, StageMemoryInput, StagedMemoryKind};
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
 pub use security::SecurityHook;
@@ -89,6 +90,30 @@ struct RunSkillScriptInput {
     args: Vec<String>,
     #[serde(default)]
     timeout_s: Option<u64>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct ListStagedMemoryInput {
+    #[serde(default)]
+    kind: Option<String>,
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct PromoteStagedMemoryInput {
+    id: String,
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    summary: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct RejectStagedMemoryInput {
+    id: String,
+    #[serde(default)]
+    reason: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -890,6 +915,11 @@ Available tools:\n",
         prompt.push_str(&self.tools.prompt_catalog());
         prompt.push_str("\n- read_memory: Read a memory file relative to ~/.allbert/memory.\n  schema: {\"type\":\"object\",\"required\":[\"path\"],\"properties\":{\"path\":{\"type\":\"string\"}}}\n");
         prompt.push_str("\n- write_memory: Write, append, or daily-append memory content.\n  schema: {\"type\":\"object\",\"required\":[\"content\",\"mode\"],\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"mode\":{\"enum\":[\"write\",\"append\",\"daily\"]},\"summary\":{\"type\":\"string\"}}}\n");
+        prompt.push_str("\n- search_memory: Search curated memory by query with optional tier filtering.\n  schema: {\"type\":\"object\",\"required\":[\"query\"],\"properties\":{\"query\":{\"type\":\"string\"},\"tier\":{\"enum\":[\"durable\",\"staging\",\"all\"]},\"limit\":{\"type\":\"integer\",\"minimum\":1}}}\n");
+        prompt.push_str("\n- stage_memory: Stage candidate durable memory for later operator review.\n  schema: {\"type\":\"object\",\"required\":[\"content\",\"kind\",\"summary\"],\"properties\":{\"content\":{\"type\":\"string\"},\"kind\":{\"enum\":[\"explicit_request\",\"learned_fact\",\"job_summary\",\"subagent_result\",\"curator_extraction\"]},\"summary\":{\"type\":\"string\"},\"tags\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"provenance\":{}}}\n");
+        prompt.push_str("\n- list_staged_memory: List staged memory entries awaiting review.\n  schema: {\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\"},\"limit\":{\"type\":\"integer\",\"minimum\":1}}}\n");
+        prompt.push_str("\n- promote_staged_memory: Promote one staged entry into durable memory after confirmation.\n  schema: {\"type\":\"object\",\"required\":[\"id\"],\"properties\":{\"id\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"summary\":{\"type\":\"string\"}}}\n");
+        prompt.push_str("\n- reject_staged_memory: Reject one staged entry and move it into the rejection audit queue.\n  schema: {\"type\":\"object\",\"required\":[\"id\"],\"properties\":{\"id\":{\"type\":\"string\"},\"reason\":{\"type\":\"string\"}}}\n");
         prompt.push_str("\n- list_skills: List installed skills and their descriptions.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
         prompt.push_str("\n- invoke_skill: Activate a skill for this session, optionally with JSON args.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"},\"args\":{\"type\":\"object\"}}}\n");
         prompt.push_str("\n- read_reference: Read an installed skill resource under references/ or assets/ on demand.\n  schema: {\"type\":\"object\",\"required\":[\"skill\",\"path\"],\"properties\":{\"skill\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"max_bytes\":{\"type\":\"integer\",\"minimum\":1}}}\n");
@@ -964,6 +994,13 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         match invocation.name.as_str() {
             "read_memory" => self.dispatch_read_memory(invocation.input),
             "write_memory" => self.dispatch_write_memory(invocation.input),
+            "search_memory" => self.dispatch_search_memory(invocation.input),
+            "stage_memory" => {
+                self.dispatch_stage_memory(state, parent_agent_name.clone(), invocation.input)
+            }
+            "list_staged_memory" => self.dispatch_list_staged_memory(invocation.input),
+            "promote_staged_memory" => self.dispatch_promote_staged_memory(invocation.input).await,
+            "reject_staged_memory" => self.dispatch_reject_staged_memory(invocation.input),
             "list_skills" => ToolOutput {
                 content: self.skills.manifest_prompt(),
                 ok: true,
@@ -1388,6 +1425,178 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
 
         match memory::write_memory(&self.paths, parsed) {
             Ok(content) => ToolOutput { content, ok: true },
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
+        }
+    }
+
+    fn dispatch_search_memory(&self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<SearchMemoryInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid search_memory input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        match memory::search_memory(&self.paths, &self.config.memory, parsed) {
+            Ok(results) => serialize_tool_value(&results),
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
+        }
+    }
+
+    fn dispatch_stage_memory(
+        &self,
+        state: &AgentState,
+        parent_agent_name: Option<String>,
+        input: serde_json::Value,
+    ) -> ToolOutput {
+        let parsed = match serde_json::from_value::<StageMemoryInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid stage_memory input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        if parsed.summary.trim().is_empty() {
+            return ToolOutput {
+                content: "stage_memory summary must not be empty".into(),
+                ok: false,
+            };
+        }
+        let source = if parent_agent_name.is_some() {
+            "subagent"
+        } else {
+            "channel"
+        };
+        let request = memory::StageMemoryRequest {
+            session_id: state.session_id.clone(),
+            turn_id: format!("turn-{}", state.turn_count),
+            agent: state.agent_name().to_string(),
+            source: source.into(),
+            content: parsed.content,
+            kind: parsed.kind,
+            summary: parsed.summary,
+            tags: parsed.tags,
+            provenance: parsed.provenance,
+        };
+        match memory::stage_memory(&self.paths, &self.config.memory, request) {
+            Ok(record) => serialize_tool_value(&record),
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
+        }
+    }
+
+    fn dispatch_list_staged_memory(&self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<ListStagedMemoryInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid list_staged_memory input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        match memory::list_staged_memory(
+            &self.paths,
+            &self.config.memory,
+            parsed.kind.as_deref(),
+            None,
+            parsed.limit,
+        ) {
+            Ok(records) => serialize_tool_value(&records),
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
+        }
+    }
+
+    async fn dispatch_promote_staged_memory(&self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<PromoteStagedMemoryInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid promote_staged_memory input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        let preview = match memory::preview_promote_staged_memory(
+            &self.paths,
+            &self.config.memory,
+            &parsed.id,
+            parsed.path.as_deref(),
+            parsed.summary.as_deref(),
+        ) {
+            Ok(preview) => preview,
+            Err(err) => {
+                return ToolOutput {
+                    content: err.to_string(),
+                    ok: false,
+                }
+            }
+        };
+        match self
+            .adapter
+            .confirm
+            .confirm(ConfirmRequest {
+                program: "promote_staged_memory".into(),
+                args: vec![parsed.id.clone()],
+                cwd: None,
+                rendered: preview.rendered.clone(),
+            })
+            .await
+        {
+            ConfirmDecision::Deny => ToolOutput {
+                content: "memory promotion denied by user".into(),
+                ok: false,
+            },
+            ConfirmDecision::AllowOnce | ConfirmDecision::AllowSession => {
+                match memory::promote_staged_memory(&self.paths, &self.config.memory, &preview) {
+                    Ok(dest_path) => serialize_tool_value(&json!({
+                        "id": parsed.id,
+                        "destination_path": dest_path,
+                    })),
+                    Err(err) => ToolOutput {
+                        content: err.to_string(),
+                        ok: false,
+                    },
+                }
+            }
+        }
+    }
+
+    fn dispatch_reject_staged_memory(&self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<RejectStagedMemoryInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid reject_staged_memory input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        match memory::reject_staged_memory(
+            &self.paths,
+            &self.config.memory,
+            &parsed.id,
+            parsed.reason.as_deref(),
+        ) {
+            Ok(path) => serialize_tool_value(&json!({
+                "id": parsed.id,
+                "rejected_path": path,
+            })),
             Err(err) => ToolOutput {
                 content: err.to_string(),
                 ok: false,
@@ -1888,6 +2097,7 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     use async_trait::async_trait;
     use serde_json::json;
@@ -1895,7 +2105,10 @@ mod tests {
     use super::*;
     use crate::error::LlmError;
     use crate::llm::{CompletionRequest, CompletionResponse, Pricing, Usage};
-    use crate::security::{exec_policy, sandbox, web_policy, NormalizedExec, PolicyDecision};
+    use crate::security::{
+        exec_policy, sandbox, web_policy, web_policy_with_resolver, HostResolver, NormalizedExec,
+        PolicyDecision,
+    };
 
     struct TempRoot {
         path: PathBuf,
@@ -2075,6 +2288,54 @@ mod tests {
                 .unwrap()
                 .pop_front()
                 .unwrap_or(InputResponse::Cancelled)
+        }
+    }
+
+    struct FakeResolver {
+        result: Result<Vec<std::net::SocketAddr>, std::io::Error>,
+        delay_ms: u64,
+    }
+
+    impl FakeResolver {
+        fn ok(addrs: Vec<std::net::SocketAddr>) -> Self {
+            Self {
+                result: Ok(addrs),
+                delay_ms: 0,
+            }
+        }
+
+        fn err(message: &str) -> Self {
+            Self {
+                result: Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    message.to_string(),
+                )),
+                delay_ms: 0,
+            }
+        }
+
+        fn delayed_ok(addrs: Vec<std::net::SocketAddr>, delay_ms: u64) -> Self {
+            Self {
+                result: Ok(addrs),
+                delay_ms,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl HostResolver for FakeResolver {
+        async fn lookup_host(
+            &self,
+            _host: &str,
+            _port: u16,
+        ) -> std::io::Result<Vec<std::net::SocketAddr>> {
+            if self.delay_ms > 0 {
+                tokio::time::sleep(Duration::from_millis(self.delay_ms)).await;
+            }
+            match &self.result {
+                Ok(addrs) => Ok(addrs.clone()),
+                Err(err) => Err(std::io::Error::new(err.kind(), err.to_string())),
+            }
         }
     }
 
@@ -3092,7 +3353,45 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn web_policy_guards_scheme_ssrf_dns_and_host_rules() {
+    async fn web_policy_deterministically_covers_timeout_lookup_and_ssrf_cases() {
+        let mut config = WebSecurityConfig::default();
+        config.timeout_s = 1;
+
+        let public = FakeResolver::ok(vec!["93.184.216.34:443".parse().unwrap()]);
+        assert!(matches!(
+            web_policy_with_resolver("https://example.com", &config, &public).await,
+            PolicyDecision::AutoAllow
+        ));
+
+        let blocked = FakeResolver::ok(vec!["127.0.0.1:443".parse().unwrap()]);
+        assert!(matches!(
+            web_policy_with_resolver("https://example.com", &config, &blocked).await,
+            PolicyDecision::Deny(_)
+        ));
+
+        let empty = FakeResolver::ok(Vec::new());
+        assert!(matches!(
+            web_policy_with_resolver("https://example.com", &config, &empty).await,
+            PolicyDecision::Deny(_)
+        ));
+
+        let lookup_err = FakeResolver::err("nxdomain");
+        assert!(matches!(
+            web_policy_with_resolver("https://example.com", &config, &lookup_err).await,
+            PolicyDecision::Deny(_)
+        ));
+
+        let mut timeout = WebSecurityConfig::default();
+        timeout.timeout_s = 0;
+        let delayed = FakeResolver::delayed_ok(vec!["93.184.216.34:443".parse().unwrap()], 5);
+        assert!(matches!(
+            web_policy_with_resolver("https://example.com", &timeout, &delayed).await,
+            PolicyDecision::Deny(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn web_policy_real_integration_covers_stable_scheme_and_host_rules() {
         let mut config = WebSecurityConfig::default();
         config.timeout_s = 1;
 
@@ -3111,21 +3410,15 @@ mod tests {
 
         let mut allow = WebSecurityConfig::default();
         allow.allow_hosts = vec!["example.com".into()];
-        allow.timeout_s = 0;
+        allow.timeout_s = 1;
         assert!(matches!(
             web_policy("https://news.ycombinator.com", &allow).await,
             PolicyDecision::Deny(_)
         ));
 
-        let mut timeout = WebSecurityConfig::default();
-        timeout.timeout_s = 0;
-        assert!(matches!(
-            web_policy("https://example.com", &timeout).await,
-            PolicyDecision::Deny(_)
-        ));
-
         let mut deny = WebSecurityConfig::default();
         deny.deny_hosts = vec!["example.com".into()];
+        deny.timeout_s = 1;
         assert!(matches!(
             web_policy("https://example.com", &deny).await,
             PolicyDecision::Deny(_)
