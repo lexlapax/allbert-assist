@@ -18,23 +18,35 @@ The project is centered on a small Rust runtime kernel rather than a bloated app
 
 - Run an agentic loop that can listen, reason, act, and continue a turn until it is done or hits a limit.
 - Run that loop either directly or inside a long-lived local daemon that can host multiple attachable channels.
+- Let a primary agent delegate bounded work to sub-agents without losing the policy envelope or cost visibility.
+- Classify user intent at the start of each turn so the right skills, sub-agents, or services are engaged deliberately rather than by prompt accident.
 - Let a user create and manage recurring work through normal conversation, while still requiring explicit confirmation for durable schedule changes.
 - Load a small bootstrap bundle of markdown files that define persona, user context, identity, and local working conventions.
-- Discover, read, and invoke skills.
+- Discover, read, install, and invoke skills — including skills authored for the wider AgentSkills ecosystem.
 - Execute a small set of core tools, including process execution, input gathering, and memory operations.
 - Keep track of operational cost.
 - Support tracing so failures can be diagnosed and learned from.
-- Maintain a memory system that can be inspected and edited directly by the user.
+- Maintain a memory system that can be inspected and edited directly by the user, with ranked retrieval once memory is large enough to need it.
 - Host lightweight internal services such as channel handling, session management, and job management without turning into a large distributed system.
+- Reach the user through more than one surface — terminal first, then messaging channels, later richer native interfaces.
+
+## Agent Direction
+
+Allbert should treat agents as first-class runtime participants rather than as a framing of prompts. Each session has a root agent; an orchestrator agent can spawn bounded sub-agents for focused sub-tasks. Every sub-agent turn runs through the same kernel hooks, cost tracking, and policy envelope as any other turn. Skills can contribute new agent roles without requiring kernel changes, so the set of agents grows with the skill ecosystem rather than with a bespoke registry.
+
+## Intent Direction
+
+Allbert should classify what the user turn is asking for — task, chat, schedule, memory query, meta — before constructing an agent turn. Classification is a kernel step, not a prompt trick: it is observable via hooks, cost-tracked via the same surfaces as any other LLM call, and swappable without rewriting skills. Intent is a hint that guides skill selection and sub-agent choice, not a hard gate that blocks the user.
 
 ## Memory Direction
 
 Allbert should keep its durable memory in markdown and linked files first, with richer compiled or indexed memory added later for runtime performance. The memory system should eventually support:
 
 - maintaining and pruning long-term memory
-- compiling searchable memory representations
+- compiling searchable memory representations with ranked retrieval
 - separating durable identity/profile files from durable learned memory
 - separating durable knowledge from ephemeral session context
+- staging new learnings for user review before promoting them into durable memory
 - adapting over time to the user's preferences and personality
 
 ## Identity Direction
@@ -45,9 +57,17 @@ Allbert should have a small always-on bootstrap layer made of inspectable markdo
 
 For planning and reasoning, Allbert should use strong foundation models. Over time it may also use smaller specialized models for memory shaping, personalization, or other narrow tasks, as long as those additions keep the runtime understandable and maintainable.
 
-## Extensibility Direction
+## Skill Direction
 
-Usable scripting may eventually be helpful, but it should enter through a deliberate interface rather than by making the kernel dependent on a large general-purpose runtime from day one. Skills and tool seams come first; embedded scripting engines can come later if they still look worthwhile.
+Skills should be the primary way Allbert gains new capabilities. The canonical shape follows the AgentSkills open standard: a folder with a `SKILL.md`, optional scripts, references, and assets, and a documented frontmatter schema. That lets Allbert read and share skills with the wider agent-assistant ecosystem. Every skill install goes through explicit preview and confirmation before activation; skill scripts run under the same exec policy as any other command. Progressive disclosure — surface a skill's name and description cheaply, load its body on activation, pull references only on demand — keeps skill discovery affordable even as the installed set grows.
+
+## Channel Direction
+
+Allbert should reach the user through more than one surface. The terminal REPL is the starting channel; messaging channels (Telegram first, then others) follow; richer native or web surfaces come later. Every channel is an adapter over the kernel's session model, not a separate product. Channels declare their capabilities — inline confirm, async confirm, rich output, file attach — so the kernel can route confirm-trust and policy checks through paths each channel actually supports. Channels without any confirmation capability fail closed on policy-sensitive actions, just as scheduled jobs already do.
+
+## Self-Improvement Direction
+
+Allbert should be able to help improve itself, but only through the same trust gates any other change goes through. A Rust coding skill can read, modify, build, and test the Allbert codebase in a sibling worktree, producing diffs the operator reviews. A skill-authoring skill can scaffold new AgentSkills-format skills that land in the same install quarantine as any external install. Embedded scripting — Lua first, others later — enters through a deliberate `ScriptingEngine` seam rather than by making the kernel depend on a large general-purpose runtime. Skills and tool seams come first; embedded scripting engines come later, opt-in per exec policy, sandboxed by default.
 
 ## Product Direction
 
@@ -68,7 +88,7 @@ End-user usability in v0.1 comes from guided setup for bootstrap identity and ex
 
 After that foundation is solid, the next step is not just "cron jobs." It is a daemon substrate plus lightweight internal services, especially an internal job manager that can run background and scheduled work without making OS cron the primary runtime mechanism.
 
-From there, the project can grow into richer scheduled-job UX, broader integrations, richer memory retrieval, self-generated skills, and additional frontends.
+From there, the project grows along a sequenced path: agents and intent routing, then richer skills through AgentSkills adoption, then curated memory, then new channels, and finally self-improvement skills for Allbert itself. That sequence — captured in [docs/plans/roadmap.md](plans/roadmap.md) — keeps each release useful on its own while unlocking the next.
 
 Even as that happens, Allbert should remain local-first, compact, and understandable. It should not turn into a broad distributed microservice platform just to gain background execution.
 
