@@ -8,6 +8,7 @@ use allbert_proto::{ChannelKind, ClientKind, DaemonStatus};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
+mod memory_cli;
 mod repl;
 mod setup;
 mod skills;
@@ -42,6 +43,10 @@ enum Command {
     Skills {
         #[command(subcommand)]
         command: SkillsCommand,
+    },
+    Memory {
+        #[command(subcommand)]
+        command: MemoryCommand,
     },
     #[command(name = "internal-daemon-host", hide = true)]
     InternalDaemonHost,
@@ -86,6 +91,17 @@ enum SkillsCommand {
     Init { name: String },
 }
 
+#[derive(Subcommand, Debug)]
+enum MemoryCommand {
+    /// Show curated-memory status for the current profile.
+    Status,
+    /// Rebuild the curated-memory index.
+    RebuildIndex {
+        #[arg(long)]
+        force: bool,
+    },
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -119,6 +135,7 @@ async fn main() -> Result<()> {
         Some(Command::Skills { command }) => {
             run_skills_command(Some(&paths), Some(&config), command).await
         }
+        Some(Command::Memory { command }) => run_memory_command(&paths, &config, command).await,
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
                 config = match setup::run_setup_wizard(&paths, &config)? {
@@ -149,6 +166,23 @@ async fn main() -> Result<()> {
                 };
             }
             run_daemon_command(&paths, &config, command).await
+        }
+    }
+}
+
+async fn run_memory_command(
+    paths: &AllbertPaths,
+    config: &Config,
+    command: MemoryCommand,
+) -> Result<()> {
+    match command {
+        MemoryCommand::Status => {
+            println!("{}", memory_cli::status(paths, config)?);
+            Ok(())
+        }
+        MemoryCommand::RebuildIndex { force } => {
+            println!("{}", memory_cli::rebuild_index(paths, config, force)?);
+            Ok(())
         }
     }
 }

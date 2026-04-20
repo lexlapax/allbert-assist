@@ -1,7 +1,7 @@
 # ADR 0045: Memory index is a derived artifact rebuilt from markdown ground truth
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

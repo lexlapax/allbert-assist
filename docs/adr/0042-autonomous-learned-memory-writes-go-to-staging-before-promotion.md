@@ -1,7 +1,7 @@
 # ADR 0042: Autonomous learned-memory writes go to staging before promotion
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

@@ -19,6 +19,8 @@ pub struct Config {
     #[serde(default)]
     pub intent_classifier: IntentClassifierConfig,
     #[serde(default)]
+    pub memory: MemoryConfig,
+    #[serde(default)]
     pub security: SecurityConfig,
     #[serde(default)]
     pub limits: LimitsConfig,
@@ -123,6 +125,62 @@ impl Default for IntentClassifierConfig {
             model: String::new(),
             rule_only: false,
             per_turn_token_budget: 2000,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct MemoryConfig {
+    pub prefetch_enabled: bool,
+    pub prefetch_default_limit: usize,
+    pub refresh_after_external_evidence: bool,
+    pub max_refreshes_per_turn: u32,
+    pub max_synopsis_bytes: usize,
+    pub max_memory_md_head_bytes: usize,
+    pub max_daily_head_bytes: usize,
+    pub max_daily_tail_bytes: usize,
+    pub max_ephemeral_summary_bytes: usize,
+    pub max_prefetch_snippets: usize,
+    pub max_prefetch_snippet_bytes: usize,
+    pub max_ephemeral_bytes: usize,
+    pub max_staged_entries_per_turn: usize,
+    pub max_subagent_snippets: usize,
+    pub staged_entry_ttl_days: u16,
+    pub staged_total_cap: usize,
+    pub rejected_retention_days: u16,
+    pub trash_retention_days: u16,
+    pub index_auto_rebuild: bool,
+    pub default_search_limit: usize,
+    pub default_daily_recency_days: u16,
+    pub surface_staged_on_turn_end: bool,
+}
+
+impl Default for MemoryConfig {
+    fn default() -> Self {
+        Self {
+            prefetch_enabled: true,
+            prefetch_default_limit: 5,
+            refresh_after_external_evidence: true,
+            max_refreshes_per_turn: 1,
+            max_synopsis_bytes: 8 * 1024,
+            max_memory_md_head_bytes: 2 * 1024,
+            max_daily_head_bytes: 2 * 1024,
+            max_daily_tail_bytes: 1024,
+            max_ephemeral_summary_bytes: 2 * 1024,
+            max_prefetch_snippets: 5,
+            max_prefetch_snippet_bytes: 512,
+            max_ephemeral_bytes: 32 * 1024,
+            max_staged_entries_per_turn: 5,
+            max_subagent_snippets: 3,
+            staged_entry_ttl_days: 90,
+            staged_total_cap: 500,
+            rejected_retention_days: 30,
+            trash_retention_days: 30,
+            index_auto_rebuild: true,
+            default_search_limit: 10,
+            default_daily_recency_days: 2,
+            surface_staged_on_turn_end: true,
         }
     }
 }
@@ -247,6 +305,7 @@ impl Config {
             jobs: JobsConfig::default(),
             install: InstallConfig::default(),
             intent_classifier: IntentClassifierConfig::default(),
+            memory: MemoryConfig::default(),
             security: SecurityConfig::default(),
             limits: LimitsConfig::default(),
             trace: false,
@@ -265,6 +324,9 @@ impl Config {
             if parsed.migrate_for_v0_2() {
                 parsed.persist(paths)?;
             }
+            parsed
+                .validate()
+                .map_err(|e| KernelError::InitFailed(format!("invalid config: {e}")))?;
             Ok(parsed)
         } else {
             let template = Self::default_template();
@@ -298,6 +360,21 @@ impl Config {
             changed = true;
         }
         changed
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.memory.prefetch_default_limit == 0 {
+            return Err("memory.prefetch_default_limit must be > 0".into());
+        }
+        if self.memory.default_search_limit == 0 {
+            return Err("memory.default_search_limit must be > 0".into());
+        }
+        if self.memory.max_synopsis_bytes < self.memory.max_ephemeral_summary_bytes {
+            return Err(
+                "memory.max_synopsis_bytes must be >= memory.max_ephemeral_summary_bytes".into(),
+            );
+        }
+        Ok(())
     }
 }
 

@@ -137,6 +137,7 @@ pub async fn spawn_with_factory(
     provider_factory: Arc<dyn ProviderFactory>,
 ) -> Result<RunningDaemon, DaemonError> {
     paths.ensure()?;
+    allbert_kernel::memory::bootstrap_curated_memory(&paths, &config.memory)?;
     let job_manager = JobManager::load(&paths, &config)?;
 
     let socket_path = config

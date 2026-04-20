@@ -1,3 +1,10 @@
+mod curated;
+
+pub use curated::{
+    bootstrap_curated_memory, memory_status, rebuild_memory_index, MemoryBootstrapReport,
+    MemoryIndexMeta, MemoryManifest, MemoryManifestEntry, MemoryStatusSnapshot, RebuildIndexReport,
+};
+
 use std::path::{Component, Path, PathBuf};
 
 use serde::Deserialize;

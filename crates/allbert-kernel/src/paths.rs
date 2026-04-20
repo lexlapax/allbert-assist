@@ -147,7 +147,18 @@ pub struct AllbertPaths {
     pub skills_incoming: PathBuf,
     pub memory: PathBuf,
     pub memory_index: PathBuf,
+    pub memory_manifest: PathBuf,
+    pub memory_notes: PathBuf,
     pub memory_daily: PathBuf,
+    pub memory_staging: PathBuf,
+    pub memory_staging_expired: PathBuf,
+    pub memory_staging_rejected: PathBuf,
+    pub memory_index_dir: PathBuf,
+    pub memory_index_meta: PathBuf,
+    pub memory_index_lock: PathBuf,
+    pub memory_migrations: PathBuf,
+    pub memory_legacy_v04: PathBuf,
+    pub memory_trash: PathBuf,
     pub memory_topics: PathBuf,
     pub memory_people: PathBuf,
     pub memory_projects: PathBuf,
@@ -174,6 +185,7 @@ impl AllbertPaths {
 
     pub fn under(root: PathBuf) -> Self {
         let memory = root.join("memory");
+        let memory_index_dir = memory.join("index");
         let jobs = root.join("jobs");
         Self {
             root: root.clone(),
@@ -193,7 +205,18 @@ impl AllbertPaths {
             skills_installed: root.join("skills").join("installed"),
             skills_incoming: root.join("skills").join("incoming"),
             memory_index: memory.join("MEMORY.md"),
+            memory_manifest: memory.join("manifest.json"),
+            memory_notes: memory.join("notes"),
             memory_daily: memory.join("daily"),
+            memory_staging: memory.join("staging"),
+            memory_staging_expired: memory.join("staging").join(".expired"),
+            memory_staging_rejected: memory.join("staging").join(".rejected"),
+            memory_index_meta: memory_index_dir.join("meta.json"),
+            memory_index_lock: memory_index_dir.join(".rebuild.lock"),
+            memory_index_dir: memory_index_dir.clone(),
+            memory_migrations: memory.join("migrations"),
+            memory_legacy_v04: memory.join(".legacy-v04"),
+            memory_trash: memory.join(".trash"),
             memory_topics: memory.join("topics"),
             memory_people: memory.join("people"),
             memory_projects: memory.join("projects"),
@@ -225,11 +248,14 @@ impl AllbertPaths {
             &self.skills_installed,
             &self.skills_incoming,
             &self.memory,
+            &self.memory_notes,
             &self.memory_daily,
-            &self.memory_topics,
-            &self.memory_people,
-            &self.memory_projects,
-            &self.memory_decisions,
+            &self.memory_staging,
+            &self.memory_staging_expired,
+            &self.memory_staging_rejected,
+            &self.memory_index_dir,
+            &self.memory_migrations,
+            &self.memory_trash,
             &self.jobs,
             &self.jobs_definitions,
             &self.jobs_state,
@@ -268,6 +294,10 @@ impl AllbertPaths {
         if needs_initial_bootstrap {
             self.seed_file_if_missing(&self.bootstrap, BOOTSTRAP_TEMPLATE)?;
         }
+
+        self.seed_file_if_missing(&self.memory_index, "# MEMORY\n\n")?;
+        self.seed_file_if_missing(&self.memory_notes.join(".keep"), "")?;
+        self.seed_file_if_missing(&self.memory_staging.join(".keep"), "")?;
 
         let daily_brief = self.jobs_templates.join("daily-brief.md");
         let weekly_review = self.jobs_templates.join("weekly-review.md");

@@ -1,7 +1,7 @@
 # ADR 0046: v0.5 memory retrieval uses tantivy
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

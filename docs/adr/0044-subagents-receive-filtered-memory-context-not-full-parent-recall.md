@@ -1,7 +1,7 @@
 # ADR 0044: Sub-agents receive filtered memory context, not full parent recall
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

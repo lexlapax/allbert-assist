@@ -1,7 +1,7 @@
 # ADR 0048: v0.5 ships a first-party memory-curator skill
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

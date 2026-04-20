@@ -1,7 +1,7 @@
 # ADR 0041: Memory retrieval uses bounded prefetch and explicit search/read
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

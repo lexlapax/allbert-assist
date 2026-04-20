@@ -26,8 +26,8 @@ pub use adapter::{
 };
 pub use agent::{Agent, AgentDefinition, AgentState};
 pub use config::{
-    Config, DaemonConfig, IntentClassifierConfig, JobsConfig, LimitsConfig, ModelConfig, Provider,
-    SecurityConfig, SetupConfig, WebSecurityConfig,
+    Config, DaemonConfig, IntentClassifierConfig, JobsConfig, LimitsConfig, MemoryConfig,
+    ModelConfig, Provider, SecurityConfig, SetupConfig, WebSecurityConfig,
 };
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
@@ -167,6 +167,7 @@ impl Kernel {
         session_id: Option<String>,
     ) -> Result<Self, KernelError> {
         paths.ensure()?;
+        memory::bootstrap_curated_memory(&paths, &config.memory)?;
 
         let session_id = session_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let trace = trace::init_tracing(config.trace, &paths, &session_id)?;
@@ -2140,11 +2141,16 @@ mod tests {
         assert!(paths.bootstrap.exists());
         assert!(paths.skills.exists());
         assert!(paths.memory.exists());
+        assert!(paths.memory_index.exists());
+        assert!(paths.memory_manifest.exists());
         assert!(paths.memory_daily.exists());
-        assert!(paths.memory_topics.exists());
-        assert!(paths.memory_people.exists());
-        assert!(paths.memory_projects.exists());
-        assert!(paths.memory_decisions.exists());
+        assert!(paths.memory_notes.exists());
+        assert!(paths.memory_staging.exists());
+        assert!(paths.memory_staging_expired.exists());
+        assert!(paths.memory_staging_rejected.exists());
+        assert!(paths.memory_index_dir.exists());
+        assert!(paths.memory_migrations.exists());
+        assert!(paths.memory_trash.exists());
         assert!(paths.traces.exists());
         assert_eq!(kernel.paths().root, paths.root);
     }

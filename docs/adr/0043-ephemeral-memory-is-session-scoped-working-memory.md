@@ -1,7 +1,7 @@
 # ADR 0043: Ephemeral memory is session-scoped working memory
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 
