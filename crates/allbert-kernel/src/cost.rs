@@ -13,6 +13,10 @@ use crate::llm::{Pricing, Usage};
 pub struct CostEntry {
     pub ts: String,
     pub session: String,
+    #[serde(default = "default_root_agent_name")]
+    pub agent_name: String,
+    #[serde(default)]
+    pub parent_agent_name: Option<String>,
     pub provider: String,
     pub model: String,
     pub input_tokens: u64,
@@ -36,6 +40,8 @@ pub fn estimate_usd(usage: &Usage, pricing: Option<Pricing>) -> f64 {
 
 pub fn build_cost_entry(
     session: &str,
+    agent_name: &str,
+    parent_agent_name: Option<&str>,
     provider: &str,
     model: &str,
     usage: &Usage,
@@ -44,6 +50,8 @@ pub fn build_cost_entry(
     Ok(CostEntry {
         ts: now_rfc3339()?,
         session: session.into(),
+        agent_name: agent_name.into(),
+        parent_agent_name: parent_agent_name.map(str::to_string),
         provider: provider.into(),
         model: model.into(),
         input_tokens: usage.input_tokens,
@@ -97,4 +105,8 @@ fn now_rfc3339() -> Result<String, KernelError> {
 
 fn local_now() -> OffsetDateTime {
     OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc())
+}
+
+fn default_root_agent_name() -> String {
+    "allbert/root".into()
 }

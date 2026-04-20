@@ -23,7 +23,7 @@ pub use adapter::{
     ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter, InputRequest,
     InputResponse,
 };
-pub use agent::AgentState;
+pub use agent::{Agent, AgentDefinition, AgentState};
 pub use config::{
     Config, DaemonConfig, JobsConfig, LimitsConfig, ModelConfig, Provider, SecurityConfig,
     SetupConfig, WebSecurityConfig,
@@ -125,7 +125,7 @@ impl Kernel {
         hooks.register(HookPoint::BeforePrompt, Arc::new(MemoryIndexHook));
         hooks.register(HookPoint::OnModelResponse, Arc::new(CostHook));
 
-        tracing::info!(session = %session_id, "kernel boot");
+        tracing::info!(session = %session_id, agent = "allbert/root", "kernel boot");
 
         Ok(Self {
             config,
@@ -145,6 +145,12 @@ impl Kernel {
 
     pub async fn run_turn(&mut self, user_input: &str) -> Result<TurnSummary, KernelError> {
         self.state.turn_count = self.state.turn_count.saturating_add(1);
+        tracing::info!(
+            session = %self.state.session_id,
+            agent = %self.state.agent_name(),
+            turn = self.state.turn_count,
+            "turn start"
+        );
         self.state.messages.push(ChatMessage {
             role: ChatRole::User,
             content: user_input.into(),
@@ -154,8 +160,13 @@ impl Kernel {
         let mut tool_output_total = 0usize;
 
         for _round in 0..self.config.limits.max_turns {
-            let mut prompt_ctx =
-                HookCtx::before_prompt(&self.state.session_id, &self.paths, &self.config.limits);
+            let mut prompt_ctx = HookCtx::before_prompt(
+                &self.state.session_id,
+                self.state.agent_name(),
+                None,
+                &self.paths,
+                &self.config.limits,
+            );
             match self
                 .hooks
                 .run(HookPoint::BeforePrompt, &mut prompt_ctx)
@@ -175,8 +186,18 @@ impl Kernel {
                 })
                 .await?;
 
+            tracing::debug!(
+                session = %self.state.session_id,
+                agent = %self.state.agent_name(),
+                provider = %self.llm.provider_name(),
+                model = %self.config.model.model_id,
+                "model response received"
+            );
+
             let mut hook_ctx = HookCtx::on_model_response(
                 &self.state.session_id,
+                self.state.agent_name(),
+                None,
                 self.llm.provider_name(),
                 &self.config.model.model_id,
                 response.usage.clone(),
@@ -243,8 +264,17 @@ impl Kernel {
                     input: invocation.input.clone(),
                 });
 
+                tracing::debug!(
+                    session = %self.state.session_id,
+                    agent = %self.state.agent_name(),
+                    tool = %invocation.name,
+                    "dispatch tool"
+                );
+
                 let mut tool_hook_ctx = HookCtx::before_tool(
                     &self.state.session_id,
+                    self.state.agent_name(),
+                    None,
                     invocation.clone(),
                     self.skills.allowed_tool_union(&self.state.active_skills),
                 );
@@ -329,6 +359,10 @@ impl Kernel {
 
     pub fn session_id(&self) -> &str {
         &self.state.session_id
+    }
+
+    pub fn agent_name(&self) -> &str {
+        self.state.agent_name()
     }
 
     pub fn set_adapter(&mut self, adapter: FrontendAdapter) {
@@ -1286,6 +1320,8 @@ mod tests {
             KernelEvent::Cost(entry) => entry,
             other => panic!("expected Cost event, got {other:?}"),
         };
+        assert_eq!(cost_entry.agent_name, "allbert/root");
+        assert_eq!(cost_entry.parent_agent_name, None);
         assert_eq!(cost_entry.provider, "anthropic");
         assert_eq!(cost_entry.model, "claude-sonnet-4-5");
         assert!((cost_entry.usd_estimate - 0.02).abs() < 1e-9);
@@ -1304,6 +1340,27 @@ mod tests {
             std::fs::read_to_string(kernel.paths().costs.clone()).expect("cost log should exist");
         assert_eq!(log.lines().count(), 1);
         assert!((kernel.session_cost_usd() - 0.02).abs() < 1e-9);
+    }
+
+    #[tokio::test]
+    async fn kernel_boots_with_root_agent_identity() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+
+        let kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                Vec::new(),
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        assert_eq!(kernel.agent_name(), "allbert/root");
     }
 
     #[tokio::test]
@@ -2635,6 +2692,8 @@ mod tests {
     async fn run_tool_via_kernel(kernel: &mut Kernel, invocation: ToolInvocation) -> ToolOutput {
         let mut tool_hook_ctx = HookCtx::before_tool(
             &kernel.state.session_id,
+            kernel.state.agent_name(),
+            None,
             invocation.clone(),
             kernel
                 .skills

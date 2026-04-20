@@ -30,6 +30,8 @@ pub trait Hook: Send + Sync {
 #[derive(Debug, Default)]
 pub struct HookCtx {
     pub session_id: String,
+    pub agent_name: String,
+    pub parent_agent_name: Option<String>,
     pub provider: Option<String>,
     pub model: Option<String>,
     pub usage: Option<Usage>,
@@ -44,9 +46,17 @@ pub struct HookCtx {
 }
 
 impl HookCtx {
-    pub fn before_prompt(session_id: &str, paths: &AllbertPaths, limits: &LimitsConfig) -> Self {
+    pub fn before_prompt(
+        session_id: &str,
+        agent_name: &str,
+        parent_agent_name: Option<String>,
+        paths: &AllbertPaths,
+        limits: &LimitsConfig,
+    ) -> Self {
         Self {
             session_id: session_id.into(),
+            agent_name: agent_name.into(),
+            parent_agent_name,
             provider: None,
             model: None,
             usage: None,
@@ -63,11 +73,15 @@ impl HookCtx {
 
     pub fn before_tool(
         session_id: &str,
+        agent_name: &str,
+        parent_agent_name: Option<String>,
         invocation: ToolInvocation,
         active_allowed_tools: Option<HashSet<String>>,
     ) -> Self {
         Self {
             session_id: session_id.into(),
+            agent_name: agent_name.into(),
+            parent_agent_name,
             provider: None,
             model: None,
             usage: None,
@@ -84,6 +98,8 @@ impl HookCtx {
 
     pub fn on_model_response(
         session_id: &str,
+        agent_name: &str,
+        parent_agent_name: Option<String>,
         provider: &str,
         model: &str,
         usage: Usage,
@@ -92,6 +108,8 @@ impl HookCtx {
     ) -> Self {
         Self {
             session_id: session_id.into(),
+            agent_name: agent_name.into(),
+            parent_agent_name,
             provider: Some(provider.into()),
             model: Some(model.into()),
             usage: Some(usage),
@@ -156,7 +174,15 @@ impl Hook for CostHook {
             return HookOutcome::Continue;
         };
 
-        match build_cost_entry(&ctx.session_id, provider, model, usage, ctx.pricing) {
+        match build_cost_entry(
+            &ctx.session_id,
+            &ctx.agent_name,
+            ctx.parent_agent_name.as_deref(),
+            provider,
+            model,
+            usage,
+            ctx.pricing,
+        ) {
             Ok(entry) => {
                 if let Err(err) = append_cost_entry(&paths.costs, &entry) {
                     return HookOutcome::Abort(format!("failed to append cost entry: {err}"));
