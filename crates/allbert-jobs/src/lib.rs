@@ -213,6 +213,10 @@ struct Frontmatter {
     report: Option<JobReportPolicyPayload>,
     #[serde(default)]
     max_turns: Option<u32>,
+    #[serde(default)]
+    session_name: Option<String>,
+    #[serde(default)]
+    memory: Option<MemoryFrontmatter>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -222,6 +226,13 @@ struct ModelFrontmatter {
     api_key_env: String,
     #[serde(default = "default_max_tokens")]
     max_tokens: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MemoryFrontmatter {
+    #[serde(default)]
+    prefetch: Option<bool>,
 }
 
 fn default_max_tokens() -> u32 {
@@ -253,6 +264,8 @@ pub fn parse_job_definition(path: &str) -> Result<JobDefinitionPayload> {
         timeout_s: data.timeout_s,
         report: data.report,
         max_turns: data.max_turns,
+        session_name: data.session_name,
+        memory_prefetch: data.memory.and_then(|memory| memory.prefetch),
         prompt: parsed.content.trim().to_string(),
     })
 }

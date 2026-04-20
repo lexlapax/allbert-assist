@@ -59,6 +59,7 @@ struct SharedState {
     default_config: Arc<RwLock<Config>>,
     provider_factory: Arc<dyn ProviderFactory>,
     sessions: Arc<RwLock<HashMap<String, Arc<SessionHandle>>>>,
+    job_ephemeral_sessions: Arc<Mutex<HashMap<String, Vec<String>>>>,
     job_manager: Arc<Mutex<JobManager>>,
     notifications: broadcast::Sender<ServerMessage>,
     tasks: Arc<TaskTracker>,
@@ -172,6 +173,7 @@ pub async fn spawn_with_factory(
         default_config: Arc::new(RwLock::new(config)),
         provider_factory,
         sessions: Arc::new(RwLock::new(HashMap::new())),
+        job_ephemeral_sessions: Arc::new(Mutex::new(HashMap::new())),
         job_manager: Arc::new(Mutex::new(job_manager)),
         notifications,
         tasks: Arc::new(TaskTracker::new()),
@@ -682,11 +684,19 @@ async fn execute_planned_jobs(
         let paths = state.paths.clone();
         let defaults = defaults.clone();
         let provider_factory = state.provider_factory.clone();
+        let job_ephemeral_sessions = state.job_ephemeral_sessions.clone();
         let shutdown = state.shutdown.clone();
         async move {
             let name = definition.name.clone();
-            let record =
-                execute_job(&paths, &defaults, provider_factory, shutdown, &definition).await;
+            let record = execute_job(
+                &paths,
+                &defaults,
+                provider_factory,
+                job_ephemeral_sessions,
+                shutdown,
+                &definition,
+            )
+            .await;
             (name, record)
         }
     });

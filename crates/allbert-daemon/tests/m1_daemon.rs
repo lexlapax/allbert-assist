@@ -151,6 +151,7 @@ async fn run_turn_with_confirms(
 struct TestFactory {
     responses: Arc<Mutex<VecDeque<CompletionResponse>>>,
     failing_prompts: Arc<Vec<String>>,
+    requests: Arc<Mutex<Vec<CompletionRequest>>>,
 }
 
 impl TestFactory {
@@ -158,6 +159,18 @@ impl TestFactory {
         Self {
             responses: Arc::new(Mutex::new(responses.into())),
             failing_prompts: Arc::new(Vec::new()),
+            requests: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    fn with_requests(
+        responses: Vec<CompletionResponse>,
+        requests: Arc<Mutex<Vec<CompletionRequest>>>,
+    ) -> Self {
+        Self {
+            responses: Arc::new(Mutex::new(responses.into())),
+            failing_prompts: Arc::new(Vec::new()),
+            requests,
         }
     }
 
@@ -173,6 +186,7 @@ impl TestFactory {
                     .map(|value| value.to_string())
                     .collect(),
             ),
+            requests: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -183,6 +197,7 @@ impl ProviderFactory for TestFactory {
         Ok(Box::new(TestProvider {
             responses: Arc::clone(&self.responses),
             failing_prompts: Arc::clone(&self.failing_prompts),
+            requests: Arc::clone(&self.requests),
         }))
     }
 }
@@ -190,11 +205,13 @@ impl ProviderFactory for TestFactory {
 struct TestProvider {
     responses: Arc<Mutex<VecDeque<CompletionResponse>>>,
     failing_prompts: Arc<Vec<String>>,
+    requests: Arc<Mutex<Vec<CompletionRequest>>>,
 }
 
 #[async_trait]
 impl LlmProvider for TestProvider {
     async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse, LlmError> {
+        self.requests.lock().unwrap().push(req.clone());
         if let Some(message) = req.messages.last() {
             if self
                 .failing_prompts
@@ -253,6 +270,8 @@ fn sample_job(name: &str, schedule: &str, prompt: &str) -> JobDefinitionPayload 
         timeout_s: None,
         report: None,
         max_turns: None,
+        session_name: None,
+        memory_prefetch: None,
         prompt: prompt.into(),
     }
 }
@@ -291,6 +310,8 @@ fn parse_template_job(path: &std::path::Path) -> JobDefinitionPayload {
         timeout_s: None,
         report: data.report,
         max_turns: None,
+        session_name: None,
+        memory_prefetch: None,
         prompt: parsed.content.trim().to_string(),
     }
 }
@@ -900,6 +921,222 @@ Read carefully and summarize clearly.
     assert_eq!(
         status.last_agent_stack,
         vec!["allbert/root".to_string(), "research/reader".to_string()]
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn ephemeral_memory_is_isolated_per_session_and_survives_reattach() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::with_requests(
+            vec![
+                scripted("FIRST_REPLY"),
+                scripted("SECOND_REPLY"),
+                scripted("THIRD_REPLY"),
+            ],
+            requests.clone(),
+        )),
+    )
+    .await
+    .expect("daemon should boot");
+
+    {
+        let mut client = wait_for_client(&paths).await;
+        client
+            .attach(ChannelKind::Repl, Some("memory-a".into()))
+            .await
+            .expect("attach should succeed");
+        let _ = run_turn_collect_messages(&mut client, "remember alpha context").await;
+    }
+
+    {
+        let mut client = wait_for_client(&paths).await;
+        client
+            .attach(ChannelKind::Repl, Some("memory-a".into()))
+            .await
+            .expect("reattach should succeed");
+        let _ = run_turn_collect_messages(&mut client, "continue alpha").await;
+    }
+
+    {
+        let mut client = wait_for_client(&paths).await;
+        client
+            .attach(ChannelKind::Repl, Some("memory-b".into()))
+            .await
+            .expect("attach should succeed");
+        let _ = run_turn_collect_messages(&mut client, "beta only").await;
+    }
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, Some("memory-a".into()))
+        .await
+        .expect("status attach should succeed");
+    let status = client.session_status().await.expect("status should load");
+    assert_eq!(status.session_id, "memory-a");
+
+    let recorded = requests.lock().unwrap();
+    assert_eq!(recorded.len(), 3);
+    let second_system = recorded[1].system.as_deref().unwrap_or_default();
+    assert!(
+        second_system.contains("remember alpha context"),
+        "reattached session should keep prior ephemeral memory"
+    );
+    let third_system = recorded[2].system.as_deref().unwrap_or_default();
+    assert!(
+        !third_system.contains("remember alpha context"),
+        "separate session should not inherit another session's ephemeral memory"
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn daemon_restart_clears_ephemeral_memory_for_sessions() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let first_requests = Arc::new(Mutex::new(Vec::new()));
+    let first_handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::with_requests(
+            vec![scripted("FIRST_PASS")],
+            first_requests,
+        )),
+    )
+    .await
+    .expect("daemon should boot");
+
+    {
+        let mut client = wait_for_client(&paths).await;
+        client
+            .attach(ChannelKind::Repl, Some("memory-restart".into()))
+            .await
+            .expect("attach should succeed");
+        let _ = run_turn_collect_messages(&mut client, "remember before restart").await;
+    }
+
+    shutdown_daemon(first_handle, &paths).await;
+
+    let second_requests = Arc::new(Mutex::new(Vec::new()));
+    let second_handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::with_requests(
+            vec![scripted("SECOND_PASS")],
+            second_requests.clone(),
+        )),
+    )
+    .await
+    .expect("daemon should reboot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, Some("memory-restart".into()))
+        .await
+        .expect("attach should succeed");
+    let _ = run_turn_collect_messages(&mut client, "after restart").await;
+
+    let recorded = second_requests.lock().unwrap();
+    assert_eq!(recorded.len(), 1);
+    let system = recorded[0].system.as_deref().unwrap_or_default();
+    assert!(
+        !system.contains("remember before restart"),
+        "daemon restart should clear ephemeral memory for prior sessions"
+    );
+
+    shutdown_daemon(second_handle, &paths).await;
+}
+
+#[tokio::test]
+async fn job_session_name_shares_ephemeral_and_stages_job_summaries() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    std::fs::create_dir_all(&paths.memory_notes).expect("notes dir should exist");
+    std::fs::write(
+        paths.memory_notes.join("ops.md"),
+        "# Ops\n\nDurableClueAlpha belongs to durable memory.\n",
+    )
+    .expect("note should write");
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::with_requests(
+            vec![
+                scripted(concat!(
+                    "<tool_call>{\"name\":\"stage_memory\",\"input\":{\"content\":\"Run one summary\",\"kind\":\"job_summary\",\"summary\":\"Job summary one\"}}</tool_call>"
+                )),
+                scripted("JOB_DONE_1"),
+                scripted(concat!(
+                    "<tool_call>{\"name\":\"stage_memory\",\"input\":{\"content\":\"Run two summary\",\"kind\":\"job_summary\",\"summary\":\"Job summary two\"}}</tool_call>"
+                )),
+                scripted("JOB_DONE_2"),
+            ],
+            requests.clone(),
+        )),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    let mut definition = sample_job(
+        "shared-memory-job",
+        "every 1h",
+        "review DurableClueAlpha and summarize the run",
+    );
+    definition.session_name = Some("shared-nightly".into());
+    definition.memory_prefetch = Some(false);
+    client
+        .upsert_job(definition)
+        .await
+        .expect("job should upsert");
+
+    client
+        .run_job("shared-memory-job")
+        .await
+        .expect("first run should succeed");
+    client
+        .run_job("shared-memory-job")
+        .await
+        .expect("second run should succeed");
+
+    let staged = allbert_kernel::memory::list_staged_memory(
+        &paths,
+        &allbert_kernel::MemoryConfig::default(),
+        Some("job_summary"),
+        None,
+        Some(10),
+    )
+    .expect("staged entries should list");
+    assert_eq!(staged.len(), 2);
+    assert!(staged.iter().all(|entry| entry.kind == "job_summary"));
+    assert!(staged.iter().all(|entry| entry.source == "job"));
+
+    let recorded = requests.lock().unwrap();
+    assert!(recorded.len() >= 3);
+    assert!(
+        !recorded[0]
+            .system
+            .as_deref()
+            .unwrap_or_default()
+            .contains("## Retrieved memory"),
+        "job memory.prefetch=false should suppress automatic durable prefetch"
+    );
+    assert!(
+        recorded[2]
+            .system
+            .as_deref()
+            .unwrap_or_default()
+            .contains("JOB_DONE_1"),
+        "shared job session should carry ephemeral memory into the next run"
     );
 
     shutdown_daemon(handle, &paths).await;

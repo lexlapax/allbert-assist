@@ -61,6 +61,10 @@ pub struct UpsertJobInput {
     pub report: Option<JobReportPolicyPayload>,
     #[serde(default)]
     pub max_turns: Option<u32>,
+    #[serde(default)]
+    pub session_name: Option<String>,
+    #[serde(default)]
+    pub memory_prefetch: Option<bool>,
     pub prompt: String,
 }
 
@@ -78,6 +82,8 @@ impl UpsertJobInput {
             timeout_s: self.timeout_s,
             report: self.report,
             max_turns: self.max_turns,
+            session_name: self.session_name,
+            memory_prefetch: self.memory_prefetch,
             prompt: self.prompt,
         }
     }

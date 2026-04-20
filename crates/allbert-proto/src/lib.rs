@@ -126,6 +126,8 @@ pub struct JobDefinitionPayload {
     pub timeout_s: Option<u64>,
     pub report: Option<JobReportPolicyPayload>,
     pub max_turns: Option<u32>,
+    pub session_name: Option<String>,
+    pub memory_prefetch: Option<bool>,
     pub prompt: String,
 }
 

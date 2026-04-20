@@ -310,6 +310,8 @@ pub struct JobDefinition {
     pub timeout_s: Option<u64>,
     pub report: Option<JobReportPolicyPayload>,
     pub max_turns: Option<u32>,
+    pub session_name: Option<String>,
+    pub memory_prefetch: Option<bool>,
     pub prompt: String,
 }
 
@@ -335,6 +337,8 @@ impl JobDefinition {
             timeout_s: payload.timeout_s,
             report: payload.report,
             max_turns: payload.max_turns,
+            session_name: payload.session_name,
+            memory_prefetch: payload.memory_prefetch,
             prompt: payload.prompt,
         })
     }
@@ -352,6 +356,8 @@ impl JobDefinition {
             timeout_s: self.timeout_s,
             report: self.report,
             max_turns: self.max_turns,
+            session_name: self.session_name.clone(),
+            memory_prefetch: self.memory_prefetch,
             prompt: self.prompt.clone(),
         }
     }
@@ -607,6 +613,17 @@ struct JobFrontmatter {
     report: Option<JobReportPolicyPayload>,
     #[serde(default)]
     max_turns: Option<u32>,
+    #[serde(default)]
+    session_name: Option<String>,
+    #[serde(default)]
+    memory: Option<JobMemoryFrontmatter>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct JobMemoryFrontmatter {
+    #[serde(default)]
+    prefetch: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -685,6 +702,8 @@ fn load_definitions(root: &Path) -> Result<HashMap<String, JobDefinition>, Daemo
             timeout_s: data.timeout_s,
             report: data.report,
             max_turns: data.max_turns,
+            session_name: data.session_name,
+            memory_prefetch: data.memory.and_then(|memory| memory.prefetch),
             prompt: parsed.content.trim().to_string(),
         };
         out.insert(definition.name.clone(), definition);
@@ -777,6 +796,13 @@ fn write_definition_file(root: &Path, definition: &JobDefinition) -> Result<(), 
     }
     if let Some(max_turns) = definition.max_turns {
         frontmatter.push_str(&format!("max_turns: {}\n", max_turns));
+    }
+    if let Some(session_name) = &definition.session_name {
+        frontmatter.push_str(&format!("session_name: {}\n", yaml_quote(session_name)));
+    }
+    if let Some(prefetch) = definition.memory_prefetch {
+        frontmatter.push_str("memory:\n");
+        frontmatter.push_str(&format!("  prefetch: {}\n", prefetch));
     }
     frontmatter.push_str("---\n\n");
     frontmatter.push_str(definition.prompt.trim_end());
@@ -888,6 +914,7 @@ pub(crate) async fn execute_job(
     paths: &AllbertPaths,
     defaults: &Config,
     provider_factory: Arc<dyn ProviderFactory>,
+    shared_ephemeral_sessions: Arc<tokio::sync::Mutex<HashMap<String, Vec<String>>>>,
     shutdown: CancellationToken,
     definition: &JobDefinition,
 ) -> JobRunRecordPayload {
@@ -910,6 +937,9 @@ pub(crate) async fn execute_job(
     }
     if let Some(max_turns) = definition.max_turns {
         config.limits.max_turns = max_turns;
+    }
+    if matches!(definition.memory_prefetch, Some(false)) {
+        config.memory.prefetch_enabled = false;
     }
 
     let adapter = FrontendAdapter {
@@ -940,6 +970,16 @@ pub(crate) async fn execute_job(
             )
         }
         Some(Ok(mut kernel)) => {
+            if let Some(session_name) = &definition.session_name {
+                if let Some(snapshot) = shared_ephemeral_sessions
+                    .lock()
+                    .await
+                    .get(session_name)
+                    .cloned()
+                {
+                    kernel.restore_ephemeral_memory(snapshot);
+                }
+            }
             let (outcome, stop_reason) = {
                 if let Some(err) = definition
                     .skills
@@ -967,6 +1007,12 @@ pub(crate) async fn execute_job(
                     }
                 }
             };
+            if let Some(session_name) = &definition.session_name {
+                shared_ephemeral_sessions
+                    .lock()
+                    .await
+                    .insert(session_name.clone(), kernel.ephemeral_memory_entries());
+            }
             ended_at = Utc::now();
             (outcome, stop_reason, kernel.session_cost_usd())
         }

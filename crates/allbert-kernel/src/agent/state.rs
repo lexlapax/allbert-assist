@@ -38,10 +38,13 @@ pub struct AgentState {
     pub referenced_resources_this_turn: HashSet<String>,
     pub reference_cache_this_turn: HashMap<String, String>,
     pub ephemeral_memory: VecDeque<String>,
+    pub memory_prefetch_override: Option<bool>,
+    pub memory_context_sections: Vec<String>,
     pub turn_prefetch_hits: Vec<SearchMemoryHit>,
     pub pending_memory_refresh_query: Option<String>,
     pub memory_refreshes_this_turn: u32,
     pub staged_entries_this_turn: usize,
+    pub current_job_name: Option<String>,
 }
 
 impl AgentState {
@@ -67,10 +70,13 @@ impl AgentState {
             referenced_resources_this_turn: HashSet::new(),
             reference_cache_this_turn: HashMap::new(),
             ephemeral_memory: VecDeque::new(),
+            memory_prefetch_override: None,
+            memory_context_sections: Vec::new(),
             turn_prefetch_hits: Vec::new(),
             pending_memory_refresh_query: None,
             memory_refreshes_this_turn: 0,
             staged_entries_this_turn: 0,
+            current_job_name: None,
         }
     }
 
@@ -89,10 +95,13 @@ impl AgentState {
         self.referenced_resources_this_turn.clear();
         self.reference_cache_this_turn.clear();
         self.ephemeral_memory.clear();
+        self.memory_prefetch_override = None;
+        self.memory_context_sections.clear();
         self.turn_prefetch_hits.clear();
         self.pending_memory_refresh_query = None;
         self.memory_refreshes_this_turn = 0;
         self.staged_entries_this_turn = 0;
+        self.current_job_name = None;
     }
 
     pub fn agent_name(&self) -> &str {
@@ -139,6 +148,20 @@ impl AgentState {
             .iter()
             .map(|entry| entry.as_bytes().len())
             .sum()
+    }
+
+    pub fn replace_ephemeral_memory<I>(&mut self, notes: I, max_bytes: usize)
+    where
+        I: IntoIterator<Item = String>,
+    {
+        self.ephemeral_memory.clear();
+        for note in notes {
+            self.append_ephemeral_note(note, max_bytes);
+        }
+    }
+
+    pub fn ephemeral_notes(&self) -> Vec<String> {
+        self.ephemeral_memory.iter().cloned().collect()
     }
 }
 

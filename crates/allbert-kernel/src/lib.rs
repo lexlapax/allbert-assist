@@ -74,6 +74,8 @@ struct SpawnSubagentInput {
     prompt: String,
     #[serde(default)]
     context: Option<serde_json::Value>,
+    #[serde(default)]
+    memory_hints: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -256,6 +258,7 @@ impl Kernel {
         let mut state = std::mem::replace(&mut self.state, placeholder);
         let mut before_ctx =
             HookCtx::before_job_run(&state.session_id, state.agent_name(), job_name);
+        let previous_job_name = state.current_job_name.replace(job_name.to_string());
         match self
             .hooks
             .run(HookPoint::BeforeJobRun, &mut before_ctx)
@@ -263,6 +266,7 @@ impl Kernel {
         {
             HookOutcome::Continue => {}
             HookOutcome::Abort(message) => {
+                state.current_job_name = previous_job_name;
                 self.state = state;
                 return Err(KernelError::Hook(message));
             }
@@ -291,6 +295,7 @@ impl Kernel {
             turn_summary,
         );
         let after_result = self.hooks.run(HookPoint::AfterJobRun, &mut after_ctx).await;
+        state.current_job_name = previous_job_name;
         self.state = state;
 
         match after_result {
@@ -758,6 +763,15 @@ impl Kernel {
         &self.state.last_agent_stack
     }
 
+    pub fn ephemeral_memory_entries(&self) -> Vec<String> {
+        self.state.ephemeral_notes()
+    }
+
+    pub fn restore_ephemeral_memory(&mut self, entries: Vec<String>) {
+        self.state
+            .replace_ephemeral_memory(entries, self.config.memory.max_ephemeral_bytes);
+    }
+
     pub fn set_adapter(&mut self, adapter: FrontendAdapter) {
         self.adapter = adapter;
     }
@@ -998,6 +1012,8 @@ Respond with only the lowercase label and no other text."
 
         let prefetch_query = if let Some(refresh_query) = refresh_query {
             Some(refresh_query.to_string())
+        } else if matches!(state.memory_prefetch_override, Some(false)) {
+            None
         } else if self.should_prefetch_memory(resolved_intent, user_input) {
             Some(user_input.trim().to_string())
         } else {
@@ -1086,7 +1102,14 @@ Respond with only the lowercase label and no other text."
             state.memory_refreshes_this_turn = state.memory_refreshes_this_turn.saturating_add(1);
         }
 
-        Ok(snapshot)
+        let mut sections = snapshot.sections;
+        sections.extend(state.memory_context_sections.iter().cloned());
+
+        Ok(memory::TurnMemorySnapshot {
+            sections,
+            prefetch_hits: snapshot.prefetch_hits,
+            trimmed_sources: snapshot.trimmed_sources,
+        })
     }
 
     fn should_prefetch_memory(&self, resolved_intent: Option<&Intent>, user_input: &str) -> bool {
@@ -1185,7 +1208,7 @@ Available tools:\n",
         prompt.push_str("\n- read_reference: Read an installed skill resource under references/ or assets/ on demand.\n  schema: {\"type\":\"object\",\"required\":[\"skill\",\"path\"],\"properties\":{\"skill\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"max_bytes\":{\"type\":\"integer\",\"minimum\":1}}}\n");
         prompt.push_str("\n- run_skill_script: Run a declared script from an active skill using its configured interpreter.\n  schema: {\"type\":\"object\",\"required\":[\"skill\",\"script\"],\"properties\":{\"skill\":{\"type\":\"string\"},\"script\":{\"type\":\"string\"},\"args\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timeout_s\":{\"type\":\"integer\",\"minimum\":1}}}\n");
         prompt.push_str("\n- create_skill: Create a skill under ~/.allbert/skills/installed/<name>/SKILL.md.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"allowed_tools\",\"body\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"body\":{\"type\":\"string\"}}}\n");
-        prompt.push_str("\n- spawn_subagent: Run a bounded sub-agent with a fresh message history inside the current session.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"prompt\":{\"type\":\"string\"},\"context\":{}}}\n");
+        prompt.push_str("\n- spawn_subagent: Run a bounded sub-agent with a fresh message history inside the current session.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"prompt\":{\"type\":\"string\"},\"context\":{},\"memory_hints\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}\n");
         if self.job_manager.is_some() {
             prompt.push_str(
                 "\nWhen the user asks for recurring or scheduled work, use the daemon-backed job tools instead of generic file edits or subprocesses.\n\
@@ -1200,7 +1223,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             );
             prompt.push_str("\n- list_jobs: List recurring jobs managed by the daemon.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
             prompt.push_str("\n- get_job: Inspect one recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
-            prompt.push_str("\n- upsert_job: Create or update a recurring job through the daemon-owned scheduler.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"schedule\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"enabled\":{\"type\":\"boolean\"},\"schedule\":{\"type\":\"string\"},\"skills\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timezone\":{\"type\":\"string\"},\"model\":{\"type\":\"object\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timeout_s\":{\"type\":\"integer\",\"minimum\":1},\"report\":{\"enum\":[\"always\",\"on_failure\",\"on_anomaly\"]},\"max_turns\":{\"type\":\"integer\",\"minimum\":1},\"prompt\":{\"type\":\"string\"}}}\n");
+            prompt.push_str("\n- upsert_job: Create or update a recurring job through the daemon-owned scheduler.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"schedule\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"enabled\":{\"type\":\"boolean\"},\"schedule\":{\"type\":\"string\"},\"skills\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timezone\":{\"type\":\"string\"},\"model\":{\"type\":\"object\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timeout_s\":{\"type\":\"integer\",\"minimum\":1},\"report\":{\"enum\":[\"always\",\"on_failure\",\"on_anomaly\"]},\"max_turns\":{\"type\":\"integer\",\"minimum\":1},\"session_name\":{\"type\":\"string\"},\"memory_prefetch\":{\"type\":\"boolean\"},\"prompt\":{\"type\":\"string\"}}}\n");
             prompt.push_str("\n- pause_job: Pause a recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
             prompt.push_str("\n- resume_job: Resume a recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
             prompt.push_str("\n- run_job: Manually trigger a recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
@@ -1551,6 +1574,18 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             subagent_state.allowed_tools = Some(agent.allowed_tools.iter().cloned().collect());
             subagent_state.model_override = agent.model.clone();
         }
+        subagent_state.memory_prefetch_override = Some(false);
+        match self.build_subagent_memory_sections(parsed.memory_hints.as_deref()) {
+            Ok(sections) => {
+                subagent_state.memory_context_sections = sections;
+            }
+            Err(err) => {
+                return ToolOutput {
+                    content: err,
+                    ok: false,
+                };
+            }
+        }
         let contributed_preamble = contributed_agent
             .as_ref()
             .map(|agent| {
@@ -1742,6 +1777,8 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         }
         let source = if parent_agent_name.is_some() {
             "subagent"
+        } else if state.current_job_name.is_some() {
+            "job"
         } else {
             "channel"
         };
@@ -2242,6 +2279,78 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             ConfirmDecision::AllowOnce | ConfirmDecision::AllowSession => Ok(()),
         }
     }
+
+    fn build_subagent_memory_sections(
+        &self,
+        memory_hints: Option<&[String]>,
+    ) -> Result<Vec<String>, String> {
+        let Some(hints) = memory_hints else {
+            return Ok(Vec::new());
+        };
+
+        let mut sections = Vec::new();
+        let mut keywords = Vec::new();
+
+        for hint in hints {
+            let hint = hint.trim();
+            if hint.is_empty() {
+                continue;
+            }
+
+            if looks_like_memory_path(hint) {
+                let content = memory::read_memory(
+                    &self.paths,
+                    ReadMemoryInput {
+                        path: hint.to_string(),
+                    },
+                )
+                .map_err(|err| {
+                    format!("failed to resolve sub-agent memory hint `{hint}`: {err}")
+                })?;
+                let snippet = truncate_prompt_bytes(
+                    content.trim(),
+                    self.config.memory.max_prefetch_snippet_bytes,
+                );
+                if !snippet.is_empty() {
+                    sections.push(format!("## Filtered memory note: {hint}\n{snippet}"));
+                }
+            } else {
+                keywords.push(hint.to_string());
+            }
+        }
+
+        if !keywords.is_empty() {
+            let hits = memory::search_memory(
+                &self.paths,
+                &self.config.memory,
+                SearchMemoryInput {
+                    query: keywords.join(" "),
+                    tier: MemoryTier::Durable,
+                    limit: Some(self.config.memory.max_subagent_snippets),
+                },
+            )
+            .map_err(|err| format!("failed to search filtered sub-agent memory: {err}"))?;
+            if !hits.is_empty() {
+                let mut lines = vec!["## Filtered memory recall".to_string()];
+                for hit in hits
+                    .into_iter()
+                    .take(self.config.memory.max_subagent_snippets)
+                {
+                    let snippet = truncate_prompt_bytes(
+                        hit.snippet.trim(),
+                        self.config.memory.max_prefetch_snippet_bytes,
+                    );
+                    lines.push(format!("- {} ({})", hit.title, hit.path));
+                    if !snippet.is_empty() {
+                        lines.push(snippet);
+                    }
+                }
+                sections.push(lines.join("\n"));
+            }
+        }
+
+        Ok(sections)
+    }
 }
 
 fn unavailable_job_manager_output() -> ToolOutput {
@@ -2297,6 +2406,32 @@ fn has_memory_cues(input: &str) -> bool {
     .any(|needle| lower.contains(needle))
 }
 
+fn looks_like_memory_path(input: &str) -> bool {
+    let value = input.trim();
+    value.eq_ignore_ascii_case("MEMORY.md")
+        || value.ends_with(".md")
+        || value.contains('/')
+        || value.starts_with("notes")
+        || value.starts_with("daily")
+        || value.starts_with("staging")
+}
+
+fn truncate_prompt_bytes(input: &str, max_bytes: usize) -> String {
+    if input.as_bytes().len() <= max_bytes {
+        return input.to_string();
+    }
+
+    let mut end = 0usize;
+    for (idx, ch) in input.char_indices() {
+        let next = idx + ch.len_utf8();
+        if next > max_bytes {
+            break;
+        }
+        end = next;
+    }
+    input[..end].to_string()
+}
+
 fn render_upsert_job_preview(
     existing: Option<&allbert_proto::JobStatusPayload>,
     definition: &allbert_proto::JobDefinitionPayload,
@@ -2350,7 +2485,7 @@ fn render_job_status_preview(action: &str, job: &allbert_proto::JobStatusPayload
 }
 
 fn render_job_definition_lines(definition: &allbert_proto::JobDefinitionPayload) -> Vec<String> {
-    vec![
+    let mut lines = vec![
         format!("name:              {}", definition.name),
         format!("description:       {}", definition.description),
         format!("enabled:           {}", yes_no(definition.enabled)),
@@ -2386,15 +2521,30 @@ fn render_job_definition_lines(definition: &allbert_proto::JobDefinitionPayload)
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "(default)".into())
         ),
-        format!(
-            "prompt:\n{}",
-            indent_block(if definition.prompt.trim().is_empty() {
-                "(empty)"
-            } else {
-                definition.prompt.trim()
-            })
-        ),
-    ]
+    ];
+    lines.push(format!(
+        "session name:      {}",
+        definition
+            .session_name
+            .as_deref()
+            .unwrap_or("(fresh per run)")
+    ));
+    lines.push(format!(
+        "memory prefetch:   {}",
+        definition
+            .memory_prefetch
+            .map(yes_no)
+            .unwrap_or("(default)")
+    ));
+    lines.push(format!(
+        "prompt:\n{}",
+        indent_block(if definition.prompt.trim().is_empty() {
+            "(empty)"
+        } else {
+            definition.prompt.trim()
+        })
+    ));
+    lines
 }
 
 fn render_job_model(model: Option<&allbert_proto::ModelConfigPayload>) -> String {
@@ -3006,6 +3156,127 @@ mod tests {
             Some("allbert/root")
         );
         assert_eq!(entries[2].agent_name, "allbert/root");
+    }
+
+    #[tokio::test]
+    async fn spawn_subagent_without_memory_hints_starts_with_zero_retrieved_memory() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        fs::create_dir_all(&paths.memory_notes).unwrap();
+        fs::write(
+            paths.memory_notes.join("postgres.md"),
+            "# Postgres\n\nUniqueMemoryAlpha lives here.\n",
+        )
+        .unwrap();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "spawn_subagent",
+                                "input": {
+                                    "name": "researcher",
+                                    "prompt": "Summarize what memory says."
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "SUBAGENT_OK".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "ROOT_OK".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("delegate memory work").await.unwrap();
+
+        let recorded_requests = requests.lock().unwrap();
+        let subagent_system = recorded_requests[1].system.as_ref().unwrap();
+        assert!(
+            !subagent_system.contains("UniqueMemoryAlpha"),
+            "sub-agent should not inherit retrieved memory without explicit hints"
+        );
+        assert!(
+            !subagent_system.contains("Filtered memory recall"),
+            "sub-agent should not get a filtered slice when no hints are passed"
+        );
+    }
+
+    #[tokio::test]
+    async fn spawn_subagent_with_memory_hints_gets_filtered_memory_slice() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        fs::create_dir_all(&paths.memory_notes).unwrap();
+        fs::write(
+            paths.memory_notes.join("postgres.md"),
+            "# Postgres\n\nUniqueMemoryBeta lives here.\n",
+        )
+        .unwrap();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "spawn_subagent",
+                                "input": {
+                                    "name": "researcher",
+                                    "prompt": "Summarize what memory says.",
+                                    "memory_hints": ["notes/postgres.md", "UniqueMemoryBeta"]
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "SUBAGENT_OK".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "ROOT_OK".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("delegate memory work").await.unwrap();
+
+        let recorded_requests = requests.lock().unwrap();
+        let subagent_system = recorded_requests[1].system.as_ref().unwrap();
+        assert!(subagent_system.contains("Filtered memory note: notes/postgres.md"));
+        assert!(subagent_system.contains("UniqueMemoryBeta"));
     }
 
     #[tokio::test]
@@ -5095,6 +5366,46 @@ mod tests {
         let system = requests[0].system.as_ref().unwrap();
         assert!(system.contains("### Skill: job-helper"));
         assert!(system.contains("Use request_input to collect missing detail."));
+    }
+
+    #[tokio::test]
+    async fn run_job_turn_stages_entries_with_job_source_attribution() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"stage_memory\",\"input\":{\"content\":\"Nightly summary content\",\"kind\":\"job_summary\",\"summary\":\"Nightly summary\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "JOB_OK".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_job_turn("nightly-summary", "collect findings")
+            .await
+            .expect("job turn should pass");
+
+        let staged =
+            memory::list_staged_memory(&paths, &MemoryConfig::default(), None, None, Some(10))
+                .expect("staged entries should list");
+        assert_eq!(staged.len(), 1);
+        assert_eq!(staged[0].kind, "job_summary");
+        assert_eq!(staged[0].source, "job");
+        assert_eq!(staged[0].agent, "allbert/root");
     }
 
     #[tokio::test]
