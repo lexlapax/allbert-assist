@@ -55,6 +55,7 @@ Explicitly parked, not forgotten.
 - **Capability tokens for local IPC.** ADR 0023 explicitly defers these. v0.6 channels may push on the edges of this decision; revisit if so.
 - **Cross-network daemon.** Out of scope through v0.7. If and when it returns, it will be an explicit design pass, not an incremental add-on.
 - **Large embedded runtime.** Lua or similar embedded scripting enters only through the v0.7 scripting seam (ADR pending in that release) rather than as a kernel dependency.
+- **Embedding / vector retrieval for memory.** v0.5 commits to BM25 via tantivy (ADR 0046); embedding-based retrieval is an explicit non-goal for v0.5 and may layer alongside tantivy in a later release rather than replacing it.
 - **Local personalization / retraining pipeline.** The origin note's ambition to distill or retrain a small local model for memory/personality is still in scope philosophically, but it is not assigned to any release through v0.7. Revisit only after curated memory and model-management seams are stable.
 - **Website-serving / hosted web surfaces.** The origin note's idea that Allbert might eventually serve websites or richer hosted interfaces is explicitly deferred beyond the current roadmap. The near-term web story is channel expansion and future native/web UI planning, not site-hosting from the daemon.
 
