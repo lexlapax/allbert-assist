@@ -28,6 +28,7 @@ The project is centered on a small Rust runtime kernel rather than a bloated app
 - Keep track of operational cost.
 - Support tracing so failures can be diagnosed and learned from.
 - Maintain a memory system that can be inspected and edited directly by the user, with ranked retrieval once memory is large enough to need it.
+- Build a bounded memory context before the first root-agent model call, then let tools, skills, and sub-agents deepen that context on demand rather than by silently loading everything up front.
 - Host lightweight internal services such as channel handling, session management, and job management without turning into a large distributed system.
 - Reach the user through more than one surface — terminal first, then messaging channels, later richer native interfaces.
 - Accept input and produce output across text, voice, images, and file attachments as channels and providers support it.
@@ -46,9 +47,12 @@ Allbert should keep its durable memory in markdown and linked files first, with 
 
 - maintaining and pruning long-term memory
 - compiling searchable memory representations with ranked retrieval
+- keeping a small always-visible memory synopsis separate from larger retrieved memory documents
 - separating durable identity/profile files from durable learned memory
+- separating approved durable memory from staged candidate learnings
 - separating durable knowledge from ephemeral session context
 - staging new learnings for user review before promoting them into durable memory
+- separating hot-path memory updates from background maintenance and promotion work
 - adapting over time to the user's preferences and personality
 
 ## Identity Direction

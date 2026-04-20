@@ -10,7 +10,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.2 | Daemon host, scheduled jobs, multi-session kernel, local IPC | Shipped | [v0.2-scheduled-jobs.md](v0.2-scheduled-jobs.md) |
 | v0.3 | First-class agents, sub-agent harness, intent routing | Shipped | [v0.3-agent-harness.md](v0.3-agent-harness.md) |
 | v0.4 | AgentSkills folder format, install trust model, script policy | Shipped | [v0.4-agentskills-adoption.md](v0.4-agentskills-adoption.md) |
-| v0.5 | Curated memory: ranked retrieval, tiered storage, staging | Proposed | [v0.5-curated-memory.md](v0.5-curated-memory.md) |
+| v0.5 | Curated memory: tiered memory service, ranked retrieval, staging, promotion | Proposed | [v0.5-curated-memory.md](v0.5-curated-memory.md) |
 | v0.6 | Channel expansion: Telegram pilot and the Channel trait | Proposed | [v0.6-channel-expansion.md](v0.6-channel-expansion.md) |
 | v0.7 | Self-improvement: Rust rebuild skill, skill-authoring skill, embedded scripting seam | Proposed | [v0.7-self-improvement.md](v0.7-self-improvement.md) |
 
@@ -24,7 +24,7 @@ Agents must exist as first-class runtime participants before the richer AgentSki
 
 ### v0.4 before v0.5
 
-Curated memory needs two layers to be ready first: a small kernel retrieval seam, and a skill ecosystem rich enough to package promotion/indexing/summarisation workflows around it. The folder format (ADR 0032), progressive disclosure (ADR 0036), and script policy (ADR 0034) give v0.5 a clean substrate for memory-aware skills, while still leaving ranked retrieval as a kernel-owned runtime behaviour rather than a bespoke prompt hack.
+Curated memory needs more than a retriever. It needs a full turn-assembly contract: bootstrap identity, bounded always-on memory, ranked prefetch, explicit search/read, staging, promotion, and session working memory. v0.4 provides the right substrate for that: portable skills, progressive disclosure, install trust, and script policy. v0.5 then adds the kernel-owned memory service and lets skills package review, compaction, promotion, and maintenance workflows around it instead of replacing that service.
 
 ### v0.5 before v0.6
 
@@ -42,6 +42,7 @@ These themes recur across multiple releases. They are noted here so individual p
 - **Security envelope.** Every new capability routes through existing policy surfaces — `exec_policy`, `confirm-trust`, skill `allowed-tools`, install preview (ADR 0033). No release adds a privileged bypass. New hook points extend the existing hook surface rather than replacing it.
 - **Kernel-first.** New runtime behaviour lands in the kernel when it is runtime behaviour (agents, intent routing, memory retrieval surfaces). Adapters and frontends stay thin.
 - **Progressive disclosure.** From v0.4 onward, skill prompt contribution is tier-aware (ADR 0036). Memory retrieval in v0.5 follows the same principle: surface metadata cheaply, load content on demand.
+- **Hot path vs background work.** The main turn loop may update ephemeral state and stage candidate learnings, but review, promotion assistance, compaction, and pruning can also run through jobs or memory-aware skills so the core turn does not carry every maintenance burden.
 - **Markdown as ground truth.** Jobs (ADR 0022), skills (ADR 0032), and memory (v0.5) all persist as markdown files with defined frontmatter. Indices and caches are derived artifacts that can be rebuilt from the markdown at any time.
 - **Canonical format bias.** When a format change is important to runtime simplicity or user clarity, prefer normalizing shipped artifacts to the new canonical shape over carrying bridge code. ADR 0037 now takes that path for the v0.4 skill cutover.
 

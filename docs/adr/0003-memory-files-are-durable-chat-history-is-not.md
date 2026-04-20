@@ -20,7 +20,8 @@ Session message history is ephemeral runtime scratch space. Durable state belong
 - Each kernel session starts with a fresh in-memory conversation state.
 - `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, and optional `BOOTSTRAP.md` hold durable runtime identity/profile context.
 - Long-term facts, notes, and decisions are persisted under the memory directory, not in hidden chat transcripts.
-- Prompt injection of memory is intentional and bounded: the model gets a small memory index and recent daily context, then pulls more specific files explicitly when needed.
+- Prompt injection of memory is intentional and bounded: the model gets a small always-on memory synopsis and then pulls more specific memory material explicitly or through bounded curated retrieval when needed.
+- Future releases may add staging, ranked retrieval, and ephemeral working-memory layers, but those layers still orbit the same rule: markdown files are the durable source of truth and chat transcripts are not.
 
 This preserves a visible durable-state model for v0.1 without making chat transcripts an implicit second memory system.
 
@@ -30,7 +31,7 @@ This preserves a visible durable-state model for v0.1 without making chat transc
 - Durable knowledge remains inspectable, editable, and portable.
 - Durable runtime identity and durable learned memory stay visible and editable in different files instead of collapsing into one hidden blob.
 - The assistant is encouraged to write down facts worth keeping.
-- Memory architecture stays legible early, before retrieval becomes more sophisticated.
+- Memory architecture stays legible even as retrieval, staging, and ephemeral working memory become more sophisticated.
 
 **Negative**
 - Restarting a session loses conversational scratch context unless the model saved it intentionally.
