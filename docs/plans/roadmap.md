@@ -38,6 +38,7 @@ Self-improvement (the assistant rebuilding its own Rust binary, or authoring new
 
 These themes recur across multiple releases. They are noted here so individual plans do not have to re-establish them.
 
+- **Natural interface for end users.** End users interact via natural language — text, and from v0.6 voice, images, and attachments through channels. User-authored extension lives in markdown and declarative config (bootstrap files, skills, jobs, agent prompts). Rust is runtime scaffolding; code-writing paths are opt-in advanced tools, never default user flow. Codified in [ADR 0038](../adr/0038-natural-interface-is-the-users-extension-surface.md).
 - **Security envelope.** Every new capability routes through existing policy surfaces — `exec_policy`, `confirm-trust`, skill `allowed-tools`, install preview (ADR 0033). No release adds a privileged bypass. New hook points extend the existing hook surface rather than replacing it.
 - **Kernel-first.** New runtime behaviour lands in the kernel when it is runtime behaviour (agents, intent routing, memory retrieval surfaces). Adapters and frontends stay thin.
 - **Progressive disclosure.** From v0.4 onward, skill prompt contribution is tier-aware (ADR 0036). Memory retrieval in v0.5 follows the same principle: surface metadata cheaply, load content on demand.

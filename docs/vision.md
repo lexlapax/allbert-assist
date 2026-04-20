@@ -12,6 +12,7 @@ The project is centered on a small Rust runtime kernel rather than a bloated app
 - **Markdown-defined identity.** Personality, user profile, and local conventions should live in a small set of editable markdown bootstrap files that the kernel can load into runtime context.
 - **Security at the core.** Risky actions should be mediated by explicit policy checks at the kernel layer rather than hidden in frontends or ad hoc scripts.
 - **Service oriented, not bloated.** New capabilities should come from small internal services, skills, tools, and clean interfaces before adding heavyweight embedded runtimes or a broad distributed platform.
+- **Natural interface.** End users interact via natural language — text, and over time voice, images, and attachments through channels. User-authored extension lives in markdown and declarative config (bootstrap files, skills, jobs, agent prompts). Rust is the runtime-scaffolding language, not a user-facing language. Writing code is never a prerequisite for using or extending Allbert.
 - **Personal over generic.** The assistant should learn your habits, preferences, history, and working context over time.
 
 ## What Allbert Should Do
@@ -29,6 +30,7 @@ The project is centered on a small Rust runtime kernel rather than a bloated app
 - Maintain a memory system that can be inspected and edited directly by the user, with ranked retrieval once memory is large enough to need it.
 - Host lightweight internal services such as channel handling, session management, and job management without turning into a large distributed system.
 - Reach the user through more than one surface — terminal first, then messaging channels, later richer native interfaces.
+- Accept input and produce output across text, voice, images, and file attachments as channels and providers support it.
 
 ## Agent Direction
 
@@ -59,15 +61,15 @@ For planning and reasoning, Allbert should use strong foundation models. Over ti
 
 ## Skill Direction
 
-Skills should be the primary way Allbert gains new capabilities. The canonical shape follows the AgentSkills open standard: a folder with a `SKILL.md`, optional scripts, references, and assets, and a documented frontmatter schema. That lets Allbert read and share skills with the wider agent-assistant ecosystem. Every skill install goes through explicit preview and confirmation before activation; skill scripts run under the same exec policy as any other command. Progressive disclosure — surface a skill's name and description cheaply, load its body on activation, pull references only on demand — keeps skill discovery affordable even as the installed set grows.
+Skills should be the primary way Allbert gains new capabilities. The canonical shape follows the AgentSkills open standard: a folder with a `SKILL.md`, optional scripts, references, and assets, and a documented frontmatter schema. That lets Allbert read and share skills with the wider agent-assistant ecosystem. End users install and use skills; authoring happens either by hand (markdown plus declarative frontmatter — no code required) or through a natural-language scaffolding skill that Allbert itself provides. Every skill install goes through explicit preview and confirmation before activation; skill scripts run under the same exec policy as any other command. Progressive disclosure — surface a skill's name and description cheaply, load its body on activation, pull references only on demand — keeps skill discovery affordable even as the installed set grows.
 
 ## Channel Direction
 
-Allbert should reach the user through more than one surface. The terminal REPL is the starting channel; messaging channels (Telegram first, then others) follow; richer native or web surfaces come later. Every channel is an adapter over the kernel's session model, not a separate product. Channels declare their capabilities — inline confirm, async confirm, rich output, file attach — so the kernel can route confirm-trust and policy checks through paths each channel actually supports. Channels without any confirmation capability fail closed on policy-sensitive actions, just as scheduled jobs already do.
+Allbert should reach the user through more than one surface. The terminal REPL is the starting channel; messaging channels (Telegram first, then others) follow; richer native or web surfaces come later. Every channel is an adapter over the kernel's session model, not a separate product. Channels declare their capabilities — inline confirm, async confirm, rich output, file attach, and multimodal flags for voice and image input/output — so the kernel can route confirm-trust and policy checks through paths each channel actually supports. Multimodal content passes through to providers that support it; channels without a given capability transcode or refuse gracefully. Channels without any confirmation capability fail closed on policy-sensitive actions, just as scheduled jobs already do.
 
 ## Self-Improvement Direction
 
-Allbert should be able to help improve itself, but only through the same trust gates any other change goes through. A Rust coding skill can read, modify, build, and test the Allbert codebase in a sibling worktree, producing diffs the operator reviews. A skill-authoring skill can scaffold new AgentSkills-format skills that land in the same install quarantine as any external install. Embedded scripting — Lua first, others later — enters through a deliberate `ScriptingEngine` seam rather than by making the kernel depend on a large general-purpose runtime. Skills and tool seams come first; embedded scripting engines come later, opt-in per exec policy, sandboxed by default.
+End users do not write Rust, Python, or Lua to extend Allbert. When Allbert improves itself, it is Allbert doing the authoring under the user's explicit review. A Rust coding skill can read, modify, build, and test the Allbert codebase in a sibling worktree, producing diffs the operator reviews before merge. A skill-authoring skill scaffolds new AgentSkills-format skills through natural-language conversation; the result lands in the same install quarantine as any external install. Embedded scripting — Lua first, others later — enters through a deliberate `ScriptingEngine` seam, opt-in per exec policy and sandboxed by default. Skills and tool seams come first; embedded scripting is an advanced, optional surface, never a prerequisite for end-user workflows.
 
 ## Product Direction
 
