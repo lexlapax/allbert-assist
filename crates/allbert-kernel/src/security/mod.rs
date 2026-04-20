@@ -405,7 +405,11 @@ impl Hook for SecurityHook {
                         }
                     };
 
-                let target = self.paths.skills.join(&parsed.name).join("SKILL.md");
+                let target = self
+                    .paths
+                    .skills_installed
+                    .join(&parsed.name)
+                    .join("SKILL.md");
 
                 let needs_confirm = target.exists();
                 if !needs_confirm || security.auto_confirm {

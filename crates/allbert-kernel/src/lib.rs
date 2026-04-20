@@ -893,7 +893,7 @@ Available tools:\n",
         prompt.push_str("\n- invoke_skill: Activate a skill for this session, optionally with JSON args.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"},\"args\":{\"type\":\"object\"}}}\n");
         prompt.push_str("\n- read_reference: Read an installed skill resource under references/ or assets/ on demand.\n  schema: {\"type\":\"object\",\"required\":[\"skill\",\"path\"],\"properties\":{\"skill\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"max_bytes\":{\"type\":\"integer\",\"minimum\":1}}}\n");
         prompt.push_str("\n- run_skill_script: Run a declared script from an active skill using its configured interpreter.\n  schema: {\"type\":\"object\",\"required\":[\"skill\",\"script\"],\"properties\":{\"skill\":{\"type\":\"string\"},\"script\":{\"type\":\"string\"},\"args\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timeout_s\":{\"type\":\"integer\",\"minimum\":1}}}\n");
-        prompt.push_str("\n- create_skill: Create a skill under ~/.allbert/skills/<name>/SKILL.md.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"allowed_tools\",\"body\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"body\":{\"type\":\"string\"}}}\n");
+        prompt.push_str("\n- create_skill: Create a skill under ~/.allbert/skills/installed/<name>/SKILL.md.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"allowed_tools\",\"body\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"body\":{\"type\":\"string\"}}}\n");
         prompt.push_str("\n- spawn_subagent: Run a bounded sub-agent with a fresh message history inside the current session.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"prompt\":{\"type\":\"string\"},\"context\":{}}}\n");
         if self.job_manager.is_some() {
             prompt.push_str(
@@ -1328,7 +1328,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         };
 
         match self.skills.create(
-            &self.paths.skills,
+            &self.paths.skills_installed,
             &parsed.name,
             &parsed.description,
             &parsed.allowed_tools,
@@ -1885,7 +1885,7 @@ fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
 mod tests {
     use std::collections::VecDeque;
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
 
     use async_trait::async_trait;
@@ -1960,7 +1960,7 @@ mod tests {
         allowed_tools: &str,
         body: &str,
     ) {
-        let dir = paths.skills.join(name);
+        let dir = paths.skills_installed.join(name);
         fs::create_dir_all(&dir).unwrap();
         fs::write(
             dir.join("SKILL.md"),
@@ -1972,7 +1972,7 @@ mod tests {
     }
 
     fn write_skill_raw(paths: &AllbertPaths, name: &str, raw: &str) {
-        let dir = paths.skills.join(name);
+        let dir = paths.skills_installed.join(name);
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("SKILL.md"), raw).unwrap();
     }
@@ -1986,7 +1986,7 @@ mod tests {
         reference_path: &str,
         reference_body: &str,
     ) {
-        let dir = paths.skills.join(name);
+        let dir = paths.skills_installed.join(name);
         fs::create_dir_all(&dir).unwrap();
         fs::write(
             dir.join("SKILL.md"),
@@ -2010,7 +2010,7 @@ mod tests {
         script_rel_path: &str,
         script_body: &str,
     ) {
-        let dir = paths.skills.join(name);
+        let dir = paths.skills_installed.join(name);
         fs::create_dir_all(&dir).unwrap();
         fs::write(
             dir.join("SKILL.md"),
@@ -3384,7 +3384,7 @@ mod tests {
             "request_input",
             "Do good things.",
         );
-        let broken_dir = paths.skills.join("broken");
+        let broken_dir = paths.skills_installed.join("broken");
         fs::create_dir_all(&broken_dir).unwrap();
         fs::write(broken_dir.join("SKILL.md"), "not frontmatter").unwrap();
 
@@ -3761,6 +3761,56 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn normalized_example_skill_can_activate_read_reference_and_run_script() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        install_example_skill(&paths);
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::new("anthropic", vec![], Some(test_pricing()))),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let invoked = run_tool_via_kernel(
+            &mut kernel,
+            ToolInvocation {
+                name: "invoke_skill".into(),
+                input: json!({ "name": "note-taker", "args": { "title": "Release Retro" } }),
+            },
+        )
+        .await;
+        assert!(invoked.ok);
+        assert_eq!(kernel.active_skills()[0].name, "note-taker");
+
+        let reference = run_tool_via_kernel(
+            &mut kernel,
+            ToolInvocation {
+                name: "read_reference".into(),
+                input: json!({ "skill": "note-taker", "path": "references/note-template.md" }),
+            },
+        )
+        .await;
+        assert!(reference.ok);
+        assert!(reference.content.contains("# Note Template"));
+
+        let script = run_tool_via_kernel(
+            &mut kernel,
+            ToolInvocation {
+                name: "run_skill_script".into(),
+                input: json!({ "skill": "note-taker", "script": "slugify", "args": ["Release Retro"] }),
+            },
+        )
+        .await;
+        assert!(script.ok);
+        assert!(script.content.contains("release-retro"));
+    }
+
+    #[tokio::test]
     async fn invoke_skill_rejects_args_over_limit() {
         let temp = TempRoot::new();
         let paths = temp.paths();
@@ -3864,7 +3914,11 @@ mod tests {
             .run_turn("create skill")
             .await
             .expect("create turn should pass");
-        assert!(paths.skills.join("weather-note").join("SKILL.md").exists());
+        assert!(paths
+            .skills_installed
+            .join("weather-note")
+            .join("SKILL.md")
+            .exists());
 
         kernel
             .run_turn("invoke skill")
@@ -3930,7 +3984,8 @@ mod tests {
             .expect("turn should pass");
         assert_eq!(seen.lock().unwrap().len(), 1);
         let persisted =
-            fs::read_to_string(paths.skills.join("overwrite-me").join("SKILL.md")).unwrap();
+            fs::read_to_string(paths.skills_installed.join("overwrite-me").join("SKILL.md"))
+                .unwrap();
         assert!(persisted.contains("Old body"));
     }
 
@@ -3939,7 +3994,7 @@ mod tests {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().unwrap();
-        let skill_dir = paths.skills.join("planner");
+        let skill_dir = paths.skills_installed.join("planner");
         fs::create_dir_all(skill_dir.join("agents")).unwrap();
         fs::write(
             skill_dir.join("SKILL.md"),
@@ -4003,7 +4058,7 @@ mod tests {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().unwrap();
-        let skill_dir = paths.skills.join("planner");
+        let skill_dir = paths.skills_installed.join("planner");
         fs::create_dir_all(skill_dir.join("agents")).unwrap();
         fs::write(
             skill_dir.join("SKILL.md"),
@@ -4070,7 +4125,7 @@ mod tests {
         .await
         .expect("kernel should boot");
 
-        let skill_dir = paths.skills.join("planner");
+        let skill_dir = paths.skills_installed.join("planner");
         fs::create_dir_all(skill_dir.join("agents")).unwrap();
         fs::write(
             skill_dir.join("SKILL.md"),
@@ -4179,7 +4234,7 @@ mod tests {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().unwrap();
-        let skill_dir = paths.skills.join("planner");
+        let skill_dir = paths.skills_installed.join("planner");
         fs::create_dir_all(skill_dir.join("agents")).unwrap();
         fs::write(
             skill_dir.join("SKILL.md"),
@@ -4746,15 +4801,26 @@ mod tests {
             .expect("repo root should resolve")
     }
 
+    fn copy_dir_recursive(source: &Path, destination: &Path) {
+        fs::create_dir_all(destination).expect("destination should exist");
+        for entry in fs::read_dir(source)
+            .expect("source directory should be readable")
+            .flatten()
+        {
+            let path = entry.path();
+            let target = destination.join(entry.file_name());
+            if path.is_dir() {
+                copy_dir_recursive(&path, &target);
+            } else {
+                fs::copy(&path, &target).expect("file should copy");
+            }
+        }
+    }
+
     fn install_example_skill(paths: &AllbertPaths) {
-        let source = repo_root().join("examples/skills/note-taker/SKILL.md");
-        let target_dir = paths.skills.join("note-taker");
-        fs::create_dir_all(&target_dir).expect("skill dir should exist");
-        fs::write(
-            target_dir.join("SKILL.md"),
-            fs::read_to_string(source).expect("example skill should be readable"),
-        )
-        .expect("example skill should be copied");
+        let source = repo_root().join("examples/skills/note-taker");
+        let target_dir = paths.skills_installed.join("note-taker");
+        copy_dir_recursive(&source, &target_dir);
     }
 
     fn seed_completed_setup(paths: &AllbertPaths, config: &Config) {
@@ -4771,34 +4837,42 @@ mod tests {
     }
 
     async fn run_tool_via_kernel(kernel: &mut Kernel, invocation: ToolInvocation) -> ToolOutput {
+        let placeholder = AgentState::new(kernel.state.session_id.clone());
+        let mut state = std::mem::replace(&mut kernel.state, placeholder);
+        let effective = match kernel.normalize_tool_invocation(&state, &invocation) {
+            Ok(effective) => effective,
+            Err(message) => {
+                kernel.state = state;
+                return ToolOutput {
+                    content: message,
+                    ok: false,
+                };
+            }
+        };
         let mut tool_hook_ctx = HookCtx::before_tool(
-            &kernel.state.session_id,
-            kernel.state.agent_name(),
+            &state.session_id,
+            state.agent_name(),
             None,
-            invocation.clone(),
-            kernel
-                .skills
-                .allowed_tool_union(&kernel.state.active_skills),
+            effective.execution.clone(),
+            kernel.skills.allowed_tool_union(&state.active_skills),
         );
-        match kernel
+        let output = match kernel
             .hooks
             .run(HookPoint::BeforeTool, &mut tool_hook_ctx)
             .await
         {
             HookOutcome::Continue => {
-                let placeholder = AgentState::new(kernel.state.session_id.clone());
-                let mut state = std::mem::replace(&mut kernel.state, placeholder);
-                let output = kernel
-                    .dispatch_tool_for_state(&mut state, None, invocation)
-                    .await;
-                kernel.state = state;
-                output
+                kernel
+                    .dispatch_tool_for_state(&mut state, None, effective.execution)
+                    .await
             }
             HookOutcome::Abort(message) => ToolOutput {
                 content: message,
                 ok: false,
             },
-        }
+        };
+        kernel.state = state;
+        output
     }
 
     fn latest_assistant_text(events: &Arc<Mutex<Vec<KernelEvent>>>) -> String {

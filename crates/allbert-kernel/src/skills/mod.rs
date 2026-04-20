@@ -98,7 +98,7 @@ impl SkillStore {
 
     pub fn validate_path(path: &Path) -> Result<SkillValidationReport, SkillError> {
         let report = validate_skill_path_internal(path)?;
-        Self::load_skill_file_strict(path)?;
+        Self::load_skill_file(path)?;
         Ok(report)
     }
 
@@ -216,7 +216,7 @@ impl SkillStore {
         allowed_tools: &[String],
         body: &str,
     ) -> Result<Skill, SkillError> {
-        validate_relaxed_skill_name(name)?;
+        validate_strict_skill_name(name)?;
         let skill_dir = skills_root.join(name);
         let skill_path = skill_dir.join("SKILL.md");
         fs::create_dir_all(&skill_dir)
@@ -394,14 +394,6 @@ impl SkillStore {
     }
 
     fn load_skill_file(path: &Path) -> Result<Skill, SkillError> {
-        Self::load_skill_file_with_mode(path, false)
-    }
-
-    fn load_skill_file_strict(path: &Path) -> Result<Skill, SkillError> {
-        Self::load_skill_file_with_mode(path, true)
-    }
-
-    fn load_skill_file_with_mode(path: &Path, strict: bool) -> Result<Skill, SkillError> {
         let raw = fs::read_to_string(path)
             .map_err(|err| SkillError::Load(format!("read {}: {err}", path.display())))?;
         let matter = Matter::<YAML>::new();
@@ -412,11 +404,7 @@ impl SkillStore {
             SkillError::Load(format!("missing frontmatter in {}", path.display()))
         })?;
 
-        if strict {
-            validate_skill_path_internal(path)?;
-        } else {
-            validate_relaxed_skill_path(path, &data.name, &data.description)?;
-        }
+        validate_skill_path_internal(path)?;
 
         Ok(Skill {
             agents: load_skill_agents(path, &data.name, &data.agents)?,
@@ -631,7 +619,7 @@ fn load_skill_agents(
         let data = parsed.data.ok_or_else(|| {
             SkillError::Load(format!("missing frontmatter in {}", path.display()))
         })?;
-        validate_relaxed_skill_name(&data.name)?;
+        validate_strict_skill_name(&data.name)?;
         let namespaced = format!("{skill_name}/{}", data.name);
         agents.push(ContributedAgent {
             skill_name: skill_name.into(),
@@ -669,9 +657,7 @@ impl AllowedTools {
 fn find_skill_files(root: &Path) -> Vec<PathBuf> {
     let mut out = Vec::new();
     let installed_root = root.join("installed");
-    let incoming_root = root.join("incoming");
     collect_immediate_skill_files(&installed_root, &mut out);
-    collect_legacy_skill_files(root, &installed_root, &incoming_root, &mut out);
     out
 }
 
@@ -688,72 +674,6 @@ fn collect_immediate_skill_files(root: &Path, out: &mut Vec<PathBuf>) {
                 out.push(skill_md);
             }
         }
-    }
-}
-
-fn collect_legacy_skill_files(
-    root: &Path,
-    installed_root: &Path,
-    incoming_root: &Path,
-    out: &mut Vec<PathBuf>,
-) {
-    let Ok(entries) = fs::read_dir(root) else {
-        return;
-    };
-
-    let installed_name = installed_root.file_name().and_then(|name| name.to_str());
-    let incoming_name = incoming_root.file_name().and_then(|name| name.to_str());
-    let installed_stems = out
-        .iter()
-        .filter_map(|path| path.parent())
-        .filter_map(|path| path.file_name())
-        .filter_map(|name| name.to_str())
-        .map(str::to_string)
-        .collect::<HashSet<_>>();
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        let Some(dir_name) = path.file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
-        if Some(dir_name) == installed_name || Some(dir_name) == incoming_name {
-            continue;
-        }
-        if installed_stems.contains(dir_name) {
-            tracing::warn!(
-                "ignoring legacy skill at {} because installed/{} takes precedence",
-                path.display(),
-                dir_name
-            );
-            continue;
-        }
-        let skill_md = path.join("SKILL.md");
-        if skill_md.exists() {
-            out.push(skill_md);
-        }
-    }
-}
-
-fn validate_relaxed_skill_name(name: &str) -> Result<(), SkillError> {
-    if name.is_empty() {
-        return Err(SkillError::Load("skill name cannot be empty".into()));
-    }
-    if name.len() > 64 {
-        return Err(SkillError::Load("skill name is too long".into()));
-    }
-    if name
-        .chars()
-        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
-    {
-        Ok(())
-    } else {
-        Err(SkillError::Load(format!(
-            "skill name '{}' contains unsupported characters",
-            name
-        )))
     }
 }
 
@@ -778,21 +698,6 @@ fn validate_strict_skill_name(name: &str) -> Result<(), SkillError> {
             name
         )))
     }
-}
-
-fn validate_relaxed_skill_path(
-    path: &Path,
-    name: &str,
-    description: &str,
-) -> Result<(), SkillError> {
-    validate_relaxed_skill_name(name)?;
-    if description.trim().is_empty() {
-        return Err(SkillError::Load(format!(
-            "missing description in {}",
-            path.display()
-        )));
-    }
-    Ok(())
 }
 
 fn validate_skill_path_internal(path: &Path) -> Result<SkillValidationReport, SkillError> {
@@ -1034,30 +939,27 @@ mod tests {
     }
 
     #[test]
-    fn discovery_prefers_installed_root_over_legacy_root() {
+    fn discovery_reads_installed_root_and_ignores_incoming() {
         let root = temp_dir("discover");
-        let legacy_root = root.join("skills");
-        let installed_root = legacy_root.join("installed");
+        let skills_root = root.join("skills");
+        let installed_root = skills_root.join("installed");
+        let incoming_root = skills_root.join("incoming");
         write_skill(
-            &legacy_root.join("shared-skill/SKILL.md"),
-            "---\nname: shared-skill\ndescription: Legacy.\n---\n\nlegacy\n",
+            &installed_root.join("installed-skill/SKILL.md"),
+            "---\nname: installed-skill\ndescription: Installed.\ncompatibility:\n  agentskills: \">=0.1\"\n  allbert: \">=0.4\"\nmetadata:\n  tags: [test]\n---\n\ninstalled\n",
         );
         write_skill(
-            &installed_root.join("shared-skill/SKILL.md"),
-            "---\nname: shared-skill\ndescription: Installed.\n---\n\ninstalled\n",
-        );
-        write_skill(
-            &legacy_root.join("legacy-only/SKILL.md"),
-            "---\nname: legacy-only\ndescription: Legacy only.\n---\n\nlegacy only\n",
+            &incoming_root.join("incoming-skill/SKILL.md"),
+            "---\nname: incoming-skill\ndescription: Incoming.\ncompatibility:\n  agentskills: \">=0.1\"\n  allbert: \">=0.4\"\nmetadata:\n  tags: [test]\n---\n\nincoming\n",
         );
 
-        let store = SkillStore::discover(&legacy_root);
-        assert_eq!(store.all().len(), 2);
-        assert_eq!(store.get("shared-skill").unwrap().description, "Installed.");
+        let store = SkillStore::discover(&skills_root);
+        assert_eq!(store.all().len(), 1);
         assert_eq!(
-            store.get("legacy-only").unwrap().description,
-            "Legacy only."
+            store.get("installed-skill").unwrap().description,
+            "Installed."
         );
+        assert!(store.get("incoming-skill").is_none());
 
         let _ = fs::remove_dir_all(root);
     }
@@ -1075,5 +977,18 @@ mod tests {
         assert!(err.to_string().contains("kebab-case"));
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn shipped_example_note_taker_validates_cleanly() {
+        let skill_md = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples/skills/note-taker/SKILL.md")
+            .canonicalize()
+            .expect("example skill should resolve");
+
+        let report = validate_skill_path(&skill_md).expect("example skill should validate");
+        assert_eq!(report.name, "note-taker");
+        assert_eq!(report.scripts, 1);
+        assert_eq!(report.agents, 0);
     }
 }
