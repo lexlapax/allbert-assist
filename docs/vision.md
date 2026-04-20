@@ -57,7 +57,7 @@ Allbert should have a small always-on bootstrap layer made of inspectable markdo
 
 ## Model Direction
 
-For planning and reasoning, Allbert should use strong foundation models. Over time it may also use smaller specialized models for memory shaping, personalization, or other narrow tasks, as long as those additions keep the runtime understandable and maintainable.
+For planning and reasoning, Allbert should use strong foundation models. Over time it may also use smaller specialized models for memory shaping, personalization, or other narrow tasks, as long as those additions keep the runtime understandable and maintainable. A full local retraining or nightly-distillation pipeline is an explicit later ambition, not a commitment in the current roadmap.
 
 ## Skill Direction
 
@@ -65,7 +65,7 @@ Skills should be the primary way Allbert gains new capabilities. The canonical s
 
 ## Channel Direction
 
-Allbert should reach the user through more than one surface. The terminal REPL is the starting channel; messaging channels (Telegram first, then others) follow; richer native or web surfaces come later. Every channel is an adapter over the kernel's session model, not a separate product. Channels declare their capabilities — inline confirm, async confirm, rich output, file attach, and multimodal flags for voice and image input/output — so the kernel can route confirm-trust and policy checks through paths each channel actually supports. Multimodal content passes through to providers that support it; channels without a given capability transcode or refuse gracefully. Channels without any confirmation capability fail closed on policy-sensitive actions, just as scheduled jobs already do.
+Allbert should reach the user through more than one surface. The terminal REPL is the starting channel; messaging channels (Telegram first, then others) follow; richer native or web surfaces come later. Every channel is an adapter over the kernel's session model, not a separate product. Channels declare their capabilities — inline confirm, async confirm, rich output, file attach, and multimodal flags for voice and image input/output — so the kernel can route confirm-trust and policy checks through paths each channel actually supports. Multimodal content passes through to providers that support it; channels without a given capability transcode or refuse gracefully. Channels without any confirmation capability fail closed on policy-sensitive actions, just as scheduled jobs already do. Hosted website-serving or broader web-hosting behaviour is explicitly outside the current roadmap; the near-term web story is richer channel and UI work, not turning the daemon into a site host.
 
 ## Self-Improvement Direction
 

@@ -19,7 +19,7 @@ Natural language and markdown are the user's extension surface. Rust is the runt
 
 Specifically:
 
-- **User interaction** happens via text, CLI text commands, and (from v0.6 onward) voice, images, and attachments through channels. Writing code is never a prerequisite for using Allbert.
+- **User interaction** happens via text and CLI text commands first, then later voice, images, and attachments as specific channel releases harden those capabilities. Writing code is never a prerequisite for using Allbert.
 - **User-authored extensions** live in markdown and declarative config: bootstrap files under `~/.allbert/` (ADR 0010, ADR 0039), skill folders (ADR 0032), job definitions (ADR 0022), agent prompt files (ADR 0031), and TOML config. These are the complete extension surface for end users.
 - **Skill scripts** (ADR 0034) are authored by skill authors, not end users. End users encounter them at install time through preview + confirm (ADR 0033), not through a "write a script" step.
 - **Embedded scripting** (v0.7 Lua engine) is an opt-in advanced surface. It exists so Allbert — or a skill author — has a small, sandboxed DSL available. It is never a requirement for end-user workflows.

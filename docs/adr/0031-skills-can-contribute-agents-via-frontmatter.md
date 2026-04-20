@@ -14,7 +14,7 @@ Option 2 matches the skill-first philosophy already in place: skills already con
 
 ## Decision
 
-Skills may declare `agents:` in their frontmatter. Each entry points to a skill-local markdown file (typically `agents/<name>.md` within the skill folder once v0.4 lands the folder format, or an adjacent markdown file in the single-file era).
+Skills may declare `agents:` in their frontmatter. Each entry points to a skill-local markdown file (typically `agents/<name>.md` within the skill folder once v0.4 lands the full AgentSkills layout, or an adjacent markdown file in today's minimal `SKILL.md`-centric directory shape).
 
 - Each agent file has its own frontmatter declaring `name`, `description`, `allowed-tools`, and an optional `model` override. The body is the agent's system prompt.
 - Registered agent names are namespaced as `<skill-name>/<agent-name>` to avoid collisions across skills.

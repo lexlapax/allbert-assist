@@ -5,7 +5,7 @@ Status: Proposed
 
 ## Context
 
-v0.1 and v0.2 shipped skills as single markdown files with YAML frontmatter. That shape worked for bundled skills and for a handful of user-authored skills, but it limits three things:
+v0.1 and v0.2 shipped skills as minimal directories centered on `SKILL.md` with YAML frontmatter. That shape already matched the top-level `skill-name/SKILL.md` convention, but it was a relaxed subset of the fuller AgentSkills shape and it limits three things:
 
 1. Skills with supporting scripts have nowhere to put them cleanly.
 2. Reference material (docs, prompt excerpts) lives either inline (bloating every load) or out-of-band (breaking portability).
@@ -15,9 +15,9 @@ The AgentSkills open standard at [agentskills.io](https://agentskills.io/home) a
 
 Options considered:
 
-1. Stay on single-file skills and add more frontmatter fields ad hoc.
+1. Stay on the minimal `SKILL.md`-only shape and add more frontmatter fields ad hoc.
 2. Invent a third Allbert-specific format.
-3. Adopt the AgentSkills folder format as canonical, with a one-release read path for existing single-file skills (ADR 0037) and a migration helper.
+3. Adopt the AgentSkills folder format as canonical, with a one-release relaxed-compatibility window for existing minimal skills (ADR 0037) and a migration helper.
 
 Option 3 aligns Allbert with an emerging open standard, gives scripts and references proper homes, and enables progressive disclosure as a principled feature rather than an ad hoc optimisation.
 
@@ -31,7 +31,7 @@ v0.4 adopts the AgentSkills folder format as the canonical skill shape.
 - Skill-local references are addressable as `references/<file>` within the skill; links in the body use relative paths.
 - Skill-local scripts are declared in frontmatter under `scripts:` and invoked through the kernel exec seam (ADR 0034).
 - Validation uses an Allbert-internal validator that is compatible with the `skills-ref` schema; skills that pass upstream validation pass Allbert validation as long as no Allbert extensions are misused.
-- Single-file skills continue to load through v0.4 only, with a deprecation warning and a bundled migration helper. The read path is removed in v0.5 (ADR 0037).
+- Legacy minimal skills continue to load through v0.4 only, with a deprecation warning and a bundled migration helper. The relaxed compatibility path is removed in v0.5 (ADR 0037).
 
 ## Consequences
 
@@ -41,7 +41,7 @@ v0.4 adopts the AgentSkills folder format as the canonical skill shape.
 - Gives skill authors a clear, documented file layout.
 
 **Negative**
-- Breaking change for single-file skills after one release; users must migrate.
+- Breaking change for legacy minimal skills after one release; users must normalize them.
 - Skill loader gains directory-walking, validation, and resource resolution logic.
 
 **Neutral**

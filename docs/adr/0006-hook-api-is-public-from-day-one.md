@@ -17,6 +17,8 @@ The kernel will expose a stable hook API as part of its public surface in v0.1.
 - `HookPoint` enumerates named extension points in the agent loop (before prompt, before model, before tool, after tool, on model response, on turn end).
 - v0.1 ships with bootstrap-context, memory-index, security, and cost hooks registered by default at boot.
 - The default hooks are exposed as public types so external callers can compose with them or replace them.
+- The canonical v0.1 hook point names are `BeforePrompt`, `BeforeModel`, `BeforeTool`, `AfterTool`, `OnModelResponse`, and `OnTurnEnd`. Future ADRs may add hook points, but they do so additively rather than silently renaming this accepted set.
+- Lower-level exec activity in v0.1 remains observable through `BeforeTool` / `AfterTool` on the `process_exec` tool. If a future release needs dedicated exec-specific hook points, that addition should be explicit and documented as a new hook family.
 
 For `BeforePrompt`, registration order is significant and documented: bootstrap context is assembled first, then memory context, then later prompt-builder steps consume that snapshot.
 
