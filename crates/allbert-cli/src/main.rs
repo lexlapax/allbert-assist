@@ -3,13 +3,14 @@ use std::time::Duration;
 
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_jobs::JobsCommand;
-use allbert_kernel::{refresh_agents_markdown, skills::validate_skill_path, AllbertPaths, Config};
+use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config};
 use allbert_proto::{ChannelKind, ClientKind, DaemonStatus};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
 mod repl;
 mod setup;
+mod skills;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Allbert daemon-backed CLI", long_about = None)]
@@ -70,13 +71,20 @@ enum DaemonCommand {
 #[derive(Subcommand, Debug)]
 enum SkillsCommand {
     Validate { path: String },
+    Install { source: String },
+    Remove { name: String },
+    Init { name: String },
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    if let Some(Command::Skills { command }) = args.command {
-        return run_skills_command(command).await;
+    if let Some(Command::Skills {
+        command: SkillsCommand::Validate { ref path },
+    }) = args.command.as_ref()
+    {
+        return run_skills_command(None, None, SkillsCommand::Validate { path: path.clone() })
+            .await;
     }
 
     let paths = AllbertPaths::from_home()?;
@@ -98,7 +106,9 @@ async fn main() -> Result<()> {
             run_repl(&paths, &config, args.trace, args.yes).await
         }
         Some(Command::InternalDaemonHost) => run_internal_daemon_host().await,
-        Some(Command::Skills { .. }) => unreachable!("skills handled before home/config bootstrap"),
+        Some(Command::Skills { command }) => {
+            run_skills_command(Some(&paths), Some(&config), command).await
+        }
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
                 config = match setup::run_setup_wizard(&paths, &config)? {
@@ -161,19 +171,41 @@ async fn run_agents_command(
     }
 }
 
-async fn run_skills_command(command: SkillsCommand) -> Result<()> {
+async fn run_skills_command(
+    paths: Option<&AllbertPaths>,
+    config: Option<&Config>,
+    command: SkillsCommand,
+) -> Result<()> {
     match command {
         SkillsCommand::Validate { path } => {
             let skill_path = std::path::PathBuf::from(path);
-            let report = validate_skill_path(&skill_path)
-                .map_err(|err| anyhow::anyhow!("skill validation failed: {err}"))?;
+            println!("{}", skills::validate_skill(&skill_path)?);
+            Ok(())
+        }
+        SkillsCommand::Install { source } => {
+            let paths = paths.context("install requires an initialized Allbert home")?;
+            let config = config.context("install requires loaded config")?;
+            let result =
+                skills::install_local_skill_interactive(paths, config, Path::new(&source))?;
             println!(
-                "valid skill\nname:     {}\npath:     {}\nscripts:  {}\nagents:   {}",
-                report.name,
-                report.path.display(),
-                report.scripts,
-                report.agents
+                "installed skill {}\npath: {}\ntree sha256: {}\napproval reused: {}",
+                result.name,
+                result.installed_path.display(),
+                result.tree_sha256,
+                if result.approval_reused { "yes" } else { "no" }
             );
+            Ok(())
+        }
+        SkillsCommand::Remove { name } => {
+            let paths = paths.context("remove requires an initialized Allbert home")?;
+            skills::remove_skill_interactive(paths, &name)?;
+            println!("removed skill {name}");
+            Ok(())
+        }
+        SkillsCommand::Init { name } => {
+            let cwd = std::env::current_dir().context("resolve current directory")?;
+            let created = skills::init_skill_interactive(&name, &cwd)?;
+            println!("initialized skill scaffold at {}", created.display());
             Ok(())
         }
     }

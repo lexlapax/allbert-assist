@@ -15,6 +15,8 @@ pub struct Config {
     #[serde(default)]
     pub jobs: JobsConfig,
     #[serde(default)]
+    pub install: InstallConfig,
+    #[serde(default)]
     pub intent_classifier: IntentClassifierConfig,
     #[serde(default)]
     pub security: SecurityConfig,
@@ -87,6 +89,20 @@ impl Default for JobsConfig {
             max_concurrent_runs: 1,
             default_timeout_s: 600,
             default_timezone: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct InstallConfig {
+    pub remember_approvals: bool,
+}
+
+impl Default for InstallConfig {
+    fn default() -> Self {
+        Self {
+            remember_approvals: true,
         }
     }
 }
@@ -215,6 +231,7 @@ impl Config {
             setup: SetupConfig::default(),
             daemon: DaemonConfig::default(),
             jobs: JobsConfig::default(),
+            install: InstallConfig::default(),
             intent_classifier: IntentClassifierConfig::default(),
             security: SecurityConfig::default(),
             limits: LimitsConfig::default(),
