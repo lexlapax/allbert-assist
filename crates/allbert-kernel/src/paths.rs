@@ -127,6 +127,10 @@ Check daemon logs, bootstrap files, and core runtime directories for obvious bre
 Write a markdown status note to reports/system-health-check.md only when there is an actionable anomaly.
 "#;
 
+const MEMORY_CURATOR_SKILL_TEMPLATE: &str = include_str!("../../../skills/memory-curator/SKILL.md");
+const MEMORY_CURATOR_EXTRACT_AGENT_TEMPLATE: &str =
+    include_str!("../../../skills/memory-curator/agents/extract-from-turn.md");
+
 #[derive(Debug, Clone)]
 pub struct AllbertPaths {
     pub root: PathBuf,
@@ -298,6 +302,21 @@ impl AllbertPaths {
         self.seed_file_if_missing(&self.memory_index, "# MEMORY\n\n")?;
         self.seed_file_if_missing(&self.memory_notes.join(".keep"), "")?;
         self.seed_file_if_missing(&self.memory_staging.join(".keep"), "")?;
+        self.seed_file_if_missing(
+            &self
+                .skills_installed
+                .join("memory-curator")
+                .join("SKILL.md"),
+            MEMORY_CURATOR_SKILL_TEMPLATE,
+        )?;
+        self.seed_file_if_missing(
+            &self
+                .skills_installed
+                .join("memory-curator")
+                .join("agents")
+                .join("extract-from-turn.md"),
+            MEMORY_CURATOR_EXTRACT_AGENT_TEMPLATE,
+        )?;
 
         let daily_brief = self.jobs_templates.join("daily-brief.md");
         let weekly_review = self.jobs_templates.join("weekly-review.md");
@@ -335,6 +354,12 @@ impl AllbertPaths {
     ) -> Result<(), KernelError> {
         if path.exists() {
             return Ok(());
+        }
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                KernelError::InitFailed(format!("create {}: {e}", parent.display()))
+            })?;
         }
 
         std::fs::write(path, content)

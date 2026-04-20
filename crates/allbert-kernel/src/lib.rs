@@ -1165,8 +1165,21 @@ Respond with only the lowercase label and no other text."
         state.pending_memory_refresh_query = Some(query);
     }
 
-    fn finish_turn_output(&self, _state: &AgentState, assistant_text: &str) -> String {
-        assistant_text.to_string()
+    fn finish_turn_output(&self, state: &AgentState, assistant_text: &str) -> String {
+        let mut output = assistant_text.to_string();
+        if self.config.memory.surface_staged_on_turn_end && state.staged_entries_this_turn > 0 {
+            let suffix = format!(
+                "I'd like to remember {} thing(s) — run `allbert-cli memory staged list` or ask me.",
+                state.staged_entries_this_turn
+            );
+            if output.trim().is_empty() {
+                output = suffix;
+            } else if !output.contains(&suffix) {
+                output.push_str("\n\n");
+                output.push_str(&suffix);
+            }
+        }
+        output
     }
 
     fn system_prompt_for_state(
@@ -3000,31 +3013,25 @@ mod tests {
         let recorded = events.lock().unwrap();
 
         assert!(!summary.hit_turn_limit);
-        assert_eq!(
-            recorded.len(),
-            3,
-            "turn should emit cost, text, and done events"
-        );
-
-        let cost_entry = match &recorded[0] {
-            KernelEvent::Cost(entry) => entry,
-            other => panic!("expected Cost event, got {other:?}"),
-        };
+        let cost_entry = recorded
+            .iter()
+            .find_map(|event| match event {
+                KernelEvent::Cost(entry) => Some(entry),
+                _ => None,
+            })
+            .expect("cost event should be emitted");
         assert_eq!(cost_entry.agent_name, "allbert/root");
         assert_eq!(cost_entry.parent_agent_name, None);
         assert_eq!(cost_entry.provider, "anthropic");
         assert_eq!(cost_entry.model, "claude-sonnet-4-5");
         assert!((cost_entry.usd_estimate - 0.02).abs() < 1e-9);
 
-        match &recorded[1] {
-            KernelEvent::AssistantText(text) => assert_eq!(text, "4"),
-            other => panic!("expected AssistantText, got {other:?}"),
-        }
-
-        match &recorded[2] {
-            KernelEvent::TurnDone { hit_turn_limit } => assert!(!hit_turn_limit),
-            other => panic!("expected TurnDone, got {other:?}"),
-        }
+        assert!(recorded
+            .iter()
+            .any(|event| matches!(event, KernelEvent::AssistantText(text) if text == "4")));
+        assert!(recorded.iter().any(
+            |event| matches!(event, KernelEvent::TurnDone { hit_turn_limit } if !hit_turn_limit)
+        ));
 
         let log =
             std::fs::read_to_string(kernel.paths().costs.clone()).expect("cost log should exist");
@@ -4138,15 +4145,15 @@ mod tests {
         let recorded = events.lock().unwrap();
 
         assert!(!summary.hit_turn_limit);
-        assert!(
-            matches!(&recorded[1], KernelEvent::ToolCall { name, .. } if name == "request_input")
-        );
-        assert!(
-            matches!(&recorded[2], KernelEvent::ToolResult { name, ok, content } if name == "request_input" && *ok && content == "blue")
-        );
-        assert!(
-            matches!(&recorded[4], KernelEvent::AssistantText(text) if text == "Thanks, I noted blue.")
-        );
+        assert!(recorded.iter().any(
+            |event| matches!(event, KernelEvent::ToolCall { name, .. } if name == "request_input")
+        ));
+        assert!(recorded
+            .iter()
+            .any(|event| matches!(event, KernelEvent::ToolResult { name, ok, content } if name == "request_input" && *ok && content == "blue")));
+        assert!(recorded
+            .iter()
+            .any(|event| matches!(event, KernelEvent::AssistantText(text) if text == "Thanks, I noted blue.")));
     }
 
     #[tokio::test]
@@ -4187,9 +4194,9 @@ mod tests {
             .expect("turn should succeed");
         let recorded = events.lock().unwrap();
 
-        assert!(
-            matches!(&recorded[2], KernelEvent::ToolResult { name, ok, content } if name == "request_input" && !*ok && content.contains("cancelled"))
-        );
+        assert!(recorded
+            .iter()
+            .any(|event| matches!(event, KernelEvent::ToolResult { name, ok, content } if name == "request_input" && !*ok && content.contains("cancelled"))));
     }
 
     #[tokio::test]
@@ -4231,9 +4238,9 @@ mod tests {
             .await
             .expect("turn should succeed");
         let recorded = events.lock().unwrap();
-        assert!(
-            matches!(&recorded[2], KernelEvent::ToolResult { content, .. } if content == "1234")
-        );
+        assert!(recorded.iter().any(
+            |event| matches!(event, KernelEvent::ToolResult { content, .. } if content == "1234")
+        ));
     }
 
     #[tokio::test]
@@ -4362,8 +4369,8 @@ mod tests {
         fs::write(broken_dir.join("SKILL.md"), "not frontmatter").unwrap();
 
         let store = SkillStore::discover(&paths.skills);
-        assert_eq!(store.all().len(), 1);
-        assert_eq!(store.all()[0].name, "good-skill");
+        assert!(store.all().iter().any(|skill| skill.name == "good-skill"));
+        assert!(!store.all().iter().any(|skill| skill.name == "broken"));
     }
 
     #[tokio::test]
@@ -5022,8 +5029,9 @@ mod tests {
         assert_eq!(skill.agents[0].allowed_tools, vec!["read_file"]);
 
         let agents = kernel.list_agents();
-        assert_eq!(agents.len(), 1);
-        assert_eq!(agents[0].name, "planner/researcher");
+        assert!(agents
+            .iter()
+            .any(|agent| agent.name == "planner/researcher"));
     }
 
     #[tokio::test]
@@ -5406,6 +5414,267 @@ mod tests {
         assert_eq!(staged[0].kind, "job_summary");
         assert_eq!(staged[0].source, "job");
         assert_eq!(staged[0].agent, "allbert/root");
+    }
+
+    #[tokio::test]
+    async fn stage_memory_surfaces_turn_end_hint() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::clone(&events)),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"stage_memory\",\"input\":{\"content\":\"We use Postgres\",\"kind\":\"learned_fact\",\"summary\":\"We use Postgres\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Captured that.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("remember that we use Postgres")
+            .await
+            .expect("turn should pass");
+
+        let events = events.lock().unwrap();
+        let text = events
+            .iter()
+            .find_map(|event| match event {
+                KernelEvent::AssistantText(text) => Some(text.clone()),
+                _ => None,
+            })
+            .expect("assistant text should be emitted");
+        assert!(text.contains("I'd like to remember 1 thing(s)"));
+        assert!(text.contains("allbert-cli memory staged list"));
+    }
+
+    #[tokio::test]
+    async fn memory_curator_review_and_batch_promotion_require_confirmation() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let first = memory::stage_memory(
+            &paths,
+            &MemoryConfig::default(),
+            memory::StageMemoryRequest {
+                session_id: "session-a".into(),
+                turn_id: "turn-1".into(),
+                agent: "allbert/root".into(),
+                source: "channel".into(),
+                content: "We use Postgres for primary storage.".into(),
+                kind: StagedMemoryKind::LearnedFact,
+                summary: "Primary database is Postgres".into(),
+                tags: vec!["database".into()],
+                provenance: None,
+            },
+        )
+        .expect("first stage should succeed");
+        let second = memory::stage_memory(
+            &paths,
+            &MemoryConfig::default(),
+            memory::StageMemoryRequest {
+                session_id: "session-a".into(),
+                turn_id: "turn-2".into(),
+                agent: "allbert/root".into(),
+                source: "channel".into(),
+                content: "We deploy with Fly.io.".into(),
+                kind: StagedMemoryKind::LearnedFact,
+                summary: "Deploy target is Fly.io".into(),
+                tags: vec!["deploy".into()],
+                provenance: None,
+            },
+        )
+        .expect("second stage should succeed");
+
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let confirm = Arc::new(QueueConfirm::new(vec![
+            ConfirmDecision::AllowOnce,
+            ConfirmDecision::AllowOnce,
+        ]));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter_with(Arc::new(Mutex::new(Vec::new())), confirm.clone(), Arc::new(NoopInput)),
+            paths.clone(),
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"memory-curator\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"list_staged_memory\",\"input\":{\"limit\":10}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{{\"name\":\"promote_staged_memory\",\"input\":{{\"id\":\"{}\"}}}}</tool_call><tool_call>{{\"name\":\"promote_staged_memory\",\"input\":{{\"id\":\"{}\"}}}}</tool_call>",
+                            first.id, second.id
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Reviewed and promoted the staged memory.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let summary = kernel
+            .run_turn("review what's staged")
+            .await
+            .expect("turn should pass");
+        assert!(!summary.hit_turn_limit);
+
+        let recorded_requests = requests.lock().unwrap();
+        assert!(
+            recorded_requests.iter().any(|request| request
+                .system
+                .as_deref()
+                .unwrap_or_default()
+                .contains("### Skill: memory-curator")),
+            "memory-curator should be available as a shipped skill"
+        );
+
+        let confirms = confirm.seen();
+        let seen = confirms.lock().unwrap();
+        assert_eq!(seen.len(), 2, "each promotion should require confirmation");
+        assert!(seen
+            .iter()
+            .all(|req| req.program == "promote_staged_memory"));
+
+        let durable_hits = memory::search_memory(
+            &paths,
+            &MemoryConfig::default(),
+            SearchMemoryInput {
+                query: "Postgres Fly.io".into(),
+                tier: MemoryTier::Durable,
+                limit: Some(10),
+            },
+        )
+        .expect("durable search should succeed");
+        assert!(
+            durable_hits
+                .iter()
+                .any(|hit| hit.path.contains("primary-database-is-postgres"))
+                || durable_hits
+                    .iter()
+                    .any(|hit| hit.snippet.contains("Postgres"))
+        );
+        assert!(
+            durable_hits
+                .iter()
+                .any(|hit| hit.path.contains("deploy-target-is-fly-io"))
+                || durable_hits
+                    .iter()
+                    .any(|hit| hit.snippet.contains("Fly.io"))
+        );
+    }
+
+    #[tokio::test]
+    async fn memory_curator_extract_from_turn_records_cost_and_stages_curator_entry() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "spawn_subagent",
+                                "input": {
+                                    "name": "memory-curator/extract-from-turn",
+                                    "prompt": "Look at this turn and suggest durable memory candidates."
+                                }
+                            })
+                        ),
+                        usage: Usage {
+                            input_tokens: 12,
+                            output_tokens: 2,
+                            cache_read: 0,
+                            cache_create: 0,
+                        },
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"stage_memory\",\"input\":{\"content\":\"We use Postgres for primary storage.\",\"kind\":\"curator_extraction\",\"summary\":\"Primary database is Postgres\"}}</tool_call>".into(),
+                        usage: Usage {
+                            input_tokens: 8,
+                            output_tokens: 3,
+                            cache_read: 0,
+                            cache_create: 0,
+                        },
+                    },
+                    CompletionResponse {
+                        text: "Staged one durable memory candidate.".into(),
+                        usage: Usage {
+                            input_tokens: 6,
+                            output_tokens: 2,
+                            cache_read: 0,
+                            cache_create: 0,
+                        },
+                    },
+                    CompletionResponse {
+                        text: "Done reviewing the turn.".into(),
+                        usage: Usage {
+                            input_tokens: 4,
+                            output_tokens: 2,
+                            cache_read: 0,
+                            cache_create: 0,
+                        },
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("please extract durable memory from what we just covered")
+            .await
+            .expect("turn should pass");
+
+        let staged =
+            memory::list_staged_memory(&paths, &MemoryConfig::default(), None, None, Some(10))
+                .expect("staged entries should list");
+        assert_eq!(staged.len(), 1);
+        assert_eq!(staged[0].kind, "curator_extraction");
+        assert_eq!(staged[0].source, "subagent");
+        assert_eq!(staged[0].agent, "memory-curator/extract-from-turn");
+
+        let log = std::fs::read_to_string(paths.costs).expect("cost log should exist");
+        let entries = log
+            .lines()
+            .map(|line| serde_json::from_str::<CostEntry>(line).expect("valid cost entry"))
+            .collect::<Vec<_>>();
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.agent_name == "memory-curator/extract-from-turn"),
+            "curator extraction agent should appear in session cost logs"
+        );
+        assert!(kernel.session_cost_usd() > 0.0);
     }
 
     #[tokio::test]
