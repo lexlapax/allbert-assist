@@ -50,6 +50,28 @@ pub struct TurnSummary {
     pub hit_turn_limit: bool,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+struct SpawnSubagentInput {
+    name: String,
+    prompt: String,
+    #[serde(default)]
+    context: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct SpawnSubagentResult {
+    agent_name: String,
+    parent_agent_name: String,
+    hit_turn_limit: bool,
+    cost_usd: f64,
+    assistant_text: Option<String>,
+}
+
+struct AgentRunSummary {
+    hit_turn_limit: bool,
+    assistant_text: Option<String>,
+}
+
 pub struct Kernel {
     config: Config,
     paths: AllbertPaths,
@@ -144,14 +166,33 @@ impl Kernel {
     }
 
     pub async fn run_turn(&mut self, user_input: &str) -> Result<TurnSummary, KernelError> {
-        self.state.turn_count = self.state.turn_count.saturating_add(1);
+        let placeholder = AgentState::new(self.state.session_id.clone());
+        let mut state = std::mem::replace(&mut self.state, placeholder);
+        let result = self
+            .run_turn_for_agent(&mut state, user_input, None, true)
+            .await;
+        self.state = state;
+        result.map(|summary| TurnSummary {
+            hit_turn_limit: summary.hit_turn_limit,
+        })
+    }
+
+    async fn run_turn_for_agent(
+        &mut self,
+        state: &mut AgentState,
+        user_input: &str,
+        parent_agent_name: Option<String>,
+        emit_terminal_events: bool,
+    ) -> Result<AgentRunSummary, KernelError> {
+        state.turn_count = state.turn_count.saturating_add(1);
         tracing::info!(
-            session = %self.state.session_id,
-            agent = %self.state.agent_name(),
-            turn = self.state.turn_count,
+            session = %state.session_id,
+            agent = %state.agent_name(),
+            parent_agent = ?parent_agent_name,
+            turn = state.turn_count,
             "turn start"
         );
-        self.state.messages.push(ChatMessage {
+        state.messages.push(ChatMessage {
             role: ChatRole::User,
             content: user_input.into(),
         });
@@ -161,9 +202,9 @@ impl Kernel {
 
         for _round in 0..self.config.limits.max_turns {
             let mut prompt_ctx = HookCtx::before_prompt(
-                &self.state.session_id,
-                self.state.agent_name(),
-                None,
+                &state.session_id,
+                state.agent_name(),
+                parent_agent_name.clone(),
                 &self.paths,
                 &self.config.limits,
             );
@@ -179,25 +220,30 @@ impl Kernel {
             let response = self
                 .llm
                 .complete(CompletionRequest {
-                    system: Some(self.system_prompt(&prompt_ctx.prompt_sections)),
-                    messages: self.state.messages.clone(),
+                    system: Some(self.system_prompt_for_state(
+                        state,
+                        parent_agent_name.as_deref(),
+                        &prompt_ctx.prompt_sections,
+                    )),
+                    messages: state.messages.clone(),
                     model: self.config.model.model_id.clone(),
                     max_tokens: self.config.model.max_tokens,
                 })
                 .await?;
 
             tracing::debug!(
-                session = %self.state.session_id,
-                agent = %self.state.agent_name(),
+                session = %state.session_id,
+                agent = %state.agent_name(),
+                parent_agent = ?parent_agent_name,
                 provider = %self.llm.provider_name(),
                 model = %self.config.model.model_id,
                 "model response received"
             );
 
             let mut hook_ctx = HookCtx::on_model_response(
-                &self.state.session_id,
-                self.state.agent_name(),
-                None,
+                &state.session_id,
+                state.agent_name(),
+                parent_agent_name.clone(),
                 self.llm.provider_name(),
                 &self.config.model.model_id,
                 response.usage.clone(),
@@ -215,10 +261,10 @@ impl Kernel {
             }
 
             if let Some(entry) = hook_ctx.recorded_cost.as_ref() {
-                self.state.cost_total_usd += entry.usd_estimate;
+                state.cost_total_usd += entry.usd_estimate;
             }
 
-            self.state.messages.push(ChatMessage {
+            state.messages.push(ChatMessage {
                 role: ChatRole::Assistant,
                 content: response.text.clone(),
             });
@@ -229,66 +275,113 @@ impl Kernel {
 
             let tool_calls = parse_tool_calls(&response.text);
             if tool_calls.is_empty() {
-                (self.adapter.on_event)(&KernelEvent::AssistantText(response.text));
-                (self.adapter.on_event)(&KernelEvent::TurnDone {
+                if emit_terminal_events {
+                    (self.adapter.on_event)(&KernelEvent::AssistantText(response.text.clone()));
+                    (self.adapter.on_event)(&KernelEvent::TurnDone {
+                        hit_turn_limit: false,
+                    });
+                }
+                let mut end_ctx =
+                    HookCtx::on_turn_end(&state.session_id, state.agent_name(), parent_agent_name);
+                match self.hooks.run(HookPoint::OnTurnEnd, &mut end_ctx).await {
+                    HookOutcome::Continue => {}
+                    HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+                }
+                return Ok(AgentRunSummary {
                     hit_turn_limit: false,
-                });
-                return Ok(TurnSummary {
-                    hit_turn_limit: false,
+                    assistant_text: Some(response.text),
                 });
             }
 
             for invocation in tool_calls {
                 if tool_calls_used >= self.config.limits.max_tool_calls_per_turn as usize {
                     let content = "tool call budget exhausted".to_string();
-                    self.state.messages.push(ChatMessage {
+                    state.messages.push(ChatMessage {
                         role: ChatRole::User,
                         content: format!("Tool result for limit (ok=false):\n{content}"),
                     });
-                    (self.adapter.on_event)(&KernelEvent::ToolResult {
-                        name: "tool_budget".into(),
-                        ok: false,
-                        content,
-                    });
-                    (self.adapter.on_event)(&KernelEvent::TurnDone {
+                    if emit_terminal_events {
+                        (self.adapter.on_event)(&KernelEvent::ToolResult {
+                            name: "tool_budget".into(),
+                            ok: false,
+                            content,
+                        });
+                        (self.adapter.on_event)(&KernelEvent::TurnDone {
+                            hit_turn_limit: true,
+                        });
+                    }
+                    let mut end_ctx = HookCtx::on_turn_end(
+                        &state.session_id,
+                        state.agent_name(),
+                        parent_agent_name.clone(),
+                    );
+                    match self.hooks.run(HookPoint::OnTurnEnd, &mut end_ctx).await {
+                        HookOutcome::Continue => {}
+                        HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+                    }
+                    return Ok(AgentRunSummary {
                         hit_turn_limit: true,
-                    });
-                    return Ok(TurnSummary {
-                        hit_turn_limit: true,
+                        assistant_text: None,
                     });
                 }
 
                 tool_calls_used += 1;
-                (self.adapter.on_event)(&KernelEvent::ToolCall {
-                    name: invocation.name.clone(),
-                    input: invocation.input.clone(),
-                });
+                if emit_terminal_events {
+                    (self.adapter.on_event)(&KernelEvent::ToolCall {
+                        name: invocation.name.clone(),
+                        input: invocation.input.clone(),
+                    });
+                }
 
                 tracing::debug!(
-                    session = %self.state.session_id,
-                    agent = %self.state.agent_name(),
+                    session = %state.session_id,
+                    agent = %state.agent_name(),
+                    parent_agent = ?parent_agent_name,
                     tool = %invocation.name,
                     "dispatch tool"
                 );
 
                 let mut tool_hook_ctx = HookCtx::before_tool(
-                    &self.state.session_id,
-                    self.state.agent_name(),
-                    None,
+                    &state.session_id,
+                    state.agent_name(),
+                    parent_agent_name.clone(),
                     invocation.clone(),
-                    self.skills.allowed_tool_union(&self.state.active_skills),
+                    self.skills.allowed_tool_union(&state.active_skills),
                 );
                 let tool_output = match self
                     .hooks
                     .run(HookPoint::BeforeTool, &mut tool_hook_ctx)
                     .await
                 {
-                    HookOutcome::Continue => self.dispatch_tool(invocation.clone()).await,
+                    HookOutcome::Continue => {
+                        self.dispatch_tool_for_state(
+                            state,
+                            parent_agent_name.clone(),
+                            invocation.clone(),
+                        )
+                        .await
+                    }
                     HookOutcome::Abort(message) => ToolOutput {
                         content: message,
                         ok: false,
                     },
                 };
+
+                let mut after_tool_ctx = HookCtx::before_tool(
+                    &state.session_id,
+                    state.agent_name(),
+                    parent_agent_name.clone(),
+                    invocation.clone(),
+                    self.skills.allowed_tool_union(&state.active_skills),
+                );
+                match self
+                    .hooks
+                    .run(HookPoint::AfterTool, &mut after_tool_ctx)
+                    .await
+                {
+                    HookOutcome::Continue => {}
+                    HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+                }
 
                 let remaining = self
                     .config
@@ -296,11 +389,23 @@ impl Kernel {
                     .max_tool_output_bytes_total
                     .saturating_sub(tool_output_total);
                 if remaining == 0 {
-                    (self.adapter.on_event)(&KernelEvent::TurnDone {
+                    if emit_terminal_events {
+                        (self.adapter.on_event)(&KernelEvent::TurnDone {
+                            hit_turn_limit: true,
+                        });
+                    }
+                    let mut end_ctx = HookCtx::on_turn_end(
+                        &state.session_id,
+                        state.agent_name(),
+                        parent_agent_name.clone(),
+                    );
+                    match self.hooks.run(HookPoint::OnTurnEnd, &mut end_ctx).await {
+                        HookOutcome::Continue => {}
+                        HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+                    }
+                    return Ok(AgentRunSummary {
                         hit_turn_limit: true,
-                    });
-                    return Ok(TurnSummary {
-                        hit_turn_limit: true,
+                        assistant_text: None,
                     });
                 }
 
@@ -312,13 +417,15 @@ impl Kernel {
                 let content = truncate_to_bytes(&tool_output.content, per_call_limit);
                 tool_output_total += content.as_bytes().len();
 
-                (self.adapter.on_event)(&KernelEvent::ToolResult {
-                    name: invocation.name.clone(),
-                    ok: tool_output.ok,
-                    content: content.clone(),
-                });
+                if emit_terminal_events {
+                    (self.adapter.on_event)(&KernelEvent::ToolResult {
+                        name: invocation.name.clone(),
+                        ok: tool_output.ok,
+                        content: content.clone(),
+                    });
+                }
 
-                self.state.messages.push(ChatMessage {
+                state.messages.push(ChatMessage {
                     role: ChatRole::User,
                     content: format!(
                         "Tool result for {} (ok={}):\n{}",
@@ -328,11 +435,20 @@ impl Kernel {
             }
         }
 
-        (self.adapter.on_event)(&KernelEvent::TurnDone {
+        if emit_terminal_events {
+            (self.adapter.on_event)(&KernelEvent::TurnDone {
+                hit_turn_limit: true,
+            });
+        }
+        let mut end_ctx =
+            HookCtx::on_turn_end(&state.session_id, state.agent_name(), parent_agent_name);
+        match self.hooks.run(HookPoint::OnTurnEnd, &mut end_ctx).await {
+            HookOutcome::Continue => {}
+            HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+        }
+        Ok(AgentRunSummary {
             hit_turn_limit: true,
-        });
-        Ok(TurnSummary {
-            hit_turn_limit: true,
+            assistant_text: None,
         })
     }
 
@@ -411,7 +527,12 @@ impl Kernel {
         &self.paths
     }
 
-    fn system_prompt(&self, prompt_sections: &[String]) -> String {
+    fn system_prompt_for_state(
+        &self,
+        state: &AgentState,
+        parent_agent_name: Option<&str>,
+        prompt_sections: &[String],
+    ) -> String {
         let mut prompt = String::from(
             "You are Allbert, a local personal assistant running inside a Rust kernel. \
 Answer helpfully and concisely. Treat the runtime bootstrap context below as durable \
@@ -423,12 +544,18 @@ After tool results are returned, either emit more <tool_call> blocks or answer n
 Available tools:\n",
         );
 
+        prompt.push_str(&format!("\nCurrent agent: {}\n", state.agent_name()));
+        if let Some(parent) = parent_agent_name {
+            prompt.push_str(&format!("Parent agent: {parent}\n"));
+        }
+
         prompt.push_str(&self.tools.prompt_catalog());
         prompt.push_str("\n- read_memory: Read a memory file relative to ~/.allbert/memory.\n  schema: {\"type\":\"object\",\"required\":[\"path\"],\"properties\":{\"path\":{\"type\":\"string\"}}}\n");
         prompt.push_str("\n- write_memory: Write, append, or daily-append memory content.\n  schema: {\"type\":\"object\",\"required\":[\"content\",\"mode\"],\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"mode\":{\"enum\":[\"write\",\"append\",\"daily\"]},\"summary\":{\"type\":\"string\"}}}\n");
         prompt.push_str("\n- list_skills: List installed skills and their descriptions.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
         prompt.push_str("\n- invoke_skill: Activate a skill for this session, optionally with JSON args.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"},\"args\":{\"type\":\"object\"}}}\n");
         prompt.push_str("\n- create_skill: Create a skill under ~/.allbert/skills/<name>/SKILL.md.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"allowed_tools\",\"body\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"body\":{\"type\":\"string\"}}}\n");
+        prompt.push_str("\n- spawn_subagent: Run a bounded sub-agent with a fresh message history inside the current session.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"prompt\":{\"type\":\"string\"},\"context\":{}}}\n");
         if self.job_manager.is_some() {
             prompt.push_str(
                 "\nWhen the user asks for recurring or scheduled work, use the daemon-backed job tools instead of generic file edits or subprocesses.\n\
@@ -460,7 +587,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         prompt.push_str(&self.skills.manifest_prompt());
 
         let active = self.skills.active_prompt(
-            &self.state.active_skills,
+            &state.active_skills,
             self.config.limits.max_skill_args_bytes,
         );
         if !active.is_empty() {
@@ -471,7 +598,12 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         prompt
     }
 
-    async fn dispatch_tool(&mut self, invocation: ToolInvocation) -> ToolOutput {
+    async fn dispatch_tool_for_state(
+        &mut self,
+        state: &mut AgentState,
+        parent_agent_name: Option<String>,
+        invocation: ToolInvocation,
+    ) -> ToolOutput {
         match invocation.name.as_str() {
             "read_memory" => self.dispatch_read_memory(invocation.input),
             "write_memory" => self.dispatch_write_memory(invocation.input),
@@ -479,8 +611,12 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 content: self.skills.manifest_prompt(),
                 ok: true,
             },
-            "invoke_skill" => self.dispatch_invoke_skill(invocation.input),
+            "invoke_skill" => self.dispatch_invoke_skill(state, invocation.input),
             "create_skill" => self.dispatch_create_skill(invocation.input),
+            "spawn_subagent" => {
+                self.dispatch_spawn_subagent(state, parent_agent_name, invocation.input)
+                    .await
+            }
             "list_jobs" => self.dispatch_list_jobs().await,
             "get_job" => self.dispatch_get_job(invocation.input).await,
             "upsert_job" => self.dispatch_upsert_job(invocation.input).await,
@@ -506,7 +642,11 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         }
     }
 
-    fn dispatch_invoke_skill(&mut self, input: serde_json::Value) -> ToolOutput {
+    fn dispatch_invoke_skill(
+        &mut self,
+        state: &mut AgentState,
+        input: serde_json::Value,
+    ) -> ToolOutput {
         let parsed = match serde_json::from_value::<InvokeSkillInput>(input) {
             Ok(parsed) => parsed,
             Err(err) => {
@@ -534,10 +674,122 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             }
         }
 
-        SkillStore::upsert_active_skill(&mut self.state.active_skills, &parsed.name, parsed.args);
+        SkillStore::upsert_active_skill(&mut state.active_skills, &parsed.name, parsed.args);
         ToolOutput {
             content: format!("activated skill {}", skill.name),
             ok: true,
+        }
+    }
+
+    async fn dispatch_spawn_subagent(
+        &mut self,
+        state: &mut AgentState,
+        parent_agent_name: Option<String>,
+        input: serde_json::Value,
+    ) -> ToolOutput {
+        let parsed = match serde_json::from_value::<SpawnSubagentInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid spawn_subagent input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+
+        if parent_agent_name.is_some() {
+            return ToolOutput {
+                content: "recursive sub-agent spawning is not allowed in v0.3".into(),
+                ok: false,
+            };
+        }
+
+        let mut before_ctx = HookCtx::before_agent_spawn(
+            &state.session_id,
+            state.agent_name(),
+            None,
+            json!({
+                "name": parsed.name,
+                "prompt": parsed.prompt,
+                "context": parsed.context
+            }),
+        );
+        match self
+            .hooks
+            .run(HookPoint::BeforeAgentSpawn, &mut before_ctx)
+            .await
+        {
+            HookOutcome::Continue => {}
+            HookOutcome::Abort(message) => {
+                return ToolOutput {
+                    content: message,
+                    ok: false,
+                }
+            }
+        }
+
+        let mut subagent_state = AgentState::for_agent(
+            state.session_id.clone(),
+            AgentDefinition {
+                name: parsed.name.clone(),
+                description: "Spawned sub-agent".into(),
+            },
+        );
+        let composed_prompt = match parsed.context {
+            Some(context) => format!(
+                "{}\n\nContext (JSON):\n{}",
+                parsed.prompt.trim(),
+                serde_json::to_string_pretty(&context).unwrap_or_else(|_| "{}".into())
+            ),
+            None => parsed.prompt.clone(),
+        };
+
+        let run_result = Box::pin(self.run_turn_for_agent(
+            &mut subagent_state,
+            &composed_prompt,
+            Some(state.agent_name().to_string()),
+            false,
+        ))
+        .await;
+
+        state.cost_total_usd += subagent_state.cost_total_usd;
+
+        let tool_output = match run_result {
+            Ok(summary) => {
+                let result = SpawnSubagentResult {
+                    agent_name: subagent_state.agent_name().to_string(),
+                    parent_agent_name: state.agent_name().to_string(),
+                    hit_turn_limit: summary.hit_turn_limit,
+                    cost_usd: subagent_state.cost_total_usd,
+                    assistant_text: summary.assistant_text,
+                };
+                let content = serde_json::to_string_pretty(&result)
+                    .unwrap_or_else(|_| "{\"error\":\"failed to encode spawn result\"}".into());
+                ToolOutput { content, ok: true }
+            }
+            Err(err) => ToolOutput {
+                content: format!("sub-agent failed: {err}"),
+                ok: false,
+            },
+        };
+
+        let result_json = json!({
+            "agent_name": parsed.name,
+            "ok": tool_output.ok,
+            "content": tool_output.content,
+        });
+        let mut after_ctx =
+            HookCtx::after_agent_spawn(&state.session_id, state.agent_name(), None, result_json);
+        match self
+            .hooks
+            .run(HookPoint::AfterAgentSpawn, &mut after_ctx)
+            .await
+        {
+            HookOutcome::Continue => tool_output,
+            HookOutcome::Abort(message) => ToolOutput {
+                content: message,
+                ok: false,
+            },
         }
     }
 
@@ -1361,6 +1613,261 @@ mod tests {
         .expect("kernel should boot");
 
         assert_eq!(kernel.agent_name(), "allbert/root");
+    }
+
+    #[tokio::test]
+    async fn spawn_subagent_uses_fresh_history_and_records_costs_per_agent() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths.clone(),
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "spawn_subagent",
+                                "input": {
+                                    "name": "researcher",
+                                    "prompt": "Reply with exactly SUBAGENT_OK and nothing else."
+                                }
+                            })
+                        ),
+                        usage: Usage {
+                            input_tokens: 10,
+                            output_tokens: 1,
+                            cache_read: 0,
+                            cache_create: 0,
+                        },
+                    },
+                    CompletionResponse {
+                        text: "SUBAGENT_OK".into(),
+                        usage: Usage {
+                            input_tokens: 5,
+                            output_tokens: 2,
+                            cache_read: 0,
+                            cache_create: 0,
+                        },
+                    },
+                    CompletionResponse {
+                        text: "ROOT_OK".into(),
+                        usage: Usage {
+                            input_tokens: 7,
+                            output_tokens: 1,
+                            cache_read: 0,
+                            cache_create: 0,
+                        },
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let summary = kernel
+            .run_turn("delegate this")
+            .await
+            .expect("turn should succeed");
+        assert!(!summary.hit_turn_limit);
+        assert!((kernel.session_cost_usd() - 0.03).abs() < 1e-9);
+
+        let recorded_requests = requests.lock().unwrap();
+        assert_eq!(
+            recorded_requests.len(),
+            3,
+            "root, sub-agent, root follow-up"
+        );
+        assert_eq!(
+            recorded_requests[1].messages.len(),
+            1,
+            "sub-agent should start with fresh history"
+        );
+        assert_eq!(
+            recorded_requests[1].messages[0].content,
+            "Reply with exactly SUBAGENT_OK and nothing else."
+        );
+        assert!(
+            recorded_requests[2]
+                .messages
+                .last()
+                .unwrap()
+                .content
+                .contains("\"agent_name\": \"researcher\""),
+            "root follow-up should see structured sub-agent result"
+        );
+
+        let log = std::fs::read_to_string(paths.costs).expect("cost log should exist");
+        let entries = log
+            .lines()
+            .map(|line| serde_json::from_str::<CostEntry>(line).expect("valid cost entry"))
+            .collect::<Vec<_>>();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].agent_name, "allbert/root");
+        assert_eq!(entries[0].parent_agent_name, None);
+        assert_eq!(entries[1].agent_name, "researcher");
+        assert_eq!(
+            entries[1].parent_agent_name.as_deref(),
+            Some("allbert/root")
+        );
+        assert_eq!(entries[2].agent_name, "allbert/root");
+    }
+
+    #[tokio::test]
+    async fn spawn_subagent_refuses_recursive_spawns() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "spawn_subagent",
+                                "input": {
+                                    "name": "researcher",
+                                    "prompt": "Try to spawn another sub-agent."
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "spawn_subagent",
+                                "input": {
+                                    "name": "nested",
+                                    "prompt": "Reply with NESTED."
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "SUBAGENT_DONE".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "ROOT_DONE".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("delegate nested work")
+            .await
+            .expect("turn should succeed");
+
+        let recorded_requests = requests.lock().unwrap();
+        assert_eq!(recorded_requests.len(), 4);
+        assert!(
+            recorded_requests[2]
+                .messages
+                .last()
+                .unwrap()
+                .content
+                .contains("recursive sub-agent spawning is not allowed"),
+            "sub-agent follow-up should see recursion refusal"
+        );
+    }
+
+    #[tokio::test]
+    async fn spawn_subagent_respects_shared_policy_envelope() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let workspace_root = paths.root.join("workspace");
+        fs::create_dir_all(&workspace_root).expect("workspace root should exist");
+
+        let mut config = Config::default_template();
+        config.security.fs_roots = vec![workspace_root];
+
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "spawn_subagent",
+                                "input": {
+                                    "name": "reader",
+                                    "prompt": "Try to read /etc/passwd."
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "read_file",
+                                "input": {
+                                    "path": "/etc/passwd"
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "SUBAGENT_POLICY_OK".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "ROOT_POLICY_OK".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("delegate file work")
+            .await
+            .expect("turn should succeed");
+
+        let recorded_requests = requests.lock().unwrap();
+        assert_eq!(recorded_requests.len(), 4);
+        assert!(
+            recorded_requests[2]
+                .messages
+                .last()
+                .unwrap()
+                .content
+                .contains("outside configured roots"),
+            "sub-agent follow-up should see the same filesystem policy denial"
+        );
     }
 
     #[tokio::test]
@@ -2704,7 +3211,15 @@ mod tests {
             .run(HookPoint::BeforeTool, &mut tool_hook_ctx)
             .await
         {
-            HookOutcome::Continue => kernel.dispatch_tool(invocation).await,
+            HookOutcome::Continue => {
+                let placeholder = AgentState::new(kernel.state.session_id.clone());
+                let mut state = std::mem::replace(&mut kernel.state, placeholder);
+                let output = kernel
+                    .dispatch_tool_for_state(&mut state, None, invocation)
+                    .await;
+                kernel.state = state;
+                output
+            }
             HookOutcome::Abort(message) => ToolOutput {
                 content: message,
                 ok: false,

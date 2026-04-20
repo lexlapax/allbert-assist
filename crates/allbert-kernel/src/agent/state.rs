@@ -28,9 +28,13 @@ pub struct AgentState {
 
 impl AgentState {
     pub fn new(session_id: String) -> Self {
+        Self::for_agent(session_id, AgentDefinition::root())
+    }
+
+    pub fn for_agent(session_id: String, root_agent: AgentDefinition) -> Self {
         Self {
             session_id,
-            root_agent: AgentDefinition::root(),
+            root_agent,
             messages: Vec::new(),
             active_skills: Vec::new(),
             turn_count: 0,

@@ -20,6 +20,8 @@ pub enum HookPoint {
     AfterTool,
     OnModelResponse,
     OnTurnEnd,
+    BeforeAgentSpawn,
+    AfterAgentSpawn,
 }
 
 #[async_trait]
@@ -41,6 +43,8 @@ pub struct HookCtx {
     pub prompt_sections: Vec<String>,
     pub tool_invocation: Option<ToolInvocation>,
     pub active_allowed_tools: Option<HashSet<String>>,
+    pub spawn_request: Option<serde_json::Value>,
+    pub spawn_result: Option<serde_json::Value>,
     pub pending_events: Vec<KernelEvent>,
     pub recorded_cost: Option<CostEntry>,
 }
@@ -66,6 +70,8 @@ impl HookCtx {
             prompt_sections: Vec::new(),
             tool_invocation: None,
             active_allowed_tools: None,
+            spawn_request: None,
+            spawn_result: None,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -91,6 +97,8 @@ impl HookCtx {
             prompt_sections: Vec::new(),
             tool_invocation: Some(invocation),
             active_allowed_tools,
+            spawn_request: None,
+            spawn_result: None,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -119,6 +127,85 @@ impl HookCtx {
             prompt_sections: Vec::new(),
             tool_invocation: None,
             active_allowed_tools: None,
+            spawn_request: None,
+            spawn_result: None,
+            pending_events: Vec::new(),
+            recorded_cost: None,
+        }
+    }
+
+    pub fn before_agent_spawn(
+        session_id: &str,
+        agent_name: &str,
+        parent_agent_name: Option<String>,
+        spawn_request: serde_json::Value,
+    ) -> Self {
+        Self {
+            session_id: session_id.into(),
+            agent_name: agent_name.into(),
+            parent_agent_name,
+            provider: None,
+            model: None,
+            usage: None,
+            pricing: None,
+            limits: None,
+            paths: None,
+            prompt_sections: Vec::new(),
+            tool_invocation: None,
+            active_allowed_tools: None,
+            spawn_request: Some(spawn_request),
+            spawn_result: None,
+            pending_events: Vec::new(),
+            recorded_cost: None,
+        }
+    }
+
+    pub fn after_agent_spawn(
+        session_id: &str,
+        agent_name: &str,
+        parent_agent_name: Option<String>,
+        spawn_result: serde_json::Value,
+    ) -> Self {
+        Self {
+            session_id: session_id.into(),
+            agent_name: agent_name.into(),
+            parent_agent_name,
+            provider: None,
+            model: None,
+            usage: None,
+            pricing: None,
+            limits: None,
+            paths: None,
+            prompt_sections: Vec::new(),
+            tool_invocation: None,
+            active_allowed_tools: None,
+            spawn_request: None,
+            spawn_result: Some(spawn_result),
+            pending_events: Vec::new(),
+            recorded_cost: None,
+        }
+    }
+
+    pub fn on_turn_end(
+        session_id: &str,
+        agent_name: &str,
+        parent_agent_name: Option<String>,
+    ) -> Self {
+        Self {
+            session_id: session_id.into(),
+            agent_name: agent_name.into(),
+            parent_agent_name,
+            provider: None,
+            model: None,
+            usage: None,
+            pricing: None,
+            limits: None,
+            paths: None,
+            prompt_sections: Vec::new(),
+            tool_invocation: None,
+            active_allowed_tools: None,
+            spawn_request: None,
+            spawn_result: None,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
