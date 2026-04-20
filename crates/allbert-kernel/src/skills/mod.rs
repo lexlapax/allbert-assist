@@ -8,6 +8,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::error::SkillError;
+use crate::intent::Intent;
 
 #[derive(Debug, Clone)]
 pub struct Skill {
@@ -156,6 +157,40 @@ impl SkillStore {
             })
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    pub fn intent_hint_prompt(&self, intent: &Intent) -> Option<String> {
+        let keywords: &[&str] = match intent {
+            Intent::Task => &["task", "write", "note", "capture", "review"],
+            Intent::Chat => &[],
+            Intent::Schedule => &["schedule", "job", "review", "recurring", "daily", "weekly"],
+            Intent::MemoryQuery => &["memory", "note", "recall", "remember", "capture"],
+            Intent::Meta => &["help", "status", "model", "config", "assistant"],
+        };
+
+        if keywords.is_empty() {
+            return None;
+        }
+
+        let relevant = self
+            .skills
+            .iter()
+            .filter(|skill| {
+                let haystack = format!(
+                    "{} {}",
+                    skill.name.to_ascii_lowercase(),
+                    skill.description.to_ascii_lowercase()
+                );
+                keywords.iter().any(|keyword| haystack.contains(keyword))
+            })
+            .map(|skill| format!("- {}: {}", skill.name, skill.description))
+            .collect::<Vec<_>>();
+
+        if relevant.is_empty() {
+            None
+        } else {
+            Some(relevant.join("\n"))
+        }
     }
 
     pub fn active_prompt(

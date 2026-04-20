@@ -15,6 +15,8 @@ pub struct Config {
     #[serde(default)]
     pub jobs: JobsConfig,
     #[serde(default)]
+    pub intent_classifier: IntentClassifierConfig,
+    #[serde(default)]
     pub security: SecurityConfig,
     #[serde(default)]
     pub limits: LimitsConfig,
@@ -85,6 +87,26 @@ impl Default for JobsConfig {
             max_concurrent_runs: 1,
             default_timeout_s: 600,
             default_timezone: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct IntentClassifierConfig {
+    pub enabled: bool,
+    pub model: String,
+    pub rule_only: bool,
+    pub per_turn_token_budget: u32,
+}
+
+impl Default for IntentClassifierConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            model: String::new(),
+            rule_only: false,
+            per_turn_token_budget: 2000,
         }
     }
 }
@@ -193,6 +215,7 @@ impl Config {
             setup: SetupConfig::default(),
             daemon: DaemonConfig::default(),
             jobs: JobsConfig::default(),
+            intent_classifier: IntentClassifierConfig::default(),
             security: SecurityConfig::default(),
             limits: LimitsConfig::default(),
             trace: false,

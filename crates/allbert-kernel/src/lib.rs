@@ -6,6 +6,7 @@ pub mod cost;
 pub mod error;
 pub mod events;
 pub mod hooks;
+pub mod intent;
 pub mod job_manager;
 pub mod llm;
 pub mod memory;
@@ -25,8 +26,8 @@ pub use adapter::{
 };
 pub use agent::{Agent, AgentDefinition, AgentState};
 pub use config::{
-    Config, DaemonConfig, JobsConfig, LimitsConfig, ModelConfig, Provider, SecurityConfig,
-    SetupConfig, WebSecurityConfig,
+    Config, DaemonConfig, IntentClassifierConfig, JobsConfig, LimitsConfig, ModelConfig, Provider,
+    SecurityConfig, SetupConfig, WebSecurityConfig,
 };
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
@@ -34,6 +35,7 @@ pub use events::KernelEvent;
 pub use hooks::{
     BootstrapContextHook, CostHook, Hook, HookCtx, HookOutcome, HookPoint, MemoryIndexHook,
 };
+pub use intent::Intent;
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
 pub use llm::{ChatMessage, ChatRole};
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
@@ -44,6 +46,7 @@ pub use tools::{ToolCtx, ToolInvocation, ToolOutput, ToolRegistry};
 pub use trace::TraceHandles;
 
 use hooks::HookRegistry;
+use intent::{classify_by_rules, default_intent};
 use llm::{CompletionRequest, DefaultProviderFactory, LlmProvider, ProviderFactory};
 
 pub struct TurnSummary {
@@ -185,11 +188,15 @@ impl Kernel {
         emit_terminal_events: bool,
     ) -> Result<AgentRunSummary, KernelError> {
         state.turn_count = state.turn_count.saturating_add(1);
+        let resolved_intent = self
+            .resolve_intent_for_turn(state, user_input, parent_agent_name.clone())
+            .await?;
         tracing::info!(
             session = %state.session_id,
             agent = %state.agent_name(),
             parent_agent = ?parent_agent_name,
             turn = state.turn_count,
+            intent = ?resolved_intent.as_ref().map(Intent::as_str),
             "turn start"
         );
         state.messages.push(ChatMessage {
@@ -208,6 +215,7 @@ impl Kernel {
                 &self.paths,
                 &self.config.limits,
             );
+            prompt_ctx.intent = resolved_intent.clone();
             match self
                 .hooks
                 .run(HookPoint::BeforePrompt, &mut prompt_ctx)
@@ -223,6 +231,7 @@ impl Kernel {
                     system: Some(self.system_prompt_for_state(
                         state,
                         parent_agent_name.as_deref(),
+                        resolved_intent.as_ref(),
                         &prompt_ctx.prompt_sections,
                     )),
                     messages: state.messages.clone(),
@@ -250,6 +259,7 @@ impl Kernel {
                 self.llm.pricing(&self.config.model.model_id),
                 &self.paths,
             );
+            hook_ctx.intent = resolved_intent.clone();
 
             match self
                 .hooks
@@ -283,6 +293,7 @@ impl Kernel {
                 }
                 let mut end_ctx =
                     HookCtx::on_turn_end(&state.session_id, state.agent_name(), parent_agent_name);
+                end_ctx.intent = resolved_intent.clone();
                 match self.hooks.run(HookPoint::OnTurnEnd, &mut end_ctx).await {
                     HookOutcome::Continue => {}
                     HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
@@ -315,6 +326,7 @@ impl Kernel {
                         state.agent_name(),
                         parent_agent_name.clone(),
                     );
+                    end_ctx.intent = resolved_intent.clone();
                     match self.hooks.run(HookPoint::OnTurnEnd, &mut end_ctx).await {
                         HookOutcome::Continue => {}
                         HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
@@ -348,6 +360,7 @@ impl Kernel {
                     invocation.clone(),
                     self.skills.allowed_tool_union(&state.active_skills),
                 );
+                tool_hook_ctx.intent = resolved_intent.clone();
                 let tool_output = match self
                     .hooks
                     .run(HookPoint::BeforeTool, &mut tool_hook_ctx)
@@ -374,6 +387,7 @@ impl Kernel {
                     invocation.clone(),
                     self.skills.allowed_tool_union(&state.active_skills),
                 );
+                after_tool_ctx.intent = resolved_intent.clone();
                 match self
                     .hooks
                     .run(HookPoint::AfterTool, &mut after_tool_ctx)
@@ -399,6 +413,7 @@ impl Kernel {
                         state.agent_name(),
                         parent_agent_name.clone(),
                     );
+                    end_ctx.intent = resolved_intent.clone();
                     match self.hooks.run(HookPoint::OnTurnEnd, &mut end_ctx).await {
                         HookOutcome::Continue => {}
                         HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
@@ -442,6 +457,7 @@ impl Kernel {
         }
         let mut end_ctx =
             HookCtx::on_turn_end(&state.session_id, state.agent_name(), parent_agent_name);
+        end_ctx.intent = resolved_intent;
         match self.hooks.run(HookPoint::OnTurnEnd, &mut end_ctx).await {
             HookOutcome::Continue => {}
             HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
@@ -527,10 +543,136 @@ impl Kernel {
         &self.paths
     }
 
+    async fn resolve_intent_for_turn(
+        &mut self,
+        state: &mut AgentState,
+        user_input: &str,
+        parent_agent_name: Option<String>,
+    ) -> Result<Option<Intent>, KernelError> {
+        if !self.config.intent_classifier.enabled {
+            return Ok(None);
+        }
+
+        let mut before_ctx = HookCtx::before_intent(
+            &state.session_id,
+            state.agent_name(),
+            parent_agent_name.clone(),
+            user_input,
+        );
+        match self
+            .hooks
+            .run(HookPoint::BeforeIntent, &mut before_ctx)
+            .await
+        {
+            HookOutcome::Continue => {}
+            HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+        }
+
+        let intent = if let Some(intent) = before_ctx.intent.clone() {
+            intent
+        } else if let Some(intent) = classify_by_rules(user_input) {
+            intent
+        } else if self.config.intent_classifier.rule_only
+            || !within_intent_budget(
+                user_input,
+                self.config.intent_classifier.per_turn_token_budget,
+            )
+        {
+            default_intent(user_input)
+        } else {
+            self.classify_intent_with_llm(state, user_input, parent_agent_name.clone())
+                .await?
+                .unwrap_or_else(|| default_intent(user_input))
+        };
+
+        let mut after_ctx = HookCtx::after_intent(
+            &state.session_id,
+            state.agent_name(),
+            parent_agent_name,
+            user_input,
+            intent,
+        );
+        match self.hooks.run(HookPoint::AfterIntent, &mut after_ctx).await {
+            HookOutcome::Continue => Ok(after_ctx.intent),
+            HookOutcome::Abort(message) => Err(KernelError::Hook(message)),
+        }
+    }
+
+    async fn classify_intent_with_llm(
+        &mut self,
+        state: &mut AgentState,
+        user_input: &str,
+        parent_agent_name: Option<String>,
+    ) -> Result<Option<Intent>, KernelError> {
+        let classifier_model = if self.config.intent_classifier.model.trim().is_empty() {
+            self.config.model.model_id.clone()
+        } else {
+            self.config.intent_classifier.model.clone()
+        };
+        let max_tokens = self
+            .config
+            .intent_classifier
+            .per_turn_token_budget
+            .clamp(8, 64);
+        let response = self
+            .llm
+            .complete(CompletionRequest {
+                system: Some(
+                    "Classify the user's message into exactly one intent label.\n\
+Allowed labels: task, chat, schedule, memory_query, meta.\n\
+Respond with only the lowercase label and no other text."
+                        .into(),
+                ),
+                messages: vec![ChatMessage {
+                    role: ChatRole::User,
+                    content: user_input.into(),
+                }],
+                model: classifier_model.clone(),
+                max_tokens,
+            })
+            .await?;
+
+        tracing::debug!(
+            session = %state.session_id,
+            agent = "intent-classifier",
+            parent_agent = %state.agent_name(),
+            model = %classifier_model,
+            "intent classifier response received"
+        );
+
+        let mut hook_ctx = HookCtx::on_model_response(
+            &state.session_id,
+            "intent-classifier",
+            Some(parent_agent_name.unwrap_or_else(|| state.agent_name().to_string())),
+            self.llm.provider_name(),
+            &classifier_model,
+            response.usage.clone(),
+            self.llm.pricing(&classifier_model),
+            &self.paths,
+        );
+        match self
+            .hooks
+            .run(HookPoint::OnModelResponse, &mut hook_ctx)
+            .await
+        {
+            HookOutcome::Continue => {}
+            HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+        }
+        if let Some(entry) = hook_ctx.recorded_cost.as_ref() {
+            state.cost_total_usd += entry.usd_estimate;
+        }
+        for event in hook_ctx.pending_events {
+            (self.adapter.on_event)(&event);
+        }
+
+        Ok(Intent::parse(response.text.trim()))
+    }
+
     fn system_prompt_for_state(
         &self,
         state: &AgentState,
         parent_agent_name: Option<&str>,
+        resolved_intent: Option<&Intent>,
         prompt_sections: &[String],
     ) -> String {
         let mut prompt = String::from(
@@ -547,6 +689,9 @@ Available tools:\n",
         prompt.push_str(&format!("\nCurrent agent: {}\n", state.agent_name()));
         if let Some(parent) = parent_agent_name {
             prompt.push_str(&format!("Parent agent: {parent}\n"));
+        }
+        if let Some(intent) = resolved_intent {
+            prompt.push_str(&format!("Resolved intent: {}\n", intent.as_str()));
         }
 
         prompt.push_str(&self.tools.prompt_catalog());
@@ -585,6 +730,12 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
 
         prompt.push_str("\n\nAvailable skill manifests:\n");
         prompt.push_str(&self.skills.manifest_prompt());
+        if let Some(intent) = resolved_intent {
+            if let Some(relevant) = self.skills.intent_hint_prompt(intent) {
+                prompt.push_str("\n\nLikely relevant skills for this intent:\n");
+                prompt.push_str(&relevant);
+            }
+        }
 
         let active = self.skills.active_prompt(
             &state.active_skills,
@@ -1152,6 +1303,11 @@ fn serialize_tool_value<T: serde::Serialize>(value: &T) -> ToolOutput {
     }
 }
 
+fn within_intent_budget(input: &str, budget: u32) -> bool {
+    let estimated_tokens = (input.chars().count() / 4).max(1) as u32 + 64;
+    estimated_tokens <= budget
+}
+
 fn render_upsert_job_preview(
     existing: Option<&allbert_proto::JobStatusPayload>,
     definition: &allbert_proto::JobDefinitionPayload,
@@ -1473,6 +1629,22 @@ mod tests {
                 .unwrap()
                 .pop_front()
                 .unwrap_or(InputResponse::Cancelled)
+        }
+    }
+
+    struct RecordingHook {
+        label: &'static str,
+        seen: Arc<Mutex<Vec<(String, Option<Intent>)>>>,
+    }
+
+    #[async_trait]
+    impl Hook for RecordingHook {
+        async fn call(&self, ctx: &mut HookCtx) -> HookOutcome {
+            self.seen
+                .lock()
+                .unwrap()
+                .push((self.label.to_string(), ctx.intent.clone()));
+            HookOutcome::Continue
         }
     }
 
@@ -1868,6 +2040,244 @@ mod tests {
                 .contains("outside configured roots"),
             "sub-agent follow-up should see the same filesystem policy denial"
         );
+    }
+
+    #[tokio::test]
+    async fn intent_rule_fast_path_sets_schedule_intent_without_extra_model_call() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![CompletionResponse {
+                    text: "SCHEDULE_OK".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("schedule a daily review at 07:00")
+            .await
+            .expect("turn should succeed");
+
+        let requests = requests.lock().unwrap();
+        assert_eq!(
+            requests.len(),
+            1,
+            "rule classifier should avoid an LLM sub-call"
+        );
+        let system = requests[0]
+            .system
+            .as_ref()
+            .expect("system prompt should exist");
+        assert!(system.contains("Resolved intent: schedule"));
+    }
+
+    #[tokio::test]
+    async fn intent_classifier_fallback_uses_llm_and_records_costs() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths.clone(),
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: "chat".into(),
+                        usage: Usage {
+                            input_tokens: 2,
+                            output_tokens: 1,
+                            cache_read: 0,
+                            cache_create: 0,
+                        },
+                    },
+                    CompletionResponse {
+                        text: "CHAT_OK".into(),
+                        usage: Usage {
+                            input_tokens: 3,
+                            output_tokens: 1,
+                            cache_read: 0,
+                            cache_create: 0,
+                        },
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("hmm maybe")
+            .await
+            .expect("turn should succeed");
+
+        let requests = requests.lock().unwrap();
+        assert_eq!(
+            requests.len(),
+            2,
+            "fallback classifier should use a model sub-call"
+        );
+        assert!(
+            requests[0]
+                .system
+                .as_ref()
+                .unwrap()
+                .contains("Classify the user's message"),
+            "first request should be the classifier sub-call"
+        );
+        assert!(
+            requests[1]
+                .system
+                .as_ref()
+                .unwrap()
+                .contains("Resolved intent: chat"),
+            "main turn should receive the resolved intent"
+        );
+
+        let log = fs::read_to_string(kernel.paths().costs.clone()).expect("cost log should exist");
+        assert!(
+            log.contains("\"agent_name\":\"intent-classifier\""),
+            "classifier call should be attributed separately in cost logs"
+        );
+        assert!(kernel.session_cost_usd() > 0.0);
+    }
+
+    #[tokio::test]
+    async fn intent_classifier_budget_limit_skips_llm_fallback() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut config = Config::default_template();
+        config.intent_classifier.per_turn_token_budget = 8;
+
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![CompletionResponse {
+                    text: "TASK_OK".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let large_ambiguous = "lorem ipsum ".repeat(200);
+        kernel
+            .run_turn(&large_ambiguous)
+            .await
+            .expect("turn should succeed");
+
+        let requests = requests.lock().unwrap();
+        assert_eq!(
+            requests.len(),
+            1,
+            "budget enforcement should skip the classifier sub-call"
+        );
+        assert!(
+            requests[0]
+                .system
+                .as_ref()
+                .unwrap()
+                .contains("Resolved intent: task"),
+            "budget fallback should use the default task intent"
+        );
+    }
+
+    #[tokio::test]
+    async fn intent_hooks_fire_in_order_and_carry_resolved_intent() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let seen = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![CompletionResponse {
+                    text: "HOOK_OK".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.register_hook(
+            HookPoint::BeforeIntent,
+            Arc::new(RecordingHook {
+                label: "before_intent",
+                seen: seen.clone(),
+            }),
+        );
+        kernel.register_hook(
+            HookPoint::AfterIntent,
+            Arc::new(RecordingHook {
+                label: "after_intent",
+                seen: seen.clone(),
+            }),
+        );
+        kernel.register_hook(
+            HookPoint::BeforePrompt,
+            Arc::new(RecordingHook {
+                label: "before_prompt",
+                seen: seen.clone(),
+            }),
+        );
+        kernel.register_hook(
+            HookPoint::OnTurnEnd,
+            Arc::new(RecordingHook {
+                label: "on_turn_end",
+                seen: seen.clone(),
+            }),
+        );
+
+        kernel
+            .run_turn("what can you do?")
+            .await
+            .expect("turn should succeed");
+
+        let seen = seen.lock().unwrap();
+        assert_eq!(
+            seen.iter()
+                .map(|(label, _)| label.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "before_intent",
+                "after_intent",
+                "before_prompt",
+                "on_turn_end"
+            ]
+        );
+        assert_eq!(seen[0].1, None);
+        assert_eq!(seen[1].1, Some(Intent::Meta));
+        assert_eq!(seen[2].1, Some(Intent::Meta));
+        assert_eq!(seen[3].1, Some(Intent::Meta));
     }
 
     #[tokio::test]

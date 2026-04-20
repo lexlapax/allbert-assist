@@ -7,6 +7,7 @@ use crate::bootstrap;
 use crate::config::LimitsConfig;
 use crate::cost::{append_cost_entry, build_cost_entry, CostEntry};
 use crate::events::KernelEvent;
+use crate::intent::Intent;
 use crate::llm::{Pricing, Usage};
 use crate::memory;
 use crate::paths::AllbertPaths;
@@ -20,6 +21,8 @@ pub enum HookPoint {
     AfterTool,
     OnModelResponse,
     OnTurnEnd,
+    BeforeIntent,
+    AfterIntent,
     BeforeAgentSpawn,
     AfterAgentSpawn,
 }
@@ -40,6 +43,8 @@ pub struct HookCtx {
     pub pricing: Option<Pricing>,
     pub limits: Option<LimitsConfig>,
     pub paths: Option<AllbertPaths>,
+    pub turn_input: Option<String>,
+    pub intent: Option<Intent>,
     pub prompt_sections: Vec<String>,
     pub tool_invocation: Option<ToolInvocation>,
     pub active_allowed_tools: Option<HashSet<String>>,
@@ -67,6 +72,8 @@ impl HookCtx {
             pricing: None,
             limits: Some(limits.clone()),
             paths: Some(paths.clone()),
+            turn_input: None,
+            intent: None,
             prompt_sections: Vec::new(),
             tool_invocation: None,
             active_allowed_tools: None,
@@ -94,6 +101,8 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            turn_input: None,
+            intent: None,
             prompt_sections: Vec::new(),
             tool_invocation: Some(invocation),
             active_allowed_tools,
@@ -124,6 +133,8 @@ impl HookCtx {
             pricing,
             limits: None,
             paths: Some(paths.clone()),
+            turn_input: None,
+            intent: None,
             prompt_sections: Vec::new(),
             tool_invocation: None,
             active_allowed_tools: None,
@@ -150,6 +161,8 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            turn_input: None,
+            intent: None,
             prompt_sections: Vec::new(),
             tool_invocation: None,
             active_allowed_tools: None,
@@ -176,6 +189,8 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            turn_input: None,
+            intent: None,
             prompt_sections: Vec::new(),
             tool_invocation: None,
             active_allowed_tools: None,
@@ -201,6 +216,65 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            turn_input: None,
+            intent: None,
+            prompt_sections: Vec::new(),
+            tool_invocation: None,
+            active_allowed_tools: None,
+            spawn_request: None,
+            spawn_result: None,
+            pending_events: Vec::new(),
+            recorded_cost: None,
+        }
+    }
+
+    pub fn before_intent(
+        session_id: &str,
+        agent_name: &str,
+        parent_agent_name: Option<String>,
+        input: &str,
+    ) -> Self {
+        Self {
+            session_id: session_id.into(),
+            agent_name: agent_name.into(),
+            parent_agent_name,
+            provider: None,
+            model: None,
+            usage: None,
+            pricing: None,
+            limits: None,
+            paths: None,
+            turn_input: Some(input.into()),
+            intent: None,
+            prompt_sections: Vec::new(),
+            tool_invocation: None,
+            active_allowed_tools: None,
+            spawn_request: None,
+            spawn_result: None,
+            pending_events: Vec::new(),
+            recorded_cost: None,
+        }
+    }
+
+    pub fn after_intent(
+        session_id: &str,
+        agent_name: &str,
+        parent_agent_name: Option<String>,
+        input: &str,
+        intent: Intent,
+    ) -> Self {
+        Self {
+            session_id: session_id.into(),
+            agent_name: agent_name.into(),
+            parent_agent_name,
+            provider: None,
+            model: None,
+            usage: None,
+            pricing: None,
+            limits: None,
+            paths: None,
+            turn_input: Some(input.into()),
+            intent: Some(intent),
             prompt_sections: Vec::new(),
             tool_invocation: None,
             active_allowed_tools: None,
