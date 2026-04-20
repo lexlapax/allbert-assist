@@ -72,6 +72,7 @@ enum DaemonCommand {
 enum SkillsCommand {
     Validate { path: String },
     Install { source: String },
+    Update { name: String },
     Remove { name: String },
     Init { name: String },
 }
@@ -185,14 +186,25 @@ async fn run_skills_command(
         SkillsCommand::Install { source } => {
             let paths = paths.context("install requires an initialized Allbert home")?;
             let config = config.context("install requires loaded config")?;
-            let result =
-                skills::install_local_skill_interactive(paths, config, Path::new(&source))?;
+            let result = skills::install_skill_source_interactive(paths, config, &source)?;
             println!(
                 "installed skill {}\npath: {}\ntree sha256: {}\napproval reused: {}",
                 result.name,
                 result.installed_path.display(),
                 result.tree_sha256,
                 if result.approval_reused { "yes" } else { "no" }
+            );
+            Ok(())
+        }
+        SkillsCommand::Update { name } => {
+            let paths = paths.context("update requires an initialized Allbert home")?;
+            let config = config.context("update requires loaded config")?;
+            let result = skills::update_skill_interactive(paths, config, &name)?;
+            println!(
+                "updated skill {}\npath: {}\ntree sha256: {}",
+                result.name,
+                result.installed_path.display(),
+                result.tree_sha256,
             );
             Ok(())
         }

@@ -144,7 +144,7 @@ pub struct SecurityConfig {
 impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
-            exec_allow: Vec::new(),
+            exec_allow: default_exec_allow(),
             exec_deny: default_exec_deny(),
             fs_roots: Vec::new(),
             web: WebSecurityConfig::default(),
@@ -173,11 +173,25 @@ impl Default for WebSecurityConfig {
     }
 }
 
+fn default_exec_allow() -> Vec<String> {
+    vec!["bash".into(), "python".into()]
+}
+
 fn default_web_timeout_s() -> u64 {
     15
 }
 
 fn default_exec_deny() -> Vec<String> {
+    vec![
+        "sh".into(),
+        "zsh".into(),
+        "fish".into(),
+        "ruby".into(),
+        "perl".into(),
+    ]
+}
+
+fn legacy_v0_3_exec_deny() -> Vec<String> {
     vec![
         "sh".into(),
         "bash".into(),
@@ -269,11 +283,21 @@ impl Config {
     }
 
     fn migrate_for_v0_2(&mut self) -> bool {
+        let mut changed = false;
         if self.setup.version == 1 {
             self.setup.version = 2;
-            return true;
+            changed = true;
         }
-        false
+        if self.setup.version == 2
+            && self.security.exec_allow.is_empty()
+            && self.security.exec_deny == legacy_v0_3_exec_deny()
+        {
+            self.security.exec_allow = default_exec_allow();
+            self.security.exec_deny = default_exec_deny();
+            self.setup.version = 3;
+            changed = true;
+        }
+        changed
     }
 }
 

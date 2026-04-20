@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command as StdCommand;
 
 use allbert_kernel::skills::validate_skill_path;
 use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config};
@@ -55,111 +56,64 @@ pub fn validate_skill(path: &Path) -> Result<String> {
     ))
 }
 
-pub fn install_local_skill_interactive(
+pub fn install_skill_source_interactive(
     paths: &AllbertPaths,
     config: &Config,
-    source: &Path,
+    source: &str,
 ) -> Result<InstallResult> {
-    install_local_skill(paths, config, source, &StdioSkillPrompter)
+    install_skill_source(paths, config, source, &StdioSkillPrompter)
 }
 
-pub fn install_local_skill<P: SkillPrompter>(
+pub fn update_skill_interactive(
     paths: &AllbertPaths,
     config: &Config,
-    source: &Path,
+    name: &str,
+) -> Result<InstallResult> {
+    update_skill(paths, config, name, &StdioSkillPrompter)
+}
+
+pub fn install_skill_source<P: SkillPrompter>(
+    paths: &AllbertPaths,
+    config: &Config,
+    source: &str,
     prompter: &P,
 ) -> Result<InstallResult> {
-    paths.ensure()?;
-
-    let source_dir = normalize_source_dir(source)?;
-    let source_identity = source_dir
-        .canonicalize()
-        .with_context(|| format!("canonicalize {}", source_dir.display()))?;
-    let source_label = source_identity.display().to_string();
-
-    let staged_name = source_identity
-        .file_name()
-        .and_then(|value| value.to_str())
-        .ok_or_else(|| anyhow::anyhow!("invalid skill directory name"))?
-        .to_string();
-    let quarantine_dir = paths.skills_incoming.join(&staged_name);
-    if quarantine_dir.exists() {
-        fs::remove_dir_all(&quarantine_dir)
-            .with_context(|| format!("remove {}", quarantine_dir.display()))?;
-    }
-    copy_tree(&source_identity, &quarantine_dir)?;
-
-    let staged_skill = quarantine_dir.join("SKILL.md");
-    let preview = match inspect_candidate(&staged_skill, &source_label) {
-        Ok(preview) => preview,
-        Err(err) => {
-            let _ = fs::remove_dir_all(&quarantine_dir);
-            return Err(err);
-        }
+    let prepared = match parse_install_source(source) {
+        SkillInstallSource::LocalPath(path) => PreparedInstall::from_local(&path)?,
+        SkillInstallSource::Git(git) => PreparedInstall::from_git(paths, &git)?,
     };
+    install_prepared_skill(paths, config, prepared, prompter, false)
+}
 
-    let destination = paths.skills_installed.join(&preview.name);
-    if destination.exists() {
-        let _ = fs::remove_dir_all(&quarantine_dir);
+pub fn update_skill<P: SkillPrompter>(
+    paths: &AllbertPaths,
+    config: &Config,
+    name: &str,
+    prompter: &P,
+) -> Result<InstallResult> {
+    let metadata_path = paths
+        .skills_installed
+        .join(name)
+        .join(INSTALL_METADATA_FILE);
+    if !metadata_path.exists() {
         bail!(
-            "skill '{}' is already installed at {}",
-            preview.name,
-            destination.display()
+            "skill '{}' is not installed or has no install metadata",
+            name
         );
     }
-
-    let mut approvals = load_approvals(&paths.skills.join(APPROVALS_FILE))?;
-    let approval_reused = config.install.remember_approvals
-        && approvals
-            .approvals
-            .iter()
-            .any(|entry| entry.source == source_label && entry.tree_sha256 == preview.tree_sha256);
-
-    let approved = if approval_reused {
-        true
-    } else {
-        prompter.confirm_install(&render_install_preview(&preview))?
+    let metadata = load_install_metadata(&metadata_path)?;
+    let prepared = match metadata.source.kind.as_str() {
+        "local_path" => PreparedInstall::from_local(Path::new(&metadata.source.identity))?,
+        "git" => {
+            let git = GitInstallSource {
+                url: metadata.source.identity.clone(),
+                requested_ref: metadata.source.requested_ref.clone(),
+            };
+            PreparedInstall::from_git(paths, &git)?
+        }
+        other => bail!("unsupported install source kind '{}'", other),
     };
-
-    if !approved {
-        let _ = fs::remove_dir_all(&quarantine_dir);
-        bail!("skill install cancelled");
-    }
-
-    let now = Utc::now().to_rfc3339();
-    if config.install.remember_approvals && !approval_reused {
-        approvals.approvals.push(ApprovalEntry {
-            source: source_label.clone(),
-            tree_sha256: preview.tree_sha256.clone(),
-            approved_at: now.clone(),
-        });
-        persist_approvals(&paths.skills.join(APPROVALS_FILE), &approvals)?;
-    }
-
-    if let Err(_err) = fs::rename(&quarantine_dir, &destination) {
-        copy_tree(&quarantine_dir, &destination)?;
-        fs::remove_dir_all(&quarantine_dir)
-            .with_context(|| format!("remove {}", quarantine_dir.display()))?;
-    }
-
-    let metadata = InstallMetadata {
-        source: SkillSource {
-            kind: "local_path".into(),
-            identity: source_label,
-        },
-        tree_sha256: preview.tree_sha256.clone(),
-        approved_at: now.clone(),
-        installed_at: now,
-    };
-    persist_install_metadata(&destination.join(INSTALL_METADATA_FILE), &metadata)?;
-    refresh_agents_markdown(paths)?;
-
-    Ok(InstallResult {
-        name: preview.name,
-        tree_sha256: preview.tree_sha256,
-        approval_reused,
-        installed_path: destination,
-    })
+    install_prepared_skill(paths, config, prepared, prompter, true)
 }
 
 pub fn remove_skill_interactive(paths: &AllbertPaths, name: &str) -> Result<()> {
@@ -247,12 +201,74 @@ struct InstallMetadata {
     tree_sha256: String,
     approved_at: String,
     installed_at: String,
+    resolved_commit: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SkillSource {
     kind: String,
     identity: String,
+    #[serde(default)]
+    requested_ref: Option<String>,
+}
+
+enum SkillInstallSource {
+    LocalPath(PathBuf),
+    Git(GitInstallSource),
+}
+
+struct GitInstallSource {
+    url: String,
+    requested_ref: Option<String>,
+}
+
+struct PreparedInstall {
+    source: SkillSource,
+    source_label: String,
+    staged_root: PathBuf,
+    resolved_commit: Option<String>,
+}
+
+impl PreparedInstall {
+    fn from_local(source: &Path) -> Result<Self> {
+        let source_dir = normalize_source_dir(source)?;
+        let source_identity = source_dir
+            .canonicalize()
+            .with_context(|| format!("canonicalize {}", source_dir.display()))?;
+        Ok(Self {
+            source: SkillSource {
+                kind: "local_path".into(),
+                identity: source_identity.display().to_string(),
+                requested_ref: None,
+            },
+            source_label: source_identity.display().to_string(),
+            staged_root: source_identity,
+            resolved_commit: None,
+        })
+    }
+
+    fn from_git(paths: &AllbertPaths, source: &GitInstallSource) -> Result<Self> {
+        paths.ensure()?;
+        let quarantine_dir = paths
+            .skills_incoming
+            .join(format!("git-fetch-{}", random_suffix()));
+        clone_git_source(source, &quarantine_dir)?;
+        let staged_root = normalize_cloned_skill_root(&quarantine_dir)?;
+        let resolved_commit = git_head_commit(&staged_root)?;
+        Ok(Self {
+            source: SkillSource {
+                kind: "git".into(),
+                identity: source.url.clone(),
+                requested_ref: source.requested_ref.clone(),
+            },
+            source_label: match &source.requested_ref {
+                Some(reference) => format!("{}#ref={reference}", source.url),
+                None => source.url.clone(),
+            },
+            staged_root,
+            resolved_commit: Some(resolved_commit),
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -357,6 +373,25 @@ impl PreviewAllowedTools {
     }
 }
 
+fn parse_install_source(source: &str) -> SkillInstallSource {
+    let path = Path::new(source);
+    if path.exists() {
+        return SkillInstallSource::LocalPath(path.to_path_buf());
+    }
+    if let Some(rest) = source.strip_prefix("git+") {
+        return SkillInstallSource::Git(parse_git_install_source(rest));
+    }
+    SkillInstallSource::Git(parse_git_install_source(source))
+}
+
+fn parse_git_install_source(source: &str) -> GitInstallSource {
+    let (url, requested_ref) = match source.split_once("#ref=") {
+        Some((url, reference)) => (url.to_string(), Some(reference.to_string())),
+        None => (source.to_string(), None),
+    };
+    GitInstallSource { url, requested_ref }
+}
+
 fn normalize_source_dir(source: &Path) -> Result<PathBuf> {
     if source.is_dir() {
         return Ok(source.to_path_buf());
@@ -372,6 +407,141 @@ fn normalize_source_dir(source: &Path) -> Result<PathBuf> {
             .ok_or_else(|| anyhow::anyhow!("invalid SKILL.md path"));
     }
     bail!("expected a skill directory or SKILL.md path");
+}
+
+fn normalize_cloned_skill_root(root: &Path) -> Result<PathBuf> {
+    let skill_path = root.join("SKILL.md");
+    if !skill_path.exists() {
+        return Ok(root.to_path_buf());
+    }
+
+    let raw = fs::read_to_string(&skill_path)
+        .with_context(|| format!("read {}", skill_path.display()))?;
+    let matter = Matter::<YAML>::new();
+    let parsed = matter
+        .parse::<PreviewFrontmatter>(&raw)
+        .map_err(|err| anyhow::anyhow!("parse {}: {err}", skill_path.display()))?;
+    let Some(data) = parsed.data else {
+        bail!("missing frontmatter in {}", skill_path.display());
+    };
+    let current_name = root
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| anyhow::anyhow!("invalid cloned skill root {}", root.display()))?;
+    if current_name == data.name {
+        return Ok(root.to_path_buf());
+    }
+
+    let target = root.parent().unwrap().join(&data.name);
+    if target.exists() {
+        fs::remove_dir_all(&target).with_context(|| format!("remove {}", target.display()))?;
+    }
+    fs::rename(root, &target)
+        .with_context(|| format!("rename {} -> {}", root.display(), target.display()))?;
+    Ok(target)
+}
+
+fn install_prepared_skill<P: SkillPrompter>(
+    paths: &AllbertPaths,
+    config: &Config,
+    prepared: PreparedInstall,
+    prompter: &P,
+    replace_existing: bool,
+) -> Result<InstallResult> {
+    let skill_dir = normalize_source_dir(&prepared.staged_root)?;
+    let staged_skill = skill_dir.join("SKILL.md");
+    let preview = match inspect_candidate(&staged_skill, &prepared.source_label) {
+        Ok(preview) => preview,
+        Err(err) => {
+            cleanup_prepared_install(&prepared);
+            return Err(err);
+        }
+    };
+
+    let destination = paths.skills_installed.join(&preview.name);
+    if destination.exists() && !replace_existing {
+        cleanup_prepared_install(&prepared);
+        bail!(
+            "skill '{}' is already installed at {}",
+            preview.name,
+            destination.display()
+        );
+    }
+
+    let mut approvals = load_approvals(&paths.skills.join(APPROVALS_FILE))?;
+    let approval_reused = config.install.remember_approvals
+        && approvals.approvals.iter().any(|entry| {
+            entry.source == prepared.source.identity && entry.tree_sha256 == preview.tree_sha256
+        });
+
+    let approved = if approval_reused {
+        true
+    } else {
+        let mut preview_text = render_install_preview(&preview);
+        if replace_existing && destination.exists() {
+            let existing_metadata =
+                load_install_metadata(&destination.join(INSTALL_METADATA_FILE)).ok();
+            preview_text.push_str("\n\nUpdate context:\n");
+            preview_text.push_str(&format!(
+                "existing tree sha256: {}\nnew tree sha256:      {}",
+                existing_metadata
+                    .as_ref()
+                    .map(|value| value.tree_sha256.as_str())
+                    .unwrap_or("(unknown)"),
+                preview.tree_sha256
+            ));
+        }
+        prompter.confirm_install(&preview_text)?
+    };
+
+    if !approved {
+        cleanup_prepared_install(&prepared);
+        bail!("skill install cancelled");
+    }
+
+    let now = Utc::now().to_rfc3339();
+    if config.install.remember_approvals && !approval_reused {
+        approvals.approvals.push(ApprovalEntry {
+            source: prepared.source.identity.clone(),
+            tree_sha256: preview.tree_sha256.clone(),
+            approved_at: now.clone(),
+        });
+        persist_approvals(&paths.skills.join(APPROVALS_FILE), &approvals)?;
+    }
+
+    if destination.exists() {
+        fs::remove_dir_all(&destination)
+            .with_context(|| format!("remove {}", destination.display()))?;
+    }
+    if prepared.source.kind == "local_path" {
+        copy_tree(&prepared.staged_root, &destination)?;
+    } else if let Err(_err) = fs::rename(&prepared.staged_root, &destination) {
+        copy_tree(&prepared.staged_root, &destination)?;
+        cleanup_prepared_install(&prepared);
+    }
+
+    let metadata = InstallMetadata {
+        source: prepared.source,
+        tree_sha256: preview.tree_sha256.clone(),
+        approved_at: now.clone(),
+        installed_at: now,
+        resolved_commit: prepared.resolved_commit,
+    };
+    persist_install_metadata(&destination.join(INSTALL_METADATA_FILE), &metadata)?;
+    refresh_agents_markdown(paths)?;
+
+    Ok(InstallResult {
+        name: preview.name,
+        tree_sha256: preview.tree_sha256,
+        approval_reused,
+        installed_path: destination,
+    })
+}
+
+fn cleanup_prepared_install(prepared: &PreparedInstall) {
+    if prepared.source.kind == "git" {
+        let _ = fs::remove_dir_all(&prepared.staged_root);
+    }
 }
 
 fn inspect_candidate(skill_path: &Path, source_label: &str) -> Result<SkillPreview> {
@@ -580,6 +750,67 @@ fn persist_install_metadata(path: &Path, metadata: &InstallMetadata) -> Result<(
     fs::write(path, rendered).with_context(|| format!("write {}", path.display()))
 }
 
+fn load_install_metadata(path: &Path) -> Result<InstallMetadata> {
+    let raw = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    toml::from_str(&raw).with_context(|| format!("parse {}", path.display()))
+}
+
+fn clone_git_source(source: &GitInstallSource, destination: &Path) -> Result<()> {
+    if destination.exists() {
+        fs::remove_dir_all(destination)
+            .with_context(|| format!("remove {}", destination.display()))?;
+    }
+
+    let status = StdCommand::new("git")
+        .arg("clone")
+        .arg(&source.url)
+        .arg(destination)
+        .status()
+        .with_context(|| format!("run git clone for {}", source.url))?;
+    if !status.success() {
+        bail!("git clone failed for {}", source.url);
+    }
+
+    if let Some(reference) = &source.requested_ref {
+        let status = StdCommand::new("git")
+            .arg("-C")
+            .arg(destination)
+            .arg("checkout")
+            .arg(reference)
+            .status()
+            .with_context(|| format!("checkout git ref {}", reference))?;
+        if !status.success() {
+            bail!("git checkout failed for ref {}", reference);
+        }
+    }
+    Ok(())
+}
+
+fn git_head_commit(root: &Path) -> Result<String> {
+    let output = StdCommand::new("git")
+        .arg("-C")
+        .arg(root)
+        .arg("rev-parse")
+        .arg("HEAD")
+        .output()
+        .with_context(|| format!("read git HEAD for {}", root.display()))?;
+    if !output.status.success() {
+        bail!("git rev-parse HEAD failed for {}", root.display());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn random_suffix() -> String {
+    format!(
+        "{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time should be available")
+            .as_nanos()
+    )
+}
+
 fn yaml_quote(value: &str) -> String {
     format!("{value:?}")
 }
@@ -701,6 +932,47 @@ mod tests {
         dir
     }
 
+    fn git_init_repo(root: &Path) {
+        let status = StdCommand::new("git")
+            .arg("init")
+            .arg(root)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let status = StdCommand::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(["config", "user.name", "Allbert Tests"])
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let status = StdCommand::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(["config", "user.email", "allbert-tests@example.invalid"])
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    fn git_commit_all(root: &Path, message: &str) -> String {
+        let status = StdCommand::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(["add", "."])
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let status = StdCommand::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(["commit", "-m", message])
+            .status()
+            .unwrap();
+        assert!(status.success());
+        git_head_commit(root).unwrap()
+    }
+
     #[test]
     fn install_approve_persists_metadata_and_skill() {
         let temp = TempRoot::new();
@@ -710,8 +982,13 @@ mod tests {
         let config = Config::default_template();
         let prompter = FixedPrompter::new(vec![true], vec![]);
 
-        let result =
-            install_local_skill(&paths, &config, &source, &prompter).expect("install succeeds");
+        let result = install_skill_source(
+            &paths,
+            &config,
+            source.to_str().expect("source should be valid utf-8"),
+            &prompter,
+        )
+        .expect("install succeeds");
 
         assert_eq!(result.name, "sample-skill");
         assert!(!result.approval_reused);
@@ -730,8 +1007,13 @@ mod tests {
         let config = Config::default_template();
         let prompter = FixedPrompter::new(vec![false], vec![]);
 
-        let err = install_local_skill(&paths, &config, &source, &prompter)
-            .expect_err("install should be cancelled");
+        let err = install_skill_source(
+            &paths,
+            &config,
+            source.to_str().expect("source should be valid utf-8"),
+            &prompter,
+        )
+        .expect_err("install should be cancelled");
         assert!(err.to_string().contains("cancelled"));
         assert!(!paths.skills_installed.join("reject-me").exists());
         assert!(!paths.skills_incoming.join("reject-me").exists());
@@ -746,7 +1028,13 @@ mod tests {
         let config = Config::default_template();
         let prompter = FixedPrompter::new(vec![true, true], vec![]);
 
-        install_local_skill(&paths, &config, &source, &prompter).expect("first install works");
+        install_skill_source(
+            &paths,
+            &config,
+            source.to_str().expect("source should be valid utf-8"),
+            &prompter,
+        )
+        .expect("first install works");
         fs::remove_dir_all(paths.skills_installed.join("mutable-skill")).unwrap();
         fs::write(
             source.join("SKILL.md"),
@@ -754,8 +1042,13 @@ mod tests {
         )
         .unwrap();
 
-        let result =
-            install_local_skill(&paths, &config, &source, &prompter).expect("second install works");
+        let result = install_skill_source(
+            &paths,
+            &config,
+            source.to_str().expect("source should be valid utf-8"),
+            &prompter,
+        )
+        .expect("second install works");
 
         assert!(!result.approval_reused);
         assert_eq!(prompter.install_call_count(), 2);
@@ -771,5 +1064,75 @@ mod tests {
         assert!(skill_dir.join("references").exists());
         let rendered = validate_skill(&skill_dir.join("SKILL.md")).expect("skill should validate");
         assert!(rendered.contains("valid skill"));
+    }
+
+    #[test]
+    fn git_install_and_update_flow_tracks_new_commit() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let repo = write_source_skill(&temp.source_root(), "git-skill", "Body v1");
+        git_init_repo(&repo);
+        let first_commit = git_commit_all(&repo, "initial");
+        let source = format!("file://{}", repo.display());
+        let config = Config::default_template();
+        let prompter = FixedPrompter::new(vec![true, true], vec![]);
+
+        let installed =
+            install_skill_source(&paths, &config, &source, &prompter).expect("git install works");
+        let metadata = load_install_metadata(&installed.installed_path.join(INSTALL_METADATA_FILE))
+            .expect("metadata should load");
+        assert_eq!(
+            metadata.resolved_commit.as_deref(),
+            Some(first_commit.as_str())
+        );
+
+        fs::write(
+            repo.join("SKILL.md"),
+            "---\nname: git-skill\ndescription: Valid test skill\nallowed-tools: [read_reference]\nscripts:\n  - name: helper\n    path: scripts/helper.py\n    interpreter: python\n---\n\nBody v2\n",
+        )
+        .unwrap();
+        let second_commit = git_commit_all(&repo, "update");
+
+        let updated =
+            update_skill(&paths, &config, "git-skill", &prompter).expect("git update works");
+        let updated_metadata =
+            load_install_metadata(&updated.installed_path.join(INSTALL_METADATA_FILE))
+                .expect("updated metadata should load");
+        assert_eq!(
+            updated_metadata.resolved_commit.as_deref(),
+            Some(second_commit.as_str())
+        );
+        assert_ne!(first_commit, second_commit);
+        assert_eq!(prompter.install_call_count(), 2);
+    }
+
+    #[test]
+    fn git_install_honors_pinned_ref() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let repo = write_source_skill(&temp.source_root(), "pinned-skill", "Body v1");
+        git_init_repo(&repo);
+        let first_commit = git_commit_all(&repo, "initial");
+        fs::write(
+            repo.join("SKILL.md"),
+            "---\nname: pinned-skill\ndescription: Valid test skill\nallowed-tools: [read_reference]\nscripts:\n  - name: helper\n    path: scripts/helper.py\n    interpreter: python\n---\n\nBody v2\n",
+        )
+        .unwrap();
+        let _second_commit = git_commit_all(&repo, "update");
+
+        let source = format!("file://{}#ref={}", repo.display(), first_commit);
+        let config = Config::default_template();
+        let prompter = FixedPrompter::new(vec![true], vec![]);
+
+        let installed =
+            install_skill_source(&paths, &config, &source, &prompter).expect("git install works");
+        let metadata = load_install_metadata(&installed.installed_path.join(INSTALL_METADATA_FILE))
+            .expect("metadata should load");
+        assert_eq!(
+            metadata.resolved_commit.as_deref(),
+            Some(first_commit.as_str())
+        );
     }
 }

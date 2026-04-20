@@ -245,9 +245,17 @@ impl Hook for SecurityHook {
             return HookOutcome::Continue;
         };
         let security = self.security.lock().unwrap().clone();
+        let is_skill_script_exec = invocation.name == "process_exec"
+            && invocation
+                .input
+                .get("_skill_script")
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
 
         if let Some(allowed) = &ctx.active_allowed_tools {
-            if !tool_allowed_by_active_skills(invocation.name.as_str(), allowed) {
+            if !is_skill_script_exec
+                && !tool_allowed_by_active_skills(invocation.name.as_str(), allowed)
+            {
                 return HookOutcome::Abort("tool not permitted by active skill(s)".into());
             }
         }

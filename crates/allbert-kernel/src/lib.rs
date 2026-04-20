@@ -44,7 +44,7 @@ pub use security::SecurityHook;
 pub use skills::{
     ActiveSkill, ContributedAgent, CreateSkillInput, InvokeSkillInput, Skill, SkillStore,
 };
-pub use tools::{ToolCtx, ToolInvocation, ToolOutput, ToolRegistry};
+pub use tools::{ProcessExecInput, ToolCtx, ToolInvocation, ToolOutput, ToolRegistry};
 pub use trace::TraceHandles;
 
 use hooks::HookRegistry;
@@ -81,6 +81,16 @@ struct ReadReferenceInput {
     max_bytes: Option<usize>,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+struct RunSkillScriptInput {
+    skill: String,
+    script: String,
+    #[serde(default)]
+    args: Vec<String>,
+    #[serde(default)]
+    timeout_s: Option<u64>,
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 struct SpawnSubagentResult {
     agent_name: String,
@@ -93,6 +103,12 @@ struct SpawnSubagentResult {
 struct AgentRunSummary {
     hit_turn_limit: bool,
     assistant_text: Option<String>,
+}
+
+struct EffectiveToolCall {
+    display_name: String,
+    display_input: serde_json::Value,
+    execution: ToolInvocation,
 }
 
 pub struct Kernel {
@@ -393,6 +409,33 @@ impl Kernel {
             }
 
             for invocation in tool_calls {
+                let effective_invocation = match self.normalize_tool_invocation(state, &invocation)
+                {
+                    Ok(effective) => effective,
+                    Err(content) => {
+                        tool_calls_used += 1;
+                        if emit_terminal_events {
+                            (self.adapter.on_event)(&KernelEvent::ToolCall {
+                                name: invocation.name.clone(),
+                                input: invocation.input.clone(),
+                            });
+                            (self.adapter.on_event)(&KernelEvent::ToolResult {
+                                name: invocation.name.clone(),
+                                ok: false,
+                                content: content.clone(),
+                            });
+                        }
+                        state.messages.push(ChatMessage {
+                            role: ChatRole::User,
+                            content: format!(
+                                "Tool result for {} (ok=false):\n{}",
+                                invocation.name, content
+                            ),
+                        });
+                        continue;
+                    }
+                };
+
                 if tool_calls_used >= self.config.limits.max_tool_calls_per_turn as usize {
                     let content = "tool call budget exhausted".to_string();
                     state.messages.push(ChatMessage {
@@ -428,8 +471,8 @@ impl Kernel {
                 tool_calls_used += 1;
                 if emit_terminal_events {
                     (self.adapter.on_event)(&KernelEvent::ToolCall {
-                        name: invocation.name.clone(),
-                        input: invocation.input.clone(),
+                        name: effective_invocation.display_name.clone(),
+                        input: effective_invocation.display_input.clone(),
                     });
                 }
 
@@ -437,7 +480,7 @@ impl Kernel {
                     session = %state.session_id,
                     agent = %state.agent_name(),
                     parent_agent = ?parent_agent_name,
-                    tool = %invocation.name,
+                    tool = %effective_invocation.display_name,
                     "dispatch tool"
                 );
 
@@ -445,7 +488,7 @@ impl Kernel {
                     &state.session_id,
                     state.agent_name(),
                     parent_agent_name.clone(),
-                    invocation.clone(),
+                    effective_invocation.execution.clone(),
                     combined_allowed_tools(
                         self.skills.allowed_tool_union(&state.active_skills),
                         state.allowed_tools.clone(),
@@ -461,7 +504,7 @@ impl Kernel {
                         self.dispatch_tool_for_state(
                             state,
                             parent_agent_name.clone(),
-                            invocation.clone(),
+                            effective_invocation.execution.clone(),
                         )
                         .await
                     }
@@ -475,7 +518,7 @@ impl Kernel {
                     &state.session_id,
                     state.agent_name(),
                     parent_agent_name.clone(),
-                    invocation.clone(),
+                    effective_invocation.execution.clone(),
                     combined_allowed_tools(
                         self.skills.allowed_tool_union(&state.active_skills),
                         state.allowed_tools.clone(),
@@ -528,7 +571,7 @@ impl Kernel {
 
                 if emit_terminal_events {
                     (self.adapter.on_event)(&KernelEvent::ToolResult {
-                        name: invocation.name.clone(),
+                        name: effective_invocation.display_name.clone(),
                         ok: tool_output.ok,
                         content: content.clone(),
                     });
@@ -538,7 +581,7 @@ impl Kernel {
                     role: ChatRole::User,
                     content: format!(
                         "Tool result for {} (ok={}):\n{}",
-                        invocation.name, tool_output.ok, content
+                        effective_invocation.display_name, tool_output.ok, content
                     ),
                 });
             }
@@ -849,6 +892,7 @@ Available tools:\n",
         prompt.push_str("\n- list_skills: List installed skills and their descriptions.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
         prompt.push_str("\n- invoke_skill: Activate a skill for this session, optionally with JSON args.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"},\"args\":{\"type\":\"object\"}}}\n");
         prompt.push_str("\n- read_reference: Read an installed skill resource under references/ or assets/ on demand.\n  schema: {\"type\":\"object\",\"required\":[\"skill\",\"path\"],\"properties\":{\"skill\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"max_bytes\":{\"type\":\"integer\",\"minimum\":1}}}\n");
+        prompt.push_str("\n- run_skill_script: Run a declared script from an active skill using its configured interpreter.\n  schema: {\"type\":\"object\",\"required\":[\"skill\",\"script\"],\"properties\":{\"skill\":{\"type\":\"string\"},\"script\":{\"type\":\"string\"},\"args\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timeout_s\":{\"type\":\"integer\",\"minimum\":1}}}\n");
         prompt.push_str("\n- create_skill: Create a skill under ~/.allbert/skills/<name>/SKILL.md.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"allowed_tools\",\"body\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"body\":{\"type\":\"string\"}}}\n");
         prompt.push_str("\n- spawn_subagent: Run a bounded sub-agent with a fresh message history inside the current session.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"prompt\":{\"type\":\"string\"},\"context\":{}}}\n");
         if self.job_manager.is_some() {
@@ -925,6 +969,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             },
             "invoke_skill" => self.dispatch_invoke_skill(state, invocation.input),
             "read_reference" => self.dispatch_read_reference(state, invocation.input),
+            "run_skill_script" => self.dispatch_run_skill_script(state, invocation.input),
             "create_skill" => self.dispatch_create_skill(invocation.input),
             "spawn_subagent" => {
                 self.dispatch_spawn_subagent(state, parent_agent_name, invocation.input)
@@ -1041,6 +1086,98 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 ok: false,
             },
         }
+    }
+
+    fn dispatch_run_skill_script(
+        &mut self,
+        _state: &mut AgentState,
+        _input: serde_json::Value,
+    ) -> ToolOutput {
+        ToolOutput {
+            content: "run_skill_script should be normalized into process_exec before dispatch"
+                .into(),
+            ok: false,
+        }
+    }
+
+    fn normalize_tool_invocation(
+        &self,
+        state: &AgentState,
+        invocation: &ToolInvocation,
+    ) -> Result<EffectiveToolCall, String> {
+        if invocation.name != "run_skill_script" {
+            return Ok(EffectiveToolCall {
+                display_name: invocation.name.clone(),
+                display_input: invocation.input.clone(),
+                execution: invocation.clone(),
+            });
+        }
+
+        let parsed = serde_json::from_value::<RunSkillScriptInput>(invocation.input.clone())
+            .map_err(|err| format!("invalid run_skill_script input: {err}"))?;
+
+        if !state
+            .active_skills
+            .iter()
+            .any(|active| active.name == parsed.skill)
+        {
+            return Err(format!(
+                "skill '{}' must be active before its scripts can run",
+                parsed.skill
+            ));
+        }
+
+        let resolved = self
+            .skills
+            .resolve_script(&parsed.skill, &parsed.script)
+            .map_err(|err| err.to_string())?;
+
+        if self
+            .config
+            .security
+            .exec_deny
+            .iter()
+            .any(|value| value == &resolved.interpreter)
+        {
+            return Err(format!(
+                "interpreter '{}' is hard-blocked by config.security.exec_deny",
+                resolved.interpreter
+            ));
+        }
+        if !self
+            .config
+            .security
+            .exec_allow
+            .iter()
+            .any(|value| value == &resolved.interpreter)
+        {
+            return Err(format!(
+                "interpreter '{}' is not allowlisted; add it to config.security.exec_allow",
+                resolved.interpreter
+            ));
+        }
+
+        let mut args = vec![resolved.path.display().to_string()];
+        args.extend(parsed.args.clone());
+        let execution_input = json!({
+            "program": resolved.interpreter,
+            "args": args,
+            "cwd": resolved.path.parent().map(|path| path.display().to_string()),
+            "timeout_s": parsed.timeout_s,
+            "_skill_script": true,
+            "skill_name": resolved.skill_name,
+            "script_name": resolved.script_name,
+            "script_path": resolved.path.display().to_string(),
+        });
+
+        Ok(EffectiveToolCall {
+            display_name: invocation.name.clone(),
+            display_input: invocation.input.clone(),
+            execution: ToolInvocation {
+                name: "process_exec".into(),
+                input: execution_input,
+            },
+        })
     }
 
     async fn dispatch_spawn_subagent(
@@ -1861,6 +1998,30 @@ mod tests {
         let reference_file = dir.join(reference_path);
         fs::create_dir_all(reference_file.parent().unwrap()).unwrap();
         fs::write(reference_file, reference_body).unwrap();
+    }
+
+    fn write_skill_with_script(
+        paths: &AllbertPaths,
+        name: &str,
+        description: &str,
+        body: &str,
+        script_name: &str,
+        interpreter: &str,
+        script_rel_path: &str,
+        script_body: &str,
+    ) {
+        let dir = paths.skills.join(name);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("SKILL.md"),
+            format!(
+                "---\nname: {name}\ndescription: {description}\nscripts:\n  - name: {script_name}\n    path: {script_rel_path}\n    interpreter: {interpreter}\n---\n\n{body}\n"
+            ),
+        )
+        .unwrap();
+        let script_file = dir.join(script_rel_path);
+        fs::create_dir_all(script_file.parent().unwrap()).unwrap();
+        fs::write(script_file, script_body).unwrap();
     }
 
     struct QueueConfirm {
@@ -2875,7 +3036,7 @@ mod tests {
 
         let deny = exec_policy(
             &NormalizedExec {
-                program: "bash".into(),
+                program: "sh".into(),
                 args: vec!["-c".into(), "ls".into()],
                 cwd: None,
             },
@@ -3476,6 +3637,127 @@ mod tests {
             .expect("tier 3 event should fire");
         assert!(tier1_idx < tier2_idx);
         assert!(tier2_idx < tier3_idx);
+    }
+
+    #[tokio::test]
+    async fn run_skill_script_executes_declared_python_script_via_exec_path() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill_with_script(
+            &paths,
+            "script-runner",
+            "Run a helper script",
+            "Use the helper script when needed.",
+            "helper",
+            "python",
+            "scripts/helper.py",
+            "import sys\nprint('script:' + ' '.join(sys.argv[1:]))\n",
+        );
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::clone(&events)),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"script-runner\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Activated.".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"script-runner\",\"script\":\"helper\",\"args\":[\"alpha\",\"beta\"]}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Done.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("activate").await.expect("turn should pass");
+        events.lock().unwrap().clear();
+        kernel.run_turn("run it").await.expect("turn should pass");
+
+        let recorded = events.lock().unwrap();
+        assert!(recorded.iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "run_skill_script" && *ok && content.contains("script:alpha beta")
+        )));
+    }
+
+    #[tokio::test]
+    async fn run_skill_script_reports_missing_interpreter_allowlist() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill_with_script(
+            &paths,
+            "node-runner",
+            "Run a node helper",
+            "Use the node helper when needed.",
+            "helper",
+            "node",
+            "scripts/helper.js",
+            "console.log('hello');\n",
+        );
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::clone(&events)),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"node-runner\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Activated.".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"node-runner\",\"script\":\"helper\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Done.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("activate").await.expect("turn should pass");
+        events.lock().unwrap().clear();
+        kernel.run_turn("run it").await.expect("turn should pass");
+
+        let recorded = events.lock().unwrap();
+        assert!(recorded.iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "run_skill_script"
+                    && !*ok
+                    && content.contains("not allowlisted")
+                    && content.contains("config.security.exec_allow")
+        )));
     }
 
     #[tokio::test]
@@ -4150,7 +4432,7 @@ mod tests {
                         usage: Usage::default(),
                     },
                     CompletionResponse {
-                        text: "<tool_call>{\"name\":\"process_exec\",\"input\":{\"program\":\"bash\",\"args\":[\"-c\",\"echo nope\"]}}</tool_call>".into(),
+                        text: "<tool_call>{\"name\":\"process_exec\",\"input\":{\"program\":\"sh\",\"args\":[\"-c\",\"echo nope\"]}}</tool_call>".into(),
                         usage: Usage::default(),
                     },
                     CompletionResponse {

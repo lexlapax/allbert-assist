@@ -17,6 +17,7 @@ pub struct Skill {
     pub description: String,
     pub intents: Vec<Intent>,
     pub agents: Vec<ContributedAgent>,
+    pub scripts: Vec<SkillScript>,
     pub allowed_tools: Vec<String>,
     pub body: String,
     pub path: PathBuf,
@@ -40,6 +41,13 @@ pub struct ContributedAgent {
     pub model: Option<ModelConfig>,
     pub body: String,
     pub path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct SkillScript {
+    pub name: String,
+    pub path: String,
+    pub interpreter: String,
 }
 
 #[derive(Debug, Clone)]
@@ -117,6 +125,19 @@ impl SkillStore {
             .iter()
             .flat_map(|skill| skill.agents.iter())
             .find(|agent| agent.name == name)
+    }
+
+    pub fn get_script(
+        &self,
+        skill_name: &str,
+        script_name: &str,
+    ) -> Option<(&Skill, &SkillScript)> {
+        let skill = self.get(skill_name)?;
+        let script = skill
+            .scripts
+            .iter()
+            .find(|script| script.name == script_name)?;
+        Some((skill, script))
     }
 
     pub fn render_agents_markdown(&self) -> String {
@@ -342,6 +363,23 @@ impl SkillStore {
         })
     }
 
+    pub fn resolve_script(
+        &self,
+        skill_name: &str,
+        script_name: &str,
+    ) -> Result<ResolvedSkillScript, SkillError> {
+        let (skill, script) = self
+            .get_script(skill_name, script_name)
+            .ok_or_else(|| SkillError::NotFound(format!("{skill_name}/{script_name}")))?;
+        let path = resolve_declared_child_path(skill.root_dir()?, &script.path, "scripts")?;
+        Ok(ResolvedSkillScript {
+            skill_name: skill.name.clone(),
+            script_name: script.name.clone(),
+            interpreter: script.interpreter.clone(),
+            path,
+        })
+    }
+
     fn replace(&mut self, skill: Skill) {
         if let Some(index) = self
             .skills
@@ -383,6 +421,7 @@ impl SkillStore {
         Ok(Skill {
             agents: load_skill_agents(path, &data.name, &data.agents)?,
             intents: data.intents.normalize()?,
+            scripts: data.scripts.normalize()?,
             name: data.name,
             description: data.description,
             allowed_tools: data.allowed_tools.normalize(),
@@ -400,6 +439,14 @@ pub struct SkillValidationReport {
     pub agents: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct ResolvedSkillScript {
+    pub skill_name: String,
+    pub script_name: String,
+    pub interpreter: String,
+    pub path: PathBuf,
+}
+
 #[derive(Debug, Deserialize)]
 struct Frontmatter {
     name: String,
@@ -408,6 +455,8 @@ struct Frontmatter {
     intents: IntentList,
     #[serde(default)]
     agents: AgentContributions,
+    #[serde(default)]
+    scripts: ScriptEntries,
     #[serde(rename = "allowed-tools", default)]
     allowed_tools: AllowedTools,
 }
@@ -507,6 +556,26 @@ impl ScriptEntries {
             Self::Missing => &[],
             Self::Entries(entries) => entries,
         }
+    }
+
+    fn normalize(&self) -> Result<Vec<SkillScript>, SkillError> {
+        self.entries()
+            .iter()
+            .map(|entry| {
+                validate_strict_skill_name(&entry.name)?;
+                if entry.interpreter.trim().is_empty() {
+                    return Err(SkillError::Load(format!(
+                        "script '{}' is missing an interpreter",
+                        entry.name
+                    )));
+                }
+                Ok(SkillScript {
+                    name: entry.name.clone(),
+                    path: entry.path.clone(),
+                    interpreter: entry.interpreter.clone(),
+                })
+            })
+            .collect()
     }
 }
 
@@ -812,6 +881,22 @@ fn validate_relative_child_path(
     relative: &str,
     expected_prefix: &str,
 ) -> Result<(), SkillError> {
+    let resolved = resolve_declared_child_path(skill_dir, relative, expected_prefix)?;
+    if !resolved.exists() {
+        return Err(SkillError::Load(format!(
+            "referenced path '{}' does not exist for {}",
+            relative,
+            skill_dir.display()
+        )));
+    }
+    Ok(())
+}
+
+fn resolve_declared_child_path(
+    skill_dir: &Path,
+    relative: &str,
+    expected_prefix: &str,
+) -> Result<PathBuf, SkillError> {
     let relative_path = Path::new(relative);
     if relative_path.is_absolute()
         || relative_path
@@ -837,30 +922,11 @@ fn validate_relative_child_path(
             relative, expected_prefix
         )));
     }
-    let resolved = skill_dir.join(relative_path);
-    if !resolved.exists() {
-        return Err(SkillError::Load(format!(
-            "referenced path '{}' does not exist for {}",
-            relative,
-            skill_dir.display()
-        )));
-    }
-    Ok(())
+    Ok(skill_dir.join(relative_path))
 }
 
 fn resolve_resource_path(skill_dir: &Path, relative: &str) -> Result<PathBuf, SkillError> {
     let relative_path = Path::new(relative);
-    if relative_path.is_absolute()
-        || relative_path
-            .components()
-            .any(|component| matches!(component, std::path::Component::ParentDir))
-    {
-        return Err(SkillError::Load(format!(
-            "resource path '{}' must stay inside the skill directory",
-            relative
-        )));
-    }
-
     let Some(prefix) = relative_path
         .components()
         .next()
@@ -879,7 +945,7 @@ fn resolve_resource_path(skill_dir: &Path, relative: &str) -> Result<PathBuf, Sk
         )));
     }
 
-    let resolved = skill_dir.join(relative_path);
+    let resolved = resolve_declared_child_path(skill_dir, relative, prefix)?;
     if !resolved.exists() {
         return Err(SkillError::Load(format!(
             "resource path '{}' does not exist for {}",
