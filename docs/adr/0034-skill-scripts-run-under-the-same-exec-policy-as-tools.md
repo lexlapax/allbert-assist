@@ -21,10 +21,10 @@ Skill scripts run under the same exec policy as tools.
 
 - Skill scripts are declared in `SKILL.md` frontmatter under `scripts:` with an interpreter hint (e.g. `python`, `bash`, `node`) and a relative path (e.g. `scripts/run.py`).
 - The kernel invokes each script through the `process_exec` seam, not via raw subprocess from prompt templates. All `exec_policy` rules apply.
-- Default interpreter allowlist in v0.4: Bash and Python. Node (and any other interpreter) requires explicit opt-in in `config.exec_policy` before a skill that relies on it can run scripts.
+- Interpreter opt-in is expressed through the existing security config rather than a new top-level `exec_policy` table. In v0.4, the default template seeds `security.exec_allow = ["bash", "python"]` for script execution. Node (and any other interpreter) requires explicit opt-in by adding it to `security.exec_allow`. `security.exec_deny` remains a hard block and wins over any allow entry.
 - Every script invocation is observable through the accepted `BeforeTool` / `AfterTool` hook points on the `process_exec` tool, carrying the skill name, interpreter, and script path as metadata. If Allbert later adds dedicated exec hook points, that is an additive extension to ADR 0006 rather than a replacement for the existing names.
-- Skills declaring scripts but lacking an interpreter on the allowlist still load; they simply cannot run those scripts until the user updates `exec_policy`.
-- The preview step at install time (ADR 0033) surfaces required interpreters so the user can see up front whether they will need to widen `exec_policy` before the skill is usable.
+- Skills declaring scripts but lacking an interpreter on the allowlist still load; they simply cannot run those scripts until the user updates `security.exec_allow`.
+- The preview step at install time (ADR 0033) surfaces required interpreters so the user can see up front whether they will need to widen `security.exec_allow` before the skill is usable.
 
 ## Consequences
 

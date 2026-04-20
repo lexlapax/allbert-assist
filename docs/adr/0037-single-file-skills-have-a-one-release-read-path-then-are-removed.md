@@ -23,11 +23,15 @@ Option 1 leaves two permanent validation/loader modes and splits the skill-autho
 
 ## Decision
 
-v0.4 reads both relaxed legacy skills and strict AgentSkills-format skills. v0.5 removes the relaxed compatibility path.
+v0.4 reads both relaxed legacy skills and strict AgentSkills-format skills, and it reads them from two distinct roots. v0.5 removes the relaxed compatibility path.
 
 - On every load of a legacy relaxed skill in v0.4, the skill loader emits a deprecation warning to the console, the trace log, and the skill status output. The warning names the skill and points at the migration helper.
+- The active roots in v0.4 are:
+  - `~/.allbert/skills/installed/` — canonical installed AgentSkills root.
+  - `~/.allbert/skills/` — legacy compatibility root carried forward from shipped v0.3.
+- If a skill name exists in both roots, the installed-root copy wins and the legacy-root copy is ignored with a warning. `~/.allbert/skills/incoming/` is never part of the active read path.
 - A bundled migration helper normalizes a relaxed legacy skill into strict AgentSkills form: it preserves `<skill-name>/SKILL.md`, rewrites metadata into the canonical schema where needed, creates `scripts/`, `references/`, `assets/`, and `agents/` directories when relevant, and validates the result against the AgentSkills schema.
-- The migration helper runs in preview mode by default; a `--apply` flag writes the normalized skill and either updates the original in place or writes to a sibling output path, as the user chooses.
+- The migration helper runs in preview mode by default; a `--apply` flag writes the normalized skill and either updates the original in place or writes it directly into `installed/`, as the user chooses.
 - Bundled first-party skills ship in strict AgentSkills-compatible form starting v0.4; the migration helper is for user-authored skills and for backwards compatibility with out-of-band skill collections.
 - v0.5 removes the relaxed compatibility mode and the deprecation-warning plumbing. Any remaining relaxed legacy skill fails strict validation with an actionable error pointing at the migration helper (which stays available).
 
