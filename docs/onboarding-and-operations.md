@@ -1,6 +1,6 @@
-# Allbert v0.2 Onboarding and Operations
+# Allbert v0.3 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.2 release.
+This guide is the operator reference for the source-based v0.3 release.
 
 ## Quickstart
 
@@ -9,6 +9,7 @@ This guide is the operator reference for the source-based v0.2 release.
 3. Complete the guided setup flow.
 4. Confirm daemon/session state with `/status`.
 5. Use `allbert-cli daemon status` and `allbert-cli jobs list` as needed.
+6. Inspect the current agent catalog with `allbert-cli agents list` if you want to see available contributed agents.
 
 ## Guided setup
 
@@ -54,11 +55,11 @@ If `fs_roots` is empty:
 - startup prints a warning
 - `/status` shows `(none)` for trusted roots
 
-This is intentional. v0.2 still prefers explicit workspace trust over permissive defaults.
+This is intentional. v0.3 still prefers explicit workspace trust over permissive defaults.
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical v0.2 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical v0.3 file looks like:
 
 ```toml
 trace = false
@@ -118,7 +119,7 @@ Useful REPL commands:
 - `/s`
   Alias for `/status`.
 - `/status`
-  Shows provider, model, API-key env presence, setup version, bootstrap pending state, trusted roots, daemon auto-spawn, jobs enablement, jobs timezone, skill count, and trace mode.
+  Shows provider, model, root agent, last active agent stack, last resolved intent, API-key env presence, setup version, bootstrap pending state, trusted roots, daemon auto-spawn, jobs enablement, jobs timezone, skill count, and trace mode.
 - `/setup`
   Reruns guided setup. This updates config/bootstrap state and reloads daemon defaults plus job definitions for the current daemon session.
 - `/model`
@@ -145,6 +146,12 @@ Daemon commands:
 - `cargo run -p allbert-cli -- daemon stop`
 - `cargo run -p allbert-cli -- daemon restart`
 - `cargo run -p allbert-cli -- daemon logs [--debug] [--follow] [--lines N]`
+
+Agent commands:
+
+- `cargo run -p allbert-cli -- agents list`
+
+`allbert-cli agents list` prints the same catalog the kernel writes to `~/.allbert/AGENTS.md`.
 
 Notes:
 
@@ -197,7 +204,7 @@ Conversational scheduling works best when you ask plainly. Good examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant should compile naturally in v0.2:
+Common schedule forms the assistant should compile naturally in v0.3:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -208,7 +215,7 @@ When you create, update, pause, resume, or remove a job from normal conversation
 
 ## Bundled maintenance jobs
 
-v0.2 seeds these disabled templates:
+v0.3 seeds these disabled templates:
 
 - `daily-brief`
 - `weekly-review`
@@ -221,6 +228,13 @@ The setup wizard can enable selected templates for you. If you skip them there, 
 ## Skills and memory
 
 Skills live under `~/.allbert/skills/`.
+
+In v0.3, skills can also preview:
+
+- `intents:` metadata to hint the intent router
+- `agents:` metadata to contribute namespaced sub-agents
+
+The active agent roster is written to `~/.allbert/AGENTS.md` and included in the bootstrap prompt bundle.
 
 Memory is durable and file-based:
 
@@ -292,13 +306,14 @@ Setup feels incomplete:
 
 ## Release posture
 
-v0.2 is a shipped technical-user release:
+v0.3 is a shipped technical-user release:
 
 - source-based
 - terminal-first
 - daemon-backed but still local-user-only
 - explicit workspace trust
 - guided bootstrap and daemon/jobs setup
+- first-class agents and intent routing with operator-visible status
 
 Known limitations remain explicit:
 
@@ -306,3 +321,4 @@ Known limitations remain explicit:
 - no boot-time OS service install yet
 - in-memory interactive sessions are not restart-durable
 - the daemon is lightweight and in-process, not a heavy isolated supervisor
+- sub-agent delegation remains bounded to one nested level

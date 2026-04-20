@@ -1,7 +1,7 @@
 # ADR 0030: Intent routing is a kernel step, not a skill concern
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

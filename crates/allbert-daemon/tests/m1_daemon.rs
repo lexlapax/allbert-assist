@@ -829,6 +829,83 @@ async fn trace_toggle_updates_status_and_debug_log() {
 }
 
 #[tokio::test]
+async fn session_status_reports_last_intent_and_agent_stack() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(concat!(
+                "<tool_call>{\"name\":\"spawn_subagent\",\"input\":",
+                "{\"name\":\"research/reader\",\"prompt\":\"Summarize the note.\"}}",
+                "</tool_call>"
+            )),
+            scripted("child summary"),
+            scripted("delegated successfully"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    std::fs::create_dir_all(paths.skills.join("research")).expect("skill dir should exist");
+    std::fs::write(
+        paths.skills.join("research/SKILL.md"),
+        r#"---
+name: research
+description: Research helpers.
+intents: [task]
+agents:
+  - path: agents/reader.md
+---
+
+# Research
+
+Use the reader agent for focused reading tasks.
+"#,
+    )
+    .expect("skill should write");
+    std::fs::create_dir_all(paths.skills.join("research/agents")).expect("agents dir should exist");
+    std::fs::write(
+        paths.skills.join("research/agents/reader.md"),
+        r#"---
+name: reader
+description: Focused reader.
+allowed-tools: read_file
+---
+
+# Reader
+
+Read carefully and summarize clearly.
+"#,
+    )
+    .expect("agent should write");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+
+    let messages = run_turn_collect_messages(&mut client, "please review this note").await;
+    assert!(messages.iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::AssistantText(text))
+        if text == "delegated successfully"
+    )));
+
+    let status = client.session_status().await.expect("status should load");
+    assert_eq!(status.root_agent_name, "allbert/root");
+    assert_eq!(status.last_resolved_intent.as_deref(), Some("task"));
+    assert_eq!(
+        status.last_agent_stack,
+        vec!["allbert/root".to_string(), "research/reader".to_string()]
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
 async fn interactive_session_can_upsert_and_inspect_jobs_via_prompt_tools() {
     let home = TempHome::new();
     let paths = home.paths();

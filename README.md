@@ -1,16 +1,19 @@
 # Allbert
 
-Allbert is a terminal-first personal assistant built around a small Rust kernel, markdown bootstrap files, markdown memory, skills, built-in tools, policy checks, cost tracking, and a local daemon runtime.
+Allbert is a terminal-first personal assistant built around a small Rust kernel, markdown bootstrap files, markdown memory, skills, built-in tools, policy checks, cost tracking, first-class agents, intent routing, and a local daemon runtime.
 
-v0.2 targets a technical source-based user. You build it from source, point it at an Anthropic or OpenRouter API key, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, and recurring jobs.
+v0.3 targets a technical source-based user. You build it from source, point it at an Anthropic or OpenRouter API key, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, recurring jobs, and agent inspection.
 
-The daemon-backed jobs substrate, prompt-facing job tools, and explicit preview-and-confirm flow for durable schedule mutation are all part of the shipped v0.2 experience. You can manage recurring jobs through `allbert-cli jobs ...` or through normal conversation in the REPL, with the CLI preserved as the clearest operator escape hatch.
+The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, and generated `AGENTS.md` catalog are all part of the shipped v0.3 experience. You can manage recurring jobs through `allbert-cli jobs ...` or through normal conversation in the REPL, with the CLI preserved as the clearest operator escape hatch.
 
-## What v0.2 includes
+## What v0.3 includes
 
 - a kernel that owns the agent loop, tools, memory, skills, policy, cost, and tracing
 - a local daemon host with attachable REPL, CLI, and jobs channels
 - daemon-backed REPL sessions with reconnectable in-memory session state while the daemon is alive
+- a root agent per session plus bounded sub-agent spawning
+- intent routing over `{task, chat, schedule, memory_query, meta}`
+- generated `AGENTS.md` plus `allbert-cli agents list` for agent discovery
 - markdown bootstrap personality files under `~/.allbert/`
 - built-in tools for process exec, filesystem access, input, web fetch/search, skills, and memory
 - explicit workspace trust through `fs_roots`
@@ -55,6 +58,12 @@ List jobs:
 
 ```bash
 cargo run -p allbert-cli -- jobs list
+```
+
+List registered agents:
+
+```bash
+cargo run -p allbert-cli -- agents list
 ```
 
 The dedicated alias still works if you prefer it:
@@ -113,7 +122,7 @@ REPL slash commands:
 - `/h` is an alias for `/help`
 - `/help` shows command help
 - `/s` is an alias for `/status`
-- `/status` shows provider, setup state, trusted roots, daemon/jobs defaults, API-key presence, installed skill count, and trace mode
+- `/status` shows provider, model, root agent, last active agent stack, last resolved intent, setup state, trusted roots, daemon/jobs defaults, API-key presence, installed skill count, and trace mode
 - `/setup` reruns guided setup and reloads config for the current daemon session
 - `/model` shows the active session model
 - `/model <anthropic|openrouter> <model_id> [api_key_env]` switches model/provider for the attached session only
@@ -140,6 +149,11 @@ Jobs commands:
 - `allbert-cli jobs run <name>`
 - `allbert-cli jobs remove <name>`
 
+Agent inspection:
+
+- `allbert-cli agents list`
+- `cat ~/.allbert/AGENTS.md`
+
 The job status surface includes recent outcome, last stop reason, and failure streak so you do not need to inspect JSONL files first.
 
 Conversational scheduling examples:
@@ -153,7 +167,7 @@ Conversational scheduling examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant understands well in v0.2:
+Common schedule forms the assistant understands well in v0.3:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -182,6 +196,7 @@ Chat history is not the durable store. Important facts need to be written into m
 - `~/.allbert/USER.md`
 - `~/.allbert/IDENTITY.md`
 - `~/.allbert/TOOLS.md`
+- `~/.allbert/AGENTS.md`
 - `~/.allbert/jobs/definitions/`
 - `~/.allbert/jobs/runs/`
 - `~/.allbert/jobs/failures/`
@@ -196,10 +211,11 @@ Chat history is not the durable store. Important facts need to be written into m
 - terminal-first and local-user-only
 - local IPC only; no remote/network control plane
 - interactive session state survives client reattach while the daemon is alive, but not a daemon restart
+- sub-agent delegation is intentionally bounded to one nested level in v0.3
 - no boot-time OS service install yet
 - bundled job templates are intentionally disabled by default
 - live provider use still depends on your network and API-key env vars
-- conversational scheduling is optimized for the bounded schedule DSL used by v0.2; raw cron remains an advanced escape hatch
+- conversational scheduling is optimized for the bounded schedule DSL used by v0.2/v0.3; raw cron remains an advanced escape hatch
 
 ## More detail
 

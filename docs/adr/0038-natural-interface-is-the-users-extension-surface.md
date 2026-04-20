@@ -1,7 +1,7 @@
 # ADR 0038: Natural interface is the user's extension surface
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

@@ -38,6 +38,8 @@ enum Command {
         #[command(subcommand)]
         command: JobsCommand,
     },
+    #[command(name = "internal-daemon-host", hide = true)]
+    InternalDaemonHost,
 }
 
 #[derive(Subcommand, Debug)]
@@ -82,6 +84,7 @@ async fn main() -> Result<()> {
             }
             run_repl(&paths, &config, args.trace, args.yes).await
         }
+        Some(Command::InternalDaemonHost) => run_internal_daemon_host().await,
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
                 config = match setup::run_setup_wizard(&paths, &config)? {
@@ -114,6 +117,20 @@ async fn main() -> Result<()> {
             run_daemon_command(&paths, &config, command).await
         }
     }
+}
+
+async fn run_internal_daemon_host() -> Result<()> {
+    let paths = AllbertPaths::from_home()?;
+    let config = Config::load_or_create(&paths)?;
+    let daemon = allbert_daemon::spawn(config, paths).await?;
+    let shutdown = daemon.shutdown_handle();
+    tokio::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            shutdown.cancel();
+        }
+    });
+    daemon.wait().await?;
+    Ok(())
 }
 
 async fn run_agents_command(
@@ -177,8 +194,7 @@ async fn run_daemon_command(
             Ok(())
         }
         DaemonCommand::Start => {
-            let mut spawn = default_spawn_config(paths, config)?;
-            spawn.wait_timeout = Duration::from_secs(5);
+            let spawn = default_spawn_config(paths, config)?;
             let mut client = DaemonClient::connect_or_spawn(paths, ClientKind::Cli, &spawn).await?;
             println!(
                 "{}",
@@ -189,8 +205,7 @@ async fn run_daemon_command(
         DaemonCommand::Stop => stop_daemon(paths).await,
         DaemonCommand::Restart => {
             let _ = stop_daemon(paths).await;
-            let mut spawn = default_spawn_config(paths, config)?;
-            spawn.wait_timeout = Duration::from_secs(5);
+            let spawn = default_spawn_config(paths, config)?;
             let mut client = DaemonClient::connect_or_spawn(paths, ClientKind::Cli, &spawn).await?;
             println!(
                 "{}",

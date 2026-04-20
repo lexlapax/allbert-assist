@@ -416,6 +416,10 @@ fn spawn_config_for_executable(
     let allbert_home = paths.root.clone();
     let mut spawn = if let Some(program) = resolve_daemon_binary(&current_exe) {
         SpawnConfig::new(program, allbert_home)
+    } else if is_cli_binary(current_exe) {
+        let mut spawn = SpawnConfig::new(current_exe.to_path_buf(), allbert_home);
+        spawn.args = vec!["internal-daemon-host".into()];
+        spawn
     } else if let Some(workspace_root) = find_workspace_root(&current_exe) {
         let mut spawn = SpawnConfig::new(PathBuf::from("cargo"), allbert_home);
         spawn.args = vec![
@@ -449,6 +453,14 @@ fn resolve_daemon_binary(current_exe: &Path) -> Option<PathBuf> {
         }
     }
     candidates.into_iter().find(|candidate| candidate.exists())
+}
+
+fn is_cli_binary(current_exe: &Path) -> bool {
+    current_exe
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .map(|name| name == "allbert-cli")
+        .unwrap_or(false)
 }
 
 fn find_workspace_root(current_exe: &Path) -> Option<PathBuf> {
@@ -536,6 +548,22 @@ mod tests {
         );
         assert_eq!(spawn.working_dir.as_deref(), Some(temp.path.as_path()));
         assert_eq!(spawn.wait_timeout, Duration::from_secs(20));
+    }
+
+    #[test]
+    fn uses_current_cli_binary_as_hidden_daemon_host_when_sibling_daemon_is_missing() {
+        let temp = TempDir::new();
+        let paths = AllbertPaths::under(temp.path.join(".allbert"));
+        let exe_dir = temp.path.join("target").join("debug");
+        std::fs::create_dir_all(&exe_dir).expect("exe dir should exist");
+        let current_exe = exe_dir.join("allbert-cli");
+        std::fs::write(&current_exe, "").expect("fake cli binary should exist");
+
+        let spawn = spawn_config_for_executable(&current_exe, &paths, &Config::default_template())
+            .expect("spawn config should resolve");
+        assert_eq!(spawn.program, current_exe);
+        assert_eq!(spawn.args, vec!["internal-daemon-host".to_string()]);
+        assert!(spawn.working_dir.is_none());
     }
 }
 

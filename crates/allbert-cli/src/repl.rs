@@ -15,11 +15,14 @@ commands:
   /cost     show session cost and today's recorded total
   /help     show this help
   /model    show or change the active model
-  /s        show provider, setup, roots, and trace state
+  /s        show provider, intent, agent, setup, roots, and trace state
   /setup    rerun guided setup and reload config for this session
-  /status   show provider, setup, roots, and trace state
+  /status   show provider, current agent context, setup, roots, and trace state
   /exit     leave the REPL
   /quit     leave the REPL
+  operator inspection:
+    - allbert-cli agents list
+    - cat ~/.allbert/AGENTS.md
   ask naturally for recurring work:
     - \"what jobs do I have?\"
     - \"schedule a daily review at 07:00\"
@@ -365,6 +368,9 @@ fn snapshot_from_proto(
         daemon_auto_spawn: config.daemon.auto_spawn,
         jobs_enabled: config.jobs.enabled,
         jobs_default_timezone: config.jobs.default_timezone.clone(),
+        root_agent_name: status.root_agent_name.clone(),
+        last_agent_stack: status.last_agent_stack.clone(),
+        last_resolved_intent: status.last_resolved_intent.clone(),
     }
 }
 

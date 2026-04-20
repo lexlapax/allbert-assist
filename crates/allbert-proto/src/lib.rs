@@ -100,6 +100,9 @@ pub struct SessionStatus {
     pub trace_enabled: bool,
     pub session_cost_usd: f64,
     pub today_cost_usd: f64,
+    pub root_agent_name: String,
+    pub last_agent_stack: Vec<String>,
+    pub last_resolved_intent: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

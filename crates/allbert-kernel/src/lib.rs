@@ -258,9 +258,14 @@ impl Kernel {
         emit_terminal_events: bool,
     ) -> Result<AgentRunSummary, KernelError> {
         state.turn_count = state.turn_count.saturating_add(1);
+        state.last_agent_stack = match parent_agent_name.as_deref() {
+            Some(parent) => vec![parent.to_string(), state.agent_name().to_string()],
+            None => vec![state.agent_name().to_string()],
+        };
         let resolved_intent = self
             .resolve_intent_for_turn(state, user_input, parent_agent_name.clone())
             .await?;
+        state.last_resolved_intent = resolved_intent.clone();
         tracing::info!(
             session = %state.session_id,
             agent = %state.agent_name(),
@@ -619,6 +624,14 @@ impl Kernel {
 
     pub fn agent_name(&self) -> &str {
         self.state.agent_name()
+    }
+
+    pub fn last_resolved_intent(&self) -> Option<&Intent> {
+        self.state.last_resolved_intent.as_ref()
+    }
+
+    pub fn last_agent_stack(&self) -> &[String] {
+        &self.state.last_agent_stack
     }
 
     pub fn set_adapter(&mut self, adapter: FrontendAdapter) {
@@ -1050,6 +1063,8 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         .await;
 
         state.cost_total_usd += subagent_state.cost_total_usd;
+        state.last_agent_stack = subagent_state.last_agent_stack.clone();
+        state.last_resolved_intent = subagent_state.last_resolved_intent.clone();
 
         let tool_output = match run_result {
             Ok(summary) => {

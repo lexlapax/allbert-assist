@@ -904,6 +904,11 @@ async fn session_status(
         trace_enabled: state.trace_enabled.load(Ordering::SeqCst),
         session_cost_usd: kernel.session_cost_usd(),
         today_cost_usd: kernel.today_cost_usd().map_err(map_kernel_error)?,
+        root_agent_name: kernel.agent_name().to_string(),
+        last_agent_stack: kernel.last_agent_stack().to_vec(),
+        last_resolved_intent: kernel
+            .last_resolved_intent()
+            .map(|intent| intent.as_str().to_string()),
     })
 }
 

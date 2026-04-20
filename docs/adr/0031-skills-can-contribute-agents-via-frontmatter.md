@@ -1,7 +1,7 @@
 # ADR 0031: Skills can contribute agents via frontmatter
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

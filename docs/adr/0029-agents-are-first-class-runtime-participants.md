@@ -1,7 +1,7 @@
 # ADR 0029: Agents are first-class runtime participants
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

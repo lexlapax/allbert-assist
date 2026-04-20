@@ -34,11 +34,11 @@ The project is centered on a small Rust runtime kernel rather than a bloated app
 
 ## Agent Direction
 
-Allbert should treat agents as first-class runtime participants rather than as a framing of prompts. Each session has a root agent; an orchestrator agent can spawn bounded sub-agents for focused sub-tasks. Every sub-agent turn runs through the same kernel hooks, cost tracking, and policy envelope as any other turn. Skills can contribute new agent roles without requiring kernel changes, so the set of agents grows with the skill ecosystem rather than with a bespoke registry.
+Allbert should treat agents as first-class runtime participants rather than as a framing of prompts. Each session has a root agent; an orchestrator agent can spawn bounded sub-agents for focused sub-tasks. Every sub-agent turn runs through the same kernel hooks, cost tracking, and policy envelope as any other turn. Skills can contribute new agent roles without requiring kernel changes, so the set of agents grows with the skill ecosystem rather than with a bespoke registry. A generated `AGENTS.md` index should keep that roster inspectable for end users.
 
 ## Intent Direction
 
-Allbert should classify what the user turn is asking for — task, chat, schedule, memory query, meta — before constructing an agent turn. Classification is a kernel step, not a prompt trick: it is observable via hooks, cost-tracked via the same surfaces as any other LLM call, and swappable without rewriting skills. Intent is a hint that guides skill selection and sub-agent choice, not a hard gate that blocks the user.
+Allbert should classify what the user turn is asking for — task, chat, schedule, memory query, meta — before constructing an agent turn. Classification is a kernel step, not a prompt trick: it is observable via hooks, cost-tracked via the same surfaces as any other LLM call, and swappable without rewriting skills. Intent is a hint that guides skill selection and sub-agent choice, not a hard gate that blocks the user. The active operator surface should expose the last resolved intent so the system remains legible instead of magical.
 
 ## Memory Direction
 

@@ -39,6 +39,9 @@ pub struct StatusSnapshot {
     pub daemon_auto_spawn: bool,
     pub jobs_enabled: bool,
     pub jobs_default_timezone: Option<String>,
+    pub root_agent_name: String,
+    pub last_agent_stack: Vec<String>,
+    pub last_resolved_intent: Option<String>,
 }
 
 pub fn needs_setup(config: &Config, paths: &AllbertPaths) -> bool {
@@ -239,13 +242,23 @@ pub fn render_status(snapshot: &StatusSnapshot) -> String {
     };
 
     format!(
-        "provider:           {}\nmodel:              {}\napi key env:        {} ({})\nsetup version:      {}\nbootstrap pending:  {}\ntrusted roots:      {}\nskills installed:   {}\ntrace enabled:      {}\ndaemon auto-spawn:  {}\njobs enabled:       {}\njobs timezone:      {}",
+        "provider:           {}\nmodel:              {}\napi key env:        {} ({})\nsetup version:      {}\nbootstrap pending:  {}\nroot agent:         {}\nlast agent stack:   {}\nlast intent:        {}\ntrusted roots:      {}\nskills installed:   {}\ntrace enabled:      {}\ndaemon auto-spawn:  {}\njobs enabled:       {}\njobs timezone:      {}",
         snapshot.provider,
         snapshot.model_id,
         snapshot.api_key_env,
         if snapshot.api_key_present { "set" } else { "missing" },
         snapshot.setup_version,
         if snapshot.bootstrap_pending { "yes" } else { "no" },
+        snapshot.root_agent_name,
+        if snapshot.last_agent_stack.is_empty() {
+            "(none yet)".into()
+        } else {
+            snapshot.last_agent_stack.join(" -> ")
+        },
+        snapshot
+            .last_resolved_intent
+            .as_deref()
+            .unwrap_or("(none yet)"),
         if snapshot.trusted_roots.is_empty() {
             roots
         } else {
@@ -831,6 +844,9 @@ mod tests {
             daemon_auto_spawn: true,
             jobs_enabled: true,
             jobs_default_timezone: Some("America/Los_Angeles".into()),
+            root_agent_name: "allbert/root".into(),
+            last_agent_stack: vec!["allbert/root".into()],
+            last_resolved_intent: Some("task".into()),
         });
 
         assert!(rendered.contains("ANTHROPIC_API_KEY (missing)"));
@@ -838,6 +854,9 @@ mod tests {
         assert!(rendered.contains("trace enabled:      yes"));
         assert!(rendered.contains("daemon auto-spawn:  yes"));
         assert!(rendered.contains("jobs timezone:      America/Los_Angeles"));
+        assert!(rendered.contains("root agent:         allbert/root"));
+        assert!(rendered.contains("last agent stack:   allbert/root"));
+        assert!(rendered.contains("last intent:        task"));
     }
 
     #[test]

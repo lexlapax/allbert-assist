@@ -1,6 +1,7 @@
 ---
 name: note-taker
 description: Capture short notes into project files.
+intents: [task, memory_query]
 allowed-tools: write_file request_input
 ---
 

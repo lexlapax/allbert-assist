@@ -1,7 +1,7 @@
 # ADR 0039: AGENTS.md joins the bootstrap bundle in v0.3
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

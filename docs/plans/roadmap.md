@@ -8,7 +8,7 @@ This is a living index of release plans. Each release has its own plan file with
 | --- | --- | --- | --- |
 | v0.1 | Source-based CLI MVP with kernel, skills, memory, exec policy | Shipped | [v0.1-mvp.md](v0.1-mvp.md) |
 | v0.2 | Daemon host, scheduled jobs, multi-session kernel, local IPC | Shipped | [v0.2-scheduled-jobs.md](v0.2-scheduled-jobs.md) |
-| v0.3 | First-class agents, sub-agent harness, intent routing | Proposed | [v0.3-agent-harness.md](v0.3-agent-harness.md) |
+| v0.3 | First-class agents, sub-agent harness, intent routing | Shipped | [v0.3-agent-harness.md](v0.3-agent-harness.md) |
 | v0.4 | AgentSkills folder format, install trust model, script policy | Proposed | [v0.4-agentskills-adoption.md](v0.4-agentskills-adoption.md) |
 | v0.5 | Curated memory: ranked retrieval, tiered storage, staging | Proposed | [v0.5-curated-memory.md](v0.5-curated-memory.md) |
 | v0.6 | Channel expansion: Telegram pilot and the Channel trait | Proposed | [v0.6-channel-expansion.md](v0.6-channel-expansion.md) |

@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use crate::intent::Intent;
 use crate::llm::ChatMessage;
 use crate::skills::ActiveSkill;
 use crate::ModelConfig;
@@ -29,6 +30,8 @@ pub struct AgentState {
     pub model_override: Option<ModelConfig>,
     pub turn_count: u32,
     pub cost_total_usd: f64,
+    pub last_resolved_intent: Option<Intent>,
+    pub last_agent_stack: Vec<String>,
 }
 
 impl AgentState {
@@ -37,6 +40,7 @@ impl AgentState {
     }
 
     pub fn for_agent(session_id: String, root_agent: AgentDefinition) -> Self {
+        let root_name = root_agent.name.clone();
         Self {
             session_id,
             root_agent,
@@ -46,6 +50,8 @@ impl AgentState {
             model_override: None,
             turn_count: 0,
             cost_total_usd: 0.0,
+            last_resolved_intent: None,
+            last_agent_stack: vec![root_name],
         }
     }
 
@@ -57,6 +63,8 @@ impl AgentState {
         self.model_override = None;
         self.turn_count = 0;
         self.cost_total_usd = 0.0;
+        self.last_resolved_intent = None;
+        self.last_agent_stack = vec![self.root_agent.name.clone()];
     }
 
     pub fn agent_name(&self) -> &str {
