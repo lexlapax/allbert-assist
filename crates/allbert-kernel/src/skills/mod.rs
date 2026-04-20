@@ -9,7 +9,7 @@ use serde_json::Value;
 
 use crate::error::SkillError;
 use crate::intent::Intent;
-use crate::{ModelConfig, Provider};
+use crate::{AllbertPaths, ModelConfig, Provider};
 
 #[derive(Debug, Clone)]
 pub struct Skill {
@@ -78,6 +78,12 @@ impl SkillStore {
         }
         skills.sort_by(|a, b| a.name.cmp(&b.name));
         Self { skills }
+    }
+
+    pub fn validate_path(path: &Path) -> Result<SkillValidationReport, SkillError> {
+        let report = validate_skill_path_internal(path)?;
+        Self::load_skill_file_strict(path)?;
+        Ok(report)
     }
 
     pub fn all(&self) -> &[Skill] {
@@ -181,7 +187,7 @@ impl SkillStore {
         allowed_tools: &[String],
         body: &str,
     ) -> Result<Skill, SkillError> {
-        validate_skill_name(name)?;
+        validate_relaxed_skill_name(name)?;
         let skill_dir = skills_root.join(name);
         let skill_path = skill_dir.join("SKILL.md");
         fs::create_dir_all(&skill_dir)
@@ -313,6 +319,14 @@ impl SkillStore {
     }
 
     fn load_skill_file(path: &Path) -> Result<Skill, SkillError> {
+        Self::load_skill_file_with_mode(path, false)
+    }
+
+    fn load_skill_file_strict(path: &Path) -> Result<Skill, SkillError> {
+        Self::load_skill_file_with_mode(path, true)
+    }
+
+    fn load_skill_file_with_mode(path: &Path, strict: bool) -> Result<Skill, SkillError> {
         let raw = fs::read_to_string(path)
             .map_err(|err| SkillError::Load(format!("read {}: {err}", path.display())))?;
         let matter = Matter::<YAML>::new();
@@ -323,12 +337,10 @@ impl SkillStore {
             SkillError::Load(format!("missing frontmatter in {}", path.display()))
         })?;
 
-        validate_skill_name(&data.name)?;
-        if data.description.trim().is_empty() {
-            return Err(SkillError::Load(format!(
-                "missing description in {}",
-                path.display()
-            )));
+        if strict {
+            validate_skill_path_internal(path)?;
+        } else {
+            validate_relaxed_skill_path(path, &data.name, &data.description)?;
         }
 
         Ok(Skill {
@@ -343,6 +355,14 @@ impl SkillStore {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SkillValidationReport {
+    pub name: String,
+    pub path: PathBuf,
+    pub scripts: usize,
+    pub agents: usize,
+}
+
 #[derive(Debug, Deserialize)]
 struct Frontmatter {
     name: String,
@@ -353,6 +373,50 @@ struct Frontmatter {
     agents: AgentContributions,
     #[serde(rename = "allowed-tools", default)]
     allowed_tools: AllowedTools,
+}
+
+#[derive(Debug, Deserialize)]
+struct ValidationFrontmatter {
+    name: String,
+    description: String,
+    #[serde(default)]
+    compatibility: Option<CompatibilityFrontmatter>,
+    #[serde(default)]
+    metadata: Option<serde_json::Value>,
+    #[serde(default)]
+    license: Option<String>,
+    #[serde(default)]
+    intents: IntentList,
+    #[serde(default)]
+    agents: AgentContributions,
+    #[serde(default)]
+    scripts: ScriptEntries,
+    #[serde(rename = "allowed-tools", default)]
+    allowed_tools: AllowedTools,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+struct CompatibilityFrontmatter {
+    #[serde(default)]
+    agentskills: Option<String>,
+    #[serde(default)]
+    allbert: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(untagged)]
+enum ScriptEntries {
+    #[default]
+    Missing,
+    Entries(Vec<ScriptEntry>),
+}
+
+#[derive(Debug, Deserialize)]
+struct ScriptEntry {
+    name: String,
+    path: String,
+    interpreter: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -396,6 +460,15 @@ impl AgentContributions {
             Self::Missing => Vec::new(),
             Self::Paths(paths) => paths.clone(),
             Self::Entries(entries) => entries.iter().map(|entry| entry.path.clone()).collect(),
+        }
+    }
+}
+
+impl ScriptEntries {
+    fn entries(&self) -> &[ScriptEntry] {
+        match self {
+            Self::Missing => &[],
+            Self::Entries(entries) => entries,
         }
     }
 }
@@ -452,7 +525,7 @@ fn load_skill_agents(
         let data = parsed.data.ok_or_else(|| {
             SkillError::Load(format!("missing frontmatter in {}", path.display()))
         })?;
-        validate_skill_name(&data.name)?;
+        validate_relaxed_skill_name(&data.name)?;
         let namespaced = format!("{skill_name}/{}", data.name);
         agents.push(ContributedAgent {
             skill_name: skill_name.into(),
@@ -489,11 +562,14 @@ impl AllowedTools {
 
 fn find_skill_files(root: &Path) -> Vec<PathBuf> {
     let mut out = Vec::new();
-    walk_for_skill_files(root, &mut out);
+    let installed_root = root.join("installed");
+    let incoming_root = root.join("incoming");
+    collect_immediate_skill_files(&installed_root, &mut out);
+    collect_legacy_skill_files(root, &installed_root, &incoming_root, &mut out);
     out
 }
 
-fn walk_for_skill_files(root: &Path, out: &mut Vec<PathBuf>) {
+fn collect_immediate_skill_files(root: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(root) else {
         return;
     };
@@ -501,18 +577,61 @@ fn walk_for_skill_files(root: &Path, out: &mut Vec<PathBuf>) {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
-            walk_for_skill_files(&path, out);
-        } else if path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| name.eq_ignore_ascii_case("SKILL.md"))
-        {
-            out.push(path);
+            let skill_md = path.join("SKILL.md");
+            if skill_md.exists() {
+                out.push(skill_md);
+            }
         }
     }
 }
 
-fn validate_skill_name(name: &str) -> Result<(), SkillError> {
+fn collect_legacy_skill_files(
+    root: &Path,
+    installed_root: &Path,
+    incoming_root: &Path,
+    out: &mut Vec<PathBuf>,
+) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+
+    let installed_name = installed_root.file_name().and_then(|name| name.to_str());
+    let incoming_name = incoming_root.file_name().and_then(|name| name.to_str());
+    let installed_stems = out
+        .iter()
+        .filter_map(|path| path.parent())
+        .filter_map(|path| path.file_name())
+        .filter_map(|name| name.to_str())
+        .map(str::to_string)
+        .collect::<HashSet<_>>();
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let Some(dir_name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if Some(dir_name) == installed_name || Some(dir_name) == incoming_name {
+            continue;
+        }
+        if installed_stems.contains(dir_name) {
+            tracing::warn!(
+                "ignoring legacy skill at {} because installed/{} takes precedence",
+                path.display(),
+                dir_name
+            );
+            continue;
+        }
+        let skill_md = path.join("SKILL.md");
+        if skill_md.exists() {
+            out.push(skill_md);
+        }
+    }
+}
+
+fn validate_relaxed_skill_name(name: &str) -> Result<(), SkillError> {
     if name.is_empty() {
         return Err(SkillError::Load("skill name cannot be empty".into()));
     }
@@ -532,6 +651,166 @@ fn validate_skill_name(name: &str) -> Result<(), SkillError> {
     }
 }
 
+fn validate_strict_skill_name(name: &str) -> Result<(), SkillError> {
+    if name.is_empty() {
+        return Err(SkillError::Load("skill name cannot be empty".into()));
+    }
+    if name.len() > 64 {
+        return Err(SkillError::Load("skill name is too long".into()));
+    }
+    if name
+        .chars()
+        .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
+        && !name.starts_with('-')
+        && !name.ends_with('-')
+        && !name.contains("--")
+    {
+        Ok(())
+    } else {
+        Err(SkillError::Load(format!(
+            "skill name '{}' must be kebab-case",
+            name
+        )))
+    }
+}
+
+fn validate_relaxed_skill_path(
+    path: &Path,
+    name: &str,
+    description: &str,
+) -> Result<(), SkillError> {
+    validate_relaxed_skill_name(name)?;
+    if description.trim().is_empty() {
+        return Err(SkillError::Load(format!(
+            "missing description in {}",
+            path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn validate_skill_path_internal(path: &Path) -> Result<SkillValidationReport, SkillError> {
+    if path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_none_or(|name| !name.eq_ignore_ascii_case("SKILL.md"))
+    {
+        return Err(SkillError::Load(format!(
+            "expected a SKILL.md file, got {}",
+            path.display()
+        )));
+    }
+
+    let raw = fs::read_to_string(path)
+        .map_err(|err| SkillError::Load(format!("read {}: {err}", path.display())))?;
+    let matter = Matter::<YAML>::new();
+    let parsed = matter
+        .parse::<ValidationFrontmatter>(&raw)
+        .map_err(|err| SkillError::Load(format!("parse {}: {err}", path.display())))?;
+    let data = parsed
+        .data
+        .ok_or_else(|| SkillError::Load(format!("missing frontmatter in {}", path.display())))?;
+
+    validate_strict_skill_name(&data.name)?;
+    if data.description.trim().is_empty() {
+        return Err(SkillError::Load(format!(
+            "missing description in {}",
+            path.display()
+        )));
+    }
+    if data.description.chars().count() > 1024 {
+        return Err(SkillError::Load(format!(
+            "description is too long in {}",
+            path.display()
+        )));
+    }
+
+    let skill_dir = path
+        .parent()
+        .ok_or_else(|| SkillError::Load(format!("missing parent for {}", path.display())))?;
+    let dir_name = skill_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| {
+            SkillError::Load(format!("invalid skill directory {}", skill_dir.display()))
+        })?;
+    if dir_name != data.name {
+        return Err(SkillError::Load(format!(
+            "skill directory '{}' does not match frontmatter name '{}'",
+            dir_name, data.name
+        )));
+    }
+
+    let _ = data.intents.normalize()?;
+    let _ = data.allowed_tools.normalize();
+    let _ = data.metadata;
+    let _ = data.license;
+    let _ = data.compatibility;
+
+    for relative in data.agents.normalize() {
+        validate_relative_child_path(skill_dir, &relative, "agents")?;
+    }
+    for script in data.scripts.entries() {
+        validate_strict_skill_name(&script.name)?;
+        if script.interpreter.trim().is_empty() {
+            return Err(SkillError::Load(format!(
+                "script '{}' is missing an interpreter in {}",
+                script.name,
+                path.display()
+            )));
+        }
+        validate_relative_child_path(skill_dir, &script.path, "scripts")?;
+    }
+
+    Ok(SkillValidationReport {
+        name: data.name,
+        path: path.to_path_buf(),
+        scripts: data.scripts.entries().len(),
+        agents: data.agents.normalize().len(),
+    })
+}
+
+fn validate_relative_child_path(
+    skill_dir: &Path,
+    relative: &str,
+    expected_prefix: &str,
+) -> Result<(), SkillError> {
+    let relative_path = Path::new(relative);
+    if relative_path.is_absolute()
+        || relative_path
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(SkillError::Load(format!(
+            "path '{}' must stay inside the skill directory",
+            relative
+        )));
+    }
+    if !relative_path
+        .components()
+        .next()
+        .and_then(|component| match component {
+            std::path::Component::Normal(value) => value.to_str(),
+            _ => None,
+        })
+        .is_some_and(|value| value == expected_prefix)
+    {
+        return Err(SkillError::Load(format!(
+            "path '{}' must live under {}/",
+            relative, expected_prefix
+        )));
+    }
+    let resolved = skill_dir.join(relative_path);
+    if !resolved.exists() {
+        return Err(SkillError::Load(format!(
+            "referenced path '{}' does not exist for {}",
+            relative,
+            skill_dir.display()
+        )));
+    }
+    Ok(())
+}
+
 fn yaml_quote(value: &str) -> String {
     format!("{value:?}")
 }
@@ -546,4 +825,104 @@ fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
         end -= 1;
     }
     input[..end].to_string()
+}
+
+pub fn validate_skill_path(path: &Path) -> Result<SkillValidationReport, SkillError> {
+    SkillStore::validate_path(path)
+}
+
+pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, SkillError> {
+    let store = SkillStore::discover(&paths.skills);
+    let rendered = store.render_agents_markdown();
+    fs::write(&paths.agents_notes, &rendered).map_err(|err| {
+        SkillError::Load(format!("write {}: {err}", paths.agents_notes.display()))
+    })?;
+    Ok(rendered)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let unique = format!("allbert-skills-{}-{}", std::process::id(), name);
+        let path = std::env::temp_dir().join(unique);
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    fn write_skill(path: &Path, raw: &str) {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, raw).unwrap();
+    }
+
+    #[test]
+    fn strict_validation_accepts_agentskills_layout() {
+        let root = temp_dir("strict");
+        let skill_dir = root.join("research-helper");
+        fs::create_dir_all(skill_dir.join("scripts")).unwrap();
+        fs::create_dir_all(skill_dir.join("agents")).unwrap();
+        fs::write(skill_dir.join("scripts/summarize.py"), "print('ok')").unwrap();
+        fs::write(
+            skill_dir.join("agents/researcher.md"),
+            "---\nname: researcher\ndescription: Focused reader.\n---\n\nRead carefully.\n",
+        )
+        .unwrap();
+        write_skill(
+            &skill_dir.join("SKILL.md"),
+            "---\nname: research-helper\ndescription: Helps with research.\nintents: [task]\nagents:\n  - path: agents/researcher.md\nscripts:\n  - name: summarize\n    path: scripts/summarize.py\n    interpreter: python\n---\n\n# Research Helper\n",
+        );
+
+        let report = validate_skill_path(&skill_dir.join("SKILL.md")).unwrap();
+        assert_eq!(report.name, "research-helper");
+        assert_eq!(report.scripts, 1);
+        assert_eq!(report.agents, 1);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn discovery_prefers_installed_root_over_legacy_root() {
+        let root = temp_dir("discover");
+        let legacy_root = root.join("skills");
+        let installed_root = legacy_root.join("installed");
+        write_skill(
+            &legacy_root.join("shared-skill/SKILL.md"),
+            "---\nname: shared-skill\ndescription: Legacy.\n---\n\nlegacy\n",
+        );
+        write_skill(
+            &installed_root.join("shared-skill/SKILL.md"),
+            "---\nname: shared-skill\ndescription: Installed.\n---\n\ninstalled\n",
+        );
+        write_skill(
+            &legacy_root.join("legacy-only/SKILL.md"),
+            "---\nname: legacy-only\ndescription: Legacy only.\n---\n\nlegacy only\n",
+        );
+
+        let store = SkillStore::discover(&legacy_root);
+        assert_eq!(store.all().len(), 2);
+        assert_eq!(store.get("shared-skill").unwrap().description, "Installed.");
+        assert_eq!(
+            store.get("legacy-only").unwrap().description,
+            "Legacy only."
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn strict_validation_rejects_non_kebab_name() {
+        let root = temp_dir("invalid");
+        let skill_dir = root.join("BadSkill");
+        write_skill(
+            &skill_dir.join("SKILL.md"),
+            "---\nname: BadSkill\ndescription: Invalid.\n---\n\nbody\n",
+        );
+
+        let err = validate_skill_path(&skill_dir.join("SKILL.md")).unwrap_err();
+        assert!(err.to_string().contains("kebab-case"));
+
+        let _ = fs::remove_dir_all(root);
+    }
 }

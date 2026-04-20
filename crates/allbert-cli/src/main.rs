@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_jobs::JobsCommand;
-use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config};
+use allbert_kernel::{refresh_agents_markdown, skills::validate_skill_path, AllbertPaths, Config};
 use allbert_proto::{ChannelKind, ClientKind, DaemonStatus};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -38,6 +38,10 @@ enum Command {
         #[command(subcommand)]
         command: JobsCommand,
     },
+    Skills {
+        #[command(subcommand)]
+        command: SkillsCommand,
+    },
     #[command(name = "internal-daemon-host", hide = true)]
     InternalDaemonHost,
 }
@@ -63,9 +67,18 @@ enum DaemonCommand {
     },
 }
 
+#[derive(Subcommand, Debug)]
+enum SkillsCommand {
+    Validate { path: String },
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    if let Some(Command::Skills { command }) = args.command {
+        return run_skills_command(command).await;
+    }
+
     let paths = AllbertPaths::from_home()?;
     let mut config = Config::load_or_create(&paths)?;
 
@@ -85,6 +98,7 @@ async fn main() -> Result<()> {
             run_repl(&paths, &config, args.trace, args.yes).await
         }
         Some(Command::InternalDaemonHost) => run_internal_daemon_host().await,
+        Some(Command::Skills { .. }) => unreachable!("skills handled before home/config bootstrap"),
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
                 config = match setup::run_setup_wizard(&paths, &config)? {
@@ -142,6 +156,24 @@ async fn run_agents_command(
         AgentsCommand::List => {
             let rendered = refresh_agents_markdown(paths)?;
             println!("{rendered}");
+            Ok(())
+        }
+    }
+}
+
+async fn run_skills_command(command: SkillsCommand) -> Result<()> {
+    match command {
+        SkillsCommand::Validate { path } => {
+            let skill_path = std::path::PathBuf::from(path);
+            let report = validate_skill_path(&skill_path)
+                .map_err(|err| anyhow::anyhow!("skill validation failed: {err}"))?;
+            println!(
+                "valid skill\nname:     {}\npath:     {}\nscripts:  {}\nagents:   {}",
+                report.name,
+                report.path.display(),
+                report.scripts,
+                report.agents
+            );
             Ok(())
         }
     }
