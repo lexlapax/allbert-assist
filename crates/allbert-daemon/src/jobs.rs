@@ -941,21 +941,29 @@ pub(crate) async fn execute_job(
         }
         Some(Ok(mut kernel)) => {
             let (outcome, stop_reason) = {
-                let turn = kernel.run_turn(&definition.prompt);
-                tokio::pin!(turn);
-                tokio::select! {
-                    _ = shutdown.cancelled() => {
-                        ("interrupted".to_string(), Some("daemon shutdown".into()))
-                    }
-                    result = &mut turn => match result {
-                        Ok(summary) => {
-                            if summary.hit_turn_limit {
-                                ("limit".to_string(), Some("hit max-turns limit".into()))
-                            } else {
-                                ("success".to_string(), None)
-                            }
+                if let Some(err) = definition
+                    .skills
+                    .iter()
+                    .find_map(|skill| kernel.activate_session_skill(skill, None).err())
+                {
+                    ("failure".to_string(), Some(err.to_string()))
+                } else {
+                    let turn = kernel.run_job_turn(&definition.name, &definition.prompt);
+                    tokio::pin!(turn);
+                    tokio::select! {
+                        _ = shutdown.cancelled() => {
+                            ("interrupted".to_string(), Some("daemon shutdown".into()))
                         }
-                        Err(err) => ("failure".to_string(), Some(err.to_string())),
+                        result = &mut turn => match result {
+                            Ok(summary) => {
+                                if summary.hit_turn_limit {
+                                    ("limit".to_string(), Some("hit max-turns limit".into()))
+                                } else {
+                                    ("success".to_string(), None)
+                                }
+                            }
+                            Err(err) => ("failure".to_string(), Some(err.to_string())),
+                        }
                     }
                 }
             };

@@ -1,5 +1,8 @@
+use std::collections::HashSet;
+
 use crate::llm::ChatMessage;
 use crate::skills::ActiveSkill;
+use crate::ModelConfig;
 
 #[derive(Debug, Clone)]
 pub struct AgentDefinition {
@@ -22,6 +25,8 @@ pub struct AgentState {
     pub root_agent: AgentDefinition,
     pub messages: Vec<ChatMessage>,
     pub active_skills: Vec<ActiveSkill>,
+    pub allowed_tools: Option<HashSet<String>>,
+    pub model_override: Option<ModelConfig>,
     pub turn_count: u32,
     pub cost_total_usd: f64,
 }
@@ -37,6 +42,8 @@ impl AgentState {
             root_agent,
             messages: Vec::new(),
             active_skills: Vec::new(),
+            allowed_tools: None,
+            model_override: None,
             turn_count: 0,
             cost_total_usd: 0.0,
         }
@@ -46,6 +53,8 @@ impl AgentState {
         self.session_id = new_session_id;
         self.messages.clear();
         self.active_skills.clear();
+        self.allowed_tools = None;
+        self.model_override = None;
         self.turn_count = 0;
         self.cost_total_usd = 0.0;
     }

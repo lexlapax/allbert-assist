@@ -41,7 +41,9 @@ pub use llm::{ChatMessage, ChatRole};
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
 pub use security::SecurityHook;
-pub use skills::{ActiveSkill, CreateSkillInput, InvokeSkillInput, Skill, SkillStore};
+pub use skills::{
+    ActiveSkill, ContributedAgent, CreateSkillInput, InvokeSkillInput, Skill, SkillStore,
+};
 pub use tools::{ToolCtx, ToolInvocation, ToolOutput, ToolRegistry};
 pub use trace::TraceHandles;
 
@@ -180,6 +182,60 @@ impl Kernel {
         })
     }
 
+    pub async fn run_job_turn(
+        &mut self,
+        job_name: &str,
+        user_input: &str,
+    ) -> Result<TurnSummary, KernelError> {
+        let placeholder = AgentState::new(self.state.session_id.clone());
+        let mut state = std::mem::replace(&mut self.state, placeholder);
+        let mut before_ctx =
+            HookCtx::before_job_run(&state.session_id, state.agent_name(), job_name);
+        match self
+            .hooks
+            .run(HookPoint::BeforeJobRun, &mut before_ctx)
+            .await
+        {
+            HookOutcome::Continue => {}
+            HookOutcome::Abort(message) => {
+                self.state = state;
+                return Err(KernelError::Hook(message));
+            }
+        }
+
+        let result = self
+            .run_turn_for_agent(&mut state, user_input, None, false)
+            .await;
+
+        let turn_summary = match &result {
+            Ok(summary) => json!({
+                "job_name": job_name,
+                "hit_turn_limit": summary.hit_turn_limit,
+                "cost_usd": state.cost_total_usd,
+            }),
+            Err(err) => json!({
+                "job_name": job_name,
+                "error": err.to_string(),
+                "cost_usd": state.cost_total_usd,
+            }),
+        };
+        let mut after_ctx = HookCtx::after_job_run(
+            &state.session_id,
+            state.agent_name(),
+            job_name,
+            turn_summary,
+        );
+        let after_result = self.hooks.run(HookPoint::AfterJobRun, &mut after_ctx).await;
+        self.state = state;
+
+        match after_result {
+            HookOutcome::Continue => result.map(|summary| TurnSummary {
+                hit_turn_limit: summary.hit_turn_limit,
+            }),
+            HookOutcome::Abort(message) => Err(KernelError::Hook(message)),
+        }
+    }
+
     async fn run_turn_for_agent(
         &mut self,
         state: &mut AgentState,
@@ -208,6 +264,7 @@ impl Kernel {
         let mut tool_output_total = 0usize;
 
         for _round in 0..self.config.limits.max_turns {
+            let effective_model = state.model_override.as_ref().unwrap_or(&self.config.model);
             let mut prompt_ctx = HookCtx::before_prompt(
                 &state.session_id,
                 state.agent_name(),
@@ -235,8 +292,8 @@ impl Kernel {
                         &prompt_ctx.prompt_sections,
                     )),
                     messages: state.messages.clone(),
-                    model: self.config.model.model_id.clone(),
-                    max_tokens: self.config.model.max_tokens,
+                    model: effective_model.model_id.clone(),
+                    max_tokens: effective_model.max_tokens,
                 })
                 .await?;
 
@@ -245,7 +302,7 @@ impl Kernel {
                 agent = %state.agent_name(),
                 parent_agent = ?parent_agent_name,
                 provider = %self.llm.provider_name(),
-                model = %self.config.model.model_id,
+                model = %effective_model.model_id,
                 "model response received"
             );
 
@@ -254,9 +311,9 @@ impl Kernel {
                 state.agent_name(),
                 parent_agent_name.clone(),
                 self.llm.provider_name(),
-                &self.config.model.model_id,
+                &effective_model.model_id,
                 response.usage.clone(),
-                self.llm.pricing(&self.config.model.model_id),
+                self.llm.pricing(&effective_model.model_id),
                 &self.paths,
             );
             hook_ctx.intent = resolved_intent.clone();
@@ -358,7 +415,10 @@ impl Kernel {
                     state.agent_name(),
                     parent_agent_name.clone(),
                     invocation.clone(),
-                    self.skills.allowed_tool_union(&state.active_skills),
+                    combined_allowed_tools(
+                        self.skills.allowed_tool_union(&state.active_skills),
+                        state.allowed_tools.clone(),
+                    ),
                 );
                 tool_hook_ctx.intent = resolved_intent.clone();
                 let tool_output = match self
@@ -385,7 +445,10 @@ impl Kernel {
                     state.agent_name(),
                     parent_agent_name.clone(),
                     invocation.clone(),
-                    self.skills.allowed_tool_union(&state.active_skills),
+                    combined_allowed_tools(
+                        self.skills.allowed_tool_union(&state.active_skills),
+                        state.allowed_tools.clone(),
+                    ),
                 );
                 after_tool_ctx.intent = resolved_intent.clone();
                 match self
@@ -476,8 +539,42 @@ impl Kernel {
         self.skills.all()
     }
 
+    pub fn list_agents(&self) -> Vec<&ContributedAgent> {
+        self.skills.contributed_agents()
+    }
+
     pub fn active_skills(&self) -> &[ActiveSkill] {
         &self.state.active_skills
+    }
+
+    pub fn activate_session_skill(
+        &mut self,
+        name: &str,
+        args: Option<serde_json::Value>,
+    ) -> Result<(), KernelError> {
+        Self::activate_skill_with_config(&self.skills, &self.config, &mut self.state, name, args)
+    }
+
+    fn activate_skill_with_config(
+        skills: &SkillStore,
+        config: &Config,
+        state: &mut AgentState,
+        name: &str,
+        args: Option<serde_json::Value>,
+    ) -> Result<(), KernelError> {
+        let Some(_skill) = skills.get(name) else {
+            return Err(KernelError::InitFailed(format!("skill not found: {name}")));
+        };
+        if let Some(args) = &args {
+            let serialized = serde_json::to_string(args).unwrap_or_default();
+            if serialized.as_bytes().len() > config.limits.max_skill_args_bytes {
+                return Err(KernelError::InitFailed(
+                    "invoke_skill args exceed limits.max_skill_args_bytes".into(),
+                ));
+            }
+        }
+        SkillStore::upsert_active_skill(&mut state.active_skills, name, args);
+        Ok(())
     }
 
     pub fn reset_session(&mut self) {
@@ -814,18 +911,18 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 ok: false,
             };
         };
-
-        if let Some(args) = &parsed.args {
-            let serialized = serde_json::to_string(args).unwrap_or_default();
-            if serialized.as_bytes().len() > self.config.limits.max_skill_args_bytes {
-                return ToolOutput {
-                    content: "invoke_skill args exceed limits.max_skill_args_bytes".into(),
-                    ok: false,
-                };
-            }
+        if let Err(err) = Self::activate_skill_with_config(
+            &self.skills,
+            &self.config,
+            state,
+            &parsed.name,
+            parsed.args,
+        ) {
+            return ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            };
         }
-
-        SkillStore::upsert_active_skill(&mut state.active_skills, &parsed.name, parsed.args);
         ToolOutput {
             content: format!("activated skill {}", skill.name),
             ok: true,
@@ -879,20 +976,42 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             }
         }
 
+        let contributed_agent = self.skills.get_contributed_agent(&parsed.name).cloned();
         let mut subagent_state = AgentState::for_agent(
             state.session_id.clone(),
             AgentDefinition {
-                name: parsed.name.clone(),
-                description: "Spawned sub-agent".into(),
+                name: contributed_agent
+                    .as_ref()
+                    .map(|agent| agent.name.clone())
+                    .unwrap_or_else(|| parsed.name.clone()),
+                description: contributed_agent
+                    .as_ref()
+                    .map(|agent| agent.description.clone())
+                    .unwrap_or_else(|| "Spawned sub-agent".into()),
             },
         );
+        if let Some(agent) = contributed_agent.as_ref() {
+            subagent_state.allowed_tools = Some(agent.allowed_tools.iter().cloned().collect());
+            subagent_state.model_override = agent.model.clone();
+        }
+        let contributed_preamble = contributed_agent
+            .as_ref()
+            .map(|agent| {
+                format!(
+                    "Registered agent prompt ({})\n{}\n\nDelegated task:\n{}",
+                    agent.name,
+                    agent.body.trim(),
+                    parsed.prompt.trim()
+                )
+            })
+            .unwrap_or_else(|| parsed.prompt.trim().to_string());
         let composed_prompt = match parsed.context {
             Some(context) => format!(
                 "{}\n\nContext (JSON):\n{}",
-                parsed.prompt.trim(),
+                contributed_preamble,
                 serde_json::to_string_pretty(&context).unwrap_or_else(|_| "{}".into())
             ),
-            None => parsed.prompt.clone(),
+            None => contributed_preamble,
         };
 
         let run_result = Box::pin(self.run_turn_for_agent(
@@ -1303,6 +1422,17 @@ fn serialize_tool_value<T: serde::Serialize>(value: &T) -> ToolOutput {
     }
 }
 
+fn combined_allowed_tools(
+    active_skill_allowed: Option<std::collections::HashSet<String>>,
+    agent_allowed: Option<std::collections::HashSet<String>>,
+) -> Option<std::collections::HashSet<String>> {
+    match (active_skill_allowed, agent_allowed) {
+        (None, None) => None,
+        (Some(allowed), None) | (None, Some(allowed)) => Some(allowed),
+        (Some(active), Some(agent)) => Some(active.intersection(&agent).cloned().collect()),
+    }
+}
+
 fn within_intent_budget(input: &str, budget: u32) -> bool {
     let estimated_tokens = (input.chars().count() / 4).max(1) as u32 + 64;
     estimated_tokens <= budget
@@ -1577,6 +1707,12 @@ mod tests {
             ),
         )
         .unwrap();
+    }
+
+    fn write_skill_raw(paths: &AllbertPaths, name: &str, raw: &str) {
+        let dir = paths.skills.join(name);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("SKILL.md"), raw).unwrap();
     }
 
     struct QueueConfirm {
@@ -3174,6 +3310,286 @@ mod tests {
         let persisted =
             fs::read_to_string(paths.skills.join("overwrite-me").join("SKILL.md")).unwrap();
         assert!(persisted.contains("Old body"));
+    }
+
+    #[tokio::test]
+    async fn skill_frontmatter_preview_parses_intents_and_contributed_agents() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let skill_dir = paths.skills.join("planner");
+        fs::create_dir_all(skill_dir.join("agents")).unwrap();
+        fs::write(
+            skill_dir.join("SKILL.md"),
+            concat!(
+                "---\n",
+                "name: planner\n",
+                "description: Planner skill\n",
+                "intents:\n",
+                "  - schedule\n",
+                "agents:\n",
+                "  - agents/researcher.md\n",
+                "allowed-tools: list_jobs\n",
+                "---\n\n",
+                "Plan scheduled work carefully.\n"
+            ),
+        )
+        .unwrap();
+        fs::write(
+            skill_dir.join("agents/researcher.md"),
+            concat!(
+                "---\n",
+                "name: researcher\n",
+                "description: Research delegated work\n",
+                "allowed-tools: read_file\n",
+                "---\n\n",
+                "Only read files and summarize findings.\n"
+            ),
+        )
+        .unwrap();
+
+        let kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                Vec::new(),
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let skill = kernel
+            .list_skills()
+            .iter()
+            .find(|skill| skill.name == "planner")
+            .expect("planner skill should load");
+        assert_eq!(skill.intents, vec![Intent::Schedule]);
+        assert_eq!(skill.agents.len(), 1);
+        assert_eq!(skill.agents[0].name, "planner/researcher");
+        assert_eq!(skill.agents[0].allowed_tools, vec!["read_file"]);
+
+        let agents = kernel.list_agents();
+        assert_eq!(agents.len(), 1);
+        assert_eq!(agents[0].name, "planner/researcher");
+    }
+
+    #[tokio::test]
+    async fn explicit_skill_intents_drive_intent_hint_prompt() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill_raw(
+            &paths,
+            "planner",
+            concat!(
+                "---\n",
+                "name: planner\n",
+                "description: General planning helper\n",
+                "intents:\n",
+                "  - schedule\n",
+                "allowed-tools: list_jobs\n",
+                "---\n\n",
+                "Use daemon job tools for recurring work.\n"
+            ),
+        );
+        let captured_requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                captured_requests.clone(),
+                vec![CompletionResponse {
+                    text: "scheduled".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("schedule a recurring review")
+            .await
+            .expect("turn should pass");
+
+        let requests = captured_requests.lock().unwrap();
+        let system = requests[0].system.as_ref().unwrap();
+        assert!(system.contains("Resolved intent: schedule"));
+        assert!(system.contains("Likely relevant skills for this intent:"));
+        assert!(system.contains("planner: General planning helper"));
+    }
+
+    #[tokio::test]
+    async fn contributed_agent_registry_can_shape_spawned_subagent_policy() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let skill_dir = paths.skills.join("planner");
+        fs::create_dir_all(skill_dir.join("agents")).unwrap();
+        fs::write(
+            skill_dir.join("SKILL.md"),
+            concat!(
+                "---\n",
+                "name: planner\n",
+                "description: Planning skill\n",
+                "agents:\n",
+                "  - agents/researcher.md\n",
+                "---\n\n",
+                "Spawn researcher when deeper reading is needed.\n"
+            ),
+        )
+        .unwrap();
+        fs::write(
+            skill_dir.join("agents/researcher.md"),
+            concat!(
+                "---\n",
+                "name: researcher\n",
+                "description: Research helper\n",
+                "allowed-tools: read_file\n",
+                "---\n\n",
+                "Only use read_file.\n"
+            ),
+        )
+        .unwrap();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "spawn_subagent",
+                                "input": {
+                                    "name": "planner/researcher",
+                                    "prompt": "Try to run a shell command."
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"process_exec\",\"input\":{\"program\":\"/bin/echo\",\"args\":[\"blocked\"]}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "SUBAGENT_DONE".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "ROOT_DONE".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("delegate").await.expect("turn should pass");
+
+        let recorded_requests = requests.lock().unwrap();
+        assert!(recorded_requests[1]
+            .system
+            .as_ref()
+            .unwrap()
+            .contains("Current agent: planner/researcher"));
+        assert!(recorded_requests[1].messages[0]
+            .content
+            .contains("Registered agent prompt (planner/researcher)"));
+        assert!(
+            recorded_requests[2]
+                .messages
+                .last()
+                .unwrap()
+                .content
+                .contains("not permitted by active skill"),
+            "contributed agent allowed-tools should fence spawned sub-agent tools"
+        );
+    }
+
+    #[tokio::test]
+    async fn run_job_turn_fires_job_hooks_and_keeps_attached_skills_active() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill(
+            &paths,
+            "job-helper",
+            "Job helper",
+            "request_input",
+            "Use request_input to collect missing detail.",
+        );
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let captured_requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                captured_requests.clone(),
+                vec![CompletionResponse {
+                    text: "JOB_OK".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.register_hook(
+            HookPoint::BeforeJobRun,
+            Arc::new(RecordingHook {
+                label: "before_job",
+                seen: seen.clone(),
+            }),
+        );
+        kernel.register_hook(
+            HookPoint::AfterJobRun,
+            Arc::new(RecordingHook {
+                label: "after_job",
+                seen: seen.clone(),
+            }),
+        );
+        kernel
+            .activate_session_skill("job-helper", None)
+            .expect("skill should activate");
+
+        let summary = kernel
+            .run_job_turn("nightly-check", "collect missing info")
+            .await
+            .expect("job turn should pass");
+        assert!(!summary.hit_turn_limit);
+
+        let seen = seen.lock().unwrap();
+        assert_eq!(
+            seen.iter()
+                .map(|(label, _)| label.as_str())
+                .collect::<Vec<_>>(),
+            vec!["before_job", "after_job"]
+        );
+
+        let requests = captured_requests.lock().unwrap();
+        let system = requests[0].system.as_ref().unwrap();
+        assert!(system.contains("### Skill: job-helper"));
+        assert!(system.contains("Use request_input to collect missing detail."));
     }
 
     #[tokio::test]

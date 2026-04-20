@@ -9,12 +9,27 @@ use serde_json::Value;
 
 use crate::error::SkillError;
 use crate::intent::Intent;
+use crate::{ModelConfig, Provider};
 
 #[derive(Debug, Clone)]
 pub struct Skill {
     pub name: String,
     pub description: String,
+    pub intents: Vec<Intent>,
+    pub agents: Vec<ContributedAgent>,
     pub allowed_tools: Vec<String>,
+    pub body: String,
+    pub path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct ContributedAgent {
+    pub skill_name: String,
+    pub short_name: String,
+    pub name: String,
+    pub description: String,
+    pub allowed_tools: Vec<String>,
+    pub model: Option<ModelConfig>,
     pub body: String,
     pub path: PathBuf,
 }
@@ -71,6 +86,23 @@ impl SkillStore {
 
     pub fn get(&self, name: &str) -> Option<&Skill> {
         self.skills.iter().find(|skill| skill.name == name)
+    }
+
+    pub fn contributed_agents(&self) -> Vec<&ContributedAgent> {
+        let mut agents = self
+            .skills
+            .iter()
+            .flat_map(|skill| skill.agents.iter())
+            .collect::<Vec<_>>();
+        agents.sort_by(|a, b| a.name.cmp(&b.name));
+        agents
+    }
+
+    pub fn get_contributed_agent(&self, name: &str) -> Option<&ContributedAgent> {
+        self.skills
+            .iter()
+            .flat_map(|skill| skill.agents.iter())
+            .find(|agent| agent.name == name)
     }
 
     pub fn upsert_active_skill(
@@ -160,31 +192,40 @@ impl SkillStore {
     }
 
     pub fn intent_hint_prompt(&self, intent: &Intent) -> Option<String> {
-        let keywords: &[&str] = match intent {
-            Intent::Task => &["task", "write", "note", "capture", "review"],
-            Intent::Chat => &[],
-            Intent::Schedule => &["schedule", "job", "review", "recurring", "daily", "weekly"],
-            Intent::MemoryQuery => &["memory", "note", "recall", "remember", "capture"],
-            Intent::Meta => &["help", "status", "model", "config", "assistant"],
-        };
-
-        if keywords.is_empty() {
-            return None;
-        }
-
-        let relevant = self
+        let mut relevant = self
             .skills
             .iter()
-            .filter(|skill| {
-                let haystack = format!(
-                    "{} {}",
-                    skill.name.to_ascii_lowercase(),
-                    skill.description.to_ascii_lowercase()
-                );
-                keywords.iter().any(|keyword| haystack.contains(keyword))
-            })
+            .filter(|skill| skill.intents.contains(intent))
             .map(|skill| format!("- {}: {}", skill.name, skill.description))
             .collect::<Vec<_>>();
+
+        if relevant.is_empty() {
+            let keywords: &[&str] = match intent {
+                Intent::Task => &["task", "write", "note", "capture", "review"],
+                Intent::Chat => &[],
+                Intent::Schedule => &["schedule", "job", "review", "recurring", "daily", "weekly"],
+                Intent::MemoryQuery => &["memory", "note", "recall", "remember", "capture"],
+                Intent::Meta => &["help", "status", "model", "config", "assistant"],
+            };
+
+            if keywords.is_empty() {
+                return None;
+            }
+
+            relevant = self
+                .skills
+                .iter()
+                .filter(|skill| {
+                    let haystack = format!(
+                        "{} {}",
+                        skill.name.to_ascii_lowercase(),
+                        skill.description.to_ascii_lowercase()
+                    );
+                    keywords.iter().any(|keyword| haystack.contains(keyword))
+                })
+                .map(|skill| format!("- {}: {}", skill.name, skill.description))
+                .collect::<Vec<_>>();
+        }
 
         if relevant.is_empty() {
             None
@@ -252,6 +293,8 @@ impl SkillStore {
         }
 
         Ok(Skill {
+            agents: load_skill_agents(path, &data.name, &data.agents)?,
+            intents: data.intents.normalize()?,
             name: data.name,
             description: data.description,
             allowed_tools: data.allowed_tools.normalize(),
@@ -265,8 +308,80 @@ impl SkillStore {
 struct Frontmatter {
     name: String,
     description: String,
+    #[serde(default)]
+    intents: IntentList,
+    #[serde(default)]
+    agents: AgentContributions,
     #[serde(rename = "allowed-tools", default)]
     allowed_tools: AllowedTools,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(untagged)]
+enum IntentList {
+    #[default]
+    Missing,
+    One(String),
+    Many(Vec<String>),
+}
+
+impl IntentList {
+    fn normalize(self) -> Result<Vec<Intent>, SkillError> {
+        let values = match self {
+            Self::Missing => Vec::new(),
+            Self::One(value) => vec![value],
+            Self::Many(values) => values,
+        };
+        values
+            .into_iter()
+            .map(|value| {
+                Intent::parse(&value)
+                    .ok_or_else(|| SkillError::Load(format!("unknown skill intent: {value}")))
+            })
+            .collect()
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(untagged)]
+enum AgentContributions {
+    #[default]
+    Missing,
+    Paths(Vec<String>),
+    Entries(Vec<AgentContributionEntry>),
+}
+
+impl AgentContributions {
+    fn normalize(&self) -> Vec<String> {
+        match self {
+            Self::Missing => Vec::new(),
+            Self::Paths(paths) => paths.clone(),
+            Self::Entries(entries) => entries.iter().map(|entry| entry.path.clone()).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct AgentContributionEntry {
+    path: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AgentFrontmatter {
+    name: String,
+    description: String,
+    #[serde(rename = "allowed-tools", default)]
+    allowed_tools: AllowedTools,
+    #[serde(default)]
+    model: Option<AgentModelFrontmatter>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AgentModelFrontmatter {
+    provider: Provider,
+    model_id: String,
+    api_key_env: String,
+    max_tokens: u32,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -276,6 +391,48 @@ enum AllowedTools {
     Missing,
     String(String),
     List(Vec<String>),
+}
+
+fn load_skill_agents(
+    skill_path: &Path,
+    skill_name: &str,
+    contributions: &AgentContributions,
+) -> Result<Vec<ContributedAgent>, SkillError> {
+    let matter = Matter::<YAML>::new();
+    let base_dir = skill_path
+        .parent()
+        .ok_or_else(|| SkillError::Load(format!("missing parent for {}", skill_path.display())))?;
+    let mut agents = Vec::new();
+    for relative in contributions.normalize() {
+        let path = base_dir.join(&relative);
+        let raw = fs::read_to_string(&path)
+            .map_err(|err| SkillError::Load(format!("read {}: {err}", path.display())))?;
+        let parsed = matter
+            .parse::<AgentFrontmatter>(&raw)
+            .map_err(|err| SkillError::Load(format!("parse {}: {err}", path.display())))?;
+        let data = parsed.data.ok_or_else(|| {
+            SkillError::Load(format!("missing frontmatter in {}", path.display()))
+        })?;
+        validate_skill_name(&data.name)?;
+        let namespaced = format!("{skill_name}/{}", data.name);
+        agents.push(ContributedAgent {
+            skill_name: skill_name.into(),
+            short_name: data.name.clone(),
+            name: namespaced,
+            description: data.description,
+            allowed_tools: data.allowed_tools.normalize(),
+            model: data.model.map(|model| ModelConfig {
+                provider: model.provider,
+                model_id: model.model_id,
+                api_key_env: model.api_key_env,
+                max_tokens: model.max_tokens,
+            }),
+            body: parsed.content.trim().to_string(),
+            path,
+        });
+    }
+    agents.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(agents)
 }
 
 impl AllowedTools {
