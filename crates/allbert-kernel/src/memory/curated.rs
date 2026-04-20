@@ -58,7 +58,7 @@ pub enum StagedMemoryKind {
 }
 
 impl StagedMemoryKind {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::ExplicitRequest => "explicit_request",
             Self::LearnedFact => "learned_fact",
@@ -156,13 +156,13 @@ pub struct ForgetTarget {
     pub title: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MemoryManifest {
     pub schema_version: u32,
     pub documents: Vec<MemoryManifestEntry>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MemoryManifestEntry {
     pub path: String,
     pub title: String,
@@ -208,6 +208,19 @@ pub struct MemoryStatusSnapshot {
     pub last_rebuild_reason: Option<String>,
     pub last_rebuild_elapsed_ms: Option<u128>,
     pub schema_version: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct MemoryReconcileReport {
+    pub manifest_rebuilt: bool,
+    pub rebuild_report: Option<RebuildIndexReport>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TurnMemorySnapshot {
+    pub sections: Vec<String>,
+    pub prefetch_hits: Vec<SearchMemoryHit>,
+    pub trimmed_sources: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -342,12 +355,122 @@ pub fn memory_status(
     })
 }
 
+pub fn reconcile_curated_memory(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+) -> Result<MemoryReconcileReport, KernelError> {
+    ensure_curated_dirs(paths)?;
+    let _ = expire_staged_entries(paths, config)?;
+
+    let scanned = scan_manifest(paths)?;
+    let manifest_rebuilt = match load_manifest(paths) {
+        Ok(existing) if existing == scanned => false,
+        _ => {
+            write_manifest(paths, &scanned)?;
+            true
+        }
+    };
+    let rebuild_report = maybe_rebuild_index(paths, &scanned, false, None)?;
+    Ok(MemoryReconcileReport {
+        manifest_rebuilt,
+        rebuild_report,
+    })
+}
+
+pub fn build_turn_memory_snapshot(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    ephemeral_summary: &str,
+    prefetch_query: Option<&str>,
+    prefetch_limit: usize,
+) -> Result<TurnMemorySnapshot, KernelError> {
+    let _ = reconcile_curated_memory(paths, config)?;
+
+    let mut memory_head = read_memory_head(paths, config.max_memory_md_head_bytes)?;
+    let mut daily_head = read_daily_head(paths, config.max_daily_head_bytes)?;
+    let mut yesterday_tail = if config.default_daily_recency_days >= 2 {
+        read_yesterday_tail(paths, config.max_daily_tail_bytes)?
+    } else {
+        None
+    };
+    let ephemeral_summary =
+        truncate_to_bytes(ephemeral_summary.trim(), config.max_ephemeral_summary_bytes);
+    let mut prefetch_hits =
+        if let Some(query) = prefetch_query.map(str::trim).filter(|q| !q.is_empty()) {
+            search_memory(
+                paths,
+                config,
+                SearchMemoryInput {
+                    query: query.to_string(),
+                    tier: MemoryTier::Durable,
+                    limit: Some(prefetch_limit.min(config.max_prefetch_snippets)),
+                },
+            )?
+        } else {
+            Vec::new()
+        };
+    for hit in &mut prefetch_hits {
+        hit.snippet = truncate_to_bytes(hit.snippet.trim(), config.max_prefetch_snippet_bytes);
+    }
+
+    let mut trimmed_sources = Vec::new();
+    let mut render = render_turn_memory_sections(
+        &memory_head,
+        &daily_head,
+        yesterday_tail.as_deref(),
+        &ephemeral_summary,
+        &prefetch_hits,
+    );
+
+    while rendered_sections_bytes(&render) > config.max_synopsis_bytes {
+        if yesterday_tail.take().is_some() {
+            trimmed_sources.push("yesterday_tail".into());
+        } else if !prefetch_hits.is_empty() {
+            let dropped = prefetch_hits.pop().expect("checked non-empty");
+            trimmed_sources.push(format!("prefetch:{}", dropped.path));
+        } else if !daily_head.is_empty() {
+            let over = rendered_sections_bytes(&render) - config.max_synopsis_bytes;
+            let new_len = daily_head.as_bytes().len().saturating_sub(over.max(256));
+            if new_len == 0 || new_len >= daily_head.as_bytes().len() {
+                daily_head.clear();
+            } else {
+                daily_head = truncate_to_bytes(&daily_head, new_len);
+            }
+            trimmed_sources.push("daily_head".into());
+        } else if !memory_head.is_empty() {
+            let over = rendered_sections_bytes(&render) - config.max_synopsis_bytes;
+            let new_len = memory_head.as_bytes().len().saturating_sub(over.max(256));
+            if new_len == 0 || new_len >= memory_head.as_bytes().len() {
+                memory_head.clear();
+            } else {
+                memory_head = truncate_to_bytes(&memory_head, new_len);
+            }
+            trimmed_sources.push("memory_head".into());
+        } else {
+            break;
+        }
+        render = render_turn_memory_sections(
+            &memory_head,
+            &daily_head,
+            yesterday_tail.as_deref(),
+            &ephemeral_summary,
+            &prefetch_hits,
+        );
+    }
+
+    Ok(TurnMemorySnapshot {
+        sections: render,
+        prefetch_hits,
+        trimmed_sources,
+    })
+}
+
 pub fn search_memory(
     paths: &AllbertPaths,
     config: &MemoryConfig,
     input: SearchMemoryInput,
 ) -> Result<Vec<SearchMemoryHit>, KernelError> {
-    let _ = bootstrap_curated_memory(paths, config)?;
+    let _ = reconcile_curated_memory(paths, config)?;
     let raw_query = input.query.trim();
     if raw_query.is_empty() {
         return Err(KernelError::InitFailed(
@@ -371,6 +494,10 @@ pub fn search_memory(
     let parser = QueryParser::for_index(&index, vec![title_f, body_f, tags_f]);
     let parsed_query = parser
         .parse_query(raw_query)
+        .or_else(|_| {
+            let sanitized = sanitize_query(raw_query);
+            parser.parse_query(&sanitized)
+        })
         .map_err(|e| KernelError::InitFailed(format!("parse query '{raw_query}': {e}")))?;
     let compiled_query: Box<dyn Query> = match input.tier {
         MemoryTier::All => Box::new(parsed_query),
@@ -1476,6 +1603,26 @@ fn split_csv_tags(csv: String) -> Vec<String> {
         .collect()
 }
 
+fn sanitize_query(input: &str) -> String {
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    for ch in input.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
+            current.push(ch);
+        } else if !current.is_empty() {
+            parts.push(std::mem::take(&mut current));
+        }
+    }
+    if !current.is_empty() {
+        parts.push(current);
+    }
+    if parts.is_empty() {
+        "memory".into()
+    } else {
+        parts.join(" ")
+    }
+}
+
 fn excerpt_for_relative_path(
     paths: &AllbertPaths,
     relative: &str,
@@ -1511,6 +1658,118 @@ fn doc_text(doc: &TantivyDocument, field: tantivy::schema::Field) -> Option<Stri
     doc.get_first(field)
         .and_then(|value| value.as_str())
         .map(ToOwned::to_owned)
+}
+
+fn render_turn_memory_sections(
+    memory_head: &str,
+    daily_head: &str,
+    yesterday_tail: Option<&str>,
+    ephemeral_summary: &str,
+    prefetch_hits: &[SearchMemoryHit],
+) -> Vec<String> {
+    let mut sections = Vec::new();
+    if !memory_head.trim().is_empty() {
+        sections.push(format!("## MEMORY.md\n{}", memory_head.trim()));
+    }
+    if !daily_head.trim().is_empty() {
+        sections.push(format!("## Today's daily note\n{}", daily_head.trim()));
+    }
+    if let Some(yesterday_tail) = yesterday_tail.filter(|value| !value.trim().is_empty()) {
+        sections.push(format!(
+            "## Yesterday's daily note (tail)\n{}",
+            yesterday_tail.trim()
+        ));
+    }
+    if !ephemeral_summary.trim().is_empty() {
+        sections.push(format!(
+            "## Session working memory\n{}",
+            ephemeral_summary.trim()
+        ));
+    }
+    if !prefetch_hits.is_empty() {
+        let mut rendered = String::from("## Retrieved memory\n");
+        for hit in prefetch_hits {
+            rendered.push_str(&format!(
+                "- {} ({})\n  {}\n",
+                hit.title,
+                hit.path,
+                hit.snippet.trim()
+            ));
+        }
+        sections.push(rendered.trim_end().to_string());
+    }
+    sections
+}
+
+fn rendered_sections_bytes(sections: &[String]) -> usize {
+    if sections.is_empty() {
+        0
+    } else {
+        sections
+            .iter()
+            .map(|section| section.as_bytes().len())
+            .sum::<usize>()
+            + ((sections.len() - 1) * 2)
+    }
+}
+
+fn read_memory_head(paths: &AllbertPaths, max_bytes: usize) -> Result<String, KernelError> {
+    let raw = fs::read_to_string(&paths.memory_index).map_err(|e| {
+        KernelError::InitFailed(format!("read {}: {e}", paths.memory_index.display()))
+    })?;
+    Ok(truncate_to_bytes(raw.trim(), max_bytes))
+}
+
+fn read_daily_head(paths: &AllbertPaths, max_bytes: usize) -> Result<String, KernelError> {
+    let path = daily_note_path(
+        paths,
+        OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc()),
+    );
+    if !path.exists() {
+        return Ok(String::new());
+    }
+    let raw = fs::read_to_string(&path)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+    Ok(truncate_to_bytes(raw.trim(), max_bytes))
+}
+
+fn read_yesterday_tail(
+    paths: &AllbertPaths,
+    max_bytes: usize,
+) -> Result<Option<String>, KernelError> {
+    let yesterday = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc())
+        - time::Duration::days(1);
+    let path = daily_note_path(paths, yesterday);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read_to_string(&path)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+    Ok(Some(truncate_tail_to_bytes(raw.trim(), max_bytes)))
+}
+
+fn truncate_tail_to_bytes(input: &str, max_bytes: usize) -> String {
+    if input.as_bytes().len() <= max_bytes {
+        return input.to_string();
+    }
+
+    let mut start = input.len();
+    for (idx, _) in input.char_indices().rev() {
+        let slice = &input[idx..];
+        if slice.as_bytes().len() > max_bytes {
+            break;
+        }
+        start = idx;
+    }
+    input[start..].to_string()
+}
+
+fn daily_note_path(paths: &AllbertPaths, timestamp: OffsetDateTime) -> PathBuf {
+    let format = time::macros::format_description!("[year]-[month]-[day]");
+    let file = timestamp
+        .format(&format)
+        .unwrap_or_else(|_| "1970-01-01".to_string());
+    paths.memory_daily.join(format!("{file}.md"))
 }
 
 fn build_schema() -> Schema {

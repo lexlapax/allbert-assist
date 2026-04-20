@@ -15,13 +15,13 @@ The kernel will expose a stable hook API as part of its public surface in v0.1.
 
 - `Kernel::register_hook(HookPoint, Arc<dyn Hook>)` is a public method.
 - `HookPoint` enumerates named extension points in the agent loop (before prompt, before model, before tool, after tool, on model response, on turn end).
-- v0.1 ships with bootstrap-context, memory-index, security, and cost hooks registered by default at boot.
+- v0.1 ships with bootstrap-context, security, and cost hooks registered by default at boot.
 - The default hooks are exposed as public types so external callers can compose with them or replace them.
 - The canonical v0.1 hook point names are `BeforePrompt`, `BeforeModel`, `BeforeTool`, `AfterTool`, `OnModelResponse`, and `OnTurnEnd`. Future ADRs may add hook points, but they do so additively rather than silently renaming this accepted set.
 - Lower-level exec activity in v0.1 remains observable through `BeforeTool` / `AfterTool` on the `process_exec` tool. If a future release needs dedicated exec-specific hook points, that addition should be explicit and documented as a new hook family.
-- v0.5's curated-memory design may add a memory hook family (`BeforeMemoryPrefetch`, `AfterMemoryPrefetch`, `BeforeMemoryStage`, `AfterMemoryStage`, `BeforeMemoryPromote`, `AfterMemoryPromote`, `BeforeIndexRebuild`, `AfterIndexRebuild`, and related progress/trim events). That family is an additive extension to this accepted surface, not a replacement for it.
+- v0.5 adds a curated-memory hook family (`BeforeMemoryPrefetch`, `AfterMemoryPrefetch`, `SynopsisTrimmed`, `BeforeMemoryStage`, `AfterMemoryStage`, `BeforeMemoryPromote`, `AfterMemoryPromote`, `BeforeIndexRebuild`, `AfterIndexRebuild`, and related manifest/progress events). That family is an additive extension to this accepted surface, not a replacement for it.
 
-For `BeforePrompt`, registration order is significant and documented: bootstrap context is assembled first, then memory context, then later prompt-builder steps consume that snapshot.
+For `BeforePrompt`, registration order is significant and documented: bootstrap context is assembled first, then later prompt-builder steps consume that snapshot. Curated-memory synopsis/prefetch in v0.5 still runs in the same turn assembly window, but it is no longer implemented as the old standalone `memory-index` default hook.
 
 Hooks are the intended extension seam for policy, observability, and future features like auto-skill-creation or cost caps.
 

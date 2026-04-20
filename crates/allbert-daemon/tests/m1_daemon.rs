@@ -2070,3 +2070,32 @@ async fn daemon_shutdown_interrupts_running_jobs_and_records_them() {
     assert!(failures.contains("\"job_name\":\"slow-job\""));
     assert!(failures.contains("\"outcome\":\"interrupted\""));
 }
+
+#[tokio::test]
+async fn daemon_tick_reconciles_memory_after_operator_note_edits() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn(sample_config(), paths.clone())
+        .await
+        .expect("daemon should boot");
+
+    std::fs::write(
+        paths.memory_notes.join("postgres.md"),
+        "# Postgres\n\nWe use Postgres in production.\n",
+    )
+    .expect("note should be written");
+
+    timeout(Duration::from_secs(3), async {
+        loop {
+            let manifest = std::fs::read_to_string(&paths.memory_manifest).unwrap_or_default();
+            if manifest.contains("notes/postgres.md") {
+                break;
+            }
+            sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .expect("daemon tick should reconcile memory within 3s");
+
+    shutdown_daemon(handle, &paths).await;
+}

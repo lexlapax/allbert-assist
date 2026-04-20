@@ -1,7 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::intent::Intent;
 use crate::llm::ChatMessage;
+use crate::memory::SearchMemoryHit;
 use crate::skills::ActiveSkill;
 use crate::ModelConfig;
 
@@ -36,6 +37,11 @@ pub struct AgentState {
     pub activated_skills_this_turn: HashSet<String>,
     pub referenced_resources_this_turn: HashSet<String>,
     pub reference_cache_this_turn: HashMap<String, String>,
+    pub ephemeral_memory: VecDeque<String>,
+    pub turn_prefetch_hits: Vec<SearchMemoryHit>,
+    pub pending_memory_refresh_query: Option<String>,
+    pub memory_refreshes_this_turn: u32,
+    pub staged_entries_this_turn: usize,
 }
 
 impl AgentState {
@@ -60,6 +66,11 @@ impl AgentState {
             activated_skills_this_turn: HashSet::new(),
             referenced_resources_this_turn: HashSet::new(),
             reference_cache_this_turn: HashMap::new(),
+            ephemeral_memory: VecDeque::new(),
+            turn_prefetch_hits: Vec::new(),
+            pending_memory_refresh_query: None,
+            memory_refreshes_this_turn: 0,
+            staged_entries_this_turn: 0,
         }
     }
 
@@ -77,6 +88,11 @@ impl AgentState {
         self.activated_skills_this_turn.clear();
         self.referenced_resources_this_turn.clear();
         self.reference_cache_this_turn.clear();
+        self.ephemeral_memory.clear();
+        self.turn_prefetch_hits.clear();
+        self.pending_memory_refresh_query = None;
+        self.memory_refreshes_this_turn = 0;
+        self.staged_entries_this_turn = 0;
     }
 
     pub fn agent_name(&self) -> &str {
@@ -88,5 +104,56 @@ impl AgentState {
         self.activated_skills_this_turn.clear();
         self.referenced_resources_this_turn.clear();
         self.reference_cache_this_turn.clear();
+        self.turn_prefetch_hits.clear();
+        self.pending_memory_refresh_query = None;
+        self.memory_refreshes_this_turn = 0;
+        self.staged_entries_this_turn = 0;
     }
+
+    pub fn append_ephemeral_note(&mut self, note: impl Into<String>, max_bytes: usize) {
+        let note = note.into();
+        if note.trim().is_empty() {
+            return;
+        }
+
+        self.ephemeral_memory.push_back(note);
+        while self.ephemeral_memory_bytes() > max_bytes {
+            if self.ephemeral_memory.pop_front().is_none() {
+                break;
+            }
+        }
+    }
+
+    pub fn ephemeral_summary(&self, max_bytes: usize) -> String {
+        let joined = self
+            .ephemeral_memory
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .join("\n");
+        truncate_to_bytes(&joined, max_bytes)
+    }
+
+    fn ephemeral_memory_bytes(&self) -> usize {
+        self.ephemeral_memory
+            .iter()
+            .map(|entry| entry.as_bytes().len())
+            .sum()
+    }
+}
+
+fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
+    if input.as_bytes().len() <= max_bytes {
+        return input.to_string();
+    }
+
+    let mut end = 0usize;
+    for (idx, ch) in input.char_indices() {
+        let next = idx + ch.len_utf8();
+        if next > max_bytes {
+            break;
+        }
+        end = next;
+    }
+    input[..end].to_string()
 }

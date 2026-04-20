@@ -309,6 +309,7 @@ async fn accept_loop(listener: LocalSocketListener, state: SharedState) -> Resul
             }
             _ = tick.tick() => {
                 let defaults = state.default_config.read().await.clone();
+                let _ = allbert_kernel::memory::reconcile_curated_memory(&state.paths, &defaults.memory);
                 if defaults.jobs.enabled {
                     let _ = run_due_jobs(&state, &defaults, Utc::now()).await;
                 }

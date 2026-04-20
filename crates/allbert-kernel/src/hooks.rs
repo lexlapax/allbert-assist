@@ -9,7 +9,6 @@ use crate::cost::{append_cost_entry, build_cost_entry, CostEntry};
 use crate::events::KernelEvent;
 use crate::intent::Intent;
 use crate::llm::{Pricing, Usage};
-use crate::memory;
 use crate::paths::AllbertPaths;
 use crate::tools::ToolInvocation;
 
@@ -27,6 +26,19 @@ pub enum HookPoint {
     AfterJobRun,
     BeforeAgentSpawn,
     AfterAgentSpawn,
+    BeforeMemoryPrefetch,
+    AfterMemoryPrefetch,
+    SynopsisTrimmed,
+    BeforeMemoryStage,
+    AfterMemoryStage,
+    BeforeMemoryPromote,
+    AfterMemoryPromote,
+    BeforeMemoryForget,
+    AfterMemoryForget,
+    BeforeIndexRebuild,
+    IndexRebuildProgress,
+    AfterIndexRebuild,
+    MemoryManifestRebuilt,
 }
 
 #[async_trait]
@@ -54,6 +66,8 @@ pub struct HookCtx {
     pub active_allowed_tools: Option<HashSet<String>>,
     pub spawn_request: Option<serde_json::Value>,
     pub spawn_result: Option<serde_json::Value>,
+    pub memory_payload: Option<serde_json::Value>,
+    pub memory_refresh: bool,
     pub pending_events: Vec<KernelEvent>,
     pub recorded_cost: Option<CostEntry>,
 }
@@ -85,6 +99,8 @@ impl HookCtx {
             active_allowed_tools: None,
             spawn_request: None,
             spawn_result: None,
+            memory_payload: None,
+            memory_refresh: false,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -116,6 +132,8 @@ impl HookCtx {
             active_allowed_tools,
             spawn_request: None,
             spawn_result: None,
+            memory_payload: None,
+            memory_refresh: false,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -150,6 +168,8 @@ impl HookCtx {
             active_allowed_tools: None,
             spawn_request: None,
             spawn_result: None,
+            memory_payload: None,
+            memory_refresh: false,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -180,6 +200,8 @@ impl HookCtx {
             active_allowed_tools: None,
             spawn_request: Some(spawn_request),
             spawn_result: None,
+            memory_payload: None,
+            memory_refresh: false,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -210,6 +232,8 @@ impl HookCtx {
             active_allowed_tools: None,
             spawn_request: None,
             spawn_result: Some(spawn_result),
+            memory_payload: None,
+            memory_refresh: false,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -239,6 +263,8 @@ impl HookCtx {
             active_allowed_tools: None,
             spawn_request: None,
             spawn_result: None,
+            memory_payload: None,
+            memory_refresh: false,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -269,6 +295,8 @@ impl HookCtx {
             active_allowed_tools: None,
             spawn_request: None,
             spawn_result: None,
+            memory_payload: None,
+            memory_refresh: false,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -300,6 +328,8 @@ impl HookCtx {
             active_allowed_tools: None,
             spawn_request: None,
             spawn_result: None,
+            memory_payload: None,
+            memory_refresh: false,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -325,6 +355,8 @@ impl HookCtx {
             active_allowed_tools: None,
             spawn_request: None,
             spawn_result: None,
+            memory_payload: None,
+            memory_refresh: false,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -355,6 +387,41 @@ impl HookCtx {
             active_allowed_tools: None,
             spawn_request: None,
             spawn_result: None,
+            memory_payload: None,
+            memory_refresh: false,
+            pending_events: Vec::new(),
+            recorded_cost: None,
+        }
+    }
+
+    pub fn memory_event(
+        session_id: &str,
+        agent_name: &str,
+        parent_agent_name: Option<String>,
+        payload: serde_json::Value,
+        refresh: bool,
+    ) -> Self {
+        Self {
+            session_id: session_id.into(),
+            agent_name: agent_name.into(),
+            parent_agent_name,
+            provider: None,
+            model: None,
+            usage: None,
+            pricing: None,
+            limits: None,
+            paths: None,
+            turn_input: None,
+            intent: None,
+            job_name: None,
+            job_result: None,
+            prompt_sections: Vec::new(),
+            tool_invocation: None,
+            active_allowed_tools: None,
+            spawn_request: None,
+            spawn_result: None,
+            memory_payload: Some(payload),
+            memory_refresh: refresh,
             pending_events: Vec::new(),
             recorded_cost: None,
         }
@@ -456,16 +523,7 @@ pub struct MemoryIndexHook;
 #[async_trait]
 impl Hook for MemoryIndexHook {
     async fn call(&self, ctx: &mut HookCtx) -> HookOutcome {
-        let (Some(paths), Some(limits)) = (ctx.paths.as_ref(), ctx.limits.as_ref()) else {
-            return HookOutcome::Continue;
-        };
-
-        match memory::load_prompt_memory(paths, limits.max_prompt_memory_bytes) {
-            Ok(sections) => {
-                ctx.prompt_sections.extend(sections);
-                HookOutcome::Continue
-            }
-            Err(err) => HookOutcome::Abort(format!("failed to load prompt memory: {err}")),
-        }
+        let _ = (&ctx.paths, &ctx.limits);
+        HookOutcome::Continue
     }
 }

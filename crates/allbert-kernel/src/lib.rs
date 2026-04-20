@@ -38,7 +38,9 @@ pub use hooks::{
 pub use intent::Intent;
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
 pub use llm::{ChatMessage, ChatRole};
-pub use memory::{MemoryTier, SearchMemoryInput, StageMemoryInput, StagedMemoryKind};
+pub use memory::{
+    MemoryTier, SearchMemoryHit, SearchMemoryInput, StageMemoryInput, StagedMemoryKind,
+};
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
 pub use security::SecurityHook;
@@ -213,7 +215,6 @@ impl Kernel {
             )),
         );
         hooks.register(HookPoint::BeforePrompt, Arc::new(BootstrapContextHook));
-        hooks.register(HookPoint::BeforePrompt, Arc::new(MemoryIndexHook));
         hooks.register(HookPoint::OnModelResponse, Arc::new(CostHook));
 
         tracing::info!(session = %session_id, agent = "allbert/root", "kernel boot");
@@ -325,6 +326,10 @@ impl Kernel {
             intent = ?resolved_intent.as_ref().map(Intent::as_str),
             "turn start"
         );
+        state.append_ephemeral_note(
+            format!("User: {}", user_input.trim()),
+            self.config.memory.max_ephemeral_bytes,
+        );
         state.messages.push(ChatMessage {
             role: ChatRole::User,
             content: user_input.into(),
@@ -333,7 +338,7 @@ impl Kernel {
         let mut tool_calls_used = 0usize;
         let mut tool_output_total = 0usize;
 
-        for _round in 0..self.config.limits.max_turns {
+        for round in 0..self.config.limits.max_turns {
             let effective_model = state
                 .model_override
                 .clone()
@@ -354,6 +359,23 @@ impl Kernel {
                 HookOutcome::Continue => {}
                 HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
             }
+
+            let refresh_query = if round == 0 {
+                None
+            } else {
+                state.pending_memory_refresh_query.take()
+            };
+            let turn_memory = self
+                .build_turn_memory_prompt(
+                    state,
+                    parent_agent_name.clone(),
+                    resolved_intent.as_ref(),
+                    user_input,
+                    refresh_query.as_deref(),
+                )
+                .await?;
+            prompt_ctx.prompt_sections.extend(turn_memory.sections);
+            state.turn_prefetch_hits = turn_memory.prefetch_hits;
 
             let response = self
                 .llm
@@ -404,9 +426,10 @@ impl Kernel {
                 state.cost_total_usd += entry.usd_estimate;
             }
 
+            let final_text = self.finish_turn_output(state, &response.text);
             state.messages.push(ChatMessage {
                 role: ChatRole::Assistant,
-                content: response.text.clone(),
+                content: final_text.clone(),
             });
 
             for event in hook_ctx.pending_events {
@@ -415,8 +438,12 @@ impl Kernel {
 
             let tool_calls = parse_tool_calls(&response.text);
             if tool_calls.is_empty() {
+                state.append_ephemeral_note(
+                    format!("Assistant: {}", final_text.trim()),
+                    self.config.memory.max_ephemeral_bytes,
+                );
                 if emit_terminal_events {
-                    (self.adapter.on_event)(&KernelEvent::AssistantText(response.text.clone()));
+                    (self.adapter.on_event)(&KernelEvent::AssistantText(final_text.clone()));
                     (self.adapter.on_event)(&KernelEvent::TurnDone {
                         hit_turn_limit: false,
                     });
@@ -430,7 +457,7 @@ impl Kernel {
                 }
                 return Ok(AgentRunSummary {
                     hit_turn_limit: false,
-                    assistant_text: Some(response.text),
+                    assistant_text: Some(final_text),
                 });
             }
 
@@ -610,6 +637,22 @@ impl Kernel {
                         effective_invocation.display_name, tool_output.ok, content
                     ),
                 });
+                state.append_ephemeral_note(
+                    format!(
+                        "Tool {} (ok={}): {}",
+                        effective_invocation.display_name,
+                        tool_output.ok,
+                        truncate_to_bytes(&content, 512)
+                    ),
+                    self.config.memory.max_ephemeral_bytes,
+                );
+                self.maybe_schedule_memory_refresh(
+                    state,
+                    resolved_intent.as_ref(),
+                    &effective_invocation.display_name,
+                    &content,
+                    tool_output.ok,
+                );
             }
         }
 
@@ -886,6 +929,223 @@ Respond with only the lowercase label and no other text."
         Ok(Intent::parse(response.text.trim()))
     }
 
+    async fn build_turn_memory_prompt(
+        &mut self,
+        state: &mut AgentState,
+        parent_agent_name: Option<String>,
+        resolved_intent: Option<&Intent>,
+        user_input: &str,
+        refresh_query: Option<&str>,
+    ) -> Result<memory::TurnMemorySnapshot, KernelError> {
+        let reconcile_report = memory::reconcile_curated_memory(&self.paths, &self.config.memory)?;
+        if reconcile_report.manifest_rebuilt {
+            let mut manifest_ctx = HookCtx::memory_event(
+                &state.session_id,
+                state.agent_name(),
+                parent_agent_name.clone(),
+                json!({ "source": "turn-read" }),
+                false,
+            );
+            manifest_ctx.intent = resolved_intent.cloned();
+            match self
+                .hooks
+                .run(HookPoint::MemoryManifestRebuilt, &mut manifest_ctx)
+                .await
+            {
+                HookOutcome::Continue => {}
+                HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+            }
+        }
+        if let Some(rebuild_report) = reconcile_report.rebuild_report.as_ref() {
+            let mut before_rebuild = HookCtx::memory_event(
+                &state.session_id,
+                state.agent_name(),
+                parent_agent_name.clone(),
+                json!({ "reason": rebuild_report.reason }),
+                false,
+            );
+            before_rebuild.intent = resolved_intent.cloned();
+            match self
+                .hooks
+                .run(HookPoint::BeforeIndexRebuild, &mut before_rebuild)
+                .await
+            {
+                HookOutcome::Continue => {}
+                HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+            }
+
+            let mut after_rebuild = HookCtx::memory_event(
+                &state.session_id,
+                state.agent_name(),
+                parent_agent_name.clone(),
+                json!({
+                    "docs_indexed": rebuild_report.docs_indexed,
+                    "elapsed_ms": rebuild_report.elapsed_ms,
+                    "bytes": 0,
+                }),
+                false,
+            );
+            after_rebuild.intent = resolved_intent.cloned();
+            match self
+                .hooks
+                .run(HookPoint::AfterIndexRebuild, &mut after_rebuild)
+                .await
+            {
+                HookOutcome::Continue => {}
+                HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+            }
+        }
+
+        let prefetch_query = if let Some(refresh_query) = refresh_query {
+            Some(refresh_query.to_string())
+        } else if self.should_prefetch_memory(resolved_intent, user_input) {
+            Some(user_input.trim().to_string())
+        } else {
+            None
+        };
+        let refresh = refresh_query.is_some();
+
+        if let Some(query) = prefetch_query.as_deref() {
+            let mut before_ctx = HookCtx::memory_event(
+                &state.session_id,
+                state.agent_name(),
+                parent_agent_name.clone(),
+                json!({
+                    "query": query,
+                    "budget": self.config.memory.max_prefetch_snippets,
+                    "refresh": refresh,
+                }),
+                refresh,
+            );
+            before_ctx.intent = resolved_intent.cloned();
+            match self
+                .hooks
+                .run(HookPoint::BeforeMemoryPrefetch, &mut before_ctx)
+                .await
+            {
+                HookOutcome::Continue => {}
+                HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+            }
+        }
+
+        let snapshot = memory::build_turn_memory_snapshot(
+            &self.paths,
+            &self.config.memory,
+            &state.ephemeral_summary(self.config.memory.max_ephemeral_summary_bytes),
+            prefetch_query.as_deref(),
+            self.config.memory.prefetch_default_limit,
+        )?;
+
+        for dropped in &snapshot.trimmed_sources {
+            let mut trim_ctx = HookCtx::memory_event(
+                &state.session_id,
+                state.agent_name(),
+                parent_agent_name.clone(),
+                json!({
+                    "dropped": dropped,
+                    "bytes_over_budget": 1,
+                }),
+                refresh,
+            );
+            trim_ctx.intent = resolved_intent.cloned();
+            match self
+                .hooks
+                .run(HookPoint::SynopsisTrimmed, &mut trim_ctx)
+                .await
+            {
+                HookOutcome::Continue => {}
+                HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+            }
+        }
+
+        if prefetch_query.is_some() {
+            let mut after_ctx = HookCtx::memory_event(
+                &state.session_id,
+                state.agent_name(),
+                parent_agent_name,
+                json!({
+                    "results": snapshot.prefetch_hits.clone(),
+                    "elapsed_ms": 0,
+                    "truncated": !snapshot.trimmed_sources.is_empty(),
+                    "refresh": refresh,
+                }),
+                refresh,
+            );
+            after_ctx.intent = resolved_intent.cloned();
+            match self
+                .hooks
+                .run(HookPoint::AfterMemoryPrefetch, &mut after_ctx)
+                .await
+            {
+                HookOutcome::Continue => {}
+                HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+            }
+        }
+
+        if refresh {
+            state.memory_refreshes_this_turn = state.memory_refreshes_this_turn.saturating_add(1);
+        }
+
+        Ok(snapshot)
+    }
+
+    fn should_prefetch_memory(&self, resolved_intent: Option<&Intent>, user_input: &str) -> bool {
+        if !self.config.memory.prefetch_enabled {
+            return false;
+        }
+        match resolved_intent {
+            Some(Intent::MemoryQuery) => true,
+            Some(Intent::Task) | Some(Intent::Schedule) => true,
+            Some(Intent::Chat) | Some(Intent::Meta) | None => has_memory_cues(user_input),
+        }
+    }
+
+    fn maybe_schedule_memory_refresh(
+        &self,
+        state: &mut AgentState,
+        resolved_intent: Option<&Intent>,
+        tool_name: &str,
+        content: &str,
+        ok: bool,
+    ) {
+        if !ok
+            || !self.config.memory.refresh_after_external_evidence
+            || state.pending_memory_refresh_query.is_some()
+            || state.memory_refreshes_this_turn >= self.config.memory.max_refreshes_per_turn
+        {
+            return;
+        }
+        if matches!(
+            tool_name,
+            "search_memory"
+                | "stage_memory"
+                | "list_staged_memory"
+                | "promote_staged_memory"
+                | "reject_staged_memory"
+        ) {
+            return;
+        }
+
+        if !(has_memory_cues(content)
+            || matches!(
+                resolved_intent,
+                Some(Intent::Task) | Some(Intent::Schedule) | Some(Intent::MemoryQuery)
+            ))
+        {
+            return;
+        }
+
+        let query = truncate_to_bytes(content.trim(), 512);
+        if query.is_empty() {
+            return;
+        }
+        state.pending_memory_refresh_query = Some(query);
+    }
+
+    fn finish_turn_output(&self, _state: &AgentState, assistant_text: &str) -> String {
+        assistant_text.to_string()
+    }
+
     fn system_prompt_for_state(
         &self,
         state: &mut AgentState,
@@ -997,9 +1257,17 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             "search_memory" => self.dispatch_search_memory(invocation.input),
             "stage_memory" => {
                 self.dispatch_stage_memory(state, parent_agent_name.clone(), invocation.input)
+                    .await
             }
             "list_staged_memory" => self.dispatch_list_staged_memory(invocation.input),
-            "promote_staged_memory" => self.dispatch_promote_staged_memory(invocation.input).await,
+            "promote_staged_memory" => {
+                self.dispatch_promote_staged_memory(
+                    state,
+                    parent_agent_name.clone(),
+                    invocation.input,
+                )
+                .await
+            }
             "reject_staged_memory" => self.dispatch_reject_staged_memory(invocation.input),
             "list_skills" => ToolOutput {
                 content: self.skills.manifest_prompt(),
@@ -1451,9 +1719,9 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         }
     }
 
-    fn dispatch_stage_memory(
-        &self,
-        state: &AgentState,
+    async fn dispatch_stage_memory(
+        &mut self,
+        state: &mut AgentState,
         parent_agent_name: Option<String>,
         input: serde_json::Value,
     ) -> ToolOutput {
@@ -1488,8 +1756,58 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             tags: parsed.tags,
             provenance: parsed.provenance,
         };
+        let before_payload = json!({
+            "kind": request.kind.as_str(),
+            "summary": request.summary,
+            "source": request.source,
+            "agent": request.agent,
+        });
+        let mut before_ctx = HookCtx::memory_event(
+            &state.session_id,
+            state.agent_name(),
+            parent_agent_name.clone(),
+            before_payload,
+            false,
+        );
+        if let Some(intent) = state.last_resolved_intent.clone() {
+            before_ctx.intent = Some(intent);
+        }
+        if let HookOutcome::Abort(message) = self
+            .hooks
+            .run(HookPoint::BeforeMemoryStage, &mut before_ctx)
+            .await
+        {
+            return ToolOutput {
+                content: message,
+                ok: false,
+            };
+        }
         match memory::stage_memory(&self.paths, &self.config.memory, request) {
-            Ok(record) => serialize_tool_value(&record),
+            Ok(record) => {
+                state.staged_entries_this_turn = state.staged_entries_this_turn.saturating_add(1);
+                let mut after_ctx = HookCtx::memory_event(
+                    &state.session_id,
+                    state.agent_name(),
+                    parent_agent_name,
+                    json!({
+                        "id": record.id,
+                        "path": record.path,
+                    }),
+                    false,
+                );
+                after_ctx.intent = state.last_resolved_intent.clone();
+                if let HookOutcome::Abort(message) = self
+                    .hooks
+                    .run(HookPoint::AfterMemoryStage, &mut after_ctx)
+                    .await
+                {
+                    return ToolOutput {
+                        content: message,
+                        ok: false,
+                    };
+                }
+                serialize_tool_value(&record)
+            }
             Err(err) => ToolOutput {
                 content: err.to_string(),
                 ok: false,
@@ -1522,7 +1840,12 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         }
     }
 
-    async fn dispatch_promote_staged_memory(&self, input: serde_json::Value) -> ToolOutput {
+    async fn dispatch_promote_staged_memory(
+        &mut self,
+        state: &mut AgentState,
+        parent_agent_name: Option<String>,
+        input: serde_json::Value,
+    ) -> ToolOutput {
         let parsed = match serde_json::from_value::<PromoteStagedMemoryInput>(input) {
             Ok(parsed) => parsed,
             Err(err) => {
@@ -1547,6 +1870,27 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 }
             }
         };
+        let mut before_ctx = HookCtx::memory_event(
+            &state.session_id,
+            state.agent_name(),
+            parent_agent_name.clone(),
+            json!({ "id": parsed.id }),
+            false,
+        );
+        before_ctx.intent = state.last_resolved_intent.clone();
+        match self
+            .hooks
+            .run(HookPoint::BeforeMemoryPromote, &mut before_ctx)
+            .await
+        {
+            HookOutcome::Continue => {}
+            HookOutcome::Abort(message) => {
+                return ToolOutput {
+                    content: message,
+                    ok: false,
+                }
+            }
+        }
         match self
             .adapter
             .confirm
@@ -1564,10 +1908,33 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             },
             ConfirmDecision::AllowOnce | ConfirmDecision::AllowSession => {
                 match memory::promote_staged_memory(&self.paths, &self.config.memory, &preview) {
-                    Ok(dest_path) => serialize_tool_value(&json!({
-                        "id": parsed.id,
-                        "destination_path": dest_path,
-                    })),
+                    Ok(dest_path) => {
+                        let mut after_ctx = HookCtx::memory_event(
+                            &state.session_id,
+                            state.agent_name(),
+                            parent_agent_name,
+                            json!({
+                                "id": parsed.id,
+                                "dest_path": dest_path,
+                            }),
+                            false,
+                        );
+                        after_ctx.intent = state.last_resolved_intent.clone();
+                        match self
+                            .hooks
+                            .run(HookPoint::AfterMemoryPromote, &mut after_ctx)
+                            .await
+                        {
+                            HookOutcome::Continue => serialize_tool_value(&json!({
+                                "id": parsed.id,
+                                "destination_path": dest_path,
+                            })),
+                            HookOutcome::Abort(message) => ToolOutput {
+                                content: message,
+                                ok: false,
+                            },
+                        }
+                    }
                     Err(err) => ToolOutput {
                         content: err.to_string(),
                         ok: false,
@@ -1908,6 +2275,26 @@ fn combined_allowed_tools(
 fn within_intent_budget(input: &str, budget: u32) -> bool {
     let estimated_tokens = (input.chars().count() / 4).max(1) as u32 + 64;
     estimated_tokens <= budget
+}
+
+fn has_memory_cues(input: &str) -> bool {
+    let lower = input.to_ascii_lowercase();
+    [
+        "remember",
+        "memory",
+        "recall",
+        "what do you know",
+        "last time",
+        "preference",
+        "prefer",
+        "decision",
+        "we use",
+        "context",
+        "staged",
+        "learned",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
 }
 
 fn render_upsert_job_preview(
@@ -2351,6 +2738,22 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push((self.label.to_string(), ctx.intent.clone()));
+            HookOutcome::Continue
+        }
+    }
+
+    struct MemoryRecordingHook {
+        label: &'static str,
+        seen: Arc<Mutex<Vec<(String, bool)>>>,
+    }
+
+    #[async_trait]
+    impl Hook for MemoryRecordingHook {
+        async fn call(&self, ctx: &mut HookCtx) -> HookOutcome {
+            self.seen
+                .lock()
+                .unwrap()
+                .push((self.label.to_string(), ctx.memory_refresh));
             HookOutcome::Continue
         }
     }
@@ -4915,20 +5318,62 @@ mod tests {
     }
 
     #[test]
-    fn prompt_memory_respects_byte_limit() {
+    fn curated_turn_memory_snapshot_respects_truncation_order() {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().unwrap();
         fs::write(
             &paths.memory_index,
-            "# MEMORY\n\n- [[topics/one.md]] — 1234567890\n- [[topics/two.md]] — abcdefghij\n",
+            format!("# MEMORY\n\n{}\n", "memory-head ".repeat(200)),
+        )
+        .unwrap();
+        let today = time::OffsetDateTime::now_local()
+            .unwrap_or_else(|_| time::OffsetDateTime::now_utc())
+            .format(&time::macros::format_description!("[year]-[month]-[day]"))
+            .unwrap();
+        let yesterday = (time::OffsetDateTime::now_local()
+            .unwrap_or_else(|_| time::OffsetDateTime::now_utc())
+            - time::Duration::days(1))
+        .format(&time::macros::format_description!("[year]-[month]-[day]"))
+        .unwrap();
+        fs::write(
+            paths.memory_daily.join(format!("{today}.md")),
+            format!("# Today\n\n{}\n", "today-head ".repeat(200)),
+        )
+        .unwrap();
+        fs::write(
+            paths.memory_daily.join(format!("{yesterday}.md")),
+            format!("# Yesterday\n\n{}\n", "yesterday-tail ".repeat(120)),
         )
         .unwrap();
 
-        let sections = memory::load_prompt_memory(&paths, 30).unwrap();
-        let joined = sections.join("\n");
-        assert!(joined.contains("## MEMORY.md"));
-        assert!(!joined.contains("two.md"));
+        let mut config = MemoryConfig::default();
+        config.max_synopsis_bytes = 1024;
+        config.max_memory_md_head_bytes = 1024;
+        config.max_daily_head_bytes = 1024;
+        config.max_daily_tail_bytes = 768;
+        config.max_ephemeral_summary_bytes = 128;
+        config.max_prefetch_snippets = 5;
+        config.max_prefetch_snippet_bytes = 256;
+
+        let snapshot = memory::build_turn_memory_snapshot(
+            &paths,
+            &config,
+            &"ephemeral ".repeat(20),
+            Some("memory"),
+            5,
+        )
+        .unwrap();
+        let joined = snapshot.sections.join("\n\n");
+        assert!(joined.contains("## Session working memory"));
+        assert!(!joined.contains("## Yesterday's daily note (tail)"));
+        assert!(
+            snapshot
+                .trimmed_sources
+                .first()
+                .is_some_and(|value| value == "yesterday_tail"),
+            "yesterday tail should be dropped before other sources"
+        );
     }
 
     #[tokio::test]
@@ -4984,6 +5429,190 @@ mod tests {
         assert!(system.contains("Favorite language is Rust"));
         assert!(system.contains("## Today's daily note"));
         assert!(system.contains("today we confirmed recall"));
+    }
+
+    #[tokio::test]
+    async fn chat_turn_without_memory_cues_skips_prefetch() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        fs::write(
+            paths.memory_notes.join("rust.md"),
+            "# Rust\n\nWe prefer Rust for backend work.\n",
+        )
+        .unwrap();
+        let _ = memory::reconcile_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: "chat".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "CHAT_OK".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("hello there").await.unwrap();
+
+        let requests = requests.lock().unwrap();
+        let system = requests.last().unwrap().system.as_ref().unwrap();
+        assert!(!system.contains("## Retrieved memory"));
+    }
+
+    #[tokio::test]
+    async fn task_turn_refreshes_memory_once_after_tool_evidence() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let workspace = paths.root.join("workspace");
+        fs::create_dir_all(&workspace).unwrap();
+        fs::write(
+            paths.memory_notes.join("database.md"),
+            "# Database\n\nWe use Postgres for production.\n",
+        )
+        .unwrap();
+        fs::write(
+            workspace.join("report.txt"),
+            "Postgres is still configured.\n",
+        )
+        .unwrap();
+        let _ = memory::reconcile_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let mut config = Config::default_template();
+        config.security.fs_roots = vec![workspace.clone()];
+
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "read_file",
+                                "input": {
+                                    "path": workspace.join("report.txt").display().to_string()
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "DONE".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("check the report").await.unwrap();
+
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests.len(), 2);
+        let first_system = requests[0].system.as_ref().unwrap();
+        let second_system = requests[1].system.as_ref().unwrap();
+        assert!(!first_system.contains("We use Postgres for production."));
+        assert!(second_system.contains("## Retrieved memory"));
+        assert!(second_system.contains("We use Postgres for production."));
+    }
+
+    #[tokio::test]
+    async fn memory_prefetch_hooks_fire_for_prefetch_and_refresh() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let workspace = paths.root.join("workspace");
+        fs::create_dir_all(&workspace).unwrap();
+        fs::write(
+            paths.memory_notes.join("database.md"),
+            "# Database\n\nWe use Postgres for production.\n",
+        )
+        .unwrap();
+        fs::write(workspace.join("report.txt"), "Postgres evidence.\n").unwrap();
+        let _ = memory::reconcile_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let mut config = Config::default_template();
+        config.security.fs_roots = vec![workspace.clone()];
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "read_file",
+                                "input": {
+                                    "path": workspace.join("report.txt").display().to_string()
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "DONE".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+        kernel.register_hook(
+            HookPoint::BeforeMemoryPrefetch,
+            Arc::new(MemoryRecordingHook {
+                label: "before",
+                seen: seen.clone(),
+            }),
+        );
+        kernel.register_hook(
+            HookPoint::AfterMemoryPrefetch,
+            Arc::new(MemoryRecordingHook {
+                label: "after",
+                seen: seen.clone(),
+            }),
+        );
+
+        kernel.run_turn("check the report").await.unwrap();
+
+        let seen = seen.lock().unwrap().clone();
+        assert_eq!(
+            seen,
+            vec![
+                ("before".to_string(), false),
+                ("after".to_string(), false),
+                ("before".to_string(), true),
+                ("after".to_string(), true),
+            ]
+        );
     }
 
     fn test_pricing() -> Pricing {
