@@ -216,6 +216,16 @@ pub struct InputReplyPayload {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", content = "payload", rename_all = "snake_case")]
 pub enum KernelEventPayload {
+    SkillTier1Surfaced {
+        skill_name: String,
+    },
+    SkillTier2Activated {
+        skill_name: String,
+    },
+    SkillTier3Referenced {
+        skill_name: String,
+        path: String,
+    },
     AssistantText(String),
     JobFailed {
         job_name: String,

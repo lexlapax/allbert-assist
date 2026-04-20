@@ -4,6 +4,16 @@ use crate::cost::CostEntry;
 
 #[derive(Debug, Clone)]
 pub enum KernelEvent {
+    SkillTier1Surfaced {
+        skill_name: String,
+    },
+    SkillTier2Activated {
+        skill_name: String,
+    },
+    SkillTier3Referenced {
+        skill_name: String,
+        path: String,
+    },
     AssistantText(String),
     ToolCall {
         name: String,

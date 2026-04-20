@@ -280,6 +280,9 @@ fn prompt_input(prompt: &str, allow_empty: bool) -> Result<InputResponsePayload>
 
 fn render_event(event: KernelEventPayload) {
     match event {
+        KernelEventPayload::SkillTier1Surfaced { .. } => {}
+        KernelEventPayload::SkillTier2Activated { .. } => {}
+        KernelEventPayload::SkillTier3Referenced { .. } => {}
         KernelEventPayload::AssistantText(text) => println!("{text}"),
         KernelEventPayload::JobFailed {
             job_name,

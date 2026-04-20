@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::intent::Intent;
 use crate::llm::ChatMessage;
@@ -32,6 +32,10 @@ pub struct AgentState {
     pub cost_total_usd: f64,
     pub last_resolved_intent: Option<Intent>,
     pub last_agent_stack: Vec<String>,
+    pub surfaced_skills_this_turn: HashSet<String>,
+    pub activated_skills_this_turn: HashSet<String>,
+    pub referenced_resources_this_turn: HashSet<String>,
+    pub reference_cache_this_turn: HashMap<String, String>,
 }
 
 impl AgentState {
@@ -52,6 +56,10 @@ impl AgentState {
             cost_total_usd: 0.0,
             last_resolved_intent: None,
             last_agent_stack: vec![root_name],
+            surfaced_skills_this_turn: HashSet::new(),
+            activated_skills_this_turn: HashSet::new(),
+            referenced_resources_this_turn: HashSet::new(),
+            reference_cache_this_turn: HashMap::new(),
         }
     }
 
@@ -65,9 +73,20 @@ impl AgentState {
         self.cost_total_usd = 0.0;
         self.last_resolved_intent = None;
         self.last_agent_stack = vec![self.root_agent.name.clone()];
+        self.surfaced_skills_this_turn.clear();
+        self.activated_skills_this_turn.clear();
+        self.referenced_resources_this_turn.clear();
+        self.reference_cache_this_turn.clear();
     }
 
     pub fn agent_name(&self) -> &str {
         &self.root_agent.name
+    }
+
+    pub fn begin_turn(&mut self) {
+        self.surfaced_skills_this_turn.clear();
+        self.activated_skills_this_turn.clear();
+        self.referenced_resources_this_turn.clear();
+        self.reference_cache_this_turn.clear();
     }
 }

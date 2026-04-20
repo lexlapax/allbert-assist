@@ -73,6 +73,14 @@ struct SpawnSubagentInput {
     context: Option<serde_json::Value>,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+struct ReadReferenceInput {
+    skill: String,
+    path: String,
+    #[serde(default)]
+    max_bytes: Option<usize>,
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 struct SpawnSubagentResult {
     agent_name: String,
@@ -258,6 +266,7 @@ impl Kernel {
         emit_terminal_events: bool,
     ) -> Result<AgentRunSummary, KernelError> {
         state.turn_count = state.turn_count.saturating_add(1);
+        state.begin_turn();
         state.last_agent_stack = match parent_agent_name.as_deref() {
             Some(parent) => vec![parent.to_string(), state.agent_name().to_string()],
             None => vec![state.agent_name().to_string()],
@@ -283,7 +292,10 @@ impl Kernel {
         let mut tool_output_total = 0usize;
 
         for _round in 0..self.config.limits.max_turns {
-            let effective_model = state.model_override.as_ref().unwrap_or(&self.config.model);
+            let effective_model = state
+                .model_override
+                .clone()
+                .unwrap_or_else(|| self.config.model.clone());
             let mut prompt_ctx = HookCtx::before_prompt(
                 &state.session_id,
                 state.agent_name(),
@@ -807,7 +819,7 @@ Respond with only the lowercase label and no other text."
 
     fn system_prompt_for_state(
         &self,
-        state: &AgentState,
+        state: &mut AgentState,
         parent_agent_name: Option<&str>,
         resolved_intent: Option<&Intent>,
         prompt_sections: &[String],
@@ -836,6 +848,7 @@ Available tools:\n",
         prompt.push_str("\n- write_memory: Write, append, or daily-append memory content.\n  schema: {\"type\":\"object\",\"required\":[\"content\",\"mode\"],\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"mode\":{\"enum\":[\"write\",\"append\",\"daily\"]},\"summary\":{\"type\":\"string\"}}}\n");
         prompt.push_str("\n- list_skills: List installed skills and their descriptions.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
         prompt.push_str("\n- invoke_skill: Activate a skill for this session, optionally with JSON args.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"},\"args\":{\"type\":\"object\"}}}\n");
+        prompt.push_str("\n- read_reference: Read an installed skill resource under references/ or assets/ on demand.\n  schema: {\"type\":\"object\",\"required\":[\"skill\",\"path\"],\"properties\":{\"skill\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"max_bytes\":{\"type\":\"integer\",\"minimum\":1}}}\n");
         prompt.push_str("\n- create_skill: Create a skill under ~/.allbert/skills/<name>/SKILL.md.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"allowed_tools\",\"body\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"body\":{\"type\":\"string\"}}}\n");
         prompt.push_str("\n- spawn_subagent: Run a bounded sub-agent with a fresh message history inside the current session.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"prompt\":{\"type\":\"string\"},\"context\":{}}}\n");
         if self.job_manager.is_some() {
@@ -865,6 +878,12 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             prompt.push_str(section);
         }
 
+        for skill_name in self.skills.catalog_skill_names() {
+            if state.surfaced_skills_this_turn.insert(skill_name.clone()) {
+                (self.adapter.on_event)(&KernelEvent::SkillTier1Surfaced { skill_name });
+            }
+        }
+
         prompt.push_str("\n\nAvailable skill manifests:\n");
         prompt.push_str(&self.skills.manifest_prompt());
         if let Some(intent) = resolved_intent {
@@ -879,6 +898,11 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             self.config.limits.max_skill_args_bytes,
         );
         if !active.is_empty() {
+            for skill_name in self.skills.activated_skill_names(&state.active_skills) {
+                if state.activated_skills_this_turn.insert(skill_name.clone()) {
+                    (self.adapter.on_event)(&KernelEvent::SkillTier2Activated { skill_name });
+                }
+            }
             prompt.push_str("\n\nActive skill bodies:\n");
             prompt.push_str(&active);
         }
@@ -900,6 +924,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 ok: true,
             },
             "invoke_skill" => self.dispatch_invoke_skill(state, invocation.input),
+            "read_reference" => self.dispatch_read_reference(state, invocation.input),
             "create_skill" => self.dispatch_create_skill(invocation.input),
             "spawn_subagent" => {
                 self.dispatch_spawn_subagent(state, parent_agent_name, invocation.input)
@@ -966,6 +991,55 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         ToolOutput {
             content: format!("activated skill {}", skill.name),
             ok: true,
+        }
+    }
+
+    fn dispatch_read_reference(
+        &mut self,
+        state: &mut AgentState,
+        input: serde_json::Value,
+    ) -> ToolOutput {
+        let parsed = match serde_json::from_value::<ReadReferenceInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid read_reference input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+
+        let cache_key = format!("{}::{}", parsed.skill, parsed.path);
+        if let Some(content) = state.reference_cache_this_turn.get(&cache_key) {
+            return ToolOutput {
+                content: content.clone(),
+                ok: true,
+            };
+        }
+
+        match self
+            .skills
+            .read_reference(&parsed.skill, &parsed.path, parsed.max_bytes)
+        {
+            Ok(content) => {
+                if state
+                    .referenced_resources_this_turn
+                    .insert(cache_key.clone())
+                {
+                    (self.adapter.on_event)(&KernelEvent::SkillTier3Referenced {
+                        skill_name: parsed.skill.clone(),
+                        path: parsed.path.clone(),
+                    });
+                }
+                state
+                    .reference_cache_this_turn
+                    .insert(cache_key, content.clone());
+                ToolOutput { content, ok: true }
+            }
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
         }
     }
 
@@ -1764,6 +1838,29 @@ mod tests {
         let dir = paths.skills.join(name);
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("SKILL.md"), raw).unwrap();
+    }
+
+    fn write_skill_with_reference(
+        paths: &AllbertPaths,
+        name: &str,
+        description: &str,
+        allowed_tools: &str,
+        body: &str,
+        reference_path: &str,
+        reference_body: &str,
+    ) {
+        let dir = paths.skills.join(name);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("SKILL.md"),
+            format!(
+                "---\nname: {name}\ndescription: {description}\nallowed-tools: {allowed_tools}\n---\n\n{body}\n"
+            ),
+        )
+        .unwrap();
+        let reference_file = dir.join(reference_path);
+        fs::create_dir_all(reference_file.parent().unwrap()).unwrap();
+        fs::write(reference_file, reference_body).unwrap();
     }
 
     struct QueueConfirm {
@@ -3190,6 +3287,195 @@ mod tests {
         assert!(second_turn_system.contains("Invocation arguments (JSON):"));
         assert!(second_turn_system.contains("\"topic\": \"retro\""));
         assert!(second_turn_system.contains("Use write_file to persist notes."));
+    }
+
+    #[tokio::test]
+    async fn active_skill_prompt_does_not_inline_reference_content() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill_with_reference(
+            &paths,
+            "research-assistant",
+            "Research with references",
+            "read_reference",
+            "When needed, consult references/guide.md before answering.",
+            "references/guide.md",
+            "DEEP REFERENCE MATERIAL",
+        );
+
+        let captured_requests = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                captured_requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"research-assistant\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Activated.".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Using the skill body only.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("activate the skill")
+            .await
+            .expect("activation should succeed");
+        kernel
+            .run_turn("use the skill")
+            .await
+            .expect("follow-up turn should succeed");
+
+        let requests = captured_requests.lock().unwrap();
+        let second_turn_system = requests[2].system.as_ref().unwrap();
+        assert!(second_turn_system.contains("research-assistant: Research with references"));
+        assert!(second_turn_system
+            .contains("When needed, consult references/guide.md before answering."));
+        assert!(
+            !second_turn_system.contains("DEEP REFERENCE MATERIAL"),
+            "tier 3 references should not be inlined into the prompt"
+        );
+    }
+
+    #[tokio::test]
+    async fn read_reference_caches_per_turn_and_emits_tier_events_in_order() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill_with_reference(
+            &paths,
+            "research-assistant",
+            "Research with references",
+            "read_reference",
+            "Use references/guide.md when the user asks for supporting detail.",
+            "references/guide.md",
+            "DEEP REFERENCE MATERIAL",
+        );
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::clone(&events)),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"research-assistant\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Activated.".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: concat!(
+                            "<tool_call>{\"name\":\"read_reference\",\"input\":{\"skill\":\"research-assistant\",\"path\":\"references/guide.md\"}}</tool_call>",
+                            "<tool_call>{\"name\":\"read_reference\",\"input\":{\"skill\":\"research-assistant\",\"path\":\"references/guide.md\"}}</tool_call>"
+                        )
+                        .into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Done with the reference.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("activate the skill")
+            .await
+            .expect("activation should succeed");
+        events.lock().unwrap().clear();
+
+        kernel
+            .run_turn("use the supporting material")
+            .await
+            .expect("reference turn should succeed");
+
+        let recorded = events.lock().unwrap();
+        let tier1_idx = recorded
+            .iter()
+            .position(|event| {
+                matches!(
+                    event,
+                    KernelEvent::SkillTier1Surfaced { skill_name }
+                        if skill_name == "research-assistant"
+                )
+            })
+            .expect("tier 1 event should fire");
+        let tier2_idx = recorded
+            .iter()
+            .position(|event| {
+                matches!(
+                    event,
+                    KernelEvent::SkillTier2Activated { skill_name }
+                        if skill_name == "research-assistant"
+                )
+            })
+            .expect("tier 2 event should fire");
+        let tier3_events = recorded
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event,
+                    KernelEvent::SkillTier3Referenced { skill_name, path }
+                        if skill_name == "research-assistant" && path == "references/guide.md"
+                )
+            })
+            .count();
+        assert_eq!(tier3_events, 1, "tier 3 reads should be cached per turn");
+
+        let tool_results = recorded
+            .iter()
+            .filter_map(|event| match event {
+                KernelEvent::ToolResult { name, ok, content } if name == "read_reference" => {
+                    Some((*ok, content.clone()))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(tool_results.len(), 2);
+        assert!(tool_results.iter().all(|(ok, _)| *ok));
+        assert!(
+            tool_results
+                .iter()
+                .all(|(_, content)| content == "DEEP REFERENCE MATERIAL"),
+            "cached and uncached reference reads should return identical content"
+        );
+
+        let tier3_idx = recorded
+            .iter()
+            .position(|event| {
+                matches!(
+                    event,
+                    KernelEvent::SkillTier3Referenced { skill_name, path }
+                        if skill_name == "research-assistant" && path == "references/guide.md"
+                )
+            })
+            .expect("tier 3 event should fire");
+        assert!(tier1_idx < tier2_idx);
+        assert!(tier2_idx < tier3_idx);
     }
 
     #[tokio::test]

@@ -22,6 +22,14 @@ pub struct Skill {
     pub path: PathBuf,
 }
 
+impl Skill {
+    pub fn root_dir(&self) -> Result<&Path, SkillError> {
+        self.path
+            .parent()
+            .ok_or_else(|| SkillError::Load(format!("missing parent for {}", self.path.display())))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ContributedAgent {
     pub skill_name: String,
@@ -236,6 +244,10 @@ impl SkillStore {
             .join("\n")
     }
 
+    pub fn catalog_skill_names(&self) -> Vec<String> {
+        self.skills.iter().map(|skill| skill.name.clone()).collect()
+    }
+
     pub fn intent_hint_prompt(&self, intent: &Intent) -> Option<String> {
         let mut relevant = self
             .skills
@@ -303,6 +315,31 @@ impl SkillStore {
             blocks.push(block);
         }
         blocks.join("\n\n")
+    }
+
+    pub fn activated_skill_names(&self, active_skills: &[ActiveSkill]) -> Vec<String> {
+        active_skills
+            .iter()
+            .filter_map(|active| self.get(&active.name).map(|skill| skill.name.clone()))
+            .collect()
+    }
+
+    pub fn read_reference(
+        &self,
+        skill_name: &str,
+        relative: &str,
+        max_bytes: Option<usize>,
+    ) -> Result<String, SkillError> {
+        let skill = self
+            .get(skill_name)
+            .ok_or_else(|| SkillError::NotFound(skill_name.into()))?;
+        let path = resolve_resource_path(skill.root_dir()?, relative)?;
+        let raw = fs::read_to_string(&path)
+            .map_err(|err| SkillError::Load(format!("read {}: {err}", path.display())))?;
+        Ok(match max_bytes {
+            Some(limit) => truncate_to_bytes(&raw, limit),
+            None => raw,
+        })
     }
 
     fn replace(&mut self, skill: Skill) {
@@ -809,6 +846,54 @@ fn validate_relative_child_path(
         )));
     }
     Ok(())
+}
+
+fn resolve_resource_path(skill_dir: &Path, relative: &str) -> Result<PathBuf, SkillError> {
+    let relative_path = Path::new(relative);
+    if relative_path.is_absolute()
+        || relative_path
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(SkillError::Load(format!(
+            "resource path '{}' must stay inside the skill directory",
+            relative
+        )));
+    }
+
+    let Some(prefix) = relative_path
+        .components()
+        .next()
+        .and_then(|component| match component {
+            std::path::Component::Normal(value) => value.to_str(),
+            _ => None,
+        })
+    else {
+        return Err(SkillError::Load("resource path cannot be empty".into()));
+    };
+
+    if prefix != "references" && prefix != "assets" {
+        return Err(SkillError::Load(format!(
+            "resource path '{}' must live under references/ or assets/",
+            relative
+        )));
+    }
+
+    let resolved = skill_dir.join(relative_path);
+    if !resolved.exists() {
+        return Err(SkillError::Load(format!(
+            "resource path '{}' does not exist for {}",
+            relative,
+            skill_dir.display()
+        )));
+    }
+    if !resolved.is_file() {
+        return Err(SkillError::Load(format!(
+            "resource path '{}' is not a file",
+            relative
+        )));
+    }
+    Ok(resolved)
 }
 
 fn yaml_quote(value: &str) -> String {

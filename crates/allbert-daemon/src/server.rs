@@ -1049,6 +1049,20 @@ fn model_from_payload(model: ModelConfigPayload) -> ModelConfig {
 
 fn map_kernel_event(event: &KernelEvent) -> KernelEventPayload {
     match event {
+        KernelEvent::SkillTier1Surfaced { skill_name } => KernelEventPayload::SkillTier1Surfaced {
+            skill_name: skill_name.clone(),
+        },
+        KernelEvent::SkillTier2Activated { skill_name } => {
+            KernelEventPayload::SkillTier2Activated {
+                skill_name: skill_name.clone(),
+            }
+        }
+        KernelEvent::SkillTier3Referenced { skill_name, path } => {
+            KernelEventPayload::SkillTier3Referenced {
+                skill_name: skill_name.clone(),
+                path: path.clone(),
+            }
+        }
         KernelEvent::AssistantText(text) => KernelEventPayload::AssistantText(text.clone()),
         KernelEvent::ToolCall { name, input } => KernelEventPayload::ToolCall {
             name: name.clone(),

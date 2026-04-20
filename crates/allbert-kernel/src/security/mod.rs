@@ -449,7 +449,7 @@ impl Hook for SecurityHook {
 fn tool_allowed_by_active_skills(tool_name: &str, allowed: &HashSet<String>) -> bool {
     matches!(
         tool_name,
-        "request_input" | "invoke_skill" | "list_skills" | "read_memory"
+        "request_input" | "invoke_skill" | "list_skills" | "read_memory" | "read_reference"
     ) || allowed.contains(tool_name)
 }
 
