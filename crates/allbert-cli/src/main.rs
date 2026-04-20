@@ -70,10 +70,19 @@ enum DaemonCommand {
 
 #[derive(Subcommand, Debug)]
 enum SkillsCommand {
+    /// List installed skills.
+    List,
+    /// Show one installed skill with its metadata and resources.
+    Show { name: String },
+    /// Validate a skill tree without installing it.
     Validate { path: String },
+    /// Install a skill from a local path or git URL.
     Install { source: String },
+    /// Re-fetch and reinstall an existing skill from its recorded source.
     Update { name: String },
+    /// Remove one installed skill.
     Remove { name: String },
+    /// Scaffold a new strict AgentSkills-format skill in the current directory.
     Init { name: String },
 }
 
@@ -178,6 +187,16 @@ async fn run_skills_command(
     command: SkillsCommand,
 ) -> Result<()> {
     match command {
+        SkillsCommand::List => {
+            let paths = paths.context("list requires an initialized Allbert home")?;
+            println!("{}", skills::list_installed_skills(paths)?);
+            Ok(())
+        }
+        SkillsCommand::Show { name } => {
+            let paths = paths.context("show requires an initialized Allbert home")?;
+            println!("{}", skills::show_installed_skill(paths, &name)?);
+            Ok(())
+        }
         SkillsCommand::Validate { path } => {
             let skill_path = std::path::PathBuf::from(path);
             println!("{}", skills::validate_skill(&skill_path)?);

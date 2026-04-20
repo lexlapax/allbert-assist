@@ -1,7 +1,7 @@
 # ADR 0035: Remote skill registry is deferred; v0.4 sources are local path and git URL
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

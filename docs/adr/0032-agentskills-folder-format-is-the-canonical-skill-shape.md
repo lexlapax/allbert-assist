@@ -1,7 +1,7 @@
 # ADR 0032: AgentSkills folder format is the canonical skill shape
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

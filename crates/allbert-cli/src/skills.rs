@@ -56,6 +56,108 @@ pub fn validate_skill(path: &Path) -> Result<String> {
     ))
 }
 
+pub fn list_installed_skills(paths: &AllbertPaths) -> Result<String> {
+    paths.ensure()?;
+    let mut skills = Vec::new();
+    let mut entries = fs::read_dir(&paths.skills_installed)
+        .with_context(|| format!("read {}", paths.skills_installed.display()))?
+        .flatten()
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|entry| entry.path());
+
+    for entry in entries {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let skill_path = path.join("SKILL.md");
+        if !skill_path.exists() {
+            continue;
+        }
+        let preview = inspect_candidate(&skill_path, "installed")?;
+        let metadata = load_install_metadata(&path.join(INSTALL_METADATA_FILE)).ok();
+        skills.push(format_skill_summary(&preview, metadata.as_ref()));
+    }
+
+    if skills.is_empty() {
+        Ok("No installed skills.".into())
+    } else {
+        Ok(skills.join("\n\n"))
+    }
+}
+
+pub fn show_installed_skill(paths: &AllbertPaths, name: &str) -> Result<String> {
+    paths.ensure()?;
+    let root = paths.skills_installed.join(name);
+    let skill_path = root.join("SKILL.md");
+    if !skill_path.exists() {
+        bail!("skill '{}' is not installed", name);
+    }
+    let preview = inspect_candidate(&skill_path, "installed")?;
+    let metadata = load_install_metadata(&root.join(INSTALL_METADATA_FILE)).ok();
+    let references = list_relative_files(&root.join("references"), "references")?;
+    let assets = list_relative_files(&root.join("assets"), "assets")?;
+    let tree_sha = metadata
+        .as_ref()
+        .map(|metadata| metadata.tree_sha256.as_str())
+        .unwrap_or(preview.tree_sha256.as_str());
+
+    let mut lines = Vec::new();
+    lines.push(format!("name:           {}", preview.name));
+    lines.push(format!("description:    {}", preview.description));
+    lines.push(format!("installed path: {}", root.display()));
+    lines.push(format!("tree sha256:    {}", tree_sha));
+    lines.push(format!(
+        "allowed-tools:  {}",
+        render_list(&preview.allowed_tools)
+    ));
+    lines.push(format!("agents:         {}", render_list(&preview.agents)));
+    lines.push("scripts:".into());
+    if preview.scripts.is_empty() {
+        lines.push("  - (none)".into());
+    } else {
+        for script in &preview.scripts {
+            lines.push(format!(
+                "  - {} [{}] {} sha256={}",
+                script.name, script.interpreter, script.path, script.sha256
+            ));
+        }
+    }
+    lines.push("references:".into());
+    if references.is_empty() {
+        lines.push("  - (none)".into());
+    } else {
+        for reference in references {
+            lines.push(format!("  - {reference}"));
+        }
+    }
+    lines.push("assets:".into());
+    if assets.is_empty() {
+        lines.push("  - (none)".into());
+    } else {
+        for asset in assets {
+            lines.push(format!("  - {asset}"));
+        }
+    }
+    if let Some(metadata) = metadata {
+        lines.push("install metadata:".into());
+        lines.push(format!("  source kind: {}", metadata.source.kind));
+        lines.push(format!("  source: {}", metadata.source.identity));
+        if let Some(reference) = metadata.source.requested_ref {
+            lines.push(format!("  requested ref: {}", reference));
+        }
+        if let Some(commit) = metadata.resolved_commit {
+            lines.push(format!("  resolved commit: {}", commit));
+        }
+        lines.push(format!("  approved at: {}", metadata.approved_at));
+        lines.push(format!("  installed at: {}", metadata.installed_at));
+    }
+    lines.push("SKILL.md excerpt:".into());
+    lines.push(indent_block(&preview.excerpt));
+
+    Ok(lines.join("\n"))
+}
+
 pub fn install_skill_source_interactive(
     paths: &AllbertPaths,
     config: &Config,
@@ -615,6 +717,31 @@ fn render_install_preview(preview: &SkillPreview) -> String {
     lines.join("\n")
 }
 
+fn format_skill_summary(preview: &SkillPreview, metadata: Option<&InstallMetadata>) -> String {
+    let mut lines = Vec::new();
+    lines.push(format!("{}", preview.name));
+    lines.push(format!("  description: {}", preview.description));
+    lines.push(format!(
+        "  allowed-tools: {}",
+        render_list(&preview.allowed_tools)
+    ));
+    lines.push(format!(
+        "  scripts: {}  agents: {}",
+        preview.scripts.len(),
+        preview.agents.len()
+    ));
+    if let Some(metadata) = metadata {
+        lines.push(format!(
+            "  source: {} ({})",
+            metadata.source.identity, metadata.source.kind
+        ));
+        if let Some(commit) = &metadata.resolved_commit {
+            lines.push(format!("  resolved commit: {}", commit));
+        }
+    }
+    lines.join("\n")
+}
+
 fn render_list(values: &[String]) -> String {
     if values.is_empty() {
         "(none)".into()
@@ -681,6 +808,52 @@ fn collect_files(root: &Path, current: &Path, out: &mut Vec<(String, PathBuf)>) 
                 .to_string_lossy()
                 .replace('\\', "/");
             out.push((relative, path));
+        }
+    }
+    Ok(())
+}
+
+fn list_relative_files(root: &Path, prefix: &str) -> Result<Vec<String>> {
+    if !root.exists() {
+        return Ok(Vec::new());
+    }
+    let mut files = Vec::new();
+    collect_relative_files(root, root, prefix, &mut files)?;
+    files.sort();
+    Ok(files)
+}
+
+fn collect_relative_files(
+    root: &Path,
+    current: &Path,
+    prefix: &str,
+    out: &mut Vec<String>,
+) -> Result<()> {
+    let mut entries = fs::read_dir(current)
+        .with_context(|| format!("read directory {}", current.display()))?
+        .flatten()
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|entry| entry.path());
+
+    for entry in entries {
+        let path = entry.path();
+        let metadata =
+            fs::symlink_metadata(&path).with_context(|| format!("metadata {}", path.display()))?;
+        if metadata.file_type().is_symlink() {
+            bail!(
+                "symlinks are not supported in skill installs: {}",
+                path.display()
+            );
+        }
+        if metadata.is_dir() {
+            collect_relative_files(root, &path, prefix, out)?;
+        } else if metadata.is_file() {
+            let relative = path
+                .strip_prefix(root)
+                .expect("path should stay under root")
+                .to_string_lossy()
+                .replace('\\', "/");
+            out.push(format!("{prefix}/{relative}"));
         }
     }
     Ok(())
@@ -1134,5 +1307,41 @@ mod tests {
             metadata.resolved_commit.as_deref(),
             Some(first_commit.as_str())
         );
+    }
+
+    #[test]
+    fn list_and_show_installed_skills_render_operator_details() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let source = write_source_skill(&temp.source_root(), "showcase-skill", "Body v1");
+        fs::create_dir_all(source.join("references")).unwrap();
+        fs::write(
+            source.join("references/guide.md"),
+            "# Guide\n\nReference content.\n",
+        )
+        .unwrap();
+
+        let config = Config::default_template();
+        let prompter = FixedPrompter::new(vec![true], vec![]);
+
+        install_skill_source(
+            &paths,
+            &config,
+            source.to_str().expect("source should be valid utf-8"),
+            &prompter,
+        )
+        .expect("install should succeed");
+
+        let listing = list_installed_skills(&paths).expect("list should succeed");
+        assert!(listing.contains("showcase-skill"));
+        assert!(listing.contains("Valid test skill"));
+        assert!(listing.contains("scripts: 1"));
+
+        let shown = show_installed_skill(&paths, "showcase-skill").expect("show should succeed");
+        assert!(shown.contains("name:           showcase-skill"));
+        assert!(shown.contains("scripts/helper.py"));
+        assert!(shown.contains("references/guide.md"));
+        assert!(shown.contains("source kind: local_path"));
     }
 }

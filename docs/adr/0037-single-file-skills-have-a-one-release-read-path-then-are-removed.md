@@ -1,7 +1,7 @@
 # ADR 0037: v0.4 performs a clean cutover to strict AgentSkills skill trees
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

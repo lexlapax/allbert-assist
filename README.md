@@ -2,11 +2,11 @@
 
 Allbert is a terminal-first personal assistant built around a small Rust kernel, markdown bootstrap files, markdown memory, skills, built-in tools, policy checks, cost tracking, first-class agents, intent routing, and a local daemon runtime.
 
-v0.3 targets a technical source-based user. You build it from source, point it at an Anthropic or OpenRouter API key, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, recurring jobs, and agent inspection.
+v0.4 targets a technical source-based user. You build it from source, point it at an Anthropic or OpenRouter API key, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, recurring jobs, agent inspection, and strict AgentSkills-format skill management.
 
-The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, and generated `AGENTS.md` catalog are all part of the shipped v0.3 experience. You can manage recurring jobs through `allbert-cli jobs ...` or through normal conversation in the REPL, with the CLI preserved as the clearest operator escape hatch.
+The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, and skill script execution policy are all part of the shipped v0.4 experience. You can manage recurring jobs through `allbert-cli jobs ...` or through normal conversation in the REPL, with the CLI preserved as the clearest operator escape hatch.
 
-## What v0.3 includes
+## What v0.4 includes
 
 - a kernel that owns the agent loop, tools, memory, skills, policy, cost, and tracing
 - a local daemon host with attachable REPL, CLI, and jobs channels
@@ -20,6 +20,10 @@ The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-
 - daemon lifecycle commands under `allbert-cli daemon ...`
 - recurring jobs under `allbert-cli jobs ...` and the `allbert-jobs` alias
 - bundled disabled maintenance job templates
+- strict AgentSkills-format skills installed under `~/.allbert/skills/installed/`
+- `allbert-cli skills list|show|validate|install|update|remove|init`
+- local-path and git-URL skill installs with plain-English preview and explicit confirmation
+- `read_reference` and `run_skill_script` as the progressive-disclosure/runtime surfaces for skill resources
 
 ## Prerequisites
 
@@ -64,6 +68,24 @@ List registered agents:
 
 ```bash
 cargo run -p allbert-cli -- agents list
+```
+
+List installed skills:
+
+```bash
+cargo run -p allbert-cli -- skills list
+```
+
+Show one installed skill:
+
+```bash
+cargo run -p allbert-cli -- skills show note-taker
+```
+
+Validate a skill tree before install:
+
+```bash
+cargo run -p allbert-cli -- skills validate examples/skills/note-taker/SKILL.md
 ```
 
 The dedicated alias still works if you prefer it:
@@ -167,7 +189,7 @@ Conversational scheduling examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant understands well in v0.3:
+Common schedule forms the assistant understands well in v0.4:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -176,7 +198,19 @@ Common schedule forms the assistant understands well in v0.3:
 
 ## Skills and memory
 
-Skills live under `~/.allbert/skills/`.
+Canonical installed skills live under `~/.allbert/skills/installed/`. Incoming downloads and clones are quarantined under `~/.allbert/skills/incoming/` until you approve the preview.
+
+Common skill commands:
+
+- `cargo run -p allbert-cli -- skills list`
+- `cargo run -p allbert-cli -- skills show <name>`
+- `cargo run -p allbert-cli -- skills validate <path>`
+- `cargo run -p allbert-cli -- skills install <path-or-git-url>`
+- `cargo run -p allbert-cli -- skills update <name>`
+- `cargo run -p allbert-cli -- skills remove <name>`
+- `cargo run -p allbert-cli -- skills init <name>`
+
+The bundled example skill is [examples/skills/note-taker/SKILL.md](examples/skills/note-taker/SKILL.md). It demonstrates the v0.4 shape: `SKILL.md` plus `references/` and `scripts/`.
 
 Memory lives under `~/.allbert/memory/`:
 
@@ -202,6 +236,8 @@ Chat history is not the durable store. Important facts need to be written into m
 - `~/.allbert/jobs/failures/`
 - `~/.allbert/jobs/templates/`
 - `~/.allbert/skills/`
+- `~/.allbert/skills/installed/`
+- `~/.allbert/skills/incoming/`
 - `~/.allbert/memory/`
 - `~/.allbert/costs.jsonl`
 
@@ -211,11 +247,12 @@ Chat history is not the durable store. Important facts need to be written into m
 - terminal-first and local-user-only
 - local IPC only; no remote/network control plane
 - interactive session state survives client reattach while the daemon is alive, but not a daemon restart
-- sub-agent delegation is intentionally bounded to one nested level in v0.3
+- sub-agent delegation is intentionally bounded to one nested level in v0.4
 - no boot-time OS service install yet
 - bundled job templates are intentionally disabled by default
 - live provider use still depends on your network and API-key env vars
 - conversational scheduling is optimized for the bounded schedule DSL used by v0.2/v0.3; raw cron remains an advanced escape hatch
+- skill installs assume strict AgentSkills-format trees; Allbert does not ship a runtime migration helper for older relaxed skill layouts
 
 ## More detail
 

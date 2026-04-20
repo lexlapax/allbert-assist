@@ -1,7 +1,7 @@
 # ADR 0036: Progressive disclosure maps to prompt construction stages
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

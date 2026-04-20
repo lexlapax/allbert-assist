@@ -1,6 +1,6 @@
-# Allbert v0.3 Onboarding and Operations
+# Allbert v0.4 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.3 release.
+This guide is the operator reference for the source-based v0.4 release.
 
 ## Quickstart
 
@@ -55,11 +55,11 @@ If `fs_roots` is empty:
 - startup prints a warning
 - `/status` shows `(none)` for trusted roots
 
-This is intentional. v0.3 still prefers explicit workspace trust over permissive defaults.
+This is intentional. v0.4 still prefers explicit workspace trust over permissive defaults.
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical v0.3 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical v0.4 file looks like:
 
 ```toml
 trace = false
@@ -204,7 +204,7 @@ Conversational scheduling works best when you ask plainly. Good examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant should compile naturally in v0.3:
+Common schedule forms the assistant should compile naturally in v0.4:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -215,7 +215,7 @@ When you create, update, pause, resume, or remove a job from normal conversation
 
 ## Bundled maintenance jobs
 
-v0.3 seeds these disabled templates:
+v0.4 still seeds these disabled templates:
 
 - `daily-brief`
 - `weekly-review`
@@ -227,9 +227,35 @@ The setup wizard can enable selected templates for you. If you skip them there, 
 
 ## Skills and memory
 
-Skills live under `~/.allbert/skills/`.
+The canonical installed skill root in v0.4 is `~/.allbert/skills/installed/`.
 
-In v0.3, skills can also preview:
+Quarantine lives under `~/.allbert/skills/incoming/`; fetched or copied skills stay there until you approve the preview.
+
+Skill commands:
+
+- `cargo run -p allbert-cli -- skills list`
+- `cargo run -p allbert-cli -- skills show <name>`
+- `cargo run -p allbert-cli -- skills validate <path>`
+- `cargo run -p allbert-cli -- skills install <path-or-git-url>`
+- `cargo run -p allbert-cli -- skills update <name>`
+- `cargo run -p allbert-cli -- skills remove <name>`
+- `cargo run -p allbert-cli -- skills init <name>`
+
+`skills list` is the quickest operator view of installed skills. `skills show <name>` prints the installed path, allowed tools, scripts, references, assets, and install metadata such as source kind and resolved commit.
+
+Skill install/update preview shows:
+
+- name and description
+- source identity
+- tree SHA-256
+- declared agents
+- declared allowed tools
+- declared scripts with interpreter, path, and SHA-256
+- the first lines of `SKILL.md`
+
+v0.4 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
+
+In v0.4, skills can also preview:
 
 - `intents:` metadata to hint the intent router
 - `agents:` metadata to contribute namespaced sub-agents
@@ -306,7 +332,7 @@ Setup feels incomplete:
 
 ## Release posture
 
-v0.3 is a shipped technical-user release:
+v0.4 is a shipped technical-user release:
 
 - source-based
 - terminal-first
@@ -314,6 +340,7 @@ v0.3 is a shipped technical-user release:
 - explicit workspace trust
 - guided bootstrap and daemon/jobs setup
 - first-class agents and intent routing with operator-visible status
+- strict AgentSkills-format skill install, inspection, and execution
 
 Known limitations remain explicit:
 

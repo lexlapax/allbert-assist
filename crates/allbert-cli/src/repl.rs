@@ -22,6 +22,8 @@ commands:
   /quit     leave the REPL
   operator inspection:
     - allbert-cli agents list
+    - allbert-cli skills list
+    - allbert-cli skills show <name>
     - cat ~/.allbert/AGENTS.md
   ask naturally for recurring work:
     - \"what jobs do I have?\"

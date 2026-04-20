@@ -1,7 +1,7 @@
 # ADR 0034: Skill scripts run under the same exec policy as tools
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 

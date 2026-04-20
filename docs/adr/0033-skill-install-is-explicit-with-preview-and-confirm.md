@@ -1,7 +1,7 @@
 # ADR 0033: Skill install is explicit with preview and confirm
 
 Date: 2026-04-18
-Status: Proposed
+Status: Accepted
 
 ## Context
 
