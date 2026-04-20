@@ -17,9 +17,9 @@ Options considered:
 
 1. Stay on the minimal `SKILL.md`-only shape and add more frontmatter fields ad hoc.
 2. Invent a third Allbert-specific format.
-3. Adopt the AgentSkills folder format as canonical, with a one-release relaxed-compatibility window for existing minimal skills (ADR 0037) and a migration helper.
+3. Adopt the AgentSkills folder format as canonical and cut over cleanly by normalizing shipped skills to that format before v0.4 closeout.
 
-Option 3 aligns Allbert with an emerging open standard, gives scripts and references proper homes, and enables progressive disclosure as a principled feature rather than an ad hoc optimisation.
+Option 3 aligns Allbert with an emerging open standard, gives scripts and references proper homes, and enables progressive disclosure as a principled feature rather than an ad hoc optimisation, without carrying multiple loader modes forward.
 
 ## Decision
 
@@ -31,7 +31,7 @@ v0.4 adopts the AgentSkills folder format as the canonical skill shape.
 - Skill-local references are addressable as `references/<file>` within the skill; links in the body use relative paths.
 - Skill-local scripts are declared in frontmatter under `scripts:` and invoked through the kernel exec seam (ADR 0034).
 - Validation uses an Allbert-internal validator that is compatible with the `skills-ref` schema; skills that pass upstream validation pass Allbert validation as long as no Allbert extensions are misused.
-- Legacy minimal skills continue to load through v0.4 only, with a deprecation warning and a bundled migration helper. The relaxed compatibility path is removed in v0.5 (ADR 0037).
+- v0.4 normalizes shipped skills to the strict AgentSkills format before release. The runtime target is the canonical format, not a mixed legacy/strict loader.
 
 ## Consequences
 
@@ -41,7 +41,7 @@ v0.4 adopts the AgentSkills folder format as the canonical skill shape.
 - Gives skill authors a clear, documented file layout.
 
 **Negative**
-- Breaking change for legacy minimal skills after one release; users must normalize them.
+- Existing out-of-band skills that still rely on the earlier relaxed shape must be normalized before they will validate/install cleanly under the v0.4 contract.
 - Skill loader gains directory-walking, validation, and resource resolution logic.
 
 **Neutral**

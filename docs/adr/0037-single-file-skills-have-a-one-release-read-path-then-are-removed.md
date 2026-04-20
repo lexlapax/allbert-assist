@@ -1,58 +1,44 @@
-# ADR 0037: Legacy minimal skills have a one-release compatibility window before strict AgentSkills validation
+# ADR 0037: v0.4 performs a clean cutover to strict AgentSkills skill trees
 
 Date: 2026-04-18
 Status: Proposed
 
 ## Context
 
-v0.1 and v0.2 shipped skills in a minimal directory shape centered on `~/.allbert/skills/<name>/SKILL.md`. That means Allbert already has the top-level folder convention AgentSkills expects, but those legacy skills may still lack:
+v0.1 through v0.3 shipped skills in a relaxed directory shape centered on `~/.allbert/skills/<name>/SKILL.md`. That earlier shape already shared the top-level folder convention with AgentSkills, but it did not require the stricter validation and layout discipline v0.4 now wants to make canonical.
 
-- stricter AgentSkills-compatible metadata,
-- declared `scripts:` / `references:` resource structure,
-- portable validation expectations across the broader skill ecosystem.
+For v0.4, we considered two broad migration approaches:
 
-v0.4 adopts the full AgentSkills folder format as canonical (ADR 0032). Users and bundled skill authors need a migration story from the relaxed early shape to the stricter canonical one.
+1. Carry a runtime compatibility bridge for one or more releases, with dual loader modes, deprecation warnings, and a migration helper.
+2. Normalize the shipped skills to strict AgentSkills format as part of the release work, and make the strict format the only v0.4 target.
 
-Options considered:
-
-1. Keep loading relaxed legacy skills indefinitely alongside strict AgentSkills skills.
-2. Load relaxed legacy skills in v0.4 only, with a deprecation warning and a migration helper; require strict AgentSkills validation from v0.5 onward.
-3. Force strict AgentSkills validation at the v0.4 upgrade boundary — no relaxed legacy skill loads at all after v0.4 ships.
-
-Option 1 leaves two permanent validation/loader modes and splits the skill-author story forever. Option 3 is a hard break that strands any bundled or user-authored legacy skill the moment v0.4 lands. Option 2 gives one full release cycle to normalize skills, with visible warnings and a helper to automate most of the conversion.
+The first approach reduces immediate breakage for ad hoc legacy skills, but it permanently complicates the loader, test surface, and user story around what a "real" v0.4 skill is. The second approach is a sharper cutover, but it keeps the runtime and docs honest: the system loads one canonical format, and the shipped skills demonstrate that exact format.
 
 ## Decision
 
-v0.4 reads both relaxed legacy skills and strict AgentSkills-format skills, and it reads them from two distinct roots. v0.5 removes the relaxed compatibility path.
+v0.4 uses a clean cutover to strict AgentSkills-compatible skill trees.
 
-- On every load of a legacy relaxed skill in v0.4, the skill loader emits a deprecation warning to the console, the trace log, and the skill status output. The warning names the skill and points at the migration helper.
-- The active roots in v0.4 are:
-  - `~/.allbert/skills/installed/` — canonical installed AgentSkills root.
-  - `~/.allbert/skills/` — legacy compatibility root carried forward from shipped v0.3.
-- If a skill name exists in both roots, the installed-root copy wins and the legacy-root copy is ignored with a warning. `~/.allbert/skills/incoming/` is never part of the active read path.
-- A bundled migration helper normalizes a relaxed legacy skill into strict AgentSkills form: it preserves `<skill-name>/SKILL.md`, rewrites metadata into the canonical schema where needed, creates `scripts/`, `references/`, `assets/`, and `agents/` directories when relevant, and validates the result against the AgentSkills schema.
-- The migration helper runs in preview mode by default; a `--apply` flag writes the normalized skill and either updates the original in place or writes it directly into `installed/`, as the user chooses.
-- Bundled first-party skills ship in strict AgentSkills-compatible form starting v0.4; the migration helper is for user-authored skills and for backwards compatibility with out-of-band skill collections.
-- v0.5 removes the relaxed compatibility mode and the deprecation-warning plumbing. Any remaining relaxed legacy skill fails strict validation with an actionable error pointing at the migration helper (which stays available).
+- The shipped first-party and example skills are normalized in-repo to the strict v0.4 folder format before release.
+- The canonical active runtime shape is the strict AgentSkills folder layout rooted at the installed skills directory.
+- `incoming/` remains quarantine-only and is never part of the active skill load path.
+- v0.4 does not introduce a runtime migration helper, dual-root compatibility loader, or deprecation-warning subsystem for legacy minimal skills.
+- `allbert-cli skills validate <path>` remains the explicit preflight tool for checking whether a skill tree is already valid before install.
 
 ## Consequences
 
 **Positive**
-- Gives users one full release cycle to normalize skills with visible warnings.
-- Automates the common case of conversion so migration is not a burden.
-- Keeps the eventual code paths simple — one loader, one skill shape, after v0.5.
+- The runtime, docs, and tests all target one skill shape.
+- M5 can focus on normalizing the shipped skills and proving they work, instead of shipping bridge code that will be deleted later.
+- End users see the same format in examples, bundled skills, installed skills, and validator output.
 
 **Negative**
-- v0.4 carries relaxed and strict validation paths plus a warning surface.
-- Users who skip v0.4 and upgrade straight to v0.5 must run the migration helper before skills will load.
+- Out-of-band skills that still use the older relaxed shape must be normalized by their authors or operators before they are expected to validate/install cleanly under the v0.4 contract.
+- There is no built-in "fix my old skill for me" helper in v0.4.
 
 **Neutral**
-- The deprecation-warning surface itself can be reused for future format migrations.
-- The migration helper can stay shipped past v0.5 as a one-shot conversion utility.
+- This ADR is intentionally narrower than a general cross-release compatibility policy. Future format changes may choose a different migration strategy if the tradeoffs differ.
 
 ## References
 
-- [ADR 0002](0002-skill-bodies-require-explicit-activation.md)
 - [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
 - [docs/plans/v0.4-agentskills-adoption.md](../plans/v0.4-agentskills-adoption.md)
-- [docs/plans/v0.5-curated-memory.md](../plans/v0.5-curated-memory.md)
