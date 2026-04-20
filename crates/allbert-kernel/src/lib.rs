@@ -51,6 +51,16 @@ use hooks::HookRegistry;
 use intent::{classify_by_rules, default_intent};
 use llm::{CompletionRequest, DefaultProviderFactory, LlmProvider, ProviderFactory};
 
+pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, KernelError> {
+    paths.ensure()?;
+    let skills = SkillStore::discover(&paths.skills);
+    let rendered = skills.render_agents_markdown();
+    std::fs::write(&paths.agents_notes, &rendered).map_err(|e| {
+        KernelError::InitFailed(format!("write {}: {e}", paths.agents_notes.display()))
+    })?;
+    Ok(rendered)
+}
+
 pub struct TurnSummary {
     pub hit_turn_limit: bool,
 }
@@ -138,6 +148,10 @@ impl Kernel {
         let trace = trace::init_tracing(config.trace, &paths, &session_id)?;
         let llm = provider_factory.build(&config.model).await?;
         let skills = SkillStore::discover(&paths.skills);
+        let rendered_agents = skills.render_agents_markdown();
+        std::fs::write(&paths.agents_notes, rendered_agents).map_err(|e| {
+            KernelError::InitFailed(format!("write {}: {e}", paths.agents_notes.display()))
+        })?;
         let security_state = Arc::new(Mutex::new(config.security.clone()));
         let mut hooks = HookRegistry::default();
         hooks.register(
@@ -543,8 +557,21 @@ impl Kernel {
         self.skills.contributed_agents()
     }
 
+    pub fn agents_markdown(&self) -> String {
+        self.skills.render_agents_markdown()
+    }
+
     pub fn active_skills(&self) -> &[ActiveSkill] {
         &self.state.active_skills
+    }
+
+    pub fn refresh_skill_catalog(&mut self) -> Result<(), KernelError> {
+        self.skills = SkillStore::discover(&self.paths.skills);
+        let rendered = self.skills.render_agents_markdown();
+        std::fs::write(&self.paths.agents_notes, rendered).map_err(|e| {
+            KernelError::InitFailed(format!("write {}: {e}", self.paths.agents_notes.display()))
+        })?;
+        Ok(())
     }
 
     pub fn activate_session_skill(
@@ -1081,9 +1108,18 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             &parsed.allowed_tools,
             &parsed.body,
         ) {
-            Ok(skill) => ToolOutput {
-                content: format!("created skill {} at {}", skill.name, skill.path.display()),
-                ok: true,
+            Ok(skill) => match self.refresh_skill_catalog() {
+                Ok(()) => ToolOutput {
+                    content: format!("created skill {} at {}", skill.name, skill.path.display()),
+                    ok: true,
+                },
+                Err(err) => ToolOutput {
+                    content: format!(
+                        "created skill {}, but failed to refresh AGENTS.md: {err}",
+                        skill.name
+                    ),
+                    ok: false,
+                },
             },
             Err(err) => ToolOutput {
                 content: err.to_string(),
@@ -1827,6 +1863,7 @@ mod tests {
         assert!(paths.user.exists());
         assert!(paths.identity.exists());
         assert!(paths.tools_notes.exists());
+        assert!(paths.agents_notes.exists());
         assert!(paths.bootstrap.exists());
         assert!(paths.skills.exists());
         assert!(paths.memory.exists());
@@ -2560,6 +2597,8 @@ mod tests {
         assert!(system.contains("Lex"));
         assert!(system.contains("## IDENTITY.md"));
         assert!(system.contains("## TOOLS.md"));
+        assert!(system.contains("## AGENTS.md"));
+        assert!(system.contains("## allbert/root"));
         assert!(system.contains("## BOOTSTRAP.md"));
 
         let soul_idx = system
@@ -3374,6 +3413,132 @@ mod tests {
         let agents = kernel.list_agents();
         assert_eq!(agents.len(), 1);
         assert_eq!(agents[0].name, "planner/researcher");
+    }
+
+    #[tokio::test]
+    async fn agents_markdown_is_generated_on_boot_with_read_only_header() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let skill_dir = paths.skills.join("planner");
+        fs::create_dir_all(skill_dir.join("agents")).unwrap();
+        fs::write(
+            skill_dir.join("SKILL.md"),
+            concat!(
+                "---\n",
+                "name: planner\n",
+                "description: Planner skill\n",
+                "agents:\n",
+                "  - agents/researcher.md\n",
+                "---\n\n",
+                "Plan work.\n"
+            ),
+        )
+        .unwrap();
+        fs::write(
+            skill_dir.join("agents/researcher.md"),
+            concat!(
+                "---\n",
+                "name: researcher\n",
+                "description: Research helper\n",
+                "allowed-tools: read_file\n",
+                "---\n\n",
+                "Research carefully.\n"
+            ),
+        )
+        .unwrap();
+
+        let kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "anthropic",
+                Vec::new(),
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let rendered = fs::read_to_string(&paths.agents_notes).expect("AGENTS.md should exist");
+        assert!(rendered.starts_with("<!-- This file is generated by Allbert."));
+        assert!(rendered.contains("## allbert/root"));
+        assert!(rendered.contains("## planner/researcher"));
+        assert!(rendered.contains("- contributing skill: planner"));
+        assert_eq!(kernel.agents_markdown(), rendered);
+    }
+
+    #[tokio::test]
+    async fn refresh_skill_catalog_regenerates_agents_markdown() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "anthropic",
+                Vec::new(),
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let skill_dir = paths.skills.join("planner");
+        fs::create_dir_all(skill_dir.join("agents")).unwrap();
+        fs::write(
+            skill_dir.join("SKILL.md"),
+            concat!(
+                "---\n",
+                "name: planner\n",
+                "description: Planner skill\n",
+                "agents:\n",
+                "  - agents/researcher.md\n",
+                "---\n\n",
+                "Plan work.\n"
+            ),
+        )
+        .unwrap();
+        fs::write(
+            skill_dir.join("agents/researcher.md"),
+            concat!(
+                "---\n",
+                "name: researcher\n",
+                "description: Research helper\n",
+                "allowed-tools: read_file\n",
+                "---\n\n",
+                "Research carefully.\n"
+            ),
+        )
+        .unwrap();
+
+        kernel
+            .refresh_skill_catalog()
+            .expect("skill catalog refresh should succeed");
+
+        let rendered = fs::read_to_string(&paths.agents_notes).expect("AGENTS.md should exist");
+        assert!(rendered.contains("## planner/researcher"));
+    }
+
+    #[test]
+    fn refresh_agents_markdown_writes_catalog_without_kernel_boot() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill(
+            &paths,
+            "note-taker",
+            "Capture notes",
+            "write_file request_input",
+            "Use write_file to persist notes.",
+        );
+
+        let rendered = refresh_agents_markdown(&paths).expect("catalog should refresh");
+        assert!(rendered.contains("## allbert/root"));
+        assert!(paths.agents_notes.exists());
     }
 
     #[tokio::test]

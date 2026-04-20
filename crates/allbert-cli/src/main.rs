@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_jobs::JobsCommand;
-use allbert_kernel::{AllbertPaths, Config};
+use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config};
 use allbert_proto::{ChannelKind, ClientKind, DaemonStatus};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -30,10 +30,19 @@ enum Command {
         #[command(subcommand)]
         command: DaemonCommand,
     },
+    Agents {
+        #[command(subcommand)]
+        command: AgentsCommand,
+    },
     Jobs {
         #[command(subcommand)]
         command: JobsCommand,
     },
+}
+
+#[derive(Subcommand, Debug)]
+enum AgentsCommand {
+    List,
 }
 
 #[derive(Subcommand, Debug)]
@@ -87,6 +96,7 @@ async fn main() -> Result<()> {
             }
             allbert_jobs::run_command(&paths, &config, command).await
         }
+        Some(Command::Agents { command }) => run_agents_command(&paths, &config, command).await,
         Some(Command::Daemon { command }) => {
             if matches!(command, DaemonCommand::Start | DaemonCommand::Restart)
                 && setup::needs_setup(&config, &paths)
@@ -102,6 +112,20 @@ async fn main() -> Result<()> {
                 };
             }
             run_daemon_command(&paths, &config, command).await
+        }
+    }
+}
+
+async fn run_agents_command(
+    paths: &AllbertPaths,
+    _config: &Config,
+    command: AgentsCommand,
+) -> Result<()> {
+    match command {
+        AgentsCommand::List => {
+            let rendered = refresh_agents_markdown(paths)?;
+            println!("{rendered}");
+            Ok(())
         }
     }
 }

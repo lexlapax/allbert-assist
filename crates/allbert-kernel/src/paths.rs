@@ -140,6 +140,7 @@ pub struct AllbertPaths {
     pub user: PathBuf,
     pub identity: PathBuf,
     pub tools_notes: PathBuf,
+    pub agents_notes: PathBuf,
     pub bootstrap: PathBuf,
     pub skills: PathBuf,
     pub memory: PathBuf,
@@ -184,6 +185,7 @@ impl AllbertPaths {
             user: root.join("USER.md"),
             identity: root.join("IDENTITY.md"),
             tools_notes: root.join("TOOLS.md"),
+            agents_notes: root.join("AGENTS.md"),
             bootstrap: root.join("BOOTSTRAP.md"),
             skills: root.join("skills"),
             memory_index: memory.join("MEMORY.md"),
@@ -279,12 +281,13 @@ impl AllbertPaths {
         Ok(())
     }
 
-    pub fn bootstrap_files(&self) -> [(&'static str, &std::path::Path); 5] {
+    pub fn bootstrap_files(&self) -> [(&'static str, &std::path::Path); 6] {
         [
             ("SOUL.md", self.soul.as_path()),
             ("USER.md", self.user.as_path()),
             ("IDENTITY.md", self.identity.as_path()),
             ("TOOLS.md", self.tools_notes.as_path()),
+            ("AGENTS.md", self.agents_notes.as_path()),
             ("BOOTSTRAP.md", self.bootstrap.as_path()),
         ]
     }
