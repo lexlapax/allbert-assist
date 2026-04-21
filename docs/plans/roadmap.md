@@ -10,7 +10,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.2 | Daemon host, scheduled jobs, multi-session kernel, local IPC | Shipped | [v0.2-scheduled-jobs.md](v0.2-scheduled-jobs.md) |
 | v0.3 | First-class agents, sub-agent harness, intent routing | Shipped | [v0.3-agent-harness.md](v0.3-agent-harness.md) |
 | v0.4 | AgentSkills folder format, install trust model, script policy | Shipped | [v0.4-agentskills-adoption.md](v0.4-agentskills-adoption.md) |
-| v0.5 | Curated memory: tiered memory service, ranked retrieval, staging, promotion | Proposed | [v0.5-curated-memory.md](v0.5-curated-memory.md) |
+| v0.5 | Curated memory: tiered memory service, ranked retrieval, staging, promotion | Shipped | [v0.5-curated-memory.md](v0.5-curated-memory.md) |
 | v0.6 | Channel expansion: Telegram pilot and the Channel trait | Proposed | [v0.6-channel-expansion.md](v0.6-channel-expansion.md) |
 | v0.7 | Self-improvement: Rust rebuild skill, skill-authoring skill, embedded scripting seam | Proposed | [v0.7-self-improvement.md](v0.7-self-improvement.md) |
 

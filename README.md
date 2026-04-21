@@ -1,12 +1,12 @@
 # Allbert
 
-Allbert is a terminal-first personal assistant built around a small Rust kernel, markdown bootstrap files, markdown memory, skills, built-in tools, policy checks, cost tracking, first-class agents, intent routing, and a local daemon runtime.
+Allbert is a terminal-first personal assistant built around a small Rust kernel, markdown bootstrap files, curated markdown memory, AgentSkills-format skills, built-in tools, policy checks, cost tracking, first-class agents, intent routing, and a local daemon runtime.
 
-v0.4 targets a technical source-based user. You build it from source, point it at an Anthropic or OpenRouter API key, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, recurring jobs, agent inspection, and strict AgentSkills-format skill management.
+v0.5 targets a technical source-based user. You build it from source, point it at an Anthropic or OpenRouter API key, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, recurring jobs, agent inspection, strict AgentSkills-format skill management, and curated-memory review.
 
-The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, and skill script execution policy are all part of the shipped v0.4 experience. You can manage recurring jobs through `allbert-cli jobs ...` or through normal conversation in the REPL, with the CLI preserved as the clearest operator escape hatch.
+The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection, and the shipped `memory-curator` skill are all part of the shipped v0.5 experience. You can manage recurring jobs through `allbert-cli jobs ...` or through normal conversation in the REPL, with the CLI preserved as the clearest operator escape hatch. You can inspect, stage, promote, reject, and forget memory through both conversation and `allbert-cli memory ...`.
 
-## What v0.4 includes
+## What v0.5 includes
 
 - a kernel that owns the agent loop, tools, memory, skills, policy, cost, and tracing
 - a local daemon host with attachable REPL, CLI, and jobs channels
@@ -24,6 +24,13 @@ The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-
 - `allbert-cli skills list|show|validate|install|update|remove|init`
 - local-path and git-URL skill installs with plain-English preview and explicit confirmation
 - `read_reference` and `run_skill_script` as the progressive-disclosure/runtime surfaces for skill resources
+- curated memory under `~/.allbert/memory/` with:
+  - `MEMORY.md` as the near-at-hand catalog
+  - `notes/` for approved durable memory
+  - `staging/` for candidate learnings awaiting review
+  - `manifest.json` plus `index/` as rebuildable kernel-owned metadata
+- `allbert-cli memory status|search|staged|promote|reject|forget|rebuild-index`
+- a shipped `memory-curator` skill with review and explicit extraction workflows
 
 ## Prerequisites
 
@@ -74,6 +81,30 @@ List installed skills:
 
 ```bash
 cargo run -p allbert-cli -- skills list
+```
+
+Show the shipped memory curator skill:
+
+```bash
+cargo run -p allbert-cli -- skills show memory-curator
+```
+
+Check curated-memory status:
+
+```bash
+cargo run -p allbert-cli -- memory status
+```
+
+Search approved durable memory:
+
+```bash
+cargo run -p allbert-cli -- memory search "postgres"
+```
+
+List staged learnings waiting for review:
+
+```bash
+cargo run -p allbert-cli -- memory staged list
 ```
 
 Show one installed skill:
@@ -129,7 +160,7 @@ Trusted roots matter: file tools are disabled outside the directories you explic
 
 When setup completes successfully:
 
-- `config.toml` gets `setup.version = 2`
+- `config.toml` keeps the current profile/setup version and writes the latest defaults
 - bootstrap files are updated with your confirmed values
 - daemon/jobs defaults are written into config
 - selected bundled job templates are copied into `~/.allbert/jobs/definitions/`
@@ -152,6 +183,15 @@ REPL slash commands:
 - `/exit` leaves the REPL without stopping the daemon
 
 Unknown slash commands are rejected locally instead of being sent through to the model.
+
+Memory examples that work well in v0.5:
+
+- `what do you remember about Postgres?`
+- `remember that we use Postgres for primary storage`
+- `review what's staged`
+- `promote that`
+- `reject that`
+- `forget that we use Postgres`
 
 Daemon commands:
 
@@ -189,7 +229,7 @@ Conversational scheduling examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant understands well in v0.4:
+Common schedule forms the assistant understands well in v0.5:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -210,15 +250,33 @@ Common skill commands:
 - `cargo run -p allbert-cli -- skills remove <name>`
 - `cargo run -p allbert-cli -- skills init <name>`
 
-The bundled example skill is [examples/skills/note-taker/SKILL.md](examples/skills/note-taker/SKILL.md). It demonstrates the v0.4 shape: `SKILL.md` plus `references/` and `scripts/`.
+The bundled example skill is [examples/skills/note-taker/SKILL.md](examples/skills/note-taker/SKILL.md). It demonstrates the v0.5 shape: `SKILL.md` plus `references/` and `scripts/`.
+The shipped [skills/memory-curator/SKILL.md](skills/memory-curator/SKILL.md) skill is available on fresh profiles and packages the review/promotion workflow around the kernel-owned memory tools.
 
-Memory lives under `~/.allbert/memory/`:
+Curated memory lives under `~/.allbert/memory/`:
 
-- `MEMORY.md` is the always-nearby index
-- `daily/` holds dated notes
-- `topics/`, `people/`, `projects/`, and `decisions/` are durable buckets for deeper notes
+- `MEMORY.md` is the always-nearby catalog
+- `daily/` holds dated recency notes
+- `notes/` holds approved durable memory notes
+- `staging/` holds candidate learnings awaiting review
+- `manifest.json` inventories durable notes for the retriever
+- `index/` holds rebuildable Tantivy artifacts
+- `.trash/` keeps recently forgotten durable notes until retention expires
 
-Chat history is not the durable store. Important facts need to be written into memory files.
+Common memory commands:
+
+- `cargo run -p allbert-cli -- memory status`
+- `cargo run -p allbert-cli -- memory search "postgres"`
+- `cargo run -p allbert-cli -- memory staged list`
+- `cargo run -p allbert-cli -- memory staged show <id>`
+- `cargo run -p allbert-cli -- memory promote <id> --confirm`
+- `cargo run -p allbert-cli -- memory reject <id> --reason "not durable"`
+- `cargo run -p allbert-cli -- memory forget <path-or-query> --confirm`
+- `cargo run -p allbert-cli -- memory rebuild-index --force`
+
+Chat history is not the durable store. Durable learnings are staged first, then promoted explicitly into `notes/`.
+
+If you are upgrading an existing v0.4 profile, see [docs/notes/v0.5-upgrade-2026-04-20.md](docs/notes/v0.5-upgrade-2026-04-20.md) for the automatic bucket-import behavior and the post-upgrade validation checklist.
 
 ## Files you should know
 
@@ -239,6 +297,11 @@ Chat history is not the durable store. Important facts need to be written into m
 - `~/.allbert/skills/installed/`
 - `~/.allbert/skills/incoming/`
 - `~/.allbert/memory/`
+- `~/.allbert/memory/notes/`
+- `~/.allbert/memory/staging/`
+- `~/.allbert/memory/manifest.json`
+- `~/.allbert/memory/index/`
+- `~/.allbert/memory/.trash/`
 - `~/.allbert/costs.jsonl`
 
 ## Current limitations
@@ -247,13 +310,14 @@ Chat history is not the durable store. Important facts need to be written into m
 - terminal-first and local-user-only
 - local IPC only; no remote/network control plane
 - interactive session state survives client reattach while the daemon is alive, but not a daemon restart
-- sub-agent delegation is intentionally bounded to one nested level in v0.4
+- sub-agent delegation is intentionally bounded to one nested level in v0.5
 - no boot-time OS service install yet
 - bundled job templates are intentionally disabled by default
 - live provider use still depends on your network and API-key env vars
 - conversational scheduling is optimized for the bounded schedule DSL used by v0.2/v0.3; raw cron remains an advanced escape hatch
 - skill installs assume strict AgentSkills-format trees; Allbert does not ship a runtime migration helper for older relaxed skill layouts
+- autonomous learnings are staged first; durable promotion and forgetting remain explicit review actions
 
 ## More detail
 
-See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the operator walkthrough, config examples, daemon lifecycle guidance, jobs workflow, and troubleshooting.
+See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the operator walkthrough, config examples, daemon lifecycle guidance, jobs workflow, curated-memory workflow, and troubleshooting.

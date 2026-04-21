@@ -1344,4 +1344,20 @@ mod tests {
         assert!(shown.contains("references/guide.md"));
         assert!(shown.contains("source kind: local_path"));
     }
+
+    #[test]
+    fn fresh_profile_lists_seeded_memory_curator_skill() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+
+        let listing = list_installed_skills(&paths).expect("list should succeed");
+        assert!(listing.contains("memory-curator"));
+
+        let shown = show_installed_skill(&paths, "memory-curator").expect("show should succeed");
+        assert!(shown.contains("name:           memory-curator"));
+        assert!(shown.contains("allowed-tools:"));
+        assert!(shown.contains("list_staged_memory"));
+        assert!(shown.contains("agents/extract-from-turn.md"));
+    }
 }

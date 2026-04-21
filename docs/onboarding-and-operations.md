@@ -1,6 +1,6 @@
-# Allbert v0.4 Onboarding and Operations
+# Allbert v0.5 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.4 release.
+This guide is the operator reference for the source-based v0.5 release.
 
 ## Quickstart
 
@@ -8,8 +8,8 @@ This guide is the operator reference for the source-based v0.4 release.
 2. Run `cargo run -p allbert-cli --`.
 3. Complete the guided setup flow.
 4. Confirm daemon/session state with `/status`.
-5. Use `allbert-cli daemon status` and `allbert-cli jobs list` as needed.
-6. Inspect the current agent catalog with `allbert-cli agents list` if you want to see available contributed agents.
+5. Use `allbert-cli daemon status`, `allbert-cli jobs list`, and `allbert-cli memory status` as needed.
+6. Inspect the current agent catalog with `allbert-cli agents list` and the shipped curator flow with `allbert-cli skills show memory-curator`.
 
 ## Guided setup
 
@@ -30,7 +30,7 @@ Type `/cancel` at any setup prompt to abort setup cleanly.
 
 If setup completes:
 
-- `config.toml` is updated with `setup.version = 2`
+- `config.toml` is updated with the current profile/setup version and latest defaults
 - `USER.md` is filled with the confirmed profile values
 - `IDENTITY.md` is updated only if you chose to customize assistant identity
 - daemon/jobs defaults are written into config
@@ -55,11 +55,11 @@ If `fs_roots` is empty:
 - startup prints a warning
 - `/status` shows `(none)` for trusted roots
 
-This is intentional. v0.4 still prefers explicit workspace trust over permissive defaults.
+This is intentional. v0.5 still prefers explicit workspace trust over permissive defaults.
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical v0.4 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical v0.5 file looks like:
 
 ```toml
 trace = false
@@ -71,7 +71,7 @@ api_key_env = "ANTHROPIC_API_KEY"
 max_tokens = 4096
 
 [setup]
-version = 2
+version = 3
 
 [daemon]
 log_retention_days = 7
@@ -82,6 +82,30 @@ enabled = false
 max_concurrent_runs = 1
 default_timeout_s = 600
 default_timezone = "America/Los_Angeles"
+
+[memory]
+prefetch_enabled = true
+prefetch_default_limit = 5
+refresh_after_external_evidence = true
+max_refreshes_per_turn = 1
+max_synopsis_bytes = 8192
+max_memory_md_head_bytes = 2048
+max_daily_head_bytes = 2048
+max_daily_tail_bytes = 1024
+max_ephemeral_summary_bytes = 2048
+max_prefetch_snippets = 5
+max_prefetch_snippet_bytes = 512
+max_ephemeral_bytes = 32768
+max_staged_entries_per_turn = 5
+max_subagent_snippets = 3
+staged_entry_ttl_days = 90
+staged_total_cap = 500
+rejected_retention_days = 30
+trash_retention_days = 30
+index_auto_rebuild = true
+default_search_limit = 10
+default_daily_recency_days = 2
+surface_staged_on_turn_end = true
 
 [security]
 fs_roots = ["/absolute/path/to/workspace"]
@@ -132,6 +156,26 @@ Useful REPL commands:
   Leaves the REPL without stopping the daemon.
 
 Unknown slash commands are rejected locally with a short hint to use `/help`; they are not forwarded to the model.
+
+For curated-memory review, the most useful operator commands are:
+
+- `cargo run -p allbert-cli -- memory status`
+- `cargo run -p allbert-cli -- memory search "postgres"`
+- `cargo run -p allbert-cli -- memory staged list`
+- `cargo run -p allbert-cli -- memory staged show <id>`
+- `cargo run -p allbert-cli -- memory promote <id> --confirm`
+- `cargo run -p allbert-cli -- memory reject <id> --reason "not durable"`
+- `cargo run -p allbert-cli -- memory forget <path-or-query> --confirm`
+- `cargo run -p allbert-cli -- memory rebuild-index --force`
+
+And in normal conversation:
+
+- `what do you remember about Postgres?`
+- `remember that we use Postgres for primary storage`
+- `review what's staged`
+- `promote that`
+- `reject that`
+- `forget that we use Postgres`
 
 Scheduled job failures are surfaced live to attached REPL clients as one-line notices, and they also remain recorded durably under `~/.allbert/jobs/failures/`.
 
@@ -204,7 +248,7 @@ Conversational scheduling works best when you ask plainly. Good examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant should compile naturally in v0.4:
+Common schedule forms the assistant should compile naturally in v0.5:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -215,7 +259,7 @@ When you create, update, pause, resume, or remove a job from normal conversation
 
 ## Bundled maintenance jobs
 
-v0.4 still seeds these disabled templates:
+v0.5 still seeds these disabled templates:
 
 - `daily-brief`
 - `weekly-review`
@@ -227,7 +271,7 @@ The setup wizard can enable selected templates for you. If you skip them there, 
 
 ## Skills and memory
 
-The canonical installed skill root in v0.4 is `~/.allbert/skills/installed/`.
+The canonical installed skill root in v0.5 is `~/.allbert/skills/installed/`.
 
 Quarantine lives under `~/.allbert/skills/incoming/`; fetched or copied skills stay there until you approve the preview.
 
@@ -253,25 +297,42 @@ Skill install/update preview shows:
 - declared scripts with interpreter, path, and SHA-256
 - the first lines of `SKILL.md`
 
-v0.4 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
+v0.5 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
 
-In v0.4, skills can also preview:
+In v0.5, skills can also preview:
 
 - `intents:` metadata to hint the intent router
 - `agents:` metadata to contribute namespaced sub-agents
 
 The active agent roster is written to `~/.allbert/AGENTS.md` and included in the bootstrap prompt bundle.
 
-Memory is durable and file-based:
+Fresh profiles also seed the shipped `memory-curator` skill. It is the first-party review surface around the kernel-owned memory tools:
+
+- `cargo run -p allbert-cli -- skills list`
+- `cargo run -p allbert-cli -- skills show memory-curator`
+
+Curated memory is durable and markdown-grounded:
 
 - `~/.allbert/memory/MEMORY.md`
 - `~/.allbert/memory/daily/`
-- `~/.allbert/memory/topics/`
-- `~/.allbert/memory/people/`
-- `~/.allbert/memory/projects/`
-- `~/.allbert/memory/decisions/`
+- `~/.allbert/memory/notes/`
+- `~/.allbert/memory/staging/`
+- `~/.allbert/memory/manifest.json`
+- `~/.allbert/memory/index/`
+- `~/.allbert/memory/.trash/`
+- `~/.allbert/memory/migrations/`
 
-Use the assistant naturally, but remember the architecture rule: durable recall comes from memory files, not hidden long-lived chat logs.
+Workflow summary:
+
+- approved durable memory lives under `notes/`
+- candidate learnings land in `staging/`
+- `memory promote` moves staged entries into `notes/` and schedules re-index
+- `memory reject` archives staged entries under `staging/.rejected/`
+- `memory forget` moves approved durable notes into `.trash/` with explicit confirmation
+
+Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs.
+
+If you are upgrading from v0.4, see [v0.5-upgrade-2026-04-20.md](notes/v0.5-upgrade-2026-04-20.md) for the bucket import and validation checklist.
 
 ## Trace, logs, and cost files
 
@@ -330,9 +391,16 @@ Setup feels incomplete:
 - rerun `/setup`
 - check whether `~/.allbert/BOOTSTRAP.md` is still present
 
+Curated memory seems wrong or stale:
+
+- run `cargo run -p allbert-cli -- memory status`
+- run `cargo run -p allbert-cli -- memory rebuild-index --force`
+- check whether a staged entry is still waiting in `memory staged list`
+- if you upgraded from v0.4, confirm the import report under `~/.allbert/memory/migrations/`
+
 ## Release posture
 
-v0.4 is a shipped technical-user release:
+v0.5 is a shipped technical-user release:
 
 - source-based
 - terminal-first

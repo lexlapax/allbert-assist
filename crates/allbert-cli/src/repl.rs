@@ -23,8 +23,21 @@ commands:
   operator inspection:
     - allbert-cli agents list
     - allbert-cli skills list
+    - allbert-cli skills show memory-curator
     - allbert-cli skills show <name>
+    - allbert-cli memory status
+    - allbert-cli memory search \"postgres\"
+    - allbert-cli memory staged list
+    - allbert-cli memory staged show <id>
+    - allbert-cli memory promote <id> --confirm
+    - allbert-cli memory reject <id> --reason \"not durable\"
+    - allbert-cli memory forget <path-or-query> --confirm
     - cat ~/.allbert/AGENTS.md
+  memory review flow:
+    - \"remember that we use Postgres\"
+    - \"review what's staged\"
+    - \"promote that\" / \"reject that\"
+    - \"what do you remember about Postgres?\"
   ask naturally for recurring work:
     - \"what jobs do I have?\"
     - \"schedule a daily review at 07:00\"

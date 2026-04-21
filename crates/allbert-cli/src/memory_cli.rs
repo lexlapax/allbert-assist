@@ -22,7 +22,7 @@ pub fn status(paths: &AllbertPaths, config: &Config) -> Result<String> {
         .map(|seconds| format!("{seconds}s"))
         .unwrap_or_else(|| "unknown".into());
     Ok(format!(
-        "setup version:        {}\nretriever schema:     {}\nindexed docs:         {}\nstaged entries:       {}\nrejected entries:     {}\nexpired pending:      {}\nindex age:            {}\nlast rebuild reason:  {}\nlast rebuild elapsed: {} ms",
+        "profile version:      {}\nretriever schema:     {}\nindexed docs:         {}\nstaged entries:       {}\nrejected entries:     {}\nexpired pending:      {}\nindex age:            {}\nlast rebuild reason:  {}\nlast rebuild elapsed: {} ms",
         snapshot.setup_version,
         snapshot.schema_version,
         snapshot.manifest_docs,
@@ -261,4 +261,165 @@ fn prompt_yes_no(rendered: &str) -> Result<bool> {
     io::stdin().read_line(&mut buf)?;
     let choice = buf.trim().to_ascii_lowercase();
     Ok(matches!(choice.as_str(), "y" | "yes"))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use allbert_kernel::{memory, AllbertPaths, Config, MemoryTier, SearchMemoryInput};
+
+    use super::{forget, promote, reject, search, staged_list, staged_show, status};
+
+    static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    struct TempRoot {
+        path: PathBuf,
+    }
+
+    impl TempRoot {
+        fn new() -> Self {
+            let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let unique = format!(
+                "allbert-cli-memory-test-{}-{}-{}",
+                std::process::id(),
+                counter,
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("time should be monotonic")
+                    .as_nanos()
+            );
+            let path = std::env::temp_dir().join(unique);
+            std::fs::create_dir_all(&path).expect("temp root should be created");
+            Self { path }
+        }
+
+        fn paths(&self) -> AllbertPaths {
+            AllbertPaths::under(self.path.join("allbert-home"))
+        }
+    }
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn stage(
+        paths: &AllbertPaths,
+        config: &Config,
+        summary: &str,
+        content: &str,
+    ) -> memory::StagedMemoryRecord {
+        memory::stage_memory(
+            paths,
+            &config.memory,
+            memory::StageMemoryRequest {
+                session_id: "session-1".into(),
+                turn_id: "turn-1".into(),
+                agent: "allbert/root".into(),
+                source: "channel".into(),
+                content: content.into(),
+                kind: memory::StagedMemoryKind::LearnedFact,
+                summary: summary.into(),
+                tags: vec!["database".into()],
+                provenance: None,
+            },
+        )
+        .expect("staging should succeed")
+    }
+
+    #[test]
+    fn status_reports_curated_memory_fields() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let config = Config::load_or_create(&paths).expect("config should load");
+
+        let rendered = status(&paths, &config).expect("status should render");
+        assert!(rendered.contains("profile version:"));
+        assert!(rendered.contains("retriever schema:"));
+        assert!(rendered.contains("indexed docs:"));
+        assert!(rendered.contains("staged entries:"));
+    }
+
+    #[test]
+    fn cli_memory_flow_renders_search_stage_promote_reject_and_forget() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let config = Config::load_or_create(&paths).expect("config should load");
+
+        let promoted = stage(
+            &paths,
+            &config,
+            "Primary database is Postgres",
+            "We use Postgres for primary storage.",
+        );
+        let rejected = stage(
+            &paths,
+            &config,
+            "Temporary experiment note",
+            "We might maybe try Cassandra later.",
+        );
+
+        let staged = staged_list(&paths, &config, None, None, Some(10), "text")
+            .expect("staged list should render");
+        assert!(staged.contains("Primary database is Postgres"));
+        assert!(staged.contains("Temporary experiment note"));
+
+        let shown = staged_show(&paths, &config, &promoted.id).expect("staged show should render");
+        assert!(shown.contains("summary: Primary database is Postgres"));
+        assert!(shown.contains("kind: learned_fact"));
+
+        let promoted_output =
+            promote(&paths, &config, &promoted.id, None, None, true).expect("promote should work");
+        assert!(promoted_output.contains("promoted staged memory"));
+
+        let durable = search(&paths, &config, "Postgres", "durable", Some(10), "text")
+            .expect("durable search should render");
+        assert!(durable.contains("Postgres"));
+
+        let rejected_output =
+            reject(&paths, &config, &rejected.id, Some("not durable")).expect("reject should work");
+        assert!(rejected_output.contains("rejected staged memory"));
+
+        let staging_results = memory::search_memory(
+            &paths,
+            &config.memory,
+            SearchMemoryInput {
+                query: "Cassandra".into(),
+                tier: MemoryTier::Staging,
+                limit: Some(10),
+            },
+        )
+        .expect("staging search should succeed");
+        assert!(
+            staging_results.is_empty(),
+            "rejected staged entry should leave staging search empty"
+        );
+
+        let durable_hits = memory::search_memory(
+            &paths,
+            &config.memory,
+            SearchMemoryInput {
+                query: "Postgres".into(),
+                tier: MemoryTier::Durable,
+                limit: Some(10),
+            },
+        )
+        .expect("durable search should succeed");
+        let durable_path = durable_hits
+            .first()
+            .expect("promoted note should be searchable")
+            .path
+            .clone();
+
+        let forgotten =
+            forget(&paths, &config, &durable_path, true).expect("forget should succeed");
+        assert!(forgotten.contains("forgot durable memory"));
+
+        let durable_after_forget = search(&paths, &config, "Postgres", "durable", Some(10), "text")
+            .expect("durable search should render");
+        assert_eq!(durable_after_forget, "no memory results");
+    }
 }
