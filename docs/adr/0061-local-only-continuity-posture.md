@@ -27,22 +27,22 @@ Every file under `~/.allbert/` falls into exactly one category.
 | Path | Source |
 | --- | --- |
 | `identity/user.md` | ADR 0058 |
-| `memory/` | ADR 0003, ADR 0045 |
-| `staging/` | ADR 0047 |
+| `config.toml` and `config/` | operator-owned config plus channel allowlists |
+| `memory/MEMORY.md`, `memory/notes/`, `memory/daily/`, `memory/staging/` | ADR 0003, ADR 0045, ADR 0047 |
 | `sessions/` (journals, meta, approvals) | ADR 0049, ADR 0056, ADR 0060 |
-| `config/` | operator-owned |
 | `jobs/` | ADR 0022 |
-| `skills/` | ADR 0032, ADR 0037 |
+| `skills/installed/` and `skills/incoming/` | ADR 0032, ADR 0037 |
 | `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, `AGENTS.md`, `HEARTBEAT.md` | ADR 0010, ADR 0039, ADR 0062 |
 
 **Derived** — excluded from sync/export; rebuilt on demand:
 
 | Path | Purpose |
 | --- | --- |
-| `index/` | tantivy retrieval index (ADR 0046) |
-| `cache/` | LLM response and media caches, if any |
-| `channel-state/` | per-channel delivery queues, dedup tables, render state |
-| `runtime/` | `daemon.sock`, ephemeral counters, rate-limit buckets |
+| `memory/index/` | tantivy retrieval index (ADR 0046) |
+| `run/` | `daemon.sock` and other live runtime state |
+| `logs/` | daemon logs and debug logs |
+| `traces/` | trace output and debugging artifacts |
+| future cache subdirs (if introduced) | LLM/media caches or delivery queues, rebuilt or safely disposable |
 
 **Sensitive** — continuity-bearing but excluded by default:
 
@@ -111,7 +111,7 @@ allbert-cli profile export <path.tgz> [--include-secrets] [--identity <id>]
       "jobs": 5,
       "skills": 12
     },
-    "excluded": ["secrets/", "index/", "cache/", "channel-state/", "runtime/", "costs.jsonl"]
+    "excluded": ["secrets/", "memory/index/", "run/", "logs/", "traces/", "costs.jsonl"]
   }
   ```
 - Export is safe against a live daemon: the export tool takes a read-lock on the profile and snapshots via copy. Continuity-bearing writes continue but are not reflected in the export after the snapshot boundary.
@@ -125,7 +125,7 @@ allbert-cli profile import <path.tgz> [--overlay | --replace] [--yes]
 - **`--overlay` (default)**: per-file mtime comparison. Files present in the tarball overwrite local files iff the tarball's mtime is newer. Conflicts (same path, same-or-newer local mtime) are logged and the local file is preserved.
 - **`--replace`**: wipes all Continuity-bearing paths and extracts the tarball. Destructive; requires `--yes` confirmation.
 - Refuses to run against a profile with a live daemon (lockfile check).
-- After extraction, auto-runs `memory reconcile` (rebuild tantivy index) and a lightweight sanity check against the manifest.
+- After extraction, auto-runs the equivalent of `memory rebuild-index --force` and a lightweight `memory verify`-style sanity check against the manifest.
 
 ### Cross-device cost cap: per-device (documented limitation)
 

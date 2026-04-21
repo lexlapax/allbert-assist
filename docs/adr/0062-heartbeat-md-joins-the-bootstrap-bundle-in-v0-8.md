@@ -68,7 +68,7 @@ inbox_nag:
 
 ### Prompt inclusion
 
-`HEARTBEAT.md` is snapshotted at the start of each user turn and injected ahead of memory and skills, bounded by the same dedicated bootstrap budget ADR 0010 defined. The assistant is expected to read and respect cadence context (e.g. avoid suggesting work during quiet hours).
+`HEARTBEAT.md` is snapshotted at the start of each user turn and injected ahead of memory and skills, bounded by the same dedicated bootstrap budget ADR 0010 defined. Concretely, v0.8 reuses the existing bootstrap limits: `limits.max_bootstrap_file_bytes` remains the per-file cap and `limits.max_prompt_bootstrap_bytes` remains the aggregate cap across `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, `AGENTS.md`, and `HEARTBEAT.md`. The assistant is expected to read and respect cadence context (e.g. avoid suggesting work during quiet hours).
 
 This mirrors how `SOUL.md` et al. behave. `HEARTBEAT.md` is *not* a derived artifact — it is operator ground truth — but it is also not unique in the bootstrap bundle.
 

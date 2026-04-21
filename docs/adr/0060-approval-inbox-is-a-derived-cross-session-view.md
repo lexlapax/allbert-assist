@@ -69,7 +69,7 @@ allbert-cli inbox accept <approval-id> [--reason <text>]
 allbert-cli inbox reject <approval-id> [--reason <text>]
 ```
 
-`allbert-cli approvals list | resolve` from v0.7 continues to work for per-session scope; `inbox` is the cross-session view.
+`allbert-cli approvals list | show` from v0.7 continues to work for per-session scope; `inbox` is the cross-session view.
 
 Output is human-readable by default; `--json` emits a stable schema for future operator UIs.
 
