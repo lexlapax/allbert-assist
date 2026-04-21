@@ -19,8 +19,8 @@ use allbert_kernel::{
     InputResponse, Kernel, KernelError, ModelConfig, Provider,
 };
 use allbert_proto::{
-    JobDefinitionPayload, JobReportPolicyPayload, JobRunRecordPayload, JobStatePayload,
-    JobStatusPayload, ModelConfigPayload, ProviderKind,
+    JobBudgetPayload, JobDefinitionPayload, JobReportPolicyPayload, JobRunRecordPayload,
+    JobStatePayload, JobStatusPayload, ModelConfigPayload, ProviderKind,
 };
 
 use crate::error::DaemonError;
@@ -310,6 +310,7 @@ pub struct JobDefinition {
     pub timeout_s: Option<u64>,
     pub report: Option<JobReportPolicyPayload>,
     pub max_turns: Option<u32>,
+    pub budget: Option<JobBudgetPayload>,
     pub session_name: Option<String>,
     pub memory_prefetch: Option<bool>,
     pub prompt: String,
@@ -337,6 +338,7 @@ impl JobDefinition {
             timeout_s: payload.timeout_s,
             report: payload.report,
             max_turns: payload.max_turns,
+            budget: payload.budget,
             session_name: payload.session_name,
             memory_prefetch: payload.memory_prefetch,
             prompt: payload.prompt,
@@ -356,6 +358,7 @@ impl JobDefinition {
             timeout_s: self.timeout_s,
             report: self.report,
             max_turns: self.max_turns,
+            budget: self.budget.clone(),
             session_name: self.session_name.clone(),
             memory_prefetch: self.memory_prefetch,
             prompt: self.prompt.clone(),
@@ -614,6 +617,8 @@ struct JobFrontmatter {
     #[serde(default)]
     max_turns: Option<u32>,
     #[serde(default)]
+    budget: Option<JobBudgetFrontmatter>,
+    #[serde(default)]
     session_name: Option<String>,
     #[serde(default)]
     memory: Option<JobMemoryFrontmatter>,
@@ -624,6 +629,15 @@ struct JobFrontmatter {
 struct JobMemoryFrontmatter {
     #[serde(default)]
     prefetch: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct JobBudgetFrontmatter {
+    #[serde(default)]
+    max_turn_usd: Option<f64>,
+    #[serde(default)]
+    max_turn_s: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -702,6 +716,10 @@ fn load_definitions(root: &Path) -> Result<HashMap<String, JobDefinition>, Daemo
             timeout_s: data.timeout_s,
             report: data.report,
             max_turns: data.max_turns,
+            budget: data.budget.map(|budget| JobBudgetPayload {
+                max_turn_usd: budget.max_turn_usd,
+                max_turn_s: budget.max_turn_s,
+            }),
             session_name: data.session_name,
             memory_prefetch: data.memory.and_then(|memory| memory.prefetch),
             prompt: parsed.content.trim().to_string(),
@@ -796,6 +814,17 @@ fn write_definition_file(root: &Path, definition: &JobDefinition) -> Result<(), 
     }
     if let Some(max_turns) = definition.max_turns {
         frontmatter.push_str(&format!("max_turns: {}\n", max_turns));
+    }
+    if let Some(budget) = &definition.budget {
+        if budget.max_turn_usd.is_some() || budget.max_turn_s.is_some() {
+            frontmatter.push_str("budget:\n");
+            if let Some(max_turn_usd) = budget.max_turn_usd {
+                frontmatter.push_str(&format!("  max_turn_usd: {:.6}\n", max_turn_usd));
+            }
+            if let Some(max_turn_s) = budget.max_turn_s {
+                frontmatter.push_str(&format!("  max_turn_s: {}\n", max_turn_s));
+            }
+        }
     }
     if let Some(session_name) = &definition.session_name {
         frontmatter.push_str(&format!("session_name: {}\n", yaml_quote(session_name)));
@@ -938,6 +967,14 @@ pub(crate) async fn execute_job(
     if let Some(max_turns) = definition.max_turns {
         config.limits.max_turns = max_turns;
     }
+    if let Some(budget) = &definition.budget {
+        if let Some(max_turn_usd) = budget.max_turn_usd {
+            config.limits.max_turn_usd = max_turn_usd;
+        }
+        if let Some(max_turn_s) = budget.max_turn_s {
+            config.limits.max_turn_s = max_turn_s;
+        }
+    }
     if matches!(definition.memory_prefetch, Some(false)) {
         config.memory.prefetch_enabled = false;
     }
@@ -997,7 +1034,13 @@ pub(crate) async fn execute_job(
                         result = &mut turn => match result {
                             Ok(summary) => {
                                 if summary.hit_turn_limit {
-                                    ("limit".to_string(), Some("hit max-turns limit".into()))
+                                    (
+                                        "limit".to_string(),
+                                        summary
+                                            .stop_reason
+                                            .clone()
+                                            .or_else(|| Some("hit turn limit".into())),
+                                    )
                                 } else {
                                     ("success".to_string(), None)
                                 }

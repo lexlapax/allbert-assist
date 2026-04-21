@@ -25,7 +25,9 @@ pub use adapter::{
     ConfirmDecision, ConfirmPrompter, ConfirmRequest, DynamicConfirmPrompter, FrontendAdapter,
     InputPrompter, InputRequest, InputResponse,
 };
-pub use agent::{Agent, AgentDefinition, AgentState, StagedNoticeEntry};
+pub use agent::{
+    ActiveTurnBudget, Agent, AgentDefinition, AgentState, StagedNoticeEntry, TurnBudget,
+};
 pub use config::{
     Config, DaemonConfig, IntentClassifierConfig, JobsConfig, LimitsConfig, MemoryConfig,
     ModelConfig, Provider, SecurityConfig, SetupConfig, WebSecurityConfig,
@@ -73,6 +75,7 @@ pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, KernelErr
 
 pub struct TurnSummary {
     pub hit_turn_limit: bool,
+    pub stop_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -97,6 +100,16 @@ struct SpawnSubagentInput {
     context: Option<serde_json::Value>,
     #[serde(default)]
     memory_hints: Option<Vec<String>>,
+    #[serde(default)]
+    budget: Option<SpawnBudgetInput>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct SpawnBudgetInput {
+    #[serde(default)]
+    usd: Option<f64>,
+    #[serde(default)]
+    seconds: Option<u64>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -153,11 +166,19 @@ struct SpawnSubagentResult {
     hit_turn_limit: bool,
     cost_usd: f64,
     assistant_text: Option<String>,
+    stop_reason: Option<String>,
 }
 
 struct AgentRunSummary {
     hit_turn_limit: bool,
     assistant_text: Option<String>,
+    stop_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct RequestedTurnBudget {
+    usd: Option<f64>,
+    seconds: Option<u64>,
 }
 
 pub struct Kernel {
@@ -343,11 +364,12 @@ impl Kernel {
         let placeholder = AgentState::new(self.state.session_id.clone());
         let mut state = std::mem::replace(&mut self.state, placeholder);
         let result = self
-            .run_turn_for_agent(&mut state, user_input, None, false, true)
+            .run_turn_for_agent(&mut state, user_input, None, false, None, true)
             .await;
         self.state = state;
         result.map(|summary| TurnSummary {
             hit_turn_limit: summary.hit_turn_limit,
+            stop_reason: summary.stop_reason,
         })
     }
 
@@ -375,13 +397,14 @@ impl Kernel {
         }
 
         let result = self
-            .run_turn_for_agent(&mut state, user_input, None, false, false)
+            .run_turn_for_agent(&mut state, user_input, None, false, None, false)
             .await;
 
         let turn_summary = match &result {
             Ok(summary) => json!({
                 "job_name": job_name,
                 "hit_turn_limit": summary.hit_turn_limit,
+                "stop_reason": summary.stop_reason,
                 "cost_usd": state.cost_total_usd,
             }),
             Err(err) => json!({
@@ -403,6 +426,7 @@ impl Kernel {
         match after_result {
             HookOutcome::Continue => result.map(|summary| TurnSummary {
                 hit_turn_limit: summary.hit_turn_limit,
+                stop_reason: summary.stop_reason,
             }),
             HookOutcome::Abort(message) => Err(KernelError::Hook(message)),
         }
@@ -414,11 +438,19 @@ impl Kernel {
         user_input: &str,
         parent_agent_name: Option<String>,
         inherited_cost_override: bool,
+        inherited_turn_budget: Option<TurnBudget>,
         emit_terminal_events: bool,
     ) -> Result<AgentRunSummary, KernelError> {
         state.turn_count = state.turn_count.saturating_add(1);
         state.begin_turn();
         self.enforce_daily_cost_cap_for_turn(state, inherited_cost_override)?;
+        let cost_override_active =
+            inherited_cost_override || state.cost_cap_override_active_this_turn;
+        let turn_budget = match inherited_turn_budget {
+            Some(budget) => budget,
+            None => self.effective_root_turn_budget(state, cost_override_active)?,
+        };
+        self.begin_turn_budget(state, turn_budget);
         state.last_agent_stack = match parent_agent_name.as_deref() {
             Some(parent) => vec![parent.to_string(), state.agent_name().to_string()],
             None => vec![state.agent_name().to_string()],
@@ -448,6 +480,24 @@ impl Kernel {
         let mut tool_output_total = 0usize;
 
         for round in 0..self.config.limits.max_turns {
+            if let Err(summary) = self.enforce_turn_budget_before_round(state) {
+                if emit_terminal_events {
+                    (self.adapter.on_event)(&KernelEvent::TurnDone {
+                        hit_turn_limit: summary.hit_turn_limit,
+                    });
+                }
+                let mut end_ctx = HookCtx::on_turn_end(
+                    &state.session_id,
+                    state.agent_name(),
+                    parent_agent_name.clone(),
+                );
+                end_ctx.intent = resolved_intent.clone();
+                match self.hooks.run(HookPoint::OnTurnEnd, &mut end_ctx).await {
+                    HookOutcome::Continue => {}
+                    HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+                }
+                return Ok(summary);
+            }
             let effective_model = state
                 .model_override
                 .clone()
@@ -547,6 +597,10 @@ impl Kernel {
             }
 
             let tool_calls = parse_tool_calls(&response.text);
+            state.spawn_siblings_remaining_this_round = tool_calls
+                .iter()
+                .filter(|invocation| invocation.name == "spawn_subagent")
+                .count();
             if tool_calls.is_empty() {
                 state.append_ephemeral_note(
                     format!("Assistant: {}", final_text.trim()),
@@ -568,6 +622,7 @@ impl Kernel {
                 return Ok(AgentRunSummary {
                     hit_turn_limit: false,
                     assistant_text: Some(final_text),
+                    stop_reason: None,
                 });
             }
 
@@ -601,6 +656,7 @@ impl Kernel {
                     return Ok(AgentRunSummary {
                         hit_turn_limit: true,
                         assistant_text: None,
+                        stop_reason: Some("tool call budget exhausted".into()),
                     });
                 }
 
@@ -694,6 +750,7 @@ impl Kernel {
                     return Ok(AgentRunSummary {
                         hit_turn_limit: true,
                         assistant_text: None,
+                        stop_reason: Some("tool output budget exhausted".into()),
                     });
                 }
 
@@ -737,6 +794,7 @@ impl Kernel {
                     tool_output.ok,
                 );
             }
+            state.spawn_siblings_remaining_this_round = 0;
         }
 
         if emit_terminal_events {
@@ -754,6 +812,7 @@ impl Kernel {
         Ok(AgentRunSummary {
             hit_turn_limit: true,
             assistant_text: None,
+            stop_reason: Some("hit max-turns limit".into()),
         })
     }
 
@@ -900,6 +959,116 @@ impl Kernel {
     pub fn restore_ephemeral_memory(&mut self, entries: Vec<String>) {
         self.state
             .replace_ephemeral_memory(entries, self.config.memory.max_ephemeral_bytes);
+    }
+
+    fn effective_root_turn_budget(
+        &mut self,
+        state: &AgentState,
+        inherited_cost_override: bool,
+    ) -> Result<TurnBudget, KernelError> {
+        let mut budget = TurnBudget {
+            usd: self.config.limits.max_turn_usd,
+            seconds: self.config.limits.max_turn_s,
+        };
+        if inherited_cost_override {
+            return Ok(budget);
+        }
+
+        if let Some(cap) = self.config.limits.daily_usd_cap {
+            let utc_day = time::OffsetDateTime::now_utc().date();
+            let total = self.current_utc_cost_total(utc_day)?;
+            let remaining = (cap - total).max(0.0);
+            budget.usd = budget.usd.min(remaining);
+        }
+        tracing::debug!(
+            session = %state.session_id,
+            agent = %state.agent_name(),
+            max_turn_usd = budget.usd,
+            max_turn_s = budget.seconds,
+            "resolved root turn budget"
+        );
+        Ok(budget)
+    }
+
+    fn begin_turn_budget(&self, state: &mut AgentState, budget: TurnBudget) {
+        state.active_turn_budget = Some(ActiveTurnBudget {
+            limit: budget,
+            cost_at_turn_start: state.cost_total_usd,
+            started_at: Instant::now(),
+        });
+    }
+
+    fn current_turn_remaining_budget_for_state(&self, state: &AgentState) -> Option<TurnBudget> {
+        state.remaining_turn_budget()
+    }
+
+    fn enforce_turn_budget_before_round(&self, state: &AgentState) -> Result<(), AgentRunSummary> {
+        let Some(remaining) = self.current_turn_remaining_budget_for_state(state) else {
+            return Ok(());
+        };
+        if remaining.seconds == 0 {
+            return Err(AgentRunSummary {
+                hit_turn_limit: true,
+                assistant_text: None,
+                stop_reason: Some("budget-exhausted: turn time budget exhausted".into()),
+            });
+        }
+        if remaining.usd <= 0.0 {
+            return Err(AgentRunSummary {
+                hit_turn_limit: true,
+                assistant_text: None,
+                stop_reason: Some("budget-exhausted: turn usd budget exhausted".into()),
+            });
+        }
+        Ok(())
+    }
+
+    fn resolve_subagent_budget(
+        &self,
+        state: &mut AgentState,
+        requested: Option<&SpawnBudgetInput>,
+    ) -> Result<TurnBudget, String> {
+        let remaining = state
+            .remaining_turn_budget()
+            .ok_or_else(|| "budget-exhausted: no active parent turn budget".to_string())?;
+        if remaining.seconds == 0 || remaining.usd <= 0.0 {
+            return Err("budget-exhausted: parent turn budget is exhausted".into());
+        }
+
+        let siblings = state.spawn_siblings_remaining_this_round.max(1) as u64;
+        let default_usd = remaining.usd / siblings as f64;
+        let default_seconds = remaining.seconds / siblings;
+        let requested = requested.map(|value| RequestedTurnBudget {
+            usd: value.usd,
+            seconds: value.seconds,
+        });
+        let resolved = TurnBudget {
+            usd: requested.and_then(|value| value.usd).unwrap_or(default_usd),
+            seconds: requested
+                .and_then(|value| value.seconds)
+                .unwrap_or(default_seconds.max(1)),
+        };
+
+        if let Some(value) = requested.and_then(|budget| budget.usd) {
+            if value > remaining.usd || value < 0.0 {
+                return Err(format!(
+                    "budget-invalid: requested usd {:.6} exceeds remaining {:.6}",
+                    value, remaining.usd
+                ));
+            }
+        }
+        if let Some(value) = requested.and_then(|budget| budget.seconds) {
+            if value == 0 || value > remaining.seconds {
+                return Err(format!(
+                    "budget-invalid: requested seconds {} exceeds remaining {}",
+                    value, remaining.seconds
+                ));
+            }
+        }
+        if resolved.usd <= 0.0 || resolved.seconds == 0 {
+            return Err("budget-exhausted: no usable budget remains for this spawn".into());
+        }
+        Ok(resolved)
     }
 
     fn enforce_daily_cost_cap_for_turn(
@@ -1443,7 +1612,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             );
             prompt.push_str("\n- list_jobs: List recurring jobs managed by the daemon.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
             prompt.push_str("\n- get_job: Inspect one recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
-            prompt.push_str("\n- upsert_job: Create or update a recurring job through the daemon-owned scheduler.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"schedule\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"enabled\":{\"type\":\"boolean\"},\"schedule\":{\"type\":\"string\"},\"skills\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timezone\":{\"type\":\"string\"},\"model\":{\"type\":\"object\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timeout_s\":{\"type\":\"integer\",\"minimum\":1},\"report\":{\"enum\":[\"always\",\"on_failure\",\"on_anomaly\"]},\"max_turns\":{\"type\":\"integer\",\"minimum\":1},\"session_name\":{\"type\":\"string\"},\"memory_prefetch\":{\"type\":\"boolean\"},\"prompt\":{\"type\":\"string\"}}}\n");
+            prompt.push_str("\n- upsert_job: Create or update a recurring job through the daemon-owned scheduler.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"schedule\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"enabled\":{\"type\":\"boolean\"},\"schedule\":{\"type\":\"string\"},\"skills\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timezone\":{\"type\":\"string\"},\"model\":{\"type\":\"object\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timeout_s\":{\"type\":\"integer\",\"minimum\":1},\"report\":{\"enum\":[\"always\",\"on_failure\",\"on_anomaly\"]},\"max_turns\":{\"type\":\"integer\",\"minimum\":1},\"budget\":{\"type\":\"object\",\"properties\":{\"max_turn_usd\":{\"type\":\"number\",\"minimum\":0},\"max_turn_s\":{\"type\":\"integer\",\"minimum\":1}}},\"session_name\":{\"type\":\"string\"},\"memory_prefetch\":{\"type\":\"boolean\"},\"prompt\":{\"type\":\"string\"}}}\n");
             prompt.push_str("\n- pause_job: Pause a recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
             prompt.push_str("\n- resume_job: Resume a recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
             prompt.push_str("\n- run_job: Manually trigger a recurring job by name.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"}}}\n");
@@ -1757,21 +1926,32 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             }
         };
 
-        if parent_agent_name.is_some() {
-            return ToolOutput {
-                content: "recursive sub-agent spawning is not allowed in v0.3".into(),
-                ok: false,
-            };
-        }
+        let spawn_budget = match self.resolve_subagent_budget(state, parsed.budget.as_ref()) {
+            Ok(budget) => budget,
+            Err(message) => {
+                state.spawn_siblings_remaining_this_round =
+                    state.spawn_siblings_remaining_this_round.saturating_sub(1);
+                return ToolOutput {
+                    content: message,
+                    ok: false,
+                };
+            }
+        };
+        state.spawn_siblings_remaining_this_round =
+            state.spawn_siblings_remaining_this_round.saturating_sub(1);
 
         let mut before_ctx = HookCtx::before_agent_spawn(
             &state.session_id,
             state.agent_name(),
-            None,
+            parent_agent_name.clone(),
             json!({
                 "name": parsed.name,
                 "prompt": parsed.prompt,
-                "context": parsed.context
+                "context": parsed.context,
+                "budget": {
+                    "usd": spawn_budget.usd,
+                    "seconds": spawn_budget.seconds
+                }
             }),
         );
         match self
@@ -1843,6 +2023,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             &composed_prompt,
             Some(state.agent_name().to_string()),
             state.cost_cap_override_active_this_turn,
+            Some(spawn_budget),
             false,
         ))
         .await;
@@ -1859,6 +2040,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                     hit_turn_limit: summary.hit_turn_limit,
                     cost_usd: subagent_state.cost_total_usd,
                     assistant_text: summary.assistant_text,
+                    stop_reason: summary.stop_reason,
                 };
                 let content = serde_json::to_string_pretty(&result)
                     .unwrap_or_else(|_| "{\"error\":\"failed to encode spawn result\"}".into());
@@ -1874,9 +2056,17 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             "agent_name": parsed.name,
             "ok": tool_output.ok,
             "content": tool_output.content,
+            "budget": {
+                "usd": spawn_budget.usd,
+                "seconds": spawn_budget.seconds
+            }
         });
-        let mut after_ctx =
-            HookCtx::after_agent_spawn(&state.session_id, state.agent_name(), None, result_json);
+        let mut after_ctx = HookCtx::after_agent_spawn(
+            &state.session_id,
+            state.agent_name(),
+            parent_agent_name,
+            result_json,
+        );
         match self
             .hooks
             .run(HookPoint::AfterAgentSpawn, &mut after_ctx)
@@ -2875,6 +3065,24 @@ fn render_job_definition_lines(definition: &allbert_proto::JobDefinitionPayload)
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "(default)".into())
         ),
+        format!(
+            "turn budget usd:   {}",
+            definition
+                .budget
+                .as_ref()
+                .and_then(|budget| budget.max_turn_usd)
+                .map(|value| format!("${value:.2}"))
+                .unwrap_or_else(|| "(default)".into())
+        ),
+        format!(
+            "turn budget time:  {}",
+            definition
+                .budget
+                .as_ref()
+                .and_then(|budget| budget.max_turn_s)
+                .map(|value| format!("{value}s"))
+                .unwrap_or_else(|| "(default)".into())
+        ),
     ];
     lines.push(format!(
         "session name:      {}",
@@ -3633,7 +3841,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn spawn_subagent_refuses_recursive_spawns() {
+    async fn spawn_subagent_allows_recursive_spawns_when_budget_remains() {
         let temp = TempRoot::new();
         let paths = temp.paths();
         let requests = Arc::new(Mutex::new(Vec::new()));
@@ -3666,10 +3874,18 @@ mod tests {
                                 "name": "spawn_subagent",
                                 "input": {
                                     "name": "nested",
-                                    "prompt": "Reply with NESTED."
+                                    "prompt": "Reply with NESTED.",
+                                    "budget": {
+                                        "usd": 0.01,
+                                        "seconds": 30
+                                    }
                                 }
                             })
                         ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "NESTED_DONE".into(),
                         usage: Usage::default(),
                     },
                     CompletionResponse {
@@ -3693,15 +3909,81 @@ mod tests {
             .expect("turn should succeed");
 
         let recorded_requests = requests.lock().unwrap();
-        assert_eq!(recorded_requests.len(), 4);
+        assert_eq!(recorded_requests.len(), 5);
         assert!(
-            recorded_requests[2]
+            recorded_requests[2].messages[0]
+                .content
+                .contains("Reply with NESTED."),
+            "nested sub-agent should receive the delegated prompt"
+        );
+        assert!(
+            recorded_requests[3]
                 .messages
                 .last()
                 .unwrap()
                 .content
-                .contains("recursive sub-agent spawning is not allowed"),
-            "sub-agent follow-up should see recursion refusal"
+                .contains("\"agent_name\": \"nested\""),
+            "intermediate sub-agent should see structured nested-agent output"
+        );
+    }
+
+    #[tokio::test]
+    async fn spawn_subagent_rejects_invalid_budget_requests() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name": "spawn_subagent",
+                                "input": {
+                                    "name": "researcher",
+                                    "prompt": "Try an impossible budget.",
+                                    "budget": {
+                                        "usd": 99.0,
+                                        "seconds": 9999
+                                    }
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "ROOT_DONE".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("delegate invalid work")
+            .await
+            .expect("turn should succeed");
+
+        let recorded_requests = requests.lock().unwrap();
+        assert_eq!(recorded_requests.len(), 2);
+        assert!(
+            recorded_requests[1]
+                .messages
+                .last()
+                .unwrap()
+                .content
+                .contains("budget-invalid"),
+            "root follow-up should receive the structured invalid-budget tool error"
         );
     }
 

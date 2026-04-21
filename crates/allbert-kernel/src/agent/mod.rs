@@ -1,6 +1,6 @@
 pub mod state;
 
-pub use state::{AgentDefinition, AgentState, StagedNoticeEntry};
+pub use state::{ActiveTurnBudget, AgentDefinition, AgentState, StagedNoticeEntry, TurnBudget};
 
 pub trait Agent: Send + Sync {
     fn name(&self) -> &str;

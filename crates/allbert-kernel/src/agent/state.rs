@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::time::Instant;
 
 use crate::intent::Intent;
 use crate::llm::ChatMessage;
@@ -10,6 +11,19 @@ use crate::ModelConfig;
 pub struct StagedNoticeEntry {
     pub id: String,
     pub summary: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TurnBudget {
+    pub usd: f64,
+    pub seconds: u64,
+}
+
+#[derive(Debug)]
+pub struct ActiveTurnBudget {
+    pub limit: TurnBudget,
+    pub cost_at_turn_start: f64,
+    pub started_at: Instant,
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +67,8 @@ pub struct AgentState {
     pub staged_notice_entries_this_turn: Vec<StagedNoticeEntry>,
     pub cost_cap_override_active_this_turn: bool,
     pub current_job_name: Option<String>,
+    pub active_turn_budget: Option<ActiveTurnBudget>,
+    pub spawn_siblings_remaining_this_round: usize,
 }
 
 impl AgentState {
@@ -87,6 +103,8 @@ impl AgentState {
             staged_notice_entries_this_turn: Vec::new(),
             cost_cap_override_active_this_turn: false,
             current_job_name: None,
+            active_turn_budget: None,
+            spawn_siblings_remaining_this_round: 0,
         }
     }
 
@@ -114,6 +132,8 @@ impl AgentState {
         self.staged_notice_entries_this_turn.clear();
         self.cost_cap_override_active_this_turn = false;
         self.current_job_name = None;
+        self.active_turn_budget = None;
+        self.spawn_siblings_remaining_this_round = 0;
     }
 
     pub fn agent_name(&self) -> &str {
@@ -131,6 +151,8 @@ impl AgentState {
         self.staged_entries_this_turn = 0;
         self.staged_notice_entries_this_turn.clear();
         self.cost_cap_override_active_this_turn = false;
+        self.active_turn_budget = None;
+        self.spawn_siblings_remaining_this_round = 0;
     }
 
     pub fn append_ephemeral_note(&mut self, note: impl Into<String>, max_bytes: usize) {
@@ -176,6 +198,18 @@ impl AgentState {
 
     pub fn ephemeral_notes(&self) -> Vec<String> {
         self.ephemeral_memory.iter().cloned().collect()
+    }
+
+    pub fn remaining_turn_budget(&self) -> Option<TurnBudget> {
+        let budget = self.active_turn_budget.as_ref()?;
+        let spent_usd = (self.cost_total_usd - budget.cost_at_turn_start).max(0.0);
+        let remaining_usd = (budget.limit.usd - spent_usd).max(0.0);
+        let elapsed = budget.started_at.elapsed().as_secs();
+        let remaining_seconds = budget.limit.seconds.saturating_sub(elapsed);
+        Some(TurnBudget {
+            usd: remaining_usd,
+            seconds: remaining_seconds,
+        })
     }
 }
 

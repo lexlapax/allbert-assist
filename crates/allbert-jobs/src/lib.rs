@@ -1,8 +1,8 @@
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
-    ChannelKind, ClientKind, JobDefinitionPayload, JobReportPolicyPayload, JobRunRecordPayload,
-    JobStatusPayload, ProviderKind,
+    ChannelKind, ClientKind, JobBudgetPayload, JobDefinitionPayload, JobReportPolicyPayload,
+    JobRunRecordPayload, JobStatusPayload, ProviderKind,
 };
 use anyhow::{Context, Result};
 use clap::Subcommand;
@@ -214,6 +214,8 @@ struct Frontmatter {
     #[serde(default)]
     max_turns: Option<u32>,
     #[serde(default)]
+    budget: Option<BudgetFrontmatter>,
+    #[serde(default)]
     session_name: Option<String>,
     #[serde(default)]
     memory: Option<MemoryFrontmatter>,
@@ -233,6 +235,15 @@ struct ModelFrontmatter {
 struct MemoryFrontmatter {
     #[serde(default)]
     prefetch: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BudgetFrontmatter {
+    #[serde(default)]
+    max_turn_usd: Option<f64>,
+    #[serde(default)]
+    max_turn_s: Option<u64>,
 }
 
 fn default_max_tokens() -> u32 {
@@ -264,6 +275,10 @@ pub fn parse_job_definition(path: &str) -> Result<JobDefinitionPayload> {
         timeout_s: data.timeout_s,
         report: data.report,
         max_turns: data.max_turns,
+        budget: data.budget.map(|budget| JobBudgetPayload {
+            max_turn_usd: budget.max_turn_usd,
+            max_turn_s: budget.max_turn_s,
+        }),
         session_name: data.session_name,
         memory_prefetch: data.memory.and_then(|memory| memory.prefetch),
         prompt: parsed.content.trim().to_string(),

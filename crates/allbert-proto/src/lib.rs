@@ -124,7 +124,13 @@ pub enum JobReportPolicyPayload {
     OnAnomaly,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct JobBudgetPayload {
+    pub max_turn_usd: Option<f64>,
+    pub max_turn_s: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct JobDefinitionPayload {
     pub name: String,
     pub description: String,
@@ -137,6 +143,7 @@ pub struct JobDefinitionPayload {
     pub timeout_s: Option<u64>,
     pub report: Option<JobReportPolicyPayload>,
     pub max_turns: Option<u32>,
+    pub budget: Option<JobBudgetPayload>,
     pub session_name: Option<String>,
     pub memory_prefetch: Option<bool>,
     pub prompt: String,
@@ -154,7 +161,7 @@ pub struct JobStatePayload {
     pub last_stop_reason: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct JobStatusPayload {
     pub definition: JobDefinitionPayload,
     pub state: JobStatePayload,
@@ -266,7 +273,7 @@ pub enum KernelEventPayload {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "payload", rename_all = "snake_case")]
 pub enum ClientMessage {
     Hello(ClientHello),

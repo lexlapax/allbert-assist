@@ -1,6 +1,6 @@
 use allbert_proto::{
-    JobDefinitionPayload, JobReportPolicyPayload, JobRunRecordPayload, JobStatusPayload,
-    ModelConfigPayload,
+    JobBudgetPayload, JobDefinitionPayload, JobReportPolicyPayload, JobRunRecordPayload,
+    JobStatusPayload, ModelConfigPayload,
 };
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -62,6 +62,8 @@ pub struct UpsertJobInput {
     #[serde(default)]
     pub max_turns: Option<u32>,
     #[serde(default)]
+    pub budget: Option<JobBudgetPayload>,
+    #[serde(default)]
     pub session_name: Option<String>,
     #[serde(default)]
     pub memory_prefetch: Option<bool>,
@@ -82,6 +84,7 @@ impl UpsertJobInput {
             timeout_s: self.timeout_s,
             report: self.report,
             max_turns: self.max_turns,
+            budget: self.budget,
             session_name: self.session_name,
             memory_prefetch: self.memory_prefetch,
             prompt: self.prompt,
