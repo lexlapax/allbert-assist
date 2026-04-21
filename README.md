@@ -23,7 +23,7 @@ The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-
 - explicit workspace trust through `fs_roots`
 - daemon lifecycle commands under `allbert-cli daemon ...`
 - channel lifecycle commands under `allbert-cli daemon channels ...`
-- resumable daemon-backed sessions via `allbert-cli daemon resume ...`
+- lifecycle session management via `allbert-cli sessions ...`
 - approval inspection via `allbert-cli approvals list|show`
 - recurring jobs under `allbert-cli jobs ...` and the `allbert-jobs` alias
 - bundled disabled maintenance job templates
@@ -220,14 +220,15 @@ Daemon commands:
 - `allbert-cli daemon start`
 - `allbert-cli daemon stop`
 - `allbert-cli daemon restart`
-- `allbert-cli daemon resume --list`
-- `allbert-cli daemon resume [--session <id>]`
-- `allbert-cli daemon forget <session-id>`
 - `allbert-cli daemon logs [--debug] [--follow] [--lines N]`
 - `allbert-cli daemon channels list`
 - `allbert-cli daemon channels status [telegram]`
 - `allbert-cli daemon channels add telegram`
 - `allbert-cli daemon channels remove telegram`
+- `allbert-cli sessions list [--identity <id>] [--channel <kind>] [--limit N] [--json]`
+- `allbert-cli sessions show <session-id>`
+- `allbert-cli sessions resume <session-id>`
+- `allbert-cli sessions forget <session-id>`
 
 Approval inspection:
 
@@ -377,7 +378,7 @@ Telegram behaviour in v0.7:
 - source-based install only
 - terminal-first and local-user-only
 - local IPC only; no remote/network control plane
-- interactive session state now survives daemon restart through `daemon resume`, but incomplete tool invocations still rewind to the last completed turn boundary
+- interactive session state now survives daemon restart through `sessions resume`, but incomplete tool invocations still rewind to the last completed turn boundary
 - Telegram approval resolution is origin-channel-only in v0.7; cross-surface approval inbox work is deferred to v0.8
 - sub-agent depth is budget-governed in v0.7 rather than fixed by nesting count
 - no boot-time OS service install yet

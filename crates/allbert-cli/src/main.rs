@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::time::Duration;
 
@@ -5,9 +6,7 @@ use allbert_channels::ChannelCapabilities;
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_jobs::JobsCommand;
 use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config};
-use allbert_proto::{
-    ChannelKind, ChannelRuntimeStatusPayload, ClientKind, DaemonStatus, SessionResumeEntry,
-};
+use allbert_proto::{ChannelKind, ChannelRuntimeStatusPayload, ClientKind, DaemonStatus};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde::Serialize;
@@ -76,6 +75,10 @@ enum Command {
         #[command(subcommand)]
         command: HeartbeatCommand,
     },
+    Sessions {
+        #[command(subcommand)]
+        command: SessionsCommand,
+    },
     #[command(name = "internal-daemon-host", hide = true)]
     InternalDaemonHost,
 }
@@ -94,15 +97,6 @@ enum DaemonCommand {
     Channels {
         #[command(subcommand)]
         command: DaemonChannelsCommand,
-    },
-    Resume {
-        #[arg(long)]
-        session: Option<String>,
-        #[arg(long)]
-        list: bool,
-    },
-    Forget {
-        session_id: String,
     },
     Logs {
         #[arg(long)]
@@ -280,6 +274,29 @@ enum HeartbeatCommand {
 }
 
 #[derive(Subcommand, Debug)]
+enum SessionsCommand {
+    List {
+        #[arg(long)]
+        identity: Option<String>,
+        #[arg(long)]
+        channel: Option<String>,
+        #[arg(long)]
+        limit: Option<usize>,
+        #[arg(long)]
+        json: bool,
+    },
+    Show {
+        session_id: String,
+    },
+    Resume {
+        session_id: String,
+    },
+    Forget {
+        session_id: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 enum DaemonChannelsCommand {
     List {
         #[arg(long)]
@@ -341,6 +358,7 @@ async fn main() -> Result<()> {
         Some(Command::Inbox { command }) => run_inbox_command(&paths, command),
         Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
         Some(Command::Heartbeat { command }) => run_heartbeat_command(&paths, command),
+        Some(Command::Sessions { command }) => run_sessions_command(&paths, &config, command).await,
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
                 config = match setup::run_setup_wizard(&paths, &config)? {
@@ -371,6 +389,176 @@ async fn main() -> Result<()> {
                 };
             }
             run_daemon_command(&paths, &config, command).await
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct SessionListEntry {
+    session_id: String,
+    identity_id: Option<String>,
+    channels: Vec<String>,
+    started_at: String,
+    last_activity_at: String,
+    turn_count: u32,
+    pending_approvals: usize,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct SessionMetaView {
+    session_id: String,
+    channel: ChannelKind,
+    identity_id: Option<String>,
+    started_at: String,
+    last_activity_at: String,
+    turn_count: u32,
+    pending_approvals: Option<Vec<String>>,
+    pending_approval: Option<String>,
+}
+
+fn load_session_meta(paths: &AllbertPaths, session_id: &str) -> Result<SessionMetaView> {
+    let path = paths.sessions.join(session_id).join("meta.json");
+    let raw = std::fs::read(&path).with_context(|| format!("read {}", path.display()))?;
+    serde_json::from_slice(&raw).with_context(|| format!("parse {}", path.display()))
+}
+
+fn session_channels(paths: &AllbertPaths, session_id: &str, fallback: ChannelKind) -> Vec<String> {
+    let turns_path = paths.sessions.join(session_id).join("turns.md");
+    let Ok(raw) = std::fs::read_to_string(turns_path) else {
+        return vec![channel_kind_label(fallback).to_string()];
+    };
+    let mut channels = BTreeSet::new();
+    for line in raw.lines() {
+        if let Some(rest) = line.strip_prefix("- channel: ") {
+            channels.insert(rest.trim().to_string());
+        }
+    }
+    if channels.is_empty() {
+        vec![channel_kind_label(fallback).to_string()]
+    } else {
+        channels.into_iter().collect()
+    }
+}
+
+fn collect_sessions(paths: &AllbertPaths) -> Result<Vec<SessionListEntry>> {
+    let mut sessions = Vec::new();
+    if !paths.sessions.exists() {
+        return Ok(sessions);
+    }
+    for entry in std::fs::read_dir(&paths.sessions)
+        .with_context(|| format!("read {}", paths.sessions.display()))?
+    {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let name = entry.file_name();
+        if name.to_string_lossy().starts_with('.') {
+            continue;
+        }
+        let session_id = name.to_string_lossy().to_string();
+        let meta = match load_session_meta(paths, &session_id) {
+            Ok(meta) => meta,
+            Err(_) => continue,
+        };
+        let pending_approvals = meta.pending_approvals.unwrap_or_default();
+        let pending_count = if pending_approvals.is_empty() {
+            usize::from(meta.pending_approval.is_some())
+        } else {
+            pending_approvals.len()
+        };
+        sessions.push(SessionListEntry {
+            session_id: meta.session_id.clone(),
+            identity_id: meta.identity_id.clone(),
+            channels: session_channels(paths, &meta.session_id, meta.channel),
+            started_at: meta.started_at,
+            last_activity_at: meta.last_activity_at,
+            turn_count: meta.turn_count,
+            pending_approvals: pending_count,
+        });
+    }
+    sessions.sort_by(|a, b| b.last_activity_at.cmp(&a.last_activity_at));
+    Ok(sessions)
+}
+
+fn render_session_list(entries: &[SessionListEntry]) -> String {
+    if entries.is_empty() {
+        return "no sessions".into();
+    }
+    let mut lines = vec!["sessions:".to_string()];
+    for entry in entries {
+        let identity = entry.identity_id.as_deref().unwrap_or("(none)");
+        lines.push(format!(
+            "- {}  identity={}  channels={}  last_active={}  turns={}  pending_approvals={}",
+            entry.session_id,
+            identity,
+            entry.channels.join(","),
+            entry.last_activity_at,
+            entry.turn_count,
+            entry.pending_approvals
+        ));
+    }
+    lines.join("\n")
+}
+
+async fn run_sessions_command(
+    paths: &AllbertPaths,
+    config: &Config,
+    command: SessionsCommand,
+) -> Result<()> {
+    match command {
+        SessionsCommand::List {
+            identity,
+            channel,
+            limit,
+            json,
+        } => {
+            let mut entries = collect_sessions(paths)?;
+            if let Some(identity_id) = identity {
+                entries.retain(|entry| entry.identity_id.as_deref() == Some(identity_id.as_str()));
+            }
+            if let Some(raw_channel) = channel {
+                let parsed = parse_channel_kind(&raw_channel)?;
+                let wanted = channel_kind_label(parsed);
+                entries.retain(|entry| entry.channels.iter().any(|channel| channel == wanted));
+            }
+            if let Some(limit) = limit {
+                entries.truncate(limit);
+            }
+            if json {
+                println!("{}", serde_json::to_string_pretty(&entries)?);
+            } else {
+                println!("{}", render_session_list(&entries));
+            }
+            Ok(())
+        }
+        SessionsCommand::Show { session_id } => {
+            let path = paths.sessions.join(&session_id).join("turns.md");
+            if !path.exists() {
+                anyhow::bail!("session not found: {session_id}");
+            }
+            println!(
+                "{}",
+                std::fs::read_to_string(&path)
+                    .with_context(|| format!("read {}", path.display()))?
+            );
+            Ok(())
+        }
+        SessionsCommand::Resume { session_id } => {
+            let spawn = default_spawn_config(paths, config)?;
+            let mut client = DaemonClient::connect_or_spawn(paths, ClientKind::Cli, &spawn).await?;
+            let attached = client
+                .attach(ChannelKind::Repl, Some(session_id.clone()))
+                .await?;
+            println!("resumed session {}", attached.session_id);
+            repl::run_loop(&mut client, paths).await
+        }
+        SessionsCommand::Forget { session_id } => {
+            let spawn = default_spawn_config(paths, config)?;
+            let mut client = DaemonClient::connect_or_spawn(paths, ClientKind::Cli, &spawn).await?;
+            client.forget_session(&session_id).await?;
+            println!("forgot session {session_id}");
+            Ok(())
         }
     }
 }
@@ -1178,45 +1366,6 @@ async fn run_daemon_command(
             );
             Ok(())
         }
-        DaemonCommand::Resume { session, list } => {
-            let spawn = default_spawn_config(paths, config)?;
-            let mut client = DaemonClient::connect_or_spawn(paths, ClientKind::Cli, &spawn).await?;
-            let sessions = client.list_sessions().await?;
-            if list {
-                if sessions.is_empty() {
-                    println!("no resumable sessions");
-                } else {
-                    println!("{}", render_session_resume_list(&sessions));
-                }
-                return Ok(());
-            }
-
-            let target = match session {
-                Some(id) => {
-                    if sessions.iter().any(|entry| entry.session_id == id) {
-                        id
-                    } else {
-                        anyhow::bail!("session not found: {id}");
-                    }
-                }
-                None => sessions
-                    .first()
-                    .map(|entry| entry.session_id.clone())
-                    .ok_or_else(|| anyhow::anyhow!("no resumable sessions"))?,
-            };
-            let attached = client
-                .attach(ChannelKind::Repl, Some(target.clone()))
-                .await?;
-            println!("resumed session {}", attached.session_id);
-            repl::run_loop(&mut client, paths).await
-        }
-        DaemonCommand::Forget { session_id } => {
-            let spawn = default_spawn_config(paths, config)?;
-            let mut client = DaemonClient::connect_or_spawn(paths, ClientKind::Cli, &spawn).await?;
-            client.forget_session(&session_id).await?;
-            println!("forgot session {session_id}");
-            Ok(())
-        }
         DaemonCommand::Logs {
             debug,
             follow,
@@ -1240,21 +1389,6 @@ async fn run_daemon_command(
             }
         }
     }
-}
-
-fn render_session_resume_list(entries: &[SessionResumeEntry]) -> String {
-    let mut lines = Vec::with_capacity(entries.len() + 1);
-    lines.push("resumable sessions:".to_string());
-    for entry in entries {
-        lines.push(format!(
-            "- {}  channel={}  last_active={}  turns={}",
-            entry.session_id,
-            format!("{:?}", entry.channel).to_ascii_lowercase(),
-            entry.last_activity_at,
-            entry.turn_count
-        ));
-    }
-    lines.join("\n")
 }
 
 async fn stop_daemon(paths: &AllbertPaths) -> Result<()> {

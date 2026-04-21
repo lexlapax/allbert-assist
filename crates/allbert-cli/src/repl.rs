@@ -27,9 +27,10 @@ commands:
   /exit     leave the REPL
   /quit     leave the REPL
   operator inspection:
-    - allbert-cli daemon resume --list
-    - allbert-cli daemon resume --session <id>
-    - allbert-cli daemon forget <id>
+    - allbert-cli sessions list
+    - allbert-cli sessions show <id>
+    - allbert-cli sessions resume <id>
+    - allbert-cli sessions forget <id>
     - allbert-cli daemon channels list
     - allbert-cli daemon channels status telegram
     - allbert-cli daemon channels add telegram
