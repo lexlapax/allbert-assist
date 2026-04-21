@@ -68,6 +68,20 @@ pub struct TurnSummary {
     pub hit_turn_limit: bool,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SessionSnapshot {
+    pub session_id: String,
+    pub root_agent_name: String,
+    pub messages: Vec<ChatMessage>,
+    pub active_skills: Vec<ActiveSkill>,
+    pub turn_count: u32,
+    pub cost_total_usd: f64,
+    pub last_resolved_intent: Option<Intent>,
+    pub last_agent_stack: Vec<String>,
+    pub ephemeral_memory: Vec<String>,
+    pub model: ModelConfig,
+}
+
 #[derive(Debug, Clone, serde::Deserialize)]
 struct SpawnSubagentInput {
     name: String,
@@ -741,6 +755,54 @@ impl Kernel {
     pub fn reset_session(&mut self) {
         let new_id = uuid::Uuid::new_v4().to_string();
         self.state.reset(new_id);
+    }
+
+    pub fn export_session_snapshot(&self) -> SessionSnapshot {
+        SessionSnapshot {
+            session_id: self.state.session_id.clone(),
+            root_agent_name: self.state.root_agent.name.clone(),
+            messages: self.state.messages.clone(),
+            active_skills: self.state.active_skills.clone(),
+            turn_count: self.state.turn_count,
+            cost_total_usd: self.state.cost_total_usd,
+            last_resolved_intent: self.state.last_resolved_intent.clone(),
+            last_agent_stack: self.state.last_agent_stack.clone(),
+            ephemeral_memory: self.state.ephemeral_notes(),
+            model: self.config.model.clone(),
+        }
+    }
+
+    pub async fn restore_session_snapshot(
+        &mut self,
+        snapshot: SessionSnapshot,
+    ) -> Result<(), KernelError> {
+        if self.config.model != snapshot.model {
+            self.llm = self.provider_factory.build(&snapshot.model).await?;
+            self.config.model = snapshot.model.clone();
+        }
+
+        self.state.reset(snapshot.session_id.clone());
+        self.state.session_id = snapshot.session_id;
+        self.state.root_agent.name = snapshot.root_agent_name;
+        self.state.messages = snapshot.messages;
+        self.state.turn_count = snapshot.turn_count;
+        self.state.cost_total_usd = snapshot.cost_total_usd;
+        self.state.last_resolved_intent = snapshot.last_resolved_intent;
+        self.state.last_agent_stack = snapshot.last_agent_stack;
+        self.state.replace_ephemeral_memory(
+            snapshot.ephemeral_memory,
+            self.config.memory.max_ephemeral_bytes,
+        );
+
+        let mut restored_skills = Vec::new();
+        for skill in snapshot.active_skills {
+            if self.skills.get(&skill.name).is_some() {
+                restored_skills.push(skill);
+            }
+        }
+        self.state.active_skills = restored_skills;
+        self.state.begin_turn();
+        Ok(())
     }
 
     pub fn session_cost_usd(&self) -> f64 {

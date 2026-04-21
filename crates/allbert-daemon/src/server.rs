@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
@@ -7,16 +9,18 @@ use std::sync::{
 
 use allbert_kernel::{
     job_manager::JobManager as KernelJobManager,
+    llm::{ChatMessage, ChatRole},
     llm::{DefaultProviderFactory, ProviderFactory},
-    ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter, InputRequest,
-    InputResponse, Kernel, KernelError, KernelEvent, ModelConfig,
+    ActiveSkill, ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter,
+    InputRequest, InputResponse, Intent, Kernel, KernelError, KernelEvent, ModelConfig,
+    SessionSnapshot,
 };
 use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
     AttachedChannel, ChannelKind, ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload,
     ConfirmRequestPayload, DaemonStatus, InputReplyPayload, InputRequestPayload,
     InputResponsePayload, KernelEventPayload, ModelConfigPayload, ProtocolError, ProviderKind,
-    ServerHello, ServerMessage, SessionStatus, TurnResult, PROTOCOL_VERSION,
+    ServerHello, ServerMessage, SessionResumeEntry, SessionStatus, TurnResult, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use chrono::Utc;
@@ -26,6 +30,7 @@ use interprocess::local_socket::{
     tokio::{prelude::*, Listener as LocalSocketListener, Stream as LocalSocketStream},
     ConnectOptions, GenericFilePath, ListenerOptions,
 };
+use serde::{Deserialize, Serialize};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::{
     sync::{broadcast, mpsc, oneshot, Mutex, RwLock},
@@ -69,6 +74,44 @@ struct SessionHandle {
     session_id: String,
     channel: ChannelKind,
     kernel: Arc<Mutex<Kernel>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SessionJournalMeta {
+    session_id: String,
+    channel: ChannelKind,
+    started_at: String,
+    last_activity_at: String,
+    root_agent_name: String,
+    last_agent_stack: Vec<String>,
+    last_resolved_intent: Option<String>,
+    intent_history: Vec<String>,
+    active_skills: Vec<ActiveSkill>,
+    ephemeral_memory: Vec<String>,
+    model: ModelConfigPayload,
+    turn_count: u32,
+    cost_total_usd: f64,
+    messages: Vec<ChatMessage>,
+}
+
+#[derive(Debug, Clone)]
+struct SessionJournalSnapshot {
+    meta: SessionJournalMeta,
+}
+
+#[derive(Debug, Clone)]
+struct CompletedTurnRecord {
+    user_input: String,
+    assistant_text: Option<String>,
+    tool_results: Vec<ToolJournalEntry>,
+    cost_delta_usd: f64,
+}
+
+#[derive(Debug, Clone)]
+struct ToolJournalEntry {
+    name: String,
+    ok: bool,
+    content: String,
 }
 
 #[derive(Clone)]
@@ -139,6 +182,7 @@ pub async fn spawn_with_factory(
 ) -> Result<RunningDaemon, DaemonError> {
     paths.ensure()?;
     allbert_kernel::memory::bootstrap_curated_memory(&paths, &config.memory)?;
+    archive_expired_sessions(&paths, &config)?;
     let job_manager = JobManager::load(&paths, &config)?;
 
     let socket_path = config
@@ -471,6 +515,26 @@ async fn handle_connection(
                 let status = session_status(&state, session).await?;
                 send_server_message(&mut framed, &ServerMessage::SessionStatus(status)).await?;
             }
+            ClientMessage::ListSessions => {
+                let config = state.default_config.read().await.clone();
+                let sessions = list_resumable_sessions(&state.paths, &config)?;
+                send_server_message(&mut framed, &ServerMessage::Sessions(sessions)).await?;
+            }
+            ClientMessage::ForgetSession(session_id) => {
+                if state.sessions.read().await.contains_key(&session_id) {
+                    send_server_message(
+                        &mut framed,
+                        &ServerMessage::Error(ProtocolError {
+                            code: "session_active".into(),
+                            message: format!("cannot forget active session: {session_id}"),
+                        }),
+                    )
+                    .await?;
+                    continue;
+                }
+                forget_session_dir(&state.paths, &session_id)?;
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
             ClientMessage::GetModel => {
                 let session = require_session(attached_session.as_ref())?;
                 let kernel = session.kernel.lock().await;
@@ -486,6 +550,8 @@ async fn handle_connection(
                 kernel
                     .set_model(model_from_payload(model.clone()))
                     .await
+                    .map_err(map_kernel_error)?;
+                persist_kernel_session(&state.paths, session.channel, &kernel)
                     .map_err(map_kernel_error)?;
                 send_server_message(
                     &mut framed,
@@ -532,6 +598,8 @@ async fn handle_connection(
                 kernel
                     .apply_config(session_config)
                     .await
+                    .map_err(map_kernel_error)?;
+                persist_kernel_session(&state.paths, session.channel, &kernel)
                     .map_err(map_kernel_error)?;
                 send_server_message(&mut framed, &ServerMessage::Ack).await?;
             }
@@ -628,6 +696,14 @@ async fn get_or_create_session(
     )
     .await
     .map_err(map_kernel_error)?;
+    if let Some(snapshot) = load_session_snapshot(&state.paths, &session_id)? {
+        kernel
+            .restore_session_snapshot(snapshot_to_kernel(snapshot.meta))
+            .await
+            .map_err(map_kernel_error)?;
+    } else {
+        persist_kernel_session(&state.paths, channel, &kernel).map_err(map_kernel_error)?;
+    }
     kernel.register_job_manager(Arc::new(DaemonJobManager {
         state: state.clone(),
     }));
@@ -737,6 +813,12 @@ async fn run_turn_over_channel(
         ),
     )
     .ok();
+    let (pre_turn_messages, pre_turn_cost) = {
+        let kernel = session.kernel.lock().await;
+        let snapshot = kernel.export_session_snapshot();
+        (snapshot.messages.len(), snapshot.cost_total_usd)
+    };
+    let turn_input = input.clone();
     let (tx, mut rx) = mpsc::unbounded_channel();
     let adapter = channel_adapter(tx, state.next_request.clone());
 
@@ -744,11 +826,12 @@ async fn run_turn_over_channel(
     let turn = async move {
         let mut kernel = kernel.lock().await;
         kernel.set_adapter(adapter);
-        kernel.run_turn(&input).await
+        kernel.run_turn(&turn_input).await
     };
     tokio::pin!(turn);
 
     let mut client_connected = true;
+    let mut tool_results = Vec::new();
 
     loop {
         tokio::select! {
@@ -782,6 +865,13 @@ async fn run_turn_over_channel(
                 };
                 match outbound {
                     OutboundMessage::Event(message) => {
+                        if let ServerMessage::Event(KernelEventPayload::ToolResult { name, ok, content }) = &message {
+                            tool_results.push(ToolJournalEntry {
+                                name: name.clone(),
+                                ok: *ok,
+                                content: truncate_tool_output(content, state.default_config.read().await.memory.max_journal_tool_output_bytes),
+                            });
+                        }
                         if client_connected && send_server_message(framed, &message).await.is_err() {
                             client_connected = false;
                         }
@@ -831,7 +921,29 @@ async fn run_turn_over_channel(
             result = &mut turn => {
                 match result {
                     Ok(summary) => {
-                        drain_outbound_queue(&mut rx, framed, &mut client_connected).await;
+                        drain_outbound_queue(
+                            &mut rx,
+                            framed,
+                            &mut client_connected,
+                            &mut tool_results,
+                            state.default_config.read().await.memory.max_journal_tool_output_bytes,
+                        )
+                        .await;
+                        {
+                            let kernel = session.kernel.lock().await;
+                            persist_completed_turn(
+                                &state.paths,
+                                session.channel,
+                                &kernel,
+                                CompletedTurnRecord {
+                                    user_input: input.clone(),
+                                    assistant_text: extract_turn_assistant_text(&kernel, pre_turn_messages),
+                                    tool_results,
+                                    cost_delta_usd: (kernel.session_cost_usd() - pre_turn_cost).max(0.0),
+                                },
+                            )
+                            .map_err(map_kernel_error)?;
+                        }
                         if client_connected {
                             let _ = send_server_message(
                                 framed,
@@ -844,7 +956,22 @@ async fn run_turn_over_channel(
                         return Ok(());
                     }
                     Err(error) => {
-                        drain_outbound_queue(&mut rx, framed, &mut client_connected).await;
+                        drain_outbound_queue(
+                            &mut rx,
+                            framed,
+                            &mut client_connected,
+                            &mut tool_results,
+                            state.default_config.read().await.memory.max_journal_tool_output_bytes,
+                        )
+                        .await;
+                        append_log_line(
+                            &state.log_path,
+                            &format!(
+                                "session {} turn interrupted before completion boundary: {error}",
+                                session.session_id
+                            ),
+                        )
+                        .ok();
                         if client_connected {
                             let _ = send_server_message(
                                 framed,
@@ -867,10 +994,21 @@ async fn drain_outbound_queue(
     rx: &mut mpsc::UnboundedReceiver<OutboundMessage>,
     framed: &mut FramedStream,
     client_connected: &mut bool,
+    tool_results: &mut Vec<ToolJournalEntry>,
+    max_journal_tool_output_bytes: usize,
 ) {
     while let Ok(outbound) = rx.try_recv() {
         match outbound {
             OutboundMessage::Event(message) => {
+                if let ServerMessage::Event(KernelEventPayload::ToolResult { name, ok, content }) =
+                    &message
+                {
+                    tool_results.push(ToolJournalEntry {
+                        name: name.clone(),
+                        ok: *ok,
+                        content: truncate_tool_output(content, max_journal_tool_output_bytes),
+                    });
+                }
                 if *client_connected && send_server_message(framed, &message).await.is_err() {
                     *client_connected = false;
                 }
@@ -922,6 +1060,322 @@ async fn session_status(
             .last_resolved_intent()
             .map(|intent| intent.as_str().to_string()),
     })
+}
+
+fn session_dir(paths: &AllbertPaths, session_id: &str) -> PathBuf {
+    paths.sessions.join(session_id)
+}
+
+fn session_meta_path(paths: &AllbertPaths, session_id: &str) -> PathBuf {
+    session_dir(paths, session_id).join("meta.json")
+}
+
+fn session_turns_path(paths: &AllbertPaths, session_id: &str) -> PathBuf {
+    session_dir(paths, session_id).join("turns.md")
+}
+
+fn snapshot_to_kernel(meta: SessionJournalMeta) -> SessionSnapshot {
+    SessionSnapshot {
+        session_id: meta.session_id,
+        root_agent_name: meta.root_agent_name,
+        messages: meta.messages,
+        active_skills: meta.active_skills,
+        turn_count: meta.turn_count,
+        cost_total_usd: meta.cost_total_usd,
+        last_resolved_intent: meta.last_resolved_intent.as_deref().and_then(Intent::parse),
+        last_agent_stack: meta.last_agent_stack,
+        ephemeral_memory: meta.ephemeral_memory,
+        model: model_from_payload(meta.model),
+    }
+}
+
+fn build_session_meta(
+    channel: ChannelKind,
+    kernel: &Kernel,
+    started_at: String,
+    last_activity_at: String,
+    prior_intents: &[String],
+) -> SessionJournalMeta {
+    let snapshot = kernel.export_session_snapshot();
+    let mut intent_history = prior_intents.to_vec();
+    if let Some(intent) = snapshot
+        .last_resolved_intent
+        .as_ref()
+        .map(Intent::as_str)
+        .map(str::to_string)
+    {
+        if intent_history.last() != Some(&intent) {
+            intent_history.push(intent);
+        }
+    }
+    SessionJournalMeta {
+        session_id: snapshot.session_id,
+        channel,
+        started_at,
+        last_activity_at,
+        root_agent_name: snapshot.root_agent_name,
+        last_agent_stack: snapshot.last_agent_stack,
+        last_resolved_intent: snapshot
+            .last_resolved_intent
+            .as_ref()
+            .map(Intent::as_str)
+            .map(str::to_string),
+        intent_history,
+        active_skills: snapshot.active_skills,
+        ephemeral_memory: snapshot.ephemeral_memory,
+        model: model_to_payload(&snapshot.model),
+        turn_count: snapshot.turn_count,
+        cost_total_usd: snapshot.cost_total_usd,
+        messages: snapshot.messages,
+    }
+}
+
+fn persist_kernel_session(
+    paths: &AllbertPaths,
+    channel: ChannelKind,
+    kernel: &Kernel,
+) -> Result<(), KernelError> {
+    let session_id = kernel.session_id().to_string();
+    let existing = load_session_snapshot(paths, &session_id).map_err(|err| {
+        KernelError::InitFailed(format!("load session snapshot for {session_id}: {err}"))
+    })?;
+    let started_at = existing
+        .as_ref()
+        .map(|snapshot| snapshot.meta.started_at.clone())
+        .unwrap_or_else(now_rfc3339_fallback);
+    let prior_intents = existing
+        .as_ref()
+        .map(|snapshot| snapshot.meta.intent_history.clone())
+        .unwrap_or_default();
+    persist_session_meta(
+        paths,
+        &build_session_meta(
+            channel,
+            kernel,
+            started_at,
+            now_rfc3339_fallback(),
+            &prior_intents,
+        ),
+    )
+}
+
+fn persist_completed_turn(
+    paths: &AllbertPaths,
+    channel: ChannelKind,
+    kernel: &Kernel,
+    record: CompletedTurnRecord,
+) -> Result<(), KernelError> {
+    let session_id = kernel.session_id().to_string();
+    let existing = load_session_snapshot(paths, &session_id).map_err(|err| {
+        KernelError::InitFailed(format!("load session snapshot for {session_id}: {err}"))
+    })?;
+    let started_at = existing
+        .as_ref()
+        .map(|snapshot| snapshot.meta.started_at.clone())
+        .unwrap_or_else(now_rfc3339_fallback);
+    let prior_intents = existing
+        .as_ref()
+        .map(|snapshot| snapshot.meta.intent_history.clone())
+        .unwrap_or_default();
+    let meta = build_session_meta(
+        channel,
+        kernel,
+        started_at,
+        now_rfc3339_fallback(),
+        &prior_intents,
+    );
+    persist_session_meta(paths, &meta)?;
+    append_turn_record(paths, &meta.session_id, &record).map_err(|err| {
+        KernelError::InitFailed(format!(
+            "append session journal for {}: {err}",
+            meta.session_id
+        ))
+    })?;
+    Ok(())
+}
+
+fn persist_session_meta(
+    paths: &AllbertPaths,
+    meta: &SessionJournalMeta,
+) -> Result<(), KernelError> {
+    let dir = session_dir(paths, &meta.session_id);
+    fs::create_dir_all(&dir)
+        .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", dir.display())))?;
+    let rendered = serde_json::to_vec_pretty(meta)
+        .map_err(|e| KernelError::InitFailed(format!("serialize session meta: {e}")))?;
+    fs::write(session_meta_path(paths, &meta.session_id), rendered).map_err(|e| {
+        KernelError::InitFailed(format!(
+            "write {}: {e}",
+            session_meta_path(paths, &meta.session_id).display()
+        ))
+    })?;
+    let turns = session_turns_path(paths, &meta.session_id);
+    if !turns.exists() {
+        fs::write(
+            &turns,
+            format!(
+                "# Session {}\n\n- channel: {:?}\n- started_at: {}\n\n",
+                meta.session_id, meta.channel, meta.started_at
+            ),
+        )
+        .map_err(|e| KernelError::InitFailed(format!("write {}: {e}", turns.display())))?;
+    }
+    Ok(())
+}
+
+fn append_turn_record(
+    paths: &AllbertPaths,
+    session_id: &str,
+    record: &CompletedTurnRecord,
+) -> Result<(), std::io::Error> {
+    let path = session_turns_path(paths, session_id);
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
+    writeln!(file, "## {}", now_rfc3339_fallback())?;
+    writeln!(file, "- cost_delta_usd: {:.6}", record.cost_delta_usd)?;
+    writeln!(file)?;
+    writeln!(file, "### user")?;
+    writeln!(file)?;
+    writeln!(file, "{}", record.user_input.trim())?;
+    writeln!(file)?;
+    for tool in &record.tool_results {
+        writeln!(file, "### tool `{}` (ok={})", tool.name, tool.ok)?;
+        writeln!(file)?;
+        writeln!(file, "{}", tool.content.trim())?;
+        writeln!(file)?;
+    }
+    if let Some(text) = &record.assistant_text {
+        writeln!(file, "### assistant")?;
+        writeln!(file)?;
+        writeln!(file, "{}", text.trim())?;
+        writeln!(file)?;
+    }
+    Ok(())
+}
+
+fn extract_turn_assistant_text(kernel: &Kernel, pre_turn_messages: usize) -> Option<String> {
+    let snapshot = kernel.export_session_snapshot();
+    snapshot
+        .messages
+        .iter()
+        .skip(pre_turn_messages)
+        .rev()
+        .find_map(|message| match message.role {
+            ChatRole::Assistant => Some(message.content.clone()),
+            ChatRole::User => None,
+        })
+}
+
+fn truncate_tool_output(content: &str, limit: usize) -> String {
+    if content.as_bytes().len() <= limit {
+        return content.to_string();
+    }
+    let mut end = 0usize;
+    for (idx, ch) in content.char_indices() {
+        let next = idx + ch.len_utf8();
+        if next > limit {
+            break;
+        }
+        end = next;
+    }
+    format!("{}…", &content[..end])
+}
+
+fn load_session_snapshot(
+    paths: &AllbertPaths,
+    session_id: &str,
+) -> Result<Option<SessionJournalSnapshot>, DaemonError> {
+    let meta_path = session_meta_path(paths, session_id);
+    if !meta_path.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read(&meta_path)?;
+    let meta: SessionJournalMeta = serde_json::from_slice(&raw)?;
+    Ok(Some(SessionJournalSnapshot { meta }))
+}
+
+fn list_resumable_sessions(
+    paths: &AllbertPaths,
+    config: &Config,
+) -> Result<Vec<SessionResumeEntry>, DaemonError> {
+    archive_expired_sessions(paths, config)?;
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(&paths.sessions)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let name = entry.file_name();
+        if name.to_string_lossy().starts_with('.') {
+            continue;
+        }
+        let session_id = name.to_string_lossy().to_string();
+        if let Some(snapshot) = load_session_snapshot(paths, &session_id)? {
+            entries.push(SessionResumeEntry {
+                session_id: snapshot.meta.session_id,
+                channel: snapshot.meta.channel,
+                started_at: snapshot.meta.started_at,
+                last_activity_at: snapshot.meta.last_activity_at,
+                turn_count: snapshot.meta.turn_count,
+            });
+        }
+    }
+    entries.sort_by(|a, b| b.last_activity_at.cmp(&a.last_activity_at));
+    Ok(entries)
+}
+
+fn archive_expired_sessions(paths: &AllbertPaths, config: &Config) -> Result<(), DaemonError> {
+    let max_age_days = i64::from(config.daemon.session_max_age_days);
+    if max_age_days <= 0 {
+        return Ok(());
+    }
+    let cutoff = OffsetDateTime::now_utc() - time::Duration::days(max_age_days);
+    for entry in fs::read_dir(&paths.sessions)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let name = entry.file_name();
+        if name.to_string_lossy().starts_with('.') {
+            continue;
+        }
+        let session_id = name.to_string_lossy().to_string();
+        let Some(snapshot) = load_session_snapshot(paths, &session_id)? else {
+            continue;
+        };
+        let last_activity = OffsetDateTime::parse(&snapshot.meta.last_activity_at, &Rfc3339)
+            .unwrap_or_else(|_| OffsetDateTime::now_utc());
+        if last_activity >= cutoff {
+            continue;
+        }
+        let destination = paths.sessions_archive.join(&session_id);
+        if destination.exists() {
+            let _ = fs::remove_dir_all(&destination);
+        }
+        fs::rename(session_dir(paths, &session_id), destination)?;
+    }
+    Ok(())
+}
+
+fn forget_session_dir(paths: &AllbertPaths, session_id: &str) -> Result<(), DaemonError> {
+    let source = session_dir(paths, session_id);
+    if !source.exists() {
+        return Err(DaemonError::Protocol(format!(
+            "session not found: {session_id}"
+        )));
+    }
+    let destination = paths.sessions_trash.join(session_id);
+    if destination.exists() {
+        fs::remove_dir_all(&destination)?;
+    }
+    fs::rename(source, destination)?;
+    Ok(())
+}
+
+fn now_rfc3339_fallback() -> String {
+    now_rfc3339().unwrap_or_else(|_| Utc::now().to_rfc3339())
 }
 
 fn disconnected_adapter() -> FrontendAdapter {

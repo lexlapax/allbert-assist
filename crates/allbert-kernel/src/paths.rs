@@ -173,6 +173,9 @@ pub struct AllbertPaths {
     pub jobs_runs: PathBuf,
     pub jobs_failures: PathBuf,
     pub jobs_templates: PathBuf,
+    pub sessions: PathBuf,
+    pub sessions_archive: PathBuf,
+    pub sessions_trash: PathBuf,
     pub traces: PathBuf,
     pub costs: PathBuf,
 }
@@ -191,6 +194,7 @@ impl AllbertPaths {
         let memory = root.join("memory");
         let memory_index_dir = memory.join("index");
         let jobs = root.join("jobs");
+        let sessions = root.join("sessions");
         Self {
             root: root.clone(),
             config: root.join("config.toml"),
@@ -230,10 +234,13 @@ impl AllbertPaths {
             jobs_runs: jobs.join("runs"),
             jobs_failures: jobs.join("failures"),
             jobs_templates: jobs.join("templates"),
+            sessions_archive: sessions.join(".archive"),
+            sessions_trash: sessions.join(".trash"),
             traces: root.join("traces"),
             costs: root.join("costs.jsonl"),
             memory,
             jobs,
+            sessions,
         }
     }
 
@@ -266,6 +273,9 @@ impl AllbertPaths {
             &self.jobs_runs,
             &self.jobs_failures,
             &self.jobs_templates,
+            &self.sessions,
+            &self.sessions_archive,
+            &self.sessions_trash,
             &self.traces,
         ] {
             std::fs::create_dir_all(dir)

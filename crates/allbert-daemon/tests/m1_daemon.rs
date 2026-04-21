@@ -998,7 +998,7 @@ async fn ephemeral_memory_is_isolated_per_session_and_survives_reattach() {
 }
 
 #[tokio::test]
-async fn daemon_restart_clears_ephemeral_memory_for_sessions() {
+async fn daemon_restart_rehydrates_session_journal_and_ephemeral_memory() {
     let home = TempHome::new();
     let paths = home.paths();
     let first_requests = Arc::new(Mutex::new(Vec::new()));
@@ -1047,11 +1047,148 @@ async fn daemon_restart_clears_ephemeral_memory_for_sessions() {
     assert_eq!(recorded.len(), 1);
     let system = recorded[0].system.as_deref().unwrap_or_default();
     assert!(
-        !system.contains("remember before restart"),
-        "daemon restart should clear ephemeral memory for prior sessions"
+        system.contains("remember before restart"),
+        "daemon restart should restore journal-backed ephemeral memory"
+    );
+    let meta_path = paths.sessions.join("memory-restart").join("meta.json");
+    let turns_path = paths.sessions.join("memory-restart").join("turns.md");
+    assert!(meta_path.exists(), "session meta should be persisted");
+    assert!(
+        turns_path.exists(),
+        "session turns journal should be persisted"
+    );
+    let turns = std::fs::read_to_string(turns_path).expect("turns journal should load");
+    assert!(
+        turns.contains("remember before restart"),
+        "journal should contain the completed pre-restart turn"
     );
 
     shutdown_daemon(second_handle, &paths).await;
+}
+
+#[tokio::test]
+async fn sessions_can_be_listed_and_forgotten() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted("FIRST_PASS")])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    {
+        let mut client = wait_for_client(&paths).await;
+        client
+            .attach(ChannelKind::Repl, Some("forget-me".into()))
+            .await
+            .expect("attach should succeed");
+        let _ = run_turn_collect_messages(&mut client, "remember this session").await;
+    }
+
+    shutdown_daemon(handle, &paths).await;
+
+    let restarted = spawn(sample_config(), paths.clone())
+        .await
+        .expect("daemon should restart");
+    let mut client = wait_for_client(&paths).await;
+    let sessions = client.list_sessions().await.expect("sessions should list");
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].session_id, "forget-me");
+
+    client
+        .forget_session("forget-me")
+        .await
+        .expect("forget should succeed");
+    assert!(
+        paths.sessions_trash.join("forget-me").exists(),
+        "forgotten session should move to trash"
+    );
+    let sessions = client
+        .list_sessions()
+        .await
+        .expect("sessions should relist");
+    assert!(sessions.is_empty(), "forgotten session should disappear");
+
+    shutdown_daemon(restarted, &paths).await;
+}
+
+#[tokio::test]
+async fn active_session_cannot_be_forgotten() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn(sample_config(), paths.clone())
+        .await
+        .expect("daemon should boot");
+
+    let mut active = wait_for_client(&paths).await;
+    active
+        .attach(ChannelKind::Repl, Some("active-session".into()))
+        .await
+        .expect("attach should succeed");
+
+    let mut other = wait_for_client(&paths).await;
+    let err = other
+        .forget_session("active-session")
+        .await
+        .expect_err("active session forget should fail");
+    assert!(
+        err.to_string().contains("cannot forget active session"),
+        "unexpected error: {err}"
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn old_sessions_are_archived_when_daemon_starts() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted("FIRST_PASS")])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    {
+        let mut client = wait_for_client(&paths).await;
+        client
+            .attach(ChannelKind::Repl, Some("archive-me".into()))
+            .await
+            .expect("attach should succeed");
+        let _ = run_turn_collect_messages(&mut client, "archive this session").await;
+    }
+
+    shutdown_daemon(handle, &paths).await;
+
+    let meta_path = paths.sessions.join("archive-me").join("meta.json");
+    let mut meta: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&meta_path).expect("session meta should exist"))
+            .expect("meta should parse");
+    meta["last_activity_at"] = serde_json::Value::String("2000-01-01T00:00:00Z".into());
+    std::fs::write(
+        &meta_path,
+        serde_json::to_vec_pretty(&meta).expect("meta should serialize"),
+    )
+    .expect("old meta should be written");
+
+    let restarted = spawn(sample_config(), paths.clone())
+        .await
+        .expect("daemon should restart");
+
+    assert!(
+        paths.sessions_archive.join("archive-me").exists(),
+        "expired session should move to archive"
+    );
+    assert!(
+        !paths.sessions.join("archive-me").exists(),
+        "expired session should leave the active sessions directory"
+    );
+
+    shutdown_daemon(restarted, &paths).await;
 }
 
 #[tokio::test]

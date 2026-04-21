@@ -61,6 +61,7 @@ pub struct DaemonConfig {
     pub socket_path: Option<PathBuf>,
     pub log_dir: Option<PathBuf>,
     pub log_retention_days: u16,
+    pub session_max_age_days: u16,
     pub auto_spawn: bool,
 }
 
@@ -70,6 +71,7 @@ impl Default for DaemonConfig {
             socket_path: None,
             log_dir: None,
             log_retention_days: 7,
+            session_max_age_days: 30,
             auto_spawn: true,
         }
     }
@@ -153,6 +155,7 @@ pub struct MemoryConfig {
     pub index_auto_rebuild: bool,
     pub default_search_limit: usize,
     pub default_daily_recency_days: u16,
+    pub max_journal_tool_output_bytes: usize,
     pub surface_staged_on_turn_end: bool,
 }
 
@@ -180,6 +183,7 @@ impl Default for MemoryConfig {
             index_auto_rebuild: true,
             default_search_limit: 10,
             default_daily_recency_days: 2,
+            max_journal_tool_output_bytes: 4 * 1024,
             surface_staged_on_turn_end: true,
         }
     }

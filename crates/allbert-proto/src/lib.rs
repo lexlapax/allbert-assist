@@ -105,6 +105,15 @@ pub struct SessionStatus {
     pub last_resolved_intent: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SessionResumeEntry {
+    pub session_id: String,
+    pub channel: ChannelKind,
+    pub started_at: String,
+    pub last_activity_at: String,
+    pub turn_count: u32,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum JobReportPolicyPayload {
@@ -259,6 +268,8 @@ pub enum ClientMessage {
     Attach(OpenChannel),
     Status,
     SessionStatus,
+    ListSessions,
+    ForgetSession(String),
     RunTurn(TurnRequest),
     ConfirmReply(ConfirmReplyPayload),
     InputReply(InputReplyPayload),
@@ -285,6 +296,7 @@ pub enum ServerMessage {
     Attached(AttachedChannel),
     Status(DaemonStatus),
     SessionStatus(SessionStatus),
+    Sessions(Vec<SessionResumeEntry>),
     Event(KernelEventPayload),
     ConfirmRequest(ConfirmRequestPayload),
     InputRequest(InputRequestPayload),

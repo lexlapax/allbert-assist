@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use gray_matter::engine::YAML;
 use gray_matter::Matter;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::SkillError;
@@ -50,7 +50,7 @@ pub struct SkillScript {
     pub interpreter: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActiveSkill {
     pub name: String,
     pub args: Option<Value>,

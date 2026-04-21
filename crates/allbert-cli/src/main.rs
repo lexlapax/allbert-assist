@@ -4,7 +4,7 @@ use std::time::Duration;
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_jobs::JobsCommand;
 use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config};
-use allbert_proto::{ChannelKind, ClientKind, DaemonStatus};
+use allbert_proto::{ChannelKind, ClientKind, DaemonStatus, SessionResumeEntry};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
@@ -63,6 +63,15 @@ enum DaemonCommand {
     Start,
     Stop,
     Restart,
+    Resume {
+        #[arg(long)]
+        session: Option<String>,
+        #[arg(long)]
+        list: bool,
+    },
+    Forget {
+        session_id: String,
+    },
     Logs {
         #[arg(long)]
         debug: bool,
@@ -463,6 +472,45 @@ async fn run_daemon_command(
             );
             Ok(())
         }
+        DaemonCommand::Resume { session, list } => {
+            let spawn = default_spawn_config(paths, config)?;
+            let mut client = DaemonClient::connect_or_spawn(paths, ClientKind::Cli, &spawn).await?;
+            let sessions = client.list_sessions().await?;
+            if list {
+                if sessions.is_empty() {
+                    println!("no resumable sessions");
+                } else {
+                    println!("{}", render_session_resume_list(&sessions));
+                }
+                return Ok(());
+            }
+
+            let target = match session {
+                Some(id) => {
+                    if sessions.iter().any(|entry| entry.session_id == id) {
+                        id
+                    } else {
+                        anyhow::bail!("session not found: {id}");
+                    }
+                }
+                None => sessions
+                    .first()
+                    .map(|entry| entry.session_id.clone())
+                    .ok_or_else(|| anyhow::anyhow!("no resumable sessions"))?,
+            };
+            let attached = client
+                .attach(ChannelKind::Repl, Some(target.clone()))
+                .await?;
+            println!("resumed session {}", attached.session_id);
+            repl::run_loop(&mut client, paths).await
+        }
+        DaemonCommand::Forget { session_id } => {
+            let spawn = default_spawn_config(paths, config)?;
+            let mut client = DaemonClient::connect_or_spawn(paths, ClientKind::Cli, &spawn).await?;
+            client.forget_session(&session_id).await?;
+            println!("forgot session {session_id}");
+            Ok(())
+        }
         DaemonCommand::Logs {
             debug,
             follow,
@@ -486,6 +534,21 @@ async fn run_daemon_command(
             }
         }
     }
+}
+
+fn render_session_resume_list(entries: &[SessionResumeEntry]) -> String {
+    let mut lines = Vec::with_capacity(entries.len() + 1);
+    lines.push("resumable sessions:".to_string());
+    for entry in entries {
+        lines.push(format!(
+            "- {}  channel={}  last_active={}  turns={}",
+            entry.session_id,
+            format!("{:?}", entry.channel).to_ascii_lowercase(),
+            entry.last_activity_at,
+            entry.turn_count
+        ));
+    }
+    lines.join("\n")
 }
 
 async fn stop_daemon(paths: &AllbertPaths) -> Result<()> {

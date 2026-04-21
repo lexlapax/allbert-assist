@@ -7,7 +7,7 @@ use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
     AttachedChannel, ChannelKind, ClientHello, ClientKind, ClientMessage, DaemonStatus,
     JobDefinitionPayload, JobRunRecordPayload, JobStatusPayload, ModelConfigPayload, OpenChannel,
-    ProtocolError, ServerMessage, SessionStatus, TurnRequest, PROTOCOL_VERSION,
+    ProtocolError, ServerMessage, SessionResumeEntry, SessionStatus, TurnRequest, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
@@ -190,6 +190,27 @@ impl DaemonClient {
         self.send(&ClientMessage::SessionStatus).await?;
         self.recv_expected("session status", |message| match message {
             ServerMessage::SessionStatus(status) => Some(Ok(status)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn list_sessions(&mut self) -> Result<Vec<SessionResumeEntry>, DaemonError> {
+        self.send(&ClientMessage::ListSessions).await?;
+        self.recv_expected("sessions", |message| match message {
+            ServerMessage::Sessions(entries) => Some(Ok(entries)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn forget_session(&mut self, session_id: &str) -> Result<(), DaemonError> {
+        self.send(&ClientMessage::ForgetSession(session_id.to_string()))
+            .await?;
+        self.recv_expected("ack", |message| match message {
+            ServerMessage::Ack => Some(Ok(())),
             ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
             _ => None,
         })
