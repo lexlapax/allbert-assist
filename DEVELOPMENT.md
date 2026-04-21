@@ -171,4 +171,13 @@ Expected Codex Web workflow:
 - treat live-provider checks as optional
 - avoid assuming your shell environment matches a personal workstation
 
+Suggested Codex Web checklist:
+
+1. Confirm the pinned toolchain is active.
+2. Run Tier A validation before and after meaningful changes.
+3. Use a workspace-local temp `ALLBERT_HOME` for any smoke that touches daemon/profile state.
+4. Do not depend on a long-lived daemon surviving across Codex workspace lifetimes.
+5. Treat live-provider and Telegram checks as optional follow-up work, not the default gate.
+6. Prefer small, milestone-scoped commits so interrupted remote sessions do not strand large uncommitted changes.
+
 Features tied to long-lived local integration, real Telegram channels, or private API keys are better exercised from a real macOS/Linux workstation when needed.

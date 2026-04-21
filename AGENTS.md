@@ -51,3 +51,10 @@ Preferred smoke shapes:
 - Keep commits scoped to the milestone or doc pass when practical.
 - If a task is docs-only, do not invent code changes.
 - If a task changes repo workflow, make sure the repo-level docs are updated, not just end-user docs.
+
+## Codex Web posture
+
+- Treat Codex Web as an ephemeral contributor workspace, not as hosted Allbert runtime.
+- Re-run Tier A validation after meaningful edits.
+- Use workspace-local temp homes for smoke tests.
+- Do not assume secrets, live providers, or long-lived daemons are available.
