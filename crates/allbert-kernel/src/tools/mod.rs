@@ -429,7 +429,12 @@ impl Tool for WebSearchTool {
         } else {
             render_duckduckgo_results(&results)
         };
-        if let Some(record_as) = parsed.record_as.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+        if let Some(record_as) = parsed
+            .record_as
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
             if let Some(top) = results.first() {
                 if let Some(staged_note) = maybe_stage_research_capture(
                     ctx,
@@ -515,7 +520,12 @@ impl Tool for FetchUrlTool {
             .map_err(|err| ToolError::Dispatch(err.to_string()))?;
         let stripped = strip_html(&body);
         let mut content = stripped.clone();
-        if let Some(record_as) = parsed.record_as.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+        if let Some(record_as) = parsed
+            .record_as
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
             if let Some(staged_note) = maybe_stage_research_capture(
                 ctx,
                 format!(
@@ -960,8 +970,8 @@ async fn duckduckgo_search_at(
     timeout: Duration,
     base_url: &str,
 ) -> Result<Vec<SearchResult>, ToolError> {
-    let mut url = reqwest::Url::parse(base_url)
-        .map_err(|err| ToolError::Dispatch(err.to_string()))?;
+    let mut url =
+        reqwest::Url::parse(base_url).map_err(|err| ToolError::Dispatch(err.to_string()))?;
     url.query_pairs_mut().append_pair("q", query);
 
     let response = client
@@ -1114,47 +1124,89 @@ mod tests {
     #[async_trait]
     impl ToolRuntime for RecordingRuntime {
         fn read_memory(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         fn write_memory(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         fn search_memory(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         async fn stage_memory(&mut self, input: Value) -> ToolOutput {
             self.staged.push(input);
-            ToolOutput { content: "{\"id\":\"stg_test\"}".into(), ok: true }
+            ToolOutput {
+                content: "{\"id\":\"stg_test\"}".into(),
+                ok: true,
+            }
         }
         fn list_staged_memory(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         async fn promote_staged_memory(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         fn reject_staged_memory(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         async fn forget_memory(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         fn list_skills(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         fn invoke_skill(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         fn read_reference(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         async fn run_skill_script(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         fn create_skill(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
         async fn spawn_subagent(&mut self, _input: Value) -> ToolOutput {
-            ToolOutput { content: String::new(), ok: true }
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
         }
     }
 
@@ -1204,7 +1256,11 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_url_record_as_stages_research_memory() {
-        let base = serve_once("<html><body><h1>Guide</h1><p>Useful details.</p></body></html>", "text/html").await;
+        let base = serve_once(
+            "<html><body><h1>Guide</h1><p>Useful details.</p></body></html>",
+            "text/html",
+        )
+        .await;
         let mut runtime = RecordingRuntime::default();
         let mut ctx = ToolCtx {
             input: Arc::new(NoInput),
@@ -1229,12 +1285,10 @@ mod tests {
         assert_eq!(runtime.staged[0]["kind"], "research");
         assert_eq!(runtime.staged[0]["summary"], "Useful guide summary");
         assert_eq!(runtime.staged[0]["provenance"]["source_url"], base);
-        assert!(
-            runtime.staged[0]["fingerprint_basis"]
-                .as_str()
-                .unwrap()
-                .contains("Useful guide summary")
-        );
+        assert!(runtime.staged[0]["fingerprint_basis"]
+            .as_str()
+            .unwrap()
+            .contains("Useful guide summary"));
     }
 
     #[tokio::test]
@@ -1278,9 +1332,15 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(note.as_deref(), Some("[staged research memory from https://example.com/postgres]"));
+        assert_eq!(
+            note.as_deref(),
+            Some("[staged research memory from https://example.com/postgres]")
+        );
         assert_eq!(runtime.staged.len(), 1);
         assert_eq!(runtime.staged[0]["kind"], "research");
-        assert_eq!(runtime.staged[0]["provenance"]["query"], "postgres defaults");
+        assert_eq!(
+            runtime.staged[0]["provenance"]["query"],
+            "postgres defaults"
+        );
     }
 }

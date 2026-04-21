@@ -40,7 +40,7 @@ pub use hooks::{
 };
 pub use intent::Intent;
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
-pub use llm::{ChatMessage, ChatRole};
+pub use llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole};
 pub use memory::{
     MemoryTier, SearchMemoryHit, SearchMemoryInput, StageMemoryInput, StagedMemoryKind,
 };
@@ -76,6 +76,30 @@ pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, KernelErr
 pub struct TurnSummary {
     pub hit_turn_limit: bool,
     pub stop_reason: Option<String>,
+}
+
+fn render_user_input_for_history(user_input: &str, attachments: &[ChatAttachment]) -> String {
+    if attachments.is_empty() {
+        return user_input.to_string();
+    }
+
+    let mut rendered = user_input.trim().to_string();
+    if rendered.is_empty() {
+        rendered = "Please analyze the attached image.".into();
+    }
+    for attachment in attachments {
+        let kind = match attachment.kind {
+            ChatAttachmentKind::Image => "image",
+            ChatAttachmentKind::File => "file",
+            ChatAttachmentKind::Audio => "audio",
+            ChatAttachmentKind::Other => "attachment",
+        };
+        rendered.push_str(&format!(
+            "\n[Attached {kind}: {}]",
+            attachment.path.display()
+        ));
+    }
+    rendered
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -371,10 +395,18 @@ impl Kernel {
     }
 
     pub async fn run_turn(&mut self, user_input: &str) -> Result<TurnSummary, KernelError> {
+        self.run_turn_with_attachments(user_input, Vec::new()).await
+    }
+
+    pub async fn run_turn_with_attachments(
+        &mut self,
+        user_input: &str,
+        attachments: Vec<ChatAttachment>,
+    ) -> Result<TurnSummary, KernelError> {
         let placeholder = AgentState::new(self.state.session_id.clone());
         let mut state = std::mem::replace(&mut self.state, placeholder);
         let result = self
-            .run_turn_for_agent(&mut state, user_input, None, false, None, true)
+            .run_turn_for_agent(&mut state, user_input, attachments, None, false, None, true)
             .await;
         self.state = state;
         result.map(|summary| TurnSummary {
@@ -407,7 +439,7 @@ impl Kernel {
         }
 
         let result = self
-            .run_turn_for_agent(&mut state, user_input, None, false, None, false)
+            .run_turn_for_agent(&mut state, user_input, Vec::new(), None, false, None, false)
             .await;
 
         let turn_summary = match &result {
@@ -446,6 +478,7 @@ impl Kernel {
         &mut self,
         state: &mut AgentState,
         user_input: &str,
+        user_attachments: Vec<ChatAttachment>,
         parent_agent_name: Option<String>,
         inherited_cost_override: bool,
         inherited_turn_budget: Option<TurnBudget>,
@@ -477,13 +510,15 @@ impl Kernel {
             intent = ?resolved_intent.as_ref().map(Intent::as_str),
             "turn start"
         );
+        let rendered_user_input = render_user_input_for_history(user_input, &user_attachments);
         state.append_ephemeral_note(
-            format!("User: {}", user_input.trim()),
+            format!("User: {}", rendered_user_input.trim()),
             self.config.memory.max_ephemeral_bytes,
         );
         state.messages.push(ChatMessage {
             role: ChatRole::User,
-            content: user_input.into(),
+            content: rendered_user_input,
+            attachments: user_attachments,
         });
 
         let mut tool_calls_used = 0usize;
@@ -600,6 +635,7 @@ impl Kernel {
             state.messages.push(ChatMessage {
                 role: ChatRole::Assistant,
                 content: final_text.clone(),
+                attachments: Vec::new(),
             });
 
             for event in hook_ctx.pending_events {
@@ -642,6 +678,7 @@ impl Kernel {
                     state.messages.push(ChatMessage {
                         role: ChatRole::User,
                         content: format!("Tool result for limit (ok=false):\n{content}"),
+                        attachments: Vec::new(),
                     });
                     if emit_terminal_events {
                         (self.adapter.on_event)(&KernelEvent::ToolResult {
@@ -786,6 +823,7 @@ impl Kernel {
                         "Tool result for {} (ok={}):\n{}",
                         invocation.name, tool_output.ok, content
                     ),
+                    attachments: Vec::new(),
                 });
                 state.append_ephemeral_note(
                     format!(
@@ -1185,6 +1223,10 @@ impl Kernel {
         self.llm.provider_name()
     }
 
+    pub fn supports_image_input(&self) -> bool {
+        self.llm.supports_image_input(&self.config.model.model_id)
+    }
+
     pub fn model(&self) -> &ModelConfig {
         &self.config.model
     }
@@ -1302,6 +1344,7 @@ Respond with only the lowercase label and no other text."
                 messages: vec![ChatMessage {
                     role: ChatRole::User,
                     content: user_input.into(),
+                    attachments: Vec::new(),
                 }],
                 model: classifier_model.clone(),
                 max_tokens,
@@ -1646,6 +1689,10 @@ Available tools:\n",
         }
 
         prompt.push_str(&self.tools.prompt_catalog());
+        prompt.push_str(
+            "\nIncoming channel attachments are referenced by session-scoped local paths. \
+Treat those paths as the attachment handles; do not expect raw binary bytes in prompt text.\n",
+        );
         if self.job_manager.is_some() {
             prompt.push_str(
                 "\nWhen the user asks for recurring or scheduled work, use the daemon-backed job tools instead of generic file edits or subprocesses.\n\
@@ -2069,6 +2116,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         let run_result = Box::pin(self.run_turn_for_agent(
             &mut subagent_state,
             &composed_prompt,
+            Vec::new(),
             Some(state.agent_name().to_string()),
             state.cost_cap_override_active_this_turn,
             Some(spawn_budget),
@@ -4505,6 +4553,72 @@ mod tests {
         assert_eq!(seen.len(), 2);
         assert_eq!(seen[0], Provider::Anthropic);
         assert_eq!(seen[1], Provider::Openrouter);
+    }
+
+    #[tokio::test]
+    async fn run_turn_with_attachments_keeps_session_scoped_image_in_model_history() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests_and_image_support(
+                "anthropic",
+                requests.clone(),
+                vec![CompletionResponse {
+                    text: "done".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+                true,
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let attachment = ChatAttachment {
+            kind: ChatAttachmentKind::Image,
+            path: temp.path.join("sessions/session-1/artifacts/photo.jpg"),
+            mime_type: Some("image/jpeg".into()),
+            display_name: Some("telegram photo".into()),
+        };
+        kernel
+            .run_turn_with_attachments("what is in this image?", vec![attachment.clone()])
+            .await
+            .expect("turn should succeed");
+
+        let recorded = requests.lock().unwrap();
+        assert_eq!(recorded.len(), 1);
+        let user_message = recorded[0]
+            .messages
+            .first()
+            .expect("user message should exist");
+        assert_eq!(user_message.attachments, vec![attachment]);
+        assert!(user_message.content.contains("[Attached image:"));
+    }
+
+    #[tokio::test]
+    async fn supports_image_input_reflects_provider_capability() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests_and_image_support(
+                "anthropic",
+                Arc::new(Mutex::new(Vec::new())),
+                Vec::new(),
+                Some(test_pricing()),
+                true,
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        assert!(kernel.supports_image_input());
     }
 
     #[tokio::test]
@@ -7073,6 +7187,7 @@ mod tests {
         requests: Arc<Mutex<Vec<CompletionRequest>>>,
         responses: Arc<Mutex<VecDeque<CompletionResponse>>>,
         pricing: Option<Pricing>,
+        supports_image_input: bool,
     }
 
     impl TestFactory {
@@ -7087,6 +7202,7 @@ mod tests {
                 requests: Arc::new(Mutex::new(Vec::new())),
                 responses: Arc::new(Mutex::new(responses.into())),
                 pricing,
+                supports_image_input: false,
             }
         }
 
@@ -7102,6 +7218,7 @@ mod tests {
                 requests: Arc::new(Mutex::new(Vec::new())),
                 responses: Arc::new(Mutex::new(responses.into())),
                 pricing,
+                supports_image_input: false,
             }
         }
 
@@ -7117,6 +7234,24 @@ mod tests {
                 requests,
                 responses: Arc::new(Mutex::new(responses.into())),
                 pricing,
+                supports_image_input: false,
+            }
+        }
+
+        fn with_requests_and_image_support(
+            provider_name: &'static str,
+            requests: Arc<Mutex<Vec<CompletionRequest>>>,
+            responses: Vec<CompletionResponse>,
+            pricing: Option<Pricing>,
+            supports_image_input: bool,
+        ) -> Self {
+            Self {
+                provider_name,
+                seen: Arc::new(Mutex::new(Vec::new())),
+                requests,
+                responses: Arc::new(Mutex::new(responses.into())),
+                pricing,
+                supports_image_input,
             }
         }
     }
@@ -7133,6 +7268,7 @@ mod tests {
                 requests: Arc::clone(&self.requests),
                 responses: Arc::clone(&self.responses),
                 pricing: self.pricing,
+                supports_image_input: self.supports_image_input,
             }))
         }
     }
@@ -7142,6 +7278,7 @@ mod tests {
         requests: Arc<Mutex<Vec<CompletionRequest>>>,
         responses: Arc<Mutex<VecDeque<CompletionResponse>>>,
         pricing: Option<Pricing>,
+        supports_image_input: bool,
     }
 
     #[async_trait]
@@ -7161,6 +7298,10 @@ mod tests {
 
         fn provider_name(&self) -> &'static str {
             self.provider_name
+        }
+
+        fn supports_image_input(&self, _model: &str) -> bool {
+            self.supports_image_input
         }
     }
 

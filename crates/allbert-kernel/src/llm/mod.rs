@@ -10,8 +10,8 @@ use crate::error::LlmError;
 pub use anthropic::AnthropicProvider;
 pub use openrouter::OpenRouterProvider;
 pub use provider::{
-    ChatMessage, ChatRole, CompletionRequest, CompletionResponse, LlmProvider, Pricing,
-    ProviderFactory, Usage,
+    ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, CompletionRequest,
+    CompletionResponse, LlmProvider, Pricing, ProviderFactory, Usage,
 };
 
 #[derive(Clone)]

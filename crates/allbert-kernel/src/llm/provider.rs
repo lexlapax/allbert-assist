@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 use crate::config::ModelConfig;
 use crate::error::LlmError;
@@ -12,9 +13,30 @@ pub enum ChatRole {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ChatAttachmentKind {
+    Image,
+    File,
+    Audio,
+    Other,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChatAttachment {
+    pub kind: ChatAttachmentKind,
+    pub path: PathBuf,
+    #[serde(default)]
+    pub mime_type: Option<String>,
+    #[serde(default)]
+    pub display_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ChatMessage {
     pub role: ChatRole,
     pub content: String,
+    #[serde(default)]
+    pub attachments: Vec<ChatAttachment>,
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +75,9 @@ pub trait LlmProvider: Send + Sync {
     async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse, LlmError>;
     fn pricing(&self, model: &str) -> Option<Pricing>;
     fn provider_name(&self) -> &'static str;
+    fn supports_image_input(&self, _model: &str) -> bool {
+        false
+    }
 }
 
 #[async_trait]

@@ -1,12 +1,14 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 
 use crate::error::LlmError;
 
 use super::provider::{
-    ChatMessage, ChatRole, CompletionRequest, CompletionResponse, LlmProvider, Pricing, Usage,
+    ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, CompletionRequest,
+    CompletionResponse, LlmProvider, Pricing, Usage,
 };
 
 const CHAT_COMPLETIONS_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
@@ -17,6 +19,7 @@ pub struct OpenRouterProvider {
     api_key_env: String,
     chat_completions_url: String,
     pricing_table: HashMap<String, Pricing>,
+    image_input_models: HashSet<String>,
 }
 
 impl OpenRouterProvider {
@@ -40,22 +43,22 @@ impl OpenRouterProvider {
     ) -> Self {
         let fallback = fallback_pricing_table();
         let api_key = bootstrap_api_key.or_else(|| std::env::var(&api_key_env).ok());
-        let pricing_table = if let Some(api_key) = api_key {
-            match fetch_live_pricing(&client, &api_key, &models_url).await {
-                Ok(table) => table,
+        let (pricing_table, image_input_models) = if let Some(api_key) = api_key {
+            match fetch_live_catalog(&client, &api_key, &models_url).await {
+                Ok(catalog) => (catalog.pricing_table, catalog.image_input_models),
                 Err(err) => {
                     tracing::warn!(
-                        "openrouter pricing metadata unavailable, using fallback pricing: {err}"
+                        "openrouter metadata unavailable, using fallback pricing and empty modality catalog: {err}"
                     );
-                    fallback
+                    (fallback, HashSet::new())
                 }
             }
         } else {
             tracing::warn!(
-                "openrouter pricing metadata unavailable at boot because {} is unset; using fallback pricing",
+                "openrouter metadata unavailable at boot because {} is unset; using fallback pricing",
                 api_key_env
             );
-            fallback
+            (fallback, HashSet::new())
         };
 
         Self {
@@ -63,6 +66,7 @@ impl OpenRouterProvider {
             api_key_env,
             chat_completions_url,
             pricing_table,
+            image_input_models,
         }
     }
 
@@ -80,10 +84,15 @@ impl LlmProvider for OpenRouterProvider {
         if let Some(system) = req.system {
             messages.push(OpenRouterMessage {
                 role: "system".into(),
-                content: system,
+                content: OpenRouterContent::Text(system),
             });
         }
-        messages.extend(req.messages.into_iter().map(OpenRouterMessage::from));
+        messages.extend(
+            req.messages
+                .into_iter()
+                .map(OpenRouterMessage::try_from)
+                .collect::<Result<Vec<_>, _>>()?,
+        );
 
         let response = self
             .client
@@ -120,7 +129,7 @@ impl LlmProvider for OpenRouterProvider {
             .ok_or_else(|| LlmError::Response("openrouter response missing choices".into()))?;
 
         Ok(CompletionResponse {
-            text: choice.message.content.unwrap_or_default(),
+            text: choice.message.content.into_text(),
             usage: Usage {
                 input_tokens: parsed.usage.as_ref().map(|u| u.prompt_tokens).unwrap_or(0),
                 output_tokens: parsed
@@ -141,6 +150,10 @@ impl LlmProvider for OpenRouterProvider {
     fn provider_name(&self) -> &'static str {
         "openrouter"
     }
+
+    fn supports_image_input(&self, model: &str) -> bool {
+        self.image_input_models.contains(model)
+    }
 }
 
 #[derive(Serialize)]
@@ -153,20 +166,59 @@ struct OpenRouterRequest {
 #[derive(Serialize)]
 struct OpenRouterMessage {
     role: String,
-    content: String,
+    content: OpenRouterContent,
 }
 
-impl From<ChatMessage> for OpenRouterMessage {
-    fn from(value: ChatMessage) -> Self {
+impl TryFrom<ChatMessage> for OpenRouterMessage {
+    type Error = LlmError;
+
+    fn try_from(value: ChatMessage) -> Result<Self, Self::Error> {
         let role = match value.role {
             ChatRole::User => "user",
             ChatRole::Assistant => "assistant",
         };
-        Self {
+        let content = if value.attachments.is_empty() {
+            OpenRouterContent::Text(value.content)
+        } else {
+            let mut parts = Vec::new();
+            if !value.content.trim().is_empty() {
+                parts.push(OpenRouterContentPart::Text {
+                    text: value.content.clone(),
+                });
+            }
+            for attachment in value.attachments {
+                parts.push(OpenRouterContentPart::ImageUrl {
+                    image_url: OpenRouterImageUrl {
+                        url: attachment_data_url(&attachment)?,
+                    },
+                });
+            }
+            OpenRouterContent::Parts(parts)
+        };
+        Ok(Self {
             role: role.into(),
-            content: value.content,
-        }
+            content,
+        })
     }
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum OpenRouterContent {
+    Text(String),
+    Parts(Vec<OpenRouterContentPart>),
+}
+
+#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum OpenRouterContentPart {
+    Text { text: String },
+    ImageUrl { image_url: OpenRouterImageUrl },
+}
+
+#[derive(Serialize)]
+struct OpenRouterImageUrl {
+    url: String,
 }
 
 #[derive(Deserialize)]
@@ -183,7 +235,43 @@ struct OpenRouterChoice {
 #[derive(Deserialize)]
 struct OpenRouterAssistantMessage {
     #[serde(default)]
-    content: Option<String>,
+    content: OpenRouterAssistantContent,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(untagged)]
+enum OpenRouterAssistantContent {
+    #[default]
+    Missing,
+    Text(String),
+    Parts(Vec<OpenRouterAssistantContentPart>),
+}
+
+impl OpenRouterAssistantContent {
+    fn into_text(self) -> String {
+        match self {
+            Self::Missing => String::new(),
+            Self::Text(value) => value,
+            Self::Parts(parts) => parts
+                .into_iter()
+                .filter_map(|part| match part {
+                    OpenRouterAssistantContentPart::Text { text } => Some(text),
+                    OpenRouterAssistantContentPart::Other => None,
+                })
+                .collect::<Vec<_>>()
+                .join("\n\n"),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum OpenRouterAssistantContentPart {
+    Text {
+        text: String,
+    },
+    #[serde(other)]
+    Other,
 }
 
 #[derive(Deserialize)]
@@ -200,6 +288,10 @@ struct OpenRouterModelsResponse {
 #[derive(Deserialize)]
 struct OpenRouterModel {
     id: String,
+    #[serde(default)]
+    canonical_slug: Option<String>,
+    #[serde(default)]
+    architecture: Option<OpenRouterArchitecture>,
     pricing: OpenRouterPricing,
 }
 
@@ -215,11 +307,23 @@ struct OpenRouterPricing {
     input_cache_write: String,
 }
 
-async fn fetch_live_pricing(
+#[derive(Default)]
+struct OpenRouterCatalog {
+    pricing_table: HashMap<String, Pricing>,
+    image_input_models: HashSet<String>,
+}
+
+#[derive(Deserialize, Default)]
+struct OpenRouterArchitecture {
+    #[serde(default)]
+    input_modalities: Vec<String>,
+}
+
+async fn fetch_live_catalog(
     client: &reqwest::Client,
     api_key: &str,
     models_url: &str,
-) -> Result<HashMap<String, Pricing>, LlmError> {
+) -> Result<OpenRouterCatalog, LlmError> {
     let response = client
         .get(models_url)
         .header("Authorization", format!("Bearer {api_key}"))
@@ -241,13 +345,30 @@ async fn fetch_live_pricing(
         .await
         .map_err(|err| LlmError::Response(err.to_string()))?;
 
-    let mut table = HashMap::new();
+    let mut catalog = OpenRouterCatalog::default();
     for model in parsed.data {
         if let Some(pricing) = parse_pricing(model.pricing) {
-            table.insert(model.id, pricing);
+            catalog.pricing_table.insert(model.id.clone(), pricing);
+        }
+        if model_supports_image_input(model.architecture.as_ref()) {
+            catalog.image_input_models.insert(model.id.clone());
+            if let Some(slug) = model.canonical_slug {
+                catalog.image_input_models.insert(slug);
+            }
         }
     }
-    Ok(table)
+    Ok(catalog)
+}
+
+fn model_supports_image_input(architecture: Option<&OpenRouterArchitecture>) -> bool {
+    architecture
+        .map(|value| {
+            value
+                .input_modalities
+                .iter()
+                .any(|modality| modality.eq_ignore_ascii_case("image"))
+        })
+        .unwrap_or(false)
 }
 
 fn parse_pricing(pricing: OpenRouterPricing) -> Option<Pricing> {
@@ -265,6 +386,46 @@ fn parse_optional_decimal(raw: &str) -> f64 {
         0.0
     } else {
         raw.parse().unwrap_or(0.0)
+    }
+}
+
+fn attachment_data_url(attachment: &ChatAttachment) -> Result<String, LlmError> {
+    if attachment.kind != ChatAttachmentKind::Image {
+        return Err(LlmError::Response(format!(
+            "openrouter only supports image attachments, got {:?}",
+            attachment.kind
+        )));
+    }
+    let media_type = attachment
+        .mime_type
+        .clone()
+        .or_else(|| infer_image_media_type(&attachment.path))
+        .ok_or_else(|| {
+            LlmError::Response(format!(
+                "unsupported image media type for {}",
+                attachment.path.display()
+            ))
+        })?;
+    let raw = std::fs::read(&attachment.path)
+        .map_err(|err| LlmError::Response(format!("read {}: {err}", attachment.path.display())))?;
+    Ok(format!(
+        "data:{media_type};base64,{}",
+        BASE64_STANDARD.encode(raw)
+    ))
+}
+
+fn infer_image_media_type(path: &std::path::Path) -> Option<String> {
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    match extension.as_str() {
+        "jpg" | "jpeg" => Some("image/jpeg".into()),
+        "png" => Some("image/png".into()),
+        "gif" => Some("image/gif".into()),
+        "webp" => Some("image/webp".into()),
+        _ => None,
     }
 }
 
@@ -325,5 +486,15 @@ mod tests {
         assert_eq!(provider.provider_name(), "openrouter");
         assert!(fallback.prompt_per_token_usd > 0.0);
         assert!(fallback.completion_per_token_usd > 0.0);
+        assert!(!provider.supports_image_input("anthropic/claude-sonnet-4"));
+    }
+
+    #[test]
+    fn model_supports_image_input_when_metadata_declares_image_modality() {
+        let architecture = OpenRouterArchitecture {
+            input_modalities: vec!["text".into(), "image".into()],
+        };
+        assert!(model_supports_image_input(Some(&architecture)));
+        assert!(!model_supports_image_input(None));
     }
 }

@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 
 use crate::error::LlmError;
 
 use super::provider::{
-    ChatMessage, CompletionRequest, CompletionResponse, LlmProvider, Pricing, Usage,
+    ChatAttachment, ChatAttachmentKind, ChatMessage, CompletionRequest, CompletionResponse,
+    LlmProvider, Pricing, Usage,
 };
 
 const MESSAGES_URL: &str = "https://api.anthropic.com/v1/messages";
@@ -43,8 +45,8 @@ impl LlmProvider for AnthropicProvider {
             messages: req
                 .messages
                 .into_iter()
-                .map(AnthropicMessage::from)
-                .collect(),
+                .map(AnthropicMessage::try_from)
+                .collect::<Result<Vec<_>, _>>()?,
         };
 
         let response = self
@@ -98,6 +100,10 @@ impl LlmProvider for AnthropicProvider {
     fn provider_name(&self) -> &'static str {
         "anthropic"
     }
+
+    fn supports_image_input(&self, _model: &str) -> bool {
+        true
+    }
 }
 
 #[derive(Serialize)]
@@ -112,30 +118,106 @@ struct AnthropicRequest {
 #[derive(Serialize)]
 struct AnthropicMessage {
     role: &'static str,
-    content: String,
+    content: AnthropicContent,
 }
 
-impl From<ChatMessage> for AnthropicMessage {
-    fn from(value: ChatMessage) -> Self {
+impl TryFrom<ChatMessage> for AnthropicMessage {
+    type Error = LlmError;
+
+    fn try_from(value: ChatMessage) -> Result<Self, Self::Error> {
         let role = match value.role {
             super::provider::ChatRole::User => "user",
             super::provider::ChatRole::Assistant => "assistant",
         };
-        Self {
-            role,
-            content: value.content,
-        }
+        let content = if value.attachments.is_empty() {
+            AnthropicContent::Text(value.content)
+        } else {
+            let mut blocks = Vec::new();
+            if !value.content.trim().is_empty() {
+                blocks.push(AnthropicContentBlock::Text {
+                    text: value.content.clone(),
+                });
+            }
+            for attachment in value.attachments {
+                blocks.push(AnthropicContentBlock::Image {
+                    source: anthropic_image_source(&attachment)?,
+                });
+            }
+            AnthropicContent::Blocks(blocks)
+        };
+        Ok(Self { role, content })
+    }
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum AnthropicContent {
+    Text(String),
+    Blocks(Vec<AnthropicContentBlock>),
+}
+
+#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum AnthropicContentBlock {
+    Text { text: String },
+    Image { source: AnthropicImageSource },
+}
+
+#[derive(Serialize)]
+struct AnthropicImageSource {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    media_type: String,
+    data: String,
+}
+
+fn anthropic_image_source(attachment: &ChatAttachment) -> Result<AnthropicImageSource, LlmError> {
+    if attachment.kind != ChatAttachmentKind::Image {
+        return Err(LlmError::Response(format!(
+            "anthropic only supports image attachments, got {:?}",
+            attachment.kind
+        )));
+    }
+    let media_type = infer_image_media_type(attachment)?;
+    let raw = std::fs::read(&attachment.path)
+        .map_err(|err| LlmError::Response(format!("read {}: {err}", attachment.path.display())))?;
+    Ok(AnthropicImageSource {
+        kind: "base64",
+        media_type,
+        data: BASE64_STANDARD.encode(raw),
+    })
+}
+
+fn infer_image_media_type(attachment: &ChatAttachment) -> Result<String, LlmError> {
+    if let Some(media_type) = attachment.mime_type.as_ref() {
+        return Ok(media_type.clone());
+    }
+    let extension = attachment
+        .path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    match extension.as_str() {
+        "jpg" | "jpeg" => Ok("image/jpeg".into()),
+        "png" => Ok("image/png".into()),
+        "gif" => Ok("image/gif".into()),
+        "webp" => Ok("image/webp".into()),
+        _ => Err(LlmError::Response(format!(
+            "unsupported image media type for {}",
+            attachment.path.display()
+        ))),
     }
 }
 
 #[derive(Deserialize)]
 struct AnthropicResponse {
-    content: Vec<AnthropicContentBlock>,
+    content: Vec<AnthropicResponseContentBlock>,
     usage: AnthropicUsage,
 }
 
 #[derive(Deserialize)]
-struct AnthropicContentBlock {
+struct AnthropicResponseContentBlock {
     #[serde(rename = "type")]
     kind: String,
     #[serde(default)]

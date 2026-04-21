@@ -94,6 +94,7 @@ version = "0.1.0"
 dependencies = [
  "allbert-proto",
  "async-trait",
+ "base64",
  "dirs",
  "fs2",
  "gray_matter",

@@ -56,6 +56,7 @@ const TOOLS_TEMPLATE: &str = r#"# TOOLS
 ## Editing rules
 - Keep notes short and factual.
 - Move reusable procedures into skills instead of this file.
+- Incoming channel images are referenced by session-scoped local paths; no raw binary belongs in prompt text.
 "#;
 
 const BOOTSTRAP_TEMPLATE: &str = r#"# BOOTSTRAP

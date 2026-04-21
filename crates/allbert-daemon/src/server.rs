@@ -14,7 +14,7 @@ use allbert_channels::{
 };
 use allbert_kernel::{
     job_manager::JobManager as KernelJobManager,
-    llm::{ChatMessage, ChatRole},
+    llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole},
     llm::{DefaultProviderFactory, ProviderFactory},
     ActiveSkill, ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter,
     InputRequest, InputResponse, Intent, Kernel, KernelError, KernelEvent, ModelConfig,
@@ -38,9 +38,10 @@ use interprocess::local_socket::{
 };
 use serde::{Deserialize, Serialize};
 use teloxide::{
+    net::Download,
     payloads::{GetUpdatesSetters, SendMessageSetters},
     prelude::{Request, Requester},
-    types::{ChatId, Message, ParseMode, Update, UpdateKind, UserId},
+    types::{ChatId, Message, ParseMode, PhotoSize, Update, UpdateKind, UserId},
     Bot,
 };
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -172,6 +173,7 @@ struct PendingApprovalRecord {
 #[derive(Debug, Clone)]
 struct CompletedTurnRecord {
     user_input: String,
+    user_attachments: Vec<ChatAttachment>,
     assistant_text: Option<String>,
     tool_results: Vec<ToolJournalEntry>,
     cost_delta_usd: f64,
@@ -913,6 +915,7 @@ async fn execute_planned_jobs(
 #[async_trait::async_trait]
 trait TelegramApi: Send + Sync {
     async fn send_message(&self, chat_id: i64, text: String) -> Result<i32, String>;
+    async fn download_photo(&self, photo: &PhotoSize, destination: &Path) -> Result<(), String>;
 }
 
 struct TeloxideApi {
@@ -928,6 +931,22 @@ impl TelegramApi for TeloxideApi {
             .send()
             .await
             .map(|message| message.id.0)
+            .map_err(|err| err.to_string())
+    }
+
+    async fn download_photo(&self, photo: &PhotoSize, destination: &Path) -> Result<(), String> {
+        let file = self
+            .bot
+            .get_file(photo.file.id.clone())
+            .send()
+            .await
+            .map_err(|err| err.to_string())?;
+        let mut output = tokio::fs::File::create(destination)
+            .await
+            .map_err(|err| err.to_string())?;
+        self.bot
+            .download_file(&file.path, &mut output)
+            .await
             .map_err(|err| err.to_string())
     }
 }
@@ -1004,6 +1023,7 @@ struct PendingCapOverride {
 #[derive(Clone)]
 struct TelegramRuntime {
     state: SharedState,
+    api: Arc<dyn TelegramApi>,
     outbound: Arc<TelegramOutboundQueue>,
     allowed_chats: HashSet<i64>,
     pending_approvals: Arc<StdMutex<HashMap<String, PendingApprovalWaiter>>>,
@@ -1031,16 +1051,24 @@ impl TelegramRuntime {
             return Ok(());
         }
         let sender_id = telegram_sender_key(chat_id, message.from.as_ref().map(|user| user.id));
-        let Some(text) = message.text().map(|value| value.to_string()) else {
+        let text = message
+            .text()
+            .or_else(|| message.caption())
+            .map(|value| value.to_string());
+        let photos = message
+            .photo()
+            .map(|value| value.to_vec())
+            .unwrap_or_default();
+        if text.is_none() && photos.is_empty() {
             append_debug_line(
                 &self.state,
-                &format!("telegram ignored non-text message chat={chat_id} sender={sender_id}"),
+                &format!("telegram ignored unsupported message chat={chat_id} sender={sender_id}"),
             )
             .ok();
             return Ok(());
-        };
+        }
 
-        match parse_telegram_command(&text) {
+        match parse_telegram_command(text.as_deref().unwrap_or_default()) {
             TelegramCommand::Approve(approval_id) => {
                 self.resolve_approval(chat_id, &sender_id, &approval_id, true)
                     .await?;
@@ -1063,12 +1091,31 @@ impl TelegramRuntime {
             }
             TelegramCommand::Text(input) => {
                 let session = self.select_session(&sender_id, false).await?;
-                let runtime = self.clone();
-                self.state.tasks.spawn(async move {
-                    if let Err(error) = runtime.clone().run_turn(session, chat_id, input).await {
-                        runtime.record_error(format!("telegram turn failed: {error}"));
-                    }
-                });
+                if photos.is_empty() {
+                    let runtime = self.clone();
+                    self.state.tasks.spawn(async move {
+                        if let Err(error) = runtime.clone().run_turn(session, chat_id, input).await
+                        {
+                            runtime.record_error(format!("telegram turn failed: {error}"));
+                        }
+                    });
+                } else {
+                    let runtime = self.clone();
+                    let prompt = if input.trim().is_empty() {
+                        "Please analyze the attached image.".to_string()
+                    } else {
+                        input
+                    };
+                    self.state.tasks.spawn(async move {
+                        if let Err(error) = runtime
+                            .clone()
+                            .run_photo_turn(session, chat_id, prompt, photos)
+                            .await
+                        {
+                            runtime.record_error(format!("telegram photo turn failed: {error}"));
+                        }
+                    });
+                }
             }
         }
         Ok(())
@@ -1126,13 +1173,80 @@ impl TelegramRuntime {
         chat_id: i64,
         input: String,
     ) -> Result<(), DaemonError> {
+        self.run_turn_with_attachments(session, chat_id, input, Vec::new())
+            .await
+    }
+
+    async fn run_photo_turn(
+        self: Arc<Self>,
+        session: Arc<SessionHandle>,
+        chat_id: i64,
+        input: String,
+        photos: Vec<PhotoSize>,
+    ) -> Result<(), DaemonError> {
+        let supports_images = {
+            let kernel = session.kernel.lock().await;
+            kernel.supports_image_input()
+        };
+        if !supports_images {
+            self.send_text(
+                chat_id,
+                "The current model does not accept image input on Telegram. Switch to a vision-capable model or send text only.".into(),
+            )
+            .await?;
+            return Ok(());
+        }
+
+        let photo = best_telegram_photo(&photos).ok_or_else(|| {
+            DaemonError::Protocol("telegram photo message did not include any photo sizes".into())
+        })?;
+        let ordinal = self.state.next_request.fetch_add(1, Ordering::SeqCst);
+        let destination = next_session_image_path(&self.state.paths, &session.session_id, ordinal);
+        if let Some(parent) = destination.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        if let Err(err) = self.api.download_photo(photo, &destination).await {
+            self.send_text(
+                chat_id,
+                "I couldn't download that Telegram photo for analysis. Please try sending it again."
+                    .into(),
+            )
+            .await?;
+            return Err(DaemonError::Protocol(format!(
+                "download Telegram photo to {}: {err}",
+                destination.display()
+            )));
+        }
+
+        self.run_turn_with_attachments(
+            session,
+            chat_id,
+            input,
+            vec![ChatAttachment {
+                kind: ChatAttachmentKind::Image,
+                path: destination,
+                mime_type: Some("image/jpeg".into()),
+                display_name: Some("telegram photo".into()),
+            }],
+        )
+        .await
+    }
+
+    async fn run_turn_with_attachments(
+        self: Arc<Self>,
+        session: Arc<SessionHandle>,
+        chat_id: i64,
+        input: String,
+        attachments: Vec<ChatAttachment>,
+    ) -> Result<(), DaemonError> {
         append_debug_line(
             &self.state,
             &format!(
-                "telegram run_turn session={} sender={:?} input_len={}",
+                "telegram run_turn session={} sender={:?} input_len={} attachments={}",
                 session.session_id,
                 session.sender_id(),
-                input.len()
+                input.len(),
+                attachments.len()
             ),
         )
         .ok();
@@ -1185,7 +1299,9 @@ impl TelegramRuntime {
         let result = {
             let mut kernel = session.kernel.lock().await;
             kernel.set_adapter(adapter);
-            kernel.run_turn(&input).await
+            kernel
+                .run_turn_with_attachments(&input, attachments.clone())
+                .await
         };
 
         match result {
@@ -1200,6 +1316,7 @@ impl TelegramRuntime {
                         &kernel,
                         CompletedTurnRecord {
                             user_input: input,
+                            user_attachments: attachments,
                             assistant_text: assistant_text.clone().or_else(|| {
                                 extract_turn_assistant_text(&kernel, pre_turn_messages)
                             }),
@@ -1578,14 +1695,16 @@ async fn spawn_telegram_pilot(state: SharedState) -> Result<(), DaemonError> {
     }
 
     let bot = Bot::new(token.clone());
+    let api: Arc<dyn TelegramApi> = Arc::new(TeloxideApi { bot: bot.clone() });
     let outbound = TelegramOutboundQueue::spawn(
         &state,
-        Arc::new(TeloxideApi { bot: bot.clone() }),
+        api.clone(),
         Duration::from_millis(config.channels.telegram.min_interval_ms_per_chat),
         Duration::from_millis(config.channels.telegram.min_interval_ms_global),
     );
     let runtime = Arc::new(TelegramRuntime {
         state: state.clone(),
+        api,
         outbound,
         allowed_chats,
         pending_approvals: Arc::new(StdMutex::new(HashMap::new())),
@@ -1740,6 +1859,16 @@ fn telegram_sender_key(chat_id: i64, user_id: Option<UserId>) -> String {
         Some(user_id) => format!("telegram:{chat_id}:{}", user_id.0),
         None => format!("telegram:{chat_id}"),
     }
+}
+
+fn best_telegram_photo(photo_sizes: &[PhotoSize]) -> Option<&PhotoSize> {
+    photo_sizes.iter().max_by_key(|photo| {
+        u64::from(photo.width) * u64::from(photo.height) * 1_000_000 + u64::from(photo.file.size)
+    })
+}
+
+fn next_session_image_path(paths: &AllbertPaths, session_id: &str, ordinal: u64) -> PathBuf {
+    session_artifacts_dir(paths, session_id).join(format!("telegram-photo-{ordinal}.jpg"))
 }
 
 fn escape_telegram_markdown_v2(text: &str) -> String {
@@ -2112,6 +2241,7 @@ async fn run_turn_over_channel(
                                 &kernel,
                                 CompletedTurnRecord {
                                     user_input: input.clone(),
+                                    user_attachments: Vec::new(),
                                     assistant_text: extract_turn_assistant_text(&kernel, pre_turn_messages),
                                     tool_results,
                                     cost_delta_usd: (kernel.session_cost_usd() - pre_turn_cost).max(0.0),
@@ -2285,6 +2415,10 @@ fn session_meta_path(paths: &AllbertPaths, session_id: &str) -> PathBuf {
 
 fn session_turns_path(paths: &AllbertPaths, session_id: &str) -> PathBuf {
     session_dir(paths, session_id).join("turns.md")
+}
+
+fn session_artifacts_dir(paths: &AllbertPaths, session_id: &str) -> PathBuf {
+    session_dir(paths, session_id).join("artifacts")
 }
 
 fn snapshot_to_kernel(meta: SessionJournalMeta) -> SessionSnapshot {
@@ -2556,6 +2690,30 @@ fn append_turn_record(
     writeln!(file)?;
     writeln!(file, "{}", record.user_input.trim())?;
     writeln!(file)?;
+    if !record.user_attachments.is_empty() {
+        writeln!(file, "### user attachments")?;
+        writeln!(file)?;
+        for attachment in &record.user_attachments {
+            let kind = match attachment.kind {
+                ChatAttachmentKind::Image => "image",
+                ChatAttachmentKind::File => "file",
+                ChatAttachmentKind::Audio => "audio",
+                ChatAttachmentKind::Other => "attachment",
+            };
+            writeln!(
+                file,
+                "- {}: {}{}",
+                kind,
+                attachment.path.display(),
+                attachment
+                    .mime_type
+                    .as_ref()
+                    .map(|value| format!(" ({value})"))
+                    .unwrap_or_default()
+            )?;
+        }
+        writeln!(file)?;
+    }
     for tool in &record.tool_results {
         writeln!(file, "### tool `{}` (ok={})", tool.name, tool.ok)?;
         writeln!(file)?;
@@ -3029,6 +3187,7 @@ async fn recv_client_message(framed: &mut FramedStream) -> Result<ClientMessage,
 #[cfg(test)]
 mod telegram_tests {
     use super::*;
+    use teloxide::types::{FileId, FileMeta, FileUniqueId};
 
     fn temp_paths() -> AllbertPaths {
         let root = std::env::temp_dir().join(format!(
@@ -3142,6 +3301,48 @@ mod telegram_tests {
         let selected =
             find_recent_telegram_session(&paths, "telegram:1:10", 30).expect("lookup should work");
         assert_eq!(selected.as_deref(), Some("telegram-recent"));
+
+        std::fs::remove_dir_all(paths.root).ok();
+    }
+
+    #[test]
+    fn best_telegram_photo_prefers_largest_variant() {
+        let small = PhotoSize {
+            file: FileMeta {
+                id: FileId("small".into()),
+                unique_id: FileUniqueId("small-u".into()),
+                size: 10,
+            },
+            width: 100,
+            height: 100,
+        };
+        let large = PhotoSize {
+            file: FileMeta {
+                id: FileId("large".into()),
+                unique_id: FileUniqueId("large-u".into()),
+                size: 20,
+            },
+            width: 800,
+            height: 600,
+        };
+
+        let options = [small.clone(), large.clone()];
+        let selected = best_telegram_photo(&options).expect("photo should be selected");
+        assert_eq!(selected, &large);
+    }
+
+    #[test]
+    fn session_image_paths_live_under_session_artifacts() {
+        let paths = temp_paths();
+        let artifact = next_session_image_path(&paths, "telegram-42", 7);
+        assert_eq!(
+            artifact,
+            paths
+                .sessions
+                .join("telegram-42")
+                .join("artifacts")
+                .join("telegram-photo-7.jpg")
+        );
 
         std::fs::remove_dir_all(paths.root).ok();
     }
