@@ -228,8 +228,15 @@ pub fn apply_setup_answers(
 }
 
 pub fn build_startup_warnings(config: &Config) -> Vec<String> {
+    build_startup_warnings_with(config, |key| std::env::var_os(key).is_some())
+}
+
+fn build_startup_warnings_with<F>(config: &Config, mut env_has_value: F) -> Vec<String>
+where
+    F: FnMut(&str) -> bool,
+{
     let mut warnings = Vec::new();
-    if std::env::var_os(&config.model.api_key_env).is_none() {
+    if !env_has_value(&config.model.api_key_env) {
         warnings.push(format!(
             "warning: {} is not set. Export it before your first live turn:\n  export {}=...",
             config.model.api_key_env, config.model.api_key_env
@@ -898,7 +905,7 @@ mod tests {
 
     #[test]
     fn startup_warnings_flag_missing_api_key_and_roots() {
-        let warnings = build_startup_warnings(&Config::default_template());
+        let warnings = build_startup_warnings_with(&Config::default_template(), |_| false);
         assert_eq!(warnings.len(), 2);
         assert!(warnings[0].contains("ANTHROPIC_API_KEY"));
         assert!(warnings[1].contains("trusted filesystem roots"));
