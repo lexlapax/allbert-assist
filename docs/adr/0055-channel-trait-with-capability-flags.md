@@ -1,7 +1,7 @@
 # ADR 0055: Channel trait with capability flags
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

@@ -1,7 +1,7 @@
 # ADR 0056: Async-confirm is a suspend/resume turn state
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 > **Amended in part by [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md) in v0.8**: the one-pending-approval-per-session and sender-only-resolution rules are lifted once the identity-scoped approval inbox lands. Everything else in this ADR (file layout, timeout semantics, restart recovery, REPL inline path) remains in force.
 

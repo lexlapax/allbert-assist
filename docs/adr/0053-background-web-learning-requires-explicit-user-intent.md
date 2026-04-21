@@ -1,7 +1,7 @@
 # ADR 0053: Background web-learning stages results only under explicit user intent
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

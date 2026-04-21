@@ -1,6 +1,6 @@
-# Allbert v0.6 Onboarding and Operations
+# Allbert v0.7 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.6 release.
+This guide is the operator reference for the source-based v0.7 release.
 
 ## Quickstart
 
@@ -56,11 +56,11 @@ If `fs_roots` is empty:
 - startup prints a warning
 - `/status` shows `(none)` for trusted roots
 
-This is intentional. v0.6 still prefers explicit workspace trust over permissive defaults.
+This is intentional. v0.7 still prefers explicit workspace trust over permissive defaults.
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical v0.6 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical v0.7 file looks like:
 
 ```toml
 trace = false
@@ -78,6 +78,14 @@ version = 2
 log_retention_days = 7
 session_max_age_days = 30
 auto_spawn = true
+
+[channels]
+approval_timeout_s = 3600
+
+[channels.telegram]
+enabled = false
+min_interval_ms_per_chat = 1200
+min_interval_ms_global = 40
 
 [jobs]
 enabled = false
@@ -158,6 +166,10 @@ Useful REPL commands:
   Shows session cost, today's recorded total, and the current daily cap state from `~/.allbert/costs.jsonl`.
 - `/cost --override <reason>`
   Arms a one-turn override for the daily cost cap and records the reason in trace output.
+- `/cost --turn-budget <usd>`
+  Sets a one-turn USD budget override for the next root turn.
+- `/cost --turn-time <seconds>`
+  Sets a one-turn time budget override for the next root turn.
 - `/exit`
   Leaves the REPL without stopping the daemon.
 
@@ -202,10 +214,19 @@ Daemon commands:
 - `cargo run -p allbert-cli -- daemon resume [--session <id>]`
 - `cargo run -p allbert-cli -- daemon forget <session-id>`
 - `cargo run -p allbert-cli -- daemon logs [--debug] [--follow] [--lines N]`
+- `cargo run -p allbert-cli -- daemon channels list`
+- `cargo run -p allbert-cli -- daemon channels status [telegram]`
+- `cargo run -p allbert-cli -- daemon channels add telegram`
+- `cargo run -p allbert-cli -- daemon channels remove telegram`
 
 Agent commands:
 
 - `cargo run -p allbert-cli -- agents list`
+
+Approval commands:
+
+- `cargo run -p allbert-cli -- approvals list`
+- `cargo run -p allbert-cli -- approvals show <approval-id>`
 
 `allbert-cli agents list` prints the same catalog the kernel writes to `~/.allbert/AGENTS.md`.
 
@@ -214,6 +235,29 @@ Notes:
 - `daemon stop` is explicit and bounded graceful. It stops new work, interrupts remaining scheduled runs if needed, and records interrupted runs as non-success outcomes.
 - Ctrl-C in the REPL detaches the client but does not stop the daemon.
 - `daemon logs --debug --follow` is the quickest way to watch daemon-side diagnostics live.
+
+## Telegram pilot
+
+Telegram is the first shipped non-REPL channel in v0.7.
+
+Setup:
+
+1. Put your bot token in `~/.allbert/secrets/telegram/bot_token`.
+2. Put one allowlisted chat id per line in `~/.allbert/config/channels.telegram.allowed_chats`.
+3. Run `cargo run -p allbert-cli -- daemon channels add telegram`.
+4. Restart the daemon if it is already running.
+5. Confirm the runtime state with `cargo run -p allbert-cli -- daemon channels status telegram`.
+
+Operational notes:
+
+- CLI and REPL can inspect pending approvals, but only Telegram resolves Telegram-originated approvals in v0.7.
+- `/approve <approval-id>` accepts an async approval.
+- `/reject <approval-id>` rejects an async approval.
+- `/override <reason>` retries one turn after a daily cost-cap refusal.
+- `/reset` forces a new Telegram session.
+- incoming photos work only when the active provider/model supports image input
+- downloaded photos are stored under `~/.allbert/sessions/<session-id>/artifacts/`
+- those photos are session artifacts, not durable memory, and archive/forget with the parent session
 
 ## Jobs workflow
 
@@ -260,7 +304,7 @@ Conversational scheduling works best when you ask plainly. Good examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant should compile naturally in v0.6:
+Common schedule forms the assistant should compile naturally in v0.7:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -271,7 +315,7 @@ When you create, update, pause, resume, or remove a job from normal conversation
 
 ## Bundled maintenance jobs
 
-v0.6 seeds these bundled templates:
+v0.7 seeds these bundled templates:
 
 - `daily-brief`
 - `weekly-review`
@@ -283,7 +327,7 @@ The setup wizard can enable selected templates for you. Fresh profiles that expl
 
 ## Skills and memory
 
-The canonical installed skill root in v0.6 is `~/.allbert/skills/installed/`.
+The canonical installed skill root in v0.7 is `~/.allbert/skills/installed/`.
 
 Quarantine lives under `~/.allbert/skills/incoming/`; fetched or copied skills stay there until you approve the preview.
 
@@ -309,9 +353,9 @@ Skill install/update preview shows:
 - declared scripts with interpreter, path, and SHA-256
 - the first lines of `SKILL.md`
 
-v0.6 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
+v0.7 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
 
-In v0.6, skills can also preview:
+In v0.7, skills can also preview:
 
 - `intents:` metadata to hint the intent router
 - `agents:` metadata to contribute namespaced sub-agents
@@ -345,7 +389,7 @@ Workflow summary:
 
 Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs.
 
-If you are upgrading from v0.5, see [v0.6-upgrade-2026-04-21.md](notes/v0.6-upgrade-2026-04-21.md) for the new session durability, cost-cap, and verification surfaces.
+If you are upgrading from v0.6, see [v0.7-upgrade-2026-04-21.md](notes/v0.7-upgrade-2026-04-21.md) for the new channel, approval, and image-input surfaces.
 
 ## Trace, logs, and cost files
 
@@ -410,11 +454,11 @@ Curated memory seems wrong or stale:
 - run `cargo run -p allbert-cli -- memory verify`
 - run `cargo run -p allbert-cli -- memory rebuild-index --force`
 - check whether a staged entry is still waiting in `memory staged list`
-- if you upgraded from v0.5, check the upgrade note and confirm the profile was restarted cleanly after the daemon wrote `reconcile.json`
+- if you upgraded from v0.6, check the upgrade note and confirm the Telegram config, allowlist, and any running daemon state were refreshed cleanly
 
 ## Release posture
 
-v0.6 is a shipped technical-user release:
+v0.7 is a shipped technical-user release:
 
 - source-based
 - terminal-first
@@ -426,11 +470,16 @@ v0.6 is a shipped technical-user release:
 - operator-visible memory verification through `memory status` and `memory verify`
 - first-class agents and intent routing with operator-visible status
 - strict AgentSkills-format skill install, inspection, and execution
+- channel administration through `daemon channels ...`
+- approval inspection through `approvals list|show`
+- Telegram async approvals and Telegram photo input for vision-capable models
 
 Known limitations remain explicit:
 
 - no remote control plane
 - no boot-time OS service install yet
 - incomplete tool invocations still rewind to the last completed turn boundary after daemon restart
+- Telegram approval resolution is still origin-channel-only
+- Telegram multimodal support is photos-in only; voice notes, audio, and image output are deferred
 - the daemon is lightweight and in-process, not a heavy isolated supervisor
-- sub-agent delegation remains bounded to one nested level
+- sub-agent depth is budget-governed rather than fixed by nesting count

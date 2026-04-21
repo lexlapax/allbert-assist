@@ -12,7 +12,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.4 | AgentSkills folder format, install trust model, script policy | Shipped | [v0.4-agentskills-adoption.md](v0.4-agentskills-adoption.md) |
 | v0.5 | Curated memory: tiered memory service, ranked retrieval, staging, promotion | Shipped | [v0.5-curated-memory.md](v0.5-curated-memory.md) |
 | v0.6 | Foundation hardening: session durability, richer staged-memory review, cost cap enforcement, memory verification, maintenance policy fix | Shipped | [v0.6-foundation-hardening.md](v0.6-foundation-hardening.md) |
-| v0.7 | Channel expansion: Telegram pilot, `Channel` trait + multimodal flags, tool-surface normalization, budget-governed sub-agents, intent-guided routing defaults, explicit-intent web learning | Proposed | [v0.7-channel-expansion.md](v0.7-channel-expansion.md) |
+| v0.7 | Channel expansion: Telegram pilot, `Channel` trait + multimodal flags, tool-surface normalization, budget-governed sub-agents, intent-guided routing defaults, explicit-intent web learning | Shipped | [v0.7-channel-expansion.md](v0.7-channel-expansion.md) |
 | v0.8 | Continuity and sync: cross-channel identity mapping, durable session routing, approval inbox, sync posture | Proposed | [v0.8-continuity-and-sync.md](v0.8-continuity-and-sync.md) |
 | v0.9 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.9-self-improvement.md](v0.9-self-improvement.md) |
 
