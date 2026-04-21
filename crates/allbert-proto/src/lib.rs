@@ -66,6 +66,16 @@ pub struct DaemonStatus {
     pub started_at: String,
     pub session_count: usize,
     pub trace_enabled: bool,
+    pub lock_owner: Option<DaemonLockPayload>,
+    pub model_api_key_env: String,
+    pub model_api_key_visible: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DaemonLockPayload {
+    pub pid: u32,
+    pub host: String,
+    pub started_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

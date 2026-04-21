@@ -458,7 +458,8 @@ struct ApprovalFrontmatter {
 
 #[derive(Debug, Deserialize)]
 struct SessionMetaApprovalView {
-    pending_approval: Option<String>,
+    #[serde(default)]
+    pending_approvals: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -511,7 +512,7 @@ fn seed_session_meta(
         "turn_count": 1,
         "cost_total_usd": 0.0,
         "messages": [],
-        "pending_approval": serde_json::Value::Null
+        "pending_approvals": []
     });
     std::fs::write(
         session_dir.join("meta.json"),
@@ -710,7 +711,8 @@ async fn second_daemon_spawn_is_rejected() {
         Err(err) => err,
     };
     assert!(
-        err.to_string().contains("already running"),
+        err.to_string()
+            .contains("daemon lock is held by live process"),
         "unexpected error: {err}"
     );
 
@@ -1365,7 +1367,7 @@ async fn telegram_async_confirm_persists_pending_approval_and_clears_on_reply() 
         "approval should persist expiry"
     );
     let meta = read_session_meta_approval(&paths, "telegram-approval");
-    assert_eq!(meta.pending_approval.as_deref(), Some(approval_id.as_str()));
+    assert_eq!(meta.pending_approvals, vec![approval_id.clone()]);
 
     client
         .send(&ClientMessage::ConfirmReply(
@@ -1390,7 +1392,7 @@ async fn telegram_async_confirm_persists_pending_approval_and_clears_on_reply() 
     assert_eq!(resolved.status, "accepted");
     let meta = read_session_meta_approval(&paths, "telegram-approval");
     assert!(
-        meta.pending_approval.is_none(),
+        meta.pending_approvals.is_empty(),
         "resolved approval should clear pending meta"
     );
 
@@ -1470,7 +1472,7 @@ async fn telegram_async_confirm_timeout_marks_approval_and_restart_reconciles_me
     assert_eq!(resolved.status, "timeout");
     let meta = read_session_meta_approval(&paths, "telegram-timeout");
     assert!(
-        meta.pending_approval.is_none(),
+        meta.pending_approvals.is_empty(),
         "timeout should clear pending approval meta"
     );
 
@@ -1483,7 +1485,7 @@ async fn telegram_async_confirm_timeout_marks_approval_and_restart_reconciles_me
     let resolved_after_restart = parse_pending_approval(&paths, "telegram-timeout", &approval_id);
     assert_eq!(resolved_after_restart.status, "timeout");
     let meta_after_restart = read_session_meta_approval(&paths, "telegram-timeout");
-    assert!(meta_after_restart.pending_approval.is_none());
+    assert!(meta_after_restart.pending_approvals.is_empty());
 
     shutdown_daemon(second_handle, &paths).await;
 }

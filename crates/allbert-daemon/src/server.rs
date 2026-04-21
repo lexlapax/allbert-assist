@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     Arc, Mutex as StdMutex,
@@ -23,8 +24,8 @@ use allbert_kernel::{
 use allbert_kernel::{resolve_identity_id_for_sender, AllbertPaths, Config, CrossChannelRouting};
 use allbert_proto::{
     AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientMessage,
-    ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload, DaemonStatus,
-    InputReplyPayload, InputRequestPayload, InputResponsePayload, KernelEventPayload,
+    ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload, DaemonLockPayload,
+    DaemonStatus, InputReplyPayload, InputRequestPayload, InputResponsePayload, KernelEventPayload,
     ModelConfigPayload, ProtocolError, ProviderKind, ServerHello, ServerMessage,
     SessionResumeEntry, SessionStatus, TurnBudgetOverridePayload, TurnResult, PROTOCOL_VERSION,
 };
@@ -146,12 +147,31 @@ struct SessionJournalMeta {
     cost_total_usd: f64,
     messages: Vec<ChatMessage>,
     #[serde(default)]
-    pending_approval: Option<String>,
+    pending_approvals: Vec<String>,
+    #[serde(default, rename = "pending_approval", skip_serializing)]
+    legacy_pending_approval: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 struct SessionJournalSnapshot {
     meta: SessionJournalMeta,
+}
+
+impl SessionJournalMeta {
+    fn pending_approvals(&self) -> Vec<String> {
+        let mut approvals = self.pending_approvals.clone();
+        if let Some(legacy) = &self.legacy_pending_approval {
+            if !approvals.iter().any(|id| id == legacy) {
+                approvals.push(legacy.clone());
+            }
+        }
+        approvals
+    }
+
+    fn set_pending_approvals(&mut self, approvals: Vec<String>) {
+        self.pending_approvals = approvals;
+        self.legacy_pending_approval = None;
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -174,6 +194,8 @@ struct PendingApprovalFrontmatter {
     request_id: u64,
     requested_at: String,
     expires_at: String,
+    #[serde(default = "default_pending_approval_kind")]
+    kind: PendingApprovalKind,
     status: PendingApprovalStatus,
     #[serde(default)]
     resolved_at: Option<String>,
@@ -181,6 +203,18 @@ struct PendingApprovalFrontmatter {
     resolver: Option<String>,
     #[serde(default)]
     reply: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+enum PendingApprovalKind {
+    ToolApproval,
+    CostCapOverride,
+    JobApproval,
+}
+
+fn default_pending_approval_kind() -> PendingApprovalKind {
+    PendingApprovalKind::ToolApproval
 }
 
 #[derive(Debug, Clone)]
@@ -203,6 +237,13 @@ struct ToolJournalEntry {
     name: String,
     ok: bool,
     content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DaemonLockRecord {
+    pid: u32,
+    host: String,
+    started_at: String,
 }
 
 #[derive(Clone)]
@@ -259,6 +300,7 @@ impl RunningDaemon {
         if self.state.socket_path.exists() {
             let _ = std::fs::remove_file(&self.state.socket_path);
         }
+        let _ = release_daemon_lock(&self.state.paths, Some(std::process::id()));
         result
     }
 }
@@ -290,9 +332,16 @@ pub async fn spawn_with_factory(
         .clone()
         .unwrap_or_else(|| paths.logs.clone());
     std::fs::create_dir_all(&log_dir)?;
+    let lock_record = acquire_daemon_lock(&paths)?;
 
     prepare_socket_dir(&socket_path)?;
-    let listener = bind_listener(&socket_path).await?;
+    let listener = match bind_listener(&socket_path).await {
+        Ok(listener) => listener,
+        Err(error) => {
+            let _ = release_daemon_lock(&paths, Some(std::process::id()));
+            return Err(error);
+        }
+    };
 
     let shutdown = CancellationToken::new();
     let (notifications, _) = broadcast::channel(64);
@@ -320,14 +369,18 @@ pub async fn spawn_with_factory(
     append_log_line(
         &state.log_path,
         &format!(
-            "boot pid={} socket={} trace={}",
+            "boot pid={} socket={} trace={} lock_host={}",
             std::process::id(),
             socket_path.display(),
-            state.trace_enabled.load(Ordering::SeqCst)
+            state.trace_enabled.load(Ordering::SeqCst),
+            lock_record.host
         ),
     )?;
 
-    spawn_telegram_pilot(state.clone()).await?;
+    if let Err(error) = spawn_telegram_pilot(state.clone()).await {
+        let _ = release_daemon_lock(&state.paths, Some(std::process::id()));
+        return Err(error);
+    }
 
     let run_state = state.clone();
     let join = tokio::spawn(async move { accept_loop(listener, run_state).await });
@@ -592,6 +645,8 @@ async fn handle_connection(
                 send_server_message(&mut framed, &ServerMessage::Attached(attached)).await?;
             }
             ClientMessage::Status => {
+                let lock_owner = load_daemon_lock(&state.paths).ok().flatten();
+                let model = state.default_config.read().await.model.clone();
                 send_server_message(
                     &mut framed,
                     &ServerMessage::Status(DaemonStatus {
@@ -601,6 +656,13 @@ async fn handle_connection(
                         started_at: state.started_at.clone(),
                         session_count: state.sessions.read().await.len(),
                         trace_enabled: state.trace_enabled.load(Ordering::SeqCst),
+                        lock_owner: lock_owner.map(|record| DaemonLockPayload {
+                            pid: record.pid,
+                            host: record.host,
+                            started_at: record.started_at,
+                        }),
+                        model_api_key_env: model.api_key_env.clone(),
+                        model_api_key_visible: std::env::var_os(&model.api_key_env).is_some(),
                     }),
                 )
                 .await?;
@@ -1621,6 +1683,7 @@ impl ConfirmPrompter for TelegramConfirmPrompter {
                     .fetch_add(1, Ordering::SeqCst),
                 requested_at: now_rfc3339_fallback(),
                 expires_at: expires_at.clone(),
+                kind: PendingApprovalKind::ToolApproval,
                 status: PendingApprovalStatus::Pending,
                 resolved_at: None,
                 resolver: None,
@@ -1629,10 +1692,10 @@ impl ConfirmPrompter for TelegramConfirmPrompter {
             rendered: req.rendered.clone(),
         };
         if write_pending_approval(&self.runtime.state.paths, &record).is_err()
-            || set_session_pending_approval(
+            || append_session_pending_approval(
                 &self.runtime.state.paths,
                 &self.session_id,
-                Some(approval_id.clone()),
+                &approval_id,
             )
             .is_err()
         {
@@ -2250,6 +2313,7 @@ async fn run_turn_over_channel(
                                     request_id: request.request_id,
                                     requested_at: now_rfc3339_fallback(),
                                     expires_at: expires_at.clone(),
+                                    kind: PendingApprovalKind::ToolApproval,
                                     status: PendingApprovalStatus::Pending,
                                     resolved_at: None,
                                     resolver: None,
@@ -2258,10 +2322,10 @@ async fn run_turn_over_channel(
                                 rendered: request.rendered.clone(),
                             };
                             if write_pending_approval(&state.paths, &record).is_err()
-                                || set_session_pending_approval(
+                                || append_session_pending_approval(
                                     &state.paths,
                                     &session.session_id,
-                                    Some(approval_id.clone()),
+                                    &approval_id,
                                 )
                                 .is_err()
                             {
@@ -2623,7 +2687,7 @@ fn build_session_meta(
     started_at: String,
     last_activity_at: String,
     prior_intents: &[String],
-    pending_approval: Option<String>,
+    pending_approvals: Vec<String>,
 ) -> SessionJournalMeta {
     let snapshot = kernel.export_session_snapshot();
     let mut intent_history = prior_intents.to_vec();
@@ -2658,7 +2722,8 @@ fn build_session_meta(
         turn_count: snapshot.turn_count,
         cost_total_usd: snapshot.cost_total_usd,
         messages: snapshot.messages,
-        pending_approval,
+        pending_approvals,
+        legacy_pending_approval: None,
     }
 }
 
@@ -2681,9 +2746,10 @@ fn persist_kernel_session(
         .as_ref()
         .map(|snapshot| snapshot.meta.intent_history.clone())
         .unwrap_or_default();
-    let pending_approval = existing
+    let pending_approvals = existing
         .as_ref()
-        .and_then(|snapshot| snapshot.meta.pending_approval.clone());
+        .map(|snapshot| snapshot.meta.pending_approvals())
+        .unwrap_or_default();
     persist_session_meta(
         paths,
         &build_session_meta(
@@ -2694,7 +2760,7 @@ fn persist_kernel_session(
             started_at,
             now_rfc3339_fallback(),
             &prior_intents,
-            pending_approval,
+            pending_approvals,
         ),
     )
 }
@@ -2719,9 +2785,10 @@ fn persist_completed_turn(
         .as_ref()
         .map(|snapshot| snapshot.meta.intent_history.clone())
         .unwrap_or_default();
-    let pending_approval = existing
+    let pending_approvals = existing
         .as_ref()
-        .and_then(|snapshot| snapshot.meta.pending_approval.clone());
+        .map(|snapshot| snapshot.meta.pending_approvals())
+        .unwrap_or_default();
     let meta = build_session_meta(
         channel,
         sender_id,
@@ -2730,7 +2797,7 @@ fn persist_completed_turn(
         started_at,
         now_rfc3339_fallback(),
         &prior_intents,
-        pending_approval,
+        pending_approvals,
     );
     persist_session_meta(paths, &meta)?;
     append_turn_record(paths, &meta.session_id, channel, &record).map_err(|err| {
@@ -2751,7 +2818,7 @@ fn persist_session_meta(
         .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", dir.display())))?;
     let rendered = serde_json::to_vec_pretty(meta)
         .map_err(|e| KernelError::InitFailed(format!("serialize session meta: {e}")))?;
-    fs::write(session_meta_path(paths, &meta.session_id), rendered).map_err(|e| {
+    atomic_write(&session_meta_path(paths, &meta.session_id), &rendered).map_err(|e| {
         KernelError::InitFailed(format!(
             "write {}: {e}",
             session_meta_path(paths, &meta.session_id).display()
@@ -2759,12 +2826,13 @@ fn persist_session_meta(
     })?;
     let turns = session_turns_path(paths, &meta.session_id);
     if !turns.exists() {
-        fs::write(
+        atomic_write(
             &turns,
             format!(
                 "# Session {}\n\n- channel: {:?}\n- started_at: {}\n\n",
                 meta.session_id, meta.channel, meta.started_at
-            ),
+            )
+            .as_bytes(),
         )
         .map_err(|e| KernelError::InitFailed(format!("write {}: {e}", turns.display())))?;
     }
@@ -2787,14 +2855,12 @@ fn write_pending_approval(
 ) -> Result<(), DaemonError> {
     let dir = session_approvals_dir(paths, &record.frontmatter.session_id);
     fs::create_dir_all(&dir)?;
-    fs::write(
-        session_approval_path(
-            paths,
-            &record.frontmatter.session_id,
-            &record.frontmatter.id,
-        ),
-        render_pending_approval_markdown(record)?,
-    )?;
+    let path = session_approval_path(
+        paths,
+        &record.frontmatter.session_id,
+        &record.frontmatter.id,
+    );
+    atomic_write(&path, render_pending_approval_markdown(record)?.as_bytes())?;
     Ok(())
 }
 
@@ -2829,12 +2895,28 @@ fn load_pending_approval(
 fn set_session_pending_approval(
     paths: &AllbertPaths,
     session_id: &str,
-    pending_approval: Option<String>,
+    pending_approvals: Vec<String>,
 ) -> Result<(), DaemonError> {
     let Some(mut snapshot) = load_session_snapshot(paths, session_id)? else {
         return Ok(());
     };
-    snapshot.meta.pending_approval = pending_approval;
+    snapshot.meta.set_pending_approvals(pending_approvals);
+    persist_session_meta(paths, &snapshot.meta).map_err(map_kernel_error)
+}
+
+fn append_session_pending_approval(
+    paths: &AllbertPaths,
+    session_id: &str,
+    approval_id: &str,
+) -> Result<(), DaemonError> {
+    let Some(mut snapshot) = load_session_snapshot(paths, session_id)? else {
+        return Ok(());
+    };
+    let mut pending_approvals = snapshot.meta.pending_approvals();
+    if !pending_approvals.iter().any(|id| id == approval_id) {
+        pending_approvals.push(approval_id.to_string());
+    }
+    snapshot.meta.set_pending_approvals(pending_approvals);
     persist_session_meta(paths, &snapshot.meta).map_err(map_kernel_error)
 }
 
@@ -2854,7 +2936,11 @@ fn resolve_pending_approval(
     record.frontmatter.resolver = resolver;
     record.frontmatter.reply = reply;
     write_pending_approval(paths, &record)?;
-    set_session_pending_approval(paths, session_id, None)?;
+    let mut pending = load_session_snapshot(paths, session_id)?
+        .map(|snapshot| snapshot.meta.pending_approvals())
+        .unwrap_or_default();
+    pending.retain(|entry| entry != approval_id);
+    set_session_pending_approval(paths, session_id, pending)?;
     Ok(())
 }
 
@@ -2972,29 +3058,30 @@ fn reconcile_pending_approvals(paths: &AllbertPaths) -> Result<(), DaemonError> 
         let Some(snapshot) = load_session_snapshot(paths, &session_id)? else {
             continue;
         };
-        let Some(approval_id) = snapshot.meta.pending_approval.clone() else {
-            continue;
-        };
-        let Some(record) = load_pending_approval(paths, &session_id, &approval_id)? else {
-            set_session_pending_approval(paths, &session_id, None)?;
-            continue;
-        };
-        if record.frontmatter.status != PendingApprovalStatus::Pending {
-            set_session_pending_approval(paths, &session_id, None)?;
-            continue;
+        let mut keep_pending = Vec::new();
+        for approval_id in snapshot.meta.pending_approvals() {
+            let Some(record) = load_pending_approval(paths, &session_id, &approval_id)? else {
+                continue;
+            };
+            if record.frontmatter.status != PendingApprovalStatus::Pending {
+                continue;
+            }
+            let expires_at = OffsetDateTime::parse(&record.frontmatter.expires_at, &Rfc3339)
+                .unwrap_or_else(|_| now - time::Duration::seconds(1));
+            if expires_at <= now {
+                resolve_pending_approval(
+                    paths,
+                    &session_id,
+                    &approval_id,
+                    PendingApprovalStatus::Timeout,
+                    Some("daemon-restart".into()),
+                    Some("confirm-timeout".into()),
+                )?;
+                continue;
+            }
+            keep_pending.push(approval_id);
         }
-        let expires_at = OffsetDateTime::parse(&record.frontmatter.expires_at, &Rfc3339)
-            .unwrap_or_else(|_| now - time::Duration::seconds(1));
-        if expires_at <= now {
-            resolve_pending_approval(
-                paths,
-                &session_id,
-                &approval_id,
-                PendingApprovalStatus::Timeout,
-                Some("daemon-restart".into()),
-                Some("confirm-timeout".into()),
-            )?;
-        }
+        set_session_pending_approval(paths, &session_id, keep_pending)?;
     }
     Ok(())
 }
@@ -3307,6 +3394,112 @@ fn map_kernel_error(error: KernelError) -> DaemonError {
     DaemonError::Protocol(error.to_string())
 }
 
+fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), DaemonError> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| DaemonError::Protocol(format!("path has no parent: {}", path.display())))?;
+    fs::create_dir_all(parent)?;
+    let tmp = parent.join(format!(
+        ".{}.tmp-{}",
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("write"),
+        uuid::Uuid::new_v4().simple()
+    ));
+    {
+        let mut file = fs::File::create(&tmp)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+    }
+    fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+fn current_host() -> String {
+    std::env::var("HOSTNAME")
+        .or_else(|_| std::env::var("COMPUTERNAME"))
+        .unwrap_or_else(|_| "unknown-host".into())
+}
+
+#[cfg(unix)]
+fn pid_is_alive(pid: u32) -> bool {
+    if pid == 0 {
+        return false;
+    }
+    Command::new("kill")
+        .arg("-0")
+        .arg(pid.to_string())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn pid_is_alive(_pid: u32) -> bool {
+    false
+}
+
+fn load_daemon_lock(paths: &AllbertPaths) -> Result<Option<DaemonLockRecord>, DaemonError> {
+    if !paths.daemon_lock.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read(&paths.daemon_lock)?;
+    let record: DaemonLockRecord = serde_json::from_slice(&raw)?;
+    Ok(Some(record))
+}
+
+fn acquire_daemon_lock(paths: &AllbertPaths) -> Result<DaemonLockRecord, DaemonError> {
+    let host = current_host();
+    let pid = std::process::id();
+    let started_at = now_rfc3339_fallback();
+    if let Some(existing) = load_daemon_lock(paths)? {
+        if existing.host == host {
+            if pid_is_alive(existing.pid) {
+                return Err(DaemonError::Protocol(format!(
+                    "daemon lock is held by live process pid={} on host={}; remove stale lock only after stopping that daemon",
+                    existing.pid, existing.host
+                )));
+            }
+            append_log_line(
+                &paths.daemon_log,
+                &format!(
+                    "stale daemon lock takeover host={} stale_pid={} new_pid={}",
+                    host, existing.pid, pid
+                ),
+            )
+            .ok();
+        } else {
+            return Err(DaemonError::Protocol(format!(
+                "daemon lock exists from different host {}; refusing start without manual lock intervention",
+                existing.host
+            )));
+        }
+    }
+    let record = DaemonLockRecord {
+        pid,
+        host,
+        started_at,
+    };
+    atomic_write(&paths.daemon_lock, &serde_json::to_vec_pretty(&record)?)
+        .map_err(|err| DaemonError::Protocol(format!("write daemon lock: {err}")))?;
+    Ok(record)
+}
+
+fn release_daemon_lock(paths: &AllbertPaths, expected_pid: Option<u32>) -> Result<(), DaemonError> {
+    let Some(record) = load_daemon_lock(paths)? else {
+        return Ok(());
+    };
+    if expected_pid.is_some() && expected_pid != Some(record.pid) {
+        return Ok(());
+    }
+    match fs::remove_file(&paths.daemon_lock) {
+        Ok(()) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => return Err(DaemonError::Io(err)),
+    }
+    Ok(())
+}
+
 fn prepare_socket_dir(socket_path: &Path) -> Result<(), DaemonError> {
     let parent = socket_path.parent().ok_or_else(|| {
         DaemonError::Protocol(format!(
@@ -3434,7 +3627,8 @@ mod telegram_tests {
             turn_count: 1,
             cost_total_usd: 0.0,
             messages: Vec::new(),
-            pending_approval: None,
+            pending_approvals: Vec::new(),
+            legacy_pending_approval: None,
         }
     }
 

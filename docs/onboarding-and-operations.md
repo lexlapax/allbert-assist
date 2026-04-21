@@ -227,6 +227,10 @@ Approval commands:
 
 - `cargo run -p allbert-cli -- approvals list`
 - `cargo run -p allbert-cli -- approvals show <approval-id>`
+- `cargo run -p allbert-cli -- inbox list`
+- `cargo run -p allbert-cli -- inbox show <approval-id>`
+- `cargo run -p allbert-cli -- inbox accept <approval-id> [--reason <text>]`
+- `cargo run -p allbert-cli -- inbox reject <approval-id> [--reason <text>]`
 
 `allbert-cli agents list` prints the same catalog the kernel writes to `~/.allbert/AGENTS.md`.
 
@@ -235,6 +239,8 @@ Notes:
 - `daemon stop` is explicit and bounded graceful. It stops new work, interrupts remaining scheduled runs if needed, and records interrupted runs as non-success outcomes.
 - Ctrl-C in the REPL detaches the client but does not stop the daemon.
 - `daemon logs --debug --follow` is the quickest way to watch daemon-side diagnostics live.
+- `daemon status` now includes daemon lock ownership details plus whether the configured model API-key env var is visible to the running daemon process.
+- Continuity/sync posture and artifact categories are documented in `docs/operator/continuity.md`.
 
 ## Telegram pilot
 
@@ -471,7 +477,7 @@ v0.7 is a shipped technical-user release:
 - first-class agents and intent routing with operator-visible status
 - strict AgentSkills-format skill install, inspection, and execution
 - channel administration through `daemon channels ...`
-- approval inspection through `approvals list|show`
+- approval inspection and resolution through `approvals list|show` and `inbox list|show|accept|reject`
 - Telegram async approvals and Telegram photo input for vision-capable models
 
 Known limitations remain explicit:

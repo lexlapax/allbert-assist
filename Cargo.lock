@@ -39,6 +39,7 @@ dependencies = [
  "reedline",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sha2",
  "time",
  "tokio",

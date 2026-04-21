@@ -6,6 +6,8 @@ use anyhow::{anyhow, Context, Result};
 use gray_matter::engine::YAML;
 use gray_matter::Matter;
 use serde::{Deserialize, Serialize};
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ApprovalView {
@@ -16,6 +18,7 @@ pub struct ApprovalView {
     pub agent: String,
     pub tool: String,
     pub request_id: u64,
+    pub kind: String,
     pub requested_at: String,
     pub expires_at: String,
     pub status: String,
@@ -26,7 +29,7 @@ pub struct ApprovalView {
     pub path: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct ApprovalFrontmatter {
     id: String,
     session_id: String,
@@ -35,6 +38,8 @@ struct ApprovalFrontmatter {
     agent: String,
     tool: String,
     request_id: u64,
+    #[serde(default = "default_approval_kind")]
+    kind: String,
     requested_at: String,
     expires_at: String,
     status: String,
@@ -44,6 +49,10 @@ struct ApprovalFrontmatter {
     resolver: Option<String>,
     #[serde(default)]
     reply: Option<String>,
+}
+
+fn default_approval_kind() -> String {
+    "tool-approval".to_string()
 }
 
 pub fn list(paths: &AllbertPaths, json: bool) -> Result<String> {
@@ -162,6 +171,7 @@ fn load_one(path: &Path) -> Result<ApprovalView> {
         agent: frontmatter.agent,
         tool: frontmatter.tool,
         request_id: frontmatter.request_id,
+        kind: frontmatter.kind,
         requested_at: frontmatter.requested_at,
         expires_at: frontmatter.expires_at,
         status: frontmatter.status,
@@ -171,6 +181,55 @@ fn load_one(path: &Path) -> Result<ApprovalView> {
         rendered: parsed.content.trim().to_string(),
         path: path.display().to_string(),
     })
+}
+
+pub fn resolve(
+    paths: &AllbertPaths,
+    approval_id: &str,
+    accept: bool,
+    reason: Option<&str>,
+) -> Result<String> {
+    let approval = load_all(paths)?
+        .into_iter()
+        .find(|approval| approval.id == approval_id)
+        .ok_or_else(|| anyhow!("approval not found: {approval_id}"))?;
+    if approval.status != "pending" {
+        return Ok(format!(
+            "approval {} is already {}",
+            approval.id, approval.status
+        ));
+    }
+    let path = Path::new(&approval.path);
+    let raw = std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    let matter = Matter::<YAML>::new();
+    let parsed = matter
+        .parse::<ApprovalFrontmatter>(&raw)
+        .map_err(|err| anyhow!("parse approval {}: {err}", path.display()))?;
+    let mut frontmatter = parsed
+        .data
+        .ok_or_else(|| anyhow!("approval file missing frontmatter: {}", path.display()))?;
+    frontmatter.status = if accept {
+        "accepted".into()
+    } else {
+        "rejected".into()
+    };
+    frontmatter.resolved_at = Some(now_rfc3339());
+    frontmatter.resolver = Some("cli".into());
+    frontmatter.reply = reason.map(|value| value.to_string());
+    let frontmatter = serde_yaml::to_string(&frontmatter)?;
+    let rendered = format!("---\n{}---\n\n{}", frontmatter, parsed.content.trim());
+    std::fs::write(path, rendered).with_context(|| format!("write {}", path.display()))?;
+    Ok(format!(
+        "{} {}",
+        if accept { "accepted" } else { "rejected" },
+        approval.id
+    ))
+}
+
+fn now_rfc3339() -> String {
+    OffsetDateTime::now_utc()
+        .format(&Rfc3339)
+        .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
 }
 
 fn channel_label(kind: ChannelKind) -> &'static str {
