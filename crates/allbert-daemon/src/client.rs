@@ -5,9 +5,10 @@ use std::time::Duration;
 
 use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
-    AttachedChannel, ChannelKind, ClientHello, ClientKind, ClientMessage, DaemonStatus,
-    JobDefinitionPayload, JobRunRecordPayload, JobStatusPayload, ModelConfigPayload, OpenChannel,
-    ProtocolError, ServerMessage, SessionResumeEntry, SessionStatus, TurnRequest, PROTOCOL_VERSION,
+    AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientHello, ClientKind,
+    ClientMessage, DaemonStatus, JobDefinitionPayload, JobRunRecordPayload, JobStatusPayload,
+    ModelConfigPayload, OpenChannel, ProtocolError, ServerMessage, SessionResumeEntry,
+    SessionStatus, TurnBudgetOverridePayload, TurnRequest, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
@@ -250,6 +251,23 @@ impl DaemonClient {
         .await
     }
 
+    pub async fn set_turn_budget_override(
+        &mut self,
+        usd: Option<f64>,
+        seconds: Option<u64>,
+    ) -> Result<(), DaemonError> {
+        self.send(&ClientMessage::SetTurnBudgetOverride(
+            TurnBudgetOverridePayload { usd, seconds },
+        ))
+        .await?;
+        self.recv_expected("ack", |message| match message {
+            ServerMessage::Ack => Some(Ok(())),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
     pub async fn reload_session_config(&mut self) -> Result<(), DaemonError> {
         self.send(&ClientMessage::ReloadSessionConfig).await?;
         self.recv_expected("ack", |message| match message {
@@ -274,6 +292,18 @@ impl DaemonClient {
         self.send(&ClientMessage::SetTrace(enabled)).await?;
         self.recv_expected("ack", |message| match message {
             ServerMessage::Ack => Some(Ok(())),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn list_channel_runtimes(
+        &mut self,
+    ) -> Result<Vec<ChannelRuntimeStatusPayload>, DaemonError> {
+        self.send(&ClientMessage::ListChannelRuntimes).await?;
+        self.recv_expected("channel runtimes", |message| match message {
+            ServerMessage::ChannelRuntimes(runtimes) => Some(Ok(runtimes)),
             ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
             _ => None,
         })

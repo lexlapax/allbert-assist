@@ -10,6 +10,8 @@ pub enum KernelError {
     Llm(#[from] LlmError),
     #[error("hook aborted turn: {0}")]
     Hook(String),
+    #[error("{0}")]
+    Request(String),
     #[error("cost tracking failed: {0}")]
     Cost(String),
     #[error("{0}")]

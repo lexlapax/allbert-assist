@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+allbert-channels = { path = "../allbert-channels" }
 allbert-daemon = { path = "../allbert-daemon" }
 allbert-jobs = { path = "../allbert-jobs" }
 allbert-kernel = { path = "../allbert-kernel" }

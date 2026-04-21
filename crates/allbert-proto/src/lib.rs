@@ -116,6 +116,20 @@ pub struct SessionResumeEntry {
     pub turn_count: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TurnBudgetOverridePayload {
+    pub usd: Option<f64>,
+    pub seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChannelRuntimeStatusPayload {
+    pub kind: ChannelKind,
+    pub running: bool,
+    pub queue_depth: Option<usize>,
+    pub last_error: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum JobReportPolicyPayload {
@@ -288,9 +302,11 @@ pub enum ClientMessage {
     GetModel,
     SetModel(ModelConfigPayload),
     SetCostOverride(String),
+    SetTurnBudgetOverride(TurnBudgetOverridePayload),
     SetAutoConfirm(bool),
     SetTrace(bool),
     ReloadSessionConfig,
+    ListChannelRuntimes,
     ListJobs,
     GetJob(String),
     UpsertJob(JobDefinitionPayload),
@@ -315,6 +331,7 @@ pub enum ServerMessage {
     InputRequest(InputRequestPayload),
     TurnResult(TurnResult),
     Model(ModelConfigPayload),
+    ChannelRuntimes(Vec<ChannelRuntimeStatusPayload>),
     Jobs(Vec<JobStatusPayload>),
     Job(JobStatusPayload),
     JobRun(JobRunRecordPayload),

@@ -22,10 +22,11 @@ use allbert_kernel::{
 };
 use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
-    AttachedChannel, ChannelKind, ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload,
-    ConfirmRequestPayload, DaemonStatus, InputReplyPayload, InputRequestPayload,
-    InputResponsePayload, KernelEventPayload, ModelConfigPayload, ProtocolError, ProviderKind,
-    ServerHello, ServerMessage, SessionResumeEntry, SessionStatus, TurnResult, PROTOCOL_VERSION,
+    AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientMessage,
+    ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload, DaemonStatus,
+    InputReplyPayload, InputRequestPayload, InputResponsePayload, KernelEventPayload,
+    ModelConfigPayload, ProtocolError, ProviderKind, ServerHello, ServerMessage,
+    SessionResumeEntry, SessionStatus, TurnBudgetOverridePayload, TurnResult, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use chrono::Utc;
@@ -36,6 +37,12 @@ use interprocess::local_socket::{
     ConnectOptions, GenericFilePath, ListenerOptions,
 };
 use serde::{Deserialize, Serialize};
+use teloxide::{
+    payloads::{GetUpdatesSetters, SendMessageSetters},
+    prelude::{Request, Requester},
+    types::{ChatId, Message, ParseMode, Update, UpdateKind, UserId},
+    Bot,
+};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::{
     sync::{broadcast, mpsc, oneshot, Mutex, RwLock},
@@ -46,12 +53,6 @@ use tokio_util::{
     codec::{Framed, LengthDelimitedCodec},
     sync::CancellationToken,
     task::TaskTracker,
-};
-use teloxide::{
-    payloads::{GetUpdatesSetters, SendMessageSetters},
-    prelude::{Request, Requester},
-    types::{ChatId, Message, ParseMode, Update, UpdateKind, UserId},
-    Bot,
 };
 
 use crate::error::DaemonError;
@@ -557,8 +558,7 @@ async fn handle_connection(
                     ),
                 });
 
-                let session =
-                    get_or_create_session(&state, open.channel, session_id, None).await?;
+                let session = get_or_create_session(&state, open.channel, session_id, None).await?;
                 let attached = AttachedChannel {
                     channel: session.channel,
                     session_id: session.session_id.clone(),
@@ -629,13 +629,8 @@ async fn handle_connection(
                     .set_model(model_from_payload(model.clone()))
                     .await
                     .map_err(map_kernel_error)?;
-                persist_kernel_session(
-                    &state.paths,
-                    session.channel,
-                    session.sender_id(),
-                    &kernel,
-                )
-                .map_err(map_kernel_error)?;
+                persist_kernel_session(&state.paths, session.channel, session.sender_id(), &kernel)
+                    .map_err(map_kernel_error)?;
                 send_server_message(
                     &mut framed,
                     &ServerMessage::Model(model_to_payload(kernel.model())),
@@ -646,6 +641,14 @@ async fn handle_connection(
                 let session = require_session(attached_session.as_ref())?;
                 let mut kernel = session.kernel.lock().await;
                 kernel.set_cost_override(reason);
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
+            ClientMessage::SetTurnBudgetOverride(TurnBudgetOverridePayload { usd, seconds }) => {
+                let session = require_session(attached_session.as_ref())?;
+                let mut kernel = session.kernel.lock().await;
+                kernel
+                    .set_turn_budget_override(usd, seconds)
+                    .map_err(map_kernel_error)?;
                 send_server_message(&mut framed, &ServerMessage::Ack).await?;
             }
             ClientMessage::SetAutoConfirm(enabled) => {
@@ -688,14 +691,16 @@ async fn handle_connection(
                     .apply_config(session_config)
                     .await
                     .map_err(map_kernel_error)?;
-                persist_kernel_session(
-                    &state.paths,
-                    session.channel,
-                    session.sender_id(),
-                    &kernel,
-                )
-                .map_err(map_kernel_error)?;
+                persist_kernel_session(&state.paths, session.channel, session.sender_id(), &kernel)
+                    .map_err(map_kernel_error)?;
                 send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
+            ClientMessage::ListChannelRuntimes => {
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::ChannelRuntimes(channel_runtime_statuses(&state)),
+                )
+                .await?;
             }
             ClientMessage::ListJobs => {
                 let manager = state.job_manager.lock().await;
@@ -797,18 +802,19 @@ async fn get_or_create_session(
     )
     .await
     .map_err(map_kernel_error)?;
-    let restored_sender_id = if let Some(snapshot) = load_session_snapshot(&state.paths, &session_id)? {
-        let restored_sender_id = snapshot.meta.sender_id.clone();
-        kernel
-            .restore_session_snapshot(snapshot_to_kernel(snapshot.meta))
-            .await
-            .map_err(map_kernel_error)?;
-        restored_sender_id
-    } else {
-        persist_kernel_session(&state.paths, channel, sender_id.clone(), &kernel)
-            .map_err(map_kernel_error)?;
-        sender_id.clone()
-    };
+    let restored_sender_id =
+        if let Some(snapshot) = load_session_snapshot(&state.paths, &session_id)? {
+            let restored_sender_id = snapshot.meta.sender_id.clone();
+            kernel
+                .restore_session_snapshot(snapshot_to_kernel(snapshot.meta))
+                .await
+                .map_err(map_kernel_error)?;
+            restored_sender_id
+        } else {
+            persist_kernel_session(&state.paths, channel, sender_id.clone(), &kernel)
+                .map_err(map_kernel_error)?;
+            sender_id.clone()
+        };
     kernel.register_job_manager(Arc::new(DaemonJobManager {
         state: state.clone(),
     }));
@@ -1052,7 +1058,8 @@ impl TelegramRuntime {
                 .await?;
             }
             TelegramCommand::Override(reason) => {
-                self.retry_with_override(chat_id, &sender_id, reason).await?;
+                self.retry_with_override(chat_id, &sender_id, reason)
+                    .await?;
             }
             TelegramCommand::Text(input) => {
                 let session = self.select_session(&sender_id, false).await?;
@@ -1073,7 +1080,10 @@ impl TelegramRuntime {
             &format!(
                 "telegram enqueue chat={chat_id} bytes={} queue_depth={}",
                 text.len(),
-                self.state.telegram_status.queue_depth.load(Ordering::SeqCst)
+                self.state
+                    .telegram_status
+                    .queue_depth
+                    .load(Ordering::SeqCst)
             ),
         )
         .ok();
@@ -1095,8 +1105,12 @@ impl TelegramRuntime {
                 config.daemon.session_max_age_days.into(),
             )?
         };
-        let session_id = session_id
-            .unwrap_or_else(|| format!("telegram-{}", self.state.next_session.fetch_add(1, Ordering::SeqCst)));
+        let session_id = session_id.unwrap_or_else(|| {
+            format!(
+                "telegram-{}",
+                self.state.next_session.fetch_add(1, Ordering::SeqCst)
+            )
+        });
         get_or_create_session(
             &self.state,
             ChannelKind::Telegram,
@@ -1122,7 +1136,9 @@ impl TelegramRuntime {
             ),
         )
         .ok();
-        let sender_id = session.sender_id().unwrap_or_else(|| "telegram-unknown".into());
+        let sender_id = session
+            .sender_id()
+            .unwrap_or_else(|| "telegram-unknown".into());
         let (pre_turn_messages, pre_turn_cost) = {
             let kernel = session.kernel.lock().await;
             let snapshot = kernel.export_session_snapshot();
@@ -1146,11 +1162,14 @@ impl TelegramRuntime {
                     *assistant_text_for_events.lock().unwrap() = Some(text.clone());
                 }
                 KernelEvent::ToolResult { name, ok, content } => {
-                    tool_results_for_events.lock().unwrap().push(ToolJournalEntry {
-                        name: name.clone(),
-                        ok: *ok,
-                        content: truncate_tool_output(content, max_tool_bytes),
-                    });
+                    tool_results_for_events
+                        .lock()
+                        .unwrap()
+                        .push(ToolJournalEntry {
+                            name: name.clone(),
+                            ok: *ok,
+                            content: truncate_tool_output(content, max_tool_bytes),
+                        });
                 }
                 _ => {}
             }),
@@ -1196,7 +1215,10 @@ impl TelegramRuntime {
                     self.send_text(chat_id, "Turn finished after hitting a turn limit.".into())
                         .await?;
                 }
-                self.pending_cap_overrides.lock().unwrap().remove(&sender_id);
+                self.pending_cap_overrides
+                    .lock()
+                    .unwrap()
+                    .remove(&sender_id);
                 Ok(())
             }
             Err(error) => {
@@ -1243,9 +1265,7 @@ impl TelegramRuntime {
                 }
                 self.send_text(
                     chat_id,
-                    format!(
-                        "Approval `{approval_id}` is waiting for the sender who opened it."
-                    ),
+                    format!("Approval `{approval_id}` is waiting for the sender who opened it."),
                 )
                 .await?;
                 return Ok(());
@@ -1257,7 +1277,12 @@ impl TelegramRuntime {
             return Ok(());
         }
 
-        let Some(record) = load_pending_approval(&self.state.paths, &self.session_for_approval(approval_id)?, approval_id)? else {
+        let Some(record) = load_pending_approval(
+            &self.state.paths,
+            &self.session_for_approval(approval_id)?,
+            approval_id,
+        )?
+        else {
             self.send_text(chat_id, format!("No pending approval `{approval_id}`."))
                 .await?;
             return Ok(());
@@ -1348,7 +1373,11 @@ impl TelegramRuntime {
         .await?;
         let runtime = self.clone();
         self.state.tasks.spawn(async move {
-            if let Err(error) = runtime.clone().run_turn(session, chat_id, pending.input).await {
+            if let Err(error) = runtime
+                .clone()
+                .run_turn(session, chat_id, pending.input)
+                .await
+            {
                 runtime.record_error(format!("telegram override retry failed: {error}"));
             }
         });
@@ -1429,13 +1458,12 @@ impl ConfirmPrompter for TelegramConfirmPrompter {
                 reply: reply_tx,
             },
         );
-        if self
-            .runtime
-            .send_text(self.chat_id, prompt)
-            .await
-            .is_err()
-        {
-            self.runtime.pending_approvals.lock().unwrap().remove(&approval_id);
+        if self.runtime.send_text(self.chat_id, prompt).await.is_err() {
+            self.runtime
+                .pending_approvals
+                .lock()
+                .unwrap()
+                .remove(&approval_id);
             let _ = resolve_pending_approval(
                 &self.runtime.state.paths,
                 &self.session_id,
@@ -1447,55 +1475,58 @@ impl ConfirmPrompter for TelegramConfirmPrompter {
             return ConfirmDecision::Deny;
         }
 
-        let outcome = match tokio::time::timeout(Duration::from_secs(approval_timeout_s), reply_rx)
-            .await
-        {
-            Ok(Ok(ConfirmDecisionPayload::AllowOnce)) => {
-                let _ = resolve_pending_approval(
-                    &self.runtime.state.paths,
-                    &self.session_id,
-                    &approval_id,
-                    PendingApprovalStatus::Accepted,
-                    Some(self.sender_id.clone()),
-                    Some("AllowOnce".into()),
-                );
-                ConfirmDecision::AllowOnce
-            }
-            Ok(Ok(ConfirmDecisionPayload::AllowSession)) => {
-                let _ = resolve_pending_approval(
-                    &self.runtime.state.paths,
-                    &self.session_id,
-                    &approval_id,
-                    PendingApprovalStatus::Accepted,
-                    Some(self.sender_id.clone()),
-                    Some("AllowSession".into()),
-                );
-                ConfirmDecision::AllowSession
-            }
-            Ok(Ok(ConfirmDecisionPayload::Timeout)) | Err(_) => {
-                let _ = resolve_pending_approval(
-                    &self.runtime.state.paths,
-                    &self.session_id,
-                    &approval_id,
-                    PendingApprovalStatus::Timeout,
-                    Some("timeout".into()),
-                    Some("confirm-timeout".into()),
-                );
-                ConfirmDecision::Timeout
-            }
-            Ok(Ok(ConfirmDecisionPayload::Deny)) | Ok(Err(_)) => {
-                let _ = resolve_pending_approval(
-                    &self.runtime.state.paths,
-                    &self.session_id,
-                    &approval_id,
-                    PendingApprovalStatus::Rejected,
-                    Some(self.sender_id.clone()),
-                    Some("Deny".into()),
-                );
-                ConfirmDecision::Deny
-            }
-        };
-        self.runtime.pending_approvals.lock().unwrap().remove(&approval_id);
+        let outcome =
+            match tokio::time::timeout(Duration::from_secs(approval_timeout_s), reply_rx).await {
+                Ok(Ok(ConfirmDecisionPayload::AllowOnce)) => {
+                    let _ = resolve_pending_approval(
+                        &self.runtime.state.paths,
+                        &self.session_id,
+                        &approval_id,
+                        PendingApprovalStatus::Accepted,
+                        Some(self.sender_id.clone()),
+                        Some("AllowOnce".into()),
+                    );
+                    ConfirmDecision::AllowOnce
+                }
+                Ok(Ok(ConfirmDecisionPayload::AllowSession)) => {
+                    let _ = resolve_pending_approval(
+                        &self.runtime.state.paths,
+                        &self.session_id,
+                        &approval_id,
+                        PendingApprovalStatus::Accepted,
+                        Some(self.sender_id.clone()),
+                        Some("AllowSession".into()),
+                    );
+                    ConfirmDecision::AllowSession
+                }
+                Ok(Ok(ConfirmDecisionPayload::Timeout)) | Err(_) => {
+                    let _ = resolve_pending_approval(
+                        &self.runtime.state.paths,
+                        &self.session_id,
+                        &approval_id,
+                        PendingApprovalStatus::Timeout,
+                        Some("timeout".into()),
+                        Some("confirm-timeout".into()),
+                    );
+                    ConfirmDecision::Timeout
+                }
+                Ok(Ok(ConfirmDecisionPayload::Deny)) | Ok(Err(_)) => {
+                    let _ = resolve_pending_approval(
+                        &self.runtime.state.paths,
+                        &self.session_id,
+                        &approval_id,
+                        PendingApprovalStatus::Rejected,
+                        Some(self.sender_id.clone()),
+                        Some("Deny".into()),
+                    );
+                    ConfirmDecision::Deny
+                }
+            };
+        self.runtime
+            .pending_approvals
+            .lock()
+            .unwrap()
+            .remove(&approval_id);
         outcome
     }
 }
@@ -1523,8 +1554,10 @@ async fn spawn_telegram_pilot(state: SharedState) -> Result<(), DaemonError> {
         .to_string();
     if token.is_empty() {
         state.telegram_status.running.store(false, Ordering::SeqCst);
-        *state.telegram_status.last_error.lock().unwrap() =
-            Some(format!("missing Telegram bot token at {}", state.paths.telegram_bot_token.display()));
+        *state.telegram_status.last_error.lock().unwrap() = Some(format!(
+            "missing Telegram bot token at {}",
+            state.paths.telegram_bot_token.display()
+        ));
         append_log_line(&state.log_path, "telegram not started: missing bot token").ok();
         return Ok(());
     }
@@ -1536,7 +1569,11 @@ async fn spawn_telegram_pilot(state: SharedState) -> Result<(), DaemonError> {
             "no allowlisted Telegram chats in {}",
             state.paths.telegram_allowed_chats.display()
         ));
-        append_log_line(&state.log_path, "telegram not started: no allowlisted chats").ok();
+        append_log_line(
+            &state.log_path,
+            "telegram not started: no allowlisted chats",
+        )
+        .ok();
         return Ok(());
     }
 
@@ -1709,8 +1746,8 @@ fn escape_telegram_markdown_v2(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
     for ch in text.chars() {
         match ch {
-            '_' | '*' | '[' | ']' | '(' | ')' | '~' | '`' | '>' | '#' | '+' | '-' | '='
-            | '|' | '{' | '}' | '.' | '!' => {
+            '_' | '*' | '[' | ']' | '(' | ')' | '~' | '`' | '>' | '#' | '+' | '-' | '=' | '|'
+            | '{' | '}' | '.' | '!' => {
                 escaped.push('\\');
                 escaped.push(ch);
             }
@@ -2198,6 +2235,36 @@ async fn session_status(
             .last_resolved_intent()
             .map(|intent| intent.as_str().to_string()),
     })
+}
+
+fn channel_runtime_statuses(state: &SharedState) -> Vec<ChannelRuntimeStatusPayload> {
+    let telegram_last_error = state.telegram_status.last_error.lock().unwrap().clone();
+    vec![
+        ChannelRuntimeStatusPayload {
+            kind: ChannelKind::Cli,
+            running: true,
+            queue_depth: None,
+            last_error: None,
+        },
+        ChannelRuntimeStatusPayload {
+            kind: ChannelKind::Repl,
+            running: true,
+            queue_depth: None,
+            last_error: None,
+        },
+        ChannelRuntimeStatusPayload {
+            kind: ChannelKind::Jobs,
+            running: true,
+            queue_depth: None,
+            last_error: None,
+        },
+        ChannelRuntimeStatusPayload {
+            kind: ChannelKind::Telegram,
+            running: state.telegram_status.running.load(Ordering::SeqCst),
+            queue_depth: Some(state.telegram_status.queue_depth.load(Ordering::SeqCst)),
+            last_error: telegram_last_error,
+        },
+    ]
 }
 
 fn session_dir(paths: &AllbertPaths, session_id: &str) -> PathBuf {
@@ -3022,10 +3089,8 @@ mod telegram_tests {
 
     #[test]
     fn telegram_allowlist_parser_ignores_comments_and_blank_lines() {
-        let allowed = parse_telegram_allowed_chats(
-            "\n# test\n12345\n-777 # group\n\n  99  \n",
-        )
-        .expect("allowlist should parse");
+        let allowed = parse_telegram_allowed_chats("\n# test\n12345\n-777 # group\n\n  99  \n")
+            .expect("allowlist should parse");
         assert!(allowed.contains(&12345));
         assert!(allowed.contains(&-777));
         assert!(allowed.contains(&99));
@@ -3048,7 +3113,11 @@ mod telegram_tests {
         let paths = temp_paths();
         persist_session_meta(
             &paths,
-            &sample_meta("telegram-old", Some("telegram:1:10"), "2026-02-01T00:00:00Z"),
+            &sample_meta(
+                "telegram-old",
+                Some("telegram:1:10"),
+                "2026-02-01T00:00:00Z",
+            ),
         )
         .expect("old meta should persist");
         persist_session_meta(

@@ -1594,6 +1594,50 @@ async fn daily_cost_cap_blocks_turns_and_override_allows_next_turn_once() {
 }
 
 #[tokio::test]
+async fn channel_runtime_statuses_report_builtin_and_telegram_state() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let mut config = sample_config();
+    config.channels.telegram.enabled = true;
+    let handle = spawn(config, paths.clone())
+        .await
+        .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    sleep(Duration::from_millis(100)).await;
+    let statuses = client
+        .list_channel_runtimes()
+        .await
+        .expect("channel runtimes should load");
+
+    let repl = statuses
+        .iter()
+        .find(|status| status.kind == ChannelKind::Repl)
+        .expect("repl runtime should exist");
+    assert!(repl.running);
+    assert_eq!(repl.queue_depth, None);
+    assert_eq!(repl.last_error, None);
+
+    let telegram = statuses
+        .iter()
+        .find(|status| status.kind == ChannelKind::Telegram)
+        .expect("telegram runtime should exist");
+    assert!(!telegram.running);
+    assert_eq!(telegram.queue_depth, Some(0));
+    assert!(
+        telegram
+            .last_error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("missing Telegram bot token"),
+        "unexpected telegram runtime status: {:?}",
+        telegram.last_error
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
 async fn jobs_report_cap_reached_when_daily_cost_cap_blocks_execution() {
     let home = TempHome::new();
     let paths = home.paths();

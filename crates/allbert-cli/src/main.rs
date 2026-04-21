@@ -1,13 +1,18 @@
 use std::path::Path;
 use std::time::Duration;
 
+use allbert_channels::ChannelCapabilities;
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_jobs::JobsCommand;
 use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config};
-use allbert_proto::{ChannelKind, ClientKind, DaemonStatus, SessionResumeEntry};
+use allbert_proto::{
+    ChannelKind, ChannelRuntimeStatusPayload, ClientKind, DaemonStatus, SessionResumeEntry,
+};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use serde::Serialize;
 
+mod approvals;
 mod memory_cli;
 mod repl;
 mod setup;
@@ -48,6 +53,10 @@ enum Command {
         #[command(subcommand)]
         command: MemoryCommand,
     },
+    Approvals {
+        #[command(subcommand)]
+        command: ApprovalsCommand,
+    },
     #[command(name = "internal-daemon-host", hide = true)]
     InternalDaemonHost,
 }
@@ -63,6 +72,10 @@ enum DaemonCommand {
     Start,
     Stop,
     Restart,
+    Channels {
+        #[command(subcommand)]
+        command: DaemonChannelsCommand,
+    },
     Resume {
         #[arg(long)]
         session: Option<String>,
@@ -167,6 +180,42 @@ enum MemoryStagedCommand {
     Show { id: String },
 }
 
+#[derive(Subcommand, Debug)]
+enum ApprovalsCommand {
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    Show {
+        approval_id: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum DaemonChannelsCommand {
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    Status {
+        kind: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Add {
+        kind: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Remove {
+        kind: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -201,6 +250,7 @@ async fn main() -> Result<()> {
             run_skills_command(Some(&paths), Some(&config), command).await
         }
         Some(Command::Memory { command }) => run_memory_command(&paths, &config, command).await,
+        Some(Command::Approvals { command }) => run_approvals_command(&paths, command),
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
                 config = match setup::run_setup_wizard(&paths, &config)? {
@@ -325,6 +375,428 @@ async fn run_memory_command(
             println!("{}", memory_cli::rebuild_index(paths, config, force)?);
             Ok(())
         }
+    }
+}
+
+fn run_approvals_command(paths: &AllbertPaths, command: ApprovalsCommand) -> Result<()> {
+    match command {
+        ApprovalsCommand::List { json } => {
+            println!("{}", approvals::list(paths, json)?);
+            Ok(())
+        }
+        ApprovalsCommand::Show { approval_id, json } => {
+            println!("{}", approvals::show(paths, &approval_id, json)?);
+            Ok(())
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ChannelStatusView {
+    kind: String,
+    enabled: bool,
+    configuration_state: String,
+    running: bool,
+    queue_depth: Option<usize>,
+    last_error: Option<String>,
+    detail: Option<String>,
+    capabilities: ChannelCapabilities,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ChannelMutationResult {
+    action: String,
+    channel: ChannelStatusView,
+    daemon_restart_recommended: bool,
+}
+
+#[derive(Debug, Clone)]
+enum TelegramSetupState {
+    Ready { allowlisted_chats: usize },
+    NeedsSetup(String),
+    Misconfigured(String),
+}
+
+async fn run_daemon_channels_command(
+    paths: &AllbertPaths,
+    config: &Config,
+    command: DaemonChannelsCommand,
+) -> Result<()> {
+    match command {
+        DaemonChannelsCommand::List { json } => {
+            let views = collect_channel_statuses(paths, config).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&views)?);
+            } else {
+                println!("{}", render_channel_status_list(&views));
+            }
+            Ok(())
+        }
+        DaemonChannelsCommand::Status { kind, json } => {
+            let views = collect_channel_statuses(paths, config).await?;
+            match kind {
+                Some(raw_kind) => {
+                    let kind = parse_channel_kind(&raw_kind)?;
+                    let view = views
+                        .into_iter()
+                        .find(|view| view.kind == channel_kind_label(kind))
+                        .ok_or_else(|| anyhow::anyhow!("channel not found: {raw_kind}"))?;
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&view)?);
+                    } else {
+                        println!("{}", render_single_channel_status(&view));
+                    }
+                }
+                None => {
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&views)?);
+                    } else {
+                        println!("{}", render_channel_status_list(&views));
+                    }
+                }
+            }
+            Ok(())
+        }
+        DaemonChannelsCommand::Add { kind, json } => {
+            let kind = parse_channel_kind(&kind)?;
+            if kind != ChannelKind::Telegram {
+                anyhow::bail!(
+                    "v0.7 only supports `daemon channels add telegram`; builtin {0} is always available",
+                    channel_kind_label(kind)
+                );
+            }
+            let mut updated = Config::load_or_create(paths)?;
+            updated.channels.telegram.enabled = true;
+            updated.persist(paths)?;
+            paths.ensure()?;
+
+            let daemon_running = DaemonClient::connect(paths, ClientKind::Cli).await.is_ok();
+            let channel = collect_channel_statuses(paths, &updated)
+                .await?
+                .into_iter()
+                .find(|view| view.kind == "telegram")
+                .ok_or_else(|| anyhow::anyhow!("telegram status missing after enable"))?;
+            let result = ChannelMutationResult {
+                action: "add".into(),
+                channel,
+                daemon_restart_recommended: daemon_running,
+            };
+            if json {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            } else {
+                println!(
+                    "enabled channel telegram\n{}{}",
+                    render_single_channel_status(&result.channel),
+                    if result.daemon_restart_recommended {
+                        "\n\nnote: restart the daemon to apply this change to the running process"
+                    } else {
+                        ""
+                    }
+                );
+            }
+            Ok(())
+        }
+        DaemonChannelsCommand::Remove { kind, json } => {
+            let kind = parse_channel_kind(&kind)?;
+            if kind != ChannelKind::Telegram {
+                anyhow::bail!(
+                    "v0.7 only supports `daemon channels remove telegram`; builtin {0} is not removable",
+                    channel_kind_label(kind)
+                );
+            }
+            let mut updated = Config::load_or_create(paths)?;
+            updated.channels.telegram.enabled = false;
+            updated.persist(paths)?;
+
+            let daemon_running = DaemonClient::connect(paths, ClientKind::Cli).await.is_ok();
+            let channel = collect_channel_statuses(paths, &updated)
+                .await?
+                .into_iter()
+                .find(|view| view.kind == "telegram")
+                .ok_or_else(|| anyhow::anyhow!("telegram status missing after disable"))?;
+            let result = ChannelMutationResult {
+                action: "remove".into(),
+                channel,
+                daemon_restart_recommended: daemon_running,
+            };
+            if json {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            } else {
+                println!(
+                    "disabled channel telegram\n{}{}",
+                    render_single_channel_status(&result.channel),
+                    if result.daemon_restart_recommended {
+                        "\n\nnote: restart the daemon to apply this change to the running process"
+                    } else {
+                        ""
+                    }
+                );
+            }
+            Ok(())
+        }
+    }
+}
+
+async fn collect_channel_statuses(
+    paths: &AllbertPaths,
+    config: &Config,
+) -> Result<Vec<ChannelStatusView>> {
+    let runtime = fetch_channel_runtime_statuses(paths).await;
+    let mut views = Vec::new();
+    for kind in [
+        ChannelKind::Cli,
+        ChannelKind::Repl,
+        ChannelKind::Jobs,
+        ChannelKind::Telegram,
+    ] {
+        let runtime_status = runtime.get(&kind);
+        views.push(build_channel_status_view(
+            paths,
+            config,
+            kind,
+            runtime_status,
+        )?);
+    }
+    Ok(views)
+}
+
+async fn fetch_channel_runtime_statuses(
+    paths: &AllbertPaths,
+) -> std::collections::HashMap<ChannelKind, ChannelRuntimeStatusPayload> {
+    let mut statuses = std::collections::HashMap::new();
+    if let Ok(mut client) = DaemonClient::connect(paths, ClientKind::Cli).await {
+        if let Ok(runtime_statuses) = client.list_channel_runtimes().await {
+            for status in runtime_statuses {
+                statuses.insert(status.kind, status);
+            }
+        }
+    }
+    statuses
+}
+
+fn build_channel_status_view(
+    paths: &AllbertPaths,
+    config: &Config,
+    kind: ChannelKind,
+    runtime: Option<&ChannelRuntimeStatusPayload>,
+) -> Result<ChannelStatusView> {
+    let capabilities = ChannelCapabilities::for_builtin(kind);
+    let mut detail = None;
+    let enabled = match kind {
+        ChannelKind::Cli | ChannelKind::Repl => true,
+        ChannelKind::Jobs => config.jobs.enabled,
+        ChannelKind::Telegram => config.channels.telegram.enabled,
+    };
+    let configuration_state = match kind {
+        ChannelKind::Cli | ChannelKind::Repl => "configured".to_string(),
+        ChannelKind::Jobs => {
+            if enabled {
+                "configured".to_string()
+            } else {
+                detail = Some("jobs.enabled = false".into());
+                "disabled".to_string()
+            }
+        }
+        ChannelKind::Telegram => {
+            if !enabled {
+                "disabled".to_string()
+            } else {
+                match inspect_telegram_setup(paths) {
+                    TelegramSetupState::Ready { allowlisted_chats } => {
+                        detail = Some(format!(
+                            "allowlisted chats: {} | token file: {}",
+                            allowlisted_chats,
+                            paths.telegram_bot_token.display()
+                        ));
+                        if runtime
+                            .and_then(|status| status.last_error.as_ref())
+                            .is_some()
+                            && !runtime.map(|status| status.running).unwrap_or(false)
+                        {
+                            "misconfigured".to_string()
+                        } else {
+                            "configured".to_string()
+                        }
+                    }
+                    TelegramSetupState::NeedsSetup(message) => {
+                        detail = Some(message);
+                        "needs_setup".to_string()
+                    }
+                    TelegramSetupState::Misconfigured(message) => {
+                        detail = Some(message);
+                        "misconfigured".to_string()
+                    }
+                }
+            }
+        }
+    };
+    let running = if enabled {
+        runtime.map(|status| status.running).unwrap_or(false)
+    } else {
+        false
+    };
+    let queue_depth = runtime.and_then(|status| status.queue_depth);
+    let last_error = runtime.and_then(|status| status.last_error.clone());
+    Ok(ChannelStatusView {
+        kind: channel_kind_label(kind).into(),
+        enabled,
+        configuration_state,
+        running,
+        queue_depth,
+        last_error,
+        detail,
+        capabilities,
+    })
+}
+
+fn inspect_telegram_setup(paths: &AllbertPaths) -> TelegramSetupState {
+    let token_present = std::fs::read_to_string(&paths.telegram_bot_token)
+        .map(|raw| !raw.trim().is_empty())
+        .unwrap_or(false);
+    if !token_present {
+        return TelegramSetupState::NeedsSetup(format!(
+            "missing bot token at {}",
+            paths.telegram_bot_token.display()
+        ));
+    }
+
+    let allowlisted = match load_telegram_allowlisted_chat_count(&paths.telegram_allowed_chats) {
+        Ok(value) => value,
+        Err(err) => return TelegramSetupState::Misconfigured(err.to_string()),
+    };
+    if allowlisted == 0 {
+        return TelegramSetupState::NeedsSetup(format!(
+            "no allowlisted Telegram chats in {}",
+            paths.telegram_allowed_chats.display()
+        ));
+    }
+
+    TelegramSetupState::Ready {
+        allowlisted_chats: allowlisted,
+    }
+}
+
+fn load_telegram_allowlisted_chat_count(path: &Path) -> Result<usize> {
+    if !path.exists() {
+        return Ok(0);
+    }
+    let raw = std::fs::read_to_string(path)?;
+    let mut count = 0usize;
+    for (idx, line) in raw.lines().enumerate() {
+        let stripped = line.split('#').next().unwrap_or_default().trim();
+        if stripped.is_empty() {
+            continue;
+        }
+        stripped.parse::<i64>().map_err(|err| {
+            anyhow::anyhow!(
+                "parse Telegram allowlisted chat on line {} in {}: {err}",
+                idx + 1,
+                path.display()
+            )
+        })?;
+        count += 1;
+    }
+    Ok(count)
+}
+
+fn render_channel_status_list(views: &[ChannelStatusView]) -> String {
+    let mut lines = vec!["channels:".to_string()];
+    for view in views {
+        lines.push(format!(
+            "- {}  enabled={}  state={}  running={}  queue_depth={}  capabilities={}",
+            view.kind,
+            yes_no(view.enabled),
+            view.configuration_state,
+            yes_no(view.running),
+            view.queue_depth
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "n/a".into()),
+            render_channel_capabilities(&view.capabilities)
+        ));
+        if let Some(detail) = view.detail.as_deref() {
+            lines.push(format!("  detail={detail}"));
+        }
+        if let Some(last_error) = view.last_error.as_deref() {
+            lines.push(format!("  last_error={last_error}"));
+        }
+    }
+    lines.join("\n")
+}
+
+fn render_single_channel_status(view: &ChannelStatusView) -> String {
+    format!(
+        "channel:           {}\nenabled:           {}\nstate:             {}\nrunning:           {}\nqueue depth:       {}\nlast error:        {}\ncapabilities:      {}\ndetail:            {}",
+        view.kind,
+        yes_no(view.enabled),
+        view.configuration_state,
+        yes_no(view.running),
+        view.queue_depth
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "n/a".into()),
+        view.last_error.as_deref().unwrap_or("(none)"),
+        render_channel_capabilities(&view.capabilities),
+        view.detail.as_deref().unwrap_or("(none)"),
+    )
+}
+
+fn render_channel_capabilities(capabilities: &ChannelCapabilities) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if capabilities.supports_inline_confirm {
+        parts.push("inline_confirm".into());
+    }
+    if capabilities.supports_async_confirm {
+        parts.push("async_confirm".into());
+    }
+    if capabilities.supports_rich_output {
+        parts.push("rich_output".into());
+    }
+    if capabilities.supports_file_attach {
+        parts.push("file_attach".into());
+    }
+    if capabilities.supports_image_input {
+        parts.push("image_input".into());
+    }
+    if capabilities.supports_image_output {
+        parts.push("image_output".into());
+    }
+    if capabilities.supports_voice_input {
+        parts.push("voice_input".into());
+    }
+    if capabilities.supports_voice_output {
+        parts.push("voice_output".into());
+    }
+    if capabilities.supports_audio_attach {
+        parts.push("audio_attach".into());
+    }
+    parts.push(match capabilities.latency_class {
+        allbert_channels::LatencyClass::Synchronous => "latency=synchronous".into(),
+        allbert_channels::LatencyClass::Asynchronous => "latency=asynchronous".into(),
+        allbert_channels::LatencyClass::Batch => "latency=batch".into(),
+    });
+    parts.push(if capabilities.max_message_size == usize::MAX {
+        "max_message_size=unbounded".into()
+    } else {
+        format!("max_message_size={}", capabilities.max_message_size)
+    });
+    parts.join(", ")
+}
+
+fn parse_channel_kind(raw: &str) -> Result<ChannelKind> {
+    match raw {
+        "cli" => Ok(ChannelKind::Cli),
+        "repl" => Ok(ChannelKind::Repl),
+        "jobs" => Ok(ChannelKind::Jobs),
+        "telegram" => Ok(ChannelKind::Telegram),
+        _ => anyhow::bail!("unknown channel kind: {raw}"),
+    }
+}
+
+fn channel_kind_label(kind: ChannelKind) -> &'static str {
+    match kind {
+        ChannelKind::Cli => "cli",
+        ChannelKind::Repl => "repl",
+        ChannelKind::Jobs => "jobs",
+        ChannelKind::Telegram => "telegram",
     }
 }
 
@@ -462,6 +934,9 @@ async fn run_daemon_command(
                 }
             }
             Ok(())
+        }
+        DaemonCommand::Channels { command } => {
+            run_daemon_channels_command(paths, config, command).await
         }
         DaemonCommand::Start => {
             let spawn = default_spawn_config(paths, config)?;
@@ -714,5 +1189,73 @@ fn yes_no(value: bool) -> &'static str {
         "yes"
     } else {
         "no"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::*;
+
+    static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    struct TempRoot {
+        path: PathBuf,
+    }
+
+    impl TempRoot {
+        fn new() -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "allbert-cli-main-{}-{}",
+                std::process::id(),
+                TEMP_COUNTER.fetch_add(1, Ordering::Relaxed)
+            ));
+            std::fs::create_dir_all(&path).expect("temp root should create");
+            Self { path }
+        }
+
+        fn paths(&self) -> AllbertPaths {
+            AllbertPaths::under(self.path.clone())
+        }
+    }
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[test]
+    fn telegram_allowlist_parser_ignores_comments_and_blank_lines() {
+        let temp = TempRoot::new();
+        let allowlist = temp.paths().telegram_allowed_chats;
+        if let Some(parent) = allowlist.parent() {
+            std::fs::create_dir_all(parent).expect("allowlist parent should create");
+        }
+        std::fs::write(&allowlist, "12345\n# comment\n\n67890 # inline\n")
+            .expect("allowlist should write");
+
+        let count =
+            load_telegram_allowlisted_chat_count(&allowlist).expect("allowlist should parse");
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn telegram_status_reports_needs_setup_without_token() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should ensure");
+        let mut config = Config::default_template();
+        config.channels.telegram.enabled = true;
+
+        let view =
+            build_channel_status_view(&paths, &config, ChannelKind::Telegram, None).expect("view");
+        assert_eq!(view.configuration_state, "needs_setup");
+        assert!(view
+            .detail
+            .unwrap_or_default()
+            .contains("missing bot token"));
     }
 }

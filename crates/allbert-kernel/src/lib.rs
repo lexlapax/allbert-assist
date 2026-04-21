@@ -201,6 +201,7 @@ pub struct Kernel {
     dynamic_confirm: DynamicConfirmPrompter,
     daily_cost_cache: Option<DailyCostCache>,
     pending_turn_cost_override_reason: Option<String>,
+    pending_turn_budget_override: RequestedTurnBudget,
     #[allow(dead_code)]
     trace: TraceHandles,
 }
@@ -361,6 +362,10 @@ impl Kernel {
             dynamic_confirm,
             daily_cost_cache: None,
             pending_turn_cost_override_reason: None,
+            pending_turn_budget_override: RequestedTurnBudget {
+                usd: None,
+                seconds: None,
+            },
             trace,
         })
     }
@@ -941,6 +946,30 @@ impl Kernel {
         self.pending_turn_cost_override_reason = Some(reason);
     }
 
+    pub fn set_turn_budget_override(
+        &mut self,
+        usd: Option<f64>,
+        seconds: Option<u64>,
+    ) -> Result<(), KernelError> {
+        if let Some(value) = usd {
+            if value <= 0.0 {
+                return Err(KernelError::Request(
+                    "budget-invalid: turn budget usd must be > 0".into(),
+                ));
+            }
+            self.pending_turn_budget_override.usd = Some(value);
+        }
+        if let Some(value) = seconds {
+            if value == 0 {
+                return Err(KernelError::Request(
+                    "budget-invalid: turn budget seconds must be >= 1".into(),
+                ));
+            }
+            self.pending_turn_budget_override.seconds = Some(value);
+        }
+        Ok(())
+    }
+
     pub fn session_id(&self) -> &str {
         &self.state.session_id
     }
@@ -984,6 +1013,12 @@ impl Kernel {
             let total = self.current_utc_cost_total(utc_day)?;
             let remaining = (cap - total).max(0.0);
             budget.usd = budget.usd.min(remaining);
+        }
+        if let Some(value) = self.pending_turn_budget_override.usd.take() {
+            budget.usd = value;
+        }
+        if let Some(value) = self.pending_turn_budget_override.seconds.take() {
+            budget.seconds = value;
         }
         tracing::debug!(
             session = %state.session_id,
@@ -7211,6 +7246,46 @@ mod tests {
                 _ => None,
             })
             .expect("assistant text event should exist")
+    }
+
+    #[tokio::test]
+    async fn turn_budget_override_merges_dimensions_and_is_consumed_once() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let config = Config::default_template();
+
+        let mut kernel = Kernel::boot_with_parts(
+            config.clone(),
+            test_adapter(events),
+            paths,
+            Arc::new(TestFactory::new("test", Vec::new(), None)),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .set_turn_budget_override(Some(0.12), None)
+            .expect("usd override should arm");
+        kernel
+            .set_turn_budget_override(None, Some(9))
+            .expect("time override should arm");
+
+        let placeholder = AgentState::new(kernel.state.session_id.clone());
+        let state = std::mem::replace(&mut kernel.state, placeholder);
+        let overridden = kernel
+            .effective_root_turn_budget(&state, false)
+            .expect("override should resolve");
+        assert!((overridden.usd - 0.12).abs() < f64::EPSILON);
+        assert_eq!(overridden.seconds, 9);
+
+        let default_budget = kernel
+            .effective_root_turn_budget(&state, false)
+            .expect("override should be consumed");
+        assert!((default_budget.usd - config.limits.max_turn_usd).abs() < f64::EPSILON);
+        assert_eq!(default_budget.seconds, config.limits.max_turn_s);
+
+        kernel.state = state;
     }
 
     fn trace_file_exists(paths: &AllbertPaths) -> bool {

@@ -25,6 +25,7 @@ dependencies = [
 name = "allbert-cli"
 version = "0.1.0"
 dependencies = [
+ "allbert-channels",
  "allbert-daemon",
  "allbert-jobs",
  "allbert-kernel",

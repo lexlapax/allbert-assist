@@ -13,6 +13,10 @@ const HELP_TEXT: &str = "\
 commands:
   /h        show this help
   /cost     show session cost, today's recorded total, and cap state
+  /cost --turn-budget <usd>
+            set the next turn's usd budget
+  /cost --turn-time <s>
+            set the next turn's time budget in seconds
   /cost --override <reason>
             allow the next turn to bypass the daily cap once
   /help     show this help
@@ -26,6 +30,12 @@ commands:
     - allbert-cli daemon resume --list
     - allbert-cli daemon resume --session <id>
     - allbert-cli daemon forget <id>
+    - allbert-cli daemon channels list
+    - allbert-cli daemon channels status telegram
+    - allbert-cli daemon channels add telegram
+    - allbert-cli daemon channels remove telegram
+    - allbert-cli approvals list
+    - allbert-cli approvals show <approval-id>
     - allbert-cli agents list
     - allbert-cli skills list
     - allbert-cli skills show memory-curator
@@ -244,8 +254,10 @@ async fn handle_cost_command(
             .map(|value| format!("${value:.2}"))
             .unwrap_or_else(|| "(disabled)".into());
         println!(
-            "session: ${:.6}\ntoday:   ${:.6}\ncap:     {}",
+            "session: ${:.6}\ntoday:   ${:.6}\ncap:     {}\nturn budget default: ${:.2}\nturn time default:   {}s",
             status.session_cost_usd, status.today_cost_usd, cap
+            , config.limits.max_turn_usd,
+            config.limits.max_turn_s
         );
         return Ok(());
     }
@@ -264,7 +276,68 @@ async fn handle_cost_command(
         return Ok(());
     }
 
-    println!("usage: /cost | /cost --override <reason>");
+    let mut usd = None;
+    let mut seconds = None;
+    let mut idx = 1usize;
+    while idx < parts.len() {
+        match parts[idx] {
+            "--turn-budget" => {
+                let Some(value) = parts.get(idx + 1) else {
+                    println!("usage: /cost --turn-budget <usd>");
+                    return Ok(());
+                };
+                match value.parse::<f64>() {
+                    Ok(parsed) if parsed > 0.0 => usd = Some(parsed),
+                    _ => {
+                        println!("turn budget must be a positive number");
+                        return Ok(());
+                    }
+                }
+                idx += 2;
+            }
+            "--turn-time" => {
+                let Some(value) = parts.get(idx + 1) else {
+                    println!("usage: /cost --turn-time <seconds>");
+                    return Ok(());
+                };
+                match value.parse::<u64>() {
+                    Ok(parsed) if parsed > 0 => seconds = Some(parsed),
+                    _ => {
+                        println!("turn time must be a positive integer number of seconds");
+                        return Ok(());
+                    }
+                }
+                idx += 2;
+            }
+            _ => {
+                println!(
+                    "usage: /cost | /cost --override <reason> | /cost --turn-budget <usd> [--turn-time <seconds>]"
+                );
+                return Ok(());
+            }
+        }
+    }
+
+    if usd.is_some() || seconds.is_some() {
+        client.set_turn_budget_override(usd, seconds).await?;
+        match (usd, seconds) {
+            (Some(usd), Some(seconds)) => {
+                println!("next-turn budget armed: ${usd:.2}, {seconds}s");
+            }
+            (Some(usd), None) => {
+                println!("next-turn usd budget armed: ${usd:.2}");
+            }
+            (None, Some(seconds)) => {
+                println!("next-turn time budget armed: {seconds}s");
+            }
+            (None, None) => {}
+        }
+        return Ok(());
+    }
+
+    println!(
+        "usage: /cost | /cost --override <reason> | /cost --turn-budget <usd> [--turn-time <seconds>]"
+    );
     Ok(())
 }
 
