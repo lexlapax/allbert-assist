@@ -210,14 +210,15 @@ Daemon commands:
 - `cargo run -p allbert-cli -- daemon start`
 - `cargo run -p allbert-cli -- daemon stop`
 - `cargo run -p allbert-cli -- daemon restart`
-- `cargo run -p allbert-cli -- daemon resume --list`
-- `cargo run -p allbert-cli -- daemon resume [--session <id>]`
-- `cargo run -p allbert-cli -- daemon forget <session-id>`
 - `cargo run -p allbert-cli -- daemon logs [--debug] [--follow] [--lines N]`
 - `cargo run -p allbert-cli -- daemon channels list`
 - `cargo run -p allbert-cli -- daemon channels status [telegram]`
 - `cargo run -p allbert-cli -- daemon channels add telegram`
 - `cargo run -p allbert-cli -- daemon channels remove telegram`
+- `cargo run -p allbert-cli -- sessions list [--identity <id>] [--channel <kind>] [--limit N] [--json]`
+- `cargo run -p allbert-cli -- sessions show <session-id>`
+- `cargo run -p allbert-cli -- sessions resume <session-id>`
+- `cargo run -p allbert-cli -- sessions forget <session-id>`
 
 Agent commands:
 
@@ -474,7 +475,7 @@ v0.7 is a shipped technical-user release:
 - daemon-backed but still local-user-only
 - explicit workspace trust
 - guided bootstrap and daemon/jobs setup
-- restart-durable sessions with `daemon resume`
+- restart-durable sessions with `sessions resume`
 - daily cost-cap enforcement with one-turn REPL override
 - operator-visible memory verification through `memory status` and `memory verify`
 - first-class agents and intent routing with operator-visible status
