@@ -24,7 +24,7 @@ pub use adapter::{
     ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter, InputRequest,
     InputResponse,
 };
-pub use agent::{Agent, AgentDefinition, AgentState};
+pub use agent::{Agent, AgentDefinition, AgentState, StagedNoticeEntry};
 pub use config::{
     Config, DaemonConfig, IntentClassifierConfig, JobsConfig, LimitsConfig, MemoryConfig,
     ModelConfig, Provider, SecurityConfig, SetupConfig, WebSecurityConfig,
@@ -162,7 +162,7 @@ impl Kernel {
         Self::boot_with_parts(
             config,
             adapter,
-            paths,
+            paths.clone(),
             Arc::new(DefaultProviderFactory::default()),
         )
         .await
@@ -1168,10 +1168,7 @@ Respond with only the lowercase label and no other text."
     fn finish_turn_output(&self, state: &AgentState, assistant_text: &str) -> String {
         let mut output = assistant_text.to_string();
         if self.config.memory.surface_staged_on_turn_end && state.staged_entries_this_turn > 0 {
-            let suffix = format!(
-                "I'd like to remember {} thing(s) — run `allbert-cli memory staged list` or ask me.",
-                state.staged_entries_this_turn
-            );
+            let suffix = self.render_staged_notice_suffix(state);
             if output.trim().is_empty() {
                 output = suffix;
             } else if !output.contains(&suffix) {
@@ -1180,6 +1177,36 @@ Respond with only the lowercase label and no other text."
             }
         }
         output
+    }
+
+    fn render_staged_notice_suffix(&self, state: &AgentState) -> String {
+        let count = state.staged_entries_this_turn;
+        if count == 1 {
+            if let Some(entry) = state.staged_notice_entries_this_turn.first() {
+                return format!(
+                    "I'd like to remember 1 thing — {} — run `allbert-cli memory staged show {}` or `allbert-cli memory staged list`.",
+                    render_staged_notice_entry(entry, 120),
+                    entry.id
+                );
+            }
+        }
+
+        if (2..=3).contains(&count) && !state.staged_notice_entries_this_turn.is_empty() {
+            let items = state
+                .staged_notice_entries_this_turn
+                .iter()
+                .take(3)
+                .map(|entry| render_staged_notice_entry(entry, 120))
+                .collect::<Vec<_>>()
+                .join(" · ");
+            return format!(
+                "I'd like to remember {count} things — {items} — run `allbert-cli memory staged list` or ask me."
+            );
+        }
+
+        format!(
+            "I'd like to remember {count} things — run `allbert-cli memory staged list` or ask me."
+        )
     }
 
     fn system_prompt_for_state(
@@ -1835,6 +1862,14 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         match memory::stage_memory(&self.paths, &self.config.memory, request) {
             Ok(record) => {
                 state.staged_entries_this_turn = state.staged_entries_this_turn.saturating_add(1);
+                if state.staged_notice_entries_this_turn.len() < 3 {
+                    state
+                        .staged_notice_entries_this_turn
+                        .push(StagedNoticeEntry {
+                            id: record.id.clone(),
+                            summary: record.summary.clone(),
+                        });
+                }
                 let mut after_ctx = HookCtx::memory_event(
                     &state.session_id,
                     state.agent_name(),
@@ -2641,6 +2676,11 @@ fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
     input[..end].to_string()
 }
 
+fn render_staged_notice_entry(entry: &StagedNoticeEntry, max_bytes: usize) -> String {
+    let raw = format!("{} \"{}\"", entry.id, entry.summary.trim());
+    truncate_to_bytes(&raw, max_bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::VecDeque;
@@ -2991,7 +3031,7 @@ mod tests {
         let mut kernel = Kernel::boot_with_parts(
             Config::default_template(),
             test_adapter(Arc::clone(&events)),
-            paths,
+            paths.clone(),
             Arc::new(TestFactory::new(
                 "anthropic",
                 vec![CompletionResponse {
@@ -4512,7 +4552,7 @@ mod tests {
         let mut kernel = Kernel::boot_with_parts(
             Config::default_template(),
             test_adapter(Arc::clone(&events)),
-            paths,
+            paths.clone(),
             Arc::new(TestFactory::new(
                 "anthropic",
                 vec![
@@ -4639,7 +4679,7 @@ mod tests {
         let mut kernel = Kernel::boot_with_parts(
             Config::default_template(),
             test_adapter(Arc::clone(&events)),
-            paths,
+            paths.clone(),
             Arc::new(TestFactory::new(
                 "anthropic",
                 vec![
@@ -4698,7 +4738,7 @@ mod tests {
         let mut kernel = Kernel::boot_with_parts(
             Config::default_template(),
             test_adapter(Arc::clone(&events)),
-            paths,
+            paths.clone(),
             Arc::new(TestFactory::new(
                 "anthropic",
                 vec![
@@ -5424,7 +5464,7 @@ mod tests {
         let mut kernel = Kernel::boot_with_parts(
             Config::default_template(),
             test_adapter(Arc::clone(&events)),
-            paths,
+            paths.clone(),
             Arc::new(TestFactory::new(
                 "anthropic",
                 vec![
@@ -5448,6 +5488,11 @@ mod tests {
             .await
             .expect("turn should pass");
 
+        let staged =
+            memory::list_staged_memory(&paths, &MemoryConfig::default(), None, None, Some(10))
+                .expect("staged entries should list");
+        assert_eq!(staged.len(), 1);
+
         let events = events.lock().unwrap();
         let text = events
             .iter()
@@ -5456,8 +5501,79 @@ mod tests {
                 _ => None,
             })
             .expect("assistant text should be emitted");
-        assert!(text.contains("I'd like to remember 1 thing(s)"));
+        assert!(text.contains("I'd like to remember 1 thing"));
+        assert!(text.contains(&staged[0].id));
+        assert!(text.contains(&staged[0].summary));
+        assert!(text.contains("allbert-cli memory staged show"));
         assert!(text.contains("allbert-cli memory staged list"));
+    }
+
+    #[tokio::test]
+    async fn staged_notice_renders_entry_summaries_for_small_batches() {
+        let temp = TempRoot::new();
+        let kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            temp.paths(),
+            Arc::new(TestFactory::new("anthropic", vec![], Some(test_pricing()))),
+        )
+        .await
+        .expect("kernel should boot for tests");
+        let mut state = AgentState::new("session-a".into());
+        state.staged_entries_this_turn = 2;
+        state.staged_notice_entries_this_turn = vec![
+            StagedNoticeEntry {
+                id: "stg_alpha".into(),
+                summary: "Primary database is Postgres".into(),
+            },
+            StagedNoticeEntry {
+                id: "stg_beta".into(),
+                summary: "Deploy target is Fly.io".into(),
+            },
+        ];
+
+        let text = kernel.finish_turn_output(&state, "Captured that.");
+        assert!(text.contains("I'd like to remember 2 things"));
+        assert!(text.contains("stg_alpha"));
+        assert!(text.contains("Primary database is Postgres"));
+        assert!(text.contains("stg_beta"));
+        assert!(text.contains("Deploy target is Fly.io"));
+    }
+
+    #[tokio::test]
+    async fn staged_notice_collapses_for_large_batches() {
+        let temp = TempRoot::new();
+        let kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            temp.paths(),
+            Arc::new(TestFactory::new("anthropic", vec![], Some(test_pricing()))),
+        )
+        .await
+        .expect("kernel should boot for tests");
+        let mut state = AgentState::new("session-b".into());
+        state.staged_entries_this_turn = 4;
+        state.staged_notice_entries_this_turn = vec![
+            StagedNoticeEntry {
+                id: "stg_one".into(),
+                summary: "One".into(),
+            },
+            StagedNoticeEntry {
+                id: "stg_two".into(),
+                summary: "Two".into(),
+            },
+            StagedNoticeEntry {
+                id: "stg_three".into(),
+                summary: "Three".into(),
+            },
+        ];
+
+        let text = kernel.finish_turn_output(&state, "Captured that.");
+        assert!(text.contains("I'd like to remember 4 things"));
+        assert!(text.contains("allbert-cli memory staged list"));
+        assert!(!text.contains("stg_one"));
+        assert!(!text.contains("stg_two"));
+        assert!(!text.contains("stg_three"));
     }
 
     #[tokio::test]

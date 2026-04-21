@@ -7,6 +7,12 @@ use crate::skills::ActiveSkill;
 use crate::ModelConfig;
 
 #[derive(Debug, Clone)]
+pub struct StagedNoticeEntry {
+    pub id: String,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct AgentDefinition {
     pub name: String,
     pub description: String,
@@ -44,6 +50,7 @@ pub struct AgentState {
     pub pending_memory_refresh_query: Option<String>,
     pub memory_refreshes_this_turn: u32,
     pub staged_entries_this_turn: usize,
+    pub staged_notice_entries_this_turn: Vec<StagedNoticeEntry>,
     pub current_job_name: Option<String>,
 }
 
@@ -76,6 +83,7 @@ impl AgentState {
             pending_memory_refresh_query: None,
             memory_refreshes_this_turn: 0,
             staged_entries_this_turn: 0,
+            staged_notice_entries_this_turn: Vec::new(),
             current_job_name: None,
         }
     }
@@ -101,6 +109,7 @@ impl AgentState {
         self.pending_memory_refresh_query = None;
         self.memory_refreshes_this_turn = 0;
         self.staged_entries_this_turn = 0;
+        self.staged_notice_entries_this_turn.clear();
         self.current_job_name = None;
     }
 
@@ -117,6 +126,7 @@ impl AgentState {
         self.pending_memory_refresh_query = None;
         self.memory_refreshes_this_turn = 0;
         self.staged_entries_this_turn = 0;
+        self.staged_notice_entries_this_turn.clear();
     }
 
     pub fn append_ephemeral_note(&mut self, note: impl Into<String>, max_bytes: usize) {
