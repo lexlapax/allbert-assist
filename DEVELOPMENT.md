@@ -76,6 +76,29 @@ ALLBERT_HOME="$PWD/.tmp/allbert-dev-home" env -u RUSTC_WRAPPER cargo run -q -p a
 rm -rf .tmp/allbert-dev-home
 ```
 
+## Canonical smoke recipes
+
+Local macOS/Linux smoke:
+
+```bash
+tmpdir="$(mktemp -d)"
+ALLBERT_HOME="$tmpdir" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- daemon status
+rm -rf "$tmpdir"
+```
+
+Codex Web / ephemeral workspace smoke:
+
+```bash
+mkdir -p .tmp/allbert-smoke-home
+ALLBERT_HOME="$PWD/.tmp/allbert-smoke-home" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- daemon status
+rm -rf .tmp/allbert-smoke-home
+```
+
+These recipes are intentionally:
+- provider-free
+- safe against a real profile
+- compatible with the documented Tier A contributor posture
+
 ## Validation tiers
 
 ### Tier A — required

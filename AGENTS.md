@@ -42,6 +42,10 @@ Safe smoke checks should prefer:
 - fake-provider-backed tests already in the workspace
 - no dependence on live network or private credentials
 
+Preferred smoke shapes:
+- local shells: temp `ALLBERT_HOME` via `mktemp`
+- Codex-style ephemeral workspaces: workspace-local `.tmp/...` temp home
+
 ## Commits
 
 - Keep commits scoped to the milestone or doc pass when practical.
