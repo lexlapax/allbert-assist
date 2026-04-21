@@ -233,6 +233,9 @@ Approval inspection:
 
 - `allbert-cli approvals list`
 - `allbert-cli approvals show <approval-id>`
+- `allbert-cli heartbeat show`
+- `allbert-cli heartbeat edit`
+- `allbert-cli heartbeat suggest [--channel <kind>]`
 
 Jobs commands:
 
@@ -388,3 +391,8 @@ Telegram behaviour in v0.7:
 ## More detail
 
 See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the operator walkthrough, config examples, daemon lifecycle guidance, jobs workflow, curated-memory workflow, and troubleshooting.
+Inspect heartbeat cadence and validation warnings:
+
+```bash
+cargo run -p allbert-cli -- heartbeat show
+```

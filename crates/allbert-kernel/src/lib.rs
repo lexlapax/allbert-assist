@@ -5,6 +5,7 @@ pub mod config;
 pub mod cost;
 pub mod error;
 pub mod events;
+pub mod heartbeat;
 pub mod hooks;
 pub mod identity;
 pub mod intent;
@@ -37,6 +38,10 @@ pub use config::{
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
 pub use events::KernelEvent;
+pub use heartbeat::{
+    load_heartbeat_record, parse_heartbeat_markdown, validate_heartbeat_record, HeartbeatRecord,
+    HeartbeatValidation,
+};
 pub use hooks::{
     BootstrapContextHook, CostHook, Hook, HookCtx, HookOutcome, HookPoint, MemoryIndexHook,
 };
@@ -4732,6 +4737,7 @@ mod tests {
         assert!(system.contains("## IDENTITY.md"));
         assert!(system.contains("## TOOLS.md"));
         assert!(system.contains("## AGENTS.md"));
+        assert!(system.contains("## HEARTBEAT.md"));
         assert!(system.contains("## allbert/root"));
         assert!(system.contains("## BOOTSTRAP.md"));
 
