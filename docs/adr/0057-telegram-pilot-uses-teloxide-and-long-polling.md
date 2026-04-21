@@ -31,7 +31,7 @@ Long-polling is the v0.7 transport. Webhooks are documented as a valid future op
 
 - Long-polling needs no public URL, no TLS certificate, no reverse proxy. A user can run Telegram-flavoured Allbert on a laptop over a residential connection — matching the local-first posture.
 - grammY's documentation explicitly recommends long-polling for home-computer deployments; the same reasoning applies here.
-- Webhooks imply hosted deployment, which Allbert does not commit to through v0.9. Adding webhooks later is a configuration option, not a trait change.
+- Webhooks imply hosted deployment, which Allbert does not commit to through v0.10. Adding webhooks later is a configuration option, not a trait change.
 
 ### Session model: resume on any inbound message
 

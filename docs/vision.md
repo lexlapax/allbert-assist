@@ -94,7 +94,7 @@ End-user usability in v0.1 comes from guided setup for bootstrap identity and ex
 
 After that foundation is solid, the next step is not just "cron jobs." It is a daemon substrate plus lightweight internal services, especially an internal job manager that can run background and scheduled work without making OS cron the primary runtime mechanism.
 
-From there, the project grows along a sequenced path: agents and intent routing, then richer skills through AgentSkills adoption, then curated memory, then hardening around restart-durable sessions, cost caps, and operator-visible verification, then new channels, then continuity and sync across those channels, and only after that self-improvement skills for Allbert itself. That sequence — captured in [docs/plans/roadmap.md](plans/roadmap.md) — keeps each release useful on its own while unlocking the next.
+From there, the project grows along a sequenced path: agents and intent routing, then richer skills through AgentSkills adoption, then curated memory, then hardening around restart-durable sessions, cost caps, and operator-visible verification, then new channels, then continuity and sync across those channels, then a pinned contributor/development contract that makes the source tree reproducible on macOS, Linux, and Codex Web workspaces, and only after that self-improvement skills for Allbert itself. That sequence — captured in [docs/plans/roadmap.md](plans/roadmap.md) — keeps each release useful on its own while unlocking the next.
 
 Even as that happens, Allbert should remain local-first, compact, and understandable. It should not turn into a broad distributed microservice platform just to gain background execution.
 

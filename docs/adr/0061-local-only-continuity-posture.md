@@ -14,7 +14,7 @@ v0.8 promises "continuity across surfaces" without committing to a hosted sync b
 
 Through v0.7 these concerns were implicit: the paths exist, the writes are mostly atomic, but nothing in the documentation told an operator which directories to sync and which to leave alone. Accidental sync of `~/.allbert/index/` would thrash; accidental sync of `~/.allbert/secrets/` would exfiltrate; accidental cross-host daemons on the same profile would corrupt.
 
-v0.8 resolves the sync story without committing to a hosted backend. The daemon stays local-only through v0.9; this ADR codifies the posture.
+v0.8 resolves the sync story without committing to a hosted backend. The daemon stays local-only through v0.10; this ADR codifies the posture.
 
 ## Decision
 
@@ -54,7 +54,7 @@ Every file under `~/.allbert/` falls into exactly one category.
 
 | Path | Why device-local |
 | --- | --- |
-| `costs.jsonl` | Per-device accounting (ADR 0051); cap aggregation across devices is out of scope through v0.9. |
+| `costs.jsonl` | Per-device accounting (ADR 0051); cap aggregation across devices is out of scope through v0.10. |
 | `daemon.lock` | Describes the local daemon process; meaningless elsewhere. |
 
 ### Concurrency guard: `daemon.lock`
@@ -129,7 +129,7 @@ allbert-cli profile import <path.tgz> [--overlay | --replace] [--yes]
 
 ### Cross-device cost cap: per-device (documented limitation)
 
-`limits.daily_usd_cap` (ADR 0051) stays per-device in v0.8. Operators running the same profile on two devices get an aggregate cap of roughly 2× the configured value. This is documented; cross-device aggregation would require either a central counter or a file-sync-safe CRDT and is out of scope through v0.9 alongside the hosted sync backend.
+`limits.daily_usd_cap` (ADR 0051) stays per-device in v0.8. Operators running the same profile on two devices get an aggregate cap of roughly 2× the configured value. This is documented; cross-device aggregation would require either a central counter or a file-sync-safe CRDT and is out of scope through v0.10 alongside the hosted sync backend.
 
 ### Filesystem sync (Syncthing et al.)
 
@@ -155,7 +155,7 @@ No conflict-resolution protocol is shipped. The operator promises not to run two
 **Neutral**
 
 - Ground-truth layout is unchanged. Everything this ADR lists already exists; the contribution is catalog + lockfile + export/import + atomic-write audit.
-- Keeps the door open for a future hosted sync backend (beyond v0.9) without invalidating local-only deployments.
+- Keeps the door open for a future hosted sync backend (beyond v0.10) without invalidating local-only deployments.
 - Compatible with the network-addressable-daemon deferral. Local-only is the safe default; network access is an explicit future design pass.
 
 ## References
