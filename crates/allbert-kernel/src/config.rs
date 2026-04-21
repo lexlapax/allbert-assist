@@ -17,6 +17,8 @@ pub struct Config {
     #[serde(default)]
     pub channels: ChannelsConfig,
     #[serde(default)]
+    pub repl: ReplConfig,
+    #[serde(default)]
     pub jobs: JobsConfig,
     #[serde(default)]
     pub install: InstallConfig,
@@ -102,6 +104,20 @@ impl Default for SessionsConfig {
 pub struct ChannelsConfig {
     pub approval_timeout_s: u64,
     pub telegram: TelegramChannelConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct ReplConfig {
+    pub show_inbox_on_attach: bool,
+}
+
+impl Default for ReplConfig {
+    fn default() -> Self {
+        Self {
+            show_inbox_on_attach: true,
+        }
+    }
 }
 
 impl Default for ChannelsConfig {
@@ -368,6 +384,7 @@ impl Config {
             daemon: DaemonConfig::default(),
             sessions: SessionsConfig::default(),
             channels: ChannelsConfig::default(),
+            repl: ReplConfig::default(),
             jobs: JobsConfig::default(),
             install: InstallConfig::default(),
             intent_classifier: IntentClassifierConfig::default(),

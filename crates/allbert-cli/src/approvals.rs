@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use allbert_kernel::AllbertPaths;
@@ -27,6 +28,17 @@ pub struct ApprovalView {
     pub reply: Option<String>,
     pub rendered: String,
     pub path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InboxPendingSummary {
+    pub total_pending: usize,
+    pub by_kind: BTreeMap<String, usize>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct SessionMetaIdentity {
+    identity_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -151,6 +163,97 @@ fn load_all(paths: &AllbertPaths) -> Result<Vec<ApprovalView>> {
     }
 
     Ok(approvals)
+}
+
+pub fn pending_summary_for_identity(
+    paths: &AllbertPaths,
+    identity_id: &str,
+) -> Result<Option<InboxPendingSummary>> {
+    let approvals = load_all(paths)?;
+    let identity_by_session = session_identity_map(paths)?;
+    let mut by_kind = BTreeMap::new();
+    let mut total_pending = 0usize;
+    for approval in approvals {
+        if approval.status != "pending" {
+            continue;
+        }
+        if identity_by_session
+            .get(&approval.session_id)
+            .map(String::as_str)
+            != Some(identity_id)
+        {
+            continue;
+        }
+        total_pending += 1;
+        *by_kind.entry(approval.kind).or_insert(0) += 1;
+    }
+    if total_pending == 0 {
+        Ok(None)
+    } else {
+        Ok(Some(InboxPendingSummary {
+            total_pending,
+            by_kind,
+        }))
+    }
+}
+
+pub fn render_repl_attach_inbox_summary(summary: &InboxPendingSummary) -> String {
+    let mut segments = vec![format!(
+        "{} pending approval{}",
+        summary.total_pending,
+        if summary.total_pending == 1 { "" } else { "s" }
+    )];
+    for (kind, count) in summary
+        .by_kind
+        .iter()
+        .filter(|(kind, _)| *kind != "tool-approval")
+    {
+        let label = match kind.as_str() {
+            "cost-cap-override" => "cost-cap override",
+            "job-approval" => "job approval",
+            _ => kind,
+        };
+        segments.push(format!(
+            "{} {}{}",
+            count,
+            label,
+            if *count == 1 { "" } else { "s" }
+        ));
+    }
+    format!("{}, see allbert-cli inbox list", segments.join(", "))
+}
+
+fn session_identity_map(paths: &AllbertPaths) -> Result<BTreeMap<String, String>> {
+    let mut map = BTreeMap::new();
+    if !paths.sessions.exists() {
+        return Ok(map);
+    }
+    for session_entry in std::fs::read_dir(&paths.sessions)
+        .with_context(|| format!("read {}", paths.sessions.display()))?
+    {
+        let session_entry = session_entry?;
+        if !session_entry.file_type()?.is_dir() {
+            continue;
+        }
+        let session_name = session_entry.file_name().to_string_lossy().to_string();
+        if session_name.starts_with('.') {
+            continue;
+        }
+        let meta_path = session_entry.path().join("meta.json");
+        if !meta_path.exists() {
+            continue;
+        }
+        let raw =
+            std::fs::read(&meta_path).with_context(|| format!("read {}", meta_path.display()))?;
+        let parsed: SessionMetaIdentity = match serde_json::from_slice(&raw) {
+            Ok(parsed) => parsed,
+            Err(_) => continue,
+        };
+        if let Some(identity_id) = parsed.identity_id {
+            map.insert(session_name, identity_id);
+        }
+    }
+    Ok(map)
 }
 
 fn load_one(path: &Path) -> Result<ApprovalView> {
@@ -322,6 +425,49 @@ mod tests {
         assert!(rendered.contains("process_exec --flag"));
     }
 
+    #[test]
+    fn pending_summary_filters_to_identity() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should ensure");
+        write_session_meta(&paths, "session-a", Some("usr_a"));
+        write_session_meta(&paths, "session-b", Some("usr_b"));
+        write_approval(
+            &paths,
+            "session-a",
+            "appr_a",
+            "pending",
+            "2026-04-20T10:00:00Z",
+        );
+        write_approval(
+            &paths,
+            "session-b",
+            "appr_b",
+            "pending",
+            "2026-04-20T09:00:00Z",
+        );
+
+        let summary = pending_summary_for_identity(&paths, "usr_a")
+            .expect("summary should load")
+            .expect("summary should exist");
+        assert_eq!(summary.total_pending, 1);
+        assert_eq!(summary.by_kind.get("tool-approval"), Some(&1));
+    }
+
+    #[test]
+    fn repl_attach_summary_mentions_special_kinds() {
+        let mut summary = InboxPendingSummary {
+            total_pending: 3,
+            by_kind: BTreeMap::new(),
+        };
+        summary.by_kind.insert("tool-approval".into(), 2);
+        summary.by_kind.insert("cost-cap-override".into(), 1);
+        let rendered = render_repl_attach_inbox_summary(&summary);
+        assert!(rendered.contains("3 pending approvals"));
+        assert!(rendered.contains("1 cost-cap override"));
+        assert!(rendered.contains("see allbert-cli inbox list"));
+    }
+
     fn write_approval(
         paths: &AllbertPaths,
         session_id: &str,
@@ -336,5 +482,17 @@ mod tests {
         );
         std::fs::write(dir.join(format!("{approval_id}.md")), content)
             .expect("approval file should write");
+    }
+
+    fn write_session_meta(paths: &AllbertPaths, session_id: &str, identity_id: Option<&str>) {
+        let dir = paths.sessions.join(session_id);
+        std::fs::create_dir_all(&dir).expect("session dir should create");
+        let content = match identity_id {
+            Some(identity_id) => {
+                format!("{{\"identity_id\":\"{identity_id}\"}}")
+            }
+            None => "{\"identity_id\":null}".to_string(),
+        };
+        std::fs::write(dir.join("meta.json"), content).expect("meta should write");
     }
 }

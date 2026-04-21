@@ -1309,6 +1309,7 @@ async fn run_repl(paths: &AllbertPaths, config: &Config, trace: bool, yes: bool)
 
     let mut client = connect_for_use(paths, config, ClientKind::Repl).await?;
     let attached = client.attach(ChannelKind::Repl, None).await?;
+    maybe_print_repl_inbox_attach_summary(paths, config, &attached.session_id)?;
     if trace {
         client.set_trace(true).await?;
     }
@@ -1323,6 +1324,27 @@ async fn run_repl(paths: &AllbertPaths, config: &Config, trace: bool, yes: bool)
         handle.abort();
     }
     result
+}
+
+fn maybe_print_repl_inbox_attach_summary(
+    paths: &AllbertPaths,
+    config: &Config,
+    session_id: &str,
+) -> Result<()> {
+    if !config.repl.show_inbox_on_attach {
+        return Ok(());
+    }
+    let session_meta = match load_session_meta(paths, session_id) {
+        Ok(meta) => meta,
+        Err(_) => return Ok(()),
+    };
+    let Some(identity_id) = session_meta.identity_id else {
+        return Ok(());
+    };
+    if let Some(summary) = approvals::pending_summary_for_identity(paths, &identity_id)? {
+        println!("{}", approvals::render_repl_attach_inbox_summary(&summary));
+    }
+    Ok(())
 }
 
 async fn run_daemon_command(
