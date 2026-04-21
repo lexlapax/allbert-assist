@@ -25,10 +25,31 @@ pub struct ToolOutput {
     pub ok: bool,
 }
 
-pub struct ToolCtx {
+#[async_trait]
+pub trait ToolRuntime: Send {
+    fn read_memory(&mut self, input: Value) -> ToolOutput;
+    fn write_memory(&mut self, input: Value) -> ToolOutput;
+    fn search_memory(&mut self, input: Value) -> ToolOutput;
+    async fn stage_memory(&mut self, input: Value) -> ToolOutput;
+    fn list_staged_memory(&mut self, input: Value) -> ToolOutput;
+    async fn promote_staged_memory(&mut self, input: Value) -> ToolOutput;
+    fn reject_staged_memory(&mut self, input: Value) -> ToolOutput;
+    async fn forget_memory(&mut self, input: Value) -> ToolOutput;
+
+    fn list_skills(&mut self, input: Value) -> ToolOutput;
+    fn invoke_skill(&mut self, input: Value) -> ToolOutput;
+    fn read_reference(&mut self, input: Value) -> ToolOutput;
+    async fn run_skill_script(&mut self, input: Value) -> ToolOutput;
+    fn create_skill(&mut self, input: Value) -> ToolOutput;
+
+    async fn spawn_subagent(&mut self, input: Value) -> ToolOutput;
+}
+
+pub struct ToolCtx<'a> {
     pub input: Arc<dyn InputPrompter>,
     pub security: SecurityConfig,
     pub web_client: reqwest::Client,
+    pub runtime: &'a mut dyn ToolRuntime,
 }
 
 #[async_trait]
@@ -36,7 +57,7 @@ pub trait Tool: Send + Sync {
     fn name(&self) -> &'static str;
     fn description(&self) -> &'static str;
     fn schema(&self) -> Value;
-    async fn call(&self, input: Value, ctx: &ToolCtx) -> Result<ToolOutput, ToolError>;
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError>;
 }
 
 #[derive(Default)]
@@ -53,6 +74,20 @@ impl ToolRegistry {
         registry.register(RequestInputTool);
         registry.register(WebSearchTool);
         registry.register(FetchUrlTool);
+        registry.register(ReadMemoryTool);
+        registry.register(WriteMemoryTool);
+        registry.register(SearchMemoryTool);
+        registry.register(StageMemoryTool);
+        registry.register(ListStagedMemoryTool);
+        registry.register(PromoteStagedMemoryTool);
+        registry.register(RejectStagedMemoryTool);
+        registry.register(ForgetMemoryTool);
+        registry.register(ListSkillsTool);
+        registry.register(InvokeSkillTool);
+        registry.register(ReadReferenceTool);
+        registry.register(RunSkillScriptTool);
+        registry.register(CreateSkillTool);
+        registry.register(SpawnSubagentTool);
         registry
     }
 
@@ -83,10 +118,14 @@ impl ToolRegistry {
         catalog.trim_end().to_string()
     }
 
+    pub fn lookup(&self, name: &str) -> Option<Arc<dyn Tool>> {
+        self.by_name.get(name).cloned()
+    }
+
     pub async fn dispatch(
         &self,
         invocation: ToolInvocation,
-        ctx: &ToolCtx,
+        ctx: &mut ToolCtx<'_>,
     ) -> Result<ToolOutput, ToolError> {
         let tool = self
             .by_name
@@ -132,7 +171,7 @@ impl Tool for ProcessExecTool {
         })
     }
 
-    async fn call(&self, input: Value, _ctx: &ToolCtx) -> Result<ToolOutput, ToolError> {
+    async fn call(&self, input: Value, _ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
         let parsed: ProcessExecInput =
             serde_json::from_value(input).map_err(|err| ToolError::Dispatch(err.to_string()))?;
         let mut command = Command::new(&parsed.program);
@@ -215,7 +254,7 @@ impl Tool for ReadFileTool {
         })
     }
 
-    async fn call(&self, input: Value, ctx: &ToolCtx) -> Result<ToolOutput, ToolError> {
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
         let parsed: ReadFileInput =
             serde_json::from_value(input).map_err(|err| ToolError::Dispatch(err.to_string()))?;
         let path = sandbox::check(Path::new(&parsed.path), &ctx.security.fs_roots)
@@ -264,7 +303,7 @@ impl Tool for WriteFileTool {
         })
     }
 
-    async fn call(&self, input: Value, ctx: &ToolCtx) -> Result<ToolOutput, ToolError> {
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
         let parsed: WriteFileInput =
             serde_json::from_value(input).map_err(|err| ToolError::Dispatch(err.to_string()))?;
         let target = sandbox::check_write_target(Path::new(&parsed.path), &ctx.security.fs_roots)
@@ -322,7 +361,7 @@ impl Tool for RequestInputTool {
         })
     }
 
-    async fn call(&self, input: Value, ctx: &ToolCtx) -> Result<ToolOutput, ToolError> {
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
         let parsed: RequestInputToolInput =
             serde_json::from_value(input).map_err(|err| ToolError::Dispatch(err.to_string()))?;
         let response = ctx
@@ -373,7 +412,7 @@ impl Tool for WebSearchTool {
         })
     }
 
-    async fn call(&self, input: Value, ctx: &ToolCtx) -> Result<ToolOutput, ToolError> {
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
         let parsed: WebSearchInput =
             serde_json::from_value(input).map_err(|err| ToolError::Dispatch(err.to_string()))?;
         let mut url = reqwest::Url::parse("https://html.duckduckgo.com/html/")
@@ -438,7 +477,7 @@ impl Tool for FetchUrlTool {
         })
     }
 
-    async fn call(&self, input: Value, ctx: &ToolCtx) -> Result<ToolOutput, ToolError> {
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
         let parsed: FetchUrlInput =
             serde_json::from_value(input).map_err(|err| ToolError::Dispatch(err.to_string()))?;
         let response = ctx
@@ -464,6 +503,405 @@ impl Tool for FetchUrlTool {
             content: strip_html(&body),
             ok: true,
         })
+    }
+}
+
+struct ReadMemoryTool;
+
+#[async_trait]
+impl Tool for ReadMemoryTool {
+    fn name(&self) -> &'static str {
+        "read_memory"
+    }
+
+    fn description(&self) -> &'static str {
+        "Read a memory file relative to ~/.allbert/memory"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+                "path": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.read_memory(input))
+    }
+}
+
+struct WriteMemoryTool;
+
+#[async_trait]
+impl Tool for WriteMemoryTool {
+    fn name(&self) -> &'static str {
+        "write_memory"
+    }
+
+    fn description(&self) -> &'static str {
+        "Write, append, or daily-append memory content"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["content", "mode"],
+            "properties": {
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+                "mode": {"enum": ["write", "append", "daily"]},
+                "summary": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.write_memory(input))
+    }
+}
+
+struct SearchMemoryTool;
+
+#[async_trait]
+impl Tool for SearchMemoryTool {
+    fn name(&self) -> &'static str {
+        "search_memory"
+    }
+
+    fn description(&self) -> &'static str {
+        "Search curated memory by query with optional tier filtering"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string"},
+                "tier": {"enum": ["durable", "staging", "all"]},
+                "limit": {"type": "integer", "minimum": 1}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.search_memory(input))
+    }
+}
+
+struct StageMemoryTool;
+
+#[async_trait]
+impl Tool for StageMemoryTool {
+    fn name(&self) -> &'static str {
+        "stage_memory"
+    }
+
+    fn description(&self) -> &'static str {
+        "Stage candidate durable memory for later operator review"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["content", "kind", "summary"],
+            "properties": {
+                "content": {"type": "string"},
+                "kind": {"enum": ["explicit_request", "learned_fact", "job_summary", "subagent_result", "curator_extraction"]},
+                "summary": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "provenance": {}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.stage_memory(input).await)
+    }
+}
+
+struct ListStagedMemoryTool;
+
+#[async_trait]
+impl Tool for ListStagedMemoryTool {
+    fn name(&self) -> &'static str {
+        "list_staged_memory"
+    }
+
+    fn description(&self) -> &'static str {
+        "List staged memory entries awaiting review"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string"},
+                "limit": {"type": "integer", "minimum": 1}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.list_staged_memory(input))
+    }
+}
+
+struct PromoteStagedMemoryTool;
+
+#[async_trait]
+impl Tool for PromoteStagedMemoryTool {
+    fn name(&self) -> &'static str {
+        "promote_staged_memory"
+    }
+
+    fn description(&self) -> &'static str {
+        "Promote one staged entry into durable memory after confirmation"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+                "id": {"type": "string"},
+                "path": {"type": "string"},
+                "summary": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.promote_staged_memory(input).await)
+    }
+}
+
+struct RejectStagedMemoryTool;
+
+#[async_trait]
+impl Tool for RejectStagedMemoryTool {
+    fn name(&self) -> &'static str {
+        "reject_staged_memory"
+    }
+
+    fn description(&self) -> &'static str {
+        "Reject one staged entry and move it into the rejection audit queue"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+                "id": {"type": "string"},
+                "reason": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.reject_staged_memory(input))
+    }
+}
+
+struct ForgetMemoryTool;
+
+#[async_trait]
+impl Tool for ForgetMemoryTool {
+    fn name(&self) -> &'static str {
+        "forget_memory"
+    }
+
+    fn description(&self) -> &'static str {
+        "Forget matching durable memory after confirmation"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["target"],
+            "properties": {
+                "target": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.forget_memory(input).await)
+    }
+}
+
+struct ListSkillsTool;
+
+#[async_trait]
+impl Tool for ListSkillsTool {
+    fn name(&self) -> &'static str {
+        "list_skills"
+    }
+
+    fn description(&self) -> &'static str {
+        "List installed skills and their descriptions"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {}
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.list_skills(input))
+    }
+}
+
+struct InvokeSkillTool;
+
+#[async_trait]
+impl Tool for InvokeSkillTool {
+    fn name(&self) -> &'static str {
+        "invoke_skill"
+    }
+
+    fn description(&self) -> &'static str {
+        "Activate a skill for this session, optionally with JSON args"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+                "name": {"type": "string"},
+                "args": {"type": "object"}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.invoke_skill(input))
+    }
+}
+
+struct ReadReferenceTool;
+
+#[async_trait]
+impl Tool for ReadReferenceTool {
+    fn name(&self) -> &'static str {
+        "read_reference"
+    }
+
+    fn description(&self) -> &'static str {
+        "Read an installed skill resource under references/ or assets/ on demand"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["skill", "path"],
+            "properties": {
+                "skill": {"type": "string"},
+                "path": {"type": "string"},
+                "max_bytes": {"type": "integer", "minimum": 1}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.read_reference(input))
+    }
+}
+
+struct RunSkillScriptTool;
+
+#[async_trait]
+impl Tool for RunSkillScriptTool {
+    fn name(&self) -> &'static str {
+        "run_skill_script"
+    }
+
+    fn description(&self) -> &'static str {
+        "Run a declared script from an active skill using its configured interpreter"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["skill", "script"],
+            "properties": {
+                "skill": {"type": "string"},
+                "script": {"type": "string"},
+                "args": {"type": "array", "items": {"type": "string"}},
+                "timeout_s": {"type": "integer", "minimum": 1}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.run_skill_script(input).await)
+    }
+}
+
+struct CreateSkillTool;
+
+#[async_trait]
+impl Tool for CreateSkillTool {
+    fn name(&self) -> &'static str {
+        "create_skill"
+    }
+
+    fn description(&self) -> &'static str {
+        "Create a skill under ~/.allbert/skills/installed/<name>/SKILL.md"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["name", "description", "allowed_tools", "body"],
+            "properties": {
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "allowed_tools": {"type": "array", "items": {"type": "string"}},
+                "body": {"type": "string"}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.create_skill(input))
+    }
+}
+
+struct SpawnSubagentTool;
+
+#[async_trait]
+impl Tool for SpawnSubagentTool {
+    fn name(&self) -> &'static str {
+        "spawn_subagent"
+    }
+
+    fn description(&self) -> &'static str {
+        "Run a bounded sub-agent with a fresh message history inside the current session"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["name", "prompt"],
+            "properties": {
+                "name": {"type": "string"},
+                "prompt": {"type": "string"},
+                "context": {},
+                "memory_hints": {"type": "array", "items": {"type": "string"}}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.spawn_subagent(input).await)
     }
 }
 

@@ -1401,9 +1401,7 @@ fn disconnected_adapter() -> FrontendAdapter {
     }
 }
 
-fn channel_adapter(
-    channel: Arc<LocalIpcChannel>,
-) -> FrontendAdapter {
+fn channel_adapter(channel: Arc<LocalIpcChannel>) -> FrontendAdapter {
     let channel_for_events = channel.clone();
     FrontendAdapter {
         on_event: Box::new(move |event: &KernelEvent| {
@@ -1455,9 +1453,9 @@ impl LocalIpcChannel {
 
     fn emit_kernel_event(&self, event: &KernelEvent) -> Result<(), ChannelError> {
         self.outbound
-            .send(OutboundMessage::Event(ServerMessage::Event(map_kernel_event(
-                event,
-            ))))
+            .send(OutboundMessage::Event(ServerMessage::Event(
+                map_kernel_event(event),
+            )))
             .map_err(|_| ChannelError::Disconnected)
     }
 }

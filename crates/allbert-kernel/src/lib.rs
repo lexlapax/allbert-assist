@@ -48,7 +48,7 @@ pub use security::SecurityHook;
 pub use skills::{
     ActiveSkill, ContributedAgent, CreateSkillInput, InvokeSkillInput, Skill, SkillStore,
 };
-pub use tools::{ProcessExecInput, ToolCtx, ToolInvocation, ToolOutput, ToolRegistry};
+pub use tools::{ProcessExecInput, ToolCtx, ToolInvocation, ToolOutput, ToolRegistry, ToolRuntime};
 pub use trace::TraceHandles;
 
 use hooks::HookRegistry;
@@ -141,6 +141,11 @@ struct RejectStagedMemoryInput {
     reason: Option<String>,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+struct ForgetMemoryInput {
+    target: String,
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 struct SpawnSubagentResult {
     agent_name: String,
@@ -153,12 +158,6 @@ struct SpawnSubagentResult {
 struct AgentRunSummary {
     hit_turn_limit: bool,
     assistant_text: Option<String>,
-}
-
-struct EffectiveToolCall {
-    display_name: String,
-    display_input: serde_json::Value,
-    execution: ToolInvocation,
 }
 
 pub struct Kernel {
@@ -177,6 +176,81 @@ pub struct Kernel {
     pending_turn_cost_override_reason: Option<String>,
     #[allow(dead_code)]
     trace: TraceHandles,
+}
+
+struct KernelToolRuntime<'a> {
+    kernel: &'a mut Kernel,
+    state: &'a mut AgentState,
+    parent_agent_name: Option<String>,
+}
+
+#[async_trait::async_trait]
+impl ToolRuntime for KernelToolRuntime<'_> {
+    fn read_memory(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_read_memory(input)
+    }
+
+    fn write_memory(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_write_memory(input)
+    }
+
+    fn search_memory(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_search_memory(input)
+    }
+
+    async fn stage_memory(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel
+            .dispatch_stage_memory(self.state, self.parent_agent_name.clone(), input)
+            .await
+    }
+
+    fn list_staged_memory(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_list_staged_memory(input)
+    }
+
+    async fn promote_staged_memory(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel
+            .dispatch_promote_staged_memory(self.state, self.parent_agent_name.clone(), input)
+            .await
+    }
+
+    fn reject_staged_memory(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_reject_staged_memory(input)
+    }
+
+    async fn forget_memory(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel
+            .dispatch_forget_memory(self.state, self.parent_agent_name.clone(), input)
+            .await
+    }
+
+    fn list_skills(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_list_skills(input)
+    }
+
+    fn invoke_skill(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_invoke_skill(self.state, input)
+    }
+
+    fn read_reference(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_read_reference(self.state, input)
+    }
+
+    async fn run_skill_script(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel
+            .dispatch_run_skill_script(self.state, input)
+            .await
+    }
+
+    fn create_skill(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_create_skill(input)
+    }
+
+    async fn spawn_subagent(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel
+            .dispatch_spawn_subagent(self.state, self.parent_agent_name.clone(), input)
+            .await
+    }
 }
 
 impl Kernel {
@@ -495,33 +569,6 @@ impl Kernel {
             }
 
             for invocation in tool_calls {
-                let effective_invocation = match self.normalize_tool_invocation(state, &invocation)
-                {
-                    Ok(effective) => effective,
-                    Err(content) => {
-                        tool_calls_used += 1;
-                        if emit_terminal_events {
-                            (self.adapter.on_event)(&KernelEvent::ToolCall {
-                                name: invocation.name.clone(),
-                                input: invocation.input.clone(),
-                            });
-                            (self.adapter.on_event)(&KernelEvent::ToolResult {
-                                name: invocation.name.clone(),
-                                ok: false,
-                                content: content.clone(),
-                            });
-                        }
-                        state.messages.push(ChatMessage {
-                            role: ChatRole::User,
-                            content: format!(
-                                "Tool result for {} (ok=false):\n{}",
-                                invocation.name, content
-                            ),
-                        });
-                        continue;
-                    }
-                };
-
                 if tool_calls_used >= self.config.limits.max_tool_calls_per_turn as usize {
                     let content = "tool call budget exhausted".to_string();
                     state.messages.push(ChatMessage {
@@ -557,8 +604,8 @@ impl Kernel {
                 tool_calls_used += 1;
                 if emit_terminal_events {
                     (self.adapter.on_event)(&KernelEvent::ToolCall {
-                        name: effective_invocation.display_name.clone(),
-                        input: effective_invocation.display_input.clone(),
+                        name: invocation.name.clone(),
+                        input: invocation.input.clone(),
                     });
                 }
 
@@ -566,7 +613,7 @@ impl Kernel {
                     session = %state.session_id,
                     agent = %state.agent_name(),
                     parent_agent = ?parent_agent_name,
-                    tool = %effective_invocation.display_name,
+                    tool = %invocation.name,
                     "dispatch tool"
                 );
 
@@ -574,7 +621,7 @@ impl Kernel {
                     &state.session_id,
                     state.agent_name(),
                     parent_agent_name.clone(),
-                    effective_invocation.execution.clone(),
+                    invocation.clone(),
                     combined_allowed_tools(
                         self.skills.allowed_tool_union(&state.active_skills),
                         state.allowed_tools.clone(),
@@ -590,7 +637,7 @@ impl Kernel {
                         self.dispatch_tool_for_state(
                             state,
                             parent_agent_name.clone(),
-                            effective_invocation.execution.clone(),
+                            invocation.clone(),
                         )
                         .await
                     }
@@ -604,7 +651,7 @@ impl Kernel {
                     &state.session_id,
                     state.agent_name(),
                     parent_agent_name.clone(),
-                    effective_invocation.execution.clone(),
+                    invocation.clone(),
                     combined_allowed_tools(
                         self.skills.allowed_tool_union(&state.active_skills),
                         state.allowed_tools.clone(),
@@ -657,7 +704,7 @@ impl Kernel {
 
                 if emit_terminal_events {
                     (self.adapter.on_event)(&KernelEvent::ToolResult {
-                        name: effective_invocation.display_name.clone(),
+                        name: invocation.name.clone(),
                         ok: tool_output.ok,
                         content: content.clone(),
                     });
@@ -667,13 +714,13 @@ impl Kernel {
                     role: ChatRole::User,
                     content: format!(
                         "Tool result for {} (ok={}):\n{}",
-                        effective_invocation.display_name, tool_output.ok, content
+                        invocation.name, tool_output.ok, content
                     ),
                 });
                 state.append_ephemeral_note(
                     format!(
                         "Tool {} (ok={}): {}",
-                        effective_invocation.display_name,
+                        invocation.name,
                         tool_output.ok,
                         truncate_to_bytes(&content, 512)
                     ),
@@ -682,7 +729,7 @@ impl Kernel {
                 self.maybe_schedule_memory_refresh(
                     state,
                     resolved_intent.as_ref(),
-                    &effective_invocation.display_name,
+                    &invocation.name,
                     &content,
                     tool_output.ok,
                 );
@@ -1378,19 +1425,6 @@ Available tools:\n",
         }
 
         prompt.push_str(&self.tools.prompt_catalog());
-        prompt.push_str("\n- read_memory: Read a memory file relative to ~/.allbert/memory.\n  schema: {\"type\":\"object\",\"required\":[\"path\"],\"properties\":{\"path\":{\"type\":\"string\"}}}\n");
-        prompt.push_str("\n- write_memory: Write, append, or daily-append memory content.\n  schema: {\"type\":\"object\",\"required\":[\"content\",\"mode\"],\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"mode\":{\"enum\":[\"write\",\"append\",\"daily\"]},\"summary\":{\"type\":\"string\"}}}\n");
-        prompt.push_str("\n- search_memory: Search curated memory by query with optional tier filtering.\n  schema: {\"type\":\"object\",\"required\":[\"query\"],\"properties\":{\"query\":{\"type\":\"string\"},\"tier\":{\"enum\":[\"durable\",\"staging\",\"all\"]},\"limit\":{\"type\":\"integer\",\"minimum\":1}}}\n");
-        prompt.push_str("\n- stage_memory: Stage candidate durable memory for later operator review.\n  schema: {\"type\":\"object\",\"required\":[\"content\",\"kind\",\"summary\"],\"properties\":{\"content\":{\"type\":\"string\"},\"kind\":{\"enum\":[\"explicit_request\",\"learned_fact\",\"job_summary\",\"subagent_result\",\"curator_extraction\"]},\"summary\":{\"type\":\"string\"},\"tags\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"provenance\":{}}}\n");
-        prompt.push_str("\n- list_staged_memory: List staged memory entries awaiting review.\n  schema: {\"type\":\"object\",\"properties\":{\"kind\":{\"type\":\"string\"},\"limit\":{\"type\":\"integer\",\"minimum\":1}}}\n");
-        prompt.push_str("\n- promote_staged_memory: Promote one staged entry into durable memory after confirmation.\n  schema: {\"type\":\"object\",\"required\":[\"id\"],\"properties\":{\"id\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"summary\":{\"type\":\"string\"}}}\n");
-        prompt.push_str("\n- reject_staged_memory: Reject one staged entry and move it into the rejection audit queue.\n  schema: {\"type\":\"object\",\"required\":[\"id\"],\"properties\":{\"id\":{\"type\":\"string\"},\"reason\":{\"type\":\"string\"}}}\n");
-        prompt.push_str("\n- list_skills: List installed skills and their descriptions.\n  schema: {\"type\":\"object\",\"properties\":{}}\n");
-        prompt.push_str("\n- invoke_skill: Activate a skill for this session, optionally with JSON args.\n  schema: {\"type\":\"object\",\"required\":[\"name\"],\"properties\":{\"name\":{\"type\":\"string\"},\"args\":{\"type\":\"object\"}}}\n");
-        prompt.push_str("\n- read_reference: Read an installed skill resource under references/ or assets/ on demand.\n  schema: {\"type\":\"object\",\"required\":[\"skill\",\"path\"],\"properties\":{\"skill\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"max_bytes\":{\"type\":\"integer\",\"minimum\":1}}}\n");
-        prompt.push_str("\n- run_skill_script: Run a declared script from an active skill using its configured interpreter.\n  schema: {\"type\":\"object\",\"required\":[\"skill\",\"script\"],\"properties\":{\"skill\":{\"type\":\"string\"},\"script\":{\"type\":\"string\"},\"args\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"timeout_s\":{\"type\":\"integer\",\"minimum\":1}}}\n");
-        prompt.push_str("\n- create_skill: Create a skill under ~/.allbert/skills/installed/<name>/SKILL.md.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"description\",\"allowed_tools\",\"body\"],\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"allowed_tools\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"body\":{\"type\":\"string\"}}}\n");
-        prompt.push_str("\n- spawn_subagent: Run a bounded sub-agent with a fresh message history inside the current session.\n  schema: {\"type\":\"object\",\"required\":[\"name\",\"prompt\"],\"properties\":{\"name\":{\"type\":\"string\"},\"prompt\":{\"type\":\"string\"},\"context\":{},\"memory_hints\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}\n");
         if self.job_manager.is_some() {
             prompt.push_str(
                 "\nWhen the user asks for recurring or scheduled work, use the daemon-backed job tools instead of generic file edits or subprocesses.\n\
@@ -1457,35 +1491,6 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         invocation: ToolInvocation,
     ) -> ToolOutput {
         match invocation.name.as_str() {
-            "read_memory" => self.dispatch_read_memory(invocation.input),
-            "write_memory" => self.dispatch_write_memory(invocation.input),
-            "search_memory" => self.dispatch_search_memory(invocation.input),
-            "stage_memory" => {
-                self.dispatch_stage_memory(state, parent_agent_name.clone(), invocation.input)
-                    .await
-            }
-            "list_staged_memory" => self.dispatch_list_staged_memory(invocation.input),
-            "promote_staged_memory" => {
-                self.dispatch_promote_staged_memory(
-                    state,
-                    parent_agent_name.clone(),
-                    invocation.input,
-                )
-                .await
-            }
-            "reject_staged_memory" => self.dispatch_reject_staged_memory(invocation.input),
-            "list_skills" => ToolOutput {
-                content: self.skills.manifest_prompt(),
-                ok: true,
-            },
-            "invoke_skill" => self.dispatch_invoke_skill(state, invocation.input),
-            "read_reference" => self.dispatch_read_reference(state, invocation.input),
-            "run_skill_script" => self.dispatch_run_skill_script(state, invocation.input),
-            "create_skill" => self.dispatch_create_skill(invocation.input),
-            "spawn_subagent" => {
-                self.dispatch_spawn_subagent(state, parent_agent_name, invocation.input)
-                    .await
-            }
             "list_jobs" => self.dispatch_list_jobs().await,
             "get_job" => self.dispatch_get_job(invocation.input).await,
             "upsert_job" => self.dispatch_upsert_job(invocation.input).await,
@@ -1495,12 +1500,24 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             "remove_job" => self.dispatch_remove_job(invocation.input).await,
             "list_job_runs" => self.dispatch_list_job_runs(invocation.input).await,
             _ => {
-                let ctx = ToolCtx {
-                    input: self.adapter.input.clone(),
-                    security: self.config.security.clone(),
-                    web_client: reqwest::Client::new(),
+                let Some(tool) = self.tools.lookup(&invocation.name) else {
+                    return ToolOutput {
+                        content: ToolError::NotFound(invocation.name).to_string(),
+                        ok: false,
+                    };
                 };
-                match self.tools.dispatch(invocation, &ctx).await {
+                let mut runtime = KernelToolRuntime {
+                    kernel: self,
+                    state,
+                    parent_agent_name,
+                };
+                let mut ctx = ToolCtx {
+                    input: runtime.kernel.adapter.input.clone(),
+                    security: runtime.kernel.config.security.clone(),
+                    web_client: reqwest::Client::new(),
+                    runtime: &mut runtime,
+                };
+                match tool.call(invocation.input, &mut ctx).await {
                     Ok(output) => output,
                     Err(err) => ToolOutput {
                         content: err.to_string(),
@@ -1508,6 +1525,13 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                     },
                 }
             }
+        }
+    }
+
+    fn dispatch_list_skills(&mut self, _input: serde_json::Value) -> ToolOutput {
+        ToolOutput {
+            content: self.skills.manifest_prompt(),
+            ok: true,
         }
     }
 
@@ -1599,49 +1623,44 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         }
     }
 
-    fn dispatch_run_skill_script(
+    async fn dispatch_run_skill_script(
         &mut self,
-        _state: &mut AgentState,
-        _input: serde_json::Value,
+        state: &mut AgentState,
+        input: serde_json::Value,
     ) -> ToolOutput {
-        ToolOutput {
-            content: "run_skill_script should be normalized into process_exec before dispatch"
-                .into(),
-            ok: false,
-        }
-    }
-
-    fn normalize_tool_invocation(
-        &self,
-        state: &AgentState,
-        invocation: &ToolInvocation,
-    ) -> Result<EffectiveToolCall, String> {
-        if invocation.name != "run_skill_script" {
-            return Ok(EffectiveToolCall {
-                display_name: invocation.name.clone(),
-                display_input: invocation.input.clone(),
-                execution: invocation.clone(),
-            });
-        }
-
-        let parsed = serde_json::from_value::<RunSkillScriptInput>(invocation.input.clone())
-            .map_err(|err| format!("invalid run_skill_script input: {err}"))?;
+        let parsed = match serde_json::from_value::<RunSkillScriptInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid run_skill_script input: {err}"),
+                    ok: false,
+                }
+            }
+        };
 
         if !state
             .active_skills
             .iter()
             .any(|active| active.name == parsed.skill)
         {
-            return Err(format!(
-                "skill '{}' must be active before its scripts can run",
-                parsed.skill
-            ));
+            return ToolOutput {
+                content: format!(
+                    "skill '{}' must be active before its scripts can run",
+                    parsed.skill
+                ),
+                ok: false,
+            };
         }
 
-        let resolved = self
-            .skills
-            .resolve_script(&parsed.skill, &parsed.script)
-            .map_err(|err| err.to_string())?;
+        let resolved = match self.skills.resolve_script(&parsed.skill, &parsed.script) {
+            Ok(resolved) => resolved,
+            Err(err) => {
+                return ToolOutput {
+                    content: err.to_string(),
+                    ok: false,
+                }
+            }
+        };
 
         if self
             .config
@@ -1650,10 +1669,13 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             .iter()
             .any(|value| value == &resolved.interpreter)
         {
-            return Err(format!(
-                "interpreter '{}' is hard-blocked by config.security.exec_deny",
-                resolved.interpreter
-            ));
+            return ToolOutput {
+                content: format!(
+                    "interpreter '{}' is hard-blocked by config.security.exec_deny",
+                    resolved.interpreter
+                ),
+                ok: false,
+            };
         }
         if !self
             .config
@@ -1662,10 +1684,13 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             .iter()
             .any(|value| value == &resolved.interpreter)
         {
-            return Err(format!(
-                "interpreter '{}' is not allowlisted; add it to config.security.exec_allow",
-                resolved.interpreter
-            ));
+            return ToolOutput {
+                content: format!(
+                    "interpreter '{}' is not allowlisted; add it to config.security.exec_allow",
+                    resolved.interpreter
+                ),
+                ok: false,
+            };
         }
 
         let mut args = vec![resolved.path.display().to_string()];
@@ -1681,14 +1706,35 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             "script_path": resolved.path.display().to_string(),
         });
 
-        Ok(EffectiveToolCall {
-            display_name: invocation.name.clone(),
-            display_input: invocation.input.clone(),
-            execution: ToolInvocation {
-                name: "process_exec".into(),
-                input: execution_input,
+        let process_tool = match self.tools.lookup("process_exec") {
+            Some(tool) => tool,
+            None => {
+                return ToolOutput {
+                    content: "process_exec tool is not registered".into(),
+                    ok: false,
+                }
+            }
+        };
+
+        let mut null_runtime = KernelToolRuntime {
+            kernel: self,
+            state,
+            parent_agent_name: None,
+        };
+        let mut ctx = ToolCtx {
+            input: null_runtime.kernel.adapter.input.clone(),
+            security: null_runtime.kernel.config.security.clone(),
+            web_client: reqwest::Client::new(),
+            runtime: &mut null_runtime,
+        };
+
+        match process_tool.call(execution_input, &mut ctx).await {
+            Ok(output) => output,
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
             },
-        })
+        }
     }
 
     async fn dispatch_spawn_subagent(
@@ -2196,6 +2242,107 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 content: err.to_string(),
                 ok: false,
             },
+        }
+    }
+
+    async fn dispatch_forget_memory(
+        &mut self,
+        state: &mut AgentState,
+        parent_agent_name: Option<String>,
+        input: serde_json::Value,
+    ) -> ToolOutput {
+        let parsed = match serde_json::from_value::<ForgetMemoryInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid forget_memory input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        let preview =
+            match memory::preview_forget_memory(&self.paths, &self.config.memory, &parsed.target) {
+                Ok(preview) => preview,
+                Err(err) => {
+                    return ToolOutput {
+                        content: err.to_string(),
+                        ok: false,
+                    }
+                }
+            };
+
+        let mut before_ctx = HookCtx::memory_event(
+            &state.session_id,
+            state.agent_name(),
+            parent_agent_name.clone(),
+            json!({ "target": parsed.target }),
+            false,
+        );
+        before_ctx.intent = state.last_resolved_intent.clone();
+        match self
+            .hooks
+            .run(HookPoint::BeforeMemoryForget, &mut before_ctx)
+            .await
+        {
+            HookOutcome::Continue => {}
+            HookOutcome::Abort(message) => {
+                return ToolOutput {
+                    content: message,
+                    ok: false,
+                }
+            }
+        }
+
+        match self
+            .adapter
+            .confirm
+            .confirm(ConfirmRequest {
+                program: "forget_memory".into(),
+                args: vec![parsed.target.clone()],
+                cwd: None,
+                rendered: preview.rendered.clone(),
+            })
+            .await
+        {
+            ConfirmDecision::Deny => ToolOutput {
+                content: "forget_memory denied by user".into(),
+                ok: false,
+            },
+            ConfirmDecision::AllowOnce | ConfirmDecision::AllowSession => {
+                match memory::forget_memory(&self.paths, &self.config.memory, &preview) {
+                    Ok(forgotten) => {
+                        let mut after_ctx = HookCtx::memory_event(
+                            &state.session_id,
+                            state.agent_name(),
+                            parent_agent_name,
+                            json!({
+                                "target": parsed.target,
+                                "forgotten": forgotten,
+                            }),
+                            false,
+                        );
+                        after_ctx.intent = state.last_resolved_intent.clone();
+                        match self
+                            .hooks
+                            .run(HookPoint::AfterMemoryForget, &mut after_ctx)
+                            .await
+                        {
+                            HookOutcome::Continue => serialize_tool_value(&json!({
+                                "target": parsed.target,
+                                "forgotten": forgotten,
+                            })),
+                            HookOutcome::Abort(message) => ToolOutput {
+                                content: message,
+                                ok: false,
+                            },
+                        }
+                    }
+                    Err(err) => ToolOutput {
+                        content: err.to_string(),
+                        ok: false,
+                    },
+                }
+            }
         }
     }
 
@@ -6606,21 +6753,11 @@ mod tests {
     async fn run_tool_via_kernel(kernel: &mut Kernel, invocation: ToolInvocation) -> ToolOutput {
         let placeholder = AgentState::new(kernel.state.session_id.clone());
         let mut state = std::mem::replace(&mut kernel.state, placeholder);
-        let effective = match kernel.normalize_tool_invocation(&state, &invocation) {
-            Ok(effective) => effective,
-            Err(message) => {
-                kernel.state = state;
-                return ToolOutput {
-                    content: message,
-                    ok: false,
-                };
-            }
-        };
         let mut tool_hook_ctx = HookCtx::before_tool(
             &state.session_id,
             state.agent_name(),
             None,
-            effective.execution.clone(),
+            invocation.clone(),
             kernel.skills.allowed_tool_union(&state.active_skills),
         );
         let output = match kernel
@@ -6630,7 +6767,7 @@ mod tests {
         {
             HookOutcome::Continue => {
                 kernel
-                    .dispatch_tool_for_state(&mut state, None, effective.execution)
+                    .dispatch_tool_for_state(&mut state, None, invocation)
                     .await
             }
             HookOutcome::Abort(message) => ToolOutput {
