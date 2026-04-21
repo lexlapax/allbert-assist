@@ -711,7 +711,8 @@ async fn second_daemon_spawn_is_rejected() {
         Err(err) => err,
     };
     assert!(
-        err.to_string().contains("already running"),
+        err.to_string()
+            .contains("daemon lock is held by live process"),
         "unexpected error: {err}"
     );
 

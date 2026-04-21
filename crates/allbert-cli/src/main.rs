@@ -1228,14 +1228,27 @@ async fn spawn_notification_task(
 }
 
 fn render_running_daemon_status(config: &Config, status: &DaemonStatus) -> String {
+    let lock_owner = status
+        .lock_owner
+        .as_ref()
+        .map(|lock| {
+            format!(
+                "pid={} host={} started_at={}",
+                lock.pid, lock.host, lock.started_at
+            )
+        })
+        .unwrap_or_else(|| "(missing)".into());
     format!(
-        "daemon:            running\npid:               {}\ndaemon id:         {}\nstarted at:        {}\nsocket:            {}\nsessions:          {}\ntrace enabled:     {}\nauto-spawn:        {}\njobs enabled:      {}\njobs timezone:     {}",
+        "daemon:            running\npid:               {}\ndaemon id:         {}\nstarted at:        {}\nsocket:            {}\nsessions:          {}\ntrace enabled:     {}\nlock owner:        {}\nmodel api_key_env: {}\napi key visible:   {}\nauto-spawn:        {}\njobs enabled:      {}\njobs timezone:     {}",
         status.pid,
         status.daemon_id,
         status.started_at,
         status.socket_path,
         status.session_count,
         yes_no(status.trace_enabled),
+        lock_owner,
+        status.model_api_key_env,
+        yes_no(status.model_api_key_visible),
         yes_no(config.daemon.auto_spawn),
         yes_no(config.jobs.enabled),
         config.jobs.default_timezone.as_deref().unwrap_or("(system local)")

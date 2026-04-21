@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     Arc, Mutex as StdMutex,
@@ -23,8 +24,8 @@ use allbert_kernel::{
 use allbert_kernel::{resolve_identity_id_for_sender, AllbertPaths, Config, CrossChannelRouting};
 use allbert_proto::{
     AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientMessage,
-    ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload, DaemonStatus,
-    InputReplyPayload, InputRequestPayload, InputResponsePayload, KernelEventPayload,
+    ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload, DaemonLockPayload,
+    DaemonStatus, InputReplyPayload, InputRequestPayload, InputResponsePayload, KernelEventPayload,
     ModelConfigPayload, ProtocolError, ProviderKind, ServerHello, ServerMessage,
     SessionResumeEntry, SessionStatus, TurnBudgetOverridePayload, TurnResult, PROTOCOL_VERSION,
 };
@@ -238,6 +239,13 @@ struct ToolJournalEntry {
     content: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DaemonLockRecord {
+    pid: u32,
+    host: String,
+    started_at: String,
+}
+
 #[derive(Clone)]
 struct DaemonJobManager {
     state: SharedState,
@@ -292,6 +300,7 @@ impl RunningDaemon {
         if self.state.socket_path.exists() {
             let _ = std::fs::remove_file(&self.state.socket_path);
         }
+        let _ = release_daemon_lock(&self.state.paths, Some(std::process::id()));
         result
     }
 }
@@ -323,9 +332,16 @@ pub async fn spawn_with_factory(
         .clone()
         .unwrap_or_else(|| paths.logs.clone());
     std::fs::create_dir_all(&log_dir)?;
+    let lock_record = acquire_daemon_lock(&paths)?;
 
     prepare_socket_dir(&socket_path)?;
-    let listener = bind_listener(&socket_path).await?;
+    let listener = match bind_listener(&socket_path).await {
+        Ok(listener) => listener,
+        Err(error) => {
+            let _ = release_daemon_lock(&paths, Some(std::process::id()));
+            return Err(error);
+        }
+    };
 
     let shutdown = CancellationToken::new();
     let (notifications, _) = broadcast::channel(64);
@@ -353,14 +369,18 @@ pub async fn spawn_with_factory(
     append_log_line(
         &state.log_path,
         &format!(
-            "boot pid={} socket={} trace={}",
+            "boot pid={} socket={} trace={} lock_host={}",
             std::process::id(),
             socket_path.display(),
-            state.trace_enabled.load(Ordering::SeqCst)
+            state.trace_enabled.load(Ordering::SeqCst),
+            lock_record.host
         ),
     )?;
 
-    spawn_telegram_pilot(state.clone()).await?;
+    if let Err(error) = spawn_telegram_pilot(state.clone()).await {
+        let _ = release_daemon_lock(&state.paths, Some(std::process::id()));
+        return Err(error);
+    }
 
     let run_state = state.clone();
     let join = tokio::spawn(async move { accept_loop(listener, run_state).await });
@@ -625,6 +645,8 @@ async fn handle_connection(
                 send_server_message(&mut framed, &ServerMessage::Attached(attached)).await?;
             }
             ClientMessage::Status => {
+                let lock_owner = load_daemon_lock(&state.paths).ok().flatten();
+                let model = state.default_config.read().await.model.clone();
                 send_server_message(
                     &mut framed,
                     &ServerMessage::Status(DaemonStatus {
@@ -634,6 +656,13 @@ async fn handle_connection(
                         started_at: state.started_at.clone(),
                         session_count: state.sessions.read().await.len(),
                         trace_enabled: state.trace_enabled.load(Ordering::SeqCst),
+                        lock_owner: lock_owner.map(|record| DaemonLockPayload {
+                            pid: record.pid,
+                            host: record.host,
+                            started_at: record.started_at,
+                        }),
+                        model_api_key_env: model.api_key_env.clone(),
+                        model_api_key_visible: std::env::var_os(&model.api_key_env).is_some(),
                     }),
                 )
                 .await?;
@@ -2789,7 +2818,7 @@ fn persist_session_meta(
         .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", dir.display())))?;
     let rendered = serde_json::to_vec_pretty(meta)
         .map_err(|e| KernelError::InitFailed(format!("serialize session meta: {e}")))?;
-    fs::write(session_meta_path(paths, &meta.session_id), rendered).map_err(|e| {
+    atomic_write(&session_meta_path(paths, &meta.session_id), &rendered).map_err(|e| {
         KernelError::InitFailed(format!(
             "write {}: {e}",
             session_meta_path(paths, &meta.session_id).display()
@@ -2797,12 +2826,13 @@ fn persist_session_meta(
     })?;
     let turns = session_turns_path(paths, &meta.session_id);
     if !turns.exists() {
-        fs::write(
+        atomic_write(
             &turns,
             format!(
                 "# Session {}\n\n- channel: {:?}\n- started_at: {}\n\n",
                 meta.session_id, meta.channel, meta.started_at
-            ),
+            )
+            .as_bytes(),
         )
         .map_err(|e| KernelError::InitFailed(format!("write {}: {e}", turns.display())))?;
     }
@@ -2825,14 +2855,12 @@ fn write_pending_approval(
 ) -> Result<(), DaemonError> {
     let dir = session_approvals_dir(paths, &record.frontmatter.session_id);
     fs::create_dir_all(&dir)?;
-    fs::write(
-        session_approval_path(
-            paths,
-            &record.frontmatter.session_id,
-            &record.frontmatter.id,
-        ),
-        render_pending_approval_markdown(record)?,
-    )?;
+    let path = session_approval_path(
+        paths,
+        &record.frontmatter.session_id,
+        &record.frontmatter.id,
+    );
+    atomic_write(&path, render_pending_approval_markdown(record)?.as_bytes())?;
     Ok(())
 }
 
@@ -3364,6 +3392,112 @@ fn map_kernel_event(event: &KernelEvent) -> KernelEventPayload {
 
 fn map_kernel_error(error: KernelError) -> DaemonError {
     DaemonError::Protocol(error.to_string())
+}
+
+fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), DaemonError> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| DaemonError::Protocol(format!("path has no parent: {}", path.display())))?;
+    fs::create_dir_all(parent)?;
+    let tmp = parent.join(format!(
+        ".{}.tmp-{}",
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("write"),
+        uuid::Uuid::new_v4().simple()
+    ));
+    {
+        let mut file = fs::File::create(&tmp)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+    }
+    fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+fn current_host() -> String {
+    std::env::var("HOSTNAME")
+        .or_else(|_| std::env::var("COMPUTERNAME"))
+        .unwrap_or_else(|_| "unknown-host".into())
+}
+
+#[cfg(unix)]
+fn pid_is_alive(pid: u32) -> bool {
+    if pid == 0 {
+        return false;
+    }
+    Command::new("kill")
+        .arg("-0")
+        .arg(pid.to_string())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn pid_is_alive(_pid: u32) -> bool {
+    false
+}
+
+fn load_daemon_lock(paths: &AllbertPaths) -> Result<Option<DaemonLockRecord>, DaemonError> {
+    if !paths.daemon_lock.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read(&paths.daemon_lock)?;
+    let record: DaemonLockRecord = serde_json::from_slice(&raw)?;
+    Ok(Some(record))
+}
+
+fn acquire_daemon_lock(paths: &AllbertPaths) -> Result<DaemonLockRecord, DaemonError> {
+    let host = current_host();
+    let pid = std::process::id();
+    let started_at = now_rfc3339_fallback();
+    if let Some(existing) = load_daemon_lock(paths)? {
+        if existing.host == host {
+            if pid_is_alive(existing.pid) {
+                return Err(DaemonError::Protocol(format!(
+                    "daemon lock is held by live process pid={} on host={}; remove stale lock only after stopping that daemon",
+                    existing.pid, existing.host
+                )));
+            }
+            append_log_line(
+                &paths.daemon_log,
+                &format!(
+                    "stale daemon lock takeover host={} stale_pid={} new_pid={}",
+                    host, existing.pid, pid
+                ),
+            )
+            .ok();
+        } else {
+            return Err(DaemonError::Protocol(format!(
+                "daemon lock exists from different host {}; refusing start without manual lock intervention",
+                existing.host
+            )));
+        }
+    }
+    let record = DaemonLockRecord {
+        pid,
+        host,
+        started_at,
+    };
+    atomic_write(&paths.daemon_lock, &serde_json::to_vec_pretty(&record)?)
+        .map_err(|err| DaemonError::Protocol(format!("write daemon lock: {err}")))?;
+    Ok(record)
+}
+
+fn release_daemon_lock(paths: &AllbertPaths, expected_pid: Option<u32>) -> Result<(), DaemonError> {
+    let Some(record) = load_daemon_lock(paths)? else {
+        return Ok(());
+    };
+    if expected_pid.is_some() && expected_pid != Some(record.pid) {
+        return Ok(());
+    }
+    match fs::remove_file(&paths.daemon_lock) {
+        Ok(()) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => return Err(DaemonError::Io(err)),
+    }
+    Ok(())
 }
 
 fn prepare_socket_dir(socket_path: &Path) -> Result<(), DaemonError> {
