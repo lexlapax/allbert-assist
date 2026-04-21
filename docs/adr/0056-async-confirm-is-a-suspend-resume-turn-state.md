@@ -3,6 +3,8 @@
 Date: 2026-04-20
 Status: Proposed
 
+> **Amended in part by [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md) in v0.8**: the one-pending-approval-per-session and sender-only-resolution rules are lifted once the identity-scoped approval inbox lands. Everything else in this ADR (file layout, timeout semantics, restart recovery, REPL inline path) remains in force.
+
 ## Context
 
 [ADR 0007](0007-session-scoped-exact-match-confirm-trust.md) established confirm-trust: actions that match a `security.confirm_match` pattern prompt the user once, then are remembered for the session. v0.2's `ConfirmPrompter` assumes a synchronous channel: the prompter blocks until the user answers, then returns `confirmed | rejected`.
