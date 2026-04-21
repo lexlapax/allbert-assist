@@ -2,6 +2,8 @@
 
 This guide defines which profile paths are safe to sync, which are rebuildable, and which are intentionally device-local.
 
+For cost-limit behavior across multiple devices, see [`docs/operator/cost-caps.md`](cost-caps.md).
+
 ## Artifact catalog
 
 ### Continuity-bearing (include for continuity)
