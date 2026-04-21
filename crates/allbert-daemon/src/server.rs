@@ -559,6 +559,12 @@ async fn handle_connection(
                 )
                 .await?;
             }
+            ClientMessage::SetCostOverride(reason) => {
+                let session = require_session(attached_session.as_ref())?;
+                let mut kernel = session.kernel.lock().await;
+                kernel.set_cost_override(reason);
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
             ClientMessage::SetAutoConfirm(enabled) => {
                 let session = require_session(attached_session.as_ref())?;
                 let mut kernel = session.kernel.lock().await;
@@ -982,7 +988,7 @@ async fn run_turn_over_channel(
                             )
                             .await;
                         }
-                        return Err(map_kernel_error(error));
+                        return Ok(());
                     }
                 }
             }

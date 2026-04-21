@@ -51,6 +51,7 @@ pub struct AgentState {
     pub memory_refreshes_this_turn: u32,
     pub staged_entries_this_turn: usize,
     pub staged_notice_entries_this_turn: Vec<StagedNoticeEntry>,
+    pub cost_cap_override_active_this_turn: bool,
     pub current_job_name: Option<String>,
 }
 
@@ -84,6 +85,7 @@ impl AgentState {
             memory_refreshes_this_turn: 0,
             staged_entries_this_turn: 0,
             staged_notice_entries_this_turn: Vec::new(),
+            cost_cap_override_active_this_turn: false,
             current_job_name: None,
         }
     }
@@ -110,6 +112,7 @@ impl AgentState {
         self.memory_refreshes_this_turn = 0;
         self.staged_entries_this_turn = 0;
         self.staged_notice_entries_this_turn.clear();
+        self.cost_cap_override_active_this_turn = false;
         self.current_job_name = None;
     }
 
@@ -127,6 +130,7 @@ impl AgentState {
         self.memory_refreshes_this_turn = 0;
         self.staged_entries_this_turn = 0;
         self.staged_notice_entries_this_turn.clear();
+        self.cost_cap_override_active_this_turn = false;
     }
 
     pub fn append_ephemeral_note(&mut self, note: impl Into<String>, max_bytes: usize) {

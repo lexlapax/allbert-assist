@@ -97,6 +97,33 @@ pub fn sum_costs_for_today(path: &Path) -> Result<f64, KernelError> {
     Ok(total)
 }
 
+pub fn sum_costs_for_utc_day(path: &Path, day: time::Date) -> Result<f64, KernelError> {
+    if !path.exists() {
+        return Ok(0.0);
+    }
+
+    let file = std::fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut total = 0.0;
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let entry: CostEntry =
+            serde_json::from_str(&line).map_err(|err| KernelError::Cost(err.to_string()))?;
+        let timestamp = OffsetDateTime::parse(&entry.ts, &Rfc3339)
+            .map_err(|err| KernelError::Cost(err.to_string()))?;
+        if timestamp.to_offset(time::UtcOffset::UTC).date() == day {
+            total += entry.usd_estimate;
+        }
+    }
+
+    Ok(total)
+}
+
 fn now_rfc3339() -> Result<String, KernelError> {
     local_now()
         .format(&Rfc3339)

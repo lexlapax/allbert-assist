@@ -240,6 +240,16 @@ impl DaemonClient {
         .await
     }
 
+    pub async fn set_cost_override(&mut self, reason: String) -> Result<(), DaemonError> {
+        self.send(&ClientMessage::SetCostOverride(reason)).await?;
+        self.recv_expected("ack", |message| match message {
+            ServerMessage::Ack => Some(Ok(())),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
     pub async fn reload_session_config(&mut self) -> Result<(), DaemonError> {
         self.send(&ClientMessage::ReloadSessionConfig).await?;
         self.recv_expected("ack", |message| match message {

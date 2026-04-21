@@ -106,6 +106,20 @@ async fn run_turn_collect_messages(client: &mut DaemonClient, input: &str) -> Ve
     messages
 }
 
+async fn run_turn_expect_error(client: &mut DaemonClient, input: &str) -> String {
+    client
+        .start_turn(input.into())
+        .await
+        .expect("turn should start");
+    loop {
+        match client.recv().await.expect("daemon should respond") {
+            ServerMessage::Error(error) => return error.message,
+            ServerMessage::Event(_) => {}
+            other => panic!("expected turn error, got {other:?}"),
+        }
+    }
+}
+
 async fn run_turn_with_confirms(
     client: &mut DaemonClient,
     input: &str,
@@ -1189,6 +1203,113 @@ async fn old_sessions_are_archived_when_daemon_starts() {
     );
 
     shutdown_daemon(restarted, &paths).await;
+}
+
+#[tokio::test]
+async fn daily_cost_cap_blocks_turns_and_override_allows_next_turn_once() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let mut config = sample_config();
+    config.limits.daily_usd_cap = Some(0.0);
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let handle = spawn_with_factory(
+        config,
+        paths.clone(),
+        Arc::new(TestFactory::with_requests(
+            vec![scripted("OVERRIDE_OK")],
+            requests.clone(),
+        )),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, Some("cap-session".into()))
+        .await
+        .expect("attach should succeed");
+
+    let blocked = run_turn_expect_error(&mut client, "first blocked turn").await;
+    assert!(
+        blocked.contains("Daily cost cap of $0.00 reached"),
+        "unexpected refusal: {blocked}"
+    );
+    assert_eq!(
+        requests.lock().unwrap().len(),
+        0,
+        "blocked turn should not reach the model"
+    );
+
+    client
+        .set_cost_override("release smoke".into())
+        .await
+        .expect("override should arm");
+    let messages = run_turn_collect_messages(&mut client, "override turn").await;
+    assert!(messages.iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::AssistantText(text)) if text == "OVERRIDE_OK"
+    )));
+    assert_eq!(
+        requests.lock().unwrap().len(),
+        1,
+        "override should allow exactly one turn through"
+    );
+
+    let blocked_again = run_turn_expect_error(&mut client, "blocked again").await;
+    assert!(
+        blocked_again.contains("Daily cost cap of $0.00 reached"),
+        "unexpected refusal: {blocked_again}"
+    );
+    assert_eq!(
+        requests.lock().unwrap().len(),
+        1,
+        "override should be consumed after one turn"
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn jobs_report_cap_reached_when_daily_cost_cap_blocks_execution() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let mut config = jobs_test_config();
+    config.limits.daily_usd_cap = Some(0.0);
+    let handle = spawn_with_factory(
+        config,
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted("UNUSED")])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    let _ = client
+        .upsert_job(sample_job(
+            "daily-cap-test",
+            "@daily at 09:00",
+            "run the job",
+        ))
+        .await
+        .expect("job should upsert");
+    let run = client
+        .run_job("daily-cap-test")
+        .await
+        .expect("job run should return a record");
+    assert_eq!(run.outcome, "cap-reached");
+    assert!(run
+        .stop_reason
+        .as_deref()
+        .unwrap_or_default()
+        .contains("Daily cost cap of $0.00 reached"));
+
+    let status = client
+        .get_job("daily-cap-test")
+        .await
+        .expect("job status should load");
+    assert_eq!(status.state.last_outcome.as_deref(), Some("cap-reached"));
+
+    shutdown_daemon(handle, &paths).await;
 }
 
 #[tokio::test]

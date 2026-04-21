@@ -1002,7 +1002,12 @@ pub(crate) async fn execute_job(
                                     ("success".to_string(), None)
                                 }
                             }
-                            Err(err) => ("failure".to_string(), Some(err.to_string())),
+                            Err(err) => match err {
+                                KernelError::CostCap(message) => {
+                                    ("cap-reached".to_string(), Some(message))
+                                }
+                                other => ("failure".to_string(), Some(other.to_string())),
+                            },
                         }
                     }
                 }

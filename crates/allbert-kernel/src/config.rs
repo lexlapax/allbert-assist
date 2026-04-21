@@ -270,6 +270,7 @@ fn legacy_v0_3_exec_deny() -> Vec<String> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LimitsConfig {
+    pub daily_usd_cap: Option<f64>,
     pub max_turns: u32,
     pub max_tool_calls_per_turn: u32,
     pub max_tool_output_bytes_per_call: usize,
@@ -283,6 +284,7 @@ pub struct LimitsConfig {
 impl Default for LimitsConfig {
     fn default() -> Self {
         Self {
+            daily_usd_cap: None,
             max_turns: 8,
             max_tool_calls_per_turn: 16,
             max_tool_output_bytes_per_call: 8 * 1024,
@@ -377,6 +379,9 @@ impl Config {
             return Err(
                 "memory.max_synopsis_bytes must be >= memory.max_ephemeral_summary_bytes".into(),
             );
+        }
+        if matches!(self.limits.daily_usd_cap, Some(value) if value < 0.0) {
+            return Err("limits.daily_usd_cap must be >= 0".into());
         }
         Ok(())
     }

@@ -12,7 +12,9 @@ use crate::setup::{self, StatusSnapshot};
 const HELP_TEXT: &str = "\
 commands:
   /h        show this help
-  /cost     show session cost and today's recorded total
+  /cost     show session cost, today's recorded total, and cap state
+  /cost --override <reason>
+            allow the next turn to bypass the daily cap once
   /help     show this help
   /model    show or change the active model
   /s        show provider, intent, agent, setup, roots, and trace state
@@ -54,7 +56,7 @@ commands:
 enum LocalCommand<'a> {
     Exit,
     Help,
-    Cost,
+    Cost(&'a str),
     Model(&'a str),
     Setup,
     Status,
@@ -82,12 +84,8 @@ pub async fn run_loop(
                 match parse_local_command(trimmed) {
                     LocalCommand::Exit => break,
                     LocalCommand::Help => println!("{HELP_TEXT}"),
-                    LocalCommand::Cost => {
-                        let status = client.session_status().await?;
-                        println!(
-                            "session: ${:.6}\ntoday:   ${:.6}",
-                            status.session_cost_usd, status.today_cost_usd
-                        );
+                    LocalCommand::Cost(command) => {
+                        handle_cost_command(client, paths, command).await?;
                     }
                     LocalCommand::Model(command) => {
                         handle_model_command(client, command).await?;
@@ -127,7 +125,7 @@ fn parse_local_command(input: &str) -> LocalCommand<'_> {
     match input {
         "/exit" | "/quit" => LocalCommand::Exit,
         "/help" | "/h" => LocalCommand::Help,
-        "/cost" => LocalCommand::Cost,
+        command if command.starts_with("/cost") => LocalCommand::Cost(command),
         "/setup" => LocalCommand::Setup,
         "/status" | "/s" => LocalCommand::Status,
         command if command.starts_with("/model") => LocalCommand::Model(command),
@@ -224,6 +222,45 @@ async fn handle_model_command(client: &mut DaemonClient, command: &str) -> Resul
         provider_label(active.provider),
         active.model_id
     );
+    Ok(())
+}
+
+async fn handle_cost_command(
+    client: &mut DaemonClient,
+    paths: &allbert_kernel::AllbertPaths,
+    command: &str,
+) -> Result<()> {
+    let parts: Vec<_> = command.split_whitespace().collect();
+    if parts.len() == 1 {
+        let status = client.session_status().await?;
+        let config = allbert_kernel::Config::load_or_create(paths)?;
+        let cap = config
+            .limits
+            .daily_usd_cap
+            .map(|value| format!("${value:.2}"))
+            .unwrap_or_else(|| "(disabled)".into());
+        println!(
+            "session: ${:.6}\ntoday:   ${:.6}\ncap:     {}",
+            status.session_cost_usd, status.today_cost_usd, cap
+        );
+        return Ok(());
+    }
+
+    if parts.len() >= 3 && parts[1] == "--override" {
+        let reason = command
+            .split_once("--override")
+            .map(|(_, value)| value.trim())
+            .unwrap_or_default();
+        if reason.is_empty() {
+            println!("usage: /cost --override <reason>");
+            return Ok(());
+        }
+        client.set_cost_override(reason.to_string()).await?;
+        println!("daily cost override armed for the next turn");
+        return Ok(());
+    }
+
+    println!("usage: /cost | /cost --override <reason>");
     Ok(())
 }
 
@@ -404,6 +441,14 @@ mod tests {
     #[test]
     fn short_status_alias_is_local() {
         assert!(matches!(parse_local_command("/s"), LocalCommand::Status));
+    }
+
+    #[test]
+    fn cost_override_is_local() {
+        assert!(matches!(
+            parse_local_command("/cost --override release smoke"),
+            LocalCommand::Cost("/cost --override release smoke")
+        ));
     }
 
     #[test]

@@ -20,6 +20,7 @@ pub struct SetupAnswers {
     pub assistant_style: Option<String>,
     pub trusted_roots: Vec<PathBuf>,
     pub daemon_auto_spawn: bool,
+    pub daily_usd_cap: Option<String>,
     pub jobs_enabled: bool,
     pub jobs_default_timezone: Option<String>,
     pub enabled_bundled_jobs: Vec<String>,
@@ -119,6 +120,17 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         Some(value) => value,
         None => return Ok(None),
     };
+    let daily_usd_cap = match prompt_optional(
+        "Daily cost cap in USD (blank to disable)",
+        config
+            .limits
+            .daily_usd_cap
+            .map(|value| format!("{value:.2}"))
+            .as_deref(),
+    )? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
     let jobs_enabled = match prompt_yes_no(
         "Enable recurring jobs in this Allbert profile?",
         config.jobs.enabled,
@@ -164,6 +176,7 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         assistant_style,
         trusted_roots,
         daemon_auto_spawn,
+        daily_usd_cap,
         jobs_enabled,
         jobs_default_timezone,
         enabled_bundled_jobs,
@@ -192,6 +205,13 @@ pub fn apply_setup_answers(
 
     config.security.fs_roots = answers.trusted_roots.clone();
     config.daemon.auto_spawn = answers.daemon_auto_spawn;
+    config.limits.daily_usd_cap = match answers.daily_usd_cap.as_deref() {
+        Some(raw) => Some(
+            raw.parse::<f64>()
+                .with_context(|| format!("parse daily cost cap `{raw}`"))?,
+        ),
+        None => None,
+    };
     config.jobs.enabled = answers.jobs_enabled;
     config.jobs.default_timezone = answers.jobs_default_timezone.clone();
     config.setup.version = 2;
@@ -769,6 +789,7 @@ mod tests {
             assistant_style: Some("Warm, concise, and practical.".into()),
             trusted_roots: vec![root.to_path_buf()],
             daemon_auto_spawn: true,
+            daily_usd_cap: Some("5.00".into()),
             jobs_enabled: true,
             jobs_default_timezone: Some("America/Los_Angeles".into()),
             enabled_bundled_jobs: vec!["daily-brief".into()],

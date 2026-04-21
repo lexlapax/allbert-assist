@@ -275,6 +275,7 @@ pub enum ClientMessage {
     InputReply(InputReplyPayload),
     GetModel,
     SetModel(ModelConfigPayload),
+    SetCostOverride(String),
     SetAutoConfirm(bool),
     SetTrace(bool),
     ReloadSessionConfig,

@@ -12,6 +12,8 @@ pub enum KernelError {
     Hook(String),
     #[error("cost tracking failed: {0}")]
     Cost(String),
+    #[error("{0}")]
+    CostCap(String),
     #[error("tracing init failed: {0}")]
     Trace(String),
     #[error("I/O error: {0}")]

@@ -17,6 +17,7 @@ pub mod tools;
 pub mod trace;
 
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use serde_json::json;
 
@@ -53,6 +54,12 @@ pub use trace::TraceHandles;
 use hooks::HookRegistry;
 use intent::{classify_by_rules, default_intent};
 use llm::{CompletionRequest, DefaultProviderFactory, LlmProvider, ProviderFactory};
+
+struct DailyCostCache {
+    utc_day: time::Date,
+    total_usd: f64,
+    refreshed_at: Instant,
+}
 
 pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, KernelError> {
     paths.ensure()?;
@@ -166,6 +173,8 @@ pub struct Kernel {
     tools: ToolRegistry,
     job_manager: Option<Arc<dyn JobManager>>,
     security_state: Arc<Mutex<SecurityConfig>>,
+    daily_cost_cache: Option<DailyCostCache>,
+    pending_turn_cost_override_reason: Option<String>,
     #[allow(dead_code)]
     trace: TraceHandles,
 }
@@ -247,6 +256,8 @@ impl Kernel {
             tools: ToolRegistry::builtins(),
             job_manager: None,
             security_state,
+            daily_cost_cache: None,
+            pending_turn_cost_override_reason: None,
             trace,
         })
     }
@@ -255,7 +266,7 @@ impl Kernel {
         let placeholder = AgentState::new(self.state.session_id.clone());
         let mut state = std::mem::replace(&mut self.state, placeholder);
         let result = self
-            .run_turn_for_agent(&mut state, user_input, None, true)
+            .run_turn_for_agent(&mut state, user_input, None, false, true)
             .await;
         self.state = state;
         result.map(|summary| TurnSummary {
@@ -287,7 +298,7 @@ impl Kernel {
         }
 
         let result = self
-            .run_turn_for_agent(&mut state, user_input, None, false)
+            .run_turn_for_agent(&mut state, user_input, None, false, false)
             .await;
 
         let turn_summary = match &result {
@@ -325,10 +336,12 @@ impl Kernel {
         state: &mut AgentState,
         user_input: &str,
         parent_agent_name: Option<String>,
+        inherited_cost_override: bool,
         emit_terminal_events: bool,
     ) -> Result<AgentRunSummary, KernelError> {
         state.turn_count = state.turn_count.saturating_add(1);
         state.begin_turn();
+        self.enforce_daily_cost_cap_for_turn(state, inherited_cost_override)?;
         state.last_agent_stack = match parent_agent_name.as_deref() {
             Some(parent) => vec![parent.to_string(), state.agent_name().to_string()],
             None => vec![state.agent_name().to_string()],
@@ -443,6 +456,7 @@ impl Kernel {
 
             if let Some(entry) = hook_ctx.recorded_cost.as_ref() {
                 state.cost_total_usd += entry.usd_estimate;
+                self.record_cached_cost_delta(entry.usd_estimate);
             }
 
             let final_text = self.finish_turn_output(state, &response.text);
@@ -809,6 +823,10 @@ impl Kernel {
         self.state.cost_total_usd
     }
 
+    pub fn set_cost_override(&mut self, reason: String) {
+        self.pending_turn_cost_override_reason = Some(reason);
+    }
+
     pub fn session_id(&self) -> &str {
         &self.state.session_id
     }
@@ -832,6 +850,67 @@ impl Kernel {
     pub fn restore_ephemeral_memory(&mut self, entries: Vec<String>) {
         self.state
             .replace_ephemeral_memory(entries, self.config.memory.max_ephemeral_bytes);
+    }
+
+    fn enforce_daily_cost_cap_for_turn(
+        &mut self,
+        state: &mut AgentState,
+        inherited_cost_override: bool,
+    ) -> Result<(), KernelError> {
+        if inherited_cost_override {
+            state.cost_cap_override_active_this_turn = true;
+            return Ok(());
+        }
+
+        if let Some(reason) = self.pending_turn_cost_override_reason.take() {
+            state.cost_cap_override_active_this_turn = true;
+            tracing::warn!(
+                session = %state.session_id,
+                agent = %state.agent_name(),
+                reason = %reason,
+                "daily cost cap override armed for this turn"
+            );
+            return Ok(());
+        }
+
+        let Some(cap) = self.config.limits.daily_usd_cap else {
+            return Ok(());
+        };
+
+        let utc_day = time::OffsetDateTime::now_utc().date();
+        let total = self.current_utc_cost_total(utc_day)?;
+        if total >= cap {
+            return Err(KernelError::CostCap(format!(
+                "Daily cost cap of ${cap:.2} reached for {}. Current spend: ${total:.2}. Raise limits.daily_usd_cap in config or run `/cost --override <reason>` to continue this turn.",
+                utc_day
+            )));
+        }
+        Ok(())
+    }
+
+    fn current_utc_cost_total(&mut self, utc_day: time::Date) -> Result<f64, KernelError> {
+        if let Some(cache) = self.daily_cost_cache.as_ref() {
+            if cache.utc_day == utc_day && cache.refreshed_at.elapsed() < Duration::from_secs(60) {
+                return Ok(cache.total_usd);
+            }
+        }
+        let total = cost::sum_costs_for_utc_day(&self.paths.costs, utc_day)?;
+        self.daily_cost_cache = Some(DailyCostCache {
+            utc_day,
+            total_usd: total,
+            refreshed_at: Instant::now(),
+        });
+        Ok(total)
+    }
+
+    fn record_cached_cost_delta(&mut self, usd_estimate: f64) {
+        let utc_day = time::OffsetDateTime::now_utc().date();
+        if let Some(cache) = self.daily_cost_cache.as_mut() {
+            if cache.utc_day == utc_day {
+                cache.total_usd += usd_estimate;
+                cache.refreshed_at = Instant::now();
+            }
+        }
     }
 
     pub fn set_adapter(&mut self, adapter: FrontendAdapter) {
@@ -997,6 +1076,7 @@ Respond with only the lowercase label and no other text."
         }
         if let Some(entry) = hook_ctx.recorded_cost.as_ref() {
             state.cost_total_usd += entry.usd_estimate;
+            self.record_cached_cost_delta(entry.usd_estimate);
         }
         for event in hook_ctx.pending_events {
             (self.adapter.on_event)(&event);
@@ -1712,6 +1792,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             &mut subagent_state,
             &composed_prompt,
             Some(state.agent_name().to_string()),
+            state.cost_cap_override_active_this_turn,
             false,
         ))
         .await;
