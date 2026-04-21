@@ -8,7 +8,7 @@ use allbert_kernel::error::LlmError;
 use allbert_kernel::llm::{
     CompletionRequest, CompletionResponse, LlmProvider, ProviderFactory, Usage,
 };
-use allbert_kernel::{AllbertPaths, Config, ModelConfig};
+use allbert_kernel::{memory, AllbertPaths, Config, ModelConfig};
 use allbert_proto::{
     ChannelKind, ClientKind, ClientMessage, ConfirmDecisionPayload, InputReplyPayload,
     InputResponsePayload, JobDefinitionPayload, KernelEventPayload, ModelConfigPayload,
@@ -1076,6 +1076,108 @@ async fn daemon_restart_rehydrates_session_journal_and_ephemeral_memory() {
         turns.contains("remember before restart"),
         "journal should contain the completed pre-restart turn"
     );
+
+    shutdown_daemon(second_handle, &paths).await;
+}
+
+#[tokio::test]
+async fn daemon_restart_resume_preserves_working_state_and_retrieves_promoted_memory() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let config = sample_config();
+    let first_handle = spawn_with_factory(
+        config.clone(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted("okay, I will keep that in mind"),
+            scripted(
+                "<tool_call>{\"name\":\"stage_memory\",\"input\":{\"content\":\"We use Postgres for primary storage.\",\"kind\":\"learned_fact\",\"summary\":\"Primary database is Postgres\",\"tags\":[\"postgres\",\"database\"]}}</tool_call>",
+            ),
+            scripted("staged it for review"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    {
+        let mut client = wait_for_client(&paths).await;
+        client
+            .attach(ChannelKind::Repl, Some("m6-e2e".into()))
+            .await
+            .expect("attach should succeed");
+        let _ =
+            run_turn_collect_messages(&mut client, "keep alpha workspace context in mind").await;
+        let _ = run_turn_collect_messages(&mut client, "stage the primary database fact").await;
+    }
+
+    let staged = memory::list_staged_memory(&paths, &config.memory, None, None, Some(10))
+        .expect("staged memory should list");
+    assert_eq!(staged.len(), 1, "one staged entry should exist");
+    let preview = memory::preview_promote_staged_memory(
+        &paths,
+        &config.memory,
+        &staged[0].id,
+        Some("notes/projects/primary-database.md"),
+        None,
+    )
+    .expect("promotion preview should build");
+    let promoted = memory::promote_staged_memory(&paths, &config.memory, &preview)
+        .expect("promotion should succeed");
+    assert_eq!(promoted, "notes/projects/primary-database.md");
+
+    shutdown_daemon(first_handle, &paths).await;
+
+    let second_requests = Arc::new(Mutex::new(Vec::new()));
+    let second_handle = spawn_with_factory(
+        config,
+        paths.clone(),
+        Arc::new(TestFactory::with_requests(
+            vec![
+                scripted(
+                    "<tool_call>{\"name\":\"search_memory\",\"input\":{\"query\":\"primary database postgres\",\"tier\":\"durable\",\"limit\":5}}</tool_call>",
+                ),
+                scripted("I found the durable memory"),
+            ],
+            second_requests.clone(),
+        )),
+    )
+    .await
+    .expect("daemon should reboot");
+
+    let mut client = wait_for_client(&paths).await;
+    let resumable = client.list_sessions().await.expect("sessions should list");
+    assert!(
+        resumable.iter().any(|entry| entry.session_id == "m6-e2e"),
+        "resumed session should be discoverable after restart"
+    );
+    client
+        .attach(ChannelKind::Repl, Some("m6-e2e".into()))
+        .await
+        .expect("attach should resume same session");
+    let messages = run_turn_collect_messages(
+        &mut client,
+        "what do you remember about the primary database?",
+    )
+    .await;
+
+    let recorded = second_requests.lock().unwrap();
+    assert_eq!(
+        recorded.len(),
+        2,
+        "retrieval turn should require tool round-trip"
+    );
+    let system = recorded[0].system.as_deref().unwrap_or_default();
+    assert!(
+        system.contains("keep alpha workspace context in mind"),
+        "resumed session should restore journal-backed working state"
+    );
+    assert!(messages.iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::ToolResult { name, ok: true, content })
+            if name == "search_memory"
+                && content.contains("notes/projects/primary-database.md")
+                && content.contains("Primary database is Postgres")
+    )));
 
     shutdown_daemon(second_handle, &paths).await;
 }
