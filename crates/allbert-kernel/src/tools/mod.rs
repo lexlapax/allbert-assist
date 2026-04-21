@@ -388,6 +388,8 @@ impl Tool for RequestInputTool {
 #[derive(Debug, Deserialize)]
 struct WebSearchInput {
     query: String,
+    #[serde(default)]
+    record_as: Option<String>,
 }
 
 struct WebSearchTool;
@@ -407,7 +409,8 @@ impl Tool for WebSearchTool {
             "type": "object",
             "required": ["query"],
             "properties": {
-                "query": {"type": "string"}
+                "query": {"type": "string"},
+                "record_as": {"type": "string"}
             }
         })
     }
@@ -415,44 +418,54 @@ impl Tool for WebSearchTool {
     async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
         let parsed: WebSearchInput =
             serde_json::from_value(input).map_err(|err| ToolError::Dispatch(err.to_string()))?;
-        let mut url = reqwest::Url::parse("https://html.duckduckgo.com/html/")
-            .map_err(|err| ToolError::Dispatch(err.to_string()))?;
-        url.query_pairs_mut().append_pair("q", &parsed.query);
-
-        let response = ctx
-            .web_client
-            .get(url)
-            .timeout(Duration::from_secs(ctx.security.web.timeout_s))
-            .send()
-            .await
-            .map_err(|err| ToolError::Dispatch(err.to_string()))?;
-
-        let status = response.status();
-        if !status.is_success() {
-            return Err(ToolError::Dispatch(format!(
-                "search request failed with status {status}"
-            )));
+        let results = duckduckgo_search(
+            &ctx.web_client,
+            &parsed.query,
+            Duration::from_secs(ctx.security.web.timeout_s),
+        )
+        .await?;
+        let mut content = if results.is_empty() {
+            "no results found".into()
+        } else {
+            render_duckduckgo_results(&results)
+        };
+        if let Some(record_as) = parsed.record_as.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+            if let Some(top) = results.first() {
+                if let Some(staged_note) = maybe_stage_research_capture(
+                    ctx,
+                    format!(
+                        "# {}\n\n- source_url: {}\n- query: {}\n\n## Search results\n\n{}",
+                        record_as,
+                        top.url,
+                        parsed.query,
+                        render_duckduckgo_results(&results)
+                    ),
+                    record_as,
+                    &top.url,
+                    json!({
+                        "source_url": top.url,
+                        "query": parsed.query,
+                        "fetched_at": time::OffsetDateTime::now_utc()
+                            .format(&time::format_description::well_known::Rfc3339)
+                            .unwrap_or_else(|_| "unknown".into())
+                    }),
+                )
+                .await?
+                {
+                    content.push_str("\n\n");
+                    content.push_str(&staged_note);
+                }
+            }
         }
-
-        let body = response
-            .text()
-            .await
-            .map_err(|err| ToolError::Dispatch(err.to_string()))?;
-        let results = extract_duckduckgo_results(&body);
-        Ok(ToolOutput {
-            content: if results.is_empty() {
-                "no results found".into()
-            } else {
-                results.join("\n")
-            },
-            ok: true,
-        })
+        Ok(ToolOutput { content, ok: true })
     }
 }
 
 #[derive(Debug, Deserialize)]
 struct FetchUrlInput {
     url: String,
+    #[serde(default)]
+    record_as: Option<String>,
 }
 
 struct FetchUrlTool;
@@ -472,7 +485,8 @@ impl Tool for FetchUrlTool {
             "type": "object",
             "required": ["url"],
             "properties": {
-                "url": {"type": "string", "format": "uri"}
+                "url": {"type": "string", "format": "uri"},
+                "record_as": {"type": "string"}
             }
         })
     }
@@ -499,10 +513,31 @@ impl Tool for FetchUrlTool {
             .text()
             .await
             .map_err(|err| ToolError::Dispatch(err.to_string()))?;
-        Ok(ToolOutput {
-            content: strip_html(&body),
-            ok: true,
-        })
+        let stripped = strip_html(&body);
+        let mut content = stripped.clone();
+        if let Some(record_as) = parsed.record_as.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+            if let Some(staged_note) = maybe_stage_research_capture(
+                ctx,
+                format!(
+                    "# {}\n\n- source_url: {}\n\n{}",
+                    record_as, parsed.url, stripped
+                ),
+                record_as,
+                &parsed.url,
+                json!({
+                    "source_url": parsed.url,
+                    "fetched_at": time::OffsetDateTime::now_utc()
+                        .format(&time::format_description::well_known::Rfc3339)
+                        .unwrap_or_else(|_| "unknown".into())
+                }),
+            )
+            .await?
+            {
+                content.push_str("\n\n");
+                content.push_str(&staged_note);
+            }
+        }
+        Ok(ToolOutput { content, ok: true })
     }
 }
 
@@ -905,7 +940,90 @@ impl Tool for SpawnSubagentTool {
     }
 }
 
-fn extract_duckduckgo_results(body: &str) -> Vec<String> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SearchResult {
+    title: String,
+    url: String,
+}
+
+async fn duckduckgo_search(
+    client: &reqwest::Client,
+    query: &str,
+    timeout: Duration,
+) -> Result<Vec<SearchResult>, ToolError> {
+    duckduckgo_search_at(client, query, timeout, "https://html.duckduckgo.com/html/").await
+}
+
+async fn duckduckgo_search_at(
+    client: &reqwest::Client,
+    query: &str,
+    timeout: Duration,
+    base_url: &str,
+) -> Result<Vec<SearchResult>, ToolError> {
+    let mut url = reqwest::Url::parse(base_url)
+        .map_err(|err| ToolError::Dispatch(err.to_string()))?;
+    url.query_pairs_mut().append_pair("q", query);
+
+    let response = client
+        .get(url)
+        .timeout(timeout)
+        .send()
+        .await
+        .map_err(|err| ToolError::Dispatch(err.to_string()))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(ToolError::Dispatch(format!(
+            "search request failed with status {status}"
+        )));
+    }
+
+    let body = response
+        .text()
+        .await
+        .map_err(|err| ToolError::Dispatch(err.to_string()))?;
+    Ok(extract_duckduckgo_results(&body))
+}
+
+async fn maybe_stage_research_capture(
+    ctx: &mut ToolCtx<'_>,
+    content: String,
+    record_as: &str,
+    source_url: &str,
+    provenance: Value,
+) -> Result<Option<String>, ToolError> {
+    let staged = ctx
+        .runtime
+        .stage_memory(json!({
+            "content": content,
+            "kind": "research",
+            "summary": record_as,
+            "provenance": provenance,
+            "fingerprint_basis": format!("{}\n{}", record_as.trim(), source_url.trim()),
+        }))
+        .await;
+    if staged.ok {
+        Ok(Some(format!(
+            "[staged research memory from {}]",
+            source_url.trim()
+        )))
+    } else {
+        Ok(Some(format!(
+            "[research memory not staged: {}]",
+            staged.content.trim()
+        )))
+    }
+}
+
+fn render_duckduckgo_results(results: &[SearchResult]) -> String {
+    results
+        .iter()
+        .map(|result| format!("- {} ({})", result.title.trim(), result.url.trim()))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn extract_duckduckgo_results(body: &str) -> Vec<SearchResult> {
     let mut results = Vec::new();
     let needle = "result__a";
     let mut search_start = 0;
@@ -934,7 +1052,10 @@ fn extract_duckduckgo_results(body: &str) -> Vec<String> {
         let title_end = title_start + title_end_rel;
         let title = strip_html(&body[title_start..title_end]).replace('\n', " ");
         let href = html_unescape(&body[href_start..href_end]);
-        results.push(format!("- {} ({})", title.trim(), href.trim()));
+        results.push(SearchResult {
+            title: title.trim().to_string(),
+            url: href.trim().to_string(),
+        });
         search_start = title_end;
 
         if results.len() >= 5 {
@@ -966,4 +1087,200 @@ fn html_unescape(input: &str) -> String {
         .replace("&gt;", ">")
         .replace("&quot;", "\"")
         .replace("&#39;", "'")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::WebSecurityConfig;
+    use serde_json::json;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    struct NoInput;
+
+    #[async_trait]
+    impl InputPrompter for NoInput {
+        async fn request_input(&self, _req: InputRequest) -> InputResponse {
+            InputResponse::Cancelled
+        }
+    }
+
+    #[derive(Default)]
+    struct RecordingRuntime {
+        staged: Vec<Value>,
+    }
+
+    #[async_trait]
+    impl ToolRuntime for RecordingRuntime {
+        fn read_memory(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        fn write_memory(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        fn search_memory(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        async fn stage_memory(&mut self, input: Value) -> ToolOutput {
+            self.staged.push(input);
+            ToolOutput { content: "{\"id\":\"stg_test\"}".into(), ok: true }
+        }
+        fn list_staged_memory(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        async fn promote_staged_memory(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        fn reject_staged_memory(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        async fn forget_memory(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        fn list_skills(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        fn invoke_skill(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        fn read_reference(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        async fn run_skill_script(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        fn create_skill(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+        async fn spawn_subagent(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput { content: String::new(), ok: true }
+        }
+    }
+
+    async fn serve_once(body: &'static str, content_type: &'static str) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buffer = [0_u8; 2048];
+            let _ = stream.read(&mut buffer).await;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-length: {}\r\ncontent-type: {}\r\nconnection: close\r\n\r\n{}",
+                body.len(),
+                content_type,
+                body
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+        });
+        format!("http://{}", addr)
+    }
+
+    fn test_security() -> SecurityConfig {
+        let mut security = SecurityConfig::default();
+        security.web = WebSecurityConfig::default();
+        security
+    }
+
+    #[tokio::test]
+    async fn duckduckgo_search_at_extracts_results() {
+        let base = serve_once(
+            r#"<html><body><a class="result__a" href="https://example.com/one">One</a><a class="result__a" href="https://example.com/two">Two</a></body></html>"#,
+            "text/html",
+        )
+        .await;
+        let client = reqwest::Client::new();
+        let results = duckduckgo_search_at(
+            &client,
+            "example",
+            Duration::from_secs(5),
+            &format!("{}/html/", base),
+        )
+        .await
+        .unwrap();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].url, "https://example.com/one");
+    }
+
+    #[tokio::test]
+    async fn fetch_url_record_as_stages_research_memory() {
+        let base = serve_once("<html><body><h1>Guide</h1><p>Useful details.</p></body></html>", "text/html").await;
+        let mut runtime = RecordingRuntime::default();
+        let mut ctx = ToolCtx {
+            input: Arc::new(NoInput),
+            security: test_security(),
+            web_client: reqwest::Client::new(),
+            runtime: &mut runtime,
+        };
+        let output = FetchUrlTool
+            .call(
+                json!({
+                    "url": base,
+                    "record_as": "Useful guide summary"
+                }),
+                &mut ctx,
+            )
+            .await
+            .unwrap();
+        assert!(output.ok);
+        assert!(output.content.contains("Useful details."));
+        assert!(output.content.contains("[staged research memory"));
+        assert_eq!(runtime.staged.len(), 1);
+        assert_eq!(runtime.staged[0]["kind"], "research");
+        assert_eq!(runtime.staged[0]["summary"], "Useful guide summary");
+        assert_eq!(runtime.staged[0]["provenance"]["source_url"], base);
+        assert!(
+            runtime.staged[0]["fingerprint_basis"]
+                .as_str()
+                .unwrap()
+                .contains("Useful guide summary")
+        );
+    }
+
+    #[tokio::test]
+    async fn web_search_record_as_stages_research_memory() {
+        let base = serve_once(
+            r#"<html><body><a class="result__a" href="https://example.com/postgres">Postgres defaults</a></body></html>"#,
+            "text/html",
+        )
+        .await;
+        let mut runtime = RecordingRuntime::default();
+        let results = duckduckgo_search_at(
+            &reqwest::Client::new(),
+            "postgres defaults",
+            Duration::from_secs(5),
+            &format!("{}/html/", base),
+        )
+        .await
+        .unwrap();
+        let mut ctx = ToolCtx {
+            input: Arc::new(NoInput),
+            security: test_security(),
+            web_client: reqwest::Client::new(),
+            runtime: &mut runtime,
+        };
+        let note = maybe_stage_research_capture(
+            &mut ctx,
+            format!(
+                "# {}\n\n- source_url: {}\n- query: {}\n\n## Search results\n\n{}",
+                "Postgres defaults",
+                results[0].url,
+                "postgres defaults",
+                render_duckduckgo_results(&results)
+            ),
+            "Postgres defaults",
+            &results[0].url,
+            json!({
+                "source_url": results[0].url,
+                "query": "postgres defaults",
+                "fetched_at": "2026-04-20T00:00:00Z"
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(note.as_deref(), Some("[staged research memory from https://example.com/postgres]"));
+        assert_eq!(runtime.staged.len(), 1);
+        assert_eq!(runtime.staged[0]["kind"], "research");
+        assert_eq!(runtime.staged[0]["provenance"]["query"], "postgres defaults");
+    }
 }

@@ -2228,6 +2228,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             summary: parsed.summary,
             tags: parsed.tags,
             provenance: parsed.provenance,
+            fingerprint_basis: parsed.fingerprint_basis,
         };
         let before_payload = json!({
             "kind": request.kind.as_str(),
@@ -6301,6 +6302,7 @@ mod tests {
                 summary: "Primary database is Postgres".into(),
                 tags: vec!["database".into()],
                 provenance: None,
+                fingerprint_basis: None,
             },
         )
         .expect("first stage should succeed");
@@ -6317,6 +6319,7 @@ mod tests {
                 summary: "Deploy target is Fly.io".into(),
                 tags: vec!["deploy".into()],
                 provenance: None,
+                fingerprint_basis: None,
             },
         )
         .expect("second stage should succeed");

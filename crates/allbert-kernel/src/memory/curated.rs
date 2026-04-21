@@ -55,6 +55,7 @@ pub enum StagedMemoryKind {
     JobSummary,
     SubagentResult,
     CuratorExtraction,
+    Research,
 }
 
 impl StagedMemoryKind {
@@ -65,6 +66,7 @@ impl StagedMemoryKind {
             Self::JobSummary => "job_summary",
             Self::SubagentResult => "subagent_result",
             Self::CuratorExtraction => "curator_extraction",
+            Self::Research => "research",
         }
     }
 }
@@ -97,6 +99,8 @@ pub struct StageMemoryInput {
     pub tags: Vec<String>,
     #[serde(default)]
     pub provenance: Option<JsonValue>,
+    #[serde(default)]
+    pub fingerprint_basis: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +114,7 @@ pub struct StageMemoryRequest {
     pub summary: String,
     pub tags: Vec<String>,
     pub provenance: Option<JsonValue>,
+    pub fingerprint_basis: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -718,7 +723,12 @@ pub fn stage_memory(
     }
 
     let normalized_body = normalized_markdown_body(&request.content);
-    let fingerprint = format!("sha256:{}", sha256_hex(normalized_body.as_bytes()));
+    let fingerprint_basis = request
+        .fingerprint_basis
+        .as_deref()
+        .map(normalized_markdown_body)
+        .unwrap_or_else(|| normalized_body.clone());
+    let fingerprint = format!("sha256:{}", sha256_hex(fingerprint_basis.as_bytes()));
     if durable_fingerprint_exists(paths, &fingerprint)? {
         return Err(KernelError::InitFailed(format!(
             "staging rejected: content already exists in durable memory ({fingerprint})"
@@ -2230,6 +2240,7 @@ mod tests {
                 summary: "Postgres maintenance".into(),
                 tags: vec!["postgres".into()],
                 provenance: None,
+                fingerprint_basis: None,
             },
         )
         .unwrap();
@@ -2282,6 +2293,7 @@ mod tests {
                 summary: "Production database".into(),
                 tags: vec!["postgres".into(), "database".into()],
                 provenance: None,
+                fingerprint_basis: None,
             },
         )
         .unwrap();
@@ -2331,6 +2343,7 @@ mod tests {
                 summary: "Temporary false note".into(),
                 tags: vec![],
                 provenance: None,
+                fingerprint_basis: None,
             },
         )
         .unwrap();
@@ -2371,9 +2384,36 @@ mod tests {
             summary: "Uses Postgres".into(),
             tags: vec!["postgres".into()],
             provenance: None,
+            fingerprint_basis: None,
         };
         stage_memory(&paths, &MemoryConfig::default(), request.clone()).unwrap();
         let err = stage_memory(&paths, &MemoryConfig::default(), request).unwrap_err();
+        assert!(err.to_string().contains("duplicate"));
+    }
+
+    #[test]
+    fn research_stage_memory_can_dedup_on_custom_fingerprint_basis() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        bootstrap_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+        let request = StageMemoryRequest {
+            session_id: "sess-5".into(),
+            turn_id: "turn-1".into(),
+            agent: "allbert/root".into(),
+            source: "channel".into(),
+            content: "First fetched body".into(),
+            kind: StagedMemoryKind::Research,
+            summary: "Remember this article".into(),
+            tags: vec!["research".into()],
+            provenance: Some(json!({"source_url": "https://example.com/article"})),
+            fingerprint_basis: Some("Remember this article\nhttps://example.com/article".into()),
+        };
+        stage_memory(&paths, &MemoryConfig::default(), request.clone()).unwrap();
+
+        let mut duplicate = request;
+        duplicate.content = "Second fetched body with different text".into();
+        let err = stage_memory(&paths, &MemoryConfig::default(), duplicate).unwrap_err();
         assert!(err.to_string().contains("duplicate"));
     }
 }

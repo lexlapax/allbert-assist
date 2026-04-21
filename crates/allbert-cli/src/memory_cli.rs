@@ -353,6 +353,7 @@ mod tests {
                 summary: summary.into(),
                 tags: vec!["database".into()],
                 provenance: None,
+                fingerprint_basis: None,
             },
         )
         .expect("staging should succeed")
