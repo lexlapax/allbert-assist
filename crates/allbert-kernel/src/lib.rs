@@ -30,8 +30,9 @@ pub use agent::{
     ActiveTurnBudget, Agent, AgentDefinition, AgentState, StagedNoticeEntry, TurnBudget,
 };
 pub use config::{
-    Config, DaemonConfig, IntentClassifierConfig, JobsConfig, LimitsConfig, MemoryConfig,
-    ModelConfig, Provider, SecurityConfig, SetupConfig, WebSecurityConfig,
+    Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig, JobsConfig, LimitsConfig,
+    MemoryConfig, ModelConfig, Provider, SecurityConfig, SessionsConfig, SetupConfig,
+    WebSecurityConfig,
 };
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
@@ -41,8 +42,9 @@ pub use hooks::{
 };
 pub use identity::{
     add_identity_channel, ensure_identity_record, identity_inconsistencies, load_identity_record,
-    remove_identity_channel, rename_identity, save_identity_record, IdentityChannelBinding,
-    IdentityConsistency, IdentityRecord,
+    remove_identity_channel, rename_identity, resolve_identity_id_for_sender, save_identity_record,
+    IdentityChannelBinding, IdentityConsistency, IdentityRecord, LEGACY_SENTINEL_IDENTITY,
+    LOCAL_REPL_SENDER,
 };
 pub use intent::Intent;
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};

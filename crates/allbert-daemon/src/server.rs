@@ -18,9 +18,9 @@ use allbert_kernel::{
     llm::{DefaultProviderFactory, ProviderFactory},
     ActiveSkill, ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter,
     InputRequest, InputResponse, Intent, Kernel, KernelError, KernelEvent, ModelConfig,
-    SessionSnapshot,
+    SessionSnapshot, LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
 };
-use allbert_kernel::{AllbertPaths, Config};
+use allbert_kernel::{resolve_identity_id_for_sender, AllbertPaths, Config, CrossChannelRouting};
 use allbert_proto::{
     AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientMessage,
     ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload, DaemonStatus,
@@ -86,8 +86,9 @@ struct SharedState {
 
 struct SessionHandle {
     session_id: String,
-    channel: ChannelKind,
+    channel: StdMutex<ChannelKind>,
     sender_id: StdMutex<Option<String>>,
+    identity_id: StdMutex<Option<String>>,
     kernel: Arc<Mutex<Kernel>>,
 }
 
@@ -99,12 +100,28 @@ struct TelegramRuntimeStatus {
 }
 
 impl SessionHandle {
+    fn channel(&self) -> ChannelKind {
+        *self.channel.lock().unwrap()
+    }
+
+    fn set_channel(&self, channel: ChannelKind) {
+        *self.channel.lock().unwrap() = channel;
+    }
+
     fn sender_id(&self) -> Option<String> {
         self.sender_id.lock().unwrap().clone()
     }
 
     fn set_sender_id(&self, sender_id: Option<String>) {
         *self.sender_id.lock().unwrap() = sender_id;
+    }
+
+    fn identity_id(&self) -> Option<String> {
+        self.identity_id.lock().unwrap().clone()
+    }
+
+    fn set_identity_id(&self, identity_id: Option<String>) {
+        *self.identity_id.lock().unwrap() = identity_id;
     }
 }
 
@@ -114,6 +131,8 @@ struct SessionJournalMeta {
     channel: ChannelKind,
     #[serde(default)]
     sender_id: Option<String>,
+    #[serde(default)]
+    identity_id: Option<String>,
     started_at: String,
     last_activity_at: String,
     root_agent_name: String,
@@ -546,23 +565,19 @@ async fn handle_connection(
                 .await?;
             }
             ClientMessage::Attach(open) => {
-                let session_id = open.session_id.unwrap_or_else(|| match open.channel {
-                    ChannelKind::Repl => ChannelKind::Repl.default_session_id(),
-                    ChannelKind::Cli => {
-                        format!("cli-{}", state.next_session.fetch_add(1, Ordering::SeqCst))
-                    }
-                    ChannelKind::Jobs => {
-                        format!("jobs-{}", state.next_session.fetch_add(1, Ordering::SeqCst))
-                    }
-                    ChannelKind::Telegram => format!(
-                        "telegram-{}",
-                        state.next_session.fetch_add(1, Ordering::SeqCst)
-                    ),
-                });
+                let sender_id = match open.channel {
+                    ChannelKind::Repl => Some(LOCAL_REPL_SENDER.to_string()),
+                    _ => None,
+                };
+                let session_id = match open.session_id {
+                    Some(session_id) => session_id,
+                    None => default_attach_session_id(&state, open.channel).await?,
+                };
 
-                let session = get_or_create_session(&state, open.channel, session_id, None).await?;
+                let session =
+                    get_or_create_session(&state, open.channel, session_id, sender_id).await?;
                 let attached = AttachedChannel {
-                    channel: session.channel,
+                    channel: session.channel(),
                     session_id: session.session_id.clone(),
                 };
                 append_debug_line(
@@ -631,8 +646,14 @@ async fn handle_connection(
                     .set_model(model_from_payload(model.clone()))
                     .await
                     .map_err(map_kernel_error)?;
-                persist_kernel_session(&state.paths, session.channel, session.sender_id(), &kernel)
-                    .map_err(map_kernel_error)?;
+                persist_kernel_session(
+                    &state.paths,
+                    session.channel(),
+                    session.sender_id(),
+                    session.identity_id(),
+                    &kernel,
+                )
+                .map_err(map_kernel_error)?;
                 send_server_message(
                     &mut framed,
                     &ServerMessage::Model(model_to_payload(kernel.model())),
@@ -693,8 +714,14 @@ async fn handle_connection(
                     .apply_config(session_config)
                     .await
                     .map_err(map_kernel_error)?;
-                persist_kernel_session(&state.paths, session.channel, session.sender_id(), &kernel)
-                    .map_err(map_kernel_error)?;
+                persist_kernel_session(
+                    &state.paths,
+                    session.channel(),
+                    session.sender_id(),
+                    session.identity_id(),
+                    &kernel,
+                )
+                .map_err(map_kernel_error)?;
                 send_server_message(&mut framed, &ServerMessage::Ack).await?;
             }
             ClientMessage::ListChannelRuntimes => {
@@ -783,12 +810,25 @@ async fn get_or_create_session(
     session_id: String,
     sender_id: Option<String>,
 ) -> Result<Arc<SessionHandle>, DaemonError> {
+    let resolved_identity_id = resolve_identity_id(&state.paths, channel, sender_id.as_deref())?;
     if let Some(existing) = state.sessions.read().await.get(&session_id).cloned() {
+        existing.set_channel(channel);
         if sender_id.is_some() {
             existing.set_sender_id(sender_id.clone());
+        }
+        if resolved_identity_id.is_some() {
+            existing.set_identity_id(resolved_identity_id.clone());
+        }
+        if sender_id.is_some() || resolved_identity_id.is_some() {
             let kernel = existing.kernel.lock().await;
-            persist_kernel_session(&state.paths, channel, sender_id, &kernel)
-                .map_err(map_kernel_error)?;
+            persist_kernel_session(
+                &state.paths,
+                channel,
+                sender_id,
+                resolved_identity_id,
+                &kernel,
+            )
+            .map_err(map_kernel_error)?;
         }
         return Ok(existing);
     }
@@ -804,27 +844,41 @@ async fn get_or_create_session(
     )
     .await
     .map_err(map_kernel_error)?;
-    let restored_sender_id =
+    let (restored_sender_id, restored_identity_id) =
         if let Some(snapshot) = load_session_snapshot(&state.paths, &session_id)? {
             let restored_sender_id = snapshot.meta.sender_id.clone();
+            let restored_identity_id = snapshot
+                .meta
+                .identity_id
+                .clone()
+                .or_else(|| resolved_identity_id.clone())
+                .or_else(|| Some(LEGACY_SENTINEL_IDENTITY.to_string()));
             kernel
                 .restore_session_snapshot(snapshot_to_kernel(snapshot.meta))
                 .await
                 .map_err(map_kernel_error)?;
-            restored_sender_id
+            (restored_sender_id, restored_identity_id)
         } else {
-            persist_kernel_session(&state.paths, channel, sender_id.clone(), &kernel)
-                .map_err(map_kernel_error)?;
-            sender_id.clone()
+            persist_kernel_session(
+                &state.paths,
+                channel,
+                sender_id.clone(),
+                resolved_identity_id.clone(),
+                &kernel,
+            )
+            .map_err(map_kernel_error)?;
+            (sender_id.clone(), resolved_identity_id.clone())
         };
     kernel.register_job_manager(Arc::new(DaemonJobManager {
         state: state.clone(),
     }));
     let effective_sender_id = sender_id.or(restored_sender_id);
+    let effective_identity_id = resolved_identity_id.or(restored_identity_id);
     let handle = Arc::new(SessionHandle {
         session_id: session_id.clone(),
-        channel,
+        channel: StdMutex::new(channel),
         sender_id: StdMutex::new(effective_sender_id),
+        identity_id: StdMutex::new(effective_identity_id),
         kernel: Arc::new(Mutex::new(kernel)),
     });
 
@@ -1142,15 +1196,36 @@ impl TelegramRuntime {
         sender_id: &str,
         force_new: bool,
     ) -> Result<Arc<SessionHandle>, DaemonError> {
+        let config = self.state.default_config.read().await.clone();
+        let identity_id =
+            resolve_identity_id(&self.state.paths, ChannelKind::Telegram, Some(sender_id))?;
         let session_id = if force_new {
             None
         } else {
-            let config = self.state.default_config.read().await.clone();
-            find_recent_telegram_session(
+            let max_age_days = config.daemon.session_max_age_days.into();
+            let by_identity = if matches!(
+                config.sessions.cross_channel_routing,
+                CrossChannelRouting::Inherit
+            ) {
+                identity_id
+                    .as_deref()
+                    .map(|identity_id| {
+                        find_recent_session_for_identity(
+                            &self.state.paths,
+                            identity_id,
+                            max_age_days,
+                        )
+                    })
+                    .transpose()?
+                    .flatten()
+            } else {
+                None
+            };
+            by_identity.or(find_recent_telegram_session(
                 &self.state.paths,
                 sender_id,
-                config.daemon.session_max_age_days.into(),
-            )?
+                max_age_days,
+            )?)
         };
         let session_id = session_id.unwrap_or_else(|| {
             format!(
@@ -1311,8 +1386,9 @@ impl TelegramRuntime {
                     let kernel = session.kernel.lock().await;
                     persist_completed_turn(
                         &self.state.paths,
-                        session.channel,
+                        ChannelKind::Telegram,
                         session.sender_id(),
+                        session.identity_id(),
                         &kernel,
                         CompletedTurnRecord {
                             user_input: input,
@@ -1861,6 +1937,15 @@ fn telegram_sender_key(chat_id: i64, user_id: Option<UserId>) -> String {
     }
 }
 
+fn channel_label(channel: ChannelKind) -> &'static str {
+    match channel {
+        ChannelKind::Cli => "cli",
+        ChannelKind::Repl => "repl",
+        ChannelKind::Jobs => "jobs",
+        ChannelKind::Telegram => "telegram",
+    }
+}
+
 fn best_telegram_photo(photo_sizes: &[PhotoSize]) -> Option<&PhotoSize> {
     photo_sizes.iter().max_by_key(|photo| {
         u64::from(photo.width) * u64::from(photo.height) * 1_000_000 + u64::from(photo.file.size)
@@ -1965,6 +2050,95 @@ fn find_recent_telegram_session(
     Ok(latest.map(|(_, session_id)| session_id))
 }
 
+fn resolve_identity_id(
+    paths: &AllbertPaths,
+    channel: ChannelKind,
+    sender_id: Option<&str>,
+) -> Result<Option<String>, DaemonError> {
+    let Some(sender_id) = sender_id else {
+        return Ok(None);
+    };
+    resolve_identity_id_for_sender(paths, channel, sender_id).map_err(map_kernel_error)
+}
+
+fn find_recent_session_for_identity(
+    paths: &AllbertPaths,
+    identity_id: &str,
+    max_age_days: u32,
+) -> Result<Option<String>, DaemonError> {
+    let cutoff = OffsetDateTime::now_utc() - time::Duration::days(i64::from(max_age_days));
+    let mut latest: Option<(OffsetDateTime, String)> = None;
+    for entry in fs::read_dir(&paths.sessions)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        let Some(snapshot) = load_session_snapshot(paths, &name)? else {
+            continue;
+        };
+        if snapshot.meta.identity_id.as_deref() != Some(identity_id) {
+            continue;
+        }
+        let last_activity = OffsetDateTime::parse(&snapshot.meta.last_activity_at, &Rfc3339)
+            .unwrap_or_else(|_| OffsetDateTime::now_utc());
+        if last_activity < cutoff {
+            continue;
+        }
+        let should_replace = latest
+            .as_ref()
+            .map(|(best_time, _)| last_activity > *best_time)
+            .unwrap_or(true);
+        if should_replace {
+            latest = Some((last_activity, name));
+        }
+    }
+    Ok(latest.map(|(_, session_id)| session_id))
+}
+
+async fn default_attach_session_id(
+    state: &SharedState,
+    channel: ChannelKind,
+) -> Result<String, DaemonError> {
+    let config = state.default_config.read().await.clone();
+    match channel {
+        ChannelKind::Repl => {
+            if matches!(
+                config.sessions.cross_channel_routing,
+                CrossChannelRouting::Inherit
+            ) {
+                if let Some(identity_id) =
+                    resolve_identity_id(&state.paths, ChannelKind::Repl, Some(LOCAL_REPL_SENDER))?
+                {
+                    if let Some(session_id) = find_recent_session_for_identity(
+                        &state.paths,
+                        &identity_id,
+                        config.daemon.session_max_age_days.into(),
+                    )? {
+                        return Ok(session_id);
+                    }
+                }
+            }
+            Ok(ChannelKind::Repl.default_session_id())
+        }
+        ChannelKind::Cli => Ok(format!(
+            "cli-{}",
+            state.next_session.fetch_add(1, Ordering::SeqCst)
+        )),
+        ChannelKind::Jobs => Ok(format!(
+            "jobs-{}",
+            state.next_session.fetch_add(1, Ordering::SeqCst)
+        )),
+        ChannelKind::Telegram => Ok(format!(
+            "telegram-{}",
+            state.next_session.fetch_add(1, Ordering::SeqCst)
+        )),
+    }
+}
+
 async fn run_turn_over_channel(
     framed: &mut FramedStream,
     state: &SharedState,
@@ -1972,6 +2146,9 @@ async fn run_turn_over_channel(
     session: Arc<SessionHandle>,
     input: String,
 ) -> Result<(), DaemonError> {
+    let session_channel = session.channel();
+    let session_sender_id = session.sender_id();
+    let session_identity_id = session.identity_id();
     append_debug_line(
         state,
         &format!(
@@ -1988,7 +2165,7 @@ async fn run_turn_over_channel(
     };
     let turn_input = input.clone();
     let (tx, mut rx) = mpsc::unbounded_channel();
-    let local_channel = LocalIpcChannel::new(session.channel, tx, state.next_request.clone());
+    let local_channel = LocalIpcChannel::new(session_channel, tx, state.next_request.clone());
     let adapter = channel_adapter(local_channel);
 
     let kernel = session.kernel.clone();
@@ -2050,7 +2227,7 @@ async fn run_turn_over_channel(
                             let _ = reply.send(ConfirmDecisionPayload::Deny);
                             continue;
                         }
-                        let is_async_confirm = session.channel == ChannelKind::Telegram;
+                        let is_async_confirm = session_channel == ChannelKind::Telegram;
                         if is_async_confirm {
                             let approval_id =
                                 format!("approval-{}", uuid::Uuid::new_v4().simple());
@@ -2064,9 +2241,9 @@ async fn run_turn_over_channel(
                                 frontmatter: PendingApprovalFrontmatter {
                                     id: approval_id.clone(),
                                     session_id: session.session_id.clone(),
-                                    channel: session.channel,
-                                    sender: session
-                                        .sender_id()
+                                    channel: session_channel,
+                                    sender: session_sender_id
+                                        .clone()
                                         .unwrap_or_else(|| "attached-client".into()),
                                     agent: "allbert/root".into(),
                                     tool: request.program.clone(),
@@ -2141,8 +2318,8 @@ async fn run_turn_over_channel(
                                         &approval_id,
                                         status,
                                         Some(
-                                            session
-                                                .sender_id()
+                                            session_sender_id
+                                                .clone()
                                                 .unwrap_or_else(|| "attached-client".into()),
                                         ),
                                         Some(format!("{decision:?}")),
@@ -2236,8 +2413,9 @@ async fn run_turn_over_channel(
                             let kernel = session.kernel.lock().await;
                             persist_completed_turn(
                                 &state.paths,
-                                session.channel,
-                                session.sender_id(),
+                                session_channel,
+                                session_sender_id.clone(),
+                                session_identity_id.clone(),
                                 &kernel,
                                 CompletedTurnRecord {
                                     user_input: input.clone(),
@@ -2436,9 +2614,11 @@ fn snapshot_to_kernel(meta: SessionJournalMeta) -> SessionSnapshot {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_session_meta(
     channel: ChannelKind,
     sender_id: Option<String>,
+    identity_id: Option<String>,
     kernel: &Kernel,
     started_at: String,
     last_activity_at: String,
@@ -2461,6 +2641,7 @@ fn build_session_meta(
         session_id: snapshot.session_id,
         channel,
         sender_id,
+        identity_id,
         started_at,
         last_activity_at,
         root_agent_name: snapshot.root_agent_name,
@@ -2485,6 +2666,7 @@ fn persist_kernel_session(
     paths: &AllbertPaths,
     channel: ChannelKind,
     sender_id: Option<String>,
+    identity_id: Option<String>,
     kernel: &Kernel,
 ) -> Result<(), KernelError> {
     let session_id = kernel.session_id().to_string();
@@ -2507,6 +2689,7 @@ fn persist_kernel_session(
         &build_session_meta(
             channel,
             sender_id,
+            identity_id,
             kernel,
             started_at,
             now_rfc3339_fallback(),
@@ -2520,6 +2703,7 @@ fn persist_completed_turn(
     paths: &AllbertPaths,
     channel: ChannelKind,
     sender_id: Option<String>,
+    identity_id: Option<String>,
     kernel: &Kernel,
     record: CompletedTurnRecord,
 ) -> Result<(), KernelError> {
@@ -2541,6 +2725,7 @@ fn persist_completed_turn(
     let meta = build_session_meta(
         channel,
         sender_id,
+        identity_id,
         kernel,
         started_at,
         now_rfc3339_fallback(),
@@ -2548,7 +2733,7 @@ fn persist_completed_turn(
         pending_approval,
     );
     persist_session_meta(paths, &meta)?;
-    append_turn_record(paths, &meta.session_id, &record).map_err(|err| {
+    append_turn_record(paths, &meta.session_id, channel, &record).map_err(|err| {
         KernelError::InitFailed(format!(
             "append session journal for {}: {err}",
             meta.session_id
@@ -2676,6 +2861,7 @@ fn resolve_pending_approval(
 fn append_turn_record(
     paths: &AllbertPaths,
     session_id: &str,
+    channel: ChannelKind,
     record: &CompletedTurnRecord,
 ) -> Result<(), std::io::Error> {
     let path = session_turns_path(paths, session_id);
@@ -2684,6 +2870,7 @@ fn append_turn_record(
         .append(true)
         .open(path)?;
     writeln!(file, "## {}", now_rfc3339_fallback())?;
+    writeln!(file, "- channel: {}", channel_label(channel))?;
     writeln!(file, "- cost_delta_usd: {:.6}", record.cost_delta_usd)?;
     writeln!(file)?;
     writeln!(file, "### user")?;
@@ -3234,6 +3421,7 @@ mod telegram_tests {
             session_id: session_id.into(),
             channel: ChannelKind::Telegram,
             sender_id: sender_id.map(str::to_string),
+            identity_id: None,
             started_at: "2026-04-20T00:00:00Z".into(),
             last_activity_at: last_activity_at.into(),
             root_agent_name: "allbert/root".into(),

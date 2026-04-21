@@ -14,7 +14,10 @@ use allbert_kernel::error::LlmError;
 use allbert_kernel::llm::{
     CompletionRequest, CompletionResponse, LlmProvider, ProviderFactory, Usage,
 };
-use allbert_kernel::{load_identity_record, memory, AllbertPaths, Config, ModelConfig};
+use allbert_kernel::{
+    add_identity_channel, ensure_identity_record, load_identity_record, memory, AllbertPaths,
+    Config, ModelConfig,
+};
 use allbert_proto::{
     ChannelKind, ClientKind, ClientMessage, ConfirmDecisionPayload, InputReplyPayload,
     InputResponsePayload, JobBudgetPayload, JobDefinitionPayload, KernelEventPayload,
@@ -92,6 +95,86 @@ async fn daemon_boot_seeds_identity_record() {
         .channels
         .iter()
         .any(|binding| binding.kind == ChannelKind::Repl && binding.sender == "local"));
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn repl_attach_reuses_identity_mru_session_across_channels() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let identity = ensure_identity_record(&paths).expect("identity should seed");
+    add_identity_channel(&paths, ChannelKind::Telegram, "telegram:12345:9")
+        .expect("telegram binding should add");
+    seed_session_meta(
+        &paths,
+        "shared-identity",
+        ChannelKind::Telegram,
+        Some("telegram:12345:9"),
+        Some(&identity.id),
+        "2026-04-21T17:00:00Z",
+    );
+
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted("cross-channel reply")])),
+    )
+    .await
+    .expect("daemon should start");
+
+    let mut client = wait_for_client(&paths).await;
+    let attached = client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+    assert_eq!(attached.session_id, "shared-identity");
+    assert_eq!(attached.channel, ChannelKind::Repl);
+
+    let messages = run_turn_collect_messages(&mut client, "continue from repl").await;
+    assert!(messages
+        .iter()
+        .any(|message| matches!(message, ServerMessage::TurnResult(_))));
+
+    let journal = std::fs::read_to_string(paths.sessions.join("shared-identity").join("turns.md"))
+        .expect("journal should read");
+    assert!(journal.contains("- channel: repl"));
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn legacy_repl_session_writes_identity_id_on_next_mutation() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let identity = ensure_identity_record(&paths).expect("identity should seed");
+    seed_session_meta(
+        &paths,
+        "repl-primary",
+        ChannelKind::Repl,
+        Some("local"),
+        None,
+        "2026-04-21T17:00:00Z",
+    );
+
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted("identity upgraded")])),
+    )
+    .await
+    .expect("daemon should start");
+
+    let mut client = wait_for_client(&paths).await;
+    let attached = client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+    assert_eq!(attached.session_id, "repl-primary");
+
+    let _ = run_turn_collect_messages(&mut client, "upgrade legacy session").await;
+    let meta = read_session_meta_identity(&paths, "repl-primary");
+    assert_eq!(meta.identity_id.as_deref(), Some(identity.id.as_str()));
 
     shutdown_daemon(handle, &paths).await;
 }
@@ -378,10 +461,76 @@ struct SessionMetaApprovalView {
     pending_approval: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct SessionMetaIdentityView {
+    #[serde(default)]
+    identity_id: Option<String>,
+}
+
 fn read_session_meta_approval(paths: &AllbertPaths, session_id: &str) -> SessionMetaApprovalView {
     let raw = std::fs::read_to_string(paths.sessions.join(session_id).join("meta.json"))
         .expect("session meta should be readable");
     serde_json::from_str(&raw).expect("session meta should parse")
+}
+
+fn read_session_meta_identity(paths: &AllbertPaths, session_id: &str) -> SessionMetaIdentityView {
+    let raw = std::fs::read_to_string(paths.sessions.join(session_id).join("meta.json"))
+        .expect("session meta should be readable");
+    serde_json::from_str(&raw).expect("session meta should parse")
+}
+
+fn seed_session_meta(
+    paths: &AllbertPaths,
+    session_id: &str,
+    channel: ChannelKind,
+    sender_id: Option<&str>,
+    identity_id: Option<&str>,
+    last_activity_at: &str,
+) {
+    let session_dir = paths.sessions.join(session_id);
+    std::fs::create_dir_all(&session_dir).expect("session dir should exist");
+    let meta = serde_json::json!({
+        "session_id": session_id,
+        "channel": channel,
+        "sender_id": sender_id,
+        "identity_id": identity_id,
+        "started_at": "2026-04-20T00:00:00Z",
+        "last_activity_at": last_activity_at,
+        "root_agent_name": "allbert/root",
+        "last_agent_stack": ["allbert/root"],
+        "last_resolved_intent": "task",
+        "intent_history": ["task"],
+        "active_skills": [],
+        "ephemeral_memory": [],
+        "model": ModelConfigPayload {
+            provider: ProviderKind::Anthropic,
+            model_id: "claude-sonnet-4-5".into(),
+            api_key_env: "ANTHROPIC_API_KEY".into(),
+            max_tokens: 4096,
+        },
+        "turn_count": 1,
+        "cost_total_usd": 0.0,
+        "messages": [],
+        "pending_approval": serde_json::Value::Null
+    });
+    std::fs::write(
+        session_dir.join("meta.json"),
+        serde_json::to_vec_pretty(&meta).expect("meta should serialize"),
+    )
+    .expect("meta should write");
+    std::fs::write(
+        session_dir.join("turns.md"),
+        format!(
+            "# Session {session_id}\n\n- channel: {}\n- started_at: 2026-04-20T00:00:00Z\n\n",
+            match channel {
+                ChannelKind::Cli => "cli",
+                ChannelKind::Repl => "repl",
+                ChannelKind::Jobs => "jobs",
+                ChannelKind::Telegram => "telegram",
+            }
+        ),
+    )
+    .expect("turns should write");
 }
 
 fn parse_pending_approval(

@@ -13,6 +13,8 @@ pub struct Config {
     #[serde(default)]
     pub daemon: DaemonConfig,
     #[serde(default)]
+    pub sessions: SessionsConfig,
+    #[serde(default)]
     pub channels: ChannelsConfig,
     #[serde(default)]
     pub jobs: JobsConfig,
@@ -70,6 +72,27 @@ impl Default for DaemonConfig {
             log_retention_days: 7,
             session_max_age_days: 30,
             auto_spawn: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CrossChannelRouting {
+    Inherit,
+    Scoped,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct SessionsConfig {
+    pub cross_channel_routing: CrossChannelRouting,
+}
+
+impl Default for SessionsConfig {
+    fn default() -> Self {
+        Self {
+            cross_channel_routing: CrossChannelRouting::Inherit,
         }
     }
 }
@@ -343,6 +366,7 @@ impl Config {
             },
             setup: SetupConfig::default(),
             daemon: DaemonConfig::default(),
+            sessions: SessionsConfig::default(),
             channels: ChannelsConfig::default(),
             jobs: JobsConfig::default(),
             install: InstallConfig::default(),

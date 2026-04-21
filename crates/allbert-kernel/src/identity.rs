@@ -13,6 +13,9 @@ use uuid::Uuid;
 
 use crate::{AllbertPaths, KernelError};
 
+pub const LEGACY_SENTINEL_IDENTITY: &str = "usr_legacy_unmapped";
+pub const LOCAL_REPL_SENDER: &str = "local";
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IdentityChannelBinding {
     pub kind: ChannelKind,
@@ -181,6 +184,20 @@ pub fn identity_inconsistencies(
         warnings,
         migration_candidates,
     })
+}
+
+pub fn resolve_identity_id_for_sender(
+    paths: &AllbertPaths,
+    kind: ChannelKind,
+    sender: &str,
+) -> Result<Option<String>, KernelError> {
+    let record = ensure_identity_record(paths)?;
+    let sender = normalize_sender(sender)?;
+    Ok(record
+        .channels
+        .iter()
+        .find(|binding| binding.kind == kind && binding.sender == sender)
+        .map(|_| record.id))
 }
 
 fn parse_identity_markdown(raw: &str, path: &Path) -> Result<IdentityRecord, KernelError> {
