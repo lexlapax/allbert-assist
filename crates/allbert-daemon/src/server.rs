@@ -399,9 +399,7 @@ async fn bind_listener(socket_path: &Path) -> Result<LocalSocketListener, Daemon
 
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-
-        std::fs::set_permissions(socket_path, std::fs::Permissions::from_mode(0o600))?;
+        set_socket_permissions_best_effort(socket_path)?;
     }
 
     Ok(listener)
@@ -3139,6 +3137,30 @@ fn prepare_socket_dir(socket_path: &Path) -> Result<(), DaemonError> {
     Ok(())
 }
 
+#[cfg(unix)]
+fn set_socket_permissions_best_effort(socket_path: &Path) -> Result<(), DaemonError> {
+    use std::os::unix::fs::PermissionsExt;
+
+    match std::fs::set_permissions(socket_path, std::fs::Permissions::from_mode(0o600)) {
+        Ok(()) => Ok(()),
+        Err(err) if should_ignore_socket_permission_error(err.kind()) => {
+            // Some local-socket backends on macOS refuse chmod on the socket inode itself even
+            // when the parent directory is already locked down to 0700. The private parent
+            // directory remains the primary access control in that case.
+            Ok(())
+        }
+        Err(err) => Err(DaemonError::Io(err)),
+    }
+}
+
+#[cfg(unix)]
+fn should_ignore_socket_permission_error(kind: std::io::ErrorKind) -> bool {
+    matches!(
+        kind,
+        std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::Unsupported
+    )
+}
+
 fn now_rfc3339() -> Result<String, DaemonError> {
     OffsetDateTime::now_utc()
         .format(&Rfc3339)
@@ -3187,6 +3209,7 @@ async fn recv_client_message(framed: &mut FramedStream) -> Result<ClientMessage,
 #[cfg(test)]
 mod telegram_tests {
     use super::*;
+    use std::io::ErrorKind;
     use teloxide::types::{FileId, FileMeta, FileUniqueId};
 
     fn temp_paths() -> AllbertPaths {
@@ -3345,5 +3368,17 @@ mod telegram_tests {
         );
 
         std::fs::remove_dir_all(paths.root).ok();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn socket_permission_step_ignores_permission_denied_and_unsupported() {
+        assert!(should_ignore_socket_permission_error(
+            ErrorKind::PermissionDenied
+        ));
+        assert!(should_ignore_socket_permission_error(
+            ErrorKind::Unsupported
+        ));
+        assert!(!should_ignore_socket_permission_error(ErrorKind::Other));
     }
 }

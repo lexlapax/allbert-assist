@@ -475,12 +475,12 @@ fn spawn_config_for_executable(
     config: &Config,
 ) -> Result<SpawnConfig, DaemonError> {
     let allbert_home = paths.root.clone();
-    let mut spawn = if let Some(program) = resolve_daemon_binary(&current_exe) {
-        SpawnConfig::new(program, allbert_home)
-    } else if is_cli_binary(current_exe) {
+    let mut spawn = if is_cli_binary(current_exe) {
         let mut spawn = SpawnConfig::new(current_exe.to_path_buf(), allbert_home);
         spawn.args = vec!["internal-daemon-host".into()];
         spawn
+    } else if let Some(program) = resolve_daemon_binary(&current_exe) {
+        SpawnConfig::new(program, allbert_home)
     } else if let Some(workspace_root) = find_workspace_root(&current_exe) {
         let mut spawn = SpawnConfig::new(PathBuf::from("cargo"), allbert_home);
         spawn.args = vec![
@@ -567,7 +567,7 @@ mod tests {
     }
 
     #[test]
-    fn prefers_built_daemon_binary_when_present() {
+    fn prefers_self_host_when_running_from_cli_binary() {
         let temp = TempDir::new();
         let paths = AllbertPaths::under(temp.path.join(".allbert"));
         let exe_dir = temp.path.join("target").join("debug");
@@ -579,8 +579,9 @@ mod tests {
 
         let spawn = spawn_config_for_executable(&current_exe, &paths, &Config::default_template())
             .expect("spawn config should resolve");
-        assert_eq!(spawn.program, daemon);
-        assert!(spawn.working_dir.is_none());
+        assert_eq!(spawn.program, current_exe);
+        assert_eq!(spawn.args, vec!["internal-daemon-host".to_string()]);
+        assert!(daemon.exists());
     }
 
     #[test]
