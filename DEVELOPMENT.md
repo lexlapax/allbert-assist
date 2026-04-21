@@ -128,6 +128,13 @@ env -u RUSTC_WRAPPER cargo test -q -- --ignored
 
 Run those only when you intentionally want live verification and the required secrets/network are available.
 
+More targeted provider checks:
+
+```bash
+env -u RUSTC_WRAPPER cargo test -q -p allbert-kernel anthropic_release_smoke -- --ignored --exact
+env -u RUSTC_WRAPPER cargo test -q -p allbert-kernel openrouter_release_smoke -- --ignored --exact
+```
+
 ## Environment variables
 
 Most contributor work requires no secrets.
@@ -141,6 +148,10 @@ Common optional variables:
 - `ALLBERT_HOME` for temp-profile isolation
 
 Telegram testing is also optional and uses filesystem-backed secrets/config under `~/.allbert/`.
+
+Optional Telegram prerequisites:
+- `~/.allbert/secrets/telegram/bot_token`
+- `~/.allbert/config/channels.telegram.allowed_chats`
 
 If you want a local env file for optional live checks, copy `.env.example` and fill values locally. Do not commit real secrets.
 
