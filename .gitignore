@@ -27,3 +27,7 @@ coverage/
 
 # Local tool state
 .claude/settings.local.json
+
+# Generated recurring report artifacts
+reports/daily-brief.md
+reports/weekly-review.md
