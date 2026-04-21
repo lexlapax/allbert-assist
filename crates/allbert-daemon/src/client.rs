@@ -479,9 +479,9 @@ fn spawn_config_for_executable(
         let mut spawn = SpawnConfig::new(current_exe.to_path_buf(), allbert_home);
         spawn.args = vec!["internal-daemon-host".into()];
         spawn
-    } else if let Some(program) = resolve_daemon_binary(&current_exe) {
+    } else if let Some(program) = resolve_daemon_binary(current_exe) {
         SpawnConfig::new(program, allbert_home)
-    } else if let Some(workspace_root) = find_workspace_root(&current_exe) {
+    } else if let Some(workspace_root) = find_workspace_root(current_exe) {
         let mut spawn = SpawnConfig::new(PathBuf::from("cargo"), allbert_home);
         spawn.args = vec![
             "run".into(),

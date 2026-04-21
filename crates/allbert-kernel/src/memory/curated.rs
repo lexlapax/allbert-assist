@@ -35,16 +35,12 @@ const STAGED_BODY_MAX_BYTES: usize = 16 * 1024;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum MemoryTier {
+    #[default]
     Durable,
     Staging,
     All,
-}
-
-impl Default for MemoryTier {
-    fn default() -> Self {
-        Self::Durable
-    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -576,8 +572,8 @@ pub fn build_turn_memory_snapshot(
             trimmed_sources.push(format!("prefetch:{}", dropped.path));
         } else if !daily_head.is_empty() {
             let over = rendered_sections_bytes(&render) - config.max_synopsis_bytes;
-            let new_len = daily_head.as_bytes().len().saturating_sub(over.max(256));
-            if new_len == 0 || new_len >= daily_head.as_bytes().len() {
+            let new_len = daily_head.len().saturating_sub(over.max(256));
+            if new_len == 0 || new_len >= daily_head.len() {
                 daily_head.clear();
             } else {
                 daily_head = truncate_to_bytes(&daily_head, new_len);
@@ -585,8 +581,8 @@ pub fn build_turn_memory_snapshot(
             trimmed_sources.push("daily_head".into());
         } else if !memory_head.is_empty() {
             let over = rendered_sections_bytes(&render) - config.max_synopsis_bytes;
-            let new_len = memory_head.as_bytes().len().saturating_sub(over.max(256));
-            if new_len == 0 || new_len >= memory_head.as_bytes().len() {
+            let new_len = memory_head.len().saturating_sub(over.max(256));
+            if new_len == 0 || new_len >= memory_head.len() {
                 memory_head.clear();
             } else {
                 memory_head = truncate_to_bytes(&memory_head, new_len);
@@ -770,7 +766,7 @@ pub fn stage_memory(
     }
 
     let mut body = request.content.trim().to_string();
-    if body.as_bytes().len() > STAGED_BODY_MAX_BYTES {
+    if body.len() > STAGED_BODY_MAX_BYTES {
         body = truncate_to_bytes(&body, STAGED_BODY_MAX_BYTES.saturating_sub(14));
         if !body.ends_with('\n') {
             body.push('\n');
@@ -820,7 +816,7 @@ pub fn stage_memory(
     let manifest = load_manifest(paths)?;
     let _ = maybe_rebuild_index(paths, &manifest, true, Some("stage-memory"))?;
 
-    Ok(parse_staged_record(paths, &path)?)
+    parse_staged_record(paths, &path)
 }
 
 pub fn list_staged_memory(
@@ -996,7 +992,7 @@ pub fn reject_staged_memory(
         .map_err(|e| KernelError::InitFailed(format!("remove {}: {e}", staged_path.display())))?;
     let manifest = load_manifest(paths)?;
     let _ = maybe_rebuild_index(paths, &manifest, true, Some("reject-staged-memory"))?;
-    Ok(relative_to_memory(paths, &dest)?)
+    relative_to_memory(paths, &dest)
 }
 
 pub fn preview_forget_memory(
@@ -1756,7 +1752,7 @@ fn yaml_escape_scalar(input: &str) -> String {
 }
 
 fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
-    if input.as_bytes().len() <= max_bytes {
+    if input.len() <= max_bytes {
         return input.to_string();
     }
     let mut end = 0usize;
@@ -1880,11 +1876,7 @@ fn rendered_sections_bytes(sections: &[String]) -> usize {
     if sections.is_empty() {
         0
     } else {
-        sections
-            .iter()
-            .map(|section| section.as_bytes().len())
-            .sum::<usize>()
-            + ((sections.len() - 1) * 2)
+        sections.iter().map(|section| section.len()).sum::<usize>() + ((sections.len() - 1) * 2)
     }
 }
 
@@ -1924,14 +1916,14 @@ fn read_yesterday_tail(
 }
 
 fn truncate_tail_to_bytes(input: &str, max_bytes: usize) -> String {
-    if input.as_bytes().len() <= max_bytes {
+    if input.len() <= max_bytes {
         return input.to_string();
     }
 
     let mut start = input.len();
     for (idx, _) in input.char_indices().rev() {
         let slice = &input[idx..];
-        if slice.as_bytes().len() > max_bytes {
+        if slice.len() > max_bytes {
             break;
         }
         start = idx;

@@ -719,7 +719,7 @@ fn render_install_preview(preview: &SkillPreview) -> String {
 
 fn format_skill_summary(preview: &SkillPreview, metadata: Option<&InstallMetadata>) -> String {
     let mut lines = Vec::new();
-    lines.push(format!("{}", preview.name));
+    lines.push(preview.name.to_string());
     lines.push(format!("  description: {}", preview.description));
     lines.push(format!(
         "  allowed-tools: {}",

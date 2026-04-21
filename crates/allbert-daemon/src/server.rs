@@ -2741,7 +2741,7 @@ fn extract_turn_assistant_text(kernel: &Kernel, pre_turn_messages: usize) -> Opt
 }
 
 fn truncate_tool_output(content: &str, limit: usize) -> String {
-    if content.as_bytes().len() <= limit {
+    if content.len() <= limit {
         return content.to_string();
     }
     let mut end = 0usize;

@@ -47,14 +47,9 @@ pub enum Provider {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
+#[derive(Default)]
 pub struct SetupConfig {
     pub version: u8,
-}
-
-impl Default for SetupConfig {
-    fn default() -> Self {
-        Self { version: 0 }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

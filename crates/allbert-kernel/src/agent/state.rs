@@ -180,10 +180,7 @@ impl AgentState {
     }
 
     fn ephemeral_memory_bytes(&self) -> usize {
-        self.ephemeral_memory
-            .iter()
-            .map(|entry| entry.as_bytes().len())
-            .sum()
+        self.ephemeral_memory.iter().map(|entry| entry.len()).sum()
     }
 
     pub fn replace_ephemeral_memory<I>(&mut self, notes: I, max_bytes: usize)
@@ -214,7 +211,7 @@ impl AgentState {
 }
 
 fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
-    if input.as_bytes().len() <= max_bytes {
+    if input.len() <= max_bytes {
         return input.to_string();
     }
 

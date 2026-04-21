@@ -541,7 +541,7 @@ impl JobSchedule {
                 let local = after.with_timezone(&tz);
                 let mut date = local.date_naive();
                 while date.weekday() != *weekday {
-                    date = date + ChronoDuration::days(1);
+                    date += ChronoDuration::days(1);
                 }
                 let candidate = tz
                     .from_local_datetime(&date.and_time(*time))

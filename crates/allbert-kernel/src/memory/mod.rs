@@ -113,7 +113,7 @@ pub fn load_prompt_memory(
         if remaining > label.len() {
             let content = truncate_to_bytes(head.trim(), remaining - label.len());
             if !content.trim().is_empty() {
-                remaining -= label.len() + content.as_bytes().len();
+                remaining -= label.len() + content.len();
                 sections.push(format!("{label}{content}"));
             }
         }
@@ -268,7 +268,7 @@ fn first_n_lines(input: &str, n: usize) -> String {
 }
 
 fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
-    if input.as_bytes().len() <= max_bytes {
+    if input.len() <= max_bytes {
         return input.to_string();
     }
     let mut end = max_bytes;

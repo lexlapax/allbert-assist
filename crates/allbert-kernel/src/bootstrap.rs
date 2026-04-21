@@ -23,7 +23,7 @@ pub(crate) fn snapshot_prompt_sections(
         }
 
         let prefix = format!("## {label}\n");
-        let prefix_bytes = prefix.as_bytes().len();
+        let prefix_bytes = prefix.len();
         if remaining <= prefix_bytes {
             break;
         }
@@ -35,7 +35,7 @@ pub(crate) fn snapshot_prompt_sections(
             break;
         }
 
-        remaining -= prefix_bytes + content.as_bytes().len();
+        remaining -= prefix_bytes + content.len();
         sections.push(format!("{prefix}{content}"));
     }
 
@@ -43,7 +43,7 @@ pub(crate) fn snapshot_prompt_sections(
 }
 
 fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
-    if input.as_bytes().len() <= max_bytes {
+    if input.len() <= max_bytes {
         return input.to_owned();
     }
 

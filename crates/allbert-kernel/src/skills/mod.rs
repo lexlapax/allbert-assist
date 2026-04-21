@@ -813,14 +813,14 @@ fn resolve_declared_child_path(
             relative
         )));
     }
-    if !relative_path
+    if relative_path
         .components()
         .next()
         .and_then(|component| match component {
             std::path::Component::Normal(value) => value.to_str(),
             _ => None,
         })
-        .is_some_and(|value| value == expected_prefix)
+        .is_none_or(|value| value != expected_prefix)
     {
         return Err(SkillError::Load(format!(
             "path '{}' must live under {}/",
@@ -872,7 +872,7 @@ fn yaml_quote(value: &str) -> String {
 }
 
 fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
-    if input.as_bytes().len() <= max_bytes {
+    if input.len() <= max_bytes {
         return input.to_string();
     }
 

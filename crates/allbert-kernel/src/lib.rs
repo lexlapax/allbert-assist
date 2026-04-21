@@ -807,7 +807,7 @@ impl Kernel {
                     .max_tool_output_bytes_per_call
                     .min(remaining);
                 let content = truncate_to_bytes(&tool_output.content, per_call_limit);
-                tool_output_total += content.as_bytes().len();
+                tool_output_total += content.len();
 
                 if emit_terminal_events {
                     (self.adapter.on_event)(&KernelEvent::ToolResult {
@@ -913,7 +913,7 @@ impl Kernel {
         };
         if let Some(args) = &args {
             let serialized = serde_json::to_string(args).unwrap_or_default();
-            if serialized.as_bytes().len() > config.limits.max_skill_args_bytes {
+            if serialized.len() > config.limits.max_skill_args_bytes {
                 return Err(KernelError::InitFailed(
                     "invoke_skill args exceed limits.max_skill_args_bytes".into(),
                 ));
@@ -3058,7 +3058,7 @@ fn looks_like_memory_path(input: &str) -> bool {
 }
 
 fn truncate_prompt_bytes(input: &str, max_bytes: usize) -> String {
-    if input.as_bytes().len() <= max_bytes {
+    if input.len() <= max_bytes {
         return input.to_string();
     }
 
@@ -3276,7 +3276,7 @@ fn parse_tool_calls(text: &str) -> Vec<ToolInvocation> {
 }
 
 fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
-    if input.as_bytes().len() <= max_bytes {
+    if input.len() <= max_bytes {
         return input.to_string();
     }
 
