@@ -158,7 +158,8 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
             .or_else(|| Some(timezone.clone()))
     };
     let enabled_bundled_jobs = if jobs_enabled {
-        match prompt_bundled_jobs(paths)? {
+        let prefer_safe_defaults = config.setup.version == 0;
+        match prompt_bundled_jobs(paths, prefer_safe_defaults)? {
             Some(value) => value,
             None => return Ok(None),
         }
@@ -424,7 +425,10 @@ fn prompt_trusted_roots(cwd: &Path, current_roots: &[PathBuf]) -> Result<Option<
     }
 }
 
-fn prompt_bundled_jobs(paths: &AllbertPaths) -> Result<Option<Vec<String>>> {
+fn prompt_bundled_jobs(
+    paths: &AllbertPaths,
+    prefer_safe_defaults: bool,
+) -> Result<Option<Vec<String>>> {
     let available = list_job_templates(&paths.jobs_templates)?;
     if available.is_empty() {
         return Ok(Some(Vec::new()));
@@ -434,9 +438,12 @@ fn prompt_bundled_jobs(paths: &AllbertPaths) -> Result<Option<Vec<String>>> {
         .collect::<HashSet<_>>();
     println!("\nBundled recurring job templates are available but remain disabled by default.");
     println!("Enable only the ones you want Allbert to schedule for this profile.");
+    if prefer_safe_defaults && !existing.contains("memory-compile") {
+        println!("For fresh profiles that opt into jobs, `memory-compile` is preselected because it stages memory candidates instead of writing durable notes directly.");
+    }
     let mut selected = Vec::new();
     for name in available {
-        let default = existing.contains(&name);
+        let default = bundled_job_default_enabled(&name, &existing, prefer_safe_defaults);
         let prompt = format!("Enable bundled job template `{name}` now?");
         match prompt_yes_no(&prompt, default)? {
             Some(true) => selected.push(name),
@@ -445,6 +452,15 @@ fn prompt_bundled_jobs(paths: &AllbertPaths) -> Result<Option<Vec<String>>> {
         }
     }
     Ok(Some(selected))
+}
+
+fn bundled_job_default_enabled(
+    name: &str,
+    existing: &HashSet<String>,
+    prefer_safe_defaults: bool,
+) -> bool {
+    existing.contains(name)
+        || (prefer_safe_defaults && name == "memory-compile" && !existing.contains(name))
 }
 
 fn enable_bundled_jobs(paths: &AllbertPaths, selected: &[String]) -> Result<()> {
@@ -954,5 +970,40 @@ mod tests {
         let updated_identity =
             fs::read_to_string(&paths.identity).expect("IDENTITY.md should be readable");
         assert_eq!(original_identity, updated_identity);
+    }
+
+    #[test]
+    fn bundled_job_defaults_only_preselect_memory_compile_for_fresh_profiles() {
+        let empty = HashSet::new();
+        assert!(bundled_job_default_enabled("memory-compile", &empty, true));
+        assert!(!bundled_job_default_enabled("daily-brief", &empty, true));
+        assert!(!bundled_job_default_enabled("weekly-review", &empty, true));
+        assert!(!bundled_job_default_enabled("trace-triage", &empty, true));
+        assert!(!bundled_job_default_enabled(
+            "system-health-check",
+            &empty,
+            true
+        ));
+        assert!(!bundled_job_default_enabled(
+            "memory-compile",
+            &empty,
+            false
+        ));
+    }
+
+    #[test]
+    fn bundled_job_defaults_preserve_existing_state() {
+        let existing = HashSet::from([String::from("daily-brief"), String::from("memory-compile")]);
+        assert!(bundled_job_default_enabled("daily-brief", &existing, false));
+        assert!(bundled_job_default_enabled(
+            "memory-compile",
+            &existing,
+            false
+        ));
+        assert!(bundled_job_default_enabled(
+            "memory-compile",
+            &existing,
+            true
+        ));
     }
 }

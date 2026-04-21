@@ -2384,8 +2384,12 @@ async fn bundled_templates_seed_disabled_and_can_produce_expected_output() {
     let system_health =
         std::fs::read_to_string(paths.jobs_templates.join("system-health-check.md"))
             .expect("template");
+    let memory_compile =
+        std::fs::read_to_string(paths.jobs_templates.join("memory-compile.md")).expect("template");
     assert!(trace_triage.contains("report: on_anomaly"));
     assert!(system_health.contains("report: on_anomaly"));
+    assert!(memory_compile.contains("Use stage_memory for candidate durable facts"));
+    assert!(!memory_compile.contains("Prefer write_memory for stable facts"));
 
     let mut daily = parse_template_job(&paths.jobs_templates.join("daily-brief.md"));
     daily.enabled = true;

@@ -102,7 +102,7 @@ schedule: "@daily at 18:00"
 report: on_failure
 ---
 Review recent daily notes for durable facts worth keeping.
-Prefer write_memory for stable facts and write a short markdown report to reports/memory-compile.md.
+Use stage_memory for candidate durable facts, do not write durable notes directly, and write a short markdown report to reports/memory-compile.md summarizing what was staged.
 "#;
 
 const TRACE_TRIAGE_TEMPLATE: &str = r#"---
