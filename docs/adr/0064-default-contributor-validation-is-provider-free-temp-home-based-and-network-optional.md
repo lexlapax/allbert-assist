@@ -1,7 +1,7 @@
 # ADR 0064: Default contributor validation is provider-free, temp-home based, and network-optional
 
 Date: 2026-04-21
-Status: Proposed
+Status: Accepted
 
 ## Context
 

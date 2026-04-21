@@ -1,7 +1,7 @@
 # ADR 0065: Repo contributor instructions are distinct from runtime bootstrap artifacts
 
 Date: 2026-04-21
-Status: Proposed
+Status: Accepted
 
 ## Context
 

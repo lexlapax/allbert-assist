@@ -1,7 +1,7 @@
 # ADR 0063: Development environment is rustup-pinned and supported on macOS and Linux
 
 Date: 2026-04-21
-Status: Proposed
+Status: Accepted
 
 ## Context
 
