@@ -181,6 +181,11 @@ struct RequestedTurnBudget {
     seconds: Option<u64>,
 }
 
+struct IntentShape {
+    prompt_preamble: &'static str,
+    tool_priority_order: &'static [&'static str],
+}
+
 pub struct Kernel {
     config: Config,
     paths: AllbertPaths,
@@ -1595,6 +1600,14 @@ Available tools:\n",
         }
         if let Some(intent) = resolved_intent {
             prompt.push_str(&format!("Resolved intent: {}\n", intent.as_str()));
+            let shape = intent_shape(intent);
+            prompt.push_str(&format!("{}\n", shape.prompt_preamble));
+            if !shape.tool_priority_order.is_empty() {
+                prompt.push_str(&format!(
+                    "Preferred tool order: {}\n",
+                    shape.tool_priority_order.join(", ")
+                ));
+            }
         }
 
         prompt.push_str(&self.tools.prompt_catalog());
@@ -3195,6 +3208,58 @@ fn render_staged_notice_entry(entry: &StagedNoticeEntry, max_bytes: usize) -> St
     truncate_to_bytes(&raw, max_bytes)
 }
 
+fn intent_shape(intent: &Intent) -> IntentShape {
+    match intent {
+        Intent::Chat => IntentShape {
+            prompt_preamble:
+                "Intent guidance: stay conversational, keep side effects low, and prefer a natural-language answer unless the user explicitly asks you to act.",
+            tool_priority_order: &["request_input", "read_memory", "read_file"],
+        },
+        Intent::Task => IntentShape {
+            prompt_preamble:
+                "Intent guidance: use the normal problem-solving posture, act when useful, and keep delegated work within the default sub-agent budget unless the task clearly needs more.",
+            tool_priority_order: &[
+                "read_file",
+                "process_exec",
+                "request_input",
+                "spawn_subagent",
+            ],
+        },
+        Intent::Schedule => IntentShape {
+            prompt_preamble:
+                "Intent guidance: prefer daemon-backed job management, foreground durable effects, and use confirmation language that makes recurring changes explicit.",
+            tool_priority_order: &[
+                "list_jobs",
+                "get_job",
+                "upsert_job",
+                "pause_job",
+                "resume_job",
+                "run_job",
+                "remove_job",
+            ],
+        },
+        Intent::MemoryQuery => IntentShape {
+            prompt_preamble:
+                "Intent guidance: retrieve first, answer from evidence, and keep the response concise and grounded in cited memory hits when possible.",
+            tool_priority_order: &[
+                "search_memory",
+                "read_memory",
+                "list_staged_memory",
+                "get_job",
+            ],
+        },
+        Intent::Meta => IntentShape {
+            prompt_preamble:
+                "Intent guidance: prefer operator and status surfaces, avoid unnecessary side effects, and reach for setup, model, cost, or daemon status tools before broader action.",
+            tool_priority_order: &[
+                "request_input",
+                "read_memory",
+                "search_memory",
+            ],
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::VecDeque;
@@ -4103,6 +4168,8 @@ mod tests {
             .as_ref()
             .expect("system prompt should exist");
         assert!(system.contains("Resolved intent: schedule"));
+        assert!(system.contains("prefer daemon-backed job management"));
+        assert!(system.contains("Preferred tool order: list_jobs, get_job, upsert_job"));
     }
 
     #[tokio::test]
@@ -4171,6 +4238,14 @@ mod tests {
                 .contains("Resolved intent: chat"),
             "main turn should receive the resolved intent"
         );
+        assert!(
+            requests[1]
+                .system
+                .as_ref()
+                .unwrap()
+                .contains("stay conversational"),
+            "chat intent should shape the prompt preamble"
+        );
 
         let log = fs::read_to_string(kernel.paths().costs.clone()).expect("cost log should exist");
         assert!(
@@ -4225,6 +4300,51 @@ mod tests {
                 .unwrap()
                 .contains("Resolved intent: task"),
             "budget fallback should use the default task intent"
+        );
+        assert!(
+            requests[0].system.as_ref().unwrap().contains(
+                "Preferred tool order: read_file, process_exec, request_input, spawn_subagent"
+            ),
+            "task intent should surface its preferred tool ordering"
+        );
+    }
+
+    #[tokio::test]
+    async fn meta_intent_shapes_prompt_without_hard_gating() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![CompletionResponse {
+                    text: "META_OK".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("show status")
+            .await
+            .expect("turn should succeed");
+
+        let requests = requests.lock().unwrap();
+        let system = requests[0].system.as_ref().unwrap();
+        assert!(system.contains("Resolved intent: meta"));
+        assert!(system.contains("prefer operator and status surfaces"));
+        assert!(system.contains("Preferred tool order: request_input, read_memory, search_memory"));
+        assert!(
+            system.contains("- process_exec:") || system.contains("\"name\":\"process_exec\""),
+            "meta intent should not hard-gate tools out of the prompt surface"
         );
     }
 
