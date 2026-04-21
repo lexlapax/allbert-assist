@@ -189,15 +189,18 @@ pub enum ConfirmDecisionPayload {
     Deny,
     AllowOnce,
     AllowSession,
+    Timeout,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ConfirmRequestPayload {
     pub request_id: u64,
+    pub approval_id: Option<String>,
     pub program: String,
     pub args: Vec<String>,
     pub cwd: Option<String>,
     pub rendered: String,
+    pub expires_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

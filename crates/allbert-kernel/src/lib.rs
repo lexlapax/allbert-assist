@@ -22,8 +22,8 @@ use std::time::{Duration, Instant};
 use serde_json::json;
 
 pub use adapter::{
-    ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter, InputRequest,
-    InputResponse,
+    ConfirmDecision, ConfirmPrompter, ConfirmRequest, DynamicConfirmPrompter, FrontendAdapter,
+    InputPrompter, InputRequest, InputResponse,
 };
 pub use agent::{Agent, AgentDefinition, AgentState, StagedNoticeEntry};
 pub use config::{
@@ -172,6 +172,7 @@ pub struct Kernel {
     tools: ToolRegistry,
     job_manager: Option<Arc<dyn JobManager>>,
     security_state: Arc<Mutex<SecurityConfig>>,
+    dynamic_confirm: DynamicConfirmPrompter,
     daily_cost_cache: Option<DailyCostCache>,
     pending_turn_cost_override_reason: Option<String>,
     #[allow(dead_code)]
@@ -304,13 +305,14 @@ impl Kernel {
             KernelError::InitFailed(format!("write {}: {e}", paths.agents_notes.display()))
         })?;
         let security_state = Arc::new(Mutex::new(config.security.clone()));
+        let dynamic_confirm = DynamicConfirmPrompter::new(adapter.confirm.clone());
         let mut hooks = HookRegistry::default();
         hooks.register(
             HookPoint::BeforeTool,
             Arc::new(SecurityHook::new(
                 security_state.clone(),
                 paths.clone(),
-                adapter.confirm.clone(),
+                Arc::new(dynamic_confirm.clone()),
             )),
         );
         hooks.register(HookPoint::BeforePrompt, Arc::new(BootstrapContextHook));
@@ -330,6 +332,7 @@ impl Kernel {
             tools: ToolRegistry::builtins(),
             job_manager: None,
             security_state,
+            dynamic_confirm,
             daily_cost_cache: None,
             pending_turn_cost_override_reason: None,
             trace,
@@ -961,6 +964,7 @@ impl Kernel {
     }
 
     pub fn set_adapter(&mut self, adapter: FrontendAdapter) {
+        self.dynamic_confirm.set(adapter.confirm.clone());
         self.adapter = adapter;
     }
 
@@ -2180,6 +2184,10 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 content: "memory promotion denied by user".into(),
                 ok: false,
             },
+            ConfirmDecision::Timeout => ToolOutput {
+                content: "confirm-timeout".into(),
+                ok: false,
+            },
             ConfirmDecision::AllowOnce | ConfirmDecision::AllowSession => {
                 match memory::promote_staged_memory(&self.paths, &self.config.memory, &preview) {
                     Ok(dest_path) => {
@@ -2306,6 +2314,10 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         {
             ConfirmDecision::Deny => ToolOutput {
                 content: "forget_memory denied by user".into(),
+                ok: false,
+            },
+            ConfirmDecision::Timeout => ToolOutput {
+                content: "confirm-timeout".into(),
                 ok: false,
             },
             ConfirmDecision::AllowOnce | ConfirmDecision::AllowSession => {
@@ -2612,6 +2624,10 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         {
             ConfirmDecision::Deny => Err(ToolOutput {
                 content: "job mutation denied by user".into(),
+                ok: false,
+            }),
+            ConfirmDecision::Timeout => Err(ToolOutput {
+                content: "confirm-timeout".into(),
                 ok: false,
             }),
             ConfirmDecision::AllowOnce | ConfirmDecision::AllowSession => Ok(()),

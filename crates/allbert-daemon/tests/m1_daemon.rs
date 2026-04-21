@@ -330,6 +330,45 @@ fn parse_template_job(path: &std::path::Path) -> JobDefinitionPayload {
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct ApprovalFrontmatter {
+    id: String,
+    request_id: u64,
+    expires_at: String,
+    status: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SessionMetaApprovalView {
+    pending_approval: Option<String>,
+}
+
+fn read_session_meta_approval(paths: &AllbertPaths, session_id: &str) -> SessionMetaApprovalView {
+    let raw = std::fs::read_to_string(paths.sessions.join(session_id).join("meta.json"))
+        .expect("session meta should be readable");
+    serde_json::from_str(&raw).expect("session meta should parse")
+}
+
+fn parse_pending_approval(
+    paths: &AllbertPaths,
+    session_id: &str,
+    approval_id: &str,
+) -> ApprovalFrontmatter {
+    let raw = std::fs::read_to_string(
+        paths
+            .sessions
+            .join(session_id)
+            .join("approvals")
+            .join(format!("{approval_id}.md")),
+    )
+    .expect("approval file should be readable");
+    let matter = Matter::<YAML>::new();
+    let parsed = matter
+        .parse::<ApprovalFrontmatter>(&raw)
+        .expect("approval should parse");
+    parsed.data.expect("approval frontmatter should exist")
+}
+
 fn next_daily_due(
     now: chrono::DateTime<Utc>,
     timezone: &str,
@@ -1076,6 +1115,191 @@ async fn daemon_restart_rehydrates_session_journal_and_ephemeral_memory() {
         turns.contains("remember before restart"),
         "journal should contain the completed pre-restart turn"
     );
+
+    shutdown_daemon(second_handle, &paths).await;
+}
+
+#[tokio::test]
+async fn telegram_async_confirm_persists_pending_approval_and_clears_on_reply() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let skill_dir = paths.skills_installed.join("existing-skill");
+    std::fs::create_dir_all(&skill_dir).expect("skill dir should exist");
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: existing-skill\ndescription: Existing skill\nallowed-tools: [read_reference]\n---\n\nBody\n",
+    )
+    .expect("existing skill should be writable");
+
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(
+                "<tool_call>{\"name\":\"create_skill\",\"input\":{\"name\":\"existing-skill\",\"description\":\"Updated skill\",\"allowed_tools\":[\"read_reference\"],\"body\":\"Updated body\"}}</tool_call>",
+            ),
+            scripted("updated"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    let attached = client
+        .attach(ChannelKind::Telegram, Some("telegram-approval".into()))
+        .await
+        .expect("attach should succeed");
+    assert_eq!(attached.channel, ChannelKind::Telegram);
+
+    client
+        .start_turn("update the skill".into())
+        .await
+        .expect("turn should start");
+
+    let request = loop {
+        match client.recv().await.expect("daemon should respond") {
+            ServerMessage::ConfirmRequest(request) => break request,
+            ServerMessage::Event(_) => {}
+            other => panic!("expected confirm request, got {other:?}"),
+        }
+    };
+
+    let approval_id = request
+        .approval_id
+        .clone()
+        .expect("async confirm should expose approval id");
+    assert!(
+        request.expires_at.is_some(),
+        "async confirm should expose expiry"
+    );
+    let approval = parse_pending_approval(&paths, "telegram-approval", &approval_id);
+    assert_eq!(approval.id, approval_id);
+    assert_eq!(approval.request_id, request.request_id);
+    assert_eq!(approval.status, "pending");
+    assert!(
+        !approval.expires_at.is_empty(),
+        "approval should persist expiry"
+    );
+    let meta = read_session_meta_approval(&paths, "telegram-approval");
+    assert_eq!(meta.pending_approval.as_deref(), Some(approval_id.as_str()));
+
+    client
+        .send(&ClientMessage::ConfirmReply(
+            allbert_proto::ConfirmReplyPayload {
+                request_id: request.request_id,
+                decision: ConfirmDecisionPayload::AllowOnce,
+            },
+        ))
+        .await
+        .expect("confirm reply should send");
+
+    let mut saw_turn_result = false;
+    while !saw_turn_result {
+        match client.recv().await.expect("daemon should respond") {
+            ServerMessage::TurnResult(_) => saw_turn_result = true,
+            ServerMessage::Event(_) => {}
+            other => panic!("unexpected message after confirm: {other:?}"),
+        }
+    }
+
+    let resolved = parse_pending_approval(&paths, "telegram-approval", &approval_id);
+    assert_eq!(resolved.status, "accepted");
+    let meta = read_session_meta_approval(&paths, "telegram-approval");
+    assert!(
+        meta.pending_approval.is_none(),
+        "resolved approval should clear pending meta"
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn telegram_async_confirm_timeout_marks_approval_and_restart_reconciles_meta() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let skill_dir = paths.skills_installed.join("existing-skill");
+    std::fs::create_dir_all(&skill_dir).expect("skill dir should exist");
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: existing-skill\ndescription: Existing skill\nallowed-tools: [read_reference]\n---\n\nBody\n",
+    )
+    .expect("existing skill should be writable");
+
+    let mut config = sample_config();
+    config.channels.approval_timeout_s = 1;
+
+    let handle = spawn_with_factory(
+        config.clone(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(
+                "<tool_call>{\"name\":\"create_skill\",\"input\":{\"name\":\"existing-skill\",\"description\":\"Updated skill\",\"allowed_tools\":[\"read_reference\"],\"body\":\"Updated body\"}}</tool_call>",
+            ),
+            scripted("timed out"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Telegram, Some("telegram-timeout".into()))
+        .await
+        .expect("attach should succeed");
+    client
+        .start_turn("update the skill".into())
+        .await
+        .expect("turn should start");
+
+    let request = loop {
+        match client.recv().await.expect("daemon should respond") {
+            ServerMessage::ConfirmRequest(request) => break request,
+            ServerMessage::Event(_) => {}
+            other => panic!("expected confirm request, got {other:?}"),
+        }
+    };
+    let approval_id = request
+        .approval_id
+        .clone()
+        .expect("async confirm should expose approval id");
+
+    let mut saw_timeout = false;
+    let mut saw_turn_result = false;
+    while !saw_turn_result {
+        match client.recv().await.expect("daemon should respond") {
+            ServerMessage::Event(KernelEventPayload::ToolResult { content, .. }) => {
+                if content.contains("confirm-timeout") {
+                    saw_timeout = true;
+                }
+            }
+            ServerMessage::Event(_) => {}
+            ServerMessage::TurnResult(_) => saw_turn_result = true,
+            other => panic!("unexpected message after timeout: {other:?}"),
+        }
+    }
+    assert!(
+        saw_timeout,
+        "timed-out approval should surface confirm-timeout"
+    );
+
+    let resolved = parse_pending_approval(&paths, "telegram-timeout", &approval_id);
+    assert_eq!(resolved.status, "timeout");
+    let meta = read_session_meta_approval(&paths, "telegram-timeout");
+    assert!(
+        meta.pending_approval.is_none(),
+        "timeout should clear pending approval meta"
+    );
+
+    shutdown_daemon(handle, &paths).await;
+
+    let second_handle =
+        spawn_with_factory(config, paths.clone(), Arc::new(TestFactory::new(vec![])))
+            .await
+            .expect("daemon should restart");
+    let resolved_after_restart = parse_pending_approval(&paths, "telegram-timeout", &approval_id);
+    assert_eq!(resolved_after_restart.status, "timeout");
+    let meta_after_restart = read_session_meta_approval(&paths, "telegram-timeout");
+    assert!(meta_after_restart.pending_approval.is_none());
 
     shutdown_daemon(second_handle, &paths).await;
 }

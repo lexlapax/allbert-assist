@@ -305,6 +305,9 @@ impl Hook for SecurityHook {
                             ConfirmDecision::Deny => {
                                 HookOutcome::Abort("command denied by user".into())
                             }
+                            ConfirmDecision::Timeout => {
+                                HookOutcome::Abort("confirm-timeout".into())
+                            }
                             ConfirmDecision::AllowOnce => HookOutcome::Continue,
                             ConfirmDecision::AllowSession => {
                                 self.approved_session_execs
@@ -384,6 +387,7 @@ impl Hook for SecurityHook {
                     .await
                 {
                     ConfirmDecision::Deny => HookOutcome::Abort("write denied by user".into()),
+                    ConfirmDecision::Timeout => HookOutcome::Abort("confirm-timeout".into()),
                     ConfirmDecision::AllowOnce | ConfirmDecision::AllowSession => {
                         HookOutcome::Continue
                     }
@@ -451,6 +455,7 @@ impl Hook for SecurityHook {
                     ConfirmDecision::Deny => {
                         HookOutcome::Abort("skill write denied by user".into())
                     }
+                    ConfirmDecision::Timeout => HookOutcome::Abort("confirm-timeout".into()),
                     ConfirmDecision::AllowOnce | ConfirmDecision::AllowSession => {
                         HookOutcome::Continue
                     }

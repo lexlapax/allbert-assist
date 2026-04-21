@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 
@@ -16,6 +16,31 @@ pub trait ConfirmPrompter: Send + Sync {
     async fn confirm(&self, req: ConfirmRequest) -> ConfirmDecision;
 }
 
+#[derive(Clone)]
+pub struct DynamicConfirmPrompter {
+    current: Arc<Mutex<Arc<dyn ConfirmPrompter>>>,
+}
+
+impl DynamicConfirmPrompter {
+    pub fn new(initial: Arc<dyn ConfirmPrompter>) -> Self {
+        Self {
+            current: Arc::new(Mutex::new(initial)),
+        }
+    }
+
+    pub fn set(&self, next: Arc<dyn ConfirmPrompter>) {
+        *self.current.lock().unwrap() = next;
+    }
+}
+
+#[async_trait]
+impl ConfirmPrompter for DynamicConfirmPrompter {
+    async fn confirm(&self, req: ConfirmRequest) -> ConfirmDecision {
+        let current = self.current.lock().unwrap().clone();
+        current.confirm(req).await
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ConfirmRequest {
     pub program: String,
@@ -29,6 +54,7 @@ pub enum ConfirmDecision {
     Deny,
     AllowOnce,
     AllowSession,
+    Timeout,
 }
 
 #[async_trait]

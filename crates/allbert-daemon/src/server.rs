@@ -77,6 +77,7 @@ struct SharedState {
 struct SessionHandle {
     session_id: String,
     channel: ChannelKind,
+    sender_id: Option<String>,
     kernel: Arc<Mutex<Kernel>>,
 }
 
@@ -84,6 +85,8 @@ struct SessionHandle {
 struct SessionJournalMeta {
     session_id: String,
     channel: ChannelKind,
+    #[serde(default)]
+    sender_id: Option<String>,
     started_at: String,
     last_activity_at: String,
     root_agent_name: String,
@@ -96,11 +99,48 @@ struct SessionJournalMeta {
     turn_count: u32,
     cost_total_usd: f64,
     messages: Vec<ChatMessage>,
+    #[serde(default)]
+    pending_approval: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 struct SessionJournalSnapshot {
     meta: SessionJournalMeta,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum PendingApprovalStatus {
+    Pending,
+    Accepted,
+    Rejected,
+    Timeout,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PendingApprovalFrontmatter {
+    id: String,
+    session_id: String,
+    channel: ChannelKind,
+    sender: String,
+    agent: String,
+    tool: String,
+    request_id: u64,
+    requested_at: String,
+    expires_at: String,
+    status: PendingApprovalStatus,
+    #[serde(default)]
+    resolved_at: Option<String>,
+    #[serde(default)]
+    resolver: Option<String>,
+    #[serde(default)]
+    reply: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct PendingApprovalRecord {
+    frontmatter: PendingApprovalFrontmatter,
+    rendered: String,
 }
 
 #[derive(Debug, Clone)]
@@ -187,6 +227,7 @@ pub async fn spawn_with_factory(
     paths.ensure()?;
     allbert_kernel::memory::bootstrap_curated_memory(&paths, &config.memory)?;
     archive_expired_sessions(&paths, &config)?;
+    reconcile_pending_approvals(&paths)?;
     let job_manager = JobManager::load(&paths, &config)?;
 
     let socket_path = config
@@ -559,8 +600,13 @@ async fn handle_connection(
                     .set_model(model_from_payload(model.clone()))
                     .await
                     .map_err(map_kernel_error)?;
-                persist_kernel_session(&state.paths, session.channel, &kernel)
-                    .map_err(map_kernel_error)?;
+                persist_kernel_session(
+                    &state.paths,
+                    session.channel,
+                    session.sender_id.clone(),
+                    &kernel,
+                )
+                .map_err(map_kernel_error)?;
                 send_server_message(
                     &mut framed,
                     &ServerMessage::Model(model_to_payload(kernel.model())),
@@ -613,8 +659,13 @@ async fn handle_connection(
                     .apply_config(session_config)
                     .await
                     .map_err(map_kernel_error)?;
-                persist_kernel_session(&state.paths, session.channel, &kernel)
-                    .map_err(map_kernel_error)?;
+                persist_kernel_session(
+                    &state.paths,
+                    session.channel,
+                    session.sender_id.clone(),
+                    &kernel,
+                )
+                .map_err(map_kernel_error)?;
                 send_server_message(&mut framed, &ServerMessage::Ack).await?;
             }
             ClientMessage::ListJobs => {
@@ -716,7 +767,7 @@ async fn get_or_create_session(
             .await
             .map_err(map_kernel_error)?;
     } else {
-        persist_kernel_session(&state.paths, channel, &kernel).map_err(map_kernel_error)?;
+        persist_kernel_session(&state.paths, channel, None, &kernel).map_err(map_kernel_error)?;
     }
     kernel.register_job_manager(Arc::new(DaemonJobManager {
         state: state.clone(),
@@ -724,6 +775,7 @@ async fn get_or_create_session(
     let handle = Arc::new(SessionHandle {
         session_id: session_id.clone(),
         channel,
+        sender_id: None,
         kernel: Arc::new(Mutex::new(kernel)),
     });
 
@@ -896,18 +948,154 @@ async fn run_turn_over_channel(
                             let _ = reply.send(ConfirmDecisionPayload::Deny);
                             continue;
                         }
-                        if send_server_message(framed, &ServerMessage::ConfirmRequest(request.clone())).await.is_err() {
-                            client_connected = false;
-                            let _ = reply.send(ConfirmDecisionPayload::Deny);
-                            continue;
-                        }
-                        match recv_client_message(framed).await {
-                            Ok(ClientMessage::ConfirmReply(ConfirmReplyPayload { request_id, decision })) if request_id == request.request_id => {
-                                let _ = reply.send(decision);
+                        let is_async_confirm = session.channel == ChannelKind::Telegram;
+                        if is_async_confirm {
+                            let approval_id =
+                                format!("approval-{}", uuid::Uuid::new_v4().simple());
+                            let approval_timeout_s =
+                                state.default_config.read().await.channels.approval_timeout_s;
+                            let expires_at = (OffsetDateTime::now_utc()
+                                + time::Duration::seconds(approval_timeout_s as i64))
+                            .format(&Rfc3339)
+                            .unwrap_or_else(|_| now_rfc3339_fallback());
+                            let record = PendingApprovalRecord {
+                                frontmatter: PendingApprovalFrontmatter {
+                                    id: approval_id.clone(),
+                                    session_id: session.session_id.clone(),
+                                    channel: session.channel,
+                                    sender: session
+                                        .sender_id
+                                        .clone()
+                                        .unwrap_or_else(|| "attached-client".into()),
+                                    agent: "allbert/root".into(),
+                                    tool: request.program.clone(),
+                                    request_id: request.request_id,
+                                    requested_at: now_rfc3339_fallback(),
+                                    expires_at: expires_at.clone(),
+                                    status: PendingApprovalStatus::Pending,
+                                    resolved_at: None,
+                                    resolver: None,
+                                    reply: None,
+                                },
+                                rendered: request.rendered.clone(),
+                            };
+                            if write_pending_approval(&state.paths, &record).is_err()
+                                || set_session_pending_approval(
+                                    &state.paths,
+                                    &session.session_id,
+                                    Some(approval_id.clone()),
+                                )
+                                .is_err()
+                            {
+                                let _ = reply.send(ConfirmDecisionPayload::Deny);
+                                continue;
                             }
-                            Ok(_) | Err(_) => {
+                            let mut request = request.clone();
+                            request.approval_id = Some(approval_id.clone());
+                            request.expires_at = Some(expires_at);
+                            if send_server_message(
+                                framed,
+                                &ServerMessage::ConfirmRequest(request.clone()),
+                            )
+                            .await
+                            .is_err()
+                            {
+                                client_connected = false;
+                                let _ = resolve_pending_approval(
+                                    &state.paths,
+                                    &session.session_id,
+                                    &approval_id,
+                                    PendingApprovalStatus::Rejected,
+                                    Some("transport".into()),
+                                    Some("client disconnected before reply".into()),
+                                );
+                                let _ = reply.send(ConfirmDecisionPayload::Deny);
+                                continue;
+                            }
+                            match tokio::time::timeout(
+                                Duration::from_secs(approval_timeout_s),
+                                recv_client_message(framed),
+                            )
+                            .await
+                            {
+                                Ok(Ok(ClientMessage::ConfirmReply(ConfirmReplyPayload {
+                                    request_id,
+                                    decision,
+                                }))) if request_id == request.request_id => {
+                                    let status = match decision {
+                                        ConfirmDecisionPayload::AllowOnce
+                                        | ConfirmDecisionPayload::AllowSession => {
+                                            PendingApprovalStatus::Accepted
+                                        }
+                                        ConfirmDecisionPayload::Deny => {
+                                            PendingApprovalStatus::Rejected
+                                        }
+                                        ConfirmDecisionPayload::Timeout => {
+                                            PendingApprovalStatus::Timeout
+                                        }
+                                    };
+                                    let _ = resolve_pending_approval(
+                                        &state.paths,
+                                        &session.session_id,
+                                        &approval_id,
+                                        status,
+                                        Some(
+                                            session
+                                                .sender_id
+                                                .clone()
+                                                .unwrap_or_else(|| "attached-client".into()),
+                                        ),
+                                        Some(format!("{decision:?}")),
+                                    );
+                                    let _ = reply.send(decision);
+                                }
+                                Err(_) => {
+                                    let _ = resolve_pending_approval(
+                                        &state.paths,
+                                        &session.session_id,
+                                        &approval_id,
+                                        PendingApprovalStatus::Timeout,
+                                        Some("timeout".into()),
+                                        Some("confirm-timeout".into()),
+                                    );
+                                    let _ = reply.send(ConfirmDecisionPayload::Timeout);
+                                }
+                                Ok(Ok(_)) | Ok(Err(_)) => {
+                                    client_connected = false;
+                                    let _ = resolve_pending_approval(
+                                        &state.paths,
+                                        &session.session_id,
+                                        &approval_id,
+                                        PendingApprovalStatus::Rejected,
+                                        Some("transport".into()),
+                                        Some("unexpected reply".into()),
+                                    );
+                                    let _ = reply.send(ConfirmDecisionPayload::Deny);
+                                }
+                            }
+                        } else {
+                            if send_server_message(
+                                framed,
+                                &ServerMessage::ConfirmRequest(request.clone()),
+                            )
+                            .await
+                            .is_err()
+                            {
                                 client_connected = false;
                                 let _ = reply.send(ConfirmDecisionPayload::Deny);
+                                continue;
+                            }
+                            match recv_client_message(framed).await {
+                                Ok(ClientMessage::ConfirmReply(ConfirmReplyPayload {
+                                    request_id,
+                                    decision,
+                                })) if request_id == request.request_id => {
+                                    let _ = reply.send(decision);
+                                }
+                                Ok(_) | Err(_) => {
+                                    client_connected = false;
+                                    let _ = reply.send(ConfirmDecisionPayload::Deny);
+                                }
                             }
                         }
                     }
@@ -949,6 +1137,7 @@ async fn run_turn_over_channel(
                             persist_completed_turn(
                                 &state.paths,
                                 session.channel,
+                                session.sender_id.clone(),
                                 &kernel,
                                 CompletedTurnRecord {
                                     user_input: input.clone(),
@@ -1081,6 +1270,14 @@ fn session_dir(paths: &AllbertPaths, session_id: &str) -> PathBuf {
     paths.sessions.join(session_id)
 }
 
+fn session_approvals_dir(paths: &AllbertPaths, session_id: &str) -> PathBuf {
+    session_dir(paths, session_id).join("approvals")
+}
+
+fn session_approval_path(paths: &AllbertPaths, session_id: &str, approval_id: &str) -> PathBuf {
+    session_approvals_dir(paths, session_id).join(format!("{approval_id}.md"))
+}
+
 fn session_meta_path(paths: &AllbertPaths, session_id: &str) -> PathBuf {
     session_dir(paths, session_id).join("meta.json")
 }
@@ -1106,10 +1303,12 @@ fn snapshot_to_kernel(meta: SessionJournalMeta) -> SessionSnapshot {
 
 fn build_session_meta(
     channel: ChannelKind,
+    sender_id: Option<String>,
     kernel: &Kernel,
     started_at: String,
     last_activity_at: String,
     prior_intents: &[String],
+    pending_approval: Option<String>,
 ) -> SessionJournalMeta {
     let snapshot = kernel.export_session_snapshot();
     let mut intent_history = prior_intents.to_vec();
@@ -1126,6 +1325,7 @@ fn build_session_meta(
     SessionJournalMeta {
         session_id: snapshot.session_id,
         channel,
+        sender_id,
         started_at,
         last_activity_at,
         root_agent_name: snapshot.root_agent_name,
@@ -1142,12 +1342,14 @@ fn build_session_meta(
         turn_count: snapshot.turn_count,
         cost_total_usd: snapshot.cost_total_usd,
         messages: snapshot.messages,
+        pending_approval,
     }
 }
 
 fn persist_kernel_session(
     paths: &AllbertPaths,
     channel: ChannelKind,
+    sender_id: Option<String>,
     kernel: &Kernel,
 ) -> Result<(), KernelError> {
     let session_id = kernel.session_id().to_string();
@@ -1162,14 +1364,19 @@ fn persist_kernel_session(
         .as_ref()
         .map(|snapshot| snapshot.meta.intent_history.clone())
         .unwrap_or_default();
+    let pending_approval = existing
+        .as_ref()
+        .and_then(|snapshot| snapshot.meta.pending_approval.clone());
     persist_session_meta(
         paths,
         &build_session_meta(
             channel,
+            sender_id,
             kernel,
             started_at,
             now_rfc3339_fallback(),
             &prior_intents,
+            pending_approval,
         ),
     )
 }
@@ -1177,6 +1384,7 @@ fn persist_kernel_session(
 fn persist_completed_turn(
     paths: &AllbertPaths,
     channel: ChannelKind,
+    sender_id: Option<String>,
     kernel: &Kernel,
     record: CompletedTurnRecord,
 ) -> Result<(), KernelError> {
@@ -1192,12 +1400,17 @@ fn persist_completed_turn(
         .as_ref()
         .map(|snapshot| snapshot.meta.intent_history.clone())
         .unwrap_or_default();
+    let pending_approval = existing
+        .as_ref()
+        .and_then(|snapshot| snapshot.meta.pending_approval.clone());
     let meta = build_session_meta(
         channel,
+        sender_id,
         kernel,
         started_at,
         now_rfc3339_fallback(),
         &prior_intents,
+        pending_approval,
     );
     persist_session_meta(paths, &meta)?;
     append_turn_record(paths, &meta.session_id, &record).map_err(|err| {
@@ -1235,6 +1448,93 @@ fn persist_session_meta(
         )
         .map_err(|e| KernelError::InitFailed(format!("write {}: {e}", turns.display())))?;
     }
+    Ok(())
+}
+
+fn render_pending_approval_markdown(record: &PendingApprovalRecord) -> Result<String, DaemonError> {
+    let frontmatter = serde_yaml::to_string(&record.frontmatter)
+        .map_err(|err| DaemonError::Protocol(format!("serialize approval frontmatter: {err}")))?;
+    Ok(format!(
+        "---\n{}---\n\n## Tool invocation\n\n{}\n",
+        frontmatter,
+        record.rendered.trim()
+    ))
+}
+
+fn write_pending_approval(
+    paths: &AllbertPaths,
+    record: &PendingApprovalRecord,
+) -> Result<(), DaemonError> {
+    let dir = session_approvals_dir(paths, &record.frontmatter.session_id);
+    fs::create_dir_all(&dir)?;
+    fs::write(
+        session_approval_path(
+            paths,
+            &record.frontmatter.session_id,
+            &record.frontmatter.id,
+        ),
+        render_pending_approval_markdown(record)?,
+    )?;
+    Ok(())
+}
+
+fn load_pending_approval(
+    paths: &AllbertPaths,
+    session_id: &str,
+    approval_id: &str,
+) -> Result<Option<PendingApprovalRecord>, DaemonError> {
+    let path = session_approval_path(paths, session_id, approval_id);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read_to_string(&path)?;
+    let matter = gray_matter::Matter::<gray_matter::engine::YAML>::new();
+    let parsed = matter
+        .parse::<PendingApprovalFrontmatter>(&raw)
+        .map_err(|err| {
+            DaemonError::Protocol(format!("parse approval {}: {err}", path.display()))
+        })?;
+    let Some(frontmatter) = parsed.data else {
+        return Err(DaemonError::Protocol(format!(
+            "approval file missing frontmatter: {}",
+            path.display()
+        )));
+    };
+    Ok(Some(PendingApprovalRecord {
+        frontmatter,
+        rendered: parsed.content.trim().to_string(),
+    }))
+}
+
+fn set_session_pending_approval(
+    paths: &AllbertPaths,
+    session_id: &str,
+    pending_approval: Option<String>,
+) -> Result<(), DaemonError> {
+    let Some(mut snapshot) = load_session_snapshot(paths, session_id)? else {
+        return Ok(());
+    };
+    snapshot.meta.pending_approval = pending_approval;
+    persist_session_meta(paths, &snapshot.meta).map_err(map_kernel_error)
+}
+
+fn resolve_pending_approval(
+    paths: &AllbertPaths,
+    session_id: &str,
+    approval_id: &str,
+    status: PendingApprovalStatus,
+    resolver: Option<String>,
+    reply: Option<String>,
+) -> Result<(), DaemonError> {
+    let Some(mut record) = load_pending_approval(paths, session_id, approval_id)? else {
+        return Ok(());
+    };
+    record.frontmatter.status = status;
+    record.frontmatter.resolved_at = Some(now_rfc3339_fallback());
+    record.frontmatter.resolver = resolver;
+    record.frontmatter.reply = reply;
+    write_pending_approval(paths, &record)?;
+    set_session_pending_approval(paths, session_id, None)?;
     Ok(())
 }
 
@@ -1309,6 +1609,48 @@ fn load_session_snapshot(
     let raw = fs::read(&meta_path)?;
     let meta: SessionJournalMeta = serde_json::from_slice(&raw)?;
     Ok(Some(SessionJournalSnapshot { meta }))
+}
+
+fn reconcile_pending_approvals(paths: &AllbertPaths) -> Result<(), DaemonError> {
+    let now = OffsetDateTime::now_utc();
+    for entry in fs::read_dir(&paths.sessions)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let name = entry.file_name();
+        if name.to_string_lossy().starts_with('.') {
+            continue;
+        }
+        let session_id = name.to_string_lossy().to_string();
+        let Some(snapshot) = load_session_snapshot(paths, &session_id)? else {
+            continue;
+        };
+        let Some(approval_id) = snapshot.meta.pending_approval.clone() else {
+            continue;
+        };
+        let Some(record) = load_pending_approval(paths, &session_id, &approval_id)? else {
+            set_session_pending_approval(paths, &session_id, None)?;
+            continue;
+        };
+        if record.frontmatter.status != PendingApprovalStatus::Pending {
+            set_session_pending_approval(paths, &session_id, None)?;
+            continue;
+        }
+        let expires_at = OffsetDateTime::parse(&record.frontmatter.expires_at, &Rfc3339)
+            .unwrap_or_else(|_| now - time::Duration::seconds(1));
+        if expires_at <= now {
+            resolve_pending_approval(
+                paths,
+                &session_id,
+                &approval_id,
+                PendingApprovalStatus::Timeout,
+                Some("daemon-restart".into()),
+                Some("confirm-timeout".into()),
+            )?;
+        }
+    }
+    Ok(())
 }
 
 fn list_resumable_sessions(
@@ -1487,10 +1829,12 @@ impl Channel for LocalIpcChannel {
         let (tx, rx) = oneshot::channel();
         let payload = ConfirmRequestPayload {
             request_id,
+            approval_id: prompt.request_id,
             program: prompt.program,
             args: prompt.args,
             cwd: prompt.cwd.map(|path| path.display().to_string()),
             rendered: prompt.rendered,
+            expires_at: prompt.expires_at,
         };
         self.outbound
             .send(OutboundMessage::Confirm(payload, tx))
@@ -1500,6 +1844,7 @@ impl Channel for LocalIpcChannel {
             ConfirmDecisionPayload::AllowOnce => Ok(ConfirmOutcome::AllowOnce),
             ConfirmDecisionPayload::AllowSession => Ok(ConfirmOutcome::AllowSession),
             ConfirmDecisionPayload::Deny => Ok(ConfirmOutcome::Deny),
+            ConfirmDecisionPayload::Timeout => Ok(ConfirmOutcome::Timeout),
         }
     }
 
@@ -1522,6 +1867,7 @@ impl ConfirmPrompter for LocalIpcChannel {
         match Channel::confirm(self, prompt).await {
             Ok(ConfirmOutcome::AllowOnce) => ConfirmDecision::AllowOnce,
             Ok(ConfirmOutcome::AllowSession) => ConfirmDecision::AllowSession,
+            Ok(ConfirmOutcome::Timeout) => ConfirmDecision::Timeout,
             _ => ConfirmDecision::Deny,
         }
     }
