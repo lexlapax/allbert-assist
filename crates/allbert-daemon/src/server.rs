@@ -1,11 +1,12 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-    Arc,
+    Arc, Mutex as StdMutex,
 };
+use std::time::Instant;
 
 use allbert_channels::{
     Channel, ChannelCapabilities, ChannelError, ChannelInbound, ChannelOutbound, ConfirmOutcome,
@@ -46,6 +47,12 @@ use tokio_util::{
     sync::CancellationToken,
     task::TaskTracker,
 };
+use teloxide::{
+    payloads::{GetUpdatesSetters, SendMessageSetters},
+    prelude::{Request, Requester},
+    types::{ChatId, Message, ParseMode, Update, UpdateKind, UserId},
+    Bot,
+};
 
 use crate::error::DaemonError;
 use crate::jobs::{execute_job, list_run_records, parse_rfc3339, JobDefinition, JobManager};
@@ -70,6 +77,7 @@ struct SharedState {
     sessions: Arc<RwLock<HashMap<String, Arc<SessionHandle>>>>,
     job_ephemeral_sessions: Arc<Mutex<HashMap<String, Vec<String>>>>,
     job_manager: Arc<Mutex<JobManager>>,
+    telegram_status: Arc<TelegramRuntimeStatus>,
     notifications: broadcast::Sender<ServerMessage>,
     tasks: Arc<TaskTracker>,
 }
@@ -77,8 +85,25 @@ struct SharedState {
 struct SessionHandle {
     session_id: String,
     channel: ChannelKind,
-    sender_id: Option<String>,
+    sender_id: StdMutex<Option<String>>,
     kernel: Arc<Mutex<Kernel>>,
+}
+
+#[derive(Default)]
+struct TelegramRuntimeStatus {
+    running: AtomicBool,
+    queue_depth: AtomicUsize,
+    last_error: StdMutex<Option<String>>,
+}
+
+impl SessionHandle {
+    fn sender_id(&self) -> Option<String> {
+        self.sender_id.lock().unwrap().clone()
+    }
+
+    fn set_sender_id(&self, sender_id: Option<String>) {
+        *self.sender_id.lock().unwrap() = sender_id;
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -264,6 +289,7 @@ pub async fn spawn_with_factory(
         sessions: Arc::new(RwLock::new(HashMap::new())),
         job_ephemeral_sessions: Arc::new(Mutex::new(HashMap::new())),
         job_manager: Arc::new(Mutex::new(job_manager)),
+        telegram_status: Arc::new(TelegramRuntimeStatus::default()),
         notifications,
         tasks: Arc::new(TaskTracker::new()),
     };
@@ -276,6 +302,8 @@ pub async fn spawn_with_factory(
             state.trace_enabled.load(Ordering::SeqCst)
         ),
     )?;
+
+    spawn_telegram_pilot(state.clone()).await?;
 
     let run_state = state.clone();
     let join = tokio::spawn(async move { accept_loop(listener, run_state).await });
@@ -529,7 +557,8 @@ async fn handle_connection(
                     ),
                 });
 
-                let session = get_or_create_session(&state, open.channel, session_id).await?;
+                let session =
+                    get_or_create_session(&state, open.channel, session_id, None).await?;
                 let attached = AttachedChannel {
                     channel: session.channel,
                     session_id: session.session_id.clone(),
@@ -603,7 +632,7 @@ async fn handle_connection(
                 persist_kernel_session(
                     &state.paths,
                     session.channel,
-                    session.sender_id.clone(),
+                    session.sender_id(),
                     &kernel,
                 )
                 .map_err(map_kernel_error)?;
@@ -662,7 +691,7 @@ async fn handle_connection(
                 persist_kernel_session(
                     &state.paths,
                     session.channel,
-                    session.sender_id.clone(),
+                    session.sender_id(),
                     &kernel,
                 )
                 .map_err(map_kernel_error)?;
@@ -745,8 +774,15 @@ async fn get_or_create_session(
     state: &SharedState,
     channel: ChannelKind,
     session_id: String,
+    sender_id: Option<String>,
 ) -> Result<Arc<SessionHandle>, DaemonError> {
     if let Some(existing) = state.sessions.read().await.get(&session_id).cloned() {
+        if sender_id.is_some() {
+            existing.set_sender_id(sender_id.clone());
+            let kernel = existing.kernel.lock().await;
+            persist_kernel_session(&state.paths, channel, sender_id, &kernel)
+                .map_err(map_kernel_error)?;
+        }
         return Ok(existing);
     }
 
@@ -761,21 +797,26 @@ async fn get_or_create_session(
     )
     .await
     .map_err(map_kernel_error)?;
-    if let Some(snapshot) = load_session_snapshot(&state.paths, &session_id)? {
+    let restored_sender_id = if let Some(snapshot) = load_session_snapshot(&state.paths, &session_id)? {
+        let restored_sender_id = snapshot.meta.sender_id.clone();
         kernel
             .restore_session_snapshot(snapshot_to_kernel(snapshot.meta))
             .await
             .map_err(map_kernel_error)?;
+        restored_sender_id
     } else {
-        persist_kernel_session(&state.paths, channel, None, &kernel).map_err(map_kernel_error)?;
-    }
+        persist_kernel_session(&state.paths, channel, sender_id.clone(), &kernel)
+            .map_err(map_kernel_error)?;
+        sender_id.clone()
+    };
     kernel.register_job_manager(Arc::new(DaemonJobManager {
         state: state.clone(),
     }));
+    let effective_sender_id = sender_id.or(restored_sender_id);
     let handle = Arc::new(SessionHandle {
         session_id: session_id.clone(),
         channel,
-        sender_id: None,
+        sender_id: StdMutex::new(effective_sender_id),
         kernel: Arc::new(Mutex::new(kernel)),
     });
 
@@ -861,6 +902,901 @@ async fn execute_planned_jobs(
         completed.push(finished);
     }
     Ok(completed)
+}
+
+#[async_trait::async_trait]
+trait TelegramApi: Send + Sync {
+    async fn send_message(&self, chat_id: i64, text: String) -> Result<i32, String>;
+}
+
+struct TeloxideApi {
+    bot: Bot,
+}
+
+#[async_trait::async_trait]
+impl TelegramApi for TeloxideApi {
+    async fn send_message(&self, chat_id: i64, text: String) -> Result<i32, String> {
+        self.bot
+            .send_message(ChatId(chat_id), text)
+            .parse_mode(ParseMode::MarkdownV2)
+            .send()
+            .await
+            .map(|message| message.id.0)
+            .map_err(|err| err.to_string())
+    }
+}
+
+struct TelegramSendRequest {
+    chat_id: i64,
+    text: String,
+    reply: oneshot::Sender<Result<Vec<i32>, DaemonError>>,
+}
+
+#[derive(Clone)]
+struct TelegramOutboundQueue {
+    tx: mpsc::UnboundedSender<TelegramSendRequest>,
+    status: Arc<TelegramRuntimeStatus>,
+}
+
+impl TelegramOutboundQueue {
+    fn spawn(
+        state: &SharedState,
+        api: Arc<dyn TelegramApi>,
+        per_chat_interval: Duration,
+        global_interval: Duration,
+    ) -> Arc<Self> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let queue = Arc::new(Self {
+            tx,
+            status: state.telegram_status.clone(),
+        });
+        let status = state.telegram_status.clone();
+        state.tasks.spawn(async move {
+            telegram_outbound_worker(api, status, per_chat_interval, global_interval, rx).await;
+        });
+        queue
+    }
+
+    async fn send_text(&self, chat_id: i64, text: String) -> Result<Vec<i32>, DaemonError> {
+        if text.trim().is_empty() {
+            return Ok(Vec::new());
+        }
+        let (reply_tx, reply_rx) = oneshot::channel();
+        self.status.queue_depth.fetch_add(1, Ordering::SeqCst);
+        self.tx
+            .send(TelegramSendRequest {
+                chat_id,
+                text,
+                reply: reply_tx,
+            })
+            .map_err(|_| DaemonError::Protocol("telegram outbound queue closed".into()))?;
+        reply_rx
+            .await
+            .map_err(|_| DaemonError::Protocol("telegram outbound response dropped".into()))?
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum TelegramCommand {
+    Text(String),
+    Reset,
+    Approve(String),
+    Reject(String),
+    Override(String),
+}
+
+struct PendingApprovalWaiter {
+    sender_id: String,
+    reply: oneshot::Sender<ConfirmDecisionPayload>,
+}
+
+struct PendingCapOverride {
+    session_id: String,
+    input: String,
+}
+
+#[derive(Clone)]
+struct TelegramRuntime {
+    state: SharedState,
+    outbound: Arc<TelegramOutboundQueue>,
+    allowed_chats: HashSet<i64>,
+    pending_approvals: Arc<StdMutex<HashMap<String, PendingApprovalWaiter>>>,
+    pending_cap_overrides: Arc<StdMutex<HashMap<String, PendingCapOverride>>>,
+}
+
+impl TelegramRuntime {
+    async fn handle_update(self: Arc<Self>, update: Update) {
+        let UpdateKind::Message(message) = update.kind else {
+            return;
+        };
+        if let Err(error) = self.handle_message(message).await {
+            self.record_error(format!("telegram update handling failed: {error}"));
+        }
+    }
+
+    async fn handle_message(self: &Arc<Self>, message: Message) -> Result<(), DaemonError> {
+        let chat_id = message.chat.id.0;
+        if !self.allowed_chats.contains(&chat_id) {
+            append_debug_line(
+                &self.state,
+                &format!("telegram ignored message from unallowlisted chat={chat_id}"),
+            )
+            .ok();
+            return Ok(());
+        }
+        let sender_id = telegram_sender_key(chat_id, message.from.as_ref().map(|user| user.id));
+        let Some(text) = message.text().map(|value| value.to_string()) else {
+            append_debug_line(
+                &self.state,
+                &format!("telegram ignored non-text message chat={chat_id} sender={sender_id}"),
+            )
+            .ok();
+            return Ok(());
+        };
+
+        match parse_telegram_command(&text) {
+            TelegramCommand::Approve(approval_id) => {
+                self.resolve_approval(chat_id, &sender_id, &approval_id, true)
+                    .await?;
+            }
+            TelegramCommand::Reject(approval_id) => {
+                self.resolve_approval(chat_id, &sender_id, &approval_id, false)
+                    .await?;
+            }
+            TelegramCommand::Reset => {
+                let session = self.select_session(&sender_id, true).await?;
+                self.send_text(
+                    chat_id,
+                    format!("Started a new session: {}", session.session_id),
+                )
+                .await?;
+            }
+            TelegramCommand::Override(reason) => {
+                self.retry_with_override(chat_id, &sender_id, reason).await?;
+            }
+            TelegramCommand::Text(input) => {
+                let session = self.select_session(&sender_id, false).await?;
+                let runtime = self.clone();
+                self.state.tasks.spawn(async move {
+                    if let Err(error) = runtime.clone().run_turn(session, chat_id, input).await {
+                        runtime.record_error(format!("telegram turn failed: {error}"));
+                    }
+                });
+            }
+        }
+        Ok(())
+    }
+
+    async fn send_text(&self, chat_id: i64, text: String) -> Result<Vec<i32>, DaemonError> {
+        append_debug_line(
+            &self.state,
+            &format!(
+                "telegram enqueue chat={chat_id} bytes={} queue_depth={}",
+                text.len(),
+                self.state.telegram_status.queue_depth.load(Ordering::SeqCst)
+            ),
+        )
+        .ok();
+        self.outbound.send_text(chat_id, text).await
+    }
+
+    async fn select_session(
+        &self,
+        sender_id: &str,
+        force_new: bool,
+    ) -> Result<Arc<SessionHandle>, DaemonError> {
+        let session_id = if force_new {
+            None
+        } else {
+            let config = self.state.default_config.read().await.clone();
+            find_recent_telegram_session(
+                &self.state.paths,
+                sender_id,
+                config.daemon.session_max_age_days.into(),
+            )?
+        };
+        let session_id = session_id
+            .unwrap_or_else(|| format!("telegram-{}", self.state.next_session.fetch_add(1, Ordering::SeqCst)));
+        get_or_create_session(
+            &self.state,
+            ChannelKind::Telegram,
+            session_id,
+            Some(sender_id.to_string()),
+        )
+        .await
+    }
+
+    async fn run_turn(
+        self: Arc<Self>,
+        session: Arc<SessionHandle>,
+        chat_id: i64,
+        input: String,
+    ) -> Result<(), DaemonError> {
+        append_debug_line(
+            &self.state,
+            &format!(
+                "telegram run_turn session={} sender={:?} input_len={}",
+                session.session_id,
+                session.sender_id(),
+                input.len()
+            ),
+        )
+        .ok();
+        let sender_id = session.sender_id().unwrap_or_else(|| "telegram-unknown".into());
+        let (pre_turn_messages, pre_turn_cost) = {
+            let kernel = session.kernel.lock().await;
+            let snapshot = kernel.export_session_snapshot();
+            (snapshot.messages.len(), snapshot.cost_total_usd)
+        };
+        let assistant_text = Arc::new(StdMutex::new(None::<String>));
+        let tool_results = Arc::new(StdMutex::new(Vec::<ToolJournalEntry>::new()));
+        let runtime = self.clone();
+        let assistant_text_for_events = assistant_text.clone();
+        let tool_results_for_events = tool_results.clone();
+        let max_tool_bytes = self
+            .state
+            .default_config
+            .read()
+            .await
+            .memory
+            .max_journal_tool_output_bytes;
+        let adapter = FrontendAdapter {
+            on_event: Box::new(move |event: &KernelEvent| match event {
+                KernelEvent::AssistantText(text) => {
+                    *assistant_text_for_events.lock().unwrap() = Some(text.clone());
+                }
+                KernelEvent::ToolResult { name, ok, content } => {
+                    tool_results_for_events.lock().unwrap().push(ToolJournalEntry {
+                        name: name.clone(),
+                        ok: *ok,
+                        content: truncate_tool_output(content, max_tool_bytes),
+                    });
+                }
+                _ => {}
+            }),
+            confirm: Arc::new(TelegramConfirmPrompter {
+                runtime: runtime.clone(),
+                session_id: session.session_id.clone(),
+                sender_id: sender_id.clone(),
+                chat_id,
+            }),
+            input: Arc::new(TelegramInputPrompter),
+        };
+
+        let result = {
+            let mut kernel = session.kernel.lock().await;
+            kernel.set_adapter(adapter);
+            kernel.run_turn(&input).await
+        };
+
+        match result {
+            Ok(summary) => {
+                let assistant_text = assistant_text.lock().unwrap().clone();
+                {
+                    let kernel = session.kernel.lock().await;
+                    persist_completed_turn(
+                        &self.state.paths,
+                        session.channel,
+                        session.sender_id(),
+                        &kernel,
+                        CompletedTurnRecord {
+                            user_input: input,
+                            assistant_text: assistant_text.clone().or_else(|| {
+                                extract_turn_assistant_text(&kernel, pre_turn_messages)
+                            }),
+                            tool_results: tool_results.lock().unwrap().clone(),
+                            cost_delta_usd: (kernel.session_cost_usd() - pre_turn_cost).max(0.0),
+                        },
+                    )
+                    .map_err(map_kernel_error)?;
+                }
+                if let Some(text) = assistant_text {
+                    self.send_text(chat_id, text).await?;
+                } else if summary.hit_turn_limit {
+                    self.send_text(chat_id, "Turn finished after hitting a turn limit.".into())
+                        .await?;
+                }
+                self.pending_cap_overrides.lock().unwrap().remove(&sender_id);
+                Ok(())
+            }
+            Err(error) => {
+                let mut message = error.to_string();
+                if message.contains("/cost --override <reason>") {
+                    message = message.replace("/cost --override <reason>", "/override <reason>");
+                    self.send_text(chat_id, message.clone()).await?;
+                    self.pending_cap_overrides.lock().unwrap().insert(
+                        sender_id,
+                        PendingCapOverride {
+                            session_id: session.session_id.clone(),
+                            input,
+                        },
+                    );
+                } else {
+                    self.send_text(chat_id, message).await?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    async fn resolve_approval(
+        &self,
+        chat_id: i64,
+        sender_id: &str,
+        approval_id: &str,
+        allow: bool,
+    ) -> Result<(), DaemonError> {
+        let decision = if allow {
+            ConfirmDecisionPayload::AllowOnce
+        } else {
+            ConfirmDecisionPayload::Deny
+        };
+        let waiter = {
+            let mut pending = self.pending_approvals.lock().unwrap();
+            pending.remove(approval_id)
+        };
+        if let Some(waiter) = waiter {
+            if waiter.sender_id != sender_id {
+                {
+                    let mut pending = self.pending_approvals.lock().unwrap();
+                    pending.insert(approval_id.to_string(), waiter);
+                }
+                self.send_text(
+                    chat_id,
+                    format!(
+                        "Approval `{approval_id}` is waiting for the sender who opened it."
+                    ),
+                )
+                .await?;
+                return Ok(());
+            }
+            let _ = waiter.reply.send(decision);
+            let verb = if allow { "Approved" } else { "Rejected" };
+            self.send_text(chat_id, format!("{verb} `{approval_id}`."))
+                .await?;
+            return Ok(());
+        }
+
+        let Some(record) = load_pending_approval(&self.state.paths, &self.session_for_approval(approval_id)?, approval_id)? else {
+            self.send_text(chat_id, format!("No pending approval `{approval_id}`."))
+                .await?;
+            return Ok(());
+        };
+        if record.frontmatter.sender != sender_id {
+            self.send_text(
+                chat_id,
+                format!("Approval `{approval_id}` belongs to a different sender."),
+            )
+            .await?;
+            return Ok(());
+        }
+        let status = if allow {
+            PendingApprovalStatus::Accepted
+        } else {
+            PendingApprovalStatus::Rejected
+        };
+        resolve_pending_approval(
+            &self.state.paths,
+            &record.frontmatter.session_id,
+            approval_id,
+            status,
+            Some(sender_id.to_string()),
+            Some(if allow { "AllowOnce" } else { "Deny" }.into()),
+        )?;
+        self.send_text(
+            chat_id,
+            format!(
+                "Recorded `{approval_id}`, but the original turn is no longer active. Resend the request to continue."
+            ),
+        )
+        .await?;
+        Ok(())
+    }
+
+    fn session_for_approval(&self, approval_id: &str) -> Result<String, DaemonError> {
+        for entry in fs::read_dir(&self.state.paths.sessions)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_dir() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') {
+                continue;
+            }
+            if session_approval_path(&self.state.paths, &name, approval_id).exists() {
+                return Ok(name);
+            }
+        }
+        Err(DaemonError::Protocol(format!(
+            "approval session not found: {approval_id}"
+        )))
+    }
+
+    async fn retry_with_override(
+        self: &Arc<Self>,
+        chat_id: i64,
+        sender_id: &str,
+        reason: String,
+    ) -> Result<(), DaemonError> {
+        let pending = {
+            let mut pending = self.pending_cap_overrides.lock().unwrap();
+            pending.remove(sender_id)
+        };
+        let Some(pending) = pending else {
+            self.send_text(
+                chat_id,
+                "There is no recent cost-cap refusal to retry for this sender.".into(),
+            )
+            .await?;
+            return Ok(());
+        };
+        let session = get_or_create_session(
+            &self.state,
+            ChannelKind::Telegram,
+            pending.session_id,
+            Some(sender_id.to_string()),
+        )
+        .await?;
+        {
+            let mut kernel = session.kernel.lock().await;
+            kernel.set_cost_override(reason);
+        }
+        self.send_text(
+            chat_id,
+            "Daily cost override armed for one turn. Retrying your previous request.".into(),
+        )
+        .await?;
+        let runtime = self.clone();
+        self.state.tasks.spawn(async move {
+            if let Err(error) = runtime.clone().run_turn(session, chat_id, pending.input).await {
+                runtime.record_error(format!("telegram override retry failed: {error}"));
+            }
+        });
+        Ok(())
+    }
+
+    fn record_error(&self, message: String) {
+        *self.state.telegram_status.last_error.lock().unwrap() = Some(message.clone());
+        append_log_line(&self.state.log_path, &format!("telegram error: {message}")).ok();
+    }
+}
+
+struct TelegramConfirmPrompter {
+    runtime: Arc<TelegramRuntime>,
+    session_id: String,
+    sender_id: String,
+    chat_id: i64,
+}
+
+#[async_trait::async_trait]
+impl ConfirmPrompter for TelegramConfirmPrompter {
+    async fn confirm(&self, req: ConfirmRequest) -> ConfirmDecision {
+        let approval_id = format!("approval-{}", uuid::Uuid::new_v4().simple());
+        let approval_timeout_s = self
+            .runtime
+            .state
+            .default_config
+            .read()
+            .await
+            .channels
+            .approval_timeout_s;
+        let expires_at = (OffsetDateTime::now_utc()
+            + time::Duration::seconds(approval_timeout_s as i64))
+        .format(&Rfc3339)
+        .unwrap_or_else(|_| now_rfc3339_fallback());
+        let record = PendingApprovalRecord {
+            frontmatter: PendingApprovalFrontmatter {
+                id: approval_id.clone(),
+                session_id: self.session_id.clone(),
+                channel: ChannelKind::Telegram,
+                sender: self.sender_id.clone(),
+                agent: "allbert/root".into(),
+                tool: req.program.clone(),
+                request_id: self
+                    .runtime
+                    .state
+                    .next_request
+                    .fetch_add(1, Ordering::SeqCst),
+                requested_at: now_rfc3339_fallback(),
+                expires_at: expires_at.clone(),
+                status: PendingApprovalStatus::Pending,
+                resolved_at: None,
+                resolver: None,
+                reply: None,
+            },
+            rendered: req.rendered.clone(),
+        };
+        if write_pending_approval(&self.runtime.state.paths, &record).is_err()
+            || set_session_pending_approval(
+                &self.runtime.state.paths,
+                &self.session_id,
+                Some(approval_id.clone()),
+            )
+            .is_err()
+        {
+            return ConfirmDecision::Deny;
+        }
+        let prompt = format!(
+            "Approval needed `{approval_id}`\n\n{}\n\nReply `/approve {approval_id}` or `/reject {approval_id}` before {}.",
+            req.rendered.trim(),
+            expires_at
+        );
+        let (reply_tx, reply_rx) = oneshot::channel();
+        self.runtime.pending_approvals.lock().unwrap().insert(
+            approval_id.clone(),
+            PendingApprovalWaiter {
+                sender_id: self.sender_id.clone(),
+                reply: reply_tx,
+            },
+        );
+        if self
+            .runtime
+            .send_text(self.chat_id, prompt)
+            .await
+            .is_err()
+        {
+            self.runtime.pending_approvals.lock().unwrap().remove(&approval_id);
+            let _ = resolve_pending_approval(
+                &self.runtime.state.paths,
+                &self.session_id,
+                &approval_id,
+                PendingApprovalStatus::Rejected,
+                Some("transport".into()),
+                Some("telegram send failure".into()),
+            );
+            return ConfirmDecision::Deny;
+        }
+
+        let outcome = match tokio::time::timeout(Duration::from_secs(approval_timeout_s), reply_rx)
+            .await
+        {
+            Ok(Ok(ConfirmDecisionPayload::AllowOnce)) => {
+                let _ = resolve_pending_approval(
+                    &self.runtime.state.paths,
+                    &self.session_id,
+                    &approval_id,
+                    PendingApprovalStatus::Accepted,
+                    Some(self.sender_id.clone()),
+                    Some("AllowOnce".into()),
+                );
+                ConfirmDecision::AllowOnce
+            }
+            Ok(Ok(ConfirmDecisionPayload::AllowSession)) => {
+                let _ = resolve_pending_approval(
+                    &self.runtime.state.paths,
+                    &self.session_id,
+                    &approval_id,
+                    PendingApprovalStatus::Accepted,
+                    Some(self.sender_id.clone()),
+                    Some("AllowSession".into()),
+                );
+                ConfirmDecision::AllowSession
+            }
+            Ok(Ok(ConfirmDecisionPayload::Timeout)) | Err(_) => {
+                let _ = resolve_pending_approval(
+                    &self.runtime.state.paths,
+                    &self.session_id,
+                    &approval_id,
+                    PendingApprovalStatus::Timeout,
+                    Some("timeout".into()),
+                    Some("confirm-timeout".into()),
+                );
+                ConfirmDecision::Timeout
+            }
+            Ok(Ok(ConfirmDecisionPayload::Deny)) | Ok(Err(_)) => {
+                let _ = resolve_pending_approval(
+                    &self.runtime.state.paths,
+                    &self.session_id,
+                    &approval_id,
+                    PendingApprovalStatus::Rejected,
+                    Some(self.sender_id.clone()),
+                    Some("Deny".into()),
+                );
+                ConfirmDecision::Deny
+            }
+        };
+        self.runtime.pending_approvals.lock().unwrap().remove(&approval_id);
+        outcome
+    }
+}
+
+struct TelegramInputPrompter;
+
+#[async_trait::async_trait]
+impl InputPrompter for TelegramInputPrompter {
+    async fn request_input(&self, _req: InputRequest) -> InputResponse {
+        InputResponse::Cancelled
+    }
+}
+
+async fn spawn_telegram_pilot(state: SharedState) -> Result<(), DaemonError> {
+    let config = state.default_config.read().await.clone();
+    if !config.channels.telegram.enabled {
+        state.telegram_status.running.store(false, Ordering::SeqCst);
+        *state.telegram_status.last_error.lock().unwrap() = None;
+        return Ok(());
+    }
+
+    let token = fs::read_to_string(&state.paths.telegram_bot_token)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if token.is_empty() {
+        state.telegram_status.running.store(false, Ordering::SeqCst);
+        *state.telegram_status.last_error.lock().unwrap() =
+            Some(format!("missing Telegram bot token at {}", state.paths.telegram_bot_token.display()));
+        append_log_line(&state.log_path, "telegram not started: missing bot token").ok();
+        return Ok(());
+    }
+
+    let allowed_chats = load_telegram_allowed_chats(&state.paths.telegram_allowed_chats)?;
+    if allowed_chats.is_empty() {
+        state.telegram_status.running.store(false, Ordering::SeqCst);
+        *state.telegram_status.last_error.lock().unwrap() = Some(format!(
+            "no allowlisted Telegram chats in {}",
+            state.paths.telegram_allowed_chats.display()
+        ));
+        append_log_line(&state.log_path, "telegram not started: no allowlisted chats").ok();
+        return Ok(());
+    }
+
+    let bot = Bot::new(token.clone());
+    let outbound = TelegramOutboundQueue::spawn(
+        &state,
+        Arc::new(TeloxideApi { bot: bot.clone() }),
+        Duration::from_millis(config.channels.telegram.min_interval_ms_per_chat),
+        Duration::from_millis(config.channels.telegram.min_interval_ms_global),
+    );
+    let runtime = Arc::new(TelegramRuntime {
+        state: state.clone(),
+        outbound,
+        allowed_chats,
+        pending_approvals: Arc::new(StdMutex::new(HashMap::new())),
+        pending_cap_overrides: Arc::new(StdMutex::new(HashMap::new())),
+    });
+    state.telegram_status.running.store(true, Ordering::SeqCst);
+    *state.telegram_status.last_error.lock().unwrap() = None;
+    append_log_line(&state.log_path, "telegram pilot started with long polling").ok();
+    state.tasks.spawn(async move {
+        telegram_poll_loop(runtime, bot).await;
+    });
+    Ok(())
+}
+
+async fn telegram_poll_loop(runtime: Arc<TelegramRuntime>, bot: Bot) {
+    let mut offset: u32 = 0;
+    loop {
+        if runtime.state.shutdown.is_cancelled() {
+            runtime
+                .state
+                .telegram_status
+                .running
+                .store(false, Ordering::SeqCst);
+            return;
+        }
+
+        let mut request = bot.get_updates().timeout(2).limit(50);
+        if offset > 0 {
+            request = request.offset(offset.try_into().unwrap_or(i32::MAX));
+        }
+        match request.send().await {
+            Ok(updates) => {
+                for update in updates {
+                    offset = update.id.0 + 1;
+                    runtime.clone().handle_update(update).await;
+                }
+            }
+            Err(error) => {
+                runtime.record_error(format!("telegram polling error: {error}"));
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        }
+    }
+}
+
+async fn telegram_outbound_worker(
+    api: Arc<dyn TelegramApi>,
+    status: Arc<TelegramRuntimeStatus>,
+    per_chat_interval: Duration,
+    global_interval: Duration,
+    mut rx: mpsc::UnboundedReceiver<TelegramSendRequest>,
+) {
+    let mut last_global_sent: Option<Instant> = None;
+    let mut last_chat_sent: HashMap<i64, Instant> = HashMap::new();
+    while let Some(request) = rx.recv().await {
+        let result: Result<Vec<i32>, DaemonError> = async {
+            let rendered = escape_telegram_markdown_v2(&request.text);
+            let chunks = chunk_telegram_markdown_v2(
+                &rendered,
+                ChannelCapabilities::for_builtin(ChannelKind::Telegram).max_message_size,
+            );
+            let mut ids = Vec::new();
+            for chunk in chunks {
+                let now = Instant::now();
+                let global_wait = last_global_sent
+                    .map(|last| global_interval.saturating_sub(now.duration_since(last)))
+                    .unwrap_or_default();
+                let per_chat_wait = last_chat_sent
+                    .get(&request.chat_id)
+                    .map(|last| per_chat_interval.saturating_sub(now.duration_since(*last)))
+                    .unwrap_or_default();
+                let wait_for = global_wait.max(per_chat_wait);
+                if !wait_for.is_zero() {
+                    tokio::time::sleep(wait_for).await;
+                }
+                let message_id = api
+                    .send_message(request.chat_id, chunk)
+                    .await
+                    .map_err(DaemonError::Protocol)?;
+                let sent_at = Instant::now();
+                last_global_sent = Some(sent_at);
+                last_chat_sent.insert(request.chat_id, sent_at);
+                ids.push(message_id);
+            }
+            Ok(ids)
+        }
+        .await;
+        if let Err(error) = &result {
+            *status.last_error.lock().unwrap() = Some(error.to_string());
+        } else {
+            *status.last_error.lock().unwrap() = None;
+        }
+        status.queue_depth.fetch_sub(1, Ordering::SeqCst);
+        let _ = request.reply.send(result);
+    }
+}
+
+fn load_telegram_allowed_chats(path: &Path) -> Result<HashSet<i64>, DaemonError> {
+    if !path.exists() {
+        return Ok(HashSet::new());
+    }
+    let raw = fs::read_to_string(path)?;
+    parse_telegram_allowed_chats(&raw)
+}
+
+fn parse_telegram_allowed_chats(raw: &str) -> Result<HashSet<i64>, DaemonError> {
+    let mut allowed = HashSet::new();
+    for (idx, line) in raw.lines().enumerate() {
+        let stripped = line.split('#').next().unwrap_or_default().trim();
+        if stripped.is_empty() {
+            continue;
+        }
+        let chat_id = stripped.parse::<i64>().map_err(|err| {
+            DaemonError::Protocol(format!(
+                "parse Telegram allowlisted chat on line {}: {err}",
+                idx + 1
+            ))
+        })?;
+        allowed.insert(chat_id);
+    }
+    Ok(allowed)
+}
+
+fn parse_telegram_command(text: &str) -> TelegramCommand {
+    let trimmed = text.trim();
+    if trimmed == "/reset" {
+        return TelegramCommand::Reset;
+    }
+    if let Some(value) = trimmed.strip_prefix("/approve ") {
+        let value = value.trim();
+        if !value.is_empty() {
+            return TelegramCommand::Approve(value.to_string());
+        }
+    }
+    if let Some(value) = trimmed.strip_prefix("/reject ") {
+        let value = value.trim();
+        if !value.is_empty() {
+            return TelegramCommand::Reject(value.to_string());
+        }
+    }
+    if let Some(value) = trimmed.strip_prefix("/override ") {
+        let value = value.trim();
+        if !value.is_empty() {
+            return TelegramCommand::Override(value.to_string());
+        }
+    }
+    TelegramCommand::Text(text.to_string())
+}
+
+fn telegram_sender_key(chat_id: i64, user_id: Option<UserId>) -> String {
+    match user_id {
+        Some(user_id) => format!("telegram:{chat_id}:{}", user_id.0),
+        None => format!("telegram:{chat_id}"),
+    }
+}
+
+fn escape_telegram_markdown_v2(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '_' | '*' | '[' | ']' | '(' | ')' | '~' | '`' | '>' | '#' | '+' | '-' | '='
+            | '|' | '{' | '}' | '.' | '!' => {
+                escaped.push('\\');
+                escaped.push(ch);
+            }
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+fn chunk_telegram_markdown_v2(text: &str, max_message_size: usize) -> Vec<String> {
+    if text.is_empty() {
+        return Vec::new();
+    }
+    if text.len() <= max_message_size {
+        return vec![text.to_string()];
+    }
+
+    let body_limit = max_message_size.saturating_sub(12).max(1);
+    let mut raw_chunks = Vec::new();
+    let mut start = 0usize;
+    while start < text.len() {
+        let mut end = start;
+        for (idx, ch) in text[start..].char_indices() {
+            let next = start + idx + ch.len_utf8();
+            if next - start > body_limit {
+                break;
+            }
+            end = next;
+        }
+        if end == start {
+            end = (start + body_limit).min(text.len());
+            while !text.is_char_boundary(end) {
+                end -= 1;
+            }
+        }
+        raw_chunks.push(text[start..end].to_string());
+        start = end;
+    }
+
+    let total = raw_chunks.len();
+    raw_chunks
+        .into_iter()
+        .enumerate()
+        .map(|(idx, chunk)| format!("{}/{}\n{}", idx + 1, total, chunk))
+        .collect()
+}
+
+fn find_recent_telegram_session(
+    paths: &AllbertPaths,
+    sender_id: &str,
+    max_age_days: u32,
+) -> Result<Option<String>, DaemonError> {
+    let cutoff = OffsetDateTime::now_utc() - time::Duration::days(i64::from(max_age_days));
+    let mut latest: Option<(OffsetDateTime, String)> = None;
+    for entry in fs::read_dir(&paths.sessions)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        let Some(snapshot) = load_session_snapshot(paths, &name)? else {
+            continue;
+        };
+        if snapshot.meta.channel != ChannelKind::Telegram {
+            continue;
+        }
+        if snapshot.meta.sender_id.as_deref() != Some(sender_id) {
+            continue;
+        }
+        let last_activity = OffsetDateTime::parse(&snapshot.meta.last_activity_at, &Rfc3339)
+            .unwrap_or_else(|_| OffsetDateTime::now_utc());
+        if last_activity < cutoff {
+            continue;
+        }
+        let should_replace = latest
+            .as_ref()
+            .map(|(best_time, _)| last_activity > *best_time)
+            .unwrap_or(true);
+        if should_replace {
+            latest = Some((last_activity, name));
+        }
+    }
+    Ok(latest.map(|(_, session_id)| session_id))
 }
 
 async fn run_turn_over_channel(
@@ -964,8 +1900,7 @@ async fn run_turn_over_channel(
                                     session_id: session.session_id.clone(),
                                     channel: session.channel,
                                     sender: session
-                                        .sender_id
-                                        .clone()
+                                        .sender_id()
                                         .unwrap_or_else(|| "attached-client".into()),
                                     agent: "allbert/root".into(),
                                     tool: request.program.clone(),
@@ -1041,8 +1976,7 @@ async fn run_turn_over_channel(
                                         status,
                                         Some(
                                             session
-                                                .sender_id
-                                                .clone()
+                                                .sender_id()
                                                 .unwrap_or_else(|| "attached-client".into()),
                                         ),
                                         Some(format!("{decision:?}")),
@@ -1137,7 +2071,7 @@ async fn run_turn_over_channel(
                             persist_completed_turn(
                                 &state.paths,
                                 session.channel,
-                                session.sender_id.clone(),
+                                session.sender_id(),
                                 &kernel,
                                 CompletedTurnRecord {
                                     user_input: input.clone(),
@@ -2023,4 +2957,123 @@ async fn recv_client_message(framed: &mut FramedStream) -> Result<ClientMessage,
         .ok_or_else(|| DaemonError::Protocol("connection closed".into()))?
         .map_err(DaemonError::Io)?;
     Ok(serde_json::from_slice(&frame)?)
+}
+
+#[cfg(test)]
+mod telegram_tests {
+    use super::*;
+
+    fn temp_paths() -> AllbertPaths {
+        let root = std::env::temp_dir().join(format!(
+            "allbert-telegram-test-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        let paths = AllbertPaths::under(root);
+        paths.ensure().expect("paths should be created");
+        paths
+    }
+
+    fn sample_meta(
+        session_id: &str,
+        sender_id: Option<&str>,
+        last_activity_at: &str,
+    ) -> SessionJournalMeta {
+        SessionJournalMeta {
+            session_id: session_id.into(),
+            channel: ChannelKind::Telegram,
+            sender_id: sender_id.map(str::to_string),
+            started_at: "2026-04-20T00:00:00Z".into(),
+            last_activity_at: last_activity_at.into(),
+            root_agent_name: "allbert/root".into(),
+            last_agent_stack: vec!["allbert/root".into()],
+            last_resolved_intent: Some("task".into()),
+            intent_history: vec!["task".into()],
+            active_skills: Vec::new(),
+            ephemeral_memory: Vec::new(),
+            model: model_to_payload(&Config::default_template().model),
+            turn_count: 1,
+            cost_total_usd: 0.0,
+            messages: Vec::new(),
+            pending_approval: None,
+        }
+    }
+
+    #[test]
+    fn telegram_command_parser_covers_control_vocabulary() {
+        assert_eq!(parse_telegram_command("/reset"), TelegramCommand::Reset);
+        assert_eq!(
+            parse_telegram_command("/approve approval-123"),
+            TelegramCommand::Approve("approval-123".into())
+        );
+        assert_eq!(
+            parse_telegram_command("/reject approval-456"),
+            TelegramCommand::Reject("approval-456".into())
+        );
+        assert_eq!(
+            parse_telegram_command("/override release smoke"),
+            TelegramCommand::Override("release smoke".into())
+        );
+        assert_eq!(
+            parse_telegram_command("/start"),
+            TelegramCommand::Text("/start".into())
+        );
+    }
+
+    #[test]
+    fn telegram_allowlist_parser_ignores_comments_and_blank_lines() {
+        let allowed = parse_telegram_allowed_chats(
+            "\n# test\n12345\n-777 # group\n\n  99  \n",
+        )
+        .expect("allowlist should parse");
+        assert!(allowed.contains(&12345));
+        assert!(allowed.contains(&-777));
+        assert!(allowed.contains(&99));
+        assert_eq!(allowed.len(), 3);
+    }
+
+    #[test]
+    fn telegram_markdown_rendering_chunks_and_escapes() {
+        let escaped = escape_telegram_markdown_v2("Hello [team] (v1.0)!");
+        assert_eq!(escaped, "Hello \\[team\\] \\(v1\\.0\\)\\!");
+
+        let chunks = chunk_telegram_markdown_v2(&"a".repeat(9000), 4096);
+        assert!(chunks.len() >= 3);
+        assert!(chunks.iter().all(|chunk| chunk.len() <= 4096));
+        assert!(chunks[0].starts_with("1/"));
+    }
+
+    #[test]
+    fn telegram_session_lookup_prefers_latest_matching_sender() {
+        let paths = temp_paths();
+        persist_session_meta(
+            &paths,
+            &sample_meta("telegram-old", Some("telegram:1:10"), "2026-02-01T00:00:00Z"),
+        )
+        .expect("old meta should persist");
+        persist_session_meta(
+            &paths,
+            &sample_meta(
+                "telegram-recent",
+                Some("telegram:1:10"),
+                &now_rfc3339_fallback(),
+            ),
+        )
+        .expect("recent meta should persist");
+        persist_session_meta(
+            &paths,
+            &sample_meta(
+                "telegram-other",
+                Some("telegram:2:20"),
+                &now_rfc3339_fallback(),
+            ),
+        )
+        .expect("other meta should persist");
+
+        let selected =
+            find_recent_telegram_session(&paths, "telegram:1:10", 30).expect("lookup should work");
+        assert_eq!(selected.as_deref(), Some("telegram-recent"));
+
+        std::fs::remove_dir_all(paths.root).ok();
+    }
 }

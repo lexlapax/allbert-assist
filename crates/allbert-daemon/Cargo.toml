@@ -24,6 +24,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 chrono-tz = "0.10"
 cron = "0.12"
 serde_yaml = "0.9"
+teloxide = "0.17"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
