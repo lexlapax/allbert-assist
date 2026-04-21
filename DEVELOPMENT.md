@@ -52,6 +52,7 @@ Notes:
 - `RUSTC_WRAPPER` may be set locally, often to `sccache`, but it must not be assumed.
 - Default contributor validation is provider-free and network-optional.
 - Passing the commands above is the normal baseline before commit.
+- The default `cargo test -q` path intentionally excludes ignored live-provider smokes.
 
 ## Temp profile discipline
 
@@ -95,6 +96,14 @@ These are optional/manual:
 - any checks that require secrets or network
 
 Tier B is not required for routine development or Codex Web work.
+
+Optional Tier B examples:
+
+```bash
+env -u RUSTC_WRAPPER cargo test -q -- --ignored
+```
+
+Run those only when you intentionally want live verification and the required secrets/network are available.
 
 ## Environment variables
 

@@ -34,6 +34,7 @@ Tier A must be:
 - safe against the contributor's real profile
 
 Contributor smoke flows use a temporary `ALLBERT_HOME`.
+The default `cargo test -q` path intentionally excludes ignored live-provider smoke tests.
 
 ### Tier B — optional live verification
 
