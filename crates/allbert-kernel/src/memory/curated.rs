@@ -182,6 +182,13 @@ pub struct MemoryIndexMeta {
     pub elapsed_ms: u128,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryReconcileMeta {
+    pub last_reconcile_at: String,
+    pub manifest_hash: String,
+    pub manifest_docs: usize,
+}
+
 #[derive(Debug, Clone)]
 pub struct MemoryBootstrapReport {
     pub imported_legacy_files: usize,
@@ -208,12 +215,48 @@ pub struct MemoryStatusSnapshot {
     pub last_rebuild_reason: Option<String>,
     pub last_rebuild_elapsed_ms: Option<u128>,
     pub schema_version: u32,
+    pub manifest_health: MemoryHealth,
+    pub index_health: MemoryHealth,
+    pub last_reconcile_at: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct MemoryReconcileReport {
     pub manifest_rebuilt: bool,
     pub rebuild_report: Option<RebuildIndexReport>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryHealth {
+    Ok,
+    Missing,
+    Mismatch,
+    Stale,
+}
+
+impl MemoryHealth {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::Missing => "missing",
+            Self::Mismatch => "mismatch",
+            Self::Stale => "stale",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MemoryVerifyReport {
+    pub manifest_health: MemoryHealth,
+    pub index_health: MemoryHealth,
+    pub last_reconcile_at: Option<String>,
+    pub issues: Vec<String>,
+}
+
+impl MemoryVerifyReport {
+    pub fn is_healthy(&self) -> bool {
+        self.issues.is_empty()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -317,6 +360,7 @@ pub fn memory_status(
     let _ = bootstrap_curated_memory(paths, config)?;
     let manifest = load_manifest(paths)?;
     let meta = load_index_meta(paths).ok();
+    let verify = verify_curated_memory(paths, config)?;
     let mut staged_counts = BTreeMap::new();
     let mut expired_pending_count = 0usize;
 
@@ -352,6 +396,95 @@ pub fn memory_status(
         last_rebuild_reason: meta.as_ref().map(|value| value.last_rebuild_reason.clone()),
         last_rebuild_elapsed_ms: meta.as_ref().map(|value| value.elapsed_ms),
         schema_version: INDEX_SCHEMA_VERSION,
+        manifest_health: verify.manifest_health,
+        index_health: verify.index_health,
+        last_reconcile_at: verify.last_reconcile_at,
+    })
+}
+
+pub fn verify_curated_memory(
+    paths: &AllbertPaths,
+    _config: &MemoryConfig,
+) -> Result<MemoryVerifyReport, KernelError> {
+    ensure_curated_dirs(paths)?;
+    let scanned = scan_manifest(paths)?;
+    let manifest = load_manifest(paths).ok();
+    let index_meta = load_index_meta(paths).ok();
+    let reconcile_meta = load_reconcile_meta(paths).ok();
+
+    let manifest_health = match manifest.as_ref() {
+        None => MemoryHealth::Missing,
+        Some(existing) if *existing == scanned => MemoryHealth::Ok,
+        Some(_) => MemoryHealth::Mismatch,
+    };
+
+    let manifest_hash = manifest_hash(&scanned)?;
+    let tantivy_dir = paths.memory_index_dir.join("tantivy");
+    let index_health = match index_meta.as_ref() {
+        None => MemoryHealth::Missing,
+        Some(_) if !tantivy_dir.exists() || is_effectively_empty_dir(&tantivy_dir)? => {
+            MemoryHealth::Missing
+        }
+        Some(_meta) if manifest_health != MemoryHealth::Ok => MemoryHealth::Stale,
+        Some(meta)
+            if meta.schema_version != INDEX_SCHEMA_VERSION
+                || meta.manifest_hash != manifest_hash
+                || meta.doc_count != scanned.documents.len() =>
+        {
+            MemoryHealth::Mismatch
+        }
+        Some(_) => MemoryHealth::Ok,
+    };
+
+    let mut issues = Vec::new();
+    match manifest.as_ref() {
+        None => issues.push(format!(
+            "manifest missing at {}",
+            paths.memory_manifest.display()
+        )),
+        Some(_) if manifest_health == MemoryHealth::Mismatch => {
+            issues.push("manifest does not match current markdown notes/daily files".into())
+        }
+        _ => {}
+    }
+    match index_meta.as_ref() {
+        None => issues.push(format!(
+            "index metadata missing at {}",
+            paths.memory_index_meta.display()
+        )),
+        Some(_) if !tantivy_dir.exists() || is_effectively_empty_dir(&tantivy_dir)? => {
+            issues.push(format!(
+                "tantivy index missing or empty at {}",
+                tantivy_dir.display()
+            ))
+        }
+        Some(meta) if meta.schema_version != INDEX_SCHEMA_VERSION => issues.push(format!(
+            "index schema version {} does not match expected {}",
+            meta.schema_version, INDEX_SCHEMA_VERSION
+        )),
+        Some(meta) if meta.manifest_hash != manifest_hash => issues.push(format!(
+            "index manifest hash {} does not match current manifest {}",
+            meta.manifest_hash, manifest_hash
+        )),
+        Some(meta) if meta.doc_count != scanned.documents.len() => issues.push(format!(
+            "index doc count {} does not match current manifest {}",
+            meta.doc_count,
+            scanned.documents.len()
+        )),
+        _ => {}
+    }
+
+    if let Some(meta) = reconcile_meta.as_ref() {
+        if meta.manifest_hash != manifest_hash || meta.manifest_docs != scanned.documents.len() {
+            issues.push("last reconcile metadata is stale for current manifest".into());
+        }
+    }
+
+    Ok(MemoryVerifyReport {
+        manifest_health,
+        index_health,
+        last_reconcile_at: reconcile_meta.map(|value| value.last_reconcile_at),
+        issues,
     })
 }
 
@@ -371,6 +504,14 @@ pub fn reconcile_curated_memory(
         }
     };
     let rebuild_report = maybe_rebuild_index(paths, &scanned, false, None)?;
+    write_reconcile_meta(
+        paths,
+        &MemoryReconcileMeta {
+            last_reconcile_at: now_rfc3339()?,
+            manifest_hash: manifest_hash(&scanned)?,
+            manifest_docs: scanned.documents.len(),
+        },
+    )?;
     Ok(MemoryReconcileReport {
         manifest_rebuilt,
         rebuild_report,
@@ -1227,12 +1368,36 @@ fn write_index_meta(paths: &AllbertPaths, meta: &MemoryIndexMeta) -> Result<(), 
     atomic_write(&paths.memory_index_meta, &rendered)
 }
 
+fn write_reconcile_meta(
+    paths: &AllbertPaths,
+    meta: &MemoryReconcileMeta,
+) -> Result<(), KernelError> {
+    let rendered = serde_json::to_vec_pretty(meta)
+        .map_err(|e| KernelError::InitFailed(format!("serialize reconcile meta: {e}")))?;
+    atomic_write(&paths.memory_reconcile_meta, &rendered)
+}
+
 fn load_index_meta(paths: &AllbertPaths) -> Result<MemoryIndexMeta, KernelError> {
     let raw = fs::read_to_string(&paths.memory_index_meta).map_err(|e| {
         KernelError::InitFailed(format!("read {}: {e}", paths.memory_index_meta.display()))
     })?;
     serde_json::from_str(&raw).map_err(|e| {
         KernelError::InitFailed(format!("parse {}: {e}", paths.memory_index_meta.display()))
+    })
+}
+
+fn load_reconcile_meta(paths: &AllbertPaths) -> Result<MemoryReconcileMeta, KernelError> {
+    let raw = fs::read_to_string(&paths.memory_reconcile_meta).map_err(|e| {
+        KernelError::InitFailed(format!(
+            "read {}: {e}",
+            paths.memory_reconcile_meta.display()
+        ))
+    })?;
+    serde_json::from_str(&raw).map_err(|e| {
+        KernelError::InitFailed(format!(
+            "parse {}: {e}",
+            paths.memory_reconcile_meta.display()
+        ))
     })
 }
 

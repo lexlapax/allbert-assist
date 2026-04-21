@@ -104,6 +104,8 @@ enum SkillsCommand {
 enum MemoryCommand {
     /// Show curated-memory status for the current profile.
     Status,
+    /// Verify manifest/index reconciliation for the current profile.
+    Verify,
     /// Search curated memory.
     Search {
         query: String,
@@ -240,7 +242,16 @@ async fn run_memory_command(
 ) -> Result<()> {
     match command {
         MemoryCommand::Status => {
-            println!("{}", memory_cli::status(paths, config)?);
+            let daemon_active = DaemonClient::connect(paths, ClientKind::Cli).await.is_ok();
+            println!("{}", memory_cli::status(paths, config, daemon_active)?);
+            Ok(())
+        }
+        MemoryCommand::Verify => {
+            let (rendered, healthy) = memory_cli::verify(paths, config)?;
+            println!("{rendered}");
+            if !healthy {
+                anyhow::bail!("memory verification found unresolved mismatch");
+            }
             Ok(())
         }
         MemoryCommand::Search {

@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
-pub fn status(paths: &AllbertPaths, config: &Config) -> Result<String> {
+pub fn status(paths: &AllbertPaths, config: &Config, daemon_active: bool) -> Result<String> {
     let snapshot = memory::memory_status(paths, &config.memory, config.setup.version)?;
     let staged = if snapshot.staged_counts.is_empty() {
         "none".to_string()
@@ -21,20 +21,48 @@ pub fn status(paths: &AllbertPaths, config: &Config) -> Result<String> {
         .index_age_seconds
         .map(|seconds| format!("{seconds}s"))
         .unwrap_or_else(|| "unknown".into());
+    let last_reconcile = snapshot.last_reconcile_at.unwrap_or_else(|| "never".into());
     Ok(format!(
-        "profile version:      {}\nretriever schema:     {}\nindexed docs:         {}\nstaged entries:       {}\nrejected entries:     {}\nexpired pending:      {}\nindex age:            {}\nlast rebuild reason:  {}\nlast rebuild elapsed: {} ms",
+        "profile version:            {}\nretriever schema:           {}\nindexed docs:               {}\nstaged entries:             {}\nrejected entries:           {}\nexpired pending:            {}\nmanifest health:            {}\nindex health:               {}\nindex age:                  {}\nlast rebuild reason:        {}\nlast rebuild elapsed:       {} ms\nlast reconcile:             {}\ndaemon reconciliation:      {}",
         snapshot.setup_version,
         snapshot.schema_version,
         snapshot.manifest_docs,
         staged,
         snapshot.rejected_count,
         snapshot.expired_pending_count,
+        snapshot.manifest_health.as_str(),
+        snapshot.index_health.as_str(),
         age,
         snapshot
             .last_rebuild_reason
             .unwrap_or_else(|| "unknown".into()),
-        snapshot.last_rebuild_elapsed_ms.unwrap_or_default()
+        snapshot.last_rebuild_elapsed_ms.unwrap_or_default(),
+        last_reconcile,
+        if daemon_active { "active" } else { "offline" },
     ))
+}
+
+pub fn verify(paths: &AllbertPaths, config: &Config) -> Result<(String, bool)> {
+    let report = memory::verify_curated_memory(paths, &config.memory)?;
+    let healthy = report.is_healthy();
+    let last_reconcile = report
+        .last_reconcile_at
+        .clone()
+        .unwrap_or_else(|| "never".into());
+    let mut rendered = format!(
+        "memory verify: {}\nmanifest health: {}\nindex health:    {}\nlast reconcile:  {}",
+        if healthy { "ok" } else { "failed" },
+        report.manifest_health.as_str(),
+        report.index_health.as_str(),
+        last_reconcile
+    );
+    if !report.issues.is_empty() {
+        rendered.push_str("\nissues:");
+        for issue in &report.issues {
+            rendered.push_str(&format!("\n- {issue}"));
+        }
+    }
+    Ok((rendered, healthy))
 }
 
 pub fn search(
@@ -270,7 +298,7 @@ mod tests {
 
     use allbert_kernel::{memory, AllbertPaths, Config, MemoryTier, SearchMemoryInput};
 
-    use super::{forget, promote, reject, search, staged_list, staged_show, status};
+    use super::{forget, promote, reject, search, staged_list, staged_show, status, verify};
 
     static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -336,11 +364,33 @@ mod tests {
         let paths = temp.paths();
         let config = Config::load_or_create(&paths).expect("config should load");
 
-        let rendered = status(&paths, &config).expect("status should render");
+        let rendered = status(&paths, &config, false).expect("status should render");
         assert!(rendered.contains("profile version:"));
         assert!(rendered.contains("retriever schema:"));
         assert!(rendered.contains("indexed docs:"));
         assert!(rendered.contains("staged entries:"));
+        assert!(rendered.contains("manifest health:"));
+        assert!(rendered.contains("daemon reconciliation:"));
+    }
+
+    #[test]
+    fn verify_reports_mismatch_when_manifest_drifts() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let config = Config::load_or_create(&paths).expect("config should load");
+        memory::bootstrap_curated_memory(&paths, &config.memory).expect("bootstrap should work");
+        std::fs::create_dir_all(paths.memory_notes.join("projects")).expect("notes dir");
+        std::fs::write(
+            paths.memory_notes.join("projects/drift.md"),
+            "# Drift\n\nThis was added after the manifest.\n",
+        )
+        .expect("drift note");
+
+        let (rendered, healthy) = verify(&paths, &config).expect("verify should render");
+        assert!(!healthy);
+        assert!(rendered.contains("memory verify: failed"));
+        assert!(rendered.contains("manifest health: mismatch"));
+        assert!(rendered.contains("issues:"));
     }
 
     #[test]
