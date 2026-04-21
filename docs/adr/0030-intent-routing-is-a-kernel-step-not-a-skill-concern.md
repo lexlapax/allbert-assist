@@ -19,7 +19,8 @@ Intent routing is a kernel step.
 - v0.3 ships a bounded taxonomy: `{task, chat, schedule, memory_query, meta}`. Any expansion is a minor-version change, not an ad hoc skill concern.
 - Classification runs in two stages: rule-based fast paths (keyword / shape heuristics) first, LLM sub-call fallback when rules are ambiguous or return low confidence.
 - New hook points `BeforeIntent` and `AfterIntent` allow external code to observe, override, or short-circuit classification.
-- The resolved `Intent` lands on `HookCtx` and is available to skills and agents as declarative context. It is a hint that guides skill selection and sub-agent choice — it is not a hard gate.
+- The resolved `Intent` lands on `HookCtx` and is available to skills and agents as declarative context. It is a hint that guides skill selection, preferred agents, prompt shaping, confirmation style, and other routing defaults — it is not a hard gate.
+- Later releases may let intent bias tool ordering or default behaviour, but they do not remove tools from the runtime or create intent-exclusive tool surfaces without a separate ADR that explicitly revisits this decision.
 - The classifier sub-call runs through the same provider client pool, cost log, and trace surface as any other LLM call. It is attributed as `intent-classifier` in cost logs.
 - The classifier output is cacheable per turn; the kernel does not re-run it for the same input within a session.
 

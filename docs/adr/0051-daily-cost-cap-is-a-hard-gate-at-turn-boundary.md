@@ -5,13 +5,13 @@ Status: Proposed
 
 ## Context
 
-Allbert tracks per-turn cost via CostHook (ADR 0006 + v0.1 work) and writes to `~/.allbert/costs.jsonl`. The config key `limits.daily_usd_cap` has existed since v0.1 but is recorded for operator review, not enforced.
+Allbert tracks per-turn cost via CostHook (ADR 0006 + v0.1 work) and writes to `~/.allbert/costs.jsonl`. Through v0.5 there is no kernel-level daily spend cap: operators can inspect spend after the fact, but they cannot set a hard daily ceiling that refuses new turns.
 
 This was tolerable when Allbert was a synchronous REPL and every turn required user intervention. With v0.2 scheduled jobs and v0.5 curated-memory maintenance loops in flight (and v0.7 sub-agent budget-governed depth coming), an unbounded cost loop is a real operational risk. A runaway job or a runaway sub-agent tree could burn significant provider spend before an operator notices.
 
 ## Decision
 
-At the start of every turn — REPL, channel-originated, or job-originated — the kernel reads today's aggregate from `costs.jsonl` keyed by UTC day. If the aggregate equals or exceeds `limits.daily_usd_cap` (when set to a non-null value), the turn refuses with a clear operator-facing message:
+v0.6 introduces a new optional config key, `limits.daily_usd_cap`. At the start of every turn — REPL, channel-originated, or job-originated — the kernel reads today's aggregate from `costs.jsonl` keyed by UTC day. If the aggregate equals or exceeds `limits.daily_usd_cap` (when set to a non-null value), the turn refuses with a clear operator-facing message:
 
 ```
 Daily cost cap of $X.XX reached for 2026-04-20. Current spend: $Y.YY.

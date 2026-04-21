@@ -63,7 +63,7 @@ This is a prompt-level policy; bootstrap prompts (`AGENTS.md`, `TOOLS.md`) docum
 **Neutral**
 
 - Supersedes the one-level cap from v0.5. Existing sub-agent semantic contracts (filtered memory context, agent definition hand-off) are unchanged; only the spawn gate moves.
-- `limits.max_sub_agent_depth` key, if present in older configs, is deprecated. Upgrade wizard removes it with a brief note.
+- The turn-budget settings introduced here are new config/runtime surface; v0.7 does not assume any previously shipped `max_sub_agent_depth` config key.
 - Hooks observing `spawn_subagent` see budget state in `HookCtx` for custom policy.
 
 ## References

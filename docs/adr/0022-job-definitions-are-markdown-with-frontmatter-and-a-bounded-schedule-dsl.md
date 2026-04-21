@@ -45,6 +45,9 @@ enabled: false                      # required, defaults to false for bundled te
 schedule: "@daily at 07:00"         # required, schedule expression (DSL or cron)
 skills: [morning-review]            # optional, ordered list (ADR 0016)
 timezone: America/Los_Angeles       # optional; falls back to jobs.default_timezone, then system local time
+session_name: morning-routine       # optional; share ephemeral working memory across runs
+memory:                             # optional; per-job memory tuning
+  prefetch: false                   # optional; disable automatic prefetch for this job
 model:                              # optional; same shape as ModelConfig if overriding the daemon default
   provider: anthropic
   model_id: claude-sonnet-4-5
@@ -56,6 +59,8 @@ max_turns: 8                        # optional override of global limits
 ```
 
 Unknown frontmatter keys are rejected at parse time (v0.2) to keep the format auditable. A future version may introduce an `extensions` block if user-defined metadata becomes necessary.
+
+`session_name` and `memory.prefetch` are part of the accepted schema as of the shipped v0.5 runtime. `session_name` lets repeated runs share a named ephemeral working buffer for daemon-lifetime continuity. `memory.prefetch: false` opts a job out of the automatic curated-memory prefetch path introduced in v0.5. The canonical persisted shape is nested `memory.prefetch`; runtimes may continue to accept a legacy flat `memory_prefetch` alias for backward compatibility, but docs and future serializers should use the nested form.
 
 ### Schedule DSL (v0.2)
 

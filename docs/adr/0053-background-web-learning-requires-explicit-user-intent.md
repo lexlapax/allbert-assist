@@ -60,7 +60,7 @@ Staged `research` entries route through the same machinery as every other staged
 - Surfaced in the turn-end notice (ADR 0050)
 - Promoted via `memory promote <id>` or the curator skill (ADR 0048)
 
-No privileged bypass. `research` is a new `kind` value; ADR 0047's schema accommodates new kinds without migration.
+No privileged bypass. `research` is a new `kind` value added to the staged-memory registry; ADR 0047 now explicitly allows additive `kind` extensions without changing the on-disk shape of older entries.
 
 ## Consequences
 
@@ -78,7 +78,7 @@ No privileged bypass. `research` is a new `kind` value; ADR 0047's schema accomm
 
 **Neutral**
 
-- `research` becomes a first-class `kind` alongside `fact`, `preference`, etc. from ADR 0047.
+- `research` becomes a first-class staged-memory `kind` alongside the v0.5 baseline kinds from ADR 0047.
 - The `record_as` parameter is opt-in per tool call. `web_search` and `fetch_url` remain usable from any skill without coupling to staging.
 - Source-URL tracking enables future provenance surfacing (e.g. "I know X because on 2026-04-20 you asked me to remember this article").
 

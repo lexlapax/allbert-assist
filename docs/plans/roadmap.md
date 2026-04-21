@@ -11,9 +11,10 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.3 | First-class agents, sub-agent harness, intent routing | Shipped | [v0.3-agent-harness.md](v0.3-agent-harness.md) |
 | v0.4 | AgentSkills folder format, install trust model, script policy | Shipped | [v0.4-agentskills-adoption.md](v0.4-agentskills-adoption.md) |
 | v0.5 | Curated memory: tiered memory service, ranked retrieval, staging, promotion | Shipped | [v0.5-curated-memory.md](v0.5-curated-memory.md) |
-| v0.6 | Foundation hardening: session durability, staged-memory notice, cost cap enforcement, drift check, E2E test | Proposed | [v0.6-foundation-hardening.md](v0.6-foundation-hardening.md) |
-| v0.7 | Channel expansion: Telegram pilot, `Channel` trait + multimodal flags, tool-surface normalization, budget-governed sub-agents, intent dispatch, explicit-intent web learning | Proposed | [v0.7-channel-expansion.md](v0.7-channel-expansion.md) |
-| v0.8 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.8-self-improvement.md](v0.8-self-improvement.md) |
+| v0.6 | Foundation hardening: session durability, richer staged-memory review, cost cap enforcement, memory verification, maintenance policy fix | Proposed | [v0.6-foundation-hardening.md](v0.6-foundation-hardening.md) |
+| v0.7 | Channel expansion: Telegram pilot, `Channel` trait + multimodal flags, tool-surface normalization, budget-governed sub-agents, intent-guided routing defaults, explicit-intent web learning | Proposed | [v0.7-channel-expansion.md](v0.7-channel-expansion.md) |
+| v0.8 | Continuity and sync: cross-channel identity mapping, durable session routing, approval inbox, sync posture | Proposed | [v0.8-continuity-and-sync.md](v0.8-continuity-and-sync.md) |
+| v0.9 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.9-self-improvement.md](v0.9-self-improvement.md) |
 
 ## Sequencing rationale
 
@@ -29,15 +30,19 @@ Curated memory needs more than a retriever. It needs a full turn-assembly contra
 
 ### v0.5 before v0.6
 
-v0.5 closed with curated memory, tantivy retrieval, and the `memory-curator` skill shipped. A retrospective on 2026-04-20 surfaced five gaps that do not change what Allbert *can* do, but change how reliably the shipped experience lands: silent staging, no daemon-restart durability, unenforced cost caps, disabled-by-default maintenance loops, and undetected markdown drift. v0.6 hardens the v0.5 foundation before v0.7 expands onto it — no new product capability, just reliability.
+v0.5 closed with curated memory, tantivy retrieval, and the `memory-curator` skill shipped. A retrospective on 2026-04-20 surfaced five gaps that do not change what Allbert *can* do, but change how reliably the shipped experience lands: the staged-memory notice is still too generic for efficient review, sessions still die on daemon restart, there is no hard daily cost cap yet, bundled maintenance loops are not yet safely defaultable, and markdown reconciliation lacks operator-visible verification. v0.6 hardens the v0.5 foundation before v0.7 expands onto it — no new product capability, just reliability and operational clarity.
 
 ### v0.6 before v0.7
 
-New channels (Telegram, Discord, eventually web and email) carry less interactive context than a REPL. Without curated memory (v0.5) and without session durability + cost enforcement + staged-memory visibility (v0.6), those channels would either repeatedly send stale or redundant context, die on daemon restart, or silently burn budget. v0.6 also normalizes the substrate v0.7's channel-adaptive rendering (turn-end notice, async cost override) lights up. v0.7 folds in the retrospective's tool-surface and intent-routing items because they co-evolve with the channel surface.
+New channels (Telegram, Discord, eventually richer native and web surfaces) carry less interactive context than a REPL. Without curated memory (v0.5) and without session durability, cost enforcement, and operator-visible memory verification (v0.6), those channels would either repeatedly send stale or redundant context, die on daemon restart, or silently burn budget. v0.6 also stabilizes the substrate that v0.7's channel-adaptive rendering and approval flows rely on. v0.7 folds in tool-surface normalization and explicit-intent web learning because they co-evolve with the channel surface.
 
 ### v0.7 before v0.8
 
-Self-improvement (the assistant rebuilding its own Rust binary, or authoring new skills) is both powerful and risky. It should land after Allbert has at least one approval-capable non-REPL channel and a settled pattern for channel-mediated operator review, after the tool surface is normalized so embedded-script hook observation is uniform (ADR 0052), and after the memory and skill-install trust model is mature enough that self-authored artifacts route through the same gates as any other skill.
+The first non-REPL channel changes what "continuity" means. Once a user can talk to Allbert from Telegram or another async surface, the next pain point is not yet self-improvement; it is continuity across channels and devices: shared identity mapping, durable session routing, pending approvals that outlive a single surface, and an explicit sync posture for memory and session artifacts. v0.8 addresses that operator-facing gap before the roadmap jumps to the more ambitious self-improvement work.
+
+### v0.8 before v0.9
+
+Self-improvement (the assistant rebuilding its own Rust binary, or authoring new skills) is both powerful and risky. It should land only after Allbert has at least one approval-capable non-REPL channel, a settled pattern for cross-channel operator review, and a continuity model that makes pending approvals and resumable work legible outside the REPL. v0.9 also depends on the tool surface being normalized so embedded-script hook observation is uniform (ADR 0052), and on the memory and skill-install trust model being mature enough that self-authored artifacts route through the same gates as any other skill.
 
 ## Cross-cutting concerns
 
@@ -56,14 +61,13 @@ These themes recur across multiple releases. They are noted here so individual p
 Explicitly parked, not forgotten.
 
 - **Remote skill registry.** Deferred per ADR 0035. Local path and git URL are the v0.4 install sources. A curated registry can land as a third source type in v0.5+ without redesigning the install flow.
-- **Skill-format adapter for MCP / OpenClaw / legacy shapes.** Noted in v0.7's out-of-scope section. Strict AgentSkills-format cutover (ADR 0037) is the current policy; a one-shot importer can land alongside the Channel work without changing kernel invariants.
+- **Skill-format adapter for MCP / OpenClaw / legacy shapes.** Noted in v0.7's out-of-scope section. Strict AgentSkills-format cutover (ADR 0037) is the current policy; a one-shot importer can land alongside later channel or continuity work without changing kernel invariants.
 - **Multi-user workstation daemon.** The v0.2 trust model (ADR 0023) assumes a single local user. Multi-user daemon isolation is future work.
 - **Capability tokens for local IPC.** ADR 0023 explicitly defers these. v0.7 channels may push on the edges of this decision; revisit if so.
-- **Multi-device memory sync.** Not on any roadmap. Once Telegram channel ships (v0.7), this will become the #1 user request — worth an ADR pass before channels expose the gap. Flagged in v0.7 plan's "Out of scope" section.
-- **Cross-network daemon.** Out of scope through v0.8. If and when it returns, it will be an explicit design pass, not an incremental add-on.
-- **Large embedded runtime.** Lua or similar embedded scripting enters only through the v0.8 scripting seam (ADR pending in that release) rather than as a kernel dependency.
+- **Cross-network daemon.** Out of scope through v0.9. If and when it returns, it will be an explicit design pass, not an incremental add-on.
+- **Large embedded runtime.** Lua or similar embedded scripting enters only through the v0.9 scripting seam (ADR pending in that release) rather than as a kernel dependency.
 - **Embedding / vector retrieval for memory.** v0.5 commits to BM25 via tantivy (ADR 0046); embedding-based retrieval is an explicit non-goal for v0.5 and may layer alongside tantivy in a later release rather than replacing it.
-- **Local personalization / retraining pipeline.** The origin note's ambition to distill or retrain a small local model for memory/personality is still in scope philosophically, but it is not assigned to any release through v0.8. Revisit only after curated memory and model-management seams are stable.
+- **Local personalization / retraining pipeline.** The origin note's ambition to distill or retrain a small local model for memory/personality is still in scope philosophically, but it is not assigned to any release through v0.9. Revisit only after curated memory, continuity, and model-management seams are stable.
 - **Website-serving / hosted web surfaces.** The origin note's idea that Allbert might eventually serve websites or richer hosted interfaces is explicitly deferred beyond the current roadmap. The near-term web story is channel expansion and future native/web UI planning, not site-hosting from the daemon.
 
 ## References

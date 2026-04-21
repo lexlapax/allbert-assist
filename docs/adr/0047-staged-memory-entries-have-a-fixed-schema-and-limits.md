@@ -51,13 +51,15 @@ expires_at: 2026-07-19T14:23:11Z              # created_at + staged_entry_ttl_da
 ---
 ```
 
-`kind` is one of:
+`kind` in the shipped v0.5 baseline is one of:
 
 - `explicit_request` — the user asked to remember something.
 - `learned_fact` — the agent inferred a durable fact worth remembering.
 - `job_summary` — a scheduled job's output.
 - `subagent_result` — a sub-agent contributed a candidate learning.
 - `curator_extraction` — the `memory-curator` skill's explicit extraction agent ran.
+
+Kind values are a bounded registry, but the registry is additive across releases. Later ADRs may introduce new `kind` values when a new staging source needs distinct operator handling or review policy. Those additions must be documented explicitly, but they do not require renaming or migrating older entries. The expected next additive values are `meta` for operator-facing verification and maintenance surfacing, and `research` for explicit-intent web learning.
 
 The body (below the frontmatter) is the candidate memory content rendered as markdown. No binary attachments.
 
@@ -98,6 +100,7 @@ Rejected entries move to `staging/.rejected/YYYYMMDDTHHMMSSZ-<id>.md` with a `re
 **Neutral**
 
 - Future releases can change the dedup algorithm (e.g. semantic hashing) as long as the frontmatter field stays named `fingerprint`.
+- Future releases may add new `kind` values by ADR without changing the on-disk shape of existing staged entries.
 - `.expired/` and `.rejected/` directories are explicitly retained for operator recovery, not treated as silent garbage.
 
 ## References

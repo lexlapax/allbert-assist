@@ -5,13 +5,13 @@ Status: Proposed
 
 ## Context
 
-v0.5 staging (ADR 0042, 0047, 0048) is silent by design: the `memory-curator` skill or an agent call to `stage_memory` writes a candidate entry without interrupting the conversational flow. The 5-per-turn cap and 90-day TTL bound accumulation, but users rarely run `memory staged list` on their own cadence. Entries that are not surfaced at the moment of creation are unlikely to ever be promoted — which breaks the promotion loop the feature exists to serve.
+v0.5 did not leave staging silent after all: the shipped runtime already appends a short turn-end hint when a turn creates staged entries, guarded by `memory.surface_staged_on_turn_end`. What remains missing is not the existence of the notice, but the decision that this shipped suffix is the canonical surface and that any v0.6 refinement must evolve that surface rather than rename it.
 
-The retrospective on 2026-04-20 explicitly accepted "short turn-end hint, togglable" as the recommended UX. v0.6 commits that decision.
+The retrospective on 2026-04-20 accepted "keep the short turn-end hint, optionally make it more review-friendly" as the right hardening path. v0.6 commits that decision.
 
 ## Decision
 
-After every turn that stages at least one memory entry, the kernel renders a short suffix on the assistant's final message summarising what was staged and how to inspect it.
+After every turn that stages at least one memory entry, the kernel renders a short suffix on the assistant's final message summarising what was staged and how to inspect it. This is the same feature v0.5 already shipped; v0.6 may refine the rendering, but it does not introduce a second config key or a separate notice mechanism.
 
 Example rendering:
 
@@ -22,8 +22,8 @@ Example rendering:
 ### Rules
 
 - Emitted only when at least one entry was staged in the completed turn.
-- Togglable via `memory.turn_end_notice = true|false`. Default `true` on fresh v0.6 profiles; unchanged on upgrade (existing profiles default to whatever is explicitly set, or `true` if the key is absent).
-- Combined id + summary truncated to 120 chars per entry. More than three entries collapses to "staged N — run `memory staged list --since-session` to inspect."
+- Togglable via the existing `memory.surface_staged_on_turn_end = true|false`. Default remains `true` on fresh profiles; upgrades preserve existing behaviour.
+- The baseline rendering may remain the shipped one-line count-and-pointer form. If v0.6 enriches it with per-entry summaries, those summaries stay tightly bounded and do not change the feature's kernel-owned nature.
 - **Kernel-rendered, not skill-rendered.** Staging is a kernel-native operation; the notice belongs with the writer, not with any one curator.
 - Channel-adaptive (in anticipation of v0.7):
   - Synchronous channels (REPL, Telegram once it ships) render inline as a suffix.
