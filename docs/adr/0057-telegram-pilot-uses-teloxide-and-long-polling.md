@@ -44,6 +44,8 @@ On a message from an allowlisted sender:
 
 Cross-channel session routing (the same user's REPL + Telegram sessions as one logical thread) is explicitly deferred to v0.8. In v0.7, the same user on REPL and Telegram has two independent sessions.
 
+Inbound media, including Telegram photos, is stored under the session working directory and treated as a session artifact rather than durable memory. It archives, forgets, and purges with the parent session under the same session-retention rules from ADR 0049; v0.7 does not add a separate media-retention subsystem.
+
 ### Rate limiting
 
 Telegram's published limits (see references) are 1 message per second per chat, 20 messages per minute in groups, and 30 messages per second globally per bot. The daemon enforces its own per-chat and global queues so outbound bursts never hit a 429:

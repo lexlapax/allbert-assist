@@ -20,6 +20,33 @@ Effective v0.7, sub-agent spawning is no longer bounded by nesting count. Each s
 
 A sub-agent spawning its own sub-agent further subdivides the same budgets. When either budget reaches zero, the spawn refuses with `budget-exhausted` (the spawning agent receives a tool error; the user receives a clear message).
 
+### `spawn_subagent` input shape
+
+The existing `spawn_subagent` input surface remains:
+
+- `name`
+- `prompt`
+- `context?`
+- `memory_hints?`
+
+v0.7 adds one optional field:
+
+```json
+{
+  "budget": {
+    "usd": 0.15,
+    "seconds": 30
+  }
+}
+```
+
+- `budget.usd` is optional.
+- `budget.seconds` is optional.
+- If `budget` is omitted, the kernel applies the default even split of the parent's remaining budget across sibling spawns in that model round.
+- If `budget` is provided, each supplied bound must be less than or equal to the parent's remaining bound.
+- Impossible allocations fail with `budget-invalid`. Cases where no usable budget remains fail with `budget-exhausted`.
+- Unspecified dimensions continue to use kernel defaults derived from the parent's remaining budget.
+
 ### Root-turn budget sources
 
 - `limits.max_turn_usd` (default: $0.50)

@@ -51,6 +51,9 @@ memory:                             # optional; per-job memory tuning
 model:                              # optional; same shape as ModelConfig if overriding the daemon default
   provider: anthropic
   model_id: claude-sonnet-4-5
+budget:                            # optional; per-turn budgeting for this job's root turn
+  max_turn_usd: 0.25               # optional; overrides global limits.max_turn_usd
+  max_turn_s: 90                   # optional; overrides global limits.max_turn_s
 allowed-tools: [read_memory, write_memory]  # optional; intersects global policy
 timeout_s: 600                      # optional, per-run wall-clock cap
 report: on_anomaly                  # optional: always | on_failure | on_anomaly
@@ -61,6 +64,8 @@ max_turns: 8                        # optional override of global limits
 Unknown frontmatter keys are rejected at parse time (v0.2) to keep the format auditable. A future version may introduce an `extensions` block if user-defined metadata becomes necessary.
 
 `session_name` and `memory.prefetch` are part of the accepted schema as of the shipped v0.5 runtime. `session_name` lets repeated runs share a named ephemeral working buffer for daemon-lifetime continuity. `memory.prefetch: false` opts a job out of the automatic curated-memory prefetch path introduced in v0.5. The canonical persisted shape is nested `memory.prefetch`; runtimes may continue to accept a legacy flat `memory_prefetch` alias for backward compatibility, but docs and future serializers should use the nested form.
+
+`budget.max_turn_usd` and `budget.max_turn_s` are part of the accepted schema as of the v0.7 planning freeze. They override the global per-turn defaults for job-originated root turns only. If omitted, the job inherits `limits.max_turn_usd` and `limits.max_turn_s`. Remaining daily cap still clamps the effective usable budget lower than either source when applicable.
 
 ### Schedule DSL (v0.2)
 

@@ -38,7 +38,7 @@ New channels (Telegram, Discord, eventually richer native and web surfaces) carr
 
 ### v0.7 before v0.8
 
-The first non-REPL channel changes what "continuity" means. Once a user can talk to Allbert from Telegram or another async surface, the next pain point is not yet self-improvement; it is continuity across channels and devices: shared identity mapping, durable session routing, pending approvals that outlive a single surface, and an explicit sync posture for memory and session artifacts. v0.8 addresses that operator-facing gap before the roadmap jumps to the more ambitious self-improvement work.
+The first non-REPL channel changes what "continuity" means. Once a user can talk to Allbert from Telegram or another async surface, the next pain point is not yet self-improvement; it is continuity across channels and devices: shared identity mapping, durable session routing, pending approvals that outlive a single surface, and an explicit sync posture for memory and session artifacts. v0.7 intentionally stops short of cross-surface approval resolution and cross-channel identity routing: approvals still resolve only on the originating async channel, and trust/continuity remain channel-local. v0.8 addresses that operator-facing gap before the roadmap jumps to the more ambitious self-improvement work.
 
 ### v0.8 before v0.9
 

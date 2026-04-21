@@ -55,6 +55,8 @@ A multi-approval inbox that lifts this restriction is scoped to [v0.8](../plans/
 
 Only the channel-local identifier that triggered the turn may resolve the approval. Other allowlisted senders replying to the same approval are ignored with an audit entry. This matches the "approval is a confirmation of intent from the person who asked" reading of ADR 0007 rather than a general moderation surface.
 
+REPL and CLI may inspect pending approvals in v0.7, but they do not resolve channel-originated approvals. Cross-surface resolution belongs to the v0.8 approval inbox once identity mapping and continuity rules exist to make that safe and legible.
+
 ### 4. Bounded timeout
 
 `channels.approval_timeout_s` (default `3600` = 1 hour). On expiry the kernel auto-rejects the pending tool, writes `status: timeout` into the markdown file, logs an audit entry, and returns a `confirm-timeout` error to the agent loop. The agent chooses whether to re-prompt, narrow scope, or inform the user.

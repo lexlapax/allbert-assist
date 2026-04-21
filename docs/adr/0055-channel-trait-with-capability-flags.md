@@ -71,7 +71,11 @@ The daemon consults `capabilities()` at turn time:
 ### Lifecycle
 
 - `daemon start` enumerates configured channels and spawns one driver task per channel.
-- `daemon channels list | status | add | remove` CLI commands expose channel state.
+- `daemon channels list | status [<kind>] | add <kind> | remove <kind>` CLI commands expose channel state.
+- In v0.7 the admin surface is generic, but bounded to built-in known kinds. `telegram` is the only non-REPL addable kind in this release.
+- `add <kind>` creates or updates the channel config entry, scaffolds required allowlist and secret file paths if missing, marks the channel enabled, and leaves the channel in `misconfigured` / `needs_setup` until the operator supplies valid secrets and allowlist content.
+- `remove <kind>` disables the channel in config and stops loading it on next daemon start or reload. It does not delete secret or allowlist files.
+- `status` must surface at least enabled/disabled, configured/misconfigured, last error, queue depth if running, and effective capability flags.
 - `shutdown` is bounded graceful per ADR 0025; channels surface outstanding message queues and drain on best-effort.
 
 ## Consequences
