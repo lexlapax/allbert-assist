@@ -15,6 +15,7 @@ use serde::Serialize;
 mod approvals;
 mod identity_cli;
 mod memory_cli;
+mod profile_cli;
 mod repl;
 mod setup;
 mod skills;
@@ -65,6 +66,10 @@ enum Command {
     Inbox {
         #[command(subcommand)]
         command: InboxCommand,
+    },
+    Profile {
+        #[command(subcommand)]
+        command: ProfileCommand,
     },
     #[command(name = "internal-daemon-host", hide = true)]
     InternalDaemonHost,
@@ -240,6 +245,26 @@ enum InboxCommand {
 }
 
 #[derive(Subcommand, Debug)]
+enum ProfileCommand {
+    Export {
+        path: String,
+        #[arg(long)]
+        include_secrets: bool,
+        #[arg(long)]
+        identity: Option<String>,
+    },
+    Import {
+        path: String,
+        #[arg(long)]
+        overlay: bool,
+        #[arg(long)]
+        replace: bool,
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 enum DaemonChannelsCommand {
     List {
         #[arg(long)]
@@ -299,6 +324,7 @@ async fn main() -> Result<()> {
         Some(Command::Memory { command }) => run_memory_command(&paths, &config, command).await,
         Some(Command::Approvals { command }) => run_approvals_command(&paths, command),
         Some(Command::Inbox { command }) => run_inbox_command(&paths, command),
+        Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
                 config = match setup::run_setup_wizard(&paths, &config)? {
@@ -792,6 +818,47 @@ fn inspect_telegram_setup(paths: &AllbertPaths) -> TelegramSetupState {
 
     TelegramSetupState::Ready {
         allowlisted_chats: allowlisted,
+    }
+}
+
+fn run_profile_command(
+    paths: &AllbertPaths,
+    config: &Config,
+    command: ProfileCommand,
+) -> Result<()> {
+    match command {
+        ProfileCommand::Export {
+            path,
+            include_secrets,
+            identity,
+        } => {
+            let rendered = profile_cli::export_profile(
+                paths,
+                Path::new(&path),
+                include_secrets,
+                identity.as_deref(),
+            )?;
+            println!("{rendered}");
+            Ok(())
+        }
+        ProfileCommand::Import {
+            path,
+            overlay,
+            replace,
+            yes,
+        } => {
+            if overlay && replace {
+                anyhow::bail!("choose either --overlay or --replace, not both");
+            }
+            let mode = if replace {
+                profile_cli::ImportMode::Replace
+            } else {
+                profile_cli::ImportMode::Overlay
+            };
+            let rendered = profile_cli::import_profile(paths, config, Path::new(&path), mode, yes)?;
+            println!("{rendered}");
+            Ok(())
+        }
     }
 }
 

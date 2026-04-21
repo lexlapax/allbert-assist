@@ -24,3 +24,6 @@ serde_yaml = "0.9"
 sha2 = "0.10"
 time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
 toml = "0.8"
+
+flate2 = "1"
+tar = "0.4"
