@@ -33,6 +33,7 @@ env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- --help
 - Toolchain manager: `rustup`
 - Pinned Rust toolchain: see `rust-toolchain.toml`
 - `RUSTC_WRAPPER` must not be assumed
+- Repo root `AGENTS.md` is contributor guidance only; runtime `~/.allbert/AGENTS.md` remains kernel-generated product state
 
 ## Smokes
 

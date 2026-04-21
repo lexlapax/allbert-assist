@@ -30,6 +30,13 @@ Required:
 
 The workspace does not require Node, Python, a database service, or OpenSSL for the default build/test path.
 
+Quick setup on macOS/Linux:
+
+```bash
+rustup toolchain install 1.94.0 --component rustfmt --component clippy
+rustup override set 1.94.0
+```
+
 ## Canonical validation
 
 The standard contributor green path is:
@@ -102,6 +109,8 @@ Common optional variables:
 - `ALLBERT_HOME` for temp-profile isolation
 
 Telegram testing is also optional and uses filesystem-backed secrets/config under `~/.allbert/`.
+
+If you want a local env file for optional live checks, copy `.env.example` and fill values locally. Do not commit real secrets.
 
 ## Codex Web expectations
 
