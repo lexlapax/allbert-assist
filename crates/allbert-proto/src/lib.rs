@@ -287,6 +287,7 @@ pub enum KernelEventPayload {
     },
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "payload", rename_all = "snake_case")]
 pub enum ClientMessage {
@@ -318,6 +319,7 @@ pub enum ClientMessage {
     Shutdown,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "payload", rename_all = "snake_case")]
 pub enum ServerMessage {

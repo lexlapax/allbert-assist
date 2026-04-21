@@ -1,7 +1,7 @@
 # ADR 0059: Sessions routed by identity with cross-channel resume
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

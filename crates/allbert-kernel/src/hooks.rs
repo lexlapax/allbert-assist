@@ -139,6 +139,7 @@ impl HookCtx {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn on_model_response(
         session_id: &str,
         agent_name: &str,

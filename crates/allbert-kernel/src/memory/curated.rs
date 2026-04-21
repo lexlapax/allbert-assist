@@ -1244,6 +1244,7 @@ fn rebuild_index(
         .read(true)
         .write(true)
         .create(true)
+        .truncate(false)
         .open(&paths.memory_index_lock)
         .map_err(|e| {
             KernelError::InitFailed(format!("open {}: {e}", paths.memory_index_lock.display()))

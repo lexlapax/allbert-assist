@@ -1100,6 +1100,7 @@ fn html_unescape(input: &str) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::config::WebSecurityConfig;

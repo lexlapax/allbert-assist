@@ -155,16 +155,14 @@ impl DaemonClient {
         )
         .await?;
 
-        match self
+        let attached = self
             .recv_expected("attached", |message| match message {
                 ServerMessage::Attached(attached) => Some(Ok(attached)),
                 ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
                 _ => None,
             })
-            .await?
-        {
-            attached => Ok(attached),
-        }
+            .await?;
+        Ok(attached)
     }
 
     pub async fn status(&mut self) -> Result<DaemonStatus, DaemonError> {
@@ -536,6 +534,7 @@ fn find_workspace_root(current_exe: &Path) -> Option<PathBuf> {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 

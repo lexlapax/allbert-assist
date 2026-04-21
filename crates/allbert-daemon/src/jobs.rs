@@ -902,6 +902,7 @@ pub(crate) fn parse_rfc3339(raw: &str) -> Result<DateTime<Utc>, DaemonError> {
         .map_err(|e| DaemonError::Protocol(format!("invalid timestamp `{raw}`: {e}")))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_state_after_run(
     state: &mut JobState,
     definition: &JobDefinition,
@@ -1144,7 +1145,7 @@ pub(crate) fn list_run_records(
     files.reverse();
 
     let mut records = Vec::new();
-    let clamped_limit = limit.max(1).min(100);
+    let clamped_limit = limit.clamp(1, 100);
     for path in files {
         let raw = fs::read_to_string(&path)?;
         for line in raw.lines().rev() {

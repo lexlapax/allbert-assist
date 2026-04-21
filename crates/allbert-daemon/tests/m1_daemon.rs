@@ -1,3 +1,9 @@
+#![allow(
+    clippy::await_holding_lock,
+    clippy::useless_concat,
+    clippy::useless_format
+)]
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -8,7 +14,7 @@ use allbert_kernel::error::LlmError;
 use allbert_kernel::llm::{
     CompletionRequest, CompletionResponse, LlmProvider, ProviderFactory, Usage,
 };
-use allbert_kernel::{memory, AllbertPaths, Config, ModelConfig};
+use allbert_kernel::{load_identity_record, memory, AllbertPaths, Config, ModelConfig};
 use allbert_proto::{
     ChannelKind, ClientKind, ClientMessage, ConfirmDecisionPayload, InputReplyPayload,
     InputResponsePayload, JobBudgetPayload, JobDefinitionPayload, KernelEventPayload,
@@ -61,6 +67,33 @@ fn jobs_test_config() -> Config {
     config.jobs.max_concurrent_runs = 2;
     config.jobs.default_timezone = Some("America/Los_Angeles".into());
     config
+}
+
+#[tokio::test]
+async fn daemon_boot_seeds_identity_record() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![])),
+    )
+    .await
+    .expect("daemon should start");
+
+    assert!(
+        paths.identity_user.exists(),
+        "identity record should be seeded"
+    );
+    let record = load_identity_record(&paths).expect("identity record should parse");
+    assert!(record.id.starts_with("usr_"));
+    assert_eq!(record.name, "primary");
+    assert!(record
+        .channels
+        .iter()
+        .any(|binding| binding.kind == ChannelKind::Repl && binding.sender == "local"));
+
+    shutdown_daemon(handle, &paths).await;
 }
 
 async fn wait_for_client(paths: &AllbertPaths) -> DaemonClient {

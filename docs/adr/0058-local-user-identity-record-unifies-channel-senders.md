@@ -1,7 +1,7 @@
 # ADR 0058: Local user identity record unifies channel senders
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

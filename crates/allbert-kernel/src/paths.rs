@@ -147,6 +147,8 @@ pub struct AllbertPaths {
     pub channel_secrets: PathBuf,
     pub telegram_allowed_chats: PathBuf,
     pub telegram_bot_token: PathBuf,
+    pub identity_dir: PathBuf,
+    pub identity_user: PathBuf,
     pub soul: PathBuf,
     pub user: PathBuf,
     pub identity: PathBuf,
@@ -205,6 +207,7 @@ impl AllbertPaths {
         let sessions = root.join("sessions");
         let config_dir = root.join("config");
         let channel_secrets = root.join("secrets");
+        let identity_dir = root.join("identity");
         Self {
             root: root.clone(),
             config: root.join("config.toml"),
@@ -219,6 +222,8 @@ impl AllbertPaths {
             channel_secrets: channel_secrets.clone(),
             telegram_allowed_chats: config_dir.join("channels.telegram.allowed_chats"),
             telegram_bot_token: channel_secrets.join("telegram").join("bot_token"),
+            identity_dir: identity_dir.clone(),
+            identity_user: identity_dir.join("user.md"),
             soul: root.join("SOUL.md"),
             user: root.join("USER.md"),
             identity: root.join("IDENTITY.md"),
@@ -276,6 +281,7 @@ impl AllbertPaths {
             &self.logs,
             &self.secrets,
             &self.channel_secrets,
+            &self.identity_dir,
             &self.skills,
             &self.skills_installed,
             &self.skills_incoming,

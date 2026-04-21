@@ -1,7 +1,7 @@
 # ADR 0061: Local-only continuity posture — artifact catalog, lockfile, export/import
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

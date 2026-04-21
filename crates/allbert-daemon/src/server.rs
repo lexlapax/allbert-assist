@@ -191,6 +191,7 @@ struct DaemonJobManager {
     state: SharedState,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum OutboundMessage {
     Event(ServerMessage),
     Confirm(
@@ -253,6 +254,7 @@ pub async fn spawn_with_factory(
     provider_factory: Arc<dyn ProviderFactory>,
 ) -> Result<RunningDaemon, DaemonError> {
     paths.ensure()?;
+    allbert_kernel::ensure_identity_record(&paths)?;
     allbert_kernel::memory::bootstrap_curated_memory(&paths, &config.memory)?;
     archive_expired_sessions(&paths, &config)?;
     reconcile_pending_approvals(&paths)?;

@@ -13,6 +13,7 @@ use clap::{Parser, Subcommand};
 use serde::Serialize;
 
 mod approvals;
+mod identity_cli;
 mod memory_cli;
 mod repl;
 mod setup;
@@ -48,6 +49,10 @@ enum Command {
     Skills {
         #[command(subcommand)]
         command: SkillsCommand,
+    },
+    Identity {
+        #[command(subcommand)]
+        command: IdentityCommand,
     },
     Memory {
         #[command(subcommand)]
@@ -111,6 +116,14 @@ enum SkillsCommand {
     Remove { name: String },
     /// Scaffold a new strict AgentSkills-format skill in the current directory.
     Init { name: String },
+}
+
+#[derive(Subcommand, Debug)]
+enum IdentityCommand {
+    Show,
+    AddChannel { kind: String, sender: String },
+    RemoveChannel { kind: String, sender: String },
+    Rename { new_name: String },
 }
 
 #[derive(Subcommand, Debug)]
@@ -249,6 +262,7 @@ async fn main() -> Result<()> {
         Some(Command::Skills { command }) => {
             run_skills_command(Some(&paths), Some(&config), command).await
         }
+        Some(Command::Identity { command }) => run_identity_command(&paths, command),
         Some(Command::Memory { command }) => run_memory_command(&paths, &config, command).await,
         Some(Command::Approvals { command }) => run_approvals_command(&paths, command),
         Some(Command::Jobs { command }) => {
@@ -386,6 +400,33 @@ fn run_approvals_command(paths: &AllbertPaths, command: ApprovalsCommand) -> Res
         }
         ApprovalsCommand::Show { approval_id, json } => {
             println!("{}", approvals::show(paths, &approval_id, json)?);
+            Ok(())
+        }
+    }
+}
+
+fn run_identity_command(paths: &AllbertPaths, command: IdentityCommand) -> Result<()> {
+    match command {
+        IdentityCommand::Show => {
+            println!("{}", identity_cli::show(paths)?);
+            Ok(())
+        }
+        IdentityCommand::AddChannel { kind, sender } => {
+            println!(
+                "{}",
+                identity_cli::add_channel(paths, parse_channel_kind(&kind)?, &sender)?
+            );
+            Ok(())
+        }
+        IdentityCommand::RemoveChannel { kind, sender } => {
+            println!(
+                "{}",
+                identity_cli::remove_channel(paths, parse_channel_kind(&kind)?, &sender)?
+            );
+            Ok(())
+        }
+        IdentityCommand::Rename { new_name } => {
+            println!("{}", identity_cli::rename(paths, &new_name)?);
             Ok(())
         }
     }
@@ -1102,11 +1143,8 @@ async fn spawn_notification_task(
         return None;
     }
     Some(tokio::spawn(async move {
-        loop {
-            match client.recv().await {
-                Ok(message) => repl::render_async_server_message(message),
-                Err(_) => break,
-            }
+        while let Ok(message) = client.recv().await {
+            repl::render_async_server_message(message);
         }
     }))
 }

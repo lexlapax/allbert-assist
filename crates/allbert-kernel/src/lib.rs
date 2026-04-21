@@ -6,6 +6,7 @@ pub mod cost;
 pub mod error;
 pub mod events;
 pub mod hooks;
+pub mod identity;
 pub mod intent;
 pub mod job_manager;
 pub mod llm;
@@ -37,6 +38,11 @@ pub use error::{ConfigError, KernelError, SkillError, ToolError};
 pub use events::KernelEvent;
 pub use hooks::{
     BootstrapContextHook, CostHook, Hook, HookCtx, HookOutcome, HookPoint, MemoryIndexHook,
+};
+pub use identity::{
+    add_identity_channel, ensure_identity_record, identity_inconsistencies, load_identity_record,
+    remove_identity_channel, rename_identity, save_identity_record, IdentityChannelBinding,
+    IdentityConsistency, IdentityRecord,
 };
 pub use intent::Intent;
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
@@ -474,6 +480,7 @@ impl Kernel {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn run_turn_for_agent(
         &mut self,
         state: &mut AgentState,
@@ -3345,6 +3352,12 @@ fn intent_shape(intent: &Intent) -> IntentShape {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::field_reassign_with_default,
+    clippy::io_other_error,
+    clippy::too_many_arguments,
+    clippy::type_complexity
+)]
 mod tests {
     use std::collections::VecDeque;
     use std::fs;
