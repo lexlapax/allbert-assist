@@ -1,0 +1,10 @@
+[package]
+name = "allbert-channels"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+allbert-proto = { path = "../allbert-proto" }
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"

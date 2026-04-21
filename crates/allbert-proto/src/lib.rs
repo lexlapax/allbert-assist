@@ -18,6 +18,7 @@ pub enum ChannelKind {
     Cli,
     Repl,
     Jobs,
+    Telegram,
 }
 
 impl ChannelKind {
@@ -26,6 +27,7 @@ impl ChannelKind {
             Self::Repl => "repl-primary".into(),
             Self::Cli => "cli-default".into(),
             Self::Jobs => "jobs-default".into(),
+            Self::Telegram => "telegram-default".into(),
         }
     }
 }

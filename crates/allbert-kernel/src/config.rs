@@ -13,6 +13,8 @@ pub struct Config {
     #[serde(default)]
     pub daemon: DaemonConfig,
     #[serde(default)]
+    pub channels: ChannelsConfig,
+    #[serde(default)]
     pub jobs: JobsConfig,
     #[serde(default)]
     pub install: InstallConfig,
@@ -73,6 +75,40 @@ impl Default for DaemonConfig {
             log_retention_days: 7,
             session_max_age_days: 30,
             auto_spawn: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct ChannelsConfig {
+    pub approval_timeout_s: u64,
+    pub telegram: TelegramChannelConfig,
+}
+
+impl Default for ChannelsConfig {
+    fn default() -> Self {
+        Self {
+            approval_timeout_s: 3600,
+            telegram: TelegramChannelConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct TelegramChannelConfig {
+    pub enabled: bool,
+    pub min_interval_ms_per_chat: u64,
+    pub min_interval_ms_global: u64,
+}
+
+impl Default for TelegramChannelConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            min_interval_ms_per_chat: 1200,
+            min_interval_ms_global: 40,
         }
     }
 }
@@ -308,6 +344,7 @@ impl Config {
             },
             setup: SetupConfig::default(),
             daemon: DaemonConfig::default(),
+            channels: ChannelsConfig::default(),
             jobs: JobsConfig::default(),
             install: InstallConfig::default(),
             intent_classifier: IntentClassifierConfig::default(),
@@ -382,6 +419,15 @@ impl Config {
         }
         if matches!(self.limits.daily_usd_cap, Some(value) if value < 0.0) {
             return Err("limits.daily_usd_cap must be >= 0".into());
+        }
+        if self.channels.approval_timeout_s == 0 {
+            return Err("channels.approval_timeout_s must be >= 1".into());
+        }
+        if self.channels.telegram.min_interval_ms_per_chat == 0 {
+            return Err("channels.telegram.min_interval_ms_per_chat must be >= 1".into());
+        }
+        if self.channels.telegram.min_interval_ms_global == 0 {
+            return Err("channels.telegram.min_interval_ms_global must be >= 1".into());
         }
         Ok(())
     }
@@ -498,9 +544,26 @@ trace = false
         let config = Config::load_or_create(&paths).expect("config should load");
         assert_eq!(config.setup.version, 2);
         assert!(config.daemon.auto_spawn);
+        assert_eq!(config.channels.approval_timeout_s, 3600);
+        assert!(!config.channels.telegram.enabled);
         assert_eq!(config.jobs.max_concurrent_runs, 1);
 
         let reloaded = Config::load_or_create(&paths).expect("config should reload");
         assert_eq!(reloaded.setup.version, 2);
+    }
+
+    #[test]
+    fn rejects_zero_channel_timeouts_or_rate_limits() {
+        let mut config = Config::default_template();
+        config.channels.approval_timeout_s = 0;
+        assert!(config.validate().is_err());
+
+        let mut config = Config::default_template();
+        config.channels.telegram.min_interval_ms_per_chat = 0;
+        assert!(config.validate().is_err());
+
+        let mut config = Config::default_template();
+        config.channels.telegram.min_interval_ms_global = 0;
+        assert!(config.validate().is_err());
     }
 }

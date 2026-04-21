@@ -3,6 +3,7 @@ members = [
     "crates/allbert-kernel",
     "crates/allbert-cli",
     "crates/allbert-proto",
+    "crates/allbert-channels",
     "crates/allbert-daemon",
     "crates/allbert-jobs"
 ]

@@ -135,11 +135,17 @@ const MEMORY_CURATOR_EXTRACT_AGENT_TEMPLATE: &str =
 pub struct AllbertPaths {
     pub root: PathBuf,
     pub config: PathBuf,
+    pub config_dir: PathBuf,
+    pub channel_configs: PathBuf,
     pub run: PathBuf,
     pub daemon_socket: PathBuf,
     pub logs: PathBuf,
     pub daemon_log: PathBuf,
     pub daemon_debug_log: PathBuf,
+    pub secrets: PathBuf,
+    pub channel_secrets: PathBuf,
+    pub telegram_allowed_chats: PathBuf,
+    pub telegram_bot_token: PathBuf,
     pub soul: PathBuf,
     pub user: PathBuf,
     pub identity: PathBuf,
@@ -196,14 +202,22 @@ impl AllbertPaths {
         let memory_index_dir = memory.join("index");
         let jobs = root.join("jobs");
         let sessions = root.join("sessions");
+        let config_dir = root.join("config");
+        let channel_secrets = root.join("secrets");
         Self {
             root: root.clone(),
             config: root.join("config.toml"),
+            config_dir: config_dir.clone(),
+            channel_configs: config_dir.clone(),
             run: root.join("run"),
             daemon_socket: root.join("run").join("daemon.sock"),
             logs: root.join("logs"),
             daemon_log: root.join("logs").join("daemon.log"),
             daemon_debug_log: root.join("logs").join("daemon.debug.log"),
+            secrets: root.join("secrets"),
+            channel_secrets: channel_secrets.clone(),
+            telegram_allowed_chats: config_dir.join("channels.telegram.allowed_chats"),
+            telegram_bot_token: channel_secrets.join("telegram").join("bot_token"),
             soul: root.join("SOUL.md"),
             user: root.join("USER.md"),
             identity: root.join("IDENTITY.md"),
@@ -255,8 +269,12 @@ impl AllbertPaths {
 
         for dir in [
             &self.root,
+            &self.config_dir,
+            &self.channel_configs,
             &self.run,
             &self.logs,
+            &self.secrets,
+            &self.channel_secrets,
             &self.skills,
             &self.skills_installed,
             &self.skills_incoming,
@@ -314,6 +332,7 @@ impl AllbertPaths {
         self.seed_file_if_missing(&self.memory_index, "# MEMORY\n\n")?;
         self.seed_file_if_missing(&self.memory_notes.join(".keep"), "")?;
         self.seed_file_if_missing(&self.memory_staging.join(".keep"), "")?;
+        self.seed_file_if_missing(&self.telegram_allowed_chats, "")?;
         self.seed_file_if_missing(
             &self
                 .skills_installed
@@ -376,5 +395,25 @@ impl AllbertPaths {
 
         std::fs::write(path, content)
             .map_err(|e| KernelError::InitFailed(format!("write {}: {e}", path.display())))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AllbertPaths;
+
+    #[test]
+    fn ensure_creates_channel_config_and_secret_roots() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths ensure");
+
+        assert!(paths.config_dir.is_dir());
+        assert!(paths.secrets.is_dir());
+        assert!(paths.telegram_allowed_chats.exists());
+        assert_eq!(
+            paths.telegram_bot_token,
+            paths.channel_secrets.join("telegram").join("bot_token")
+        );
     }
 }

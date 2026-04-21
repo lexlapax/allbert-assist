@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+allbert-channels = { path = "../allbert-channels" }
 allbert-kernel = { path = "../allbert-kernel" }
 allbert-proto = { path = "../allbert-proto" }
 tokio = { version = "1", features = ["full"] }

@@ -7,6 +7,10 @@ use std::sync::{
     Arc,
 };
 
+use allbert_channels::{
+    Channel, ChannelCapabilities, ChannelError, ChannelInbound, ChannelOutbound, ConfirmOutcome,
+    ConfirmPrompt,
+};
 use allbert_kernel::{
     job_manager::JobManager as KernelJobManager,
     llm::{ChatMessage, ChatRole},
@@ -478,6 +482,10 @@ async fn handle_connection(
                     ChannelKind::Jobs => {
                         format!("jobs-{}", state.next_session.fetch_add(1, Ordering::SeqCst))
                     }
+                    ChannelKind::Telegram => format!(
+                        "telegram-{}",
+                        state.next_session.fetch_add(1, Ordering::SeqCst)
+                    ),
                 });
 
                 let session = get_or_create_session(&state, open.channel, session_id).await?;
@@ -826,7 +834,8 @@ async fn run_turn_over_channel(
     };
     let turn_input = input.clone();
     let (tx, mut rx) = mpsc::unbounded_channel();
-    let adapter = channel_adapter(tx, state.next_request.clone());
+    let local_channel = LocalIpcChannel::new(session.channel, tx, state.next_request.clone());
+    let adapter = channel_adapter(local_channel);
 
     let kernel = session.kernel.clone();
     let turn = async move {
@@ -1393,24 +1402,15 @@ fn disconnected_adapter() -> FrontendAdapter {
 }
 
 fn channel_adapter(
-    outbound: mpsc::UnboundedSender<OutboundMessage>,
-    next_request: Arc<AtomicU64>,
+    channel: Arc<LocalIpcChannel>,
 ) -> FrontendAdapter {
-    let outbound_for_events = outbound.clone();
+    let channel_for_events = channel.clone();
     FrontendAdapter {
         on_event: Box::new(move |event: &KernelEvent| {
-            let _ = outbound_for_events.send(OutboundMessage::Event(ServerMessage::Event(
-                map_kernel_event(event),
-            )));
+            let _ = channel_for_events.emit_kernel_event(event);
         }),
-        confirm: Arc::new(ChannelConfirm {
-            outbound: outbound.clone(),
-            next_request: next_request.clone(),
-        }),
-        input: Arc::new(ChannelInput {
-            outbound,
-            next_request,
-        }),
+        confirm: channel.clone(),
+        input: channel,
     }
 }
 
@@ -1432,46 +1432,105 @@ impl InputPrompter for DisconnectedInput {
     }
 }
 
-struct ChannelConfirm {
+struct LocalIpcChannel {
+    kind: ChannelKind,
+    capabilities: ChannelCapabilities,
     outbound: mpsc::UnboundedSender<OutboundMessage>,
     next_request: Arc<AtomicU64>,
 }
 
+impl LocalIpcChannel {
+    fn new(
+        kind: ChannelKind,
+        outbound: mpsc::UnboundedSender<OutboundMessage>,
+        next_request: Arc<AtomicU64>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            kind,
+            capabilities: ChannelCapabilities::for_builtin(kind),
+            outbound,
+            next_request,
+        })
+    }
+
+    fn emit_kernel_event(&self, event: &KernelEvent) -> Result<(), ChannelError> {
+        self.outbound
+            .send(OutboundMessage::Event(ServerMessage::Event(map_kernel_event(
+                event,
+            ))))
+            .map_err(|_| ChannelError::Disconnected)
+    }
+}
+
 #[async_trait::async_trait]
-impl ConfirmPrompter for ChannelConfirm {
-    async fn confirm(&self, req: ConfirmRequest) -> ConfirmDecision {
+impl Channel for LocalIpcChannel {
+    fn kind(&self) -> ChannelKind {
+        self.kind
+    }
+
+    fn capabilities(&self) -> ChannelCapabilities {
+        self.capabilities.clone()
+    }
+
+    async fn receive(&self) -> Result<ChannelInbound, ChannelError> {
+        Err(ChannelError::Unsupported(
+            "local IPC receive is driven by the daemon connection loop",
+        ))
+    }
+
+    async fn send(&self, _out: ChannelOutbound) -> Result<(), ChannelError> {
+        Err(ChannelError::Unsupported(
+            "local IPC send is handled through daemon event framing",
+        ))
+    }
+
+    async fn confirm(&self, prompt: ConfirmPrompt) -> Result<ConfirmOutcome, ChannelError> {
         let request_id = self.next_request.fetch_add(1, Ordering::SeqCst);
         let (tx, rx) = oneshot::channel();
         let payload = ConfirmRequestPayload {
             request_id,
+            program: prompt.program,
+            args: prompt.args,
+            cwd: prompt.cwd.map(|path| path.display().to_string()),
+            rendered: prompt.rendered,
+        };
+        self.outbound
+            .send(OutboundMessage::Confirm(payload, tx))
+            .map_err(|_| ChannelError::Disconnected)?;
+
+        match rx.await.map_err(|_| ChannelError::Disconnected)? {
+            ConfirmDecisionPayload::AllowOnce => Ok(ConfirmOutcome::AllowOnce),
+            ConfirmDecisionPayload::AllowSession => Ok(ConfirmOutcome::AllowSession),
+            ConfirmDecisionPayload::Deny => Ok(ConfirmOutcome::Deny),
+        }
+    }
+
+    async fn shutdown(self: Arc<Self>) -> Result<(), ChannelError> {
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl ConfirmPrompter for LocalIpcChannel {
+    async fn confirm(&self, req: ConfirmRequest) -> ConfirmDecision {
+        let prompt = ConfirmPrompt {
+            request_id: None,
             program: req.program,
             args: req.args,
-            cwd: req.cwd.map(|path| path.display().to_string()),
+            cwd: req.cwd,
             rendered: req.rendered,
+            expires_at: None,
         };
-        if self
-            .outbound
-            .send(OutboundMessage::Confirm(payload, tx))
-            .is_err()
-        {
-            return ConfirmDecision::Deny;
-        }
-
-        match rx.await {
-            Ok(ConfirmDecisionPayload::AllowOnce) => ConfirmDecision::AllowOnce,
-            Ok(ConfirmDecisionPayload::AllowSession) => ConfirmDecision::AllowSession,
+        match Channel::confirm(self, prompt).await {
+            Ok(ConfirmOutcome::AllowOnce) => ConfirmDecision::AllowOnce,
+            Ok(ConfirmOutcome::AllowSession) => ConfirmDecision::AllowSession,
             _ => ConfirmDecision::Deny,
         }
     }
 }
 
-struct ChannelInput {
-    outbound: mpsc::UnboundedSender<OutboundMessage>,
-    next_request: Arc<AtomicU64>,
-}
-
 #[async_trait::async_trait]
-impl InputPrompter for ChannelInput {
+impl InputPrompter for LocalIpcChannel {
     async fn request_input(&self, req: InputRequest) -> InputResponse {
         let request_id = self.next_request.fetch_add(1, Ordering::SeqCst);
         let (tx, rx) = oneshot::channel();
