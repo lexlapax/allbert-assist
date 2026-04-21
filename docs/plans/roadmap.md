@@ -11,7 +11,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.3 | First-class agents, sub-agent harness, intent routing | Shipped | [v0.3-agent-harness.md](v0.3-agent-harness.md) |
 | v0.4 | AgentSkills folder format, install trust model, script policy | Shipped | [v0.4-agentskills-adoption.md](v0.4-agentskills-adoption.md) |
 | v0.5 | Curated memory: tiered memory service, ranked retrieval, staging, promotion | Shipped | [v0.5-curated-memory.md](v0.5-curated-memory.md) |
-| v0.6 | Foundation hardening: session durability, richer staged-memory review, cost cap enforcement, memory verification, maintenance policy fix | Proposed | [v0.6-foundation-hardening.md](v0.6-foundation-hardening.md) |
+| v0.6 | Foundation hardening: session durability, richer staged-memory review, cost cap enforcement, memory verification, maintenance policy fix | Shipped | [v0.6-foundation-hardening.md](v0.6-foundation-hardening.md) |
 | v0.7 | Channel expansion: Telegram pilot, `Channel` trait + multimodal flags, tool-surface normalization, budget-governed sub-agents, intent-guided routing defaults, explicit-intent web learning | Proposed | [v0.7-channel-expansion.md](v0.7-channel-expansion.md) |
 | v0.8 | Continuity and sync: cross-channel identity mapping, durable session routing, approval inbox, sync posture | Proposed | [v0.8-continuity-and-sync.md](v0.8-continuity-and-sync.md) |
 | v0.9 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.9-self-improvement.md](v0.9-self-improvement.md) |
@@ -30,11 +30,11 @@ Curated memory needs more than a retriever. It needs a full turn-assembly contra
 
 ### v0.5 before v0.6
 
-v0.5 closed with curated memory, tantivy retrieval, and the `memory-curator` skill shipped. A retrospective on 2026-04-20 surfaced five gaps that do not change what Allbert *can* do, but change how reliably the shipped experience lands: the staged-memory notice is still too generic for efficient review, sessions still die on daemon restart, there is no hard daily cost cap yet, bundled maintenance loops are not yet safely defaultable, and markdown reconciliation lacks operator-visible verification. v0.6 hardens the v0.5 foundation before v0.7 expands onto it — no new product capability, just reliability and operational clarity.
+v0.5 closed with curated memory, tantivy retrieval, and the `memory-curator` skill shipped. A retrospective on 2026-04-20 surfaced five gaps that did not change what Allbert *could* do, but changed how reliably the shipped experience landed: the staged-memory notice was too generic for efficient review, sessions still died on daemon restart, there was no hard daily cost cap, bundled maintenance loops were not yet safely defaultable, and markdown reconciliation lacked operator-visible verification. v0.6 closed those gaps without changing the core product shape, which is exactly why it belonged before v0.7.
 
 ### v0.6 before v0.7
 
-New channels (Telegram, Discord, eventually richer native and web surfaces) carry less interactive context than a REPL. Without curated memory (v0.5) and without session durability, cost enforcement, and operator-visible memory verification (v0.6), those channels would either repeatedly send stale or redundant context, die on daemon restart, or silently burn budget. v0.6 also stabilizes the substrate that v0.7's channel-adaptive rendering and approval flows rely on. v0.7 folds in tool-surface normalization and explicit-intent web learning because they co-evolve with the channel surface.
+New channels (Telegram, Discord, eventually richer native and web surfaces) carry less interactive context than a REPL. Without curated memory (v0.5) and without the session durability, cost enforcement, operator-visible memory verification, and safer maintenance defaults that landed in v0.6, those channels would either repeatedly send stale or redundant context, die on daemon restart, or silently burn budget. v0.6 stabilized the substrate that v0.7's channel-adaptive rendering and approval flows rely on. v0.7 folds in tool-surface normalization and explicit-intent web learning because they co-evolve with the channel surface.
 
 ### v0.7 before v0.8
 
@@ -49,7 +49,7 @@ Self-improvement (the assistant rebuilding its own Rust binary, or authoring new
 These themes recur across multiple releases. They are noted here so individual plans do not have to re-establish them.
 
 - **Natural interface for end users.** End users interact via natural language — text now, and later voice, images, and attachments as specific channel plans harden. User-authored extension lives in markdown and declarative config (bootstrap files, skills, jobs, agent prompts). Rust is runtime scaffolding; code-writing paths are opt-in advanced tools, never default user flow. Codified in [ADR 0038](../adr/0038-natural-interface-is-the-users-extension-surface.md).
-- **Security envelope.** Every new capability routes through existing policy surfaces — `exec_policy`, `confirm-trust`, skill `allowed-tools`, install preview (ADR 0033). No release adds a privileged bypass. New hook points extend the existing hook surface rather than replacing it.
+- **Security envelope.** Every new capability routes through existing policy surfaces — `security.exec_allow` / `security.exec_deny`, explicit confirmation flows, skill `allowed-tools`, and install preview (ADR 0033). No release adds a privileged bypass. New hook points extend the existing hook surface rather than replacing it.
 - **Kernel-first.** New runtime behaviour lands in the kernel when it is runtime behaviour (agents, intent routing, memory retrieval surfaces). Adapters and frontends stay thin.
 - **Progressive disclosure.** From v0.4 onward, skill prompt contribution is tier-aware (ADR 0036). Memory retrieval in v0.5 follows the same principle: surface metadata cheaply, load content on demand.
 - **Hot path vs background work.** The main turn loop may update ephemeral state and stage candidate learnings, but review, promotion assistance, compaction, and pruning can also run through jobs or memory-aware skills so the core turn does not carry every maintenance burden.

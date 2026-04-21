@@ -23,11 +23,15 @@ commands:
   /exit     leave the REPL
   /quit     leave the REPL
   operator inspection:
+    - allbert-cli daemon resume --list
+    - allbert-cli daemon resume --session <id>
+    - allbert-cli daemon forget <id>
     - allbert-cli agents list
     - allbert-cli skills list
     - allbert-cli skills show memory-curator
     - allbert-cli skills show <name>
     - allbert-cli memory status
+    - allbert-cli memory verify
     - allbert-cli memory search \"postgres\"
     - allbert-cli memory staged list
     - allbert-cli memory staged show <id>

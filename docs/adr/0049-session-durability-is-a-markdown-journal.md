@@ -1,7 +1,7 @@
 # ADR 0049: Daemon-hosted sessions persist as markdown journals
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

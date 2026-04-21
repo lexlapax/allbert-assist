@@ -1,7 +1,7 @@
 # ADR 0050: Turn-end staged-memory notice is a kernel-rendered togglable suffix
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

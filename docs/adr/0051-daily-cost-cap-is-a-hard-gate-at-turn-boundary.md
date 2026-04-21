@@ -1,7 +1,7 @@
 # ADR 0051: Daily cost cap is a hard gate enforced at turn boundary
 
 Date: 2026-04-20
-Status: Proposed
+Status: Accepted
 
 ## Context
 

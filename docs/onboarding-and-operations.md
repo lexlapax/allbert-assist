@@ -1,6 +1,6 @@
-# Allbert v0.5 Onboarding and Operations
+# Allbert v0.6 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.5 release.
+This guide is the operator reference for the source-based v0.6 release.
 
 ## Quickstart
 
@@ -22,6 +22,7 @@ On first run, Allbert creates `~/.allbert/` and asks for:
 - optional assistant identity edits for Allbert itself
 - trusted filesystem roots, with the current project directory offered as the default first root
 - whether the CLI should auto-start the daemon when needed
+- an optional daily cost cap in USD
 - whether recurring jobs are enabled for this profile
 - the default timezone for scheduled jobs
 - whether to enable any bundled maintenance job templates immediately
@@ -55,11 +56,11 @@ If `fs_roots` is empty:
 - startup prints a warning
 - `/status` shows `(none)` for trusted roots
 
-This is intentional. v0.5 still prefers explicit workspace trust over permissive defaults.
+This is intentional. v0.6 still prefers explicit workspace trust over permissive defaults.
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical v0.5 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical v0.6 file looks like:
 
 ```toml
 trace = false
@@ -71,10 +72,11 @@ api_key_env = "ANTHROPIC_API_KEY"
 max_tokens = 4096
 
 [setup]
-version = 3
+version = 2
 
 [daemon]
 log_retention_days = 7
+session_max_age_days = 30
 auto_spawn = true
 
 [jobs]
@@ -105,6 +107,7 @@ trash_retention_days = 30
 index_auto_rebuild = true
 default_search_limit = 10
 default_daily_recency_days = 2
+max_journal_tool_output_bytes = 4096
 surface_staged_on_turn_end = true
 
 [security]
@@ -117,6 +120,7 @@ deny_hosts = []
 timeout_s = 15
 
 [limits]
+daily_usd_cap = 5.0
 max_turns = 8
 max_tool_calls_per_turn = 16
 max_tool_output_bytes_per_call = 8192
@@ -151,7 +155,9 @@ Useful REPL commands:
 - `/model <anthropic|openrouter> <model_id> [api_key_env]`
   Switches provider/model for the attached session only.
 - `/cost`
-  Shows session cost and today's recorded total from `~/.allbert/costs.jsonl`.
+  Shows session cost, today's recorded total, and the current daily cap state from `~/.allbert/costs.jsonl`.
+- `/cost --override <reason>`
+  Arms a one-turn override for the daily cost cap and records the reason in trace output.
 - `/exit`
   Leaves the REPL without stopping the daemon.
 
@@ -160,6 +166,7 @@ Unknown slash commands are rejected locally with a short hint to use `/help`; th
 For curated-memory review, the most useful operator commands are:
 
 - `cargo run -p allbert-cli -- memory status`
+- `cargo run -p allbert-cli -- memory verify`
 - `cargo run -p allbert-cli -- memory search "postgres"`
 - `cargo run -p allbert-cli -- memory staged list`
 - `cargo run -p allbert-cli -- memory staged show <id>`
@@ -179,6 +186,8 @@ And in normal conversation:
 
 Scheduled job failures are surfaced live to attached REPL clients as one-line notices, and they also remain recorded durably under `~/.allbert/jobs/failures/`.
 
+If the turn-end staged-memory suffix feels too noisy for your workflow, set `memory.surface_staged_on_turn_end = false` in `~/.allbert/config.toml` and restart the attached REPL session.
+
 ## Daemon lifecycle
 
 The primary operator surface is `allbert-cli`.
@@ -189,6 +198,9 @@ Daemon commands:
 - `cargo run -p allbert-cli -- daemon start`
 - `cargo run -p allbert-cli -- daemon stop`
 - `cargo run -p allbert-cli -- daemon restart`
+- `cargo run -p allbert-cli -- daemon resume --list`
+- `cargo run -p allbert-cli -- daemon resume [--session <id>]`
+- `cargo run -p allbert-cli -- daemon forget <session-id>`
 - `cargo run -p allbert-cli -- daemon logs [--debug] [--follow] [--lines N]`
 
 Agent commands:
@@ -248,7 +260,7 @@ Conversational scheduling works best when you ask plainly. Good examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant should compile naturally in v0.5:
+Common schedule forms the assistant should compile naturally in v0.6:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -259,7 +271,7 @@ When you create, update, pause, resume, or remove a job from normal conversation
 
 ## Bundled maintenance jobs
 
-v0.5 still seeds these disabled templates:
+v0.6 seeds these bundled templates:
 
 - `daily-brief`
 - `weekly-review`
@@ -267,11 +279,11 @@ v0.5 still seeds these disabled templates:
 - `trace-triage`
 - `system-health-check`
 
-The setup wizard can enable selected templates for you. If you skip them there, they stay available under `~/.allbert/jobs/templates/` until you copy or upsert them yourself.
+The setup wizard can enable selected templates for you. Fresh profiles that explicitly opt into recurring jobs preselect `memory-compile`, because it now stages candidate learnings instead of writing durable notes directly. If you skip a template there, it stays available under `~/.allbert/jobs/templates/` until you copy or upsert it yourself.
 
 ## Skills and memory
 
-The canonical installed skill root in v0.5 is `~/.allbert/skills/installed/`.
+The canonical installed skill root in v0.6 is `~/.allbert/skills/installed/`.
 
 Quarantine lives under `~/.allbert/skills/incoming/`; fetched or copied skills stay there until you approve the preview.
 
@@ -297,9 +309,9 @@ Skill install/update preview shows:
 - declared scripts with interpreter, path, and SHA-256
 - the first lines of `SKILL.md`
 
-v0.5 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
+v0.6 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
 
-In v0.5, skills can also preview:
+In v0.6, skills can also preview:
 
 - `intents:` metadata to hint the intent router
 - `agents:` metadata to contribute namespaced sub-agents
@@ -329,10 +341,11 @@ Workflow summary:
 - `memory promote` moves staged entries into `notes/` and schedules re-index
 - `memory reject` archives staged entries under `staging/.rejected/`
 - `memory forget` moves approved durable notes into `.trash/` with explicit confirmation
+- `memory verify` performs the same checksum-based reconciliation check you can script against when the daemon is offline
 
 Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs.
 
-If you are upgrading from v0.4, see [v0.5-upgrade-2026-04-20.md](notes/v0.5-upgrade-2026-04-20.md) for the bucket import and validation checklist.
+If you are upgrading from v0.5, see [v0.6-upgrade-2026-04-21.md](notes/v0.6-upgrade-2026-04-21.md) for the new session durability, cost-cap, and verification surfaces.
 
 ## Trace, logs, and cost files
 
@@ -344,7 +357,7 @@ Daemon logs:
 Cost logs:
 
 - written automatically to `~/.allbert/costs.jsonl`
-- view the current session and today's totals with `/cost`
+- view the current session, today's totals, and cap state with `/cost`
 
 Job history:
 
@@ -394,19 +407,23 @@ Setup feels incomplete:
 Curated memory seems wrong or stale:
 
 - run `cargo run -p allbert-cli -- memory status`
+- run `cargo run -p allbert-cli -- memory verify`
 - run `cargo run -p allbert-cli -- memory rebuild-index --force`
 - check whether a staged entry is still waiting in `memory staged list`
-- if you upgraded from v0.4, confirm the import report under `~/.allbert/memory/migrations/`
+- if you upgraded from v0.5, check the upgrade note and confirm the profile was restarted cleanly after the daemon wrote `reconcile.json`
 
 ## Release posture
 
-v0.5 is a shipped technical-user release:
+v0.6 is a shipped technical-user release:
 
 - source-based
 - terminal-first
 - daemon-backed but still local-user-only
 - explicit workspace trust
 - guided bootstrap and daemon/jobs setup
+- restart-durable sessions with `daemon resume`
+- daily cost-cap enforcement with one-turn REPL override
+- operator-visible memory verification through `memory status` and `memory verify`
 - first-class agents and intent routing with operator-visible status
 - strict AgentSkills-format skill install, inspection, and execution
 
@@ -414,6 +431,6 @@ Known limitations remain explicit:
 
 - no remote control plane
 - no boot-time OS service install yet
-- in-memory interactive sessions are not restart-durable
+- incomplete tool invocations still rewind to the last completed turn boundary after daemon restart
 - the daemon is lightweight and in-process, not a heavy isolated supervisor
 - sub-agent delegation remains bounded to one nested level
