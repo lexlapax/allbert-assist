@@ -231,6 +231,9 @@ Approval commands:
 - `cargo run -p allbert-cli -- inbox show <approval-id>`
 - `cargo run -p allbert-cli -- inbox accept <approval-id> [--reason <text>]`
 - `cargo run -p allbert-cli -- inbox reject <approval-id> [--reason <text>]`
+- `cargo run -p allbert-cli -- heartbeat show`
+- `cargo run -p allbert-cli -- heartbeat edit`
+- `cargo run -p allbert-cli -- heartbeat suggest [--channel <kind>]`
 
 `allbert-cli agents list` prints the same catalog the kernel writes to `~/.allbert/AGENTS.md`.
 

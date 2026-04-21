@@ -13,6 +13,7 @@ use clap::{Parser, Subcommand};
 use serde::Serialize;
 
 mod approvals;
+mod heartbeat_cli;
 mod identity_cli;
 mod memory_cli;
 mod profile_cli;
@@ -70,6 +71,10 @@ enum Command {
     Profile {
         #[command(subcommand)]
         command: ProfileCommand,
+    },
+    Heartbeat {
+        #[command(subcommand)]
+        command: HeartbeatCommand,
     },
     #[command(name = "internal-daemon-host", hide = true)]
     InternalDaemonHost,
@@ -265,6 +270,16 @@ enum ProfileCommand {
 }
 
 #[derive(Subcommand, Debug)]
+enum HeartbeatCommand {
+    Show,
+    Edit,
+    Suggest {
+        #[arg(long)]
+        channel: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 enum DaemonChannelsCommand {
     List {
         #[arg(long)]
@@ -325,6 +340,7 @@ async fn main() -> Result<()> {
         Some(Command::Approvals { command }) => run_approvals_command(&paths, command),
         Some(Command::Inbox { command }) => run_inbox_command(&paths, command),
         Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
+        Some(Command::Heartbeat { command }) => run_heartbeat_command(&paths, command),
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
                 config = match setup::run_setup_wizard(&paths, &config)? {
@@ -355,6 +371,24 @@ async fn main() -> Result<()> {
                 };
             }
             run_daemon_command(&paths, &config, command).await
+        }
+    }
+}
+
+fn run_heartbeat_command(paths: &AllbertPaths, command: HeartbeatCommand) -> Result<()> {
+    match command {
+        HeartbeatCommand::Show => {
+            println!("{}", heartbeat_cli::show(paths)?);
+            Ok(())
+        }
+        HeartbeatCommand::Edit => {
+            println!("{}", heartbeat_cli::edit(paths)?);
+            Ok(())
+        }
+        HeartbeatCommand::Suggest { channel } => {
+            let parsed = channel.as_deref().map(parse_channel_kind).transpose()?;
+            println!("{}", heartbeat_cli::suggest(paths, parsed)?);
+            Ok(())
         }
     }
 }

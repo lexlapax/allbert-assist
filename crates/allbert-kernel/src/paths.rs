@@ -73,6 +73,29 @@ Ask only for missing essentials. Once the details are written into SOUL.md,
 USER.md, IDENTITY.md, and TOOLS.md, remove BOOTSTRAP.md.
 "#;
 
+const HEARTBEAT_TEMPLATE: &str = r#"---
+version: 1
+timezone: UTC
+primary_channel: repl
+quiet_hours:
+  - "22:00-07:00"
+check_ins:
+  daily_brief:
+    enabled: false
+  weekly_review:
+    enabled: false
+inbox_nag:
+  enabled: true
+  cadence: daily
+  time: "09:00"
+  channel: repl
+---
+
+# HEARTBEAT
+
+Adjust cadence and quiet windows to match when and where you want proactive nudges.
+"#;
+
 const DAILY_BRIEF_TEMPLATE: &str = r#"---
 name: daily-brief
 description: "Generate a short morning brief with recent notes, open work, and suggested next steps."
@@ -156,6 +179,7 @@ pub struct AllbertPaths {
     pub tools_notes: PathBuf,
     pub agents_notes: PathBuf,
     pub bootstrap: PathBuf,
+    pub heartbeat: PathBuf,
     pub skills: PathBuf,
     pub skills_installed: PathBuf,
     pub skills_incoming: PathBuf,
@@ -232,6 +256,7 @@ impl AllbertPaths {
             tools_notes: root.join("TOOLS.md"),
             agents_notes: root.join("AGENTS.md"),
             bootstrap: root.join("BOOTSTRAP.md"),
+            heartbeat: root.join("HEARTBEAT.md"),
             skills: root.join("skills"),
             skills_installed: root.join("skills").join("installed"),
             skills_incoming: root.join("skills").join("incoming"),
@@ -339,6 +364,7 @@ impl AllbertPaths {
         }
 
         self.seed_file_if_missing(&self.memory_index, "# MEMORY\n\n")?;
+        self.seed_file_if_missing(&self.heartbeat, HEARTBEAT_TEMPLATE)?;
         self.seed_file_if_missing(&self.memory_notes.join(".keep"), "")?;
         self.seed_file_if_missing(&self.memory_staging.join(".keep"), "")?;
         self.seed_file_if_missing(&self.telegram_allowed_chats, "")?;
@@ -376,13 +402,14 @@ impl AllbertPaths {
         Ok(())
     }
 
-    pub fn bootstrap_files(&self) -> [(&'static str, &std::path::Path); 6] {
+    pub fn bootstrap_files(&self) -> [(&'static str, &std::path::Path); 7] {
         [
             ("SOUL.md", self.soul.as_path()),
             ("USER.md", self.user.as_path()),
             ("IDENTITY.md", self.identity.as_path()),
             ("TOOLS.md", self.tools_notes.as_path()),
             ("AGENTS.md", self.agents_notes.as_path()),
+            ("HEARTBEAT.md", self.heartbeat.as_path()),
             ("BOOTSTRAP.md", self.bootstrap.as_path()),
         ]
     }
