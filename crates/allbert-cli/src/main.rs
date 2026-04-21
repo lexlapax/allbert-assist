@@ -62,6 +62,10 @@ enum Command {
         #[command(subcommand)]
         command: ApprovalsCommand,
     },
+    Inbox {
+        #[command(subcommand)]
+        command: InboxCommand,
+    },
     #[command(name = "internal-daemon-host", hide = true)]
     InternalDaemonHost,
 }
@@ -207,6 +211,35 @@ enum ApprovalsCommand {
 }
 
 #[derive(Subcommand, Debug)]
+enum InboxCommand {
+    List {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        identity: Option<String>,
+        #[arg(long)]
+        kind: Option<String>,
+        #[arg(long)]
+        include_resolved: bool,
+    },
+    Show {
+        approval_id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Accept {
+        approval_id: String,
+        #[arg(long)]
+        reason: Option<String>,
+    },
+    Reject {
+        approval_id: String,
+        #[arg(long)]
+        reason: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 enum DaemonChannelsCommand {
     List {
         #[arg(long)]
@@ -265,6 +298,7 @@ async fn main() -> Result<()> {
         Some(Command::Identity { command }) => run_identity_command(&paths, command),
         Some(Command::Memory { command }) => run_memory_command(&paths, &config, command).await,
         Some(Command::Approvals { command }) => run_approvals_command(&paths, command),
+        Some(Command::Inbox { command }) => run_inbox_command(&paths, command),
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
                 config = match setup::run_setup_wizard(&paths, &config)? {
@@ -400,6 +434,50 @@ fn run_approvals_command(paths: &AllbertPaths, command: ApprovalsCommand) -> Res
         }
         ApprovalsCommand::Show { approval_id, json } => {
             println!("{}", approvals::show(paths, &approval_id, json)?);
+            Ok(())
+        }
+    }
+}
+
+fn run_inbox_command(paths: &AllbertPaths, command: InboxCommand) -> Result<()> {
+    match command {
+        InboxCommand::List {
+            json,
+            identity,
+            kind,
+            include_resolved,
+        } => {
+            let mut rendered = approvals::list(paths, json)?;
+            if identity.is_some() || kind.is_some() || include_resolved {
+                rendered.push_str(
+                    "\n(note) v0.8 M3 filter flags are accepted but not fully wired yet.\n",
+                );
+            }
+            println!("{rendered}");
+            Ok(())
+        }
+        InboxCommand::Show { approval_id, json } => {
+            println!("{}", approvals::show(paths, &approval_id, json)?);
+            Ok(())
+        }
+        InboxCommand::Accept {
+            approval_id,
+            reason,
+        } => {
+            println!(
+                "{}",
+                approvals::resolve(paths, &approval_id, true, reason.as_deref())?
+            );
+            Ok(())
+        }
+        InboxCommand::Reject {
+            approval_id,
+            reason,
+        } => {
+            println!(
+                "{}",
+                approvals::resolve(paths, &approval_id, false, reason.as_deref())?
+            );
             Ok(())
         }
     }
