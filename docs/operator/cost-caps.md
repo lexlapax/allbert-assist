@@ -1,6 +1,8 @@
-# Cost-cap posture (v0.8 preparation for M9)
+# Cost-cap posture (v0.8 M9)
 
 Allbert's `limits.daily_usd_cap` is currently **per device profile**, not a globally shared cap.
+
+This behavior is now an explicit shipped policy for v0.8 M9.
 
 ## What this means in practice
 
