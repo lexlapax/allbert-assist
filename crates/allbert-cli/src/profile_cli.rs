@@ -44,6 +44,7 @@ struct ManifestCounts {
 
 struct ImportEntry {
     rel: PathBuf,
+    is_dir: bool,
     bytes: Vec<u8>,
     mtime: u64,
 }
@@ -130,6 +131,7 @@ pub fn import_profile(
         entry.read_to_end(&mut bytes)?;
         entries.push(ImportEntry {
             rel,
+            is_dir: entry.header().entry_type().is_dir(),
             bytes,
             mtime: entry.header().mtime().unwrap_or(0),
         });
@@ -143,6 +145,10 @@ pub fn import_profile(
     let mut skipped = 0usize;
     for entry in entries {
         let target = paths.root.join(&entry.rel);
+        if entry.is_dir {
+            fs::create_dir_all(&target).with_context(|| format!("create {}", target.display()))?;
+            continue;
+        }
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
         }
@@ -424,6 +430,34 @@ mod tests {
     }
 
     #[test]
+    fn export_then_import_overlay_round_trips_pending_approval() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should ensure");
+        let config = Config::default_template();
+
+        let approval_dir = paths.sessions.join("telegram-session").join("approvals");
+        std::fs::create_dir_all(&approval_dir).expect("approval dir should create");
+        std::fs::write(
+            approval_dir.join("approval-1.md"),
+            "---\nid: approval-1\nsession_id: telegram-session\nchannel: telegram\nsender: telegram:12345\nagent: allbert/root\ntool: process_exec\nrequest_id: 7\nrequested_at: 2026-04-21T00:00:00Z\nexpires_at: 2026-04-21T01:00:00Z\nkind: tool_approval\nstatus: pending\n---\n\nrun echo hello\n",
+        )
+        .expect("approval should write");
+
+        let archive = temp.path.join("profile-approval.tgz");
+        export_profile(&paths, &archive, false, Some("usr_test")).expect("export should succeed");
+
+        std::fs::remove_file(approval_dir.join("approval-1.md")).expect("approval should delete");
+        let rendered = import_profile(&paths, &config, &archive, ImportMode::Overlay, false)
+            .expect("import should succeed");
+
+        assert!(rendered.contains("mode: overlay"));
+        let restored =
+            std::fs::read_to_string(approval_dir.join("approval-1.md")).expect("approval exists");
+        assert!(restored.contains("status: pending"));
+    }
+
+    #[test]
     fn replace_requires_yes() {
         let temp = TempRoot::new();
         let paths = temp.paths();
@@ -435,5 +469,48 @@ mod tests {
         let err = import_profile(&paths, &config, &archive, ImportMode::Replace, false)
             .expect_err("replace should require yes");
         assert!(err.to_string().contains("--yes"));
+    }
+
+    #[test]
+    fn replace_with_yes_replaces_continuity_tree() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should ensure");
+        let config = Config::default_template();
+
+        std::fs::write(paths.memory_notes.join("kept.md"), "# Kept\n").expect("kept note writes");
+        let archive = temp.path.join("replace.tgz");
+        export_profile(&paths, &archive, false, None).expect("export should succeed");
+
+        std::fs::write(paths.memory_notes.join("local-only.md"), "# Local only\n")
+            .expect("local-only note writes");
+        let rendered = import_profile(&paths, &config, &archive, ImportMode::Replace, true)
+            .expect("replace import should succeed");
+
+        assert!(rendered.contains("mode: replace"));
+        assert!(paths.memory_notes.join("kept.md").exists());
+        assert!(
+            !paths.memory_notes.join("local-only.md").exists(),
+            "replace should wipe files not present in archive"
+        );
+        assert!(
+            !paths.daemon_lock.exists(),
+            "replace import should keep lockfile absent in restored profile"
+        );
+    }
+
+    #[test]
+    fn import_refuses_when_daemon_lock_exists() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should ensure");
+        let config = Config::default_template();
+        let archive = temp.path.join("daemon-lock.tgz");
+        export_profile(&paths, &archive, false, None).expect("export should succeed");
+
+        std::fs::write(paths.daemon_lock.clone(), "{\"pid\":1}").expect("daemon lock should write");
+        let err = import_profile(&paths, &config, &archive, ImportMode::Replace, true)
+            .expect_err("daemon lock should block import");
+        assert!(err.to_string().contains("daemon.lock"));
     }
 }
