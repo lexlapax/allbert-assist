@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::Instant;
 
 use crate::intent::Intent;
-use crate::llm::ChatMessage;
+use crate::llm::{ChatMessage, Usage};
 use crate::memory::SearchMemoryHit;
 use crate::skills::ActiveSkill;
 use crate::ModelConfig;
@@ -51,6 +51,8 @@ pub struct AgentState {
     pub model_override: Option<ModelConfig>,
     pub turn_count: u32,
     pub cost_total_usd: f64,
+    pub last_response_usage: Option<Usage>,
+    pub session_usage: Usage,
     pub last_resolved_intent: Option<Intent>,
     pub last_agent_stack: Vec<String>,
     pub surfaced_skills_this_turn: HashSet<String>,
@@ -60,6 +62,7 @@ pub struct AgentState {
     pub ephemeral_memory: VecDeque<String>,
     pub memory_prefetch_override: Option<bool>,
     pub memory_context_sections: Vec<String>,
+    pub last_memory_context_bytes: usize,
     pub turn_prefetch_hits: Vec<SearchMemoryHit>,
     pub pending_memory_refresh_query: Option<String>,
     pub memory_refreshes_this_turn: u32,
@@ -87,6 +90,8 @@ impl AgentState {
             model_override: None,
             turn_count: 0,
             cost_total_usd: 0.0,
+            last_response_usage: None,
+            session_usage: Usage::default(),
             last_resolved_intent: None,
             last_agent_stack: vec![root_name],
             surfaced_skills_this_turn: HashSet::new(),
@@ -96,6 +101,7 @@ impl AgentState {
             ephemeral_memory: VecDeque::new(),
             memory_prefetch_override: None,
             memory_context_sections: Vec::new(),
+            last_memory_context_bytes: 0,
             turn_prefetch_hits: Vec::new(),
             pending_memory_refresh_query: None,
             memory_refreshes_this_turn: 0,
@@ -116,6 +122,8 @@ impl AgentState {
         self.model_override = None;
         self.turn_count = 0;
         self.cost_total_usd = 0.0;
+        self.last_response_usage = None;
+        self.session_usage = Usage::default();
         self.last_resolved_intent = None;
         self.last_agent_stack = vec![self.root_agent.name.clone()];
         self.surfaced_skills_this_turn.clear();
@@ -125,6 +133,7 @@ impl AgentState {
         self.ephemeral_memory.clear();
         self.memory_prefetch_override = None;
         self.memory_context_sections.clear();
+        self.last_memory_context_bytes = 0;
         self.turn_prefetch_hits.clear();
         self.pending_memory_refresh_query = None;
         self.memory_refreshes_this_turn = 0;
@@ -141,6 +150,8 @@ impl AgentState {
     }
 
     pub fn begin_turn(&mut self) {
+        self.last_response_usage = None;
+        self.last_memory_context_bytes = 0;
         self.surfaced_skills_this_turn.clear();
         self.activated_skills_this_turn.clear();
         self.referenced_resources_this_turn.clear();
@@ -179,8 +190,37 @@ impl AgentState {
         truncate_to_bytes(&joined, max_bytes)
     }
 
-    fn ephemeral_memory_bytes(&self) -> usize {
+    pub fn ephemeral_memory_bytes(&self) -> usize {
         self.ephemeral_memory.iter().map(|entry| entry.len()).sum()
+    }
+
+    pub fn record_response_usage(&mut self, usage: Usage) {
+        self.add_session_usage(&usage);
+        self.last_response_usage = Some(usage);
+    }
+
+    pub fn merge_child_usage(&mut self, child: &AgentState) {
+        self.add_session_usage(&child.session_usage);
+        self.last_response_usage = child.last_response_usage.clone();
+    }
+
+    fn add_session_usage(&mut self, usage: &Usage) {
+        self.session_usage.input_tokens = self
+            .session_usage
+            .input_tokens
+            .saturating_add(usage.input_tokens);
+        self.session_usage.output_tokens = self
+            .session_usage
+            .output_tokens
+            .saturating_add(usage.output_tokens);
+        self.session_usage.cache_read = self
+            .session_usage
+            .cache_read
+            .saturating_add(usage.cache_read);
+        self.session_usage.cache_create = self
+            .session_usage
+            .cache_create
+            .saturating_add(usage.cache_create);
     }
 
     pub fn replace_ephemeral_memory<I>(&mut self, notes: I, max_bytes: usize)

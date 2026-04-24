@@ -58,7 +58,7 @@ pub use identity::{
 };
 pub use intent::Intent;
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
-pub use llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole};
+pub use llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, Usage};
 pub use memory::{
     MemoryTier, SearchMemoryHit, SearchMemoryInput, StageMemoryInput, StagedMemoryKind,
 };
@@ -128,10 +128,38 @@ pub struct SessionSnapshot {
     pub active_skills: Vec<ActiveSkill>,
     pub turn_count: u32,
     pub cost_total_usd: f64,
+    #[serde(default)]
+    pub session_usage: llm::Usage,
     pub last_resolved_intent: Option<Intent>,
     pub last_agent_stack: Vec<String>,
     pub ephemeral_memory: Vec<String>,
     pub model: ModelConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KernelMemoryStatus {
+    pub synopsis_bytes: usize,
+    pub ephemeral_bytes: usize,
+    pub durable_count: usize,
+    pub staged_count: usize,
+    pub staged_this_turn: usize,
+    pub prefetch_hit_count: usize,
+    pub episode_count: usize,
+    pub fact_count: usize,
+}
+
+fn usage_to_payload(usage: &Usage) -> allbert_proto::TokenUsagePayload {
+    allbert_proto::TokenUsagePayload {
+        input_tokens: usage.input_tokens,
+        output_tokens: usage.output_tokens,
+        cache_read_tokens: usage.cache_read,
+        cache_create_tokens: usage.cache_create,
+        total_tokens: usage
+            .input_tokens
+            .saturating_add(usage.output_tokens)
+            .saturating_add(usage.cache_read)
+            .saturating_add(usage.cache_create),
+    }
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -597,6 +625,11 @@ impl Kernel {
                     refresh_query.as_deref(),
                 )
                 .await?;
+            state.last_memory_context_bytes = turn_memory
+                .sections
+                .iter()
+                .map(|section| section.len())
+                .sum();
             prompt_ctx.prompt_sections.extend(turn_memory.sections);
             state.turn_prefetch_hits = turn_memory.prefetch_hits;
 
@@ -623,6 +656,7 @@ impl Kernel {
                 model = %effective_model.model_id,
                 "model response received"
             );
+            state.record_response_usage(response.usage.clone());
 
             let mut hook_ctx = HookCtx::on_model_response(
                 &state.session_id,
@@ -955,6 +989,7 @@ impl Kernel {
             active_skills: self.state.active_skills.clone(),
             turn_count: self.state.turn_count,
             cost_total_usd: self.state.cost_total_usd,
+            session_usage: self.state.session_usage.clone(),
             last_resolved_intent: self.state.last_resolved_intent.clone(),
             last_agent_stack: self.state.last_agent_stack.clone(),
             ephemeral_memory: self.state.ephemeral_notes(),
@@ -977,6 +1012,8 @@ impl Kernel {
         self.state.messages = snapshot.messages;
         self.state.turn_count = snapshot.turn_count;
         self.state.cost_total_usd = snapshot.cost_total_usd;
+        self.state.session_usage = snapshot.session_usage;
+        self.state.last_response_usage = None;
         self.state.last_resolved_intent = snapshot.last_resolved_intent;
         self.state.last_agent_stack = snapshot.last_agent_stack;
         self.state.replace_ephemeral_memory(
@@ -1050,6 +1087,105 @@ impl Kernel {
     pub fn restore_ephemeral_memory(&mut self, entries: Vec<String>) {
         self.state
             .replace_ephemeral_memory(entries, self.config.memory.max_ephemeral_bytes);
+    }
+
+    pub fn memory_status(&self) -> Result<KernelMemoryStatus, KernelError> {
+        let snapshot =
+            memory::memory_status(&self.paths, &self.config.memory, self.config.setup.version)?;
+        let staged_count = snapshot.staged_counts.values().copied().sum();
+        Ok(KernelMemoryStatus {
+            synopsis_bytes: self.state.last_memory_context_bytes,
+            ephemeral_bytes: self.state.ephemeral_memory_bytes(),
+            durable_count: snapshot.manifest_docs,
+            staged_count,
+            staged_this_turn: self.state.staged_entries_this_turn,
+            prefetch_hit_count: self.state.turn_prefetch_hits.len(),
+            episode_count: 0,
+            fact_count: 0,
+        })
+    }
+
+    pub fn session_telemetry(
+        &self,
+        channel: allbert_proto::ChannelKind,
+        inbox_count: usize,
+        trace_enabled: bool,
+    ) -> Result<allbert_proto::TelemetrySnapshot, KernelError> {
+        let memory_status = self.memory_status()?;
+        let model = self.model().clone();
+        let last_response_usage = self
+            .state
+            .last_response_usage
+            .as_ref()
+            .map(usage_to_payload);
+        let context_used_tokens = last_response_usage
+            .as_ref()
+            .map(|usage| usage.input_tokens.saturating_add(usage.output_tokens))
+            .filter(|tokens| *tokens > 0);
+        let context_percent = match (model.context_window_tokens, context_used_tokens) {
+            (window, Some(tokens)) if window > 0 => Some((tokens as f64 / window as f64) * 100.0),
+            _ => None,
+        };
+        let remaining = self.state.remaining_turn_budget();
+        let limit = self
+            .state
+            .active_turn_budget
+            .as_ref()
+            .map(|budget| budget.limit)
+            .unwrap_or(TurnBudget {
+                usd: self.config.limits.max_turn_usd,
+                seconds: self.config.limits.max_turn_s,
+            });
+
+        Ok(allbert_proto::TelemetrySnapshot {
+            session_id: self.session_id().into(),
+            channel,
+            provider: self.provider_name().into(),
+            model: allbert_proto::ModelConfigPayload {
+                provider: model.provider.to_proto_kind(),
+                model_id: model.model_id.clone(),
+                api_key_env: model.api_key_env.clone(),
+                base_url: model.base_url.clone(),
+                max_tokens: model.max_tokens,
+                context_window_tokens: model.context_window_tokens,
+            },
+            context_window_tokens: model.context_window_tokens,
+            context_used_tokens,
+            context_percent,
+            last_response_usage,
+            session_usage: usage_to_payload(&self.state.session_usage),
+            session_cost_usd: self.session_cost_usd(),
+            today_cost_usd: self.today_cost_usd()?,
+            turn_budget: allbert_proto::TurnBudgetTelemetry {
+                limit_usd: limit.usd,
+                limit_seconds: limit.seconds,
+                remaining_usd: remaining.map(|budget| budget.usd),
+                remaining_seconds: remaining.map(|budget| budget.seconds),
+            },
+            memory: allbert_proto::MemoryTelemetry {
+                synopsis_bytes: memory_status.synopsis_bytes,
+                ephemeral_bytes: memory_status.ephemeral_bytes,
+                durable_count: memory_status.durable_count,
+                staged_count: memory_status.staged_count,
+                staged_this_turn: memory_status.staged_this_turn,
+                prefetch_hit_count: memory_status.prefetch_hit_count,
+                episode_count: memory_status.episode_count,
+                fact_count: memory_status.fact_count,
+                always_eligible_skills: self.config.memory.routing.always_eligible_skills.clone(),
+            },
+            active_skills: self
+                .active_skills()
+                .iter()
+                .map(|skill| skill.name.clone())
+                .collect(),
+            last_agent_stack: self.last_agent_stack().to_vec(),
+            last_resolved_intent: self
+                .last_resolved_intent()
+                .map(|intent| intent.as_str().to_string()),
+            inbox_count,
+            trace_enabled,
+            setup_version: self.config.setup.version,
+        })
     }
 
     fn effective_root_turn_budget(
@@ -1377,6 +1513,7 @@ Respond with only the lowercase label and no other text."
             model = %classifier_model,
             "intent classifier response received"
         );
+        state.record_response_usage(response.usage.clone());
 
         let mut hook_ctx = HookCtx::on_model_response(
             &state.session_id,
@@ -2144,6 +2281,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         .await;
 
         state.cost_total_usd += subagent_state.cost_total_usd;
+        state.merge_child_usage(&subagent_state);
         state.last_agent_stack = subagent_state.last_agent_stack.clone();
         state.last_resolved_intent = subagent_state.last_resolved_intent.clone();
 
@@ -3774,6 +3912,96 @@ mod tests {
             std::fs::read_to_string(kernel.paths().costs.clone()).expect("cost log should exist");
         assert_eq!(log.lines().count(), 1);
         assert!((kernel.session_cost_usd() - 0.02).abs() < 1e-9);
+    }
+
+    #[tokio::test]
+    async fn telemetry_context_percentage_is_unknown_when_context_window_zero() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        let mut config = Config::default_template();
+        config.model.context_window_tokens = 0;
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::clone(&events)),
+            paths,
+            Arc::new(TestFactory::new(
+                "ollama",
+                vec![CompletionResponse {
+                    text: "hello".into(),
+                    usage: Usage {
+                        input_tokens: 10,
+                        output_tokens: 5,
+                        cache_read: 2,
+                        cache_create: 1,
+                    },
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("hello").await.expect("turn should succeed");
+        let telemetry = kernel
+            .session_telemetry(allbert_proto::ChannelKind::Repl, 0, false)
+            .expect("telemetry should compose");
+
+        assert_eq!(telemetry.context_window_tokens, 0);
+        assert_eq!(telemetry.context_used_tokens, Some(15));
+        assert_eq!(telemetry.context_percent, None);
+    }
+
+    #[tokio::test]
+    async fn telemetry_tracks_latest_usage_without_changing_cost_accounting() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        let mut config = Config::default_template();
+        config.model.context_window_tokens = 100;
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::clone(&events)),
+            paths,
+            Arc::new(TestFactory::new(
+                "ollama",
+                vec![CompletionResponse {
+                    text: "hello".into(),
+                    usage: Usage {
+                        input_tokens: 10,
+                        output_tokens: 5,
+                        cache_read: 0,
+                        cache_create: 0,
+                    },
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("hello").await.expect("turn should succeed");
+        let cost_before = kernel.session_cost_usd();
+        let telemetry = kernel
+            .session_telemetry(allbert_proto::ChannelKind::Cli, 2, true)
+            .expect("telemetry should compose");
+
+        assert_eq!(kernel.session_cost_usd(), cost_before);
+        assert_eq!(telemetry.context_percent, Some(15.0));
+        assert_eq!(telemetry.inbox_count, 2);
+        assert!(telemetry.trace_enabled);
+        assert_eq!(
+            telemetry.last_response_usage.as_ref().map(|usage| (
+                usage.input_tokens,
+                usage.output_tokens,
+                usage.total_tokens
+            )),
+            Some((10, 5, 15))
+        );
+        assert_eq!(telemetry.session_usage.total_tokens, 15);
+        assert_eq!(telemetry.session_cost_usd, cost_before);
     }
 
     #[tokio::test]

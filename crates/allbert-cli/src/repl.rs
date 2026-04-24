@@ -234,6 +234,7 @@ async fn handle_model_command(client: &mut DaemonClient, command: &str) -> Resul
             api_key_env,
             base_url,
             max_tokens: current.max_tokens,
+            context_window_tokens: current.context_window_tokens,
         })
         .await?;
 

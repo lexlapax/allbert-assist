@@ -24,7 +24,7 @@ use allbert_kernel::{
     llm::{DefaultProviderFactory, ProviderFactory},
     ActiveSkill, ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter,
     InputRequest, InputResponse, Intent, Kernel, KernelError, KernelEvent, ModelConfig,
-    SessionSnapshot, LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
+    SessionSnapshot, Usage, LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
 };
 use allbert_proto::{
     AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientMessage,
@@ -32,7 +32,7 @@ use allbert_proto::{
     DaemonStatus, InboxApprovalPayload, InboxQueryPayload, InboxResolveResultPayload,
     InputReplyPayload, InputRequestPayload, InputResponsePayload, KernelEventPayload,
     ModelConfigPayload, ProtocolError, ServerHello, ServerMessage, SessionResumeEntry,
-    SessionStatus, TurnBudgetOverridePayload, TurnResult, PROTOCOL_VERSION,
+    SessionStatus, TelemetrySnapshot, TurnBudgetOverridePayload, TurnResult, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use chrono::{Datelike, Utc};
@@ -155,6 +155,8 @@ struct SessionJournalMeta {
     model: ModelConfigPayload,
     turn_count: u32,
     cost_total_usd: f64,
+    #[serde(default)]
+    session_usage: Usage,
     messages: Vec<ChatMessage>,
     #[serde(default)]
     pending_approvals: Vec<String>,
@@ -730,6 +732,12 @@ async fn handle_connection(
                 let session = require_session(attached_session.as_ref())?;
                 let status = session_status(&state, session).await?;
                 send_server_message(&mut framed, &ServerMessage::SessionStatus(status)).await?;
+            }
+            ClientMessage::SessionTelemetry => {
+                let session = require_session(attached_session.as_ref())?;
+                let telemetry = session_telemetry(&state, session).await?;
+                send_server_message(&mut framed, &ServerMessage::SessionTelemetry(telemetry))
+                    .await?;
             }
             ClientMessage::ListSessions => {
                 let config = state.default_config.read().await.clone();
@@ -2956,6 +2964,21 @@ async fn session_status(
     })
 }
 
+async fn session_telemetry(
+    state: &SharedState,
+    session: &Arc<SessionHandle>,
+) -> Result<TelemetrySnapshot, DaemonError> {
+    let inbox_count = pending_inbox_count_for_session(state, session);
+    let kernel = session.kernel.lock().await;
+    kernel
+        .session_telemetry(
+            session.channel(),
+            inbox_count,
+            state.trace_enabled.load(Ordering::SeqCst),
+        )
+        .map_err(map_kernel_error)
+}
+
 fn channel_runtime_statuses(state: &SharedState) -> Vec<ChannelRuntimeStatusPayload> {
     let telegram_last_error = state.telegram_status.last_error.lock().unwrap().clone();
     vec![
@@ -3018,6 +3041,7 @@ fn snapshot_to_kernel(meta: SessionJournalMeta) -> SessionSnapshot {
         active_skills: meta.active_skills,
         turn_count: meta.turn_count,
         cost_total_usd: meta.cost_total_usd,
+        session_usage: meta.session_usage,
         last_resolved_intent: meta.last_resolved_intent.as_deref().and_then(Intent::parse),
         last_agent_stack: meta.last_agent_stack,
         ephemeral_memory: meta.ephemeral_memory,
@@ -3068,6 +3092,7 @@ fn build_session_meta(
         model: model_to_payload(&snapshot.model),
         turn_count: snapshot.turn_count,
         cost_total_usd: snapshot.cost_total_usd,
+        session_usage: snapshot.session_usage,
         messages: snapshot.messages,
         pending_approvals,
         legacy_pending_approval: None,
@@ -3387,6 +3412,28 @@ fn list_inbox_entries(state: &SharedState, query: InboxQueryPayload) -> Vec<Inbo
     });
     approvals.sort_by(|a, b| b.requested_at.cmp(&a.requested_at));
     approvals
+}
+
+fn pending_inbox_count_for_session(state: &SharedState, session: &SessionHandle) -> usize {
+    let identity_id = session.identity_id();
+    let inbox = state.inbox_index.lock().unwrap();
+    pending_inbox_count_for_scope(inbox.values(), &session.session_id, identity_id.as_deref())
+}
+
+fn pending_inbox_count_for_scope<'a>(
+    approvals: impl IntoIterator<Item = &'a InboxApprovalPayload>,
+    session_id: &str,
+    identity_id: Option<&str>,
+) -> usize {
+    approvals
+        .into_iter()
+        .filter(|approval| {
+            approval.status == "pending"
+                && (approval.session_id == session_id
+                    || identity_id
+                        .is_some_and(|identity| approval.identity_id.as_deref() == Some(identity)))
+        })
+        .count()
 }
 
 fn lookup_approval_by_id(
@@ -4158,6 +4205,7 @@ fn model_to_payload(model: &ModelConfig) -> ModelConfigPayload {
         api_key_env: model.api_key_env.clone(),
         base_url: model.base_url.clone(),
         max_tokens: model.max_tokens,
+        context_window_tokens: model.context_window_tokens,
     }
 }
 
@@ -4168,7 +4216,7 @@ fn model_from_payload(model: ModelConfigPayload) -> ModelConfig {
         api_key_env: model.api_key_env,
         base_url: model.base_url,
         max_tokens: model.max_tokens,
-        context_window_tokens: 0,
+        context_window_tokens: model.context_window_tokens,
     }
 }
 
@@ -4439,10 +4487,62 @@ mod telegram_tests {
             model: model_to_payload(&Config::default_template().model),
             turn_count: 1,
             cost_total_usd: 0.0,
+            session_usage: Usage::default(),
             messages: Vec::new(),
             pending_approvals: Vec::new(),
             legacy_pending_approval: None,
         }
+    }
+
+    fn inbox_payload(
+        id: &str,
+        session_id: &str,
+        identity_id: Option<&str>,
+        status: &str,
+    ) -> InboxApprovalPayload {
+        InboxApprovalPayload {
+            id: id.into(),
+            session_id: session_id.into(),
+            identity_id: identity_id.map(str::to_string),
+            channel: ChannelKind::Repl,
+            sender: LOCAL_REPL_SENDER.into(),
+            agent: "allbert/root".into(),
+            tool: "write_file".into(),
+            request_id: 1,
+            kind: "tool-approval".into(),
+            requested_at: "2026-04-20T00:00:00Z".into(),
+            expires_at: "2026-04-20T01:00:00Z".into(),
+            status: status.into(),
+            resolved_at: None,
+            resolver: None,
+            reply: None,
+            rendered: "approve write".into(),
+            path: "/tmp/approval.md".into(),
+        }
+    }
+
+    #[test]
+    fn telemetry_inbox_count_is_identity_or_session_scoped() {
+        let approvals = [
+            inbox_payload("same-session", "repl-primary", None, "pending"),
+            inbox_payload(
+                "same-identity",
+                "other-session",
+                Some("identity-a"),
+                "pending",
+            ),
+            inbox_payload("resolved", "repl-primary", Some("identity-a"), "accepted"),
+            inbox_payload("other", "other-session", Some("identity-b"), "pending"),
+        ];
+
+        assert_eq!(
+            pending_inbox_count_for_scope(approvals.iter(), "repl-primary", Some("identity-a")),
+            2
+        );
+        assert_eq!(
+            pending_inbox_count_for_scope(approvals.iter(), "repl-primary", None),
+            1
+        );
     }
 
     #[test]

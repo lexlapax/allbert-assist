@@ -79,6 +79,10 @@ enum Command {
         #[command(subcommand)]
         command: SessionsCommand,
     },
+    Telemetry {
+        #[arg(long)]
+        json: bool,
+    },
     #[command(name = "internal-daemon-host", hide = true)]
     InternalDaemonHost,
 }
@@ -359,6 +363,7 @@ async fn main() -> Result<()> {
         Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
         Some(Command::Heartbeat { command }) => run_heartbeat_command(&paths, command),
         Some(Command::Sessions { command }) => run_sessions_command(&paths, &config, command).await,
+        Some(Command::Telemetry { json }) => run_telemetry_command(&paths, &config, json).await,
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
                 config = match setup::run_setup_wizard(&paths, &config)? {
@@ -1442,6 +1447,53 @@ async fn run_daemon_command(
             }
         }
     }
+}
+
+async fn run_telemetry_command(paths: &AllbertPaths, config: &Config, json: bool) -> Result<()> {
+    let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
+    client.attach(ChannelKind::Cli, None).await?;
+    let telemetry = client.session_telemetry().await?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&telemetry)?);
+    } else {
+        println!("{}", render_telemetry_summary(&telemetry));
+    }
+    Ok(())
+}
+
+fn render_telemetry_summary(snapshot: &allbert_proto::TelemetrySnapshot) -> String {
+    let ctx = match (snapshot.context_used_tokens, snapshot.context_percent) {
+        (Some(tokens), Some(percent)) => format!("{tokens} tokens ({percent:.1}%)"),
+        (Some(tokens), None) => format!("{tokens} tokens (ctx ?)"),
+        _ => "ctx ?".into(),
+    };
+    let last = snapshot
+        .last_response_usage
+        .as_ref()
+        .map(|usage| format!("{} in / {} out", usage.input_tokens, usage.output_tokens))
+        .unwrap_or_else(|| "(none yet)".into());
+    format!(
+        "session:       {}\nchannel:       {:?}\nmodel:         {} ({})\ncontext:       {}\nlast tokens:   {}\nsession tokens:{}\ncost:          session ${:.6}, today ${:.6}\nmemory:        durable {}, staged {}, episodes {}, facts {}\ninbox:         {}\nintent:        {}\ntrace:         {}",
+        snapshot.session_id,
+        snapshot.channel,
+        snapshot.model.model_id,
+        snapshot.provider,
+        ctx,
+        last,
+        snapshot.session_usage.total_tokens,
+        snapshot.session_cost_usd,
+        snapshot.today_cost_usd,
+        snapshot.memory.durable_count,
+        snapshot.memory.staged_count,
+        snapshot.memory.episode_count,
+        snapshot.memory.fact_count,
+        snapshot.inbox_count,
+        snapshot
+            .last_resolved_intent
+            .as_deref()
+            .unwrap_or("(none yet)"),
+        yes_no(snapshot.trace_enabled),
+    )
 }
 
 async fn stop_daemon(paths: &AllbertPaths) -> Result<()> {

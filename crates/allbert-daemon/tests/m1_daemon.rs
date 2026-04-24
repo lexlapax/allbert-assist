@@ -640,6 +640,7 @@ fn seed_session_meta(
             api_key_env: Some("ANTHROPIC_API_KEY".into()),
             base_url: None,
             max_tokens: 4096,
+            context_window_tokens: 0,
         },
         "turn_count": 1,
         "cost_total_usd": 0.0,
@@ -1100,6 +1101,7 @@ async fn session_local_model_changes_do_not_leak_across_sessions() {
             api_key_env: Some("OPENROUTER_API_KEY".into()),
             base_url: None,
             max_tokens: 4096,
+            context_window_tokens: 0,
         })
         .await
         .expect("set model should succeed");
@@ -1165,6 +1167,7 @@ async fn expanded_provider_models_roundtrip_through_daemon_session_status() {
             api_key_env: Some("__ALLBERT_TEST_MISSING_OPENROUTER_KEY".into()),
             base_url: None,
             max_tokens: 2048,
+            context_window_tokens: 0,
         },
         ModelConfigPayload {
             provider: ProviderKind::Openai,
@@ -1172,6 +1175,7 @@ async fn expanded_provider_models_roundtrip_through_daemon_session_status() {
             api_key_env: Some("__ALLBERT_TEST_MISSING_OPENAI_KEY".into()),
             base_url: Some("https://api.openai.test/v1".into()),
             max_tokens: 4096,
+            context_window_tokens: 0,
         },
         ModelConfigPayload {
             provider: ProviderKind::Gemini,
@@ -1179,6 +1183,7 @@ async fn expanded_provider_models_roundtrip_through_daemon_session_status() {
             api_key_env: Some("__ALLBERT_TEST_MISSING_GEMINI_KEY".into()),
             base_url: Some("https://generativelanguage.test/v1beta".into()),
             max_tokens: 3072,
+            context_window_tokens: 0,
         },
         ModelConfigPayload {
             provider: ProviderKind::Ollama,
@@ -1186,6 +1191,7 @@ async fn expanded_provider_models_roundtrip_through_daemon_session_status() {
             api_key_env: None,
             base_url: Some("http://127.0.0.1:11434".into()),
             max_tokens: 2048,
+            context_window_tokens: 0,
         },
     ];
 

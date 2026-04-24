@@ -102,6 +102,8 @@ pub struct ModelConfigPayload {
     pub api_key_env: Option<String>,
     pub base_url: Option<String>,
     pub max_tokens: u32,
+    #[serde(default)]
+    pub context_window_tokens: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -120,6 +122,59 @@ pub struct SessionStatus {
     pub root_agent_name: String,
     pub last_agent_stack: Vec<String>,
     pub last_resolved_intent: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct TokenUsagePayload {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_read_tokens: u64,
+    pub cache_create_tokens: u64,
+    pub total_tokens: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TurnBudgetTelemetry {
+    pub limit_usd: f64,
+    pub limit_seconds: u64,
+    pub remaining_usd: Option<f64>,
+    pub remaining_seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MemoryTelemetry {
+    pub synopsis_bytes: usize,
+    pub ephemeral_bytes: usize,
+    pub durable_count: usize,
+    pub staged_count: usize,
+    pub staged_this_turn: usize,
+    pub prefetch_hit_count: usize,
+    pub episode_count: usize,
+    pub fact_count: usize,
+    pub always_eligible_skills: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TelemetrySnapshot {
+    pub session_id: String,
+    pub channel: ChannelKind,
+    pub provider: String,
+    pub model: ModelConfigPayload,
+    pub context_window_tokens: u32,
+    pub context_used_tokens: Option<u64>,
+    pub context_percent: Option<f64>,
+    pub last_response_usage: Option<TokenUsagePayload>,
+    pub session_usage: TokenUsagePayload,
+    pub session_cost_usd: f64,
+    pub today_cost_usd: f64,
+    pub turn_budget: TurnBudgetTelemetry,
+    pub memory: MemoryTelemetry,
+    pub active_skills: Vec<String>,
+    pub last_agent_stack: Vec<String>,
+    pub last_resolved_intent: Option<String>,
+    pub inbox_count: usize,
+    pub trace_enabled: bool,
+    pub setup_version: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -353,6 +408,7 @@ pub enum ClientMessage {
     Attach(OpenChannel),
     Status,
     SessionStatus,
+    SessionTelemetry,
     ListSessions,
     ListInbox(InboxQueryPayload),
     ShowInboxApproval(String),
@@ -388,6 +444,7 @@ pub enum ServerMessage {
     Attached(AttachedChannel),
     Status(DaemonStatus),
     SessionStatus(SessionStatus),
+    SessionTelemetry(TelemetrySnapshot),
     Sessions(Vec<SessionResumeEntry>),
     InboxApprovals(Vec<InboxApprovalPayload>),
     InboxApproval(InboxApprovalPayload),
@@ -404,4 +461,75 @@ pub enum ServerMessage {
     JobRuns(Vec<JobRunRecordPayload>),
     Ack,
     Error(ProtocolError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn telemetry_snapshot_json_roundtrip() {
+        let snapshot = TelemetrySnapshot {
+            session_id: "repl-primary".into(),
+            channel: ChannelKind::Repl,
+            provider: "ollama".into(),
+            model: ModelConfigPayload {
+                provider: ProviderKind::Ollama,
+                model_id: "gemma4".into(),
+                api_key_env: None,
+                base_url: Some("http://127.0.0.1:11434".into()),
+                max_tokens: 4096,
+                context_window_tokens: 8192,
+            },
+            context_window_tokens: 8192,
+            context_used_tokens: Some(1024),
+            context_percent: Some(12.5),
+            last_response_usage: Some(TokenUsagePayload {
+                input_tokens: 900,
+                output_tokens: 124,
+                cache_read_tokens: 10,
+                cache_create_tokens: 2,
+                total_tokens: 1036,
+            }),
+            session_usage: TokenUsagePayload {
+                input_tokens: 1900,
+                output_tokens: 224,
+                cache_read_tokens: 10,
+                cache_create_tokens: 2,
+                total_tokens: 2136,
+            },
+            session_cost_usd: 0.0123,
+            today_cost_usd: 0.0456,
+            turn_budget: TurnBudgetTelemetry {
+                limit_usd: 0.5,
+                limit_seconds: 120,
+                remaining_usd: Some(0.4),
+                remaining_seconds: Some(90),
+            },
+            memory: MemoryTelemetry {
+                synopsis_bytes: 512,
+                ephemeral_bytes: 128,
+                durable_count: 7,
+                staged_count: 2,
+                staged_this_turn: 1,
+                prefetch_hit_count: 3,
+                episode_count: 4,
+                fact_count: 5,
+                always_eligible_skills: vec!["memory-curator".into()],
+            },
+            active_skills: vec!["memory-curator".into()],
+            last_agent_stack: vec!["allbert/root".into()],
+            last_resolved_intent: Some("memory_query".into()),
+            inbox_count: 1,
+            trace_enabled: true,
+            setup_version: 4,
+        };
+
+        let raw = serde_json::to_string(&ServerMessage::SessionTelemetry(snapshot.clone()))
+            .expect("telemetry should serialize");
+        let decoded: ServerMessage =
+            serde_json::from_str(&raw).expect("telemetry should deserialize");
+
+        assert_eq!(decoded, ServerMessage::SessionTelemetry(snapshot));
+    }
 }

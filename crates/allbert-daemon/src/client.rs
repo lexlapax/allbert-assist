@@ -9,7 +9,7 @@ use allbert_proto::{
     ClientMessage, DaemonStatus, InboxApprovalPayload, InboxQueryPayload, InboxResolvePayload,
     InboxResolveResultPayload, JobDefinitionPayload, JobRunRecordPayload, JobStatusPayload,
     ModelConfigPayload, OpenChannel, ProtocolError, ServerMessage, SessionResumeEntry,
-    SessionStatus, TurnBudgetOverridePayload, TurnRequest, PROTOCOL_VERSION,
+    SessionStatus, TelemetrySnapshot, TurnBudgetOverridePayload, TurnRequest, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
@@ -190,6 +190,16 @@ impl DaemonClient {
         self.send(&ClientMessage::SessionStatus).await?;
         self.recv_expected("session status", |message| match message {
             ServerMessage::SessionStatus(status) => Some(Ok(status)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn session_telemetry(&mut self) -> Result<TelemetrySnapshot, DaemonError> {
+        self.send(&ClientMessage::SessionTelemetry).await?;
+        self.recv_expected("session telemetry", |message| match message {
+            ServerMessage::SessionTelemetry(telemetry) => Some(Ok(telemetry)),
             ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
             _ => None,
         })
