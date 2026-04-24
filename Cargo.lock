@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "allbert-channels"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "allbert-proto",
  "async-trait",
@@ -29,7 +29,7 @@ dependencies = [
 
 [[package]]
 name = "allbert-cli"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "allbert-channels",
  "allbert-daemon",
@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "allbert-daemon"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "allbert-channels",
  "allbert-kernel",
@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "allbert-jobs"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "allbert-daemon",
  "allbert-kernel",
@@ -100,7 +100,7 @@ dependencies = [
 
 [[package]]
 name = "allbert-kernel"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "allbert-proto",
  "async-trait",
@@ -130,7 +130,7 @@ dependencies = [
 
 [[package]]
 name = "allbert-proto"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "serde",
  "serde_json",

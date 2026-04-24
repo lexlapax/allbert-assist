@@ -1,6 +1,6 @@
-# Allbert v0.8 Onboarding and Operations
+# Allbert v0.9 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.8 release.
+This guide is the operator reference for the source-based v0.9 release.
 
 ## Quickstart
 
@@ -56,11 +56,11 @@ If `fs_roots` is empty:
 - startup prints a warning
 - `/status` shows `(none)` for trusted roots
 
-This is intentional. v0.8 still prefers explicit workspace trust over permissive defaults.
+This is intentional. Allbert still prefers explicit workspace trust over permissive defaults.
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical v0.8 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical v0.9 file looks like:
 
 ```toml
 trace = false
@@ -256,7 +256,7 @@ Notes:
 
 ## Telegram channel
 
-Telegram is the first shipped non-REPL channel in v0.8.
+Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.9 end-user release.
 
 Setup:
 
@@ -268,7 +268,7 @@ Setup:
 
 Operational notes:
 
-- CLI, REPL, and Telegram can all resolve pending approvals through the shared inbox in v0.8.
+- CLI, REPL, and Telegram can all resolve pending approvals through the shared inbox in v0.9.
 - `/approve <approval-id>` accepts an async approval from Telegram itself.
 - `/reject <approval-id>` rejects an async approval from Telegram itself.
 - `/override <reason>` retries one turn after a daily cost-cap refusal and mirrors the same `cost-cap-override` item into the inbox.
@@ -279,7 +279,7 @@ Operational notes:
 
 ## Continuity across devices
 
-v0.8 treats profile continuity as an explicit operator workflow rather than an accidental side effect of copying `~/.allbert/`.
+v0.9 treats profile continuity as an explicit operator workflow rather than an accidental side effect of copying `~/.allbert/`.
 
 Recommended second-device flow:
 
@@ -335,7 +335,7 @@ Conversational scheduling works best when you ask plainly. Good examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant should compile naturally in v0.8:
+Common schedule forms the assistant should compile naturally in v0.9:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -346,7 +346,7 @@ When you create, update, pause, resume, or remove a job from normal conversation
 
 ## Bundled maintenance jobs
 
-v0.8 seeds these bundled templates:
+v0.9 seeds these bundled templates:
 
 - `daily-brief`
 - `weekly-review`
@@ -358,7 +358,7 @@ The setup wizard can enable selected templates for you. Fresh profiles that expl
 
 ## Skills and memory
 
-The canonical installed skill root in v0.8 is `~/.allbert/skills/installed/`.
+The canonical installed skill root in v0.9 is `~/.allbert/skills/installed/`.
 
 Quarantine lives under `~/.allbert/skills/incoming/`; fetched or copied skills stay there until you approve the preview.
 
@@ -384,9 +384,9 @@ Skill install/update preview shows:
 - declared scripts with interpreter, path, and SHA-256
 - the first lines of `SKILL.md`
 
-v0.8 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
+v0.9 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
 
-In v0.8, skills can also preview:
+In v0.9, skills can also preview:
 
 - `intents:` metadata to hint the intent router
 - `agents:` metadata to contribute namespaced sub-agents
@@ -420,7 +420,7 @@ Workflow summary:
 
 Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs.
 
-If you are upgrading from v0.7, see [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md) for the new continuity, inbox, profile-sync, and heartbeat surfaces.
+If you are upgrading to v0.9, see [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md). If you are coming from v0.7 or earlier, also review [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md) for the continuity, inbox, profile-sync, and heartbeat surfaces.
 
 ## Trace, logs, and cost files
 
@@ -489,7 +489,7 @@ Curated memory seems wrong or stale:
 
 ## Release posture
 
-v0.8 is a shipped technical-user release:
+v0.9 is a shipped technical-user release:
 
 - source-based
 - terminal-first
