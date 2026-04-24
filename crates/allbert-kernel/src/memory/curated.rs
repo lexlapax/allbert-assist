@@ -2,7 +2,7 @@
 // without turning Allbert into a search-engine project. If this dependency becomes too heavy
 // or the runtime targets change, revisit ADR 0046 before replacing this module.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -28,7 +28,7 @@ use crate::error::KernelError;
 use crate::paths::AllbertPaths;
 
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
-const INDEX_SCHEMA_VERSION: u32 = 1;
+const INDEX_SCHEMA_VERSION: u32 = 2;
 const TANTIVY_VERSION: &str = "0.22";
 const STAGED_BODY_MAX_BYTES: usize = 16 * 1024;
 
@@ -39,6 +39,8 @@ pub enum MemoryTier {
     #[default]
     Durable,
     Staging,
+    Episode,
+    Fact,
     All,
 }
 
@@ -73,6 +75,8 @@ pub struct SearchMemoryInput {
     pub tier: MemoryTier,
     #[serde(default)]
     pub limit: Option<usize>,
+    #[serde(default)]
+    pub include_superseded: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -83,6 +87,21 @@ pub struct SearchMemoryHit {
     pub score: f32,
     pub tags: Vec<String>,
     pub snippet: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<JsonValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct MemoryFact {
+    pub id: String,
+    pub subject: String,
+    pub predicate: String,
+    pub object: String,
+    pub valid_from: Option<String>,
+    pub valid_until: Option<String>,
+    pub supersedes: Vec<String>,
+    pub source: Option<JsonValue>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -96,6 +115,8 @@ pub struct StageMemoryInput {
     pub provenance: Option<JsonValue>,
     #[serde(default)]
     pub fingerprint_basis: Option<String>,
+    #[serde(default)]
+    pub facts: Vec<MemoryFact>,
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +131,7 @@ pub struct StageMemoryRequest {
     pub tags: Vec<String>,
     pub provenance: Option<JsonValue>,
     pub fingerprint_basis: Option<String>,
+    pub facts: Vec<MemoryFact>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -124,6 +146,7 @@ pub struct StagedMemoryRecord {
     pub source: String,
     pub provenance: Option<JsonValue>,
     pub tags: Vec<String>,
+    pub facts: Vec<MemoryFact>,
     pub fingerprint: String,
     pub created_at: String,
     pub expires_at: String,
@@ -208,6 +231,8 @@ pub struct RebuildIndexReport {
 pub struct MemoryStatusSnapshot {
     pub setup_version: u8,
     pub manifest_docs: usize,
+    pub episode_count: usize,
+    pub fact_count: usize,
     pub staged_counts: BTreeMap<String, usize>,
     pub rejected_count: usize,
     pub expired_pending_count: usize,
@@ -292,6 +317,10 @@ struct StageFrontmatter {
     created_at: Option<String>,
     #[serde(default)]
     expires_at: Option<String>,
+    #[serde(default)]
+    facts: Vec<MemoryFact>,
+    #[serde(flatten)]
+    extra: BTreeMap<String, JsonValue>,
 }
 
 fn empty_stage_frontmatter() -> StageFrontmatter {
@@ -308,6 +337,8 @@ fn empty_stage_frontmatter() -> StageFrontmatter {
         fingerprint: None,
         created_at: None,
         expires_at: None,
+        facts: Vec::new(),
+        extra: BTreeMap::new(),
     }
 }
 
@@ -328,7 +359,7 @@ pub fn bootstrap_curated_memory(
 
     let expired_staged_entries = expire_staged_entries(paths, config)?;
     let manifest = load_manifest(paths)?;
-    let rebuild_report = maybe_rebuild_index(paths, &manifest, false, None)?;
+    let rebuild_report = maybe_rebuild_index(paths, config, &manifest, false, None)?;
 
     Ok(MemoryBootstrapReport {
         imported_legacy_files,
@@ -340,7 +371,7 @@ pub fn bootstrap_curated_memory(
 
 pub fn rebuild_memory_index(
     paths: &AllbertPaths,
-    _config: &MemoryConfig,
+    config: &MemoryConfig,
     force: bool,
 ) -> Result<RebuildIndexReport, KernelError> {
     ensure_curated_dirs(paths)?;
@@ -348,7 +379,7 @@ pub fn rebuild_memory_index(
         write_manifest(paths, &scan_manifest(paths)?)?;
     }
     let manifest = load_manifest(paths)?;
-    maybe_rebuild_index(paths, &manifest, force, Some("operator-request"))?
+    maybe_rebuild_index(paths, config, &manifest, force, Some("operator-request"))?
         .ok_or_else(|| KernelError::InitFailed("index rebuild skipped unexpectedly".into()))
 }
 
@@ -389,6 +420,8 @@ pub fn memory_status(
     Ok(MemoryStatusSnapshot {
         setup_version,
         manifest_docs: manifest.documents.len(),
+        episode_count: collect_episode_docs(paths, config)?.len(),
+        fact_count: durable_fact_count(paths, config, &manifest)?,
         staged_counts,
         rejected_count,
         expired_pending_count,
@@ -404,7 +437,7 @@ pub fn memory_status(
 
 pub fn verify_curated_memory(
     paths: &AllbertPaths,
-    _config: &MemoryConfig,
+    config: &MemoryConfig,
 ) -> Result<MemoryVerifyReport, KernelError> {
     ensure_curated_dirs(paths)?;
     let scanned = scan_manifest(paths)?;
@@ -419,6 +452,8 @@ pub fn verify_curated_memory(
     };
 
     let manifest_hash = manifest_hash(&scanned)?;
+    let index_hash = index_source_hash(paths, config, &scanned)?;
+    let expected_doc_count = expected_index_doc_count(paths, config, &scanned)?;
     let tantivy_dir = paths.memory_index_dir.join("tantivy");
     let index_health = match index_meta.as_ref() {
         None => MemoryHealth::Missing,
@@ -428,8 +463,8 @@ pub fn verify_curated_memory(
         Some(_meta) if manifest_health != MemoryHealth::Ok => MemoryHealth::Stale,
         Some(meta)
             if meta.schema_version != INDEX_SCHEMA_VERSION
-                || meta.manifest_hash != manifest_hash
-                || meta.doc_count != scanned.documents.len() =>
+                || meta.manifest_hash != index_hash
+                || meta.doc_count != expected_doc_count =>
         {
             MemoryHealth::Mismatch
         }
@@ -462,14 +497,13 @@ pub fn verify_curated_memory(
             "index schema version {} does not match expected {}",
             meta.schema_version, INDEX_SCHEMA_VERSION
         )),
-        Some(meta) if meta.manifest_hash != manifest_hash => issues.push(format!(
-            "index manifest hash {} does not match current manifest {}",
-            meta.manifest_hash, manifest_hash
+        Some(meta) if meta.manifest_hash != index_hash => issues.push(format!(
+            "index source hash {} does not match current memory source hash {}",
+            meta.manifest_hash, index_hash
         )),
-        Some(meta) if meta.doc_count != scanned.documents.len() => issues.push(format!(
-            "index doc count {} does not match current manifest {}",
-            meta.doc_count,
-            scanned.documents.len()
+        Some(meta) if meta.doc_count != expected_doc_count => issues.push(format!(
+            "index doc count {} does not match current indexable source count {}",
+            meta.doc_count, expected_doc_count
         )),
         _ => {}
     }
@@ -503,7 +537,7 @@ pub fn reconcile_curated_memory(
             true
         }
     };
-    let rebuild_report = maybe_rebuild_index(paths, &scanned, false, None)?;
+    let rebuild_report = maybe_rebuild_index(paths, config, &scanned, false, None)?;
     write_reconcile_meta(
         paths,
         &MemoryReconcileMeta {
@@ -545,6 +579,7 @@ pub fn build_turn_memory_snapshot(
                     query: query.to_string(),
                     tier: MemoryTier::Durable,
                     limit: Some(prefetch_limit.min(config.max_prefetch_snippets)),
+                    include_superseded: false,
                 },
             )?
         } else {
@@ -632,7 +667,16 @@ pub fn search_memory(
     let tags_f = schema.get_field("tags").expect("tags field");
     let tier_f = schema.get_field("tier").expect("tier field");
     let path_f = schema.get_field("path").expect("path field");
-    let parser = QueryParser::for_index(&index, vec![title_f, body_f, tags_f]);
+    let source_f = schema.get_field("source").expect("source field");
+    let superseded_f = schema.get_field("superseded").expect("superseded field");
+    let fact_subject_f = schema
+        .get_field("fact_subject")
+        .expect("fact_subject field");
+    let fact_object_f = schema.get_field("fact_object").expect("fact_object field");
+    let parser = QueryParser::for_index(
+        &index,
+        vec![title_f, body_f, tags_f, fact_subject_f, fact_object_f],
+    );
     let parsed_query = parser
         .parse_query(raw_query)
         .or_else(|_| {
@@ -640,23 +684,35 @@ pub fn search_memory(
             parser.parse_query(&sanitized)
         })
         .map_err(|e| KernelError::InitFailed(format!("parse query '{raw_query}': {e}")))?;
-    let compiled_query: Box<dyn Query> = match input.tier {
-        MemoryTier::All => Box::new(parsed_query),
-        MemoryTier::Durable | MemoryTier::Staging => {
+    let mut clauses: Vec<(Occur, Box<dyn Query>)> = vec![(Occur::Must, Box::new(parsed_query))];
+    match input.tier {
+        MemoryTier::All => {}
+        MemoryTier::Durable | MemoryTier::Staging | MemoryTier::Episode | MemoryTier::Fact => {
             let wanted = match input.tier {
                 MemoryTier::Durable => "durable",
                 MemoryTier::Staging => "staging",
-                MemoryTier::All => unreachable!(),
+                MemoryTier::Episode => "episode",
+                MemoryTier::Fact => "fact",
+                MemoryTier::All => unreachable!("handled above"),
             };
             let tier_query = TermQuery::new(
                 Term::from_field_text(tier_f, wanted),
                 IndexRecordOption::Basic,
             );
-            Box::new(BooleanQuery::new(vec![
-                (Occur::Must, Box::new(parsed_query)),
-                (Occur::Must, Box::new(tier_query)),
-            ]))
+            clauses.push((Occur::Must, Box::new(tier_query)));
         }
+    };
+    if input.tier == MemoryTier::Fact && !input.include_superseded {
+        let current_fact_query = TermQuery::new(
+            Term::from_field_text(superseded_f, "false"),
+            IndexRecordOption::Basic,
+        );
+        clauses.push((Occur::Must, Box::new(current_fact_query)));
+    }
+    let compiled_query: Box<dyn Query> = if clauses.len() == 1 {
+        clauses.pop().expect("query clause").1
+    } else {
+        Box::new(BooleanQuery::new(clauses))
     };
 
     let reader = index
@@ -676,7 +732,10 @@ pub fn search_memory(
         let title = doc_text(&doc, title_f).unwrap_or_else(|| "untitled".into());
         let tier = doc_text(&doc, tier_f).unwrap_or_else(|| "durable".into());
         let tags = split_csv_tags(doc_text(&doc, tags_f).unwrap_or_default());
-        let snippet = excerpt_for_relative_path(paths, &path, raw_query, 220);
+        let body = doc_text(&doc, body_f).unwrap_or_default();
+        let snippet = make_excerpt(&body, raw_query, 220);
+        let source = doc_text(&doc, source_f)
+            .and_then(|value| serde_json::from_str::<JsonValue>(&value).ok());
         hits.push(SearchMemoryHit {
             path,
             title,
@@ -684,6 +743,7 @@ pub fn search_memory(
             score,
             tags,
             snippet,
+            source,
         });
     }
 
@@ -716,6 +776,7 @@ pub fn stage_memory(
             "stage_memory.summary must not be empty".into(),
         ));
     }
+    let facts = normalize_facts(request.facts, config.facts.max_facts_per_entry)?;
 
     let normalized_body = normalized_markdown_body(&request.content);
     let fingerprint_basis = request
@@ -807,13 +868,15 @@ pub fn stage_memory(
                 .format(&Rfc3339)
                 .map_err(|e| KernelError::InitFailed(format!("format timestamp: {e}")))?,
         ),
+        facts,
+        extra: BTreeMap::new(),
     };
     let rendered = render_staged_entry(&frontmatter, &body)?;
     let filename = staged_filename(&id, created_at);
     let path = paths.memory_staging.join(&filename);
     atomic_write(&path, rendered.as_bytes())?;
     let manifest = load_manifest(paths)?;
-    let _ = maybe_rebuild_index(paths, &manifest, true, Some("stage-memory"))?;
+    let _ = maybe_rebuild_index(paths, config, &manifest, true, Some("stage-memory"))?;
 
     parse_staged_record(paths, &path)
 }
@@ -941,13 +1004,20 @@ pub fn promote_staged_memory(
         fs::create_dir_all(parent)
             .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", parent.display())))?;
     }
-    let durable_body = format!("# {}\n\n{}\n", preview.title.trim(), record.body.trim());
+    let frontmatter = parse_stage_frontmatter(&staged_path)?;
+    let durable_body = render_promoted_durable_note(preview, &record, &frontmatter)?;
     atomic_write(&destination, durable_body.as_bytes())?;
     fs::remove_file(&staged_path)
         .map_err(|e| KernelError::InitFailed(format!("remove {}: {e}", staged_path.display())))?;
     let manifest = scan_manifest(paths)?;
     write_manifest(paths, &manifest)?;
-    let _ = maybe_rebuild_index(paths, &manifest, true, Some("promote-staged-memory"))?;
+    let _ = maybe_rebuild_index(
+        paths,
+        config,
+        &manifest,
+        true,
+        Some("promote-staged-memory"),
+    )?;
     Ok(preview.destination_path.clone())
 }
 
@@ -990,7 +1060,7 @@ pub fn reject_staged_memory(
     fs::remove_file(&staged_path)
         .map_err(|e| KernelError::InitFailed(format!("remove {}: {e}", staged_path.display())))?;
     let manifest = load_manifest(paths)?;
-    let _ = maybe_rebuild_index(paths, &manifest, true, Some("reject-staged-memory"))?;
+    let _ = maybe_rebuild_index(paths, config, &manifest, true, Some("reject-staged-memory"))?;
     relative_to_memory(paths, &dest)
 }
 
@@ -1027,6 +1097,7 @@ pub fn preview_forget_memory(
                 query: query.to_string(),
                 tier: MemoryTier::Durable,
                 limit: Some(5),
+                include_superseded: false,
             },
         )?;
         for hit in hits {
@@ -1099,7 +1170,7 @@ pub fn forget_memory(
     }
     let manifest = scan_manifest(paths)?;
     write_manifest(paths, &manifest)?;
-    let _ = maybe_rebuild_index(paths, &manifest, true, Some("forget-memory"))?;
+    let _ = maybe_rebuild_index(paths, config, &manifest, true, Some("forget-memory"))?;
     Ok(forgotten)
 }
 
@@ -1202,13 +1273,453 @@ struct MigrationRecord {
     backup_to: String,
 }
 
+#[derive(Debug, Deserialize, Default)]
+#[serde(default)]
+struct DurableFrontmatter {
+    facts: Vec<MemoryFact>,
+    #[serde(flatten)]
+    _extra: BTreeMap<String, JsonValue>,
+}
+
+#[derive(Debug, Clone)]
+struct EpisodeDoc {
+    id: String,
+    path: String,
+    title: String,
+    body: String,
+    session_id: String,
+    turn_id: String,
+    role: String,
+    channel: String,
+    source_path: String,
+    timestamp_secs: i64,
+}
+
+fn expected_index_doc_count(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    manifest: &MemoryManifest,
+) -> Result<usize, KernelError> {
+    let staged = list_staging_entries(&paths.memory_staging)?.len();
+    let episodes = collect_episode_docs(paths, config)?.len();
+    let facts = durable_fact_count(paths, config, manifest)?;
+    Ok(manifest.documents.len() + staged + episodes + facts)
+}
+
+fn index_source_hash(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    manifest: &MemoryManifest,
+) -> Result<String, KernelError> {
+    let mut hasher = Sha256::new();
+    hasher.update(serde_json::to_vec(manifest).map_err(|e| {
+        KernelError::InitFailed(format!("serialize memory source manifest hash: {e}"))
+    })?);
+    hasher.update(format!("episodes={}", config.episodes.enabled));
+    hasher.update(format!("facts={}", config.facts.enabled));
+    hash_markdown_sources(&mut hasher, &paths.memory_staging, &paths.memory)?;
+    if config.episodes.enabled {
+        hash_session_journals(&mut hasher, paths)?;
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn hash_markdown_sources(hasher: &mut Sha256, dir: &Path, root: &Path) -> Result<(), KernelError> {
+    if !dir.exists() {
+        return Ok(());
+    }
+    let mut files = Vec::new();
+    collect_markdown_paths(dir, &mut files)?;
+    files.sort();
+    for path in files {
+        let rel = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let raw = fs::read(&path)
+            .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+        hasher.update(rel.as_bytes());
+        hasher.update(sha256_hex(&raw).as_bytes());
+    }
+    Ok(())
+}
+
+fn hash_session_journals(hasher: &mut Sha256, paths: &AllbertPaths) -> Result<(), KernelError> {
+    for path in session_turn_files(paths)? {
+        let rel = path
+            .strip_prefix(&paths.sessions)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let raw = fs::read(&path)
+            .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+        hasher.update(rel.as_bytes());
+        hasher.update(sha256_hex(&raw).as_bytes());
+    }
+    Ok(())
+}
+
+fn collect_markdown_paths(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), KernelError> {
+    for entry in fs::read_dir(dir)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", dir.display())))?
+    {
+        let entry = entry.map_err(|e| KernelError::InitFailed(e.to_string()))?;
+        let path = entry.path();
+        let name = entry.file_name();
+        if name.to_string_lossy().starts_with('.') {
+            continue;
+        }
+        if path.is_dir() {
+            collect_markdown_paths(&path, out)?;
+        } else if path.extension().and_then(|value| value.to_str()) == Some("md") {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn session_turn_files(paths: &AllbertPaths) -> Result<Vec<PathBuf>, KernelError> {
+    if !paths.sessions.exists() {
+        return Ok(Vec::new());
+    }
+    let mut files = Vec::new();
+    for entry in fs::read_dir(&paths.sessions)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", paths.sessions.display())))?
+    {
+        let entry = entry.map_err(|e| KernelError::InitFailed(e.to_string()))?;
+        let path = entry.path();
+        let name = entry.file_name();
+        if name.to_string_lossy().starts_with('.') || !path.is_dir() {
+            continue;
+        }
+        let turns = path.join("turns.md");
+        if turns.exists() {
+            files.push(turns);
+        }
+    }
+    files.sort();
+    Ok(files)
+}
+
+fn collect_episode_docs(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+) -> Result<Vec<EpisodeDoc>, KernelError> {
+    if !config.episodes.enabled {
+        return Ok(Vec::new());
+    }
+    let mut docs = Vec::new();
+    for turns in session_turn_files(paths)? {
+        let session_id = turns
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(|value| value.to_str())
+            .unwrap_or("unknown-session")
+            .to_string();
+        let raw = fs::read_to_string(&turns)
+            .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", turns.display())))?;
+        let channel = extract_journal_channel(&raw);
+        let source_path = turns
+            .strip_prefix(&paths.sessions)
+            .unwrap_or(&turns)
+            .to_string_lossy()
+            .replace('\\', "/");
+        docs.extend(parse_episode_docs_from_journal(
+            &session_id,
+            &channel,
+            &source_path,
+            &raw,
+            file_timestamp_secs(&turns),
+            config.max_journal_tool_output_bytes,
+        ));
+    }
+    Ok(docs)
+}
+
+fn parse_episode_docs_from_journal(
+    session_id: &str,
+    default_channel: &str,
+    source_path: &str,
+    raw: &str,
+    fallback_timestamp_secs: i64,
+    max_body_bytes: usize,
+) -> Vec<EpisodeDoc> {
+    let mut docs = Vec::new();
+    let mut turn_ordinal = 0usize;
+    let mut timestamp_secs = fallback_timestamp_secs;
+    let mut role: Option<String> = None;
+    let mut body = String::new();
+    let mut turn_id = String::from("turn-0");
+    let mut channel = default_channel.to_string();
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("## ") {
+            let ctx = EpisodeDocContext {
+                session_id,
+                channel: &channel,
+                source_path,
+                max_body_bytes,
+            };
+            push_episode_doc(
+                &mut docs,
+                &ctx,
+                &turn_id,
+                role.take(),
+                timestamp_secs,
+                &mut body,
+            );
+            turn_ordinal += 1;
+            turn_id = format!("turn-{turn_ordinal}");
+            timestamp_secs = OffsetDateTime::parse(rest.trim(), &Rfc3339)
+                .map(|value| value.unix_timestamp())
+                .unwrap_or(fallback_timestamp_secs);
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("- channel:") {
+            channel = rest.trim().to_ascii_lowercase();
+            continue;
+        }
+        if trimmed == "### user" || trimmed == "### assistant" {
+            let ctx = EpisodeDocContext {
+                session_id,
+                channel: &channel,
+                source_path,
+                max_body_bytes,
+            };
+            push_episode_doc(
+                &mut docs,
+                &ctx,
+                &turn_id,
+                role.take(),
+                timestamp_secs,
+                &mut body,
+            );
+            role = Some(trimmed.trim_start_matches("### ").to_string());
+            continue;
+        }
+        if trimmed.starts_with("### ") {
+            let ctx = EpisodeDocContext {
+                session_id,
+                channel: &channel,
+                source_path,
+                max_body_bytes,
+            };
+            push_episode_doc(
+                &mut docs,
+                &ctx,
+                &turn_id,
+                role.take(),
+                timestamp_secs,
+                &mut body,
+            );
+            continue;
+        }
+        if role.is_some() {
+            body.push_str(line);
+            body.push('\n');
+        }
+    }
+    let ctx = EpisodeDocContext {
+        session_id,
+        channel: &channel,
+        source_path,
+        max_body_bytes,
+    };
+    push_episode_doc(
+        &mut docs,
+        &ctx,
+        &turn_id,
+        role.take(),
+        timestamp_secs,
+        &mut body,
+    );
+
+    if docs.is_empty() && !raw.trim().is_empty() {
+        let plain = markdown_to_plain_text(raw);
+        let body = truncate_to_bytes(plain.trim(), max_body_bytes.max(512));
+        let id = format!(
+            "episode:{}",
+            sha256_hex(format!("{session_id}:session:{body}").as_bytes())
+        );
+        docs.push(EpisodeDoc {
+            id,
+            path: format!("sessions/{source_path}#session"),
+            title: format!("Session {session_id} summary"),
+            body,
+            session_id: session_id.into(),
+            turn_id: "session".into(),
+            role: "session".into(),
+            channel,
+            source_path: source_path.into(),
+            timestamp_secs,
+        });
+    }
+    docs
+}
+
+struct EpisodeDocContext<'a> {
+    session_id: &'a str,
+    channel: &'a str,
+    source_path: &'a str,
+    max_body_bytes: usize,
+}
+
+fn push_episode_doc(
+    docs: &mut Vec<EpisodeDoc>,
+    ctx: &EpisodeDocContext<'_>,
+    turn_id: &str,
+    role: Option<String>,
+    timestamp_secs: i64,
+    body: &mut String,
+) {
+    let Some(role) = role else {
+        body.clear();
+        return;
+    };
+    let plain = markdown_to_plain_text(body);
+    let trimmed = plain.trim();
+    if trimmed.is_empty() {
+        body.clear();
+        return;
+    }
+    let rendered_body = truncate_to_bytes(trimmed, ctx.max_body_bytes.max(512));
+    let id = format!(
+        "episode:{}",
+        sha256_hex(format!("{}:{turn_id}:{role}:{rendered_body}", ctx.session_id).as_bytes())
+    );
+    let index = docs.len() + 1;
+    docs.push(EpisodeDoc {
+        id,
+        path: format!("sessions/{}#{turn_id}-{role}-{index}", ctx.source_path),
+        title: format!("Session {} {turn_id} {role}", ctx.session_id),
+        body: rendered_body,
+        session_id: ctx.session_id.into(),
+        turn_id: turn_id.into(),
+        role,
+        channel: ctx.channel.into(),
+        source_path: ctx.source_path.into(),
+        timestamp_secs,
+    });
+    body.clear();
+}
+
+fn extract_journal_channel(raw: &str) -> String {
+    raw.lines()
+        .find_map(|line| {
+            line.trim()
+                .strip_prefix("- channel:")
+                .map(str::trim)
+                .map(|value| value.trim_matches('"').to_ascii_lowercase())
+        })
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "unknown".into())
+}
+
+fn durable_fact_count(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    manifest: &MemoryManifest,
+) -> Result<usize, KernelError> {
+    if !config.facts.enabled {
+        return Ok(0);
+    }
+    let mut count = 0usize;
+    for entry in &manifest.documents {
+        count += durable_facts_for_entry(paths, entry)?.len();
+    }
+    Ok(count)
+}
+
+fn durable_superseded_fact_ids(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    manifest: &MemoryManifest,
+) -> Result<BTreeSet<String>, KernelError> {
+    if !config.facts.enabled {
+        return Ok(BTreeSet::new());
+    }
+    let mut ids = BTreeSet::new();
+    for entry in &manifest.documents {
+        for fact in durable_facts_for_entry(paths, entry)? {
+            ids.extend(
+                fact.supersedes
+                    .into_iter()
+                    .filter(|value| !value.is_empty()),
+            );
+        }
+    }
+    Ok(ids)
+}
+
+fn durable_facts_for_entry(
+    paths: &AllbertPaths,
+    entry: &MemoryManifestEntry,
+) -> Result<Vec<MemoryFact>, KernelError> {
+    let full_path = paths.memory.join(&entry.path);
+    let raw = fs::read_to_string(&full_path)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", full_path.display())))?;
+    let (frontmatter_raw, _) = split_frontmatter_and_body(&raw);
+    if frontmatter_raw.is_empty() {
+        return Ok(Vec::new());
+    }
+    let frontmatter: DurableFrontmatter = serde_yaml::from_str(frontmatter_raw).map_err(|e| {
+        KernelError::InitFailed(format!("parse {} frontmatter: {e}", full_path.display()))
+    })?;
+    normalize_facts(frontmatter.facts, usize::MAX)
+}
+
+fn normalize_facts(
+    facts: Vec<MemoryFact>,
+    max_facts: usize,
+) -> Result<Vec<MemoryFact>, KernelError> {
+    if facts.len() > max_facts {
+        return Err(KernelError::InitFailed(format!(
+            "memory facts cap exceeded: {} facts > max_facts_per_entry {}",
+            facts.len(),
+            max_facts
+        )));
+    }
+    let mut normalized = Vec::with_capacity(facts.len());
+    for mut fact in facts {
+        fact.id = fact.id.trim().to_string();
+        fact.subject = fact.subject.trim().to_string();
+        fact.predicate = fact.predicate.trim().to_string();
+        fact.object = fact.object.trim().to_string();
+        fact.supersedes = fact
+            .supersedes
+            .into_iter()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .collect();
+        if fact.subject.is_empty() || fact.predicate.is_empty() || fact.object.is_empty() {
+            return Err(KernelError::InitFailed(
+                "memory facts require non-empty subject, predicate, and object".into(),
+            ));
+        }
+        if fact.id.is_empty() {
+            fact.id = format!(
+                "fact_{}",
+                &sha256_hex(
+                    format!("{}:{}:{}", fact.subject, fact.predicate, fact.object).as_bytes()
+                )[..12]
+            );
+        }
+        normalized.push(fact);
+    }
+    Ok(normalized)
+}
+
 fn maybe_rebuild_index(
     paths: &AllbertPaths,
+    config: &MemoryConfig,
     manifest: &MemoryManifest,
     force: bool,
     explicit_reason: Option<&str>,
 ) -> Result<Option<RebuildIndexReport>, KernelError> {
-    let manifest_hash = manifest_hash(manifest)?;
+    let manifest_hash = index_source_hash(paths, config, manifest)?;
+    let expected_doc_count = expected_index_doc_count(paths, config, manifest)?;
     let meta = load_index_meta(paths).ok();
     let reason = if force {
         Some(explicit_reason.unwrap_or("force").to_string())
@@ -1219,8 +1730,8 @@ fn maybe_rebuild_index(
         if meta.schema_version != INDEX_SCHEMA_VERSION {
             Some("schema-version".into())
         } else if meta.manifest_hash != manifest_hash {
-            Some("manifest-changed".into())
-        } else if meta.doc_count != manifest.documents.len() {
+            Some("memory-sources-changed".into())
+        } else if meta.doc_count != expected_doc_count {
             Some("doc-count-drift".into())
         } else {
             None
@@ -1228,7 +1739,7 @@ fn maybe_rebuild_index(
     };
 
     if let Some(reason) = reason {
-        Ok(Some(rebuild_index(paths, manifest, &reason)?))
+        Ok(Some(rebuild_index(paths, config, manifest, &reason)?))
     } else {
         Ok(None)
     }
@@ -1236,6 +1747,7 @@ fn maybe_rebuild_index(
 
 fn rebuild_index(
     paths: &AllbertPaths,
+    config: &MemoryConfig,
     manifest: &MemoryManifest,
     reason: &str,
 ) -> Result<RebuildIndexReport, KernelError> {
@@ -1297,11 +1809,34 @@ fn rebuild_index(
     let tags_f = schema.get_field("tags").expect("tags field");
     let tier_f = schema.get_field("tier").expect("tier field");
     let date_f = schema.get_field("date").expect("date field");
+    let source_kind_f = schema.get_field("source_kind").expect("source_kind field");
+    let source_f = schema.get_field("source").expect("source field");
+    let session_id_f = schema.get_field("session_id").expect("session_id field");
+    let turn_id_f = schema.get_field("turn_id").expect("turn_id field");
+    let role_f = schema.get_field("role").expect("role field");
+    let channel_f = schema.get_field("channel").expect("channel field");
+    let fact_subject_f = schema
+        .get_field("fact_subject")
+        .expect("fact_subject field");
+    let fact_predicate_f = schema
+        .get_field("fact_predicate")
+        .expect("fact_predicate field");
+    let fact_object_f = schema.get_field("fact_object").expect("fact_object field");
+    let valid_from_f = schema.get_field("valid_from").expect("valid_from field");
+    let valid_until_f = schema.get_field("valid_until").expect("valid_until field");
+    let superseded_f = schema.get_field("superseded").expect("superseded field");
+    let mut doc_count = 0usize;
+    let superseded_fact_ids = durable_superseded_fact_ids(paths, config, manifest)?;
 
     for entry in &manifest.documents {
         let full_path = paths.memory.join(&entry.path);
         let raw = fs::read_to_string(&full_path).unwrap_or_default();
-        let body = markdown_to_plain_text(&raw);
+        let (_, body_markdown) = split_frontmatter_and_body(&raw);
+        let body = markdown_to_plain_text(&body_markdown);
+        let source = json!({
+            "kind": "durable_memory",
+            "id": entry.path.clone(),
+        });
         writer
             .add_document(doc!(
                 id_f => entry.content_hash.clone(),
@@ -1310,11 +1845,52 @@ fn rebuild_index(
                 body_f => body,
                 tags_f => entry.tags.clone().join(","),
                 tier_f => "durable",
+                source_kind_f => "durable_memory",
+                source_f => serde_json::to_string(&source).unwrap_or_else(|_| "{}".into()),
                 date_f => tantivy::DateTime::from_timestamp_secs(file_timestamp_secs(&full_path)),
             ))
             .map_err(|e| {
                 KernelError::InitFailed(format!("index document {}: {e}", full_path.display()))
             })?;
+        doc_count += 1;
+
+        if config.facts.enabled {
+            for fact in durable_facts_for_entry(paths, entry)? {
+                let source = json!({
+                    "kind": "durable_memory",
+                    "id": entry.path.clone(),
+                    "fact_id": fact.id.clone(),
+                });
+                let fact_body = format!("{} {} {}", fact.subject, fact.predicate, fact.object);
+                let superseded = superseded_fact_ids.contains(&fact.id);
+                writer
+                    .add_document(doc!(
+                        id_f => format!("fact:{}", fact.id),
+                        path_f => format!("{}#fact-{}", entry.path, slugify(&fact.id)),
+                        title_f => format!("Fact: {} {} {}", fact.subject, fact.predicate, fact.object),
+                        body_f => fact_body,
+                        tags_f => entry.tags.clone().join(","),
+                        tier_f => "fact",
+                        source_kind_f => "durable_memory",
+                        source_f => serde_json::to_string(&source).unwrap_or_else(|_| "{}".into()),
+                        fact_subject_f => fact.subject.clone(),
+                        fact_predicate_f => fact.predicate.clone(),
+                        fact_object_f => fact.object.clone(),
+                        valid_from_f => fact.valid_from.clone().unwrap_or_default(),
+                        valid_until_f => fact.valid_until.clone().unwrap_or_default(),
+                        superseded_f => superseded.to_string(),
+                        date_f => tantivy::DateTime::from_timestamp_secs(file_timestamp_secs(&full_path)),
+                    ))
+                    .map_err(|e| {
+                        KernelError::InitFailed(format!(
+                            "index fact {} from {}: {e}",
+                            fact.id,
+                            full_path.display()
+                        ))
+                    })?;
+                doc_count += 1;
+            }
+        }
     }
 
     for staged in list_staging_entries(&paths.memory_staging)? {
@@ -1335,11 +1911,48 @@ fn rebuild_index(
                 body_f => markdown_to_plain_text(&body_markdown),
                 tags_f => frontmatter.kind.unwrap_or_else(|| "unknown".into()),
                 tier_f => "staging",
+                source_kind_f => "staged_memory",
+                source_f => serde_json::to_string(&json!({"kind": "staged_memory"})).unwrap_or_else(|_| "{}".into()),
                 date_f => tantivy::DateTime::from_timestamp_secs(file_timestamp_secs(&staged)),
             ))
             .map_err(|e| {
                 KernelError::InitFailed(format!("index staged entry {}: {e}", staged.display()))
             })?;
+        doc_count += 1;
+    }
+
+    if config.episodes.enabled {
+        for episode in collect_episode_docs(paths, config)? {
+            let source = json!({
+                "kind": "session_working_history",
+                "session_id": episode.session_id.clone(),
+                "turn_id": episode.turn_id.clone(),
+                "path": episode.source_path.clone(),
+            });
+            writer
+                .add_document(doc!(
+                    id_f => episode.id.clone(),
+                    path_f => episode.path.clone(),
+                    title_f => episode.title.clone(),
+                    body_f => episode.body.clone(),
+                    tags_f => "episode",
+                    tier_f => "episode",
+                    source_kind_f => "session_working_history",
+                    source_f => serde_json::to_string(&source).unwrap_or_else(|_| "{}".into()),
+                    session_id_f => episode.session_id.clone(),
+                    turn_id_f => episode.turn_id.clone(),
+                    role_f => episode.role.clone(),
+                    channel_f => episode.channel.clone(),
+                    date_f => tantivy::DateTime::from_timestamp_secs(episode.timestamp_secs),
+                ))
+                .map_err(|e| {
+                    KernelError::InitFailed(format!(
+                        "index session episode {}: {e}",
+                        episode.source_path
+                    ))
+                })?;
+            doc_count += 1;
+        }
     }
 
     writer
@@ -1352,8 +1965,8 @@ fn rebuild_index(
         tantivy_version: TANTIVY_VERSION.into(),
         last_rebuild_at: now_rfc3339()?,
         last_rebuild_reason: reason.into(),
-        doc_count: manifest.documents.len(),
-        manifest_hash: manifest_hash(manifest)?,
+        doc_count,
+        manifest_hash: index_source_hash(paths, config, manifest)?,
         elapsed_ms,
     };
     write_index_meta(paths, &meta)?;
@@ -1622,6 +2235,7 @@ fn parse_staged_record(
         source: frontmatter.source.unwrap_or_else(|| "unknown".into()),
         provenance: frontmatter.provenance,
         tags: frontmatter.tags.unwrap_or_default(),
+        facts: frontmatter.facts,
         fingerprint: frontmatter.fingerprint.unwrap_or_default(),
         created_at: frontmatter
             .created_at
@@ -1688,6 +2302,51 @@ fn find_staged_entry_by_id(dir: &Path, id: &str) -> Result<Option<PathBuf>, Kern
         }
     }
     Ok(None)
+}
+
+fn render_promoted_durable_note(
+    preview: &MemoryPromotionPreview,
+    record: &StagedMemoryRecord,
+    frontmatter: &StageFrontmatter,
+) -> Result<String, KernelError> {
+    let mut durable = frontmatter.extra.clone();
+    durable.insert("summary".into(), JsonValue::String(preview.summary.clone()));
+    if !record.tags.is_empty() {
+        durable.insert(
+            "tags".into(),
+            serde_json::to_value(&record.tags)
+                .map_err(|e| KernelError::InitFailed(format!("serialize tags: {e}")))?,
+        );
+    }
+    if !record.facts.is_empty() {
+        durable.insert(
+            "facts".into(),
+            serde_json::to_value(&record.facts)
+                .map_err(|e| KernelError::InitFailed(format!("serialize facts: {e}")))?,
+        );
+    }
+    if let Some(provenance) = &record.provenance {
+        durable.insert("provenance".into(), provenance.clone());
+    }
+    durable.insert(
+        "source".into(),
+        json!({
+            "kind": "staged_memory",
+            "id": record.id.clone(),
+            "agent": record.agent.clone(),
+            "session_id": record.session_id.clone(),
+            "turn_id": record.turn_id.clone(),
+            "promoted_at": now_rfc3339()?,
+        }),
+    );
+
+    let title_and_body = format!("# {}\n\n{}\n", preview.title.trim(), record.body.trim());
+    if durable.is_empty() {
+        return Ok(title_and_body);
+    }
+    let yaml = serde_yaml::to_string(&durable)
+        .map_err(|e| KernelError::InitFailed(format!("serialize durable frontmatter: {e}")))?;
+    Ok(format!("---\n{}---\n\n{}", yaml, title_and_body))
 }
 
 fn sanitize_promote_relative_path(input: &str) -> Result<String, KernelError> {
@@ -1792,18 +2451,6 @@ fn sanitize_query(input: &str) -> String {
     } else {
         parts.join(" ")
     }
-}
-
-fn excerpt_for_relative_path(
-    paths: &AllbertPaths,
-    relative: &str,
-    query: &str,
-    max_chars: usize,
-) -> String {
-    let full = paths.memory.join(relative);
-    let raw = fs::read_to_string(&full).unwrap_or_default();
-    let plain = markdown_to_plain_text(&raw);
-    make_excerpt(&plain, query, max_chars)
 }
 
 fn make_excerpt(text: &str, query: &str, max_chars: usize) -> String {
@@ -1944,9 +2591,21 @@ fn build_schema() -> Schema {
     builder.add_text_field("id", STRING | STORED);
     builder.add_text_field("path", STRING | STORED);
     builder.add_text_field("title", TEXT | STORED);
-    builder.add_text_field("body", TEXT);
+    builder.add_text_field("body", TEXT | STORED);
     builder.add_text_field("tags", STRING | STORED);
     builder.add_text_field("tier", STRING | STORED);
+    builder.add_text_field("source_kind", STRING | STORED);
+    builder.add_text_field("source", STRING | STORED);
+    builder.add_text_field("session_id", STRING | STORED);
+    builder.add_text_field("turn_id", STRING | STORED);
+    builder.add_text_field("role", STRING | STORED);
+    builder.add_text_field("channel", STRING | STORED);
+    builder.add_text_field("fact_subject", TEXT | STORED);
+    builder.add_text_field("fact_predicate", STRING | STORED);
+    builder.add_text_field("fact_object", TEXT | STORED);
+    builder.add_text_field("valid_from", STRING | STORED);
+    builder.add_text_field("valid_until", STRING | STORED);
+    builder.add_text_field("superseded", STRING | STORED);
     builder.add_date_field("date", INDEXED | STORED);
     builder.build()
 }
@@ -1968,7 +2627,13 @@ fn markdown_to_plain_text(markdown: &str) -> String {
 }
 
 fn derive_title(raw: &str, path: &Path) -> String {
-    for line in raw.lines() {
+    let (_, body) = split_frontmatter_and_body(raw);
+    let title_source = if raw.starts_with("---\n") {
+        body.as_str()
+    } else {
+        raw
+    };
+    for line in title_source.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
@@ -2220,6 +2885,7 @@ mod tests {
                 tags: vec!["postgres".into()],
                 provenance: None,
                 fingerprint_basis: None,
+                facts: Vec::new(),
             },
         )
         .unwrap();
@@ -2231,6 +2897,7 @@ mod tests {
                 query: "Postgres".into(),
                 tier: MemoryTier::Durable,
                 limit: Some(5),
+                include_superseded: false,
             },
         )
         .unwrap();
@@ -2245,6 +2912,7 @@ mod tests {
                 query: "maintenance".into(),
                 tier: MemoryTier::Staging,
                 limit: Some(5),
+                include_superseded: false,
             },
         )
         .unwrap();
@@ -2273,6 +2941,7 @@ mod tests {
                 tags: vec!["postgres".into(), "database".into()],
                 provenance: None,
                 fingerprint_basis: None,
+                facts: Vec::new(),
             },
         )
         .unwrap();
@@ -2297,6 +2966,7 @@ mod tests {
                 query: "production database".into(),
                 tier: MemoryTier::Durable,
                 limit: Some(5),
+                include_superseded: false,
             },
         )
         .unwrap();
@@ -2323,6 +2993,7 @@ mod tests {
                 tags: vec![],
                 provenance: None,
                 fingerprint_basis: None,
+                facts: Vec::new(),
             },
         )
         .unwrap();
@@ -2341,10 +3012,239 @@ mod tests {
                 query: "Temporary false note".into(),
                 tier: MemoryTier::Staging,
                 limit: Some(5),
+                include_superseded: false,
             },
         )
         .unwrap();
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn episode_journal_indexes_search_and_removes_on_rebuild() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let session_dir = paths.sessions.join("episode-session");
+        fs::create_dir_all(&session_dir).unwrap();
+        fs::write(
+            session_dir.join("turns.md"),
+            "# Session episode-session\n\n- channel: cli\n- started_at: 2026-04-20T00:00:00Z\n\n## 2026-04-20T01:02:03Z\n- channel: cli\n- cost_delta_usd: 0.000000\n\n### user\n\nPlease remember the blue notebook lives on shelf seven.\n\n### assistant\n\nI noted the shelf-seven notebook detail as working history.\n",
+        )
+        .unwrap();
+
+        bootstrap_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+        let hits = search_memory(
+            &paths,
+            &MemoryConfig::default(),
+            SearchMemoryInput {
+                query: "blue notebook".into(),
+                tier: MemoryTier::Episode,
+                limit: Some(5),
+                include_superseded: false,
+            },
+        )
+        .unwrap();
+        assert!(!hits.is_empty());
+        assert!(hits.iter().all(|hit| hit.tier == "episode"));
+        assert_eq!(
+            hits[0]
+                .source
+                .as_ref()
+                .and_then(|source| source.get("kind"))
+                .and_then(JsonValue::as_str),
+            Some("session_working_history")
+        );
+
+        let prefetch = build_turn_memory_snapshot(
+            &paths,
+            &MemoryConfig::default(),
+            "",
+            Some("blue notebook"),
+            5,
+        )
+        .unwrap();
+        assert!(
+            prefetch.prefetch_hits.is_empty(),
+            "durable prefetch must not inject episode working history by default"
+        );
+
+        fs::remove_dir_all(&session_dir).unwrap();
+        rebuild_memory_index(&paths, &MemoryConfig::default(), true).unwrap();
+        let removed = search_memory(
+            &paths,
+            &MemoryConfig::default(),
+            SearchMemoryInput {
+                query: "blue notebook".into(),
+                tier: MemoryTier::Episode,
+                limit: Some(5),
+                include_superseded: false,
+            },
+        )
+        .unwrap();
+        assert!(removed.is_empty());
+    }
+
+    #[test]
+    fn fact_metadata_roundtrips_promotes_and_indexes_only_after_review() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        bootstrap_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+        let fact = MemoryFact {
+            id: "fact_primary_database".into(),
+            subject: "Allbert production database".into(),
+            predicate: "uses".into(),
+            object: "Postgres".into(),
+            valid_from: Some("2026-04-20T00:00:00Z".into()),
+            valid_until: None,
+            supersedes: Vec::new(),
+            source: Some(json!({"kind": "operator_review"})),
+        };
+        let staged = stage_memory(
+            &paths,
+            &MemoryConfig::default(),
+            StageMemoryRequest {
+                session_id: "fact-session".into(),
+                turn_id: "turn-1".into(),
+                agent: "allbert/root".into(),
+                source: "channel".into(),
+                content: "We use Postgres for production data.".into(),
+                kind: StagedMemoryKind::LearnedFact,
+                summary: "Production database fact".into(),
+                tags: vec!["database".into()],
+                provenance: None,
+                fingerprint_basis: None,
+                facts: vec![fact],
+            },
+        )
+        .unwrap();
+        assert_eq!(staged.facts.len(), 1);
+
+        let staged_fact_hits = search_memory(
+            &paths,
+            &MemoryConfig::default(),
+            SearchMemoryInput {
+                query: "Postgres".into(),
+                tier: MemoryTier::Fact,
+                limit: Some(5),
+                include_superseded: false,
+            },
+        )
+        .unwrap();
+        assert!(
+            staged_fact_hits.is_empty(),
+            "staged facts must not appear as approved fact-tier results"
+        );
+
+        let preview = preview_promote_staged_memory(
+            &paths,
+            &MemoryConfig::default(),
+            &staged.id,
+            Some("notes/facts/production-db.md"),
+            None,
+        )
+        .unwrap();
+        promote_staged_memory(&paths, &MemoryConfig::default(), &preview).unwrap();
+        let durable =
+            fs::read_to_string(paths.memory.join("notes/facts/production-db.md")).unwrap();
+        assert!(durable.contains("facts:"));
+        assert!(durable.contains("fact_primary_database"));
+
+        let fact_hits = search_memory(
+            &paths,
+            &MemoryConfig::default(),
+            SearchMemoryInput {
+                query: "Postgres".into(),
+                tier: MemoryTier::Fact,
+                limit: Some(5),
+                include_superseded: false,
+            },
+        )
+        .unwrap();
+        assert_eq!(fact_hits.len(), 1);
+        assert_eq!(fact_hits[0].tier, "fact");
+        assert_eq!(
+            fact_hits[0]
+                .source
+                .as_ref()
+                .and_then(|source| source.get("kind"))
+                .and_then(JsonValue::as_str),
+            Some("durable_memory")
+        );
+    }
+
+    #[test]
+    fn fact_cap_and_superseded_filter_are_enforced() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let mut config = MemoryConfig::default();
+        config.facts.max_facts_per_entry = 1;
+        bootstrap_curated_memory(&paths, &config).unwrap();
+        let err = stage_memory(
+            &paths,
+            &config,
+            StageMemoryRequest {
+                session_id: "fact-session".into(),
+                turn_id: "turn-2".into(),
+                agent: "allbert/root".into(),
+                source: "channel".into(),
+                content: "Two facts are too many for this profile.".into(),
+                kind: StagedMemoryKind::LearnedFact,
+                summary: "Too many facts".into(),
+                tags: vec![],
+                provenance: None,
+                fingerprint_basis: None,
+                facts: vec![
+                    MemoryFact {
+                        subject: "A".into(),
+                        predicate: "is".into(),
+                        object: "one".into(),
+                        ..MemoryFact::default()
+                    },
+                    MemoryFact {
+                        subject: "B".into(),
+                        predicate: "is".into(),
+                        object: "two".into(),
+                        ..MemoryFact::default()
+                    },
+                ],
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("facts cap exceeded"));
+
+        fs::create_dir_all(paths.memory_notes.join("facts")).unwrap();
+        fs::write(
+            paths.memory_notes.join("facts/supersession.md"),
+            "---\nfacts:\n  - id: old_fact\n    subject: Preferred local database\n    predicate: was\n    object: SQLite\n  - id: new_fact\n    subject: Preferred local database\n    predicate: is\n    object: Postgres\n    supersedes:\n      - old_fact\n---\n\n# Preferred local database\n\nPostgres supersedes SQLite.\n",
+        )
+        .unwrap();
+        rebuild_memory_index(&paths, &MemoryConfig::default(), true).unwrap();
+        let current_only = search_memory(
+            &paths,
+            &MemoryConfig::default(),
+            SearchMemoryInput {
+                query: "SQLite".into(),
+                tier: MemoryTier::Fact,
+                limit: Some(5),
+                include_superseded: false,
+            },
+        )
+        .unwrap();
+        assert!(current_only.is_empty());
+        let with_superseded = search_memory(
+            &paths,
+            &MemoryConfig::default(),
+            SearchMemoryInput {
+                query: "SQLite".into(),
+                tier: MemoryTier::Fact,
+                limit: Some(5),
+                include_superseded: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(with_superseded.len(), 1);
     }
 
     #[test]
@@ -2364,6 +3264,7 @@ mod tests {
             tags: vec!["postgres".into()],
             provenance: None,
             fingerprint_basis: None,
+            facts: Vec::new(),
         };
         stage_memory(&paths, &MemoryConfig::default(), request.clone()).unwrap();
         let err = stage_memory(&paths, &MemoryConfig::default(), request).unwrap_err();
@@ -2387,6 +3288,7 @@ mod tests {
             tags: vec!["research".into()],
             provenance: Some(json!({"source_url": "https://example.com/article"})),
             fingerprint_basis: Some("Remember this article\nhttps://example.com/article".into()),
+            facts: Vec::new(),
         };
         stage_memory(&paths, &MemoryConfig::default(), request.clone()).unwrap();
 

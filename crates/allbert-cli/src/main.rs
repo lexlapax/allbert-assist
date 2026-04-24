@@ -151,6 +151,8 @@ enum IdentityCommand {
 enum MemoryCommand {
     /// Show curated-memory status for the current profile.
     Status,
+    /// Show indexed durable, staged, episode, and fact memory counts.
+    Stats,
     /// Verify manifest/index reconciliation for the current profile.
     Verify,
     /// Search curated memory.
@@ -648,6 +650,10 @@ async fn run_memory_command(
         MemoryCommand::Status => {
             let daemon_active = DaemonClient::connect(paths, ClientKind::Cli).await.is_ok();
             println!("{}", memory_cli::status(paths, config, daemon_active)?);
+            Ok(())
+        }
+        MemoryCommand::Stats => {
+            println!("{}", memory_cli::stats(paths, config)?);
             Ok(())
         }
         MemoryCommand::Verify => {

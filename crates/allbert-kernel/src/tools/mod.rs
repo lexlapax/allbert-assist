@@ -626,8 +626,9 @@ impl Tool for SearchMemoryTool {
             "required": ["query"],
             "properties": {
                 "query": {"type": "string"},
-                "tier": {"enum": ["durable", "staging", "all"]},
-                "limit": {"type": "integer", "minimum": 1}
+                "tier": {"enum": ["durable", "staging", "episode", "fact", "all"]},
+                "limit": {"type": "integer", "minimum": 1},
+                "include_superseded": {"type": "boolean"}
             }
         })
     }
@@ -655,10 +656,27 @@ impl Tool for StageMemoryTool {
             "required": ["content", "kind", "summary"],
             "properties": {
                 "content": {"type": "string"},
-                "kind": {"enum": ["explicit_request", "learned_fact", "job_summary", "subagent_result", "curator_extraction"]},
+                "kind": {"enum": ["explicit_request", "learned_fact", "job_summary", "subagent_result", "curator_extraction", "research"]},
                 "summary": {"type": "string"},
                 "tags": {"type": "array", "items": {"type": "string"}},
-                "provenance": {}
+                "provenance": {},
+                "facts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["subject", "predicate", "object"],
+                        "properties": {
+                            "id": {"type": "string"},
+                            "subject": {"type": "string"},
+                            "predicate": {"type": "string"},
+                            "object": {"type": "string"},
+                            "valid_from": {"type": "string"},
+                            "valid_until": {"type": "string"},
+                            "supersedes": {"type": "array", "items": {"type": "string"}},
+                            "source": {}
+                        }
+                    }
+                }
             }
         })
     }

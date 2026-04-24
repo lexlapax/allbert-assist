@@ -24,11 +24,17 @@ pub fn status(paths: &AllbertPaths, config: &Config, daemon_active: bool) -> Res
         .map(|seconds| format!("{seconds}s"))
         .unwrap_or_else(|| "unknown".into());
     let last_reconcile = snapshot.last_reconcile_at.unwrap_or_else(|| "never".into());
+    let staged_total: usize = snapshot.staged_counts.values().copied().sum();
+    let indexed_total =
+        snapshot.manifest_docs + staged_total + snapshot.episode_count + snapshot.fact_count;
     Ok(format!(
-        "profile version:            {}\nretriever schema:           {}\nindexed docs:               {}\nstaged entries:             {}\nrejected entries:           {}\nexpired pending:            {}\nmanifest health:            {}\nindex health:               {}\nindex age:                  {}\nlast rebuild reason:        {}\nlast rebuild elapsed:       {} ms\nlast reconcile:             {}\ndaemon reconciliation:      {}",
+        "profile version:            {}\nretriever schema:           {}\nindexed docs:               {}\ndurable docs:               {}\nepisode docs:               {}\nfact docs:                  {}\nstaged entries:             {}\nrejected entries:           {}\nexpired pending:            {}\nmanifest health:            {}\nindex health:               {}\nindex age:                  {}\nlast rebuild reason:        {}\nlast rebuild elapsed:       {} ms\nlast reconcile:             {}\ndaemon reconciliation:      {}",
         snapshot.setup_version,
         snapshot.schema_version,
+        indexed_total,
         snapshot.manifest_docs,
+        snapshot.episode_count,
+        snapshot.fact_count,
         staged,
         snapshot.rejected_count,
         snapshot.expired_pending_count,
@@ -41,6 +47,29 @@ pub fn status(paths: &AllbertPaths, config: &Config, daemon_active: bool) -> Res
         snapshot.last_rebuild_elapsed_ms.unwrap_or_default(),
         last_reconcile,
         if daemon_active { "active" } else { "offline" },
+    ))
+}
+
+pub fn stats(paths: &AllbertPaths, config: &Config) -> Result<String> {
+    let snapshot = memory::memory_status(paths, &config.memory, config.setup.version)?;
+    let staged_total: usize = snapshot.staged_counts.values().copied().sum();
+    let last_rebuild = snapshot
+        .last_rebuild_reason
+        .clone()
+        .unwrap_or_else(|| "unknown".into());
+    let last_reconcile = snapshot.last_reconcile_at.unwrap_or_else(|| "never".into());
+    Ok(format!(
+        "memory stats\nschema: {}\ndurable: {}\nstaged: {}\nepisode: {}\nfact: {}\nrejected: {}\nexpired_pending: {}\nlast_rebuild_reason: {}\nlast_rebuild_elapsed_ms: {}\nlast_reconcile: {}",
+        snapshot.schema_version,
+        snapshot.manifest_docs,
+        staged_total,
+        snapshot.episode_count,
+        snapshot.fact_count,
+        snapshot.rejected_count,
+        snapshot.expired_pending_count,
+        last_rebuild,
+        snapshot.last_rebuild_elapsed_ms.unwrap_or_default(),
+        last_reconcile,
     ))
 }
 
@@ -126,6 +155,7 @@ pub fn search(
             query: query.to_string(),
             tier,
             limit,
+            include_superseded: false,
         },
     )?;
     if format == "json" {
@@ -294,6 +324,8 @@ fn parse_tier(input: &str) -> Result<MemoryTier> {
     match input.trim().to_ascii_lowercase().as_str() {
         "durable" => Ok(MemoryTier::Durable),
         "staging" => Ok(MemoryTier::Staging),
+        "episode" => Ok(MemoryTier::Episode),
+        "fact" => Ok(MemoryTier::Fact),
         "all" => Ok(MemoryTier::All),
         other => Err(anyhow!("unsupported memory tier: {other}")),
     }
@@ -433,6 +465,7 @@ mod tests {
                 tags: vec!["database".into()],
                 provenance: None,
                 fingerprint_basis: None,
+                facts: Vec::new(),
             },
         )
         .expect("staging should succeed")
@@ -520,6 +553,7 @@ mod tests {
                 query: "Cassandra".into(),
                 tier: MemoryTier::Staging,
                 limit: Some(10),
+                include_superseded: false,
             },
         )
         .expect("staging search should succeed");
@@ -535,6 +569,7 @@ mod tests {
                 query: "Postgres".into(),
                 tier: MemoryTier::Durable,
                 limit: Some(10),
+                include_superseded: false,
             },
         )
         .expect("durable search should succeed");

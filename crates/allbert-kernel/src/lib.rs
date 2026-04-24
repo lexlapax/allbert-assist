@@ -60,7 +60,7 @@ pub use intent::Intent;
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
 pub use llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, Usage};
 pub use memory::{
-    MemoryTier, SearchMemoryHit, SearchMemoryInput, StageMemoryInput, StagedMemoryKind,
+    MemoryFact, MemoryTier, SearchMemoryHit, SearchMemoryInput, StageMemoryInput, StagedMemoryKind,
 };
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
@@ -1110,8 +1110,8 @@ impl Kernel {
             staged_count,
             staged_this_turn: self.state.staged_entries_this_turn,
             prefetch_hit_count: self.state.turn_prefetch_hits.len(),
-            episode_count: 0,
-            fact_count: 0,
+            episode_count: snapshot.episode_count,
+            fact_count: snapshot.fact_count,
         })
     }
 
@@ -2545,6 +2545,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             tags: parsed.tags,
             provenance: parsed.provenance,
             fingerprint_basis: parsed.fingerprint_basis,
+            facts: parsed.facts,
         };
         let before_payload = json!({
             "kind": request.kind.as_str(),
@@ -3201,6 +3202,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                     query: keywords.join(" "),
                     tier: MemoryTier::Durable,
                     limit: Some(self.config.memory.max_subagent_snippets),
+                    include_superseded: false,
                 },
             )
             .map_err(|err| format!("failed to search filtered sub-agent memory: {err}"))?;
@@ -6908,6 +6910,7 @@ mod tests {
                 tags: vec!["database".into()],
                 provenance: None,
                 fingerprint_basis: None,
+                facts: Vec::new(),
             },
         )
         .expect("first stage should succeed");
@@ -6925,6 +6928,7 @@ mod tests {
                 tags: vec!["deploy".into()],
                 provenance: None,
                 fingerprint_basis: None,
+                facts: Vec::new(),
             },
         )
         .expect("second stage should succeed");
@@ -6998,6 +7002,7 @@ mod tests {
                 query: "Postgres Fly.io".into(),
                 tier: MemoryTier::Durable,
                 limit: Some(10),
+                include_superseded: false,
             },
         )
         .expect("durable search should succeed");
