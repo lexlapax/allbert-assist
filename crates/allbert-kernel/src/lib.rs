@@ -39,8 +39,9 @@ pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
 pub use events::KernelEvent;
 pub use heartbeat::{
-    load_heartbeat_record, parse_heartbeat_markdown, validate_heartbeat_record, HeartbeatRecord,
-    HeartbeatValidation,
+    check_in_enabled, load_heartbeat_record, parse_heartbeat_markdown, quiet_hours_active,
+    supports_proactive_delivery, validate_heartbeat_record, HeartbeatCheckIn, HeartbeatCheckIns,
+    HeartbeatInboxNag, HeartbeatNagCadence, HeartbeatRecord, HeartbeatValidation,
 };
 pub use hooks::{
     BootstrapContextHook, CostHook, Hook, HookCtx, HookOutcome, HookPoint, MemoryIndexHook,

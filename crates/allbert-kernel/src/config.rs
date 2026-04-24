@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::error::{ConfigError, KernelError};
 use crate::paths::AllbertPaths;
@@ -103,6 +104,7 @@ impl Default for SessionsConfig {
 #[serde(default)]
 pub struct ChannelsConfig {
     pub approval_timeout_s: u64,
+    pub approval_inbox_retention_days: u16,
     pub telegram: TelegramChannelConfig,
 }
 
@@ -124,6 +126,7 @@ impl Default for ChannelsConfig {
     fn default() -> Self {
         Self {
             approval_timeout_s: 3600,
+            approval_inbox_retention_days: 30,
             telegram: TelegramChannelConfig::default(),
         }
     }
@@ -420,7 +423,7 @@ impl Config {
 
     pub fn persist(&self, paths: &AllbertPaths) -> Result<(), KernelError> {
         let rendered = toml::to_string_pretty(self).map_err(ConfigError::from)?;
-        std::fs::write(&paths.config, rendered).map_err(|source| ConfigError::Write {
+        atomic_write(&paths.config, rendered.as_bytes()).map_err(|source| ConfigError::Write {
             path: paths.config.clone(),
             source,
         })?;
@@ -469,6 +472,9 @@ impl Config {
         if self.channels.approval_timeout_s == 0 {
             return Err("channels.approval_timeout_s must be >= 1".into());
         }
+        if self.channels.approval_inbox_retention_days == 0 {
+            return Err("channels.approval_inbox_retention_days must be >= 1".into());
+        }
         if self.channels.telegram.min_interval_ms_per_chat == 0 {
             return Err("channels.telegram.min_interval_ms_per_chat must be >= 1".into());
         }
@@ -477,6 +483,26 @@ impl Config {
         }
         Ok(())
     }
+}
+
+fn atomic_write(path: &std::path::Path, bytes: &[u8]) -> Result<(), std::io::Error> {
+    let Some(parent) = path.parent() else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("path has no parent: {}", path.display()),
+        ));
+    };
+    std::fs::create_dir_all(parent)?;
+    let tmp = parent.join(format!(
+        ".{}.tmp-{}",
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("config"),
+        Uuid::new_v4()
+    ));
+    std::fs::write(&tmp, bytes)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
 }
 
 #[cfg(test)]

@@ -260,6 +260,49 @@ pub struct InputReplyPayload {
     pub response: InputResponsePayload,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InboxQueryPayload {
+    pub identity: Option<String>,
+    pub kind: Option<String>,
+    pub include_resolved: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InboxApprovalPayload {
+    pub id: String,
+    pub session_id: String,
+    pub identity_id: Option<String>,
+    pub channel: ChannelKind,
+    pub sender: String,
+    pub agent: String,
+    pub tool: String,
+    pub request_id: u64,
+    pub kind: String,
+    pub requested_at: String,
+    pub expires_at: String,
+    pub status: String,
+    pub resolved_at: Option<String>,
+    pub resolver: Option<String>,
+    pub reply: Option<String>,
+    pub rendered: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InboxResolvePayload {
+    pub approval_id: String,
+    pub accept: bool,
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InboxResolveResultPayload {
+    pub approval_id: String,
+    pub status: String,
+    pub resumed_live_turn: bool,
+    pub note: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", content = "payload", rename_all = "snake_case")]
 pub enum KernelEventPayload {
@@ -306,6 +349,9 @@ pub enum ClientMessage {
     Status,
     SessionStatus,
     ListSessions,
+    ListInbox(InboxQueryPayload),
+    ShowInboxApproval(String),
+    ResolveInboxApproval(InboxResolvePayload),
     ForgetSession(String),
     RunTurn(TurnRequest),
     ConfirmReply(ConfirmReplyPayload),
@@ -338,6 +384,9 @@ pub enum ServerMessage {
     Status(DaemonStatus),
     SessionStatus(SessionStatus),
     Sessions(Vec<SessionResumeEntry>),
+    InboxApprovals(Vec<InboxApprovalPayload>),
+    InboxApproval(InboxApprovalPayload),
+    InboxResolveResult(InboxResolveResultPayload),
     Event(KernelEventPayload),
     ConfirmRequest(ConfirmRequestPayload),
     InputRequest(InputRequestPayload),

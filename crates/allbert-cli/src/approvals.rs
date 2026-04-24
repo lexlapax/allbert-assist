@@ -2,13 +2,14 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use allbert_kernel::AllbertPaths;
-use allbert_proto::ChannelKind;
+use allbert_proto::{ChannelKind, InboxApprovalPayload, InboxResolveResultPayload};
 use anyhow::{anyhow, Context, Result};
 use gray_matter::engine::YAML;
 use gray_matter::Matter;
 use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ApprovalView {
@@ -72,6 +73,12 @@ pub fn list(paths: &AllbertPaths, json: bool) -> Result<String> {
     approvals.retain(|approval| approval.status == "pending");
     approvals.sort_by(|a, b| b.requested_at.cmp(&a.requested_at));
 
+    render_list_entries(&approvals, json)
+}
+
+pub fn render_list_entries(entries: &[ApprovalView], json: bool) -> Result<String> {
+    let approvals = entries.to_vec();
+
     if json {
         return Ok(serde_json::to_string_pretty(&approvals)?);
     }
@@ -104,6 +111,10 @@ pub fn show(paths: &AllbertPaths, approval_id: &str, json: bool) -> Result<Strin
         .find(|approval| approval.id == approval_id)
         .ok_or_else(|| anyhow!("approval not found: {approval_id}"))?;
 
+    render_show_entry(&approval, json)
+}
+
+pub fn render_show_entry(approval: &ApprovalView, json: bool) -> Result<String> {
     if json {
         return Ok(serde_json::to_string_pretty(&approval)?);
     }
@@ -125,6 +136,14 @@ pub fn show(paths: &AllbertPaths, approval_id: &str, json: bool) -> Result<Strin
         approval.path,
         approval.rendered.trim(),
     ))
+}
+
+pub fn render_resolution(result: &InboxResolveResultPayload) -> String {
+    let mut rendered = format!("{} {}", result.status, result.approval_id);
+    if let Some(note) = &result.note {
+        rendered.push_str(&format!("\n{note}"));
+    }
+    rendered
 }
 
 fn load_all(paths: &AllbertPaths) -> Result<Vec<ApprovalView>> {
@@ -321,7 +340,7 @@ pub fn resolve(
     frontmatter.reply = reason.map(|value| value.to_string());
     let frontmatter = serde_yaml::to_string(&frontmatter)?;
     let rendered = format!("---\n{}---\n\n{}", frontmatter, parsed.content.trim());
-    std::fs::write(path, rendered).with_context(|| format!("write {}", path.display()))?;
+    atomic_write(path, rendered.as_bytes()).with_context(|| format!("write {}", path.display()))?;
     Ok(format!(
         "{} {}",
         if accept { "accepted" } else { "rejected" },
@@ -341,6 +360,46 @@ fn channel_label(kind: ChannelKind) -> &'static str {
         ChannelKind::Repl => "repl",
         ChannelKind::Jobs => "jobs",
         ChannelKind::Telegram => "telegram",
+    }
+}
+
+fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
+    let Some(parent) = path.parent() else {
+        return Err(anyhow!("path has no parent: {}", path.display()));
+    };
+    std::fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
+    let tmp = parent.join(format!(
+        ".{}.tmp-{}",
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("approval"),
+        Uuid::new_v4()
+    ));
+    std::fs::write(&tmp, bytes).with_context(|| format!("write {}", tmp.display()))?;
+    std::fs::rename(&tmp, path)
+        .with_context(|| format!("rename {} -> {}", tmp.display(), path.display()))
+}
+
+impl From<InboxApprovalPayload> for ApprovalView {
+    fn from(value: InboxApprovalPayload) -> Self {
+        Self {
+            id: value.id,
+            session_id: value.session_id,
+            channel: value.channel,
+            sender: value.sender,
+            agent: value.agent,
+            tool: value.tool,
+            request_id: value.request_id,
+            kind: value.kind,
+            requested_at: value.requested_at,
+            expires_at: value.expires_at,
+            status: value.status,
+            resolved_at: value.resolved_at,
+            resolver: value.resolver,
+            reply: value.reply,
+            rendered: value.rendered,
+            path: value.path,
+        }
     }
 }
 

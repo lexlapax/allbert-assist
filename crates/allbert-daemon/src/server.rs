@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -14,6 +14,11 @@ use allbert_channels::{
     ConfirmPrompt,
 };
 use allbert_kernel::{
+    check_in_enabled, ensure_identity_record, load_heartbeat_record, quiet_hours_active,
+    resolve_identity_id_for_sender, supports_proactive_delivery, AllbertPaths, Config,
+    CrossChannelRouting, HeartbeatNagCadence,
+};
+use allbert_kernel::{
     job_manager::JobManager as KernelJobManager,
     llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole},
     llm::{DefaultProviderFactory, ProviderFactory},
@@ -21,16 +26,16 @@ use allbert_kernel::{
     InputRequest, InputResponse, Intent, Kernel, KernelError, KernelEvent, ModelConfig,
     SessionSnapshot, LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
 };
-use allbert_kernel::{resolve_identity_id_for_sender, AllbertPaths, Config, CrossChannelRouting};
 use allbert_proto::{
     AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientMessage,
     ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload, DaemonLockPayload,
-    DaemonStatus, InputReplyPayload, InputRequestPayload, InputResponsePayload, KernelEventPayload,
+    DaemonStatus, InboxApprovalPayload, InboxQueryPayload, InboxResolveResultPayload,
+    InputReplyPayload, InputRequestPayload, InputResponsePayload, KernelEventPayload,
     ModelConfigPayload, ProtocolError, ProviderKind, ServerHello, ServerMessage,
     SessionResumeEntry, SessionStatus, TurnBudgetOverridePayload, TurnResult, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
-use chrono::Utc;
+use chrono::{Datelike, Utc};
 use futures_util::{future::join_all, SinkExt, StreamExt};
 use interprocess::local_socket::{
     prelude::*,
@@ -81,6 +86,11 @@ struct SharedState {
     job_ephemeral_sessions: Arc<Mutex<HashMap<String, Vec<String>>>>,
     job_manager: Arc<Mutex<JobManager>>,
     telegram_status: Arc<TelegramRuntimeStatus>,
+    approval_inbox_retention_days: Arc<AtomicUsize>,
+    inbox_index: Arc<StdMutex<HashMap<String, InboxApprovalPayload>>>,
+    live_approvals: Arc<StdMutex<HashMap<String, LiveApproval>>>,
+    telegram_runtime: Arc<StdMutex<Option<Arc<TelegramRuntime>>>>,
+    heartbeat_runtime: Arc<StdMutex<HeartbeatRuntimeState>>,
     notifications: broadcast::Sender<ServerMessage>,
     tasks: Arc<TaskTracker>,
 }
@@ -213,6 +223,16 @@ enum PendingApprovalKind {
     JobApproval,
 }
 
+impl PendingApprovalKind {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::ToolApproval => "tool-approval",
+            Self::CostCapOverride => "cost-cap-override",
+            Self::JobApproval => "job-approval",
+        }
+    }
+}
+
 fn default_pending_approval_kind() -> PendingApprovalKind {
     PendingApprovalKind::ToolApproval
 }
@@ -223,6 +243,30 @@ struct PendingApprovalRecord {
     rendered: String,
 }
 
+enum LiveApproval {
+    Tool {
+        reply: oneshot::Sender<ConfirmDecisionPayload>,
+    },
+    CostCap {
+        session_id: String,
+        sender_id: String,
+        chat_id: i64,
+        input: String,
+    },
+    JobRetry {
+        job_name: String,
+    },
+}
+
+struct ApprovalResolver {
+    identity_id: Option<String>,
+    resolver_key: String,
+}
+
+struct ApprovalLookup {
+    payload: InboxApprovalPayload,
+}
+
 #[derive(Debug, Clone)]
 struct CompletedTurnRecord {
     user_input: String,
@@ -230,6 +274,11 @@ struct CompletedTurnRecord {
     assistant_text: Option<String>,
     tool_results: Vec<ToolJournalEntry>,
     cost_delta_usd: f64,
+}
+
+#[derive(Default)]
+struct HeartbeatRuntimeState {
+    last_inbox_nag_marker: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -345,6 +394,7 @@ pub async fn spawn_with_factory(
 
     let shutdown = CancellationToken::new();
     let (notifications, _) = broadcast::channel(64);
+    let approval_inbox_retention_days = config.channels.approval_inbox_retention_days as usize;
     let state = SharedState {
         daemon_id: uuid::Uuid::new_v4().to_string(),
         started_at: now_rfc3339()?,
@@ -363,9 +413,15 @@ pub async fn spawn_with_factory(
         job_ephemeral_sessions: Arc::new(Mutex::new(HashMap::new())),
         job_manager: Arc::new(Mutex::new(job_manager)),
         telegram_status: Arc::new(TelegramRuntimeStatus::default()),
+        approval_inbox_retention_days: Arc::new(AtomicUsize::new(approval_inbox_retention_days)),
+        inbox_index: Arc::new(StdMutex::new(HashMap::new())),
+        live_approvals: Arc::new(StdMutex::new(HashMap::new())),
+        telegram_runtime: Arc::new(StdMutex::new(None)),
+        heartbeat_runtime: Arc::new(StdMutex::new(HeartbeatRuntimeState::default())),
         notifications,
         tasks: Arc::new(TaskTracker::new()),
     };
+    rebuild_inbox_index(&state)?;
     append_log_line(
         &state.log_path,
         &format!(
@@ -507,6 +563,7 @@ async fn accept_loop(listener: LocalSocketListener, state: SharedState) -> Resul
                 if defaults.jobs.enabled {
                     let _ = run_due_jobs(&state, &defaults, Utc::now()).await;
                 }
+                let _ = run_heartbeat_tick(&state, Utc::now()).await;
             }
             stream = listener.accept() => {
                 let stream = stream?;
@@ -532,7 +589,7 @@ async fn handle_connection(
     let mut notifications = state.notifications.subscribe();
 
     let hello = recv_client_message(&mut framed).await?;
-    match hello {
+    let client_kind = match hello {
         ClientMessage::Hello(client) => {
             if client.protocol_version != PROTOCOL_VERSION {
                 send_server_message(
@@ -562,6 +619,7 @@ async fn handle_connection(
                 }),
             )
             .await?;
+            client.client_kind
         }
         other => {
             send_server_message(
@@ -574,7 +632,7 @@ async fn handle_connection(
             .await?;
             return Err(DaemonError::Protocol("missing initial hello".into()));
         }
-    }
+    };
 
     let mut attached_session: Option<Arc<SessionHandle>> = None;
 
@@ -677,6 +735,42 @@ async fn handle_connection(
                 let sessions = list_resumable_sessions(&state.paths, &config)?;
                 send_server_message(&mut framed, &ServerMessage::Sessions(sessions)).await?;
             }
+            ClientMessage::ListInbox(query) => {
+                let approvals = list_inbox_entries(&state, query);
+                send_server_message(&mut framed, &ServerMessage::InboxApprovals(approvals)).await?;
+            }
+            ClientMessage::ShowInboxApproval(approval_id) => {
+                match show_inbox_entry(&state, &approval_id)? {
+                    Some(approval) => {
+                        send_server_message(&mut framed, &ServerMessage::InboxApproval(approval))
+                            .await?;
+                    }
+                    None => {
+                        send_server_message(
+                            &mut framed,
+                            &ServerMessage::Error(ProtocolError {
+                                code: "approval_not_found".into(),
+                                message: format!("approval not found: {approval_id}"),
+                            }),
+                        )
+                        .await?;
+                    }
+                }
+            }
+            ClientMessage::ResolveInboxApproval(resolve) => {
+                let resolver =
+                    resolver_for_connection(&state.paths, client_kind, attached_session.as_ref())?;
+                let result = resolve_inbox_approval_for_actor(
+                    &state,
+                    &resolver,
+                    &resolve.approval_id,
+                    resolve.accept,
+                    resolve.reason,
+                )
+                .await?;
+                send_server_message(&mut framed, &ServerMessage::InboxResolveResult(result))
+                    .await?;
+            }
             ClientMessage::ForgetSession(session_id) => {
                 if state.sessions.read().await.contains_key(&session_id) {
                     send_server_message(
@@ -763,7 +857,12 @@ async fn handle_connection(
             ClientMessage::ReloadSessionConfig => {
                 let session = require_session(attached_session.as_ref())?;
                 let reloaded = Config::load_or_create(&state.paths).map_err(map_kernel_error)?;
+                state.approval_inbox_retention_days.store(
+                    reloaded.channels.approval_inbox_retention_days as usize,
+                    Ordering::SeqCst,
+                );
                 *state.default_config.write().await = reloaded.clone();
+                rebuild_inbox_index(&state)?;
                 {
                     let mut manager = state.job_manager.lock().await;
                     manager.reload(&state.paths, &reloaded)?;
@@ -971,11 +1070,142 @@ async fn run_due_jobs(
     defaults: &Config,
     now: chrono::DateTime<Utc>,
 ) -> Result<Vec<allbert_proto::JobRunRecordPayload>, DaemonError> {
-    let planned = {
+    let mut planned = {
         let mut manager = state.job_manager.lock().await;
         manager.plan_due_runs(&state.paths, defaults, now)?
     };
+    let heartbeat = load_heartbeat_record(&state.paths).ok();
+    planned.retain(|definition| match definition.name.as_str() {
+        "daily-brief" | "weekly-review" => heartbeat
+            .as_ref()
+            .map(|record| check_in_enabled(record, &definition.name))
+            .unwrap_or(false),
+        _ => true,
+    });
     execute_planned_jobs(state, defaults, planned).await
+}
+
+async fn run_heartbeat_tick(
+    state: &SharedState,
+    now: chrono::DateTime<Utc>,
+) -> Result<(), DaemonError> {
+    let Ok(record) = load_heartbeat_record(&state.paths) else {
+        return Ok(());
+    };
+    if quiet_hours_active(&record, now) {
+        return Ok(());
+    }
+    if !record.inbox_nag.enabled || matches!(record.inbox_nag.cadence, HeartbeatNagCadence::Off) {
+        return Ok(());
+    }
+    let channel = record.inbox_nag.channel.unwrap_or(record.primary_channel);
+    if !supports_proactive_delivery(channel) || channel != ChannelKind::Telegram {
+        return Ok(());
+    }
+    let Some(identity_id) = local_operator_identity_id(&state.paths)? else {
+        return Ok(());
+    };
+    let approvals = list_inbox_entries(
+        state,
+        InboxQueryPayload {
+            identity: Some(identity_id),
+            kind: None,
+            include_resolved: false,
+        },
+    );
+    if approvals.is_empty() {
+        return Ok(());
+    }
+    let Some(marker) = inbox_nag_marker(&record, now) else {
+        return Ok(());
+    };
+    {
+        let mut heartbeat = state.heartbeat_runtime.lock().unwrap();
+        if heartbeat.last_inbox_nag_marker.as_deref() == Some(marker.as_str()) {
+            return Ok(());
+        }
+        heartbeat.last_inbox_nag_marker = Some(marker);
+    }
+    let Some(chat_id) = heartbeat_telegram_chat_id(&state.paths)? else {
+        return Ok(());
+    };
+    let runtime = { state.telegram_runtime.lock().unwrap().clone() };
+    if let Some(runtime) = runtime {
+        let _ = runtime
+            .send_text(chat_id, render_inbox_nag_message(&approvals))
+            .await?;
+    }
+    Ok(())
+}
+
+fn inbox_nag_marker(
+    record: &allbert_kernel::HeartbeatRecord,
+    now: chrono::DateTime<Utc>,
+) -> Option<String> {
+    let timezone = record.timezone.parse::<chrono_tz::Tz>().ok()?;
+    let local = now.with_timezone(&timezone);
+    let time = record.inbox_nag.time.as_deref()?;
+    let mut pieces = time.split(':');
+    let hour = pieces.next()?.parse::<u32>().ok()?;
+    let minute = pieces.next()?.parse::<u32>().ok()?;
+    let target = chrono::NaiveTime::from_hms_opt(hour, minute, 0)?;
+    if local.time() < target {
+        return None;
+    }
+    match record.inbox_nag.cadence {
+        HeartbeatNagCadence::Daily => Some(format!("daily-{}", local.date_naive())),
+        HeartbeatNagCadence::Weekly => {
+            if local.weekday() != chrono::Weekday::Mon {
+                return None;
+            }
+            let week = local.iso_week();
+            Some(format!("weekly-{}-{}", week.year(), week.week()))
+        }
+        HeartbeatNagCadence::Off => None,
+    }
+}
+
+fn heartbeat_telegram_chat_id(paths: &AllbertPaths) -> Result<Option<i64>, DaemonError> {
+    let record = ensure_identity_record(paths).map_err(map_kernel_error)?;
+    Ok(record
+        .channels
+        .into_iter()
+        .find(|binding| binding.kind == ChannelKind::Telegram)
+        .and_then(|binding| parse_telegram_chat_id(&binding.sender)))
+}
+
+fn parse_telegram_chat_id(sender: &str) -> Option<i64> {
+    let value = sender.strip_prefix("telegram:")?;
+    value.split(':').next()?.parse::<i64>().ok()
+}
+
+fn render_inbox_nag_message(approvals: &[InboxApprovalPayload]) -> String {
+    let mut by_kind = BTreeMap::new();
+    for approval in approvals {
+        *by_kind.entry(approval.kind.as_str()).or_insert(0usize) += 1;
+    }
+    let mut segments = vec![format!(
+        "{} pending approval{}",
+        approvals.len(),
+        if approvals.len() == 1 { "" } else { "s" }
+    )];
+    for (kind, count) in by_kind {
+        let label = match kind {
+            "cost-cap-override" => "cost-cap override",
+            "job-approval" => "job approval",
+            _ => "tool approval",
+        };
+        segments.push(format!(
+            "{} {}{}",
+            count,
+            label,
+            if count == 1 { "" } else { "s" }
+        ));
+    }
+    format!(
+        "Inbox nag: {}. Review with `allbert-cli inbox list`.",
+        segments.join(", ")
+    )
 }
 
 async fn execute_planned_jobs(
@@ -993,8 +1223,20 @@ async fn execute_planned_jobs(
         let provider_factory = state.provider_factory.clone();
         let job_ephemeral_sessions = state.job_ephemeral_sessions.clone();
         let shutdown = state.shutdown.clone();
+        let state = state.clone();
         async move {
             let name = definition.name.clone();
+            let run_id = uuid::Uuid::new_v4().to_string();
+            let session_id = format!("job-{}-{}", definition.name, &run_id[..8]);
+            let adapter = FrontendAdapter {
+                on_event: Box::new(|_| {}),
+                confirm: Arc::new(JobApprovalPrompter {
+                    state: state.clone(),
+                    session_id: session_id.clone(),
+                    job_name: definition.name.clone(),
+                }),
+                input: Arc::new(JobInputCancelPrompter),
+            };
             let record = execute_job(
                 &paths,
                 &defaults,
@@ -1002,6 +1244,9 @@ async fn execute_planned_jobs(
                 job_ephemeral_sessions,
                 shutdown,
                 &definition,
+                run_id,
+                session_id,
+                adapter,
             )
             .await;
             (name, record)
@@ -1126,24 +1371,13 @@ enum TelegramCommand {
     Override(String),
 }
 
-struct PendingApprovalWaiter {
-    sender_id: String,
-    reply: oneshot::Sender<ConfirmDecisionPayload>,
-}
-
-struct PendingCapOverride {
-    session_id: String,
-    input: String,
-}
-
 #[derive(Clone)]
 struct TelegramRuntime {
     state: SharedState,
     api: Arc<dyn TelegramApi>,
     outbound: Arc<TelegramOutboundQueue>,
     allowed_chats: HashSet<i64>,
-    pending_approvals: Arc<StdMutex<HashMap<String, PendingApprovalWaiter>>>,
-    pending_cap_overrides: Arc<StdMutex<HashMap<String, PendingCapOverride>>>,
+    pending_cap_overrides: Arc<StdMutex<HashMap<String, String>>>,
 }
 
 impl TelegramRuntime {
@@ -1479,15 +1713,74 @@ impl TelegramRuntime {
             Err(error) => {
                 let mut message = error.to_string();
                 if message.contains("/cost --override <reason>") {
-                    message = message.replace("/cost --override <reason>", "/override <reason>");
-                    self.send_text(chat_id, message.clone()).await?;
-                    self.pending_cap_overrides.lock().unwrap().insert(
-                        sender_id,
-                        PendingCapOverride {
+                    let approval_id = format!("approval-{}", uuid::Uuid::new_v4().simple());
+                    let approval_timeout_s = self
+                        .state
+                        .default_config
+                        .read()
+                        .await
+                        .channels
+                        .approval_timeout_s;
+                    let expires_at = (OffsetDateTime::now_utc()
+                        + time::Duration::seconds(approval_timeout_s as i64))
+                    .format(&Rfc3339)
+                    .unwrap_or_else(|_| now_rfc3339_fallback());
+                    let record = PendingApprovalRecord {
+                        frontmatter: PendingApprovalFrontmatter {
+                            id: approval_id.clone(),
                             session_id: session.session_id.clone(),
-                            input,
+                            channel: ChannelKind::Telegram,
+                            sender: sender_id.clone(),
+                            agent: "allbert/root".into(),
+                            tool: "daily-cost-cap".into(),
+                            request_id: self.state.next_request.fetch_add(1, Ordering::SeqCst),
+                            requested_at: now_rfc3339_fallback(),
+                            expires_at,
+                            kind: PendingApprovalKind::CostCapOverride,
+                            status: PendingApprovalStatus::Pending,
+                            resolved_at: None,
+                            resolver: None,
+                            reply: None,
                         },
-                    );
+                        rendered: format!("{message}\n\n## Blocked input\n\n{}\n", input.trim()),
+                    };
+                    if write_pending_approval(&self.state.paths, &record).is_ok()
+                        && append_session_pending_approval(
+                            &self.state.paths,
+                            &session.session_id,
+                            &approval_id,
+                        )
+                        .is_ok()
+                    {
+                        let _ = rebuild_inbox_index(&self.state);
+                        self.state.live_approvals.lock().unwrap().insert(
+                            approval_id.clone(),
+                            LiveApproval::CostCap {
+                                session_id: session.session_id.clone(),
+                                sender_id: sender_id.clone(),
+                                chat_id,
+                                input: input.clone(),
+                            },
+                        );
+                        self.pending_cap_overrides
+                            .lock()
+                            .unwrap()
+                            .insert(sender_id.clone(), approval_id.clone());
+                        spawn_passive_approval_timeout(
+                            &self.state,
+                            session.session_id.clone(),
+                            approval_id.clone(),
+                            approval_timeout_s,
+                        );
+                    }
+                    message = message.replace("/cost --override <reason>", "/override <reason>");
+                    self.send_text(
+                        chat_id,
+                        format!(
+                            "{message}\n\nReply `/approve {approval_id}` or `/reject {approval_id}` from any linked surface, or `/override <reason>` here to retry immediately."
+                        ),
+                    )
+                    .await?;
                 } else {
                     self.send_text(chat_id, message).await?;
                 }
@@ -1503,93 +1796,29 @@ impl TelegramRuntime {
         approval_id: &str,
         allow: bool,
     ) -> Result<(), DaemonError> {
-        let decision = if allow {
-            ConfirmDecisionPayload::AllowOnce
-        } else {
-            ConfirmDecisionPayload::Deny
-        };
-        let waiter = {
-            let mut pending = self.pending_approvals.lock().unwrap();
-            pending.remove(approval_id)
-        };
-        if let Some(waiter) = waiter {
-            if waiter.sender_id != sender_id {
-                {
-                    let mut pending = self.pending_approvals.lock().unwrap();
-                    pending.insert(approval_id.to_string(), waiter);
-                }
-                self.send_text(
-                    chat_id,
-                    format!("Approval `{approval_id}` is waiting for the sender who opened it."),
-                )
-                .await?;
-                return Ok(());
-            }
-            let _ = waiter.reply.send(decision);
-            let verb = if allow { "Approved" } else { "Rejected" };
-            self.send_text(chat_id, format!("{verb} `{approval_id}`."))
-                .await?;
-            return Ok(());
-        }
-
-        let Some(record) = load_pending_approval(
-            &self.state.paths,
-            &self.session_for_approval(approval_id)?,
-            approval_id,
-        )?
-        else {
+        if show_inbox_entry(&self.state, approval_id)?.is_none() {
             self.send_text(chat_id, format!("No pending approval `{approval_id}`."))
                 .await?;
             return Ok(());
-        };
-        if record.frontmatter.sender != sender_id {
-            self.send_text(
-                chat_id,
-                format!("Approval `{approval_id}` belongs to a different sender."),
-            )
-            .await?;
-            return Ok(());
         }
-        let status = if allow {
-            PendingApprovalStatus::Accepted
-        } else {
-            PendingApprovalStatus::Rejected
-        };
-        resolve_pending_approval(
-            &self.state.paths,
-            &record.frontmatter.session_id,
-            approval_id,
-            status,
-            Some(sender_id.to_string()),
-            Some(if allow { "AllowOnce" } else { "Deny" }.into()),
-        )?;
-        self.send_text(
-            chat_id,
-            format!(
-                "Recorded `{approval_id}`, but the original turn is no longer active. Resend the request to continue."
-            ),
-        )
-        .await?;
+        let resolver = resolver_for_telegram_sender(&self.state.paths, sender_id)?;
+        match resolve_inbox_approval_for_actor(&self.state, &resolver, approval_id, allow, None)
+            .await
+        {
+            Ok(result) => {
+                let verb = if allow { "Approved" } else { "Rejected" };
+                let suffix = result
+                    .note
+                    .map(|note| format!(" {note}"))
+                    .unwrap_or_default();
+                self.send_text(chat_id, format!("{verb} `{approval_id}`.{suffix}"))
+                    .await?;
+            }
+            Err(error) => {
+                self.send_text(chat_id, error.to_string()).await?;
+            }
+        }
         Ok(())
-    }
-
-    fn session_for_approval(&self, approval_id: &str) -> Result<String, DaemonError> {
-        for entry in fs::read_dir(&self.state.paths.sessions)? {
-            let entry = entry?;
-            if !entry.file_type()?.is_dir() {
-                continue;
-            }
-            let name = entry.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') {
-                continue;
-            }
-            if session_approval_path(&self.state.paths, &name, approval_id).exists() {
-                return Ok(name);
-            }
-        }
-        Err(DaemonError::Protocol(format!(
-            "approval session not found: {approval_id}"
-        )))
     }
 
     async fn retry_with_override(
@@ -1598,11 +1827,11 @@ impl TelegramRuntime {
         sender_id: &str,
         reason: String,
     ) -> Result<(), DaemonError> {
-        let pending = {
+        let approval_id = {
             let mut pending = self.pending_cap_overrides.lock().unwrap();
             pending.remove(sender_id)
         };
-        let Some(pending) = pending else {
+        let Some(approval_id) = approval_id else {
             self.send_text(
                 chat_id,
                 "There is no recent cost-cap refusal to retry for this sender.".into(),
@@ -1610,32 +1839,21 @@ impl TelegramRuntime {
             .await?;
             return Ok(());
         };
-        let session = get_or_create_session(
+        let resolver = resolver_for_telegram_sender(&self.state.paths, sender_id)?;
+        let result = resolve_inbox_approval_for_actor(
             &self.state,
-            ChannelKind::Telegram,
-            pending.session_id,
-            Some(sender_id.to_string()),
+            &resolver,
+            &approval_id,
+            true,
+            Some(reason),
         )
         .await?;
-        {
-            let mut kernel = session.kernel.lock().await;
-            kernel.set_cost_override(reason);
-        }
-        self.send_text(
-            chat_id,
-            "Daily cost override armed for one turn. Retrying your previous request.".into(),
-        )
-        .await?;
-        let runtime = self.clone();
-        self.state.tasks.spawn(async move {
-            if let Err(error) = runtime
-                .clone()
-                .run_turn(session, chat_id, pending.input)
-                .await
-            {
-                runtime.record_error(format!("telegram override retry failed: {error}"));
-            }
-        });
+        let suffix = result
+            .note
+            .map(|note| format!(" {note}"))
+            .unwrap_or_default();
+        self.send_text(chat_id, format!("Approved `{approval_id}`.{suffix}"))
+            .await?;
         Ok(())
     }
 
@@ -1698,6 +1916,7 @@ impl ConfirmPrompter for TelegramConfirmPrompter {
                 &approval_id,
             )
             .is_err()
+            || rebuild_inbox_index(&self.runtime.state).is_err()
         {
             return ConfirmDecision::Deny;
         }
@@ -1707,16 +1926,16 @@ impl ConfirmPrompter for TelegramConfirmPrompter {
             expires_at
         );
         let (reply_tx, reply_rx) = oneshot::channel();
-        self.runtime.pending_approvals.lock().unwrap().insert(
-            approval_id.clone(),
-            PendingApprovalWaiter {
-                sender_id: self.sender_id.clone(),
-                reply: reply_tx,
-            },
-        );
+        self.runtime
+            .state
+            .live_approvals
+            .lock()
+            .unwrap()
+            .insert(approval_id.clone(), LiveApproval::Tool { reply: reply_tx });
         if self.runtime.send_text(self.chat_id, prompt).await.is_err() {
             self.runtime
-                .pending_approvals
+                .state
+                .live_approvals
                 .lock()
                 .unwrap()
                 .remove(&approval_id);
@@ -1731,31 +1950,20 @@ impl ConfirmPrompter for TelegramConfirmPrompter {
             return ConfirmDecision::Deny;
         }
 
-        let outcome =
-            match tokio::time::timeout(Duration::from_secs(approval_timeout_s), reply_rx).await {
-                Ok(Ok(ConfirmDecisionPayload::AllowOnce)) => {
-                    let _ = resolve_pending_approval(
-                        &self.runtime.state.paths,
-                        &self.session_id,
-                        &approval_id,
-                        PendingApprovalStatus::Accepted,
-                        Some(self.sender_id.clone()),
-                        Some("AllowOnce".into()),
-                    );
-                    ConfirmDecision::AllowOnce
-                }
-                Ok(Ok(ConfirmDecisionPayload::AllowSession)) => {
-                    let _ = resolve_pending_approval(
-                        &self.runtime.state.paths,
-                        &self.session_id,
-                        &approval_id,
-                        PendingApprovalStatus::Accepted,
-                        Some(self.sender_id.clone()),
-                        Some("AllowSession".into()),
-                    );
-                    ConfirmDecision::AllowSession
-                }
-                Ok(Ok(ConfirmDecisionPayload::Timeout)) | Err(_) => {
+        match tokio::time::timeout(Duration::from_secs(approval_timeout_s), reply_rx).await {
+            Ok(Ok(ConfirmDecisionPayload::AllowOnce)) => ConfirmDecision::AllowOnce,
+            Ok(Ok(ConfirmDecisionPayload::AllowSession)) => ConfirmDecision::AllowSession,
+            Ok(Ok(ConfirmDecisionPayload::Deny)) | Ok(Err(_)) => ConfirmDecision::Deny,
+            Ok(Ok(ConfirmDecisionPayload::Timeout)) | Err(_) => {
+                if self
+                    .runtime
+                    .state
+                    .live_approvals
+                    .lock()
+                    .unwrap()
+                    .remove(&approval_id)
+                    .is_some()
+                {
                     let _ = resolve_pending_approval(
                         &self.runtime.state.paths,
                         &self.session_id,
@@ -1764,26 +1972,11 @@ impl ConfirmPrompter for TelegramConfirmPrompter {
                         Some("timeout".into()),
                         Some("confirm-timeout".into()),
                     );
-                    ConfirmDecision::Timeout
+                    let _ = rebuild_inbox_index(&self.runtime.state);
                 }
-                Ok(Ok(ConfirmDecisionPayload::Deny)) | Ok(Err(_)) => {
-                    let _ = resolve_pending_approval(
-                        &self.runtime.state.paths,
-                        &self.session_id,
-                        &approval_id,
-                        PendingApprovalStatus::Rejected,
-                        Some(self.sender_id.clone()),
-                        Some("Deny".into()),
-                    );
-                    ConfirmDecision::Deny
-                }
-            };
-        self.runtime
-            .pending_approvals
-            .lock()
-            .unwrap()
-            .remove(&approval_id);
-        outcome
+                ConfirmDecision::Timeout
+            }
+        }
     }
 }
 
@@ -1791,6 +1984,78 @@ struct TelegramInputPrompter;
 
 #[async_trait::async_trait]
 impl InputPrompter for TelegramInputPrompter {
+    async fn request_input(&self, _req: InputRequest) -> InputResponse {
+        InputResponse::Cancelled
+    }
+}
+
+struct JobApprovalPrompter {
+    state: SharedState,
+    session_id: String,
+    job_name: String,
+}
+
+#[async_trait::async_trait]
+impl ConfirmPrompter for JobApprovalPrompter {
+    async fn confirm(&self, req: ConfirmRequest) -> ConfirmDecision {
+        let approval_id = format!("approval-{}", uuid::Uuid::new_v4().simple());
+        let approval_timeout_s = self
+            .state
+            .default_config
+            .read()
+            .await
+            .channels
+            .approval_timeout_s;
+        let expires_at = (OffsetDateTime::now_utc()
+            + time::Duration::seconds(approval_timeout_s as i64))
+        .format(&Rfc3339)
+        .unwrap_or_else(|_| now_rfc3339_fallback());
+        let record = PendingApprovalRecord {
+            frontmatter: PendingApprovalFrontmatter {
+                id: approval_id.clone(),
+                session_id: self.session_id.clone(),
+                channel: ChannelKind::Jobs,
+                sender: self.job_name.clone(),
+                agent: "allbert/root".into(),
+                tool: req.program,
+                request_id: self.state.next_request.fetch_add(1, Ordering::SeqCst),
+                requested_at: now_rfc3339_fallback(),
+                expires_at,
+                kind: PendingApprovalKind::JobApproval,
+                status: PendingApprovalStatus::Pending,
+                resolved_at: None,
+                resolver: None,
+                reply: None,
+            },
+            rendered: req.rendered,
+        };
+        if write_pending_approval(&self.state.paths, &record).is_err()
+            || append_session_pending_approval(&self.state.paths, &self.session_id, &approval_id)
+                .is_err()
+            || rebuild_inbox_index(&self.state).is_err()
+        {
+            return ConfirmDecision::Deny;
+        }
+        self.state.live_approvals.lock().unwrap().insert(
+            approval_id.clone(),
+            LiveApproval::JobRetry {
+                job_name: self.job_name.clone(),
+            },
+        );
+        spawn_passive_approval_timeout(
+            &self.state,
+            self.session_id.clone(),
+            approval_id,
+            approval_timeout_s,
+        );
+        ConfirmDecision::Deny
+    }
+}
+
+struct JobInputCancelPrompter;
+
+#[async_trait::async_trait]
+impl InputPrompter for JobInputCancelPrompter {
     async fn request_input(&self, _req: InputRequest) -> InputResponse {
         InputResponse::Cancelled
     }
@@ -1846,9 +2111,9 @@ async fn spawn_telegram_pilot(state: SharedState) -> Result<(), DaemonError> {
         api,
         outbound,
         allowed_chats,
-        pending_approvals: Arc::new(StdMutex::new(HashMap::new())),
         pending_cap_overrides: Arc::new(StdMutex::new(HashMap::new())),
     });
+    *state.telegram_runtime.lock().unwrap() = Some(runtime.clone());
     state.telegram_status.running.store(true, Ordering::SeqCst);
     *state.telegram_status.last_error.lock().unwrap() = None;
     append_log_line(&state.log_path, "telegram pilot started with long polling").ok();
@@ -2328,6 +2593,7 @@ async fn run_turn_over_channel(
                                     &approval_id,
                                 )
                                 .is_err()
+                                || rebuild_inbox_index(state).is_err()
                             {
                                 let _ = reply.send(ConfirmDecisionPayload::Deny);
                                 continue;
@@ -2354,66 +2620,86 @@ async fn run_turn_over_channel(
                                 let _ = reply.send(ConfirmDecisionPayload::Deny);
                                 continue;
                             }
-                            match tokio::time::timeout(
-                                Duration::from_secs(approval_timeout_s),
-                                recv_client_message(framed),
-                            )
-                            .await
-                            {
-                                Ok(Ok(ClientMessage::ConfirmReply(ConfirmReplyPayload {
-                                    request_id,
-                                    decision,
-                                }))) if request_id == request.request_id => {
-                                    let status = match decision {
-                                        ConfirmDecisionPayload::AllowOnce
-                                        | ConfirmDecisionPayload::AllowSession => {
-                                            PendingApprovalStatus::Accepted
-                                        }
-                                        ConfirmDecisionPayload::Deny => {
-                                            PendingApprovalStatus::Rejected
-                                        }
-                                        ConfirmDecisionPayload::Timeout => {
-                                            PendingApprovalStatus::Timeout
-                                        }
-                                    };
-                                    let _ = resolve_pending_approval(
-                                        &state.paths,
-                                        &session.session_id,
-                                        &approval_id,
-                                        status,
-                                        Some(
-                                            session_sender_id
-                                                .clone()
-                                                .unwrap_or_else(|| "attached-client".into()),
-                                        ),
-                                        Some(format!("{decision:?}")),
-                                    );
-                                    let _ = reply.send(decision);
+                            let (live_tx, live_rx) = oneshot::channel();
+                            state.live_approvals.lock().unwrap().insert(
+                                approval_id.clone(),
+                                LiveApproval::Tool { reply: live_tx },
+                            );
+                            let timeout = tokio::time::sleep(Duration::from_secs(approval_timeout_s));
+                            tokio::pin!(timeout);
+                            tokio::pin!(live_rx);
+                            let decision = tokio::select! {
+                                result = &mut live_rx => {
+                                    match result {
+                                        Ok(decision) => decision,
+                                        Err(_) => ConfirmDecisionPayload::Deny,
+                                    }
                                 }
-                                Err(_) => {
-                                    let _ = resolve_pending_approval(
-                                        &state.paths,
-                                        &session.session_id,
-                                        &approval_id,
-                                        PendingApprovalStatus::Timeout,
-                                        Some("timeout".into()),
-                                        Some("confirm-timeout".into()),
-                                    );
-                                    let _ = reply.send(ConfirmDecisionPayload::Timeout);
+                                _ = &mut timeout => {
+                                    if state.live_approvals.lock().unwrap().remove(&approval_id).is_some() {
+                                        let _ = resolve_pending_approval(
+                                            &state.paths,
+                                            &session.session_id,
+                                            &approval_id,
+                                            PendingApprovalStatus::Timeout,
+                                            Some("timeout".into()),
+                                            Some("confirm-timeout".into()),
+                                        );
+                                        let _ = rebuild_inbox_index(state);
+                                    }
+                                    ConfirmDecisionPayload::Timeout
                                 }
-                                Ok(Ok(_)) | Ok(Err(_)) => {
-                                    client_connected = false;
-                                    let _ = resolve_pending_approval(
-                                        &state.paths,
-                                        &session.session_id,
-                                        &approval_id,
-                                        PendingApprovalStatus::Rejected,
-                                        Some("transport".into()),
-                                        Some("unexpected reply".into()),
-                                    );
-                                    let _ = reply.send(ConfirmDecisionPayload::Deny);
+                                inbound = recv_client_message(framed) => {
+                                    match inbound {
+                                        Ok(ClientMessage::ConfirmReply(ConfirmReplyPayload {
+                                            request_id,
+                                            decision,
+                                        })) if request_id == request.request_id => {
+                                            state.live_approvals.lock().unwrap().remove(&approval_id);
+                                            let _ = resolve_pending_approval(
+                                                &state.paths,
+                                                &session.session_id,
+                                                &approval_id,
+                                                match decision {
+                                                    ConfirmDecisionPayload::AllowOnce
+                                                    | ConfirmDecisionPayload::AllowSession => {
+                                                        PendingApprovalStatus::Accepted
+                                                    }
+                                                    ConfirmDecisionPayload::Deny => {
+                                                        PendingApprovalStatus::Rejected
+                                                    }
+                                                    ConfirmDecisionPayload::Timeout => {
+                                                        PendingApprovalStatus::Timeout
+                                                    }
+                                                },
+                                                Some(resolver_key(
+                                                    session_channel,
+                                                    session_sender_id.as_deref(),
+                                                )),
+                                                Some(format!("{decision:?}")),
+                                            );
+                                            let _ = rebuild_inbox_index(state);
+                                            decision
+                                        }
+                                        Ok(_) | Err(_) => {
+                                            client_connected = false;
+                                            if state.live_approvals.lock().unwrap().remove(&approval_id).is_some() {
+                                                let _ = resolve_pending_approval(
+                                                    &state.paths,
+                                                    &session.session_id,
+                                                    &approval_id,
+                                                    PendingApprovalStatus::Rejected,
+                                                    Some("transport".into()),
+                                                    Some("unexpected reply".into()),
+                                                );
+                                                let _ = rebuild_inbox_index(state);
+                                            }
+                                            ConfirmDecisionPayload::Deny
+                                        }
+                                    }
                                 }
-                            }
+                            };
+                            let _ = reply.send(decision);
                         } else {
                             if send_server_message(
                                 framed,
@@ -2519,12 +2805,72 @@ async fn run_turn_over_channel(
                             ),
                         )
                         .ok();
+                        let mut message = error.to_string();
+                        if session_channel == ChannelKind::Telegram
+                            && message.contains("/cost --override <reason>")
+                        {
+                            let approval_id = format!("approval-{}", uuid::Uuid::new_v4().simple());
+                            let approval_timeout_s =
+                                state.default_config.read().await.channels.approval_timeout_s;
+                            let expires_at = (OffsetDateTime::now_utc()
+                                + time::Duration::seconds(approval_timeout_s as i64))
+                            .format(&Rfc3339)
+                            .unwrap_or_else(|_| now_rfc3339_fallback());
+                            let sender = session_sender_id
+                                .clone()
+                                .unwrap_or_else(|| LOCAL_REPL_SENDER.to_string());
+                            let record = PendingApprovalRecord {
+                                frontmatter: PendingApprovalFrontmatter {
+                                    id: approval_id.clone(),
+                                    session_id: session.session_id.clone(),
+                                    channel: ChannelKind::Telegram,
+                                    sender: sender.clone(),
+                                    agent: "allbert/root".into(),
+                                    tool: "daily-cost-cap".into(),
+                                    request_id: state.next_request.fetch_add(1, Ordering::SeqCst),
+                                    requested_at: now_rfc3339_fallback(),
+                                    expires_at,
+                                    kind: PendingApprovalKind::CostCapOverride,
+                                    status: PendingApprovalStatus::Pending,
+                                    resolved_at: None,
+                                    resolver: None,
+                                    reply: None,
+                                },
+                                rendered: format!(
+                                    "{}\n\n## Blocked input\n\n{}\n",
+                                    message,
+                                    input.trim()
+                                ),
+                            };
+                            if write_pending_approval(&state.paths, &record).is_ok()
+                                && append_session_pending_approval(
+                                    &state.paths,
+                                    &session.session_id,
+                                    &approval_id,
+                                )
+                                .is_ok()
+                            {
+                                let _ = rebuild_inbox_index(state);
+                                spawn_passive_approval_timeout(
+                                    state,
+                                    session.session_id.clone(),
+                                    approval_id.clone(),
+                                    approval_timeout_s,
+                                );
+                                message = message.replace(
+                                    "/cost --override <reason>",
+                                    &format!(
+                                        "allbert-cli inbox accept {approval_id} --reason <reason>"
+                                    ),
+                                );
+                            }
+                        }
                         if client_connected {
                             let _ = send_server_message(
                                 framed,
                                 &ServerMessage::Error(ProtocolError {
                                     code: "turn_failed".into(),
-                                    message: error.to_string(),
+                                    message,
                                 }),
                             )
                             .await;
@@ -2892,6 +3238,261 @@ fn load_pending_approval(
     }))
 }
 
+fn pending_approval_status_label(status: &PendingApprovalStatus) -> &'static str {
+    match status {
+        PendingApprovalStatus::Pending => "pending",
+        PendingApprovalStatus::Accepted => "accepted",
+        PendingApprovalStatus::Rejected => "rejected",
+        PendingApprovalStatus::Timeout => "timeout",
+    }
+}
+
+fn session_identity_id(
+    paths: &AllbertPaths,
+    session_id: &str,
+) -> Result<Option<String>, DaemonError> {
+    Ok(load_session_snapshot(paths, session_id)?.and_then(|snapshot| snapshot.meta.identity_id))
+}
+
+fn pending_approval_to_inbox_payload(
+    paths: &AllbertPaths,
+    session_id: &str,
+    record: &PendingApprovalRecord,
+) -> Result<InboxApprovalPayload, DaemonError> {
+    Ok(InboxApprovalPayload {
+        id: record.frontmatter.id.clone(),
+        session_id: session_id.to_string(),
+        identity_id: session_identity_id(paths, session_id)?,
+        channel: record.frontmatter.channel,
+        sender: record.frontmatter.sender.clone(),
+        agent: record.frontmatter.agent.clone(),
+        tool: record.frontmatter.tool.clone(),
+        request_id: record.frontmatter.request_id,
+        kind: record.frontmatter.kind.as_str().to_string(),
+        requested_at: record.frontmatter.requested_at.clone(),
+        expires_at: record.frontmatter.expires_at.clone(),
+        status: pending_approval_status_label(&record.frontmatter.status).to_string(),
+        resolved_at: record.frontmatter.resolved_at.clone(),
+        resolver: record.frontmatter.resolver.clone(),
+        reply: record.frontmatter.reply.clone(),
+        rendered: record.rendered.clone(),
+        path: session_approval_path(paths, session_id, &record.frontmatter.id)
+            .display()
+            .to_string(),
+    })
+}
+
+fn approval_within_retention(payload: &InboxApprovalPayload, retention_days: u16) -> bool {
+    if payload.status == "pending" {
+        return true;
+    }
+    let cutoff = OffsetDateTime::now_utc() - time::Duration::days(i64::from(retention_days));
+    let reference = payload
+        .resolved_at
+        .as_deref()
+        .or(Some(payload.requested_at.as_str()));
+    let Some(reference) = reference else {
+        return false;
+    };
+    OffsetDateTime::parse(reference, &Rfc3339)
+        .map(|value| value >= cutoff)
+        .unwrap_or(false)
+}
+
+fn build_inbox_index(
+    paths: &AllbertPaths,
+    retention_days: u16,
+) -> Result<HashMap<String, InboxApprovalPayload>, DaemonError> {
+    let mut index = HashMap::new();
+    if !paths.sessions.exists() {
+        return Ok(index);
+    }
+    for entry in fs::read_dir(&paths.sessions)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let session_id = entry.file_name().to_string_lossy().to_string();
+        if session_id.starts_with('.') {
+            continue;
+        }
+        let approvals_dir = session_approvals_dir(paths, &session_id);
+        if !approvals_dir.is_dir() {
+            continue;
+        }
+        for approval_entry in fs::read_dir(&approvals_dir)? {
+            let approval_entry = approval_entry?;
+            if !approval_entry.file_type()?.is_file() {
+                continue;
+            }
+            if approval_entry
+                .path()
+                .extension()
+                .and_then(|value| value.to_str())
+                != Some("md")
+            {
+                continue;
+            }
+            let Some(stem) = approval_entry
+                .path()
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .map(|value| value.to_string())
+            else {
+                continue;
+            };
+            let Some(record) = load_pending_approval(paths, &session_id, &stem)? else {
+                continue;
+            };
+            let payload = pending_approval_to_inbox_payload(paths, &session_id, &record)?;
+            if approval_within_retention(&payload, retention_days) {
+                index.insert(payload.id.clone(), payload);
+            }
+        }
+    }
+    Ok(index)
+}
+
+fn rebuild_inbox_index(state: &SharedState) -> Result<(), DaemonError> {
+    let retention_days = state.approval_inbox_retention_days.load(Ordering::SeqCst) as u16;
+    let index = build_inbox_index(&state.paths, retention_days)?;
+    *state.inbox_index.lock().unwrap() = index;
+    Ok(())
+}
+
+fn list_inbox_entries(state: &SharedState, query: InboxQueryPayload) -> Vec<InboxApprovalPayload> {
+    let mut approvals = state
+        .inbox_index
+        .lock()
+        .unwrap()
+        .values()
+        .cloned()
+        .collect::<Vec<_>>();
+    approvals.retain(|approval| {
+        if !query.include_resolved && approval.status != "pending" {
+            return false;
+        }
+        if let Some(identity) = query.identity.as_deref() {
+            if approval.identity_id.as_deref() != Some(identity) {
+                return false;
+            }
+        }
+        if let Some(kind) = query.kind.as_deref() {
+            if approval.kind != kind {
+                return false;
+            }
+        }
+        true
+    });
+    approvals.sort_by(|a, b| b.requested_at.cmp(&a.requested_at));
+    approvals
+}
+
+fn lookup_approval_by_id(
+    paths: &AllbertPaths,
+    approval_id: &str,
+) -> Result<Option<ApprovalLookup>, DaemonError> {
+    if !paths.sessions.exists() {
+        return Ok(None);
+    }
+    for entry in fs::read_dir(&paths.sessions)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let session_id = entry.file_name().to_string_lossy().to_string();
+        if session_id.starts_with('.') {
+            continue;
+        }
+        let Some(record) = load_pending_approval(paths, &session_id, approval_id)? else {
+            continue;
+        };
+        let payload = pending_approval_to_inbox_payload(paths, &session_id, &record)?;
+        return Ok(Some(ApprovalLookup { payload }));
+    }
+    Ok(None)
+}
+
+fn show_inbox_entry(
+    state: &SharedState,
+    approval_id: &str,
+) -> Result<Option<InboxApprovalPayload>, DaemonError> {
+    if let Some(payload) = state.inbox_index.lock().unwrap().get(approval_id).cloned() {
+        return Ok(Some(payload));
+    }
+    Ok(lookup_approval_by_id(&state.paths, approval_id)?.map(|lookup| lookup.payload))
+}
+
+fn approval_visible_to_resolver(
+    payload: &InboxApprovalPayload,
+    resolver_identity_id: Option<&str>,
+) -> bool {
+    match (payload.identity_id.as_deref(), resolver_identity_id) {
+        (Some(expected), Some(actual)) => expected == actual,
+        (Some(_), None) => false,
+        _ => true,
+    }
+}
+
+fn decision_payload_for_accept(accept: bool) -> ConfirmDecisionPayload {
+    if accept {
+        ConfirmDecisionPayload::AllowOnce
+    } else {
+        ConfirmDecisionPayload::Deny
+    }
+}
+
+fn resolution_status(accept: bool) -> PendingApprovalStatus {
+    if accept {
+        PendingApprovalStatus::Accepted
+    } else {
+        PendingApprovalStatus::Rejected
+    }
+}
+
+fn local_operator_identity_id(paths: &AllbertPaths) -> Result<Option<String>, DaemonError> {
+    Ok(Some(
+        ensure_identity_record(paths).map_err(map_kernel_error)?.id,
+    ))
+}
+
+fn resolver_key(channel: ChannelKind, sender_id: Option<&str>) -> String {
+    let sender = sender_id.unwrap_or("local");
+    format!("{}:{sender}", channel_label(channel))
+}
+
+fn resolver_for_connection(
+    paths: &AllbertPaths,
+    client_kind: allbert_proto::ClientKind,
+    session: Option<&Arc<SessionHandle>>,
+) -> Result<ApprovalResolver, DaemonError> {
+    if let Some(session) = session {
+        return Ok(ApprovalResolver {
+            identity_id: session.identity_id().or(local_operator_identity_id(paths)?),
+            resolver_key: resolver_key(session.channel(), session.sender_id().as_deref()),
+        });
+    }
+    let channel = match client_kind {
+        allbert_proto::ClientKind::Cli | allbert_proto::ClientKind::Test => ChannelKind::Cli,
+        allbert_proto::ClientKind::Repl => ChannelKind::Repl,
+        allbert_proto::ClientKind::Jobs => ChannelKind::Jobs,
+    };
+    Ok(ApprovalResolver {
+        identity_id: local_operator_identity_id(paths)?,
+        resolver_key: resolver_key(channel, Some(LOCAL_REPL_SENDER)),
+    })
+}
+
+fn resolver_for_telegram_sender(
+    paths: &AllbertPaths,
+    sender_id: &str,
+) -> Result<ApprovalResolver, DaemonError> {
+    Ok(ApprovalResolver {
+        identity_id: resolve_identity_id(paths, ChannelKind::Telegram, Some(sender_id))?,
+        resolver_key: resolver_key(ChannelKind::Telegram, Some(sender_id)),
+    })
+}
+
 fn set_session_pending_approval(
     paths: &AllbertPaths,
     session_id: &str,
@@ -2942,6 +3543,224 @@ fn resolve_pending_approval(
     pending.retain(|entry| entry != approval_id);
     set_session_pending_approval(paths, session_id, pending)?;
     Ok(())
+}
+
+async fn arm_session_cost_override(
+    state: &SharedState,
+    session_id: &str,
+    sender_id: Option<&str>,
+    reason: String,
+) -> Result<(), DaemonError> {
+    let session = get_or_create_session(
+        state,
+        ChannelKind::Telegram,
+        session_id.to_string(),
+        sender_id.map(|value| value.to_string()),
+    )
+    .await?;
+    let mut kernel = session.kernel.lock().await;
+    kernel.set_cost_override(reason);
+    Ok(())
+}
+
+async fn handle_live_approval_resolution(
+    state: &SharedState,
+    payload: &InboxApprovalPayload,
+    live: Option<LiveApproval>,
+    accept: bool,
+    reason: Option<String>,
+) -> Result<(bool, Option<String>), DaemonError> {
+    match live {
+        Some(LiveApproval::Tool { reply }) => {
+            let _ = reply.send(decision_payload_for_accept(accept));
+            Ok((true, None))
+        }
+        Some(LiveApproval::CostCap {
+            session_id,
+            sender_id,
+            chat_id,
+            input,
+        }) => {
+            if !accept {
+                return Ok((false, Some("cost-cap override rejected".into())));
+            }
+            let override_reason = reason.unwrap_or_else(|| "inbox approval".into());
+            arm_session_cost_override(state, &session_id, Some(&sender_id), override_reason)
+                .await?;
+            let runtime = { state.telegram_runtime.lock().unwrap().clone() };
+            if let Some(runtime) = runtime {
+                let session = get_or_create_session(
+                    state,
+                    ChannelKind::Telegram,
+                    session_id.clone(),
+                    Some(sender_id.clone()),
+                )
+                .await?;
+                let runtime_clone = runtime.clone();
+                let state_clone = state.clone();
+                state.tasks.spawn(async move {
+                    if let Err(error) = runtime_clone
+                        .clone()
+                        .run_turn(session, chat_id, input)
+                        .await
+                    {
+                        runtime_clone.record_error(format!("telegram inbox retry failed: {error}"));
+                        let _ = append_log_line(
+                            &state_clone.log_path,
+                            &format!("telegram inbox retry failed: {error}"),
+                        );
+                    }
+                });
+                Ok((
+                    true,
+                    Some("daily cost override armed and blocked turn retried".into()),
+                ))
+            } else {
+                Ok((
+                    false,
+                    Some(
+                        "daily cost override armed; resend the blocked request to continue".into(),
+                    ),
+                ))
+            }
+        }
+        Some(LiveApproval::JobRetry { job_name }) => {
+            if !accept {
+                return Ok((false, Some("job approval rejected".into())));
+            }
+            let note = format!("queued an immediate retry for job `{job_name}`");
+            let retry_name = job_name.clone();
+            let state_clone = state.clone();
+            state.tasks.spawn(async move {
+                let defaults = state_clone.default_config.read().await.clone();
+                if let Err(error) = run_named_job(&state_clone, &defaults, &retry_name).await {
+                    let _ = append_log_line(
+                        &state_clone.log_path,
+                        &format!("job approval retry failed for {retry_name}: {error}"),
+                    );
+                }
+            });
+            Ok((true, Some(note)))
+        }
+        None if payload.kind == "cost-cap-override" && accept => {
+            let override_reason = reason.unwrap_or_else(|| "inbox approval".into());
+            arm_session_cost_override(
+                state,
+                &payload.session_id,
+                Some(&payload.sender),
+                override_reason,
+            )
+            .await?;
+            Ok((
+                false,
+                Some("daily cost override armed for the next turn on this session".into()),
+            ))
+        }
+        None if payload.kind == "job-approval" && accept => {
+            let job_name = payload.sender.clone();
+            let note = format!("queued an immediate retry for job `{job_name}`");
+            let retry_name = job_name.clone();
+            let state_clone = state.clone();
+            state.tasks.spawn(async move {
+                let defaults = state_clone.default_config.read().await.clone();
+                if let Err(error) = run_named_job(&state_clone, &defaults, &retry_name).await {
+                    let _ = append_log_line(
+                        &state_clone.log_path,
+                        &format!("job approval retry failed for {retry_name}: {error}"),
+                    );
+                }
+            });
+            Ok((true, Some(note)))
+        }
+        None if payload.kind == "tool-approval" => Ok((
+            false,
+            Some("approval recorded, but the original turn is no longer active".into()),
+        )),
+        None => Ok((false, None)),
+    }
+}
+
+async fn resolve_inbox_approval_for_actor(
+    state: &SharedState,
+    resolver: &ApprovalResolver,
+    approval_id: &str,
+    accept: bool,
+    reason: Option<String>,
+) -> Result<InboxResolveResultPayload, DaemonError> {
+    let Some(lookup) = lookup_approval_by_id(&state.paths, approval_id)? else {
+        return Err(DaemonError::Protocol(format!(
+            "approval not found: {approval_id}"
+        )));
+    };
+    if !approval_visible_to_resolver(&lookup.payload, resolver.identity_id.as_deref()) {
+        return Err(DaemonError::Protocol(format!(
+            "approval `{approval_id}` belongs to a different identity"
+        )));
+    }
+    if lookup.payload.status != "pending" {
+        return Ok(InboxResolveResultPayload {
+            approval_id: approval_id.to_string(),
+            status: lookup.payload.status,
+            resumed_live_turn: false,
+            note: Some("approval was already resolved".into()),
+        });
+    }
+
+    let reply = reason
+        .clone()
+        .or_else(|| Some(format!("{:?}", decision_payload_for_accept(accept))));
+    resolve_pending_approval(
+        &state.paths,
+        &lookup.payload.session_id,
+        approval_id,
+        resolution_status(accept),
+        Some(resolver.resolver_key.clone()),
+        reply,
+    )?;
+    rebuild_inbox_index(state)?;
+    let live = state.live_approvals.lock().unwrap().remove(approval_id);
+    let (resumed_live_turn, note) =
+        handle_live_approval_resolution(state, &lookup.payload, live, accept, reason).await?;
+    Ok(InboxResolveResultPayload {
+        approval_id: approval_id.to_string(),
+        status: if accept {
+            "accepted".into()
+        } else {
+            "rejected".into()
+        },
+        resumed_live_turn,
+        note,
+    })
+}
+
+fn spawn_passive_approval_timeout(
+    state: &SharedState,
+    session_id: String,
+    approval_id: String,
+    timeout_s: u64,
+) {
+    let state = state.clone();
+    let tasks = state.tasks.clone();
+    tasks.spawn(async move {
+        tokio::time::sleep(Duration::from_secs(timeout_s)).await;
+        let should_timeout = lookup_approval_by_id(&state.paths, &approval_id)
+            .ok()
+            .flatten()
+            .map(|lookup| lookup.payload.status == "pending")
+            .unwrap_or(false);
+        if should_timeout {
+            let _ = resolve_pending_approval(
+                &state.paths,
+                &session_id,
+                &approval_id,
+                PendingApprovalStatus::Timeout,
+                Some("timeout".into()),
+                Some("confirm-timeout".into()),
+            );
+            let _ = rebuild_inbox_index(&state);
+            state.live_approvals.lock().unwrap().remove(&approval_id);
+        }
+    });
 }
 
 fn append_turn_record(

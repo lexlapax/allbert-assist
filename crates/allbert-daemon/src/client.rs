@@ -6,7 +6,8 @@ use std::time::Duration;
 use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
     AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientHello, ClientKind,
-    ClientMessage, DaemonStatus, JobDefinitionPayload, JobRunRecordPayload, JobStatusPayload,
+    ClientMessage, DaemonStatus, InboxApprovalPayload, InboxQueryPayload, InboxResolvePayload,
+    InboxResolveResultPayload, JobDefinitionPayload, JobRunRecordPayload, JobStatusPayload,
     ModelConfigPayload, OpenChannel, ProtocolError, ServerMessage, SessionResumeEntry,
     SessionStatus, TurnBudgetOverridePayload, TurnRequest, PROTOCOL_VERSION,
 };
@@ -199,6 +200,60 @@ impl DaemonClient {
         self.send(&ClientMessage::ListSessions).await?;
         self.recv_expected("sessions", |message| match message {
             ServerMessage::Sessions(entries) => Some(Ok(entries)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn list_inbox(
+        &mut self,
+        identity: Option<String>,
+        kind: Option<String>,
+        include_resolved: bool,
+    ) -> Result<Vec<InboxApprovalPayload>, DaemonError> {
+        self.send(&ClientMessage::ListInbox(InboxQueryPayload {
+            identity,
+            kind,
+            include_resolved,
+        }))
+        .await?;
+        self.recv_expected("inbox approvals", |message| match message {
+            ServerMessage::InboxApprovals(entries) => Some(Ok(entries)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn show_inbox_approval(
+        &mut self,
+        approval_id: &str,
+    ) -> Result<InboxApprovalPayload, DaemonError> {
+        self.send(&ClientMessage::ShowInboxApproval(approval_id.to_string()))
+            .await?;
+        self.recv_expected("inbox approval", |message| match message {
+            ServerMessage::InboxApproval(entry) => Some(Ok(entry)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn resolve_inbox_approval(
+        &mut self,
+        approval_id: &str,
+        accept: bool,
+        reason: Option<String>,
+    ) -> Result<InboxResolveResultPayload, DaemonError> {
+        self.send(&ClientMessage::ResolveInboxApproval(InboxResolvePayload {
+            approval_id: approval_id.to_string(),
+            accept,
+            reason,
+        }))
+        .await?;
+        self.recv_expected("inbox resolution", |message| match message {
+            ServerMessage::InboxResolveResult(result) => Some(Ok(result)),
             ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
             _ => None,
         })

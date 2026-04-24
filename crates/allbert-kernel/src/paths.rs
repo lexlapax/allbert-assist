@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use uuid::Uuid;
 
 use crate::error::KernelError;
 
@@ -429,9 +430,28 @@ impl AllbertPaths {
             })?;
         }
 
-        std::fs::write(path, content)
+        atomic_write(path, content.as_bytes())
             .map_err(|e| KernelError::InitFailed(format!("write {}: {e}", path.display())))
     }
+}
+
+fn atomic_write(path: &std::path::Path, bytes: &[u8]) -> Result<(), std::io::Error> {
+    let Some(parent) = path.parent() else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("path has no parent: {}", path.display()),
+        ));
+    };
+    let tmp = parent.join(format!(
+        ".{}.tmp-{}",
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("seed"),
+        Uuid::new_v4()
+    ));
+    std::fs::write(&tmp, bytes)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
 }
 
 #[cfg(test)]

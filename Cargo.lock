@@ -53,6 +53,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -104,6 +105,7 @@ dependencies = [
  "allbert-proto",
  "async-trait",
  "base64",
+ "chrono",
  "chrono-tz",
  "dirs",
  "fs2",

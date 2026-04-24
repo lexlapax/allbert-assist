@@ -13,10 +13,11 @@ use gray_matter::engine::YAML;
 use gray_matter::Matter;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 
 use allbert_kernel::{
-    llm::ProviderFactory, AllbertPaths, Config, FrontendAdapter, InputPrompter, InputRequest,
-    InputResponse, Kernel, KernelError, ModelConfig, Provider,
+    llm::ProviderFactory, AllbertPaths, Config, FrontendAdapter, Kernel, KernelError, ModelConfig,
+    Provider,
 };
 use allbert_proto::{
     JobBudgetPayload, JobDefinitionPayload, JobReportPolicyPayload, JobRunRecordPayload,
@@ -290,7 +291,7 @@ impl JobManager {
             let path = paths.jobs_state.join(format!("{name}.json"));
             let encoded = serde_json::to_string_pretty(state)
                 .map_err(|e| DaemonError::Protocol(format!("encode state: {e}")))?;
-            fs::write(path, encoded)?;
+            atomic_write(&path, encoded.as_bytes())?;
         }
         Ok(())
     }
@@ -836,7 +837,27 @@ fn write_definition_file(root: &Path, definition: &JobDefinition) -> Result<(), 
     frontmatter.push_str("---\n\n");
     frontmatter.push_str(definition.prompt.trim_end());
     frontmatter.push('\n');
-    fs::write(path, frontmatter)?;
+    atomic_write(&path, frontmatter.as_bytes())?;
+    Ok(())
+}
+
+fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), std::io::Error> {
+    let Some(parent) = path.parent() else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("path has no parent: {}", path.display()),
+        ));
+    };
+    fs::create_dir_all(parent)?;
+    let tmp = parent.join(format!(
+        ".{}.tmp-{}",
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("job"),
+        Uuid::new_v4()
+    ));
+    fs::write(&tmp, bytes)?;
+    fs::rename(&tmp, path)?;
     Ok(())
 }
 
@@ -940,6 +961,7 @@ fn update_state_after_run(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn execute_job(
     paths: &AllbertPaths,
     defaults: &Config,
@@ -947,9 +969,10 @@ pub(crate) async fn execute_job(
     shared_ephemeral_sessions: Arc<tokio::sync::Mutex<HashMap<String, Vec<String>>>>,
     shutdown: CancellationToken,
     definition: &JobDefinition,
+    run_id: String,
+    session_id: String,
+    adapter: FrontendAdapter,
 ) -> JobRunRecordPayload {
-    let run_id = uuid::Uuid::new_v4().to_string();
-    let session_id = format!("job-{}-{}", definition.name, &run_id[..8]);
     let started_at = Utc::now();
 
     let mut config = defaults.clone();
@@ -979,12 +1002,6 @@ pub(crate) async fn execute_job(
     if matches!(definition.memory_prefetch, Some(false)) {
         config.memory.prefetch_enabled = false;
     }
-
-    let adapter = FrontendAdapter {
-        on_event: Box::new(|_| {}),
-        confirm: Arc::new(JobConfirmPrompter),
-        input: Arc::new(JobInputPrompter),
-    };
 
     let ended_at;
     let boot = Kernel::boot_with_paths_and_factory(
@@ -1170,25 +1187,4 @@ pub(crate) fn list_run_records(
 
 fn map_kernel_error(error: KernelError) -> DaemonError {
     DaemonError::Protocol(error.to_string())
-}
-
-struct JobConfirmPrompter;
-
-#[async_trait::async_trait]
-impl allbert_kernel::ConfirmPrompter for JobConfirmPrompter {
-    async fn confirm(
-        &self,
-        _req: allbert_kernel::ConfirmRequest,
-    ) -> allbert_kernel::ConfirmDecision {
-        allbert_kernel::ConfirmDecision::Deny
-    }
-}
-
-struct JobInputPrompter;
-
-#[async_trait::async_trait]
-impl InputPrompter for JobInputPrompter {
-    async fn request_input(&self, _req: InputRequest) -> InputResponse {
-        InputResponse::Cancelled
-    }
 }

@@ -355,7 +355,7 @@ async fn main() -> Result<()> {
         Some(Command::Identity { command }) => run_identity_command(&paths, command),
         Some(Command::Memory { command }) => run_memory_command(&paths, &config, command).await,
         Some(Command::Approvals { command }) => run_approvals_command(&paths, command),
-        Some(Command::Inbox { command }) => run_inbox_command(&paths, command),
+        Some(Command::Inbox { command }) => run_inbox_command(&paths, command).await,
         Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
         Some(Command::Heartbeat { command }) => run_heartbeat_command(&paths, command),
         Some(Command::Sessions { command }) => run_sessions_command(&paths, &config, command).await,
@@ -687,7 +687,7 @@ fn run_approvals_command(paths: &AllbertPaths, command: ApprovalsCommand) -> Res
     }
 }
 
-fn run_inbox_command(paths: &AllbertPaths, command: InboxCommand) -> Result<()> {
+async fn run_inbox_command(paths: &AllbertPaths, command: InboxCommand) -> Result<()> {
     match command {
         InboxCommand::List {
             json,
@@ -695,37 +695,68 @@ fn run_inbox_command(paths: &AllbertPaths, command: InboxCommand) -> Result<()> 
             kind,
             include_resolved,
         } => {
-            let mut rendered = approvals::list(paths, json)?;
-            if identity.is_some() || kind.is_some() || include_resolved {
-                rendered.push_str(
-                    "\n(note) v0.8 M3 filter flags are accepted but not fully wired yet.\n",
-                );
+            if let Ok(mut client) = DaemonClient::connect(paths, ClientKind::Cli).await {
+                let approvals = client
+                    .list_inbox(identity, kind, include_resolved)
+                    .await?
+                    .into_iter()
+                    .map(approvals::ApprovalView::from)
+                    .collect::<Vec<_>>();
+                println!("{}", approvals::render_list_entries(&approvals, json)?);
+                return Ok(());
             }
-            println!("{rendered}");
+            if identity.is_some() || kind.is_some() || include_resolved {
+                return Err(anyhow::anyhow!(
+                    "inbox filters require a running daemon; start the daemon or retry without filters"
+                ));
+            }
+            println!("{}", approvals::list(paths, json)?);
             Ok(())
         }
         InboxCommand::Show { approval_id, json } => {
-            println!("{}", approvals::show(paths, &approval_id, json)?);
+            if let Ok(mut client) = DaemonClient::connect(paths, ClientKind::Cli).await {
+                let approval = client.show_inbox_approval(&approval_id).await?;
+                println!(
+                    "{}",
+                    approvals::render_show_entry(&approvals::ApprovalView::from(approval), json)?
+                );
+            } else {
+                println!("{}", approvals::show(paths, &approval_id, json)?);
+            }
             Ok(())
         }
         InboxCommand::Accept {
             approval_id,
             reason,
         } => {
-            println!(
-                "{}",
-                approvals::resolve(paths, &approval_id, true, reason.as_deref())?
-            );
+            if let Ok(mut client) = DaemonClient::connect(paths, ClientKind::Cli).await {
+                let resolved = client
+                    .resolve_inbox_approval(&approval_id, true, reason.clone())
+                    .await?;
+                println!("{}", approvals::render_resolution(&resolved));
+            } else {
+                println!(
+                    "{}\n(note) daemon not running; recorded the resolution on disk but could not wake a suspended turn.",
+                    approvals::resolve(paths, &approval_id, true, reason.as_deref())?
+                );
+            }
             Ok(())
         }
         InboxCommand::Reject {
             approval_id,
             reason,
         } => {
-            println!(
-                "{}",
-                approvals::resolve(paths, &approval_id, false, reason.as_deref())?
-            );
+            if let Ok(mut client) = DaemonClient::connect(paths, ClientKind::Cli).await {
+                let resolved = client
+                    .resolve_inbox_approval(&approval_id, false, reason.clone())
+                    .await?;
+                println!("{}", approvals::render_resolution(&resolved));
+            } else {
+                println!(
+                    "{}\n(note) daemon not running; recorded the resolution on disk but could not wake a suspended turn.",
+                    approvals::resolve(paths, &approval_id, false, reason.as_deref())?
+                );
+            }
             Ok(())
         }
     }

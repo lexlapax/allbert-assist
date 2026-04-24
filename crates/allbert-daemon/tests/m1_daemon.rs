@@ -236,6 +236,29 @@ async fn run_turn_expect_error(client: &mut DaemonClient, input: &str) -> String
     }
 }
 
+async fn wait_for_job_rerun(
+    client: &mut DaemonClient,
+    name: &str,
+    previous_run_id: &str,
+) -> allbert_proto::JobStatusPayload {
+    timeout(Duration::from_secs(5), async {
+        loop {
+            let status = client.get_job(name).await.expect("job status should load");
+            if status
+                .state
+                .last_run_id
+                .as_deref()
+                .is_some_and(|run_id| run_id != previous_run_id)
+            {
+                return status;
+            }
+            sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("job rerun should settle")
+}
+
 async fn run_turn_with_confirms(
     client: &mut DaemonClient,
     input: &str,
@@ -453,7 +476,11 @@ struct ApprovalFrontmatter {
     id: String,
     request_id: u64,
     expires_at: String,
+    #[serde(default)]
+    kind: Option<String>,
     status: String,
+    #[serde(default)]
+    resolver: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -466,6 +493,46 @@ struct SessionMetaApprovalView {
 struct SessionMetaIdentityView {
     #[serde(default)]
     identity_id: Option<String>,
+}
+
+fn write_heartbeat(paths: &AllbertPaths, body: &str) {
+    std::fs::write(&paths.heartbeat, body).expect("heartbeat should write");
+}
+
+#[test]
+fn continuity_bearing_modules_do_not_use_raw_fs_write() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("repo root should exist")
+        .to_path_buf();
+    for (relative, forbidden) in [
+        (
+            "crates/allbert-kernel/src/config.rs",
+            vec!["std::fs::write(&paths.config, rendered)"],
+        ),
+        (
+            "crates/allbert-kernel/src/paths.rs",
+            vec!["std::fs::write(path, content)"],
+        ),
+        (
+            "crates/allbert-daemon/src/jobs.rs",
+            vec!["fs::write(path, encoded)?", "fs::write(path, frontmatter)?"],
+        ),
+        (
+            "crates/allbert-cli/src/approvals.rs",
+            vec!["std::fs::write(path, rendered)"],
+        ),
+    ] {
+        let raw =
+            std::fs::read_to_string(repo_root.join(relative)).expect("source file should read");
+        for needle in forbidden {
+            assert!(
+                !raw.contains(needle),
+                "{relative} should not contain direct continuity write `{needle}`"
+            );
+        }
+    }
 }
 
 fn read_session_meta_approval(paths: &AllbertPaths, session_id: &str) -> SessionMetaApprovalView {
@@ -1641,6 +1708,242 @@ async fn sessions_can_be_listed_and_forgotten() {
 }
 
 #[tokio::test]
+async fn cli_inbox_accept_resumes_live_telegram_tool_approval() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let identity = ensure_identity_record(&paths).expect("identity should seed");
+    add_identity_channel(&paths, ChannelKind::Telegram, "telegram:12345:9")
+        .expect("telegram binding should add");
+    seed_session_meta(
+        &paths,
+        "telegram-cross",
+        ChannelKind::Telegram,
+        Some("telegram:12345:9"),
+        Some(&identity.id),
+        "2026-04-21T17:00:00Z",
+    );
+
+    let skill_dir = paths.skills_installed.join("existing-skill");
+    std::fs::create_dir_all(&skill_dir).expect("skill dir should exist");
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: existing-skill\ndescription: Existing skill\nallowed-tools: [read_reference]\n---\n\nBody\n",
+    )
+    .expect("existing skill should be writable");
+
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(
+                "<tool_call>{\"name\":\"create_skill\",\"input\":{\"name\":\"existing-skill\",\"description\":\"Updated skill\",\"allowed_tools\":[\"read_reference\"],\"body\":\"Updated body\"}}</tool_call>",
+            ),
+            scripted("approved via inbox"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut telegram = wait_for_client(&paths).await;
+    telegram
+        .attach(ChannelKind::Telegram, Some("telegram-cross".into()))
+        .await
+        .expect("attach should succeed");
+    telegram
+        .start_turn("update the skill".into())
+        .await
+        .expect("turn should start");
+
+    let request = loop {
+        match telegram.recv().await.expect("daemon should respond") {
+            ServerMessage::ConfirmRequest(request) => break request,
+            ServerMessage::Event(_) => {}
+            other => panic!("expected confirm request, got {other:?}"),
+        }
+    };
+    let approval_id = request
+        .approval_id
+        .clone()
+        .expect("async confirm should expose approval id");
+
+    let mut cli = DaemonClient::connect(&paths, ClientKind::Test)
+        .await
+        .expect("cli should connect");
+    let resolved = cli
+        .resolve_inbox_approval(&approval_id, true, Some("cli accepted".into()))
+        .await
+        .expect("inbox resolve should succeed");
+    assert!(resolved.resumed_live_turn);
+
+    let mut saw_assistant = false;
+    loop {
+        match telegram.recv().await.expect("daemon should continue turn") {
+            ServerMessage::Event(KernelEventPayload::AssistantText(text)) => {
+                if text == "approved via inbox" {
+                    saw_assistant = true;
+                }
+            }
+            ServerMessage::TurnResult(_) => break,
+            ServerMessage::Event(_) => {}
+            other => panic!("unexpected message after inbox accept: {other:?}"),
+        }
+    }
+    assert!(
+        saw_assistant,
+        "accepted approval should resume the blocked turn"
+    );
+
+    let approval = parse_pending_approval(&paths, "telegram-cross", &approval_id);
+    assert_eq!(approval.status, "accepted");
+    assert_eq!(approval.kind.as_deref(), Some("tool-approval"));
+    assert_eq!(approval.resolver.as_deref(), Some("cli:local"));
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn telegram_cost_cap_inbox_accept_arms_next_turn() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let identity = ensure_identity_record(&paths).expect("identity should seed");
+    add_identity_channel(&paths, ChannelKind::Telegram, "telegram:12345:9")
+        .expect("telegram binding should add");
+    seed_session_meta(
+        &paths,
+        "telegram-cap",
+        ChannelKind::Telegram,
+        Some("telegram:12345:9"),
+        Some(&identity.id),
+        "2026-04-21T17:00:00Z",
+    );
+
+    let mut config = sample_config();
+    config.limits.daily_usd_cap = Some(0.0);
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let handle = spawn_with_factory(
+        config,
+        paths.clone(),
+        Arc::new(TestFactory::with_requests(
+            vec![scripted("override worked")],
+            requests.clone(),
+        )),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut telegram = wait_for_client(&paths).await;
+    telegram
+        .attach(ChannelKind::Telegram, Some("telegram-cap".into()))
+        .await
+        .expect("attach should succeed");
+
+    let blocked = run_turn_expect_error(&mut telegram, "blocked by cap").await;
+    assert!(
+        blocked.contains("allbert-cli inbox accept"),
+        "cost cap refusal should point to the inbox flow"
+    );
+
+    let mut cli = DaemonClient::connect(&paths, ClientKind::Test)
+        .await
+        .expect("cli should connect");
+    let approvals = cli
+        .list_inbox(None, Some("cost-cap-override".into()), false)
+        .await
+        .expect("inbox list should load");
+    assert_eq!(approvals.len(), 1);
+    let approval_id = approvals[0].id.clone();
+
+    let resolved = cli
+        .resolve_inbox_approval(&approval_id, true, Some("release smoke".into()))
+        .await
+        .expect("cost-cap approval should resolve");
+    assert!(!resolved.resumed_live_turn);
+    assert!(resolved
+        .note
+        .as_deref()
+        .unwrap_or_default()
+        .contains("armed"));
+
+    let _ = run_turn_collect_messages(&mut telegram, "override turn").await;
+    assert_eq!(
+        requests.lock().unwrap().len(),
+        1,
+        "inbox acceptance should arm the next telegram turn exactly once"
+    );
+
+    let blocked_again = run_turn_expect_error(&mut telegram, "blocked again").await;
+    assert!(
+        blocked_again.contains("Daily cost cap of $0.00 reached"),
+        "override should be consumed after one turn"
+    );
+
+    let approval = parse_pending_approval(&paths, "telegram-cap", &approval_id);
+    assert_eq!(approval.status, "accepted");
+    assert_eq!(approval.kind.as_deref(), Some("cost-cap-override"));
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn job_confirm_creates_inbox_item_and_accept_retries_job() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(
+                "<tool_call>{\"name\":\"process_exec\",\"input\":{\"program\":\"/bin/echo\",\"args\":[\"hello\"]}}</tool_call>",
+            ),
+            scripted("first run adapted"),
+            scripted("job recovered"),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut jobs = wait_for_client(&paths).await;
+    jobs.attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+    jobs.upsert_job(sample_job("approval-job", "every 1h", "run it"))
+        .await
+        .expect("job should upsert");
+
+    let first_run = jobs
+        .run_job("approval-job")
+        .await
+        .expect("initial job run should complete");
+
+    let mut cli = DaemonClient::connect(&paths, ClientKind::Test)
+        .await
+        .expect("cli should connect");
+    let approvals = cli
+        .list_inbox(None, Some("job-approval".into()), false)
+        .await
+        .expect("job approvals should load");
+    assert_eq!(approvals.len(), 1);
+    let approval_id = approvals[0].id.clone();
+    let approval_session = approvals[0].session_id.clone();
+    assert_eq!(approvals[0].sender, "approval-job");
+
+    let resolved = cli
+        .resolve_inbox_approval(&approval_id, true, Some("retry it".into()))
+        .await
+        .expect("job approval should resolve");
+    assert!(resolved.resumed_live_turn);
+
+    let status = wait_for_job_rerun(&mut jobs, "approval-job", &first_run.run_id).await;
+    assert_eq!(status.state.last_outcome.as_deref(), Some("success"));
+
+    let approval = parse_pending_approval(&paths, &approval_session, &approval_id);
+    assert_eq!(approval.status, "accepted");
+    assert_eq!(approval.kind.as_deref(), Some("job-approval"));
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
 async fn active_session_cannot_be_forgotten() {
     let home = TempHome::new();
     let paths = home.paths();
@@ -2552,6 +2855,10 @@ async fn durable_job_mutations_still_prompt_when_session_auto_confirm_is_enabled
 async fn jobs_can_be_upserted_updated_and_swept_when_due() {
     let home = TempHome::new();
     let paths = home.paths();
+    write_heartbeat(
+        &paths,
+        "---\nversion: 1\ntimezone: UTC\nprimary_channel: telegram\nquiet_hours: []\ncheck_ins:\n  daily_brief:\n    enabled: true\n    time: \"09:00\"\n    channel: telegram\n  weekly_review:\n    enabled: false\ninbox_nag:\n  enabled: false\n  cadence: off\n  channel: telegram\n---\n\n# HEARTBEAT\n",
+    );
     let handle = spawn_with_factory(
         jobs_test_config(),
         paths.clone(),
@@ -2618,6 +2925,44 @@ async fn jobs_can_be_upserted_updated_and_swept_when_due() {
     let run_log = std::fs::read_to_string(paths.jobs_runs.join(format!("{run_log_date}.jsonl")))
         .expect("job run log should be written");
     assert!(run_log.contains("\"job_name\":\"daily-brief\""));
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn scheduled_daily_brief_is_skipped_without_heartbeat_opt_in() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted("unused")])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+    client
+        .upsert_job(sample_job(
+            "daily-brief",
+            "once at 2026-04-19T11:00:00Z",
+            "summarize",
+        ))
+        .await
+        .expect("job should upsert");
+
+    let runs = client
+        .sweep_jobs(Some("2026-04-19T11:05:00Z".into()))
+        .await
+        .expect("due sweep should succeed");
+    assert!(
+        runs.is_empty(),
+        "daily-brief should stay gated until HEARTBEAT.md opts it in"
+    );
 
     shutdown_daemon(handle, &paths).await;
 }

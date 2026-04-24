@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-use allbert_kernel::{load_heartbeat_record, validate_heartbeat_record, AllbertPaths};
+use allbert_kernel::{
+    load_heartbeat_record, validate_heartbeat_record, AllbertPaths, HeartbeatNagCadence,
+};
 use allbert_proto::ChannelKind;
 use anyhow::{Context, Result};
 
@@ -20,6 +22,56 @@ pub fn show(paths: &AllbertPaths) -> Result<String> {
     for range in &record.quiet_hours {
         lines.push(format!("- {range}"));
     }
+    lines.push("check_ins:".into());
+    lines.push(format!(
+        "- daily_brief: enabled={} time={} channel={}",
+        record.check_ins.daily_brief.enabled,
+        record
+            .check_ins
+            .daily_brief
+            .time
+            .as_deref()
+            .unwrap_or("(unset)"),
+        record
+            .check_ins
+            .daily_brief
+            .channel
+            .map(channel_label)
+            .unwrap_or("(primary)")
+    ));
+    lines.push(format!(
+        "- weekly_review: enabled={} day={} time={} channel={}",
+        record.check_ins.weekly_review.enabled,
+        record
+            .check_ins
+            .weekly_review
+            .day
+            .as_deref()
+            .unwrap_or("(unset)"),
+        record
+            .check_ins
+            .weekly_review
+            .time
+            .as_deref()
+            .unwrap_or("(unset)"),
+        record
+            .check_ins
+            .weekly_review
+            .channel
+            .map(channel_label)
+            .unwrap_or("(primary)")
+    ));
+    lines.push(format!(
+        "inbox_nag:         enabled={} cadence={} time={} channel={}",
+        record.inbox_nag.enabled,
+        nag_cadence_label(record.inbox_nag.cadence),
+        record.inbox_nag.time.as_deref().unwrap_or("(unset)"),
+        record
+            .inbox_nag
+            .channel
+            .map(channel_label)
+            .unwrap_or("(primary)")
+    ));
     lines.push(format!(
         "body:              {}",
         if record.body.trim().is_empty() {
@@ -84,5 +136,13 @@ fn channel_label(kind: ChannelKind) -> &'static str {
         ChannelKind::Repl => "repl",
         ChannelKind::Jobs => "jobs",
         ChannelKind::Telegram => "telegram",
+    }
+}
+
+fn nag_cadence_label(value: HeartbeatNagCadence) -> &'static str {
+    match value {
+        HeartbeatNagCadence::Daily => "daily",
+        HeartbeatNagCadence::Weekly => "weekly",
+        HeartbeatNagCadence::Off => "off",
     }
 }
