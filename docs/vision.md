@@ -12,6 +12,7 @@ The project is centered on a small Rust runtime kernel rather than a bloated app
 - **Markdown-defined identity.** Personality, user profile, and local conventions should live in a small set of editable markdown bootstrap files that the kernel can load into runtime context.
 - **Security at the core.** Risky actions should be mediated by explicit policy checks at the kernel layer rather than hidden in frontends or ad hoc scripts.
 - **Service oriented, not bloated.** New capabilities should come from small internal services, skills, tools, and clean interfaces before adding heavyweight embedded runtimes or a broad distributed platform.
+- **Unix co-tenant.** Allbert composes with small focused utility programs already on the system rather than re-implementing them in-kernel. Shell exec stays under the existing policy envelope, and pipe-style composition of local tools is a legitimate tool shape, not a workaround.
 - **Natural interface.** End users interact via natural language — text, and over time voice, images, and attachments through channels. User-authored extension lives in markdown and declarative config (bootstrap files, skills, jobs, agent prompts). Rust is the runtime-scaffolding language, not a user-facing language. Writing code is never a prerequisite for using or extending Allbert.
 - **Personal over generic.** The assistant should learn your habits, preferences, history, and working context over time.
 
@@ -68,7 +69,7 @@ Allbert should have a small always-on bootstrap layer made of inspectable markdo
 
 For planning and reasoning, Allbert should support both strong hosted foundation models and local models. v0.10 makes the local-first default Ollama with `gemma4`, while Anthropic, OpenRouter, OpenAI, and Gemini remain first-class direct-provider options for operators who want hosted models. Provider choice stays a kernel-owned runtime configuration concern so cost logs, policy gates, daemon protocol, jobs, skills, and channel capability checks all see the same model posture.
 
-Over time Allbert may also use smaller specialized models for memory shaping, personalization, or other narrow tasks, as long as those additions keep the runtime understandable and maintainable. A full local retraining or nightly-distillation pipeline is an explicit later ambition, not a commitment in the current roadmap.
+Over time Allbert may also use smaller specialized models for memory shaping, personalization, or other narrow tasks, as long as those additions keep the runtime understandable and maintainable. v0.11 takes the first review-first step toward the origin note's nightly-learning ambition with an opt-in personality digest and a `LearningJob` seam, but it does not train a model. v0.13 is the planned release that trains: a local LoRA/adapter job plugs into the same seam, consumes the same approved-only corpus contract, and routes new adapters through review before activation. Full foundation-model retraining remains out of scope.
 
 ## Skill Direction
 
@@ -101,9 +102,18 @@ End-user usability in v0.1 comes from guided setup for bootstrap identity and ex
 
 After that foundation is solid, the next step is not just "cron jobs." It is a daemon substrate plus lightweight internal services, especially an internal job manager that can run background and scheduled work without making OS cron the primary runtime mechanism.
 
-From there, the project grows along a sequenced path: agents and intent routing, then richer skills through AgentSkills adoption, then curated memory, then hardening around restart-durable sessions, cost caps, and operator-visible verification, then new channels, then continuity and sync across those channels, then a pinned contributor/development contract that makes the source tree reproducible on macOS, Linux, and Codex Web workspaces, then provider expansion with a local-first Ollama/Gemma4 default, then a richer TUI and adaptive-memory release, and only after that self-improvement skills for Allbert itself. That sequence — captured in [docs/plans/roadmap.md](plans/roadmap.md) — keeps each release useful on its own while unlocking the next.
+From there, the project grows along a sequenced path: agents and intent routing, then richer skills through AgentSkills adoption, then curated memory, then hardening around restart-durable sessions, cost caps, and operator-visible verification, then new channels, then continuity and sync across those channels, then a pinned contributor/development contract that makes the source tree reproducible on macOS, Linux, and Codex Web workspaces, then provider expansion with a local-first Ollama/Gemma4 default, then a richer TUI and adaptive-memory release with a review-first personality digest and a learning-job seam, then self-improvement skills for Allbert itself, then local personalization through adapter training against that seam, and finally self-diagnosis plus a curated Unix co-tenant posture. That sequence — captured in [docs/plans/roadmap.md](plans/roadmap.md) — keeps each release useful on its own while unlocking the next.
 
 Even as that happens, Allbert should remain local-first, compact, and understandable. It should not turn into a broad distributed microservice platform just to gain background execution.
+
+## Future Direction
+
+Beyond the v0.12 self-improvement release the roadmap names two further planned releases. Both are staged after self-improvement so that Allbert's review surfaces, cost tracking, and operator posture are mature before the assistant edits durable personalization state or reasons about its own failures.
+
+- **v0.13 — Local personalization.** A `PersonalityAdapterJob` plugs into the v0.11 `LearningJob` seam and trains a small local adapter (LoRA or equivalent) from an approved-only corpus of durable memory, approved facts, and approved episode summaries. Every new adapter routes through an `adapter-approval` inbox flow that mirrors v0.12's patch review. No training data leaves the machine unless the operator explicitly opts in. `PERSONALITY.md` remains the human-readable profile; the adapter is a second, optional surface.
+- **v0.14 — Self-diagnosis and Unix co-tenant.** A `self-diagnose` skill reads Allbert's own traces, correlates failures with turn/tool/agent state, and drafts candidate explanations plus optional remediation that routes through the same patch-approval / staging review paths it already uses. The same release hardens Unix-style composition: a curated local-utilities surface and a bounded `unix-pipe` tool shape let Allbert call small focused utilities (jq, ripgrep, fd, bat, pandoc, etc.) under the existing exec policy, without adopting a new scripting runtime.
+
+Full foundation-model retraining, hosted web surfaces, and a broader distributed-service platform remain out of scope.
 
 ## Name
 

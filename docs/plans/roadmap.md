@@ -16,8 +16,10 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.8 | Continuity and sync: cross-channel identity mapping, durable session routing, approval inbox, sync posture | Shipped | [v0.08-continuity-and-sync.md](v0.08-continuity-and-sync.md) |
 | v0.9 | Developer environment and Codex Web readiness: pinned toolchain, contributor contract, provider-free validation | Shipped | [v0.09-developer-environment-and-codex-web.md](v0.09-developer-environment-and-codex-web.md) |
 | v0.10 | Provider expansion and local-first default: OpenAI, Gemini, Ollama/Gemma4 | Shipped | [v0.10-provider-expansion.md](v0.10-provider-expansion.md) |
-| v0.11 | TUI and adaptive memory: Ratatui operator surface, session telemetry, configurable memory routing, episode/fact recall | Proposed | [v0.11-tui-and-memory.md](v0.11-tui-and-memory.md) |
+| v0.11 | TUI and adaptive memory: Ratatui operator surface, session telemetry, configurable memory routing, episode/fact recall, review-first personality digest + `LearningJob` seam | Proposed | [v0.11-tui-and-memory.md](v0.11-tui-and-memory.md) |
 | v0.12 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.12-self-improvement.md](v0.12-self-improvement.md) |
+| v0.13 | Local personalization: LoRA/adapter training through the v0.11 `LearningJob` seam, approved-only corpus, adapter-approval review flow | Future | [v0.13-personalization.md](v0.13-personalization.md) |
+| v0.14 | Self-diagnosis and Unix co-tenant: trace-aware self-diagnose skill, curated local-utilities surface, bounded `unix-pipe` tool shape | Future | [v0.14-self-diagnosis.md](v0.14-self-diagnosis.md) |
 
 Note: some v0.9 contributor-contract work landed before the final v0.8 release-alignment pass. The roadmap order still reflects dependency intent rather than strict commit chronology.
 
@@ -68,6 +70,8 @@ v0.11 also deepens memory without weakening the v0.5 safety contract:
 - staged/promoted facts can carry temporal provenance, but still require review before durable promotion;
 - semantic retrieval remains optional and derived, while BM25/Tantivy remains the default.
 
+v0.11 also takes the first review-first step toward the origin note's nightly-learning ambition: an opt-in `personality-digest` job compiles a markdown `PERSONALITY.md` from approved durable and fact memory, and a `LearningJob` trait seam defines the shape future learning jobs plug into. No model is trained in v0.11; that lands in v0.13.
+
 This keeps Allbert's normal operating loop legible before the roadmap moves to self-improvement.
 
 ### v0.11 before v0.12
@@ -82,6 +86,22 @@ Self-improvement (the assistant rebuilding its own Rust binary, authoring new sk
 - a richer terminal operator surface with session telemetry, status-line state, and memory/inbox visibility.
 
 v0.12 also depends on the tool surface being normalized so embedded-script hook observation is uniform (ADR 0052), and on the memory and skill-install trust model being mature enough that self-authored artifacts route through the same gates as any other skill. v0.11 reduces the risk further by making cost, context, memory, and approvals visible in the terminal before self-improvement workflows arrive.
+
+### v0.12 before v0.13
+
+Local personalization — training an adapter or LoRA over the user's approved memory — is powerful, personal, and hard to undo. It should land only after v0.11 has stabilised the `LearningJob` seam and the approved-only corpus contract, and after v0.12 has demonstrated the review-first posture for "Allbert produces an artifact, the operator reviews it before it takes effect" via patch-approval. v0.13's `adapter-approval` flow is deliberately modeled on v0.12's `patch-approval`, so v0.12 both proves the UX and defines the ADR pattern v0.13 reuses.
+
+v0.13 also inherits the v0.11 invariants it cannot weaken: the trait shape, the approved-only corpus rules, the daily cost/compute cap, fail-closed scheduling, and `PERSONALITY.md` as a bootstrap artifact. Those are named in v0.11's "Handoff to v0.12 and v0.13" section so the recheck discipline carries forward.
+
+### v0.13 before v0.14
+
+v0.14 (self-diagnosis + Unix co-tenant) is scoped last because it depends on the surfaces v0.11-v0.13 ship:
+
+- v0.11's telemetry + routing expose the trace metadata self-diagnosis reads.
+- v0.12's patch-approval and skill-author inbox patterns give candidate self-fixes a review home.
+- v0.13's personalization establishes that "Allbert changes itself, operator reviews before it lands" is a familiar loop, not a novel one.
+
+Shipping v0.14 alongside personalization would combine two hard reviews (training data scope and self-modification proposals) into one release. Sequencing them avoids that.
 
 ## Cross-cutting concerns
 
@@ -107,8 +127,9 @@ Explicitly parked, not forgotten.
 - **Cross-network daemon.** Out of scope through v0.12. If and when it returns, it will be an explicit design pass, not an incremental add-on.
 - **Large embedded runtime.** Lua or similar embedded scripting enters only through the v0.12 `ScriptingEngine` seam ([ADR 0069](../adr/0069-scripting-engine-trait-with-lua-as-the-v0-12-default-embedded-runtime.md) and [ADR 0070](../adr/0070-embedded-script-sandbox-policy.md)) rather than as a kernel dependency.
 - **Default embedding / vector retrieval for memory.** v0.5 commits to BM25 via tantivy (ADR 0046). v0.11 may add optional semantic retrieval as a derived, disabled-by-default layer; BM25 remains the default.
-- **Local personalization / retraining pipeline.** The origin note's ambition to distill or retrain a small local model for memory/personality is still in scope philosophically, but it is not assigned to any release through v0.12. Revisit only after curated memory, continuity, provider-management seams, the contributor environment contract, and the v0.11 adaptive-memory work are stable.
+- **Foundation-model retraining / distillation.** The origin note's ambition to retrain or distill a full local foundation model remains out of scope. v0.11 ships a review-first personality digest and `LearningJob` seam, and v0.13 trains small local adapters against that seam. Full foundation-model retraining is not on the roadmap.
 - **Website-serving / hosted web surfaces.** The origin note's idea that Allbert might eventually serve websites or richer hosted interfaces is explicitly deferred beyond the current roadmap. The near-term web story is channel expansion and future native/web UI planning, not site-hosting from the daemon.
+- **Additional messaging channels.** Discord, WhatsApp, email, and SMS channels from the origin note's wish list are deferred. v0.7 shipped a Telegram pilot and the `Channel` trait with multimodal flags, so each new channel can land as an adapter without reshaping the kernel. No specific channel is assigned a release through v0.14.
 
 ## References
 
