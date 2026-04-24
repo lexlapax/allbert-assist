@@ -3225,7 +3225,11 @@ fn render_job_definition_lines(definition: &allbert_proto::JobDefinitionPayload)
 
 fn render_job_model(model: Option<&allbert_proto::ModelConfigPayload>) -> String {
     match model {
-        Some(model) => format!("{:?} / {}", model.provider, model.model_id),
+        Some(model) => format!(
+            "{} / {}",
+            Provider::from_proto_kind(model.provider).label(),
+            model.model_id
+        ),
         None => "(daemon default)".into(),
     }
 }
@@ -5926,6 +5930,11 @@ mod tests {
                 "name: researcher\n",
                 "description: Research delegated work\n",
                 "allowed-tools: read_file\n",
+                "model:\n",
+                "  provider: ollama\n",
+                "  model_id: gemma4\n",
+                "  base_url: http://127.0.0.1:11434\n",
+                "  max_tokens: 2048\n",
                 "---\n\n",
                 "Only read files and summarize findings.\n"
             ),
@@ -5954,6 +5963,15 @@ mod tests {
         assert_eq!(skill.agents.len(), 1);
         assert_eq!(skill.agents[0].name, "planner/researcher");
         assert_eq!(skill.agents[0].allowed_tools, vec!["read_file"]);
+        let model = skill.agents[0]
+            .model
+            .as_ref()
+            .expect("contributed agent model should parse");
+        assert_eq!(model.provider, Provider::Ollama);
+        assert_eq!(model.model_id, "gemma4");
+        assert_eq!(model.api_key_env, None);
+        assert_eq!(model.base_url.as_deref(), Some("http://127.0.0.1:11434"));
+        assert_eq!(model.max_tokens, 2048);
 
         let agents = kernel.list_agents();
         assert!(agents

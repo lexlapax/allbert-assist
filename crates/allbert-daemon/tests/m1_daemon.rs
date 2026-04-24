@@ -1130,6 +1130,87 @@ async fn session_local_model_changes_do_not_leak_across_sessions() {
 }
 
 #[tokio::test]
+async fn expanded_provider_models_roundtrip_through_daemon_session_status() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(Vec::new())),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+
+    let daemon_status = client.status().await.expect("daemon status should load");
+    assert_eq!(daemon_status.model_api_key_env, None);
+    assert_eq!(
+        daemon_status.model_base_url.as_deref(),
+        Some("http://127.0.0.1:11434")
+    );
+    assert!(
+        daemon_status.model_api_key_visible,
+        "keyless daemon default should be treated as usable"
+    );
+
+    let cases = [
+        ModelConfigPayload {
+            provider: ProviderKind::Openrouter,
+            model_id: "openrouter/test-model".into(),
+            api_key_env: Some("__ALLBERT_TEST_MISSING_OPENROUTER_KEY".into()),
+            base_url: None,
+            max_tokens: 2048,
+        },
+        ModelConfigPayload {
+            provider: ProviderKind::Openai,
+            model_id: "gpt-5.4-mini".into(),
+            api_key_env: Some("__ALLBERT_TEST_MISSING_OPENAI_KEY".into()),
+            base_url: Some("https://api.openai.test/v1".into()),
+            max_tokens: 4096,
+        },
+        ModelConfigPayload {
+            provider: ProviderKind::Gemini,
+            model_id: "gemini-2.5-flash".into(),
+            api_key_env: Some("__ALLBERT_TEST_MISSING_GEMINI_KEY".into()),
+            base_url: Some("https://generativelanguage.test/v1beta".into()),
+            max_tokens: 3072,
+        },
+        ModelConfigPayload {
+            provider: ProviderKind::Ollama,
+            model_id: "gemma4".into(),
+            api_key_env: None,
+            base_url: Some("http://127.0.0.1:11434".into()),
+            max_tokens: 2048,
+        },
+    ];
+
+    for expected in cases {
+        let updated = client
+            .set_model(expected.clone())
+            .await
+            .expect("set model should succeed");
+        assert_eq!(updated, expected);
+
+        let read_back = client.get_model().await.expect("model should read back");
+        assert_eq!(read_back, expected);
+
+        let status = client
+            .session_status()
+            .await
+            .expect("session status should load");
+        assert_eq!(status.model, expected);
+        assert_eq!(status.api_key_present, expected.api_key_env.is_none());
+    }
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
 async fn session_auto_confirm_skips_confirm_prompt() {
     let home = TempHome::new();
     let paths = home.paths();

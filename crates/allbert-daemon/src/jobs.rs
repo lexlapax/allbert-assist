@@ -1182,3 +1182,78 @@ pub(crate) fn list_run_records(
 fn map_kernel_error(error: KernelError) -> DaemonError {
     DaemonError::Protocol(error.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    struct TempJobsRoot {
+        root: std::path::PathBuf,
+    }
+
+    impl TempJobsRoot {
+        fn new() -> Self {
+            let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let root = std::env::temp_dir().join(format!(
+                "allbert-daemon-jobs-{}-{counter}",
+                std::process::id()
+            ));
+            fs::create_dir_all(&root).expect("temp jobs root should be created");
+            Self { root }
+        }
+    }
+
+    impl Drop for TempJobsRoot {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[test]
+    fn job_definition_writer_omits_api_key_env_for_keyless_ollama() {
+        let temp = TempJobsRoot::new();
+        let definition = JobDefinition::from_payload(JobDefinitionPayload {
+            name: "local-brief".into(),
+            description: "Local brief".into(),
+            enabled: true,
+            schedule: "@daily".into(),
+            skills: Vec::new(),
+            timezone: None,
+            model: Some(ModelConfigPayload {
+                provider: ProviderKind::Ollama,
+                model_id: "gemma4".into(),
+                api_key_env: None,
+                base_url: Some("http://127.0.0.1:11434".into()),
+                max_tokens: 2048,
+            }),
+            allowed_tools: Vec::new(),
+            timeout_s: None,
+            report: None,
+            max_turns: None,
+            budget: None,
+            session_name: None,
+            memory_prefetch: None,
+            prompt: "Summarize locally.".into(),
+        })
+        .expect("payload should convert");
+
+        write_definition_file(&temp.root, &definition).expect("definition should write");
+        let raw = fs::read_to_string(temp.root.join("local-brief.md"))
+            .expect("definition file should read");
+        assert!(raw.contains("provider: ollama"));
+        assert!(raw.contains("base_url:"));
+        assert!(!raw.contains("api_key_env:"));
+
+        let loaded = load_definitions(&temp.root).expect("definition should load");
+        let model = loaded
+            .get("local-brief")
+            .and_then(|definition| definition.model.as_ref())
+            .expect("model should load");
+        assert_eq!(model.provider, ProviderKind::Ollama);
+        assert_eq!(model.api_key_env, None);
+        assert_eq!(model.base_url.as_deref(), Some("http://127.0.0.1:11434"));
+    }
+}

@@ -1,5 +1,5 @@
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
-use allbert_kernel::{AllbertPaths, Config};
+use allbert_kernel::{AllbertPaths, Config, Provider};
 use allbert_proto::{
     ChannelKind, ClientKind, JobBudgetPayload, JobDefinitionPayload, JobReportPolicyPayload,
     JobRunRecordPayload, JobStatusPayload, ProviderKind,
@@ -135,7 +135,7 @@ pub fn render_job_status(job: &JobStatusPayload) -> String {
     let model = definition
         .model
         .as_ref()
-        .map(|model| format!("{:?} / {}", model.provider, model.model_id))
+        .map(render_model_override)
         .unwrap_or_else(|| "(daemon default)".into());
     let report = definition.report.map(report_label).unwrap_or("(default)");
     let last_failure = match (&state.last_outcome, &state.last_stop_reason) {
@@ -190,6 +190,14 @@ fn report_label(report: JobReportPolicyPayload) -> &'static str {
         JobReportPolicyPayload::OnFailure => "on_failure",
         JobReportPolicyPayload::OnAnomaly => "on_anomaly",
     }
+}
+
+fn render_model_override(model: &allbert_proto::ModelConfigPayload) -> String {
+    format!(
+        "{} / {}",
+        Provider::from_proto_kind(model.provider).label(),
+        model.model_id
+    )
 }
 
 #[derive(Debug, Deserialize)]
@@ -287,4 +295,94 @@ pub fn parse_job_definition(path: &str) -> Result<JobDefinitionPayload> {
         memory_prefetch: data.memory.and_then(|memory| memory.prefetch),
         prompt: parsed.content.trim().to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use allbert_proto::{JobStatePayload, ModelConfigPayload};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    fn temp_job_file(contents: &str) -> std::path::PathBuf {
+        let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let path =
+            std::env::temp_dir().join(format!("allbert-jobs-{}-{counter}.md", std::process::id()));
+        std::fs::write(&path, contents).expect("temp job should write");
+        path
+    }
+
+    #[test]
+    fn parse_job_definition_accepts_keyless_ollama_base_url() {
+        let path = temp_job_file(
+            r#"---
+name: local-brief
+description: Local brief
+enabled: true
+schedule: "@daily"
+model:
+  provider: ollama
+  model_id: gemma4
+  base_url: http://127.0.0.1:11434
+  max_tokens: 2048
+---
+
+Summarize the day locally.
+"#,
+        );
+
+        let parsed = parse_job_definition(path.to_str().expect("temp path should be utf-8"))
+            .expect("job definition should parse");
+        let model = parsed.model.expect("model override should parse");
+        assert_eq!(model.provider, ProviderKind::Ollama);
+        assert_eq!(model.model_id, "gemma4");
+        assert_eq!(model.api_key_env, None);
+        assert_eq!(model.base_url.as_deref(), Some("http://127.0.0.1:11434"));
+        assert_eq!(model.max_tokens, 2048);
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn render_job_status_uses_provider_metadata_label() {
+        let job = JobStatusPayload {
+            definition: JobDefinitionPayload {
+                name: "local-brief".into(),
+                description: "Local brief".into(),
+                enabled: true,
+                schedule: "@daily".into(),
+                skills: Vec::new(),
+                timezone: None,
+                model: Some(ModelConfigPayload {
+                    provider: ProviderKind::Ollama,
+                    model_id: "gemma4".into(),
+                    api_key_env: None,
+                    base_url: Some("http://127.0.0.1:11434".into()),
+                    max_tokens: 2048,
+                }),
+                allowed_tools: Vec::new(),
+                timeout_s: None,
+                report: None,
+                max_turns: None,
+                budget: None,
+                session_name: None,
+                memory_prefetch: None,
+                prompt: "Summarize locally.".into(),
+            },
+            state: JobStatePayload {
+                paused: false,
+                last_run_at: None,
+                next_due_at: None,
+                failure_streak: 0,
+                running: false,
+                last_run_id: None,
+                last_outcome: None,
+                last_stop_reason: None,
+            },
+        };
+
+        let rendered = render_job_status(&job);
+        assert!(rendered.contains("model override:    ollama / gemma4"));
+    }
 }
