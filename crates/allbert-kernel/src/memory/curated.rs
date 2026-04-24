@@ -29,6 +29,8 @@ use crate::paths::AllbertPaths;
 
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
 const INDEX_SCHEMA_VERSION: u32 = 2;
+const SEMANTIC_SCHEMA_VERSION: u32 = 1;
+const FAKE_EMBEDDING_DIM: usize = 32;
 const TANTIVY_VERSION: &str = "0.22";
 const STAGED_BODY_MAX_BYTES: usize = 16 * 1024;
 
@@ -647,6 +649,7 @@ pub fn search_memory(
     input: SearchMemoryInput,
 ) -> Result<Vec<SearchMemoryHit>, KernelError> {
     let _ = reconcile_curated_memory(paths, config)?;
+    let manifest = load_manifest(paths)?;
     let raw_query = input.query.trim();
     if raw_query.is_empty() {
         return Err(KernelError::InitFailed(
@@ -720,7 +723,14 @@ pub fn search_memory(
         .map_err(|e| KernelError::InitFailed(format!("open tantivy reader: {e}")))?;
     let searcher = reader.searcher();
     let top_docs = searcher
-        .search(&compiled_query, &TopDocs::with_limit(limit))
+        .search(
+            &compiled_query,
+            &TopDocs::with_limit(if config.semantic.enabled {
+                limit.saturating_mul(4).max(limit)
+            } else {
+                limit
+            }),
+        )
         .map_err(|e| KernelError::InitFailed(format!("search memory index: {e}")))?;
 
     let mut hits = Vec::new();
@@ -753,6 +763,10 @@ pub fn search_memory(
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| a.path.cmp(&b.path))
     });
+    if config.semantic.enabled {
+        return apply_semantic_fusion(paths, config, &manifest, &input, raw_query, hits, limit);
+    }
+    hits.truncate(limit);
     Ok(hits)
 }
 
@@ -1295,6 +1309,53 @@ struct EpisodeDoc {
     timestamp_secs: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SemanticIndexMeta {
+    schema_version: u32,
+    provider: String,
+    model: String,
+    source_hash: String,
+    doc_count: usize,
+    rebuilt_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SemanticIndexDoc {
+    id: String,
+    path: String,
+    title: String,
+    tier: String,
+    tags: Vec<String>,
+    body: String,
+    source: Option<JsonValue>,
+    superseded: bool,
+    vector: Vec<f32>,
+}
+
+trait EmbeddingProvider {
+    fn provider_name(&self) -> &str;
+    fn model(&self) -> &str;
+    fn embed(&self, text: &str) -> Vec<f32>;
+}
+
+struct FakeEmbeddingProvider {
+    model: String,
+}
+
+impl EmbeddingProvider for FakeEmbeddingProvider {
+    fn provider_name(&self) -> &str {
+        "fake"
+    }
+
+    fn model(&self) -> &str {
+        &self.model
+    }
+
+    fn embed(&self, text: &str) -> Vec<f32> {
+        fake_embedding(text)
+    }
+}
+
 fn expected_index_doc_count(
     paths: &AllbertPaths,
     config: &MemoryConfig,
@@ -1711,6 +1772,417 @@ fn normalize_facts(
     Ok(normalized)
 }
 
+fn embedding_provider(
+    config: &MemoryConfig,
+) -> Result<Option<Box<dyn EmbeddingProvider>>, KernelError> {
+    if !config.semantic.enabled {
+        return Ok(None);
+    }
+    match config
+        .semantic
+        .provider
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "fake" => Ok(Some(Box::new(FakeEmbeddingProvider {
+            model: if config.semantic.embedding_model.trim().is_empty() {
+                "fake-hash-v1".into()
+            } else {
+                config.semantic.embedding_model.trim().to_string()
+            },
+        }))),
+        "none" | "" => Err(KernelError::InitFailed(
+            "memory.semantic.enabled requires memory.semantic.provider = \"fake\" in v0.11".into(),
+        )),
+        other => Err(KernelError::InitFailed(format!(
+            "unsupported memory semantic provider `{other}`; v0.11 ships the fake provider only"
+        ))),
+    }
+}
+
+fn semantic_index_dir(paths: &AllbertPaths, provider: &dyn EmbeddingProvider) -> PathBuf {
+    paths
+        .memory_index_dir
+        .join("semantic")
+        .join(safe_path_component(provider.provider_name()))
+        .join(safe_path_component(provider.model()))
+}
+
+fn safe_path_component(value: &str) -> String {
+    let mut out = String::new();
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '.' {
+            out.push(ch);
+        } else if !out.ends_with('-') {
+            out.push('-');
+        }
+    }
+    let trimmed = out.trim_matches('-');
+    if trimmed.is_empty() {
+        "default".into()
+    } else {
+        trimmed.into()
+    }
+}
+
+fn ensure_semantic_index(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    manifest: &MemoryManifest,
+) -> Result<(), KernelError> {
+    let Some(provider) = embedding_provider(config)? else {
+        return Ok(());
+    };
+    let dir = semantic_index_dir(paths, provider.as_ref());
+    let meta_path = dir.join("metadata.json");
+    let docs_path = dir.join("documents.json");
+    let source_hash = index_source_hash(paths, config, manifest)?;
+    let expected_doc_count = semantic_source_documents(paths, config, manifest)?.len();
+    if let Ok(meta) = load_semantic_meta(&meta_path) {
+        if meta.schema_version == SEMANTIC_SCHEMA_VERSION
+            && meta.provider == provider.provider_name()
+            && meta.model == provider.model()
+            && meta.source_hash == source_hash
+            && meta.doc_count == expected_doc_count
+            && docs_path.exists()
+        {
+            return Ok(());
+        }
+    }
+    rebuild_semantic_index(paths, config, manifest, provider.as_ref())
+}
+
+fn rebuild_semantic_index(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    manifest: &MemoryManifest,
+    provider: &dyn EmbeddingProvider,
+) -> Result<(), KernelError> {
+    let dir = semantic_index_dir(paths, provider);
+    fs::create_dir_all(&dir)
+        .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", dir.display())))?;
+    let docs = semantic_source_documents(paths, config, manifest)?
+        .into_iter()
+        .map(|mut doc| {
+            doc.vector = provider.embed(&format!(
+                "{}\n{}\n{}",
+                doc.title,
+                doc.tags.join(" "),
+                doc.body
+            ));
+            doc
+        })
+        .collect::<Vec<_>>();
+    let meta = SemanticIndexMeta {
+        schema_version: SEMANTIC_SCHEMA_VERSION,
+        provider: provider.provider_name().into(),
+        model: provider.model().into(),
+        source_hash: index_source_hash(paths, config, manifest)?,
+        doc_count: docs.len(),
+        rebuilt_at: now_rfc3339()?,
+    };
+    atomic_write(
+        &dir.join("documents.json"),
+        serde_json::to_vec_pretty(&docs)
+            .map_err(|e| KernelError::InitFailed(format!("serialize semantic documents: {e}")))?
+            .as_slice(),
+    )?;
+    atomic_write(
+        &dir.join("metadata.json"),
+        serde_json::to_vec_pretty(&meta)
+            .map_err(|e| KernelError::InitFailed(format!("serialize semantic metadata: {e}")))?
+            .as_slice(),
+    )
+}
+
+fn load_semantic_meta(path: &Path) -> Result<SemanticIndexMeta, KernelError> {
+    let raw = fs::read_to_string(path)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+    serde_json::from_str(&raw)
+        .map_err(|e| KernelError::InitFailed(format!("parse {}: {e}", path.display())))
+}
+
+fn load_semantic_docs(
+    paths: &AllbertPaths,
+    provider: &dyn EmbeddingProvider,
+) -> Result<Vec<SemanticIndexDoc>, KernelError> {
+    let path = semantic_index_dir(paths, provider).join("documents.json");
+    let raw = fs::read_to_string(&path)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+    serde_json::from_str(&raw)
+        .map_err(|e| KernelError::InitFailed(format!("parse {}: {e}", path.display())))
+}
+
+fn semantic_source_documents(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    manifest: &MemoryManifest,
+) -> Result<Vec<SemanticIndexDoc>, KernelError> {
+    let mut docs = Vec::new();
+    let superseded_fact_ids = durable_superseded_fact_ids(paths, config, manifest)?;
+    for entry in &manifest.documents {
+        let full_path = paths.memory.join(&entry.path);
+        let raw = fs::read_to_string(&full_path).unwrap_or_default();
+        let (_, body_markdown) = split_frontmatter_and_body(&raw);
+        let body = markdown_to_plain_text(&body_markdown);
+        docs.push(SemanticIndexDoc {
+            id: entry.content_hash.clone(),
+            path: entry.path.clone(),
+            title: entry.title.clone(),
+            tier: "durable".into(),
+            tags: entry.tags.clone(),
+            body,
+            source: Some(json!({"kind": "durable_memory", "id": entry.path.clone()})),
+            superseded: false,
+            vector: Vec::new(),
+        });
+        if config.facts.enabled {
+            for fact in durable_facts_for_entry(paths, entry)? {
+                docs.push(SemanticIndexDoc {
+                    id: format!("fact:{}", fact.id),
+                    path: format!("{}#fact-{}", entry.path, slugify(&fact.id)),
+                    title: format!("Fact: {} {} {}", fact.subject, fact.predicate, fact.object),
+                    tier: "fact".into(),
+                    tags: entry.tags.clone(),
+                    body: format!("{} {} {}", fact.subject, fact.predicate, fact.object),
+                    source: Some(json!({
+                        "kind": "durable_memory",
+                        "id": entry.path.clone(),
+                        "fact_id": fact.id.clone(),
+                    })),
+                    superseded: superseded_fact_ids.contains(&fact.id),
+                    vector: Vec::new(),
+                });
+            }
+        }
+    }
+    for staged in list_staging_entries(&paths.memory_staging)? {
+        let raw = fs::read_to_string(&staged).unwrap_or_default();
+        let (frontmatter, body_markdown) = split_frontmatter_and_body(&raw);
+        let frontmatter: StageFrontmatter =
+            serde_yaml::from_str(frontmatter).unwrap_or_else(|_| {
+                let mut fallback = empty_stage_frontmatter();
+                fallback.kind = Some("unknown".into());
+                fallback
+            });
+        docs.push(SemanticIndexDoc {
+            id: sha256_hex(staged.to_string_lossy().as_bytes()),
+            path: relative_to_memory(paths, &staged)?,
+            title: derive_title(&body_markdown, &staged),
+            tier: "staging".into(),
+            tags: vec![frontmatter.kind.unwrap_or_else(|| "unknown".into())],
+            body: markdown_to_plain_text(&body_markdown),
+            source: Some(json!({"kind": "staged_memory"})),
+            superseded: false,
+            vector: Vec::new(),
+        });
+    }
+    if config.episodes.enabled {
+        for episode in collect_episode_docs(paths, config)? {
+            docs.push(SemanticIndexDoc {
+                id: episode.id,
+                path: episode.path,
+                title: episode.title,
+                tier: "episode".into(),
+                tags: vec!["episode".into()],
+                body: episode.body,
+                source: Some(json!({
+                    "kind": "session_working_history",
+                    "session_id": episode.session_id,
+                    "turn_id": episode.turn_id,
+                    "path": episode.source_path,
+                })),
+                superseded: false,
+                vector: Vec::new(),
+            });
+        }
+    }
+    Ok(docs)
+}
+
+fn apply_semantic_fusion(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    manifest: &MemoryManifest,
+    input: &SearchMemoryInput,
+    raw_query: &str,
+    bm25_hits: Vec<SearchMemoryHit>,
+    limit: usize,
+) -> Result<Vec<SearchMemoryHit>, KernelError> {
+    let Some(provider) = embedding_provider(config)? else {
+        return Ok(bm25_hits);
+    };
+    ensure_semantic_index(paths, config, manifest)?;
+    let query_vector = provider.embed(raw_query);
+    let mut semantic_scores = load_semantic_docs(paths, provider.as_ref())?
+        .into_iter()
+        .filter(|doc| semantic_doc_matches_tier(doc, input))
+        .filter_map(|doc| {
+            let score = cosine_similarity(&query_vector, &doc.vector);
+            (score > 0.0).then_some((doc, score))
+        })
+        .collect::<Vec<_>>();
+    semantic_scores.sort_by(|(left_doc, left_score), (right_doc, right_score)| {
+        right_score
+            .partial_cmp(left_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left_doc.path.cmp(&right_doc.path))
+    });
+    semantic_scores.truncate(limit.saturating_mul(4).max(limit));
+
+    #[derive(Clone)]
+    struct Candidate {
+        hit: SearchMemoryHit,
+        bm25: Option<f32>,
+        semantic: Option<f32>,
+    }
+
+    let mut candidates = BTreeMap::<String, Candidate>::new();
+    for hit in bm25_hits {
+        candidates.insert(
+            hit.path.clone(),
+            Candidate {
+                bm25: Some(hit.score),
+                semantic: None,
+                hit,
+            },
+        );
+    }
+    for (doc, score) in semantic_scores {
+        let key = doc.path.clone();
+        let semantic_hit = SearchMemoryHit {
+            path: doc.path,
+            title: doc.title,
+            tier: doc.tier,
+            score,
+            tags: doc.tags,
+            snippet: make_excerpt(&doc.body, raw_query, 220),
+            source: doc.source,
+        };
+        candidates
+            .entry(key)
+            .and_modify(|candidate| {
+                candidate.semantic = Some(score);
+            })
+            .or_insert(Candidate {
+                hit: semantic_hit,
+                bm25: None,
+                semantic: Some(score),
+            });
+    }
+
+    let bm25_range = score_range(candidates.values().filter_map(|candidate| candidate.bm25));
+    let semantic_range = score_range(
+        candidates
+            .values()
+            .filter_map(|candidate| candidate.semantic),
+    );
+    let semantic_weight = config.semantic.hybrid_weight.clamp(0.0, 1.0) as f32;
+    let bm25_weight = 1.0 - semantic_weight;
+    let mut fused = candidates
+        .into_values()
+        .map(|mut candidate| {
+            let bm25 = candidate
+                .bm25
+                .map(|score| normalize_score(score, bm25_range))
+                .unwrap_or(0.0);
+            let semantic = candidate
+                .semantic
+                .map(|score| normalize_score(score, semantic_range))
+                .unwrap_or(0.0);
+            candidate.hit.score = (bm25 * bm25_weight) + (semantic * semantic_weight);
+            candidate.hit
+        })
+        .collect::<Vec<_>>();
+    fused.sort_by(|left, right| {
+        right
+            .score
+            .partial_cmp(&left.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left.path.cmp(&right.path))
+    });
+    fused.truncate(limit);
+    Ok(fused)
+}
+
+fn semantic_doc_matches_tier(doc: &SemanticIndexDoc, input: &SearchMemoryInput) -> bool {
+    let tier_matches = match input.tier {
+        MemoryTier::All => true,
+        MemoryTier::Durable => doc.tier == "durable",
+        MemoryTier::Staging => doc.tier == "staging",
+        MemoryTier::Episode => doc.tier == "episode",
+        MemoryTier::Fact => doc.tier == "fact",
+    };
+    tier_matches && (doc.tier != "fact" || input.include_superseded || !doc.superseded)
+}
+
+fn score_range(scores: impl Iterator<Item = f32>) -> Option<(f32, f32)> {
+    let mut min = f32::INFINITY;
+    let mut max = f32::NEG_INFINITY;
+    let mut seen = false;
+    for score in scores {
+        seen = true;
+        min = min.min(score);
+        max = max.max(score);
+    }
+    seen.then_some((min, max))
+}
+
+fn normalize_score(score: f32, range: Option<(f32, f32)>) -> f32 {
+    let Some((min, max)) = range else {
+        return 0.0;
+    };
+    if (max - min).abs() < f32::EPSILON {
+        return 1.0;
+    }
+    ((score - min) / (max - min)).clamp(0.0, 1.0)
+}
+
+fn fake_embedding(text: &str) -> Vec<f32> {
+    let mut vector = vec![0.0; FAKE_EMBEDDING_DIM];
+    for token in normalized_tokens(text) {
+        let hash = sha256_hex(token.as_bytes());
+        let bucket = usize::from_str_radix(&hash[..4], 16).unwrap_or_default() % FAKE_EMBEDDING_DIM;
+        vector[bucket] += 1.0;
+    }
+    normalize_vector(vector)
+}
+
+fn normalized_tokens(text: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    for ch in text.chars() {
+        if ch.is_ascii_alphanumeric() {
+            current.push(ch.to_ascii_lowercase());
+        } else if !current.is_empty() {
+            tokens.push(std::mem::take(&mut current));
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    tokens
+}
+
+fn normalize_vector(mut vector: Vec<f32>) -> Vec<f32> {
+    let magnitude = vector.iter().map(|value| value * value).sum::<f32>().sqrt();
+    if magnitude <= f32::EPSILON {
+        return vector;
+    }
+    for value in &mut vector {
+        *value /= magnitude;
+    }
+    vector
+}
+
+fn cosine_similarity(left: &[f32], right: &[f32]) -> f32 {
+    left.iter()
+        .zip(right.iter())
+        .map(|(left, right)| left * right)
+        .sum::<f32>()
+}
+
 fn maybe_rebuild_index(
     paths: &AllbertPaths,
     config: &MemoryConfig,
@@ -1958,6 +2430,9 @@ fn rebuild_index(
     writer
         .commit()
         .map_err(|e| KernelError::InitFailed(format!("commit tantivy index: {e}")))?;
+    if let Some(provider) = embedding_provider(config)? {
+        rebuild_semantic_index(paths, config, manifest, provider.as_ref())?;
+    }
 
     let elapsed_ms = start.elapsed().as_millis();
     let meta = MemoryIndexMeta {
@@ -3245,6 +3720,116 @@ mod tests {
         )
         .unwrap();
         assert_eq!(with_superseded.len(), 1);
+    }
+
+    #[test]
+    fn semantic_disabled_config_makes_no_embedding_index() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        fs::create_dir_all(paths.memory_notes.join("projects")).unwrap();
+        fs::write(
+            paths.memory_notes.join("projects/search.md"),
+            "# Search\n\nBM25 remains the default retrieval engine.\n",
+        )
+        .unwrap();
+        bootstrap_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+        let hits = search_memory(
+            &paths,
+            &MemoryConfig::default(),
+            SearchMemoryInput {
+                query: "BM25 retrieval".into(),
+                tier: MemoryTier::Durable,
+                limit: Some(5),
+                include_superseded: false,
+            },
+        )
+        .unwrap();
+        assert_eq!(hits[0].path, "notes/projects/search.md");
+        assert!(
+            !paths.memory_index_dir.join("semantic").exists(),
+            "disabled semantic config must not create a derived embedding index"
+        );
+    }
+
+    #[test]
+    fn semantic_fake_embeddings_are_stable_and_rebuildable() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        fs::create_dir_all(paths.memory_notes.join("projects")).unwrap();
+        fs::write(
+            paths.memory_notes.join("projects/semantic.md"),
+            "# Semantic Retrieval\n\nVector embeddings support semantic retrieval and hybrid search.\n",
+        )
+        .unwrap();
+        fs::write(
+            paths.memory_notes.join("projects/shell.md"),
+            "# Shell Notes\n\nThe TUI status line shows model and token telemetry.\n",
+        )
+        .unwrap();
+        let mut config = MemoryConfig::default();
+        config.semantic.enabled = true;
+        config.semantic.provider = "fake".into();
+        config.semantic.embedding_model = "fake-test".into();
+        config.semantic.hybrid_weight = 0.65;
+
+        rebuild_memory_index(&paths, &config, true).unwrap();
+        let semantic_dir = paths
+            .memory_index_dir
+            .join("semantic")
+            .join("fake")
+            .join("fake-test");
+        let meta: SemanticIndexMeta =
+            serde_json::from_str(&fs::read_to_string(semantic_dir.join("metadata.json")).unwrap())
+                .unwrap();
+        assert_eq!(meta.schema_version, SEMANTIC_SCHEMA_VERSION);
+        assert_eq!(meta.provider, "fake");
+        assert_eq!(meta.model, "fake-test");
+        assert_eq!(meta.doc_count, 2);
+
+        let first = search_memory(
+            &paths,
+            &config,
+            SearchMemoryInput {
+                query: "embedding hybrid retrieval".into(),
+                tier: MemoryTier::Durable,
+                limit: Some(2),
+                include_superseded: false,
+            },
+        )
+        .unwrap();
+        let second = search_memory(
+            &paths,
+            &config,
+            SearchMemoryInput {
+                query: "embedding hybrid retrieval".into(),
+                tier: MemoryTier::Durable,
+                limit: Some(2),
+                include_superseded: false,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            first.iter().map(|hit| &hit.path).collect::<Vec<_>>(),
+            second.iter().map(|hit| &hit.path).collect::<Vec<_>>()
+        );
+        assert_eq!(first[0].path, "notes/projects/semantic.md");
+
+        fs::remove_dir_all(&semantic_dir).unwrap();
+        let rebuilt = search_memory(
+            &paths,
+            &config,
+            SearchMemoryInput {
+                query: "embedding hybrid retrieval".into(),
+                tier: MemoryTier::Durable,
+                limit: Some(2),
+                include_superseded: false,
+            },
+        )
+        .unwrap();
+        assert_eq!(rebuilt[0].path, "notes/projects/semantic.md");
+        assert!(semantic_dir.join("documents.json").exists());
     }
 
     #[test]
