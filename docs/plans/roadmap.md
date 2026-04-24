@@ -13,9 +13,11 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.5 | Curated memory: tiered memory service, ranked retrieval, staging, promotion | Shipped | [v0.5-curated-memory.md](v0.5-curated-memory.md) |
 | v0.6 | Foundation hardening: session durability, richer staged-memory review, cost cap enforcement, memory verification, maintenance policy fix | Shipped | [v0.6-foundation-hardening.md](v0.6-foundation-hardening.md) |
 | v0.7 | Channel expansion: Telegram pilot, `Channel` trait + multimodal flags, tool-surface normalization, budget-governed sub-agents, intent-guided routing defaults, explicit-intent web learning | Shipped | [v0.7-channel-expansion.md](v0.7-channel-expansion.md) |
-| v0.8 | Continuity and sync: cross-channel identity mapping, durable session routing, approval inbox, sync posture | Proposed | [v0.8-continuity-and-sync.md](v0.8-continuity-and-sync.md) |
+| v0.8 | Continuity and sync: cross-channel identity mapping, durable session routing, approval inbox, sync posture | In Closeout | [v0.8-continuity-and-sync.md](v0.8-continuity-and-sync.md) |
 | v0.9 | Developer environment and Codex Web readiness: pinned toolchain, contributor contract, provider-free validation | Shipped | [v0.9-developer-environment-and-codex-web.md](v0.9-developer-environment-and-codex-web.md) |
 | v0.10 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.10-self-improvement.md](v0.10-self-improvement.md) |
+
+Note: v0.9's contributor-contract work shipped before v0.8 closeout completed. The roadmap order still reflects dependency intent rather than strict release-closeout chronology.
 
 ## Sequencing rationale
 
