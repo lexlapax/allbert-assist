@@ -4214,24 +4214,13 @@ fn map_kernel_error(error: KernelError) -> DaemonError {
 }
 
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), DaemonError> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| DaemonError::Protocol(format!("path has no parent: {}", path.display())))?;
-    fs::create_dir_all(parent)?;
-    let tmp = parent.join(format!(
-        ".{}.tmp-{}",
-        path.file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("write"),
-        uuid::Uuid::new_v4().simple()
-    ));
-    {
-        let mut file = fs::File::create(&tmp)?;
-        file.write_all(bytes)?;
-        file.sync_all()?;
+    if path.parent().is_none() {
+        return Err(DaemonError::Protocol(format!(
+            "path has no parent: {}",
+            path.display()
+        )));
     }
-    fs::rename(&tmp, path)?;
-    Ok(())
+    allbert_kernel::atomic_write(path, bytes).map_err(DaemonError::Io)
 }
 
 fn current_host() -> String {

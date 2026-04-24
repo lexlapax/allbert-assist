@@ -9,7 +9,7 @@ use serde_json::Value;
 
 use crate::error::SkillError;
 use crate::intent::Intent;
-use crate::{AllbertPaths, ModelConfig, Provider};
+use crate::{atomic_write, AllbertPaths, ModelConfig, Provider};
 
 #[derive(Debug, Clone)]
 pub struct Skill {
@@ -234,7 +234,7 @@ impl SkillStore {
         frontmatter.push_str(body.trim_end());
         frontmatter.push('\n');
 
-        fs::write(&skill_path, frontmatter)
+        atomic_write(&skill_path, frontmatter.as_bytes())
             .map_err(|err| SkillError::Load(format!("write {}: {err}", skill_path.display())))?;
         let skill = Self::load_skill_file(&skill_path)?;
         self.replace(skill.clone());
@@ -889,7 +889,7 @@ pub fn validate_skill_path(path: &Path) -> Result<SkillValidationReport, SkillEr
 pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, SkillError> {
     let store = SkillStore::discover(&paths.skills);
     let rendered = store.render_agents_markdown();
-    fs::write(&paths.agents_notes, &rendered).map_err(|err| {
+    atomic_write(&paths.agents_notes, rendered.as_bytes()).map_err(|err| {
         SkillError::Load(format!("write {}: {err}", paths.agents_notes.display()))
     })?;
     Ok(rendered)

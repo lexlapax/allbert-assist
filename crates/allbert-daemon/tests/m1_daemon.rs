@@ -259,6 +259,23 @@ async fn wait_for_job_rerun(
     .expect("job rerun should settle")
 }
 
+async fn wait_for_job_running(
+    client: &mut DaemonClient,
+    name: &str,
+) -> allbert_proto::JobStatusPayload {
+    timeout(Duration::from_secs(5), async {
+        loop {
+            let status = client.get_job(name).await.expect("job status should load");
+            if status.state.running {
+                return status;
+            }
+            sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("job should become running")
+}
+
 async fn run_turn_with_confirms(
     client: &mut DaemonClient,
     input: &str,
@@ -522,6 +539,53 @@ fn continuity_bearing_modules_do_not_use_raw_fs_write() {
         (
             "crates/allbert-cli/src/approvals.rs",
             vec!["std::fs::write(path, rendered)"],
+        ),
+        (
+            "crates/allbert-cli/src/setup.rs",
+            vec![
+                "fs::write(&paths.user, updated_user)",
+                "fs::write(&paths.identity, updated_identity)",
+                "fs::write(&destination, enabled)",
+            ],
+        ),
+        (
+            "crates/allbert-cli/src/skills.rs",
+            vec![
+                "fs::write(path, rendered).with_context(|| format!(\"write {}\", path.display()))",
+            ],
+        ),
+        (
+            "crates/allbert-kernel/src/lib.rs",
+            vec![
+                "std::fs::write(&paths.agents_notes, &rendered)",
+                "std::fs::write(&paths.agents_notes, rendered_agents)",
+                "std::fs::write(&self.paths.agents_notes, rendered)",
+            ],
+        ),
+        (
+            "crates/allbert-kernel/src/memory/mod.rs",
+            vec![
+                "std::fs::write(&paths.memory_index, \"# MEMORY\\n\\n\")",
+                "WriteMemoryMode::Write => std::fs::write(&target, input.content.as_bytes())",
+                "std::fs::write(&target, current.as_bytes())",
+                "std::fs::write(&path, current)",
+                "std::fs::write(&paths.memory_index, index)",
+            ],
+        ),
+        (
+            "crates/allbert-kernel/src/memory/curated.rs",
+            vec![
+                "fs::write(&paths.memory_index, \"# MEMORY\\n\\n\")",
+                "fs::write(path, contents)",
+                "fs::write(&report_path, rendered)",
+            ],
+        ),
+        (
+            "crates/allbert-kernel/src/skills/mod.rs",
+            vec![
+                "fs::write(&skill_path, frontmatter)",
+                "fs::write(&paths.agents_notes, &rendered)",
+            ],
         ),
     ] {
         let raw =
@@ -3254,8 +3318,6 @@ async fn running_job_is_not_reentered_while_it_is_still_active() {
             .expect("manual run should succeed")
     });
 
-    sleep(Duration::from_millis(50)).await;
-
     let mut observer = DaemonClient::connect(&paths, ClientKind::Test)
         .await
         .expect("observer should connect");
@@ -3264,8 +3326,11 @@ async fn running_job_is_not_reentered_while_it_is_still_active() {
         .await
         .expect("observer should attach");
 
+    let running_status = wait_for_job_running(&mut observer, "repeat-job").await;
+    let sweep_at = Utc::now() + ChronoDuration::seconds(2);
+
     let skipped = observer
-        .sweep_jobs(Some("2026-04-19T12:00:00Z".into()))
+        .sweep_jobs(Some(sweep_at.to_rfc3339()))
         .await
         .expect("overlap sweep should succeed");
     assert!(
@@ -3273,11 +3338,14 @@ async fn running_job_is_not_reentered_while_it_is_still_active() {
         "same job should not be reentered while running"
     );
 
+    assert!(
+        running_status.state.running,
+        "job should still be marked running"
+    );
     let status = observer
         .get_job("repeat-job")
         .await
         .expect("job status should load");
-    assert!(status.state.running, "job should still be marked running");
     let next_due = chrono::DateTime::parse_from_rfc3339(
         status
             .state
@@ -3288,7 +3356,7 @@ async fn running_job_is_not_reentered_while_it_is_still_active() {
     .expect("next due should parse")
     .with_timezone(&Utc);
     assert!(
-        next_due > Utc::now(),
+        next_due > sweep_at,
         "skip-if-running should advance next_due_at into the future"
     );
 

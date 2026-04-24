@@ -4,16 +4,16 @@ Allbert is a terminal-first personal assistant built around a small Rust kernel,
 
 For repository development and contributor setup, see [DEVELOPMENT.md](/Users/spuri/projects/lexlapax/allbert-assist/DEVELOPMENT.md).
 
-v0.7 is the current technical source-based release in this repo. You build it from source, point it at an Anthropic or OpenRouter API key, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, recurring jobs, agent inspection, strict AgentSkills-format skill management, curated-memory review, approval inspection, and channel administration.
+v0.8 is the current technical source-based release in this repo. You build it from source, point it at an Anthropic or OpenRouter API key, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, recurring jobs, identity/session continuity, strict AgentSkills-format skill management, curated-memory review, approval inbox resolution, profile export/import, and channel administration.
 
-The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection, the shipped `memory-curator` skill, restart-durable sessions, daily cost-cap enforcement, operator-visible memory verification, the `Channel` trait, Telegram async approvals, explicit-intent web learning, and Telegram photo input for vision-capable models are all part of the shipped v0.7 experience. You can manage recurring jobs through `allbert-cli jobs ...` or through normal conversation in the REPL, with the CLI preserved as the clearest operator escape hatch. You can inspect, stage, promote, reject, and forget memory through both conversation and `allbert-cli memory ...`.
+The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection, the shipped `memory-curator` skill, restart-durable sessions, daily cost-cap enforcement, operator-visible memory verification, the `Channel` trait, Telegram async approvals, cross-surface approval inbox resolution, identity-routed session continuity, explicit sync posture, profile export/import, `HEARTBEAT.md` cadence controls, explicit-intent web learning, and Telegram photo input for vision-capable models are all part of the shipped v0.8 experience. You can manage recurring jobs through `allbert-cli jobs ...` or through normal conversation in the REPL, with the CLI preserved as the clearest operator escape hatch. You can inspect, stage, promote, reject, and forget memory through both conversation and `allbert-cli memory ...`.
 
-## What v0.7 includes
+## What v0.8 includes
 
 - a kernel that owns the agent loop, tools, memory, skills, policy, cost, and tracing
 - a local daemon host with attachable REPL, CLI, jobs, and Telegram channels
 - a first-class `Channel` abstraction with capability flags and a shipped Telegram pilot
-- daemon-backed REPL sessions with reconnectable in-memory session state while the daemon is alive
+- daemon-backed sessions that route by identity across REPL, CLI, and Telegram surfaces
 - a root agent per session plus budget-governed sub-agent spawning
 - intent routing over `{task, chat, schedule, memory_query, meta}`
 - intent-guided routing defaults that shape prompts and tool preference without hard-gating tools
@@ -23,8 +23,12 @@ The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-
 - explicit workspace trust through `fs_roots`
 - daemon lifecycle commands under `allbert-cli daemon ...`
 - channel lifecycle commands under `allbert-cli daemon channels ...`
+- identity management under `allbert-cli identity ...`
 - lifecycle session management via `allbert-cli sessions ...`
-- approval inspection via `allbert-cli approvals list|show`
+- per-session approval inspection via `allbert-cli approvals list|show`
+- daemon-backed approval inbox resolution via `allbert-cli inbox list|show|accept|reject`
+- heartbeat inspection and editing via `allbert-cli heartbeat show|edit|suggest`
+- profile export/import via `allbert-cli profile export|import`
 - recurring jobs under `allbert-cli jobs ...` and the `allbert-jobs` alias
 - bundled disabled maintenance job templates
 - a safe fresh-profile default that preselects `memory-compile` only when you explicitly opt into recurring jobs during setup
@@ -42,7 +46,7 @@ The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-
 - a shipped `memory-curator` skill with review and explicit extraction workflows
 - a turn-start daily cost cap with `/cost --override <reason>` for one-turn operator escape
 - explicit-intent web learning through `record_as` on `web_search` and `fetch_url`
-- Telegram async approvals via `/approve <approval-id>`, `/reject <approval-id>`, and `/override <reason>`
+- Telegram async approvals via `/approve <approval-id>`, `/reject <approval-id>`, and `/override <reason>`, plus cross-surface resolution from CLI and REPL inbox commands
 - Telegram photo input for vision-capable models, with downloaded photos stored as session artifacts under the parent session
 
 ## Prerequisites
@@ -205,7 +209,7 @@ REPL slash commands:
 
 Unknown slash commands are rejected locally instead of being sent through to the model.
 
-Memory examples that work well in v0.7:
+Memory examples that work well in v0.8:
 
 - `what do you remember about Postgres?`
 - `remember that we use Postgres for primary storage`
@@ -266,7 +270,7 @@ Conversational scheduling examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant understands well in v0.7:
+Common schedule forms the assistant understands well in v0.8:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -287,7 +291,7 @@ Common skill commands:
 - `cargo run -p allbert-cli -- skills remove <name>`
 - `cargo run -p allbert-cli -- skills init <name>`
 
-The bundled example skill is [examples/skills/note-taker/SKILL.md](examples/skills/note-taker/SKILL.md). It demonstrates the v0.7 shape: `SKILL.md` plus `references/` and `scripts/`.
+The bundled example skill is [examples/skills/note-taker/SKILL.md](examples/skills/note-taker/SKILL.md). It demonstrates the v0.8 shape: `SKILL.md` plus `references/` and `scripts/`.
 The shipped [skills/memory-curator/SKILL.md](skills/memory-curator/SKILL.md) skill is available on fresh profiles and packages the review/promotion workflow around the kernel-owned memory tools.
 
 Curated memory lives under `~/.allbert/memory/`:
@@ -316,11 +320,11 @@ Chat history is not the durable store. Durable learnings are staged first, then 
 
 If the turn-end staged-memory suffix feels noisy, set `memory.surface_staged_on_turn_end = false` in `~/.allbert/config.toml` and restart the REPL session.
 
-If you are upgrading an existing v0.6 profile, see [docs/notes/v0.7-upgrade-2026-04-21.md](docs/notes/v0.7-upgrade-2026-04-21.md) for the new channel, approval, and image-input surfaces.
+If you are upgrading an existing v0.7 profile, see [docs/notes/v0.8-upgrade-2026-04-23.md](docs/notes/v0.8-upgrade-2026-04-23.md) for the new continuity, inbox, profile-sync, and heartbeat surfaces.
 
-## Telegram pilot
+## Telegram channel
 
-Telegram is the first shipped non-REPL channel in v0.7.
+Telegram is the first shipped non-REPL channel in v0.8.
 
 Setup:
 
@@ -332,14 +336,15 @@ Setup:
 Useful operator commands:
 
 - `cargo run -p allbert-cli -- daemon channels status telegram`
-- `cargo run -p allbert-cli -- approvals list`
-- `cargo run -p allbert-cli -- approvals show <approval-id>`
+- `cargo run -p allbert-cli -- inbox list`
+- `cargo run -p allbert-cli -- inbox show <approval-id>`
+- `cargo run -p allbert-cli -- inbox accept <approval-id> --reason "approved from shell"`
 
-Telegram behaviour in v0.7:
+Telegram behaviour in v0.8:
 
-- approvals are inspected from CLI/REPL but resolved only from Telegram
-- `/approve <approval-id>` and `/reject <approval-id>` resolve pending async approvals
-- `/override <reason>` retries one turn after a daily cost-cap refusal
+- pending approvals can be resolved from Telegram, CLI, or an attached REPL inbox
+- `/approve <approval-id>` and `/reject <approval-id>` still resolve pending async approvals from Telegram itself
+- `/override <reason>` still retries one turn after a daily cost-cap refusal, and the same `cost-cap-override` item appears in the shared inbox
 - `/reset` starts a new Telegram session
 - inbound photos work only when the active provider/model supports vision input
 - downloaded photos are stored as session artifacts under `~/.allbert/sessions/<session-id>/artifacts/`
@@ -352,11 +357,14 @@ Telegram behaviour in v0.7:
 - `~/.allbert/logs/daemon.debug.log`
 - `~/.allbert/secrets/telegram/bot_token`
 - `~/.allbert/config/channels.telegram.allowed_chats`
+- `~/.allbert/identity/user.md`
 - `~/.allbert/SOUL.md`
 - `~/.allbert/USER.md`
 - `~/.allbert/IDENTITY.md`
 - `~/.allbert/TOOLS.md`
 - `~/.allbert/AGENTS.md`
+- `~/.allbert/HEARTBEAT.md`
+- `~/.allbert/daemon.lock`
 - `~/.allbert/jobs/definitions/`
 - `~/.allbert/jobs/runs/`
 - `~/.allbert/jobs/failures/`
@@ -379,8 +387,9 @@ Telegram behaviour in v0.7:
 - terminal-first and local-user-only
 - local IPC only; no remote/network control plane
 - interactive session state now survives daemon restart through `sessions resume`, but incomplete tool invocations still rewind to the last completed turn boundary
-- Telegram approval resolution is origin-channel-only in v0.7; cross-surface approval inbox work is deferred to v0.8
-- sub-agent depth is budget-governed in v0.7 rather than fixed by nesting count
+- unsolicited heartbeat delivery is currently limited to Telegram; `repl`, `cli`, and `jobs` remain inspect-and-act surfaces rather than proactive delivery targets
+- daily cost caps remain per-device rather than globally aggregated across synced machines
+- sub-agent depth is budget-governed in v0.8 rather than fixed by nesting count
 - no boot-time OS service install yet
 - bundled job templates stay disabled by default except that fresh profiles which explicitly enable recurring jobs preselect `memory-compile`
 - live provider use still depends on your network and API-key env vars
@@ -391,7 +400,7 @@ Telegram behaviour in v0.7:
 
 ## More detail
 
-See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the operator walkthrough, config examples, daemon lifecycle guidance, jobs workflow, curated-memory workflow, and troubleshooting.
+See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the operator walkthrough, config examples, daemon lifecycle guidance, jobs workflow, curated-memory workflow, continuity workflow, and troubleshooting. For sync posture and heartbeat policy, see [docs/operator/continuity.md](docs/operator/continuity.md) and [docs/operator/heartbeat.md](docs/operator/heartbeat.md).
 Inspect heartbeat cadence and validation warnings:
 
 ```bash

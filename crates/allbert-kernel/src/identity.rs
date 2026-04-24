@@ -1,6 +1,5 @@
 use std::collections::BTreeSet;
 use std::fs;
-use std::io::Write;
 use std::path::Path;
 
 use allbert_proto::ChannelKind;
@@ -77,7 +76,9 @@ pub fn save_identity_record(
 ) -> Result<(), KernelError> {
     validate_record(record, Some(&paths.identity_user))?;
     let rendered = render_identity_markdown(record);
-    atomic_write(&paths.identity_user, rendered.as_bytes())
+    crate::atomic_write(&paths.identity_user, rendered.as_bytes()).map_err(|err| {
+        KernelError::InitFailed(format!("write {}: {err}", paths.identity_user.display()))
+    })
 }
 
 pub fn add_identity_channel(
@@ -282,33 +283,6 @@ fn render_identity_markdown(record: &IdentityRecord) -> String {
         rendered.push('\n');
     }
     rendered
-}
-
-fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), KernelError> {
-    let parent = path.parent().ok_or_else(|| {
-        KernelError::InitFailed(format!("{} has no parent directory", path.display()))
-    })?;
-    fs::create_dir_all(parent)
-        .map_err(|err| KernelError::InitFailed(format!("create {}: {err}", parent.display())))?;
-    let mut tmp = tempfile::NamedTempFile::new_in(parent).map_err(|err| {
-        KernelError::InitFailed(format!("create temp file in {}: {err}", parent.display()))
-    })?;
-    tmp.write_all(bytes).map_err(|err| {
-        KernelError::InitFailed(format!("write temp file for {}: {err}", path.display()))
-    })?;
-    tmp.as_file().sync_all().map_err(|err| {
-        KernelError::InitFailed(format!("sync temp file for {}: {err}", path.display()))
-    })?;
-    tmp.persist(path).map_err(|err| {
-        KernelError::InitFailed(format!("persist {}: {}", path.display(), err.error))
-    })?;
-    let dir = fs::File::open(parent).map_err(|err| {
-        KernelError::InitFailed(format!("open {} for fsync: {err}", parent.display()))
-    })?;
-    dir.sync_all().map_err(|err| {
-        KernelError::InitFailed(format!("sync {} after write: {err}", parent.display()))
-    })?;
-    Ok(())
 }
 
 fn now_rfc3339() -> Result<String, KernelError> {

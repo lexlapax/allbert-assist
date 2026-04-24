@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command as StdCommand;
 
 use allbert_kernel::skills::validate_skill_path;
-use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config};
+use allbert_kernel::{atomic_write, refresh_agents_markdown, AllbertPaths, Config};
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use gray_matter::engine::YAML;
@@ -915,12 +915,12 @@ fn load_approvals(path: &Path) -> Result<ApprovalStore> {
 
 fn persist_approvals(path: &Path, store: &ApprovalStore) -> Result<()> {
     let rendered = toml::to_string_pretty(store)?;
-    fs::write(path, rendered).with_context(|| format!("write {}", path.display()))
+    atomic_write(path, rendered.as_bytes()).with_context(|| format!("write {}", path.display()))
 }
 
 fn persist_install_metadata(path: &Path, metadata: &InstallMetadata) -> Result<()> {
     let rendered = toml::to_string_pretty(metadata)?;
-    fs::write(path, rendered).with_context(|| format!("write {}", path.display()))
+    atomic_write(path, rendered.as_bytes()).with_context(|| format!("write {}", path.display()))
 }
 
 fn load_install_metadata(path: &Path) -> Result<InstallMetadata> {

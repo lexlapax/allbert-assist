@@ -1,6 +1,6 @@
-# Allbert v0.7 Onboarding and Operations
+# Allbert v0.8 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.7 release.
+This guide is the operator reference for the source-based v0.8 release.
 
 ## Quickstart
 
@@ -56,11 +56,11 @@ If `fs_roots` is empty:
 - startup prints a warning
 - `/status` shows `(none)` for trusted roots
 
-This is intentional. v0.7 still prefers explicit workspace trust over permissive defaults.
+This is intentional. v0.8 still prefers explicit workspace trust over permissive defaults.
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical v0.7 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical v0.8 file looks like:
 
 ```toml
 trace = false
@@ -79,8 +79,12 @@ log_retention_days = 7
 session_max_age_days = 30
 auto_spawn = true
 
+[sessions]
+cross_channel_routing = "inherit"
+
 [channels]
 approval_timeout_s = 3600
+approval_inbox_retention_days = 30
 
 [channels.telegram]
 enabled = false
@@ -92,6 +96,9 @@ enabled = false
 max_concurrent_runs = 1
 default_timeout_s = 600
 default_timezone = "America/Los_Angeles"
+
+[repl]
+show_inbox_on_attach = true
 
 [memory]
 prefetch_enabled = true
@@ -245,10 +252,11 @@ Notes:
 - `daemon logs --debug --follow` is the quickest way to watch daemon-side diagnostics live.
 - `daemon status` now includes daemon lock ownership details plus whether the configured model API-key env var is visible to the running daemon process.
 - Continuity/sync posture and artifact categories are documented in `docs/operator/continuity.md`.
+- `HEARTBEAT.md` field reference and warning semantics are documented in `docs/operator/heartbeat.md`.
 
-## Telegram pilot
+## Telegram channel
 
-Telegram is the first shipped non-REPL channel in v0.7.
+Telegram is the first shipped non-REPL channel in v0.8.
 
 Setup:
 
@@ -260,14 +268,27 @@ Setup:
 
 Operational notes:
 
-- CLI and REPL can inspect pending approvals, but only Telegram resolves Telegram-originated approvals in v0.7.
-- `/approve <approval-id>` accepts an async approval.
-- `/reject <approval-id>` rejects an async approval.
-- `/override <reason>` retries one turn after a daily cost-cap refusal.
+- CLI, REPL, and Telegram can all resolve pending approvals through the shared inbox in v0.8.
+- `/approve <approval-id>` accepts an async approval from Telegram itself.
+- `/reject <approval-id>` rejects an async approval from Telegram itself.
+- `/override <reason>` retries one turn after a daily cost-cap refusal and mirrors the same `cost-cap-override` item into the inbox.
 - `/reset` forces a new Telegram session.
 - incoming photos work only when the active provider/model supports image input
 - downloaded photos are stored under `~/.allbert/sessions/<session-id>/artifacts/`
 - those photos are session artifacts, not durable memory, and archive/forget with the parent session
+
+## Continuity across devices
+
+v0.8 treats profile continuity as an explicit operator workflow rather than an accidental side effect of copying `~/.allbert/`.
+
+Recommended second-device flow:
+
+1. On the source device, export with `cargo run -p allbert-cli -- profile export /path/to/profile.tgz`.
+2. Copy the archive to the destination device.
+3. Import with `cargo run -p allbert-cli -- profile import /path/to/profile.tgz --overlay` for normal merges, or `--replace --yes` when you want a clean replacement.
+4. Recheck runtime state with `cargo run -p allbert-cli -- daemon status`, `cargo run -p allbert-cli -- identity show`, `cargo run -p allbert-cli -- inbox list`, `cargo run -p allbert-cli -- heartbeat show`, and `cargo run -p allbert-cli -- memory verify`.
+
+For file-level sync posture and excludes, see `docs/operator/continuity.md`.
 
 ## Jobs workflow
 
@@ -314,7 +335,7 @@ Conversational scheduling works best when you ask plainly. Good examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant should compile naturally in v0.7:
+Common schedule forms the assistant should compile naturally in v0.8:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -325,7 +346,7 @@ When you create, update, pause, resume, or remove a job from normal conversation
 
 ## Bundled maintenance jobs
 
-v0.7 seeds these bundled templates:
+v0.8 seeds these bundled templates:
 
 - `daily-brief`
 - `weekly-review`
@@ -337,7 +358,7 @@ The setup wizard can enable selected templates for you. Fresh profiles that expl
 
 ## Skills and memory
 
-The canonical installed skill root in v0.7 is `~/.allbert/skills/installed/`.
+The canonical installed skill root in v0.8 is `~/.allbert/skills/installed/`.
 
 Quarantine lives under `~/.allbert/skills/incoming/`; fetched or copied skills stay there until you approve the preview.
 
@@ -363,9 +384,9 @@ Skill install/update preview shows:
 - declared scripts with interpreter, path, and SHA-256
 - the first lines of `SKILL.md`
 
-v0.7 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
+v0.8 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
 
-In v0.7, skills can also preview:
+In v0.8, skills can also preview:
 
 - `intents:` metadata to hint the intent router
 - `agents:` metadata to contribute namespaced sub-agents
@@ -399,7 +420,7 @@ Workflow summary:
 
 Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs.
 
-If you are upgrading from v0.6, see [v0.7-upgrade-2026-04-21.md](notes/v0.7-upgrade-2026-04-21.md) for the new channel, approval, and image-input surfaces.
+If you are upgrading from v0.7, see [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md) for the new continuity, inbox, profile-sync, and heartbeat surfaces.
 
 ## Trace, logs, and cost files
 
@@ -468,7 +489,7 @@ Curated memory seems wrong or stale:
 
 ## Release posture
 
-v0.7 is a shipped technical-user release:
+v0.8 is a shipped technical-user release:
 
 - source-based
 - terminal-first
@@ -476,12 +497,15 @@ v0.7 is a shipped technical-user release:
 - explicit workspace trust
 - guided bootstrap and daemon/jobs setup
 - restart-durable sessions with `sessions resume`
+- identity-routed cross-surface continuity with `identity`, `sessions`, and `inbox`
 - daily cost-cap enforcement with one-turn REPL override
 - operator-visible memory verification through `memory status` and `memory verify`
 - first-class agents and intent routing with operator-visible status
 - strict AgentSkills-format skill install, inspection, and execution
 - channel administration through `daemon channels ...`
 - approval inspection and resolution through `approvals list|show` and `inbox list|show|accept|reject`
+- profile export/import plus documented sync posture
+- `HEARTBEAT.md` inspection, validation, and proactive cadence controls
 - Telegram async approvals and Telegram photo input for vision-capable models
 
 Known limitations remain explicit:
@@ -489,7 +513,8 @@ Known limitations remain explicit:
 - no remote control plane
 - no boot-time OS service install yet
 - incomplete tool invocations still rewind to the last completed turn boundary after daemon restart
-- Telegram approval resolution is still origin-channel-only
+- unsolicited heartbeat delivery is still Telegram-only
+- daily cost caps are still per-device
 - Telegram multimodal support is photos-in only; voice notes, audio, and image output are deferred
 - the daemon is lightweight and in-process, not a heavy isolated supervisor
 - sub-agent depth is budget-governed rather than fixed by nesting count

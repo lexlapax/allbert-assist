@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use allbert_kernel::{AllbertPaths, Config};
+use allbert_kernel::{atomic_write, AllbertPaths, Config};
 use anyhow::{Context, Result};
 
 const PLACEHOLDER_UNKNOWN: &str = "Unknown";
@@ -196,12 +196,12 @@ pub fn apply_setup_answers(
 ) -> Result<()> {
     let user_raw = read_file_or_empty(&paths.user);
     let updated_user = update_user_file(&user_raw, answers);
-    fs::write(&paths.user, updated_user)
+    atomic_write(&paths.user, updated_user.as_bytes())
         .with_context(|| format!("write {}", paths.user.display()))?;
 
     let identity_raw = read_file_or_empty(&paths.identity);
     let updated_identity = update_identity_file(&identity_raw, answers);
-    fs::write(&paths.identity, updated_identity)
+    atomic_write(&paths.identity, updated_identity.as_bytes())
         .with_context(|| format!("write {}", paths.identity.display()))?;
 
     config.security.fs_roots = answers.trusted_roots.clone();
@@ -483,7 +483,7 @@ fn enable_bundled_jobs(paths: &AllbertPaths, selected: &[String]) -> Result<()> 
         let raw =
             fs::read_to_string(&source).with_context(|| format!("read {}", source.display()))?;
         let enabled = raw.replacen("enabled: false", "enabled: true", 1);
-        fs::write(&destination, enabled)
+        atomic_write(&destination, enabled.as_bytes())
             .with_context(|| format!("write {}", destination.display()))?;
     }
     Ok(())

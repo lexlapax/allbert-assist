@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::error::{ConfigError, KernelError};
 use crate::paths::AllbertPaths;
@@ -486,23 +485,7 @@ impl Config {
 }
 
 fn atomic_write(path: &std::path::Path, bytes: &[u8]) -> Result<(), std::io::Error> {
-    let Some(parent) = path.parent() else {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("path has no parent: {}", path.display()),
-        ));
-    };
-    std::fs::create_dir_all(parent)?;
-    let tmp = parent.join(format!(
-        ".{}.tmp-{}",
-        path.file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("config"),
-        Uuid::new_v4()
-    ));
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, path)?;
-    Ok(())
+    crate::atomic_write(path, bytes)
 }
 
 #[cfg(test)]

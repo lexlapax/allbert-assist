@@ -13,7 +13,6 @@ use gray_matter::engine::YAML;
 use gray_matter::Matter;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
-use uuid::Uuid;
 
 use allbert_kernel::{
     llm::ProviderFactory, AllbertPaths, Config, FrontendAdapter, Kernel, KernelError, ModelConfig,
@@ -848,17 +847,8 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), std::io::Error> {
             format!("path has no parent: {}", path.display()),
         ));
     };
-    fs::create_dir_all(parent)?;
-    let tmp = parent.join(format!(
-        ".{}.tmp-{}",
-        path.file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("job"),
-        Uuid::new_v4()
-    ));
-    fs::write(&tmp, bytes)?;
-    fs::rename(&tmp, path)?;
-    Ok(())
+    let _ = parent;
+    allbert_kernel::atomic_write(path, bytes)
 }
 
 fn validate_job_name(name: &str) -> Result<(), DaemonError> {

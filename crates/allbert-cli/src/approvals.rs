@@ -9,7 +9,6 @@ use gray_matter::Matter;
 use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ApprovalView {
@@ -364,20 +363,10 @@ fn channel_label(kind: ChannelKind) -> &'static str {
 }
 
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
-    let Some(parent) = path.parent() else {
+    let Some(_parent) = path.parent() else {
         return Err(anyhow!("path has no parent: {}", path.display()));
     };
-    std::fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
-    let tmp = parent.join(format!(
-        ".{}.tmp-{}",
-        path.file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("approval"),
-        Uuid::new_v4()
-    ));
-    std::fs::write(&tmp, bytes).with_context(|| format!("write {}", tmp.display()))?;
-    std::fs::rename(&tmp, path)
-        .with_context(|| format!("rename {} -> {}", tmp.display(), path.display()))
+    allbert_kernel::atomic_write(path, bytes).with_context(|| format!("write {}", path.display()))
 }
 
 impl From<InboxApprovalPayload> for ApprovalView {

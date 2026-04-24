@@ -1,5 +1,6 @@
 pub mod adapter;
 pub mod agent;
+pub mod atomic;
 mod bootstrap;
 pub mod config;
 pub mod cost;
@@ -30,6 +31,7 @@ pub use adapter::{
 pub use agent::{
     ActiveTurnBudget, Agent, AgentDefinition, AgentState, StagedNoticeEntry, TurnBudget,
 };
+pub use atomic::atomic_write;
 pub use config::{
     Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig, JobsConfig, LimitsConfig,
     MemoryConfig, ModelConfig, Provider, SecurityConfig, SessionsConfig, SetupConfig,
@@ -81,7 +83,7 @@ pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, KernelErr
     paths.ensure()?;
     let skills = SkillStore::discover(&paths.skills);
     let rendered = skills.render_agents_markdown();
-    std::fs::write(&paths.agents_notes, &rendered).map_err(|e| {
+    atomic_write(&paths.agents_notes, rendered.as_bytes()).map_err(|e| {
         KernelError::InitFailed(format!("write {}: {e}", paths.agents_notes.display()))
     })?;
     Ok(rendered)
@@ -366,7 +368,7 @@ impl Kernel {
         let llm = provider_factory.build(&config.model).await?;
         let skills = SkillStore::discover(&paths.skills);
         let rendered_agents = skills.render_agents_markdown();
-        std::fs::write(&paths.agents_notes, rendered_agents).map_err(|e| {
+        atomic_write(&paths.agents_notes, rendered_agents.as_bytes()).map_err(|e| {
             KernelError::InitFailed(format!("write {}: {e}", paths.agents_notes.display()))
         })?;
         let security_state = Arc::new(Mutex::new(config.security.clone()));
@@ -902,7 +904,7 @@ impl Kernel {
     pub fn refresh_skill_catalog(&mut self) -> Result<(), KernelError> {
         self.skills = SkillStore::discover(&self.paths.skills);
         let rendered = self.skills.render_agents_markdown();
-        std::fs::write(&self.paths.agents_notes, rendered).map_err(|e| {
+        atomic_write(&self.paths.agents_notes, rendered.as_bytes()).map_err(|e| {
             KernelError::InitFailed(format!("write {}: {e}", self.paths.agents_notes.display()))
         })?;
         Ok(())

@@ -4,7 +4,6 @@
 
 use std::collections::BTreeMap;
 use std::fs::{self, File};
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -1120,7 +1119,7 @@ fn ensure_curated_dirs(paths: &AllbertPaths) -> Result<(), KernelError> {
             .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", dir.display())))?;
     }
     if !paths.memory_index.exists() {
-        fs::write(&paths.memory_index, "# MEMORY\n\n").map_err(|e| {
+        atomic_write(&paths.memory_index, b"# MEMORY\n\n").map_err(|e| {
             KernelError::InitFailed(format!("write {}: {e}", paths.memory_index.display()))
         })?;
     }
@@ -1132,7 +1131,7 @@ fn ensure_curated_dirs(paths: &AllbertPaths) -> Result<(), KernelError> {
 
 fn ensure_file(path: &Path, contents: &str) -> Result<(), KernelError> {
     if !path.exists() {
-        fs::write(path, contents)
+        atomic_write(path, contents.as_bytes())
             .map_err(|e| KernelError::InitFailed(format!("write {}: {e}", path.display())))?;
     }
     Ok(())
@@ -1188,7 +1187,7 @@ fn import_legacy_v0_4_buckets(paths: &AllbertPaths) -> Result<usize, KernelError
         let rendered = serde_json::to_string_pretty(&report).map_err(|e| {
             KernelError::InitFailed(format!("serialize {}: {e}", report_path.display()))
         })?;
-        fs::write(&report_path, rendered).map_err(|e| {
+        atomic_write(&report_path, rendered.as_bytes()).map_err(|e| {
             KernelError::InitFailed(format!("write {}: {e}", report_path.display()))
         })?;
     }
@@ -2012,21 +2011,8 @@ fn system_time_to_unix_secs(value: SystemTime) -> Option<i64> {
 }
 
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), KernelError> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| KernelError::InitFailed(format!("{} has no parent", path.display())))?;
-    let mut tmp = tempfile::NamedTempFile::new_in(parent).map_err(|e| {
-        KernelError::InitFailed(format!("create temp file in {}: {e}", parent.display()))
-    })?;
-    tmp.write_all(bytes).map_err(|e| {
-        KernelError::InitFailed(format!("write temp file for {}: {e}", path.display()))
-    })?;
-    tmp.as_file().sync_all().map_err(|e| {
-        KernelError::InitFailed(format!("sync temp file for {}: {e}", path.display()))
-    })?;
-    tmp.persist(path)
-        .map_err(|e| KernelError::InitFailed(format!("persist {}: {}", path.display(), e.error)))?;
-    Ok(())
+    crate::atomic_write(path, bytes)
+        .map_err(|e| KernelError::InitFailed(format!("write {}: {e}", path.display())))
 }
 
 fn relative_to_memory(paths: &AllbertPaths, path: &Path) -> Result<String, KernelError> {

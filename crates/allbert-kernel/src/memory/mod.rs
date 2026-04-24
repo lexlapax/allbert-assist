@@ -43,7 +43,7 @@ pub enum WriteMemoryMode {
 
 pub fn ensure_memory_files(paths: &AllbertPaths) -> Result<(), ToolError> {
     if !paths.memory_index.exists() {
-        std::fs::write(&paths.memory_index, "# MEMORY\n\n").map_err(|err| {
+        crate::atomic_write(&paths.memory_index, b"# MEMORY\n\n").map_err(|err| {
             ToolError::Dispatch(format!("write {}: {err}", paths.memory_index.display()))
         })?;
     }
@@ -73,7 +73,7 @@ pub fn write_memory(paths: &AllbertPaths, input: WriteMemoryInput) -> Result<Str
 
             let existed = target.exists();
             match input.mode {
-                WriteMemoryMode::Write => std::fs::write(&target, input.content.as_bytes()),
+                WriteMemoryMode::Write => crate::atomic_write(&target, input.content.as_bytes()),
                 WriteMemoryMode::Append => {
                     let mut current = if existed {
                         std::fs::read_to_string(&target).unwrap_or_default()
@@ -84,7 +84,7 @@ pub fn write_memory(paths: &AllbertPaths, input: WriteMemoryInput) -> Result<Str
                         current.push('\n');
                     }
                     current.push_str(&input.content);
-                    std::fs::write(&target, current.as_bytes())
+                    crate::atomic_write(&target, current.as_bytes())
                 }
                 WriteMemoryMode::Daily => unreachable!(),
             }
@@ -150,7 +150,7 @@ fn write_daily(paths: &AllbertPaths, content: &str) -> Result<String, ToolError>
     }
     current.push_str(content);
     current.push('\n');
-    std::fs::write(&path, current)
+    crate::atomic_write(&path, current.as_bytes())
         .map_err(|err| ToolError::Dispatch(format!("write {}: {err}", path.display())))?;
     Ok(format!(
         "appended daily memory {}",
@@ -207,7 +207,7 @@ fn update_memory_index(
     if !index.ends_with('\n') {
         index.push('\n');
     }
-    std::fs::write(&paths.memory_index, index).map_err(|err| {
+    crate::atomic_write(&paths.memory_index, index.as_bytes()).map_err(|err| {
         ToolError::Dispatch(format!("write {}: {err}", paths.memory_index.display()))
     })?;
     Ok(())
