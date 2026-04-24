@@ -1124,7 +1124,7 @@ async fn session_local_model_changes_do_not_leak_across_sessions() {
         .await
         .expect("cli attach should succeed");
     let cli_model = other_session.get_model().await.expect("model should read");
-    assert_eq!(cli_model.provider, ProviderKind::Anthropic);
+    assert_eq!(cli_model.provider, ProviderKind::Ollama);
 
     shutdown_daemon(handle, &paths).await;
 }

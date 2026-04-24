@@ -3660,10 +3660,12 @@ mod tests {
         assert!(paths.identity.exists(), "IDENTITY.md should exist");
         assert!(paths.tools_notes.exists(), "TOOLS.md should exist");
         assert!(paths.bootstrap.exists(), "BOOTSTRAP.md should exist");
-        assert_eq!(config.model.provider, Provider::Anthropic);
+        assert_eq!(config.model.provider, Provider::Ollama);
+        assert_eq!(config.model.model_id, "gemma4");
+        assert_eq!(config.model.api_key_env, None);
         assert_eq!(
-            config.model.api_key_env.as_deref(),
-            Some("ANTHROPIC_API_KEY")
+            config.model.base_url.as_deref(),
+            Some("http://127.0.0.1:11434")
         );
         assert_eq!(config.limits.max_bootstrap_file_bytes, 2 * 1024);
         assert_eq!(config.limits.max_prompt_bootstrap_bytes, 6 * 1024);
@@ -3752,7 +3754,7 @@ mod tests {
         assert_eq!(cost_entry.agent_name, "allbert/root");
         assert_eq!(cost_entry.parent_agent_name, None);
         assert_eq!(cost_entry.provider, "anthropic");
-        assert_eq!(cost_entry.model, "claude-sonnet-4-5");
+        assert_eq!(cost_entry.model, "gemma4");
         assert!((cost_entry.usd_estimate - 0.02).abs() < 1e-9);
 
         assert!(recorded
@@ -4538,21 +4540,21 @@ mod tests {
         let paths = temp.paths();
         let seen = Arc::new(Mutex::new(Vec::new()));
 
-        let anthropic_factory = Arc::new(TestFactory::with_seen(
+        let ollama_factory = Arc::new(TestFactory::with_seen(
             "anthropic",
             seen.clone(),
             Vec::new(),
             Some(test_pricing()),
         ));
-        let anthropic_kernel = Kernel::boot_with_parts(
+        let ollama_kernel = Kernel::boot_with_parts(
             Config::default_template(),
             test_adapter(Arc::new(Mutex::new(Vec::new()))),
             paths.clone(),
-            anthropic_factory,
+            ollama_factory,
         )
         .await
-        .expect("anthropic kernel should boot");
-        assert_eq!(anthropic_kernel.provider_name(), "anthropic");
+        .expect("ollama default kernel should boot");
+        assert_eq!(ollama_kernel.provider_name(), "anthropic");
 
         let mut openrouter_config = Config::default_template();
         openrouter_config.model.provider = Provider::Openrouter;
@@ -4577,7 +4579,7 @@ mod tests {
 
         let seen = seen.lock().unwrap();
         assert_eq!(seen.len(), 2);
-        assert_eq!(seen[0], Provider::Anthropic);
+        assert_eq!(seen[0], Provider::Ollama);
         assert_eq!(seen[1], Provider::Openrouter);
     }
 

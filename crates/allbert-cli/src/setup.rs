@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use allbert_kernel::{atomic_write, AllbertPaths, Config};
+use allbert_kernel::{atomic_write, AllbertPaths, Config, Provider};
 use anyhow::{Context, Result};
 
 const PLACEHOLDER_UNKNOWN: &str = "Unknown";
@@ -11,6 +11,10 @@ const PLACEHOLDER_BOOTSTRAP: &str = "Fill this in during bootstrap.";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SetupAnswers {
+    pub provider: Provider,
+    pub model_id: String,
+    pub api_key_env: Option<String>,
+    pub base_url: Option<String>,
     pub preferred_name: String,
     pub timezone: String,
     pub working_style: String,
@@ -109,6 +113,49 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         (None, None, None)
     };
 
+    println!("\nThe next questions choose Allbert's default model.");
+    let provider = match prompt_provider(config.model.provider)? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let model_id = match prompt_required(
+        "Default model id",
+        Some(default_model_id_for_setup(config, provider)),
+    )? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let api_key_env = if provider.api_key_required() {
+        match prompt_optional(
+            "API key environment variable",
+            config
+                .model
+                .api_key_env
+                .as_deref()
+                .or_else(|| provider.default_api_key_env()),
+        )? {
+            Some(value) => value.or_else(|| provider.default_api_key_env().map(str::to_string)),
+            None => return Ok(None),
+        }
+    } else {
+        None
+    };
+    let base_url = if provider == Provider::Ollama {
+        match prompt_optional(
+            "Ollama base URL",
+            config
+                .model
+                .base_url
+                .as_deref()
+                .or_else(|| provider.default_base_url()),
+        )? {
+            Some(value) => value.or_else(|| provider.default_base_url().map(str::to_string)),
+            None => return Ok(None),
+        }
+    } else {
+        None
+    };
+
     let trusted_roots = match prompt_trusted_roots(&cwd, &config.security.fs_roots)? {
         Some(roots) => roots,
         None => return Ok(None),
@@ -168,6 +215,10 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
     };
 
     let answers = SetupAnswers {
+        provider,
+        model_id,
+        api_key_env,
+        base_url,
         preferred_name,
         timezone,
         working_style,
@@ -205,6 +256,10 @@ pub fn apply_setup_answers(
         .with_context(|| format!("write {}", paths.identity.display()))?;
 
     config.security.fs_roots = answers.trusted_roots.clone();
+    config.model.provider = answers.provider;
+    config.model.model_id = answers.model_id.clone();
+    config.model.api_key_env = answers.api_key_env.clone();
+    config.model.base_url = answers.base_url.clone();
     config.daemon.auto_spawn = answers.daemon_auto_spawn;
     config.limits.daily_usd_cap = match answers.daily_usd_cap.as_deref() {
         Some(raw) => Some(
@@ -328,6 +383,33 @@ fn prompt_required(label: &str, default: Option<String>) -> Result<Option<String
                 println!("{label} is required.");
             }
         }
+    }
+}
+
+fn prompt_provider(default: Provider) -> Result<Option<Provider>> {
+    loop {
+        match prompt_line(
+            "Default provider (anthropic/openrouter/openai/gemini/ollama)",
+            Some(default.label()),
+        )? {
+            PromptLine::Cancelled => return Ok(None),
+            PromptLine::Submitted(value) => match Provider::parse(value.trim()) {
+                Some(provider) => return Ok(Some(provider)),
+                None => {
+                    println!(
+                        "Provider must be one of: anthropic, openrouter, openai, gemini, ollama."
+                    );
+                }
+            },
+        }
+    }
+}
+
+fn default_model_id_for_setup(config: &Config, provider: Provider) -> String {
+    if config.model.provider == provider {
+        config.model.model_id.clone()
+    } else {
+        provider.default_model_id().into()
     }
 }
 
@@ -819,6 +901,10 @@ mod tests {
 
     fn sample_answers(root: &Path) -> SetupAnswers {
         SetupAnswers {
+            provider: Provider::Ollama,
+            model_id: "gemma4".into(),
+            api_key_env: None,
+            base_url: Some("http://127.0.0.1:11434".into()),
             preferred_name: "Spuri".into(),
             timezone: "America/Los_Angeles".into(),
             working_style: "Short updates and concrete next steps.".into(),
@@ -849,6 +935,13 @@ mod tests {
         apply_setup_answers(&paths, &mut config, &answers).expect("setup should succeed");
 
         assert_eq!(config.setup.version, 2);
+        assert_eq!(config.model.provider, Provider::Ollama);
+        assert_eq!(config.model.model_id, "gemma4");
+        assert_eq!(config.model.api_key_env, None);
+        assert_eq!(
+            config.model.base_url.as_deref(),
+            Some("http://127.0.0.1:11434")
+        );
         assert_eq!(config.security.fs_roots, vec![workspace.clone()]);
         assert!(config.daemon.auto_spawn);
         assert!(config.jobs.enabled);
@@ -920,8 +1013,43 @@ mod tests {
     }
 
     #[test]
-    fn startup_warnings_flag_missing_api_key_and_roots() {
+    fn status_render_reports_keyless_provider_as_not_required() {
+        let rendered = render_status(&StatusSnapshot {
+            provider: "ollama".into(),
+            model_id: "gemma4".into(),
+            api_key_env: None,
+            api_key_present: true,
+            setup_version: 2,
+            bootstrap_pending: false,
+            trusted_roots: Vec::new(),
+            skill_count: 0,
+            trace_enabled: false,
+            daemon_auto_spawn: true,
+            jobs_enabled: false,
+            jobs_default_timezone: None,
+            root_agent_name: "allbert/root".into(),
+            last_agent_stack: Vec::new(),
+            last_resolved_intent: None,
+        });
+
+        assert!(rendered.contains("api key env:        not required (not required)"));
+    }
+
+    #[test]
+    fn startup_warnings_skip_api_key_for_default_ollama() {
         let warnings = build_startup_warnings_with(&Config::default_template(), |_| false);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("trusted filesystem roots"));
+    }
+
+    #[test]
+    fn startup_warnings_flag_missing_hosted_api_key_and_roots() {
+        let mut config = Config::default_template();
+        config.model.provider = Provider::Anthropic;
+        config.model.model_id = "claude-sonnet-4-5".into();
+        config.model.api_key_env = Some("ANTHROPIC_API_KEY".into());
+        config.model.base_url = None;
+        let warnings = build_startup_warnings_with(&config, |_| false);
         assert_eq!(warnings.len(), 2);
         assert!(warnings[0].contains("ANTHROPIC_API_KEY"));
         assert!(warnings[1].contains("trusted filesystem roots"));

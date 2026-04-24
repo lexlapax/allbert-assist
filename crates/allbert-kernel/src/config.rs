@@ -478,10 +478,10 @@ impl Config {
     pub fn default_template() -> Self {
         Self {
             model: ModelConfig {
-                provider: Provider::Anthropic,
-                model_id: "claude-sonnet-4-5".into(),
-                api_key_env: Some("ANTHROPIC_API_KEY".into()),
-                base_url: None,
+                provider: Provider::Ollama,
+                model_id: "gemma4".into(),
+                api_key_env: None,
+                base_url: Some("http://127.0.0.1:11434".into()),
                 max_tokens: 4096,
             },
             setup: SetupConfig::default(),
