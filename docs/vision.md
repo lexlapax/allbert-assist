@@ -61,7 +61,7 @@ Allbert should have a small always-on bootstrap layer made of inspectable markdo
 
 ## Model Direction
 
-For planning and reasoning, Allbert should support both strong hosted foundation models and local models. The local-first default is Ollama with `gemma4`, while Anthropic, OpenRouter, OpenAI, and Gemini remain first-class direct-provider options for operators who want hosted models. Provider choice stays a kernel-owned runtime configuration concern so cost logs, policy gates, daemon protocol, jobs, skills, and channel capability checks all see the same model posture.
+For planning and reasoning, Allbert should support both strong hosted foundation models and local models. v0.10 makes the local-first default Ollama with `gemma4`, while Anthropic, OpenRouter, OpenAI, and Gemini remain first-class direct-provider options for operators who want hosted models. Provider choice stays a kernel-owned runtime configuration concern so cost logs, policy gates, daemon protocol, jobs, skills, and channel capability checks all see the same model posture.
 
 Over time Allbert may also use smaller specialized models for memory shaping, personalization, or other narrow tasks, as long as those additions keep the runtime understandable and maintainable. A full local retraining or nightly-distillation pipeline is an explicit later ambition, not a commitment in the current roadmap.
 

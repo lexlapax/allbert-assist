@@ -2,6 +2,8 @@
 
 Status: Accepted
 
+This ADR is accepted before the v0.10 implementation ships because it gates the implementation approach: v0.10 remains a proposed release, but the provider-framework decision is frozen so code work can proceed without reopening the Rig-vs-owned-seam question.
+
 ## Context
 
 v0.10 expands Allbert's model-provider support from Anthropic and OpenRouter to Anthropic, OpenRouter, OpenAI, Gemini, and local Ollama. That raised the obvious framework question: should Allbert keep writing direct provider clients, or adopt a Rust provider framework such as Rig?

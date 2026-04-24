@@ -54,6 +54,8 @@ Once v0.9 made contributor work provider-free and reproducible, the next operato
 
 This release deliberately keeps Allbert's provider layer small and kernel-owned instead of adopting a general provider framework. That keeps cost logs, daemon protocol, setup, jobs, skill-contributed agents, and channel image gating under the same policy surface. The decision is recorded in [ADR 0066](../adr/0066-owned-provider-seam-over-rig-for-v0-10.md).
 
+ADR 0066 is accepted as the frozen provider-framework decision even while the v0.10 release implementation remains `Proposed`.
+
 ### v0.10 before v0.11
 
 Self-improvement (the assistant rebuilding its own Rust binary, or authoring new skills) is both powerful and risky. It should land only after Allbert has:
