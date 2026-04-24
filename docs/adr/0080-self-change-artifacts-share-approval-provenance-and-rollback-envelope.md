@@ -27,7 +27,7 @@ All self-change artifacts share one envelope:
 
 Concrete mappings:
 
-- v0.11 personality digest drafts live under `~/.allbert/learning/personality-digest/runs/<run_id>/` and install to `PERSONALITY.md` only after acceptance.
+- v0.11 personality digest drafts live under `~/.allbert/learning/personality-digest/runs/<run_id>/` and install to the configured personality output path (`PERSONALITY.md` by default) only after acceptance. The digest may install that learned overlay only; any proposed `SOUL.md` edit remains a separate sensitive bootstrap-file mutation requiring direct operator intent and confirmation.
 - v0.12 source patches use sibling worktrees and `patch-approval`.
 - v0.12 self-authored skills use `skills/incoming/` and install preview.
 - v0.13 adapters use `~/.allbert/adapters/` and `adapter-approval`.

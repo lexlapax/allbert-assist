@@ -42,7 +42,7 @@ Allbert will introduce a first-class bootstrap context layer in v0.1.
 
 Allbert will not adopt `AGENTS.md` or `HEARTBEAT.md` in v0.1. Those can be reconsidered later when Allbert has broader session surfaces, proactive jobs, or group-chat behavior that makes them pull their weight.
 
-v0.11 amendment: `PERSONALITY.md` joins the bootstrap load path as an optional artifact created by the review-first personality digest (ADR 0079) or by direct user edit. It is not seeded on first boot. When absent, the kernel skips it silently. When present, it is bounded by the same bootstrap prompt limits as the rest of the bundle and is treated as sensitive prompt surface: installing or replacing it requires explicit operator acceptance, and scheduled jobs may not silently mutate it.
+v0.11 amendment: the accepted personality digest output path (`PERSONALITY.md` by default) joins the bootstrap load path as an optional learned overlay created by the review-first personality digest (ADR 0079) or by direct user edit. It is not seeded on first boot. When absent, the kernel skips it silently. When present, it is bounded by the same bootstrap prompt limits as the rest of the bundle and is loaded after `SOUL.md`, `USER.md`, `IDENTITY.md`, and `TOOLS.md`. It has lower authority than current user instruction, `SOUL.md`, user/profile files, policy, and tool/security rules. Installing or replacing it requires explicit operator acceptance, and scheduled jobs may not silently mutate it. The digest must never write `SOUL.md`; any proposed `SOUL.md` edit remains a separate sensitive bootstrap-file mutation requiring direct operator intent.
 
 ## Consequences
 
