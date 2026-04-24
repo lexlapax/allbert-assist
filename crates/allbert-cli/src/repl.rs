@@ -10,7 +10,7 @@ use std::io::{self, Write};
 
 use crate::setup::{self, StatusSnapshot};
 
-const HELP_TEXT: &str = "\
+pub const HELP_TEXT: &str = "\
 commands:
   /h        show this help
   /cost     show session cost, today's recorded total, and cap state
@@ -69,7 +69,7 @@ commands:
   unknown slash commands are rejected locally
   anything else is sent to the daemon-backed kernel session";
 
-enum LocalCommand<'a> {
+pub enum LocalCommand<'a> {
     Exit,
     Help,
     Cost(&'a str),
@@ -137,7 +137,7 @@ pub async fn run_loop(
     Ok(())
 }
 
-fn parse_local_command(input: &str) -> LocalCommand<'_> {
+pub fn parse_local_command(input: &str) -> LocalCommand<'_> {
     match input {
         "/exit" | "/quit" => LocalCommand::Exit,
         "/help" | "/h" => LocalCommand::Help,

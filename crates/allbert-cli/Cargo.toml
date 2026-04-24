@@ -13,6 +13,8 @@ tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 reedline = "0.36"
+ratatui = "0.29"
+crossterm = "0.28"
 tracing = "0.1"
 async-trait = "0.1"
 iana-time-zone = "0.1"

@@ -5,7 +5,7 @@ use std::time::Duration;
 use allbert_channels::ChannelCapabilities;
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_jobs::JobsCommand;
-use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config};
+use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config, ReplUiMode};
 use allbert_proto::{ChannelKind, ChannelRuntimeStatusPayload, ClientKind, DaemonStatus};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -19,6 +19,7 @@ mod profile_cli;
 mod repl;
 mod setup;
 mod skills;
+mod tui;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "Allbert daemon-backed CLI", long_about = None)]
@@ -78,6 +79,14 @@ enum Command {
     Sessions {
         #[command(subcommand)]
         command: SessionsCommand,
+    },
+    Repl {
+        #[arg(long)]
+        classic: bool,
+        #[arg(long)]
+        tui: bool,
+        #[arg(long)]
+        save: bool,
     },
     Telemetry {
         #[arg(long)]
@@ -350,7 +359,7 @@ async fn main() -> Result<()> {
                     }
                 };
             }
-            run_repl(&paths, &config, args.trace, args.yes).await
+            run_repl(&paths, &config, args.trace, args.yes, None).await
         }
         Some(Command::InternalDaemonHost) => run_internal_daemon_host().await,
         Some(Command::Skills { command }) => {
@@ -363,6 +372,28 @@ async fn main() -> Result<()> {
         Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
         Some(Command::Heartbeat { command }) => run_heartbeat_command(&paths, command),
         Some(Command::Sessions { command }) => run_sessions_command(&paths, &config, command).await,
+        Some(Command::Repl { classic, tui, save }) => {
+            if setup::needs_setup(&config, &paths) {
+                config = match setup::run_setup_wizard(&paths, &config)? {
+                    Some(updated) => updated,
+                    None => {
+                        eprintln!(
+                            "Setup was cancelled. Rerun Allbert when you're ready to finish setup."
+                        );
+                        return Ok(());
+                    }
+                };
+            }
+            let mode = repl_mode_from_flags(classic, tui)?;
+            let mut effective = config.clone();
+            if save {
+                if let Some(mode) = mode {
+                    effective.repl.ui = mode;
+                    effective.persist(&paths)?;
+                }
+            }
+            run_repl(&paths, &effective, args.trace, args.yes, mode).await
+        }
         Some(Command::Telemetry { json }) => run_telemetry_command(&paths, &config, json).await,
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
@@ -1333,7 +1364,13 @@ async fn run_skills_command(
     }
 }
 
-async fn run_repl(paths: &AllbertPaths, config: &Config, trace: bool, yes: bool) -> Result<()> {
+async fn run_repl(
+    paths: &AllbertPaths,
+    config: &Config,
+    trace: bool,
+    yes: bool,
+    requested_mode: Option<ReplUiMode>,
+) -> Result<()> {
     let mut effective = config.clone();
     if trace {
         effective.trace = true;
@@ -1353,8 +1390,22 @@ async fn run_repl(paths: &AllbertPaths, config: &Config, trace: bool, yes: bool)
         client.set_auto_confirm(true).await?;
     }
 
+    let mode = requested_mode.unwrap_or(effective.repl.ui);
+    tracing::info!(
+        session = attached.session_id,
+        ui = mode.label(),
+        "REPL attached"
+    );
+    if mode == ReplUiMode::Tui {
+        match tui::run_loop(&mut client, paths, &attached.session_id, &effective).await {
+            Ok(()) => return Ok(()),
+            Err(err) => {
+                eprintln!("TUI unavailable ({err}); falling back to classic REPL.");
+            }
+        }
+    }
+
     let notifications = spawn_notification_task(paths, attached.session_id.clone()).await;
-    tracing::info!(session = attached.session_id, "REPL attached");
     let result = repl::run_loop(&mut client, paths).await;
     if let Some(handle) = notifications {
         handle.abort();
@@ -1665,6 +1716,15 @@ fn yes_no(value: bool) -> &'static str {
         "yes"
     } else {
         "no"
+    }
+}
+
+fn repl_mode_from_flags(classic: bool, tui: bool) -> Result<Option<ReplUiMode>> {
+    match (classic, tui) {
+        (true, true) => anyhow::bail!("choose only one of --classic or --tui"),
+        (true, false) => Ok(Some(ReplUiMode::Classic)),
+        (false, true) => Ok(Some(ReplUiMode::Tui)),
+        (false, false) => Ok(None),
     }
 }
 
