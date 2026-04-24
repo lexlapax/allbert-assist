@@ -11,11 +11,11 @@ For end-user/runtime usage, see:
 
 ## Platform support
 
-Supported contributor platforms in v0.9:
+Supported contributor platforms in v0.10:
 - macOS
 - Linux
 
-Out of scope through v0.9:
+Out of scope through v0.10:
 - Windows native
 
 ## Toolchain
@@ -113,8 +113,8 @@ These are required for normal contributor green status:
 ### Tier B — optional
 
 These are optional/manual:
-- live Anthropic verification
-- live OpenRouter verification
+- live hosted-provider verification
+- local Ollama/Gemma4 verification
 - Telegram bot/channel verification
 - any checks that require secrets or network
 
@@ -145,6 +145,9 @@ Common optional variables:
 - `ANTHROPIC_API_KEY`
 - `OPENROUTER_API_KEY`
 - `OPENROUTER_API_KEY_BOOTSTRAP`
+- `OPENAI_API_KEY`
+- `GEMINI_API_KEY`
+- `OLLAMA_BASE_URL`
 - `ALLBERT_HOME` for temp-profile isolation
 
 Telegram testing is also optional and uses filesystem-backed secrets/config under `~/.allbert/`.
@@ -157,7 +160,7 @@ If you want a local env file for optional live checks, copy `.env.example` and f
 
 ## Codex Web expectations
 
-Codex Web support in v0.9 means the repo’s development cycle works in an ephemeral remote workspace.
+Codex Web support means the repo’s development cycle works in an ephemeral remote workspace.
 
 It does not mean:
 - hosted daemon deployment

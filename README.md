@@ -4,11 +4,11 @@ Allbert is a terminal-first personal assistant built around a small Rust kernel,
 
 For repository development and contributor setup, see [DEVELOPMENT.md](/Users/spuri/projects/lexlapax/allbert-assist/DEVELOPMENT.md).
 
-v0.9 is the current technical source-based release in this repo. You build it from source, point it at an Anthropic or OpenRouter API key, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, recurring jobs, identity/session continuity, strict AgentSkills-format skill management, curated-memory review, approval inbox resolution, profile export/import, and channel administration.
+v0.10 is the current technical source-based release in this repo. You build it from source, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, recurring jobs, identity/session continuity, strict AgentSkills-format skill management, curated-memory review, approval inbox resolution, profile export/import, provider/model selection, and channel administration. Fresh profiles default to local Ollama with `gemma4`; hosted providers remain available through Anthropic, OpenRouter, OpenAI, and Gemini.
 
-The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection, the shipped `memory-curator` skill, restart-durable sessions, daily cost-cap enforcement, operator-visible memory verification, the `Channel` trait, Telegram async approvals, cross-surface approval inbox resolution, identity-routed session continuity, explicit sync posture, profile export/import, `HEARTBEAT.md` cadence controls, explicit-intent web learning, and Telegram photo input for vision-capable models are all part of the current v0.9 end-user experience. v0.9 also adds a pinned contributor toolchain, provider-free validation path, and Codex Web workspace guidance for people rebuilding the source tree. You can manage recurring jobs through `allbert-cli jobs ...` or through normal conversation in the REPL, with the CLI preserved as the clearest operator escape hatch. You can inspect, stage, promote, reject, and forget memory through both conversation and `allbert-cli memory ...`.
+The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection, the shipped `memory-curator` skill, restart-durable sessions, daily cost-cap enforcement, operator-visible memory verification, the `Channel` trait, Telegram async approvals, cross-surface approval inbox resolution, identity-routed session continuity, explicit sync posture, profile export/import, `HEARTBEAT.md` cadence controls, explicit-intent web learning, Telegram photo input for vision-capable models, and direct Anthropic/OpenRouter/OpenAI/Gemini/Ollama provider support are all part of the current v0.10 end-user experience. v0.9 added the pinned contributor toolchain, provider-free validation path, and Codex Web workspace guidance for people rebuilding the source tree; v0.10 builds on that by making provider choice broader and local-first by default. You can manage recurring jobs through `allbert-cli jobs ...` or through normal conversation in the REPL, with the CLI preserved as the clearest operator escape hatch. You can inspect, stage, promote, reject, and forget memory through both conversation and `allbert-cli memory ...`.
 
-## What v0.9 includes
+## What v0.10 includes
 
 - a kernel that owns the agent loop, tools, memory, skills, policy, cost, and tracing
 - a local daemon host with attachable REPL, CLI, jobs, and Telegram channels
@@ -46,17 +46,24 @@ The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-
 - a shipped `memory-curator` skill with review and explicit extraction workflows
 - a turn-start daily cost cap with `/cost --override <reason>` for one-turn operator escape
 - explicit-intent web learning through `record_as` on `web_search` and `fetch_url`
+- direct provider clients for Anthropic, OpenRouter, OpenAI, Gemini, and local Ollama
+- fresh-profile local-first defaults: `provider = "ollama"`, `model_id = "gemma4"`, and `base_url = "http://127.0.0.1:11434"`
 - Telegram async approvals via `/approve <approval-id>`, `/reject <approval-id>`, and `/override <reason>`, plus cross-surface resolution from CLI and REPL inbox commands
 - Telegram photo input for vision-capable models, with downloaded photos stored as session artifacts under the parent session
 
 ## Prerequisites
 
 - Rust toolchain with `cargo`
-- a provider API key:
+- optional local Ollama if you want the fresh-profile default to work on the first live turn:
+  - install Ollama separately
+  - run `ollama run gemma4` before your first local-provider turn
+- optional hosted-provider API keys:
   - `ANTHROPIC_API_KEY` for Anthropic
   - `OPENROUTER_API_KEY` for OpenRouter
+  - `OPENAI_API_KEY` for OpenAI
+  - `GEMINI_API_KEY` for Gemini
 
-Export at least one before your first live turn:
+Allbert does not install Ollama and does not auto-pull `gemma4`; the operator owns local model installation. If you use the default Ollama/Gemma4 profile, no API key is required. If you switch to a hosted provider, export that provider's key before your first live hosted turn:
 
 ```bash
 export ANTHROPIC_API_KEY=...
@@ -66,6 +73,13 @@ or
 
 ```bash
 export OPENROUTER_API_KEY=...
+```
+
+or:
+
+```bash
+export OPENAI_API_KEY=...
+export GEMINI_API_KEY=...
 ```
 
 ## Build and run
@@ -202,14 +216,15 @@ REPL slash commands:
 - `/status` shows provider, model, root agent, last active agent stack, last resolved intent, setup state, trusted roots, daemon/jobs defaults, API-key presence, installed skill count, and trace mode
 - `/setup` reruns guided setup and reloads config for the current daemon session
 - `/model` shows the active session model
-- `/model <anthropic|openrouter> <model_id> [api_key_env]` switches model/provider for the attached session only
+- `/model <anthropic|openrouter|openai|gemini|ollama> <model_id> [api_key_env]` switches model/provider for the attached session only
+- `/model ollama gemma4` switches the attached session to local Ollama without requiring an API key
 - `/cost` shows session cost, today's recorded total, and cap state
 - `/cost --override <reason>` bypasses the daily cost cap for exactly one turn
 - `/exit` leaves the REPL without stopping the daemon
 
 Unknown slash commands are rejected locally instead of being sent through to the model.
 
-Memory examples that work well in v0.9:
+Memory examples that work well in v0.10:
 
 - `what do you remember about Postgres?`
 - `remember that we use Postgres for primary storage`
@@ -270,7 +285,7 @@ Conversational scheduling examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant understands well in v0.9:
+Common schedule forms the assistant understands well in v0.10:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -320,7 +335,7 @@ Chat history is not the durable store. Durable learnings are staged first, then 
 
 If the turn-end staged-memory suffix feels noisy, set `memory.surface_staged_on_turn_end = false` in `~/.allbert/config.toml` and restart the REPL session.
 
-If you are upgrading an existing profile, see [docs/notes/v0.9-upgrade-2026-04-24.md](docs/notes/v0.9-upgrade-2026-04-24.md). v0.9 has no additional profile migration beyond the v0.8 continuity upgrade; users coming from v0.7 or earlier should also review [docs/notes/v0.8-upgrade-2026-04-23.md](docs/notes/v0.8-upgrade-2026-04-23.md).
+If you are upgrading an existing profile, see [docs/notes/v0.10-upgrade-2026-04-24.md](docs/notes/v0.10-upgrade-2026-04-24.md). Users coming from v0.8 or earlier should also review [docs/notes/v0.9-upgrade-2026-04-24.md](docs/notes/v0.9-upgrade-2026-04-24.md) and [docs/notes/v0.8-upgrade-2026-04-23.md](docs/notes/v0.8-upgrade-2026-04-23.md).
 
 ## Telegram channel
 
@@ -340,13 +355,13 @@ Useful operator commands:
 - `cargo run -p allbert-cli -- inbox show <approval-id>`
 - `cargo run -p allbert-cli -- inbox accept <approval-id> --reason "approved from shell"`
 
-Telegram behaviour in v0.9:
+Telegram behaviour in v0.10:
 
 - pending approvals can be resolved from Telegram, CLI, or an attached REPL inbox
 - `/approve <approval-id>` and `/reject <approval-id>` still resolve pending async approvals from Telegram itself
 - `/override <reason>` still retries one turn after a daily cost-cap refusal, and the same `cost-cap-override` item appears in the shared inbox
 - `/reset` starts a new Telegram session
-- inbound photos work only when the active provider/model supports vision input
+- inbound photos work only when the active provider/model supports image input; Anthropic, OpenAI, Gemini, and supported local Ollama vision models are enabled through the provider capability gate
 - downloaded photos are stored as session artifacts under `~/.allbert/sessions/<session-id>/artifacts/`
 
 ## Files you should know
@@ -392,7 +407,8 @@ Telegram behaviour in v0.9:
 - sub-agent depth is budget-governed rather than fixed by nesting count
 - no boot-time OS service install yet
 - bundled job templates stay disabled by default except that fresh profiles which explicitly enable recurring jobs preselect `memory-compile`
-- live provider use still depends on your network and API-key env vars
+- hosted-provider use still depends on your network and API-key env vars
+- local Ollama use depends on a running Ollama service and a pulled local model; Allbert does not install Ollama or run `ollama pull` for you
 - Telegram image input is limited to photos; voice notes, audio, and image output are deferred
 - conversational scheduling is optimized for the bounded schedule DSL used by v0.2/v0.3; raw cron remains an advanced escape hatch
 - skill installs assume strict AgentSkills-format trees; Allbert does not ship a runtime migration helper for older relaxed skill layouts

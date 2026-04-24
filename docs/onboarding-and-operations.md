@@ -1,15 +1,16 @@
-# Allbert v0.9 Onboarding and Operations
+# Allbert v0.10 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.9 release.
+This guide is the operator reference for the source-based v0.10 release.
 
 ## Quickstart
 
-1. Export at least one provider API key.
-2. Run `cargo run -p allbert-cli --`.
-3. Complete the guided setup flow.
-4. Confirm daemon/session state with `/status`.
-5. Use `allbert-cli daemon status`, `allbert-cli jobs list`, and `allbert-cli memory status` as needed.
-6. Inspect the current agent catalog with `allbert-cli agents list` and the shipped curator flow with `allbert-cli skills show memory-curator`.
+1. Install Ollama separately and run `ollama run gemma4` if you want the fresh-profile local default to work on the first live turn.
+2. Export a hosted-provider API key only if you plan to use Anthropic, OpenRouter, OpenAI, or Gemini.
+3. Run `cargo run -p allbert-cli --`.
+4. Complete the guided setup flow.
+5. Confirm daemon/session state with `/status`.
+6. Use `allbert-cli daemon status`, `allbert-cli jobs list`, and `allbert-cli memory status` as needed.
+7. Inspect the current agent catalog with `allbert-cli agents list` and the shipped curator flow with `allbert-cli skills show memory-curator`.
 
 ## Guided setup
 
@@ -20,6 +21,8 @@ On first run, Allbert creates `~/.allbert/` and asks for:
 - how Allbert should usually work with you, with a practical default
 - your current priorities, with a safe fallback if you have none to record yet
 - optional assistant identity edits for Allbert itself
+- the default model provider and model id, defaulting to local `ollama` / `gemma4` on fresh profiles
+- an API-key environment variable for hosted providers, or a local base URL for Ollama
 - trusted filesystem roots, with the current project directory offered as the default first root
 - whether the CLI should auto-start the daemon when needed
 - an optional daily cost cap in USD
@@ -60,15 +63,15 @@ This is intentional. Allbert still prefers explicit workspace trust over permiss
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical v0.9 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical fresh v0.10 file looks like:
 
 ```toml
 trace = false
 
 [model]
-provider = "anthropic"
-model_id = "claude-sonnet-4-5"
-api_key_env = "ANTHROPIC_API_KEY"
+provider = "ollama"
+model_id = "gemma4"
+base_url = "http://127.0.0.1:11434"
 max_tokens = 4096
 
 [setup]
@@ -146,6 +149,18 @@ max_prompt_memory_bytes = 4096
 max_skill_args_bytes = 2048
 ```
 
+Hosted providers use the same `[model]` table with an API-key env var:
+
+```toml
+[model]
+provider = "openai"
+model_id = "gpt-5.4-mini"
+api_key_env = "OPENAI_API_KEY"
+max_tokens = 4096
+```
+
+Supported provider labels are `anthropic`, `openrouter`, `openai`, `gemini`, and `ollama`. Ollama is keyless and uses `base_url`; hosted providers use `api_key_env`.
+
 The CLI may override some of this for the current REPL session:
 
 - `--trace` enables daemon debug logging for the running daemon
@@ -162,13 +177,15 @@ Useful REPL commands:
 - `/s`
   Alias for `/status`.
 - `/status`
-  Shows provider, model, root agent, last active agent stack, last resolved intent, API-key env presence, setup version, bootstrap pending state, trusted roots, daemon auto-spawn, jobs enablement, jobs timezone, skill count, and trace mode.
+  Shows provider, model, root agent, last active agent stack, last resolved intent, API-key env presence or `not required`, setup version, bootstrap pending state, trusted roots, daemon auto-spawn, jobs enablement, jobs timezone, skill count, and trace mode.
 - `/setup`
   Reruns guided setup. This updates config/bootstrap state and reloads daemon defaults plus job definitions for the current daemon session.
 - `/model`
   Shows the active session model configuration.
-- `/model <anthropic|openrouter> <model_id> [api_key_env]`
+- `/model <anthropic|openrouter|openai|gemini|ollama> <model_id> [api_key_env]`
   Switches provider/model for the attached session only.
+- `/model ollama gemma4`
+  Switches the attached session to local Ollama without requiring an API key and uses the default Ollama base URL.
 - `/cost`
   Shows session cost, today's recorded total, and the current daily cap state from `~/.allbert/costs.jsonl`.
 - `/cost --override <reason>`
@@ -256,7 +273,7 @@ Notes:
 
 ## Telegram channel
 
-Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.9 end-user release.
+Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.10 end-user release.
 
 Setup:
 
@@ -268,18 +285,18 @@ Setup:
 
 Operational notes:
 
-- CLI, REPL, and Telegram can all resolve pending approvals through the shared inbox in v0.9.
+- CLI, REPL, and Telegram can all resolve pending approvals through the shared inbox in v0.10.
 - `/approve <approval-id>` accepts an async approval from Telegram itself.
 - `/reject <approval-id>` rejects an async approval from Telegram itself.
 - `/override <reason>` retries one turn after a daily cost-cap refusal and mirrors the same `cost-cap-override` item into the inbox.
 - `/reset` forces a new Telegram session.
-- incoming photos work only when the active provider/model supports image input
+- incoming photos work only when the active provider/model supports image input; Anthropic, OpenAI, Gemini, and supported local Ollama vision models are enabled through the provider capability gate
 - downloaded photos are stored under `~/.allbert/sessions/<session-id>/artifacts/`
 - those photos are session artifacts, not durable memory, and archive/forget with the parent session
 
 ## Continuity across devices
 
-v0.9 treats profile continuity as an explicit operator workflow rather than an accidental side effect of copying `~/.allbert/`.
+v0.10 treats profile continuity as an explicit operator workflow rather than an accidental side effect of copying `~/.allbert/`.
 
 Recommended second-device flow:
 
@@ -335,7 +352,7 @@ Conversational scheduling works best when you ask plainly. Good examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant should compile naturally in v0.9:
+Common schedule forms the assistant should compile naturally in v0.10:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -346,7 +363,7 @@ When you create, update, pause, resume, or remove a job from normal conversation
 
 ## Bundled maintenance jobs
 
-v0.9 seeds these bundled templates:
+v0.10 seeds these bundled templates:
 
 - `daily-brief`
 - `weekly-review`
@@ -358,7 +375,7 @@ The setup wizard can enable selected templates for you. Fresh profiles that expl
 
 ## Skills and memory
 
-The canonical installed skill root in v0.9 is `~/.allbert/skills/installed/`.
+The canonical installed skill root in v0.10 is `~/.allbert/skills/installed/`.
 
 Quarantine lives under `~/.allbert/skills/incoming/`; fetched or copied skills stay there until you approve the preview.
 
@@ -384,9 +401,9 @@ Skill install/update preview shows:
 - declared scripts with interpreter, path, and SHA-256
 - the first lines of `SKILL.md`
 
-v0.9 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
+v0.10 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
 
-In v0.9, skills can also preview:
+In v0.10, skills can also preview:
 
 - `intents:` metadata to hint the intent router
 - `agents:` metadata to contribute namespaced sub-agents
@@ -420,7 +437,7 @@ Workflow summary:
 
 Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs.
 
-If you are upgrading to v0.9, see [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md). If you are coming from v0.7 or earlier, also review [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md) for the continuity, inbox, profile-sync, and heartbeat surfaces.
+If you are upgrading to v0.10, see [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
 
 ## Trace, logs, and cost files
 
@@ -443,8 +460,15 @@ Job history:
 
 Missing API key:
 
-- startup warning tells you which env var is missing
-- export it and restart the CLI
+- Ollama does not require an API key; `/status` should show `not required`
+- hosted providers show which env var is missing
+- export it and restart the CLI or switch back to Ollama with `/model ollama gemma4`
+
+Ollama turn fails:
+
+- confirm Ollama is installed and running
+- run `ollama run gemma4` once to pull/start the default model
+- if Ollama listens somewhere else, rerun `/setup` or set `base_url` under `[model]`
 
 `/status` shows no trusted roots:
 
@@ -464,8 +488,9 @@ Daemon will not auto-start:
 
 Provider errors:
 
-- confirm the correct env var is set for the active provider
-- check network connectivity
+- for hosted providers, confirm the correct env var is set for the active provider
+- for Ollama, confirm the local base URL is reachable and the model has been pulled
+- check network connectivity for hosted providers
 - switch providers with `/model` if needed
 
 Job failed unexpectedly:
@@ -489,7 +514,7 @@ Curated memory seems wrong or stale:
 
 ## Release posture
 
-v0.9 is a shipped technical-user release:
+v0.10 is a shipped technical-user release:
 
 - source-based
 - terminal-first
@@ -507,6 +532,8 @@ v0.9 is a shipped technical-user release:
 - profile export/import plus documented sync posture
 - `HEARTBEAT.md` inspection, validation, and proactive cadence controls
 - Telegram async approvals and Telegram photo input for vision-capable models
+- Anthropic, OpenRouter, OpenAI, Gemini, and local Ollama provider support
+- fresh-profile Ollama/Gemma4 defaults with no hosted API key required
 
 Known limitations remain explicit:
 
