@@ -30,6 +30,8 @@ pub struct Config {
     #[serde(default)]
     pub memory: MemoryConfig,
     #[serde(default)]
+    pub learning: LearningConfig,
+    #[serde(default)]
     pub security: SecurityConfig,
     #[serde(default)]
     pub limits: LimitsConfig,
@@ -586,6 +588,43 @@ impl Default for MemorySemanticConfig {
     }
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct LearningConfig {
+    pub enabled: bool,
+    pub personality_digest: PersonalityDigestConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct PersonalityDigestConfig {
+    pub enabled: bool,
+    pub schedule: String,
+    pub output_path: String,
+    pub include_tiers: Vec<String>,
+    pub include_episodes: bool,
+    pub episode_lookback_days: u16,
+    pub max_episode_summaries: usize,
+    pub max_input_bytes: usize,
+    pub max_output_bytes: usize,
+}
+
+impl Default for PersonalityDigestConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            schedule: "@weekly on sunday at 18:00".into(),
+            output_path: "PERSONALITY.md".into(),
+            include_tiers: vec!["durable".into(), "fact".into()],
+            include_episodes: true,
+            episode_lookback_days: 30,
+            max_episode_summaries: 10,
+            max_input_bytes: 24 * 1024,
+            max_output_bytes: 4 * 1024,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
     #[serde(default)]
@@ -718,6 +757,7 @@ impl Config {
             install: InstallConfig::default(),
             intent_classifier: IntentClassifierConfig::default(),
             memory: MemoryConfig::default(),
+            learning: LearningConfig::default(),
             security: SecurityConfig::default(),
             limits: LimitsConfig::default(),
             trace: false,
@@ -827,6 +867,7 @@ impl Config {
         if !(0.0..=1.0).contains(&self.memory.semantic.hybrid_weight) {
             return Err("memory.semantic.hybrid_weight must be between 0 and 1".into());
         }
+        validate_personality_digest_config(&self.learning.personality_digest)?;
         if matches!(self.limits.daily_usd_cap, Some(value) if value < 0.0) {
             return Err("limits.daily_usd_cap must be >= 0".into());
         }
@@ -854,6 +895,87 @@ impl Config {
 
 fn atomic_write(path: &std::path::Path, bytes: &[u8]) -> Result<(), std::io::Error> {
     crate::atomic_write(path, bytes)
+}
+
+fn validate_personality_digest_config(config: &PersonalityDigestConfig) -> Result<(), String> {
+    let output = config.output_path.trim();
+    if output.is_empty() {
+        return Err("learning.personality_digest.output_path must not be empty".into());
+    }
+    let path = std::path::Path::new(output);
+    if path.is_absolute() {
+        return Err(
+            "learning.personality_digest.output_path must be relative to ALLBERT_HOME".into(),
+        );
+    }
+    if path.components().any(|component| {
+        matches!(
+            component,
+            std::path::Component::ParentDir
+                | std::path::Component::RootDir
+                | std::path::Component::Prefix(_)
+        )
+    }) {
+        return Err("learning.personality_digest.output_path must stay inside ALLBERT_HOME".into());
+    }
+    if path.extension().and_then(|value| value.to_str()) != Some("md") {
+        return Err("learning.personality_digest.output_path must be a markdown file".into());
+    }
+    let normalized = output.replace('\\', "/");
+    let reserved_files = [
+        "SOUL.md",
+        "USER.md",
+        "IDENTITY.md",
+        "TOOLS.md",
+        "AGENTS.md",
+        "HEARTBEAT.md",
+        "BOOTSTRAP.md",
+        "config.toml",
+    ];
+    if reserved_files
+        .iter()
+        .any(|reserved| normalized.eq_ignore_ascii_case(reserved))
+    {
+        return Err(format!(
+            "learning.personality_digest.output_path cannot target reserved bootstrap/runtime file {normalized}"
+        ));
+    }
+    for reserved_prefix in [
+        "secrets/",
+        "run/",
+        "logs/",
+        "traces/",
+        "memory/",
+        "jobs/",
+        "skills/",
+        "sessions/",
+    ] {
+        if normalized.starts_with(reserved_prefix) {
+            return Err(format!(
+                "learning.personality_digest.output_path cannot target reserved runtime path {reserved_prefix}"
+            ));
+        }
+    }
+    for tier in &config.include_tiers {
+        match tier.trim() {
+            "durable" | "fact" | "episode" => {}
+            other => {
+                return Err(format!(
+                    "learning.personality_digest.include_tiers contains unsupported tier `{other}`"
+                ))
+            }
+        }
+    }
+    if config.max_episode_summaries == 0 {
+        return Err("learning.personality_digest.max_episode_summaries must be > 0".into());
+    }
+    if config.max_input_bytes < 1024 {
+        return Err("learning.personality_digest.max_input_bytes must be >= 1024".into());
+    }
+    if config.max_output_bytes < 512 {
+        return Err("learning.personality_digest.max_output_bytes must be >= 512".into());
+    }
+    Ok(())
 }
 
 fn raw_has_repl_ui(raw: &str) -> bool {
@@ -1141,6 +1263,23 @@ mode = "always_active"
 
         config.memory.semantic.hybrid_weight = 1.0;
         config.validate().expect("upper bound is valid");
+    }
+
+    #[test]
+    fn learning_personality_digest_rejects_reserved_output_targets() {
+        let mut config = Config::default_template();
+        config.learning.personality_digest.output_path = "SOUL.md".into();
+        let err = config
+            .validate()
+            .expect_err("digest must not target SOUL.md");
+        assert!(err.contains("reserved"));
+
+        let mut config = Config::default_template();
+        config.learning.personality_digest.output_path = "memory/PERSONALITY.md".into();
+        let err = config
+            .validate()
+            .expect_err("digest must not target memory runtime paths");
+        assert!(err.contains("reserved runtime path"));
     }
 
     #[test]

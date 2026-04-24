@@ -197,6 +197,7 @@ fn continuity_roots() -> Vec<&'static Path> {
         Path::new("USER.md"),
         Path::new("IDENTITY.md"),
         Path::new("TOOLS.md"),
+        Path::new("PERSONALITY.md"),
         Path::new("AGENTS.md"),
         Path::new("HEARTBEAT.md"),
     ]

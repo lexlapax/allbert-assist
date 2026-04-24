@@ -48,6 +48,10 @@ enum Command {
         #[command(subcommand)]
         command: JobsCommand,
     },
+    Learning {
+        #[command(subcommand)]
+        command: LearningCommand,
+    },
     Skills {
         #[command(subcommand)]
         command: SkillsCommand,
@@ -201,6 +205,21 @@ enum MemoryCommand {
     RebuildIndex {
         #[arg(long)]
         force: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum LearningCommand {
+    /// Preview or run the reviewed personality digest job.
+    Digest {
+        #[arg(long, conflicts_with = "run")]
+        preview: bool,
+        #[arg(long)]
+        run: bool,
+        #[arg(long)]
+        accept: bool,
+        #[arg(long = "consent-hosted-provider")]
+        consent_hosted_provider: bool,
     },
 }
 
@@ -419,6 +438,7 @@ async fn main() -> Result<()> {
             run_repl(&paths, &effective, args.trace, args.yes, mode).await
         }
         Some(Command::Telemetry { json }) => run_telemetry_command(&paths, &config, json).await,
+        Some(Command::Learning { command }) => run_learning_command(&paths, &config, command),
         Some(Command::Jobs { command }) => {
             if setup::needs_setup(&config, &paths) {
                 config = match setup::run_setup_wizard(&paths, &config)? {
@@ -775,6 +795,35 @@ fn run_approvals_command(paths: &AllbertPaths, command: ApprovalsCommand) -> Res
         }
         ApprovalsCommand::Show { approval_id, json } => {
             println!("{}", approvals::show(paths, &approval_id, json)?);
+            Ok(())
+        }
+    }
+}
+
+fn run_learning_command(
+    paths: &AllbertPaths,
+    config: &Config,
+    command: LearningCommand,
+) -> Result<()> {
+    match command {
+        LearningCommand::Digest {
+            preview,
+            run,
+            accept,
+            consent_hosted_provider,
+        } => {
+            if preview || !run {
+                let preview = allbert_kernel::preview_personality_digest(paths, config)?;
+                println!("{}", preview.render());
+                return Ok(());
+            }
+            let report = allbert_kernel::run_personality_digest(
+                paths,
+                config,
+                accept,
+                consent_hosted_provider,
+            )?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
             Ok(())
         }
     }

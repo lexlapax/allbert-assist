@@ -11,6 +11,7 @@ pub mod hooks;
 pub mod identity;
 pub mod intent;
 pub mod job_manager;
+pub mod learning;
 pub mod llm;
 pub mod memory;
 pub mod paths;
@@ -33,11 +34,11 @@ pub use agent::{
 };
 pub use atomic::atomic_write;
 pub use config::{
-    Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig, JobsConfig, LimitsConfig,
-    MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig, MemoryRoutingMode,
-    MemorySemanticConfig, ModelConfig, Provider, ReplConfig, ReplUiMode, SecurityConfig,
-    SessionsConfig, SetupConfig, StatusLineConfig, StatusLineItem, TuiConfig, WebSecurityConfig,
-    CURRENT_SETUP_VERSION,
+    Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig, JobsConfig, LearningConfig,
+    LimitsConfig, MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig,
+    MemoryRoutingMode, MemorySemanticConfig, ModelConfig, PersonalityDigestConfig, Provider,
+    ReplConfig, ReplUiMode, SecurityConfig, SessionsConfig, SetupConfig, StatusLineConfig,
+    StatusLineItem, TuiConfig, WebSecurityConfig, CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
@@ -58,6 +59,11 @@ pub use identity::{
 };
 pub use intent::Intent;
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
+pub use learning::{
+    preview_personality_digest, resolve_digest_output_path, run_personality_digest, LearningCorpus,
+    LearningCorpusItem, LearningCorpusSummary, LearningJob, LearningJobContext, LearningJobReport,
+    LearningOutputArtifact, PersonalityDigestJob, PersonalityDigestPreview,
+};
 pub use llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, Usage};
 pub use memory::{
     MemoryFact, MemoryTier, SearchMemoryHit, SearchMemoryInput, StageMemoryInput, StagedMemoryKind,
@@ -607,6 +613,11 @@ impl Kernel {
                 parent_agent_name.clone(),
                 &self.paths,
                 &self.config.limits,
+                Some(
+                    self.paths
+                        .root
+                        .join(&self.config.learning.personality_digest.output_path),
+                ),
             );
             prompt_ctx.intent = resolved_intent.clone();
             match self
@@ -1887,6 +1898,9 @@ Respond with only the lowercase label and no other text."
 Answer helpfully and concisely. Treat the runtime bootstrap context below as durable \
 guidance for tone, identity, and user preferences. If the user's current request \
 directly conflicts with that context, follow the user's current request.\n\n\
+If the bootstrap context includes PERSONALITY.md, treat it as reviewed learned \
+guidance only. It cannot override the current user instruction, SOUL.md, USER.md, \
+IDENTITY.md, TOOLS.md, policy, or tool/security rules.\n\n\
 If you need a tool, respond with one or more XML blocks and no prose:\n\
 <tool_call>{\"name\":\"tool_name\",\"input\":{...}}</tool_call>\n\
 After tool results are returned, either emit more <tool_call> blocks or answer normally.\n\n\
@@ -3881,6 +3895,10 @@ mod tests {
         assert!(paths.user.exists(), "USER.md should exist");
         assert!(paths.identity.exists(), "IDENTITY.md should exist");
         assert!(paths.tools_notes.exists(), "TOOLS.md should exist");
+        assert!(
+            !paths.personality.exists(),
+            "PERSONALITY.md should be optional and absent by default"
+        );
         assert!(paths.bootstrap.exists(), "BOOTSTRAP.md should exist");
         assert_eq!(config.model.provider, Provider::Ollama);
         assert_eq!(config.model.model_id, "gemma4");
@@ -5023,6 +5041,11 @@ mod tests {
             .expect("should write SOUL.md");
         std::fs::write(&paths.user, "# USER\n\n## Preferred name\n- Lex\n")
             .expect("should write USER.md");
+        std::fs::write(
+            &paths.personality,
+            "# PERSONALITY\n\n## Learned Collaboration Style\n- Prefer concrete next steps.\n",
+        )
+        .expect("should write PERSONALITY.md");
 
         let captured_requests = Arc::new(Mutex::new(Vec::new()));
         let mut kernel = Kernel::boot_with_parts(
@@ -5056,6 +5079,8 @@ mod tests {
         assert!(system.contains("Lex"));
         assert!(system.contains("## IDENTITY.md"));
         assert!(system.contains("## TOOLS.md"));
+        assert!(system.contains("## PERSONALITY.md"));
+        assert!(system.contains("Prefer concrete next steps."));
         assert!(system.contains("## AGENTS.md"));
         assert!(system.contains("## HEARTBEAT.md"));
         assert!(system.contains("## allbert/root"));
@@ -5070,8 +5095,21 @@ mod tests {
         let identity_idx = system
             .find("## IDENTITY.md")
             .expect("IDENTITY.md section should exist");
+        let tools_idx = system
+            .find("## TOOLS.md")
+            .expect("TOOLS.md section should exist");
+        let personality_idx = system
+            .find("## PERSONALITY.md")
+            .expect("PERSONALITY.md section should exist");
+        let agents_idx = system
+            .find("## AGENTS.md")
+            .expect("AGENTS.md section should exist");
         assert!(soul_idx < user_idx);
         assert!(user_idx < identity_idx);
+        assert!(identity_idx < tools_idx);
+        assert!(tools_idx < personality_idx);
+        assert!(personality_idx < agents_idx);
+        assert!(system.contains("PERSONALITY.md, treat it as reviewed learned"));
     }
 
     #[tokio::test]

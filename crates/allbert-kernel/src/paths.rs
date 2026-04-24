@@ -151,6 +151,19 @@ Check daemon logs, bootstrap files, and core runtime directories for obvious bre
 Write a markdown status note to reports/system-health-check.md only when there is an actionable anomaly.
 "#;
 
+const PERSONALITY_DIGEST_TEMPLATE: &str = r#"---
+name: personality-digest
+description: "Draft a reviewed PERSONALITY.md learned overlay from approved memory and bounded recent episode summaries."
+enabled: false
+schedule: "@weekly on sunday at 18:00"
+report: always
+allowed-tools:
+  - stage_memory
+---
+Run the personality digest learning job.
+Do not mutate SOUL.md. Draft the learned overlay first and require explicit operator acceptance before installing PERSONALITY.md.
+"#;
+
 const MEMORY_CURATOR_SKILL_TEMPLATE: &str = include_str!("../../../skills/memory-curator/SKILL.md");
 const MEMORY_CURATOR_EXTRACT_AGENT_TEMPLATE: &str =
     include_str!("../../../skills/memory-curator/agents/extract-from-turn.md");
@@ -178,6 +191,7 @@ pub struct AllbertPaths {
     pub identity: PathBuf,
     pub tools_notes: PathBuf,
     pub agents_notes: PathBuf,
+    pub personality: PathBuf,
     pub bootstrap: PathBuf,
     pub heartbeat: PathBuf,
     pub skills: PathBuf,
@@ -208,6 +222,10 @@ pub struct AllbertPaths {
     pub jobs_runs: PathBuf,
     pub jobs_failures: PathBuf,
     pub jobs_templates: PathBuf,
+    pub learning: PathBuf,
+    pub learning_personality_digest: PathBuf,
+    pub learning_personality_digest_runs: PathBuf,
+    pub learning_personality_digest_consent: PathBuf,
     pub sessions: PathBuf,
     pub sessions_archive: PathBuf,
     pub sessions_trash: PathBuf,
@@ -229,6 +247,8 @@ impl AllbertPaths {
         let memory = root.join("memory");
         let memory_index_dir = memory.join("index");
         let jobs = root.join("jobs");
+        let learning = root.join("learning");
+        let learning_personality_digest = learning.join("personality-digest");
         let sessions = root.join("sessions");
         let config_dir = root.join("config");
         let channel_secrets = root.join("secrets");
@@ -255,6 +275,7 @@ impl AllbertPaths {
             identity: root.join("IDENTITY.md"),
             tools_notes: root.join("TOOLS.md"),
             agents_notes: root.join("AGENTS.md"),
+            personality: root.join("PERSONALITY.md"),
             bootstrap: root.join("BOOTSTRAP.md"),
             heartbeat: root.join("HEARTBEAT.md"),
             skills: root.join("skills"),
@@ -283,6 +304,10 @@ impl AllbertPaths {
             jobs_runs: jobs.join("runs"),
             jobs_failures: jobs.join("failures"),
             jobs_templates: jobs.join("templates"),
+            learning_personality_digest_runs: learning_personality_digest.join("runs"),
+            learning_personality_digest_consent: learning_personality_digest.join("consent.json"),
+            learning_personality_digest,
+            learning,
             sessions_archive: sessions.join(".archive"),
             sessions_trash: sessions.join(".trash"),
             traces: root.join("traces"),
@@ -327,6 +352,9 @@ impl AllbertPaths {
             &self.jobs_runs,
             &self.jobs_failures,
             &self.jobs_templates,
+            &self.learning,
+            &self.learning_personality_digest,
+            &self.learning_personality_digest_runs,
             &self.sessions,
             &self.sessions_archive,
             &self.sessions_trash,
@@ -389,12 +417,14 @@ impl AllbertPaths {
         let memory_compile = self.jobs_templates.join("memory-compile.md");
         let trace_triage = self.jobs_templates.join("trace-triage.md");
         let system_health_check = self.jobs_templates.join("system-health-check.md");
+        let personality_digest = self.jobs_templates.join("personality-digest.md");
         for (path, template) in [
             (&daily_brief, DAILY_BRIEF_TEMPLATE),
             (&weekly_review, WEEKLY_REVIEW_TEMPLATE),
             (&memory_compile, MEMORY_COMPILE_TEMPLATE),
             (&trace_triage, TRACE_TRIAGE_TEMPLATE),
             (&system_health_check, SYSTEM_HEALTH_CHECK_TEMPLATE),
+            (&personality_digest, PERSONALITY_DIGEST_TEMPLATE),
         ] {
             self.seed_file_if_missing(path, template)?;
         }
@@ -402,12 +432,13 @@ impl AllbertPaths {
         Ok(())
     }
 
-    pub fn bootstrap_files(&self) -> [(&'static str, &std::path::Path); 7] {
+    pub fn bootstrap_files(&self) -> [(&'static str, &std::path::Path); 8] {
         [
             ("SOUL.md", self.soul.as_path()),
             ("USER.md", self.user.as_path()),
             ("IDENTITY.md", self.identity.as_path()),
             ("TOOLS.md", self.tools_notes.as_path()),
+            ("PERSONALITY.md", self.personality.as_path()),
             ("AGENTS.md", self.agents_notes.as_path()),
             ("HEARTBEAT.md", self.heartbeat.as_path()),
             ("BOOTSTRAP.md", self.bootstrap.as_path()),

@@ -1,3 +1,5 @@
+use std::fs;
+
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_kernel::{AllbertPaths, Config, Provider};
 use allbert_proto::{
@@ -13,12 +15,34 @@ use serde::Deserialize;
 #[derive(Subcommand, Debug, Clone)]
 pub enum JobsCommand {
     List,
-    Status { name: String },
-    Upsert { path: String },
-    Pause { name: String },
-    Resume { name: String },
-    Run { name: String },
-    Remove { name: String },
+    Status {
+        name: String,
+    },
+    Template {
+        #[command(subcommand)]
+        command: JobTemplateCommand,
+    },
+    Upsert {
+        path: String,
+    },
+    Pause {
+        name: String,
+    },
+    Resume {
+        name: String,
+    },
+    Run {
+        name: String,
+    },
+    Remove {
+        name: String,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum JobTemplateCommand {
+    Enable { name: String },
+    Disable { name: String },
 }
 
 pub async fn run_command(
@@ -26,6 +50,11 @@ pub async fn run_command(
     config: &Config,
     command: JobsCommand,
 ) -> Result<()> {
+    if let JobsCommand::Template { command } = command {
+        println!("{}", run_template_command(paths, command)?);
+        return Ok(());
+    }
+
     let spawn = default_spawn_config(paths, config)?;
     let mut client = if config.daemon.auto_spawn {
         DaemonClient::connect_or_spawn(paths, ClientKind::Jobs, &spawn)
@@ -77,9 +106,66 @@ pub async fn run_command(
             client.remove_job(&name).await?;
             println!("removed {name}");
         }
+        JobsCommand::Template { .. } => unreachable!("handled before daemon connection"),
     }
 
     Ok(())
+}
+
+fn run_template_command(paths: &AllbertPaths, command: JobTemplateCommand) -> Result<String> {
+    match command {
+        JobTemplateCommand::Enable { name } => {
+            let source = paths.jobs_templates.join(format!("{name}.md"));
+            let dest = paths.jobs_definitions.join(format!("{name}.md"));
+            let raw = fs::read_to_string(&source)
+                .with_context(|| format!("read job template {}", source.display()))?;
+            if let Some(parent) = dest.parent() {
+                fs::create_dir_all(parent)
+                    .with_context(|| format!("create {}", parent.display()))?;
+            }
+            let enabled = set_job_enabled(&raw, true);
+            allbert_kernel::atomic_write(&dest, enabled.as_bytes())
+                .with_context(|| format!("write {}", dest.display()))?;
+            Ok(format!(
+                "enabled job template {name}\ndefinition: {}",
+                dest.display()
+            ))
+        }
+        JobTemplateCommand::Disable { name } => {
+            let dest = paths.jobs_definitions.join(format!("{name}.md"));
+            if !dest.exists() {
+                return Ok(format!("job template {name} is not enabled"));
+            }
+            let raw = fs::read_to_string(&dest)
+                .with_context(|| format!("read job definition {}", dest.display()))?;
+            let disabled = set_job_enabled(&raw, false);
+            allbert_kernel::atomic_write(&dest, disabled.as_bytes())
+                .with_context(|| format!("write {}", dest.display()))?;
+            Ok(format!(
+                "disabled job template {name}\ndefinition: {}",
+                dest.display()
+            ))
+        }
+    }
+}
+
+fn set_job_enabled(raw: &str, enabled: bool) -> String {
+    let replacement = format!("enabled: {}", if enabled { "true" } else { "false" });
+    let mut replaced = false;
+    let mut rendered = Vec::new();
+    for line in raw.lines() {
+        if !replaced && line.trim_start().starts_with("enabled:") {
+            rendered.push(replacement.clone());
+            replaced = true;
+        } else {
+            rendered.push(line.to_string());
+        }
+    }
+    if replaced {
+        rendered.join("\n") + "\n"
+    } else {
+        raw.to_string()
+    }
 }
 
 fn map_connect_error(error: DaemonError) -> anyhow::Error {

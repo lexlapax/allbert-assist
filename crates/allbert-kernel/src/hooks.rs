@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -57,6 +58,7 @@ pub struct HookCtx {
     pub pricing: Option<Pricing>,
     pub limits: Option<LimitsConfig>,
     pub paths: Option<AllbertPaths>,
+    pub personality_path: Option<PathBuf>,
     pub turn_input: Option<String>,
     pub intent: Option<Intent>,
     pub job_name: Option<String>,
@@ -79,6 +81,7 @@ impl HookCtx {
         parent_agent_name: Option<String>,
         paths: &AllbertPaths,
         limits: &LimitsConfig,
+        personality_path: Option<PathBuf>,
     ) -> Self {
         Self {
             session_id: session_id.into(),
@@ -90,6 +93,7 @@ impl HookCtx {
             pricing: None,
             limits: Some(limits.clone()),
             paths: Some(paths.clone()),
+            personality_path,
             turn_input: None,
             intent: None,
             job_name: None,
@@ -123,6 +127,7 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            personality_path: None,
             turn_input: None,
             intent: None,
             job_name: None,
@@ -160,6 +165,7 @@ impl HookCtx {
             pricing,
             limits: None,
             paths: Some(paths.clone()),
+            personality_path: None,
             turn_input: None,
             intent: None,
             job_name: None,
@@ -192,6 +198,7 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            personality_path: None,
             turn_input: None,
             intent: None,
             job_name: None,
@@ -224,6 +231,7 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            personality_path: None,
             turn_input: None,
             intent: None,
             job_name: None,
@@ -255,6 +263,7 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            personality_path: None,
             turn_input: None,
             intent: None,
             job_name: None,
@@ -287,6 +296,7 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            personality_path: None,
             turn_input: Some(input.into()),
             intent: None,
             job_name: None,
@@ -320,6 +330,7 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            personality_path: None,
             turn_input: Some(input.into()),
             intent: Some(intent),
             job_name: None,
@@ -347,6 +358,7 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            personality_path: None,
             turn_input: None,
             intent: None,
             job_name: Some(job_name.into()),
@@ -379,6 +391,7 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            personality_path: None,
             turn_input: None,
             intent: None,
             job_name: Some(job_name.into()),
@@ -412,6 +425,7 @@ impl HookCtx {
             pricing: None,
             limits: None,
             paths: None,
+            personality_path: None,
             turn_input: None,
             intent: None,
             job_name: None,
@@ -509,7 +523,7 @@ impl Hook for BootstrapContextHook {
             return HookOutcome::Continue;
         };
 
-        match bootstrap::snapshot_prompt_sections(paths, limits) {
+        match bootstrap::snapshot_prompt_sections(paths, limits, ctx.personality_path.as_deref()) {
             Ok(sections) => {
                 ctx.prompt_sections.extend(sections);
                 HookOutcome::Continue
