@@ -30,7 +30,7 @@ pub struct SetupAnswers {
 pub struct StatusSnapshot {
     pub provider: String,
     pub model_id: String,
-    pub api_key_env: String,
+    pub api_key_env: Option<String>,
     pub api_key_present: bool,
     pub setup_version: u8,
     pub bootstrap_pending: bool,
@@ -236,11 +236,18 @@ where
     F: FnMut(&str) -> bool,
 {
     let mut warnings = Vec::new();
-    if !env_has_value(&config.model.api_key_env) {
-        warnings.push(format!(
-            "warning: {} is not set. Export it before your first live turn:\n  export {}=...",
-            config.model.api_key_env, config.model.api_key_env
-        ));
+    if let Some(api_key_env) = config
+        .model
+        .api_key_env
+        .as_deref()
+        .or_else(|| config.model.provider.default_api_key_env())
+    {
+        if !env_has_value(api_key_env) {
+            warnings.push(format!(
+                "warning: {} is not set. Export it before your first live turn:\n  export {}=...",
+                api_key_env, api_key_env
+            ));
+        }
     }
     if config.security.fs_roots.is_empty() {
         warnings.push(
@@ -273,8 +280,17 @@ pub fn render_status(snapshot: &StatusSnapshot) -> String {
         "provider:           {}\nmodel:              {}\napi key env:        {} ({})\nsetup version:      {}\nbootstrap pending:  {}\nroot agent:         {}\nlast agent stack:   {}\nlast intent:        {}\ntrusted roots:      {}\nskills installed:   {}\ntrace enabled:      {}\ndaemon auto-spawn:  {}\njobs enabled:       {}\njobs timezone:      {}",
         snapshot.provider,
         snapshot.model_id,
-        snapshot.api_key_env,
-        if snapshot.api_key_present { "set" } else { "missing" },
+        snapshot
+            .api_key_env
+            .as_deref()
+            .unwrap_or("not required"),
+        if snapshot.api_key_env.is_none() {
+            "not required"
+        } else if snapshot.api_key_present {
+            "set"
+        } else {
+            "missing"
+        },
         snapshot.setup_version,
         if snapshot.bootstrap_pending { "yes" } else { "no" },
         snapshot.root_agent_name,
@@ -878,7 +894,7 @@ mod tests {
         let rendered = render_status(&StatusSnapshot {
             provider: "anthropic".into(),
             model_id: "claude-sonnet-4-5".into(),
-            api_key_env: "ANTHROPIC_API_KEY".into(),
+            api_key_env: Some("ANTHROPIC_API_KEY".into()),
             api_key_present: false,
             setup_version: 2,
             bootstrap_pending: false,

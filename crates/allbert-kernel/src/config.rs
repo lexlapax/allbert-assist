@@ -38,7 +38,10 @@ pub struct Config {
 pub struct ModelConfig {
     pub provider: Provider,
     pub model_id: String,
-    pub api_key_env: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key_env: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
     pub max_tokens: u32,
 }
 
@@ -47,6 +50,104 @@ pub struct ModelConfig {
 pub enum Provider {
     Anthropic,
     Openrouter,
+    Openai,
+    Gemini,
+    Ollama,
+}
+
+impl Provider {
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.to_ascii_lowercase().as_str() {
+            "anthropic" => Some(Self::Anthropic),
+            "openrouter" => Some(Self::Openrouter),
+            "openai" => Some(Self::Openai),
+            "gemini" => Some(Self::Gemini),
+            "ollama" => Some(Self::Ollama),
+            _ => None,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Anthropic => "anthropic",
+            Self::Openrouter => "openrouter",
+            Self::Openai => "openai",
+            Self::Gemini => "gemini",
+            Self::Ollama => "ollama",
+        }
+    }
+
+    pub fn default_model_id(self) -> &'static str {
+        match self {
+            Self::Anthropic => "claude-sonnet-4-5",
+            Self::Openrouter => "anthropic/claude-sonnet-4",
+            Self::Openai => "gpt-5.4-mini",
+            Self::Gemini => "gemini-2.5-flash",
+            Self::Ollama => "gemma4",
+        }
+    }
+
+    pub fn default_api_key_env(self) -> Option<&'static str> {
+        match self {
+            Self::Anthropic => Some("ANTHROPIC_API_KEY"),
+            Self::Openrouter => Some("OPENROUTER_API_KEY"),
+            Self::Openai => Some("OPENAI_API_KEY"),
+            Self::Gemini => Some("GEMINI_API_KEY"),
+            Self::Ollama => None,
+        }
+    }
+
+    pub fn default_base_url(self) -> Option<&'static str> {
+        match self {
+            Self::Ollama => Some("http://127.0.0.1:11434"),
+            _ => None,
+        }
+    }
+
+    pub fn api_key_required(self) -> bool {
+        self.default_api_key_env().is_some()
+    }
+
+    pub fn known_image_input_support(self, model_id: &str) -> bool {
+        match self {
+            Self::Anthropic | Self::Openai | Self::Gemini => true,
+            Self::Openrouter => false,
+            Self::Ollama => {
+                let model = model_id.to_ascii_lowercase();
+                model.contains("gemma4") || model.contains("llava") || model.contains("vision")
+            }
+        }
+    }
+
+    pub fn to_proto_kind(self) -> allbert_proto::ProviderKind {
+        match self {
+            Self::Anthropic => allbert_proto::ProviderKind::Anthropic,
+            Self::Openrouter => allbert_proto::ProviderKind::Openrouter,
+            Self::Openai => allbert_proto::ProviderKind::Openai,
+            Self::Gemini => allbert_proto::ProviderKind::Gemini,
+            Self::Ollama => allbert_proto::ProviderKind::Ollama,
+        }
+    }
+
+    pub fn from_proto_kind(kind: allbert_proto::ProviderKind) -> Self {
+        match kind {
+            allbert_proto::ProviderKind::Anthropic => Self::Anthropic,
+            allbert_proto::ProviderKind::Openrouter => Self::Openrouter,
+            allbert_proto::ProviderKind::Openai => Self::Openai,
+            allbert_proto::ProviderKind::Gemini => Self::Gemini,
+            allbert_proto::ProviderKind::Ollama => Self::Ollama,
+        }
+    }
+
+    pub fn model_config(self, model_id: impl Into<String>, max_tokens: u32) -> ModelConfig {
+        ModelConfig {
+            provider: self,
+            model_id: model_id.into(),
+            api_key_env: self.default_api_key_env().map(str::to_string),
+            base_url: self.default_base_url().map(str::to_string),
+            max_tokens,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -379,7 +480,8 @@ impl Config {
             model: ModelConfig {
                 provider: Provider::Anthropic,
                 model_id: "claude-sonnet-4-5".into(),
-                api_key_env: "ANTHROPIC_API_KEY".into(),
+                api_key_env: Some("ANTHROPIC_API_KEY".into()),
+                base_url: None,
                 max_tokens: 4096,
             },
             setup: SetupConfig::default(),
@@ -527,6 +629,48 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.path);
         }
+    }
+
+    #[test]
+    fn provider_metadata_covers_v0_10_providers() {
+        assert_eq!(Provider::parse("anthropic"), Some(Provider::Anthropic));
+        assert_eq!(Provider::parse("openrouter"), Some(Provider::Openrouter));
+        assert_eq!(Provider::parse("openai"), Some(Provider::Openai));
+        assert_eq!(Provider::parse("gemini"), Some(Provider::Gemini));
+        assert_eq!(Provider::parse("ollama"), Some(Provider::Ollama));
+        assert_eq!(Provider::Ollama.default_model_id(), "gemma4");
+        assert_eq!(Provider::Ollama.default_api_key_env(), None);
+        assert_eq!(
+            Provider::Ollama.default_base_url(),
+            Some("http://127.0.0.1:11434")
+        );
+        assert!(Provider::Openai.api_key_required());
+        assert!(!Provider::Ollama.api_key_required());
+        assert_eq!(
+            Provider::from_proto_kind(Provider::Gemini.to_proto_kind()),
+            Provider::Gemini
+        );
+    }
+
+    #[test]
+    fn model_config_supports_keyless_base_url_providers() {
+        let parsed: Config = toml::from_str(
+            r#"
+[model]
+provider = "ollama"
+model_id = "gemma4"
+base_url = "http://127.0.0.1:11434"
+max_tokens = 4096
+"#,
+        )
+        .expect("ollama config should parse without api_key_env");
+
+        assert_eq!(parsed.model.provider, Provider::Ollama);
+        assert_eq!(parsed.model.api_key_env, None);
+        assert_eq!(
+            parsed.model.base_url.as_deref(),
+            Some("http://127.0.0.1:11434")
+        );
     }
 
     #[test]

@@ -585,7 +585,10 @@ struct AgentFrontmatter {
 struct AgentModelFrontmatter {
     provider: Provider,
     model_id: String,
-    api_key_env: String,
+    #[serde(default)]
+    api_key_env: Option<String>,
+    #[serde(default)]
+    base_url: Option<String>,
     max_tokens: u32,
 }
 
@@ -630,6 +633,7 @@ fn load_skill_agents(
                 provider: model.provider,
                 model_id: model.model_id,
                 api_key_env: model.api_key_env,
+                base_url: model.base_url,
                 max_tokens: model.max_tokens,
             }),
             body: parsed.content.trim().to_string(),

@@ -33,12 +33,42 @@ impl ProviderFactory for DefaultProviderFactory {
         match model_config.provider {
             Provider::Anthropic => Ok(Box::new(AnthropicProvider::new(
                 self.client.clone(),
-                model_config.api_key_env.clone(),
+                model_config
+                    .api_key_env
+                    .clone()
+                    .or_else(|| {
+                        model_config
+                            .provider
+                            .default_api_key_env()
+                            .map(str::to_string)
+                    })
+                    .ok_or_else(|| {
+                        LlmError::UnsupportedProvider("anthropic requires an API key env".into())
+                    })?,
             ))),
             Provider::Openrouter => Ok(Box::new(
-                OpenRouterProvider::new(self.client.clone(), model_config.api_key_env.clone())
-                    .await,
+                OpenRouterProvider::new(
+                    self.client.clone(),
+                    model_config
+                        .api_key_env
+                        .clone()
+                        .or_else(|| {
+                            model_config
+                                .provider
+                                .default_api_key_env()
+                                .map(str::to_string)
+                        })
+                        .ok_or_else(|| {
+                            LlmError::UnsupportedProvider(
+                                "openrouter requires an API key env".into(),
+                            )
+                        })?,
+                )
+                .await,
             )),
+            Provider::Openai | Provider::Gemini | Provider::Ollama => Err(
+                LlmError::UnsupportedProvider(model_config.provider.label().into()),
+            ),
         }
     }
 }

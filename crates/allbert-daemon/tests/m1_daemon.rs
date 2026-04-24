@@ -637,7 +637,8 @@ fn seed_session_meta(
         "model": ModelConfigPayload {
             provider: ProviderKind::Anthropic,
             model_id: "claude-sonnet-4-5".into(),
-            api_key_env: "ANTHROPIC_API_KEY".into(),
+            api_key_env: Some("ANTHROPIC_API_KEY".into()),
+            base_url: None,
             max_tokens: 4096,
         },
         "turn_count": 1,
@@ -1096,7 +1097,8 @@ async fn session_local_model_changes_do_not_leak_across_sessions() {
         .set_model(ModelConfigPayload {
             provider: ProviderKind::Openrouter,
             model_id: "openrouter/test-model".into(),
-            api_key_env: "OPENROUTER_API_KEY".into(),
+            api_key_env: Some("OPENROUTER_API_KEY".into()),
+            base_url: None,
             max_tokens: 4096,
         })
         .await

@@ -3661,7 +3661,10 @@ mod tests {
         assert!(paths.tools_notes.exists(), "TOOLS.md should exist");
         assert!(paths.bootstrap.exists(), "BOOTSTRAP.md should exist");
         assert_eq!(config.model.provider, Provider::Anthropic);
-        assert_eq!(config.model.api_key_env, "ANTHROPIC_API_KEY");
+        assert_eq!(
+            config.model.api_key_env.as_deref(),
+            Some("ANTHROPIC_API_KEY")
+        );
         assert_eq!(config.limits.max_bootstrap_file_bytes, 2 * 1024);
         assert_eq!(config.limits.max_prompt_bootstrap_bytes, 6 * 1024);
     }
@@ -4554,7 +4557,7 @@ mod tests {
         let mut openrouter_config = Config::default_template();
         openrouter_config.model.provider = Provider::Openrouter;
         openrouter_config.model.model_id = "anthropic/claude-sonnet-4".into();
-        openrouter_config.model.api_key_env = "OPENROUTER_API_KEY".into();
+        openrouter_config.model.api_key_env = Some("OPENROUTER_API_KEY".into());
 
         let openrouter_factory = Arc::new(TestFactory::with_seen(
             "openrouter",
@@ -7487,7 +7490,8 @@ mod tests {
         config.setup.version = 1;
         config.model.provider = start_provider;
         config.model.model_id = start_model_id.into();
-        config.model.api_key_env = start_api_key_env.into();
+        config.model.api_key_env = Some(start_api_key_env.into());
+        config.model.base_url = None;
         config.model.max_tokens = 64;
         config.security.fs_roots = vec![workspace_root.clone()];
 
@@ -7590,7 +7594,8 @@ mod tests {
             .set_model(ModelConfig {
                 provider: switch_provider,
                 model_id: switch_model_id.into(),
-                api_key_env: switch_api_key_env.into(),
+                api_key_env: Some(switch_api_key_env.into()),
+                base_url: None,
                 max_tokens: 64,
             })
             .await

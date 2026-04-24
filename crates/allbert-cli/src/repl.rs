@@ -1,4 +1,5 @@
 use allbert_daemon::DaemonClient;
+use allbert_kernel::Provider;
 use allbert_proto::{
     ClientMessage, ConfirmDecisionPayload, InputResponsePayload, KernelEventPayload,
     ModelConfigPayload, ProviderKind, ServerMessage,
@@ -198,14 +199,16 @@ async fn handle_model_command(client: &mut DaemonClient, command: &str) -> Resul
             "provider: {}\nmodel:    {}\napi key:  {}\nmax toks: {}",
             provider_label(model.provider),
             model.model_id,
-            model.api_key_env,
+            model.api_key_env.as_deref().unwrap_or("not required"),
             model.max_tokens
         );
         return Ok(());
     }
 
     if parts.len() < 3 {
-        println!("usage: /model <anthropic|openrouter> <model_id> [api_key_env]");
+        println!(
+            "usage: /model <anthropic|openrouter|openai|gemini|ollama> <model_id> [api_key_env]"
+        );
         return Ok(());
     }
 
@@ -221,13 +224,15 @@ async fn handle_model_command(client: &mut DaemonClient, command: &str) -> Resul
     let api_key_env = parts
         .get(3)
         .map(|value| (*value).to_string())
-        .unwrap_or_else(|| default_api_key_env(provider, &current));
+        .or_else(|| default_api_key_env(provider, &current));
+    let base_url = default_base_url(provider, &current);
 
     let active = client
         .set_model(ModelConfigPayload {
             provider,
             model_id: parts[2].to_string(),
             api_key_env,
+            base_url,
             max_tokens: current.max_tokens,
         })
         .await?;
@@ -451,36 +456,30 @@ pub fn render_async_server_message(message: ServerMessage) {
 }
 
 fn parse_provider(raw: &str) -> Option<ProviderKind> {
-    match raw {
-        "anthropic" => Some(ProviderKind::Anthropic),
-        "openrouter" => Some(ProviderKind::Openrouter),
-        _ => None,
-    }
+    Provider::parse(raw).map(Provider::to_proto_kind)
 }
 
 fn provider_label(provider: ProviderKind) -> &'static str {
-    match provider {
-        ProviderKind::Anthropic => "anthropic",
-        ProviderKind::Openrouter => "openrouter",
+    Provider::from_proto_kind(provider).label()
+}
+
+fn default_api_key_env(provider: ProviderKind, current: &ModelConfigPayload) -> Option<String> {
+    if current.provider == provider {
+        current.api_key_env.clone()
+    } else {
+        Provider::from_proto_kind(provider)
+            .default_api_key_env()
+            .map(str::to_string)
     }
 }
 
-fn default_api_key_env(provider: ProviderKind, current: &ModelConfigPayload) -> String {
-    match provider {
-        ProviderKind::Anthropic => {
-            if current.provider == ProviderKind::Anthropic {
-                current.api_key_env.clone()
-            } else {
-                "ANTHROPIC_API_KEY".into()
-            }
-        }
-        ProviderKind::Openrouter => {
-            if current.provider == ProviderKind::Openrouter {
-                current.api_key_env.clone()
-            } else {
-                "OPENROUTER_API_KEY".into()
-            }
-        }
+fn default_base_url(provider: ProviderKind, current: &ModelConfigPayload) -> Option<String> {
+    if current.provider == provider {
+        current.base_url.clone()
+    } else {
+        Provider::from_proto_kind(provider)
+            .default_base_url()
+            .map(str::to_string)
     }
 }
 

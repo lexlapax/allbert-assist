@@ -644,7 +644,10 @@ struct JobBudgetFrontmatter {
 struct JobModelFrontmatter {
     provider: ProviderKind,
     model_id: String,
-    api_key_env: String,
+    #[serde(default)]
+    api_key_env: Option<String>,
+    #[serde(default)]
+    base_url: Option<String>,
     max_tokens: Option<u32>,
 }
 
@@ -710,6 +713,7 @@ fn load_definitions(root: &Path) -> Result<HashMap<String, JobDefinition>, Daemo
                 provider: model.provider,
                 model_id: model.model_id,
                 api_key_env: model.api_key_env,
+                base_url: model.base_url,
                 max_tokens: model.max_tokens.unwrap_or(4096),
             }),
             allowed_tools: data.allowed_tools.normalize(),
@@ -783,15 +787,17 @@ fn write_definition_file(root: &Path, definition: &JobDefinition) -> Result<(), 
     if let Some(model) = &definition.model {
         frontmatter.push_str("model:\n");
         frontmatter.push_str(&format!(
-            "  provider: {}\n  model_id: {}\n  api_key_env: {}\n  max_tokens: {}\n",
-            match model.provider {
-                ProviderKind::Anthropic => "anthropic",
-                ProviderKind::Openrouter => "openrouter",
-            },
-            yaml_quote(&model.model_id),
-            yaml_quote(&model.api_key_env),
-            model.max_tokens
+            "  provider: {}\n  model_id: {}\n",
+            Provider::from_proto_kind(model.provider).label(),
+            yaml_quote(&model.model_id)
         ));
+        if let Some(api_key_env) = &model.api_key_env {
+            frontmatter.push_str(&format!("  api_key_env: {}\n", yaml_quote(api_key_env)));
+        }
+        if let Some(base_url) = &model.base_url {
+            frontmatter.push_str(&format!("  base_url: {}\n", yaml_quote(base_url)));
+        }
+        frontmatter.push_str(&format!("  max_tokens: {}\n", model.max_tokens));
     }
     if !definition.allowed_tools.is_empty() {
         frontmatter.push_str("allowed-tools:\n");
@@ -969,12 +975,10 @@ pub(crate) async fn execute_job(
     config.security.auto_confirm = false;
     if let Some(model) = &definition.model {
         config.model = ModelConfig {
-            provider: match model.provider {
-                ProviderKind::Anthropic => Provider::Anthropic,
-                ProviderKind::Openrouter => Provider::Openrouter,
-            },
+            provider: Provider::from_proto_kind(model.provider),
             model_id: model.model_id.clone(),
             api_key_env: model.api_key_env.clone(),
+            base_url: model.base_url.clone(),
             max_tokens: model.max_tokens,
         };
     }

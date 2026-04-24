@@ -31,8 +31,8 @@ use allbert_proto::{
     ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload, DaemonLockPayload,
     DaemonStatus, InboxApprovalPayload, InboxQueryPayload, InboxResolveResultPayload,
     InputReplyPayload, InputRequestPayload, InputResponsePayload, KernelEventPayload,
-    ModelConfigPayload, ProtocolError, ProviderKind, ServerHello, ServerMessage,
-    SessionResumeEntry, SessionStatus, TurnBudgetOverridePayload, TurnResult, PROTOCOL_VERSION,
+    ModelConfigPayload, ProtocolError, ServerHello, ServerMessage, SessionResumeEntry,
+    SessionStatus, TurnBudgetOverridePayload, TurnResult, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use chrono::{Datelike, Utc};
@@ -720,7 +720,8 @@ async fn handle_connection(
                             started_at: record.started_at,
                         }),
                         model_api_key_env: model.api_key_env.clone(),
-                        model_api_key_visible: std::env::var_os(&model.api_key_env).is_some(),
+                        model_base_url: model.base_url.clone(),
+                        model_api_key_visible: model_api_key_present(&model),
                     }),
                 )
                 .await?;
@@ -2934,7 +2935,7 @@ async fn session_status(
         session_id: session.session_id.clone(),
         provider: kernel.provider_name().into(),
         model: model_to_payload(&model),
-        api_key_present: std::env::var_os(&model.api_key_env).is_some(),
+        api_key_present: model_api_key_present(&model),
         setup_version: config.setup.version,
         bootstrap_pending: kernel.paths().bootstrap.exists(),
         trusted_roots: config
@@ -4152,25 +4153,28 @@ impl InputPrompter for LocalIpcChannel {
 
 fn model_to_payload(model: &ModelConfig) -> ModelConfigPayload {
     ModelConfigPayload {
-        provider: match model.provider {
-            allbert_kernel::Provider::Anthropic => ProviderKind::Anthropic,
-            allbert_kernel::Provider::Openrouter => ProviderKind::Openrouter,
-        },
+        provider: model.provider.to_proto_kind(),
         model_id: model.model_id.clone(),
         api_key_env: model.api_key_env.clone(),
+        base_url: model.base_url.clone(),
         max_tokens: model.max_tokens,
     }
 }
 
 fn model_from_payload(model: ModelConfigPayload) -> ModelConfig {
     ModelConfig {
-        provider: match model.provider {
-            ProviderKind::Anthropic => allbert_kernel::Provider::Anthropic,
-            ProviderKind::Openrouter => allbert_kernel::Provider::Openrouter,
-        },
+        provider: allbert_kernel::Provider::from_proto_kind(model.provider),
         model_id: model.model_id,
         api_key_env: model.api_key_env,
+        base_url: model.base_url,
         max_tokens: model.max_tokens,
+    }
+}
+
+fn model_api_key_present(model: &ModelConfig) -> bool {
+    match model.api_key_env.as_deref() {
+        Some(env) => std::env::var_os(env).is_some(),
+        None => !model.provider.api_key_required(),
     }
 }
 

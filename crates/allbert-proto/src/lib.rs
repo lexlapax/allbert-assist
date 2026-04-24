@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const PROTOCOL_VERSION: u32 = 1;
+pub const PROTOCOL_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -67,7 +67,8 @@ pub struct DaemonStatus {
     pub session_count: usize,
     pub trace_enabled: bool,
     pub lock_owner: Option<DaemonLockPayload>,
-    pub model_api_key_env: String,
+    pub model_api_key_env: Option<String>,
+    pub model_base_url: Option<String>,
     pub model_api_key_visible: bool,
 }
 
@@ -89,13 +90,17 @@ pub struct ProtocolError {
 pub enum ProviderKind {
     Anthropic,
     Openrouter,
+    Openai,
+    Gemini,
+    Ollama,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ModelConfigPayload {
     pub provider: ProviderKind,
     pub model_id: String,
-    pub api_key_env: String,
+    pub api_key_env: Option<String>,
+    pub base_url: Option<String>,
     pub max_tokens: u32,
 }
 

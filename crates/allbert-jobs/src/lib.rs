@@ -225,7 +225,10 @@ struct Frontmatter {
 struct ModelFrontmatter {
     provider: ProviderKind,
     model_id: String,
-    api_key_env: String,
+    #[serde(default)]
+    api_key_env: Option<String>,
+    #[serde(default)]
+    base_url: Option<String>,
     #[serde(default = "default_max_tokens")]
     max_tokens: u32,
 }
@@ -269,6 +272,7 @@ pub fn parse_job_definition(path: &str) -> Result<JobDefinitionPayload> {
             provider: model.provider,
             model_id: model.model_id,
             api_key_env: model.api_key_env,
+            base_url: model.base_url,
             max_tokens: model.max_tokens,
         }),
         allowed_tools: data.allowed_tools,

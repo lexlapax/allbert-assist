@@ -1526,8 +1526,14 @@ fn render_running_daemon_status(config: &Config, status: &DaemonStatus) -> Strin
             )
         })
         .unwrap_or_else(|| "(missing)".into());
+    let api_key_state = if status.model_api_key_env.is_none() {
+        "not required".to_string()
+    } else {
+        yes_no(status.model_api_key_visible).to_string()
+    };
+
     format!(
-        "daemon:            running\npid:               {}\ndaemon id:         {}\nstarted at:        {}\nsocket:            {}\nsessions:          {}\ntrace enabled:     {}\nlock owner:        {}\nmodel api_key_env: {}\napi key visible:   {}\nauto-spawn:        {}\njobs enabled:      {}\njobs timezone:     {}",
+        "daemon:            running\npid:               {}\ndaemon id:         {}\nstarted at:        {}\nsocket:            {}\nsessions:          {}\ntrace enabled:     {}\nlock owner:        {}\nmodel api_key_env: {}\nmodel base_url:    {}\napi key visible:   {}\nauto-spawn:        {}\njobs enabled:      {}\njobs timezone:     {}",
         status.pid,
         status.daemon_id,
         status.started_at,
@@ -1535,8 +1541,9 @@ fn render_running_daemon_status(config: &Config, status: &DaemonStatus) -> Strin
         status.session_count,
         yes_no(status.trace_enabled),
         lock_owner,
-        status.model_api_key_env,
-        yes_no(status.model_api_key_visible),
+        status.model_api_key_env.as_deref().unwrap_or("not required"),
+        status.model_base_url.as_deref().unwrap_or("(default)"),
+        api_key_state,
         yes_no(config.daemon.auto_spawn),
         yes_no(config.jobs.enabled),
         config.jobs.default_timezone.as_deref().unwrap_or("(system local)")
