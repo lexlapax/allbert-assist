@@ -3,7 +3,10 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{ConfigError, KernelError};
+use crate::intent::Intent;
 use crate::paths::AllbertPaths;
+
+pub const CURRENT_SETUP_VERSION: u8 = 4;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -43,6 +46,8 @@ pub struct ModelConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
     pub max_tokens: u32,
+    #[serde(default)]
+    pub context_window_tokens: u32,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -146,6 +151,7 @@ impl Provider {
             api_key_env: self.default_api_key_env().map(str::to_string),
             base_url: self.default_base_url().map(str::to_string),
             max_tokens,
+            context_window_tokens: 0,
         }
     }
 }
@@ -211,13 +217,124 @@ pub struct ChannelsConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct ReplConfig {
+    pub ui: ReplUiMode,
+    pub tui: TuiConfig,
     pub show_inbox_on_attach: bool,
 }
 
 impl Default for ReplConfig {
     fn default() -> Self {
         Self {
+            ui: ReplUiMode::Tui,
+            tui: TuiConfig::default(),
             show_inbox_on_attach: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReplUiMode {
+    Tui,
+    Classic,
+}
+
+impl ReplUiMode {
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "tui" => Some(Self::Tui),
+            "classic" => Some(Self::Classic),
+            _ => None,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Tui => "tui",
+            Self::Classic => "classic",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct TuiConfig {
+    pub mouse: bool,
+    pub max_transcript_events: usize,
+    pub status_line: StatusLineConfig,
+}
+
+impl Default for TuiConfig {
+    fn default() -> Self {
+        Self {
+            mouse: true,
+            max_transcript_events: 500,
+            status_line: StatusLineConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct StatusLineConfig {
+    pub enabled: bool,
+    pub items: Vec<StatusLineItem>,
+}
+
+impl Default for StatusLineConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            items: StatusLineItem::default_items(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StatusLineItem {
+    Model,
+    Context,
+    Tokens,
+    Cost,
+    Memory,
+    Intent,
+    Skills,
+    Inbox,
+    Channel,
+    Trace,
+}
+
+impl StatusLineItem {
+    pub const CATALOG: [Self; 10] = [
+        Self::Model,
+        Self::Context,
+        Self::Tokens,
+        Self::Cost,
+        Self::Memory,
+        Self::Intent,
+        Self::Skills,
+        Self::Inbox,
+        Self::Channel,
+        Self::Trace,
+    ];
+
+    pub fn default_items() -> Vec<Self> {
+        Self::CATALOG.to_vec()
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Model => "model",
+            Self::Context => "context",
+            Self::Tokens => "tokens",
+            Self::Cost => "cost",
+            Self::Memory => "memory",
+            Self::Intent => "intent",
+            Self::Skills => "skills",
+            Self::Inbox => "inbox",
+            Self::Channel => "channel",
+            Self::Trace => "trace",
         }
     }
 }
@@ -304,7 +421,7 @@ impl Default for IntentClassifierConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct MemoryConfig {
     pub prefetch_enabled: bool,
@@ -330,6 +447,10 @@ pub struct MemoryConfig {
     pub default_daily_recency_days: u16,
     pub max_journal_tool_output_bytes: usize,
     pub surface_staged_on_turn_end: bool,
+    pub routing: MemoryRoutingConfig,
+    pub episodes: MemoryEpisodesConfig,
+    pub facts: MemoryFactsConfig,
+    pub semantic: MemorySemanticConfig,
 }
 
 impl Default for MemoryConfig {
@@ -358,6 +479,109 @@ impl Default for MemoryConfig {
             default_daily_recency_days: 2,
             max_journal_tool_output_bytes: 4 * 1024,
             surface_staged_on_turn_end: true,
+            routing: MemoryRoutingConfig::default(),
+            episodes: MemoryEpisodesConfig::default(),
+            facts: MemoryFactsConfig::default(),
+            semantic: MemorySemanticConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct MemoryRoutingConfig {
+    pub mode: MemoryRoutingMode,
+    pub always_eligible_skills: Vec<String>,
+    pub auto_activate_intents: Vec<String>,
+    pub auto_activate_cues: Vec<String>,
+}
+
+impl Default for MemoryRoutingConfig {
+    fn default() -> Self {
+        Self {
+            mode: MemoryRoutingMode::AlwaysEligible,
+            always_eligible_skills: vec!["memory-curator".into()],
+            auto_activate_intents: vec![Intent::MemoryQuery.as_str().into()],
+            auto_activate_cues: vec![
+                "remember".into(),
+                "recall".into(),
+                "what do you remember".into(),
+                "review staged".into(),
+                "promote that".into(),
+                "forget".into(),
+            ],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryRoutingMode {
+    AlwaysEligible,
+}
+
+impl MemoryRoutingMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::AlwaysEligible => "always_eligible",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct MemoryEpisodesConfig {
+    pub enabled: bool,
+    pub prefetch_enabled: bool,
+    pub episode_lookback_days: u16,
+    pub max_episode_summaries: usize,
+    pub max_episode_hits: usize,
+}
+
+impl Default for MemoryEpisodesConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            prefetch_enabled: false,
+            episode_lookback_days: 30,
+            max_episode_summaries: 10,
+            max_episode_hits: 5,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct MemoryFactsConfig {
+    pub enabled: bool,
+    pub max_facts_per_entry: usize,
+}
+
+impl Default for MemoryFactsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_facts_per_entry: 12,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct MemorySemanticConfig {
+    pub enabled: bool,
+    pub provider: String,
+    pub embedding_model: String,
+    pub hybrid_weight: f64,
+}
+
+impl Default for MemorySemanticConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            provider: "none".into(),
+            embedding_model: String::new(),
+            hybrid_weight: 0.35,
         }
     }
 }
@@ -483,6 +707,7 @@ impl Config {
                 api_key_env: None,
                 base_url: Some("http://127.0.0.1:11434".into()),
                 max_tokens: 4096,
+                context_window_tokens: 0,
             },
             setup: SetupConfig::default(),
             daemon: DaemonConfig::default(),
@@ -504,11 +729,12 @@ impl Config {
         if paths.config.exists() {
             let raw = std::fs::read_to_string(&paths.config)
                 .map_err(|e| KernelError::InitFailed(format!("read config: {e}")))?;
+            let raw_had_repl_ui = raw_has_repl_ui(&raw);
             let mut parsed: Config = toml::from_str(&raw).map_err(|source| ConfigError::Parse {
                 path: paths.config.clone(),
                 source,
             })?;
-            if parsed.migrate_for_v0_2() {
+            if parsed.migrate_loaded_config(raw_had_repl_ui) {
                 parsed.persist(paths)?;
             }
             parsed
@@ -531,7 +757,7 @@ impl Config {
         Ok(())
     }
 
-    fn migrate_for_v0_2(&mut self) -> bool {
+    fn migrate_loaded_config(&mut self, raw_had_repl_ui: bool) -> bool {
         let mut changed = false;
         if self.setup.version == 1 {
             self.setup.version = 2;
@@ -546,10 +772,28 @@ impl Config {
             self.setup.version = 3;
             changed = true;
         }
+        if self.setup.version == 0 {
+            if !raw_had_repl_ui {
+                self.repl.ui = ReplUiMode::Classic;
+                changed = true;
+            }
+        } else if self.setup.version < CURRENT_SETUP_VERSION {
+            if !raw_had_repl_ui {
+                self.repl.ui = ReplUiMode::Classic;
+            }
+            self.setup.version = CURRENT_SETUP_VERSION;
+            changed = true;
+        }
         changed
     }
 
     pub fn validate(&self) -> Result<(), String> {
+        if self.repl.tui.max_transcript_events == 0 {
+            return Err("repl.tui.max_transcript_events must be >= 1".into());
+        }
+        if self.repl.tui.status_line.enabled && self.repl.tui.status_line.items.is_empty() {
+            return Err("repl.tui.status_line.items must not be empty when enabled".into());
+        }
         if self.memory.prefetch_default_limit == 0 {
             return Err("memory.prefetch_default_limit must be > 0".into());
         }
@@ -560,6 +804,28 @@ impl Config {
             return Err(
                 "memory.max_synopsis_bytes must be >= memory.max_ephemeral_summary_bytes".into(),
             );
+        }
+        for intent in &self.memory.routing.auto_activate_intents {
+            if Intent::parse(intent).is_none() {
+                return Err(format!(
+                    "memory.routing.auto_activate_intents contains unknown intent `{intent}`"
+                ));
+            }
+        }
+        if self.memory.routing.always_eligible_skills.is_empty() {
+            return Err("memory.routing.always_eligible_skills must not be empty".into());
+        }
+        if self.memory.episodes.max_episode_summaries == 0 {
+            return Err("memory.episodes.max_episode_summaries must be > 0".into());
+        }
+        if self.memory.episodes.max_episode_hits == 0 {
+            return Err("memory.episodes.max_episode_hits must be > 0".into());
+        }
+        if self.memory.facts.max_facts_per_entry == 0 {
+            return Err("memory.facts.max_facts_per_entry must be > 0".into());
+        }
+        if !(0.0..=1.0).contains(&self.memory.semantic.hybrid_weight) {
+            return Err("memory.semantic.hybrid_weight must be between 0 and 1".into());
         }
         if matches!(self.limits.daily_usd_cap, Some(value) if value < 0.0) {
             return Err("limits.daily_usd_cap must be >= 0".into());
@@ -588,6 +854,13 @@ impl Config {
 
 fn atomic_write(path: &std::path::Path, bytes: &[u8]) -> Result<(), std::io::Error> {
     crate::atomic_write(path, bytes)
+}
+
+fn raw_has_repl_ui(raw: &str) -> bool {
+    match raw.parse::<toml::Value>() {
+        Ok(value) => value.get("repl").and_then(|repl| repl.get("ui")).is_some(),
+        Err(_) => false,
+    }
 }
 
 #[cfg(test)]
@@ -666,6 +939,7 @@ max_tokens = 4096
         .expect("ollama config should parse without api_key_env");
 
         assert_eq!(parsed.model.provider, Provider::Ollama);
+        assert_eq!(parsed.model.context_window_tokens, 0);
         assert_eq!(parsed.model.api_key_env, None);
         assert_eq!(
             parsed.model.base_url.as_deref(),
@@ -674,7 +948,30 @@ max_tokens = 4096
     }
 
     #[test]
-    fn missing_setup_field_migrates_to_version_zero() {
+    fn fresh_profile_serializes_tui_defaults() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let config = Config::load_or_create(&paths).expect("fresh config should load");
+
+        assert_eq!(config.repl.ui, ReplUiMode::Tui);
+        assert_eq!(config.model.context_window_tokens, 0);
+        assert_eq!(
+            config.memory.routing.mode,
+            MemoryRoutingMode::AlwaysEligible
+        );
+        assert_eq!(
+            config.memory.routing.auto_activate_intents,
+            vec![String::from("memory_query")]
+        );
+
+        let rendered = std::fs::read_to_string(&paths.config).expect("config should persist");
+        assert!(rendered.contains("ui = \"tui\""));
+        assert!(rendered.contains("context_window_tokens = 0"));
+        assert!(rendered.contains("mode = \"always_eligible\""));
+    }
+
+    #[test]
+    fn legacy_config_without_setup_preserves_setup_needed_and_migrates_classic_ui() {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().expect("paths should be created");
@@ -705,10 +1002,14 @@ trace = false
         std::fs::write(&paths.config, legacy).expect("legacy config should be written");
         let config = Config::load_or_create(&paths).expect("config should load");
         assert_eq!(config.setup.version, 0);
+        assert_eq!(config.repl.ui, ReplUiMode::Classic);
+
+        let rendered = std::fs::read_to_string(&paths.config).expect("config should persist");
+        assert!(rendered.contains("ui = \"classic\""));
     }
 
     #[test]
-    fn v0_1_setup_version_migrates_to_two_and_persists() {
+    fn v0_1_setup_version_migrates_to_current_and_persists_classic_ui() {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().expect("paths should be created");
@@ -741,14 +1042,105 @@ trace = false
 
         std::fs::write(&paths.config, legacy).expect("legacy config should be written");
         let config = Config::load_or_create(&paths).expect("config should load");
-        assert_eq!(config.setup.version, 2);
+        assert_eq!(config.setup.version, CURRENT_SETUP_VERSION);
+        assert_eq!(config.repl.ui, ReplUiMode::Classic);
         assert!(config.daemon.auto_spawn);
         assert_eq!(config.channels.approval_timeout_s, 3600);
         assert!(!config.channels.telegram.enabled);
         assert_eq!(config.jobs.max_concurrent_runs, 1);
 
         let reloaded = Config::load_or_create(&paths).expect("config should reload");
-        assert_eq!(reloaded.setup.version, 2);
+        assert_eq!(reloaded.setup.version, CURRENT_SETUP_VERSION);
+        assert_eq!(reloaded.repl.ui, ReplUiMode::Classic);
+    }
+
+    #[test]
+    fn explicit_legacy_tui_ui_is_preserved() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should be created");
+
+        let legacy = r#"
+[model]
+provider = "ollama"
+model_id = "gemma4"
+base_url = "http://127.0.0.1:11434"
+max_tokens = 4096
+
+[setup]
+version = 1
+
+[repl]
+ui = "tui"
+"#;
+
+        std::fs::write(&paths.config, legacy).expect("legacy config should be written");
+        let config = Config::load_or_create(&paths).expect("config should load");
+        assert_eq!(config.setup.version, CURRENT_SETUP_VERSION);
+        assert_eq!(config.repl.ui, ReplUiMode::Tui);
+    }
+
+    #[test]
+    fn invalid_status_line_item_name_fails_to_parse() {
+        let err = toml::from_str::<Config>(
+            r#"
+[model]
+provider = "ollama"
+model_id = "gemma4"
+max_tokens = 4096
+
+[repl.tui.status_line]
+items = ["model", "bogus"]
+"#,
+        )
+        .expect_err("unknown status-line item should fail");
+        assert!(err.to_string().contains("unknown variant"));
+    }
+
+    #[test]
+    fn invalid_memory_routing_mode_fails_to_parse() {
+        let err = toml::from_str::<Config>(
+            r#"
+[model]
+provider = "ollama"
+model_id = "gemma4"
+max_tokens = 4096
+
+[memory.routing]
+mode = "always_active"
+"#,
+        )
+        .expect_err("unknown routing mode should fail");
+        assert!(err.to_string().contains("unknown variant"));
+    }
+
+    #[test]
+    fn invalid_memory_routing_intent_fails_validation() {
+        let mut config = Config::default_template();
+        config.memory.routing.auto_activate_intents = vec!["memory_query".into(), "bogus".into()];
+
+        let err = config.validate().expect_err("unknown intent should fail");
+        assert!(err.contains("unknown intent `bogus`"));
+    }
+
+    #[test]
+    fn context_window_zero_means_unknown_and_is_valid() {
+        let mut config = Config::default_template();
+        config.model.context_window_tokens = 0;
+        config.validate().expect("unknown context size is valid");
+    }
+
+    #[test]
+    fn semantic_hybrid_weight_must_be_unit_interval() {
+        let mut config = Config::default_template();
+        config.memory.semantic.hybrid_weight = 1.01;
+        assert!(config.validate().is_err());
+
+        config.memory.semantic.hybrid_weight = 0.0;
+        config.validate().expect("lower bound is valid");
+
+        config.memory.semantic.hybrid_weight = 1.0;
+        config.validate().expect("upper bound is valid");
     }
 
     #[test]

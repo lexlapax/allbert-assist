@@ -503,6 +503,20 @@ fn snapshot_from_proto(
         root_agent_name: status.root_agent_name.clone(),
         last_agent_stack: status.last_agent_stack.clone(),
         last_resolved_intent: status.last_resolved_intent.clone(),
+        repl_ui: config.repl.ui.label().into(),
+        memory_routing: config.memory.routing.mode.label().into(),
+        status_line_items: if config.repl.tui.status_line.enabled {
+            config
+                .repl
+                .tui
+                .status_line
+                .items
+                .iter()
+                .map(|item| item.label().into())
+                .collect()
+        } else {
+            Vec::new()
+        },
     }
 }
 

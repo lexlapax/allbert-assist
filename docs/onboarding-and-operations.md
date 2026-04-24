@@ -63,7 +63,7 @@ This is intentional. Allbert still prefers explicit workspace trust over permiss
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical fresh v0.10 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical fresh v0.11 file looks like:
 
 ```toml
 trace = false
@@ -73,9 +73,10 @@ provider = "ollama"
 model_id = "gemma4"
 base_url = "http://127.0.0.1:11434"
 max_tokens = 4096
+context_window_tokens = 0 # 0 means unknown; set explicitly when your model/window is known
 
 [setup]
-version = 2
+version = 4
 
 [daemon]
 log_retention_days = 7
@@ -101,7 +102,16 @@ default_timeout_s = 600
 default_timezone = "America/Los_Angeles"
 
 [repl]
+ui = "tui"
 show_inbox_on_attach = true
+
+[repl.tui]
+mouse = true
+max_transcript_events = 500
+
+[repl.tui.status_line]
+enabled = true
+items = ["model", "context", "tokens", "cost", "memory", "intent", "skills", "inbox", "channel", "trace"]
 
 [memory]
 prefetch_enabled = true
@@ -127,6 +137,29 @@ default_search_limit = 10
 default_daily_recency_days = 2
 max_journal_tool_output_bytes = 4096
 surface_staged_on_turn_end = true
+
+[memory.routing]
+mode = "always_eligible"
+always_eligible_skills = ["memory-curator"]
+auto_activate_intents = ["memory_query"]
+auto_activate_cues = ["remember", "recall", "what do you remember", "review staged", "promote that", "forget"]
+
+[memory.episodes]
+enabled = true
+prefetch_enabled = false
+episode_lookback_days = 30
+max_episode_summaries = 10
+max_episode_hits = 5
+
+[memory.facts]
+enabled = true
+max_facts_per_entry = 12
+
+[memory.semantic]
+enabled = false
+provider = "none"
+embedding_model = ""
+hybrid_weight = 0.35
 
 [security]
 fs_roots = ["/absolute/path/to/workspace"]

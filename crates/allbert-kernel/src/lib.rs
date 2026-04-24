@@ -34,8 +34,10 @@ pub use agent::{
 pub use atomic::atomic_write;
 pub use config::{
     Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig, JobsConfig, LimitsConfig,
-    MemoryConfig, ModelConfig, Provider, SecurityConfig, SessionsConfig, SetupConfig,
-    WebSecurityConfig,
+    MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig, MemoryRoutingMode,
+    MemorySemanticConfig, ModelConfig, Provider, ReplConfig, ReplUiMode, SecurityConfig,
+    SessionsConfig, SetupConfig, StatusLineConfig, StatusLineItem, TuiConfig, WebSecurityConfig,
+    CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
@@ -7617,6 +7619,7 @@ mod tests {
                 api_key_env: Some(switch_api_key_env.into()),
                 base_url: None,
                 max_tokens: 64,
+                context_window_tokens: 0,
             })
             .await
             .expect("provider switch should succeed");
@@ -7689,6 +7692,7 @@ mod tests {
                     .ok()
                     .or_else(|| Provider::Ollama.default_base_url().map(str::to_string)),
                 max_tokens: 64,
+                context_window_tokens: 0,
             })
             .await
             .expect("Ollama model refresh should succeed");

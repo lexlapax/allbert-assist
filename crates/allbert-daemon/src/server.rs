@@ -4168,6 +4168,7 @@ fn model_from_payload(model: ModelConfigPayload) -> ModelConfig {
         api_key_env: model.api_key_env,
         base_url: model.base_url,
         max_tokens: model.max_tokens,
+        context_window_tokens: 0,
     }
 }
 

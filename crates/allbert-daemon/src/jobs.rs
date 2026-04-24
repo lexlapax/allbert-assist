@@ -980,6 +980,7 @@ pub(crate) async fn execute_job(
             api_key_env: model.api_key_env.clone(),
             base_url: model.base_url.clone(),
             max_tokens: model.max_tokens,
+            context_window_tokens: 0,
         };
     }
     if let Some(max_turns) = definition.max_turns {

@@ -3,7 +3,9 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use allbert_kernel::{atomic_write, AllbertPaths, Config, Provider};
+use allbert_kernel::{
+    atomic_write, AllbertPaths, Config, Provider, ReplUiMode, StatusLineItem, CURRENT_SETUP_VERSION,
+};
 use anyhow::{Context, Result};
 
 const PLACEHOLDER_UNKNOWN: &str = "Unknown";
@@ -15,6 +17,7 @@ pub struct SetupAnswers {
     pub model_id: String,
     pub api_key_env: Option<String>,
     pub base_url: Option<String>,
+    pub ui_mode: ReplUiMode,
     pub preferred_name: String,
     pub timezone: String,
     pub working_style: String,
@@ -47,6 +50,9 @@ pub struct StatusSnapshot {
     pub root_agent_name: String,
     pub last_agent_stack: Vec<String>,
     pub last_resolved_intent: Option<String>,
+    pub repl_ui: String,
+    pub memory_routing: String,
+    pub status_line_items: Vec<String>,
 }
 
 pub fn needs_setup(config: &Config, paths: &AllbertPaths) -> bool {
@@ -111,6 +117,19 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         (assistant_name, assistant_role, assistant_style)
     } else {
         (None, None, None)
+    };
+
+    println!("\nThe next question chooses Allbert's interactive terminal surface.");
+    println!(
+        "Status-line items available in the TUI: {}.",
+        status_line_catalog().join(", ")
+    );
+    println!(
+        "Memory routing default: `memory-curator` is always eligible, and fully activates only for memory-shaped turns such as `memory_query`."
+    );
+    let ui_mode = match prompt_ui_mode(config.repl.ui)? {
+        Some(value) => value,
+        None => return Ok(None),
     };
 
     println!("\nThe next questions choose Allbert's default model.");
@@ -219,6 +238,7 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         model_id,
         api_key_env,
         base_url,
+        ui_mode,
         preferred_name,
         timezone,
         working_style,
@@ -260,6 +280,7 @@ pub fn apply_setup_answers(
     config.model.model_id = answers.model_id.clone();
     config.model.api_key_env = answers.api_key_env.clone();
     config.model.base_url = answers.base_url.clone();
+    config.repl.ui = answers.ui_mode;
     config.daemon.auto_spawn = answers.daemon_auto_spawn;
     config.limits.daily_usd_cap = match answers.daily_usd_cap.as_deref() {
         Some(raw) => Some(
@@ -270,7 +291,7 @@ pub fn apply_setup_answers(
     };
     config.jobs.enabled = answers.jobs_enabled;
     config.jobs.default_timezone = answers.jobs_default_timezone.clone();
-    config.setup.version = 2;
+    config.setup.version = CURRENT_SETUP_VERSION;
     config.persist(paths)?;
     enable_bundled_jobs(paths, &answers.enabled_bundled_jobs)?;
 
@@ -332,7 +353,7 @@ pub fn render_status(snapshot: &StatusSnapshot) -> String {
     };
 
     format!(
-        "provider:           {}\nmodel:              {}\napi key env:        {} ({})\nsetup version:      {}\nbootstrap pending:  {}\nroot agent:         {}\nlast agent stack:   {}\nlast intent:        {}\ntrusted roots:      {}\nskills installed:   {}\ntrace enabled:      {}\ndaemon auto-spawn:  {}\njobs enabled:       {}\njobs timezone:      {}",
+        "provider:           {}\nmodel:              {}\napi key env:        {} ({})\nsetup version:      {}\nbootstrap pending:  {}\nrepl ui:            {}\nstatus line items:  {}\nmemory routing:     {}\nroot agent:         {}\nlast agent stack:   {}\nlast intent:        {}\ntrusted roots:      {}\nskills installed:   {}\ntrace enabled:      {}\ndaemon auto-spawn:  {}\njobs enabled:       {}\njobs timezone:      {}",
         snapshot.provider,
         snapshot.model_id,
         snapshot
@@ -348,6 +369,13 @@ pub fn render_status(snapshot: &StatusSnapshot) -> String {
         },
         snapshot.setup_version,
         if snapshot.bootstrap_pending { "yes" } else { "no" },
+        snapshot.repl_ui,
+        if snapshot.status_line_items.is_empty() {
+            "(disabled)".into()
+        } else {
+            snapshot.status_line_items.join(", ")
+        },
+        snapshot.memory_routing,
         snapshot.root_agent_name,
         if snapshot.last_agent_stack.is_empty() {
             "(none yet)".into()
@@ -403,6 +431,27 @@ fn prompt_provider(default: Provider) -> Result<Option<Provider>> {
             },
         }
     }
+}
+
+fn prompt_ui_mode(default: ReplUiMode) -> Result<Option<ReplUiMode>> {
+    loop {
+        match prompt_line("Interactive UI (tui/classic)", Some(default.label()))? {
+            PromptLine::Cancelled => return Ok(None),
+            PromptLine::Submitted(value) => match ReplUiMode::parse(value.trim()) {
+                Some(mode) => return Ok(Some(mode)),
+                None => {
+                    println!("Interactive UI must be one of: tui, classic.");
+                }
+            },
+        }
+    }
+}
+
+fn status_line_catalog() -> Vec<&'static str> {
+    StatusLineItem::CATALOG
+        .iter()
+        .map(|item| item.label())
+        .collect()
 }
 
 fn default_model_id_for_setup(config: &Config, provider: Provider) -> String {
@@ -905,6 +954,7 @@ mod tests {
             model_id: "gemma4".into(),
             api_key_env: None,
             base_url: Some("http://127.0.0.1:11434".into()),
+            ui_mode: ReplUiMode::Tui,
             preferred_name: "Spuri".into(),
             timezone: "America/Los_Angeles".into(),
             working_style: "Short updates and concrete next steps.".into(),
@@ -934,7 +984,7 @@ mod tests {
         let answers = sample_answers(&workspace);
         apply_setup_answers(&paths, &mut config, &answers).expect("setup should succeed");
 
-        assert_eq!(config.setup.version, 2);
+        assert_eq!(config.setup.version, CURRENT_SETUP_VERSION);
         assert_eq!(config.model.provider, Provider::Ollama);
         assert_eq!(config.model.model_id, "gemma4");
         assert_eq!(config.model.api_key_env, None);
@@ -943,6 +993,7 @@ mod tests {
             Some("http://127.0.0.1:11434")
         );
         assert_eq!(config.security.fs_roots, vec![workspace.clone()]);
+        assert_eq!(config.repl.ui, ReplUiMode::Tui);
         assert!(config.daemon.auto_spawn);
         assert!(config.jobs.enabled);
         assert_eq!(
@@ -960,8 +1011,9 @@ mod tests {
         assert!(identity.contains("Warm, concise, and practical."));
 
         let loaded = Config::load_or_create(&paths).expect("persisted config should load");
-        assert_eq!(loaded.setup.version, 2);
+        assert_eq!(loaded.setup.version, CURRENT_SETUP_VERSION);
         assert_eq!(loaded.security.fs_roots, vec![workspace]);
+        assert_eq!(loaded.repl.ui, ReplUiMode::Tui);
         assert!(loaded.daemon.auto_spawn);
         assert!(loaded.jobs.enabled);
     }
@@ -977,7 +1029,7 @@ mod tests {
         answers.trusted_roots.clear();
 
         apply_setup_answers(&paths, &mut config, &answers).expect("setup should succeed");
-        assert_eq!(config.setup.version, 2);
+        assert_eq!(config.setup.version, CURRENT_SETUP_VERSION);
         assert!(config.security.fs_roots.is_empty());
         assert!(!paths.bootstrap.exists());
     }
@@ -1000,6 +1052,9 @@ mod tests {
             root_agent_name: "allbert/root".into(),
             last_agent_stack: vec!["allbert/root".into()],
             last_resolved_intent: Some("task".into()),
+            repl_ui: "tui".into(),
+            memory_routing: "always_eligible".into(),
+            status_line_items: vec!["model".into(), "context".into()],
         });
 
         assert!(rendered.contains("ANTHROPIC_API_KEY (missing)"));
@@ -1007,6 +1062,9 @@ mod tests {
         assert!(rendered.contains("trace enabled:      yes"));
         assert!(rendered.contains("daemon auto-spawn:  yes"));
         assert!(rendered.contains("jobs timezone:      America/Los_Angeles"));
+        assert!(rendered.contains("repl ui:            tui"));
+        assert!(rendered.contains("status line items:  model, context"));
+        assert!(rendered.contains("memory routing:     always_eligible"));
         assert!(rendered.contains("root agent:         allbert/root"));
         assert!(rendered.contains("last agent stack:   allbert/root"));
         assert!(rendered.contains("last intent:        task"));
@@ -1030,6 +1088,9 @@ mod tests {
             root_agent_name: "allbert/root".into(),
             last_agent_stack: Vec::new(),
             last_resolved_intent: None,
+            repl_ui: "classic".into(),
+            memory_routing: "always_eligible".into(),
+            status_line_items: Vec::new(),
         });
 
         assert!(rendered.contains("api key env:        not required (not required)"));
