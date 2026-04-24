@@ -61,7 +61,9 @@ Allbert should have a small always-on bootstrap layer made of inspectable markdo
 
 ## Model Direction
 
-For planning and reasoning, Allbert should use strong foundation models. Over time it may also use smaller specialized models for memory shaping, personalization, or other narrow tasks, as long as those additions keep the runtime understandable and maintainable. A full local retraining or nightly-distillation pipeline is an explicit later ambition, not a commitment in the current roadmap.
+For planning and reasoning, Allbert should support both strong hosted foundation models and local models. The local-first default is Ollama with `gemma4`, while Anthropic, OpenRouter, OpenAI, and Gemini remain first-class direct-provider options for operators who want hosted models. Provider choice stays a kernel-owned runtime configuration concern so cost logs, policy gates, daemon protocol, jobs, skills, and channel capability checks all see the same model posture.
+
+Over time Allbert may also use smaller specialized models for memory shaping, personalization, or other narrow tasks, as long as those additions keep the runtime understandable and maintainable. A full local retraining or nightly-distillation pipeline is an explicit later ambition, not a commitment in the current roadmap.
 
 ## Skill Direction
 
@@ -94,7 +96,7 @@ End-user usability in v0.1 comes from guided setup for bootstrap identity and ex
 
 After that foundation is solid, the next step is not just "cron jobs." It is a daemon substrate plus lightweight internal services, especially an internal job manager that can run background and scheduled work without making OS cron the primary runtime mechanism.
 
-From there, the project grows along a sequenced path: agents and intent routing, then richer skills through AgentSkills adoption, then curated memory, then hardening around restart-durable sessions, cost caps, and operator-visible verification, then new channels, then continuity and sync across those channels, then a pinned contributor/development contract that makes the source tree reproducible on macOS, Linux, and Codex Web workspaces, and only after that self-improvement skills for Allbert itself. That sequence — captured in [docs/plans/roadmap.md](plans/roadmap.md) — keeps each release useful on its own while unlocking the next.
+From there, the project grows along a sequenced path: agents and intent routing, then richer skills through AgentSkills adoption, then curated memory, then hardening around restart-durable sessions, cost caps, and operator-visible verification, then new channels, then continuity and sync across those channels, then a pinned contributor/development contract that makes the source tree reproducible on macOS, Linux, and Codex Web workspaces, then provider expansion with a local-first Ollama/Gemma4 default, and only after that self-improvement skills for Allbert itself. That sequence — captured in [docs/plans/roadmap.md](plans/roadmap.md) — keeps each release useful on its own while unlocking the next.
 
 Even as that happens, Allbert should remain local-first, compact, and understandable. It should not turn into a broad distributed microservice platform just to gain background execution.
 

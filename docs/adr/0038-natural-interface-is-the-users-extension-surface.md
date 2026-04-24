@@ -5,7 +5,7 @@ Status: Accepted
 
 ## Context
 
-The v0.3–v0.10 plans introduce several technologies that could, taken literally, suggest the user is expected to write code: a Rust `Agent` trait (ADR 0029), AgentSkills with `scripts/` directories (ADR 0032), and a later self-improvement release that touches Rust and an embedded Lua engine (now sequenced after channel, continuity, and contributor-environment work). Each of these technologies is a runtime concern, but without an explicit statement of who is expected to author what, future plans and future tooling could drift toward "power users learn Rust / Python / Lua" as the default extension surface.
+The v0.3–v0.11 plans introduce several technologies that could, taken literally, suggest the user is expected to write code: a Rust `Agent` trait (ADR 0029), AgentSkills with `scripts/` directories (ADR 0032), and a later self-improvement release that touches Rust and an embedded Lua engine (now sequenced after channel, continuity, contributor-environment work, and provider expansion). Each of these technologies is a runtime concern, but without an explicit statement of who is expected to author what, future plans and future tooling could drift toward "power users learn Rust / Python / Lua" as the default extension surface.
 
 The vision is the opposite. Allbert is a personal assistant. End users interact with it through natural language and other media — text now, voice and images once channels support them. When a user *extends* Allbert — giving it a new persona, a new skill, a new scheduled job, or a new agent role — the authoring surface is markdown plus a small amount of declarative config, not code.
 
@@ -22,8 +22,8 @@ Specifically:
 - **User interaction** happens via text and CLI text commands first, then later voice, images, and attachments as specific channel releases harden those capabilities. Writing code is never a prerequisite for using Allbert.
 - **User-authored extensions** live in markdown and declarative config: bootstrap files under `~/.allbert/` (ADR 0010, ADR 0039), skill folders (ADR 0032), job definitions (ADR 0022), agent prompt files (ADR 0031), and TOML config. These are the complete extension surface for end users.
 - **Skill scripts** (ADR 0034) are authored by skill authors, not end users. End users encounter them at install time through preview + confirm (ADR 0033), not through a "write a script" step.
-- **Embedded scripting** (v0.10 Lua engine) is an opt-in advanced surface. It exists so Allbert — or a skill author — has a small, sandboxed DSL available. It is never a requirement for end-user workflows.
-- **Self-improvement capabilities** (v0.10 Rust rebuild skill, skill-authoring skill) frame Allbert as the author, with the user as reviewer. The user approves diffs or install previews; the user does not produce the code.
+- **Embedded scripting** (v0.11 Lua engine) is an opt-in advanced surface. It exists so Allbert — or a skill author — has a small, sandboxed DSL available. It is never a requirement for end-user workflows.
+- **Self-improvement capabilities** (v0.11 Rust rebuild skill, skill-authoring skill) frame Allbert as the author, with the user as reviewer. The user approves diffs or install previews; the user does not produce the code.
 - **Every future release plan** that introduces an authoring verb must document the natural-language or markdown path as its primary UX. Code-writing paths, if introduced, must be labelled as advanced and optional.
 
 This ADR does not prevent power users from editing Rust in a development checkout, authoring Lua scripts by hand, or wiring up new exec-policy interpreters. It states that these are advanced, off-path activities — not the default user surface.

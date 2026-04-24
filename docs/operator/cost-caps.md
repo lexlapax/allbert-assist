@@ -14,9 +14,9 @@ This behavior is now an explicit shipped policy for v0.8 M9.
 
 This follows the local-only continuity posture in ADR 0061. Today there is no hosted/shared counter for cost usage, and v0.8 intentionally avoids introducing one.
 
-## Explicit non-goal through v0.10
+## Explicit non-goal through v0.11
 
-Cross-device aggregate cap enforcement is out of scope through v0.10.
+Cross-device aggregate cap enforcement is out of scope through v0.11.
 
 A future design would require either:
 

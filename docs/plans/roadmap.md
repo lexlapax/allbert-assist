@@ -15,7 +15,8 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.7 | Channel expansion: Telegram pilot, `Channel` trait + multimodal flags, tool-surface normalization, budget-governed sub-agents, intent-guided routing defaults, explicit-intent web learning | Shipped | [v0.7-channel-expansion.md](v0.7-channel-expansion.md) |
 | v0.8 | Continuity and sync: cross-channel identity mapping, durable session routing, approval inbox, sync posture | Shipped | [v0.8-continuity-and-sync.md](v0.8-continuity-and-sync.md) |
 | v0.9 | Developer environment and Codex Web readiness: pinned toolchain, contributor contract, provider-free validation | Shipped | [v0.9-developer-environment-and-codex-web.md](v0.9-developer-environment-and-codex-web.md) |
-| v0.10 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.10-self-improvement.md](v0.10-self-improvement.md) |
+| v0.10 | Provider expansion and local-first default: OpenAI, Gemini, Ollama/Gemma4 | Proposed | [v0.10-provider-expansion.md](v0.10-provider-expansion.md) |
+| v0.11 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.11-self-improvement.md](v0.11-self-improvement.md) |
 
 Note: some v0.9 contributor-contract work landed before the final v0.8 release-alignment pass. The roadmap order still reflects dependency intent rather than strict commit chronology.
 
@@ -49,14 +50,21 @@ Before Allbert can safely rebuild itself, the repository itself needs a declared
 
 ### v0.9 before v0.10
 
+Once v0.9 made contributor work provider-free and reproducible, the next operator-facing gap was provider choice. v0.10 expands the owned provider seam to OpenAI, Gemini, and local Ollama while preserving Anthropic/OpenRouter. It also flips fresh profiles to a local-first Ollama/Gemma4 default so the default bootstrap path no longer assumes a hosted API key.
+
+This release deliberately keeps Allbert's provider layer small and kernel-owned instead of adopting a general provider framework. That keeps cost logs, daemon protocol, setup, jobs, skill-contributed agents, and channel image gating under the same policy surface. The decision is recorded in [ADR 0066](../adr/0066-owned-provider-seam-over-rig-for-v0-10.md).
+
+### v0.10 before v0.11
+
 Self-improvement (the assistant rebuilding its own Rust binary, or authoring new skills) is both powerful and risky. It should land only after Allbert has:
 
 - at least one approval-capable non-REPL channel,
 - a settled pattern for cross-channel operator review,
 - a continuity model that makes pending approvals and resumable work legible outside the REPL,
-- and a pinned, reproducible contributor environment so rebuild flows are not built on unstated workstation assumptions.
+- a pinned, reproducible contributor environment so rebuild flows are not built on unstated workstation assumptions,
+- and a local-first provider default plus direct hosted-provider alternatives so self-improvement can run in more operator environments without forcing one vendor path.
 
-v0.10 also depends on the tool surface being normalized so embedded-script hook observation is uniform (ADR 0052), and on the memory and skill-install trust model being mature enough that self-authored artifacts route through the same gates as any other skill.
+v0.11 also depends on the tool surface being normalized so embedded-script hook observation is uniform (ADR 0052), and on the memory and skill-install trust model being mature enough that self-authored artifacts route through the same gates as any other skill.
 
 ## Cross-cutting concerns
 
@@ -78,10 +86,10 @@ Explicitly parked, not forgotten.
 - **Skill-format adapter for MCP / OpenClaw / legacy shapes.** Noted in v0.7's out-of-scope section. Strict AgentSkills-format cutover (ADR 0037) is the current policy; a one-shot importer can land alongside later channel or continuity work without changing kernel invariants.
 - **Multi-user workstation daemon.** The v0.2 trust model (ADR 0023) assumes a single local user. Multi-user daemon isolation is future work.
 - **Capability tokens for local IPC.** ADR 0023 explicitly defers these. v0.7 channels may push on the edges of this decision; revisit if so.
-- **Cross-network daemon.** Out of scope through v0.10. If and when it returns, it will be an explicit design pass, not an incremental add-on.
-- **Large embedded runtime.** Lua or similar embedded scripting enters only through the v0.10 scripting seam (ADR pending in that release) rather than as a kernel dependency.
+- **Cross-network daemon.** Out of scope through v0.11. If and when it returns, it will be an explicit design pass, not an incremental add-on.
+- **Large embedded runtime.** Lua or similar embedded scripting enters only through the v0.11 scripting seam (ADR pending in that release) rather than as a kernel dependency.
 - **Embedding / vector retrieval for memory.** v0.5 commits to BM25 via tantivy (ADR 0046); embedding-based retrieval is an explicit non-goal for v0.5 and may layer alongside tantivy in a later release rather than replacing it.
-- **Local personalization / retraining pipeline.** The origin note's ambition to distill or retrain a small local model for memory/personality is still in scope philosophically, but it is not assigned to any release through v0.10. Revisit only after curated memory, continuity, model-management seams, and the contributor environment contract are stable.
+- **Local personalization / retraining pipeline.** The origin note's ambition to distill or retrain a small local model for memory/personality is still in scope philosophically, but it is not assigned to any release through v0.11. Revisit only after curated memory, continuity, provider-management seams, and the contributor environment contract are stable.
 - **Website-serving / hosted web surfaces.** The origin note's idea that Allbert might eventually serve websites or richer hosted interfaces is explicitly deferred beyond the current roadmap. The near-term web story is channel expansion and future native/web UI planning, not site-hosting from the daemon.
 
 ## References
