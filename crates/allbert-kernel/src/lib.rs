@@ -83,8 +83,9 @@ struct DailyCostCache {
 
 pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, KernelError> {
     paths.ensure()?;
+    let config = Config::load_or_create(paths)?;
     let skills = SkillStore::discover(&paths.skills);
-    let rendered = skills.render_agents_markdown();
+    let rendered = skills.render_agents_markdown_with_routing(&config.memory.routing);
     atomic_write(&paths.agents_notes, rendered.as_bytes()).map_err(|e| {
         KernelError::InitFailed(format!("write {}: {e}", paths.agents_notes.display()))
     })?;
@@ -397,7 +398,7 @@ impl Kernel {
         let trace = trace::init_tracing(config.trace, &paths, &session_id)?;
         let llm = provider_factory.build(&config.model).await?;
         let skills = SkillStore::discover(&paths.skills);
-        let rendered_agents = skills.render_agents_markdown();
+        let rendered_agents = skills.render_agents_markdown_with_routing(&config.memory.routing);
         atomic_write(&paths.agents_notes, rendered_agents.as_bytes()).map_err(|e| {
             KernelError::InitFailed(format!("write {}: {e}", paths.agents_notes.display()))
         })?;
@@ -549,6 +550,12 @@ impl Kernel {
             .resolve_intent_for_turn(state, user_input, parent_agent_name.clone())
             .await?;
         state.last_resolved_intent = resolved_intent.clone();
+        self.apply_memory_routing(
+            state,
+            resolved_intent.as_ref(),
+            user_input,
+            parent_agent_name.is_none(),
+        )?;
         tracing::info!(
             session = %state.session_id,
             agent = %state.agent_name(),
@@ -930,7 +937,8 @@ impl Kernel {
     }
 
     pub fn agents_markdown(&self) -> String {
-        self.skills.render_agents_markdown()
+        self.skills
+            .render_agents_markdown_with_routing(&self.config.memory.routing)
     }
 
     pub fn active_skills(&self) -> &[ActiveSkill] {
@@ -939,7 +947,9 @@ impl Kernel {
 
     pub fn refresh_skill_catalog(&mut self) -> Result<(), KernelError> {
         self.skills = SkillStore::discover(&self.paths.skills);
-        let rendered = self.skills.render_agents_markdown();
+        let rendered = self
+            .skills
+            .render_agents_markdown_with_routing(&self.config.memory.routing);
         atomic_write(&self.paths.agents_notes, rendered.as_bytes()).map_err(|e| {
             KernelError::InitFailed(format!("write {}: {e}", self.paths.agents_notes.display()))
         })?;
@@ -1401,6 +1411,12 @@ impl Kernel {
 
         self.config = config;
         *self.security_state.lock().unwrap() = self.config.security.clone();
+        let rendered = self
+            .skills
+            .render_agents_markdown_with_routing(&self.config.memory.routing);
+        atomic_write(&self.paths.agents_notes, rendered.as_bytes()).map_err(|e| {
+            KernelError::InitFailed(format!("write {}: {e}", self.paths.agents_notes.display()))
+        })?;
         Ok(())
     }
 
@@ -1724,6 +1740,55 @@ Respond with only the lowercase label and no other text."
         }
     }
 
+    fn apply_memory_routing(
+        &self,
+        state: &mut AgentState,
+        resolved_intent: Option<&Intent>,
+        user_input: &str,
+        is_root_turn: bool,
+    ) -> Result<(), KernelError> {
+        if !is_root_turn || !self.memory_routing_should_activate(resolved_intent, user_input) {
+            return Ok(());
+        }
+
+        for skill_name in &self.config.memory.routing.always_eligible_skills {
+            if self.skills.get(skill_name).is_some() {
+                Self::activate_skill_with_config(
+                    &self.skills,
+                    &self.config,
+                    state,
+                    skill_name,
+                    None,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    fn memory_routing_should_activate(
+        &self,
+        resolved_intent: Option<&Intent>,
+        user_input: &str,
+    ) -> bool {
+        let routing = &self.config.memory.routing;
+        if resolved_intent.is_some_and(|intent| {
+            routing
+                .auto_activate_intents
+                .iter()
+                .any(|configured| configured == intent.as_str())
+        }) {
+            return true;
+        }
+        if !matches!(resolved_intent, Some(Intent::Chat)) {
+            return false;
+        }
+        let normalized = user_input.to_ascii_lowercase();
+        routing.auto_activate_cues.iter().any(|cue| {
+            let cue = cue.trim().to_ascii_lowercase();
+            !cue.is_empty() && normalized.contains(&cue)
+        })
+    }
+
     fn maybe_schedule_memory_refresh(
         &self,
         state: &mut AgentState,
@@ -1879,6 +1944,17 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         for skill_name in self.skills.catalog_skill_names() {
             if state.surfaced_skills_this_turn.insert(skill_name.clone()) {
                 (self.adapter.on_event)(&KernelEvent::SkillTier1Surfaced { skill_name });
+            }
+        }
+
+        if parent_agent_name.is_none() {
+            let routing_prompt = self.skills.routing_prompt(&self.config.memory.routing);
+            if !routing_prompt.is_empty() {
+                prompt.push_str("\n\nAlways-eligible skill routing:\n");
+                prompt.push_str(
+                    "These skills are surfaced for routing awareness only; invoke them when the turn needs their full instructions.\n",
+                );
+                prompt.push_str(&routing_prompt);
             }
         }
 
@@ -6709,6 +6785,109 @@ mod tests {
         assert!(!text.contains("stg_one"));
         assert!(!text.contains("stg_two"));
         assert!(!text.contains("stg_three"));
+    }
+
+    #[tokio::test]
+    async fn memory_routing_surfaces_memory_curator_without_activating_body_for_plain_chat() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![CompletionResponse {
+                    text: "hello".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("hello there")
+            .await
+            .expect("turn should pass");
+        let request = requests.lock().unwrap();
+        let system = request[0].system.as_deref().unwrap_or_default();
+        assert!(system.contains("Always-eligible skill routing:"));
+        assert!(system.contains("- memory-curator:"));
+        assert!(
+            !system.contains("### Skill: memory-curator"),
+            "plain chat should not load the full memory-curator body"
+        );
+    }
+
+    #[tokio::test]
+    async fn memory_routing_auto_activates_memory_curator_on_memory_query() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![CompletionResponse {
+                    text: "I can help with memory.".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("what do you remember about Postgres?")
+            .await
+            .expect("turn should pass");
+        assert_eq!(kernel.active_skills()[0].name, "memory-curator");
+        let request = requests.lock().unwrap();
+        let system = request[0].system.as_deref().unwrap_or_default();
+        assert!(system.contains("### Skill: memory-curator"));
+    }
+
+    #[tokio::test]
+    async fn memory_routing_auto_activates_memory_curator_on_configured_chat_cue() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let mut config = Config::default_template();
+        config.memory.routing.auto_activate_intents.clear();
+        config.memory.routing.auto_activate_cues = vec!["hello there".into()];
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                requests.clone(),
+                vec![CompletionResponse {
+                    text: "hello".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("hello there")
+            .await
+            .expect("turn should pass");
+        assert_eq!(kernel.active_skills()[0].name, "memory-curator");
+        let request = requests.lock().unwrap();
+        let system = request[0].system.as_deref().unwrap_or_default();
+        assert!(system.contains("### Skill: memory-curator"));
     }
 
     #[tokio::test]

@@ -1,6 +1,8 @@
 use std::io::{self, Write};
 
-use allbert_kernel::{memory, AllbertPaths, Config, MemoryTier, SearchMemoryInput};
+use allbert_kernel::{
+    memory, AllbertPaths, Config, Intent, MemoryRoutingMode, MemoryTier, SearchMemoryInput,
+};
 use anyhow::{anyhow, Result};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -63,6 +65,49 @@ pub fn verify(paths: &AllbertPaths, config: &Config) -> Result<(String, bool)> {
         }
     }
     Ok((rendered, healthy))
+}
+
+pub fn routing_show(config: &Config) -> String {
+    let routing = &config.memory.routing;
+    format!(
+        "mode: {}\nalways eligible skills: {}\nauto-activate intents: {}\nauto-activate cues: {}",
+        routing.mode.label(),
+        render_csv(&routing.always_eligible_skills),
+        render_csv(&routing.auto_activate_intents),
+        render_csv(&routing.auto_activate_cues),
+    )
+}
+
+pub fn routing_set(
+    config: &mut Config,
+    mode: Option<&str>,
+    skills: &[String],
+    auto_activate_intents: &[String],
+    auto_activate_cues: &[String],
+) -> Result<String> {
+    if let Some(mode) = mode {
+        config.memory.routing.mode = parse_routing_mode(mode)?;
+    }
+    if !skills.is_empty() {
+        config.memory.routing.always_eligible_skills = normalized_nonempty(skills, "skill")?;
+    }
+    if !auto_activate_intents.is_empty() {
+        for intent in auto_activate_intents {
+            if Intent::parse(intent).is_none() {
+                return Err(anyhow!("unknown intent for memory routing: {intent}"));
+            }
+        }
+        config.memory.routing.auto_activate_intents =
+            normalized_nonempty(auto_activate_intents, "auto-activate-intent")?;
+    }
+    if !auto_activate_cues.is_empty() {
+        config.memory.routing.auto_activate_cues =
+            normalized_nonempty(auto_activate_cues, "auto-activate-cue")?;
+    }
+    config
+        .validate()
+        .map_err(|err| anyhow!("invalid routing config: {err}"))?;
+    Ok(format!("memory routing updated\n{}", routing_show(config)))
 }
 
 pub fn search(
@@ -254,6 +299,37 @@ fn parse_tier(input: &str) -> Result<MemoryTier> {
     }
 }
 
+fn parse_routing_mode(raw: &str) -> Result<MemoryRoutingMode> {
+    match raw.trim().replace('-', "_").as_str() {
+        "always_eligible" => Ok(MemoryRoutingMode::AlwaysEligible),
+        other => Err(anyhow!(
+            "unsupported memory routing mode `{other}`; v0.11 supports only `always_eligible`"
+        )),
+    }
+}
+
+fn normalized_nonempty(values: &[String], label: &str) -> Result<Vec<String>> {
+    let normalized = values
+        .iter()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if normalized.is_empty() {
+        Err(anyhow!("{label} must not be empty"))
+    } else {
+        Ok(normalized)
+    }
+}
+
+fn render_csv(values: &[String]) -> String {
+    if values.is_empty() {
+        "(none)".into()
+    } else {
+        values.join(", ")
+    }
+}
+
 fn parse_since(input: &str) -> Result<OffsetDateTime> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
@@ -298,7 +374,10 @@ mod tests {
 
     use allbert_kernel::{memory, AllbertPaths, Config, MemoryTier, SearchMemoryInput};
 
-    use super::{forget, promote, reject, search, staged_list, staged_show, status, verify};
+    use super::{
+        forget, promote, reject, routing_set, routing_show, search, staged_list, staged_show,
+        status, verify,
+    };
 
     static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -472,5 +551,32 @@ mod tests {
         let durable_after_forget = search(&paths, &config, "Postgres", "durable", Some(10), "text")
             .expect("durable search should render");
         assert_eq!(durable_after_forget, "no memory results");
+    }
+
+    #[test]
+    fn memory_routing_cli_updates_config_without_code_changes() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let mut config = Config::load_or_create(&paths).expect("config should load");
+
+        let rendered = routing_set(
+            &mut config,
+            Some("always-eligible"),
+            &[String::from("memory-curator")],
+            &[String::from("memory_query")],
+            &[String::from("postgres")],
+        )
+        .expect("routing set should work");
+
+        assert!(rendered.contains("memory routing updated"));
+        assert_eq!(
+            config.memory.routing.always_eligible_skills,
+            vec![String::from("memory-curator")]
+        );
+        assert_eq!(
+            config.memory.routing.auto_activate_cues,
+            vec![String::from("postgres")]
+        );
+        assert!(routing_show(&config).contains("auto-activate intents: memory_query"));
     }
 }

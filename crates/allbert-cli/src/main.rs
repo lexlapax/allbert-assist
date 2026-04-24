@@ -168,6 +168,11 @@ enum MemoryCommand {
         #[command(subcommand)]
         command: MemoryStagedCommand,
     },
+    /// Show or update memory routing policy.
+    Routing {
+        #[command(subcommand)]
+        command: MemoryRoutingCommand,
+    },
     /// Promote a staged-memory entry into durable notes.
     Promote {
         id: String,
@@ -212,6 +217,23 @@ enum MemoryStagedCommand {
     },
     /// Show one staged-memory entry by id.
     Show { id: String },
+}
+
+#[derive(Subcommand, Debug)]
+enum MemoryRoutingCommand {
+    /// Show memory routing policy.
+    Show,
+    /// Update memory routing policy.
+    Set {
+        #[arg(long)]
+        mode: Option<String>,
+        #[arg(long = "skill")]
+        skills: Vec<String>,
+        #[arg(long = "auto-activate-intent")]
+        auto_activate_intents: Vec<String>,
+        #[arg(long = "auto-activate-cue")]
+        auto_activate_cues: Vec<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -670,6 +692,35 @@ async fn run_memory_command(
             }
             MemoryStagedCommand::Show { id } => {
                 println!("{}", memory_cli::staged_show(paths, config, &id)?);
+                Ok(())
+            }
+        },
+        MemoryCommand::Routing { command } => match command {
+            MemoryRoutingCommand::Show => {
+                println!("{}", memory_cli::routing_show(config));
+                Ok(())
+            }
+            MemoryRoutingCommand::Set {
+                mode,
+                skills,
+                auto_activate_intents,
+                auto_activate_cues,
+            } => {
+                let mut updated = config.clone();
+                let rendered = memory_cli::routing_set(
+                    &mut updated,
+                    mode.as_deref(),
+                    &skills,
+                    &auto_activate_intents,
+                    &auto_activate_cues,
+                )?;
+                updated.persist(paths)?;
+                refresh_agents_markdown(paths)?;
+                if let Ok(mut client) = DaemonClient::connect(paths, ClientKind::Cli).await {
+                    client.attach(ChannelKind::Cli, None).await?;
+                    client.reload_session_config().await?;
+                }
+                println!("{rendered}");
                 Ok(())
             }
         },
