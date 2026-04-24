@@ -133,6 +133,9 @@ More targeted provider checks:
 ```bash
 env -u RUSTC_WRAPPER cargo test -q -p allbert-kernel anthropic_release_smoke -- --ignored --exact
 env -u RUSTC_WRAPPER cargo test -q -p allbert-kernel openrouter_release_smoke -- --ignored --exact
+env -u RUSTC_WRAPPER cargo test -q -p allbert-kernel openai_release_smoke -- --ignored --exact
+env -u RUSTC_WRAPPER cargo test -q -p allbert-kernel gemini_release_smoke -- --ignored --exact
+env -u RUSTC_WRAPPER cargo test -q -p allbert-kernel ollama_release_smoke -- --ignored --exact
 ```
 
 ## Environment variables

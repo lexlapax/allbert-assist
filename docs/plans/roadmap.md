@@ -15,7 +15,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.7 | Channel expansion: Telegram pilot, `Channel` trait + multimodal flags, tool-surface normalization, budget-governed sub-agents, intent-guided routing defaults, explicit-intent web learning | Shipped | [v0.7-channel-expansion.md](v0.7-channel-expansion.md) |
 | v0.8 | Continuity and sync: cross-channel identity mapping, durable session routing, approval inbox, sync posture | Shipped | [v0.8-continuity-and-sync.md](v0.8-continuity-and-sync.md) |
 | v0.9 | Developer environment and Codex Web readiness: pinned toolchain, contributor contract, provider-free validation | Shipped | [v0.9-developer-environment-and-codex-web.md](v0.9-developer-environment-and-codex-web.md) |
-| v0.10 | Provider expansion and local-first default: OpenAI, Gemini, Ollama/Gemma4 | Proposed | [v0.10-provider-expansion.md](v0.10-provider-expansion.md) |
+| v0.10 | Provider expansion and local-first default: OpenAI, Gemini, Ollama/Gemma4 | Shipped | [v0.10-provider-expansion.md](v0.10-provider-expansion.md) |
 | v0.11 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.11-self-improvement.md](v0.11-self-improvement.md) |
 
 Note: some v0.9 contributor-contract work landed before the final v0.8 release-alignment pass. The roadmap order still reflects dependency intent rather than strict commit chronology.
@@ -54,7 +54,7 @@ Once v0.9 made contributor work provider-free and reproducible, the next operato
 
 This release deliberately keeps Allbert's provider layer small and kernel-owned instead of adopting a general provider framework. That keeps cost logs, daemon protocol, setup, jobs, skill-contributed agents, and channel image gating under the same policy surface. The decision is recorded in [ADR 0066](../adr/0066-owned-provider-seam-over-rig-for-v0-10.md).
 
-ADR 0066 is accepted as the frozen provider-framework decision even while the v0.10 release implementation remains `Proposed`.
+ADR 0066 was accepted as the frozen provider-framework decision before implementation and remains the release rationale now that v0.10 has shipped.
 
 ### v0.10 before v0.11
 

@@ -7631,6 +7631,80 @@ mod tests {
         );
     }
 
+    async fn run_live_ollama_release_smoke() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let workspace_root = repo_root();
+
+        let mut config = Config::default_template();
+        config.trace = true;
+        config.setup.version = 1;
+        config.model.provider = Provider::Ollama;
+        config.model.model_id = "gemma4".into();
+        config.model.api_key_env = None;
+        config.model.base_url = std::env::var("OLLAMA_BASE_URL")
+            .ok()
+            .or_else(|| Provider::Ollama.default_base_url().map(str::to_string));
+        config.model.max_tokens = 64;
+        config.security.fs_roots = vec![workspace_root.clone()];
+
+        seed_completed_setup(&paths, &config);
+        install_example_skill(&paths);
+
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(events.clone()),
+            paths.clone(),
+            Arc::new(llm::DefaultProviderFactory::default()),
+        )
+        .await
+        .expect("live Ollama kernel should boot");
+
+        kernel
+            .run_turn(
+                "If the runtime context says the preferred name is Spuri, reply with exactly PROFILE_OK and nothing else.",
+            )
+            .await
+            .expect("Ollama profile prompt should succeed");
+        assert_eq!(latest_assistant_text(&events).trim(), "PROFILE_OK");
+
+        let cargo_toml = run_tool_via_kernel(
+            &mut kernel,
+            ToolInvocation {
+                name: "read_file".into(),
+                input: json!({ "path": workspace_root.join("Cargo.toml").display().to_string() }),
+            },
+        )
+        .await;
+        assert!(cargo_toml.ok, "trusted-root file read should succeed");
+        assert!(cargo_toml.content.contains("allbert-kernel"));
+
+        kernel
+            .set_model(ModelConfig {
+                provider: Provider::Ollama,
+                model_id: "gemma4".into(),
+                api_key_env: None,
+                base_url: std::env::var("OLLAMA_BASE_URL")
+                    .ok()
+                    .or_else(|| Provider::Ollama.default_base_url().map(str::to_string)),
+                max_tokens: 64,
+            })
+            .await
+            .expect("Ollama model refresh should succeed");
+        kernel
+            .run_turn("Reply with exactly SWITCH_OK and nothing else.")
+            .await
+            .expect("Ollama switched-provider prompt should succeed");
+        assert_eq!(latest_assistant_text(&events).trim(), "SWITCH_OK");
+
+        assert!(
+            paths.costs.exists(),
+            "cost log should exist after live Ollama turn"
+        );
+        assert!(trace_file_exists(&paths), "trace file should exist");
+    }
+
     #[tokio::test]
     #[ignore = "live smoke requires ANTHROPIC_API_KEY and OPENROUTER_API_KEY"]
     async fn anthropic_release_smoke() {
@@ -7657,5 +7731,39 @@ mod tests {
             "ANTHROPIC_API_KEY",
         )
         .await;
+    }
+
+    #[tokio::test]
+    #[ignore = "live smoke requires OPENAI_API_KEY"]
+    async fn openai_release_smoke() {
+        run_live_release_smoke(
+            Provider::Openai,
+            "gpt-5.4-mini",
+            "OPENAI_API_KEY",
+            Provider::Openai,
+            "gpt-5.4-mini",
+            "OPENAI_API_KEY",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    #[ignore = "live smoke requires GEMINI_API_KEY"]
+    async fn gemini_release_smoke() {
+        run_live_release_smoke(
+            Provider::Gemini,
+            "gemini-2.5-flash",
+            "GEMINI_API_KEY",
+            Provider::Gemini,
+            "gemini-2.5-flash",
+            "GEMINI_API_KEY",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    #[ignore = "live smoke requires local Ollama with gemma4"]
+    async fn ollama_release_smoke() {
+        run_live_ollama_release_smoke().await;
     }
 }
