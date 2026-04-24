@@ -3,6 +3,8 @@
 Date: 2026-04-20
 Status: Accepted
 
+> **Amended in part by [ADR 0073](0073-rebuild-patch-approval-is-a-new-inbox-kind.md) in v0.11**: a fourth inbox kind `patch-approval` is added for rebuild diffs, with diff artifacts stored outside the approval markdown and accept/reject semantics tuned for the rebuild install flow. The inbox file layout, identity scoping, and retention defaults in this ADR remain in force.
+
 ## Context
 
 v0.7 (ADR 0056) shipped the async-confirm state machine with two deliberate constraints to keep the v0.7 surface small:

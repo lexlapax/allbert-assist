@@ -3,6 +3,8 @@
 Date: 2026-04-18
 Status: Accepted
 
+> **Amended in part by [ADR 0071](0071-self-authored-skills-route-through-the-standard-install-quarantine.md) in v0.11**: the optional frontmatter field list gains `provenance` (`external` | `local-path` | `git` | `self-authored`). Existing skills without the field load as `external`. Everything else in this ADR (folder layout, required frontmatter, name/description constraints, validation posture) remains in force.
+
 ## Context
 
 v0.1 and v0.2 shipped skills as minimal directories centered on `SKILL.md` with YAML frontmatter. That shape already matched the top-level `skill-name/SKILL.md` convention, but it was a relaxed subset of the fuller AgentSkills shape and it limits three things:
