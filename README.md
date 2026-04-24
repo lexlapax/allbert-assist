@@ -2,7 +2,7 @@
 
 Allbert is a terminal-first personal assistant built around a small Rust kernel, markdown bootstrap files, curated markdown memory, AgentSkills-format skills, built-in tools, policy checks, cost tracking, first-class agents, intent routing, and a local daemon runtime.
 
-For repository development and contributor setup, see [DEVELOPMENT.md](/Users/spuri/projects/lexlapax/allbert-assist/DEVELOPMENT.md).
+For repository development and contributor setup, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 v0.10 is the current technical source-based release in this repo. You build it from source, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for REPL work, daemon lifecycle commands, recurring jobs, identity/session continuity, strict AgentSkills-format skill management, curated-memory review, approval inbox resolution, profile export/import, provider/model selection, and channel administration. Fresh profiles default to local Ollama with `gemma4`; hosted providers remain available through Anthropic, OpenRouter, OpenAI, and Gemini.
 

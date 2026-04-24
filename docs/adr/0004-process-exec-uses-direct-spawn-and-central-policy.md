@@ -37,4 +37,4 @@ The intent is to make both execution behavior and approval semantics auditable f
 
 ## References
 
-- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md)
+- [docs/plans/v0.01-mvp.md](../plans/v0.01-mvp.md)

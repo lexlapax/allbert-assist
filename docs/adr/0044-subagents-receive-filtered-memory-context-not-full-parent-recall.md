@@ -50,6 +50,6 @@ Candidate learnings from sub-agents follow the same staging rule as root-agent l
 
 ## References
 
-- [docs/plans/v0.5-curated-memory.md](../plans/v0.5-curated-memory.md)
+- [docs/plans/v0.05-curated-memory.md](../plans/v0.05-curated-memory.md)
 - [ADR 0029](0029-agents-are-first-class-runtime-participants.md)
 - [ADR 0031](0031-skills-can-contribute-agents-via-frontmatter.md)

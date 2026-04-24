@@ -49,4 +49,4 @@ Agents are first-class runtime participants.
 - [ADR 0008](0008-skill-allowed-tools-is-a-fence-not-a-sandbox.md)
 - [ADR 0016](0016-scheduled-runs-use-fresh-sessions-and-may-attach-ordered-skills.md)
 - [ADR 0021](0021-kernel-multiplexes-sessions-shared-runtime-per-session-state.md)
-- [docs/plans/v0.3-agent-harness.md](../plans/v0.3-agent-harness.md)
+- [docs/plans/v0.03-agent-harness.md](../plans/v0.03-agent-harness.md)

@@ -54,4 +54,4 @@ Enforcement lives in CostHook at `HookPoint::BeforeModel`, not in the provider a
 - [ADR 0006](0006-hook-api-is-public-from-day-one.md)
 - [ADR 0016](0016-scheduled-runs-use-fresh-sessions-and-may-attach-ordered-skills.md)
 - [ADR 0025](0025-v0-2-daemon-shutdown-is-bounded-graceful-and-job-failures-are-surfaced.md)
-- [docs/plans/v0.6-foundation-hardening.md](../plans/v0.6-foundation-hardening.md)
+- [docs/plans/v0.06-foundation-hardening.md](../plans/v0.06-foundation-hardening.md)

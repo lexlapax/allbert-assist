@@ -5,6 +5,8 @@ Status: Accepted
 
 > **Amended in part by [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md) in v0.8**: the one-pending-approval-per-session and sender-only-resolution rules are lifted once the identity-scoped approval inbox lands. Everything else in this ADR (file layout, timeout semantics, restart recovery, REPL inline path) remains in force.
 
+> **Amended in part by [ADR 0073](0073-rebuild-patch-approval-is-a-new-inbox-kind.md) in v0.12**: rebuild patch approvals add a kind-specific accept/reject flow while preserving the markdown approval file shape.
+
 ## Context
 
 [ADR 0007](0007-session-scoped-exact-match-confirm-trust.md) established confirm-trust: actions that match a `security.confirm_match` pattern prompt the user once, then are remembered for the session. v0.2's `ConfirmPrompter` assumes a synchronous channel: the prompter blocks until the user answers, then returns `confirmed | rejected`.
@@ -51,7 +53,7 @@ Once resolved, the file is rewritten in place with the final `status` and a reso
 
 `meta.json` (per ADR 0049) gains a `pending_approval: <approval-id>` field. When a second policy gate fires while an approval is pending, the tool call refuses with `prior-approval-pending`. The agent can report this and resume after resolution.
 
-A multi-approval inbox that lifts this restriction is scoped to [v0.8](../plans/v0.8-continuity-and-sync.md); v0.7 explicitly ships the one-at-a-time posture.
+A multi-approval inbox that lifts this restriction is scoped to [v0.8](../plans/v0.08-continuity-and-sync.md); v0.7 explicitly ships the one-at-a-time posture.
 
 ### 3. Approver identity is the original sender
 
@@ -103,4 +105,4 @@ REPL and CLI channels declare `supports_inline_confirm: true` and continue using
 - [ADR 0054](0054-sub-agent-depth-is-budget-governed-not-nesting-bounded.md)
 - [ADR 0055](0055-channel-trait-with-capability-flags.md)
 - [ADR 0057](0057-telegram-pilot-uses-teloxide-and-long-polling.md)
-- [docs/plans/v0.8-continuity-and-sync.md](../plans/v0.8-continuity-and-sync.md) — approval inbox extends this to multi-approval UX.
+- [docs/plans/v0.08-continuity-and-sync.md](../plans/v0.08-continuity-and-sync.md) — approval inbox extends this to multi-approval UX.

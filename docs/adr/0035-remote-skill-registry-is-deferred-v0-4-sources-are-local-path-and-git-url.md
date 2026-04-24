@@ -48,4 +48,4 @@ A curated registry is deferred. If a registry is introduced in a later release, 
 - [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
 - [ADR 0033](0033-skill-install-is-explicit-with-preview-and-confirm.md)
 - [ADR 0034](0034-skill-scripts-run-under-the-same-exec-policy-as-tools.md)
-- [docs/plans/v0.4-agentskills-adoption.md](../plans/v0.4-agentskills-adoption.md)
+- [docs/plans/v0.04-agentskills-adoption.md](../plans/v0.04-agentskills-adoption.md)

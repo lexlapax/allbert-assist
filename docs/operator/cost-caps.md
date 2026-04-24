@@ -14,13 +14,13 @@ This behavior is now an explicit shipped policy for v0.8 M9.
 
 This follows the local-only continuity posture in ADR 0061. Today there is no hosted/shared counter for cost usage, and v0.8 intentionally avoids introducing one.
 
-## Explicit non-goal through v0.11
+## Explicit non-goal through v0.12
 
-Cross-device aggregate cap enforcement is out of scope through v0.11.
+Cross-device aggregate cap enforcement is out of scope through v0.12.
 
 A future design would require either:
 
 - a central shared counter/service, or
 - a sync-safe replicated counter approach (for example CRDT-backed accounting),
 
-which depends on hosted/sync capabilities that are not planned before v0.11.
+which depends on hosted/sync capabilities that are not planned before v0.12.

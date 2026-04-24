@@ -63,7 +63,7 @@ All of the above policy is enforced inside the existing central hooks (`Security
 
 ## References
 
-- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md)
+- [docs/plans/v0.01-mvp.md](../plans/v0.01-mvp.md)
 - [docs/vision.md](../vision.md)
 - [ADR 0001](0001-kernel-is-runtime-core-frontends-are-adapters.md)
 - [ADR 0002](0002-skill-bodies-require-explicit-activation.md)

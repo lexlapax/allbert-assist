@@ -29,6 +29,7 @@ The project is centered on a small Rust runtime kernel rather than a bloated app
 - Support tracing so failures can be diagnosed and learned from.
 - Maintain a memory system that can be inspected and edited directly by the user, with ranked retrieval once memory is large enough to need it.
 - Build a bounded memory context before the first root-agent model call, then let tools, skills, and sub-agents deepen that context on demand rather than by silently loading everything up front.
+- Keep operator-facing runtime state legible through terminal telemetry: model posture, context pressure, token usage, cost, memory state, active skills, pending approvals, and trace posture.
 - Host lightweight internal services such as channel handling, session management, and job management without turning into a large distributed system.
 - Reach the user through more than one surface — terminal first, then messaging channels, later richer native interfaces.
 - Accept input and produce output across text, voice, images, and file attachments as channels and providers support it.
@@ -53,6 +54,10 @@ Allbert should keep its durable memory in markdown and linked files first, with 
 - separating durable knowledge from ephemeral session context
 - staging new learnings for user review before promoting them into durable memory
 - separating hot-path memory updates from background maintenance and promotion work
+- making memory-curation skills always eligible through configurable routing without always loading their full prompt bodies
+- searching prior session episodes as working-history recall without treating transcripts as approved durable memory
+- attaching temporal fact metadata and provenance to staged/promoted memory while preserving review before durable promotion
+- optionally layering semantic retrieval as a derived index alongside BM25 rather than replacing markdown ground truth
 - adapting over time to the user's preferences and personality
 
 ## Identity Direction
@@ -71,7 +76,7 @@ Skills should be the primary way Allbert gains new capabilities. The canonical s
 
 ## Channel Direction
 
-Allbert should reach the user through more than one surface. The terminal REPL is the starting channel; messaging channels (Telegram first, then others) follow; richer native or web surfaces come later. Every channel is an adapter over the kernel's session model, not a separate product. Channels declare their capabilities — inline confirm, async confirm, rich output, file attach, and multimodal flags for voice and image input/output — so the kernel can route confirm-trust and policy checks through paths each channel actually supports. v0.8 ships that posture concretely: a Telegram pilot with long-polling, identity-routed cross-surface continuity, a shared approval inbox that CLI/REPL/Telegram can all resolve, heartbeat-guided proactive nags, and provider-gated photo input that lands as session-scoped artifacts rather than durable memory. Multimodal content passes through to providers that support it; channels without a given capability transcode or refuse gracefully. Channels without any confirmation capability fail closed on policy-sensitive actions, just as scheduled jobs already do. Hosted website-serving or broader web-hosting behaviour is explicitly outside the current roadmap; the near-term web story is richer channel and UI work, not turning the daemon into a site host.
+Allbert should reach the user through more than one surface. The terminal starts as the primary surface, first as a classic REPL and then as a richer TUI that still attaches to the daemon-owned session model. Messaging channels (Telegram first, then others) follow; richer native or web surfaces come later. Every channel is an adapter over the kernel's session model, not a separate product. Channels declare their capabilities — inline confirm, async confirm, rich output, file attach, and multimodal flags for voice and image input/output — so the kernel can route confirm-trust and policy checks through paths each channel actually supports. v0.8 ships that posture concretely: a Telegram pilot with long-polling, identity-routed cross-surface continuity, a shared approval inbox that CLI/REPL/Telegram can all resolve, heartbeat-guided proactive nags, and provider-gated photo input that lands as session-scoped artifacts rather than durable memory. v0.11 makes the terminal surface more operator-legible with a TUI and kernel-owned session telemetry, while preserving the classic REPL fallback. Multimodal content passes through to providers that support it; channels without a given capability transcode or refuse gracefully. Channels without any confirmation capability fail closed on policy-sensitive actions, just as scheduled jobs already do. Hosted website-serving or broader web-hosting behaviour is explicitly outside the current roadmap; the near-term web story is richer channel and UI work, not turning the daemon into a site host.
 
 ## Self-Improvement Direction
 
@@ -96,7 +101,7 @@ End-user usability in v0.1 comes from guided setup for bootstrap identity and ex
 
 After that foundation is solid, the next step is not just "cron jobs." It is a daemon substrate plus lightweight internal services, especially an internal job manager that can run background and scheduled work without making OS cron the primary runtime mechanism.
 
-From there, the project grows along a sequenced path: agents and intent routing, then richer skills through AgentSkills adoption, then curated memory, then hardening around restart-durable sessions, cost caps, and operator-visible verification, then new channels, then continuity and sync across those channels, then a pinned contributor/development contract that makes the source tree reproducible on macOS, Linux, and Codex Web workspaces, then provider expansion with a local-first Ollama/Gemma4 default, and only after that self-improvement skills for Allbert itself. That sequence — captured in [docs/plans/roadmap.md](plans/roadmap.md) — keeps each release useful on its own while unlocking the next.
+From there, the project grows along a sequenced path: agents and intent routing, then richer skills through AgentSkills adoption, then curated memory, then hardening around restart-durable sessions, cost caps, and operator-visible verification, then new channels, then continuity and sync across those channels, then a pinned contributor/development contract that makes the source tree reproducible on macOS, Linux, and Codex Web workspaces, then provider expansion with a local-first Ollama/Gemma4 default, then a richer TUI and adaptive-memory release, and only after that self-improvement skills for Allbert itself. That sequence — captured in [docs/plans/roadmap.md](plans/roadmap.md) — keeps each release useful on its own while unlocking the next.
 
 Even as that happens, Allbert should remain local-first, compact, and understandable. It should not turn into a broad distributed microservice platform just to gain background execution.
 

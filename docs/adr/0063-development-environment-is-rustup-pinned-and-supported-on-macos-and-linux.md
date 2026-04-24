@@ -14,7 +14,7 @@ The main missing pieces are:
 - no statement of the required toolchain manager;
 - no single source of truth for required Rust components.
 
-That gap becomes risky before v0.11 self-improvement. A rebuild skill or coding agent needs a declared development contract rather than whatever happens to be installed on the current machine.
+That gap becomes risky before v0.12 self-improvement. A rebuild skill or coding agent needs a declared development contract rather than whatever happens to be installed on the current machine.
 
 ## Decision
 
@@ -44,7 +44,7 @@ This ADR is about the **development environment**, not the end-user runtime post
 - Local macOS/Linux contributors and Codex Web workspaces get the same default toolchain.
 - Clippy/fmt/test behavior becomes more reproducible.
 - v0.10 provider expansion can assume a provider-free validation contract while the hosted/local provider matrix grows.
-- v0.11 self-improvement can assume a declared Rust toolchain contract.
+- v0.12 self-improvement can assume a declared Rust toolchain contract.
 
 **Negative**
 
@@ -58,6 +58,6 @@ This ADR is about the **development environment**, not the end-user runtime post
 
 ## References
 
-- [docs/plans/v0.9-developer-environment-and-codex-web.md](../plans/v0.9-developer-environment-and-codex-web.md)
+- [docs/plans/v0.09-developer-environment-and-codex-web.md](../plans/v0.09-developer-environment-and-codex-web.md)
 - [docs/plans/v0.10-provider-expansion.md](../plans/v0.10-provider-expansion.md)
-- [docs/plans/v0.11-self-improvement.md](../plans/v0.11-self-improvement.md)
+- [docs/plans/v0.12-self-improvement.md](../plans/v0.12-self-improvement.md)

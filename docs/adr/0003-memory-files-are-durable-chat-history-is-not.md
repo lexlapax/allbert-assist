@@ -3,6 +3,8 @@
 Date: 2026-04-17
 Status: Accepted
 
+> **Amended in part by [ADR 0077](0077-episode-and-fact-memory-are-indexed-recall-not-durable-memory.md) in v0.11**: session journals may be indexed as explicit `episode` recall, but they still are not approved durable memory and cannot bypass staging/promotion.
+
 ## Context
 
 [`docs/vision.md`](../vision.md) emphasizes markdown files "for posterity and transference." That implies durable state should be legible, portable, and intentionally curated rather than trapped in opaque runtime history. A competing option would be to persist chat transcripts and let those transcripts become de facto memory.
@@ -44,4 +46,4 @@ This preserves a visible durable-state model for v0.1 without making chat transc
 ## References
 
 - [docs/vision.md](../vision.md)
-- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md)
+- [docs/plans/v0.01-mvp.md](../plans/v0.01-mvp.md)

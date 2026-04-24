@@ -6,8 +6,8 @@ It is for contributors and coding agents working on the source tree.
 It is not the end-user operator guide for running Allbert as a personal assistant.
 
 For end-user/runtime usage, see:
-- [README.md](/Users/spuri/projects/lexlapax/allbert-assist/README.md)
-- [docs/onboarding-and-operations.md](/Users/spuri/projects/lexlapax/allbert-assist/docs/onboarding-and-operations.md)
+- [README.md](README.md)
+- [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md)
 
 ## Platform support
 
@@ -142,7 +142,7 @@ env -u RUSTC_WRAPPER cargo test -q -p allbert-kernel ollama_release_smoke -- --i
 
 Most contributor work requires no secrets.
 
-Optional live-check variables are documented in [.env.example](/Users/spuri/projects/lexlapax/allbert-assist/.env.example).
+Optional live-check variables are documented in [.env.example](.env.example).
 
 Common optional variables:
 - `ANTHROPIC_API_KEY`

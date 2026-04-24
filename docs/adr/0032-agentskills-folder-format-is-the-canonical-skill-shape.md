@@ -3,7 +3,7 @@
 Date: 2026-04-18
 Status: Accepted
 
-> **Amended in part by [ADR 0071](0071-self-authored-skills-route-through-the-standard-install-quarantine.md) in v0.11**: the optional frontmatter field list gains `provenance` (`external` | `local-path` | `git` | `self-authored`). Existing skills without the field load as `external`. Everything else in this ADR (folder layout, required frontmatter, name/description constraints, validation posture) remains in force.
+> **Amended in part by [ADR 0071](0071-self-authored-skills-route-through-the-standard-install-quarantine.md) in v0.12**: the optional frontmatter field list gains `provenance` (`external` | `local-path` | `git` | `self-authored`). Existing skills without the field load as `external`. Everything else in this ADR (folder layout, required frontmatter, name/description constraints, validation posture) remains in force.
 
 ## Context
 
@@ -57,5 +57,5 @@ v0.4 adopts the AgentSkills folder format as the canonical skill shape.
 - [ADR 0031](0031-skills-can-contribute-agents-via-frontmatter.md)
 - [ADR 0036](0036-progressive-disclosure-maps-to-prompt-construction-stages.md)
 - [ADR 0037](0037-single-file-skills-have-a-one-release-read-path-then-are-removed.md)
-- [docs/plans/v0.4-agentskills-adoption.md](../plans/v0.4-agentskills-adoption.md)
+- [docs/plans/v0.04-agentskills-adoption.md](../plans/v0.04-agentskills-adoption.md)
 - [agentskills.io](https://agentskills.io/home)

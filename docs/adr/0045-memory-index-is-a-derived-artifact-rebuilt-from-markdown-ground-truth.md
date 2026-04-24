@@ -41,7 +41,7 @@ The v0.5 memory index is a derived artifact only.
 
 ## References
 
-- [docs/plans/v0.5-curated-memory.md](../plans/v0.5-curated-memory.md)
+- [docs/plans/v0.05-curated-memory.md](../plans/v0.05-curated-memory.md)
 - [docs/plans/roadmap.md](../plans/roadmap.md)
 - [ADR 0038](0038-natural-interface-is-the-users-extension-surface.md)
 - [ADR 0041](0041-memory-retrieval-uses-bounded-prefetch-and-explicit-search-read.md)

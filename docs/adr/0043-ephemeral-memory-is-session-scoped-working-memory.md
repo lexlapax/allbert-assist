@@ -50,6 +50,6 @@ It is not a substitute for durable memory.
 
 ## References
 
-- [docs/plans/v0.5-curated-memory.md](../plans/v0.5-curated-memory.md)
+- [docs/plans/v0.05-curated-memory.md](../plans/v0.05-curated-memory.md)
 - [ADR 0003](0003-memory-files-are-durable-chat-history-is-not.md)
 - [ADR 0021](0021-kernel-multiplexes-sessions-shared-runtime-per-session-state.md)

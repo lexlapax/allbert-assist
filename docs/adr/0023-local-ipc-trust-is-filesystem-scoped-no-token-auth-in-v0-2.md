@@ -74,4 +74,4 @@ Local IPC trust is filesystem-scoped in v0.2. No token authentication, no client
 - [ADR 0009](0009-v0-1-tool-surface-expansion-and-policy-envelope.md)
 - [ADR 0015](0015-scheduled-jobs-fail-closed-on-interactive-actions.md)
 - [ADR 0020](0020-local-ipc-with-client-auto-spawn-is-the-v0-2-control-plane-default.md)
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)

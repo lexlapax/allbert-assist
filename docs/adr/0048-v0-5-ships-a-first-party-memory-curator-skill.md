@@ -65,7 +65,7 @@ This skill is the reference for what a memory-aware community skill looks like: 
 
 ## References
 
-- [docs/plans/v0.5-curated-memory.md](../plans/v0.5-curated-memory.md)
+- [docs/plans/v0.05-curated-memory.md](../plans/v0.05-curated-memory.md)
 - [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
 - [ADR 0033](0033-skill-install-is-explicit-with-preview-and-confirm.md)
 - [ADR 0034](0034-skill-scripts-run-under-the-same-exec-policy-as-tools.md)

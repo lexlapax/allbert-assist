@@ -42,4 +42,4 @@ v0.2 will target **a daemonized local runtime with an internal job manager**.
 - [docs/vision.md](../vision.md)
 - [docs/notes/origin-2026-04-17.md](../notes/origin-2026-04-17.md)
 - [docs/notes/v0.2-target-2026-04-18.md](../notes/v0.2-target-2026-04-18.md)
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)

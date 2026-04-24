@@ -61,7 +61,7 @@ Allbert will not adopt `AGENTS.md` or `HEARTBEAT.md` in v0.1. Those can be recon
 ## References
 
 - [docs/vision.md](../vision.md)
-- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md)
+- [docs/plans/v0.01-mvp.md](../plans/v0.01-mvp.md)
 - [ADR 0002](0002-skill-bodies-require-explicit-activation.md)
 - [ADR 0003](0003-memory-files-are-durable-chat-history-is-not.md)
 - [ADR 0006](0006-hook-api-is-public-from-day-one.md)

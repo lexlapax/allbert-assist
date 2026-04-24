@@ -40,6 +40,6 @@ v0.2 daemon shutdown is **bounded graceful**, and scheduled job failures must be
 
 ## References
 
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)
 - [ADR 0014](0014-v0-2-scheduling-is-owned-by-the-daemon-job-manager.md)
 - [ADR 0019](0019-v0-2-services-are-supervised-in-process-tasks-with-future-subprocess-seams.md)

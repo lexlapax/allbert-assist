@@ -1,0 +1,56 @@
+# ADR 0078: Semantic memory is optional derived retrieval
+
+Date: 2026-04-24
+Status: Proposed
+
+## Context
+
+ADR 0046 chose Tantivy/BM25 for v0.5 because it matched Allbert's markdown-first memory architecture and provider-free default validation. Embedding-based retrieval remains attractive for fuzzy recall, but making it default would add provider requirements, privacy questions, index complexity, and cost to normal operation.
+
+v0.11 can prepare for semantic recall without changing the default retrieval contract.
+
+## Decision
+
+Semantic retrieval is optional and derived.
+
+```toml
+[memory.semantic]
+enabled = false
+provider = "none"
+embedding_model = ""
+hybrid_weight = 0.35
+```
+
+Rules:
+
+- BM25/Tantivy remains the default retriever.
+- When semantic retrieval is disabled, no embedding calls are made.
+- When enabled, embeddings are stored in a derived index under `memory/index/semantic/`.
+- The semantic index can be deleted and rebuilt from markdown ground truth.
+- Hybrid ranking deterministically fuses BM25 and semantic scores.
+- Provider-free tests use a fake deterministic embedding provider.
+
+## Consequences
+
+**Positive**
+
+- Allbert gains a path toward fuzzy recall without forcing hosted providers or vector dependencies on every user.
+- Default memory search remains fast, local, and provider-free.
+- Semantic retrieval can be evaluated experimentally without replacing Tantivy.
+
+**Negative**
+
+- Hybrid ranking adds tuning complexity when enabled.
+- Operators need clear documentation about embedding provider privacy and cost.
+
+**Neutral**
+
+- A future release may promote a local embedding model as a recommended default, but v0.11 does not.
+
+## References
+
+- [docs/plans/v0.11-tui-and-memory.md](../plans/v0.11-tui-and-memory.md)
+- [ADR 0045](0045-memory-index-is-a-derived-artifact-rebuilt-from-markdown-ground-truth.md)
+- [ADR 0046](0046-v0-5-memory-retrieval-uses-tantivy.md)
+- [ADR 0066](0066-owned-provider-seam-over-rig-for-v0-10.md)
+

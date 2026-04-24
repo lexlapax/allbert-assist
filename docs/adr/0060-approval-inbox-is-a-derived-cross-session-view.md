@@ -3,7 +3,7 @@
 Date: 2026-04-20
 Status: Accepted
 
-> **Amended in part by [ADR 0073](0073-rebuild-patch-approval-is-a-new-inbox-kind.md) in v0.11**: a fourth inbox kind `patch-approval` is added for rebuild diffs, with diff artifacts stored outside the approval markdown and accept/reject semantics tuned for the rebuild install flow. The inbox file layout, identity scoping, and retention defaults in this ADR remain in force.
+> **Amended in part by [ADR 0073](0073-rebuild-patch-approval-is-a-new-inbox-kind.md) in v0.12**: a fourth inbox kind `patch-approval` is added for rebuild diffs, with diff artifacts stored outside the approval markdown and accept/reject semantics tuned for the rebuild install flow. The inbox file layout, identity scoping, and retention defaults in this ADR remain in force.
 
 ## Context
 
@@ -112,4 +112,4 @@ Channel adapters (Telegram, future) use their channel-native vocabulary to resol
 - [ADR 0058](0058-local-user-identity-record-unifies-channel-senders.md)
 - [ADR 0059](0059-sessions-routed-by-identity-with-cross-channel-resume.md)
 - [ADR 0061](0061-local-only-continuity-posture.md)
-- [docs/plans/v0.8-continuity-and-sync.md](../plans/v0.8-continuity-and-sync.md)
+- [docs/plans/v0.08-continuity-and-sync.md](../plans/v0.08-continuity-and-sync.md)

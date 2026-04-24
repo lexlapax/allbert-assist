@@ -41,5 +41,5 @@ Session trust is a UX convenience, not a policy promise.
 
 ## References
 
-- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md)
+- [docs/plans/v0.01-mvp.md](../plans/v0.01-mvp.md)
 - [ADR 0004](0004-process-exec-uses-direct-spawn-and-central-policy.md)

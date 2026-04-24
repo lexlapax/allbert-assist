@@ -42,6 +42,6 @@ This ADR does **not** remove raw file tools:
 
 ## References
 
-- [docs/plans/v0.5-curated-memory.md](../plans/v0.5-curated-memory.md)
+- [docs/plans/v0.05-curated-memory.md](../plans/v0.05-curated-memory.md)
 - [ADR 0009](0009-v0-1-tool-surface-expansion-and-policy-envelope.md)
 - [ADR 0027](0027-durable-schedule-mutations-require-preview-and-explicit-confirmation.md)

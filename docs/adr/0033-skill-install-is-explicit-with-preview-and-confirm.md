@@ -49,4 +49,4 @@ Every skill install goes through an explicit preview + confirmation step before 
 - [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
 - [ADR 0034](0034-skill-scripts-run-under-the-same-exec-policy-as-tools.md)
 - [ADR 0035](0035-remote-skill-registry-is-deferred-v0-4-sources-are-local-path-and-git-url.md)
-- [docs/plans/v0.4-agentskills-adoption.md](../plans/v0.4-agentskills-adoption.md)
+- [docs/plans/v0.04-agentskills-adoption.md](../plans/v0.04-agentskills-adoption.md)

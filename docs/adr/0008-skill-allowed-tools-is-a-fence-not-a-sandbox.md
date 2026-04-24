@@ -37,6 +37,6 @@ A skill's `allowed-tools` list is a **narrowing fence**, not a sandbox.
 
 ## References
 
-- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md)
+- [docs/plans/v0.01-mvp.md](../plans/v0.01-mvp.md)
 - [ADR 0002](0002-skill-bodies-require-explicit-activation.md)
 - [ADR 0004](0004-process-exec-uses-direct-spawn-and-central-policy.md)

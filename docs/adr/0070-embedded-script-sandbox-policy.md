@@ -5,17 +5,17 @@ Status: Proposed
 
 ## Context
 
-ADR 0069 establishes the `ScriptingEngine` trait and picks `mlua` as the v0.11 embedded Lua runtime. That is the seam, not the policy. The policy question — what an embedded script is and is not allowed to do — needs its own decision because:
+ADR 0069 establishes the `ScriptingEngine` trait and picks `mlua` as the v0.12 embedded Lua runtime. That is the seam, not the policy. The policy question — what an embedded script is and is not allowed to do — needs its own decision because:
 
 - An embedded script runs **in-process**. A subprocess that misbehaves can be SIGKILL'd; a Lua coroutine that escapes the sandbox can leak memory, corrupt host state, or panic the daemon.
 - The host kernel cares about three independent caps: execution time (a script that loops forever), memory (a script that allocates without bound), and output size (a script that returns a 1 GB string). All three must terminate the script cleanly without taking down the host.
 - Lua's standard library spans benign functional helpers (`string`, `math`, `table`) and direct OS access (`io`, `os`, `package`, `require`). Allowing the latter by default would defeat the entire point of the sandbox.
 
-The sandbox policy is also the one place where "we ship a default" matters most. v0.11 ships exactly one engine, but the policy contract here is what a future engine (WASM, QuickJS, Rhai) MUST satisfy to be a drop-in. So this ADR is two things at once: the policy for the Lua implementation, and the policy contract any future implementation behind ADR 0069's trait must meet.
+The sandbox policy is also the one place where "we ship a default" matters most. v0.12 ships exactly one engine, but the policy contract here is what a future engine (WASM, QuickJS, Rhai) MUST satisfy to be a drop-in. So this ADR is two things at once: the policy for the Lua implementation, and the policy contract any future implementation behind ADR 0069's trait must meet.
 
 ## Decision
 
-v0.11 introduces a sandbox policy for embedded scripts with three components: a stdlib allowlist, three independent budget caps, and a config schema that makes both visible and tunable.
+v0.12 introduces a sandbox policy for embedded scripts with three components: a stdlib allowlist, three independent budget caps, and a config schema that makes both visible and tunable.
 
 ### Stdlib allowlist (Lua specifics)
 
@@ -66,7 +66,7 @@ Under `[security.scripting.lua]` in TOML:
 
 ```toml
 [security.scripting.lua]
-sandbox_mode      = "strict"                                   # only supported value in v0.11
+sandbox_mode      = "strict"                                   # only supported value in v0.12
 max_execution_ms  = 1000
 max_memory_kb     = 65536
 max_output_bytes  = 1048576
@@ -74,7 +74,7 @@ allow_stdlib      = ["string", "math", "table"]
 deny_stdlib       = ["io", "os", "package", "require", "debug"]
 ```
 
-`sandbox_mode = "strict"` is the only supported value in v0.11; other modes are intentionally not introduced. This keeps the policy surface small and forecloses a "we'll just turn off the sandbox for this one skill" failure mode.
+`sandbox_mode = "strict"` is the only supported value in v0.12; other modes are intentionally not introduced. This keeps the policy surface small and forecloses a "we'll just turn off the sandbox for this one skill" failure mode.
 
 The `allow_stdlib` list MAY be widened by the operator (e.g. to add `bit32`); `deny_stdlib` is treated as the hard floor — anything in `deny_stdlib` cannot be re-allowed by adding it to `allow_stdlib`. This mirrors ADR 0034's `security.exec_deny` precedence over `security.exec_allow`.
 
@@ -116,12 +116,12 @@ If any future audit reveals that a script can escape the sandbox (read files, ma
 
 ## References
 
-- [docs/plans/v0.11-self-improvement.md](../plans/v0.11-self-improvement.md)
+- [docs/plans/v0.12-self-improvement.md](../plans/v0.12-self-improvement.md)
 - [ADR 0004](0004-process-exec-uses-direct-spawn-and-central-policy.md)
-- [ADR 0006](0006-tool-events-and-hooks-have-stable-names.md)
+- [ADR 0006](0006-hook-api-is-public-from-day-one.md)
 - [ADR 0033](0033-skill-install-is-explicit-with-preview-and-confirm.md)
 - [ADR 0034](0034-skill-scripts-run-under-the-same-exec-policy-as-tools.md)
-- [ADR 0069](0069-scripting-engine-trait-with-lua-as-the-v0-11-default-embedded-runtime.md)
+- [ADR 0069](0069-scripting-engine-trait-with-lua-as-the-v0-12-default-embedded-runtime.md)
 - [mlua sandbox mode](https://docs.rs/mlua/latest/mlua/struct.Lua.html#method.sandbox)
 - [mlua memory limits](https://docs.rs/mlua/latest/mlua/struct.Lua.html#method.set_memory_limit)
 - [Lua 5.4 standard library](https://www.lua.org/manual/5.4/manual.html#6)

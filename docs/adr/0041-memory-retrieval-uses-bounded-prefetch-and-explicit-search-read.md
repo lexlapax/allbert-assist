@@ -3,6 +3,8 @@
 Date: 2026-04-20
 Status: Accepted
 
+> **Amended in part by [ADR 0077](0077-episode-and-fact-memory-are-indexed-recall-not-durable-memory.md) in v0.11**: explicit search gains `episode` and `fact` recall tiers. Default automatic prefetch remains conservative and does not auto-inject staging or episode history.
+
 ## Context
 
 Once durable memory grows beyond a few always-injected snippets, the runtime needs a retrieval strategy. The two bad extremes are:
@@ -57,6 +59,6 @@ v0.5 uses a single retrieval index with a `tier` field per document (`durable` o
 
 ## References
 
-- [docs/plans/v0.5-curated-memory.md](../plans/v0.5-curated-memory.md)
+- [docs/plans/v0.05-curated-memory.md](../plans/v0.05-curated-memory.md)
 - [ADR 0036](0036-progressive-disclosure-maps-to-prompt-construction-stages.md)
 - [ADR 0045](0045-memory-index-is-a-derived-artifact-rebuilt-from-markdown-ground-truth.md)

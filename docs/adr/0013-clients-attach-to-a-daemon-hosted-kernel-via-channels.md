@@ -40,4 +40,4 @@ Clients will attach to a daemon-hosted kernel via channels.
 ## References
 
 - [ADR 0001](0001-kernel-is-runtime-core-frontends-are-adapters.md)
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)

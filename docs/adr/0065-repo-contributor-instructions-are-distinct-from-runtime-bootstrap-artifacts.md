@@ -42,4 +42,4 @@ Contributor docs must call out this distinction explicitly anywhere the name cou
 ## References
 
 - [ADR 0039](0039-agents-md-joins-the-bootstrap-bundle-in-v0-3.md)
-- [docs/plans/v0.9-developer-environment-and-codex-web.md](../plans/v0.9-developer-environment-and-codex-web.md)
+- [docs/plans/v0.09-developer-environment-and-codex-web.md](../plans/v0.09-developer-environment-and-codex-web.md)

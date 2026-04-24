@@ -47,4 +47,4 @@ Allbert's prompt builder surfaces AgentSkills tiers explicitly.
 - [ADR 0030](0030-intent-routing-is-a-kernel-step-not-a-skill-concern.md)
 - [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
 - [ADR 0034](0034-skill-scripts-run-under-the-same-exec-policy-as-tools.md)
-- [docs/plans/v0.4-agentskills-adoption.md](../plans/v0.4-agentskills-adoption.md)
+- [docs/plans/v0.04-agentskills-adoption.md](../plans/v0.04-agentskills-adoption.md)

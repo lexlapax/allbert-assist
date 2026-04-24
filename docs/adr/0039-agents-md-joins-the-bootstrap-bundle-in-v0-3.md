@@ -60,4 +60,4 @@ Option 1 keeps the roster invisible to the prompt layer. Option 2 would give use
 - [ADR 0029](0029-agents-are-first-class-runtime-participants.md)
 - [ADR 0031](0031-skills-can-contribute-agents-via-frontmatter.md)
 - [ADR 0038](0038-natural-interface-is-the-users-extension-surface.md)
-- [docs/plans/v0.3-agent-harness.md](../plans/v0.3-agent-harness.md)
+- [docs/plans/v0.03-agent-harness.md](../plans/v0.03-agent-harness.md)

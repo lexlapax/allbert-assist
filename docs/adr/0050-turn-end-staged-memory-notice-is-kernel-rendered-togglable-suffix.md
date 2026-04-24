@@ -54,4 +54,4 @@ Example rendering:
 - [ADR 0042](0042-autonomous-learned-memory-writes-go-to-staging-before-promotion.md)
 - [ADR 0047](0047-staged-memory-entries-have-a-fixed-schema-and-limits.md)
 - [ADR 0048](0048-v0-5-ships-a-first-party-memory-curator-skill.md)
-- [docs/plans/v0.6-foundation-hardening.md](../plans/v0.6-foundation-hardening.md)
+- [docs/plans/v0.06-foundation-hardening.md](../plans/v0.06-foundation-hardening.md)

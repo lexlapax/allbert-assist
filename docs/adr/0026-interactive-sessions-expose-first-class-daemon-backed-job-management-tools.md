@@ -50,6 +50,6 @@ These tools should call into `JobManagerService` through the existing daemon-own
 
 ## References
 
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)
 - [ADR 0013](0013-clients-attach-to-a-daemon-hosted-kernel-via-channels.md)
 - [ADR 0022](0022-job-definitions-are-markdown-with-frontmatter-and-a-bounded-schedule-dsl.md)

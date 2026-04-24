@@ -68,4 +68,4 @@ Tier B is never required for routine contributor green status in v0.9.
 
 ## References
 
-- [docs/plans/v0.9-developer-environment-and-codex-web.md](../plans/v0.9-developer-environment-and-codex-web.md)
+- [docs/plans/v0.09-developer-environment-and-codex-web.md](../plans/v0.09-developer-environment-and-codex-web.md)

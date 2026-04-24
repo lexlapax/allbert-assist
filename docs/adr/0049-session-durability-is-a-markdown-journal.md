@@ -3,6 +3,8 @@
 Date: 2026-04-20
 Status: Accepted
 
+> **Amended in part by [ADR 0077](0077-episode-and-fact-memory-are-indexed-recall-not-durable-memory.md) in v0.11**: session journals may feed an explicit `episode` search tier. Journals remain working state, not learned durable memory.
+
 ## Context
 
 Through v0.5, REPL session state is held only in live daemon memory. Reattaching from a new client reuses existing in-memory state while the daemon runs, but a daemon restart clears everything. For a personal assistant whose value proposition is "remembers you," this is fragile: any OS upgrade, power event, or operator-triggered restart silently discards conversational context.

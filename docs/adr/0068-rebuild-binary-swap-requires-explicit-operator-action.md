@@ -5,7 +5,7 @@ Status: Proposed
 
 ## Context
 
-The v0.11 rebuild skill (ADR 0067) produces a diff plus a built binary inside `~/.allbert/worktrees/<branch>/target/release/`. The natural next question is: how does that binary become the running daemon?
+The v0.12 rebuild skill (ADR 0067) produces a diff plus a built binary inside `~/.allbert/worktrees/<branch>/target/release/`. The natural next question is: how does that binary become the running daemon?
 
 Three options:
 
@@ -66,7 +66,7 @@ This is the same operational model contributors already use day-to-day, and it i
 **Negative**
 
 - Self-improvement is a multi-step ritual rather than a one-click flow. Operators who want a faster loop may script the post-approve install themselves; that scripting is their choice and lives in their environment.
-- Cannot push a hot-fix from one Allbert instance to another via this path. Out of scope; cross-device sync is not v0.11's problem (and was explicitly deferred per ADR 0061).
+- Cannot push a hot-fix from one Allbert instance to another via this path. Out of scope; cross-device sync is not v0.12's problem (and was explicitly deferred per ADR 0061).
 
 **Neutral**
 
@@ -75,8 +75,8 @@ This is the same operational model contributors already use day-to-day, and it i
 
 ## References
 
-- [docs/plans/v0.11-self-improvement.md](../plans/v0.11-self-improvement.md)
-- [ADR 0006](0006-tool-events-and-hooks-have-stable-names.md)
+- [docs/plans/v0.12-self-improvement.md](../plans/v0.12-self-improvement.md)
+- [ADR 0006](0006-hook-api-is-public-from-day-one.md)
 - [ADR 0010](0010-bootstrap-personality-files-are-first-class-runtime-context.md)
 - [ADR 0038](0038-natural-interface-is-the-users-extension-surface.md)
 - [ADR 0049](0049-session-durability-is-a-markdown-journal.md)

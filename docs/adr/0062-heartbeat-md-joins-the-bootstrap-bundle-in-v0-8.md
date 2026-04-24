@@ -115,5 +115,5 @@ Per ADR 0061, `HEARTBEAT.md` is continuity-bearing and ships in profile export/i
 - [ADR 0058](0058-local-user-identity-record-unifies-channel-senders.md)
 - [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md)
 - [ADR 0061](0061-local-only-continuity-posture.md)
-- [docs/plans/v0.6-foundation-hardening.md](../plans/v0.6-foundation-hardening.md) — M5 deferred jobs that this ADR unblocks.
-- [docs/plans/v0.8-continuity-and-sync.md](../plans/v0.8-continuity-and-sync.md)
+- [docs/plans/v0.06-foundation-hardening.md](../plans/v0.06-foundation-hardening.md) — M5 deferred jobs that this ADR unblocks.
+- [docs/plans/v0.08-continuity-and-sync.md](../plans/v0.08-continuity-and-sync.md)

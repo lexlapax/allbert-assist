@@ -48,4 +48,4 @@ Skill scripts run under the same exec policy as tools.
 - [ADR 0009](0009-v0-1-tool-surface-expansion-and-policy-envelope.md)
 - [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
 - [ADR 0033](0033-skill-install-is-explicit-with-preview-and-confirm.md)
-- [docs/plans/v0.4-agentskills-adoption.md](../plans/v0.4-agentskills-adoption.md)
+- [docs/plans/v0.04-agentskills-adoption.md](../plans/v0.04-agentskills-adoption.md)

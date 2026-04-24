@@ -118,4 +118,4 @@ Operators can migrate incrementally; nothing about v0.7 behaviour is removed.
 - [ADR 0059](0059-sessions-routed-by-identity-with-cross-channel-resume.md)
 - [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md)
 - [ADR 0061](0061-local-only-continuity-posture.md)
-- [docs/plans/v0.8-continuity-and-sync.md](../plans/v0.8-continuity-and-sync.md)
+- [docs/plans/v0.08-continuity-and-sync.md](../plans/v0.08-continuity-and-sync.md)

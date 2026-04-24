@@ -37,6 +37,6 @@ v0.2's primary operator surface is unified under `allbert-cli`.
 
 ## References
 
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)
 - [ADR 0013](0013-clients-attach-to-a-daemon-hosted-kernel-via-channels.md)
 - [ADR 0026](0026-interactive-sessions-expose-first-class-daemon-backed-job-management-tools.md)

@@ -41,4 +41,4 @@ v0.2 scheduling will be **owned by the daemon's internal job manager**.
 
 - [docs/notes/origin-2026-04-17.md](../notes/origin-2026-04-17.md)
 - [docs/notes/v0.2-target-2026-04-18.md](../notes/v0.2-target-2026-04-18.md)
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)

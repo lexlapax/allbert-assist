@@ -44,4 +44,4 @@ Intent routing is a kernel step.
 - [ADR 0006](0006-hook-api-is-public-from-day-one.md)
 - [ADR 0021](0021-kernel-multiplexes-sessions-shared-runtime-per-session-state.md)
 - [ADR 0029](0029-agents-are-first-class-runtime-participants.md)
-- [docs/plans/v0.3-agent-harness.md](../plans/v0.3-agent-harness.md)
+- [docs/plans/v0.03-agent-harness.md](../plans/v0.03-agent-harness.md)

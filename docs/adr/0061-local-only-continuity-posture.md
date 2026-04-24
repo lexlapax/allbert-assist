@@ -14,7 +14,7 @@ v0.8 promises "continuity across surfaces" without committing to a hosted sync b
 
 Through v0.7 these concerns were implicit: the paths exist, the writes are mostly atomic, but nothing in the documentation told an operator which directories to sync and which to leave alone. Accidental sync of `~/.allbert/index/` would thrash; accidental sync of `~/.allbert/secrets/` would exfiltrate; accidental cross-host daemons on the same profile would corrupt.
 
-v0.8 resolves the sync story without committing to a hosted backend. The daemon stays local-only through v0.11; this ADR codifies the posture.
+v0.8 resolves the sync story without committing to a hosted backend. The daemon stays local-only through v0.12; this ADR codifies the posture.
 
 ## Decision
 
@@ -54,7 +54,7 @@ Every file under `~/.allbert/` falls into exactly one category.
 
 | Path | Why device-local |
 | --- | --- |
-| `costs.jsonl` | Per-device accounting (ADR 0051); cap aggregation across devices is out of scope through v0.11. |
+| `costs.jsonl` | Per-device accounting (ADR 0051); cap aggregation across devices is out of scope through v0.12. |
 | `daemon.lock` | Describes the local daemon process; meaningless elsewhere. |
 
 ### Concurrency guard: `daemon.lock`
@@ -129,7 +129,7 @@ allbert-cli profile import <path.tgz> [--overlay | --replace] [--yes]
 
 ### Cross-device cost cap: per-device (documented limitation)
 
-`limits.daily_usd_cap` (ADR 0051) stays per-device in v0.8. Operators running the same profile on two devices get an aggregate cap of roughly 2× the configured value. This is documented; cross-device aggregation would require either a central counter or a file-sync-safe CRDT and is out of scope through v0.11 alongside the hosted sync backend.
+`limits.daily_usd_cap` (ADR 0051) stays per-device in v0.8. Operators running the same profile on two devices get an aggregate cap of roughly 2× the configured value. This is documented; cross-device aggregation would require either a central counter or a file-sync-safe CRDT and is out of scope through v0.12 alongside the hosted sync backend.
 
 ### Filesystem sync (Syncthing et al.)
 
@@ -155,7 +155,7 @@ No conflict-resolution protocol is shipped. The operator promises not to run two
 **Neutral**
 
 - Ground-truth layout is unchanged. Everything this ADR lists already exists; the contribution is catalog + lockfile + export/import + atomic-write audit.
-- Keeps the door open for a future hosted sync backend (beyond v0.11) without invalidating local-only deployments.
+- Keeps the door open for a future hosted sync backend (beyond v0.12) without invalidating local-only deployments.
 - Compatible with the network-addressable-daemon deferral. Local-only is the safe default; network access is an explicit future design pass.
 
 ## References
@@ -164,14 +164,14 @@ No conflict-resolution protocol is shipped. The operator promises not to run two
 - [ADR 0022](0022-job-definitions-are-markdown-with-frontmatter-and-a-bounded-schedule-dsl.md)
 - [ADR 0023](0023-local-ipc-trust-is-filesystem-scoped-no-token-auth-in-v0-2.md)
 - [ADR 0025](0025-v0-2-daemon-shutdown-is-bounded-graceful-and-job-failures-are-surfaced.md)
-- [ADR 0032](0032-skills-live-as-agentskills-folders.md)
-- [ADR 0037](0037-strict-cutover-to-agentskills-folder-format-in-v0-4.md)
+- [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
+- [ADR 0037](0037-single-file-skills-have-a-one-release-read-path-then-are-removed.md)
 - [ADR 0045](0045-memory-index-is-a-derived-artifact-rebuilt-from-markdown-ground-truth.md)
-- [ADR 0046](0046-single-tantivy-index-with-tier-filter.md)
+- [ADR 0046](0046-v0-5-memory-retrieval-uses-tantivy.md)
 - [ADR 0049](0049-session-durability-is-a-markdown-journal.md)
 - [ADR 0051](0051-daily-cost-cap-is-a-hard-gate-at-turn-boundary.md)
 - [ADR 0057](0057-telegram-pilot-uses-teloxide-and-long-polling.md)
 - [ADR 0058](0058-local-user-identity-record-unifies-channel-senders.md)
 - [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md)
 - [ADR 0062](0062-heartbeat-md-joins-the-bootstrap-bundle-in-v0-8.md)
-- [docs/plans/v0.8-continuity-and-sync.md](../plans/v0.8-continuity-and-sync.md)
+- [docs/plans/v0.08-continuity-and-sync.md](../plans/v0.08-continuity-and-sync.md)

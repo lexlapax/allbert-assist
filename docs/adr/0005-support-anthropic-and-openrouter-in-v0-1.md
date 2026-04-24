@@ -36,4 +36,4 @@ Provider metadata, especially OpenRouter pricing data, is best-effort. Failure t
 
 ## References
 
-- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md)
+- [docs/plans/v0.01-mvp.md](../plans/v0.01-mvp.md)

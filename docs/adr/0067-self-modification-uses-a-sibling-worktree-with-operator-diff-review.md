@@ -5,7 +5,7 @@ Status: Proposed
 
 ## Context
 
-v0.11 ships a Rust rebuild skill (`rust-rebuild`) that lets Allbert read, modify, build, and test its own source tree. That capability needs a concrete answer to four questions before any code lands:
+v0.12 ships a Rust rebuild skill (`rust-rebuild`) that lets Allbert read, modify, build, and test its own source tree. That capability needs a concrete answer to four questions before any code lands:
 
 1. **Where do edits happen?** Editing the active source checkout in place is the simplest model but it makes a broken edit immediately fatal: a failing `cargo build` in the same tree the running daemon is built from corrupts incremental state and can take down the operator's working setup. Editing somewhere isolated avoids that, but introduces a sibling-tree management problem.
 2. **What is allowed to live in that workspace?** Without a path-allowlist, the rebuild agent could touch user data (sessions, memory, identity, secrets), other skills, or even its own source files in a way that subtly breaks the next rebuild.
@@ -64,13 +64,13 @@ The diff produced by a successful (or `needs-review`) build is routed through a 
 
 ### Cost-cap interaction with long builds
 
-`cargo build` and `cargo test` can take many minutes of wall-clock time but consume zero model tokens once the agent has emitted the build commands. ADR 0051 caps daily model spend at the turn boundary. v0.11 reaffirms that cap shape:
+`cargo build` and `cargo test` can take many minutes of wall-clock time but consume zero model tokens once the agent has emitted the build commands. ADR 0051 caps daily model spend at the turn boundary. v0.12 reaffirms that cap shape:
 
 - Tier A validation counts as a single turn-unit for ADR 0051 accounting.
 - Wall-clock build time is **not** charged against the cap; only model token usage is metered.
 - A rebuild turn that exceeds the daily cap mid-run refuses at the next turn boundary per ADR 0051 — the same way any long-running tool sequence does.
 
-This resolves the v0.11-pre-implementation ambiguity about whether a 20-minute test run "exceeds the cap." It does not, unless the model is also generating tokens during that 20 minutes.
+This resolves the v0.12-pre-implementation ambiguity about whether a 20-minute test run "exceeds the cap." It does not, unless the model is also generating tokens during that 20 minutes.
 
 ### cargo network access
 
@@ -90,7 +90,7 @@ This resolves the v0.11-pre-implementation ambiguity about whether a 20-minute t
 
 - Each worktree carries its own `target/` directory — disk cost can be 1–5 GB per active worktree. Mitigated by the `max_worktree_gb` cap and operator-driven GC.
 - Cold first-build per worktree is slower than incremental builds in the main checkout. Acceptable trade for isolation.
-- Operators without a source checkout cannot use `rust-rebuild` at all in v0.11. This is the right scope: those operators can still use `skill-author` and the scripting engine.
+- Operators without a source checkout cannot use `rust-rebuild` at all in v0.12. This is the right scope: those operators can still use `skill-author` and the scripting engine.
 
 **Neutral**
 
@@ -99,7 +99,7 @@ This resolves the v0.11-pre-implementation ambiguity about whether a 20-minute t
 
 ## References
 
-- [docs/plans/v0.11-self-improvement.md](../plans/v0.11-self-improvement.md)
+- [docs/plans/v0.12-self-improvement.md](../plans/v0.12-self-improvement.md)
 - [ADR 0004](0004-process-exec-uses-direct-spawn-and-central-policy.md)
 - [ADR 0033](0033-skill-install-is-explicit-with-preview-and-confirm.md)
 - [ADR 0034](0034-skill-scripts-run-under-the-same-exec-policy-as-tools.md)

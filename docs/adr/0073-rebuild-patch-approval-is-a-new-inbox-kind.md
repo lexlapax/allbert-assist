@@ -7,7 +7,7 @@ Amends: [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md)
 
 ## Context
 
-v0.11's Rust rebuild skill (ADR 0067) produces diffs that the operator must review before any installation. The v0.8 approval inbox (ADR 0060) already handles three kinds of operator-pending actions — `tool-approval`, `cost-cap-override`, `job-approval` — using a uniform on-disk file layout (markdown + frontmatter, addressable by approval id, identity-scoped).
+v0.12's Rust rebuild skill (ADR 0067) produces diffs that the operator must review before any installation. The v0.8 approval inbox (ADR 0060) already handles three kinds of operator-pending actions — `tool-approval`, `cost-cap-override`, `job-approval` — using a uniform on-disk file layout (markdown + frontmatter, addressable by approval id, identity-scoped).
 
 Reusing the inbox for rebuild patches is the right choice. Inventing a parallel "patch review" surface would fragment operator UX: the operator already knows how `inbox list / show / accept / reject` works. But rebuild diffs are different in shape from the existing kinds in three ways:
 
@@ -114,7 +114,7 @@ Patch approvals follow the same retention as other inbox kinds: pending and reso
 **Negative**
 
 - A fourth inbox kind adds rendering surface in the inbox CLI. Acceptable: rendering is per-kind anyway, and the patterns from cost-cap-override and job-approval already established that inbox rendering is kind-aware.
-- Operators may expect `inbox accept` to actually do the install. Documentation in `docs/operator/self-improvement.md` (M10 in the v0.11 plan) covers this; the renderer message also calls it out.
+- Operators may expect `inbox accept` to actually do the install. Documentation in `docs/operator/self-improvement.md` (M9 in the v0.12 plan) covers this; the renderer message also calls it out.
 
 **Neutral**
 
@@ -123,7 +123,7 @@ Patch approvals follow the same retention as other inbox kinds: pending and reso
 
 ## References
 
-- [docs/plans/v0.11-self-improvement.md](../plans/v0.11-self-improvement.md)
+- [docs/plans/v0.12-self-improvement.md](../plans/v0.12-self-improvement.md)
 - [ADR 0045](0045-memory-index-is-a-derived-artifact-rebuilt-from-markdown-ground-truth.md)
 - [ADR 0049](0049-session-durability-is-a-markdown-journal.md)
 - [ADR 0056](0056-async-confirm-is-a-suspend-resume-turn-state.md)

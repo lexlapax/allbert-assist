@@ -40,4 +40,4 @@ This makes activation an explicit runtime event rather than an ambient property 
 
 ## References
 
-- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md)
+- [docs/plans/v0.01-mvp.md](../plans/v0.01-mvp.md)

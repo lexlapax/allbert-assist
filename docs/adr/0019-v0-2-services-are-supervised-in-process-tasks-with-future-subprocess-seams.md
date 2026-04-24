@@ -36,4 +36,4 @@ v0.2 services will be supervised in-process tasks first, with explicit seams for
 ## References
 
 - [docs/vision.md](../vision.md)
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)

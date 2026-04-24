@@ -76,4 +76,4 @@ The v0.5 tool-call protocol does not change from the model's perspective — the
 - [ADR 0006](0006-hook-api-is-public-from-day-one.md) — hook API.
 - [ADR 0008](0008-skill-allowed-tools-is-a-fence-not-a-sandbox.md) — capability fence survives the refactor.
 - [ADR 0038](0038-natural-interface-is-the-users-extension-surface.md) — end-user-facing contract unchanged; tools are model-facing.
-- [docs/plans/v0.7-channel-expansion.md](../plans/v0.7-channel-expansion.md)
+- [docs/plans/v0.07-channel-expansion.md](../plans/v0.07-channel-expansion.md)

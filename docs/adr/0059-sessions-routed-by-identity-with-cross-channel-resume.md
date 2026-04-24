@@ -91,4 +91,4 @@ Jobs have no identity and no inbound channel. Job-run sessions remain one-sessio
 - [ADR 0058](0058-local-user-identity-record-unifies-channel-senders.md)
 - [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md)
 - [ADR 0061](0061-local-only-continuity-posture.md)
-- [docs/plans/v0.8-continuity-and-sync.md](../plans/v0.8-continuity-and-sync.md)
+- [docs/plans/v0.08-continuity-and-sync.md](../plans/v0.08-continuity-and-sync.md)

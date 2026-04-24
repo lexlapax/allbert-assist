@@ -43,5 +43,5 @@ Hooks are the intended extension seam for policy, observability, and future feat
 
 ## References
 
-- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md)
+- [docs/plans/v0.01-mvp.md](../plans/v0.01-mvp.md)
 - [ADR 0001](0001-kernel-is-runtime-core-frontends-are-adapters.md)

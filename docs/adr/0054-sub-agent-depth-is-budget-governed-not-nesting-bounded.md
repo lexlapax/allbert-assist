@@ -5,7 +5,7 @@ Status: Accepted
 
 ## Context
 
-v0.5 caps sub-agent spawning at one nested level per [v0.3](../plans/v0.3-agent-harness.md) and the [v0.5 plan](../plans/v0.5-curated-memory.md). The cap protects against runaway loops and unbounded cost.
+v0.5 caps sub-agent spawning at one nested level per [v0.3](../plans/v0.03-agent-harness.md) and the [v0.5 plan](../plans/v0.05-curated-memory.md). The cap protects against runaway loops and unbounded cost.
 
 Real multi-step workflows routinely need more depth. A research task might spawn a reader sub-agent per source; each reader might spawn a targeted follow-up for a specific claim. Channel-driven workflows in v0.7 (especially Telegram queries that expand into multi-step investigations) will hit the one-level cap immediately.
 
@@ -95,9 +95,9 @@ This is a prompt-level policy; bootstrap prompts (`AGENTS.md`, `TOOLS.md`) docum
 
 ## References
 
-- [docs/plans/v0.3-agent-harness.md](../plans/v0.3-agent-harness.md)
-- [docs/plans/v0.5-curated-memory.md](../plans/v0.5-curated-memory.md) — one-level cap this ADR lifts.
-- [docs/plans/v0.7-channel-expansion.md](../plans/v0.7-channel-expansion.md)
+- [docs/plans/v0.03-agent-harness.md](../plans/v0.03-agent-harness.md)
+- [docs/plans/v0.05-curated-memory.md](../plans/v0.05-curated-memory.md) — one-level cap this ADR lifts.
+- [docs/plans/v0.07-channel-expansion.md](../plans/v0.07-channel-expansion.md)
 - [ADR 0022](0022-job-definitions-are-markdown-with-frontmatter-and-a-bounded-schedule-dsl.md)
 - [ADR 0029](0029-agents-are-first-class-runtime-participants.md)
 - [ADR 0044](0044-subagents-receive-filtered-memory-context-not-full-parent-recall.md)

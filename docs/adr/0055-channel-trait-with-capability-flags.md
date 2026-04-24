@@ -112,4 +112,4 @@ The daemon consults `capabilities()` at turn time:
 - [ADR 0050](0050-turn-end-staged-memory-notice-is-kernel-rendered-togglable-suffix.md)
 - [ADR 0056](0056-async-confirm-is-a-suspend-resume-turn-state.md)
 - [ADR 0057](0057-telegram-pilot-uses-teloxide-and-long-polling.md)
-- [docs/plans/v0.7-channel-expansion.md](../plans/v0.7-channel-expansion.md)
+- [docs/plans/v0.07-channel-expansion.md](../plans/v0.07-channel-expansion.md)

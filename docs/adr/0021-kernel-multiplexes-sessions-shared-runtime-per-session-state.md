@@ -61,4 +61,4 @@ The kernel multiplexes sessions. One `Kernel` instance owns many sessions concur
 - [ADR 0007](0007-session-scoped-exact-match-confirm-trust.md)
 - [ADR 0016](0016-scheduled-runs-use-fresh-sessions-and-may-attach-ordered-skills.md)
 - [ADR 0018](0018-kernel-must-be-capable-of-running-as-a-long-lived-daemon-host.md)
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)

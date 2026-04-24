@@ -37,5 +37,5 @@ v0.2 will ship bundled first-party job templates owned by the daemon-managed job
 
 ## References
 
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)
 - [docs/notes/v0.2-target-2026-04-18.md](../notes/v0.2-target-2026-04-18.md)

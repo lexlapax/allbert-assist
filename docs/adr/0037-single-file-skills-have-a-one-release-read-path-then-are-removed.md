@@ -41,4 +41,4 @@ v0.4 uses a clean cutover to strict AgentSkills-compatible skill trees.
 ## References
 
 - [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
-- [docs/plans/v0.4-agentskills-adoption.md](../plans/v0.4-agentskills-adoption.md)
+- [docs/plans/v0.04-agentskills-adoption.md](../plans/v0.04-agentskills-adoption.md)

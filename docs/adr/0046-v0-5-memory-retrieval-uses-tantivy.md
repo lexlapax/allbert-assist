@@ -3,6 +3,8 @@
 Date: 2026-04-20
 Status: Accepted
 
+> **Amended in part by [ADR 0078](0078-semantic-memory-is-optional-derived-retrieval.md) in v0.11**: BM25/Tantivy remains the default retriever. Semantic retrieval may layer alongside it only as an off-by-default derived index.
+
 ## Context
 
 v0.5 introduces curated memory (ADR 0040) with a two-part retrieval model: bounded prefetch plus explicit `search_memory` / `read_memory` (ADR 0041). The index is a derived artifact (ADR 0045). What v0.5 still has to commit to is the retrieval library.
@@ -75,7 +77,7 @@ The dependency footprint is non-trivial for a local-first binary. To prevent qui
 
 ## References
 
-- [docs/plans/v0.5-curated-memory.md](../plans/v0.5-curated-memory.md)
+- [docs/plans/v0.05-curated-memory.md](../plans/v0.05-curated-memory.md)
 - [ADR 0040](0040-curated-memory-has-identity-durable-staging-and-ephemeral-tiers.md)
 - [ADR 0041](0041-memory-retrieval-uses-bounded-prefetch-and-explicit-search-read.md)
 - [ADR 0045](0045-memory-index-is-a-derived-artifact-rebuilt-from-markdown-ground-truth.md)

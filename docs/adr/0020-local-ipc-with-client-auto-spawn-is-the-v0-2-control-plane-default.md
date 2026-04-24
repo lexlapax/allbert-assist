@@ -36,4 +36,4 @@ v0.2 uses local IPC with client auto-spawn as the default control plane.
 ## References
 
 - [docs/vision.md](../vision.md)
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)

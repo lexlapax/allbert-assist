@@ -1,4 +1,4 @@
-# ADR 0069: ScriptingEngine trait with Lua as the v0.11 default embedded runtime
+# ADR 0069: ScriptingEngine trait with Lua as the v0.12 default embedded runtime
 
 Date: 2026-04-23
 Status: Proposed
@@ -21,14 +21,14 @@ The candidate Lua crates were considered:
 | --- | --- | --- | --- |
 | `mlua` | Actively maintained, sync + async, builtin sandbox mode, explicit instruction-count and memory hooks | `Lua::sandbox(true)` plus stdlib trimming | **Chosen.** |
 | `rlua` | Older, no longer the active fork; many users have migrated to `mlua` | Manual | Rejected. |
-| `piccolo` | Pure-Rust Lua, interesting safety story | Limited stdlib parity | Rejected. Too early for v0.11. |
+| `piccolo` | Pure-Rust Lua, interesting safety story | Limited stdlib parity | Rejected. Too early for v0.12. |
 | `hlua` | Unmaintained | Manual | Rejected. |
 
 WebAssembly (e.g. `wasmtime`) was considered as an alternative. It offers excellent isolation but the developer ergonomics for skill-script-shaped use cases (many tiny scripts authored quickly) are weaker, and it pulls a much larger dependency. WASM remains an option for a future engine implementation behind the same seam.
 
 ## Decision
 
-v0.11 introduces a `ScriptingEngine` trait in the kernel. The v0.11 default implementation is **Lua via `mlua`**, configured with `Lua::sandbox(true)`. Both the seam and the implementation are opt-in.
+v0.12 introduces a `ScriptingEngine` trait in the kernel. The v0.12 default implementation is **Lua via `mlua`**, configured with `Lua::sandbox(true)`. Both the seam and the implementation are opt-in.
 
 ### The trait
 
@@ -81,11 +81,11 @@ pub enum ScriptOutcome {
 
 This is the load-bearing trust decision: scripts receive serialized inputs and return serialized outputs. There is no shared Rust reference, no pointer into session state, no direct memory service access from inside a script. Any data flow goes through the same tool surface every other extension uses (the script can `tool_call` to memory or other surfaces; it cannot bypass).
 
-This resolves the v0.11 pre-implementation question "do embedded scripts share memory with the host session?" — they do not. Anything else is a trust and lifetime minefield (the Lua VM and the Rust borrow checker disagree on what "alive" means).
+This resolves the v0.12 pre-implementation question "do embedded scripts share memory with the host session?" — they do not. Anything else is a trust and lifetime minefield (the Lua VM and the Rust borrow checker disagree on what "alive" means).
 
 ### Lua engine implementation
 
-`LuaEngine` is the sole `v0.11` implementation. It uses:
+`LuaEngine` is the sole `v0.12` implementation. It uses:
 
 - `mlua` with the `lua54` and `vendored` features (no system Lua dep);
 - `Lua::sandbox(true)` for the base sandbox;
@@ -103,7 +103,7 @@ scripts:
     path: scripts/score.lua
 ```
 
-This keeps the skill-author contract uniform: there is no parallel `lua_scripts:` section. Choosing `lua` as the interpreter has the same shape as choosing `python` or `bash`. The only difference is that `lua` requires the embedded engine to be enabled in config (M7/M8 in the v0.11 plan); a skill that declares Lua scripts without the engine enabled loads but cannot run those scripts (matching ADR 0034's behavior for bash/python without the allowlist entry).
+This keeps the skill-author contract uniform: there is no parallel `lua_scripts:` section. Choosing `lua` as the interpreter has the same shape as choosing `python` or `bash`. The only difference is that `lua` requires the embedded engine to be enabled in config (M7/M8 in the v0.12 plan); a skill that declares Lua scripts without the engine enabled loads but cannot run those scripts (matching ADR 0034's behavior for bash/python without the allowlist entry).
 
 ### Hook-observability convention
 
@@ -117,7 +117,7 @@ For example: `exec.lua:summarizer/scripts/score.lua`. The metadata payload mirro
 
 ### What this ADR does NOT decide
 
-- The specific sandbox policy (allowlist / cap defaults / sandbox modes) lives in ADR 0070. This ADR establishes the seam and picks the v0.11 implementation; the policy contract any implementation must satisfy is ADR 0070's job.
+- The specific sandbox policy (allowlist / cap defaults / sandbox modes) lives in ADR 0070. This ADR establishes the seam and picks the v0.12 implementation; the policy contract any implementation must satisfy is ADR 0070's job.
 - Future engines (WASM, QuickJS, Rhai) slot in behind this trait. Adding one is a kernel-internal change plus an `security.exec_allow` opt-in, not a new top-level ADR — provided the implementation satisfies the ADR 0070 sandbox contract.
 
 ## Consequences
@@ -137,13 +137,13 @@ For example: `exec.lua:summarizer/scripts/score.lua`. The metadata payload mirro
 **Neutral**
 
 - The seam exists even if no operator enables Lua. That keeps the kernel ready for the next embedded-runtime case without retrofitting.
-- `mlua`'s async support is available but unused in v0.11. v0.11 uses sync-only invocation; async embedded scripts can be added when there is a concrete need.
+- `mlua`'s async support is available but unused in v0.12. v0.12 uses sync-only invocation; async embedded scripts can be added when there is a concrete need.
 
 ## References
 
-- [docs/plans/v0.11-self-improvement.md](../plans/v0.11-self-improvement.md)
+- [docs/plans/v0.12-self-improvement.md](../plans/v0.12-self-improvement.md)
 - [ADR 0004](0004-process-exec-uses-direct-spawn-and-central-policy.md)
-- [ADR 0006](0006-tool-events-and-hooks-have-stable-names.md)
+- [ADR 0006](0006-hook-api-is-public-from-day-one.md)
 - [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
 - [ADR 0034](0034-skill-scripts-run-under-the-same-exec-policy-as-tools.md)
 - [ADR 0052](0052-kernel-native-operations-promote-to-tool-implementations.md)

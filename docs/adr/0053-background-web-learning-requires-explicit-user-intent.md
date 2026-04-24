@@ -88,4 +88,4 @@ No privileged bypass. `research` is a new `kind` value added to the staged-memor
 - [ADR 0042](0042-autonomous-learned-memory-writes-go-to-staging-before-promotion.md)
 - [ADR 0047](0047-staged-memory-entries-have-a-fixed-schema-and-limits.md)
 - [ADR 0050](0050-turn-end-staged-memory-notice-is-kernel-rendered-togglable-suffix.md)
-- [docs/plans/v0.7-channel-expansion.md](../plans/v0.7-channel-expansion.md)
+- [docs/plans/v0.07-channel-expansion.md](../plans/v0.07-channel-expansion.md)

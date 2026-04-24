@@ -26,7 +26,7 @@ The default user-facing skill-authoring path is a first-party skill (`skill-auth
 ### Packaging
 
 - `skills/skill-author/` ships in the repo. SKILL.md, prompts, and any helper references live there.
-- On first daemon run after v0.11 upgrade, the skill is seeded into `~/.allbert/skills/installed/skill-author/` (the same shape ADR 0048 establishes for `memory-curator`). Seeding is recorded in the install log; the operator can uninstall the skill and replace it with their own variant.
+- On first daemon run after v0.12 upgrade, the skill is seeded into `~/.allbert/skills/installed/skill-author/` (the same shape ADR 0048 establishes for `memory-curator`). Seeding is recorded in the install log; the operator can uninstall the skill and replace it with their own variant.
 - The skill carries `provenance: external` (per ADR 0071). It is shipped by Allbert, not authored by the user.
 
 ### Intent routing
@@ -61,7 +61,7 @@ Drafts persist across turns at `~/.allbert/skills/incoming/<draft-name>/` (per A
 
 Final submission routes through the standard install preview + confirm flow (ADR 0033). The skill-authoring skill does **not** call `create_skill` with `skip_quarantine: true` (ADR 0071). That tool path is reserved for kernel-internal first-party seeding. `skill-author`'s `allowed-tools` fence enforces this at the kernel boundary.
 
-### Capability scope for v0.11
+### Capability scope for v0.12
 
 `skill-author` can author:
 
@@ -110,9 +110,9 @@ This is a recommendation, not a policy. The user can pick Bash or any other allo
 
 ## References
 
-- [docs/plans/v0.11-self-improvement.md](../plans/v0.11-self-improvement.md)
+- [docs/plans/v0.12-self-improvement.md](../plans/v0.12-self-improvement.md)
 - [ADR 0008](0008-skill-allowed-tools-is-a-fence-not-a-sandbox.md)
-- [ADR 0030](0030-intent-routing-is-a-kernel-native-step.md)
+- [ADR 0030](0030-intent-routing-is-a-kernel-step-not-a-skill-concern.md)
 - [ADR 0031](0031-skills-can-contribute-agents-via-frontmatter.md)
 - [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
 - [ADR 0033](0033-skill-install-is-explicit-with-preview-and-confirm.md)
@@ -120,6 +120,6 @@ This is a recommendation, not a policy. The user can pick Bash or any other allo
 - [ADR 0036](0036-progressive-disclosure-maps-to-prompt-construction-stages.md)
 - [ADR 0038](0038-natural-interface-is-the-users-extension-surface.md)
 - [ADR 0048](0048-v0-5-ships-a-first-party-memory-curator-skill.md)
-- [ADR 0069](0069-scripting-engine-trait-with-lua-as-the-v0-11-default-embedded-runtime.md)
+- [ADR 0069](0069-scripting-engine-trait-with-lua-as-the-v0-12-default-embedded-runtime.md)
 - [ADR 0070](0070-embedded-script-sandbox-policy.md)
 - [ADR 0071](0071-self-authored-skills-route-through-the-standard-install-quarantine.md)

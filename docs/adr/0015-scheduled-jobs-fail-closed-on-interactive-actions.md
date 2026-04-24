@@ -43,4 +43,4 @@ Scheduled jobs launched by the daemon-owned job manager fail closed on interacti
 
 - [ADR 0004](0004-process-exec-uses-direct-spawn-and-central-policy.md)
 - [ADR 0007](0007-session-scoped-exact-match-confirm-trust.md)
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)

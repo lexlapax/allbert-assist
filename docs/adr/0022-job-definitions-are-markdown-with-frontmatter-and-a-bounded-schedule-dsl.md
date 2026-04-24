@@ -118,4 +118,4 @@ Bundled job templates (ADR 0017) must ship with `enabled: false` and use the DSL
 - [ADR 0002](0002-skill-bodies-require-explicit-activation.md)
 - [ADR 0016](0016-scheduled-runs-use-fresh-sessions-and-may-attach-ordered-skills.md)
 - [ADR 0017](0017-v0-2-ships-bundled-job-templates-disabled-by-default.md)
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)

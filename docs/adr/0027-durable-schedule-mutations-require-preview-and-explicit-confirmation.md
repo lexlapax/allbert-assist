@@ -62,6 +62,6 @@ The preview should show enough detail to be auditable:
 
 ## References
 
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)
 - [ADR 0015](0015-scheduled-jobs-fail-closed-on-interactive-actions.md)
 - [ADR 0026](0026-interactive-sessions-expose-first-class-daemon-backed-job-management-tools.md)

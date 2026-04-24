@@ -45,7 +45,7 @@ Interactive sessions may draft or preview a job definition in memory, but the co
 
 ## References
 
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)
 - [ADR 0022](0022-job-definitions-are-markdown-with-frontmatter-and-a-bounded-schedule-dsl.md)
 - [ADR 0026](0026-interactive-sessions-expose-first-class-daemon-backed-job-management-tools.md)
 - [ADR 0027](0027-durable-schedule-mutations-require-preview-and-explicit-confirmation.md)

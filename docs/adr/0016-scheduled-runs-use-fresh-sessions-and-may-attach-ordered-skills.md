@@ -39,5 +39,5 @@ Scheduled runs will use fresh sessions by default.
 
 ## References
 
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)
 - [ADR 0002](0002-skill-bodies-require-explicit-activation.md)

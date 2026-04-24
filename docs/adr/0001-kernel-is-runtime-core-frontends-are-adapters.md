@@ -47,5 +47,5 @@ The interface between them is an explicit adapter boundary rather than implicit 
 
 ## References
 
-- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md)
+- [docs/plans/v0.01-mvp.md](../plans/v0.01-mvp.md)
 - [docs/vision.md](../vision.md)

@@ -3,6 +3,8 @@
 Date: 2026-04-20
 Status: Accepted
 
+> **Amended in part by [ADR 0077](0077-episode-and-fact-memory-are-indexed-recall-not-durable-memory.md) in v0.11**: staged entries may carry optional temporal `facts` metadata, but those facts are not approved durable facts until promotion.
+
 ## Context
 
 Staging (ADR 0042) is where autonomous learned memory lands before operator review. For staging to be a durable review surface rather than a rapidly-blown-out queue, v0.5 needs an explicit contract for what a staged entry looks like on disk and what limits prevent the queue from growing unboundedly.
@@ -105,6 +107,6 @@ Rejected entries move to `staging/.rejected/YYYYMMDDTHHMMSSZ-<id>.md` with a `re
 
 ## References
 
-- [docs/plans/v0.5-curated-memory.md](../plans/v0.5-curated-memory.md)
+- [docs/plans/v0.05-curated-memory.md](../plans/v0.05-curated-memory.md)
 - [ADR 0042](0042-autonomous-learned-memory-writes-go-to-staging-before-promotion.md)
 - [ADR 0046](0046-v0-5-memory-retrieval-uses-tantivy.md)

@@ -7,7 +7,7 @@ Amends: [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.m
 
 ## Context
 
-The v0.11 skill-authoring skill (`skill-author`, ADR 0072) lets a user describe a skill in natural language and have Allbert produce an AgentSkills folder for it. That capability needs a clear answer to two questions:
+The v0.12 skill-authoring skill (`skill-author`, ADR 0072) lets a user describe a skill in natural language and have Allbert produce an AgentSkills folder for it. That capability needs a clear answer to two questions:
 
 1. **Where do drafts go?** A draft skill is by definition not yet trusted. Writing it directly into `~/.allbert/skills/installed/` would bypass the install gate (ADR 0033) — which exists exactly to keep untrusted skill content out of the active skills root.
 2. **How does the operator tell self-authored skills apart from external installs?** Trust posture is identical (both go through preview + confirm), but for review and audit purposes the operator should be able to see at a glance "did Allbert write this, or did it come from a git URL?"
@@ -88,7 +88,7 @@ The field is structurally an addition to ADR 0032's frontmatter contract. A sepa
 **Negative**
 
 - Existing callers of `create_skill` must be updated to pass `skip_quarantine: true` (the previous implicit behavior). This is a one-time mechanical change in the kernel and any first-party seeding code.
-- Skills missing the `provenance` field load as `external`, which is the safe default but technically a tiny information loss for older skills installed before v0.11.
+- Skills missing the `provenance` field load as `external`, which is the safe default but technically a tiny information loss for older skills installed before v0.12.
 
 **Neutral**
 
@@ -97,7 +97,7 @@ The field is structurally an addition to ADR 0032's frontmatter contract. A sepa
 
 ## References
 
-- [docs/plans/v0.11-self-improvement.md](../plans/v0.11-self-improvement.md)
+- [docs/plans/v0.12-self-improvement.md](../plans/v0.12-self-improvement.md)
 - [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md) — amended by this ADR (adds `provenance` field).
 - [ADR 0033](0033-skill-install-is-explicit-with-preview-and-confirm.md)
 - [ADR 0034](0034-skill-scripts-run-under-the-same-exec-policy-as-tools.md)

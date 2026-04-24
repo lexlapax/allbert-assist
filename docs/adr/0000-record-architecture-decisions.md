@@ -55,4 +55,4 @@ We adopt **Architecture Decision Records (ADRs)** using a lightly adapted Nygard
 ## References
 
 - Michael Nygard, ["Documenting Architecture Decisions"](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) (2011) — original format.
-- [docs/plans/v0.1-mvp.md](../plans/v0.1-mvp.md) — the planning document whose resolved decisions will seed ADRs `0001`–`0006` after v0.1 ships.
+- [docs/plans/v0.01-mvp.md](../plans/v0.01-mvp.md) — the planning document whose resolved decisions will seed ADRs `0001`–`0006` after v0.1 ships.

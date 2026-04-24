@@ -36,4 +36,4 @@ The kernel must be capable of running as a long-lived local daemon host.
 ## References
 
 - [docs/vision.md](../vision.md)
-- [docs/plans/v0.2-scheduled-jobs.md](../plans/v0.2-scheduled-jobs.md)
+- [docs/plans/v0.02-scheduled-jobs.md](../plans/v0.02-scheduled-jobs.md)

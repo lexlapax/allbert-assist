@@ -68,7 +68,7 @@ The tiers are not interchangeable:
 
 ## References
 
-- [docs/plans/v0.5-curated-memory.md](../plans/v0.5-curated-memory.md)
+- [docs/plans/v0.05-curated-memory.md](../plans/v0.05-curated-memory.md)
 - [ADR 0003](0003-memory-files-are-durable-chat-history-is-not.md)
 - [ADR 0010](0010-bootstrap-personality-files-are-first-class-runtime-context.md)
 - [ADR 0039](0039-agents-md-joins-the-bootstrap-bundle-in-v0-3.md)
