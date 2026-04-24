@@ -18,7 +18,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.10 | Provider expansion and local-first default: OpenAI, Gemini, Ollama/Gemma4 | Shipped | [v0.10-provider-expansion.md](v0.10-provider-expansion.md) |
 | v0.11 | TUI and adaptive memory: Ratatui operator surface, session telemetry, configurable memory routing, episode/fact recall, review-first personality digest + `LearningJob` seam | Proposed | [v0.11-tui-and-memory.md](v0.11-tui-and-memory.md) |
 | v0.12 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.12-self-improvement.md](v0.12-self-improvement.md) |
-| v0.13 | Local personalization: LoRA/adapter training through the v0.11 `LearningJob` seam, approved-only corpus, adapter-approval review flow | Future | [v0.13-personalization.md](v0.13-personalization.md) |
+| v0.13 | Local personalization: LoRA/adapter training through the v0.11 `LearningJob` seam, approved durable/fact plus bounded episode-summary corpus, adapter-approval review flow | Future | [v0.13-personalization.md](v0.13-personalization.md) |
 | v0.14 | Self-diagnosis and Unix co-tenant: trace-aware self-diagnose skill, curated local-utilities surface, bounded `unix-pipe` tool shape | Future | [v0.14-self-diagnosis.md](v0.14-self-diagnosis.md) |
 
 Note: some v0.9 contributor-contract work landed before the final v0.8 release-alignment pass. The roadmap order still reflects dependency intent rather than strict commit chronology.
@@ -70,7 +70,7 @@ v0.11 also deepens memory without weakening the v0.5 safety contract:
 - staged/promoted facts can carry temporal provenance, but still require review before durable promotion;
 - semantic retrieval remains optional and derived, while BM25/Tantivy remains the default.
 
-v0.11 also takes the first review-first step toward the origin note's nightly-learning ambition: an opt-in `personality-digest` job compiles a markdown `PERSONALITY.md` from approved durable and fact memory, and a `LearningJob` trait seam defines the shape future learning jobs plug into. No model is trained in v0.11; that lands in v0.13.
+v0.11 also takes the first review-first step toward the origin note's nightly-learning ambition: an opt-in `personality-digest` job compiles a markdown `PERSONALITY.md` from approved durable memory, approved fact memory, and bounded recent episode summaries, and a `LearningJob` trait seam defines the shape future learning jobs plug into. No model is trained in v0.11; that lands in v0.13.
 
 This keeps Allbert's normal operating loop legible before the roadmap moves to self-improvement.
 
@@ -82,26 +82,28 @@ Self-improvement (the assistant rebuilding its own Rust binary, authoring new sk
 - a settled pattern for cross-channel operator review,
 - a continuity model that makes pending approvals and resumable work legible outside the REPL,
 - a pinned, reproducible contributor environment so rebuild flows are not built on unstated workstation assumptions,
-- and a local-first provider default plus direct hosted-provider alternatives so self-improvement can run in more operator environments without forcing one vendor path.
+- a local-first provider default plus direct hosted-provider alternatives so self-improvement can run in more operator environments without forcing one vendor path,
 - a richer terminal operator surface with session telemetry, status-line state, and memory/inbox visibility.
 
 v0.12 also depends on the tool surface being normalized so embedded-script hook observation is uniform (ADR 0052), and on the memory and skill-install trust model being mature enough that self-authored artifacts route through the same gates as any other skill. v0.11 reduces the risk further by making cost, context, memory, and approvals visible in the terminal before self-improvement workflows arrive.
 
 ### v0.12 before v0.13
 
-Local personalization — training an adapter or LoRA over the user's approved memory — is powerful, personal, and hard to undo. It should land only after v0.11 has stabilised the `LearningJob` seam and the approved-only corpus contract, and after v0.12 has demonstrated the review-first posture for "Allbert produces an artifact, the operator reviews it before it takes effect" via patch-approval. v0.13's `adapter-approval` flow is deliberately modeled on v0.12's `patch-approval`, so v0.12 both proves the UX and defines the ADR pattern v0.13 reuses.
+Local personalization — training an adapter or LoRA over approved durable memory, approved facts, and bounded recent episode summaries — is powerful, personal, and hard to undo. It should land only after v0.11 has stabilised the `LearningJob` seam and the approved durable/fact plus bounded episode-summary corpus contract, and after v0.12 has demonstrated the review-first posture for "Allbert produces an artifact, the operator reviews it before it takes effect" via patch-approval. v0.13's `adapter-approval` flow is deliberately modeled on v0.12's `patch-approval`, so v0.12 both proves the UX and defines the ADR pattern v0.13 reuses.
 
-v0.13 also inherits the v0.11 invariants it cannot weaken: the trait shape, the approved-only corpus rules, the daily cost/compute cap, fail-closed scheduling, and `PERSONALITY.md` as a bootstrap artifact. Those are named in v0.11's "Handoff to v0.12 and v0.13" section so the recheck discipline carries forward.
+v0.13 also inherits the v0.11 invariants it cannot weaken: the trait shape, the approved durable/fact plus bounded episode-summary corpus rules, daily cost-cap behavior, fail-closed scheduling, `compute_wall_seconds` reporting, and `PERSONALITY.md` as a bootstrap artifact. v0.13 introduces the actual compute cap for local training. Those are named in v0.11's "Handoff to v0.12 and v0.13" section so the recheck discipline carries forward.
 
 ### v0.13 before v0.14
 
-v0.14 (self-diagnosis + Unix co-tenant) is scoped last because it depends on the surfaces v0.11-v0.13 ship:
+v0.14 (self-diagnosis + Unix co-tenant) is scoped after v0.13 primarily for scope/complexity reasons, not raw dependency:
 
-- v0.11's telemetry + routing expose the trace metadata self-diagnosis reads.
-- v0.12's patch-approval and skill-author inbox patterns give candidate self-fixes a review home.
+- v0.11's telemetry + routing + staging expose the trace and memory surfaces self-diagnosis reads and writes through.
+- v0.12's sibling-worktree, Tier A validation, `patch-approval` inbox, and `skill-author` give candidate self-fixes a review home and an isolation mechanism.
 - v0.13's personalization establishes that "Allbert changes itself, operator reviews before it lands" is a familiar loop, not a novel one.
 
-Shipping v0.14 alongside personalization would combine two hard reviews (training data scope and self-modification proposals) into one release. Sequencing them avoids that.
+v0.14's *hard runtime* dependencies are v0.11 and v0.12. v0.13 is a sequencing neighbor: shipping v0.14 alongside personalization would combine two hard reviews (training data scope and self-modification proposals) into one release, which we deliberately avoid. If personalization were ever deprioritized, v0.14 could ship directly after v0.12 without code-level conflicts; the sequencing choice is reviewability, not capability.
+
+v0.14 is also where trace persistence lands if no earlier release has adopted it. ADR 0025 defines the hook emission surface but does not mandate durable trace storage; v0.14's M0-M1 owns adding that storage (retention policy, schema version, read API) unless an interim release takes it on first.
 
 ## Cross-cutting concerns
 
@@ -115,6 +117,7 @@ These themes recur across multiple releases. They are noted here so individual p
 - **Hot path vs background work.** The main turn loop may update ephemeral state and stage candidate learnings, but review, promotion assistance, compaction, and pruning can also run through jobs or memory-aware skills so the core turn does not carry every maintenance burden.
 - **Markdown as ground truth.** Jobs (ADR 0022), skills (ADR 0032), and memory (v0.5) all persist as markdown files with defined frontmatter. Indices and caches are derived artifacts that can be rebuilt from the markdown at any time.
 - **Canonical format bias.** When a format change is important to runtime simplicity or user clarity, prefer normalizing shipped artifacts to the new canonical shape over carrying bridge code. ADR 0037 now takes that path for the v0.4 skill cutover.
+- **Self-change envelope.** When Allbert modifies its own state — source code (v0.12 `rust-rebuild`), installed skills (v0.12 `skill-author`, v0.14 diagnostic skills), model adapters (v0.13 `PersonalityAdapterJob`), or markdown memory/personality (v0.11 digest, v0.14 memory remediation) — the same envelope applies. Artifacts are produced in isolation (sibling worktree, `skills/incoming/`, `~/.allbert/adapters/`, `~/.allbert/traces/`, staging), routed through an approval surface (inbox kind or staging pipeline), gated by the monetary spend cap (ADR 0051) and, for local compute-bound work, an explicit compute-wall cap introduced by v0.13, observable through the existing hook surface (ADR 0025), and reversible via a rollback trail. Provenance frontmatter (`self-authored` / `self-trained` / `self-diagnosed`) is an additive enum that labels every self-change artifact. No flavor of self-change bypasses any part of this envelope. See [ADR 0080](../adr/0080-self-change-artifacts-share-approval-provenance-and-rollback-envelope.md).
 
 ## Deferred ambitions
 
