@@ -174,9 +174,12 @@ impl TuiApp {
                 "unknown command: {command}\nuse /help to see supported REPL commands"
             )),
             LocalCommand::Cost(_)
+            | LocalCommand::Memory(_)
             | LocalCommand::Model(_)
             | LocalCommand::Setup
-            | LocalCommand::Status => None,
+            | LocalCommand::Status
+            | LocalCommand::StatusLine(_)
+            | LocalCommand::Telemetry => None,
             LocalCommand::Turn(input) => Some(input.to_string()),
         }
     }
@@ -196,7 +199,7 @@ pub async fn run_loop(
     }
 
     let mut terminal = TerminalSession::enter(config.repl.tui.mouse)?;
-    let result = run_event_loop(&mut terminal.terminal, client, &mut app).await;
+    let result = run_event_loop(&mut terminal.terminal, client, paths, &mut app).await;
     terminal.exit()?;
     result
 }
@@ -204,6 +207,7 @@ pub async fn run_loop(
 async fn run_event_loop(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     client: &mut DaemonClient,
+    paths: &allbert_kernel::AllbertPaths,
     app: &mut TuiApp,
 ) -> Result<()> {
     loop {
@@ -215,12 +219,17 @@ async fn run_event_loop(
             continue;
         }
         if let Event::Key(key) = event::read()? {
-            handle_key(client, app, key).await?;
+            handle_key(client, paths, app, key).await?;
         }
     }
 }
 
-async fn handle_key(client: &mut DaemonClient, app: &mut TuiApp, key: KeyEvent) -> Result<()> {
+async fn handle_key(
+    client: &mut DaemonClient,
+    paths: &allbert_kernel::AllbertPaths,
+    app: &mut TuiApp,
+    key: KeyEvent,
+) -> Result<()> {
     if app.modal().is_some() {
         return handle_modal_key(client, app, key).await;
     }
@@ -244,10 +253,18 @@ async fn handle_key(client: &mut DaemonClient, app: &mut TuiApp, key: KeyEvent) 
             }
             app.push_line(format!("you: {input}"));
             match repl::parse_local_command(&input) {
-                LocalCommand::Status => {
+                LocalCommand::Status | LocalCommand::Telemetry => {
                     let telemetry = client.session_telemetry().await?;
                     app.set_telemetry(telemetry.clone());
                     app.push_line(render_telemetry_summary(&telemetry));
+                }
+                LocalCommand::Memory(command) => {
+                    app.push_line(repl::handle_memory_command(paths, command)?);
+                }
+                LocalCommand::StatusLine(command) => {
+                    app.push_line(repl::handle_statusline_command(paths, command)?);
+                    let config = allbert_kernel::Config::load_or_create(paths)?;
+                    app.status_items = configured_status_items(&config);
                 }
                 command => {
                     if let Some(turn) = app.handle_local_command(command) {

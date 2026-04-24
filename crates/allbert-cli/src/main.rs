@@ -440,7 +440,9 @@ async fn main() -> Result<()> {
         Some(Command::Telemetry { json }) => run_telemetry_command(&paths, &config, json).await,
         Some(Command::Learning { command }) => run_learning_command(&paths, &config, command),
         Some(Command::Jobs { command }) => {
-            if setup::needs_setup(&config, &paths) {
+            if !matches!(command, JobsCommand::Template { .. })
+                && setup::needs_setup(&config, &paths)
+            {
                 config = match setup::run_setup_wizard(&paths, &config)? {
                     Some(updated) => updated,
                     None => {

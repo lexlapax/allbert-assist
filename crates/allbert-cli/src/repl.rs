@@ -1,5 +1,5 @@
 use allbert_daemon::DaemonClient;
-use allbert_kernel::Provider;
+use allbert_kernel::{Provider, StatusLineItem};
 use allbert_proto::{
     ClientMessage, ConfirmDecisionPayload, InputResponsePayload, KernelEventPayload,
     ModelConfigPayload, ProviderKind, ServerMessage,
@@ -21,10 +21,18 @@ commands:
   /cost --override <reason>
             allow the next turn to bypass the daily cap once
   /help     show this help
+  /memory routing
+            show memory routing policy
+  /memory stats
+            show durable, staged, episode, and fact counts
   /model    show or change the active model
   /s        show provider, intent, agent, setup, roots, and trace state
   /setup    rerun guided setup and reload config for this session
   /status   show provider, current agent context, setup, roots, and trace state
+  /statusline [show|enable|disable|toggle <item>|add <item>|remove <item>]
+            inspect or change TUI status-line items
+  /telemetry
+            show live model, token, cost, memory, skill, inbox, and trace telemetry
   /exit     leave the REPL
   /quit     leave the REPL
   operator inspection:
@@ -73,9 +81,12 @@ pub enum LocalCommand<'a> {
     Exit,
     Help,
     Cost(&'a str),
+    Memory(&'a str),
     Model(&'a str),
     Setup,
     Status,
+    StatusLine(&'a str),
+    Telemetry,
     UnknownSlash(&'a str),
     Turn(&'a str),
 }
@@ -103,6 +114,9 @@ pub async fn run_loop(
                     LocalCommand::Cost(command) => {
                         handle_cost_command(client, paths, command).await?;
                     }
+                    LocalCommand::Memory(command) => {
+                        println!("{}", handle_memory_command(paths, command)?);
+                    }
                     LocalCommand::Model(command) => {
                         handle_model_command(client, command).await?;
                     }
@@ -116,6 +130,12 @@ pub async fn run_loop(
                             "{}",
                             setup::render_status(&snapshot_from_proto(&status, &config))
                         );
+                    }
+                    LocalCommand::StatusLine(command) => {
+                        println!("{}", handle_statusline_command(paths, command)?);
+                    }
+                    LocalCommand::Telemetry => {
+                        println!("{}", handle_telemetry_command(client).await?);
                     }
                     LocalCommand::UnknownSlash(command) => {
                         eprintln!(
@@ -142,8 +162,11 @@ pub fn parse_local_command(input: &str) -> LocalCommand<'_> {
         "/exit" | "/quit" => LocalCommand::Exit,
         "/help" | "/h" => LocalCommand::Help,
         command if command.starts_with("/cost") => LocalCommand::Cost(command),
+        command if command.starts_with("/memory") => LocalCommand::Memory(command),
         "/setup" => LocalCommand::Setup,
         "/status" | "/s" => LocalCommand::Status,
+        command if command.starts_with("/statusline") => LocalCommand::StatusLine(command),
+        "/telemetry" => LocalCommand::Telemetry,
         command if command.starts_with("/model") => LocalCommand::Model(command),
         command if command.starts_with('/') => LocalCommand::UnknownSlash(command),
         other => LocalCommand::Turn(other),
@@ -370,6 +393,171 @@ async fn handle_setup_command(
     Ok(())
 }
 
+pub async fn handle_telemetry_command(client: &mut DaemonClient) -> Result<String> {
+    let telemetry = client.session_telemetry().await?;
+    Ok(render_telemetry_summary(&telemetry))
+}
+
+pub fn handle_memory_command(
+    paths: &allbert_kernel::AllbertPaths,
+    command: &str,
+) -> Result<String> {
+    let config = allbert_kernel::Config::load_or_create(paths)?;
+    let args = command.split_whitespace().collect::<Vec<_>>();
+    match args.as_slice() {
+        ["/memory", "stats"] => crate::memory_cli::stats(paths, &config),
+        ["/memory", "routing"] | ["/memory", "routing", "show"] => {
+            Ok(crate::memory_cli::routing_show(&config))
+        }
+        _ => Ok("usage: /memory stats | /memory routing [show]".into()),
+    }
+}
+
+pub fn handle_statusline_command(
+    paths: &allbert_kernel::AllbertPaths,
+    command: &str,
+) -> Result<String> {
+    let mut config = allbert_kernel::Config::load_or_create(paths)?;
+    let args = command.split_whitespace().collect::<Vec<_>>();
+    let mut changed = false;
+    let rendered = match args.as_slice() {
+        ["/statusline"] | ["/statusline", "show"] => render_statusline_config(&config),
+        ["/statusline", "enable"] => {
+            config.repl.tui.status_line.enabled = true;
+            changed = true;
+            render_statusline_config(&config)
+        }
+        ["/statusline", "disable"] => {
+            config.repl.tui.status_line.enabled = false;
+            changed = true;
+            render_statusline_config(&config)
+        }
+        ["/statusline", "toggle", item] => {
+            let item = parse_statusline_item(item)?;
+            if config.repl.tui.status_line.items.contains(&item) {
+                config
+                    .repl
+                    .tui
+                    .status_line
+                    .items
+                    .retain(|value| *value != item);
+            } else {
+                config.repl.tui.status_line.items.push(item);
+            }
+            if config.repl.tui.status_line.items.is_empty() {
+                config
+                    .repl
+                    .tui
+                    .status_line
+                    .items
+                    .push(StatusLineItem::Model);
+            }
+            changed = true;
+            render_statusline_config(&config)
+        }
+        ["/statusline", "add", item] => {
+            let item = parse_statusline_item(item)?;
+            if !config.repl.tui.status_line.items.contains(&item) {
+                config.repl.tui.status_line.items.push(item);
+                changed = true;
+            }
+            render_statusline_config(&config)
+        }
+        ["/statusline", "remove", item] => {
+            let item = parse_statusline_item(item)?;
+            config
+                .repl
+                .tui
+                .status_line
+                .items
+                .retain(|value| *value != item);
+            if config.repl.tui.status_line.items.is_empty() {
+                config
+                    .repl
+                    .tui
+                    .status_line
+                    .items
+                    .push(StatusLineItem::Model);
+            }
+            changed = true;
+            render_statusline_config(&config)
+        }
+        _ => {
+            "usage: /statusline [show|enable|disable|toggle <item>|add <item>|remove <item>]".into()
+        }
+    };
+    if changed {
+        config.persist(paths)?;
+    }
+    Ok(rendered)
+}
+
+fn render_statusline_config(config: &allbert_kernel::Config) -> String {
+    format!(
+        "status line: {}\nitems: {}\ncatalog: {}",
+        if config.repl.tui.status_line.enabled {
+            "enabled"
+        } else {
+            "disabled"
+        },
+        config
+            .repl
+            .tui
+            .status_line
+            .items
+            .iter()
+            .map(|item| item.label())
+            .collect::<Vec<_>>()
+            .join(", "),
+        StatusLineItem::CATALOG
+            .iter()
+            .map(|item| item.label())
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+fn parse_statusline_item(raw: &str) -> Result<StatusLineItem> {
+    StatusLineItem::CATALOG
+        .into_iter()
+        .find(|item| item.label() == raw.trim())
+        .ok_or_else(|| anyhow::anyhow!("unknown status-line item `{raw}`"))
+}
+
+fn render_telemetry_summary(snapshot: &allbert_proto::TelemetrySnapshot) -> String {
+    format!(
+        "telemetry\nsession: {}\nchannel: {:?}\nmodel: {} / {}\ncontext: {}\ntokens: last={} session={}\ncost: session=${:.4} today=${:.4}\nmemory: durable={} staged={} episode={} fact={}\nskills: {}\ninbox: {}\ntrace: {}",
+        snapshot.session_id,
+        snapshot.channel,
+        snapshot.provider,
+        snapshot.model.model_id,
+        match (snapshot.context_used_tokens, snapshot.context_percent) {
+            (Some(tokens), Some(percent)) => format!("{tokens} ({percent:.1}%)"),
+            (Some(tokens), None) => format!("{tokens} (window unknown)"),
+            _ => "unknown".into(),
+        },
+        snapshot
+            .last_response_usage
+            .as_ref()
+            .map(|usage| usage.total_tokens)
+            .unwrap_or_default(),
+        snapshot.session_usage.total_tokens,
+        snapshot.session_cost_usd,
+        snapshot.today_cost_usd,
+        snapshot.memory.durable_count,
+        snapshot.memory.staged_count,
+        snapshot.memory.episode_count,
+        snapshot.memory.fact_count,
+        if snapshot.active_skills.is_empty() {
+            "(none)".into()
+        } else {
+            snapshot.active_skills.join(", ")
+        },
+        snapshot.inbox_count,
+        if snapshot.trace_enabled { "on" } else { "off" },
+    )
+}
+
 fn prompt_confirm(program: &str, rendered: &str) -> Result<ConfirmDecisionPayload> {
     let durable_job_change = matches!(
         program,
@@ -540,6 +728,26 @@ mod tests {
         assert!(matches!(
             parse_local_command("/cost --override release smoke"),
             LocalCommand::Cost("/cost --override release smoke")
+        ));
+    }
+
+    #[test]
+    fn v0_11_public_slash_commands_are_local() {
+        assert!(matches!(
+            parse_local_command("/telemetry"),
+            LocalCommand::Telemetry
+        ));
+        assert!(matches!(
+            parse_local_command("/statusline toggle memory"),
+            LocalCommand::StatusLine("/statusline toggle memory")
+        ));
+        assert!(matches!(
+            parse_local_command("/memory stats"),
+            LocalCommand::Memory("/memory stats")
+        ));
+        assert!(matches!(
+            parse_local_command("/memory routing"),
+            LocalCommand::Memory("/memory routing")
         ));
     }
 
