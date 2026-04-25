@@ -10,10 +10,13 @@ use chrono::{DateTime, Utc};
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use crate::atomic_write;
+use crate::config::{TraceConfig, TraceFieldPolicy};
 use crate::paths::AllbertPaths;
 
 pub const TRACE_RECORD_SCHEMA_VERSION: u16 = 1;
@@ -138,12 +141,85 @@ pub trait TracingHooks: Send + Sync {
     fn end_span(&self, span: &Span) -> Result<(), TraceStoreError>;
 }
 
-#[derive(Debug, Clone)]
+pub trait SecretRedactor: Send + Sync {
+    fn redact(&self, input: &str) -> String;
+}
+
+#[derive(Clone)]
+pub struct TraceCapturePolicy {
+    pub tool_args: TraceFieldPolicy,
+    pub tool_results: TraceFieldPolicy,
+    pub provider_payloads: TraceFieldPolicy,
+    pub redactor: Arc<dyn SecretRedactor>,
+}
+
+impl Default for TraceCapturePolicy {
+    fn default() -> Self {
+        Self {
+            tool_args: TraceFieldPolicy::Capture,
+            tool_results: TraceFieldPolicy::Capture,
+            provider_payloads: TraceFieldPolicy::Capture,
+            redactor: Arc::new(DefaultSecretRedactor::new()),
+        }
+    }
+}
+
+impl From<TraceConfig> for TraceCapturePolicy {
+    fn from(config: TraceConfig) -> Self {
+        Self {
+            tool_args: config.redaction.tool_args,
+            tool_results: config.redaction.tool_results,
+            provider_payloads: config.redaction.provider_payloads,
+            redactor: Arc::new(DefaultSecretRedactor::new()),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct DefaultSecretRedactor {
+    patterns: Vec<Regex>,
+}
+
+impl DefaultSecretRedactor {
+    pub fn new() -> Self {
+        let patterns = [
+            r"(?i)\b(AKIA|ASIA)[0-9A-Z]{16}\b",
+            r"(?i)\b(sk-[A-Za-z0-9_-]{16,}|sk-ant-[A-Za-z0-9_-]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b",
+            r#"(?i)\b(?:api[_-]?key|access[_-]?token|auth[_-]?token|secret|password)\s*[:=]\s*['"]?[^'"\s,;]+"#,
+            r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b",
+        ];
+        Self {
+            patterns: patterns
+                .into_iter()
+                .map(|pattern| Regex::new(pattern).expect("redaction regex should compile"))
+                .collect(),
+        }
+    }
+}
+
+impl Default for DefaultSecretRedactor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SecretRedactor for DefaultSecretRedactor {
+    fn redact(&self, input: &str) -> String {
+        let mut redacted = input.to_string();
+        for pattern in &self.patterns {
+            redacted = pattern.replace_all(&redacted, "[REDACTED]").to_string();
+        }
+        redacted
+    }
+}
+
+#[derive(Clone)]
 pub struct JsonlTraceWriter {
     session_dir: PathBuf,
     active_path: PathBuf,
     current_spans_dir: PathBuf,
     limits: TraceStorageLimits,
+    capture_policy: TraceCapturePolicy,
 }
 
 impl JsonlTraceWriter {
@@ -151,6 +227,15 @@ impl JsonlTraceWriter {
         paths: &AllbertPaths,
         session_id: &str,
         limits: TraceStorageLimits,
+    ) -> Result<Self, TraceStoreError> {
+        Self::with_policy(paths, session_id, limits, TraceCapturePolicy::default())
+    }
+
+    pub fn with_policy(
+        paths: &AllbertPaths,
+        session_id: &str,
+        limits: TraceStorageLimits,
+        capture_policy: TraceCapturePolicy,
     ) -> Result<Self, TraceStoreError> {
         validate_session_id(session_id)?;
         let session_dir = paths.sessions.join(session_id);
@@ -165,6 +250,7 @@ impl JsonlTraceWriter {
             active_path,
             current_spans_dir,
             limits,
+            capture_policy,
         })
     }
 
@@ -177,6 +263,7 @@ impl JsonlTraceWriter {
     }
 
     fn append_record(&self, record: &TraceRecord) -> Result<(), TraceStoreError> {
+        let record = self.sanitize_record(record);
         fs::create_dir_all(&self.session_dir).map_err(|source| TraceStoreError::Io {
             path: self.session_dir.display().to_string(),
             source,
@@ -189,7 +276,7 @@ impl JsonlTraceWriter {
                 path: self.active_path.display().to_string(),
                 source,
             })?;
-        serde_json::to_writer(&mut file, record).map_err(|source| TraceStoreError::Json {
+        serde_json::to_writer(&mut file, &record).map_err(|source| TraceStoreError::Json {
             path: self.active_path.display().to_string(),
             source,
         })?;
@@ -204,6 +291,12 @@ impl JsonlTraceWriter {
         })?;
         self.rotate_if_needed()?;
         self.evict_archives_past_cap()
+    }
+
+    fn sanitize_record(&self, record: &TraceRecord) -> TraceRecord {
+        let mut sanitized = record.clone();
+        sanitize_span(&mut sanitized.span, &self.capture_policy);
+        sanitized
     }
 
     fn rotate_if_needed(&self) -> Result<(), TraceStoreError> {
@@ -310,7 +403,7 @@ impl JsonlTraceWriter {
 
 impl TraceWriter for JsonlTraceWriter {
     fn span_started(&self, span: &Span) -> Result<(), TraceStoreError> {
-        let record = TraceRecord::span(span.clone());
+        let record = self.sanitize_record(&TraceRecord::span(span.clone()));
         let bytes = serde_json::to_vec_pretty(&record).map_err(|source| TraceStoreError::Json {
             path: self.snapshot_path(&span.id).display().to_string(),
             source,
@@ -658,6 +751,113 @@ pub fn recover_all_in_flight_spans(
         recovered = recovered.saturating_add(writer.recover_in_flight()?.len());
     }
     Ok(recovered)
+}
+
+pub fn sanitize_span(span: &mut Span, policy: &TraceCapturePolicy) {
+    let mut replacements = Vec::new();
+    let keys = span.attributes.keys().cloned().collect::<Vec<_>>();
+    for key in keys {
+        let Some(value) = span.attributes.remove(&key) else {
+            continue;
+        };
+        apply_attribute_policy(&mut replacements, &key, value, policy);
+    }
+    span.attributes = replacements.into_iter().collect();
+    for event in &mut span.events {
+        let mut replacements = Vec::new();
+        let keys = event.attributes.keys().cloned().collect::<Vec<_>>();
+        for key in keys {
+            let Some(value) = event.attributes.remove(&key) else {
+                continue;
+            };
+            apply_attribute_policy(&mut replacements, &key, value, policy);
+        }
+        event.attributes = replacements.into_iter().collect();
+    }
+}
+
+fn apply_attribute_policy(
+    replacements: &mut Vec<(String, AttributeValue)>,
+    key: &str,
+    value: AttributeValue,
+    policy: &TraceCapturePolicy,
+) {
+    let field_policy = field_policy_for_key(key, policy);
+    match field_policy {
+        TraceFieldPolicy::Capture => {
+            replacements.push((key.to_string(), redact_attribute_value(value, policy)));
+        }
+        TraceFieldPolicy::Summary => {
+            replacements.push((key.to_string(), summarize_attribute_value(value, policy)));
+        }
+        TraceFieldPolicy::Drop => {
+            replacements.push((format!("{key}_dropped"), AttributeValue::Bool(true)));
+        }
+    }
+}
+
+fn field_policy_for_key(key: &str, policy: &TraceCapturePolicy) -> TraceFieldPolicy {
+    if key == "allbert.tool.args" || key.ends_with(".tool.args") {
+        policy.tool_args
+    } else if key == "allbert.tool.result" || key.ends_with(".tool.result") {
+        policy.tool_results
+    } else if is_provider_payload_key(key) {
+        policy.provider_payloads
+    } else {
+        TraceFieldPolicy::Capture
+    }
+}
+
+fn is_provider_payload_key(key: &str) -> bool {
+    let key = key.to_ascii_lowercase();
+    key.contains("provider_payload")
+        || key.contains("prompt")
+        || key.contains("response")
+        || key.contains("request.body")
+        || key.contains("response.body")
+}
+
+fn redact_attribute_value(value: AttributeValue, policy: &TraceCapturePolicy) -> AttributeValue {
+    match value {
+        AttributeValue::String(value) => AttributeValue::String(policy.redactor.redact(&value)),
+        AttributeValue::StringArray(values) => AttributeValue::StringArray(
+            values
+                .into_iter()
+                .map(|value| policy.redactor.redact(&value))
+                .collect(),
+        ),
+        other => other,
+    }
+}
+
+fn summarize_attribute_value(value: AttributeValue, policy: &TraceCapturePolicy) -> AttributeValue {
+    match value {
+        AttributeValue::String(value) => {
+            let redacted = policy.redactor.redact(&value);
+            AttributeValue::String(summary_for_text(&redacted))
+        }
+        AttributeValue::StringArray(values) => {
+            let joined = values
+                .into_iter()
+                .map(|value| policy.redactor.redact(&value))
+                .collect::<Vec<_>>()
+                .join("\n");
+            AttributeValue::String(summary_for_text(&joined))
+        }
+        other => other,
+    }
+}
+
+fn summary_for_text(value: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    let digest = hasher.finalize();
+    format!(
+        "<summary bytes={} chars={} sha256={:x}>",
+        value.len(),
+        value.chars().count(),
+        digest
+    )
 }
 
 pub fn new_trace_id() -> String {
@@ -1025,5 +1225,70 @@ mod tests {
         let read = read_session_trace_dir(&session_dir).expect("read traces");
         assert_eq!(read.spans.len(), 1);
         assert_eq!(read.warnings.len(), 1);
+    }
+
+    #[test]
+    fn redaction_removes_common_secret_patterns_before_write() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths ensure");
+        let writer = JsonlTraceWriter::new(
+            &paths,
+            "session-a",
+            TraceStorageLimits::from_session_cap_mb(5),
+        )
+        .expect("writer");
+        let mut span = fixture_span("1111111111111111", None, ts(1));
+        span.attributes.insert(
+            "allbert.tool.args".into(),
+            AttributeValue::String(
+                "call with OPENAI_API_KEY=sk-abc1234567890abcdef and jwt eyJaaaaaaaa.bbbbbbbb.cccccccc".into(),
+            ),
+        );
+        writer.span_ended(&span).expect("span end");
+
+        let raw = fs::read_to_string(paths.sessions.join("session-a").join(TRACE_ACTIVE_FILE))
+            .expect("trace reads");
+        assert!(!raw.contains("sk-abc1234567890abcdef"));
+        assert!(!raw.contains("eyJaaaaaaaa.bbbbbbbb.cccccccc"));
+        assert!(raw.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn capture_policy_summary_and_drop_apply_per_field() {
+        let mut span = fixture_span("1111111111111111", None, ts(1));
+        span.attributes.insert(
+            "allbert.tool.args".into(),
+            AttributeValue::String("very sensitive args".into()),
+        );
+        span.attributes.insert(
+            "allbert.tool.result".into(),
+            AttributeValue::String("very sensitive result".into()),
+        );
+        span.attributes.insert(
+            "allbert.provider_payload.prompt".into(),
+            AttributeValue::String("prompt text".into()),
+        );
+        let policy = TraceCapturePolicy {
+            tool_args: TraceFieldPolicy::Summary,
+            tool_results: TraceFieldPolicy::Drop,
+            provider_payloads: TraceFieldPolicy::Summary,
+            redactor: Arc::new(DefaultSecretRedactor::new()),
+        };
+        sanitize_span(&mut span, &policy);
+
+        assert!(matches!(
+            span.attributes.get("allbert.tool.args"),
+            Some(AttributeValue::String(value)) if value.starts_with("<summary bytes=")
+        ));
+        assert_eq!(
+            span.attributes.get("allbert.tool.result_dropped"),
+            Some(&AttributeValue::Bool(true))
+        );
+        assert!(matches!(
+            span.attributes.get("allbert.provider_payload.prompt"),
+            Some(AttributeValue::String(value)) if value.starts_with("<summary bytes=")
+        ));
+        assert!(!span.attributes.contains_key("allbert.tool.result"));
     }
 }

@@ -50,8 +50,8 @@ pub use config::{
     MemorySemanticConfig, ModelConfig, OperatorUxConfig, PersonalityDigestConfig, Provider,
     ReplConfig, ReplUiMode, ScriptingConfig, ScriptingEngineConfig, SecurityConfig,
     SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig, SetupConfig,
-    StatusLineConfig, StatusLineItem, TuiConfig, TuiSpinnerStyle, WebSecurityConfig,
-    CURRENT_SETUP_VERSION,
+    StatusLineConfig, StatusLineItem, TraceConfig, TraceFieldPolicy, TraceRedactionConfig,
+    TuiConfig, TuiSpinnerStyle, WebSecurityConfig, CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{
@@ -87,9 +87,9 @@ pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
 pub use replay::{
     read_session_trace_dir, recover_all_in_flight_spans, trace_artifact_bytes,
-    trace_artifact_count, ActiveTraceSpan, JsonlTraceWriter, TraceReadResult, TraceReadWarning,
-    TraceReader, TraceRecord, TraceRecordError, TraceRecordType, TraceStorageLimits,
-    TraceStoreError, TraceWriter, TracingHooks, TRACE_RECORD_SCHEMA_VERSION,
+    trace_artifact_count, ActiveTraceSpan, JsonlTraceWriter, SecretRedactor, TraceCapturePolicy,
+    TraceReadResult, TraceReadWarning, TraceReader, TraceRecord, TraceRecordError, TraceRecordType,
+    TraceStorageLimits, TraceStoreError, TraceWriter, TracingHooks, TRACE_RECORD_SCHEMA_VERSION,
 };
 pub use scripting::{
     BudgetUsed, CapKind, LoadedScript, LuaEngine, LuaSandboxPolicy, ScriptBudget, ScriptOutcome,
@@ -207,11 +207,16 @@ fn build_trace_hooks(
     paths: &AllbertPaths,
     session_id: &str,
 ) -> Result<Option<Arc<dyn TracingHooks>>, KernelError> {
-    if !config.trace {
+    if !config.trace.enabled {
         return Ok(None);
     }
-    let writer = JsonlTraceWriter::new(paths, session_id, TraceStorageLimits::default())
-        .map_err(|err| KernelError::Trace(err.to_string()))?;
+    let writer = JsonlTraceWriter::with_policy(
+        paths,
+        session_id,
+        TraceStorageLimits::from_session_cap_mb(config.trace.session_disk_cap_mb.into()),
+        config.trace.clone().into(),
+    )
+    .map_err(|err| KernelError::Trace(err.to_string()))?;
     let recovered = writer
         .recover_in_flight()
         .map_err(|err| KernelError::Trace(err.to_string()))?;
@@ -518,7 +523,7 @@ impl Kernel {
         memory::bootstrap_curated_memory(&paths, &config.memory)?;
 
         let session_id = session_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-        let trace = trace::init_tracing(config.trace, &paths, &session_id)?;
+        let trace = trace::init_tracing(config.trace.enabled, &paths, &session_id)?;
         let trace_hooks = build_trace_hooks(&config, &paths, &session_id)?;
         let llm = provider_factory.build(&config.model).await?;
         let skills = SkillStore::discover(&paths.skills);
@@ -9140,7 +9145,7 @@ mod tests {
         paths.ensure().expect("paths ensure");
         let events = Arc::new(Mutex::new(Vec::new()));
         let mut config = Config::default_template();
-        config.trace = true;
+        config.trace.enabled = true;
         config.intent_classifier.enabled = false;
         config.memory.refresh_after_external_evidence = false;
 
@@ -9207,7 +9212,7 @@ mod tests {
         paths.ensure().expect("paths ensure");
         let events = Arc::new(Mutex::new(Vec::new()));
         let mut config = Config::default_template();
-        config.trace = true;
+        config.trace.enabled = true;
         config.intent_classifier.enabled = false;
 
         let mut kernel = Kernel::boot_with_parts(
@@ -9251,7 +9256,7 @@ mod tests {
         paths.ensure().expect("paths ensure");
         let events = Arc::new(Mutex::new(Vec::new()));
         let mut config = Config::default_template();
-        config.trace = true;
+        config.trace.enabled = true;
         config.intent_classifier.enabled = false;
 
         let mut kernel = Kernel::boot_with_parts(
@@ -9437,7 +9442,7 @@ mod tests {
         let workspace_root = repo_root();
 
         let mut config = Config::default_template();
-        config.trace = true;
+        config.trace.enabled = true;
         config.setup.version = 1;
         config.model.provider = start_provider;
         config.model.model_id = start_model_id.into();
@@ -9570,7 +9575,7 @@ mod tests {
         let workspace_root = repo_root();
 
         let mut config = Config::default_template();
-        config.trace = true;
+        config.trace.enabled = true;
         config.setup.version = 1;
         config.model.provider = Provider::Ollama;
         config.model.model_id = "gemma4".into();

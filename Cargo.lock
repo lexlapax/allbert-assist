@@ -116,6 +116,7 @@ dependencies = [
  "gray_matter",
  "mlua",
  "pulldown-cmark",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

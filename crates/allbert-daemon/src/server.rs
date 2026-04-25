@@ -521,7 +521,7 @@ pub async fn spawn_with_factory(
     allbert_kernel::ensure_identity_record(&paths)?;
     allbert_kernel::memory::bootstrap_curated_memory(&paths, &config.memory)?;
     archive_expired_sessions(&paths, &config)?;
-    if config.trace {
+    if config.trace.enabled {
         allbert_kernel::recover_all_in_flight_spans(&paths, TraceStorageLimits::default())
             .map_err(|err| DaemonError::Protocol(format!("trace recovery failed: {err}")))?;
     }
@@ -561,7 +561,7 @@ pub async fn spawn_with_factory(
         daemon_id: uuid::Uuid::new_v4().to_string(),
         started_at: now_rfc3339()?,
         socket_path: socket_path.clone(),
-        trace_enabled: Arc::new(AtomicBool::new(config.trace)),
+        trace_enabled: Arc::new(AtomicBool::new(config.trace.enabled)),
         active_clients: Arc::new(AtomicUsize::new(0)),
         next_session: Arc::new(AtomicU64::new(1)),
         next_request: Arc::new(AtomicU64::new(1)),
@@ -1062,7 +1062,7 @@ async fn handle_connection(
                 state.trace_enabled.store(enabled, Ordering::SeqCst);
                 {
                     let mut config = state.default_config.write().await;
-                    config.trace = enabled;
+                    config.trace.enabled = enabled;
                 }
                 append_debug_line(&state, &format!("trace={enabled}")).ok();
                 send_server_message(&mut framed, &ServerMessage::Ack).await?;

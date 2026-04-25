@@ -1724,7 +1724,7 @@ async fn run_repl(
 ) -> Result<()> {
     let mut effective = config.clone();
     if trace {
-        effective.trace = true;
+        effective.trace.enabled = true;
     }
     if yes {
         effective.security.auto_confirm = true;

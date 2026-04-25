@@ -44,8 +44,8 @@ pub struct Config {
     pub security: SecurityConfig,
     #[serde(default)]
     pub limits: LimitsConfig,
-    #[serde(default)]
-    pub trace: bool,
+    #[serde(default, deserialize_with = "deserialize_trace_config")]
+    pub trace: TraceConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -501,6 +501,72 @@ impl Default for InstallConfig {
     fn default() -> Self {
         Self {
             remember_approvals: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct TraceConfig {
+    pub enabled: bool,
+    pub capture_messages: bool,
+    pub session_disk_cap_mb: u16,
+    pub total_disk_cap_mb: u32,
+    pub retention_days: u16,
+    pub otel_export_dir: String,
+    pub otel_service_name: String,
+    pub redaction: TraceRedactionConfig,
+}
+
+impl Default for TraceConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            capture_messages: true,
+            session_disk_cap_mb: 50,
+            total_disk_cap_mb: 2048,
+            retention_days: 30,
+            otel_export_dir: String::new(),
+            otel_service_name: "allbert".into(),
+            redaction: TraceRedactionConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct TraceRedactionConfig {
+    pub secrets: String,
+    pub tool_args: TraceFieldPolicy,
+    pub tool_results: TraceFieldPolicy,
+    pub provider_payloads: TraceFieldPolicy,
+}
+
+impl Default for TraceRedactionConfig {
+    fn default() -> Self {
+        Self {
+            secrets: "always".into(),
+            tool_args: TraceFieldPolicy::Capture,
+            tool_results: TraceFieldPolicy::Capture,
+            provider_payloads: TraceFieldPolicy::Capture,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TraceFieldPolicy {
+    Capture,
+    Summary,
+    Drop,
+}
+
+impl TraceFieldPolicy {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Capture => "capture",
+            Self::Summary => "summary",
+            Self::Drop => "drop",
         }
     }
 }
@@ -963,7 +1029,7 @@ impl Config {
             scripting: ScriptingConfig::default(),
             security: SecurityConfig::default(),
             limits: LimitsConfig::default(),
-            trace: false,
+            trace: TraceConfig::default(),
         }
     }
 
@@ -977,10 +1043,12 @@ impl Config {
                 path: paths.config.clone(),
                 source,
             })?;
+            parsed.apply_trace_capture_override();
             let migrated = parsed.migrate_loaded_config(raw_had_repl_ui);
             let scripting_normalized = parsed.normalize_scripting_config();
             let operator_ux_normalized = parsed.normalize_operator_ux_config();
-            let normalized = scripting_normalized || operator_ux_normalized;
+            let trace_normalized = parsed.normalize_trace_config();
+            let normalized = scripting_normalized || operator_ux_normalized || trace_normalized;
             if migrated || normalized {
                 parsed.persist(paths)?;
             }
@@ -1198,6 +1266,7 @@ impl Config {
         validate_personality_digest_config(&self.learning.personality_digest)?;
         validate_self_improvement_config(&self.self_improvement)?;
         validate_scripting_config(&self.scripting)?;
+        validate_trace_config(&self.trace)?;
         if matches!(self.limits.daily_usd_cap, Some(value) if value < 0.0) {
             return Err("limits.daily_usd_cap must be >= 0".into());
         }
@@ -1220,6 +1289,79 @@ impl Config {
             return Err("channels.telegram.min_interval_ms_global must be >= 1".into());
         }
         Ok(())
+    }
+
+    fn apply_trace_capture_override(&mut self) {
+        if !self.trace.capture_messages {
+            if self.trace.redaction.tool_args == TraceFieldPolicy::Capture {
+                self.trace.redaction.tool_args = TraceFieldPolicy::Summary;
+            }
+            if self.trace.redaction.tool_results == TraceFieldPolicy::Capture {
+                self.trace.redaction.tool_results = TraceFieldPolicy::Summary;
+            }
+            if self.trace.redaction.provider_payloads == TraceFieldPolicy::Capture {
+                self.trace.redaction.provider_payloads = TraceFieldPolicy::Summary;
+            }
+            tracing::warn!(
+                "trace.capture_messages=false coerced trace redaction capture policies to summary for this load"
+            );
+        }
+    }
+
+    fn normalize_trace_config(&mut self) -> bool {
+        let mut changed = false;
+        if self.trace.session_disk_cap_mb < 5 {
+            tracing::warn!(
+                configured = self.trace.session_disk_cap_mb,
+                floor = 5,
+                "clamping trace.session_disk_cap_mb to supported floor"
+            );
+            self.trace.session_disk_cap_mb = 5;
+            changed = true;
+        } else if self.trace.session_disk_cap_mb > 500 {
+            tracing::warn!(
+                configured = self.trace.session_disk_cap_mb,
+                ceiling = 500,
+                "clamping trace.session_disk_cap_mb to supported ceiling"
+            );
+            self.trace.session_disk_cap_mb = 500;
+            changed = true;
+        }
+        if self.trace.total_disk_cap_mb < 100 {
+            tracing::warn!(
+                configured = self.trace.total_disk_cap_mb,
+                floor = 100,
+                "clamping trace.total_disk_cap_mb to supported floor"
+            );
+            self.trace.total_disk_cap_mb = 100;
+            changed = true;
+        } else if self.trace.total_disk_cap_mb > 51_200 {
+            tracing::warn!(
+                configured = self.trace.total_disk_cap_mb,
+                ceiling = 51_200,
+                "clamping trace.total_disk_cap_mb to supported ceiling"
+            );
+            self.trace.total_disk_cap_mb = 51_200;
+            changed = true;
+        }
+        if self.trace.retention_days < 1 {
+            tracing::warn!(
+                configured = self.trace.retention_days,
+                floor = 1,
+                "clamping trace.retention_days to supported floor"
+            );
+            self.trace.retention_days = 1;
+            changed = true;
+        } else if self.trace.retention_days > 365 {
+            tracing::warn!(
+                configured = self.trace.retention_days,
+                ceiling = 365,
+                "clamping trace.retention_days to supported ceiling"
+            );
+            self.trace.retention_days = 365;
+            changed = true;
+        }
+        changed
     }
 }
 
@@ -1291,6 +1433,77 @@ where
         .map(|path| path.display().to_string())
         .unwrap_or_default();
     serializer.serialize_str(&rendered)
+}
+
+fn deserialize_trace_config<'de, D>(deserializer: D) -> Result<TraceConfig, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Compat {
+        Enabled(bool),
+        Table(TraceConfig),
+    }
+
+    match Compat::deserialize(deserializer)? {
+        Compat::Enabled(enabled) => Ok(TraceConfig {
+            enabled,
+            ..TraceConfig::default()
+        }),
+        Compat::Table(config) => Ok(config),
+    }
+}
+
+fn validate_trace_config(config: &TraceConfig) -> Result<(), String> {
+    if config
+        .redaction
+        .secrets
+        .trim()
+        .eq_ignore_ascii_case("never")
+    {
+        return Err(
+            "trace.redaction.secrets = \"never\" is not supported; secrets are always redacted"
+                .into(),
+        );
+    }
+    if !config
+        .redaction
+        .secrets
+        .trim()
+        .eq_ignore_ascii_case("always")
+    {
+        return Err("trace.redaction.secrets must be \"always\"".into());
+    }
+    if !(5..=500).contains(&config.session_disk_cap_mb) {
+        return Err("trace.session_disk_cap_mb must be between 5 and 500".into());
+    }
+    if !(100..=51_200).contains(&config.total_disk_cap_mb) {
+        return Err("trace.total_disk_cap_mb must be between 100 and 51200".into());
+    }
+    if !(1..=365).contains(&config.retention_days) {
+        return Err("trace.retention_days must be between 1 and 365".into());
+    }
+    let export_dir = config.otel_export_dir.trim();
+    if !export_dir.is_empty() {
+        let path = PathBuf::from(export_dir);
+        if path.is_absolute()
+            || path.components().any(|component| {
+                matches!(
+                    component,
+                    std::path::Component::ParentDir
+                        | std::path::Component::RootDir
+                        | std::path::Component::Prefix(_)
+                )
+            })
+        {
+            return Err("trace.otel_export_dir must be relative to ALLBERT_HOME".into());
+        }
+    }
+    if config.otel_service_name.trim().is_empty() {
+        return Err("trace.otel_service_name must not be empty".into());
+    }
+    Ok(())
 }
 
 fn validate_self_improvement_config(config: &SelfImprovementConfig) -> Result<(), String> {
@@ -1641,6 +1854,24 @@ trace = false
     }
 
     #[test]
+    fn legacy_root_trace_boolean_loads_as_enabled_flag() {
+        let parsed: Config = toml::from_str(
+            r#"
+trace = false
+
+[model]
+provider = "ollama"
+model_id = "gemma4"
+base_url = "http://127.0.0.1:11434"
+max_tokens = 4096
+"#,
+        )
+        .expect("legacy trace bool should parse");
+        assert!(!parsed.trace.enabled);
+        assert!(parsed.trace.capture_messages);
+    }
+
+    #[test]
     fn v0_1_setup_version_migrates_to_current_and_persists_classic_ui() {
         let temp = TempRoot::new();
         let paths = temp.paths();
@@ -1684,6 +1915,71 @@ trace = false
         let reloaded = Config::load_or_create(&paths).expect("config should reload");
         assert_eq!(reloaded.setup.version, CURRENT_SETUP_VERSION);
         assert_eq!(reloaded.repl.ui, ReplUiMode::Classic);
+    }
+
+    #[test]
+    fn trace_config_coerces_capture_messages_without_rewriting_policy() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should be created");
+        std::fs::write(
+            &paths.config,
+            r#"
+[model]
+provider = "ollama"
+model_id = "gemma4"
+base_url = "http://127.0.0.1:11434"
+max_tokens = 4096
+
+[setup]
+version = 4
+
+[trace]
+enabled = true
+capture_messages = false
+
+[trace.redaction]
+tool_args = "capture"
+tool_results = "capture"
+provider_payloads = "capture"
+"#,
+        )
+        .expect("config should write");
+
+        let config = Config::load_or_create(&paths).expect("config should load");
+        assert_eq!(config.trace.redaction.tool_args, TraceFieldPolicy::Summary);
+        assert_eq!(
+            config.trace.redaction.tool_results,
+            TraceFieldPolicy::Summary
+        );
+        assert_eq!(
+            config.trace.redaction.provider_payloads,
+            TraceFieldPolicy::Summary
+        );
+
+        let raw = std::fs::read_to_string(&paths.config).expect("config should read");
+        assert!(raw.contains("tool_args = \"capture\""));
+    }
+
+    #[test]
+    fn trace_config_rejects_disabling_secret_redaction() {
+        let err = toml::from_str::<Config>(
+            r#"
+[model]
+provider = "ollama"
+model_id = "gemma4"
+base_url = "http://127.0.0.1:11434"
+max_tokens = 4096
+
+[trace.redaction]
+secrets = "never"
+"#,
+        )
+        .expect("toml parse should allow config validation to reject");
+        let validation = err
+            .validate()
+            .expect_err("secrets=never should be rejected");
+        assert!(validation.contains("trace.redaction.secrets"));
     }
 
     #[test]
