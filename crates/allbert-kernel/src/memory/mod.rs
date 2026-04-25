@@ -1,9 +1,10 @@
 mod curated;
 
 pub use curated::{
-    bootstrap_curated_memory, build_turn_memory_snapshot, forget_memory, get_staged_memory,
-    list_staged_memory, memory_status, preview_forget_memory, preview_promote_staged_memory,
-    promote_staged_memory, rebuild_memory_index, reconcile_curated_memory, reject_staged_memory,
+    bootstrap_curated_memory, build_turn_memory_snapshot, forget_memory, gc_memory_recovery,
+    get_staged_memory, list_staged_memory, memory_status, preview_forget_memory,
+    preview_promote_staged_memory, promote_staged_memory, rebuild_memory_index,
+    reconcile_curated_memory, reconsider_staged_memory, reject_staged_memory, restore_memory,
     search_memory, stage_memory, verify_curated_memory, ForgetTarget, MemoryBootstrapReport,
     MemoryFact, MemoryForgetPreview, MemoryHealth, MemoryIndexMeta, MemoryManifest,
     MemoryManifestEntry, MemoryPromotionPreview, MemoryReconcileMeta, MemoryReconcileReport,

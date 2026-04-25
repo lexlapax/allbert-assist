@@ -287,6 +287,11 @@ pub fn reject(
     Ok(format!("rejected staged memory {id}\npath: {rejected}"))
 }
 
+pub fn reconsider(paths: &AllbertPaths, config: &Config, id: &str) -> Result<String> {
+    let restored = memory::reconsider_staged_memory(paths, &config.memory, id)?;
+    Ok(format!("reconsidered staged memory {id}\npath: {restored}"))
+}
+
 pub fn forget(
     paths: &AllbertPaths,
     config: &Config,
@@ -310,6 +315,16 @@ pub fn forget(
             .collect::<Vec<_>>()
             .join("\n")
     ))
+}
+
+pub fn restore(paths: &AllbertPaths, config: &Config, id: &str) -> Result<String> {
+    let restored = memory::restore_memory(paths, &config.memory, id)?;
+    Ok(format!("restored durable memory {id}\npath: {restored}"))
+}
+
+pub fn recovery_gc(paths: &AllbertPaths, config: &Config) -> Result<String> {
+    let removed = memory::gc_memory_recovery(paths, &config.memory)?;
+    Ok(format!("memory recovery gc removed {removed} entrie(s)"))
 }
 
 pub fn rebuild_index(paths: &AllbertPaths, config: &Config, force: bool) -> Result<String> {

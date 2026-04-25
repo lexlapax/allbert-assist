@@ -119,11 +119,16 @@ pub fn show_installed_skill(paths: &AllbertPaths, name: &str) -> Result<String> 
         .as_ref()
         .map(|metadata| metadata.tree_sha256.as_str())
         .unwrap_or(preview.tree_sha256.as_str());
+    let enabled = metadata.as_ref().is_none_or(|metadata| metadata.enabled);
 
     let mut lines = Vec::new();
     lines.push(format!("name:           {}", preview.name));
     lines.push(format!("description:    {}", preview.description));
     lines.push(format!("provenance:     {}", preview.provenance.label()));
+    lines.push(format!(
+        "enabled:        {}",
+        if enabled { "yes" } else { "no" }
+    ));
     lines.push(format!("installed path: {}", root.display()));
     lines.push(format!("tree sha256:    {}", tree_sha));
     lines.push(format!(
@@ -241,6 +246,44 @@ pub fn remove_skill_interactive(paths: &AllbertPaths, name: &str) -> Result<()> 
     remove_skill(paths, name, &StdioSkillPrompter)
 }
 
+pub fn set_skill_enabled(paths: &AllbertPaths, name: &str, enabled: bool) -> Result<String> {
+    paths.ensure()?;
+    let root = paths.skills_installed.join(name);
+    let skill_path = root.join("SKILL.md");
+    if !skill_path.exists() {
+        bail!("skill '{}' is not installed", name);
+    }
+    let preview = inspect_candidate(&skill_path, "installed")?;
+    let metadata_path = root.join(INSTALL_METADATA_FILE);
+    let mut metadata = if metadata_path.exists() {
+        load_install_metadata(&metadata_path)?
+    } else {
+        let now = Utc::now().to_rfc3339();
+        InstallMetadata {
+            source: SkillSource {
+                kind: "installed".into(),
+                identity: root.display().to_string(),
+                requested_ref: None,
+            },
+            tree_sha256: preview.tree_sha256.clone(),
+            approved_at: now.clone(),
+            installed_at: now,
+            resolved_commit: None,
+            enabled: true,
+        }
+    };
+    metadata.tree_sha256 = preview.tree_sha256;
+    metadata.enabled = enabled;
+    persist_install_metadata(&metadata_path, &metadata)?;
+    refresh_agents_markdown(paths)?;
+    Ok(format!(
+        "{} skill {}\npath: {}",
+        if enabled { "enabled" } else { "disabled" },
+        name,
+        root.display()
+    ))
+}
+
 pub fn remove_skill<P: SkillPrompter>(
     paths: &AllbertPaths,
     name: &str,
@@ -324,6 +367,8 @@ struct InstallMetadata {
     approved_at: String,
     installed_at: String,
     resolved_commit: Option<String>,
+    #[serde(default = "default_enabled")]
+    enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -668,6 +713,7 @@ fn install_prepared_skill<P: SkillPrompter>(
         approved_at: now.clone(),
         installed_at: now,
         resolved_commit: prepared.resolved_commit,
+        enabled: true,
     };
     persist_install_metadata(&destination.join(INSTALL_METADATA_FILE), &metadata)?;
     refresh_agents_markdown(paths)?;
@@ -786,6 +832,14 @@ fn format_skill_summary(preview: &SkillPreview, metadata: Option<&InstallMetadat
     lines.push(preview.name.to_string());
     lines.push(format!("  description: {}", preview.description));
     lines.push(format!("  source: {}", preview.provenance.label()));
+    lines.push(format!(
+        "  enabled: {}",
+        if metadata.is_none_or(|metadata| metadata.enabled) {
+            "yes"
+        } else {
+            "no"
+        }
+    ));
     lines.push(format!(
         "  allowed-tools: {}",
         render_list(&preview.allowed_tools)
@@ -991,6 +1045,10 @@ fn persist_install_metadata(path: &Path, metadata: &InstallMetadata) -> Result<(
 fn load_install_metadata(path: &Path) -> Result<InstallMetadata> {
     let raw = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
     toml::from_str(&raw).with_context(|| format!("parse {}", path.display()))
+}
+
+fn default_enabled() -> bool {
+    true
 }
 
 fn clone_git_source(source: &GitInstallSource, destination: &Path) -> Result<()> {
@@ -1242,6 +1300,37 @@ mod tests {
         assert!(paths.skills.join(APPROVALS_FILE).exists());
         assert_eq!(prompter.install_call_count(), 1);
         assert!(prompter.previews()[0].contains("provenance:     external"));
+    }
+
+    #[test]
+    fn disable_and_enable_skill_updates_metadata_and_runtime_discovery() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let source = write_source_skill(&temp.source_root(), "toggle-skill", "Body");
+        let config = Config::default_template();
+        let prompter = FixedPrompter::new(vec![true], vec![]);
+        install_skill_source(
+            &paths,
+            &config,
+            source.to_str().expect("source should be valid utf-8"),
+            &prompter,
+        )
+        .expect("install succeeds");
+
+        let disabled = set_skill_enabled(&paths, "toggle-skill", false).unwrap();
+        assert!(disabled.contains("disabled skill toggle-skill"));
+        let listing = list_installed_skills(&paths).unwrap();
+        assert!(listing.contains("enabled: no"));
+        let shown = show_installed_skill(&paths, "toggle-skill").unwrap();
+        assert!(shown.contains("enabled:        no"));
+        let store = allbert_kernel::SkillStore::discover(&paths.skills);
+        assert!(store.get("toggle-skill").is_none());
+
+        let enabled = set_skill_enabled(&paths, "toggle-skill", true).unwrap();
+        assert!(enabled.contains("enabled skill toggle-skill"));
+        let store = allbert_kernel::SkillStore::discover(&paths.skills);
+        assert!(store.get("toggle-skill").is_some());
     }
 
     #[test]

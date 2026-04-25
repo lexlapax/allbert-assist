@@ -325,6 +325,33 @@ struct StageFrontmatter {
     extra: BTreeMap<String, JsonValue>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct RejectedStageEnvelope {
+    rejection: RejectedStageMetadata,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RejectedStageMetadata {
+    original_id: String,
+    source_session: String,
+    rejected_at: String,
+    reason: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TrashEnvelope {
+    trash: TrashMetadata,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TrashMetadata {
+    original_id: String,
+    original_path: String,
+    deleted_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    delete_reason: Option<String>,
+}
+
 fn empty_stage_frontmatter() -> StageFrontmatter {
     StageFrontmatter {
         id: None,
@@ -360,6 +387,7 @@ pub fn bootstrap_curated_memory(
     };
 
     let expired_staged_entries = expire_staged_entries(paths, config)?;
+    let _ = gc_memory_recovery(paths, config)?;
     let manifest = load_manifest(paths)?;
     let rebuild_report = maybe_rebuild_index(paths, config, &manifest, false, None)?;
 
@@ -1046,8 +1074,14 @@ pub fn reject_staged_memory(
         .ok_or_else(|| KernelError::InitFailed(format!("staged memory entry not found: {id}")))?;
     let raw = fs::read_to_string(&staged_path)
         .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", staged_path.display())))?;
+    let frontmatter = parse_stage_frontmatter(&staged_path)?;
+    let source_session = frontmatter
+        .session_id
+        .clone()
+        .unwrap_or_else(|| "unknown".into());
     let rejected_name = format!(
-        "{}-{}.md",
+        "{}/{}-{}.md",
+        source_session,
         OffsetDateTime::now_utc()
             .format(&time::macros::format_description!(
                 "[year][month][day]T[hour][minute][second]Z"
@@ -1056,20 +1090,21 @@ pub fn reject_staged_memory(
         id
     );
     let dest = paths.memory_staging_rejected.join(&rejected_name);
-    let rejection = json!({
-        "reason": reason.unwrap_or("rejected by operator"),
-        "rejected_at": now_rfc3339()?,
-    });
-    let wrapped = format!(
-        "---\nrejection:\n  reason: {}\n  rejected_at: {}\n---\n\n{}",
-        yaml_escape_scalar(
-            rejection["reason"]
-                .as_str()
-                .unwrap_or("rejected by operator")
-        ),
-        rejection["rejected_at"].as_str().unwrap_or(""),
-        raw
-    );
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", parent.display())))?;
+    }
+    let rejection = RejectedStageEnvelope {
+        rejection: RejectedStageMetadata {
+            original_id: id.to_string(),
+            source_session,
+            rejected_at: now_rfc3339()?,
+            reason: reason.unwrap_or("rejected by operator").to_string(),
+        },
+    };
+    let rejection_yaml = serde_yaml::to_string(&rejection)
+        .map_err(|e| KernelError::InitFailed(format!("serialize rejection metadata: {e}")))?;
+    let wrapped = format!("---\n{}---\n\n{}", rejection_yaml, raw.trim_end());
     atomic_write(&dest, wrapped.as_bytes())?;
     fs::remove_file(&staged_path)
         .map_err(|e| KernelError::InitFailed(format!("remove {}: {e}", staged_path.display())))?;
@@ -1160,25 +1195,32 @@ pub fn forget_memory(
         if !source.exists() {
             continue;
         }
+        let raw = fs::read_to_string(&source)
+            .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", source.display())))?;
         let trash_name = format!(
-            "{}-{}",
+            "{}-{}.md",
             OffsetDateTime::now_utc()
                 .format(&time::macros::format_description!(
                     "[year][month][day]T[hour][minute][second]Z"
                 ))
                 .map_err(|e| KernelError::InitFailed(format!("format trash timestamp: {e}")))?,
-            source
-                .file_name()
-                .and_then(|value| value.to_str())
-                .unwrap_or("memory.md")
+            memory_id_from_path(&target.path)
         );
         let dest = paths.memory_trash.join(trash_name);
-        fs::rename(&source, &dest).map_err(|e| {
-            KernelError::InitFailed(format!(
-                "move {} -> {}: {e}",
-                source.display(),
-                dest.display()
-            ))
+        let trash = TrashEnvelope {
+            trash: TrashMetadata {
+                original_id: memory_id_from_path(&target.path),
+                original_path: target.path.clone(),
+                deleted_at: now_rfc3339()?,
+                delete_reason: Some(format!("forget query: {}", preview.query)),
+            },
+        };
+        let trash_yaml = serde_yaml::to_string(&trash)
+            .map_err(|e| KernelError::InitFailed(format!("serialize trash metadata: {e}")))?;
+        let wrapped = format!("---\n{}---\n\n{}", trash_yaml, raw.trim_end());
+        atomic_write(&dest, wrapped.as_bytes())?;
+        fs::remove_file(&source).map_err(|e| {
+            KernelError::InitFailed(format!("remove forgotten memory {}: {e}", source.display()))
         })?;
         forgotten.push(target.path.clone());
     }
@@ -1186,6 +1228,203 @@ pub fn forget_memory(
     write_manifest(paths, &manifest)?;
     let _ = maybe_rebuild_index(paths, config, &manifest, true, Some("forget-memory"))?;
     Ok(forgotten)
+}
+
+pub fn restore_memory(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    id: &str,
+) -> Result<String, KernelError> {
+    let _ = bootstrap_curated_memory(paths, config)?;
+    let (trash_path, metadata, body) = find_trash_entry(paths, id)?
+        .ok_or_else(|| KernelError::InitFailed(format!("trashed memory entry not found: {id}")))?;
+    let destination = paths.memory.join(&metadata.original_path);
+    if destination.exists() {
+        return Err(KernelError::InitFailed(format!(
+            "cannot restore {}; live memory already exists at {}",
+            metadata.original_id, metadata.original_path
+        )));
+    }
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", parent.display())))?;
+    }
+    atomic_write(&destination, body.trim_start().as_bytes())?;
+    fs::remove_file(&trash_path).map_err(|e| {
+        KernelError::InitFailed(format!(
+            "remove restored trash {}: {e}",
+            trash_path.display()
+        ))
+    })?;
+    let manifest = scan_manifest(paths)?;
+    write_manifest(paths, &manifest)?;
+    let _ = maybe_rebuild_index(paths, config, &manifest, true, Some("restore-memory"))?;
+    Ok(metadata.original_path)
+}
+
+pub fn reconsider_staged_memory(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    id: &str,
+) -> Result<String, KernelError> {
+    let _ = bootstrap_curated_memory(paths, config)?;
+    if find_staged_entry_by_id(&paths.memory_staging, id)?.is_some() {
+        return Err(KernelError::InitFailed(format!(
+            "cannot reconsider {id}; an active staged entry with that id already exists"
+        )));
+    }
+    let (rejected_path, metadata, body) = find_rejected_entry(paths, id)?.ok_or_else(|| {
+        KernelError::InitFailed(format!("rejected staged memory entry not found: {id}"))
+    })?;
+    let created_at = OffsetDateTime::now_utc();
+    let destination = paths
+        .memory_staging
+        .join(staged_filename(&metadata.original_id, created_at));
+    atomic_write(&destination, body.trim_start().as_bytes())?;
+    fs::remove_file(&rejected_path).map_err(|e| {
+        KernelError::InitFailed(format!(
+            "remove reconsidered rejection {}: {e}",
+            rejected_path.display()
+        ))
+    })?;
+    let manifest = load_manifest(paths)?;
+    let _ = maybe_rebuild_index(
+        paths,
+        config,
+        &manifest,
+        true,
+        Some("reconsider-staged-memory"),
+    )?;
+    relative_to_memory(paths, &destination)
+}
+
+pub fn gc_memory_recovery(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+) -> Result<usize, KernelError> {
+    ensure_curated_dirs(paths)?;
+    let mut removed = 0usize;
+    removed += gc_recovery_dir(&paths.memory_trash, config.trash_retention_days, |raw| {
+        parse_trash_envelope(raw)
+            .ok()
+            .map(|(metadata, _)| metadata.deleted_at)
+    })?;
+    removed += gc_recovery_dir(
+        &paths.memory_staging_rejected,
+        config.rejected_retention_days,
+        |raw| {
+            parse_rejected_stage_envelope(raw)
+                .ok()
+                .map(|(metadata, _)| metadata.rejected_at)
+        },
+    )?;
+    Ok(removed)
+}
+
+fn memory_id_from_path(path: &str) -> String {
+    path.trim_end_matches(".md").replace(['/', '\\', ' '], "_")
+}
+
+fn memory_short_id_from_path(path: &str) -> String {
+    path.rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(path)
+        .trim_end_matches(".md")
+        .replace(['/', '\\', ' '], "_")
+}
+
+fn find_trash_entry(
+    paths: &AllbertPaths,
+    id: &str,
+) -> Result<Option<(PathBuf, TrashMetadata, String)>, KernelError> {
+    for path in list_markdown_recursive(&paths.memory_trash)? {
+        let raw = fs::read_to_string(&path)
+            .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+        let (metadata, body) = parse_trash_envelope(&raw)?;
+        if metadata.original_id == id
+            || metadata.original_path == id
+            || memory_short_id_from_path(&metadata.original_path) == id
+        {
+            return Ok(Some((path, metadata, body)));
+        }
+    }
+    Ok(None)
+}
+
+fn find_rejected_entry(
+    paths: &AllbertPaths,
+    id: &str,
+) -> Result<Option<(PathBuf, RejectedStageMetadata, String)>, KernelError> {
+    for path in list_markdown_recursive(&paths.memory_staging_rejected)? {
+        let raw = fs::read_to_string(&path)
+            .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+        let (metadata, body) = parse_rejected_stage_envelope(&raw)?;
+        if metadata.original_id == id {
+            return Ok(Some((path, metadata, body)));
+        }
+    }
+    Ok(None)
+}
+
+fn parse_trash_envelope(raw: &str) -> Result<(TrashMetadata, String), KernelError> {
+    let (frontmatter, body) = split_frontmatter_and_body(raw);
+    let envelope: TrashEnvelope = serde_yaml::from_str(frontmatter)
+        .map_err(|e| KernelError::InitFailed(format!("parse trash metadata: {e}")))?;
+    Ok((envelope.trash, body))
+}
+
+fn parse_rejected_stage_envelope(
+    raw: &str,
+) -> Result<(RejectedStageMetadata, String), KernelError> {
+    let (frontmatter, body) = split_frontmatter_and_body(raw);
+    let envelope: RejectedStageEnvelope = serde_yaml::from_str(frontmatter)
+        .map_err(|e| KernelError::InitFailed(format!("parse rejection metadata: {e}")))?;
+    Ok((envelope.rejection, body))
+}
+
+fn gc_recovery_dir<F>(dir: &Path, retention_days: u16, timestamp: F) -> Result<usize, KernelError>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    let cutoff = OffsetDateTime::now_utc() - time::Duration::days(i64::from(retention_days));
+    let mut removed = 0usize;
+    for path in list_markdown_recursive(dir)? {
+        let raw = fs::read_to_string(&path)
+            .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+        let Some(ts) = timestamp(&raw) else {
+            continue;
+        };
+        let Ok(then) = OffsetDateTime::parse(&ts, &Rfc3339) else {
+            continue;
+        };
+        if then < cutoff {
+            fs::remove_file(&path).map_err(|e| {
+                KernelError::InitFailed(format!("remove expired recovery {}: {e}", path.display()))
+            })?;
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
+fn list_markdown_recursive(dir: &Path) -> Result<Vec<PathBuf>, KernelError> {
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(dir)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", dir.display())))?
+    {
+        let entry = entry.map_err(|e| KernelError::InitFailed(e.to_string()))?;
+        let path = entry.path();
+        if path.is_dir() {
+            entries.extend(list_markdown_recursive(&path)?);
+        } else if path.extension().and_then(|value| value.to_str()) == Some("md") {
+            entries.push(path);
+        }
+    }
+    entries.sort();
+    Ok(entries)
 }
 
 fn ensure_curated_dirs(paths: &AllbertPaths) -> Result<(), KernelError> {
@@ -2881,10 +3120,6 @@ fn slugify(input: &str) -> String {
     }
 }
 
-fn yaml_escape_scalar(input: &str) -> String {
-    input.replace(':', "\\:").replace('\n', " ")
-}
-
 fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
     if input.len() <= max_bytes {
         return input.to_string();
@@ -3492,6 +3727,128 @@ mod tests {
         )
         .unwrap();
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn rejected_staged_memory_can_be_reconsidered() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        bootstrap_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+        let staged = stage_memory(
+            &paths,
+            &MemoryConfig::default(),
+            StageMemoryRequest {
+                session_id: "sess-reconsider".into(),
+                turn_id: "turn-1".into(),
+                agent: "allbert/root".into(),
+                source: "channel".into(),
+                content: "Reconsider this durable candidate.".into(),
+                kind: StagedMemoryKind::ExplicitRequest,
+                summary: "Reconsider candidate".into(),
+                tags: vec!["recovery".into()],
+                provenance: None,
+                fingerprint_basis: None,
+                facts: Vec::new(),
+            },
+        )
+        .unwrap();
+        let rejected_path =
+            reject_staged_memory(&paths, &MemoryConfig::default(), &staged.id, None).unwrap();
+        assert!(paths.memory.join(&rejected_path).exists());
+
+        let restored =
+            reconsider_staged_memory(&paths, &MemoryConfig::default(), &staged.id).unwrap();
+        assert!(paths.memory.join(&restored).exists());
+        assert!(!paths.memory.join(&rejected_path).exists());
+
+        let entry = get_staged_memory(&paths, &MemoryConfig::default(), &staged.id).unwrap();
+        assert_eq!(entry.summary, "Reconsider candidate");
+    }
+
+    #[test]
+    fn forgotten_memory_can_be_restored_from_trash() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        fs::create_dir_all(paths.memory_notes.join("projects")).unwrap();
+        fs::write(
+            paths.memory_notes.join("projects/restorable.md"),
+            "# Restorable\n\nThis note should survive trash roundtrip.\n",
+        )
+        .unwrap();
+        bootstrap_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+        let preview = preview_forget_memory(
+            &paths,
+            &MemoryConfig::default(),
+            "notes/projects/restorable.md",
+        )
+        .unwrap();
+        let forgotten = forget_memory(&paths, &MemoryConfig::default(), &preview).unwrap();
+        assert_eq!(forgotten, vec!["notes/projects/restorable.md"]);
+        assert!(!paths.memory_notes.join("projects/restorable.md").exists());
+        assert_eq!(
+            list_markdown_recursive(&paths.memory_trash).unwrap().len(),
+            1
+        );
+
+        let restored = restore_memory(&paths, &MemoryConfig::default(), "restorable").unwrap();
+        assert_eq!(restored, "notes/projects/restorable.md");
+        let raw = fs::read_to_string(paths.memory_notes.join("projects/restorable.md")).unwrap();
+        assert!(raw.contains("trash roundtrip"));
+        assert!(list_markdown_recursive(&paths.memory_trash)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn recovery_gc_removes_expired_trash_and_rejections() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        bootstrap_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+        let trash = TrashEnvelope {
+            trash: TrashMetadata {
+                original_id: "old-memory".into(),
+                original_path: "notes/old-memory.md".into(),
+                deleted_at: "2000-01-01T00:00:00Z".into(),
+                delete_reason: Some("test".into()),
+            },
+        };
+        let trash_yaml = serde_yaml::to_string(&trash).unwrap();
+        atomic_write(
+            &paths.memory_trash.join("old-memory.md"),
+            format!("---\n{}---\n\n# Old\n", trash_yaml).as_bytes(),
+        )
+        .unwrap();
+        fs::create_dir_all(paths.memory_staging_rejected.join("session")).unwrap();
+        let rejection = RejectedStageEnvelope {
+            rejection: RejectedStageMetadata {
+                original_id: "old-stage".into(),
+                source_session: "session".into(),
+                rejected_at: "2000-01-01T00:00:00Z".into(),
+                reason: "test".into(),
+            },
+        };
+        let rejection_yaml = serde_yaml::to_string(&rejection).unwrap();
+        atomic_write(
+            &paths.memory_staging_rejected.join("session/old-stage.md"),
+            format!("---\n{}---\n\n# Old staged\n", rejection_yaml).as_bytes(),
+        )
+        .unwrap();
+
+        let config = MemoryConfig {
+            trash_retention_days: 1,
+            rejected_retention_days: 1,
+            ..MemoryConfig::default()
+        };
+        assert_eq!(gc_memory_recovery(&paths, &config).unwrap(), 2);
+        assert!(list_markdown_recursive(&paths.memory_trash)
+            .unwrap()
+            .is_empty());
+        assert!(list_markdown_recursive(&paths.memory_staging_rejected)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

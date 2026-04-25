@@ -1223,6 +1223,50 @@ impl Config {
     }
 }
 
+pub fn write_last_good_config(paths: &AllbertPaths) -> Result<(), KernelError> {
+    paths.ensure()?;
+    let bytes = std::fs::read(&paths.config)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", paths.config.display())))?;
+    atomic_write(&paths.config_last_good, &bytes).map_err(|source| ConfigError::Write {
+        path: paths.config_last_good.clone(),
+        source,
+    })?;
+    Ok(())
+}
+
+pub fn restore_last_good_config(paths: &AllbertPaths) -> Result<PathBuf, KernelError> {
+    paths.ensure()?;
+    if !paths.config_last_good.exists() {
+        return Err(KernelError::InitFailed(format!(
+            "last-good config snapshot not found at {}",
+            paths.config_last_good.display()
+        )));
+    }
+    if !paths.config.exists() {
+        return Err(KernelError::InitFailed(format!(
+            "current config not found at {}; refusing to restore without a broken config to preserve",
+            paths.config.display()
+        )));
+    }
+
+    let stamp = time::OffsetDateTime::now_utc().unix_timestamp();
+    let backup = paths.root.join(format!("config.toml.broken-{stamp}"));
+    let current = std::fs::read(&paths.config)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", paths.config.display())))?;
+    atomic_write(&backup, &current).map_err(|source| ConfigError::Write {
+        path: backup.clone(),
+        source,
+    })?;
+    let last_good = std::fs::read(&paths.config_last_good).map_err(|e| {
+        KernelError::InitFailed(format!("read {}: {e}", paths.config_last_good.display()))
+    })?;
+    atomic_write(&paths.config, &last_good).map_err(|source| ConfigError::Write {
+        path: paths.config.clone(),
+        source,
+    })?;
+    Ok(backup)
+}
+
 fn atomic_write(path: &std::path::Path, bytes: &[u8]) -> Result<(), std::io::Error> {
     crate::atomic_write(path, bytes)
 }
@@ -1481,6 +1525,24 @@ max_tokens = 4096
         assert!(rendered.contains("tick_ms = 80"));
         assert!(rendered.contains("[operator_ux.activity]"));
         assert!(rendered.contains("stuck_notice_after_s = 30"));
+    }
+
+    #[test]
+    fn last_good_config_snapshot_restores_broken_current_config() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let mut config = Config::default_template();
+        config.model.model_id = "known-good-model".into();
+        config.persist(&paths).expect("config should persist");
+        write_last_good_config(&paths).expect("last-good snapshot should write");
+
+        std::fs::write(&paths.config, "not = [valid toml").expect("broken config should write");
+        let backup = restore_last_good_config(&paths).expect("last-good should restore");
+
+        let restored = std::fs::read_to_string(&paths.config).expect("config should read");
+        assert!(restored.contains("known-good-model"));
+        let broken = std::fs::read_to_string(backup).expect("broken backup should read");
+        assert_eq!(broken, "not = [valid toml");
     }
 
     #[test]

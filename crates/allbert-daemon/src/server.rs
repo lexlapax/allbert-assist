@@ -544,6 +544,10 @@ pub async fn spawn_with_factory(
             return Err(error);
         }
     };
+    if !paths.config.exists() {
+        config.persist(&paths)?;
+    }
+    allbert_kernel::write_last_good_config(&paths)?;
 
     let shutdown = CancellationToken::new();
     let (notifications, _) = broadcast::channel(64);

@@ -284,7 +284,7 @@ pub fn command_catalog() -> Vec<CommandDescriptor> {
             "allbert-cli memory",
             CommandGroup::Memory,
             CLI,
-            "Inspect and manage curated memory.",
+            "Inspect, stage, forget, restore, and manage curated memory.",
         ),
         command(
             "tui:/memory",
@@ -298,7 +298,7 @@ pub fn command_catalog() -> Vec<CommandDescriptor> {
             "allbert-cli skills",
             CommandGroup::Skills,
             CLI,
-            "Inspect, validate, install, update, and remove skills.",
+            "Inspect, validate, install, update, disable, enable, and remove skills.",
         ),
         command(
             "tui:/skills",
@@ -341,6 +341,13 @@ pub fn command_catalog() -> Vec<CommandDescriptor> {
             CommandGroup::System,
             CLI,
             "Start, stop, restart, and inspect daemon logs.",
+        ),
+        command(
+            "cli:config",
+            "allbert-cli config",
+            CommandGroup::System,
+            CLI,
+            "Restore config.toml from the daemon last-good snapshot.",
         ),
         command(
             "cli:profile",

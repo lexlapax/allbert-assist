@@ -11,6 +11,8 @@ use crate::error::SkillError;
 use crate::intent::Intent;
 use crate::{atomic_write, AllbertPaths, MemoryRoutingConfig, ModelConfig, Provider};
 
+const INSTALL_METADATA_FILE: &str = ".allbert-install.toml";
+
 #[derive(Debug, Clone)]
 pub struct Skill {
     pub name: String,
@@ -108,6 +110,9 @@ impl SkillStore {
     pub fn discover(root: &Path) -> Self {
         let mut skills = Vec::new();
         for skill_md in find_skill_files(root) {
+            if !installed_skill_enabled(&skill_md) {
+                continue;
+            }
             match Self::load_skill_file(&skill_md) {
                 Ok(skill) => skills.push(skill),
                 Err(err) => {
@@ -564,6 +569,16 @@ struct ValidationFrontmatter {
     allowed_tools: AllowedTools,
 }
 
+#[derive(Debug, Deserialize)]
+struct InstallMetadata {
+    #[serde(default = "default_enabled")]
+    enabled: bool,
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct CompatibilityFrontmatter {
@@ -773,6 +788,26 @@ fn collect_immediate_skill_files(root: &Path, out: &mut Vec<PathBuf>) {
             if skill_md.exists() {
                 out.push(skill_md);
             }
+        }
+    }
+}
+
+fn installed_skill_enabled(skill_md: &Path) -> bool {
+    let Some(skill_dir) = skill_md.parent() else {
+        return true;
+    };
+    let metadata_path = skill_dir.join(INSTALL_METADATA_FILE);
+    let Ok(raw) = fs::read_to_string(&metadata_path) else {
+        return true;
+    };
+    match toml::from_str::<InstallMetadata>(&raw) {
+        Ok(metadata) => metadata.enabled,
+        Err(err) => {
+            tracing::warn!(
+                path = %metadata_path.display(),
+                "ignoring invalid skill install metadata while discovering skills: {err}"
+            );
+            true
         }
     }
 }
@@ -1072,6 +1107,42 @@ mod tests {
             SkillProvenance::External
         );
         assert!(store.get("incoming-skill").is_none());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn discovery_ignores_disabled_installed_skills() {
+        let root = temp_dir("disabled");
+        let skills_root = root.join("skills");
+        let installed_root = skills_root.join("installed");
+        write_skill(
+            &installed_root.join("enabled-skill/SKILL.md"),
+            "---\nname: enabled-skill\ndescription: Enabled.\n---\n\nenabled\n",
+        );
+        write_skill(
+            &installed_root.join("disabled-skill/SKILL.md"),
+            "---\nname: disabled-skill\ndescription: Disabled.\n---\n\ndisabled\n",
+        );
+        fs::write(
+            installed_root.join("disabled-skill/.allbert-install.toml"),
+            r#"
+enabled = false
+tree_sha256 = "abc"
+approved_at = "2026-04-25T00:00:00Z"
+installed_at = "2026-04-25T00:00:00Z"
+
+[source]
+kind = "local_path"
+identity = "/tmp/disabled-skill"
+requested_ref = ""
+"#,
+        )
+        .unwrap();
+
+        let store = SkillStore::discover(&skills_root);
+        assert!(store.get("enabled-skill").is_some());
+        assert!(store.get("disabled-skill").is_none());
 
         let _ = fs::remove_dir_all(root);
     }

@@ -260,6 +260,7 @@ fn collect_counts(paths: &AllbertPaths) -> Result<ManifestCounts> {
                 let value = path.to_string_lossy();
                 value.ends_with(".md")
                     && !value.contains("/.rejected/")
+                    && !value.contains("/reject/")
                     && !value.contains("/.expired/")
             })
             .count(),

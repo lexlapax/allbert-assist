@@ -81,6 +81,10 @@ enum Command {
         #[command(subcommand)]
         command: MemoryCommand,
     },
+    Config {
+        #[command(subcommand)]
+        command: ConfigCommand,
+    },
     Approvals {
         #[command(subcommand)]
         command: ApprovalsCommand,
@@ -170,8 +174,18 @@ enum SkillsCommand {
     Update { name: String },
     /// Remove one installed skill.
     Remove { name: String },
+    /// Disable one installed skill without removing it from disk.
+    Disable { name: String },
+    /// Re-enable one installed skill.
+    Enable { name: String },
     /// Scaffold a new strict AgentSkills-format skill in the current directory.
     Init { name: String },
+}
+
+#[derive(Subcommand, Debug)]
+enum ConfigCommand {
+    /// Restore config.toml from the daemon's last known-good snapshot.
+    RestoreLastGood,
 }
 
 #[derive(Subcommand, Debug)]
@@ -240,12 +254,18 @@ enum MemoryCommand {
         #[arg(long)]
         reason: Option<String>,
     },
+    /// Move a rejected staged-memory entry back into staging.
+    Reconsider { id: String },
     /// Forget one or more durable memory entries.
     Forget {
         target: String,
         #[arg(long)]
         confirm: bool,
     },
+    /// Restore a forgotten durable-memory entry from trash.
+    Restore { id: String },
+    /// Remove expired memory trash and rejected staged entries.
+    RecoveryGc,
     /// Rebuild the curated-memory index.
     RebuildIndex {
         #[arg(long)]
@@ -461,6 +481,14 @@ async fn main() -> Result<()> {
     }
 
     let paths = AllbertPaths::from_home()?;
+    if matches!(
+        args.command.as_ref(),
+        Some(Command::Config {
+            command: ConfigCommand::RestoreLastGood
+        })
+    ) {
+        return run_config_command(&paths, ConfigCommand::RestoreLastGood);
+    }
     let mut config = Config::load_or_create(&paths)?;
 
     match args.command {
@@ -497,6 +525,7 @@ async fn main() -> Result<()> {
         }
         Some(Command::Identity { command }) => run_identity_command(&paths, command),
         Some(Command::Memory { command }) => run_memory_command(&paths, &config, command).await,
+        Some(Command::Config { command }) => run_config_command(&paths, command),
         Some(Command::Approvals { command }) => run_approvals_command(&paths, command),
         Some(Command::Inbox { command }) => run_inbox_command(&paths, &config, command).await,
         Some(Command::Activity { json }) => run_activity_command(&paths, &config, json).await,
@@ -871,12 +900,37 @@ async fn run_memory_command(
             );
             Ok(())
         }
+        MemoryCommand::Reconsider { id } => {
+            println!("{}", memory_cli::reconsider(paths, config, &id)?);
+            Ok(())
+        }
         MemoryCommand::Forget { target, confirm } => {
             println!("{}", memory_cli::forget(paths, config, &target, confirm)?);
             Ok(())
         }
+        MemoryCommand::Restore { id } => {
+            println!("{}", memory_cli::restore(paths, config, &id)?);
+            Ok(())
+        }
+        MemoryCommand::RecoveryGc => {
+            println!("{}", memory_cli::recovery_gc(paths, config)?);
+            Ok(())
+        }
         MemoryCommand::RebuildIndex { force } => {
             println!("{}", memory_cli::rebuild_index(paths, config, force)?);
+            Ok(())
+        }
+    }
+}
+
+fn run_config_command(paths: &AllbertPaths, command: ConfigCommand) -> Result<()> {
+    match command {
+        ConfigCommand::RestoreLastGood => {
+            let backup = allbert_kernel::restore_last_good_config(paths)?;
+            println!(
+                "restored config.toml from last-good snapshot\nprevious config backup: {}",
+                backup.display()
+            );
             Ok(())
         }
     }
@@ -1602,6 +1656,16 @@ async fn run_skills_command(
             let paths = paths.context("remove requires an initialized Allbert home")?;
             skills::remove_skill_interactive(paths, &name)?;
             println!("removed skill {name}");
+            Ok(())
+        }
+        SkillsCommand::Disable { name } => {
+            let paths = paths.context("disable requires an initialized Allbert home")?;
+            println!("{}", skills::set_skill_enabled(paths, &name, false)?);
+            Ok(())
+        }
+        SkillsCommand::Enable { name } => {
+            let paths = paths.context("enable requires an initialized Allbert home")?;
+            println!("{}", skills::set_skill_enabled(paths, &name, true)?);
             Ok(())
         }
         SkillsCommand::Init { name } => {
