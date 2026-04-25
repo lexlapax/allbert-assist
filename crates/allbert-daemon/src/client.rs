@@ -5,11 +5,12 @@ use std::time::Duration;
 
 use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
-    AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientHello, ClientKind,
-    ClientMessage, DaemonStatus, InboxApprovalPayload, InboxQueryPayload, InboxResolvePayload,
-    InboxResolveResultPayload, JobDefinitionPayload, JobRunRecordPayload, JobStatusPayload,
-    ModelConfigPayload, OpenChannel, ProtocolError, ServerMessage, SessionResumeEntry,
-    SessionStatus, TelemetrySnapshot, TurnBudgetOverridePayload, TurnRequest, PROTOCOL_VERSION,
+    ActivitySnapshot, AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientHello,
+    ClientKind, ClientMessage, DaemonStatus, InboxApprovalPayload, InboxQueryPayload,
+    InboxResolvePayload, InboxResolveResultPayload, JobDefinitionPayload, JobRunRecordPayload,
+    JobStatusPayload, ModelConfigPayload, OpenChannel, ProtocolError, ServerMessage,
+    SessionResumeEntry, SessionStatus, TelemetrySnapshot, TurnBudgetOverridePayload, TurnRequest,
+    PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
@@ -200,6 +201,16 @@ impl DaemonClient {
         self.send(&ClientMessage::SessionTelemetry).await?;
         self.recv_expected("session telemetry", |message| match message {
             ServerMessage::SessionTelemetry(telemetry) => Some(Ok(telemetry)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn activity_snapshot(&mut self) -> Result<ActivitySnapshot, DaemonError> {
+        self.send(&ClientMessage::ActivitySnapshot).await?;
+        self.recv_expected("activity snapshot", |message| match message {
+            ServerMessage::ActivitySnapshot(snapshot) => Some(Ok(snapshot)),
             ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
             _ => None,
         })
@@ -508,7 +519,9 @@ impl DaemonClient {
                 return result;
             }
             match message {
-                ServerMessage::Event(_) => buffered_events.push(message),
+                ServerMessage::Event(_) | ServerMessage::ActivityUpdate(_) => {
+                    buffered_events.push(message)
+                }
                 other => {
                     while let Some(buffered) = buffered_events.pop() {
                         self.pending.push_front(buffered);

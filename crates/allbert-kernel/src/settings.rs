@@ -4,7 +4,7 @@ use std::path::{Component, Path};
 
 use crate::{
     atomic_write, AllbertPaths, Config, MemoryRoutingMode, Provider, ReplUiMode,
-    ScriptingEngineConfig, StatusLineItem,
+    ScriptingEngineConfig, StatusLineItem, TuiSpinnerStyle,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1133,8 +1133,8 @@ fn validate_path(
 fn setting_value_for_key(config: &Config, descriptor: &SettingDescriptor) -> Option<String> {
     let value = match descriptor.key {
         "repl.ui" => config.repl.ui.label().to_string(),
-        "repl.tui.spinner_style" => "braille".to_string(),
-        "repl.tui.tick_ms" => "80".to_string(),
+        "repl.tui.spinner_style" => config.repl.tui.spinner_style.label().to_string(),
+        "repl.tui.tick_ms" => config.repl.tui.tick_ms.to_string(),
         "repl.tui.status_line.enabled" => config.repl.tui.status_line.enabled.to_string(),
         "repl.tui.status_line.items" => config
             .repl
@@ -1145,9 +1145,19 @@ fn setting_value_for_key(config: &Config, descriptor: &SettingDescriptor) -> Opt
             .map(|item| item.label())
             .collect::<Vec<_>>()
             .join(","),
-        "operator_ux.activity.stuck_notice_after_s" => "30".to_string(),
-        "operator_ux.activity.long_tool_notice_after_s" => "20".to_string(),
-        "operator_ux.activity.show_activity_breadcrumbs" => "true".to_string(),
+        "operator_ux.activity.stuck_notice_after_s" => {
+            config.operator_ux.activity.stuck_notice_after_s.to_string()
+        }
+        "operator_ux.activity.long_tool_notice_after_s" => config
+            .operator_ux
+            .activity
+            .long_tool_notice_after_s
+            .to_string(),
+        "operator_ux.activity.show_activity_breadcrumbs" => config
+            .operator_ux
+            .activity
+            .show_activity_breadcrumbs
+            .to_string(),
         "memory.prefetch_enabled" => config.memory.prefetch_enabled.to_string(),
         "memory.routing.mode" => config.memory.routing.mode.label().to_string(),
         "memory.episodes.prefetch_enabled" => config.memory.episodes.prefetch_enabled.to_string(),
@@ -1275,6 +1285,7 @@ fn _typed_parsing_reaches_existing_config_types() {
     let _ = MemoryRoutingMode::AlwaysEligible.label();
     let _ = ScriptingEngineConfig::Lua.label();
     let _ = Provider::parse("ollama");
+    let _ = TuiSpinnerStyle::parse("braille");
 }
 
 #[cfg(test)]

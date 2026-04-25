@@ -19,9 +19,9 @@ use allbert_kernel::{
     Config, ModelConfig,
 };
 use allbert_proto::{
-    ChannelKind, ClientKind, ClientMessage, ConfirmDecisionPayload, InputReplyPayload,
-    InputResponsePayload, JobBudgetPayload, JobDefinitionPayload, KernelEventPayload,
-    ModelConfigPayload, ProviderKind, ServerMessage,
+    ActivityPhase, ChannelKind, ClientKind, ClientMessage, ConfirmDecisionPayload,
+    InputReplyPayload, InputResponsePayload, JobBudgetPayload, JobDefinitionPayload,
+    KernelEventPayload, ModelConfigPayload, ProviderKind, ServerMessage, PROTOCOL_VERSION,
 };
 use async_trait::async_trait;
 use chrono::{Duration as ChronoDuration, NaiveTime, TimeZone, Utc};
@@ -190,6 +190,126 @@ async fn wait_for_client(paths: &AllbertPaths) -> DaemonClient {
     })
     .await
     .expect("daemon should become available")
+}
+
+#[tokio::test]
+async fn daemon_protocol_v3_accepts_v2_and_v3_clients_and_rejects_mismatches() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![])),
+    )
+    .await
+    .expect("daemon should start");
+
+    let mut v2 = DaemonClient::connect_with_version(&paths, ClientKind::Test, 2)
+        .await
+        .expect("v2 client should connect");
+    v2.attach(ChannelKind::Repl, Some("v2-session".into()))
+        .await
+        .expect("v2 client should attach");
+    let v2_telemetry = v2
+        .session_telemetry()
+        .await
+        .expect("v2 telemetry should remain usable");
+    assert!(v2_telemetry.current_activity.is_none());
+
+    let mut v3 = DaemonClient::connect_with_version(&paths, ClientKind::Test, PROTOCOL_VERSION)
+        .await
+        .expect("v3 client should connect");
+    v3.attach(ChannelKind::Repl, Some("v3-session".into()))
+        .await
+        .expect("v3 client should attach");
+    let activity = v3
+        .activity_snapshot()
+        .await
+        .expect("v3 client should read activity");
+    assert_eq!(activity.phase, ActivityPhase::Idle);
+    let telemetry = v3
+        .session_telemetry()
+        .await
+        .expect("v3 telemetry should load");
+    assert_eq!(
+        telemetry
+            .current_activity
+            .as_ref()
+            .map(|activity| activity.phase),
+        Some(ActivityPhase::Idle)
+    );
+
+    let future =
+        match DaemonClient::connect_with_version(&paths, ClientKind::Test, PROTOCOL_VERSION + 1)
+            .await
+        {
+            Ok(_) => panic!("future protocol should be rejected"),
+            Err(err) => err,
+        };
+    assert!(
+        future.to_string().contains("protocol version mismatch"),
+        "{future}"
+    );
+
+    let too_old = match DaemonClient::connect_with_version(&paths, ClientKind::Test, 1).await {
+        Ok(_) => panic!("too-old protocol should be rejected"),
+        Err(err) => err,
+    };
+    assert!(
+        too_old.to_string().contains("protocol version mismatch"),
+        "{too_old}"
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn daemon_protocol_v2_peer_does_not_receive_v3_activity_broadcasts() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted("done")])),
+    )
+    .await
+    .expect("daemon should start");
+
+    let mut v2 = DaemonClient::connect_with_version(&paths, ClientKind::Test, 2)
+        .await
+        .expect("v2 client should connect");
+    v2.attach(ChannelKind::Repl, Some("shared".into()))
+        .await
+        .expect("v2 client should attach");
+
+    let mut v3 = DaemonClient::connect_with_version(&paths, ClientKind::Test, PROTOCOL_VERSION)
+        .await
+        .expect("v3 client should connect");
+    v3.attach(ChannelKind::Repl, Some("shared".into()))
+        .await
+        .expect("v3 client should attach");
+    v3.start_turn("hello".into())
+        .await
+        .expect("turn should start");
+
+    let first = v3.recv().await.expect("v3 should receive activity");
+    assert!(matches!(first, ServerMessage::ActivityUpdate(_)));
+    let leaked = timeout(Duration::from_millis(150), v2.recv()).await;
+    assert!(
+        leaked.is_err(),
+        "v2 client should not receive v3-only activity messages: {leaked:?}"
+    );
+
+    loop {
+        if matches!(
+            v3.recv().await.expect("v3 should receive turn messages"),
+            ServerMessage::TurnResult(_)
+        ) {
+            break;
+        }
+    }
+
+    shutdown_daemon(handle, &paths).await;
 }
 
 async fn shutdown_daemon(handle: RunningDaemon, paths: &AllbertPaths) {

@@ -27,13 +27,13 @@ use allbert_kernel::{
     SessionSnapshot, Usage, LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
 };
 use allbert_proto::{
-    AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientMessage,
-    ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload, DaemonLockPayload,
-    DaemonStatus, InboxApprovalPayload, InboxQueryPayload, InboxResolveResultPayload,
-    InputReplyPayload, InputRequestPayload, InputResponsePayload, KernelEventPayload,
-    ModelConfigPayload, PatchApprovalPayload, ProtocolError, ServerHello, ServerMessage,
-    SessionResumeEntry, SessionStatus, TelemetrySnapshot, TurnBudgetOverridePayload, TurnResult,
-    PROTOCOL_VERSION,
+    ActivityPhase, ActivitySnapshot, AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload,
+    ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload,
+    DaemonLockPayload, DaemonStatus, InboxApprovalPayload, InboxQueryPayload,
+    InboxResolveResultPayload, InputReplyPayload, InputRequestPayload, InputResponsePayload,
+    KernelEventPayload, ModelConfigPayload, PatchApprovalPayload, ProtocolError, ServerHello,
+    ServerMessage, SessionResumeEntry, SessionStatus, TelemetrySnapshot, TurnBudgetOverridePayload,
+    TurnResult, MIN_PROTOCOL_VERSION, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use chrono::{Datelike, Utc};
@@ -101,6 +101,7 @@ struct SessionHandle {
     channel: StdMutex<ChannelKind>,
     sender_id: StdMutex<Option<String>>,
     identity_id: StdMutex<Option<String>>,
+    activity: StdMutex<ActivitySnapshot>,
     kernel: Arc<Mutex<Kernel>>,
 }
 
@@ -135,6 +136,77 @@ impl SessionHandle {
     fn set_identity_id(&self, identity_id: Option<String>) {
         *self.identity_id.lock().unwrap() = identity_id;
     }
+
+    fn activity_snapshot(&self) -> ActivitySnapshot {
+        activity_with_elapsed(self.activity.lock().unwrap().clone())
+    }
+
+    fn set_activity(&self, activity: ActivitySnapshot) {
+        *self.activity.lock().unwrap() = activity;
+    }
+}
+
+fn idle_activity_snapshot(session_id: &str, channel: ChannelKind) -> ActivitySnapshot {
+    let now = now_rfc3339_fallback();
+    ActivitySnapshot {
+        phase: ActivityPhase::Idle,
+        label: "idle".into(),
+        started_at: now.clone(),
+        elapsed_ms: 0,
+        session_id: session_id.to_string(),
+        channel,
+        tool_name: None,
+        tool_summary: None,
+        skill_name: None,
+        approval_id: None,
+        last_progress_at: Some(now),
+        stuck_hint: None,
+        next_actions: vec!["type a message to start the next turn".into()],
+    }
+}
+
+fn activity_snapshot(
+    session: &SessionHandle,
+    phase: ActivityPhase,
+    label: impl Into<String>,
+    next_actions: Vec<String>,
+) -> ActivitySnapshot {
+    let now = now_rfc3339_fallback();
+    ActivitySnapshot {
+        phase,
+        label: label.into(),
+        started_at: now.clone(),
+        elapsed_ms: 0,
+        session_id: session.session_id.clone(),
+        channel: session.channel(),
+        tool_name: None,
+        tool_summary: None,
+        skill_name: None,
+        approval_id: None,
+        last_progress_at: Some(now),
+        stuck_hint: None,
+        next_actions,
+    }
+}
+
+fn activity_with_elapsed(mut activity: ActivitySnapshot) -> ActivitySnapshot {
+    activity.elapsed_ms = elapsed_ms_since_rfc3339(&activity.started_at).unwrap_or(0);
+    activity
+}
+
+fn elapsed_ms_since_rfc3339(started_at: &str) -> Option<u64> {
+    let started = OffsetDateTime::parse(started_at, &Rfc3339).ok()?;
+    let elapsed = OffsetDateTime::now_utc() - started;
+    u64::try_from(elapsed.whole_milliseconds().max(0)).ok()
+}
+
+fn set_session_activity(state: &SharedState, session: &SessionHandle, activity: ActivitySnapshot) {
+    session.set_activity(activity.clone());
+    let _ = state
+        .notifications
+        .send(ServerMessage::ActivityUpdate(activity_with_elapsed(
+            activity,
+        )));
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -606,17 +678,25 @@ async fn handle_connection(
     let mut notifications = state.notifications.subscribe();
 
     let hello = recv_client_message(&mut framed).await?;
-    let client_kind = match hello {
+    let (client_kind, client_protocol) = match hello {
         ClientMessage::Hello(client) => {
-            if client.protocol_version != PROTOCOL_VERSION {
+            if !(MIN_PROTOCOL_VERSION..=PROTOCOL_VERSION).contains(&client.protocol_version) {
+                let message = if client.protocol_version < MIN_PROTOCOL_VERSION {
+                    format!(
+                        "client protocol {} is too old for daemon protocol {}; upgrade the client to v0.12.1 or newer",
+                        client.protocol_version, PROTOCOL_VERSION
+                    )
+                } else {
+                    format!(
+                        "client protocol {} is newer than daemon protocol {}; upgrade the daemon before using this client",
+                        client.protocol_version, PROTOCOL_VERSION
+                    )
+                };
                 send_server_message(
                     &mut framed,
                     &ServerMessage::Error(ProtocolError {
                         code: "version_mismatch".into(),
-                        message: format!(
-                            "client protocol {} does not match daemon protocol {}",
-                            client.protocol_version, PROTOCOL_VERSION
-                        ),
+                        message,
                     }),
                 )
                 .await?;
@@ -636,7 +716,7 @@ async fn handle_connection(
                 }),
             )
             .await?;
-            client.client_kind
+            (client.client_kind, client.protocol_version)
         }
         other => {
             send_server_message(
@@ -660,7 +740,9 @@ async fn handle_connection(
                 notification = notifications.recv() => {
                     match notification {
                         Ok(message) => {
-                            send_server_message(&mut framed, &message).await?;
+                            if let Some(message) = message_for_protocol(&message, client_protocol) {
+                                send_server_message(&mut framed, &message).await?;
+                            }
                             continue;
                         }
                         Err(broadcast::error::RecvError::Lagged(_)) => continue,
@@ -751,8 +833,33 @@ async fn handle_connection(
             ClientMessage::SessionTelemetry => {
                 let session = require_session(attached_session.as_ref())?;
                 let telemetry = session_telemetry(&state, session).await?;
-                send_server_message(&mut framed, &ServerMessage::SessionTelemetry(telemetry))
+                send_server_message_for_protocol(
+                    &mut framed,
+                    &ServerMessage::SessionTelemetry(telemetry),
+                    client_protocol,
+                )
+                .await?;
+            }
+            ClientMessage::ActivitySnapshot => {
+                let session = require_session(attached_session.as_ref())?;
+                if client_protocol < PROTOCOL_VERSION {
+                    send_server_message(
+                        &mut framed,
+                        &ServerMessage::Error(ProtocolError {
+                            code: "unsupported_protocol_feature".into(),
+                            message:
+                                "activity snapshots require protocol v3; upgrade the client to v0.12.1"
+                                    .into(),
+                        }),
+                    )
                     .await?;
+                } else {
+                    send_server_message(
+                        &mut framed,
+                        &ServerMessage::ActivitySnapshot(session.activity_snapshot()),
+                    )
+                    .await?;
+                }
             }
             ClientMessage::ListSessions => {
                 let config = state.default_config.read().await.clone();
@@ -761,13 +868,22 @@ async fn handle_connection(
             }
             ClientMessage::ListInbox(query) => {
                 let approvals = list_inbox_entries(&state, query);
-                send_server_message(&mut framed, &ServerMessage::InboxApprovals(approvals)).await?;
+                send_server_message_for_protocol(
+                    &mut framed,
+                    &ServerMessage::InboxApprovals(approvals),
+                    client_protocol,
+                )
+                .await?;
             }
             ClientMessage::ShowInboxApproval(approval_id) => {
                 match show_inbox_entry(&state, &approval_id)? {
                     Some(approval) => {
-                        send_server_message(&mut framed, &ServerMessage::InboxApproval(approval))
-                            .await?;
+                        send_server_message_for_protocol(
+                            &mut framed,
+                            &ServerMessage::InboxApproval(approval),
+                            client_protocol,
+                        )
+                        .await?;
                     }
                     None => {
                         send_server_message(
@@ -963,8 +1079,15 @@ async fn handle_connection(
             }
             ClientMessage::RunTurn(turn) => {
                 let session = require_session(attached_session.as_ref())?.clone();
-                run_turn_over_channel(&mut framed, &state, &mut notifications, session, turn.input)
-                    .await?;
+                run_turn_over_channel(
+                    &mut framed,
+                    &state,
+                    &mut notifications,
+                    session,
+                    turn.input,
+                    client_protocol,
+                )
+                .await?;
             }
             ClientMessage::ConfirmReply(_)
             | ClientMessage::InputReply(_)
@@ -1064,6 +1187,7 @@ async fn get_or_create_session(
         channel: StdMutex::new(channel),
         sender_id: StdMutex::new(effective_sender_id),
         identity_id: StdMutex::new(effective_identity_id),
+        activity: StdMutex::new(idle_activity_snapshot(&session_id, channel)),
         kernel: Arc::new(Mutex::new(kernel)),
     });
 
@@ -2516,6 +2640,7 @@ async fn run_turn_over_channel(
     notifications: &mut broadcast::Receiver<ServerMessage>,
     session: Arc<SessionHandle>,
     input: String,
+    client_protocol: u32,
 ) -> Result<(), DaemonError> {
     let session_channel = session.channel();
     let session_sender_id = session.sender_id();
@@ -2529,6 +2654,16 @@ async fn run_turn_over_channel(
         ),
     )
     .ok();
+    set_session_activity(
+        state,
+        &session,
+        activity_snapshot(
+            &session,
+            ActivityPhase::Queued,
+            "turn queued",
+            vec!["wait for Allbert to finish this turn".into()],
+        ),
+    );
     let (pre_turn_messages, pre_turn_cost) = {
         let kernel = session.kernel.lock().await;
         let snapshot = kernel.export_session_snapshot();
@@ -2549,6 +2684,16 @@ async fn run_turn_over_channel(
 
     let mut client_connected = true;
     let mut tool_results = Vec::new();
+    if send_server_message_for_protocol(
+        framed,
+        &ServerMessage::ActivityUpdate(session.activity_snapshot()),
+        client_protocol,
+    )
+    .await
+    .is_err()
+    {
+        client_connected = false;
+    }
 
     loop {
         tokio::select! {
@@ -2568,7 +2713,11 @@ async fn run_turn_over_channel(
             notification = notifications.recv() => {
                 match notification {
                     Ok(message) => {
-                        if client_connected && send_server_message(framed, &message).await.is_err() {
+                        if client_connected
+                            && send_server_message_for_protocol(framed, &message, client_protocol)
+                                .await
+                                .is_err()
+                        {
                             client_connected = false;
                         }
                     }
@@ -2589,7 +2738,11 @@ async fn run_turn_over_channel(
                                 content: truncate_tool_output(content, state.default_config.read().await.memory.max_journal_tool_output_bytes),
                             });
                         }
-                        if client_connected && send_server_message(framed, &message).await.is_err() {
+                        if client_connected
+                            && send_server_message_for_protocol(framed, &message, client_protocol)
+                                .await
+                                .is_err()
+                        {
                             client_connected = false;
                         }
                     }
@@ -2650,9 +2803,10 @@ async fn run_turn_over_channel(
                             let mut request = request.clone();
                             request.approval_id = Some(approval_id.clone());
                             request.expires_at = Some(expires_at);
-                            if send_server_message(
+                            if send_server_message_for_protocol(
                                 framed,
                                 &ServerMessage::ConfirmRequest(request.clone()),
+                                client_protocol,
                             )
                             .await
                             .is_err()
@@ -2750,9 +2904,10 @@ async fn run_turn_over_channel(
                             };
                             let _ = reply.send(decision);
                         } else {
-                            if send_server_message(
+                            if send_server_message_for_protocol(
                                 framed,
                                 &ServerMessage::ConfirmRequest(request.clone()),
+                                client_protocol,
                             )
                             .await
                             .is_err()
@@ -2780,7 +2935,14 @@ async fn run_turn_over_channel(
                             let _ = reply.send(InputResponsePayload::Cancelled);
                             continue;
                         }
-                        if send_server_message(framed, &ServerMessage::InputRequest(request.clone())).await.is_err() {
+                        if send_server_message_for_protocol(
+                            framed,
+                            &ServerMessage::InputRequest(request.clone()),
+                            client_protocol,
+                        )
+                        .await
+                        .is_err()
+                        {
                             client_connected = false;
                             let _ = reply.send(InputResponsePayload::Cancelled);
                             continue;
@@ -2806,6 +2968,7 @@ async fn run_turn_over_channel(
                             &mut client_connected,
                             &mut tool_results,
                             state.default_config.read().await.memory.max_journal_tool_output_bytes,
+                            client_protocol,
                         )
                         .await;
                         {
@@ -2826,7 +2989,18 @@ async fn run_turn_over_channel(
                             )
                             .map_err(map_kernel_error)?;
                         }
+                        set_session_activity(
+                            state,
+                            &session,
+                            idle_activity_snapshot(&session.session_id, session.channel()),
+                        );
                         if client_connected {
+                            let _ = send_server_message_for_protocol(
+                                framed,
+                                &ServerMessage::ActivityUpdate(session.activity_snapshot()),
+                                client_protocol,
+                            )
+                            .await;
                             let _ = send_server_message(
                                 framed,
                                 &ServerMessage::TurnResult(TurnResult {
@@ -2844,6 +3018,7 @@ async fn run_turn_over_channel(
                             &mut client_connected,
                             &mut tool_results,
                             state.default_config.read().await.memory.max_journal_tool_output_bytes,
+                            client_protocol,
                         )
                         .await;
                         append_log_line(
@@ -2921,12 +3096,41 @@ async fn run_turn_over_channel(
                             }
                         }
                         if client_connected {
+                            set_session_activity(
+                                state,
+                                &session,
+                                activity_snapshot(
+                                    &session,
+                                    ActivityPhase::Error,
+                                    "turn failed",
+                                    vec!["read the error and retry when ready".into()],
+                                ),
+                            );
+                            let _ = send_server_message_for_protocol(
+                                framed,
+                                &ServerMessage::ActivityUpdate(session.activity_snapshot()),
+                                client_protocol,
+                            )
+                            .await;
                             let _ = send_server_message(
                                 framed,
                                 &ServerMessage::Error(ProtocolError {
                                     code: "turn_failed".into(),
                                     message,
                                 }),
+                            )
+                            .await;
+                        }
+                        set_session_activity(
+                            state,
+                            &session,
+                            idle_activity_snapshot(&session.session_id, session.channel()),
+                        );
+                        if client_connected {
+                            let _ = send_server_message_for_protocol(
+                                framed,
+                                &ServerMessage::ActivityUpdate(session.activity_snapshot()),
+                                client_protocol,
                             )
                             .await;
                         }
@@ -2944,6 +3148,7 @@ async fn drain_outbound_queue(
     client_connected: &mut bool,
     tool_results: &mut Vec<ToolJournalEntry>,
     max_journal_tool_output_bytes: usize,
+    client_protocol: u32,
 ) {
     while let Ok(outbound) = rx.try_recv() {
         match outbound {
@@ -2957,7 +3162,11 @@ async fn drain_outbound_queue(
                         content: truncate_tool_output(content, max_journal_tool_output_bytes),
                     });
                 }
-                if *client_connected && send_server_message(framed, &message).await.is_err() {
+                if *client_connected
+                    && send_server_message_for_protocol(framed, &message, client_protocol)
+                        .await
+                        .is_err()
+                {
                     *client_connected = false;
                 }
             }
@@ -3016,13 +3225,15 @@ async fn session_telemetry(
 ) -> Result<TelemetrySnapshot, DaemonError> {
     let inbox_count = pending_inbox_count_for_session(state, session);
     let kernel = session.kernel.lock().await;
-    kernel
+    let mut telemetry = kernel
         .session_telemetry(
             session.channel(),
             inbox_count,
             state.trace_enabled.load(Ordering::SeqCst),
         )
-        .map_err(map_kernel_error)
+        .map_err(map_kernel_error)?;
+    telemetry.current_activity = Some(session.activity_snapshot());
+    Ok(telemetry)
 }
 
 fn channel_runtime_statuses(state: &SharedState) -> Vec<ChannelRuntimeStatusPayload> {
@@ -3352,6 +3563,7 @@ fn pending_approval_to_inbox_payload(
             .display()
             .to_string(),
         patch: patch_payload_from_pending_frontmatter(&record.frontmatter),
+        context: None,
     })
 }
 
@@ -4253,6 +4465,7 @@ impl Channel for LocalIpcChannel {
             cwd: prompt.cwd.map(|path| path.display().to_string()),
             rendered: prompt.rendered,
             expires_at: prompt.expires_at,
+            context: None,
         };
         self.outbound
             .send(OutboundMessage::Confirm(payload, tx))
@@ -4558,6 +4771,50 @@ async fn send_server_message(
         .map_err(DaemonError::Io)
 }
 
+async fn send_server_message_for_protocol(
+    framed: &mut FramedStream,
+    message: &ServerMessage,
+    protocol_version: u32,
+) -> Result<(), DaemonError> {
+    if let Some(message) = message_for_protocol(message, protocol_version) {
+        send_server_message(framed, &message).await?;
+    }
+    Ok(())
+}
+
+fn message_for_protocol(message: &ServerMessage, protocol_version: u32) -> Option<ServerMessage> {
+    if protocol_version >= PROTOCOL_VERSION {
+        return Some(message.clone());
+    }
+
+    match message {
+        ServerMessage::ActivitySnapshot(_) | ServerMessage::ActivityUpdate(_) => None,
+        ServerMessage::SessionTelemetry(telemetry) => {
+            let mut telemetry = telemetry.clone();
+            telemetry.current_activity = None;
+            Some(ServerMessage::SessionTelemetry(telemetry))
+        }
+        ServerMessage::ConfirmRequest(request) => {
+            let mut request = request.clone();
+            request.context = None;
+            Some(ServerMessage::ConfirmRequest(request))
+        }
+        ServerMessage::InboxApproval(approval) => {
+            let mut approval = approval.clone();
+            approval.context = None;
+            Some(ServerMessage::InboxApproval(approval))
+        }
+        ServerMessage::InboxApprovals(approvals) => {
+            let mut approvals = approvals.clone();
+            for approval in &mut approvals {
+                approval.context = None;
+            }
+            Some(ServerMessage::InboxApprovals(approvals))
+        }
+        _ => Some(message.clone()),
+    }
+}
+
 async fn recv_client_message(framed: &mut FramedStream) -> Result<ClientMessage, DaemonError> {
     let frame = framed
         .next()
@@ -4637,6 +4894,7 @@ mod telegram_tests {
             rendered: "approve write".into(),
             path: "/tmp/approval.md".into(),
             patch: None,
+            context: None,
         }
     }
 

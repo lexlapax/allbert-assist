@@ -2,18 +2,20 @@ use std::io::{self, Stdout};
 use std::time::Duration;
 
 use allbert_daemon::DaemonClient;
+use allbert_kernel::TuiSpinnerStyle;
 use allbert_proto::{
-    ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload, InputReplyPayload,
-    InputResponsePayload, KernelEventPayload, ServerMessage, TelemetrySnapshot,
+    ActivitySnapshot, ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload,
+    InputReplyPayload, InputResponsePayload, KernelEventPayload, ServerMessage, TelemetrySnapshot,
 };
 use anyhow::{Context, Result};
 use crossterm::event::{
-    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers,
+    DisableMouseCapture, EnableMouseCapture, Event, EventStream, KeyCode, KeyEvent, KeyModifiers,
 };
 use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
+use futures_util::StreamExt;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};
@@ -42,10 +44,16 @@ pub enum Modal {
 #[derive(Debug, Clone)]
 pub struct TuiApp {
     transcript: Vec<String>,
-    input: String,
+    composer_input: String,
+    modal_input: String,
     telemetry: Option<TelemetrySnapshot>,
+    activity: Option<ActivitySnapshot>,
     status_items: Vec<String>,
+    spinner_style: TuiSpinnerStyle,
+    spinner_frame: usize,
+    tick_ms: u64,
     modal: Option<Modal>,
+    in_flight: bool,
     should_exit: bool,
 }
 
@@ -53,10 +61,16 @@ impl TuiApp {
     pub fn new(status_items: Vec<String>) -> Self {
         Self {
             transcript: vec!["Allbert TUI ready. Type /help for commands.".into()],
-            input: String::new(),
+            composer_input: String::new(),
+            modal_input: String::new(),
             telemetry: None,
+            activity: None,
             status_items,
+            spinner_style: TuiSpinnerStyle::Braille,
+            spinner_frame: 0,
+            tick_ms: 80,
             modal: None,
+            in_flight: false,
             should_exit: false,
         }
     }
@@ -70,7 +84,19 @@ impl TuiApp {
     }
 
     pub fn set_telemetry(&mut self, telemetry: TelemetrySnapshot) {
+        if let Some(activity) = telemetry.current_activity.clone() {
+            self.activity = Some(activity);
+        }
         self.telemetry = Some(telemetry);
+    }
+
+    pub fn configure_tui(&mut self, config: &allbert_kernel::TuiConfig) {
+        self.spinner_style = config.spinner_style;
+        self.tick_ms = config.tick_ms.clamp(40, 250);
+    }
+
+    pub fn advance_tick(&mut self) {
+        self.spinner_frame = self.spinner_frame.wrapping_add(1);
     }
 
     pub fn modal(&self) -> Option<&Modal> {
@@ -109,6 +135,7 @@ impl TuiApp {
                 });
             }
             ServerMessage::InputRequest(request) => {
+                self.modal_input.clear();
                 self.modal = Some(Modal::Input {
                     request_id: request.request_id,
                     prompt: request.prompt,
@@ -116,16 +143,21 @@ impl TuiApp {
                 });
             }
             ServerMessage::TurnResult(result) => {
+                self.in_flight = false;
                 if result.hit_turn_limit {
                     self.push_line("[kernel reported max-turns limit]");
                 }
                 return true;
             }
             ServerMessage::Error(error) => {
+                self.in_flight = false;
                 self.push_line(format!("[error] {}", error.message));
                 return true;
             }
-            ServerMessage::SessionTelemetry(telemetry) => self.telemetry = Some(telemetry),
+            ServerMessage::SessionTelemetry(telemetry) => self.set_telemetry(telemetry),
+            ServerMessage::ActivitySnapshot(activity) | ServerMessage::ActivityUpdate(activity) => {
+                self.activity = Some(activity);
+            }
             _ => {}
         }
         false
@@ -194,6 +226,7 @@ pub async fn run_loop(
     let status_items = configured_status_items(config);
     let transcript = replay_session_tail(paths, session_id, config.repl.tui.max_transcript_events);
     let mut app = TuiApp::with_transcript(status_items, transcript);
+    app.configure_tui(&config.repl.tui);
     if let Ok(telemetry) = client.session_telemetry().await {
         app.set_telemetry(telemetry);
     }
@@ -210,16 +243,46 @@ async fn run_event_loop(
     paths: &allbert_kernel::AllbertPaths,
     app: &mut TuiApp,
 ) -> Result<()> {
+    let mut events = EventStream::new();
+    let mut tick = tokio::time::interval(Duration::from_millis(app.tick_ms));
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut dirty = true;
     loop {
-        terminal.draw(|frame| render(frame, app))?;
+        if dirty || app.in_flight {
+            terminal.draw(|frame| render(frame, app))?;
+            dirty = false;
+        }
         if app.should_exit() {
             return Ok(());
         }
-        if !event::poll(Duration::from_millis(100))? {
-            continue;
-        }
-        if let Event::Key(key) = event::read()? {
-            handle_key(client, paths, app, key).await?;
+
+        tokio::select! {
+            _ = tick.tick() => {
+                app.advance_tick();
+                dirty = app.in_flight || app.activity.as_ref().is_some_and(|activity| {
+                    !matches!(activity.phase, allbert_proto::ActivityPhase::Idle)
+                });
+            }
+            maybe_event = events.next() => {
+                match maybe_event {
+                    Some(Ok(Event::Key(key))) => {
+                        handle_key(client, paths, app, key).await?;
+                        dirty = true;
+                    }
+                    Some(Ok(_)) => {}
+                    Some(Err(error)) => return Err(error).context("read terminal event"),
+                    None => return Ok(()),
+                }
+            }
+            message = client.recv(), if app.in_flight => {
+                match message {
+                    Ok(message) => {
+                        app.process_server_message(message);
+                        dirty = true;
+                    }
+                    Err(error) => return Err(error).context("receive daemon message"),
+                }
+            }
         }
     }
 }
@@ -236,18 +299,26 @@ async fn handle_key(
 
     match key.code {
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            app.push_line("(ctrl-c) type /exit to leave");
+            if app.in_flight {
+                app.push_line("cancel is not available yet; turn continues");
+            } else {
+                app.push_line("(ctrl-c) type /exit to leave");
+            }
         }
         KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             app.should_exit = true;
         }
-        KeyCode::Char(ch) => app.input.push(ch),
+        KeyCode::Char(ch) => app.composer_input.push(ch),
         KeyCode::Backspace => {
-            app.input.pop();
+            app.composer_input.pop();
         }
         KeyCode::Enter => {
-            let input = app.input.trim().to_string();
-            app.input.clear();
+            if app.in_flight {
+                app.push_line("turn in progress; draft kept");
+                return Ok(());
+            }
+            let input = app.composer_input.trim().to_string();
+            app.composer_input.clear();
             if input.is_empty() {
                 return Ok(());
             }
@@ -269,10 +340,8 @@ async fn handle_key(
                 command => {
                     if let Some(turn) = app.handle_local_command(command) {
                         if matches!(repl::parse_local_command(&input), LocalCommand::Turn(_)) {
-                            run_turn(client, app, &turn).await?;
-                            if let Ok(telemetry) = client.session_telemetry().await {
-                                app.set_telemetry(telemetry);
-                            }
+                            client.start_turn(turn).await?;
+                            app.in_flight = true;
                         } else {
                             app.push_line(turn);
                         }
@@ -318,35 +387,59 @@ async fn handle_modal_key(
         }
         Modal::Input {
             request_id,
+            prompt,
             allow_empty,
-            ..
-        } => {
-            let value = app.input.trim_end_matches(['\r', '\n']).to_string();
-            app.input.clear();
-            let response = if !allow_empty && value.trim().is_empty() {
-                InputResponsePayload::Cancelled
-            } else {
-                InputResponsePayload::Submitted(value)
-            };
-            client
-                .send(&ClientMessage::InputReply(InputReplyPayload {
+        } => match key.code {
+            KeyCode::Char(ch) => {
+                app.modal_input.push(ch);
+                app.modal = Some(Modal::Input {
                     request_id,
-                    response,
-                }))
-                .await?;
-        }
+                    prompt,
+                    allow_empty,
+                });
+            }
+            KeyCode::Backspace => {
+                app.modal_input.pop();
+                app.modal = Some(Modal::Input {
+                    request_id,
+                    prompt,
+                    allow_empty,
+                });
+            }
+            KeyCode::Esc => {
+                app.modal_input.clear();
+                client
+                    .send(&ClientMessage::InputReply(InputReplyPayload {
+                        request_id,
+                        response: InputResponsePayload::Cancelled,
+                    }))
+                    .await?;
+            }
+            KeyCode::Enter => {
+                let value = app.modal_input.trim_end_matches(['\r', '\n']).to_string();
+                app.modal_input.clear();
+                let response = if !allow_empty && value.trim().is_empty() {
+                    InputResponsePayload::Cancelled
+                } else {
+                    InputResponsePayload::Submitted(value)
+                };
+                client
+                    .send(&ClientMessage::InputReply(InputReplyPayload {
+                        request_id,
+                        response,
+                    }))
+                    .await?;
+            }
+            _ => {
+                app.modal = Some(Modal::Input {
+                    request_id,
+                    prompt,
+                    allow_empty,
+                });
+            }
+        },
     }
     Ok(())
-}
-
-async fn run_turn(client: &mut DaemonClient, app: &mut TuiApp, input: &str) -> Result<()> {
-    client.start_turn(input.to_string()).await?;
-    loop {
-        let message = client.recv().await?;
-        if app.process_server_message(message) {
-            return Ok(());
-        }
-    }
 }
 
 pub fn render(frame: &mut Frame<'_>, app: &TuiApp) {
@@ -369,9 +462,16 @@ pub fn render(frame: &mut Frame<'_>, app: &TuiApp) {
         .wrap(Wrap { trim: false });
     frame.render_widget(transcript, chunks[0]);
 
-    let input = Paragraph::new(app.input.as_str())
+    let input = Paragraph::new(app.composer_input.as_str())
         .block(Block::default().title("Input").borders(Borders::ALL));
     frame.render_widget(input, chunks[1]);
+    if app.modal().is_none() {
+        let cursor_x = chunks[1]
+            .x
+            .saturating_add(1)
+            .saturating_add(app.composer_input.chars().count() as u16);
+        frame.set_cursor_position((cursor_x, chunks[1].y.saturating_add(1)));
+    }
 
     let status = Paragraph::new(status_line(app, frame.area().width))
         .style(Style::default().fg(Color::Black).bg(Color::Gray));
@@ -386,7 +486,7 @@ pub fn render(frame: &mut Frame<'_>, app: &TuiApp) {
                 let choices = if *durable { "[y/N]" } else { "[y/N/a]" };
                 format!("{rendered}\n\nConfirm {choices}")
             }
-            Modal::Input { prompt, .. } => format!("{prompt}\n\n{}", app.input),
+            Modal::Input { prompt, .. } => format!("{prompt}\n\n{}", app.modal_input),
         };
         let modal = Paragraph::new(text)
             .block(Block::default().title("Approval").borders(Borders::ALL))
@@ -397,6 +497,13 @@ pub fn render(frame: &mut Frame<'_>, app: &TuiApp) {
             )
             .wrap(Wrap { trim: false });
         frame.render_widget(modal, area);
+        if matches!(app.modal(), Some(Modal::Input { .. })) {
+            let cursor_x = area
+                .x
+                .saturating_add(1)
+                .saturating_add(app.modal_input.chars().count() as u16);
+            frame.set_cursor_position((cursor_x, area.y.saturating_add(3)));
+        }
     }
 }
 
@@ -405,7 +512,7 @@ fn status_line(app: &TuiApp, width: u16) -> Line<'static> {
         return Line::from("telemetry pending");
     };
     let compact = width < 60;
-    let items = if compact {
+    let mut items = if compact {
         vec![
             format!("model {}", telemetry.model.model_id),
             context_label(telemetry),
@@ -417,6 +524,9 @@ fn status_line(app: &TuiApp, width: u16) -> Line<'static> {
             .map(|item| status_item(item, telemetry))
             .collect::<Vec<_>>()
     };
+    if let Some(activity) = activity_segment(app, compact) {
+        items.insert(0, activity);
+    }
     Line::from(
         items
             .join("  |  ")
@@ -431,6 +541,24 @@ fn status_line(app: &TuiApp, width: u16) -> Line<'static> {
             })
             .collect::<Vec<_>>(),
     )
+}
+
+fn activity_segment(app: &TuiApp, compact: bool) -> Option<String> {
+    let activity = app.activity.as_ref()?;
+    if matches!(activity.phase, allbert_proto::ActivityPhase::Idle) && !app.in_flight {
+        return None;
+    }
+    let frames = app.spinner_style.frames();
+    let spinner = frames
+        .get(app.spinner_frame % frames.len().max(1))
+        .copied()
+        .unwrap_or("*");
+    let seconds = activity.elapsed_ms as f64 / 1000.0;
+    if compact {
+        Some(format!("{spinner} {}", activity.label))
+    } else {
+        Some(format!("{spinner} {} {:.1}s", activity.label, seconds))
+    }
 }
 
 fn status_item(item: &str, telemetry: &TelemetrySnapshot) -> String {
@@ -635,6 +763,7 @@ mod tests {
             inbox_count: 1,
             trace_enabled: false,
             setup_version: 4,
+            current_activity: None,
         }
     }
 
@@ -660,7 +789,7 @@ mod tests {
             "memory".into(),
         ]);
         app.push_line("allbert: hello from the transcript");
-        app.input = "what next?".into();
+        app.composer_input = "what next?".into();
         app.set_telemetry(fixture_telemetry());
 
         terminal.draw(|frame| render(frame, &app)).expect("draw");
@@ -687,6 +816,38 @@ mod tests {
     }
 
     #[test]
+    fn tui_tick_advances_spinner_while_in_flight() {
+        let mut app = TuiApp::new(vec!["model".into()]);
+        app.set_telemetry(fixture_telemetry());
+        app.in_flight = true;
+        app.activity = Some(allbert_proto::ActivitySnapshot {
+            phase: allbert_proto::ActivityPhase::Queued,
+            label: "turn queued".into(),
+            started_at: "2026-04-25T12:00:00Z".into(),
+            elapsed_ms: 0,
+            session_id: "repl-primary".into(),
+            channel: ChannelKind::Repl,
+            tool_name: None,
+            tool_summary: None,
+            skill_name: None,
+            approval_id: None,
+            last_progress_at: None,
+            stuck_hint: None,
+            next_actions: vec!["wait".into()],
+        });
+
+        let before = app.spinner_frame;
+        app.advance_tick();
+        let line = status_line(&app, 100)
+            .spans
+            .into_iter()
+            .map(|span| span.content.into_owned())
+            .collect::<String>();
+        assert_ne!(app.spinner_frame, before);
+        assert!(line.contains("turn queued"));
+    }
+
+    #[test]
     fn tui_processes_core_server_messages() {
         let mut app = TuiApp::new(vec![]);
         assert!(!app.process_server_message(ServerMessage::Event(
@@ -707,6 +868,7 @@ mod tests {
                 cwd: None,
                 rendered: "write?".into(),
                 expires_at: None,
+                context: None,
             }
         )));
         assert!(matches!(

@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const MIN_PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -83,6 +84,87 @@ pub struct DaemonLockPayload {
 pub struct ProtocolError {
     pub code: String,
     pub message: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ActivityPhase {
+    #[default]
+    Idle,
+    Queued,
+    PreparingContext,
+    ClassifyingIntent,
+    CallingModel,
+    StreamingResponse,
+    CallingTool,
+    WaitingForApproval,
+    WaitingForInput,
+    RunningValidation,
+    RunningScript,
+    Finalizing,
+    Error,
+    #[serde(other)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ActivitySnapshot {
+    pub phase: ActivityPhase,
+    pub label: String,
+    pub started_at: String,
+    pub elapsed_ms: u64,
+    pub session_id: String,
+    pub channel: ChannelKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skill_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_progress_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stuck_hint: Option<String>,
+    #[serde(default)]
+    pub next_actions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", content = "payload", rename_all = "snake_case")]
+pub enum ApprovalContext {
+    ToolConfirm {
+        tool_name: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cwd: Option<String>,
+        argument_summary: String,
+        why: String,
+    },
+    CostCapOverride {
+        requested_increase: String,
+        current_daily_total: String,
+        configured_cap: String,
+        reason: String,
+    },
+    JobApproval {
+        job_kind: String,
+        schedule: String,
+        next_fire_time: String,
+        recurrence_summary: String,
+    },
+    PatchApproval {
+        branch: String,
+        validation_status: String,
+        file_stats: String,
+        artifact_path: String,
+        diff_preview: Vec<String>,
+    },
+    MemoryPromotion {
+        preview: String,
+        source: String,
+        supersession_hint: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -175,6 +257,8 @@ pub struct TelemetrySnapshot {
     pub inbox_count: usize,
     pub trace_enabled: bool,
     pub setup_version: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_activity: Option<ActivitySnapshot>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -292,6 +376,8 @@ pub struct ConfirmRequestPayload {
     pub cwd: Option<String>,
     pub rendered: String,
     pub expires_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<ApprovalContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -348,6 +434,8 @@ pub struct InboxApprovalPayload {
     pub path: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub patch: Option<PatchApprovalPayload>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<ApprovalContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -421,6 +509,7 @@ pub enum ClientMessage {
     Status,
     SessionStatus,
     SessionTelemetry,
+    ActivitySnapshot,
     ListSessions,
     ListInbox(InboxQueryPayload),
     ShowInboxApproval(String),
@@ -457,6 +546,8 @@ pub enum ServerMessage {
     Status(DaemonStatus),
     SessionStatus(SessionStatus),
     SessionTelemetry(TelemetrySnapshot),
+    ActivitySnapshot(ActivitySnapshot),
+    ActivityUpdate(ActivitySnapshot),
     Sessions(Vec<SessionResumeEntry>),
     InboxApprovals(Vec<InboxApprovalPayload>),
     InboxApproval(InboxApprovalPayload),
@@ -479,8 +570,27 @@ pub enum ServerMessage {
 mod tests {
     use super::*;
 
+    fn fixture_activity() -> ActivitySnapshot {
+        ActivitySnapshot {
+            phase: ActivityPhase::CallingModel,
+            label: "calling model".into(),
+            started_at: "2026-04-25T12:00:00Z".into(),
+            elapsed_ms: 4200,
+            session_id: "repl-primary".into(),
+            channel: ChannelKind::Repl,
+            tool_name: None,
+            tool_summary: None,
+            skill_name: None,
+            approval_id: None,
+            last_progress_at: Some("2026-04-25T12:00:01Z".into()),
+            stuck_hint: None,
+            next_actions: vec!["wait for the model response".into()],
+        }
+    }
+
     #[test]
-    fn telemetry_snapshot_json_roundtrip() {
+    fn proto_telemetry_snapshot_json_roundtrip() {
+        let activity = fixture_activity();
         let snapshot = TelemetrySnapshot {
             session_id: "repl-primary".into(),
             channel: ChannelKind::Repl,
@@ -535,6 +645,7 @@ mod tests {
             inbox_count: 1,
             trace_enabled: true,
             setup_version: 4,
+            current_activity: Some(activity.clone()),
         };
 
         let raw = serde_json::to_string(&ServerMessage::SessionTelemetry(snapshot.clone()))
@@ -543,5 +654,24 @@ mod tests {
             serde_json::from_str(&raw).expect("telemetry should deserialize");
 
         assert_eq!(decoded, ServerMessage::SessionTelemetry(snapshot));
+    }
+
+    #[test]
+    fn proto_activity_snapshot_json_roundtrip() {
+        let snapshot = fixture_activity();
+        let raw = serde_json::to_string(&ServerMessage::ActivityUpdate(snapshot.clone()))
+            .expect("activity should serialize");
+        let decoded: ServerMessage =
+            serde_json::from_str(&raw).expect("activity should deserialize");
+
+        assert_eq!(decoded, ServerMessage::ActivityUpdate(snapshot));
+    }
+
+    #[test]
+    fn proto_activity_phase_roundtrip_tolerates_future_values() {
+        let raw = r#""future_phase""#;
+        let phase: ActivityPhase =
+            serde_json::from_str(raw).expect("unknown phase should deserialize");
+        assert_eq!(phase, ActivityPhase::Unknown);
     }
 }

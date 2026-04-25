@@ -42,12 +42,13 @@ pub use command_catalog::{
     CommandGroupDescriptor, CommandSurface,
 };
 pub use config::{
-    Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig, JobsConfig, LearningConfig,
-    LimitsConfig, MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig,
-    MemoryRoutingMode, MemorySemanticConfig, ModelConfig, PersonalityDigestConfig, Provider,
-    ReplConfig, ReplUiMode, ScriptingConfig, ScriptingEngineConfig, SecurityConfig,
-    SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig, SetupConfig,
-    StatusLineConfig, StatusLineItem, TuiConfig, WebSecurityConfig, CURRENT_SETUP_VERSION,
+    ActivityConfig, Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig, JobsConfig,
+    LearningConfig, LimitsConfig, MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig,
+    MemoryRoutingConfig, MemoryRoutingMode, MemorySemanticConfig, ModelConfig, OperatorUxConfig,
+    PersonalityDigestConfig, Provider, ReplConfig, ReplUiMode, ScriptingConfig,
+    ScriptingEngineConfig, SecurityConfig, SelfImprovementConfig, SelfImprovementInstallMode,
+    SessionsConfig, SetupConfig, StatusLineConfig, StatusLineItem, TuiConfig, TuiSpinnerStyle,
+    WebSecurityConfig, CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
@@ -1242,6 +1243,7 @@ impl Kernel {
             inbox_count,
             trace_enabled,
             setup_version: self.config.setup.version,
+            current_activity: None,
         })
     }
 

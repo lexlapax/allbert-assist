@@ -25,6 +25,8 @@ pub struct Config {
     #[serde(default)]
     pub repl: ReplConfig,
     #[serde(default)]
+    pub operator_ux: OperatorUxConfig,
+    #[serde(default)]
     pub jobs: JobsConfig,
     #[serde(default)]
     pub install: InstallConfig,
@@ -270,6 +272,9 @@ impl ReplUiMode {
 pub struct TuiConfig {
     pub mouse: bool,
     pub max_transcript_events: usize,
+    #[serde(default, deserialize_with = "deserialize_tui_spinner_style")]
+    pub spinner_style: TuiSpinnerStyle,
+    pub tick_ms: u64,
     pub status_line: StatusLineConfig,
 }
 
@@ -278,7 +283,97 @@ impl Default for TuiConfig {
         Self {
             mouse: true,
             max_transcript_events: 500,
+            spinner_style: TuiSpinnerStyle::Braille,
+            tick_ms: 80,
             status_line: StatusLineConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TuiSpinnerStyle {
+    #[default]
+    Braille,
+    Dots,
+    Bar,
+    Off,
+}
+
+impl TuiSpinnerStyle {
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_lowercase().replace('-', "_").as_str() {
+            "braille" => Some(Self::Braille),
+            "dots" => Some(Self::Dots),
+            "bar" => Some(Self::Bar),
+            "off" => Some(Self::Off),
+            _ => None,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Braille => "braille",
+            Self::Dots => "dots",
+            Self::Bar => "bar",
+            Self::Off => "off",
+        }
+    }
+
+    pub fn frames(self) -> &'static [&'static str] {
+        match self {
+            Self::Braille => &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
+            Self::Dots => &[".", "..", "...", "...."],
+            Self::Bar => &["-", "\\", "|", "/"],
+            Self::Off => &["*"],
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for TuiSpinnerStyle {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Ok(Self::parse(&value).unwrap_or_else(|| {
+            tracing::warn!(
+                configured = value,
+                fallback = "braille",
+                "invalid repl.tui.spinner_style; falling back to braille"
+            );
+            Self::Braille
+        }))
+    }
+}
+
+fn deserialize_tui_spinner_style<'de, D>(deserializer: D) -> Result<TuiSpinnerStyle, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    TuiSpinnerStyle::deserialize(deserializer)
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct OperatorUxConfig {
+    pub activity: ActivityConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct ActivityConfig {
+    pub stuck_notice_after_s: u64,
+    pub long_tool_notice_after_s: u64,
+    pub show_activity_breadcrumbs: bool,
+}
+
+impl Default for ActivityConfig {
+    fn default() -> Self {
+        Self {
+            stuck_notice_after_s: 30,
+            long_tool_notice_after_s: 20,
+            show_activity_breadcrumbs: true,
         }
     }
 }
@@ -858,6 +953,7 @@ impl Config {
             sessions: SessionsConfig::default(),
             channels: ChannelsConfig::default(),
             repl: ReplConfig::default(),
+            operator_ux: OperatorUxConfig::default(),
             jobs: JobsConfig::default(),
             install: InstallConfig::default(),
             intent_classifier: IntentClassifierConfig::default(),
@@ -882,7 +978,9 @@ impl Config {
                 source,
             })?;
             let migrated = parsed.migrate_loaded_config(raw_had_repl_ui);
-            let normalized = parsed.normalize_scripting_config();
+            let scripting_normalized = parsed.normalize_scripting_config();
+            let operator_ux_normalized = parsed.normalize_operator_ux_config();
+            let normalized = scripting_normalized || operator_ux_normalized;
             if migrated || normalized {
                 parsed.persist(paths)?;
             }
@@ -986,12 +1084,83 @@ impl Config {
         changed || self.scripting.allow_stdlib.len() != before
     }
 
+    fn normalize_operator_ux_config(&mut self) -> bool {
+        let mut changed = false;
+        if self.repl.tui.tick_ms < 40 {
+            tracing::warn!(
+                configured = self.repl.tui.tick_ms,
+                floor = 40,
+                "clamping repl.tui.tick_ms to supported floor"
+            );
+            self.repl.tui.tick_ms = 40;
+            changed = true;
+        } else if self.repl.tui.tick_ms > 250 {
+            tracing::warn!(
+                configured = self.repl.tui.tick_ms,
+                ceiling = 250,
+                "clamping repl.tui.tick_ms to supported ceiling"
+            );
+            self.repl.tui.tick_ms = 250;
+            changed = true;
+        }
+
+        let activity = &mut self.operator_ux.activity;
+        if activity.stuck_notice_after_s < 5 {
+            tracing::warn!(
+                configured = activity.stuck_notice_after_s,
+                floor = 5,
+                "clamping operator_ux.activity.stuck_notice_after_s to supported floor"
+            );
+            activity.stuck_notice_after_s = 5;
+            changed = true;
+        } else if activity.stuck_notice_after_s > 600 {
+            tracing::warn!(
+                configured = activity.stuck_notice_after_s,
+                ceiling = 600,
+                "clamping operator_ux.activity.stuck_notice_after_s to supported ceiling"
+            );
+            activity.stuck_notice_after_s = 600;
+            changed = true;
+        }
+        if activity.long_tool_notice_after_s < 5 {
+            tracing::warn!(
+                configured = activity.long_tool_notice_after_s,
+                floor = 5,
+                "clamping operator_ux.activity.long_tool_notice_after_s to supported floor"
+            );
+            activity.long_tool_notice_after_s = 5;
+            changed = true;
+        } else if activity.long_tool_notice_after_s > 600 {
+            tracing::warn!(
+                configured = activity.long_tool_notice_after_s,
+                ceiling = 600,
+                "clamping operator_ux.activity.long_tool_notice_after_s to supported ceiling"
+            );
+            activity.long_tool_notice_after_s = 600;
+            changed = true;
+        }
+        changed
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         if self.repl.tui.max_transcript_events == 0 {
             return Err("repl.tui.max_transcript_events must be >= 1".into());
         }
+        if !(40..=250).contains(&self.repl.tui.tick_ms) {
+            return Err("repl.tui.tick_ms must be between 40 and 250".into());
+        }
         if self.repl.tui.status_line.enabled && self.repl.tui.status_line.items.is_empty() {
             return Err("repl.tui.status_line.items must not be empty when enabled".into());
+        }
+        if !(5..=600).contains(&self.operator_ux.activity.stuck_notice_after_s) {
+            return Err(
+                "operator_ux.activity.stuck_notice_after_s must be between 5 and 600".into(),
+            );
+        }
+        if !(5..=600).contains(&self.operator_ux.activity.long_tool_notice_after_s) {
+            return Err(
+                "operator_ux.activity.long_tool_notice_after_s must be between 5 and 600".into(),
+            );
         }
         if self.memory.prefetch_default_limit == 0 {
             return Err("memory.prefetch_default_limit must be > 0".into());
@@ -1282,6 +1451,11 @@ max_tokens = 4096
         let config = Config::load_or_create(&paths).expect("fresh config should load");
 
         assert_eq!(config.repl.ui, ReplUiMode::Tui);
+        assert_eq!(config.repl.tui.spinner_style, TuiSpinnerStyle::Braille);
+        assert_eq!(config.repl.tui.tick_ms, 80);
+        assert_eq!(config.operator_ux.activity.stuck_notice_after_s, 30);
+        assert_eq!(config.operator_ux.activity.long_tool_notice_after_s, 20);
+        assert!(config.operator_ux.activity.show_activity_breadcrumbs);
         assert_eq!(config.model.context_window_tokens, 0);
         assert_eq!(
             config.memory.routing.mode,
@@ -1303,6 +1477,67 @@ max_tokens = 4096
         assert!(rendered.contains("[scripting]"));
         assert!(rendered.contains("engine = \"disabled\""));
         assert!(rendered.contains("max_execution_ms = 1000"));
+        assert!(rendered.contains("spinner_style = \"braille\""));
+        assert!(rendered.contains("tick_ms = 80"));
+        assert!(rendered.contains("[operator_ux.activity]"));
+        assert!(rendered.contains("stuck_notice_after_s = 30"));
+    }
+
+    #[test]
+    fn tui_spinner_style_parses_and_invalid_falls_back() {
+        assert_eq!(TuiSpinnerStyle::parse("dots"), Some(TuiSpinnerStyle::Dots));
+        assert_eq!(TuiSpinnerStyle::parse("bar"), Some(TuiSpinnerStyle::Bar));
+        assert_eq!(TuiSpinnerStyle::parse("off"), Some(TuiSpinnerStyle::Off));
+        assert_eq!(TuiSpinnerStyle::parse("nope"), None);
+
+        let parsed: Config = toml::from_str(
+            r#"
+[model]
+provider = "ollama"
+model_id = "gemma4"
+max_tokens = 4096
+
+[repl.tui]
+spinner_style = "sparkles"
+"#,
+        )
+        .expect("invalid spinner style should fall back at parse time");
+
+        assert_eq!(parsed.repl.tui.spinner_style, TuiSpinnerStyle::Braille);
+    }
+
+    #[test]
+    fn tui_and_activity_thresholds_clamp_on_load() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should be created");
+        std::fs::write(
+            &paths.config,
+            r#"
+[model]
+provider = "ollama"
+model_id = "gemma4"
+max_tokens = 4096
+
+[repl.tui]
+tick_ms = 1
+
+[operator_ux.activity]
+stuck_notice_after_s = 999
+long_tool_notice_after_s = 1
+"#,
+        )
+        .expect("config should be written");
+
+        let config = Config::load_or_create(&paths).expect("config should load with clamps");
+        assert_eq!(config.repl.tui.tick_ms, 40);
+        assert_eq!(config.operator_ux.activity.stuck_notice_after_s, 600);
+        assert_eq!(config.operator_ux.activity.long_tool_notice_after_s, 5);
+
+        let rendered = std::fs::read_to_string(&paths.config).expect("config should persist");
+        assert!(rendered.contains("tick_ms = 40"));
+        assert!(rendered.contains("stuck_notice_after_s = 600"));
+        assert!(rendered.contains("long_tool_notice_after_s = 5"));
     }
 
     #[test]
