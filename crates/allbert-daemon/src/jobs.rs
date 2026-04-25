@@ -1098,6 +1098,7 @@ pub(crate) async fn execute_job(
         cost_usd,
         skills_attached: definition.skills.clone(),
         stop_reason,
+        last_activity: None,
     }
 }
 

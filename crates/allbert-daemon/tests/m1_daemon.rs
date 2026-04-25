@@ -393,6 +393,7 @@ async fn run_turn_expect_error(client: &mut DaemonClient, input: &str) -> String
         match client.recv().await.expect("daemon should respond") {
             ServerMessage::Error(error) => return error.message,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("expected turn error, got {other:?}"),
         }
     }
@@ -1103,6 +1104,7 @@ async fn request_input_round_trip_flows_over_channel() {
             }
             ServerMessage::TurnResult(_) => break,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("unexpected message: {:?}", other),
         }
     }
@@ -1163,6 +1165,7 @@ async fn confirm_round_trip_flows_over_channel() {
             }
             ServerMessage::TurnResult(_) => break,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("unexpected message: {:?}", other),
         }
     }
@@ -1203,6 +1206,7 @@ async fn client_disconnect_during_prompt_does_not_poison_session() {
         match client.recv().await.expect("daemon should prompt") {
             ServerMessage::InputRequest(_) => break,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("unexpected message: {:?}", other),
         }
     }
@@ -1232,6 +1236,7 @@ async fn client_disconnect_during_prompt_does_not_poison_session() {
             }
             ServerMessage::TurnResult(_) => break,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("unexpected message: {:?}", other),
         }
     }
@@ -1728,6 +1733,7 @@ async fn telegram_async_confirm_persists_pending_approval_and_clears_on_reply() 
         match client.recv().await.expect("daemon should respond") {
             ServerMessage::ConfirmRequest(request) => break request,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("expected confirm request, got {other:?}"),
         }
     };
@@ -1766,6 +1772,7 @@ async fn telegram_async_confirm_persists_pending_approval_and_clears_on_reply() 
         match client.recv().await.expect("daemon should respond") {
             ServerMessage::TurnResult(_) => saw_turn_result = true,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("unexpected message after confirm: {other:?}"),
         }
     }
@@ -1823,6 +1830,7 @@ async fn telegram_async_confirm_timeout_marks_approval_and_restart_reconciles_me
         match client.recv().await.expect("daemon should respond") {
             ServerMessage::ConfirmRequest(request) => break request,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("expected confirm request, got {other:?}"),
         }
     };
@@ -1841,6 +1849,7 @@ async fn telegram_async_confirm_timeout_marks_approval_and_restart_reconciles_me
                 }
             }
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             ServerMessage::TurnResult(_) => saw_turn_result = true,
             other => panic!("unexpected message after timeout: {other:?}"),
         }
@@ -2073,6 +2082,7 @@ async fn cli_inbox_accept_resumes_live_telegram_tool_approval() {
         match telegram.recv().await.expect("daemon should respond") {
             ServerMessage::ConfirmRequest(request) => break request,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("expected confirm request, got {other:?}"),
         }
     };
@@ -2100,6 +2110,7 @@ async fn cli_inbox_accept_resumes_live_telegram_tool_approval() {
             }
             ServerMessage::TurnResult(_) => break,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("unexpected message after inbox accept: {other:?}"),
         }
     }

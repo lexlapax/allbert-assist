@@ -49,7 +49,7 @@ use teloxide::{
     net::Download,
     payloads::{GetUpdatesSetters, SendMessageSetters},
     prelude::{Request, Requester},
-    types::{ChatId, Message, ParseMode, PhotoSize, Update, UpdateKind, UserId},
+    types::{ChatAction, ChatId, Message, ParseMode, PhotoSize, Update, UpdateKind, UserId},
     Bot,
 };
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -194,14 +194,22 @@ fn activity_snapshot_from_transition(
     session: &SessionHandle,
     transition: ActivityTransition,
 ) -> ActivitySnapshot {
+    activity_snapshot_from_transition_parts(&session.session_id, session.channel(), transition)
+}
+
+fn activity_snapshot_from_transition_parts(
+    session_id: &str,
+    channel: ChannelKind,
+    transition: ActivityTransition,
+) -> ActivitySnapshot {
     let now = now_rfc3339_fallback();
     ActivitySnapshot {
         phase: transition.phase,
         label: transition.label,
         started_at: now.clone(),
         elapsed_ms: 0,
-        session_id: session.session_id.clone(),
-        channel: session.channel(),
+        session_id: session_id.to_string(),
+        channel,
         tool_name: transition.tool_name,
         tool_summary: transition.tool_summary,
         skill_name: transition.skill_name,
@@ -1413,6 +1421,93 @@ fn render_inbox_nag_message(approvals: &[InboxApprovalPayload]) -> String {
     )
 }
 
+fn render_telegram_activity_card(activity: &ActivitySnapshot) -> String {
+    let mut lines = vec![
+        "Activity".to_string(),
+        format!("Phase: {}", activity_phase_label(activity.phase)),
+        format!("Now: {}", activity.label),
+        format!("Elapsed: {:.1}s", activity.elapsed_ms as f64 / 1000.0),
+    ];
+    if let Some(tool_name) = activity.tool_name.as_deref() {
+        lines.push(format!("Tool: {tool_name}"));
+    }
+    if let Some(tool_summary) = activity.tool_summary.as_deref() {
+        lines.push(format!(
+            "Tool input: {}",
+            redact_activity_card_value(tool_summary)
+        ));
+    }
+    if let Some(stuck_hint) = activity.stuck_hint.as_deref() {
+        lines.push(format!("Hint: {}", redact_activity_card_value(stuck_hint)));
+    }
+    if !activity.next_actions.is_empty() {
+        lines.push(format!("Next: {}", activity.next_actions.join("; ")));
+    }
+    lines.join("\n")
+}
+
+fn render_telegram_status_card(session: &SessionHandle, pending_inbox_count: usize) -> String {
+    format!(
+        "Status\nSession: {}\nChannel: {}\nInbox: {}\n{}",
+        session.session_id,
+        channel_label(session.channel()),
+        pending_inbox_count,
+        render_telegram_activity_card(&session.activity_snapshot())
+    )
+}
+
+fn render_telegram_resolution_feedback(
+    approval_id: &str,
+    allow: bool,
+    note: Option<&str>,
+) -> String {
+    let verb = if allow { "Approved" } else { "Rejected" };
+    let mut rendered = format!("{verb} `{approval_id}`.");
+    if let Some(note) = note {
+        rendered.push_str(&format!(" {note}"));
+    }
+    if allow {
+        rendered.push_str(
+            "\nNext: approval is recorded; install or apply separately if this was a patch approval.",
+        );
+    }
+    rendered
+}
+
+fn redact_activity_card_value(value: &str) -> String {
+    let lowered = value.to_ascii_lowercase();
+    if lowered.contains("token=")
+        || lowered.contains("secret=")
+        || lowered.contains("password=")
+        || value.starts_with("sk-")
+    {
+        "[redacted]".into()
+    } else if value.chars().count() > 160 {
+        format!("{}...", value.chars().take(157).collect::<String>())
+    } else {
+        value.to_string()
+    }
+}
+
+fn activity_phase_label(phase: ActivityPhase) -> &'static str {
+    match phase {
+        ActivityPhase::Idle => "idle",
+        ActivityPhase::Queued => "queued",
+        ActivityPhase::PreparingContext => "preparing_context",
+        ActivityPhase::ClassifyingIntent => "classifying_intent",
+        ActivityPhase::CallingModel => "calling_model",
+        ActivityPhase::StreamingResponse => "streaming_response",
+        ActivityPhase::CallingTool => "calling_tool",
+        ActivityPhase::WaitingForApproval => "waiting_for_approval",
+        ActivityPhase::WaitingForInput => "waiting_for_input",
+        ActivityPhase::RunningValidation => "running_validation",
+        ActivityPhase::RunningScript => "running_script",
+        ActivityPhase::Finalizing => "finalizing",
+        ActivityPhase::Error => "error",
+        ActivityPhase::Unknown => "unknown",
+    }
+}
+
 async fn execute_planned_jobs(
     state: &SharedState,
     defaults: &Config,
@@ -1433,8 +1528,20 @@ async fn execute_planned_jobs(
             let name = definition.name.clone();
             let run_id = uuid::Uuid::new_v4().to_string();
             let session_id = format!("job-{}-{}", definition.name, &run_id[..8]);
+            let last_activity = Arc::new(StdMutex::new(None::<ActivitySnapshot>));
+            let last_activity_for_events = last_activity.clone();
+            let session_id_for_events = session_id.clone();
             let adapter = FrontendAdapter {
-                on_event: Box::new(|_| {}),
+                on_event: Box::new(move |event| {
+                    if let KernelEvent::Activity(transition) = event {
+                        *last_activity_for_events.lock().unwrap() =
+                            Some(activity_snapshot_from_transition_parts(
+                                &session_id_for_events,
+                                ChannelKind::Jobs,
+                                transition.clone(),
+                            ));
+                    }
+                }),
                 confirm: Arc::new(JobApprovalPrompter {
                     state: state.clone(),
                     session_id: session_id.clone(),
@@ -1442,7 +1549,7 @@ async fn execute_planned_jobs(
                 }),
                 input: Arc::new(JobInputCancelPrompter),
             };
-            let record = execute_job(
+            let mut record = execute_job(
                 &paths,
                 &defaults,
                 provider_factory,
@@ -1454,6 +1561,33 @@ async fn execute_planned_jobs(
                 adapter,
             )
             .await;
+            record.last_activity = last_activity
+                .lock()
+                .unwrap()
+                .clone()
+                .map(activity_with_elapsed)
+                .or_else(|| {
+                    if record.outcome == "success" {
+                        None
+                    } else {
+                        let now = now_rfc3339_fallback();
+                        Some(ActivitySnapshot {
+                            phase: ActivityPhase::Error,
+                            label: "job ended without activity details".into(),
+                            started_at: now.clone(),
+                            elapsed_ms: 0,
+                            session_id: record.session_id.clone(),
+                            channel: ChannelKind::Jobs,
+                            tool_name: None,
+                            tool_summary: None,
+                            skill_name: None,
+                            approval_id: None,
+                            last_progress_at: Some(now),
+                            stuck_hint: None,
+                            next_actions: vec!["inspect the job failure report".into()],
+                        })
+                    }
+                });
             (name, record)
         }
     });
@@ -1481,6 +1615,7 @@ async fn execute_planned_jobs(
 #[async_trait::async_trait]
 trait TelegramApi: Send + Sync {
     async fn send_message(&self, chat_id: i64, text: String) -> Result<i32, String>;
+    async fn send_typing(&self, chat_id: i64) -> Result<(), String>;
     async fn download_photo(&self, photo: &PhotoSize, destination: &Path) -> Result<(), String>;
 }
 
@@ -1497,6 +1632,15 @@ impl TelegramApi for TeloxideApi {
             .send()
             .await
             .map(|message| message.id.0)
+            .map_err(|err| err.to_string())
+    }
+
+    async fn send_typing(&self, chat_id: i64) -> Result<(), String> {
+        self.bot
+            .send_chat_action(ChatId(chat_id), ChatAction::Typing)
+            .send()
+            .await
+            .map(|_| ())
             .map_err(|err| err.to_string())
     }
 
@@ -1570,6 +1714,8 @@ impl TelegramOutboundQueue {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum TelegramCommand {
     Text(String),
+    Activity,
+    Status,
     Reset,
     Approve(String),
     Reject(String),
@@ -1624,6 +1770,12 @@ impl TelegramRuntime {
         }
 
         match parse_telegram_command(text.as_deref().unwrap_or_default()) {
+            TelegramCommand::Activity => {
+                self.send_activity(chat_id, &sender_id).await?;
+            }
+            TelegramCommand::Status => {
+                self.send_status(chat_id, &sender_id).await?;
+            }
             TelegramCommand::Approve(approval_id) => {
                 self.resolve_approval(chat_id, &sender_id, &approval_id, true)
                     .await?;
@@ -1690,6 +1842,24 @@ impl TelegramRuntime {
         )
         .ok();
         self.outbound.send_text(chat_id, text).await
+    }
+
+    async fn send_activity(&self, chat_id: i64, sender_id: &str) -> Result<(), DaemonError> {
+        let session = self.select_session(sender_id, false).await?;
+        self.send_text(
+            chat_id,
+            render_telegram_activity_card(&session.activity_snapshot()),
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn send_status(&self, chat_id: i64, sender_id: &str) -> Result<(), DaemonError> {
+        let session = self.select_session(sender_id, false).await?;
+        let pending = pending_inbox_count_for_session(&self.state, &session);
+        self.send_text(chat_id, render_telegram_status_card(&session, pending))
+            .await?;
+        Ok(())
     }
 
     async fn select_session(
@@ -1815,6 +1985,7 @@ impl TelegramRuntime {
         input: String,
         attachments: Vec<ChatAttachment>,
     ) -> Result<(), DaemonError> {
+        let typing_cancel = self.spawn_typing_indicator(chat_id);
         append_debug_line(
             &self.state,
             &format!(
@@ -1882,6 +2053,7 @@ impl TelegramRuntime {
 
         match result {
             Ok(summary) => {
+                typing_cancel.cancel();
                 let assistant_text = assistant_text.lock().unwrap().clone();
                 {
                     let kernel = session.kernel.lock().await;
@@ -1916,6 +2088,7 @@ impl TelegramRuntime {
                 Ok(())
             }
             Err(error) => {
+                typing_cancel.cancel();
                 let mut message = error.to_string();
                 if message.contains("/cost --override <reason>") {
                     let approval_id = format!("approval-{}", uuid::Uuid::new_v4().simple());
@@ -2017,13 +2190,11 @@ impl TelegramRuntime {
             .await
         {
             Ok(result) => {
-                let verb = if allow { "Approved" } else { "Rejected" };
-                let suffix = result
-                    .note
-                    .map(|note| format!(" {note}"))
-                    .unwrap_or_default();
-                self.send_text(chat_id, format!("{verb} `{approval_id}`.{suffix}"))
-                    .await?;
+                self.send_text(
+                    chat_id,
+                    render_telegram_resolution_feedback(approval_id, allow, result.note.as_deref()),
+                )
+                .await?;
             }
             Err(error) => {
                 self.send_text(chat_id, error.to_string()).await?;
@@ -2059,13 +2230,28 @@ impl TelegramRuntime {
             Some(reason),
         )
         .await?;
-        let suffix = result
-            .note
-            .map(|note| format!(" {note}"))
-            .unwrap_or_default();
-        self.send_text(chat_id, format!("Approved `{approval_id}`.{suffix}"))
-            .await?;
+        self.send_text(
+            chat_id,
+            render_telegram_resolution_feedback(&approval_id, true, result.note.as_deref()),
+        )
+        .await?;
         Ok(())
+    }
+
+    fn spawn_typing_indicator(&self, chat_id: i64) -> CancellationToken {
+        let cancel = CancellationToken::new();
+        let cancel_for_task = cancel.clone();
+        let api = self.api.clone();
+        self.state.tasks.spawn(async move {
+            loop {
+                let _ = api.send_typing(chat_id).await;
+                tokio::select! {
+                    _ = cancel_for_task.cancelled() => break,
+                    _ = tokio::time::sleep(Duration::from_secs(4)) => {}
+                }
+            }
+        });
+        cancel
     }
 
     fn record_error(&self, message: String) {
@@ -2461,6 +2647,12 @@ fn parse_telegram_allowed_chats(raw: &str) -> Result<HashSet<i64>, DaemonError> 
 
 fn parse_telegram_command(text: &str) -> TelegramCommand {
     let trimmed = text.trim();
+    if trimmed == "/activity" {
+        return TelegramCommand::Activity;
+    }
+    if trimmed == "/status" {
+        return TelegramCommand::Status;
+    }
     if trimmed == "/reset" {
         return TelegramCommand::Reset;
     }
@@ -5325,6 +5517,11 @@ mod telegram_tests {
 
     #[test]
     fn telegram_command_parser_covers_control_vocabulary() {
+        assert_eq!(
+            parse_telegram_command("/activity"),
+            TelegramCommand::Activity
+        );
+        assert_eq!(parse_telegram_command("/status"), TelegramCommand::Status);
         assert_eq!(parse_telegram_command("/reset"), TelegramCommand::Reset);
         assert_eq!(
             parse_telegram_command("/approve approval-123"),
@@ -5342,6 +5539,44 @@ mod telegram_tests {
             parse_telegram_command("/start"),
             TelegramCommand::Text("/start".into())
         );
+        assert_eq!(
+            parse_telegram_command("/settings list"),
+            TelegramCommand::Text("/settings list".into())
+        );
+    }
+
+    #[test]
+    fn telegram_activity_card_is_compact_and_redacts_sensitive_summaries() {
+        let rendered = render_telegram_activity_card(&ActivitySnapshot {
+            phase: ActivityPhase::CallingTool,
+            label: "running tool".into(),
+            started_at: "2026-04-20T00:00:00Z".into(),
+            elapsed_ms: 12_000,
+            session_id: "telegram-1".into(),
+            channel: ChannelKind::Telegram,
+            tool_name: Some("process_exec".into()),
+            tool_summary: Some("token=abc123".into()),
+            skill_name: None,
+            approval_id: None,
+            last_progress_at: None,
+            stuck_hint: Some("still running".into()),
+            next_actions: vec!["wait".into()],
+        });
+
+        assert!(rendered.contains("Activity"));
+        assert!(rendered.contains("calling_tool"));
+        assert!(rendered.contains("Tool input: [redacted]"));
+        assert!(!rendered.contains("abc123"));
+    }
+
+    #[test]
+    fn telegram_resolution_feedback_names_next_step_for_patch_approvals() {
+        let rendered =
+            render_telegram_resolution_feedback("approval-123", true, Some("resumed live turn"));
+
+        assert!(rendered.contains("Approved `approval-123`."));
+        assert!(rendered.contains("resumed live turn"));
+        assert!(rendered.contains("install or apply separately"));
     }
 
     #[test]

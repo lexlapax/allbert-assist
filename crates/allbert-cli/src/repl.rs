@@ -926,6 +926,24 @@ pub fn render_activity_snapshot(activity: &ActivitySnapshot) -> String {
     lines.join("\n")
 }
 
+pub fn render_activity_compact(activity: &ActivitySnapshot) -> String {
+    let mut parts = vec![
+        activity_phase_label(activity.phase).to_string(),
+        activity.label.clone(),
+        format!("{:.1}s", activity.elapsed_ms as f64 / 1000.0),
+    ];
+    if let Some(tool_name) = activity.tool_name.as_deref() {
+        parts.push(format!("tool={tool_name}"));
+    }
+    if let Some(stuck_hint) = activity.stuck_hint.as_deref() {
+        parts.push(format!("hint={stuck_hint}"));
+    }
+    if !activity.next_actions.is_empty() {
+        parts.push(format!("next={}", activity.next_actions.join("; ")));
+    }
+    parts.join(" | ")
+}
+
 fn activity_phase_label(phase: ActivityPhase) -> &'static str {
     match phase {
         ActivityPhase::Idle => "idle",

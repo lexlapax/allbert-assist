@@ -346,6 +346,8 @@ pub struct JobRunRecordPayload {
     pub cost_usd: f64,
     pub skills_attached: Vec<String>,
     pub stop_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_activity: Option<ActivitySnapshot>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -665,6 +667,27 @@ mod tests {
             serde_json::from_str(&raw).expect("activity should deserialize");
 
         assert_eq!(decoded, ServerMessage::ActivityUpdate(snapshot));
+    }
+
+    #[test]
+    fn proto_job_run_record_last_activity_roundtrip() {
+        let activity = fixture_activity();
+        let record = JobRunRecordPayload {
+            run_id: "run-1".into(),
+            job_name: "daily-brief".into(),
+            session_id: "job-daily-brief".into(),
+            started_at: "2026-04-20T00:00:00Z".into(),
+            ended_at: "2026-04-20T00:01:00Z".into(),
+            outcome: "failure".into(),
+            cost_usd: 0.0,
+            skills_attached: Vec::new(),
+            stop_reason: Some("provider timeout".into()),
+            last_activity: Some(activity.clone()),
+        };
+        let raw = serde_json::to_string(&record).expect("run record should serialize");
+        let decoded: JobRunRecordPayload =
+            serde_json::from_str(&raw).expect("run record should deserialize");
+        assert_eq!(decoded.last_activity, Some(activity));
     }
 
     #[test]

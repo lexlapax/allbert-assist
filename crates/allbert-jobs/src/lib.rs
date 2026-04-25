@@ -3,8 +3,9 @@ use std::fs;
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_kernel::{AllbertPaths, Config, Provider};
 use allbert_proto::{
-    ChannelKind, ClientKind, JobBudgetPayload, JobDefinitionPayload, JobReportPolicyPayload,
-    JobRunRecordPayload, JobStatusPayload, ProviderKind,
+    ActivityPhase, ActivitySnapshot, ChannelKind, ClientKind, JobBudgetPayload,
+    JobDefinitionPayload, JobReportPolicyPayload, JobRunRecordPayload, JobStatusPayload,
+    ProviderKind,
 };
 use anyhow::{Context, Result};
 use clap::Subcommand;
@@ -252,7 +253,7 @@ pub fn render_job_status(job: &JobStatusPayload) -> String {
 }
 
 pub fn render_job_run(run: &JobRunRecordPayload) -> String {
-    format!(
+    let mut rendered = format!(
         "job:         {}\nrun id:      {}\nsession id:  {}\nstarted:     {}\nended:       {}\noutcome:     {}\nstop reason: {}\ncost usd:    {:.6}\nskills:      {}",
         run.job_name,
         run.run_id,
@@ -267,7 +268,47 @@ pub fn render_job_run(run: &JobRunRecordPayload) -> String {
         } else {
             run.skills_attached.join(", ")
         }
-    )
+    );
+    if let Some(activity) = run.last_activity.as_ref() {
+        rendered.push_str(&format!(
+            "\nactivity:    {}",
+            render_compact_activity(activity)
+        ));
+    }
+    rendered
+}
+
+fn render_compact_activity(activity: &ActivitySnapshot) -> String {
+    let mut parts = vec![
+        activity_phase_label(activity.phase).to_string(),
+        activity.label.clone(),
+    ];
+    if let Some(tool_name) = activity.tool_name.as_deref() {
+        parts.push(format!("tool={tool_name}"));
+    }
+    if let Some(hint) = activity.stuck_hint.as_deref() {
+        parts.push(format!("hint={hint}"));
+    }
+    parts.join(" | ")
+}
+
+fn activity_phase_label(phase: ActivityPhase) -> &'static str {
+    match phase {
+        ActivityPhase::Idle => "idle",
+        ActivityPhase::Queued => "queued",
+        ActivityPhase::PreparingContext => "preparing_context",
+        ActivityPhase::ClassifyingIntent => "classifying_intent",
+        ActivityPhase::CallingModel => "calling_model",
+        ActivityPhase::StreamingResponse => "streaming_response",
+        ActivityPhase::CallingTool => "calling_tool",
+        ActivityPhase::WaitingForApproval => "waiting_for_approval",
+        ActivityPhase::WaitingForInput => "waiting_for_input",
+        ActivityPhase::RunningValidation => "running_validation",
+        ActivityPhase::RunningScript => "running_script",
+        ActivityPhase::Finalizing => "finalizing",
+        ActivityPhase::Error => "error",
+        ActivityPhase::Unknown => "unknown",
+    }
 }
 
 fn report_label(report: JobReportPolicyPayload) -> &'static str {
@@ -387,7 +428,7 @@ pub fn parse_job_definition(path: &str) -> Result<JobDefinitionPayload> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use allbert_proto::{JobStatePayload, ModelConfigPayload};
+    use allbert_proto::{ActivitySnapshot, ChannelKind, JobStatePayload, ModelConfigPayload};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -472,5 +513,40 @@ Summarize the day locally.
 
         let rendered = render_job_status(&job);
         assert!(rendered.contains("model override:    ollama / gemma4"));
+    }
+
+    #[test]
+    fn render_job_run_includes_last_activity_when_present() {
+        let run = JobRunRecordPayload {
+            run_id: "run-1".into(),
+            job_name: "daily-brief".into(),
+            session_id: "job-daily-brief".into(),
+            started_at: "2026-04-20T00:00:00Z".into(),
+            ended_at: "2026-04-20T00:01:00Z".into(),
+            outcome: "failure".into(),
+            cost_usd: 0.0,
+            skills_attached: Vec::new(),
+            stop_reason: Some("provider timeout".into()),
+            last_activity: Some(ActivitySnapshot {
+                phase: ActivityPhase::CallingModel,
+                label: "calling model".into(),
+                started_at: "2026-04-20T00:00:30Z".into(),
+                elapsed_ms: 30_000,
+                session_id: "job-daily-brief".into(),
+                channel: ChannelKind::Jobs,
+                tool_name: None,
+                tool_summary: None,
+                skill_name: None,
+                approval_id: None,
+                last_progress_at: None,
+                stuck_hint: Some("provider has not returned yet".into()),
+                next_actions: Vec::new(),
+            }),
+        };
+
+        let rendered = render_job_run(&run);
+        assert!(rendered.contains("activity:"));
+        assert!(rendered.contains("calling_model"));
+        assert!(rendered.contains("provider has not returned yet"));
     }
 }

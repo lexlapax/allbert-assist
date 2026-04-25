@@ -123,6 +123,10 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Show the local Allbert home paths and daemon activity, if available.
+    Home,
+    /// Run a compact local readiness check.
+    Doctor,
     #[command(name = "internal-daemon-host", hide = true)]
     InternalDaemonHost,
 }
@@ -522,6 +526,8 @@ async fn main() -> Result<()> {
             run_repl(&paths, &effective, args.trace, args.yes, mode).await
         }
         Some(Command::Telemetry { json }) => run_telemetry_command(&paths, &config, json).await,
+        Some(Command::Home) => run_home_command(&paths, &config).await,
+        Some(Command::Doctor) => run_doctor_command(&paths, &config).await,
         Some(Command::Learning { command }) => run_learning_command(&paths, &config, command),
         Some(Command::SelfImprovement { command }) => {
             run_self_improvement_command(&paths, &config, command)
@@ -1766,7 +1772,7 @@ async fn run_daemon_command(
 
 async fn run_telemetry_command(paths: &AllbertPaths, config: &Config, json: bool) -> Result<()> {
     let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
-    client.attach(ChannelKind::Cli, None).await?;
+    attach_latest_or_default(paths, &mut client).await?;
     let telemetry = client.session_telemetry().await?;
     if json {
         println!("{}", serde_json::to_string_pretty(&telemetry)?);
@@ -1778,7 +1784,7 @@ async fn run_telemetry_command(paths: &AllbertPaths, config: &Config, json: bool
 
 async fn run_activity_command(paths: &AllbertPaths, config: &Config, json: bool) -> Result<()> {
     let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
-    client.attach(ChannelKind::Cli, None).await?;
+    attach_latest_or_default(paths, &mut client).await?;
     let activity = client.activity_snapshot().await?;
     if json {
         println!("{}", serde_json::to_string_pretty(&activity)?);
@@ -1786,6 +1792,124 @@ async fn run_activity_command(paths: &AllbertPaths, config: &Config, json: bool)
         println!("{}", repl::render_activity_snapshot(&activity));
     }
     Ok(())
+}
+
+async fn run_home_command(paths: &AllbertPaths, _config: &Config) -> Result<()> {
+    println!(
+        "{}",
+        render_home(paths, optional_active_activity(paths).await)
+    );
+    Ok(())
+}
+
+async fn run_doctor_command(paths: &AllbertPaths, config: &Config) -> Result<()> {
+    let warnings = setup::build_startup_warnings(config);
+    println!(
+        "{}",
+        render_doctor(
+            paths,
+            config,
+            &warnings,
+            optional_active_activity(paths).await
+        )
+    );
+    Ok(())
+}
+
+fn render_home(paths: &AllbertPaths, activity: Option<allbert_proto::ActivitySnapshot>) -> String {
+    let mut lines = vec![
+        format!("home:      {}", paths.root.display()),
+        format!("config:    {}", paths.config.display()),
+        format!("sessions:  {}", paths.sessions.display()),
+        format!("logs:      {}", paths.logs.display()),
+    ];
+    if let Some(activity) = activity.as_ref() {
+        lines.push(format!(
+            "activity:  {}",
+            repl::render_activity_compact(activity)
+        ));
+    }
+    lines.join("\n")
+}
+
+fn render_doctor(
+    paths: &AllbertPaths,
+    config: &Config,
+    warnings: &[String],
+    activity: Option<allbert_proto::ActivitySnapshot>,
+) -> String {
+    let mut lines = vec![
+        format!(
+            "doctor:    {}",
+            if warnings.is_empty() {
+                "ok"
+            } else {
+                "warnings"
+            }
+        ),
+        format!("home:      {}", paths.root.display()),
+        format!("setup:     v{}", config.setup.version),
+        format!("daemon:    auto-spawn {}", yes_no(config.daemon.auto_spawn)),
+    ];
+    if let Some(activity) = activity.as_ref() {
+        lines.push(format!(
+            "activity:  {}",
+            repl::render_activity_compact(activity)
+        ));
+    }
+    if !warnings.is_empty() {
+        lines.push("warnings:".into());
+        for warning in warnings {
+            lines.push(format!("- {warning}"));
+        }
+    }
+    lines.join("\n")
+}
+
+async fn optional_active_activity(paths: &AllbertPaths) -> Option<allbert_proto::ActivitySnapshot> {
+    let mut client = DaemonClient::connect(paths, ClientKind::Cli).await.ok()?;
+    attach_latest_session(paths, &mut client)
+        .await
+        .ok()
+        .flatten()?;
+    client.activity_snapshot().await.ok()
+}
+
+async fn attach_latest_or_default(paths: &AllbertPaths, client: &mut DaemonClient) -> Result<()> {
+    if attach_latest_session(paths, client).await?.is_none() {
+        client.attach(ChannelKind::Cli, None).await?;
+    }
+    Ok(())
+}
+
+async fn attach_latest_session(
+    paths: &AllbertPaths,
+    client: &mut DaemonClient,
+) -> Result<Option<()>> {
+    let Some(target) = latest_session_target(paths)? else {
+        return Ok(None);
+    };
+    client
+        .attach(target.channel, Some(target.session_id))
+        .await?;
+    Ok(Some(()))
+}
+
+struct SessionActivityTarget {
+    session_id: String,
+    channel: ChannelKind,
+}
+
+fn latest_session_target(paths: &AllbertPaths) -> Result<Option<SessionActivityTarget>> {
+    let sessions = collect_sessions(paths)?;
+    let Some(session) = sessions.first() else {
+        return Ok(None);
+    };
+    let meta = load_session_meta(paths, &session.session_id)?;
+    Ok(Some(SessionActivityTarget {
+        session_id: session.session_id.clone(),
+        channel: meta.channel,
+    }))
 }
 
 fn render_telemetry_summary(snapshot: &allbert_proto::TelemetrySnapshot) -> String {
@@ -2079,10 +2203,55 @@ mod tests {
             "settings",
             "Run or resume guided profile setup",
             "Inspect and safely change supported profile settings",
+            "Show the daemon-owned activity snapshot",
             "repl",
             "daemon",
         ] {
             assert!(help.contains(expected), "missing help text: {expected}");
         }
+    }
+
+    #[test]
+    fn home_and_doctor_render_compact_activity_when_present() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let config = Config::default_template();
+        let activity = allbert_proto::ActivitySnapshot {
+            phase: allbert_proto::ActivityPhase::CallingTool,
+            label: "running validation".into(),
+            started_at: "2026-04-20T00:00:00Z".into(),
+            elapsed_ms: 42_000,
+            session_id: "repl-primary".into(),
+            channel: ChannelKind::Repl,
+            tool_name: Some("cargo".into()),
+            tool_summary: Some("test".into()),
+            skill_name: None,
+            approval_id: None,
+            last_progress_at: None,
+            stuck_hint: Some("validation is still running".into()),
+            next_actions: vec!["wait".into()],
+        };
+
+        let home = render_home(&paths, Some(activity.clone()));
+        assert!(home.contains("activity:"));
+        assert!(home.contains("calling_tool"));
+        assert!(home.contains("validation is still running"));
+
+        let doctor = render_doctor(&paths, &config, &[], Some(activity));
+        assert!(doctor.contains("doctor:    ok"));
+        assert!(doctor.contains("activity:"));
+    }
+
+    #[test]
+    fn home_and_doctor_omit_activity_without_daemon_snapshot() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let config = Config::default_template();
+
+        let home = render_home(&paths, None);
+        let doctor = render_doctor(&paths, &config, &[], None);
+
+        assert!(!home.contains("activity:"));
+        assert!(!doctor.contains("activity:"));
     }
 }
