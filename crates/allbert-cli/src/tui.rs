@@ -153,7 +153,10 @@ impl TuiApp {
             }
             ServerMessage::Error(error) => {
                 self.in_flight = false;
-                self.push_line(format!("[error] {}", error.message));
+                self.push_line(format!(
+                    "[error] {}",
+                    allbert_kernel::append_error_hint(&error.message)
+                ));
                 return true;
             }
             ServerMessage::SessionTelemetry(telemetry) => self.set_telemetry(telemetry),
@@ -223,9 +226,7 @@ impl TuiApp {
             | LocalCommand::Status
             | LocalCommand::StatusLine(_)
             | LocalCommand::Telemetry => None,
-            LocalCommand::UnknownSlash(command) => Some(format!(
-                "unknown command: {command}\nuse /help to see supported REPL commands"
-            )),
+            LocalCommand::UnknownSlash(command) => Some(repl::unknown_slash_guidance(command)),
             LocalCommand::Turn(input) => Some(input.to_string()),
         }
     }
@@ -337,6 +338,10 @@ async fn handle_key(
                 return Ok(());
             }
             app.push_line(format!("you: {input}"));
+            if let Some(hint) = repl::slash_argument_hint(&input) {
+                app.push_line(hint);
+                return Ok(());
+            }
             match repl::parse_local_command(&input) {
                 LocalCommand::Agents => {
                     app.push_line(repl::handle_agents_command(paths)?);
@@ -1022,5 +1027,26 @@ mod tests {
                 hit_turn_limit: false
             }))
         );
+    }
+
+    #[test]
+    fn tui_renders_unknown_slash_suggestion_and_error_hint() {
+        let mut app = TuiApp::new(vec![]);
+        let rendered = app
+            .handle_local_command(LocalCommand::UnknownSlash("/stats"))
+            .expect("unknown slash should render");
+        assert!(rendered.contains("did you mean `/status`?"));
+
+        assert!(
+            app.process_server_message(ServerMessage::Error(allbert_proto::ProtocolError {
+                code: "missing_session".into(),
+                message: "session not found: gone".into(),
+            }))
+        );
+        assert!(app
+            .transcript
+            .last()
+            .expect("error line")
+            .contains("sessions list"));
     }
 }

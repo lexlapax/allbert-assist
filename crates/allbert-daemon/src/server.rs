@@ -2093,7 +2093,7 @@ impl TelegramRuntime {
             }
             Err(error) => {
                 typing_cancel.cancel();
-                let mut message = error.to_string();
+                let mut message = allbert_kernel::append_error_hint(&error.to_string());
                 if message.contains("/cost --override <reason>") {
                     let approval_id = format!("approval-{}", uuid::Uuid::new_v4().simple());
                     let approval_timeout_s = self
@@ -2201,7 +2201,11 @@ impl TelegramRuntime {
                 .await?;
             }
             Err(error) => {
-                self.send_text(chat_id, error.to_string()).await?;
+                self.send_text(
+                    chat_id,
+                    allbert_kernel::append_error_hint(&error.to_string()),
+                )
+                .await?;
             }
         }
         Ok(())
@@ -5581,6 +5585,13 @@ mod telegram_tests {
         assert!(rendered.contains("Approved `approval-123`."));
         assert!(rendered.contains("resumed live turn"));
         assert!(rendered.contains("install or apply separately"));
+    }
+
+    #[test]
+    fn telegram_error_guidance_uses_shared_remediation_hints() {
+        let rendered = allbert_kernel::append_error_hint("telegram missing bot token");
+        assert!(rendered.contains("hint:"));
+        assert!(rendered.contains("daemon channels add telegram"));
     }
 
     #[test]

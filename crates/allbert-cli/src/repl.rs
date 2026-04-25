@@ -100,6 +100,28 @@ commands:
   unknown slash commands are rejected locally
   anything else is sent to the daemon-backed kernel session";
 
+const SUPPORTED_SLASH_COMMANDS: &[&str] = &[
+    "/activity",
+    "/agents",
+    "/context",
+    "/cost",
+    "/exit",
+    "/h",
+    "/help",
+    "/inbox",
+    "/memory",
+    "/model",
+    "/quit",
+    "/s",
+    "/self-improvement",
+    "/settings",
+    "/setup",
+    "/skills",
+    "/status",
+    "/statusline",
+    "/telemetry",
+];
+
 pub enum LocalCommand<'a> {
     Exit,
     Help,
@@ -136,6 +158,10 @@ pub async fn run_loop(
             Signal::Success(buf) => {
                 let trimmed = buf.trim();
                 if trimmed.is_empty() {
+                    continue;
+                }
+                if let Some(hint) = slash_argument_hint(trimmed) {
+                    println!("{hint}");
                     continue;
                 }
                 match parse_local_command(trimmed) {
@@ -193,9 +219,7 @@ pub async fn run_loop(
                         println!("{}", handle_telemetry_command(client).await?);
                     }
                     LocalCommand::UnknownSlash(command) => {
-                        eprintln!(
-                            "unknown command: {command}\nuse /help to see supported REPL commands"
-                        );
+                        eprintln!("{}", unknown_slash_guidance(command));
                     }
                     LocalCommand::Turn(command) => {
                         run_turn(client, command).await?;
@@ -210,6 +234,64 @@ pub async fn run_loop(
         }
     }
     Ok(())
+}
+
+pub fn unknown_slash_guidance(command: &str) -> String {
+    let command_name = slash_command_name(command);
+    let mut rendered = format!("unknown command: {command_name}");
+    if let Some(suggestion) = nearest_slash_command(command_name) {
+        rendered.push_str(&format!("\ndid you mean `{suggestion}`?"));
+    }
+    rendered.push_str("\nuse /help to see supported REPL commands");
+    rendered
+}
+
+pub fn slash_argument_hint(input: &str) -> Option<&'static str> {
+    if !input.trim_end().ends_with("--") {
+        return None;
+    }
+    match slash_command_name(input) {
+        "/cost" => Some("hint: /cost --turn-budget <usd> | --turn-time <seconds> | --override <reason>"),
+        "/inbox" => Some("hint: /inbox list --include-resolved | accept <id> --reason <text> | reject <id> --reason <text>"),
+        "/memory" => Some("hint: /memory staged list | staged show <id> | show staged | show today | routing show"),
+        "/self-improvement" => Some("hint: /self-improvement install <approval-id> --allow-needs-review | gc --dry-run"),
+        "/settings" => Some("hint: /settings list <group> | show <key> | set <key> <value> | reset <key>"),
+        _ => None,
+    }
+}
+
+fn slash_command_name(input: &str) -> &str {
+    input.split_whitespace().next().unwrap_or(input)
+}
+
+fn nearest_slash_command(command: &str) -> Option<&'static str> {
+    SUPPORTED_SLASH_COMMANDS
+        .iter()
+        .copied()
+        .filter_map(|candidate| {
+            let distance = edit_distance(command, candidate);
+            (distance <= 2).then_some((candidate, distance))
+        })
+        .min_by_key(|(candidate, distance)| (*distance, *candidate))
+        .map(|(candidate, _)| candidate)
+}
+
+fn edit_distance(left: &str, right: &str) -> usize {
+    let left = left.chars().collect::<Vec<_>>();
+    let right = right.chars().collect::<Vec<_>>();
+    let mut previous = (0..=right.len()).collect::<Vec<_>>();
+    let mut current = vec![0; right.len() + 1];
+    for (i, left_ch) in left.iter().enumerate() {
+        current[0] = i + 1;
+        for (j, right_ch) in right.iter().enumerate() {
+            let substitution = previous[j] + usize::from(left_ch != right_ch);
+            let insertion = current[j] + 1;
+            let deletion = previous[j + 1] + 1;
+            current[j + 1] = substitution.min(insertion).min(deletion);
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+    previous[right.len()]
 }
 
 pub fn parse_local_command(input: &str) -> LocalCommand<'_> {
@@ -275,7 +357,9 @@ async fn run_turn(client: &mut DaemonClient, input: &str) -> Result<()> {
                 }
                 return Ok(());
             }
-            ServerMessage::Error(error) => anyhow::bail!(error.message),
+            ServerMessage::Error(error) => {
+                anyhow::bail!(allbert_kernel::append_error_hint(&error.message))
+            }
             other => {
                 anyhow::bail!("unexpected server message during turn: {:?}", other);
             }
@@ -343,6 +427,10 @@ async fn handle_cost_command(
     paths: &allbert_kernel::AllbertPaths,
     command: &str,
 ) -> Result<()> {
+    if let Some(hint) = slash_argument_hint(command) {
+        println!("{hint}");
+        return Ok(());
+    }
     let parts: Vec<_> = command.split_whitespace().collect();
     if parts.len() == 1 {
         let status = client.session_status().await?;
@@ -516,6 +604,9 @@ pub fn handle_skills_command(
     paths: &allbert_kernel::AllbertPaths,
     command: &str,
 ) -> Result<String> {
+    if let Some(hint) = slash_argument_hint(command) {
+        return Ok(hint.into());
+    }
     let args = command.split_whitespace().collect::<Vec<_>>();
     match args.as_slice() {
         ["/skills"] | ["/skills", "list"] => crate::skills::list_installed_skills(paths),
@@ -529,6 +620,9 @@ pub fn handle_memory_command(
     paths: &allbert_kernel::AllbertPaths,
     command: &str,
 ) -> Result<String> {
+    if let Some(hint) = slash_argument_hint(command) {
+        return Ok(hint.into());
+    }
     let config = allbert_kernel::Config::load_or_create(paths)?;
     let args = command.split_whitespace().collect::<Vec<_>>();
     match args.as_slice() {
@@ -551,6 +645,9 @@ pub fn handle_memory_command(
 }
 
 pub async fn handle_inbox_command(client: &mut DaemonClient, command: &str) -> Result<String> {
+    if let Some(hint) = slash_argument_hint(command) {
+        return Ok(hint.into());
+    }
     let args = command.split_whitespace().collect::<Vec<_>>();
     match args.as_slice() {
         ["/inbox"] | ["/inbox", "list"] => {
@@ -608,6 +705,9 @@ pub fn handle_self_improvement_command(
     config: &allbert_kernel::Config,
     command: &str,
 ) -> Result<String> {
+    if let Some(hint) = slash_argument_hint(command) {
+        return Ok(hint.into());
+    }
     let args = command.split_whitespace().collect::<Vec<_>>();
     match args.as_slice() {
         ["/self-improvement", "config", "show"] => {
@@ -1030,7 +1130,7 @@ fn snapshot_from_proto(
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_local_command, LocalCommand};
+    use super::{parse_local_command, slash_argument_hint, unknown_slash_guidance, LocalCommand};
 
     #[test]
     fn short_help_alias_is_local() {
@@ -1144,5 +1244,25 @@ mod tests {
             parse_local_command("/not-a-command"),
             LocalCommand::UnknownSlash("/not-a-command")
         ));
+    }
+
+    #[test]
+    fn unknown_slash_command_suggests_close_match_only() {
+        let close = unknown_slash_guidance("/stats");
+        assert!(close.contains("did you mean `/status`?"));
+
+        let far = unknown_slash_guidance("/definitely-not-close");
+        assert!(!far.contains("did you mean"));
+        assert!(far.contains("use /help"));
+    }
+
+    #[test]
+    fn slash_argument_hint_renders_for_partial_flag_entry() {
+        assert_eq!(
+            slash_argument_hint("/cost --"),
+            Some("hint: /cost --turn-budget <usd> | --turn-time <seconds> | --override <reason>")
+        );
+        assert!(slash_argument_hint("/memory staged list").is_none());
+        assert!(slash_argument_hint("/unknown --").is_none());
     }
 }

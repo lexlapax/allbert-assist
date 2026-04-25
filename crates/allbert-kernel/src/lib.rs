@@ -52,7 +52,9 @@ pub use config::{
     CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
-pub use error::{ConfigError, KernelError, SkillError, ToolError};
+pub use error::{
+    append_error_hint, error_hint_for_message, ConfigError, KernelError, SkillError, ToolError,
+};
 pub use events::{ActivityTransition, KernelEvent};
 pub use heartbeat::{
     check_in_enabled, load_heartbeat_record, parse_heartbeat_markdown, quiet_hours_active,

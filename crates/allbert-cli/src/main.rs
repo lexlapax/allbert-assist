@@ -24,7 +24,13 @@ mod skills;
 mod tui;
 
 #[derive(Parser, Debug)]
-#[command(author, version, about = "Allbert daemon-backed CLI", long_about = None)]
+#[command(
+    author,
+    version,
+    about = "Allbert daemon-backed CLI",
+    long_about = None,
+    after_long_help = "EXAMPLES:\n  allbert-cli repl\n  allbert-cli activity\n  allbert-cli settings list ui\n  allbert-cli memory staged list\n  allbert-cli skills show memory-curator\n  allbert-cli daemon status\n"
+)]
 struct Args {
     /// Enable daemon debug logging for the running daemon at ~/.allbert/logs/daemon.debug.log.
     #[arg(long)]
@@ -470,7 +476,18 @@ enum DaemonChannelsCommand {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
+    if let Err(error) = run_cli().await {
+        eprintln!("{}", render_cli_error(&error));
+        std::process::exit(1);
+    }
+}
+
+fn render_cli_error(error: &anyhow::Error) -> String {
+    allbert_kernel::append_error_hint(&error.to_string())
+}
+
+async fn run_cli() -> Result<()> {
     let args = Args::parse();
     if let Some(Command::Skills {
         command: SkillsCommand::Validate { ref path },
@@ -2264,6 +2281,9 @@ mod tests {
     fn cli_help_has_high_value_command_descriptions() {
         let help = Args::command().render_long_help().to_string();
         for expected in [
+            "EXAMPLES:",
+            "allbert-cli settings list ui",
+            "allbert-cli memory staged list",
             "settings",
             "Run or resume guided profile setup",
             "Inspect and safely change supported profile settings",
@@ -2273,6 +2293,14 @@ mod tests {
         ] {
             assert!(help.contains(expected), "missing help text: {expected}");
         }
+    }
+
+    #[test]
+    fn cli_error_renderer_appends_remediation_hint() {
+        let error = anyhow::anyhow!("failed to connect to the daemon");
+        let rendered = render_cli_error(&error);
+        assert!(rendered.contains("hint:"));
+        assert!(rendered.contains("daemon status"));
     }
 
     #[test]
