@@ -1,6 +1,6 @@
-# Allbert v0.11 Onboarding and Operations
+# Allbert v0.12 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.11 release.
+This guide is the operator reference for the source-based v0.12 release.
 
 ## Quickstart
 
@@ -10,7 +10,8 @@ This guide is the operator reference for the source-based v0.11 release.
 4. Complete the guided setup flow.
 5. Confirm daemon/session state with `/status` or `/telemetry`.
 6. Use `allbert-cli daemon status`, `allbert-cli telemetry --json`, `allbert-cli jobs list`, `allbert-cli memory stats`, and `allbert-cli memory routing show` as needed.
-7. Inspect the current agent catalog with `allbert-cli agents list` and the shipped curator flow with `allbert-cli skills show memory-curator`.
+7. Inspect the current agent catalog with `allbert-cli agents list` and the shipped curator and authoring flows with `allbert-cli skills show memory-curator` and `allbert-cli skills show skill-author`.
+8. If you want source-checkout-bound self-improvement, pin a checkout with `allbert-cli self-improvement config set --source-checkout <path>`.
 
 ## Guided setup
 
@@ -64,7 +65,7 @@ This is intentional. Allbert still prefers explicit workspace trust over permiss
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical fresh v0.11 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical fresh v0.12 file looks like:
 
 ```toml
 trace = false
@@ -113,6 +114,21 @@ max_transcript_events = 500
 [repl.tui.status_line]
 enabled = true
 items = ["model", "context", "tokens", "cost", "memory", "intent", "skills", "inbox", "channel", "trace"]
+
+[self_improvement]
+source_checkout = ""
+worktree_root = "~/.allbert/worktrees"
+max_worktree_gb = 10
+install_mode = "apply-to-current-branch"
+keep_rejected_worktree = false
+
+[scripting]
+engine = "disabled"
+max_execution_ms = 1000
+max_memory_kb = 65536
+max_output_bytes = 1048576
+allow_stdlib = ["string", "math", "table"]
+deny_stdlib = ["io", "os", "package", "require", "debug", "coroutine"]
 
 [memory]
 prefetch_enabled = true
@@ -177,6 +193,8 @@ max_input_bytes = 24576
 max_output_bytes = 4096
 
 [security]
+exec_allow = ["bash", "python"]
+exec_deny = ["sh", "zsh", "fish", "ruby", "perl"]
 fs_roots = ["/absolute/path/to/workspace"]
 auto_confirm = false
 
@@ -219,7 +237,7 @@ The CLI may override some of this for the current interactive session:
 
 ## TUI and REPL usage
 
-Fresh v0.11 profiles use the TUI. Upgraded profiles keep classic REPL unless setup/config or `allbert-cli repl --tui --save` opts in.
+Fresh profiles use the TUI. Upgraded profiles keep classic REPL unless setup/config or `allbert-cli repl --tui --save` opts in.
 
 TUI controls:
 
@@ -297,7 +315,7 @@ Scheduled job failures are surfaced live to attached REPL clients as one-line no
 
 If the turn-end staged-memory suffix feels too noisy for your workflow, set `memory.surface_staged_on_turn_end = false` in `~/.allbert/config.toml` and restart the attached REPL session.
 
-Episode search is working-history recall, not approved durable memory. Fact search returns facts only after their parent note is promoted into durable memory. Semantic retrieval is off by default; v0.11 ships the fake deterministic semantic provider for validation and keeps real embedding adapters as future additive work.
+Episode search is working-history recall, not approved durable memory. Fact search returns facts only after their parent note is promoted into durable memory. Semantic retrieval is off by default; the current release ships the fake deterministic semantic provider for validation and keeps real embedding adapters as future additive work.
 
 ## Daemon lifecycle
 
@@ -348,7 +366,7 @@ Notes:
 
 ## Telegram channel
 
-Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.11 end-user release.
+Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.12 end-user release.
 
 Setup:
 
@@ -360,7 +378,7 @@ Setup:
 
 Operational notes:
 
-- CLI, REPL, TUI, and Telegram can all resolve pending approvals through the shared inbox in v0.11.
+- CLI, REPL, TUI, and Telegram can all resolve pending approvals through the shared inbox in v0.12.
 - `/approve <approval-id>` accepts an async approval from Telegram itself.
 - `/reject <approval-id>` rejects an async approval from Telegram itself.
 - `/override <reason>` retries one turn after a daily cost-cap refusal and mirrors the same `cost-cap-override` item into the inbox.
@@ -371,7 +389,7 @@ Operational notes:
 
 ## Continuity across devices
 
-v0.11 treats profile continuity as an explicit operator workflow rather than an accidental side effect of copying `~/.allbert/`.
+v0.12 treats profile continuity as an explicit operator workflow rather than an accidental side effect of copying `~/.allbert/`.
 
 Recommended second-device flow:
 
@@ -429,7 +447,7 @@ Conversational scheduling works best when you ask plainly. Good examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant should compile naturally in v0.11:
+Common schedule forms the assistant should compile naturally in v0.12:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -440,7 +458,7 @@ When you create, update, pause, resume, or remove a job from normal conversation
 
 ## Bundled maintenance jobs
 
-v0.11 seeds these bundled templates:
+v0.12 seeds these bundled templates:
 
 - `daily-brief`
 - `weekly-review`
@@ -453,7 +471,7 @@ The setup wizard can enable selected templates for you. Fresh profiles that expl
 
 ## Skills and memory
 
-The canonical installed skill root in v0.11 is `~/.allbert/skills/installed/`.
+The canonical installed skill root in v0.12 is `~/.allbert/skills/installed/`.
 
 Quarantine lives under `~/.allbert/skills/incoming/`; fetched or copied skills stay there until you approve the preview.
 
@@ -479,19 +497,22 @@ Skill install/update preview shows:
 - declared scripts with interpreter, path, and SHA-256
 - the first lines of `SKILL.md`
 
-v0.11 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
+v0.12 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
 
-In v0.11, skills can also preview:
+In v0.12, skills can also preview:
 
 - `intents:` metadata to hint the intent router
 - `agents:` metadata to contribute namespaced sub-agents
 
 The active agent roster is written to `~/.allbert/AGENTS.md` and included in the bootstrap prompt bundle.
 
-Fresh profiles also seed the shipped `memory-curator` skill. It is the first-party review surface around the kernel-owned memory tools:
+Fresh profiles also seed the shipped `memory-curator` and `skill-author` skills. `memory-curator` is the first-party review surface around the kernel-owned memory tools; `skill-author` is the natural-language path for drafting new AgentSkills-format skills.
 
 - `cargo run -p allbert-cli -- skills list`
 - `cargo run -p allbert-cli -- skills show memory-curator`
+- `cargo run -p allbert-cli -- skills show skill-author`
+
+`skills list` includes a `Source` column. Existing skills without provenance load as `external`; drafts created by `skill-author` land in `~/.allbert/skills/incoming/<draft-name>/` with `provenance: self-authored` and still require install preview plus confirmation.
 
 Curated memory is durable and markdown-grounded:
 
@@ -518,7 +539,44 @@ Workflow summary:
 
 Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs. Episode recall is explicitly labelled working history, and facts become approved only after promotion.
 
-If you are upgrading to v0.11, see [v0.11-upgrade-2026-04-24.md](notes/v0.11-upgrade-2026-04-24.md) and [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
+If you are upgrading to v0.12, see [v0.12-upgrade-2026-04-25.md](notes/v0.12-upgrade-2026-04-25.md), [v0.11-upgrade-2026-04-24.md](notes/v0.11-upgrade-2026-04-24.md), and [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
+
+## Self-improvement and scripting
+
+Self-improvement is source-checkout-bound and review-first. Configure a source checkout only if you want `rust-rebuild`:
+
+```bash
+cargo run -p allbert-cli -- self-improvement config show
+cargo run -p allbert-cli -- self-improvement config set --source-checkout /path/to/allbert-assist
+```
+
+Rebuild worktrees live under `~/.allbert/worktrees/` by default. Inspect or reclaim stale worktrees:
+
+```bash
+cargo run -p allbert-cli -- self-improvement gc --dry-run
+cargo run -p allbert-cli -- self-improvement gc
+```
+
+Patch proposals route through the normal inbox as `patch-approval` items. `inbox accept` records review only; it does not apply the diff. Use the dedicated commands after review:
+
+```bash
+cargo run -p allbert-cli -- self-improvement diff <approval-id>
+cargo run -p allbert-cli -- self-improvement install <approval-id>
+```
+
+`self-improvement install` applies the accepted patch to the configured source checkout and prints the operator-owned `cargo install --path crates/allbert-cli` plus daemon restart hint. The daemon never swaps its own binary.
+
+Lua scripting is disabled by default and requires two gates:
+
+```toml
+[scripting]
+engine = "lua"
+
+[security]
+exec_allow = ["bash", "python", "lua"]
+```
+
+Lua is an embedded JSON-in/JSON-out transform surface. It has no host tool bridge in v0.12 and runs with a strict standard-library allowlist plus execution, memory, and output caps. See [scripting.md](operator/scripting.md) for details.
 
 ## Personality digest
 
@@ -633,7 +691,7 @@ TUI unavailable:
 
 ## Release posture
 
-v0.11 is a shipped technical-user release:
+v0.12 is a shipped technical-user release:
 
 - source-based
 - terminal-first
@@ -650,6 +708,11 @@ v0.11 is a shipped technical-user release:
 - explicit episode and fact memory search tiers
 - optional semantic retrieval seam, disabled by default
 - review-first personality digest seam and optional `PERSONALITY.md` learned overlay
+- source-checkout-bound self-improvement worktrees with `patch-approval` review
+- explicit `self-improvement diff|install|gc` operator commands
+- first-party `skill-author` natural-language skill drafting through quarantine
+- skill provenance surfaced in previews and `skills list`
+- opt-in embedded Lua scripting with two-gate enablement and sandbox caps
 - first-class agents and intent routing with operator-visible status
 - strict AgentSkills-format skill install, inspection, and execution
 - channel administration through `daemon channels ...`
@@ -670,5 +733,7 @@ Known limitations remain explicit:
 - Telegram multimodal support is photos-in only; voice notes, audio, and image output are deferred
 - the daemon is lightweight and in-process, not a heavy isolated supervisor
 - sub-agent depth is budget-governed rather than fixed by nesting count
-- semantic retrieval is fake-provider-only in v0.11
+- semantic retrieval is fake-provider-only
 - personality digest output is deterministic and review-first; model-authored digest prose and adapter training are future work
+- `rust-rebuild` requires a local source checkout and never swaps the running binary automatically
+- Lua scripting is JSON-in/JSON-out only; it has no host tool bridge in v0.12

@@ -21,6 +21,7 @@ env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- --help
 - Treat live-provider and Telegram checks as optional follow-up verification, not the default gate.
 - Use a temporary `ALLBERT_HOME` for smokes. Do not rely on the contributor’s real `~/.allbert`.
 - Keep docs and ADRs aligned with shipped code when a task changes roadmap or runtime behavior.
+- Treat v0.12 self-improvement changes as review-first surfaces: source patches must stay in sibling worktrees, self-authored skills must stay in install quarantine, and Lua scripting must remain opt-in through both config and exec policy.
 - When changing release sequencing, update:
   - `docs/plans/roadmap.md`
   - `docs/vision.md`

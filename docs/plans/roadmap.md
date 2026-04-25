@@ -17,7 +17,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.9 | Developer environment and Codex Web readiness: pinned toolchain, contributor contract, provider-free validation | Shipped | [v0.09-developer-environment-and-codex-web.md](v0.09-developer-environment-and-codex-web.md) |
 | v0.10 | Provider expansion and local-first default: OpenAI, Gemini, Ollama/Gemma4 | Shipped | [v0.10-provider-expansion.md](v0.10-provider-expansion.md) |
 | v0.11 | TUI and adaptive memory: Ratatui operator surface, session telemetry, configurable memory routing, episode/fact recall, review-first personality digest + `LearningJob` seam | Shipped | [v0.11-tui-and-memory.md](v0.11-tui-and-memory.md) |
-| v0.12 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.12-self-improvement.md](v0.12-self-improvement.md) |
+| v0.12 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Shipped | [v0.12-self-improvement.md](v0.12-self-improvement.md) |
 | v0.13 | Local personalization: LoRA/adapter training through the v0.11 `LearningJob` seam, approved durable/fact plus bounded episode-summary corpus, adapter-approval review flow | Future | [v0.13-personalization.md](v0.13-personalization.md) |
 | v0.14 | Self-diagnosis and Unix co-tenant: trace-aware self-diagnose skill, curated local-utilities surface, bounded `unix-pipe` tool shape | Future | [v0.14-self-diagnosis.md](v0.14-self-diagnosis.md) |
 

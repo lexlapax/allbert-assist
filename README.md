@@ -4,11 +4,11 @@ Allbert is a terminal-first personal assistant built around a small Rust kernel,
 
 For repository development and contributor setup, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
-v0.11 is the current technical source-based release in this repo. You build it from source, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for TUI/classic REPL work, daemon lifecycle commands, recurring jobs, identity/session continuity, strict AgentSkills-format skill management, curated-memory review, approval inbox resolution, profile export/import, provider/model selection, telemetry inspection, and channel administration. Fresh profiles default to local Ollama with `gemma4` and the TUI; upgraded profiles preserve the classic REPL unless you opt in.
+v0.12 is the current technical source-based release in this repo. You build it from source, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for TUI/classic REPL work, daemon lifecycle commands, recurring jobs, identity/session continuity, strict AgentSkills-format skill management, curated-memory review, approval inbox resolution, profile export/import, provider/model selection, telemetry inspection, self-improvement review, skill authoring, scripting controls, and channel administration. Fresh profiles default to local Ollama with `gemma4` and the TUI; upgraded profiles preserve the classic REPL unless you opt in.
 
-The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection, the shipped `memory-curator` skill, restart-durable sessions, daily cost-cap enforcement, operator-visible memory verification, the `Channel` trait, Telegram async approvals, cross-surface approval inbox resolution, identity-routed session continuity, explicit sync posture, profile export/import, `HEARTBEAT.md` cadence controls, explicit-intent web learning, Telegram photo input for vision-capable models, direct Anthropic/OpenRouter/OpenAI/Gemini/Ollama provider support, kernel-owned telemetry, configurable TUI status-line items, always-eligible memory routing, episode/fact recall tiers, and the review-first personality digest seam are all part of the current v0.11 end-user experience.
+The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection, the shipped `memory-curator` skill, restart-durable sessions, daily cost-cap enforcement, operator-visible memory verification, the `Channel` trait, Telegram async approvals, cross-surface approval inbox resolution, identity-routed session continuity, explicit sync posture, profile export/import, `HEARTBEAT.md` cadence controls, explicit-intent web learning, Telegram photo input for vision-capable models, direct Anthropic/OpenRouter/OpenAI/Gemini/Ollama provider support, kernel-owned telemetry, configurable TUI status-line items, always-eligible memory routing, episode/fact recall tiers, the review-first personality digest seam, source-checkout-bound self-improvement worktrees, `patch-approval` inbox items, the `skill-author` natural-language authoring skill, skill provenance, and opt-in embedded Lua scripting are all part of the current v0.12 end-user experience.
 
-## What v0.11 includes
+## What v0.12 includes
 
 - a kernel that owns the agent loop, tools, memory, skills, policy, cost, and tracing
 - a local daemon host with attachable TUI, classic REPL, CLI, jobs, and Telegram channels
@@ -49,9 +49,16 @@ The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-
 - a shipped `memory-curator` skill with review and explicit extraction workflows
 - configurable memory routing where `memory-curator` is always eligible but not always active
 - explicit `episode` and `fact` memory search tiers that never bypass durable-memory review
-- optional semantic retrieval seam, disabled by default and fake-provider-only in v0.11
+- optional semantic retrieval seam, disabled by default and fake-provider-only in the current release
 - optional `PERSONALITY.md` learned overlay loaded only when present, lower-authority than `SOUL.md`
 - `allbert-cli learning digest --preview|--run` and `jobs template enable|disable personality-digest`
+- self-improvement controls under `allbert-cli self-improvement config|diff|install|gc`
+- isolated rebuild worktrees under `~/.allbert/worktrees/` with source-checkout detection and disk-cap-aware GC
+- `patch-approval` inbox rendering for self-improvement diffs; acceptance records review and install remains a separate operator command
+- `skills/rust-rebuild` for source-checkout-bound Rust patch proposals
+- `skills/skill-author` seeded on first run, so natural-language skill authoring routes through the same install quarantine as external skills
+- skill provenance (`external`, `local-path`, `git`, `self-authored`) surfaced in previews and `skills list`
+- an opt-in Lua `ScriptingEngine` seam for JSON-in/JSON-out skill scripts with two-gate enablement, stdlib allowlist, deny floor, and execution/memory/output caps
 - a turn-start daily cost cap with `/cost --override <reason>` for one-turn operator escape
 - explicit-intent web learning through `record_as` on `web_search` and `fetch_url`
 - direct provider clients for Anthropic, OpenRouter, OpenAI, Gemini, and local Ollama
@@ -173,6 +180,13 @@ Show telemetry as JSON:
 cargo run -p allbert-cli -- telemetry --json
 ```
 
+Show self-improvement state and configure a source checkout:
+
+```bash
+cargo run -p allbert-cli -- self-improvement config show
+cargo run -p allbert-cli -- self-improvement config set --source-checkout /path/to/allbert-assist
+```
+
 Preview the personality digest corpus without provider calls or writes:
 
 ```bash
@@ -189,6 +203,12 @@ Show one installed skill:
 
 ```bash
 cargo run -p allbert-cli -- skills show note-taker
+```
+
+Show the shipped skill author:
+
+```bash
+cargo run -p allbert-cli -- skills show skill-author
 ```
 
 Validate a skill tree before install:
@@ -270,7 +290,7 @@ REPL slash commands:
 
 Unknown slash commands are rejected locally instead of being sent through to the model.
 
-Memory examples that work well in v0.11:
+Memory examples that work well in v0.12:
 
 - `what do you remember about Postgres?`
 - `remember that we use Postgres for primary storage`
@@ -333,7 +353,7 @@ Conversational scheduling examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant understands well in v0.11:
+Common schedule forms the assistant understands well in v0.12:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -356,6 +376,9 @@ Common skill commands:
 
 The bundled example skill is [examples/skills/note-taker/SKILL.md](examples/skills/note-taker/SKILL.md). It demonstrates the current AgentSkills shape: `SKILL.md` plus `references/` and `scripts/`.
 The shipped [skills/memory-curator/SKILL.md](skills/memory-curator/SKILL.md) skill is available on fresh profiles and packages the review/promotion workflow around the kernel-owned memory tools.
+The shipped [skills/skill-author/SKILL.md](skills/skill-author/SKILL.md) skill is also available on fresh profiles and helps draft new AgentSkills-format skills through natural language while preserving the install quarantine.
+
+`skills list` includes a `Source` column. Existing skills without provenance load as `external`; skills drafted by `skill-author` carry `self-authored`.
 
 Curated memory lives under `~/.allbert/memory/`:
 
@@ -388,7 +411,29 @@ Chat history is not the durable store. Episode recall is searchable working hist
 
 If the turn-end staged-memory suffix feels noisy, set `memory.surface_staged_on_turn_end = false` in `~/.allbert/config.toml` and restart the REPL session.
 
-If you are upgrading an existing profile, see [docs/notes/v0.11-upgrade-2026-04-24.md](docs/notes/v0.11-upgrade-2026-04-24.md) and [docs/notes/v0.10-upgrade-2026-04-24.md](docs/notes/v0.10-upgrade-2026-04-24.md). Users coming from v0.8 or earlier should also review [docs/notes/v0.9-upgrade-2026-04-24.md](docs/notes/v0.9-upgrade-2026-04-24.md) and [docs/notes/v0.8-upgrade-2026-04-23.md](docs/notes/v0.8-upgrade-2026-04-23.md).
+## Self-improvement and scripting
+
+Source-checkout-bound self-improvement commands:
+
+- `cargo run -p allbert-cli -- self-improvement config show`
+- `cargo run -p allbert-cli -- self-improvement config set --source-checkout <path>`
+- `cargo run -p allbert-cli -- self-improvement gc --dry-run`
+- `cargo run -p allbert-cli -- self-improvement diff <approval-id>`
+- `cargo run -p allbert-cli -- self-improvement install <approval-id>`
+
+Allbert never swaps its own binary. `self-improvement install` applies an accepted patch to your configured source checkout and prints the `cargo install --path crates/allbert-cli` plus daemon restart hint for you to run deliberately.
+
+Lua skill scripts are disabled by default. Enable them only when you want the embedded JSON-in/JSON-out runtime:
+
+```toml
+[scripting]
+engine = "lua"
+
+[security]
+exec_allow = ["bash", "python", "lua"]
+```
+
+If you are upgrading an existing profile, see [docs/notes/v0.12-upgrade-2026-04-25.md](docs/notes/v0.12-upgrade-2026-04-25.md), [docs/notes/v0.11-upgrade-2026-04-24.md](docs/notes/v0.11-upgrade-2026-04-24.md), and [docs/notes/v0.10-upgrade-2026-04-24.md](docs/notes/v0.10-upgrade-2026-04-24.md). Users coming from v0.8 or earlier should also review [docs/notes/v0.9-upgrade-2026-04-24.md](docs/notes/v0.9-upgrade-2026-04-24.md) and [docs/notes/v0.8-upgrade-2026-04-23.md](docs/notes/v0.8-upgrade-2026-04-23.md).
 
 ## Telegram channel
 
@@ -408,7 +453,7 @@ Useful operator commands:
 - `cargo run -p allbert-cli -- inbox show <approval-id>`
 - `cargo run -p allbert-cli -- inbox accept <approval-id> --reason "approved from shell"`
 
-Telegram behaviour in v0.11:
+Telegram behaviour in v0.12:
 
 - pending approvals can be resolved from Telegram, CLI, TUI, or an attached classic REPL inbox
 - `/approve <approval-id>` and `/reject <approval-id>` still resolve pending async approvals from Telegram itself
@@ -439,6 +484,9 @@ Telegram behaviour in v0.11:
 - `~/.allbert/jobs/failures/`
 - `~/.allbert/jobs/templates/`
 - `~/.allbert/learning/personality-digest/`
+- `~/.allbert/self-improvement/`
+- `~/.allbert/self-improvement/history.md`
+- `~/.allbert/worktrees/`
 - `~/.allbert/skills/`
 - `~/.allbert/skills/installed/`
 - `~/.allbert/skills/incoming/`
@@ -469,12 +517,14 @@ Telegram behaviour in v0.11:
 - conversational scheduling is optimized for the bounded schedule DSL used by v0.2/v0.3; raw cron remains an advanced escape hatch
 - skill installs assume strict AgentSkills-format trees; Allbert does not ship a runtime migration helper for older relaxed skill layouts
 - autonomous learnings are staged first; durable promotion and forgetting remain explicit review actions
-- semantic retrieval ships as an off-by-default derived index with only the fake deterministic provider in v0.11
+- semantic retrieval ships as an off-by-default derived index with only the fake deterministic provider
 - personality digest ships as a review-first, provider-free deterministic digest seam; model-authored digest prose and adapter training are future work
+- `rust-rebuild` requires a local source checkout with the pinned Rust toolchain; binary-drop users can still use skill authoring and Lua scripting
+- Lua scripting is off by default and intentionally limited to JSON-in/JSON-out transforms with no host tool bridge
 
 ## More detail
 
-See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the operator walkthrough, config examples, daemon lifecycle guidance, jobs workflow, curated-memory workflow, continuity workflow, and troubleshooting. For focused v0.11 guides, see [docs/operator/tui.md](docs/operator/tui.md), [docs/operator/telemetry.md](docs/operator/telemetry.md), [docs/operator/adaptive-memory.md](docs/operator/adaptive-memory.md), and [docs/operator/personality-digest.md](docs/operator/personality-digest.md). For sync posture and heartbeat policy, see [docs/operator/continuity.md](docs/operator/continuity.md) and [docs/operator/heartbeat.md](docs/operator/heartbeat.md).
+See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the operator walkthrough, config examples, daemon lifecycle guidance, jobs workflow, curated-memory workflow, continuity workflow, and troubleshooting. Focused guides: [TUI](docs/operator/tui.md), [telemetry](docs/operator/telemetry.md), [adaptive memory](docs/operator/adaptive-memory.md), [personality digest](docs/operator/personality-digest.md), [self-improvement](docs/operator/self-improvement.md), [skill authoring](docs/operator/skill-authoring.md), and [scripting](docs/operator/scripting.md). For sync posture and heartbeat policy, see [docs/operator/continuity.md](docs/operator/continuity.md) and [docs/operator/heartbeat.md](docs/operator/heartbeat.md).
 Inspect heartbeat cadence and validation warnings:
 
 ```bash

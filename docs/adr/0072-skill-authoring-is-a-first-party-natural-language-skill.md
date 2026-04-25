@@ -26,7 +26,7 @@ The default user-facing skill-authoring path is a first-party skill (`skill-auth
 ### Packaging
 
 - `skills/skill-author/` ships in the repo. SKILL.md, prompts, and any helper references live there.
-- On first daemon run after v0.12 upgrade, the skill is seeded into `~/.allbert/skills/installed/skill-author/` (the same shape ADR 0048 establishes for `memory-curator`). Seeding is recorded in the install log; the operator can uninstall the skill and replace it with their own variant.
+- On first daemon run after v0.12 upgrade, the skill is seeded into `~/.allbert/skills/installed/skill-author/` (the same shape ADR 0048 establishes for `memory-curator`). Seeding writes first-party install metadata; the operator can uninstall the skill and replace it with their own variant.
 - The skill carries `provenance: external` (per ADR 0071). It is shipped by Allbert, not authored by the user.
 
 ### Intent routing

@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.12.0 - 2026-04-25
+
+- shipped review-first self-improvement with source-checkout detection, sibling worktrees, disk-cap-aware GC, and path isolation for rebuild proposals
+- added the `rust-rebuild` proposal flow and `patch-approval` inbox kind, with diff artifacts stored outside approval markdown
+- added `allbert-cli self-improvement config show|set`, `diff`, `install`, and `gc`; install applies accepted patches to the source checkout and never swaps the running binary
+- added append-only self-improvement install history under `~/.allbert/self-improvement/history.md`
+- added skill provenance (`external`, `local-path`, `git`, `self-authored`) to previews, installed-skill inspection, and `skills list`
+- hardened `create_skill` with explicit `skip_quarantine`; prompt-authored skills write to `skills/incoming/` and first-party seeding remains the only direct install path
+- shipped the first-party `skill-author` natural-language authoring skill and seeded it on first run with first-party install metadata
+- added the `ScriptingEngine` trait and opt-in Lua 5.4 engine with JSON-only IO, synthetic `exec.lua:<skill>/<script>` hook events, stdlib allowlist, deny floor, and execution/memory/output caps
+- documented the end-user trust posture in self-improvement, skill-authoring, and scripting operator guides
+- reconciled ADRs and the v0.12 plan with the shipped Lua 5.4 sandbox implementation
+- bumped all crates and lockfile package entries to `0.12.0`
+
+More detail: [v0.12 upgrade notes](docs/notes/v0.12-upgrade-2026-04-25.md), [v0.12 plan](docs/plans/v0.12-self-improvement.md), [self-improvement guide](docs/operator/self-improvement.md), [skill authoring guide](docs/operator/skill-authoring.md), and [scripting guide](docs/operator/scripting.md).
+
 ## v0.11.0 - 2026-04-25
 
 - shipped the Ratatui/Crossterm TUI as the default interactive surface for fresh profiles, with classic Reedline REPL fallback for upgraded profiles and terminal escape hatches

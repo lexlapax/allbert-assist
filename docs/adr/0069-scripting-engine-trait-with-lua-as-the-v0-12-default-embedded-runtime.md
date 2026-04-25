@@ -19,7 +19,7 @@ The candidate Lua crates were considered:
 
 | Crate | Posture | Sandbox | Outcome |
 | --- | --- | --- | --- |
-| `mlua` | Actively maintained, sync + async, builtin sandbox mode, explicit instruction-count and memory hooks | `Lua::sandbox(true)` plus stdlib trimming | **Chosen.** |
+| `mlua` | Actively maintained, sync + async, explicit stdlib selection, instruction-count hooks, and memory hooks | Lua 5.4 stdlib allowlist plus denied globals and caps | **Chosen.** |
 | `rlua` | Older, no longer the active fork; many users have migrated to `mlua` | Manual | Rejected. |
 | `piccolo` | Pure-Rust Lua, interesting safety story | Limited stdlib parity | Rejected. Too early for v0.12. |
 | `hlua` | Unmaintained | Manual | Rejected. |
@@ -28,7 +28,7 @@ WebAssembly (e.g. `wasmtime`) was considered as an alternative. It offers excell
 
 ## Decision
 
-v0.12 introduces a `ScriptingEngine` trait in the kernel. The v0.12 default implementation is **Lua via `mlua`**, configured with `Lua::sandbox(true)`. Both the seam and the implementation are opt-in.
+v0.12 introduces a `ScriptingEngine` trait in the kernel. The v0.12 default implementation is **Lua via `mlua`**, configured with an explicit Lua 5.4 stdlib allowlist, denied globals, memory limits, and instruction hooks. Both the seam and the implementation are opt-in.
 
 ### The trait
 
@@ -88,8 +88,7 @@ This resolves the v0.12 pre-implementation question "do embedded scripts share m
 `LuaEngine` is the sole `v0.12` implementation. It uses:
 
 - `mlua` with the `lua54` and `vendored` features (no system Lua dep);
-- `Lua::sandbox(true)` for the base sandbox;
-- additional stdlib trimming per ADR 0070;
+- explicit Lua 5.4 stdlib selection and denied-global removal per ADR 0070;
 - `mlua`'s `set_memory_limit` for memory caps;
 - a per-invocation hook for the execution-time cap (configurable per call via `ScriptBudget`).
 
@@ -118,7 +117,7 @@ For example: `exec.lua:summarizer/scripts/score.lua`. The metadata payload mirro
 
 ### What this ADR does NOT decide
 
-- The specific sandbox policy (allowlist / cap defaults / sandbox modes) lives in ADR 0070. This ADR establishes the seam and picks the v0.12 implementation; the policy contract any implementation must satisfy is ADR 0070's job.
+- The specific sandbox policy (allowlist, cap defaults, and strict posture) lives in ADR 0070. This ADR establishes the seam and picks the v0.12 implementation; the policy contract any implementation must satisfy is ADR 0070's job.
 - Future engines (WASM, QuickJS, Rhai) slot in behind this trait. Adding one is a kernel-internal change plus an `security.exec_allow` opt-in, not a new top-level ADR — provided the implementation satisfies the ADR 0070 sandbox contract.
 
 ## Consequences
@@ -126,7 +125,7 @@ For example: `exec.lua:summarizer/scripts/score.lua`. The metadata payload mirro
 **Positive**
 
 - One canonical place where embedded scripts enter the kernel, with one canonical hook-observability convention.
-- `mlua` is small, well-understood, and has the necessary primitives (sandbox mode, memory limits, instruction hooks) for honest enforcement.
+- `mlua` is small, well-understood, and has the necessary primitives (stdlib selection, memory limits, instruction hooks) for honest enforcement.
 - Skill authors get a single uniform `scripts:` shape; choosing Lua is just another interpreter string.
 - Future engines can land behind the same trait without a re-design.
 
@@ -150,5 +149,4 @@ For example: `exec.lua:summarizer/scripts/score.lua`. The metadata payload mirro
 - [ADR 0052](0052-kernel-native-operations-promote-to-tool-implementations.md)
 - [ADR 0070](0070-embedded-script-sandbox-policy.md)
 - [mlua crate docs](https://docs.rs/mlua/latest/mlua/)
-- [mlua sandbox mode](https://docs.rs/mlua/latest/mlua/struct.Lua.html#method.sandbox)
 - [Lua 5.4 reference](https://www.lua.org/manual/5.4/)

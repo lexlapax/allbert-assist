@@ -19,7 +19,7 @@ v0.12 introduces a sandbox policy for embedded scripts with three components: a 
 
 ### Stdlib allowlist (Lua specifics)
 
-The `mlua` engine starts from `Lua::sandbox(true)` (which already strips the obvious dangerous globals) and applies an additional explicit allowlist:
+The `mlua` engine uses Lua 5.4 with explicit standard-library selection and denied-global removal. The selected `lua54` backend does not expose the Luau-only sandbox helper, so v0.12 enforces the sandbox contract directly:
 
 | Library | Default | Rationale |
 | --- | --- | --- |
@@ -62,11 +62,10 @@ Operator configs that exceed the ceiling are clamped at load time and a warning 
 
 ### Config schema
 
-Under `[security.scripting.lua]` in TOML:
+Under `[scripting]` in TOML:
 
 ```toml
-[security.scripting.lua]
-sandbox_mode      = "strict"                                   # only supported value in v0.12
+engine            = "disabled"                                 # or "lua"
 max_execution_ms  = 1000
 max_memory_kb     = 65536
 max_output_bytes  = 1048576
@@ -74,7 +73,7 @@ allow_stdlib      = ["string", "math", "table"]
 deny_stdlib       = ["io", "os", "package", "require", "debug", "coroutine"]
 ```
 
-`sandbox_mode = "strict"` is the only supported value in v0.12; other modes are intentionally not introduced. This keeps the policy surface small and forecloses a "we'll just turn off the sandbox for this one skill" failure mode.
+Strict is the only supported posture in v0.12; there is no config key that turns off the sandbox. This keeps the policy surface small and forecloses a "we'll just turn off the sandbox for this one skill" failure mode.
 
 The `allow_stdlib` list MAY be widened by the operator (e.g. to add `bit32`); `deny_stdlib` is treated as the hard floor — anything in `deny_stdlib` cannot be re-allowed by adding it to `allow_stdlib`. If a library appears in both lists, the effective allowlist drops it and logs a warning. This mirrors ADR 0034's `security.exec_deny` precedence over `security.exec_allow`.
 
@@ -122,6 +121,5 @@ If any future audit reveals that a script can escape the sandbox (read files, ma
 - [ADR 0033](0033-skill-install-is-explicit-with-preview-and-confirm.md)
 - [ADR 0034](0034-skill-scripts-run-under-the-same-exec-policy-as-tools.md)
 - [ADR 0069](0069-scripting-engine-trait-with-lua-as-the-v0-12-default-embedded-runtime.md)
-- [mlua sandbox mode](https://docs.rs/mlua/latest/mlua/struct.Lua.html#method.sandbox)
 - [mlua memory limits](https://docs.rs/mlua/latest/mlua/struct.Lua.html#method.set_memory_limit)
 - [Lua 5.4 standard library](https://www.lua.org/manual/5.4/manual.html#6)
