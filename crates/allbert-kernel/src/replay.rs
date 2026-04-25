@@ -205,9 +205,21 @@ pub struct DefaultSecretRedactor {
 impl DefaultSecretRedactor {
     pub fn new() -> Self {
         let patterns = [
-            r"(?i)\b(AKIA|ASIA)[0-9A-Z]{16}\b",
-            r"(?i)\b(sk-[A-Za-z0-9_-]{16,}|sk-ant-[A-Za-z0-9_-]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b",
+            r"(?i)(AKIA|ASIA)[0-9A-Z]{16}",
+            r"(?i)sk-(proj-)?[A-Za-z0-9_-]{16,}",
+            r"(?i)sk-ant-[A-Za-z0-9_-]{16,}",
+            r"(?i)sk-or-v1-[A-Za-z0-9_-]{16,}",
+            r"(?i)xox[baprs]-[A-Za-z0-9-]{16,}",
+            r"(?i)gh[pousr]_[A-Za-z0-9_]{20,}",
+            r"(?i)github_pat_[A-Za-z0-9_]{20,}",
+            r"(?i)glpat-[A-Za-z0-9_-]{20,}",
+            r"AIza[0-9A-Za-z_-]{20,}",
+            r"ya29\.[0-9A-Za-z_-]{20,}",
+            r"hf_[A-Za-z0-9]{20,}",
+            r"(?i)(sk|rk)_(live|test)_[A-Za-z0-9]{16,}",
             r#"(?i)\b(?:api[_-]?key|access[_-]?token|auth[_-]?token|secret|password)\s*[:=]\s*['"]?[^'"\s,;]+"#,
+            r#"(?i)\b(?:OPENAI_API_KEY|ANTHROPIC_API_KEY|OPENROUTER_API_KEY|GEMINI_API_KEY|GOOGLE_API_KEY|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|GITHUB_TOKEN|GITLAB_TOKEN|SLACK_BOT_TOKEN|TELEGRAM_BOT_TOKEN)\s*[:=]\s*['"]?[^'"\s,;]+"#,
+            r"(?i)\bAuthorization\s*[:=]\s*Bearer\s+[A-Za-z0-9._~+/=-]{20,}",
             r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b",
         ];
         Self {
@@ -216,6 +228,11 @@ impl DefaultSecretRedactor {
                 .map(|pattern| Regex::new(pattern).expect("redaction regex should compile"))
                 .collect(),
         }
+    }
+
+    #[cfg(test)]
+    fn contains_secret(&self, input: &str) -> bool {
+        self.patterns.iter().any(|pattern| pattern.is_match(input))
     }
 }
 
@@ -229,7 +246,9 @@ impl SecretRedactor for DefaultSecretRedactor {
     fn redact(&self, input: &str) -> String {
         let mut redacted = input.to_string();
         for pattern in &self.patterns {
-            redacted = pattern.replace_all(&redacted, "[REDACTED]").to_string();
+            redacted = pattern
+                .replace_all(&redacted, "<redacted:secret>")
+                .to_string();
         }
         redacted
     }
@@ -1511,6 +1530,115 @@ fn duration_ms(started_at: DateTime<Utc>, ended_at: DateTime<Utc>) -> u64 {
 }
 
 #[cfg(test)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RedactionLeak {
+    path: PathBuf,
+    line: usize,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct RedactionVerificationReport {
+    scanned_files: usize,
+    leaks: Vec<RedactionLeak>,
+}
+
+#[cfg(test)]
+fn verify_trace_redaction_artifacts(
+    paths: &AllbertPaths,
+) -> Result<RedactionVerificationReport, TraceStoreError> {
+    let mut report = RedactionVerificationReport::default();
+    if !paths.sessions.exists() {
+        return Ok(report);
+    }
+    let redactor = DefaultSecretRedactor::new();
+    scan_trace_redaction_dir(&paths.sessions, &redactor, &mut report)?;
+    Ok(report)
+}
+
+#[cfg(test)]
+fn scan_trace_redaction_dir(
+    dir: &Path,
+    redactor: &DefaultSecretRedactor,
+    report: &mut RedactionVerificationReport,
+) -> Result<(), TraceStoreError> {
+    for entry in fs::read_dir(dir).map_err(|source| TraceStoreError::Io {
+        path: dir.display().to_string(),
+        source,
+    })? {
+        let entry = entry.map_err(|source| TraceStoreError::Io {
+            path: dir.display().to_string(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.is_dir() {
+            scan_trace_redaction_dir(&path, redactor, report)?;
+        } else if is_redaction_verification_trace_artifact(&path) {
+            scan_trace_redaction_file(&path, redactor, report)?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+fn scan_trace_redaction_file(
+    path: &Path,
+    redactor: &DefaultSecretRedactor,
+    report: &mut RedactionVerificationReport,
+) -> Result<(), TraceStoreError> {
+    report.scanned_files += 1;
+    if path.extension().is_some_and(|extension| extension == "gz") {
+        let file = File::open(path).map_err(|source| TraceStoreError::Io {
+            path: path.display().to_string(),
+            source,
+        })?;
+        let reader = BufReader::new(GzDecoder::new(file));
+        scan_trace_redaction_lines(path, reader, redactor, report)
+    } else {
+        let file = File::open(path).map_err(|source| TraceStoreError::Io {
+            path: path.display().to_string(),
+            source,
+        })?;
+        scan_trace_redaction_lines(path, BufReader::new(file), redactor, report)
+    }
+}
+
+#[cfg(test)]
+fn scan_trace_redaction_lines<R: BufRead>(
+    path: &Path,
+    reader: R,
+    redactor: &DefaultSecretRedactor,
+    report: &mut RedactionVerificationReport,
+) -> Result<(), TraceStoreError> {
+    for (index, line) in reader.lines().enumerate() {
+        let line = line.map_err(|source| TraceStoreError::Io {
+            path: path.display().to_string(),
+            source,
+        })?;
+        if redactor.contains_secret(&line) {
+            report.leaks.push(RedactionLeak {
+                path: path.to_path_buf(),
+                line: index + 1,
+            });
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+fn is_redaction_verification_trace_artifact(path: &Path) -> bool {
+    if is_trace_artifact_file(path) {
+        return true;
+    }
+    path.extension()
+        .is_some_and(|extension| extension == "json")
+        && path
+            .parent()
+            .and_then(Path::file_name)
+            .is_some_and(|name| name == CURRENT_SPANS_DIR)
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use allbert_proto::{is_valid_otlp_span_id, is_valid_otlp_trace_id};
@@ -1534,6 +1662,49 @@ mod tests {
             attributes: BTreeMap::new(),
             events: Vec::new(),
         }
+    }
+
+    fn secret_fixture(prefix: &str, body: &str) -> String {
+        format!("{prefix}{body}")
+    }
+
+    fn secret_fixture_parts(prefix_a: &str, prefix_b: &str, body: &str) -> String {
+        format!("{prefix_a}{prefix_b}{body}")
+    }
+
+    fn secret_fixtures() -> Vec<String> {
+        vec![
+            secret_fixture("AKIA", "1234567890ABCDEF"),
+            secret_fixture("ASIA", "1234567890ABCDEF"),
+            secret_fixture_parts("sk", "-proj-", "abcdefghijklmnopqrstuvwxyz123456"),
+            secret_fixture_parts("sk", "-ant-api03-", "abcdefghijklmnopqrstuvwxyz123456"),
+            secret_fixture_parts("sk", "-or-v1-", "abcdefghijklmnopqrstuvwxyz123456"),
+            secret_fixture_parts(
+                "xo",
+                "xb-123456789012-123456789012-",
+                "abcdefghijklmnopqrstuvwx",
+            ),
+            secret_fixture_parts("gh", "p_", "abcdefghijklmnopqrstuvwxyz1234567890AB"),
+            secret_fixture_parts(
+                "github",
+                "_pat_11ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij_",
+                "22ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij",
+            ),
+            secret_fixture_parts("gl", "pat-", "abcdefghijklmnopqrstuvwxyz123456"),
+            secret_fixture_parts("AI", "zaSy", "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"),
+            secret_fixture_parts("ya", "29.", "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"),
+            secret_fixture_parts("h", "f_", "abcdefghijklmnopqrstuvwxyz123456"),
+            secret_fixture_parts("sk", "_live_", "abcdefghijklmnopqrstuvwxyz123456"),
+            secret_fixture("api_key=", "abcdefghijklmnopqrstuvwxyz1234567890"),
+            secret_fixture(
+                "Authorization: Bearer ",
+                "abcdefghijklmnopqrstuvwxyz1234567890",
+            ),
+            secret_fixture(
+                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.",
+                "eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnopqrstuvwxyz1234567890",
+            ),
+        ]
     }
 
     #[test]
@@ -1700,17 +1871,117 @@ mod tests {
         let mut span = fixture_span("1111111111111111", None, ts(1));
         span.attributes.insert(
             "allbert.tool.args".into(),
-            AttributeValue::String(
-                "call with OPENAI_API_KEY=sk-abc1234567890abcdef and jwt eyJaaaaaaaa.bbbbbbbb.cccccccc".into(),
-            ),
+            AttributeValue::String(format!("call with {}", secret_fixtures().join(" and "))),
         );
         writer.span_ended(&span).expect("span end");
 
         let raw = fs::read_to_string(paths.sessions.join("session-a").join(TRACE_ACTIVE_FILE))
             .expect("trace reads");
-        assert!(!raw.contains("sk-abc1234567890abcdef"));
-        assert!(!raw.contains("eyJaaaaaaaa.bbbbbbbb.cccccccc"));
-        assert!(raw.contains("[REDACTED]"));
+        for secret in secret_fixtures() {
+            assert!(
+                !raw.contains(secret.as_str()),
+                "trace artifact leaked fixture secret {secret}"
+            );
+        }
+        assert!(raw.contains("<redacted:secret>"));
+    }
+
+    #[test]
+    fn redaction_pattern_coverage_handles_middle_of_larger_strings() {
+        let redactor = DefaultSecretRedactor::new();
+        for secret in secret_fixtures() {
+            let input = format!("prefix-{secret}-suffix");
+            let redacted = redactor.redact(&input);
+            assert!(
+                !redacted.contains(secret.as_str()),
+                "secret fixture was not redacted: {secret}"
+            );
+            assert!(redacted.contains("<redacted:secret>"));
+        }
+    }
+
+    #[test]
+    fn redaction_verification_harness_reports_no_leaks_after_write() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths ensure");
+        let writer = JsonlTraceWriter::new(
+            &paths,
+            "session-a",
+            TraceStorageLimits::from_session_cap_mb(5),
+        )
+        .expect("writer");
+        let mut span = fixture_span("1111111111111111", None, ts(1));
+        span.attributes.insert(
+            "allbert.provider_payload.prompt".into(),
+            AttributeValue::String(format!("prompt {}", secret_fixtures().join("\n"))),
+        );
+        span.events.push(SpanEvent {
+            name: "tool".into(),
+            timestamp: ts(1),
+            attributes: BTreeMap::from([(
+                "allbert.tool.result".into(),
+                AttributeValue::String(secret_fixture_parts(
+                    "OPENROUTER_API_KEY=sk",
+                    "-or-v1-",
+                    "abcdefghijklmnopqrstuvwxyz123456",
+                )),
+            )]),
+        });
+        writer.span_started(&span).expect("span start");
+        writer.span_ended(&span).expect("span end");
+
+        let report = verify_trace_redaction_artifacts(&paths).expect("redaction verification");
+        assert!(report.scanned_files >= 1);
+        assert_eq!(report.leaks, Vec::<RedactionLeak>::new());
+    }
+
+    #[test]
+    fn redaction_verification_harness_reports_fixture_leaks() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths ensure");
+        let session_dir = paths.sessions.join("session-a");
+        fs::create_dir_all(&session_dir).expect("session dir");
+        fs::write(
+            session_dir.join(TRACE_ACTIVE_FILE),
+            format!(
+                "unredacted {}\n",
+                secret_fixture_parts("gh", "p_", "abcdefghijklmnopqrstuvwxyz1234567890AB")
+            ),
+        )
+        .expect("fixture trace write");
+
+        let report = verify_trace_redaction_artifacts(&paths).expect("redaction verification");
+        assert_eq!(report.scanned_files, 1);
+        assert_eq!(report.leaks.len(), 1);
+        assert_eq!(report.leaks[0].line, 1);
+    }
+
+    #[test]
+    fn secret_redaction_cannot_be_disabled_by_trace_config() {
+        let mut config = TraceConfig::default();
+        config.redaction.secrets = "never".into();
+        let policy = TraceCapturePolicy::from(config);
+        let mut span = fixture_span("1111111111111111", None, ts(1));
+        span.attributes.insert(
+            "allbert.tool.args".into(),
+            AttributeValue::String(secret_fixture_parts(
+                "OPENAI_API_KEY=sk",
+                "-proj-",
+                "abcdefghijklmnopqrstuvwxyz123456",
+            )),
+        );
+
+        sanitize_span(&mut span, &policy);
+
+        let rendered = serde_json::to_string(&span).expect("span should serialize");
+        assert!(!rendered.contains(&secret_fixture_parts(
+            "sk",
+            "-proj-",
+            "abcdefghijklmnopqrstuvwxyz123456"
+        )));
+        assert!(rendered.contains("<redacted:secret>"));
     }
 
     #[test]
