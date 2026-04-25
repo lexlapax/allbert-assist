@@ -21,6 +21,7 @@ mod self_improvement_cli;
 mod settings_cli;
 mod setup;
 mod skills;
+mod trace_cli;
 mod tui;
 
 #[derive(Parser, Debug)]
@@ -29,7 +30,7 @@ mod tui;
     version,
     about = "Allbert daemon-backed CLI",
     long_about = None,
-    after_long_help = "EXAMPLES:\n  allbert-cli repl\n  allbert-cli activity\n  allbert-cli settings list ui\n  allbert-cli memory staged list\n  allbert-cli skills show memory-curator\n  allbert-cli daemon status\n"
+    after_long_help = "EXAMPLES:\n  allbert-cli repl\n  allbert-cli activity\n  allbert-cli trace show\n  allbert-cli settings list ui\n  allbert-cli memory staged list\n  allbert-cli skills show memory-curator\n  allbert-cli daemon status\n"
 )]
 struct Args {
     /// Enable daemon debug logging for the running daemon at ~/.allbert/logs/daemon.debug.log.
@@ -104,6 +105,11 @@ enum Command {
         /// Emit the raw JSON activity snapshot.
         #[arg(long)]
         json: bool,
+    },
+    /// Inspect, tail, export, and prune durable session traces.
+    Trace {
+        #[command(subcommand)]
+        command: TraceCommand,
     },
     Profile {
         #[command(subcommand)]
@@ -453,6 +459,65 @@ enum SessionsCommand {
 }
 
 #[derive(Subcommand, Debug)]
+#[command(
+    after_long_help = "EXAMPLES:\n  allbert-cli trace list\n  allbert-cli trace show\n  allbert-cli trace show repl-primary\n  allbert-cli trace show-span 1111111111111111 --session repl-primary\n  allbert-cli trace tail repl-primary\n  allbert-cli trace export repl-primary --format otlp-json\n  allbert-cli trace gc --dry-run\n"
+)]
+enum TraceCommand {
+    /// Render the span tree for a session, or the latest traced session.
+    #[command(
+        after_long_help = "EXAMPLES:\n  allbert-cli trace show\n  allbert-cli trace show repl-primary\n"
+    )]
+    Show {
+        /// Session id to inspect. Defaults to the latest traced session.
+        session: Option<String>,
+    },
+    /// Subscribe to completed-span broadcasts from a running daemon.
+    #[command(
+        after_long_help = "EXAMPLES:\n  allbert-cli trace tail\n  allbert-cli trace tail repl-primary\n"
+    )]
+    Tail {
+        /// Session id to tail. Defaults to the daemon's active/latest traced session.
+        session: Option<String>,
+    },
+    /// List sessions that have trace artifacts.
+    #[command(
+        after_long_help = "EXAMPLES:\n  allbert-cli trace list\n  allbert-cli trace list --limit 5\n"
+    )]
+    List {
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+    },
+    /// Render one span with attributes and events.
+    #[command(
+        after_long_help = "EXAMPLES:\n  allbert-cli trace show-span 1111111111111111\n  allbert-cli trace show-span 1111111111111111 --session repl-primary\n"
+    )]
+    ShowSpan {
+        span_id: String,
+        #[arg(long)]
+        session: Option<String>,
+    },
+    /// Export one session as file-based OTLP-JSON.
+    #[command(
+        after_long_help = "EXAMPLES:\n  allbert-cli trace export repl-primary\n  allbert-cli trace export repl-primary --format otlp-json --out exports/traces/repl-primary.json\n"
+    )]
+    Export {
+        session: String,
+        #[arg(long, default_value = "otlp-json")]
+        format: String,
+        #[arg(long)]
+        out: Option<String>,
+    },
+    /// Apply trace retention and disk-cap cleanup.
+    #[command(
+        after_long_help = "EXAMPLES:\n  allbert-cli trace gc --dry-run\n  allbert-cli trace gc\n"
+    )]
+    Gc {
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 enum DaemonChannelsCommand {
     List {
         #[arg(long)]
@@ -546,6 +611,7 @@ async fn run_cli() -> Result<()> {
         Some(Command::Approvals { command }) => run_approvals_command(&paths, command),
         Some(Command::Inbox { command }) => run_inbox_command(&paths, &config, command).await,
         Some(Command::Activity { json }) => run_activity_command(&paths, &config, json).await,
+        Some(Command::Trace { command }) => run_trace_command(&paths, &config, command).await,
         Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
         Some(Command::Heartbeat { command }) => run_heartbeat_command(&paths, command),
         Some(Command::Sessions { command }) => run_sessions_command(&paths, &config, command).await,
@@ -1875,6 +1941,45 @@ async fn run_activity_command(paths: &AllbertPaths, config: &Config, json: bool)
     Ok(())
 }
 
+async fn run_trace_command(
+    paths: &AllbertPaths,
+    config: &Config,
+    command: TraceCommand,
+) -> Result<()> {
+    match command {
+        TraceCommand::Show { session } => {
+            println!("{}", trace_cli::show(paths, session.as_deref())?);
+        }
+        TraceCommand::Tail { session } => {
+            trace_cli::tail(paths, session).await?;
+        }
+        TraceCommand::List { limit } => {
+            println!("{}", trace_cli::list(paths, limit)?);
+        }
+        TraceCommand::ShowSpan { span_id, session } => {
+            println!(
+                "{}",
+                trace_cli::show_span(paths, session.as_deref(), &span_id)?
+            );
+        }
+        TraceCommand::Export {
+            session,
+            format,
+            out,
+        } => {
+            let out = trace_cli::output_path(out);
+            println!(
+                "{}",
+                trace_cli::export(paths, config, &session, &format, out.as_deref())?
+            );
+        }
+        TraceCommand::Gc { dry_run } => {
+            println!("{}", trace_cli::gc(paths, config, dry_run)?);
+        }
+    }
+    Ok(())
+}
+
 async fn run_home_command(paths: &AllbertPaths, _config: &Config) -> Result<()> {
     println!(
         "{}",
@@ -2282,8 +2387,10 @@ mod tests {
         let help = Args::command().render_long_help().to_string();
         for expected in [
             "EXAMPLES:",
+            "allbert-cli trace show",
             "allbert-cli settings list ui",
             "allbert-cli memory staged list",
+            "Inspect, tail, export, and prune durable session traces",
             "settings",
             "Run or resume guided profile setup",
             "Inspect and safely change supported profile settings",

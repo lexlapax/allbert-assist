@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -24,8 +24,8 @@ use allbert_kernel::{
     llm::{DefaultProviderFactory, ProviderFactory},
     ActiveSkill, ActivityTransition, ConfirmDecision, ConfirmPrompter, ConfirmRequest,
     FrontendAdapter, InputPrompter, InputRequest, InputResponse, Intent, Kernel, KernelError,
-    KernelEvent, ModelConfig, SessionSnapshot, TraceStorageLimits, Usage, LEGACY_SENTINEL_IDENTITY,
-    LOCAL_REPL_SENDER,
+    KernelEvent, ModelConfig, SessionSnapshot, TraceReader, TraceStorageLimits, Usage,
+    LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
 };
 use allbert_proto::{
     ActivityPhase, ActivitySnapshot, ApprovalContext, AttachedChannel, ChannelKind,
@@ -805,6 +805,7 @@ async fn handle_connection(
     };
 
     let mut attached_session: Option<Arc<SessionHandle>> = None;
+    let mut trace_subscriptions = BTreeSet::new();
 
     loop {
         let message = if attached_session.is_some() {
@@ -813,7 +814,11 @@ async fn handle_connection(
                 notification = notifications.recv() => {
                     match notification {
                         Ok(message) => {
-                            if let Some(message) = message_for_protocol(&message, client_protocol) {
+                            if let Some(message) = message_for_connection(
+                                &message,
+                                client_protocol,
+                                &trace_subscriptions,
+                            ) {
                                 send_server_message(&mut framed, &message).await?;
                             }
                             continue;
@@ -1067,24 +1072,77 @@ async fn handle_connection(
                 append_debug_line(&state, &format!("trace={enabled}")).ok();
                 send_server_message(&mut framed, &ServerMessage::Ack).await?;
             }
-            ClientMessage::TraceSubscribe { .. }
-            | ClientMessage::TraceUnsubscribe { .. }
-            | ClientMessage::TraceShow { .. }
-            | ClientMessage::TraceShowSpan { .. }
-            | ClientMessage::TraceList => {
-                let message = if client_protocol < 4 {
-                    "trace surfaces require protocol v4; upgrade the client to v0.12.2"
+            ClientMessage::TraceSubscribe { session_id } => {
+                if client_protocol < 4 {
+                    send_trace_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let session_id =
+                    resolve_trace_session_id(&state, attached_session.as_ref(), session_id)?;
+                trace_subscriptions.insert(session_id.clone());
+                send_server_message(&mut framed, &ServerMessage::TraceSubscribed { session_id })
+                    .await?;
+            }
+            ClientMessage::TraceUnsubscribe { session_id } => {
+                if client_protocol < 4 {
+                    send_trace_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                if let Some(session_id) = session_id {
+                    trace_subscriptions.remove(&session_id);
                 } else {
-                    "trace surfaces are not wired yet; continue v0.12.2 implementation through M3"
-                };
-                send_server_message(
-                    &mut framed,
-                    &ServerMessage::Error(ProtocolError {
-                        code: "unsupported_protocol_feature".into(),
-                        message: message.into(),
-                    }),
-                )
-                .await?;
+                    trace_subscriptions.clear();
+                }
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
+            ClientMessage::TraceShow { session_id } => {
+                if client_protocol < 4 {
+                    send_trace_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let session_id =
+                    resolve_trace_session_id(&state, attached_session.as_ref(), session_id)?;
+                let reader = TraceReader::new(state.paths.clone());
+                let result = reader.read_session(&session_id).map_err(map_trace_error)?;
+                send_server_message(&mut framed, &ServerMessage::TraceSpans(result.spans)).await?;
+            }
+            ClientMessage::TraceShowSpan {
+                session_id,
+                span_id,
+            } => {
+                if client_protocol < 4 {
+                    send_trace_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let reader = TraceReader::new(state.paths.clone());
+                match reader
+                    .find_span(session_id.as_deref(), &span_id)
+                    .map_err(map_trace_error)?
+                {
+                    Some(span) => {
+                        send_server_message(&mut framed, &ServerMessage::TraceSpanDetail(span))
+                            .await?;
+                    }
+                    None => {
+                        send_server_message(
+                            &mut framed,
+                            &ServerMessage::Error(ProtocolError {
+                                code: "span_not_found".into(),
+                                message: format!("trace span not found: {span_id}"),
+                            }),
+                        )
+                        .await?;
+                    }
+                }
+            }
+            ClientMessage::TraceList => {
+                if client_protocol < 4 {
+                    send_trace_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let reader = TraceReader::new(state.paths.clone());
+                let summaries = reader.list_sessions().map_err(map_trace_error)?;
+                send_server_message(&mut framed, &ServerMessage::TraceSessions(summaries)).await?;
             }
             ClientMessage::ReloadSessionConfig => {
                 let session = require_session(attached_session.as_ref())?;
@@ -2953,6 +3011,7 @@ async fn run_turn_over_channel(
         let snapshot = kernel.export_session_snapshot();
         (snapshot.messages.len(), snapshot.cost_total_usd)
     };
+    let pre_turn_trace_spans = trace_span_ids(&state.paths, &session.session_id);
     let turn_input = input.clone();
     let (tx, mut rx) = mpsc::unbounded_channel();
     let local_channel = LocalIpcChannel::new(session_channel, tx, state.next_request.clone());
@@ -2997,12 +3056,17 @@ async fn run_turn_over_channel(
             notification = notifications.recv() => {
                 match notification {
                     Ok(message) => {
-                        if client_connected
-                            && send_server_message_for_protocol(framed, &message, client_protocol)
-                                .await
-                                .is_err()
-                        {
-                            client_connected = false;
+                        let trace_subscriptions = BTreeSet::new();
+                        if let Some(message) = message_for_connection(
+                            &message,
+                            client_protocol,
+                            &trace_subscriptions,
+                        ) {
+                            if client_connected
+                                && send_server_message(framed, &message).await.is_err()
+                            {
+                                client_connected = false;
+                            }
                         }
                     }
                     Err(broadcast::error::RecvError::Lagged(_)) => {}
@@ -3332,6 +3396,11 @@ async fn run_turn_over_channel(
                             )
                             .map_err(map_kernel_error)?;
                         }
+                        broadcast_new_trace_spans(
+                            state,
+                            &session.session_id,
+                            &pre_turn_trace_spans,
+                        );
                         set_session_activity(
                             state,
                             &session,
@@ -3374,6 +3443,11 @@ async fn run_turn_over_channel(
                             ),
                         )
                         .ok();
+                        broadcast_new_trace_spans(
+                            state,
+                            &session.session_id,
+                            &pre_turn_trace_spans,
+                        );
                         let mut message = error.to_string();
                         if session_channel == ChannelKind::Telegram
                             && message.contains("/cost --override <reason>")
@@ -3544,6 +3618,54 @@ fn require_session(
     session: Option<&Arc<SessionHandle>>,
 ) -> Result<&Arc<SessionHandle>, DaemonError> {
     session.ok_or_else(|| DaemonError::Protocol("no session is attached to this connection".into()))
+}
+
+fn resolve_trace_session_id(
+    state: &SharedState,
+    attached_session: Option<&Arc<SessionHandle>>,
+    requested: Option<String>,
+) -> Result<String, DaemonError> {
+    if let Some(session_id) = requested {
+        return Ok(session_id);
+    }
+    if let Some(session) = attached_session {
+        return Ok(session.session_id.clone());
+    }
+    TraceReader::new(state.paths.clone())
+        .latest_session_id()
+        .map_err(map_trace_error)?
+        .ok_or_else(|| DaemonError::Protocol("no trace sessions found".into()))
+}
+
+async fn send_trace_protocol_error(framed: &mut FramedStream) -> Result<(), DaemonError> {
+    send_server_message(
+        framed,
+        &ServerMessage::Error(ProtocolError {
+            code: "unsupported_protocol_feature".into(),
+            message: "trace surfaces require protocol v4; upgrade the client to v0.12.2".into(),
+        }),
+    )
+    .await
+}
+
+fn trace_span_ids(paths: &AllbertPaths, session_id: &str) -> HashSet<String> {
+    TraceReader::new(paths.clone())
+        .read_session(session_id)
+        .map(|result| result.spans.into_iter().map(|span| span.id).collect())
+        .unwrap_or_default()
+}
+
+fn broadcast_new_trace_spans(state: &SharedState, session_id: &str, previous: &HashSet<String>) {
+    let Ok(result) = TraceReader::new(state.paths.clone()).read_session(session_id) else {
+        return;
+    };
+    for span in result
+        .spans
+        .into_iter()
+        .filter(|span| !previous.contains(&span.id))
+    {
+        let _ = state.notifications.send(ServerMessage::TraceSpan(span));
+    }
 }
 
 async fn session_status(
@@ -5159,6 +5281,10 @@ fn map_kernel_error(error: KernelError) -> DaemonError {
     DaemonError::Protocol(error.to_string())
 }
 
+fn map_trace_error(error: allbert_kernel::TraceStoreError) -> DaemonError {
+    DaemonError::Protocol(error.to_string())
+}
+
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), DaemonError> {
     if path.parent().is_none() {
         return Err(DaemonError::Protocol(format!(
@@ -5392,6 +5518,20 @@ fn message_for_protocol(message: &ServerMessage, protocol_version: u32) -> Optio
     }
 }
 
+fn message_for_connection(
+    message: &ServerMessage,
+    protocol_version: u32,
+    trace_subscriptions: &BTreeSet<String>,
+) -> Option<ServerMessage> {
+    if let ServerMessage::TraceSpan(span) = message {
+        if protocol_version >= 4 && trace_subscriptions.contains(&span.session_id) {
+            return Some(message.clone());
+        }
+        return None;
+    }
+    message_for_protocol(message, protocol_version)
+}
+
 async fn recv_client_message(framed: &mut FramedStream) -> Result<ClientMessage, DaemonError> {
     let frame = framed
         .next()
@@ -5428,7 +5568,7 @@ mod telegram_tests {
     #[test]
     fn protocol_filter_hides_v4_trace_messages_but_keeps_v3_activity() {
         let span = fixture_trace_span();
-        assert!(message_for_protocol(&ServerMessage::TraceSpan(span), 2).is_none());
+        assert!(message_for_protocol(&ServerMessage::TraceSpan(span.clone()), 2).is_none());
         assert!(message_for_protocol(
             &ServerMessage::TraceSubscribed {
                 session_id: "session-a".into(),
@@ -5444,6 +5584,17 @@ mod telegram_tests {
         assert!(matches!(
             message_for_protocol(&ServerMessage::ActivityUpdate(activity), 3),
             Some(ServerMessage::ActivityUpdate(_))
+        ));
+
+        let mut subscriptions = BTreeSet::new();
+        assert!(
+            message_for_connection(&ServerMessage::TraceSpan(span.clone()), 4, &subscriptions)
+                .is_none()
+        );
+        subscriptions.insert("session-a".into());
+        assert!(matches!(
+            message_for_connection(&ServerMessage::TraceSpan(span), 4, &subscriptions),
+            Some(ServerMessage::TraceSpan(_))
         ));
     }
 

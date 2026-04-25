@@ -9,8 +9,8 @@ use allbert_proto::{
     ClientKind, ClientMessage, DaemonStatus, InboxApprovalPayload, InboxQueryPayload,
     InboxResolvePayload, InboxResolveResultPayload, JobDefinitionPayload, JobRunRecordPayload,
     JobStatusPayload, ModelConfigPayload, OpenChannel, ProtocolError, ServerMessage,
-    SessionResumeEntry, SessionStatus, TelemetrySnapshot, TurnBudgetOverridePayload, TurnRequest,
-    PROTOCOL_VERSION,
+    SessionResumeEntry, SessionStatus, Span, TelemetrySnapshot, TraceSessionSummary,
+    TurnBudgetOverridePayload, TurnRequest, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
@@ -372,6 +372,75 @@ impl DaemonClient {
         .await
     }
 
+    pub async fn trace_subscribe(
+        &mut self,
+        session_id: Option<String>,
+    ) -> Result<String, DaemonError> {
+        self.send(&ClientMessage::TraceSubscribe { session_id })
+            .await?;
+        self.recv_expected("trace subscription", |message| match message {
+            ServerMessage::TraceSubscribed { session_id } => Some(Ok(session_id)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn trace_unsubscribe(
+        &mut self,
+        session_id: Option<String>,
+    ) -> Result<(), DaemonError> {
+        self.send(&ClientMessage::TraceUnsubscribe { session_id })
+            .await?;
+        self.recv_expected("ack", |message| match message {
+            ServerMessage::Ack => Some(Ok(())),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn trace_show(
+        &mut self,
+        session_id: Option<String>,
+    ) -> Result<Vec<Span>, DaemonError> {
+        self.send(&ClientMessage::TraceShow { session_id }).await?;
+        self.recv_expected("trace spans", |message| match message {
+            ServerMessage::TraceSpans(spans) => Some(Ok(spans)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn trace_show_span(
+        &mut self,
+        session_id: Option<String>,
+        span_id: String,
+    ) -> Result<Span, DaemonError> {
+        self.send(&ClientMessage::TraceShowSpan {
+            session_id,
+            span_id,
+        })
+        .await?;
+        self.recv_expected("trace span", |message| match message {
+            ServerMessage::TraceSpanDetail(span) => Some(Ok(span)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn trace_list(&mut self) -> Result<Vec<TraceSessionSummary>, DaemonError> {
+        self.send(&ClientMessage::TraceList).await?;
+        self.recv_expected("trace sessions", |message| match message {
+            ServerMessage::TraceSessions(sessions) => Some(Ok(sessions)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
     pub async fn list_channel_runtimes(
         &mut self,
     ) -> Result<Vec<ChannelRuntimeStatusPayload>, DaemonError> {
@@ -519,9 +588,9 @@ impl DaemonClient {
                 return result;
             }
             match message {
-                ServerMessage::Event(_) | ServerMessage::ActivityUpdate(_) => {
-                    buffered_events.push(message)
-                }
+                ServerMessage::Event(_)
+                | ServerMessage::ActivityUpdate(_)
+                | ServerMessage::TraceSpan(_) => buffered_events.push(message),
                 other => {
                     while let Some(buffered) = buffered_events.pop() {
                         self.pending.push_front(buffered);

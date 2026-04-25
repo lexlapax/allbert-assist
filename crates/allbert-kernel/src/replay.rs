@@ -1,9 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant, SystemTime};
 
 use allbert_proto::{AttributeValue, Span, SpanEvent, SpanKind, SpanStatus, TraceSessionSummary};
 use chrono::{DateTime, Utc};
@@ -12,6 +12,7 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
@@ -109,6 +110,27 @@ pub struct TraceReadResult {
     pub bytes: u64,
     pub has_rotated_archives: bool,
     pub truncated_count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraceGcCandidate {
+    pub session_id: String,
+    pub path: PathBuf,
+    pub bytes: u64,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TraceGcPlan {
+    pub total_bytes: u64,
+    pub cap_bytes: u64,
+    pub candidates: Vec<TraceGcCandidate>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TraceGcResult {
+    pub removed: usize,
+    pub freed_bytes: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -623,6 +645,71 @@ impl TraceReader {
         let result = self.read_session(session_id)?;
         Ok(summary_for_read_result(session_id, &result))
     }
+
+    pub fn list_sessions(&self) -> Result<Vec<TraceSessionSummary>, TraceStoreError> {
+        if !self.paths.sessions.exists() {
+            return Ok(Vec::new());
+        }
+        let mut summaries = Vec::new();
+        for entry in fs::read_dir(&self.paths.sessions).map_err(|source| TraceStoreError::Io {
+            path: self.paths.sessions.display().to_string(),
+            source,
+        })? {
+            let entry = entry.map_err(|source| TraceStoreError::Io {
+                path: self.paths.sessions.display().to_string(),
+                source,
+            })?;
+            if !entry.path().is_dir() || entry.file_name().to_string_lossy().starts_with('.') {
+                continue;
+            }
+            let session_id = entry.file_name().to_string_lossy().to_string();
+            let result = read_session_trace_dir(&entry.path())?;
+            if result.spans.is_empty() && trace_artifact_count(&entry.path())? == 0 {
+                continue;
+            }
+            summaries.push(summary_for_read_result(&session_id, &result));
+        }
+        summaries.sort_by(|left, right| {
+            right
+                .last_touched_at
+                .cmp(&left.last_touched_at)
+                .then_with(|| left.session_id.cmp(&right.session_id))
+        });
+        Ok(summaries)
+    }
+
+    pub fn latest_session_id(&self) -> Result<Option<String>, TraceStoreError> {
+        Ok(self
+            .list_sessions()?
+            .into_iter()
+            .next()
+            .map(|summary| summary.session_id))
+    }
+
+    pub fn find_span(
+        &self,
+        session_id: Option<&str>,
+        span_id: &str,
+    ) -> Result<Option<Span>, TraceStoreError> {
+        if let Some(session_id) = session_id {
+            let result = self.read_session(session_id)?;
+            return Ok(result.spans.into_iter().find(|span| span.id == span_id));
+        }
+
+        let mut found = None;
+        for summary in self.list_sessions()? {
+            let result = self.read_session(&summary.session_id)?;
+            for span in result.spans.into_iter().filter(|span| span.id == span_id) {
+                if found.is_some() {
+                    return Err(TraceStoreError::InvalidPath(format!(
+                        "span id `{span_id}` is not unique; retry with --session"
+                    )));
+                }
+                found = Some(span);
+            }
+        }
+        Ok(found)
+    }
 }
 
 pub fn read_session_trace_dir(session_dir: &Path) -> Result<TraceReadResult, TraceStoreError> {
@@ -753,6 +840,133 @@ pub fn recover_all_in_flight_spans(
     Ok(recovered)
 }
 
+pub fn plan_trace_gc(
+    paths: &AllbertPaths,
+    retention_days: u16,
+    total_disk_cap_mb: u32,
+) -> Result<TraceGcPlan, TraceStoreError> {
+    let mut artifacts = collect_trace_artifacts(paths)?;
+    artifacts.sort_by(|left, right| {
+        left.modified
+            .cmp(&right.modified)
+            .then_with(|| left.path.cmp(&right.path))
+    });
+    let total_bytes = artifacts
+        .iter()
+        .map(|artifact| artifact.bytes)
+        .fold(0u64, u64::saturating_add);
+    let cap_bytes = u64::from(total_disk_cap_mb).saturating_mul(1024 * 1024);
+    let retention_cutoff = SystemTime::now()
+        .checked_sub(Duration::from_secs(
+            u64::from(retention_days) * 24 * 60 * 60,
+        ))
+        .unwrap_or(SystemTime::UNIX_EPOCH);
+
+    let mut selected = BTreeSet::new();
+    for artifact in artifacts
+        .iter()
+        .filter(|artifact| artifact.modified < retention_cutoff)
+    {
+        selected.insert(artifact.path.clone());
+    }
+
+    let mut remaining_bytes = total_bytes.saturating_sub(
+        artifacts
+            .iter()
+            .filter(|artifact| selected.contains(&artifact.path))
+            .map(|artifact| artifact.bytes)
+            .fold(0u64, u64::saturating_add),
+    );
+    if remaining_bytes > cap_bytes {
+        for artifact in &artifacts {
+            if selected.contains(&artifact.path) {
+                continue;
+            }
+            selected.insert(artifact.path.clone());
+            remaining_bytes = remaining_bytes.saturating_sub(artifact.bytes);
+            if remaining_bytes <= cap_bytes {
+                break;
+            }
+        }
+    }
+
+    let mut candidates = Vec::new();
+    for artifact in artifacts {
+        if !selected.contains(&artifact.path) {
+            continue;
+        }
+        let reason = if artifact.modified < retention_cutoff {
+            format!("older than {retention_days} day trace retention")
+        } else {
+            format!("total trace artifacts exceed {} MiB cap", total_disk_cap_mb)
+        };
+        candidates.push(TraceGcCandidate {
+            session_id: artifact.session_id,
+            path: artifact.path,
+            bytes: artifact.bytes,
+            reason,
+        });
+    }
+
+    Ok(TraceGcPlan {
+        total_bytes,
+        cap_bytes,
+        candidates,
+    })
+}
+
+pub fn apply_trace_gc(plan: &TraceGcPlan) -> Result<TraceGcResult, TraceStoreError> {
+    let mut result = TraceGcResult::default();
+    for candidate in &plan.candidates {
+        match fs::remove_file(&candidate.path) {
+            Ok(()) => {
+                result.removed += 1;
+                result.freed_bytes = result.freed_bytes.saturating_add(candidate.bytes);
+            }
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {}
+            Err(source) => {
+                return Err(TraceStoreError::Io {
+                    path: candidate.path.display().to_string(),
+                    source,
+                });
+            }
+        }
+    }
+    Ok(result)
+}
+
+pub fn export_session_otlp_json(
+    paths: &AllbertPaths,
+    config: &TraceConfig,
+    session_id: &str,
+    out: Option<&Path>,
+) -> Result<PathBuf, TraceStoreError> {
+    validate_session_id(session_id)?;
+    let reader = TraceReader::new(paths.clone());
+    let result = reader.read_session(session_id)?;
+    let output_path = resolve_otlp_export_path(paths, config, session_id, out)?;
+    let parent = output_path.parent().ok_or_else(|| {
+        TraceStoreError::InvalidPath(format!(
+            "export path has no parent: {}",
+            output_path.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(|source| TraceStoreError::Io {
+        path: parent.display().to_string(),
+        source,
+    })?;
+    let payload = otlp_resource_spans(config, &result.spans);
+    let bytes = serde_json::to_vec_pretty(&payload).map_err(|source| TraceStoreError::Json {
+        path: output_path.display().to_string(),
+        source,
+    })?;
+    atomic_write(&output_path, &bytes).map_err(|source| TraceStoreError::Io {
+        path: output_path.display().to_string(),
+        source,
+    })?;
+    Ok(output_path)
+}
+
 pub fn sanitize_span(span: &mut Span, policy: &TraceCapturePolicy) {
     let mut replacements = Vec::new();
     let keys = span.attributes.keys().cloned().collect::<Vec<_>>();
@@ -858,6 +1072,251 @@ fn summary_for_text(value: &str) -> String {
         value.chars().count(),
         digest
     )
+}
+
+struct TraceArtifact {
+    session_id: String,
+    path: PathBuf,
+    bytes: u64,
+    modified: SystemTime,
+}
+
+fn collect_trace_artifacts(paths: &AllbertPaths) -> Result<Vec<TraceArtifact>, TraceStoreError> {
+    if !paths.sessions.exists() {
+        return Ok(Vec::new());
+    }
+    let mut artifacts = Vec::new();
+    for entry in fs::read_dir(&paths.sessions).map_err(|source| TraceStoreError::Io {
+        path: paths.sessions.display().to_string(),
+        source,
+    })? {
+        let entry = entry.map_err(|source| TraceStoreError::Io {
+            path: paths.sessions.display().to_string(),
+            source,
+        })?;
+        if !entry.path().is_dir() || entry.file_name().to_string_lossy().starts_with('.') {
+            continue;
+        }
+        let session_id = entry.file_name().to_string_lossy().to_string();
+        collect_trace_artifacts_for_session(&entry.path(), &session_id, &mut artifacts)?;
+    }
+    Ok(artifacts)
+}
+
+fn collect_trace_artifacts_for_session(
+    session_dir: &Path,
+    session_id: &str,
+    artifacts: &mut Vec<TraceArtifact>,
+) -> Result<(), TraceStoreError> {
+    for entry in fs::read_dir(session_dir).map_err(|source| TraceStoreError::Io {
+        path: session_dir.display().to_string(),
+        source,
+    })? {
+        let entry = entry.map_err(|source| TraceStoreError::Io {
+            path: session_dir.display().to_string(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.is_dir()
+            && path.file_name().and_then(|name| name.to_str()) == Some(CURRENT_SPANS_DIR)
+        {
+            collect_trace_snapshot_artifacts(&path, session_id, artifacts)?;
+            continue;
+        }
+        if !is_trace_artifact_file(&path) {
+            continue;
+        }
+        let metadata = fs::metadata(&path).map_err(|source| TraceStoreError::Io {
+            path: path.display().to_string(),
+            source,
+        })?;
+        artifacts.push(TraceArtifact {
+            session_id: session_id.to_string(),
+            path,
+            bytes: metadata.len(),
+            modified: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+        });
+    }
+    Ok(())
+}
+
+fn collect_trace_snapshot_artifacts(
+    dir: &Path,
+    session_id: &str,
+    artifacts: &mut Vec<TraceArtifact>,
+) -> Result<(), TraceStoreError> {
+    if !dir.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(dir).map_err(|source| TraceStoreError::Io {
+        path: dir.display().to_string(),
+        source,
+    })? {
+        let entry = entry.map_err(|source| TraceStoreError::Io {
+            path: dir.display().to_string(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_trace_snapshot_artifacts(&path, session_id, artifacts)?;
+            continue;
+        }
+        let metadata = fs::metadata(&path).map_err(|source| TraceStoreError::Io {
+            path: path.display().to_string(),
+            source,
+        })?;
+        artifacts.push(TraceArtifact {
+            session_id: session_id.to_string(),
+            path,
+            bytes: metadata.len(),
+            modified: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+        });
+    }
+    Ok(())
+}
+
+fn resolve_otlp_export_path(
+    paths: &AllbertPaths,
+    config: &TraceConfig,
+    session_id: &str,
+    out: Option<&Path>,
+) -> Result<PathBuf, TraceStoreError> {
+    let path = match out {
+        Some(path) if path.is_absolute() => path.to_path_buf(),
+        Some(path) => paths.root.join(path),
+        None => {
+            let dir = if config.otel_export_dir.trim().is_empty() {
+                PathBuf::from("exports").join("traces")
+            } else {
+                PathBuf::from(config.otel_export_dir.trim())
+            };
+            paths.root.join(dir).join(format!("{session_id}.otlp.json"))
+        }
+    };
+    ensure_under_allbert_home(paths, &path)?;
+    Ok(path)
+}
+
+fn ensure_under_allbert_home(paths: &AllbertPaths, path: &Path) -> Result<(), TraceStoreError> {
+    if path.components().any(|component| {
+        matches!(
+            component,
+            std::path::Component::ParentDir | std::path::Component::Prefix(_)
+        )
+    }) {
+        return Err(TraceStoreError::InvalidPath(format!(
+            "trace export path must stay inside ALLBERT_HOME: {}",
+            path.display()
+        )));
+    }
+    if !path.starts_with(&paths.root) {
+        return Err(TraceStoreError::InvalidPath(format!(
+            "trace export path must stay inside ALLBERT_HOME: {}",
+            path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn otlp_resource_spans(config: &TraceConfig, spans: &[Span]) -> Value {
+    json!({
+        "resourceSpans": [{
+            "resource": {
+                "attributes": [
+                    otlp_attribute("service.name", json!({ "stringValue": config.otel_service_name.as_str() })),
+                    otlp_attribute("allbert.trace.schema_version", json!({ "intValue": TRACE_RECORD_SCHEMA_VERSION.to_string() }))
+                ]
+            },
+            "scopeSpans": [{
+                "scope": {
+                    "name": "allbert",
+                    "version": env!("CARGO_PKG_VERSION")
+                },
+                "spans": spans.iter().map(otlp_span).collect::<Vec<_>>()
+            }]
+        }]
+    })
+}
+
+fn otlp_span(span: &Span) -> Value {
+    let status = match &span.status {
+        SpanStatus::Ok => json!({ "code": "STATUS_CODE_OK" }),
+        SpanStatus::Error { message } => {
+            json!({ "code": "STATUS_CODE_ERROR", "message": message })
+        }
+    };
+    let mut attributes = span
+        .attributes
+        .iter()
+        .map(|(key, value)| otlp_attribute(key, otlp_any_value(value)))
+        .collect::<Vec<_>>();
+    attributes.push(otlp_attribute(
+        "allbert.session.id",
+        json!({ "stringValue": span.session_id }),
+    ));
+    json!({
+        "traceId": span.trace_id,
+        "spanId": span.id,
+        "parentSpanId": span.parent_id,
+        "name": span.name,
+        "kind": otlp_span_kind(span.kind),
+        "startTimeUnixNano": timestamp_nanos(span.started_at),
+        "endTimeUnixNano": span.ended_at.map(timestamp_nanos),
+        "attributes": attributes,
+        "events": span.events.iter().map(otlp_event).collect::<Vec<_>>(),
+        "status": status
+    })
+}
+
+fn otlp_event(event: &SpanEvent) -> Value {
+    json!({
+        "timeUnixNano": timestamp_nanos(event.timestamp),
+        "name": event.name,
+        "attributes": event
+            .attributes
+            .iter()
+            .map(|(key, value)| otlp_attribute(key, otlp_any_value(value)))
+            .collect::<Vec<_>>()
+    })
+}
+
+fn otlp_attribute(key: &str, value: Value) -> Value {
+    json!({ "key": key, "value": value })
+}
+
+fn otlp_any_value(value: &AttributeValue) -> Value {
+    match value {
+        AttributeValue::String(value) => json!({ "stringValue": value }),
+        AttributeValue::Int(value) => json!({ "intValue": value.to_string() }),
+        AttributeValue::Float(value) => json!({ "doubleValue": value }),
+        AttributeValue::Bool(value) => json!({ "boolValue": value }),
+        AttributeValue::StringArray(values) => json!({
+            "arrayValue": {
+                "values": values.iter().map(|value| json!({ "stringValue": value })).collect::<Vec<_>>()
+            }
+        }),
+        AttributeValue::IntArray(values) => json!({
+            "arrayValue": {
+                "values": values.iter().map(|value| json!({ "intValue": value.to_string() })).collect::<Vec<_>>()
+            }
+        }),
+    }
+}
+
+fn otlp_span_kind(kind: SpanKind) -> &'static str {
+    match kind {
+        SpanKind::Internal => "SPAN_KIND_INTERNAL",
+        SpanKind::Client => "SPAN_KIND_CLIENT",
+        SpanKind::Server => "SPAN_KIND_SERVER",
+        SpanKind::Producer => "SPAN_KIND_PRODUCER",
+        SpanKind::Consumer => "SPAN_KIND_CONSUMER",
+    }
+}
+
+fn timestamp_nanos(timestamp: DateTime<Utc>) -> String {
+    let seconds = timestamp.timestamp();
+    let nanos = timestamp.timestamp_subsec_nanos();
+    ((i128::from(seconds) * 1_000_000_000) + i128::from(nanos)).to_string()
 }
 
 pub fn new_trace_id() -> String {
@@ -1290,5 +1749,67 @@ mod tests {
             Some(AttributeValue::String(value)) if value.starts_with("<summary bytes=")
         ));
         assert!(!span.attributes.contains_key("allbert.tool.result"));
+    }
+
+    #[test]
+    fn trace_reader_lists_sessions_and_otlp_export_stays_under_home() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths ensure");
+        let writer = JsonlTraceWriter::new(
+            &paths,
+            "session-a",
+            TraceStorageLimits::from_session_cap_mb(5),
+        )
+        .expect("writer");
+        writer
+            .span_ended(&fixture_span("1111111111111111", None, ts(1)))
+            .expect("span end");
+
+        let reader = TraceReader::new(paths.clone());
+        let sessions = reader.list_sessions().expect("sessions");
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].session_id, "session-a");
+
+        let output = export_session_otlp_json(&paths, &TraceConfig::default(), "session-a", None)
+            .expect("export");
+        assert!(output.starts_with(&paths.root));
+        let raw = fs::read_to_string(output).expect("export reads");
+        assert!(raw.contains("\"resourceSpans\""));
+        assert!(raw.contains("\"traceId\""));
+
+        let escaped = export_session_otlp_json(
+            &paths,
+            &TraceConfig::default(),
+            "session-a",
+            Some(Path::new("../trace.json")),
+        );
+        assert!(matches!(escaped, Err(TraceStoreError::InvalidPath(_))));
+    }
+
+    #[test]
+    fn trace_gc_plans_only_trace_artifacts() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths ensure");
+        let session_dir = paths.sessions.join("session-a");
+        fs::create_dir_all(&session_dir).expect("session dir");
+        fs::write(session_dir.join("turns.md"), "do not remove").expect("turns write");
+        let writer = JsonlTraceWriter::new(
+            &paths,
+            "session-a",
+            TraceStorageLimits::from_session_cap_mb(5),
+        )
+        .expect("writer");
+        writer
+            .span_ended(&fixture_span("1111111111111111", None, ts(1)))
+            .expect("span end");
+
+        let plan = plan_trace_gc(&paths, 365, 0).expect("gc plan");
+        assert_eq!(plan.candidates.len(), 1);
+        assert!(plan.candidates[0].path.ends_with(TRACE_ACTIVE_FILE));
+        let result = apply_trace_gc(&plan).expect("gc apply");
+        assert_eq!(result.removed, 1);
+        assert!(session_dir.join("turns.md").exists());
     }
 }

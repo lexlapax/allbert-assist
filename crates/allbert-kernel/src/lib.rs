@@ -86,10 +86,12 @@ pub use memory::{
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
 pub use replay::{
-    read_session_trace_dir, recover_all_in_flight_spans, trace_artifact_bytes,
-    trace_artifact_count, ActiveTraceSpan, JsonlTraceWriter, SecretRedactor, TraceCapturePolicy,
-    TraceReadResult, TraceReadWarning, TraceReader, TraceRecord, TraceRecordError, TraceRecordType,
-    TraceStorageLimits, TraceStoreError, TraceWriter, TracingHooks, TRACE_RECORD_SCHEMA_VERSION,
+    apply_trace_gc, export_session_otlp_json, plan_trace_gc, read_session_trace_dir,
+    recover_all_in_flight_spans, trace_artifact_bytes, trace_artifact_count, ActiveTraceSpan,
+    JsonlTraceWriter, SecretRedactor, TraceCapturePolicy, TraceGcCandidate, TraceGcPlan,
+    TraceGcResult, TraceReadResult, TraceReadWarning, TraceReader, TraceRecord, TraceRecordError,
+    TraceRecordType, TraceStorageLimits, TraceStoreError, TraceWriter, TracingHooks,
+    TRACE_RECORD_SCHEMA_VERSION,
 };
 pub use scripting::{
     BudgetUsed, CapKind, LoadedScript, LuaEngine, LuaSandboxPolicy, ScriptBudget, ScriptOutcome,
