@@ -2,6 +2,7 @@ pub mod adapter;
 pub mod agent;
 pub mod atomic;
 mod bootstrap;
+pub mod command_catalog;
 pub mod config;
 pub mod cost;
 pub mod error;
@@ -18,6 +19,7 @@ pub mod paths;
 pub mod scripting;
 pub mod security;
 pub mod self_improvement;
+pub mod settings;
 pub mod skills;
 pub mod tools;
 pub mod trace;
@@ -35,6 +37,10 @@ pub use agent::{
     ActiveTurnBudget, Agent, AgentDefinition, AgentState, StagedNoticeEntry, TurnBudget,
 };
 pub use atomic::atomic_write;
+pub use command_catalog::{
+    command_catalog, command_catalog_errors, command_groups, CommandDescriptor, CommandGroup,
+    CommandGroupDescriptor, CommandSurface,
+};
 pub use config::{
     Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig, JobsConfig, LearningConfig,
     LimitsConfig, MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig,
@@ -88,6 +94,12 @@ pub use self_improvement::{
     ResolvedSourceCheckout, SourceCheckoutSource, TierAValidationReport, ValidationCommand,
     ValidationOverall, ValidationStepResult, WorktreeDiskEntry, WorktreeDiskUsage,
     WorktreeGcReport,
+};
+pub use settings::{
+    find_setting, settings_catalog, settings_catalog_errors, settings_for_config,
+    validate_setting_value, SettingDescriptor, SettingPathPolicy, SettingRedactionPolicy,
+    SettingRestartRequirement, SettingValidationError, SettingValueType, SettingView,
+    SettingsGroup,
 };
 pub use skills::{
     ActiveSkill, ContributedAgent, CreateSkillInput, InvokeSkillInput, Skill, SkillProvenance,
