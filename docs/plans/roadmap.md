@@ -18,6 +18,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.10 | Provider expansion and local-first default: OpenAI, Gemini, Ollama/Gemma4 | Shipped | [v0.10-provider-expansion.md](v0.10-provider-expansion.md) |
 | v0.11 | TUI and adaptive memory: Ratatui operator surface, session telemetry, configurable memory routing, episode/fact recall, review-first personality digest + `LearningJob` seam | Shipped | [v0.11-tui-and-memory.md](v0.11-tui-and-memory.md) |
 | v0.12 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Shipped | [v0.12-self-improvement.md](v0.12-self-improvement.md) |
+| v0.12.1 | Operator UX polish: shared activity/stuck-state awareness, responsive TUI turns, settings hub, command hierarchy, setup clarity, TUI slash-command parity, CLI discoverability | Draft | [v0.12.1-operator-ux-polish.md](v0.12.1-operator-ux-polish.md) |
 | v0.13 | Local personalization: LoRA/adapter training through the v0.11 `LearningJob` seam, approved durable/fact plus bounded episode-summary corpus, adapter-approval review flow | Future | [v0.13-personalization.md](v0.13-personalization.md) |
 | v0.14 | Self-diagnosis and Unix co-tenant: trace-aware self-diagnose skill, curated local-utilities surface, bounded `unix-pipe` tool shape | Future | [v0.14-self-diagnosis.md](v0.14-self-diagnosis.md) |
 
@@ -87,11 +88,19 @@ Self-improvement (the assistant rebuilding its own Rust binary, authoring new sk
 
 v0.12 also depends on the tool surface being normalized so embedded-script hook observation is uniform (ADR 0052), and on the memory and skill-install trust model being mature enough that self-authored artifacts route through the same gates as any other skill. v0.11 reduces the risk further by making cost, context, memory, and approvals visible in the terminal before self-improvement workflows arrive.
 
-### v0.12 before v0.13
+### v0.12 before v0.12.1
 
-Local personalization — training an adapter or LoRA over approved durable memory, approved facts, and bounded recent episode summaries — is powerful, personal, and hard to undo. It should land only after v0.11 has stabilised the `LearningJob` seam and the approved durable/fact plus bounded episode-summary corpus contract, and after v0.12 has demonstrated the review-first posture for "Allbert produces an artifact, the operator reviews it before it takes effect" via patch-approval. v0.13's `adapter-approval` flow is deliberately modeled on v0.12's `patch-approval`, so v0.12 both proves the UX and defines the ADR pattern v0.13 reuses.
+v0.12 introduced the self-improvement surfaces that make Allbert more capable: Rust rebuild proposals, user-facing skill authoring, scripting seams, and patch approvals. The first operator test showed that the safety posture is sound but the interface is not yet smooth enough: long turns appear frozen, review paths require CLI knowledge, setup can leave users without next steps, and help output undersells the shipped surface.
 
-v0.13 also inherits the v0.11 invariants it cannot weaken: the trait shape, the approved durable/fact plus bounded episode-summary corpus rules, daily cost-cap behavior, fail-closed scheduling, `compute_wall_seconds` reporting, `SOUL.md` as baseline persona/constraints, and accepted `PERSONALITY.md` as reviewed learned adaptation input. v0.13 introduces the actual compute cap for local training. Those are named in v0.11's "Handoff to v0.12 and v0.13" section so the recheck discipline carries forward.
+v0.12.1 is therefore a patch release, not a new self-change capability layer. It adds a narrow protocol v3 activity surface so TUI, classic REPL, CLI, Telegram, jobs, and future channels can all answer "what is Allbert doing, how long has it been there, and what can I do next?" from the same daemon-owned state. It also adds a settings hub and command hierarchy so setup choices, daily operation, and later customization share one mental model. Together, those changes make the v0.12 surfaces operator-legible before the roadmap asks users to review personalized adapter artifacts.
+
+### v0.12.1 before v0.13
+
+Local personalization — training an adapter or LoRA over approved durable memory, approved facts, and bounded recent episode summaries — is powerful, personal, and hard to undo. It should land only after v0.11 has stabilised the `LearningJob` seam and the approved durable/fact plus bounded episode-summary corpus contract, after v0.12 has demonstrated the review-first posture for "Allbert produces an artifact, the operator reviews it before it takes effect" via patch-approval, and after v0.12.1 has made those review-first workflows discoverable in the everyday TUI/CLI.
+
+v0.13's `adapter-approval` flow is deliberately modeled on v0.12's `patch-approval`, so v0.12 proves the safety pattern and v0.12.1 proves the operator path. v0.13 also inherits the v0.11 invariants it cannot weaken: the trait shape, the approved durable/fact plus bounded episode-summary corpus rules, daily cost-cap behavior, fail-closed scheduling, `compute_wall_seconds` reporting, `SOUL.md` as baseline persona/constraints, and accepted `PERSONALITY.md` as reviewed learned adaptation input. v0.13 introduces the actual compute cap for local training. Those are named in v0.11's "Handoff to v0.12 and v0.13" section so the recheck discipline carries forward.
+
+This point release does not change the v0.12 self-change envelope. Its protocol work is limited to additive activity and operator-visibility messages; it reduces support and trust risk before v0.13 by making review-first workflows easier to see and complete.
 
 ### v0.13 before v0.14
 
@@ -113,7 +122,7 @@ These themes recur across multiple releases. They are noted here so individual p
 - **Security envelope.** Every new capability routes through existing policy surfaces — `security.exec_allow` / `security.exec_deny`, explicit confirmation flows, skill `allowed-tools`, and install preview (ADR 0033). No release adds a privileged bypass. New hook points extend the existing hook surface rather than replacing it.
 - **Kernel-first.** New runtime behaviour lands in the kernel when it is runtime behaviour (agents, intent routing, memory retrieval surfaces). Adapters and frontends stay thin.
 - **Progressive disclosure.** From v0.4 onward, skill prompt contribution is tier-aware (ADR 0036). Memory retrieval in v0.5 follows the same principle: surface metadata cheaply, load content on demand.
-- **Operator-visible runtime state.** v0.11 makes session telemetry a daemon protocol surface rather than terminal-only decoration. TUI, classic REPL commands, and future channels consume the same kernel-owned state.
+- **Operator-visible runtime state.** v0.11 makes session telemetry a daemon protocol surface rather than terminal-only decoration. v0.12.1 extends that posture with daemon-owned activity and stuck-state snapshots so TUI, classic REPL, CLI, Telegram, jobs, and future channels consume the same operational truth.
 - **Hot path vs background work.** The main turn loop may update ephemeral state and stage candidate learnings, but review, promotion assistance, compaction, and pruning can also run through jobs or memory-aware skills so the core turn does not carry every maintenance burden.
 - **Markdown as ground truth.** Jobs (ADR 0022), skills (ADR 0032), and memory (v0.5) all persist as markdown files with defined frontmatter. Indices and caches are derived artifacts that can be rebuilt from the markdown at any time.
 - **Canonical format bias.** When a format change is important to runtime simplicity or user clarity, prefer normalizing shipped artifacts to the new canonical shape over carrying bridge code. ADR 0037 now takes that path for the v0.4 skill cutover.
