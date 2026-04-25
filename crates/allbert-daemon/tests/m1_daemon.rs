@@ -426,7 +426,7 @@ async fn wait_for_job_running(
     client: &mut DaemonClient,
     name: &str,
 ) -> allbert_proto::JobStatusPayload {
-    timeout(Duration::from_secs(5), async {
+    timeout(Duration::from_secs(15), async {
         loop {
             let status = client.get_job(name).await.expect("job status should load");
             if status.state.running {

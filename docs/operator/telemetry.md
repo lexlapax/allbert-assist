@@ -1,8 +1,8 @@
 # Telemetry operator guide
 
-v0.12.1 keeps session telemetry daemon-owned and adds daemon-owned live activity. The TUI, classic REPL, CLI, Telegram, jobs, and future frontends all read the same kernel-derived `TelemetrySnapshot` and `ActivitySnapshot` instead of guessing from frontend timers.
+v0.12.1 kept session telemetry daemon-owned and added daemon-owned live activity. v0.12.2 keeps that live-state boundary and adds durable trace/replay as a separate after-the-fact surface. The TUI, classic REPL, CLI, Telegram, jobs, and future frontends all read the same kernel-derived `TelemetrySnapshot` and `ActivitySnapshot` instead of guessing from frontend timers.
 
-This guide covers **live** runtime visibility. Durable, after-the-fact session **replay** is a separate v0.12.2 system documented in the upcoming [tracing operator guide](tracing.md). Use this guide to answer "what is Allbert doing right now?"; use the tracing guide to answer "what happened in that session, and why?"
+This guide covers **live** runtime visibility. Durable, after-the-fact session **replay** is documented in the [tracing operator guide](tracing.md). Use this guide to answer "what is Allbert doing right now?"; use the tracing guide to answer "what happened in that session, and why?"
 
 ## Commands
 
@@ -61,7 +61,7 @@ Token and context values are provider-reported from the latest model response. A
 - optional active skill name or approval id
 - optional stuck hint and next actions
 
-The daemon derives this state from bounded kernel activity transitions and filters it per client protocol. v2 clients do not receive v3-only activity fields or messages. v0.12.1 does not persist spans; v0.12.2 owns durable tracing and replay.
+The daemon derives this state from bounded kernel activity transitions and filters it per client protocol. v2 clients do not receive v3-only activity fields or messages. Activity snapshots are not persisted spans; v0.12.2 durable tracing and replay is the separate history surface.
 
 ## Status-Line Catalog
 

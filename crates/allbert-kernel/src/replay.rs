@@ -1811,16 +1811,20 @@ mod tests {
             &paths,
             "session-a",
             TraceStorageLimits {
-                session_disk_cap_bytes: 1,
+                session_disk_cap_bytes: 1024,
             },
         )
         .expect("writer");
-        writer
-            .span_ended(&fixture_span("2222222222222222", None, ts(2)))
-            .expect("first span");
-        writer
-            .span_ended(&fixture_span("1111111111111111", None, ts(1)))
-            .expect("second span");
+        let mut first = fixture_span("2222222222222222", None, ts(2));
+        first
+            .attributes
+            .insert("payload".into(), AttributeValue::String("x".repeat(4096)));
+        let mut second = fixture_span("1111111111111111", None, ts(1));
+        second
+            .attributes
+            .insert("payload".into(), AttributeValue::String("y".repeat(4096)));
+        writer.span_ended(&first).expect("first span");
+        writer.span_ended(&second).expect("second span");
 
         let read = read_session_trace_dir(&paths.sessions.join("session-a")).expect("read traces");
         assert!(read.has_rotated_archives);

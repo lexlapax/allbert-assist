@@ -12,7 +12,7 @@ For cost-limit behavior across multiple devices, see [`docs/operator/cost-caps.m
 - `config.toml`, `config/`
 - `memory/MEMORY.md`, `memory/notes/`, `memory/daily/`, `memory/staging/`
 - `memory/trash/`, `memory/reject/` while you want recovery windows to travel with a profile
-- `sessions/` (journals, `meta.json`, approvals)
+- `sessions/` (journals, `meta.json`, approvals, session-local `trace.jsonl`, rotated trace archives, and current-span crash-recovery snapshots)
 - `jobs/`
 - `skills/installed/`, `skills/incoming/`
 - `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, optional `PERSONALITY.md`, `AGENTS.md`, `HEARTBEAT.md`
@@ -24,7 +24,7 @@ For cost-limit behavior across multiple devices, see [`docs/operator/cost-caps.m
 - `memory/index/semantic/`
 - `run/`
 - `logs/`
-- `traces/`
+- `traces/` (top-level legacy/debug trace output only; session-local traces under `sessions/` are continuity-bearing)
 - `config.toml.last-good` is a local daemon recovery snapshot; regenerate it by starting the daemon after a known-good config load.
 
 ### Sensitive (exclude by default)
@@ -59,7 +59,7 @@ Exclude by default:
 - `memory/index/`
 - `run/`
 - `logs/`
-- `traces/`
+- `traces/` (top-level legacy/debug trace output only)
 - `secrets/`
 - `costs.jsonl`
 - `daemon.lock`
@@ -67,7 +67,8 @@ Exclude by default:
 Tool-specific reminder:
 
 - file sync tools should not try to merge `daemon.lock` or any file under `run/`
-- index and trace directories are disposable and should be rebuilt, not mirrored
+- index directories and top-level legacy/debug trace output are disposable and should be rebuilt, not mirrored
+- session-local trace artifacts under `sessions/` are continuity-bearing; include them when you want replay history to travel with the session
 - `memory/trash/` and `memory/reject/` are continuity-bearing only for recovery; omit them if you intentionally do not want deleted/rejected memory to travel
 - secrets should move only through an explicit operator action, not through routine sync
 
@@ -104,7 +105,7 @@ That makes it the fastest post-import or post-sync sanity check before you resum
 
 ## Config Recovery
 
-v0.12.1 writes `~/.allbert/config.toml.last-good` after a successful daemon config load/start. If a manual edit breaks `config.toml`, restore the last known-good snapshot:
+v0.12.1 and later write `~/.allbert/config.toml.last-good` after a successful daemon config load/start. If a manual edit breaks `config.toml`, restore the last known-good snapshot:
 
 ```bash
 cargo run -p allbert-cli -- config restore-last-good

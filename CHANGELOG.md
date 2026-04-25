@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.12.2 - 2026-04-25
+
+- shipped durable session-local trace artifacts under `sessions/<session-id>/trace.jsonl`, with rotated trace archives and in-flight span recovery
+- added protocol v4 trace read/tail/list responses while keeping v4 daemons compatible with v2 and v3 clients through per-peer filtering
+- added `allbert-cli trace show|tail|list|show-span|export|gc` plus REPL/TUI `/trace` commands and structural Telegram `/trace last` / `/trace span` summaries
+- added file-based OTLP-JSON export under `ALLBERT_HOME`, aligned for external observability tools without adding any network exporter
+- made trace capture useful by default with `capture_messages = true`, bounded disk caps, finite retention, and per-field `capture|summary|drop` policies
+- hardened trace privacy with unconditional secret redaction at write/export time, read-only `trace.redaction.secrets = "always"`, and provider/SDK key coverage tests
+- added the trace settings group, guided setup trace step, safe existing-profile `[trace]` default-write, and `/settings show trace`
+- updated operator tracing docs and upgrade guidance for capture posture, redaction, retention, GC, and export
+- bumped all crates and lockfile package entries to `0.12.2`
+
+More detail: [v0.12.2 upgrade notes](docs/notes/v0.12.2-upgrade-2026-04-25.md), [v0.12.2 plan](docs/plans/v0.12.2-tracing-and-replay.md), [Tracing guide](docs/operator/tracing.md), [Telemetry guide](docs/operator/telemetry.md), and [TUI guide](docs/operator/tui.md).
+
 ## v0.12.1 - 2026-04-25
 
 - shipped daemon-owned live activity snapshots over protocol v3, with backward-compatible v2 filtering and shared `/activity`/`allbert-cli activity` surfaces
