@@ -126,12 +126,16 @@ pub fn render_list_entries(entries: &[ApprovalView], json: bool) -> Result<Strin
 }
 
 pub fn show(paths: &AllbertPaths, approval_id: &str, json: bool) -> Result<String> {
-    let approval = load_all(paths)?
-        .into_iter()
-        .find(|approval| approval.id == approval_id)
-        .ok_or_else(|| anyhow!("approval not found: {approval_id}"))?;
+    let approval = load(paths, approval_id)?;
 
     render_show_entry(&approval, json)
+}
+
+pub fn load(paths: &AllbertPaths, approval_id: &str) -> Result<ApprovalView> {
+    load_all(paths)?
+        .into_iter()
+        .find(|approval| approval.id == approval_id)
+        .ok_or_else(|| anyhow!("approval not found: {approval_id}"))
 }
 
 pub fn render_show_entry(approval: &ApprovalView, json: bool) -> Result<String> {

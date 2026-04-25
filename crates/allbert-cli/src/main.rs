@@ -234,6 +234,14 @@ enum SelfImprovementCommand {
         #[command(subcommand)]
         command: SelfImprovementConfigCommand,
     },
+    Diff {
+        approval_id: String,
+    },
+    Install {
+        approval_id: String,
+        #[arg(long)]
+        allow_needs_review: bool,
+    },
     Gc {
         #[arg(long)]
         dry_run: bool,
@@ -885,6 +893,20 @@ fn run_self_improvement_command(
         },
         SelfImprovementCommand::Gc { dry_run } => {
             println!("{}", self_improvement_cli::gc(paths, config, dry_run)?);
+            Ok(())
+        }
+        SelfImprovementCommand::Diff { approval_id } => {
+            print!("{}", self_improvement_cli::diff(paths, &approval_id)?);
+            Ok(())
+        }
+        SelfImprovementCommand::Install {
+            approval_id,
+            allow_needs_review,
+        } => {
+            println!(
+                "{}",
+                self_improvement_cli::install(paths, config, &approval_id, allow_needs_review)?
+            );
             Ok(())
         }
     }
