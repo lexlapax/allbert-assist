@@ -1,7 +1,7 @@
 # ADR 0079: Personality digest is a review-first LearningJob, not hidden memory or training
 
 Date: 2026-04-24
-Status: Proposed
+Status: Accepted
 
 ## Context
 
@@ -23,7 +23,7 @@ The digest job:
 - is opt-in and disabled by default;
 - reads a bounded corpus of approved durable memory, approved fact entries, and recent episode summaries labelled as working-history-derived input;
 - excludes staged entries and unapproved candidate learnings;
-- runs through the active provider only after any required hosted-provider corpus-upload consent has been granted;
+- ships with a provider-free deterministic renderer in v0.11 while preserving the hosted-provider corpus-upload consent gate for future model-authored digest renderers;
 - records hosted-provider corpus-upload consent as profile-local runtime state under `~/.allbert/learning/personality-digest/consent.json`;
 - writes draft artifacts under `~/.allbert/learning/personality-digest/runs/<run_id>/`;
 - installs the accepted digest output path (`~/.allbert/PERSONALITY.md` by default) only after explicit operator acceptance;
@@ -50,12 +50,12 @@ The `LearningJobReport` shape uses general vocabulary so future learning jobs ca
 
 - Allbert gets a reviewable personality digest without weakening the memory staging contract.
 - Future personalization work can plug into the same `LearningJob` seam.
-- Hosted-provider privacy implications are explicit before corpus upload.
+- Hosted-provider privacy implications are explicit before any future corpus upload.
 - `PERSONALITY.md` remains inspectable and user-editable without weakening `SOUL.md` ownership.
 
 **Negative**
 
-- The digest flow needs approval plumbing before `PERSONALITY.md` can affect prompts.
+- The digest output can feel conservative in v0.11 because the shipped renderer is deterministic and provider-free.
 - Scheduled digest runs may defer more often when hosted-provider consent or digest acceptance is missing.
 
 **Neutral**

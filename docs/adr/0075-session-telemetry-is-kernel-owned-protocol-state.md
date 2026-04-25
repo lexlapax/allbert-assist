@@ -1,7 +1,7 @@
 # ADR 0075: Session telemetry is kernel-owned protocol state
 
 Date: 2026-04-24
-Status: Proposed
+Status: Accepted
 
 ## Context
 
@@ -56,4 +56,3 @@ Context usage is based on provider-reported latest response usage. v0.11 does no
 - [ADR 0051](0051-daily-cost-cap-is-a-hard-gate-at-turn-boundary.md)
 - [ADR 0066](0066-owned-provider-seam-over-rig-for-v0-10.md)
 - [ADR 0074](0074-tui-is-a-daemon-attached-adapter-not-a-runtime.md)
-

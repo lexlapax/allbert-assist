@@ -1,7 +1,7 @@
 # ADR 0078: Semantic memory is optional derived retrieval
 
 Date: 2026-04-24
-Status: Proposed
+Status: Accepted
 
 ## Context
 
@@ -28,7 +28,7 @@ Rules:
 - When enabled, embeddings are stored in a derived index under `memory/index/semantic/`.
 - The semantic index can be deleted and rebuilt from markdown ground truth.
 - Hybrid ranking deterministically fuses BM25 and semantic scores.
-- Provider-free tests use a fake deterministic embedding provider.
+- v0.11 ships a fake deterministic embedding provider for provider-free tests and validation. Real embedding providers are additive follow-up work that must preserve the off-by-default, derived-index contract.
 
 ## Consequences
 
@@ -53,4 +53,3 @@ Rules:
 - [ADR 0045](0045-memory-index-is-a-derived-artifact-rebuilt-from-markdown-ground-truth.md)
 - [ADR 0046](0046-v0-5-memory-retrieval-uses-tantivy.md)
 - [ADR 0066](0066-owned-provider-seam-over-rig-for-v0-10.md)
-

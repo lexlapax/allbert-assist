@@ -16,7 +16,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.8 | Continuity and sync: cross-channel identity mapping, durable session routing, approval inbox, sync posture | Shipped | [v0.08-continuity-and-sync.md](v0.08-continuity-and-sync.md) |
 | v0.9 | Developer environment and Codex Web readiness: pinned toolchain, contributor contract, provider-free validation | Shipped | [v0.09-developer-environment-and-codex-web.md](v0.09-developer-environment-and-codex-web.md) |
 | v0.10 | Provider expansion and local-first default: OpenAI, Gemini, Ollama/Gemma4 | Shipped | [v0.10-provider-expansion.md](v0.10-provider-expansion.md) |
-| v0.11 | TUI and adaptive memory: Ratatui operator surface, session telemetry, configurable memory routing, episode/fact recall, review-first personality digest + `LearningJob` seam | Proposed | [v0.11-tui-and-memory.md](v0.11-tui-and-memory.md) |
+| v0.11 | TUI and adaptive memory: Ratatui operator surface, session telemetry, configurable memory routing, episode/fact recall, review-first personality digest + `LearningJob` seam | Implemented; release validation pending | [v0.11-tui-and-memory.md](v0.11-tui-and-memory.md) |
 | v0.12 | Self-improvement: Rust rebuild skill, user-facing skill-authoring skill, embedded scripting seam | Proposed | [v0.12-self-improvement.md](v0.12-self-improvement.md) |
 | v0.13 | Local personalization: LoRA/adapter training through the v0.11 `LearningJob` seam, approved durable/fact plus bounded episode-summary corpus, adapter-approval review flow | Future | [v0.13-personalization.md](v0.13-personalization.md) |
 | v0.14 | Self-diagnosis and Unix co-tenant: trace-aware self-diagnose skill, curated local-utilities surface, bounded `unix-pipe` tool shape | Future | [v0.14-self-diagnosis.md](v0.14-self-diagnosis.md) |
@@ -68,9 +68,9 @@ v0.11 also deepens memory without weakening the v0.5 safety contract:
 - `memory-curator` becomes always eligible through configurable routing, but not always active;
 - session journals become searchable episode recall, but not durable learned memory;
 - staged/promoted facts can carry temporal provenance, but still require review before durable promotion;
-- semantic retrieval remains optional and derived, while BM25/Tantivy remains the default.
+- semantic retrieval remains optional and derived, while BM25/Tantivy remains the default. v0.11 ships the fake deterministic semantic provider for validation; real embedding providers remain additive follow-up work.
 
-v0.11 also takes the first review-first step toward the origin note's nightly-learning ambition: an opt-in `personality-digest` job compiles a markdown `PERSONALITY.md` learned overlay from approved durable memory, approved fact memory, and bounded recent episode summaries, and a `LearningJob` trait seam defines the shape future learning jobs plug into. `SOUL.md` remains the seeded operator-owned persona and is never written by the digest. No model is trained in v0.11; that lands in v0.13.
+v0.11 also takes the first review-first step toward the origin note's nightly-learning ambition: an opt-in `personality-digest` job compiles a markdown `PERSONALITY.md` learned overlay from approved durable memory, approved fact memory, and bounded recent episode summaries, and a `LearningJob` trait seam defines the shape future learning jobs plug into. The shipped digest renderer is provider-free and deterministic while preserving the hosted-provider consent and draft/install envelope. `SOUL.md` remains the seeded operator-owned persona and is never written by the digest. No model is trained in v0.11; that lands in v0.13.
 
 This keeps Allbert's normal operating loop legible before the roadmap moves to self-improvement.
 

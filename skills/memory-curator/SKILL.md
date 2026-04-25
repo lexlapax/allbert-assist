@@ -5,6 +5,8 @@ intents: [memory_query, meta, task]
 agents:
   - path: agents/extract-from-turn.md
 allowed-tools:
+  - spawn_subagent
+  - stage_memory
   - list_staged_memory
   - promote_staged_memory
   - reject_staged_memory

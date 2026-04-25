@@ -1,4 +1,4 @@
-# Continuity and sync posture (v0.8)
+# Continuity and sync posture
 
 This guide defines which profile paths are safe to sync, which are rebuildable, and which are intentionally device-local.
 
@@ -14,11 +14,13 @@ For cost-limit behavior across multiple devices, see [`docs/operator/cost-caps.m
 - `sessions/` (journals, `meta.json`, approvals)
 - `jobs/`
 - `skills/installed/`, `skills/incoming/`
-- `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, `AGENTS.md`, `HEARTBEAT.md`
+- `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, optional `PERSONALITY.md`, `AGENTS.md`, `HEARTBEAT.md`
+- `learning/personality-digest/` draft/report artifacts and consent state
 
 ### Derived (exclude; rebuildable/disposable)
 
 - `memory/index/`
+- `memory/index/semantic/`
 - `run/`
 - `logs/`
 - `traces/`
@@ -34,7 +36,7 @@ For cost-limit behavior across multiple devices, see [`docs/operator/cost-caps.m
 
 ## Profile export/import
 
-`allbert-cli profile export` and `allbert-cli profile import` are the canonical v0.8 continuity workflow. Use them instead of ad hoc directory copies when you want a predictable archive plus post-import rebuilds.
+`allbert-cli profile export` and `allbert-cli profile import` are the canonical continuity workflow. Use them instead of ad hoc directory copies when you want a predictable archive plus post-import rebuilds.
 
 Recommended flow:
 

@@ -1,7 +1,7 @@
 # ADR 0074: TUI is a daemon-attached adapter, not a runtime
 
 Date: 2026-04-24
-Status: Proposed
+Status: Accepted
 
 ## Context
 
@@ -45,4 +45,3 @@ Fresh profiles default to TUI, while upgraded profiles preserve classic mode unl
 - [ADR 0001](0001-kernel-is-runtime-core-frontends-are-adapters.md)
 - [ADR 0013](0013-clients-attach-to-a-daemon-hosted-kernel-via-channels.md)
 - [ADR 0024](0024-v0-2-primary-operator-surface-is-unified-under-allbert-cli.md)
-

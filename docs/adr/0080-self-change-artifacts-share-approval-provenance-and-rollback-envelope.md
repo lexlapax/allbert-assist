@@ -1,7 +1,7 @@
 # ADR 0080: Self-change artifacts share approval, provenance, and rollback envelope
 
 Date: 2026-04-24
-Status: Proposed
+Status: Accepted
 
 ## Context
 

@@ -1,6 +1,6 @@
-# Allbert v0.10 Onboarding and Operations
+# Allbert v0.11 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.10 release.
+This guide is the operator reference for the source-based v0.11 release.
 
 ## Quickstart
 
@@ -8,8 +8,8 @@ This guide is the operator reference for the source-based v0.10 release.
 2. Export a hosted-provider API key only if you plan to use Anthropic, OpenRouter, OpenAI, or Gemini.
 3. Run `cargo run -p allbert-cli --`.
 4. Complete the guided setup flow.
-5. Confirm daemon/session state with `/status`.
-6. Use `allbert-cli daemon status`, `allbert-cli jobs list`, and `allbert-cli memory status` as needed.
+5. Confirm daemon/session state with `/status` or `/telemetry`.
+6. Use `allbert-cli daemon status`, `allbert-cli telemetry --json`, `allbert-cli jobs list`, `allbert-cli memory stats`, and `allbert-cli memory routing show` as needed.
 7. Inspect the current agent catalog with `allbert-cli agents list` and the shipped curator flow with `allbert-cli skills show memory-curator`.
 
 ## Guided setup
@@ -25,6 +25,7 @@ On first run, Allbert creates `~/.allbert/` and asks for:
 - an API-key environment variable for hosted providers, or a local base URL for Ollama
 - trusted filesystem roots, with the current project directory offered as the default first root
 - whether the CLI should auto-start the daemon when needed
+- whether the default interactive surface should be TUI or classic REPL
 - an optional daily cost cap in USD
 - whether recurring jobs are enabled for this profile
 - the default timezone for scheduled jobs
@@ -161,6 +162,20 @@ provider = "none"
 embedding_model = ""
 hybrid_weight = 0.35
 
+[learning]
+enabled = false
+
+[learning.personality_digest]
+enabled = false
+schedule = "@weekly on sunday at 18:00"
+output_path = "PERSONALITY.md"
+include_tiers = ["durable", "fact"]
+include_episodes = true
+episode_lookback_days = 30
+max_episode_summaries = 10
+max_input_bytes = 24576
+max_output_bytes = 4096
+
 [security]
 fs_roots = ["/absolute/path/to/workspace"]
 auto_confirm = false
@@ -194,12 +209,25 @@ max_tokens = 4096
 
 Supported provider labels are `anthropic`, `openrouter`, `openai`, `gemini`, and `ollama`. Ollama is keyless and uses `base_url`; hosted providers use `api_key_env`.
 
-The CLI may override some of this for the current REPL session:
+The CLI may override some of this for the current interactive session:
 
 - `--trace` enables daemon debug logging for the running daemon
 - `--yes` enables session-only auto-confirm for the attached REPL session
+- `repl --tui` opens the TUI for this invocation
+- `repl --classic` opens the classic Reedline REPL for this invocation
+- add `--save` to persist the selected `repl.ui`
 
-## REPL usage
+## TUI and REPL usage
+
+Fresh v0.11 profiles use the TUI. Upgraded profiles keep classic REPL unless setup/config or `allbert-cli repl --tui --save` opts in.
+
+TUI controls:
+
+- type a message and press Enter to send it
+- use slash commands exactly as in classic REPL
+- Ctrl-D exits
+- Ctrl-C reminds you to type `/exit` rather than stopping the daemon
+- confirmation modals accept `y`, `n`, and `a` for allow-session when the action is not durable
 
 Useful REPL commands:
 
@@ -211,6 +239,14 @@ Useful REPL commands:
   Alias for `/status`.
 - `/status`
   Shows provider, model, root agent, last active agent stack, last resolved intent, API-key env presence or `not required`, setup version, bootstrap pending state, trusted roots, daemon auto-spawn, jobs enablement, jobs timezone, skill count, and trace mode.
+- `/telemetry`
+  Shows live model, token, cost, memory, skill, inbox, and trace telemetry.
+- `/statusline [show|enable|disable|toggle <item>|add <item>|remove <item>]`
+  Inspects or changes configured TUI status-line items.
+- `/memory stats`
+  Shows durable, staged, episode, and fact counts.
+- `/memory routing`
+  Shows the current memory routing policy.
 - `/setup`
   Reruns guided setup. This updates config/bootstrap state and reloads daemon defaults plus job definitions for the current daemon session.
 - `/model`
@@ -235,8 +271,12 @@ Unknown slash commands are rejected locally with a short hint to use `/help`; th
 For curated-memory review, the most useful operator commands are:
 
 - `cargo run -p allbert-cli -- memory status`
+- `cargo run -p allbert-cli -- memory stats`
 - `cargo run -p allbert-cli -- memory verify`
 - `cargo run -p allbert-cli -- memory search "postgres"`
+- `cargo run -p allbert-cli -- memory search "debugging decision" --tier episode`
+- `cargo run -p allbert-cli -- memory search "project storage" --tier fact`
+- `cargo run -p allbert-cli -- memory routing show`
 - `cargo run -p allbert-cli -- memory staged list`
 - `cargo run -p allbert-cli -- memory staged show <id>`
 - `cargo run -p allbert-cli -- memory promote <id> --confirm`
@@ -256,6 +296,8 @@ And in normal conversation:
 Scheduled job failures are surfaced live to attached REPL clients as one-line notices, and they also remain recorded durably under `~/.allbert/jobs/failures/`.
 
 If the turn-end staged-memory suffix feels too noisy for your workflow, set `memory.surface_staged_on_turn_end = false` in `~/.allbert/config.toml` and restart the attached REPL session.
+
+Episode search is working-history recall, not approved durable memory. Fact search returns facts only after their parent note is promoted into durable memory. Semantic retrieval is off by default; v0.11 ships the fake deterministic semantic provider for validation and keeps real embedding adapters as future additive work.
 
 ## Daemon lifecycle
 
@@ -306,7 +348,7 @@ Notes:
 
 ## Telegram channel
 
-Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.10 end-user release.
+Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.11 end-user release.
 
 Setup:
 
@@ -318,7 +360,7 @@ Setup:
 
 Operational notes:
 
-- CLI, REPL, and Telegram can all resolve pending approvals through the shared inbox in v0.10.
+- CLI, REPL, TUI, and Telegram can all resolve pending approvals through the shared inbox in v0.11.
 - `/approve <approval-id>` accepts an async approval from Telegram itself.
 - `/reject <approval-id>` rejects an async approval from Telegram itself.
 - `/override <reason>` retries one turn after a daily cost-cap refusal and mirrors the same `cost-cap-override` item into the inbox.
@@ -329,7 +371,7 @@ Operational notes:
 
 ## Continuity across devices
 
-v0.10 treats profile continuity as an explicit operator workflow rather than an accidental side effect of copying `~/.allbert/`.
+v0.11 treats profile continuity as an explicit operator workflow rather than an accidental side effect of copying `~/.allbert/`.
 
 Recommended second-device flow:
 
@@ -350,6 +392,8 @@ Canonical commands:
 
 - `cargo run -p allbert-cli -- jobs list`
 - `cargo run -p allbert-cli -- jobs status <name>`
+- `cargo run -p allbert-cli -- jobs template enable personality-digest`
+- `cargo run -p allbert-cli -- jobs template disable personality-digest`
 - `cargo run -p allbert-cli -- jobs upsert <path>`
 - `cargo run -p allbert-cli -- jobs pause <name>`
 - `cargo run -p allbert-cli -- jobs resume <name>`
@@ -385,7 +429,7 @@ Conversational scheduling works best when you ask plainly. Good examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant should compile naturally in v0.10:
+Common schedule forms the assistant should compile naturally in v0.11:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -396,19 +440,20 @@ When you create, update, pause, resume, or remove a job from normal conversation
 
 ## Bundled maintenance jobs
 
-v0.10 seeds these bundled templates:
+v0.11 seeds these bundled templates:
 
 - `daily-brief`
 - `weekly-review`
 - `memory-compile`
 - `trace-triage`
 - `system-health-check`
+- `personality-digest`
 
-The setup wizard can enable selected templates for you. Fresh profiles that explicitly opt into recurring jobs preselect `memory-compile`, because it now stages candidate learnings instead of writing durable notes directly. If you skip a template there, it stays available under `~/.allbert/jobs/templates/` until you copy or upsert it yourself.
+The setup wizard can enable selected templates for you. Fresh profiles that explicitly opt into recurring jobs preselect `memory-compile`, because it now stages candidate learnings instead of writing durable notes directly. `personality-digest` stays opt-in and disabled until you enable its template. If you skip a template there, it stays available under `~/.allbert/jobs/templates/` until you copy or upsert it yourself.
 
 ## Skills and memory
 
-The canonical installed skill root in v0.10 is `~/.allbert/skills/installed/`.
+The canonical installed skill root in v0.11 is `~/.allbert/skills/installed/`.
 
 Quarantine lives under `~/.allbert/skills/incoming/`; fetched or copied skills stay there until you approve the preview.
 
@@ -434,9 +479,9 @@ Skill install/update preview shows:
 - declared scripts with interpreter, path, and SHA-256
 - the first lines of `SKILL.md`
 
-v0.10 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
+v0.11 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
 
-In v0.10, skills can also preview:
+In v0.11, skills can also preview:
 
 - `intents:` metadata to hint the intent router
 - `agents:` metadata to contribute namespaced sub-agents
@@ -456,6 +501,7 @@ Curated memory is durable and markdown-grounded:
 - `~/.allbert/memory/staging/`
 - `~/.allbert/memory/manifest.json`
 - `~/.allbert/memory/index/`
+- `~/.allbert/memory/index/semantic/`
 - `~/.allbert/memory/.trash/`
 - `~/.allbert/memory/migrations/`
 
@@ -466,11 +512,44 @@ Workflow summary:
 - `memory promote` moves staged entries into `notes/` and schedules re-index
 - `memory reject` archives staged entries under `staging/.rejected/`
 - `memory forget` moves approved durable notes into `.trash/` with explicit confirmation
+- `memory search --tier episode` searches bounded working history from session journals
+- `memory search --tier fact` searches approved durable fact metadata
 - `memory verify` performs the same checksum-based reconciliation check you can script against when the daemon is offline
 
-Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs.
+Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs. Episode recall is explicitly labelled working history, and facts become approved only after promotion.
 
-If you are upgrading to v0.10, see [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
+If you are upgrading to v0.11, see [v0.11-upgrade-2026-04-24.md](notes/v0.11-upgrade-2026-04-24.md) and [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
+
+## Personality digest
+
+`SOUL.md` remains the seeded, operator-owned persona and boundary file. v0.11 adds optional `PERSONALITY.md` as a reviewed learned overlay. It is absent by default, loaded only when present, and lower-authority than current user instruction, `SOUL.md`, profile files, policy, and tool/security rules.
+
+Preview the digest corpus without provider calls or file writes:
+
+```bash
+cargo run -p allbert-cli -- learning digest --preview
+```
+
+Run a draft once after enabling `[learning]` and `[learning.personality_digest]`:
+
+```bash
+cargo run -p allbert-cli -- learning digest --run
+```
+
+Install accepted output atomically to `PERSONALITY.md`:
+
+```bash
+cargo run -p allbert-cli -- learning digest --run --accept
+```
+
+Enable or disable the bundled schedule template:
+
+```bash
+cargo run -p allbert-cli -- jobs template enable personality-digest
+cargo run -p allbert-cli -- jobs template disable personality-digest
+```
+
+Draft artifacts live under `~/.allbert/learning/personality-digest/runs/<run_id>/`. See [personality-digest.md](operator/personality-digest.md) for the authority model and acceptance flow.
 
 ## Trace, logs, and cost files
 
@@ -540,24 +619,37 @@ Setup feels incomplete:
 Curated memory seems wrong or stale:
 
 - run `cargo run -p allbert-cli -- memory status`
+- run `cargo run -p allbert-cli -- memory stats`
 - run `cargo run -p allbert-cli -- memory verify`
 - run `cargo run -p allbert-cli -- memory rebuild-index --force`
 - check whether a staged entry is still waiting in `memory staged list`
-- if you upgraded from v0.6, check the upgrade note and confirm the Telegram config, allowlist, and any running daemon state were refreshed cleanly
+- if you upgraded from v0.10 or earlier, check the upgrade notes and expect a derived index rebuild on first launch
+
+TUI unavailable:
+
+- rerun with `cargo run -p allbert-cli -- repl --classic`
+- check whether your terminal supports raw mode and alternate screen
+- persist classic fallback with `cargo run -p allbert-cli -- repl --classic --save`
 
 ## Release posture
 
-v0.10 is a shipped technical-user release:
+v0.11 is a shipped technical-user release:
 
 - source-based
 - terminal-first
 - daemon-backed but still local-user-only
+- fresh-profile TUI with classic REPL fallback for upgrades
+- daemon-owned telemetry through TUI, REPL, and CLI
 - explicit workspace trust
 - guided bootstrap and daemon/jobs setup
 - restart-durable sessions with `sessions resume`
 - identity-routed cross-surface continuity with `identity`, `sessions`, and `inbox`
 - daily cost-cap enforcement with one-turn REPL override
 - operator-visible memory verification through `memory status` and `memory verify`
+- configurable always-eligible memory routing
+- explicit episode and fact memory search tiers
+- optional semantic retrieval seam, disabled by default
+- review-first personality digest seam and optional `PERSONALITY.md` learned overlay
 - first-class agents and intent routing with operator-visible status
 - strict AgentSkills-format skill install, inspection, and execution
 - channel administration through `daemon channels ...`
@@ -578,3 +670,5 @@ Known limitations remain explicit:
 - Telegram multimodal support is photos-in only; voice notes, audio, and image output are deferred
 - the daemon is lightweight and in-process, not a heavy isolated supervisor
 - sub-agent depth is budget-governed rather than fixed by nesting count
+- semantic retrieval is fake-provider-only in v0.11
+- personality digest output is deterministic and review-first; model-authored digest prose and adapter training are future work

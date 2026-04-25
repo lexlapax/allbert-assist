@@ -58,7 +58,7 @@ Allbert should keep its durable memory in markdown and linked files first, with 
 - making memory-curation skills always eligible through configurable routing without always loading their full prompt bodies
 - searching prior session episodes as working-history recall without treating transcripts as approved durable memory
 - attaching temporal fact metadata and provenance to staged/promoted memory while preserving review before durable promotion
-- optionally layering semantic retrieval as a derived index alongside BM25 rather than replacing markdown ground truth
+- optionally layering semantic retrieval as a derived index alongside BM25 rather than replacing markdown ground truth; v0.11 ships the seam with a fake deterministic provider first, and real embedding adapters can arrive additively
 - adapting over time to the user's preferences and personality
 
 ## Identity Direction
@@ -69,7 +69,7 @@ Allbert should have a small always-on bootstrap layer made of inspectable markdo
 
 For planning and reasoning, Allbert should support both strong hosted foundation models and local models. v0.10 makes the local-first default Ollama with `gemma4`, while Anthropic, OpenRouter, OpenAI, and Gemini remain first-class direct-provider options for operators who want hosted models. Provider choice stays a kernel-owned runtime configuration concern so cost logs, policy gates, daemon protocol, jobs, skills, and channel capability checks all see the same model posture.
 
-Over time Allbert may also use smaller specialized models for memory shaping, personalization, or other narrow tasks, as long as those additions keep the runtime understandable and maintainable. v0.11 takes the first review-first step toward the origin note's nightly-learning ambition with an opt-in personality digest and a `LearningJob` seam, but it does not train a model and does not rewrite `SOUL.md`. v0.13 is the planned release that trains: a local LoRA/adapter job plugs into the same seam, consumes the same approved durable/fact plus bounded episode-summary corpus contract, treats `SOUL.md` as baseline persona/constraints, treats accepted `PERSONALITY.md` as reviewed learned adaptation input, and routes new adapters through review before activation. Full foundation-model retraining remains out of scope.
+Over time Allbert may also use smaller specialized models for memory shaping, personalization, or other narrow tasks, as long as those additions keep the runtime understandable and maintainable. v0.11 takes the first review-first step toward the origin note's nightly-learning ambition with an opt-in deterministic personality digest and a `LearningJob` seam, but it does not train a model and does not rewrite `SOUL.md`. v0.13 is the planned release that trains: a local LoRA/adapter job plugs into the same seam, consumes the same approved durable/fact plus bounded episode-summary corpus contract, treats `SOUL.md` as baseline persona/constraints, treats accepted `PERSONALITY.md` as reviewed learned adaptation input, and routes new adapters through review before activation. Full foundation-model retraining remains out of scope.
 
 ## Skill Direction
 

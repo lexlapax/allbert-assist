@@ -1,7 +1,7 @@
 # ADR 0076: Memory routing is configurable always-eligible policy
 
 Date: 2026-04-24
-Status: Proposed
+Status: Accepted
 
 ## Context
 
@@ -60,4 +60,3 @@ Rejected alternatives:
 - [ADR 0036](0036-progressive-disclosure-maps-to-prompt-construction-stages.md)
 - [ADR 0039](0039-agents-md-joins-the-bootstrap-bundle-in-v0-3.md)
 - [ADR 0048](0048-v0-5-ships-a-first-party-memory-curator-skill.md)
-
