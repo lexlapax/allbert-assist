@@ -52,7 +52,7 @@ pub use config::{
 };
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
-pub use events::KernelEvent;
+pub use events::{ActivityTransition, KernelEvent};
 pub use heartbeat::{
     check_in_enabled, load_heartbeat_record, parse_heartbeat_markdown, quiet_hours_active,
     supports_proactive_delivery, validate_heartbeat_record, HeartbeatCheckIn, HeartbeatCheckIns,
@@ -158,6 +158,35 @@ fn render_user_input_for_history(user_input: &str, attachments: &[ChatAttachment
         ));
     }
     rendered
+}
+
+fn summarize_tool_invocation(name: &str, input: &serde_json::Value) -> String {
+    match input {
+        serde_json::Value::Object(map) => {
+            for key in ["path", "file", "query", "command", "name"] {
+                if let Some(value) = map.get(key).and_then(|value| value.as_str()) {
+                    let value = redact_activity_summary(value);
+                    return format!("{name} {value}");
+                }
+            }
+            format!("{name} with {} fields", map.len())
+        }
+        _ => name.to_string(),
+    }
+}
+
+fn redact_activity_summary(value: &str) -> String {
+    let first = value.split_whitespace().next().unwrap_or(value);
+    if first.to_ascii_lowercase().contains("token")
+        || first.to_ascii_lowercase().contains("secret")
+        || first.starts_with("sk-")
+    {
+        "[redacted]".into()
+    } else if first.chars().count() > 80 {
+        format!("{}...", first.chars().take(77).collect::<String>())
+    } else {
+        first.to_string()
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -564,6 +593,37 @@ impl Kernel {
         }
     }
 
+    fn emit_activity(
+        &self,
+        phase: allbert_proto::ActivityPhase,
+        label: impl Into<String>,
+        next_actions: Vec<String>,
+    ) {
+        self.emit_activity_with(phase, label, None, None, None, None, next_actions);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn emit_activity_with(
+        &self,
+        phase: allbert_proto::ActivityPhase,
+        label: impl Into<String>,
+        tool_name: Option<String>,
+        tool_summary: Option<String>,
+        skill_name: Option<String>,
+        approval_id: Option<String>,
+        next_actions: Vec<String>,
+    ) {
+        (self.adapter.on_event)(&KernelEvent::Activity(ActivityTransition {
+            phase,
+            label: label.into(),
+            tool_name,
+            tool_summary,
+            skill_name,
+            approval_id,
+            next_actions,
+        }));
+    }
+
     #[allow(clippy::too_many_arguments)]
     async fn run_turn_for_agent(
         &mut self,
@@ -589,6 +649,13 @@ impl Kernel {
             Some(parent) => vec![parent.to_string(), state.agent_name().to_string()],
             None => vec![state.agent_name().to_string()],
         };
+        if emit_terminal_events {
+            self.emit_activity(
+                allbert_proto::ActivityPhase::ClassifyingIntent,
+                "classifying intent",
+                Vec::new(),
+            );
+        }
         let resolved_intent = self
             .resolve_intent_for_turn(state, user_input, parent_agent_name.clone())
             .await?;
@@ -644,6 +711,13 @@ impl Kernel {
                 .model_override
                 .clone()
                 .unwrap_or_else(|| self.config.model.clone());
+            if emit_terminal_events {
+                self.emit_activity(
+                    allbert_proto::ActivityPhase::PreparingContext,
+                    "preparing context",
+                    Vec::new(),
+                );
+            }
             let mut prompt_ctx = HookCtx::before_prompt(
                 &state.session_id,
                 state.agent_name(),
@@ -688,6 +762,13 @@ impl Kernel {
             prompt_ctx.prompt_sections.extend(turn_memory.sections);
             state.turn_prefetch_hits = turn_memory.prefetch_hits;
 
+            if emit_terminal_events {
+                self.emit_activity(
+                    allbert_proto::ActivityPhase::CallingModel,
+                    format!("calling model {}", effective_model.model_id),
+                    vec!["wait for the model response".into()],
+                );
+            }
             let response = self
                 .llm
                 .complete(CompletionRequest {
@@ -712,6 +793,13 @@ impl Kernel {
                 "model response received"
             );
             state.record_response_usage(response.usage.clone());
+            if emit_terminal_events {
+                self.emit_activity(
+                    allbert_proto::ActivityPhase::StreamingResponse,
+                    "processing model response",
+                    Vec::new(),
+                );
+            }
 
             let mut hook_ctx = HookCtx::on_model_response(
                 &state.session_id,
@@ -756,6 +844,13 @@ impl Kernel {
                 .filter(|invocation| invocation.name == "spawn_subagent")
                 .count();
             if tool_calls.is_empty() {
+                if emit_terminal_events {
+                    self.emit_activity(
+                        allbert_proto::ActivityPhase::Finalizing,
+                        "finalizing turn",
+                        Vec::new(),
+                    );
+                }
                 state.append_ephemeral_note(
                     format!("Assistant: {}", final_text.trim()),
                     self.config.memory.max_ephemeral_bytes,
@@ -817,6 +912,18 @@ impl Kernel {
 
                 tool_calls_used += 1;
                 if emit_terminal_events {
+                    self.emit_activity_with(
+                        allbert_proto::ActivityPhase::CallingTool,
+                        format!("calling tool {}", invocation.name),
+                        Some(invocation.name.clone()),
+                        Some(summarize_tool_invocation(
+                            &invocation.name,
+                            &invocation.input,
+                        )),
+                        None,
+                        None,
+                        vec!["wait for the tool result".into()],
+                    );
                     (self.adapter.on_event)(&KernelEvent::ToolCall {
                         name: invocation.name.clone(),
                         input: invocation.input.clone(),
@@ -918,6 +1025,11 @@ impl Kernel {
                 tool_output_total += content.len();
 
                 if emit_terminal_events {
+                    self.emit_activity(
+                        allbert_proto::ActivityPhase::Finalizing,
+                        "recording tool result",
+                        Vec::new(),
+                    );
                     (self.adapter.on_event)(&KernelEvent::ToolResult {
                         name: invocation.name.clone(),
                         ok: tool_output.ok,

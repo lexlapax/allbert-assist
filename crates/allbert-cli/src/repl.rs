@@ -21,12 +21,20 @@ commands:
   /cost --override <reason>
             allow the next turn to bypass the daily cap once
   /help     show this help
+  /agents   show the generated AGENTS.md routing summary
+  /context  show context-window usage and pressure
   /memory routing
             show memory routing policy
   /memory stats
             show durable, staged, episode, and fact counts
+  /memory show staged
+            list staged memory candidates
+  /memory show today
+            list staged memory candidates from the last day
   /model    show or change the active model
   /s        show provider, intent, agent, setup, roots, and trace state
+  /skills [list|show <name>|search <substring>]
+            inspect installed skills and routing metadata
   /setup    rerun guided setup and reload config for this session
   /status   show provider, current agent context, setup, roots, and trace state
   /statusline [show|enable|disable|toggle <item>|add <item>|remove <item>]
@@ -80,10 +88,13 @@ commands:
 pub enum LocalCommand<'a> {
     Exit,
     Help,
+    Agents,
+    Context,
     Cost(&'a str),
     Memory(&'a str),
     Model(&'a str),
     Setup,
+    Skills(&'a str),
     Status,
     StatusLine(&'a str),
     Telemetry,
@@ -111,6 +122,12 @@ pub async fn run_loop(
                 match parse_local_command(trimmed) {
                     LocalCommand::Exit => break,
                     LocalCommand::Help => println!("{HELP_TEXT}"),
+                    LocalCommand::Agents => {
+                        println!("{}", handle_agents_command(paths)?);
+                    }
+                    LocalCommand::Context => {
+                        println!("{}", handle_context_command(client).await?);
+                    }
                     LocalCommand::Cost(command) => {
                         handle_cost_command(client, paths, command).await?;
                     }
@@ -122,6 +139,9 @@ pub async fn run_loop(
                     }
                     LocalCommand::Setup => {
                         handle_setup_command(client, paths).await?;
+                    }
+                    LocalCommand::Skills(command) => {
+                        println!("{}", handle_skills_command(paths, command)?);
                     }
                     LocalCommand::Status => {
                         let status = client.session_status().await?;
@@ -161,9 +181,12 @@ pub fn parse_local_command(input: &str) -> LocalCommand<'_> {
     match input {
         "/exit" | "/quit" => LocalCommand::Exit,
         "/help" | "/h" => LocalCommand::Help,
+        "/agents" => LocalCommand::Agents,
+        "/context" => LocalCommand::Context,
         command if command.starts_with("/cost") => LocalCommand::Cost(command),
         command if command.starts_with("/memory") => LocalCommand::Memory(command),
         "/setup" => LocalCommand::Setup,
+        command if command.starts_with("/skills") => LocalCommand::Skills(command),
         "/status" | "/s" => LocalCommand::Status,
         command if command.starts_with("/statusline") => LocalCommand::StatusLine(command),
         "/telemetry" => LocalCommand::Telemetry,
@@ -178,6 +201,7 @@ async fn run_turn(client: &mut DaemonClient, input: &str) -> Result<()> {
     loop {
         match client.recv().await? {
             ServerMessage::Event(event) => render_event(event),
+            ServerMessage::ActivityUpdate(activity) => render_activity_update(&activity),
             ServerMessage::ConfirmRequest(request) => {
                 let decision = prompt_confirm(&request.program, &request.rendered)?;
                 client
@@ -398,6 +422,59 @@ pub async fn handle_telemetry_command(client: &mut DaemonClient) -> Result<Strin
     Ok(render_telemetry_summary(&telemetry))
 }
 
+pub async fn handle_context_command(client: &mut DaemonClient) -> Result<String> {
+    let telemetry = client.session_telemetry().await?;
+    let context = match (telemetry.context_used_tokens, telemetry.context_percent) {
+        (Some(tokens), Some(percent)) => format!(
+            "{} tokens used ({percent:.1}%, {}) of {} configured tokens",
+            tokens,
+            context_band(percent),
+            telemetry.context_window_tokens
+        ),
+        (Some(tokens), None) => {
+            format!("{tokens} tokens used; context window capacity is unknown")
+        }
+        _ => "context usage is not available yet; run a turn first".into(),
+    };
+    let recommendation = match telemetry.context_percent {
+        Some(percent) if percent >= 95.0 => {
+            "recommendation: start a fresh session or reduce context before the next large turn"
+        }
+        Some(percent) if percent >= 75.0 => {
+            "recommendation: continue, but expect less room for long tool output"
+        }
+        Some(_) => "recommendation: context pressure is healthy",
+        None => "recommendation: set model.context_window_tokens for better pressure labels",
+    };
+    Ok(format!(
+        "context\nusage: {context}\nsynopsis bytes: {}\nephemeral bytes: {}\nlast provider tokens: {}\n{recommendation}",
+        telemetry.memory.synopsis_bytes,
+        telemetry.memory.ephemeral_bytes,
+        telemetry
+            .last_response_usage
+            .as_ref()
+            .map(|usage| usage.total_tokens)
+            .unwrap_or_default()
+    ))
+}
+
+pub fn handle_agents_command(paths: &allbert_kernel::AllbertPaths) -> Result<String> {
+    Ok(allbert_kernel::refresh_agents_markdown(paths)?)
+}
+
+pub fn handle_skills_command(
+    paths: &allbert_kernel::AllbertPaths,
+    command: &str,
+) -> Result<String> {
+    let args = command.split_whitespace().collect::<Vec<_>>();
+    match args.as_slice() {
+        ["/skills"] | ["/skills", "list"] => crate::skills::list_installed_skills(paths),
+        ["/skills", "show", name] => crate::skills::show_installed_skill(paths, name),
+        ["/skills", "search", query] => crate::skills::search_installed_skills(paths, query),
+        _ => Ok("usage: /skills [list|show <name>|search <substring>]".into()),
+    }
+}
+
 pub fn handle_memory_command(
     paths: &allbert_kernel::AllbertPaths,
     command: &str,
@@ -406,10 +483,19 @@ pub fn handle_memory_command(
     let args = command.split_whitespace().collect::<Vec<_>>();
     match args.as_slice() {
         ["/memory", "stats"] => crate::memory_cli::stats(paths, &config),
+        ["/memory", "show", "staged"] | ["/memory", "staged", "list"] => {
+            crate::memory_cli::staged_list(paths, &config, None, None, Some(10), "text")
+        }
+        ["/memory", "show", "today"] => {
+            crate::memory_cli::staged_list(paths, &config, None, Some("1d"), Some(10), "text")
+        }
         ["/memory", "routing"] | ["/memory", "routing", "show"] => {
             Ok(crate::memory_cli::routing_show(&config))
         }
-        _ => Ok("usage: /memory stats | /memory routing [show]".into()),
+        _ => Ok(
+            "usage: /memory stats | /memory show staged | /memory show today | /memory routing [show]"
+                .into(),
+        ),
     }
 }
 
@@ -526,15 +612,17 @@ fn parse_statusline_item(raw: &str) -> Result<StatusLineItem> {
 
 fn render_telemetry_summary(snapshot: &allbert_proto::TelemetrySnapshot) -> String {
     format!(
-        "telemetry\nsession: {}\nchannel: {:?}\nmodel: {} / {}\ncontext: {}\ntokens: last={} session={}\ncost: session=${:.4} today=${:.4}\nmemory: durable={} staged={} episode={} fact={}\nskills: {}\ninbox: {}\ntrace: {}",
+        "telemetry\nsession: {}\nchannel: {:?}\nmodel: {} / {}\ncontext: {}\ntokens: last={} session={}\ncost: session=${:.6} today=${:.6}\nmemory: durable={} staged={} episode={} fact={}\nskills: {}\ninbox: {}\ntrace: {}",
         snapshot.session_id,
         snapshot.channel,
         snapshot.provider,
         snapshot.model.model_id,
         match (snapshot.context_used_tokens, snapshot.context_percent) {
-            (Some(tokens), Some(percent)) => format!("{tokens} ({percent:.1}%)"),
-            (Some(tokens), None) => format!("{tokens} (window unknown)"),
-            _ => "unknown".into(),
+            (Some(tokens), Some(percent)) => {
+                format!("{tokens} ({percent:.1}%, {})", context_band(percent))
+            }
+            (Some(tokens), None) => format!("{tokens} (cap unknown)"),
+            _ => "cap unknown".into(),
         },
         snapshot
             .last_response_usage
@@ -556,6 +644,18 @@ fn render_telemetry_summary(snapshot: &allbert_proto::TelemetrySnapshot) -> Stri
         snapshot.inbox_count,
         if snapshot.trace_enabled { "on" } else { "off" },
     )
+}
+
+fn context_band(percent: f64) -> &'static str {
+    if percent >= 95.0 {
+        "full"
+    } else if percent >= 75.0 {
+        "heavy"
+    } else if percent >= 40.0 {
+        "moderate"
+    } else {
+        "light"
+    }
 }
 
 fn prompt_confirm(program: &str, rendered: &str) -> Result<ConfirmDecisionPayload> {
@@ -639,9 +739,18 @@ fn render_event(event: KernelEventPayload) {
 }
 
 pub fn render_async_server_message(message: ServerMessage) {
-    if let ServerMessage::Event(event) = message {
-        render_event(event);
+    match message {
+        ServerMessage::Event(event) => render_event(event),
+        ServerMessage::ActivityUpdate(activity) => render_activity_update(&activity),
+        _ => {}
     }
+}
+
+fn render_activity_update(activity: &allbert_proto::ActivitySnapshot) {
+    if matches!(activity.phase, allbert_proto::ActivityPhase::Idle) {
+        return;
+    }
+    eprintln!("[activity] {}", activity.label);
 }
 
 fn parse_provider(raw: &str) -> Option<ProviderKind> {
@@ -748,6 +857,30 @@ mod tests {
         assert!(matches!(
             parse_local_command("/memory routing"),
             LocalCommand::Memory("/memory routing")
+        ));
+    }
+
+    #[test]
+    fn v0_12_1_operator_legibility_slash_commands_are_local() {
+        assert!(matches!(
+            parse_local_command("/agents"),
+            LocalCommand::Agents
+        ));
+        assert!(matches!(
+            parse_local_command("/context"),
+            LocalCommand::Context
+        ));
+        assert!(matches!(
+            parse_local_command("/skills search memory"),
+            LocalCommand::Skills("/skills search memory")
+        ));
+        assert!(matches!(
+            parse_local_command("/memory show staged"),
+            LocalCommand::Memory("/memory show staged")
+        ));
+        assert!(matches!(
+            parse_local_command("/memory show today"),
+            LocalCommand::Memory("/memory show today")
         ));
     }
 

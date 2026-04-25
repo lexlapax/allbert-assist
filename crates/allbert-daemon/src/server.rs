@@ -22,9 +22,9 @@ use allbert_kernel::{
     job_manager::JobManager as KernelJobManager,
     llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole},
     llm::{DefaultProviderFactory, ProviderFactory},
-    ActiveSkill, ConfirmDecision, ConfirmPrompter, ConfirmRequest, FrontendAdapter, InputPrompter,
-    InputRequest, InputResponse, Intent, Kernel, KernelError, KernelEvent, ModelConfig,
-    SessionSnapshot, Usage, LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
+    ActiveSkill, ActivityTransition, ConfirmDecision, ConfirmPrompter, ConfirmRequest,
+    FrontendAdapter, InputPrompter, InputRequest, InputResponse, Intent, Kernel, KernelError,
+    KernelEvent, ModelConfig, SessionSnapshot, Usage, LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
 };
 use allbert_proto::{
     ActivityPhase, ActivitySnapshot, AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload,
@@ -189,8 +189,62 @@ fn activity_snapshot(
     }
 }
 
+fn activity_snapshot_from_transition(
+    session: &SessionHandle,
+    transition: ActivityTransition,
+) -> ActivitySnapshot {
+    let now = now_rfc3339_fallback();
+    ActivitySnapshot {
+        phase: transition.phase,
+        label: transition.label,
+        started_at: now.clone(),
+        elapsed_ms: 0,
+        session_id: session.session_id.clone(),
+        channel: session.channel(),
+        tool_name: transition.tool_name,
+        tool_summary: transition.tool_summary,
+        skill_name: transition.skill_name,
+        approval_id: transition.approval_id,
+        last_progress_at: Some(now),
+        stuck_hint: None,
+        next_actions: transition.next_actions,
+    }
+}
+
 fn activity_with_elapsed(mut activity: ActivitySnapshot) -> ActivitySnapshot {
     activity.elapsed_ms = elapsed_ms_since_rfc3339(&activity.started_at).unwrap_or(0);
+    if activity.stuck_hint.is_none() {
+        let elapsed_s = activity.elapsed_ms / 1000;
+        activity.stuck_hint = match activity.phase {
+            ActivityPhase::CallingModel if elapsed_s >= 30 => Some(format!(
+                "calling model for {elapsed_s}s; no provider tokens yet"
+            )),
+            ActivityPhase::CallingTool
+            | ActivityPhase::RunningScript
+            | ActivityPhase::RunningValidation
+                if elapsed_s >= 20 =>
+            {
+                let label = activity
+                    .tool_summary
+                    .as_deref()
+                    .or(activity.tool_name.as_deref())
+                    .unwrap_or(activity.label.as_str());
+                Some(format!("running {label} for {elapsed_s}s"))
+            }
+            ActivityPhase::WaitingForApproval if elapsed_s >= 30 => {
+                let suffix = activity
+                    .approval_id
+                    .as_deref()
+                    .map(|id| format!(" ({id})"))
+                    .unwrap_or_default();
+                Some(format!("waiting for approval{suffix} for {elapsed_s}s"))
+            }
+            ActivityPhase::WaitingForInput if elapsed_s >= 30 => {
+                Some(format!("waiting for operator input for {elapsed_s}s"))
+            }
+            _ => None,
+        };
+    }
     activity
 }
 
@@ -392,6 +446,7 @@ struct DaemonJobManager {
 #[allow(clippy::large_enum_variant)]
 enum OutboundMessage {
     Event(ServerMessage),
+    Activity(ActivityTransition),
     Confirm(
         ConfirmRequestPayload,
         oneshot::Sender<ConfirmDecisionPayload>,
@@ -2730,6 +2785,21 @@ async fn run_turn_over_channel(
                     continue;
                 };
                 match outbound {
+                    OutboundMessage::Activity(transition) => {
+                        let activity = activity_snapshot_from_transition(&session, transition);
+                        set_session_activity(state, &session, activity);
+                        if client_connected
+                            && send_server_message_for_protocol(
+                                framed,
+                                &ServerMessage::ActivityUpdate(session.activity_snapshot()),
+                                client_protocol,
+                            )
+                            .await
+                            .is_err()
+                        {
+                            client_connected = false;
+                        }
+                    }
                     OutboundMessage::Event(message) => {
                         if let ServerMessage::Event(KernelEventPayload::ToolResult { name, ok, content }) = &message {
                             tool_results.push(ToolJournalEntry {
@@ -2750,6 +2820,27 @@ async fn run_turn_over_channel(
                         if !client_connected {
                             let _ = reply.send(ConfirmDecisionPayload::Deny);
                             continue;
+                        }
+                        set_session_activity(
+                            state,
+                            &session,
+                            activity_snapshot(
+                                &session,
+                                ActivityPhase::WaitingForApproval,
+                                "waiting for approval",
+                                vec!["review and answer the approval prompt".into()],
+                            ),
+                        );
+                        if client_connected
+                            && send_server_message_for_protocol(
+                                framed,
+                                &ServerMessage::ActivityUpdate(session.activity_snapshot()),
+                                client_protocol,
+                            )
+                            .await
+                            .is_err()
+                        {
+                            client_connected = false;
                         }
                         let is_async_confirm = session_channel == ChannelKind::Telegram;
                         if is_async_confirm {
@@ -2935,6 +3026,27 @@ async fn run_turn_over_channel(
                             let _ = reply.send(InputResponsePayload::Cancelled);
                             continue;
                         }
+                        set_session_activity(
+                            state,
+                            &session,
+                            activity_snapshot(
+                                &session,
+                                ActivityPhase::WaitingForInput,
+                                "waiting for input",
+                                vec!["answer the input prompt".into()],
+                            ),
+                        );
+                        if client_connected
+                            && send_server_message_for_protocol(
+                                framed,
+                                &ServerMessage::ActivityUpdate(session.activity_snapshot()),
+                                client_protocol,
+                            )
+                            .await
+                            .is_err()
+                        {
+                            client_connected = false;
+                        }
                         if send_server_message_for_protocol(
                             framed,
                             &ServerMessage::InputRequest(request.clone()),
@@ -2965,6 +3077,8 @@ async fn run_turn_over_channel(
                         drain_outbound_queue(
                             &mut rx,
                             framed,
+                            state,
+                            &session,
                             &mut client_connected,
                             &mut tool_results,
                             state.default_config.read().await.memory.max_journal_tool_output_bytes,
@@ -3015,6 +3129,8 @@ async fn run_turn_over_channel(
                         drain_outbound_queue(
                             &mut rx,
                             framed,
+                            state,
+                            &session,
                             &mut client_connected,
                             &mut tool_results,
                             state.default_config.read().await.memory.max_journal_tool_output_bytes,
@@ -3142,9 +3258,12 @@ async fn run_turn_over_channel(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn drain_outbound_queue(
     rx: &mut mpsc::UnboundedReceiver<OutboundMessage>,
     framed: &mut FramedStream,
+    state: &SharedState,
+    session: &Arc<SessionHandle>,
     client_connected: &mut bool,
     tool_results: &mut Vec<ToolJournalEntry>,
     max_journal_tool_output_bytes: usize,
@@ -3152,6 +3271,18 @@ async fn drain_outbound_queue(
 ) {
     while let Ok(outbound) = rx.try_recv() {
         match outbound {
+            OutboundMessage::Activity(transition) => {
+                let activity = activity_snapshot_from_transition(session, transition);
+                set_session_activity(state, session, activity);
+                if *client_connected {
+                    let _ = send_server_message_for_protocol(
+                        framed,
+                        &ServerMessage::ActivityUpdate(session.activity_snapshot()),
+                        client_protocol,
+                    )
+                    .await;
+                }
+            }
             OutboundMessage::Event(message) => {
                 if let ServerMessage::Event(KernelEventPayload::ToolResult { name, ok, content }) =
                     &message
@@ -4424,11 +4555,18 @@ impl LocalIpcChannel {
     }
 
     fn emit_kernel_event(&self, event: &KernelEvent) -> Result<(), ChannelError> {
-        self.outbound
-            .send(OutboundMessage::Event(ServerMessage::Event(
-                map_kernel_event(event),
-            )))
-            .map_err(|_| ChannelError::Disconnected)
+        match event {
+            KernelEvent::Activity(transition) => self
+                .outbound
+                .send(OutboundMessage::Activity(transition.clone()))
+                .map_err(|_| ChannelError::Disconnected),
+            _ => self
+                .outbound
+                .send(OutboundMessage::Event(ServerMessage::Event(
+                    map_kernel_event(event),
+                )))
+                .map_err(|_| ChannelError::Disconnected),
+        }
     }
 }
 
@@ -4590,6 +4728,9 @@ fn map_kernel_event(event: &KernelEvent) -> KernelEventPayload {
         KernelEvent::TurnDone { hit_turn_limit } => KernelEventPayload::TurnDone {
             hit_turn_limit: *hit_turn_limit,
         },
+        KernelEvent::Activity(_) => {
+            unreachable!("activity transitions are daemon-internal and not protocol events")
+        }
     }
 }
 

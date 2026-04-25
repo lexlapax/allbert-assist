@@ -312,6 +312,48 @@ async fn daemon_protocol_v2_peer_does_not_receive_v3_activity_broadcasts() {
     shutdown_daemon(handle, &paths).await;
 }
 
+#[tokio::test]
+async fn daemon_activity_updates_cover_model_turn_and_idle() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        sample_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted("activity reply")])),
+    )
+    .await
+    .expect("daemon should start");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, Some("activity-session".into()))
+        .await
+        .expect("attach should succeed");
+    let messages = run_turn_collect_messages(&mut client, "hello").await;
+    let phases = messages
+        .iter()
+        .filter_map(|message| match message {
+            ServerMessage::ActivityUpdate(activity) => Some(activity.phase),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert!(phases.contains(&ActivityPhase::Queued), "{phases:?}");
+    assert!(
+        phases.contains(&ActivityPhase::ClassifyingIntent),
+        "{phases:?}"
+    );
+    assert!(phases.contains(&ActivityPhase::CallingModel), "{phases:?}");
+    assert!(
+        phases.contains(&ActivityPhase::StreamingResponse),
+        "{phases:?}"
+    );
+    assert!(phases.contains(&ActivityPhase::Finalizing), "{phases:?}");
+    assert!(phases.contains(&ActivityPhase::Idle), "{phases:?}");
+
+    shutdown_daemon(handle, &paths).await;
+}
+
 async fn shutdown_daemon(handle: RunningDaemon, paths: &AllbertPaths) {
     let mut client = DaemonClient::connect(paths, ClientKind::Test)
         .await

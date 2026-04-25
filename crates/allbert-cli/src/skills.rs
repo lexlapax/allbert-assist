@@ -86,6 +86,24 @@ pub fn list_installed_skills(paths: &AllbertPaths) -> Result<String> {
     }
 }
 
+pub fn search_installed_skills(paths: &AllbertPaths, query: &str) -> Result<String> {
+    let query = query.trim().to_ascii_lowercase();
+    if query.is_empty() {
+        return Ok("usage: /skills search <substring>".into());
+    }
+    let listed = list_installed_skills(paths)?;
+    let matches = listed
+        .split("\n\n")
+        .filter(|entry| entry.to_ascii_lowercase().contains(&query))
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if matches.is_empty() {
+        Ok(format!("no installed skills match `{query}`"))
+    } else {
+        Ok(matches.join("\n\n"))
+    }
+}
+
 pub fn show_installed_skill(paths: &AllbertPaths, name: &str) -> Result<String> {
     paths.ensure()?;
     let root = paths.skills_installed.join(name);
@@ -1460,6 +1478,10 @@ mod tests {
         assert!(listing.contains("Valid test skill"));
         assert!(listing.contains("source: external"));
         assert!(listing.contains("scripts: 1"));
+        let searched = search_installed_skills(&paths, "showcase").expect("search should succeed");
+        assert!(searched.contains("showcase-skill"));
+        let missed = search_installed_skills(&paths, "no-match").expect("search should succeed");
+        assert!(missed.contains("no installed skills match"));
 
         let shown = show_installed_skill(&paths, "showcase-skill").expect("show should succeed");
         assert!(shown.contains("name:           showcase-skill"));

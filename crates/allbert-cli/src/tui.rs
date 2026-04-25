@@ -166,12 +166,15 @@ impl TuiApp {
     fn process_event(&mut self, event: KernelEventPayload) {
         match event {
             KernelEventPayload::AssistantText(text) => self.push_line(format!("allbert: {text}")),
-            KernelEventPayload::ToolCall { name, .. } => {
-                self.push_line(format!("[tool call: {name}]"))
+            KernelEventPayload::ToolCall { name, input } => {
+                self.push_line(format!("> {}({})", name, summarize_json_input(&input)))
             }
-            KernelEventPayload::ToolResult { name, ok, .. } => {
+            KernelEventPayload::ToolResult { name, ok, content } => {
                 let tag = if ok { "ok" } else { "err" };
-                self.push_line(format!("[tool result: {name} ({tag})]"));
+                self.push_line(format!(
+                    "< {name}: {tag}, {}",
+                    summarize_tool_result(&content)
+                ));
             }
             KernelEventPayload::JobFailed {
                 job_name,
@@ -187,8 +190,10 @@ impl TuiApp {
             KernelEventPayload::TurnDone { hit_turn_limit } if hit_turn_limit => {
                 self.push_line("[turn hit max-turns limit]");
             }
+            KernelEventPayload::SkillTier2Activated { skill_name } => {
+                self.push_line(format!("activated: {skill_name}"));
+            }
             KernelEventPayload::SkillTier1Surfaced { .. }
-            | KernelEventPayload::SkillTier2Activated { .. }
             | KernelEventPayload::SkillTier3Referenced { .. }
             | KernelEventPayload::Cost { .. }
             | KernelEventPayload::TurnDone { .. } => {}
@@ -202,16 +207,19 @@ impl TuiApp {
                 None
             }
             LocalCommand::Help => Some(repl::HELP_TEXT.to_string()),
-            LocalCommand::UnknownSlash(command) => Some(format!(
-                "unknown command: {command}\nuse /help to see supported REPL commands"
-            )),
-            LocalCommand::Cost(_)
+            LocalCommand::Agents
+            | LocalCommand::Context
+            | LocalCommand::Skills(_)
+            | LocalCommand::Cost(_)
             | LocalCommand::Memory(_)
             | LocalCommand::Model(_)
             | LocalCommand::Setup
             | LocalCommand::Status
             | LocalCommand::StatusLine(_)
             | LocalCommand::Telemetry => None,
+            LocalCommand::UnknownSlash(command) => Some(format!(
+                "unknown command: {command}\nuse /help to see supported REPL commands"
+            )),
             LocalCommand::Turn(input) => Some(input.to_string()),
         }
     }
@@ -324,6 +332,13 @@ async fn handle_key(
             }
             app.push_line(format!("you: {input}"));
             match repl::parse_local_command(&input) {
+                LocalCommand::Agents => {
+                    app.push_line(repl::handle_agents_command(paths)?);
+                }
+                LocalCommand::Context => {
+                    let rendered = repl::handle_context_command(client).await?;
+                    app.push_line(rendered);
+                }
                 LocalCommand::Status | LocalCommand::Telemetry => {
                     let telemetry = client.session_telemetry().await?;
                     app.set_telemetry(telemetry.clone());
@@ -331,6 +346,9 @@ async fn handle_key(
                 }
                 LocalCommand::Memory(command) => {
                     app.push_line(repl::handle_memory_command(paths, command)?);
+                }
+                LocalCommand::Skills(command) => {
+                    app.push_line(repl::handle_skills_command(paths, command)?);
                 }
                 LocalCommand::StatusLine(command) => {
                     app.push_line(repl::handle_statusline_command(paths, command)?);
@@ -561,14 +579,52 @@ fn activity_segment(app: &TuiApp, compact: bool) -> Option<String> {
     }
 }
 
+fn summarize_json_input(input: &serde_json::Value) -> String {
+    match input {
+        serde_json::Value::Object(map) => ["path", "file", "query", "command", "name"]
+            .iter()
+            .find_map(|key| map.get(*key).and_then(|value| value.as_str()))
+            .map(redact_summary)
+            .unwrap_or_else(|| format!("{} fields", map.len())),
+        _ => "...".into(),
+    }
+}
+
+fn summarize_tool_result(content: &str) -> String {
+    let bytes = content.len();
+    let lines = content.lines().count().max(1);
+    let first = content
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .map(redact_summary)
+        .unwrap_or_else(|| "(empty)".into());
+    format!("{lines} lines, {bytes}B, {first}")
+}
+
+fn redact_summary(value: &str) -> String {
+    let single = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    let lowered = single.to_ascii_lowercase();
+    if lowered.contains("token=")
+        || lowered.contains("secret=")
+        || lowered.contains("password=")
+        || single.starts_with("sk-")
+    {
+        "[redacted]".into()
+    } else if single.chars().count() > 80 {
+        format!("{}...", single.chars().take(77).collect::<String>())
+    } else {
+        single
+    }
+}
+
 fn status_item(item: &str, telemetry: &TelemetrySnapshot) -> String {
     match item {
         "model" => format!("model {}", telemetry.model.model_id),
         "context" => context_label(telemetry),
         "tokens" => format!("tok {}", telemetry.session_usage.total_tokens),
-        "cost" => format!("cost ${:.4}", telemetry.session_cost_usd),
+        "cost" => format!("cost ${:.6}", telemetry.session_cost_usd),
         "memory" => format!(
-            "mem d{} s{} e{} f{}",
+            "memory durable {} staged {} episode {} fact {}",
             telemetry.memory.durable_count,
             telemetry.memory.staged_count,
             telemetry.memory.episode_count,
@@ -591,20 +647,37 @@ fn status_item(item: &str, telemetry: &TelemetrySnapshot) -> String {
 
 fn context_label(telemetry: &TelemetrySnapshot) -> String {
     match (telemetry.context_used_tokens, telemetry.context_percent) {
-        (Some(tokens), Some(percent)) => format!("ctx {tokens}/{:.0}%", percent),
-        (Some(tokens), None) => format!("ctx {tokens}/?"),
-        _ => "ctx ?".into(),
+        (Some(tokens), Some(percent)) => {
+            let band = context_band(percent);
+            format!("ctx {tokens}/{percent:.0}% {band}")
+        }
+        (Some(tokens), None) => format!("ctx {tokens}/cap unknown"),
+        _ => "ctx cap unknown".into(),
+    }
+}
+
+fn context_band(percent: f64) -> &'static str {
+    if percent >= 95.0 {
+        "full"
+    } else if percent >= 75.0 {
+        "heavy"
+    } else if percent >= 40.0 {
+        "moderate"
+    } else {
+        "light"
     }
 }
 
 fn render_telemetry_summary(snapshot: &TelemetrySnapshot) -> String {
     format!(
-        "model: {}\ncontext: {}\ncost: ${:.6}\nmemory: durable {}, staged {}\ninbox: {}",
+        "model: {}\ncontext: {}\ncost: ${:.6}\nmemory: durable {}, staged {}, episode {}, fact {}\ninbox: {}",
         snapshot.model.model_id,
         context_label(snapshot),
         snapshot.session_cost_usd,
         snapshot.memory.durable_count,
         snapshot.memory.staged_count,
+        snapshot.memory.episode_count,
+        snapshot.memory.fact_count,
         snapshot.inbox_count
     )
 }
@@ -845,6 +918,30 @@ mod tests {
             .collect::<String>();
         assert_ne!(app.spinner_frame, before);
         assert!(line.contains("turn queued"));
+    }
+
+    #[test]
+    fn tui_modal_input_is_separate_from_composer_draft() {
+        let mut app = TuiApp::new(vec![]);
+        app.composer_input = "draft for next turn".into();
+        app.modal_input = "modal answer".into();
+        app.modal = Some(Modal::Input {
+            request_id: 9,
+            prompt: "answer?".into(),
+            allow_empty: false,
+        });
+
+        assert_eq!(app.composer_input, "draft for next turn");
+        assert_eq!(app.modal_input, "modal answer");
+    }
+
+    #[test]
+    fn tui_tool_summary_redacts_and_truncates_breadcrumbs() {
+        let input = serde_json::json!({"command": "sk-secret-token should not render"});
+        assert_eq!(summarize_json_input(&input), "[redacted]");
+        let rendered = summarize_tool_result("first line\nsecond line");
+        assert!(rendered.contains("2 lines"));
+        assert!(rendered.contains("first line"));
     }
 
     #[test]
