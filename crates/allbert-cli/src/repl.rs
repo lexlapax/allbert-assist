@@ -1,8 +1,8 @@
 use allbert_daemon::DaemonClient;
 use allbert_kernel::{Provider, StatusLineItem};
 use allbert_proto::{
-    ClientMessage, ConfirmDecisionPayload, InputResponsePayload, KernelEventPayload,
-    ModelConfigPayload, ProviderKind, ServerMessage,
+    ActivityPhase, ActivitySnapshot, ApprovalContext, ClientMessage, ConfirmDecisionPayload,
+    InputResponsePayload, KernelEventPayload, ModelConfigPayload, ProviderKind, ServerMessage,
 };
 use anyhow::Result;
 use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
@@ -22,7 +22,10 @@ commands:
             allow the next turn to bypass the daily cap once
   /help     show this help
   /agents   show the generated AGENTS.md routing summary
+  /activity show what the daemon says Allbert is doing right now
   /context  show context-window usage and pressure
+  /inbox [list|show <id>|accept <id>|reject <id>]
+            review and resolve approval inbox items
   /memory routing
             show memory routing policy
   /memory stats
@@ -31,7 +34,17 @@ commands:
             list staged memory candidates
   /memory show today
             list staged memory candidates from the last day
+  /memory staged show <id>
+            show one staged memory candidate
   /model    show or change the active model
+  /self-improvement config show
+            inspect self-improvement source, worktree, and install policy
+  /self-improvement diff <approval-id>
+            show the patch artifact for a reviewed self-improvement approval
+  /self-improvement install <approval-id>
+            install an accepted self-improvement patch through the reviewed path
+  /self-improvement gc [--dry-run]
+            clean stale self-improvement worktrees
   /s        show provider, intent, agent, setup, roots, and trace state
   /skills [list|show <name>|search <substring>]
             inspect installed skills and routing metadata
@@ -91,10 +104,13 @@ pub enum LocalCommand<'a> {
     Exit,
     Help,
     Agents,
+    Activity,
     Context,
     Cost(&'a str),
+    Inbox(&'a str),
     Memory(&'a str),
     Model(&'a str),
+    SelfImprovement(&'a str),
     Setup,
     Skills(&'a str),
     Settings(&'a str),
@@ -128,17 +144,30 @@ pub async fn run_loop(
                     LocalCommand::Agents => {
                         println!("{}", handle_agents_command(paths)?);
                     }
+                    LocalCommand::Activity => {
+                        println!("{}", handle_activity_command(client).await?);
+                    }
                     LocalCommand::Context => {
                         println!("{}", handle_context_command(client).await?);
                     }
                     LocalCommand::Cost(command) => {
                         handle_cost_command(client, paths, command).await?;
                     }
+                    LocalCommand::Inbox(command) => {
+                        println!("{}", handle_inbox_command(client, command).await?);
+                    }
                     LocalCommand::Memory(command) => {
                         println!("{}", handle_memory_command(paths, command)?);
                     }
                     LocalCommand::Model(command) => {
                         handle_model_command(client, command).await?;
+                    }
+                    LocalCommand::SelfImprovement(command) => {
+                        let config = allbert_kernel::Config::load_or_create(paths)?;
+                        println!(
+                            "{}",
+                            handle_self_improvement_command(paths, &config, command)?
+                        );
                     }
                     LocalCommand::Setup => {
                         handle_setup_command(client, paths).await?;
@@ -188,9 +217,14 @@ pub fn parse_local_command(input: &str) -> LocalCommand<'_> {
         "/exit" | "/quit" => LocalCommand::Exit,
         "/help" | "/h" => LocalCommand::Help,
         "/agents" => LocalCommand::Agents,
+        "/activity" => LocalCommand::Activity,
         "/context" => LocalCommand::Context,
         command if command.starts_with("/cost") => LocalCommand::Cost(command),
+        command if command.starts_with("/inbox") => LocalCommand::Inbox(command),
         command if command.starts_with("/memory") => LocalCommand::Memory(command),
+        command if command.starts_with("/self-improvement") => {
+            LocalCommand::SelfImprovement(command)
+        }
         "/setup" => LocalCommand::Setup,
         command if command.starts_with("/skills") => LocalCommand::Skills(command),
         command if command.starts_with("/settings") => LocalCommand::Settings(command),
@@ -210,7 +244,11 @@ async fn run_turn(client: &mut DaemonClient, input: &str) -> Result<()> {
             ServerMessage::Event(event) => render_event(event),
             ServerMessage::ActivityUpdate(activity) => render_activity_update(&activity),
             ServerMessage::ConfirmRequest(request) => {
-                let decision = prompt_confirm(&request.program, &request.rendered)?;
+                let decision = prompt_confirm(
+                    &request.program,
+                    request.context.as_ref(),
+                    &request.rendered,
+                )?;
                 client
                     .send(&ClientMessage::ConfirmReply(
                         allbert_proto::ConfirmReplyPayload {
@@ -429,6 +467,11 @@ pub async fn handle_telemetry_command(client: &mut DaemonClient) -> Result<Strin
     Ok(render_telemetry_summary(&telemetry))
 }
 
+pub async fn handle_activity_command(client: &mut DaemonClient) -> Result<String> {
+    let activity = client.activity_snapshot().await?;
+    Ok(render_activity_snapshot(&activity))
+}
+
 pub async fn handle_context_command(client: &mut DaemonClient) -> Result<String> {
     let telemetry = client.session_telemetry().await?;
     let context = match (telemetry.context_used_tokens, telemetry.context_percent) {
@@ -496,13 +539,97 @@ pub fn handle_memory_command(
         ["/memory", "show", "today"] => {
             crate::memory_cli::staged_list(paths, &config, None, Some("1d"), Some(10), "text")
         }
+        ["/memory", "staged", "show", id] => crate::memory_cli::staged_show(paths, &config, id),
         ["/memory", "routing"] | ["/memory", "routing", "show"] => {
             Ok(crate::memory_cli::routing_show(&config))
         }
         _ => Ok(
-            "usage: /memory stats | /memory show staged | /memory show today | /memory routing [show]"
+            "usage: /memory stats | /memory show staged | /memory show today | /memory staged list|show <id> | /memory routing [show]"
                 .into(),
         ),
+    }
+}
+
+pub async fn handle_inbox_command(client: &mut DaemonClient, command: &str) -> Result<String> {
+    let args = command.split_whitespace().collect::<Vec<_>>();
+    match args.as_slice() {
+        ["/inbox"] | ["/inbox", "list"] => {
+            let approvals = client
+                .list_inbox(None, None, false)
+                .await?
+                .into_iter()
+                .map(crate::approvals::ApprovalView::from)
+                .collect::<Vec<_>>();
+            crate::approvals::render_list_entries(&approvals, false)
+        }
+        ["/inbox", "list", "--include-resolved"] => {
+            let approvals = client
+                .list_inbox(None, None, true)
+                .await?
+                .into_iter()
+                .map(crate::approvals::ApprovalView::from)
+                .collect::<Vec<_>>();
+            crate::approvals::render_list_entries(&approvals, false)
+        }
+        ["/inbox", "show", approval_id] => {
+            let approval = client.show_inbox_approval(approval_id).await?;
+            crate::approvals::render_show_entry(
+                &crate::approvals::ApprovalView::from(approval),
+                false,
+            )
+        }
+        ["/inbox", "accept", approval_id, ..] => {
+            let reason = parse_reason_tail(command);
+            let result = client
+                .resolve_inbox_approval(approval_id, true, reason)
+                .await?;
+            Ok(crate::approvals::render_resolution(&result))
+        }
+        ["/inbox", "reject", approval_id, ..] => {
+            let reason = parse_reason_tail(command);
+            let result = client
+                .resolve_inbox_approval(approval_id, false, reason)
+                .await?;
+            Ok(crate::approvals::render_resolution(&result))
+        }
+        _ => Ok("usage: /inbox list [--include-resolved] | /inbox show <id> | /inbox accept <id> [--reason <text>] | /inbox reject <id> [--reason <text>]".into()),
+    }
+}
+
+fn parse_reason_tail(command: &str) -> Option<String> {
+    command
+        .split_once("--reason")
+        .map(|(_, reason)| reason.trim().to_string())
+        .filter(|reason| !reason.is_empty())
+}
+
+pub fn handle_self_improvement_command(
+    paths: &allbert_kernel::AllbertPaths,
+    config: &allbert_kernel::Config,
+    command: &str,
+) -> Result<String> {
+    let args = command.split_whitespace().collect::<Vec<_>>();
+    match args.as_slice() {
+        ["/self-improvement", "config", "show"] => {
+            crate::self_improvement_cli::config_show(paths, config)
+        }
+        ["/self-improvement", "config", "set", "--source-checkout", source_checkout] => {
+            crate::self_improvement_cli::config_set_source_checkout(paths, config, source_checkout)
+        }
+        ["/self-improvement", "diff", approval_id] => {
+            crate::self_improvement_cli::diff(paths, approval_id)
+        }
+        ["/self-improvement", "install", approval_id] => {
+            crate::self_improvement_cli::install(paths, config, approval_id, false)
+        }
+        ["/self-improvement", "install", approval_id, "--allow-needs-review"] => {
+            crate::self_improvement_cli::install(paths, config, approval_id, true)
+        }
+        ["/self-improvement", "gc"] => crate::self_improvement_cli::gc(paths, config, false),
+        ["/self-improvement", "gc", "--dry-run"] => {
+            crate::self_improvement_cli::gc(paths, config, true)
+        }
+        _ => Ok("usage: /self-improvement config show|set --source-checkout <path> | /self-improvement diff <approval-id> | /self-improvement install <approval-id> [--allow-needs-review] | /self-improvement gc [--dry-run]".into()),
     }
 }
 
@@ -665,15 +792,24 @@ fn context_band(percent: f64) -> &'static str {
     }
 }
 
-fn prompt_confirm(program: &str, rendered: &str) -> Result<ConfirmDecisionPayload> {
+fn prompt_confirm(
+    program: &str,
+    context: Option<&ApprovalContext>,
+    rendered: &str,
+) -> Result<ConfirmDecisionPayload> {
     let durable_job_change = matches!(
         program,
         "upsert_job" | "pause_job" | "resume_job" | "remove_job" | "promote_staged_memory"
     );
+    let context = context
+        .map(crate::approvals::render_approval_context)
+        .unwrap_or_default();
     if durable_job_change {
-        print!("Allbert wants to make this durable scheduling change:\n{rendered}\n[y/N] ");
+        print!(
+            "Allbert wants to make this durable scheduling change:\n{context}{rendered}\n[y/N] "
+        );
     } else {
-        print!("Allbert wants your confirmation:\n{rendered}\n[y/N/always] ");
+        print!("Allbert wants your confirmation:\n{context}{rendered}\n[y/N/always] ");
     }
     io::stdout().flush()?;
 
@@ -758,6 +894,55 @@ fn render_activity_update(activity: &allbert_proto::ActivitySnapshot) {
         return;
     }
     eprintln!("[activity] {}", activity.label);
+}
+
+pub fn render_activity_snapshot(activity: &ActivitySnapshot) -> String {
+    let mut lines = vec![
+        "activity".to_string(),
+        format!("phase:       {}", activity_phase_label(activity.phase)),
+        format!("label:       {}", activity.label),
+        format!("elapsed:     {:.1}s", activity.elapsed_ms as f64 / 1000.0),
+        format!("session:     {}", activity.session_id),
+        format!("channel:     {:?}", activity.channel),
+    ];
+    if let Some(tool_name) = activity.tool_name.as_deref() {
+        lines.push(format!("tool:        {tool_name}"));
+    }
+    if let Some(tool_summary) = activity.tool_summary.as_deref() {
+        lines.push(format!("tool input:  {tool_summary}"));
+    }
+    if let Some(skill_name) = activity.skill_name.as_deref() {
+        lines.push(format!("skill:       {skill_name}"));
+    }
+    if let Some(approval_id) = activity.approval_id.as_deref() {
+        lines.push(format!("approval:    {approval_id}"));
+    }
+    if let Some(stuck_hint) = activity.stuck_hint.as_deref() {
+        lines.push(format!("hint:        {stuck_hint}"));
+    }
+    if !activity.next_actions.is_empty() {
+        lines.push(format!("next:        {}", activity.next_actions.join("; ")));
+    }
+    lines.join("\n")
+}
+
+fn activity_phase_label(phase: ActivityPhase) -> &'static str {
+    match phase {
+        ActivityPhase::Idle => "idle",
+        ActivityPhase::Queued => "queued",
+        ActivityPhase::PreparingContext => "preparing_context",
+        ActivityPhase::ClassifyingIntent => "classifying_intent",
+        ActivityPhase::CallingModel => "calling_model",
+        ActivityPhase::StreamingResponse => "streaming_response",
+        ActivityPhase::CallingTool => "calling_tool",
+        ActivityPhase::WaitingForApproval => "waiting_for_approval",
+        ActivityPhase::WaitingForInput => "waiting_for_input",
+        ActivityPhase::RunningValidation => "running_validation",
+        ActivityPhase::RunningScript => "running_script",
+        ActivityPhase::Finalizing => "finalizing",
+        ActivityPhase::Error => "error",
+        ActivityPhase::Unknown => "unknown",
+    }
 }
 
 fn parse_provider(raw: &str) -> Option<ProviderKind> {
@@ -878,6 +1063,26 @@ mod tests {
             LocalCommand::Context
         ));
         assert!(matches!(
+            parse_local_command("/activity"),
+            LocalCommand::Activity
+        ));
+        assert!(matches!(
+            parse_local_command("/inbox list"),
+            LocalCommand::Inbox("/inbox list")
+        ));
+        assert!(matches!(
+            parse_local_command("/inbox show approval-123"),
+            LocalCommand::Inbox("/inbox show approval-123")
+        ));
+        assert!(matches!(
+            parse_local_command("/inbox accept approval-123"),
+            LocalCommand::Inbox("/inbox accept approval-123")
+        ));
+        assert!(matches!(
+            parse_local_command("/inbox reject approval-123"),
+            LocalCommand::Inbox("/inbox reject approval-123")
+        ));
+        assert!(matches!(
             parse_local_command("/skills search memory"),
             LocalCommand::Skills("/skills search memory")
         ));
@@ -892,6 +1097,26 @@ mod tests {
         assert!(matches!(
             parse_local_command("/memory show today"),
             LocalCommand::Memory("/memory show today")
+        ));
+        assert!(matches!(
+            parse_local_command("/memory staged show staged-123"),
+            LocalCommand::Memory("/memory staged show staged-123")
+        ));
+        assert!(matches!(
+            parse_local_command("/self-improvement config show"),
+            LocalCommand::SelfImprovement("/self-improvement config show")
+        ));
+        assert!(matches!(
+            parse_local_command("/self-improvement diff approval-123"),
+            LocalCommand::SelfImprovement("/self-improvement diff approval-123")
+        ));
+        assert!(matches!(
+            parse_local_command("/self-improvement install approval-123"),
+            LocalCommand::SelfImprovement("/self-improvement install approval-123")
+        ));
+        assert!(matches!(
+            parse_local_command("/self-improvement gc --dry-run"),
+            LocalCommand::SelfImprovement("/self-improvement gc --dry-run")
         ));
     }
 

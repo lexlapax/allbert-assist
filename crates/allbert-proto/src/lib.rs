@@ -674,4 +674,97 @@ mod tests {
             serde_json::from_str(raw).expect("unknown phase should deserialize");
         assert_eq!(phase, ActivityPhase::Unknown);
     }
+
+    #[test]
+    fn proto_approval_context_variants_roundtrip() {
+        let contexts = vec![
+            ApprovalContext::ToolConfirm {
+                tool_name: "process_exec".into(),
+                cwd: Some("/tmp/project".into()),
+                argument_summary: "cargo test".into(),
+                why: "runs a local validation command".into(),
+            },
+            ApprovalContext::CostCapOverride {
+                requested_increase: "$0.50".into(),
+                current_daily_total: "$1.25".into(),
+                configured_cap: "$1.00".into(),
+                reason: "operator approved release smoke".into(),
+            },
+            ApprovalContext::JobApproval {
+                job_kind: "scheduled".into(),
+                schedule: "@daily at 07:00".into(),
+                next_fire_time: "2026-04-26T14:00:00Z".into(),
+                recurrence_summary: "daily".into(),
+            },
+            ApprovalContext::PatchApproval {
+                branch: "allbert-rebuild-demo".into(),
+                validation_status: "passed".into(),
+                file_stats: "1 files".into(),
+                artifact_path: "/tmp/patch.diff".into(),
+                diff_preview: vec!["diff --git a/README.md b/README.md".into()],
+            },
+            ApprovalContext::MemoryPromotion {
+                preview: "Primary database is Postgres.".into(),
+                source: "session-a".into(),
+                supersession_hint: "no supersession".into(),
+            },
+        ];
+
+        for context in contexts {
+            let raw = serde_json::to_string(&context).expect("context should serialize");
+            let decoded: ApprovalContext =
+                serde_json::from_str(&raw).expect("context should deserialize");
+            assert_eq!(decoded, context);
+        }
+    }
+
+    #[test]
+    fn proto_approval_context_optional_payload_fields_roundtrip() {
+        let context = ApprovalContext::ToolConfirm {
+            tool_name: "process_exec".into(),
+            cwd: Some("/tmp/project".into()),
+            argument_summary: "cargo test".into(),
+            why: "operator review".into(),
+        };
+        let confirm = ConfirmRequestPayload {
+            request_id: 7,
+            approval_id: Some("approval-7".into()),
+            program: "process_exec".into(),
+            args: vec!["cargo".into(), "test".into()],
+            cwd: Some("/tmp/project".into()),
+            rendered: "Run cargo test?".into(),
+            expires_at: None,
+            context: Some(context.clone()),
+        };
+        let raw = serde_json::to_string(&confirm).expect("confirm should serialize");
+        let decoded: ConfirmRequestPayload =
+            serde_json::from_str(&raw).expect("confirm should deserialize");
+        assert_eq!(decoded.context, Some(context.clone()));
+
+        let inbox = InboxApprovalPayload {
+            id: "approval-7".into(),
+            session_id: "session-a".into(),
+            identity_id: Some("identity-a".into()),
+            channel: ChannelKind::Repl,
+            sender: "local".into(),
+            agent: "allbert/root".into(),
+            tool: "process_exec".into(),
+            request_id: 7,
+            kind: "tool-approval".into(),
+            requested_at: "2026-04-20T00:00:00Z".into(),
+            expires_at: "2026-04-20T01:00:00Z".into(),
+            status: "pending".into(),
+            resolved_at: None,
+            resolver: None,
+            reply: None,
+            rendered: "Run cargo test?".into(),
+            path: "/tmp/approval.md".into(),
+            patch: None,
+            context: Some(context.clone()),
+        };
+        let raw = serde_json::to_string(&inbox).expect("inbox should serialize");
+        let decoded: InboxApprovalPayload =
+            serde_json::from_str(&raw).expect("inbox should deserialize");
+        assert_eq!(decoded.context, Some(context));
+    }
 }

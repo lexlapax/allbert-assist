@@ -3,7 +3,8 @@ use std::path::Path;
 
 use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
-    ChannelKind, InboxApprovalPayload, InboxResolveResultPayload, PatchApprovalPayload,
+    ApprovalContext, ChannelKind, InboxApprovalPayload, InboxResolveResultPayload,
+    PatchApprovalPayload,
 };
 use anyhow::{anyhow, Context, Result};
 use gray_matter::engine::YAML;
@@ -31,6 +32,7 @@ pub struct ApprovalView {
     pub rendered: String,
     pub path: String,
     pub patch: Option<PatchApprovalPayload>,
+    pub context: Option<ApprovalContext>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -148,7 +150,12 @@ pub fn render_show_entry(approval: &ApprovalView, json: bool) -> Result<String> 
         .as_ref()
         .map(|patch| render_patch_details(approval, patch))
         .unwrap_or_default();
-    let body = format!("{}{}", patch_details, approval.rendered.trim());
+    let context = approval
+        .context
+        .as_ref()
+        .map(render_approval_context)
+        .unwrap_or_default();
+    let body = format!("{}{}{}", patch_details, context, approval.rendered.trim());
 
     Ok(format!(
         "approval:          {}\nsession:           {}\nchannel:           {}\nstatus:            {}\ntool:              {}\nagent:             {}\nsender:            {}\nrequested at:      {}\nexpires at:        {}\nresolved at:       {}\nresolver:          {}\nreply:             {}\nfile:              {}\n\n{}",
@@ -173,6 +180,11 @@ pub fn render_resolution(result: &InboxResolveResultPayload) -> String {
     let mut rendered = format!("{} {}", result.status, result.approval_id);
     if let Some(note) = &result.note {
         rendered.push_str(&format!("\n{note}"));
+    }
+    if result.status == "accepted" {
+        rendered.push_str(
+            "\nnext steps: accepting records review approval only; run install/apply commands when a patch needs installation",
+        );
     }
     rendered
 }
@@ -336,6 +348,7 @@ fn load_one(path: &Path) -> Result<ApprovalView> {
         rendered: parsed.content.trim().to_string(),
         path: path.display().to_string(),
         patch,
+        context: None,
     })
 }
 
@@ -527,7 +540,93 @@ impl From<InboxApprovalPayload> for ApprovalView {
             rendered: value.rendered,
             path: value.path,
             patch: value.patch,
+            context: value.context,
         }
+    }
+}
+
+pub fn render_approval_context(context: &ApprovalContext) -> String {
+    match context {
+        ApprovalContext::ToolConfirm {
+            tool_name,
+            cwd,
+            argument_summary,
+            why,
+        } => format!(
+            "context:\n  tool: {}\n  cwd: {}\n  args: {}\n  why: {}\n\n",
+            tool_name,
+            cwd.as_deref().unwrap_or("(not provided)"),
+            redact_context_line(argument_summary),
+            redact_context_line(why)
+        ),
+        ApprovalContext::CostCapOverride {
+            requested_increase,
+            current_daily_total,
+            configured_cap,
+            reason,
+        } => format!(
+            "context:\n  requested increase: {}\n  current daily total: {}\n  configured cap: {}\n  reason: {}\n\n",
+            requested_increase,
+            current_daily_total,
+            configured_cap,
+            redact_context_line(reason)
+        ),
+        ApprovalContext::JobApproval {
+            job_kind,
+            schedule,
+            next_fire_time,
+            recurrence_summary,
+        } => format!(
+            "context:\n  job: {}\n  schedule: {}\n  next fire: {}\n  recurrence: {}\n\n",
+            job_kind, schedule, next_fire_time, recurrence_summary
+        ),
+        ApprovalContext::PatchApproval {
+            branch,
+            validation_status,
+            file_stats,
+            artifact_path,
+            diff_preview,
+        } => {
+            let preview = if diff_preview.is_empty() {
+                "(no preview)".into()
+            } else {
+                diff_preview
+                    .iter()
+                    .take(10)
+                    .map(|line| format!("    {}", redact_context_line(line)))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            format!(
+                "context:\n  branch: {}\n  validation: {}\n  file stats: {}\n  artifact: {}\n  diff preview:\n{}\n\n",
+                branch, validation_status, file_stats, artifact_path, preview
+            )
+        }
+        ApprovalContext::MemoryPromotion {
+            preview,
+            source,
+            supersession_hint,
+        } => format!(
+            "context:\n  preview: {}\n  source: {}\n  supersession: {}\n\n",
+            redact_context_line(preview),
+            source,
+            supersession_hint
+        ),
+    }
+}
+
+fn redact_context_line(value: &str) -> String {
+    let lowered = value.to_ascii_lowercase();
+    if lowered.contains("token=")
+        || lowered.contains("secret=")
+        || lowered.contains("password=")
+        || value.starts_with("sk-")
+    {
+        "[redacted]".into()
+    } else if value.chars().count() > 240 {
+        format!("{}...", value.chars().take(237).collect::<String>())
+    } else {
+        value.to_string()
     }
 }
 
@@ -653,6 +752,34 @@ mod tests {
         assert!(rendered.contains("3 pending approvals"));
         assert!(rendered.contains("1 cost-cap override"));
         assert!(rendered.contains("see allbert-cli inbox list"));
+    }
+
+    #[test]
+    fn approval_context_rendering_is_bounded_and_redacted() {
+        let rendered = render_approval_context(&ApprovalContext::ToolConfirm {
+            tool_name: "process_exec".into(),
+            cwd: Some("/tmp/project".into()),
+            argument_summary: "TOKEN=abc123 run".into(),
+            why: "operator review".into(),
+        });
+
+        assert!(rendered.contains("tool: process_exec"));
+        assert!(rendered.contains("cwd: /tmp/project"));
+        assert!(rendered.contains("args: [redacted]"));
+        assert!(!rendered.contains("abc123"));
+    }
+
+    #[test]
+    fn accepted_resolution_mentions_patch_install_is_separate() {
+        let rendered = render_resolution(&InboxResolveResultPayload {
+            approval_id: "approval-patch".into(),
+            status: "accepted".into(),
+            note: None,
+            resumed_live_turn: false,
+        });
+
+        assert!(rendered.contains("accepted approval-patch"));
+        assert!(rendered.contains("run install/apply commands"));
     }
 
     #[test]

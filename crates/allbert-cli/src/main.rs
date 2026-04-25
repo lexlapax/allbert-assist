@@ -89,6 +89,12 @@ enum Command {
         #[command(subcommand)]
         command: InboxCommand,
     },
+    /// Show the daemon-owned activity snapshot for the attached CLI session.
+    Activity {
+        /// Emit the raw JSON activity snapshot.
+        #[arg(long)]
+        json: bool,
+    },
     Profile {
         #[command(subcommand)]
         command: ProfileCommand,
@@ -489,6 +495,7 @@ async fn main() -> Result<()> {
         Some(Command::Memory { command }) => run_memory_command(&paths, &config, command).await,
         Some(Command::Approvals { command }) => run_approvals_command(&paths, command),
         Some(Command::Inbox { command }) => run_inbox_command(&paths, &config, command).await,
+        Some(Command::Activity { json }) => run_activity_command(&paths, &config, json).await,
         Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
         Some(Command::Heartbeat { command }) => run_heartbeat_command(&paths, command),
         Some(Command::Sessions { command }) => run_sessions_command(&paths, &config, command).await,
@@ -1765,6 +1772,18 @@ async fn run_telemetry_command(paths: &AllbertPaths, config: &Config, json: bool
         println!("{}", serde_json::to_string_pretty(&telemetry)?);
     } else {
         println!("{}", render_telemetry_summary(&telemetry));
+    }
+    Ok(())
+}
+
+async fn run_activity_command(paths: &AllbertPaths, config: &Config, json: bool) -> Result<()> {
+    let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
+    client.attach(ChannelKind::Cli, None).await?;
+    let activity = client.activity_snapshot().await?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&activity)?);
+    } else {
+        println!("{}", repl::render_activity_snapshot(&activity));
     }
     Ok(())
 }

@@ -4,7 +4,7 @@ use std::time::Duration;
 use allbert_daemon::DaemonClient;
 use allbert_kernel::TuiSpinnerStyle;
 use allbert_proto::{
-    ActivitySnapshot, ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload,
+    ActivitySnapshot, ApprovalContext, ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload,
     InputReplyPayload, InputResponsePayload, KernelEventPayload, ServerMessage, TelemetrySnapshot,
 };
 use anyhow::{Context, Result};
@@ -33,6 +33,7 @@ pub enum Modal {
         request_id: u64,
         rendered: String,
         durable: bool,
+        context: Option<ApprovalContext>,
     },
     Input {
         request_id: u64,
@@ -132,6 +133,7 @@ impl TuiApp {
                     request_id: request.request_id,
                     rendered: request.rendered,
                     durable,
+                    context: request.context,
                 });
             }
             ServerMessage::InputRequest(request) => {
@@ -208,11 +210,14 @@ impl TuiApp {
             }
             LocalCommand::Help => Some(repl::HELP_TEXT.to_string()),
             LocalCommand::Agents
+            | LocalCommand::Activity
             | LocalCommand::Context
+            | LocalCommand::Inbox(_)
             | LocalCommand::Skills(_)
             | LocalCommand::Cost(_)
             | LocalCommand::Memory(_)
             | LocalCommand::Model(_)
+            | LocalCommand::SelfImprovement(_)
             | LocalCommand::Setup
             | LocalCommand::Settings(_)
             | LocalCommand::Status
@@ -336,8 +341,16 @@ async fn handle_key(
                 LocalCommand::Agents => {
                     app.push_line(repl::handle_agents_command(paths)?);
                 }
+                LocalCommand::Activity => {
+                    let rendered = repl::handle_activity_command(client).await?;
+                    app.push_line(rendered);
+                }
                 LocalCommand::Context => {
                     let rendered = repl::handle_context_command(client).await?;
+                    app.push_line(rendered);
+                }
+                LocalCommand::Inbox(command) => {
+                    let rendered = repl::handle_inbox_command(client, command).await?;
                     app.push_line(rendered);
                 }
                 LocalCommand::Status | LocalCommand::Telemetry => {
@@ -356,6 +369,12 @@ async fn handle_key(
                     let config = allbert_kernel::Config::load_or_create(paths)?;
                     app.status_items = configured_status_items(&config);
                     app.configure_tui(&config.repl.tui);
+                }
+                LocalCommand::SelfImprovement(command) => {
+                    let config = allbert_kernel::Config::load_or_create(paths)?;
+                    app.push_line(repl::handle_self_improvement_command(
+                        paths, &config, command,
+                    )?);
                 }
                 LocalCommand::StatusLine(command) => {
                     app.push_line(repl::handle_statusline_command(paths, command)?);
@@ -506,10 +525,17 @@ pub fn render(frame: &mut Frame<'_>, app: &TuiApp) {
         let area = centered_rect(70, 35, frame.area());
         let text = match modal {
             Modal::Confirm {
-                rendered, durable, ..
+                rendered,
+                durable,
+                context,
+                ..
             } => {
                 let choices = if *durable { "[y/N]" } else { "[y/N/a]" };
-                format!("{rendered}\n\nConfirm {choices}")
+                let context = context
+                    .as_ref()
+                    .map(crate::approvals::render_approval_context)
+                    .unwrap_or_default();
+                format!("{context}{rendered}\n\nConfirm {choices}")
             }
             Modal::Input { prompt, .. } => format!("{prompt}\n\n{}", app.modal_input),
         };
@@ -972,13 +998,25 @@ mod tests {
                 cwd: None,
                 rendered: "write?".into(),
                 expires_at: None,
-                context: None,
+                context: Some(allbert_proto::ApprovalContext::ToolConfirm {
+                    tool_name: "write_file".into(),
+                    cwd: None,
+                    argument_summary: "path=demo".into(),
+                    why: "operator review".into(),
+                }),
             }
         )));
-        assert!(matches!(
-            app.modal(),
-            Some(Modal::Confirm { request_id: 7, .. })
-        ));
+        match app.modal() {
+            Some(Modal::Confirm {
+                request_id,
+                context: Some(allbert_proto::ApprovalContext::ToolConfirm { tool_name, .. }),
+                ..
+            }) => {
+                assert_eq!(*request_id, 7);
+                assert_eq!(tool_name, "write_file");
+            }
+            other => panic!("expected confirm modal with context, got {other:?}"),
+        }
         assert!(
             app.process_server_message(ServerMessage::TurnResult(allbert_proto::TurnResult {
                 hit_turn_limit: false

@@ -27,13 +27,14 @@ use allbert_kernel::{
     KernelEvent, ModelConfig, SessionSnapshot, Usage, LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
 };
 use allbert_proto::{
-    ActivityPhase, ActivitySnapshot, AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload,
-    ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload,
-    DaemonLockPayload, DaemonStatus, InboxApprovalPayload, InboxQueryPayload,
-    InboxResolveResultPayload, InputReplyPayload, InputRequestPayload, InputResponsePayload,
-    KernelEventPayload, ModelConfigPayload, PatchApprovalPayload, ProtocolError, ServerHello,
-    ServerMessage, SessionResumeEntry, SessionStatus, TelemetrySnapshot, TurnBudgetOverridePayload,
-    TurnResult, MIN_PROTOCOL_VERSION, PROTOCOL_VERSION,
+    ActivityPhase, ActivitySnapshot, ApprovalContext, AttachedChannel, ChannelKind,
+    ChannelRuntimeStatusPayload, ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload,
+    ConfirmRequestPayload, DaemonLockPayload, DaemonStatus, InboxApprovalPayload,
+    InboxQueryPayload, InboxResolveResultPayload, InputReplyPayload, InputRequestPayload,
+    InputResponsePayload, KernelEventPayload, ModelConfigPayload, PatchApprovalPayload,
+    ProtocolError, ServerHello, ServerMessage, SessionResumeEntry, SessionStatus,
+    TelemetrySnapshot, TurnBudgetOverridePayload, TurnResult, MIN_PROTOCOL_VERSION,
+    PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use chrono::{Datelike, Utc};
@@ -2136,8 +2137,12 @@ impl ConfirmPrompter for TelegramConfirmPrompter {
         {
             return ConfirmDecision::Deny;
         }
+        let cwd = req.cwd.as_ref().map(|path| path.display().to_string());
+        let context = tool_approval_context(&req.program, &req.args, cwd.as_deref());
+        let context = render_approval_context_plain(&context);
         let prompt = format!(
-            "Approval needed `{approval_id}`\n\n{}\n\nReply `/approve {approval_id}` or `/reject {approval_id}` before {}.",
+            "Approval needed `{approval_id}`\n\n{}{}\n\nReply `/approve {approval_id}` or `/reject {approval_id}` before {}.",
+            context,
             req.rendered.trim(),
             expires_at
         );
@@ -3694,8 +3699,57 @@ fn pending_approval_to_inbox_payload(
             .display()
             .to_string(),
         patch: patch_payload_from_pending_frontmatter(&record.frontmatter),
-        context: None,
+        context: approval_context_from_pending(&record.frontmatter),
     })
+}
+
+fn approval_context_from_pending(
+    frontmatter: &PendingApprovalFrontmatter,
+) -> Option<ApprovalContext> {
+    match frontmatter.kind {
+        PendingApprovalKind::ToolApproval => {
+            if frontmatter.tool == "promote_staged_memory" {
+                Some(ApprovalContext::MemoryPromotion {
+                    preview: "see rendered approval details".into(),
+                    source: frontmatter.sender.clone(),
+                    supersession_hint:
+                        "review for duplicate or stale durable memory before accepting".into(),
+                })
+            } else {
+                Some(ApprovalContext::ToolConfirm {
+                    tool_name: frontmatter.tool.clone(),
+                    cwd: None,
+                    argument_summary: "see rendered approval details".into(),
+                    why: "review the request before allowing the tool action".into(),
+                })
+            }
+        }
+        PendingApprovalKind::CostCapOverride => Some(ApprovalContext::CostCapOverride {
+            requested_increase: "next turn override".into(),
+            current_daily_total: "see cost status".into(),
+            configured_cap: "daily cap".into(),
+            reason: frontmatter
+                .reply
+                .clone()
+                .unwrap_or_else(|| "pending operator reason".into()),
+        }),
+        PendingApprovalKind::JobApproval => Some(ApprovalContext::JobApproval {
+            job_kind: "scheduled job".into(),
+            schedule: "see rendered approval details".into(),
+            next_fire_time: frontmatter.expires_at.clone(),
+            recurrence_summary: "review schedule before accepting".into(),
+        }),
+        PendingApprovalKind::PatchApproval => {
+            let patch = patch_payload_from_pending_frontmatter(frontmatter)?;
+            Some(ApprovalContext::PatchApproval {
+                branch: patch.branch,
+                validation_status: patch.validation,
+                file_stats: patch_stats_for_context(&patch.artifact_path),
+                artifact_path: patch.artifact_path.clone(),
+                diff_preview: diff_preview_lines(&patch.artifact_path, 10),
+            })
+        }
+    }
 }
 
 fn patch_payload_from_pending_frontmatter(
@@ -3712,6 +3766,44 @@ fn patch_payload_from_pending_frontmatter(
         artifact_path: frontmatter.artifact_path.clone().unwrap_or_default(),
         overall: frontmatter.overall.clone().unwrap_or_default(),
     })
+}
+
+fn patch_stats_for_context(artifact_path: &str) -> String {
+    let Ok(raw) = fs::read_to_string(artifact_path) else {
+        return "artifact unavailable".into();
+    };
+    let files = raw
+        .lines()
+        .filter(|line| line.starts_with("diff --git "))
+        .count();
+    let added = raw
+        .lines()
+        .filter(|line| line.starts_with('+') && !line.starts_with("+++"))
+        .count();
+    let removed = raw
+        .lines()
+        .filter(|line| line.starts_with('-') && !line.starts_with("---"))
+        .count();
+    format!("{files} files, +{added}/-{removed}")
+}
+
+fn diff_preview_lines(artifact_path: &str, limit: usize) -> Vec<String> {
+    let Ok(raw) = fs::read_to_string(artifact_path) else {
+        return Vec::new();
+    };
+    raw.lines()
+        .take(limit)
+        .map(|line| {
+            if line.to_ascii_lowercase().contains("token")
+                || line.to_ascii_lowercase().contains("secret")
+                || line.to_ascii_lowercase().contains("password")
+            {
+                "[redacted]".into()
+            } else {
+                line.chars().take(160).collect()
+            }
+        })
+        .collect()
 }
 
 fn approval_within_retention(payload: &InboxApprovalPayload, retention_days: u16) -> bool {
@@ -4595,15 +4687,19 @@ impl Channel for LocalIpcChannel {
     async fn confirm(&self, prompt: ConfirmPrompt) -> Result<ConfirmOutcome, ChannelError> {
         let request_id = self.next_request.fetch_add(1, Ordering::SeqCst);
         let (tx, rx) = oneshot::channel();
+        let program = prompt.program;
+        let args = prompt.args;
+        let cwd = prompt.cwd.map(|path| path.display().to_string());
+        let context = tool_approval_context(&program, &args, cwd.as_deref());
         let payload = ConfirmRequestPayload {
             request_id,
             approval_id: prompt.request_id,
-            program: prompt.program,
-            args: prompt.args,
-            cwd: prompt.cwd.map(|path| path.display().to_string()),
+            program,
+            args,
+            cwd,
             rendered: prompt.rendered,
             expires_at: prompt.expires_at,
-            context: None,
+            context: Some(context),
         };
         self.outbound
             .send(OutboundMessage::Confirm(payload, tx))
@@ -4693,6 +4789,107 @@ fn model_api_key_present(model: &ModelConfig) -> bool {
     match model.api_key_env.as_deref() {
         Some(env) => std::env::var_os(env).is_some(),
         None => !model.provider.api_key_required(),
+    }
+}
+
+fn tool_approval_context(program: &str, args: &[String], cwd: Option<&str>) -> ApprovalContext {
+    ApprovalContext::ToolConfirm {
+        tool_name: program.to_string(),
+        cwd: cwd.map(str::to_string),
+        argument_summary: summarize_approval_args(args),
+        why: "review the command and allow it only if it matches your intent".into(),
+    }
+}
+
+fn summarize_approval_args(args: &[String]) -> String {
+    if args.is_empty() {
+        return "(no arguments)".into();
+    }
+    let joined = args
+        .iter()
+        .take(6)
+        .map(|arg| {
+            let lowered = arg.to_ascii_lowercase();
+            if lowered.contains("token")
+                || lowered.contains("secret")
+                || lowered.contains("password")
+                || arg.starts_with("sk-")
+            {
+                "[redacted]".into()
+            } else if arg.chars().count() > 48 {
+                format!("{}...", arg.chars().take(45).collect::<String>())
+            } else {
+                arg.clone()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    if args.len() > 6 {
+        format!("{joined} ...")
+    } else {
+        joined
+    }
+}
+
+fn render_approval_context_plain(context: &ApprovalContext) -> String {
+    match context {
+        ApprovalContext::ToolConfirm {
+            tool_name,
+            cwd,
+            argument_summary,
+            why,
+        } => format!(
+            "Context:\nTool: {}\nCwd: {}\nArgs: {}\nWhy: {}\n\n",
+            tool_name,
+            cwd.as_deref().unwrap_or("(not provided)"),
+            argument_summary,
+            why
+        ),
+        ApprovalContext::CostCapOverride {
+            requested_increase,
+            current_daily_total,
+            configured_cap,
+            reason,
+        } => format!(
+            "Context:\nRequested increase: {}\nCurrent daily total: {}\nConfigured cap: {}\nReason: {}\n\n",
+            requested_increase, current_daily_total, configured_cap, reason
+        ),
+        ApprovalContext::JobApproval {
+            job_kind,
+            schedule,
+            next_fire_time,
+            recurrence_summary,
+        } => format!(
+            "Context:\nJob: {}\nSchedule: {}\nNext fire: {}\nRecurrence: {}\n\n",
+            job_kind, schedule, next_fire_time, recurrence_summary
+        ),
+        ApprovalContext::PatchApproval {
+            branch,
+            validation_status,
+            file_stats,
+            artifact_path,
+            diff_preview,
+        } => format!(
+            "Context:\nBranch: {}\nValidation: {}\nFile stats: {}\nArtifact: {}\nDiff preview:\n{}\n\n",
+            branch,
+            validation_status,
+            file_stats,
+            artifact_path,
+            diff_preview
+                .iter()
+                .take(10)
+                .map(String::as_str)
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+        ApprovalContext::MemoryPromotion {
+            preview,
+            source,
+            supersession_hint,
+        } => format!(
+            "Context:\nPreview: {}\nSource: {}\nSupersession: {}\n\n",
+            preview, source, supersession_hint
+        ),
     }
 }
 
