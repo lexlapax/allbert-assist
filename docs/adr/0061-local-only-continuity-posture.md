@@ -3,6 +3,8 @@
 Date: 2026-04-20
 Status: Accepted
 
+> **Planned v0.12.2 amendment**: session-local trace artifacts under `sessions/*/trace.jsonl`, `sessions/*/trace.<n>.jsonl.gz`, and recoverable `sessions/*/current_spans/` are continuity-bearing session artifacts and are included with `sessions/` in profile export/sync by default. Top-level `traces/` remains derived legacy/debug output and stays excluded. Trace GC may remove only trace artifacts, never unrelated session journals, metadata, approvals, attachments, or patch artifacts.
+
 ## Context
 
 v0.8 promises "continuity across surfaces" without committing to a hosted sync backend. That commitment is only safe if the filesystem layout is explicitly categorised so that:
@@ -29,7 +31,7 @@ Every file under `~/.allbert/` falls into exactly one category.
 | `identity/user.md` | ADR 0058 |
 | `config.toml` and `config/` | operator-owned config plus channel allowlists |
 | `memory/MEMORY.md`, `memory/notes/`, `memory/daily/`, `memory/staging/` | ADR 0003, ADR 0045, ADR 0047 |
-| `sessions/` (journals, meta, approvals) | ADR 0049, ADR 0056, ADR 0060 |
+| `sessions/` (journals, meta, approvals, planned v0.12.2 session trace artifacts) | ADR 0049, ADR 0056, ADR 0060, ADR 0081 |
 | `jobs/` | ADR 0022 |
 | `skills/installed/` and `skills/incoming/` | ADR 0032, ADR 0037 |
 | `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, `AGENTS.md`, `HEARTBEAT.md` | ADR 0010, ADR 0039, ADR 0062 |
@@ -41,7 +43,7 @@ Every file under `~/.allbert/` falls into exactly one category.
 | `memory/index/` | tantivy retrieval index (ADR 0046) |
 | `run/` | `daemon.sock` and other live runtime state |
 | `logs/` | daemon logs and debug logs |
-| `traces/` | trace output and debugging artifacts |
+| `traces/` | legacy/debug trace output and debugging artifacts; planned v0.12.2 replay traces live under `sessions/` |
 | future cache subdirs (if introduced) | LLM/media caches or delivery queues, rebuilt or safely disposable |
 
 **Sensitive** — continuity-bearing but excluded by default:
@@ -114,6 +116,7 @@ allbert-cli profile export <path.tgz> [--include-secrets] [--identity <id>]
     "excluded": ["secrets/", "memory/index/", "run/", "logs/", "traces/", "costs.jsonl"]
   }
   ```
+- Planned v0.12.2 exports should also report trace artifact counts and bytes in the manifest so operators can understand the size and sensitivity of session trace history.
 - Export is safe against a live daemon: the export tool takes a read-lock on the profile and snapshots via copy. Continuity-bearing writes continue but are not reflected in the export after the snapshot boundary.
 
 ### Profile import
@@ -174,4 +177,5 @@ No conflict-resolution protocol is shipped. The operator promises not to run two
 - [ADR 0058](0058-local-user-identity-record-unifies-channel-senders.md)
 - [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md)
 - [ADR 0062](0062-heartbeat-md-joins-the-bootstrap-bundle-in-v0-8.md)
+- [ADR 0081](0081-durable-session-trace-artifacts-and-replay-envelope.md)
 - [docs/plans/v0.08-continuity-and-sync.md](../plans/v0.08-continuity-and-sync.md)

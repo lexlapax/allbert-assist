@@ -4,6 +4,8 @@ Date: 2026-04-24
 Status: Accepted
 
 > **Planned v0.12.1 amendment**: `ActivitySnapshot` extends this daemon-owned telemetry posture with protocol v3 activity and stuck-state visibility. v3 daemons remain compatible with shipped v2 clients by negotiating the client protocol per connection and filtering v3-only activity messages and fields away from v2 peers.
+>
+> **Planned v0.12.2 amendment**: protocol v4 span events extend the same daemon-owned telemetry posture for trace/replay, while `ActivitySnapshot` remains the live operational truth. v4 daemons accept v2, v3, and v4 clients, negotiate per connection, and filter v3/v4-only messages and fields away from older peers. Frontends must not infer spans or activity phases locally.
 
 ## Context
 
@@ -56,6 +58,8 @@ Context usage is based on provider-reported latest response usage. v0.11 does no
 
 - [docs/plans/v0.11-tui-and-memory.md](../plans/v0.11-tui-and-memory.md)
 - [docs/plans/v0.12.1-operator-ux-polish.md](../plans/v0.12.1-operator-ux-polish.md)
+- [docs/plans/v0.12.2-tracing-and-replay.md](../plans/v0.12.2-tracing-and-replay.md)
 - [ADR 0051](0051-daily-cost-cap-is-a-hard-gate-at-turn-boundary.md)
 - [ADR 0066](0066-owned-provider-seam-over-rig-for-v0-10.md)
 - [ADR 0074](0074-tui-is-a-daemon-attached-adapter-not-a-runtime.md)
+- [ADR 0083](0083-protocol-v4-trace-events-and-otlp-json-export.md)
