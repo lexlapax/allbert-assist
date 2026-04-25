@@ -168,6 +168,7 @@ const MEMORY_CURATOR_SKILL_TEMPLATE: &str = include_str!("../../../skills/memory
 const MEMORY_CURATOR_EXTRACT_AGENT_TEMPLATE: &str =
     include_str!("../../../skills/memory-curator/agents/extract-from-turn.md");
 const RUST_REBUILD_SKILL_TEMPLATE: &str = include_str!("../../../skills/rust-rebuild/SKILL.md");
+const SKILL_AUTHOR_SKILL_TEMPLATE: &str = include_str!("../../../skills/skill-author/SKILL.md");
 
 #[derive(Debug, Clone)]
 pub struct AllbertPaths {
@@ -425,6 +426,22 @@ impl AllbertPaths {
             &self.skills_installed.join("rust-rebuild").join("SKILL.md"),
             RUST_REBUILD_SKILL_TEMPLATE,
         )?;
+        let skill_author_path = self.skills_installed.join("skill-author").join("SKILL.md");
+        let seeded_skill_author = !skill_author_path.exists();
+        self.seed_file_if_missing(&skill_author_path, SKILL_AUTHOR_SKILL_TEMPLATE)?;
+        if seeded_skill_author {
+            let installed_at = chrono::Utc::now().to_rfc3339();
+            self.seed_file_if_missing(
+                &self
+                    .skills_installed
+                    .join("skill-author")
+                    .join(".allbert-install.toml"),
+                &first_party_skill_install_metadata(
+                    "allbert:first-party/skill-author",
+                    &installed_at,
+                ),
+            )?;
+        }
 
         let daily_brief = self.jobs_templates.join("daily-brief.md");
         let weekly_review = self.jobs_templates.join("weekly-review.md");
@@ -479,6 +496,12 @@ impl AllbertPaths {
     }
 }
 
+fn first_party_skill_install_metadata(identity: &str, installed_at: &str) -> String {
+    format!(
+        "tree_sha256 = \"first-party-seed\"\napproved_at = \"{installed_at}\"\ninstalled_at = \"{installed_at}\"\n\n[source]\nkind = \"first_party\"\nidentity = \"{identity}\"\n"
+    )
+}
+
 fn atomic_write(path: &std::path::Path, bytes: &[u8]) -> Result<(), std::io::Error> {
     crate::atomic_write(path, bytes)
 }
@@ -500,5 +523,23 @@ mod tests {
             paths.telegram_bot_token,
             paths.channel_secrets.join("telegram").join("bot_token")
         );
+    }
+
+    #[test]
+    fn ensure_seeds_first_party_skill_author_with_install_metadata() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths ensure");
+
+        let skill_author = paths.skills_installed.join("skill-author");
+        let skill = std::fs::read_to_string(skill_author.join("SKILL.md"))
+            .expect("skill-author should be seeded");
+        assert!(skill.contains("name: skill-author"));
+        assert!(skill.contains("provenance: external"));
+
+        let metadata = std::fs::read_to_string(skill_author.join(".allbert-install.toml"))
+            .expect("first-party install metadata should be seeded");
+        assert!(metadata.contains("kind = \"first_party\""));
+        assert!(metadata.contains("allbert:first-party/skill-author"));
     }
 }

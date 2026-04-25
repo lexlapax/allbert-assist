@@ -182,7 +182,7 @@ pub fn install_skill_source<P: SkillPrompter>(
     prompter: &P,
 ) -> Result<InstallResult> {
     let prepared = match parse_install_source(source) {
-        SkillInstallSource::LocalPath(path) => PreparedInstall::from_local(&path)?,
+        SkillInstallSource::LocalPath(path) => PreparedInstall::from_local(paths, &path)?,
         SkillInstallSource::Git(git) => PreparedInstall::from_git(paths, &git)?,
     };
     install_prepared_skill(paths, config, prepared, prompter, false)
@@ -206,7 +206,7 @@ pub fn update_skill<P: SkillPrompter>(
     }
     let metadata = load_install_metadata(&metadata_path)?;
     let prepared = match metadata.source.kind.as_str() {
-        "local_path" => PreparedInstall::from_local(Path::new(&metadata.source.identity))?,
+        "local_path" => PreparedInstall::from_local(paths, Path::new(&metadata.source.identity))?,
         "git" => {
             let git = GitInstallSource {
                 url: metadata.source.identity.clone(),
@@ -334,14 +334,20 @@ struct PreparedInstall {
 }
 
 impl PreparedInstall {
-    fn from_local(source: &Path) -> Result<Self> {
+    fn from_local(paths: &AllbertPaths, source: &Path) -> Result<Self> {
+        paths.ensure()?;
         let source_dir = normalize_source_dir(source)?;
         let source_identity = source_dir
             .canonicalize()
             .with_context(|| format!("canonicalize {}", source_dir.display()))?;
+        let source_kind = if is_within(&source_identity, &paths.skills_incoming)? {
+            "incoming"
+        } else {
+            "local_path"
+        };
         Ok(Self {
             source: SkillSource {
-                kind: "local_path".into(),
+                kind: source_kind.into(),
                 identity: source_identity.display().to_string(),
                 requested_ref: None,
             },
@@ -516,6 +522,13 @@ fn normalize_source_dir(source: &Path) -> Result<PathBuf> {
     bail!("expected a skill directory or SKILL.md path");
 }
 
+fn is_within(path: &Path, root: &Path) -> Result<bool> {
+    let root = root
+        .canonicalize()
+        .with_context(|| format!("canonicalize {}", root.display()))?;
+    Ok(path.starts_with(root))
+}
+
 fn normalize_cloned_skill_root(root: &Path) -> Result<PathBuf> {
     let skill_path = root.join("SKILL.md");
     if !skill_path.exists() {
@@ -564,6 +577,10 @@ fn install_prepared_skill<P: SkillPrompter>(
             return Err(err);
         }
     };
+    if let Err(err) = validate_preview_against_config(&preview, config) {
+        cleanup_prepared_install(&prepared);
+        return Err(err);
+    }
 
     let destination = paths.skills_installed.join(&preview.name);
     if destination.exists() && !replace_existing {
@@ -649,6 +666,23 @@ fn cleanup_prepared_install(prepared: &PreparedInstall) {
     if prepared.source.kind == "git" {
         let _ = fs::remove_dir_all(&prepared.staged_root);
     }
+}
+
+fn validate_preview_against_config(preview: &SkillPreview, config: &Config) -> Result<()> {
+    for script in &preview.scripts {
+        if script.interpreter.eq_ignore_ascii_case("lua") && !lua_scripts_allowed(config) {
+            bail!(
+                "skill '{}' declares Lua script '{}', but embedded Lua scripting is disabled for v0.12 preview validation",
+                preview.name,
+                script.name
+            );
+        }
+    }
+    Ok(())
+}
+
+fn lua_scripts_allowed(_config: &Config) -> bool {
+    false
 }
 
 fn inspect_candidate(skill_path: &Path, source_label: &str) -> Result<SkillPreview> {
@@ -1188,6 +1222,73 @@ mod tests {
     }
 
     #[test]
+    fn skill_author_incoming_draft_promotes_with_self_authored_provenance() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let draft = paths.skills_incoming.join("draft-skill");
+        fs::create_dir_all(&draft).unwrap();
+        fs::write(
+            draft.join("SKILL.md"),
+            "---\nname: draft-skill\ndescription: Draft skill\nprovenance: self-authored\nallowed-tools: [read_reference]\n---\n\nDraft body\n",
+        )
+        .unwrap();
+
+        let config = Config::default_template();
+        let prompter = FixedPrompter::new(vec![true], vec![]);
+        let result = install_skill_source(
+            &paths,
+            &config,
+            draft.to_str().expect("draft path should be utf-8"),
+            &prompter,
+        )
+        .expect("incoming draft should install");
+
+        assert_eq!(result.name, "draft-skill");
+        assert!(!paths.skills_incoming.join("draft-skill").exists());
+        let installed = fs::read_to_string(paths.skills_installed.join("draft-skill/SKILL.md"))
+            .expect("installed skill should exist");
+        assert!(installed.contains("provenance: self-authored"));
+        let metadata = load_install_metadata(&result.installed_path.join(INSTALL_METADATA_FILE))
+            .expect("metadata should load");
+        assert_eq!(metadata.source.kind, "incoming");
+        let shown = show_installed_skill(&paths, "draft-skill").expect("show should succeed");
+        assert!(shown.contains("provenance:     self-authored"));
+    }
+
+    #[test]
+    fn skill_author_lua_draft_is_refused_while_scripting_disabled() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let draft = paths.skills_incoming.join("lua-draft");
+        fs::create_dir_all(draft.join("scripts")).unwrap();
+        fs::write(
+            draft.join("SKILL.md"),
+            "---\nname: lua-draft\ndescription: Lua draft\nprovenance: self-authored\nscripts:\n  - name: helper\n    path: scripts/helper.lua\n    interpreter: lua\n---\n\nLua body\n",
+        )
+        .unwrap();
+        fs::write(draft.join("scripts/helper.lua"), "return 'hello'\n").unwrap();
+
+        let config = Config::default_template();
+        let prompter = FixedPrompter::new(vec![true], vec![]);
+        let err = install_skill_source(
+            &paths,
+            &config,
+            draft.to_str().expect("draft path should be utf-8"),
+            &prompter,
+        )
+        .expect_err("Lua draft should be refused while scripting is disabled");
+
+        assert!(err
+            .to_string()
+            .contains("embedded Lua scripting is disabled"));
+        assert_eq!(prompter.install_call_count(), 0);
+        assert!(paths.skills_incoming.join("lua-draft").exists());
+        assert!(!paths.skills_installed.join("lua-draft").exists());
+    }
+
+    #[test]
     fn install_reject_leaves_no_installed_trace() {
         let temp = TempRoot::new();
         let paths = temp.paths();
@@ -1371,11 +1472,17 @@ mod tests {
 
         let listing = list_installed_skills(&paths).expect("list should succeed");
         assert!(listing.contains("memory-curator"));
+        assert!(listing.contains("skill-author"));
 
         let shown = show_installed_skill(&paths, "memory-curator").expect("show should succeed");
         assert!(shown.contains("name:           memory-curator"));
         assert!(shown.contains("allowed-tools:"));
         assert!(shown.contains("list_staged_memory"));
         assert!(shown.contains("agents/extract-from-turn.md"));
+
+        let authored = show_installed_skill(&paths, "skill-author").expect("show should succeed");
+        assert!(authored.contains("name:           skill-author"));
+        assert!(authored.contains("provenance:     external"));
+        assert!(authored.contains("source kind: first_party"));
     }
 }

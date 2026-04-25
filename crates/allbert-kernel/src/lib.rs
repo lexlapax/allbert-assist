@@ -6355,6 +6355,157 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn skill_author_seeded_into_skill_catalog_prompt() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths.clone(),
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                Arc::clone(&requests),
+                vec![CompletionResponse {
+                    text: "ready".into(),
+                    usage: Usage::default(),
+                }],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("make me a skill that summarizes release notes")
+            .await
+            .expect("turn should pass");
+        assert!(paths
+            .skills_installed
+            .join("skill-author/SKILL.md")
+            .exists());
+        let recorded = requests.lock().unwrap();
+        let system = recorded
+            .first()
+            .and_then(|request| request.system.as_deref())
+            .expect("system prompt should be captured");
+        assert!(system.contains("- skill-author:"));
+        assert!(system.contains("provenance: external"));
+    }
+
+    #[tokio::test]
+    async fn skill_author_flow_creates_persistent_incoming_draft() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter_with(
+                Arc::clone(&events),
+                Arc::new(NoopConfirm),
+                Arc::new(QueueInput::new(vec![
+                    InputResponse::Submitted("release-note-helper".into()),
+                    InputResponse::Submitted("Summarize release notes.".into()),
+                    InputResponse::Submitted(
+                        "Read release notes and produce a concise operator summary.".into(),
+                    ),
+                    InputResponse::Submitted("python".into()),
+                    InputResponse::Submitted("read_reference".into()),
+                ])),
+            ),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"skill-author\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"Skill name?\",\"allow_empty\":false}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"Description?\",\"allow_empty\":false}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"Capability summary?\",\"allow_empty\":false}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"Interpreter?\",\"allow_empty\":false}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"Allowed tools?\",\"allow_empty\":false}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name":"create_skill",
+                                "input":{
+                                    "name":"release-note-helper",
+                                    "description":"Summarize release notes.",
+                                    "skip_quarantine":false,
+                                    "allowed_tools":["read_reference"],
+                                    "body":"Use this skill to read release notes and produce a concise operator summary. Prefer Python only if a future script is needed."
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Draft is ready for install preview.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let summary = kernel
+            .run_turn("make me a skill that summarizes release notes")
+            .await
+            .expect("turn should pass");
+        assert!(!summary.hit_turn_limit);
+
+        let draft_path = paths.skills_incoming.join("release-note-helper/SKILL.md");
+        assert!(draft_path.exists(), "draft should persist in quarantine");
+        assert!(!paths
+            .skills_installed
+            .join("release-note-helper/SKILL.md")
+            .exists());
+        let draft = fs::read_to_string(&draft_path).expect("draft should be readable");
+        assert!(draft.contains("provenance: self-authored"));
+        assert!(events.lock().unwrap().iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "create_skill" && *ok && content.contains("standard skill install flow")
+        )));
+
+        let _second = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            paths.clone(),
+            Arc::new(TestFactory::new("anthropic", vec![], Some(test_pricing()))),
+        )
+        .await
+        .expect("second kernel should boot");
+        assert!(
+            draft_path.exists(),
+            "incoming draft should survive a fresh kernel session"
+        );
+    }
+
+    #[tokio::test]
     async fn skill_frontmatter_preview_parses_intents_and_contributed_agents() {
         let temp = TempRoot::new();
         let paths = temp.paths();
