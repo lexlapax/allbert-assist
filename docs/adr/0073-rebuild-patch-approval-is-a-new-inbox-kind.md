@@ -5,6 +5,8 @@ Status: Accepted
 
 Amends: [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md)
 
+> **Planned v0.12.1 amendment**: patch approval context may include a bounded diff preview for approval modals and channel messages. The full diff remains artifact-backed at `artifact_path`, inbox accept still only records review approval, and `self-improvement install` remains the separate operator action.
+
 ## Context
 
 v0.12's Rust rebuild skill (ADR 0067) produces diffs that the operator must review before any installation. The v0.8 approval inbox (ADR 0060) already handles three kinds of operator-pending actions — `tool-approval`, `cost-cap-override`, `job-approval` — using a uniform on-disk file layout (markdown + frontmatter, addressable by approval id, identity-scoped).
@@ -124,6 +126,7 @@ Patch approvals follow the same retention as other inbox kinds: pending and reso
 ## References
 
 - [docs/plans/v0.12-self-improvement.md](../plans/v0.12-self-improvement.md)
+- [docs/plans/v0.12.1-operator-ux-polish.md](../plans/v0.12.1-operator-ux-polish.md)
 - [ADR 0045](0045-memory-index-is-a-derived-artifact-rebuilt-from-markdown-ground-truth.md)
 - [ADR 0049](0049-session-durability-is-a-markdown-journal.md)
 - [ADR 0056](0056-async-confirm-is-a-suspend-resume-turn-state.md)

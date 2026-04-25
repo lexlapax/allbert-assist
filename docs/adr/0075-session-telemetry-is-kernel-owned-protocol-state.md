@@ -3,6 +3,8 @@
 Date: 2026-04-24
 Status: Accepted
 
+> **Planned v0.12.1 amendment**: `ActivitySnapshot` extends this daemon-owned telemetry posture with protocol v3 activity and stuck-state visibility. v3 daemons remain compatible with shipped v2 clients by negotiating the client protocol per connection and filtering v3-only activity messages and fields away from v2 peers.
+
 ## Context
 
 The v0.11 TUI needs status-line data: provider, model, context pressure, token usage, cost, memory state, active skills, pending approvals, and trace posture. If the TUI computes that independently, it will drift from the daemon and classic CLI. If every frontend invents its own status query, Allbert loses the legibility the feature is meant to provide.
@@ -53,6 +55,7 @@ Context usage is based on provider-reported latest response usage. v0.11 does no
 ## References
 
 - [docs/plans/v0.11-tui-and-memory.md](../plans/v0.11-tui-and-memory.md)
+- [docs/plans/v0.12.1-operator-ux-polish.md](../plans/v0.12.1-operator-ux-polish.md)
 - [ADR 0051](0051-daily-cost-cap-is-a-hard-gate-at-turn-boundary.md)
 - [ADR 0066](0066-owned-provider-seam-over-rig-for-v0-10.md)
 - [ADR 0074](0074-tui-is-a-daemon-attached-adapter-not-a-runtime.md)

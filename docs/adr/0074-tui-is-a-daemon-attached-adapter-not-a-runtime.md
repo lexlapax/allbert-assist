@@ -3,6 +3,8 @@
 Date: 2026-04-24
 Status: Accepted
 
+> **Planned v0.12.1 amendment**: the TUI may move to an async event loop for responsive redraw and local input editing while a daemon turn is in flight. That does not make the TUI a runtime. The TUI owns next-turn draft buffering, spinner animation, caret placement, and separate modal input state; the daemon remains authoritative for activity phase, stuck hints, approvals, turns, and all runtime state.
+
 ## Context
 
 v0.11 adds a richer terminal UI. The tempting failure mode is to let the TUI grow into a second application runtime: its own session state, its own memory summaries, its own approval state, or its own cost accounting. That would violate the kernel-first and daemon-capable direction from the vision and would make future channels harder to reason about.
@@ -42,6 +44,7 @@ Fresh profiles default to TUI, while upgraded profiles preserve classic mode unl
 ## References
 
 - [docs/plans/v0.11-tui-and-memory.md](../plans/v0.11-tui-and-memory.md)
+- [docs/plans/v0.12.1-operator-ux-polish.md](../plans/v0.12.1-operator-ux-polish.md)
 - [ADR 0001](0001-kernel-is-runtime-core-frontends-are-adapters.md)
 - [ADR 0013](0013-clients-attach-to-a-daemon-hosted-kernel-via-channels.md)
 - [ADR 0024](0024-v0-2-primary-operator-surface-is-unified-under-allbert-cli.md)
