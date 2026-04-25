@@ -24,7 +24,9 @@ The rebuild skill resolves the active source checkout in this order:
 
 1. The `self_improvement.source_checkout` config value if set;
 2. The `$ALLBERT_SOURCE_CHECKOUT` env var if set;
-3. An upward walk from the running executable's symlink-resolved path looking for a `Cargo.toml` whose `[workspace].members` includes `allbert-kernel`.
+3. An upward walk from the running executable's symlink-resolved path looking for a workspace `Cargo.toml` that contains the Allbert kernel crate.
+
+The workspace check must accept the current repository layout, where the member path is `crates/allbert-kernel`, and should prefer package identity (`package.name = "allbert-kernel"`) when reading member manifests. A literal `[workspace].members` entry of `allbert-kernel` is not required.
 
 If none resolves, the skill **refuses to activate** with an operator-readable error directing the user to `allbert-cli self-improvement config`. The rebuild path is opt-in for operators who have a local checkout; binary-drop installs neither silently work nor silently break.
 

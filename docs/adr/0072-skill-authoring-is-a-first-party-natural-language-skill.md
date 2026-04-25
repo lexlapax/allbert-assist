@@ -59,7 +59,7 @@ Drafts persist across turns at `~/.allbert/skills/incoming/<draft-name>/` (per A
 
 ### Final submission
 
-Final submission routes through the standard install preview + confirm flow (ADR 0033). The skill-authoring skill does **not** call `create_skill` with `skip_quarantine: true` (ADR 0071). That tool path is reserved for kernel-internal first-party seeding. `skill-author`'s `allowed-tools` fence enforces this at the kernel boundary.
+Final submission routes through the standard install preview + confirm flow (ADR 0033). The skill-authoring skill does **not** call `create_skill` with `skip_quarantine: true` (ADR 0071). That tool path is reserved for kernel-internal first-party seeding. Because `allowed-tools` names tools rather than argument policies, the kernel `create_skill` handler enforces this at the tool boundary.
 
 ### Capability scope for v0.12
 

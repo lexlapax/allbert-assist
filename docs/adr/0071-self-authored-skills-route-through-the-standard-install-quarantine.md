@@ -67,10 +67,10 @@ create_skill(..., skip_quarantine: bool)
 
 Behavior:
 
-- `skip_quarantine: true` — preserves the existing behavior (writes to `installed/`). Reserved for first-party kernel seeding (e.g. shipping `memory-curator` on first run). The boolean is recorded in hook metadata for audit.
+- `skip_quarantine: true` — preserves the existing behavior (writes to `installed/`). Reserved for first-party kernel seeding (e.g. shipping `memory-curator` on first run). Prompt-originated tool calls cannot use it. The boolean is recorded in hook metadata for audit.
 - `skip_quarantine: false` — writes to `incoming/`, emits an install-preview event, and the skill goes through the standard confirm flow. This is what `skill-author` uses.
 
-There is no default value. Callers must state their intent. `skill-author`'s `allowed-tools` fence permits `create_skill` only with `skip_quarantine: false`, which the kernel enforces at the tool boundary.
+There is no default value. Callers must state their intent. `allowed-tools` still names tools only; it does not express parameter-level policy. `skill-author` may list `create_skill`, but the kernel `create_skill` handler denies `skip_quarantine: true` for prompt-originated or active-skill calls.
 
 ### Why amend ADR 0032 rather than write a new ADR for the field
 

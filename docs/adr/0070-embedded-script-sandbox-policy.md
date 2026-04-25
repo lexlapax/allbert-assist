@@ -58,7 +58,7 @@ The kernel imposes a hard ceiling on per-invocation budgets so an operator confi
 - `max_memory_kb` ceiling: `262144` (256 MB).
 - `max_output_bytes` ceiling: `16777216` (16 MB).
 
-Operator configs that exceed the ceiling are clamped at load time and a warning is logged; scripts requesting larger budgets are denied at invocation time.
+Operator configs that exceed the ceiling are clamped at load time and a warning is logged; scripts requesting larger per-invocation budgets are denied at invocation time.
 
 ### Config schema
 
@@ -71,12 +71,12 @@ max_execution_ms  = 1000
 max_memory_kb     = 65536
 max_output_bytes  = 1048576
 allow_stdlib      = ["string", "math", "table"]
-deny_stdlib       = ["io", "os", "package", "require", "debug"]
+deny_stdlib       = ["io", "os", "package", "require", "debug", "coroutine"]
 ```
 
 `sandbox_mode = "strict"` is the only supported value in v0.12; other modes are intentionally not introduced. This keeps the policy surface small and forecloses a "we'll just turn off the sandbox for this one skill" failure mode.
 
-The `allow_stdlib` list MAY be widened by the operator (e.g. to add `bit32`); `deny_stdlib` is treated as the hard floor — anything in `deny_stdlib` cannot be re-allowed by adding it to `allow_stdlib`. This mirrors ADR 0034's `security.exec_deny` precedence over `security.exec_allow`.
+The `allow_stdlib` list MAY be widened by the operator (e.g. to add `bit32`); `deny_stdlib` is treated as the hard floor — anything in `deny_stdlib` cannot be re-allowed by adding it to `allow_stdlib`. If a library appears in both lists, the effective allowlist drops it and logs a warning. This mirrors ADR 0034's `security.exec_deny` precedence over `security.exec_allow`.
 
 ### Two-step opt-in
 

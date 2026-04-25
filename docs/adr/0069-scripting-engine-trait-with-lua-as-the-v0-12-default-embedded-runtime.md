@@ -79,7 +79,7 @@ pub enum ScriptOutcome {
 
 ### Inputs and outputs are serde-JSON only
 
-This is the load-bearing trust decision: scripts receive serialized inputs and return serialized outputs. There is no shared Rust reference, no pointer into session state, no direct memory service access from inside a script. Any data flow goes through the same tool surface every other extension uses (the script can `tool_call` to memory or other surfaces; it cannot bypass).
+This is the load-bearing trust decision: scripts receive serialized inputs and return serialized outputs. There is no shared Rust reference, no pointer into session state, no direct memory service access from inside a script, and no embedded host tool-call bridge in v0.12. Any data a script needs must be supplied by the caller as JSON; any state-changing follow-up happens after the script returns through the same tool surface every other extension uses.
 
 This resolves the v0.12 pre-implementation question "do embedded scripts share memory with the host session?" — they do not. Anything else is a trust and lifetime minefield (the Lua VM and the Rust borrow checker disagree on what "alive" means).
 
@@ -99,7 +99,8 @@ Lua scripts are declared in `SKILL.md` frontmatter under the same `scripts:` sec
 
 ```yaml
 scripts:
-  - interpreter: lua
+  - name: score
+    interpreter: lua
     path: scripts/score.lua
 ```
 
