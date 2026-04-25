@@ -74,8 +74,9 @@ pub use memory::{
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
 pub use scripting::{
-    BudgetUsed, CapKind, LoadedScript, LuaEngine, ScriptBudget, ScriptOutcome,
-    ScriptingCapabilities, ScriptingEngine, ScriptingError,
+    BudgetUsed, CapKind, LoadedScript, LuaEngine, LuaSandboxPolicy, ScriptBudget, ScriptOutcome,
+    ScriptingCapabilities, ScriptingEngine, ScriptingError, LUA_MAX_EXECUTION_MS_CEILING,
+    LUA_MAX_MEMORY_KB_CEILING, LUA_MAX_OUTPUT_BYTES_CEILING,
 };
 pub use security::SecurityHook;
 pub use self_improvement::{
@@ -223,6 +224,8 @@ struct RunSkillScriptInput {
     args: Vec<String>,
     #[serde(default)]
     input: Option<serde_json::Value>,
+    #[serde(default)]
+    budget: Option<scripting::ScriptBudget>,
     #[serde(default)]
     timeout_s: Option<u64>,
 }
@@ -2200,7 +2203,9 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             let input = parsed
                 .input
                 .unwrap_or_else(|| json!({ "args": parsed.args }));
-            return self.dispatch_lua_skill_script(state, resolved, input).await;
+            return self
+                .dispatch_lua_skill_script(state, resolved, input, parsed.budget)
+                .await;
         }
 
         if self
@@ -2283,6 +2288,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         state: &mut AgentState,
         resolved: skills::ResolvedSkillScript,
         input: serde_json::Value,
+        requested_budget: Option<scripting::ScriptBudget>,
     ) -> ToolOutput {
         if self.config.scripting.engine != config::ScriptingEngineConfig::Lua {
             return ToolOutput {
@@ -2329,10 +2335,14 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
 
         let source_ref = format!("{}/{}", resolved.skill_name, resolved.declared_path);
         let synthetic_name = format!("exec.lua:{source_ref}");
-        let budget = scripting::ScriptBudget {
-            max_execution_ms: self.config.scripting.max_execution_ms,
-            max_memory_kb: self.config.scripting.max_memory_kb,
-            max_output_bytes: self.config.scripting.max_output_bytes,
+        let budget = match resolve_lua_script_budget(&self.config.scripting, requested_budget) {
+            Ok(budget) => budget,
+            Err(message) => {
+                return ToolOutput {
+                    content: message,
+                    ok: false,
+                }
+            }
         };
         let before_input = json!({
             "engine": "lua",
@@ -2363,7 +2373,10 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             }
         }
 
-        let engine = scripting::LuaEngine::new();
+        let engine = scripting::LuaEngine::with_policy(scripting::LuaSandboxPolicy {
+            allow_stdlib: self.config.scripting.allow_stdlib.clone(),
+            deny_stdlib: self.config.scripting.deny_stdlib.clone(),
+        });
         let outcome = match engine.load(&source, &source_ref) {
             Ok(script) => engine.invoke(&script, input, budget),
             Err(err) => Err(err),
@@ -3476,6 +3489,42 @@ fn truncate_prompt_bytes(input: &str, max_bytes: usize) -> String {
         end = next;
     }
     input[..end].to_string()
+}
+
+fn resolve_lua_script_budget(
+    config: &config::ScriptingConfig,
+    requested: Option<scripting::ScriptBudget>,
+) -> Result<scripting::ScriptBudget, String> {
+    let budget = requested.unwrap_or(scripting::ScriptBudget {
+        max_execution_ms: config.max_execution_ms,
+        max_memory_kb: config.max_memory_kb,
+        max_output_bytes: config.max_output_bytes,
+    });
+    if budget.max_execution_ms == 0 || budget.max_memory_kb == 0 || budget.max_output_bytes == 0 {
+        return Err("Lua script budget values must be >= 1".into());
+    }
+    if budget.max_execution_ms > scripting::LUA_MAX_EXECUTION_MS_CEILING {
+        return Err(format!(
+            "requested Lua max_execution_ms {} exceeds hard ceiling {}",
+            budget.max_execution_ms,
+            scripting::LUA_MAX_EXECUTION_MS_CEILING
+        ));
+    }
+    if budget.max_memory_kb > scripting::LUA_MAX_MEMORY_KB_CEILING {
+        return Err(format!(
+            "requested Lua max_memory_kb {} exceeds hard ceiling {}",
+            budget.max_memory_kb,
+            scripting::LUA_MAX_MEMORY_KB_CEILING
+        ));
+    }
+    if budget.max_output_bytes > scripting::LUA_MAX_OUTPUT_BYTES_CEILING {
+        return Err(format!(
+            "requested Lua max_output_bytes {} exceeds hard ceiling {}",
+            budget.max_output_bytes,
+            scripting::LUA_MAX_OUTPUT_BYTES_CEILING
+        ));
+    }
+    Ok(budget)
 }
 
 fn render_script_outcome(
@@ -6326,6 +6375,70 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn lua_two_step_opt_in_requires_exec_allow() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill_with_script(
+            &paths,
+            "lua-runner",
+            "Run a Lua helper",
+            "Use the Lua helper when needed.",
+            "helper",
+            "lua",
+            "scripts/helper.lua",
+            "return function(_) return { ok = true } end\n",
+        );
+
+        let mut config = Config::default_template();
+        config.scripting.engine = config::ScriptingEngineConfig::Lua;
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::clone(&events)),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"lua-runner\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Activated.".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"lua-runner\",\"script\":\"helper\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Done.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("activate").await.expect("turn should pass");
+        events.lock().unwrap().clear();
+        kernel.run_turn("run it").await.expect("turn should pass");
+
+        let recorded = events.lock().unwrap();
+        assert!(recorded.iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "run_skill_script"
+                    && !*ok
+                    && content.contains("not allowlisted")
+        )));
+    }
+
+    #[tokio::test]
     async fn scripting_lua_invocation_emits_synthetic_hook_metadata() {
         let temp = TempRoot::new();
         let paths = temp.paths();
@@ -6417,6 +6530,71 @@ mod tests {
                 && input["outcome"] == "ok"
                 && input["budget_used"]["output_bytes"].as_u64().unwrap_or(0) > 0
         }));
+    }
+
+    #[tokio::test]
+    async fn lua_budget_override_above_hard_ceiling_is_denied() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill_with_script(
+            &paths,
+            "lua-runner",
+            "Run a Lua helper",
+            "Use the Lua helper when needed.",
+            "helper",
+            "lua",
+            "scripts/helper.lua",
+            "return function(_) return { ok = true } end\n",
+        );
+
+        let mut config = Config::default_template();
+        config.scripting.engine = config::ScriptingEngineConfig::Lua;
+        config.security.exec_allow.push("lua".into());
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::clone(&events)),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"lua-runner\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Activated.".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"lua-runner\",\"script\":\"helper\",\"budget\":{\"max_execution_ms\":30001,\"max_memory_kb\":1024,\"max_output_bytes\":4096}}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Done.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("activate").await.expect("turn should pass");
+        events.lock().unwrap().clear();
+        kernel.run_turn("run it").await.expect("turn should pass");
+
+        let recorded = events.lock().unwrap();
+        assert!(recorded.iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "run_skill_script"
+                    && !*ok
+                    && content.contains("exceeds hard ceiling")
+        )));
     }
 
     #[tokio::test]

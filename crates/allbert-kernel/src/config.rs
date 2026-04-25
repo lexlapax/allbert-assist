@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use crate::error::{ConfigError, KernelError};
 use crate::intent::Intent;
 use crate::paths::AllbertPaths;
+use crate::scripting::{
+    LUA_MAX_EXECUTION_MS_CEILING, LUA_MAX_MEMORY_KB_CEILING, LUA_MAX_OUTPUT_BYTES_CEILING,
+};
 
 pub const CURRENT_SETUP_VERSION: u8 = 4;
 
@@ -691,8 +694,8 @@ impl Default for ScriptingConfig {
         Self {
             engine: ScriptingEngineConfig::Disabled,
             max_execution_ms: 1000,
-            max_memory_kb: 16 * 1024,
-            max_output_bytes: 64 * 1024,
+            max_memory_kb: 64 * 1024,
+            max_output_bytes: 1024 * 1024,
             allow_stdlib: vec!["string".into(), "math".into(), "table".into()],
             deny_stdlib: default_lua_deny_stdlib(),
         }
@@ -878,7 +881,9 @@ impl Config {
                 path: paths.config.clone(),
                 source,
             })?;
-            if parsed.migrate_loaded_config(raw_had_repl_ui) {
+            let migrated = parsed.migrate_loaded_config(raw_had_repl_ui);
+            let normalized = parsed.normalize_scripting_config();
+            if migrated || normalized {
                 parsed.persist(paths)?;
             }
             parsed
@@ -929,6 +934,56 @@ impl Config {
             changed = true;
         }
         changed
+    }
+
+    fn normalize_scripting_config(&mut self) -> bool {
+        let mut changed = false;
+        if self.scripting.max_execution_ms > LUA_MAX_EXECUTION_MS_CEILING {
+            tracing::warn!(
+                configured = self.scripting.max_execution_ms,
+                ceiling = LUA_MAX_EXECUTION_MS_CEILING,
+                "clamping scripting.max_execution_ms to hard ceiling"
+            );
+            self.scripting.max_execution_ms = LUA_MAX_EXECUTION_MS_CEILING;
+            changed = true;
+        }
+        if self.scripting.max_memory_kb > LUA_MAX_MEMORY_KB_CEILING {
+            tracing::warn!(
+                configured = self.scripting.max_memory_kb,
+                ceiling = LUA_MAX_MEMORY_KB_CEILING,
+                "clamping scripting.max_memory_kb to hard ceiling"
+            );
+            self.scripting.max_memory_kb = LUA_MAX_MEMORY_KB_CEILING;
+            changed = true;
+        }
+        if self.scripting.max_output_bytes > LUA_MAX_OUTPUT_BYTES_CEILING {
+            tracing::warn!(
+                configured = self.scripting.max_output_bytes,
+                ceiling = LUA_MAX_OUTPUT_BYTES_CEILING,
+                "clamping scripting.max_output_bytes to hard ceiling"
+            );
+            self.scripting.max_output_bytes = LUA_MAX_OUTPUT_BYTES_CEILING;
+            changed = true;
+        }
+
+        let deny = self
+            .scripting
+            .deny_stdlib
+            .iter()
+            .map(|value| value.trim().to_ascii_lowercase())
+            .collect::<std::collections::HashSet<_>>();
+        let before = self.scripting.allow_stdlib.len();
+        self.scripting.allow_stdlib.retain(|value| {
+            let denied = deny.contains(&value.trim().to_ascii_lowercase());
+            if denied {
+                tracing::warn!(
+                    stdlib = value,
+                    "dropping denied Lua stdlib from scripting.allow_stdlib"
+                );
+            }
+            !denied
+        });
+        changed || self.scripting.allow_stdlib.len() != before
     }
 
     pub fn validate(&self) -> Result<(), String> {
@@ -1437,6 +1492,47 @@ mode = "always_active"
         let mut config = Config::default_template();
         config.scripting.max_output_bytes = 0;
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn lua_hard_ceiling_clamps_loaded_config() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should be created");
+        std::fs::write(
+            &paths.config,
+            r#"
+[model]
+provider = "ollama"
+model_id = "gemma4"
+max_tokens = 4096
+
+[scripting]
+engine = "lua"
+max_execution_ms = 999999
+max_memory_kb = 999999
+max_output_bytes = 99999999
+allow_stdlib = ["string", "io"]
+deny_stdlib = ["io", "os", "package", "require", "debug", "coroutine"]
+"#,
+        )
+        .expect("config should be written");
+
+        let config = Config::load_or_create(&paths).expect("config should load");
+        assert_eq!(
+            config.scripting.max_execution_ms,
+            LUA_MAX_EXECUTION_MS_CEILING
+        );
+        assert_eq!(config.scripting.max_memory_kb, LUA_MAX_MEMORY_KB_CEILING);
+        assert_eq!(
+            config.scripting.max_output_bytes,
+            LUA_MAX_OUTPUT_BYTES_CEILING
+        );
+        assert!(!config
+            .scripting
+            .allow_stdlib
+            .iter()
+            .any(|item| item == "io"));
     }
 
     #[test]

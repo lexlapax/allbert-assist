@@ -899,6 +899,14 @@ impl Tool for RunSkillScriptTool {
                 "script": {"type": "string"},
                 "args": {"type": "array", "items": {"type": "string"}},
                 "input": {},
+                "budget": {
+                    "type": "object",
+                    "properties": {
+                        "max_execution_ms": {"type": "integer", "minimum": 1},
+                        "max_memory_kb": {"type": "integer", "minimum": 1},
+                        "max_output_bytes": {"type": "integer", "minimum": 1}
+                    }
+                },
                 "timeout_s": {"type": "integer", "minimum": 1}
             }
         })
