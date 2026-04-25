@@ -16,6 +16,7 @@ pub mod llm;
 pub mod memory;
 pub mod paths;
 pub mod security;
+pub mod self_improvement;
 pub mod skills;
 pub mod tools;
 pub mod trace;
@@ -37,8 +38,9 @@ pub use config::{
     Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig, JobsConfig, LearningConfig,
     LimitsConfig, MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig,
     MemoryRoutingMode, MemorySemanticConfig, ModelConfig, PersonalityDigestConfig, Provider,
-    ReplConfig, ReplUiMode, SecurityConfig, SessionsConfig, SetupConfig, StatusLineConfig,
-    StatusLineItem, TuiConfig, WebSecurityConfig, CURRENT_SETUP_VERSION,
+    ReplConfig, ReplUiMode, SecurityConfig, SelfImprovementConfig, SelfImprovementInstallMode,
+    SessionsConfig, SetupConfig, StatusLineConfig, StatusLineItem, TuiConfig, WebSecurityConfig,
+    CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
@@ -71,6 +73,13 @@ pub use memory::{
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
 pub use security::SecurityHook;
+pub use self_improvement::{
+    assert_rust_rebuild_ready, check_self_improvement_write_target, collect_worktree_gc,
+    ensure_worktree_creation_allowed, has_pinned_rust_toolchain, render_bytes,
+    resolve_source_checkout, resolve_source_checkout_from, resolve_worktree_root,
+    worktree_disk_usage, ResolvedSourceCheckout, SourceCheckoutSource, WorktreeDiskEntry,
+    WorktreeDiskUsage, WorktreeGcReport,
+};
 pub use skills::{
     ActiveSkill, ContributedAgent, CreateSkillInput, InvokeSkillInput, Skill, SkillStore,
 };

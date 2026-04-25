@@ -32,6 +32,8 @@ pub struct Config {
     #[serde(default)]
     pub learning: LearningConfig,
     #[serde(default)]
+    pub self_improvement: SelfImprovementConfig,
+    #[serde(default)]
     pub security: SecurityConfig,
     #[serde(default)]
     pub limits: LimitsConfig,
@@ -625,6 +627,47 @@ impl Default for PersonalityDigestConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct SelfImprovementConfig {
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_pathbuf",
+        serialize_with = "serialize_optional_pathbuf"
+    )]
+    pub source_checkout: Option<PathBuf>,
+    pub worktree_root: PathBuf,
+    pub max_worktree_gb: u32,
+    pub install_mode: SelfImprovementInstallMode,
+    pub keep_rejected_worktree: bool,
+}
+
+impl Default for SelfImprovementConfig {
+    fn default() -> Self {
+        Self {
+            source_checkout: None,
+            worktree_root: PathBuf::from("~/.allbert/worktrees"),
+            max_worktree_gb: 10,
+            install_mode: SelfImprovementInstallMode::ApplyToCurrentBranch,
+            keep_rejected_worktree: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum SelfImprovementInstallMode {
+    ApplyToCurrentBranch,
+}
+
+impl SelfImprovementInstallMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ApplyToCurrentBranch => "apply-to-current-branch",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
     #[serde(default)]
@@ -758,6 +801,7 @@ impl Config {
             intent_classifier: IntentClassifierConfig::default(),
             memory: MemoryConfig::default(),
             learning: LearningConfig::default(),
+            self_improvement: SelfImprovementConfig::default(),
             security: SecurityConfig::default(),
             limits: LimitsConfig::default(),
             trace: false,
@@ -868,6 +912,7 @@ impl Config {
             return Err("memory.semantic.hybrid_weight must be between 0 and 1".into());
         }
         validate_personality_digest_config(&self.learning.personality_digest)?;
+        validate_self_improvement_config(&self.self_improvement)?;
         if matches!(self.limits.daily_usd_cap, Some(value) if value < 0.0) {
             return Err("limits.daily_usd_cap must be >= 0".into());
         }
@@ -895,6 +940,38 @@ impl Config {
 
 fn atomic_write(path: &std::path::Path, bytes: &[u8]) -> Result<(), std::io::Error> {
     crate::atomic_write(path, bytes)
+}
+
+fn deserialize_optional_pathbuf<'de, D>(deserializer: D) -> Result<Option<PathBuf>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<String>::deserialize(deserializer)?;
+    Ok(value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from))
+}
+
+fn serialize_optional_pathbuf<S>(value: &Option<PathBuf>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let rendered = value
+        .as_ref()
+        .map(|path| path.display().to_string())
+        .unwrap_or_default();
+    serializer.serialize_str(&rendered)
+}
+
+fn validate_self_improvement_config(config: &SelfImprovementConfig) -> Result<(), String> {
+    if config.worktree_root.as_os_str().is_empty() {
+        return Err("self_improvement.worktree_root must not be empty".into());
+    }
+    if config.max_worktree_gb == 0 {
+        return Err("self_improvement.max_worktree_gb must be >= 1".into());
+    }
+    Ok(())
 }
 
 fn validate_personality_digest_config(config: &PersonalityDigestConfig) -> Result<(), String> {
@@ -1090,6 +1167,10 @@ max_tokens = 4096
         assert!(rendered.contains("ui = \"tui\""));
         assert!(rendered.contains("context_window_tokens = 0"));
         assert!(rendered.contains("mode = \"always_eligible\""));
+        assert!(rendered.contains("[self_improvement]"));
+        assert!(rendered.contains("source_checkout = \"\""));
+        assert!(rendered.contains("worktree_root = \"~/.allbert/worktrees\""));
+        assert!(rendered.contains("install_mode = \"apply-to-current-branch\""));
     }
 
     #[test]

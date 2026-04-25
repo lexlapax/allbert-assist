@@ -17,6 +17,7 @@ mod identity_cli;
 mod memory_cli;
 mod profile_cli;
 mod repl;
+mod self_improvement_cli;
 mod setup;
 mod skills;
 mod tui;
@@ -51,6 +52,10 @@ enum Command {
     Learning {
         #[command(subcommand)]
         command: LearningCommand,
+    },
+    SelfImprovement {
+        #[command(subcommand)]
+        command: SelfImprovementCommand,
     },
     Skills {
         #[command(subcommand)]
@@ -220,6 +225,27 @@ enum LearningCommand {
         accept: bool,
         #[arg(long = "consent-hosted-provider")]
         consent_hosted_provider: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum SelfImprovementCommand {
+    Config {
+        #[command(subcommand)]
+        command: SelfImprovementConfigCommand,
+    },
+    Gc {
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum SelfImprovementConfigCommand {
+    Show,
+    Set {
+        #[arg(long = "source-checkout")]
+        source_checkout: String,
     },
 }
 
@@ -439,6 +465,9 @@ async fn main() -> Result<()> {
         }
         Some(Command::Telemetry { json }) => run_telemetry_command(&paths, &config, json).await,
         Some(Command::Learning { command }) => run_learning_command(&paths, &config, command),
+        Some(Command::SelfImprovement { command }) => {
+            run_self_improvement_command(&paths, &config, command)
+        }
         Some(Command::Jobs { command }) => {
             if !matches!(command, JobsCommand::Template { .. })
                 && setup::needs_setup(&config, &paths)
@@ -826,6 +855,36 @@ fn run_learning_command(
                 consent_hosted_provider,
             )?;
             println!("{}", serde_json::to_string_pretty(&report)?);
+            Ok(())
+        }
+    }
+}
+
+fn run_self_improvement_command(
+    paths: &AllbertPaths,
+    config: &Config,
+    command: SelfImprovementCommand,
+) -> Result<()> {
+    match command {
+        SelfImprovementCommand::Config { command } => match command {
+            SelfImprovementConfigCommand::Show => {
+                println!("{}", self_improvement_cli::config_show(paths, config)?);
+                Ok(())
+            }
+            SelfImprovementConfigCommand::Set { source_checkout } => {
+                println!(
+                    "{}",
+                    self_improvement_cli::config_set_source_checkout(
+                        paths,
+                        config,
+                        &source_checkout
+                    )?
+                );
+                Ok(())
+            }
+        },
+        SelfImprovementCommand::Gc { dry_run } => {
+            println!("{}", self_improvement_cli::gc(paths, config, dry_run)?);
             Ok(())
         }
     }
