@@ -31,8 +31,9 @@ use allbert_proto::{
     ConfirmDecisionPayload, ConfirmReplyPayload, ConfirmRequestPayload, DaemonLockPayload,
     DaemonStatus, InboxApprovalPayload, InboxQueryPayload, InboxResolveResultPayload,
     InputReplyPayload, InputRequestPayload, InputResponsePayload, KernelEventPayload,
-    ModelConfigPayload, ProtocolError, ServerHello, ServerMessage, SessionResumeEntry,
-    SessionStatus, TelemetrySnapshot, TurnBudgetOverridePayload, TurnResult, PROTOCOL_VERSION,
+    ModelConfigPayload, PatchApprovalPayload, ProtocolError, ServerHello, ServerMessage,
+    SessionResumeEntry, SessionStatus, TelemetrySnapshot, TurnBudgetOverridePayload, TurnResult,
+    PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use chrono::{Datelike, Utc};
@@ -215,6 +216,18 @@ struct PendingApprovalFrontmatter {
     resolver: Option<String>,
     #[serde(default)]
     reply: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_checkout: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    branch: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    worktree_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    validation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    artifact_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    overall: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -223,6 +236,7 @@ enum PendingApprovalKind {
     ToolApproval,
     CostCapOverride,
     JobApproval,
+    PatchApproval,
 }
 
 impl PendingApprovalKind {
@@ -231,6 +245,7 @@ impl PendingApprovalKind {
             Self::ToolApproval => "tool-approval",
             Self::CostCapOverride => "cost-cap-override",
             Self::JobApproval => "job-approval",
+            Self::PatchApproval => "patch-approval",
         }
     }
 }
@@ -1202,6 +1217,7 @@ fn render_inbox_nag_message(approvals: &[InboxApprovalPayload]) -> String {
         let label = match kind {
             "cost-cap-override" => "cost-cap override",
             "job-approval" => "job approval",
+            "patch-approval" => "patch approval",
             _ => "tool approval",
         };
         segments.push(format!(
@@ -1750,6 +1766,12 @@ impl TelegramRuntime {
                             resolved_at: None,
                             resolver: None,
                             reply: None,
+                            source_checkout: None,
+                            branch: None,
+                            worktree_path: None,
+                            validation: None,
+                            artifact_path: None,
+                            overall: None,
                         },
                         rendered: format!("{message}\n\n## Blocked input\n\n{}\n", input.trim()),
                     };
@@ -1915,6 +1937,12 @@ impl ConfirmPrompter for TelegramConfirmPrompter {
                 resolved_at: None,
                 resolver: None,
                 reply: None,
+                source_checkout: None,
+                branch: None,
+                worktree_path: None,
+                validation: None,
+                artifact_path: None,
+                overall: None,
             },
             rendered: req.rendered.clone(),
         };
@@ -2035,6 +2063,12 @@ impl ConfirmPrompter for JobApprovalPrompter {
                 resolved_at: None,
                 resolver: None,
                 reply: None,
+                source_checkout: None,
+                branch: None,
+                worktree_path: None,
+                validation: None,
+                artifact_path: None,
+                overall: None,
             },
             rendered: req.rendered,
         };
@@ -2592,6 +2626,12 @@ async fn run_turn_over_channel(
                                     resolved_at: None,
                                     resolver: None,
                                     reply: None,
+                                    source_checkout: None,
+                                    branch: None,
+                                    worktree_path: None,
+                                    validation: None,
+                                    artifact_path: None,
+                                    overall: None,
                                 },
                                 rendered: request.rendered.clone(),
                             };
@@ -2844,6 +2884,12 @@ async fn run_turn_over_channel(
                                     resolved_at: None,
                                     resolver: None,
                                     reply: None,
+                                    source_checkout: None,
+                                    branch: None,
+                                    worktree_path: None,
+                                    validation: None,
+                                    artifact_path: None,
+                                    overall: None,
                                 },
                                 rendered: format!(
                                     "{}\n\n## Blocked input\n\n{}\n",
@@ -3305,6 +3351,23 @@ fn pending_approval_to_inbox_payload(
         path: session_approval_path(paths, session_id, &record.frontmatter.id)
             .display()
             .to_string(),
+        patch: patch_payload_from_pending_frontmatter(&record.frontmatter),
+    })
+}
+
+fn patch_payload_from_pending_frontmatter(
+    frontmatter: &PendingApprovalFrontmatter,
+) -> Option<PatchApprovalPayload> {
+    if frontmatter.kind != PendingApprovalKind::PatchApproval {
+        return None;
+    }
+    Some(PatchApprovalPayload {
+        source_checkout: frontmatter.source_checkout.clone().unwrap_or_default(),
+        branch: frontmatter.branch.clone().unwrap_or_default(),
+        worktree_path: frontmatter.worktree_path.clone().unwrap_or_default(),
+        validation: frontmatter.validation.clone().unwrap_or_default(),
+        artifact_path: frontmatter.artifact_path.clone().unwrap_or_default(),
+        overall: frontmatter.overall.clone().unwrap_or_default(),
     })
 }
 
@@ -3724,8 +3787,52 @@ async fn handle_live_approval_resolution(
             false,
             Some("approval recorded, but the original turn is no longer active".into()),
         )),
+        None if payload.kind == "patch-approval" => Ok((false, None)),
         None => Ok((false, None)),
     }
+}
+
+async fn cleanup_rejected_patch_worktree(
+    state: &SharedState,
+    payload: &InboxApprovalPayload,
+    accept: bool,
+) -> Result<Option<String>, DaemonError> {
+    if accept || payload.kind != "patch-approval" {
+        return Ok(None);
+    }
+    let Some(patch) = payload.patch.as_ref() else {
+        return Ok(Some(
+            "patch approval has no patch metadata to clean up".into(),
+        ));
+    };
+    let config = state.default_config.read().await.clone();
+    if config.self_improvement.keep_rejected_worktree {
+        return Ok(Some(format!(
+            "rejected patch worktree preserved by self_improvement.keep_rejected_worktree: {}",
+            if patch.worktree_path.is_empty() {
+                "(missing)"
+            } else {
+                patch.worktree_path.as_str()
+            }
+        )));
+    }
+    if patch.worktree_path.trim().is_empty() {
+        return Ok(Some(
+            "patch approval has no worktree_path to clean up".into(),
+        ));
+    }
+    let worktree = PathBuf::from(&patch.worktree_path);
+    if !worktree.exists() {
+        return Ok(Some(format!(
+            "patch worktree already absent: {}",
+            worktree.display()
+        )));
+    }
+    fs::remove_dir_all(&worktree)?;
+    Ok(Some(format!(
+        "removed rejected patch worktree: {}",
+        worktree.display()
+    )))
 }
 
 async fn resolve_inbox_approval_for_actor(
@@ -3769,6 +3876,8 @@ async fn resolve_inbox_approval_for_actor(
     let live = state.live_approvals.lock().unwrap().remove(approval_id);
     let (resumed_live_turn, note) =
         handle_live_approval_resolution(state, &lookup.payload, live, accept, reason).await?;
+    let cleanup_note = cleanup_rejected_patch_worktree(state, &lookup.payload, accept).await?;
+    let note = combine_resolution_notes(note, cleanup_note);
     Ok(InboxResolveResultPayload {
         approval_id: approval_id.to_string(),
         status: if accept {
@@ -3779,6 +3888,15 @@ async fn resolve_inbox_approval_for_actor(
         resumed_live_turn,
         note,
     })
+}
+
+fn combine_resolution_notes(a: Option<String>, b: Option<String>) -> Option<String> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(format!("{a}\n{b}")),
+        (Some(a), None) => Some(a),
+        (None, Some(b)) => Some(b),
+        (None, None) => None,
+    }
 }
 
 fn spawn_passive_approval_timeout(
@@ -4518,6 +4636,7 @@ mod telegram_tests {
             reply: None,
             rendered: "approve write".into(),
             path: "/tmp/approval.md".into(),
+            patch: None,
         }
     }
 
@@ -4543,6 +4662,69 @@ mod telegram_tests {
             pending_inbox_count_for_scope(approvals.iter(), "repl-primary", None),
             1
         );
+    }
+
+    #[test]
+    fn patch_approval_payload_roundtrips_frontmatter_metadata() {
+        let paths = temp_paths();
+        persist_session_meta(
+            &paths,
+            &sample_meta("patch-session", Some("repl"), "2026-04-20T00:00:00Z"),
+        )
+        .expect("meta should persist");
+        let record = PendingApprovalRecord {
+            frontmatter: PendingApprovalFrontmatter {
+                id: "approval-patch".into(),
+                session_id: "patch-session".into(),
+                channel: ChannelKind::Repl,
+                sender: LOCAL_REPL_SENDER.into(),
+                agent: "allbert/root".into(),
+                tool: "rust-rebuild".into(),
+                request_id: 99,
+                requested_at: "2026-04-20T00:00:00Z".into(),
+                expires_at: "2026-04-20T01:00:00Z".into(),
+                kind: PendingApprovalKind::PatchApproval,
+                status: PendingApprovalStatus::Pending,
+                resolved_at: None,
+                resolver: None,
+                reply: None,
+                source_checkout: Some("/tmp/source".into()),
+                branch: Some("allbert-rebuild-demo".into()),
+                worktree_path: Some("/tmp/worktree".into()),
+                validation: Some("passed".into()),
+                artifact_path: Some("/tmp/patch.diff".into()),
+                overall: Some("safe-to-merge".into()),
+            },
+            rendered: "Patch summary".into(),
+        };
+        write_pending_approval(&paths, &record).expect("approval should write");
+
+        let loaded = lookup_approval_by_id(&paths, "approval-patch")
+            .expect("lookup should load")
+            .expect("approval should exist")
+            .payload;
+
+        assert_eq!(loaded.kind, "patch-approval");
+        let patch = loaded.patch.expect("patch metadata should exist");
+        assert_eq!(patch.branch, "allbert-rebuild-demo");
+        assert_eq!(patch.artifact_path, "/tmp/patch.diff");
+        assert_eq!(patch.overall, "safe-to-merge");
+    }
+
+    #[test]
+    fn patch_approval_cross_channel_visibility_uses_identity_scope() {
+        let mut payload = inbox_payload(
+            "approval-patch",
+            "repl-session",
+            Some("identity-a"),
+            "pending",
+        );
+        payload.kind = "patch-approval".into();
+        payload.channel = ChannelKind::Repl;
+
+        assert!(approval_visible_to_resolver(&payload, Some("identity-a")));
+        assert!(!approval_visible_to_resolver(&payload, Some("identity-b")));
+        assert!(!approval_visible_to_resolver(&payload, None));
     }
 
     #[test]

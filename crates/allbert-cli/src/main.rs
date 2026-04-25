@@ -437,7 +437,7 @@ async fn main() -> Result<()> {
         Some(Command::Identity { command }) => run_identity_command(&paths, command),
         Some(Command::Memory { command }) => run_memory_command(&paths, &config, command).await,
         Some(Command::Approvals { command }) => run_approvals_command(&paths, command),
-        Some(Command::Inbox { command }) => run_inbox_command(&paths, command).await,
+        Some(Command::Inbox { command }) => run_inbox_command(&paths, &config, command).await,
         Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
         Some(Command::Heartbeat { command }) => run_heartbeat_command(&paths, command),
         Some(Command::Sessions { command }) => run_sessions_command(&paths, &config, command).await,
@@ -890,7 +890,11 @@ fn run_self_improvement_command(
     }
 }
 
-async fn run_inbox_command(paths: &AllbertPaths, command: InboxCommand) -> Result<()> {
+async fn run_inbox_command(
+    paths: &AllbertPaths,
+    config: &Config,
+    command: InboxCommand,
+) -> Result<()> {
     match command {
         InboxCommand::List {
             json,
@@ -940,7 +944,7 @@ async fn run_inbox_command(paths: &AllbertPaths, command: InboxCommand) -> Resul
             } else {
                 println!(
                     "{}\n(note) daemon not running; recorded the resolution on disk but could not wake a suspended turn.",
-                    approvals::resolve(paths, &approval_id, true, reason.as_deref())?
+                    approvals::resolve(paths, config, &approval_id, true, reason.as_deref())?
                 );
             }
             Ok(())
@@ -957,7 +961,7 @@ async fn run_inbox_command(paths: &AllbertPaths, command: InboxCommand) -> Resul
             } else {
                 println!(
                     "{}\n(note) daemon not running; recorded the resolution on disk but could not wake a suspended turn.",
-                    approvals::resolve(paths, &approval_id, false, reason.as_deref())?
+                    approvals::resolve(paths, config, &approval_id, false, reason.as_deref())?
                 );
             }
             Ok(())

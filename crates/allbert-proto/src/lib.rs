@@ -346,6 +346,18 @@ pub struct InboxApprovalPayload {
     pub reply: Option<String>,
     pub rendered: String,
     pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch: Option<PatchApprovalPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PatchApprovalPayload {
+    pub source_checkout: String,
+    pub branch: String,
+    pub worktree_path: String,
+    pub validation: String,
+    pub artifact_path: String,
+    pub overall: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
