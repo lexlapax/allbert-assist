@@ -24,7 +24,8 @@ use allbert_kernel::{
     llm::{DefaultProviderFactory, ProviderFactory},
     ActiveSkill, ActivityTransition, ConfirmDecision, ConfirmPrompter, ConfirmRequest,
     FrontendAdapter, InputPrompter, InputRequest, InputResponse, Intent, Kernel, KernelError,
-    KernelEvent, ModelConfig, SessionSnapshot, Usage, LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
+    KernelEvent, ModelConfig, SessionSnapshot, TraceStorageLimits, Usage, LEGACY_SENTINEL_IDENTITY,
+    LOCAL_REPL_SENDER,
 };
 use allbert_proto::{
     ActivityPhase, ActivitySnapshot, ApprovalContext, AttachedChannel, ChannelKind,
@@ -520,6 +521,10 @@ pub async fn spawn_with_factory(
     allbert_kernel::ensure_identity_record(&paths)?;
     allbert_kernel::memory::bootstrap_curated_memory(&paths, &config.memory)?;
     archive_expired_sessions(&paths, &config)?;
+    if config.trace {
+        allbert_kernel::recover_all_in_flight_spans(&paths, TraceStorageLimits::default())
+            .map_err(|err| DaemonError::Protocol(format!("trace recovery failed: {err}")))?;
+    }
     reconcile_pending_approvals(&paths)?;
     let job_manager = JobManager::load(&paths, &config)?;
 
@@ -5399,8 +5404,48 @@ async fn recv_client_message(framed: &mut FramedStream) -> Result<ClientMessage,
 #[cfg(test)]
 mod telegram_tests {
     use super::*;
+    use std::collections::BTreeMap;
     use std::io::ErrorKind;
     use teloxide::types::{FileId, FileMeta, FileUniqueId};
+
+    fn fixture_trace_span() -> allbert_proto::Span {
+        allbert_proto::Span {
+            id: "1111111111111111".into(),
+            parent_id: None,
+            session_id: "session-a".into(),
+            trace_id: "33333333333333333333333333333333".into(),
+            name: "turn".into(),
+            kind: allbert_proto::SpanKind::Internal,
+            started_at: chrono::DateTime::from_timestamp(1_774_044_800, 0).expect("timestamp"),
+            ended_at: Some(chrono::DateTime::from_timestamp(1_774_044_801, 0).expect("timestamp")),
+            duration_ms: Some(1000),
+            status: allbert_proto::SpanStatus::Ok,
+            attributes: BTreeMap::new(),
+            events: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn protocol_filter_hides_v4_trace_messages_but_keeps_v3_activity() {
+        let span = fixture_trace_span();
+        assert!(message_for_protocol(&ServerMessage::TraceSpan(span), 2).is_none());
+        assert!(message_for_protocol(
+            &ServerMessage::TraceSubscribed {
+                session_id: "session-a".into(),
+            },
+            3,
+        )
+        .is_none());
+
+        let activity = idle_activity_snapshot("session-a", ChannelKind::Repl);
+        assert!(
+            message_for_protocol(&ServerMessage::ActivityUpdate(activity.clone()), 2).is_none()
+        );
+        assert!(matches!(
+            message_for_protocol(&ServerMessage::ActivityUpdate(activity), 3),
+            Some(ServerMessage::ActivityUpdate(_))
+        ));
+    }
 
     fn temp_paths() -> AllbertPaths {
         let root = std::env::temp_dir().join(format!(

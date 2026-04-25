@@ -111,6 +111,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "dirs",
+ "flate2",
  "fs2",
  "gray_matter",
  "mlua",

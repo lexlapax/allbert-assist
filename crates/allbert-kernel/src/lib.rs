@@ -25,6 +25,7 @@ pub mod skills;
 pub mod tools;
 pub mod trace;
 
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -84,7 +85,12 @@ pub use memory::{
 };
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
-pub use replay::{TraceRecord, TraceRecordError, TraceRecordType, TRACE_RECORD_SCHEMA_VERSION};
+pub use replay::{
+    read_session_trace_dir, recover_all_in_flight_spans, trace_artifact_bytes,
+    trace_artifact_count, ActiveTraceSpan, JsonlTraceWriter, TraceReadResult, TraceReadWarning,
+    TraceReader, TraceRecord, TraceRecordError, TraceRecordType, TraceStorageLimits,
+    TraceStoreError, TraceWriter, TracingHooks, TRACE_RECORD_SCHEMA_VERSION,
+};
 pub use scripting::{
     BudgetUsed, CapKind, LoadedScript, LuaEngine, LuaSandboxPolicy, ScriptBudget, ScriptOutcome,
     ScriptingCapabilities, ScriptingEngine, ScriptingError, LUA_MAX_EXECUTION_MS_CEILING,
@@ -118,6 +124,7 @@ pub use trace::TraceHandles;
 use hooks::HookRegistry;
 use intent::{classify_by_rules, default_intent};
 use llm::{CompletionRequest, DefaultProviderFactory, LlmProvider, ProviderFactory};
+use replay::new_trace_id;
 
 struct DailyCostCache {
     utc_day: time::Date,
@@ -136,6 +143,7 @@ pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, KernelErr
     Ok(rendered)
 }
 
+#[derive(Debug)]
 pub struct TurnSummary {
     pub hit_turn_limit: bool,
     pub stop_reason: Option<String>,
@@ -192,6 +200,29 @@ fn redact_activity_summary(value: &str) -> String {
     } else {
         first.to_string()
     }
+}
+
+fn build_trace_hooks(
+    config: &Config,
+    paths: &AllbertPaths,
+    session_id: &str,
+) -> Result<Option<Arc<dyn TracingHooks>>, KernelError> {
+    if !config.trace {
+        return Ok(None);
+    }
+    let writer = JsonlTraceWriter::new(paths, session_id, TraceStorageLimits::default())
+        .map_err(|err| KernelError::Trace(err.to_string()))?;
+    let recovered = writer
+        .recover_in_flight()
+        .map_err(|err| KernelError::Trace(err.to_string()))?;
+    if !recovered.is_empty() {
+        tracing::warn!(
+            session = %session_id,
+            recovered = recovered.len(),
+            "recovered stale in-flight trace spans"
+        );
+    }
+    Ok(Some(Arc::new(writer)))
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -334,6 +365,19 @@ struct IntentShape {
     tool_priority_order: &'static [&'static str],
 }
 
+#[derive(Debug, Clone)]
+struct TraceContext {
+    session_id: String,
+    trace_id: String,
+    parent_span_id: String,
+}
+
+#[derive(Debug, Clone)]
+struct TraceParent {
+    trace_id: String,
+    span_id: String,
+}
+
 pub struct Kernel {
     config: Config,
     paths: AllbertPaths,
@@ -352,6 +396,8 @@ pub struct Kernel {
     pending_turn_budget_override: RequestedTurnBudget,
     #[allow(dead_code)]
     trace: TraceHandles,
+    trace_hooks: Option<Arc<dyn TracingHooks>>,
+    trace_context_stack: Vec<TraceContext>,
 }
 
 struct KernelToolRuntime<'a> {
@@ -473,6 +519,7 @@ impl Kernel {
 
         let session_id = session_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let trace = trace::init_tracing(config.trace, &paths, &session_id)?;
+        let trace_hooks = build_trace_hooks(&config, &paths, &session_id)?;
         let llm = provider_factory.build(&config.model).await?;
         let skills = SkillStore::discover(&paths.skills);
         let rendered_agents = skills.render_agents_markdown_with_routing(&config.memory.routing);
@@ -515,6 +562,8 @@ impl Kernel {
                 seconds: None,
             },
             trace,
+            trace_hooks,
+            trace_context_stack: Vec::new(),
         })
     }
 
@@ -629,8 +678,130 @@ impl Kernel {
         }));
     }
 
+    fn current_trace_context(&self) -> Option<&TraceContext> {
+        self.trace_context_stack.last()
+    }
+
+    fn begin_trace_span(
+        &self,
+        name: impl Into<String>,
+        kind: allbert_proto::SpanKind,
+    ) -> Option<ActiveTraceSpan> {
+        let context = self.current_trace_context()?;
+        Some(ActiveTraceSpan::new(
+            self.trace_hooks.clone(),
+            &context.session_id,
+            &context.trace_id,
+            Some(context.parent_span_id.clone()),
+            name,
+            kind,
+        ))
+    }
+
     #[allow(clippy::too_many_arguments)]
     async fn run_turn_for_agent(
+        &mut self,
+        state: &mut AgentState,
+        user_input: &str,
+        user_attachments: Vec<ChatAttachment>,
+        parent_agent_name: Option<String>,
+        inherited_cost_override: bool,
+        inherited_turn_budget: Option<TurnBudget>,
+        emit_terminal_events: bool,
+    ) -> Result<AgentRunSummary, KernelError> {
+        self.run_turn_for_agent_with_trace_parent(
+            state,
+            user_input,
+            user_attachments,
+            parent_agent_name,
+            inherited_cost_override,
+            inherited_turn_budget,
+            emit_terminal_events,
+            None,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn run_turn_for_agent_with_trace_parent(
+        &mut self,
+        state: &mut AgentState,
+        user_input: &str,
+        user_attachments: Vec<ChatAttachment>,
+        parent_agent_name: Option<String>,
+        inherited_cost_override: bool,
+        inherited_turn_budget: Option<TurnBudget>,
+        emit_terminal_events: bool,
+        trace_parent: Option<TraceParent>,
+    ) -> Result<AgentRunSummary, KernelError> {
+        let trace_id = trace_parent
+            .as_ref()
+            .map(|parent| parent.trace_id.clone())
+            .unwrap_or_else(new_trace_id);
+        let parent_span_id = trace_parent.map(|parent| parent.span_id);
+        let mut turn_span = ActiveTraceSpan::new(
+            self.trace_hooks.clone(),
+            &state.session_id,
+            &trace_id,
+            parent_span_id,
+            "turn",
+            allbert_proto::SpanKind::Internal,
+        );
+        turn_span.set_attribute(
+            "allbert.agent.name",
+            allbert_proto::AttributeValue::String(state.agent_name().to_string()),
+        );
+        turn_span.set_attribute(
+            "allbert.turn.input_bytes",
+            allbert_proto::AttributeValue::Int(user_input.len().try_into().unwrap_or(i64::MAX)),
+        );
+        if let Some(parent) = parent_agent_name.as_ref() {
+            turn_span.set_attribute(
+                "allbert.parent_agent.name",
+                allbert_proto::AttributeValue::String(parent.clone()),
+            );
+        }
+        let context = TraceContext {
+            session_id: state.session_id.clone(),
+            trace_id: trace_id.clone(),
+            parent_span_id: turn_span.id().to_string(),
+        };
+        self.trace_context_stack.push(context);
+        let result = self
+            .run_turn_for_agent_inner(
+                state,
+                user_input,
+                user_attachments,
+                parent_agent_name,
+                inherited_cost_override,
+                inherited_turn_budget,
+                emit_terminal_events,
+            )
+            .await;
+        self.trace_context_stack.pop();
+        match &result {
+            Ok(summary) => {
+                turn_span.set_attribute(
+                    "allbert.turn.hit_limit",
+                    allbert_proto::AttributeValue::Bool(summary.hit_turn_limit),
+                );
+                if let Some(stop_reason) = summary.stop_reason.as_ref() {
+                    turn_span.set_attribute(
+                        "allbert.turn.stop_reason",
+                        allbert_proto::AttributeValue::String(stop_reason.clone()),
+                    );
+                }
+                turn_span.finish_ok();
+            }
+            Err(err) => {
+                turn_span.finish_error(err.to_string());
+            }
+        }
+        result
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn run_turn_for_agent_inner(
         &mut self,
         state: &mut AgentState,
         user_input: &str,
@@ -661,16 +832,53 @@ impl Kernel {
                 Vec::new(),
             );
         }
-        let resolved_intent = self
+        let mut classify_span =
+            self.begin_trace_span("classify_intent", allbert_proto::SpanKind::Internal);
+        let resolved_intent = match self
             .resolve_intent_for_turn(state, user_input, parent_agent_name.clone())
-            .await?;
+            .await
+        {
+            Ok(intent) => {
+                if let Some(span) = classify_span.as_mut() {
+                    span.set_attribute(
+                        "allbert.intent",
+                        allbert_proto::AttributeValue::String(
+                            intent
+                                .as_ref()
+                                .map(Intent::as_str)
+                                .unwrap_or("none")
+                                .to_string(),
+                        ),
+                    );
+                }
+                if let Some(span) = classify_span {
+                    span.finish_ok();
+                }
+                intent
+            }
+            Err(err) => {
+                if let Some(span) = classify_span {
+                    span.finish_error(err.to_string());
+                }
+                return Err(err);
+            }
+        };
         state.last_resolved_intent = resolved_intent.clone();
-        self.apply_memory_routing(
+        let route_span = self.begin_trace_span("route_skill", allbert_proto::SpanKind::Internal);
+        if let Err(err) = self.apply_memory_routing(
             state,
             resolved_intent.as_ref(),
             user_input,
             parent_agent_name.is_none(),
-        )?;
+        ) {
+            if let Some(span) = route_span {
+                span.finish_error(err.to_string());
+            }
+            return Err(err);
+        }
+        if let Some(span) = route_span {
+            span.finish_ok();
+        }
         tracing::info!(
             session = %state.session_id,
             agent = %state.agent_name(),
@@ -723,6 +931,8 @@ impl Kernel {
                     Vec::new(),
                 );
             }
+            let prepare_span =
+                self.begin_trace_span("prepare_context", allbert_proto::SpanKind::Internal);
             let mut prompt_ctx = HookCtx::before_prompt(
                 &state.session_id,
                 state.agent_name(),
@@ -742,7 +952,12 @@ impl Kernel {
                 .await
             {
                 HookOutcome::Continue => {}
-                HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+                HookOutcome::Abort(message) => {
+                    if let Some(span) = prepare_span {
+                        span.finish_error(message.clone());
+                    }
+                    return Err(KernelError::Hook(message));
+                }
             }
 
             let refresh_query = if round == 0 {
@@ -750,7 +965,7 @@ impl Kernel {
             } else {
                 state.pending_memory_refresh_query.take()
             };
-            let turn_memory = self
+            let turn_memory = match self
                 .build_turn_memory_prompt(
                     state,
                     parent_agent_name.clone(),
@@ -758,7 +973,16 @@ impl Kernel {
                     user_input,
                     refresh_query.as_deref(),
                 )
-                .await?;
+                .await
+            {
+                Ok(snapshot) => snapshot,
+                Err(err) => {
+                    if let Some(span) = prepare_span {
+                        span.finish_error(err.to_string());
+                    }
+                    return Err(err);
+                }
+            };
             state.last_memory_context_bytes = turn_memory
                 .sections
                 .iter()
@@ -766,6 +990,9 @@ impl Kernel {
                 .sum();
             prompt_ctx.prompt_sections.extend(turn_memory.sections);
             state.turn_prefetch_hits = turn_memory.prefetch_hits;
+            if let Some(span) = prepare_span {
+                span.finish_ok();
+            }
 
             if emit_terminal_events {
                 self.emit_activity(
@@ -774,7 +1001,22 @@ impl Kernel {
                     vec!["wait for the model response".into()],
                 );
             }
-            let response = self
+            let mut chat_span = self.begin_trace_span("chat", allbert_proto::SpanKind::Client);
+            if let Some(span) = chat_span.as_mut() {
+                span.set_attribute(
+                    "gen_ai.provider.name",
+                    allbert_proto::AttributeValue::String(self.llm.provider_name().into()),
+                );
+                span.set_attribute(
+                    "gen_ai.request.model",
+                    allbert_proto::AttributeValue::String(effective_model.model_id.clone()),
+                );
+                span.set_attribute(
+                    "gen_ai.operation.name",
+                    allbert_proto::AttributeValue::String("chat".into()),
+                );
+            }
+            let response = match self
                 .llm
                 .complete(CompletionRequest {
                     system: Some(self.system_prompt_for_state(
@@ -787,7 +1029,36 @@ impl Kernel {
                     model: effective_model.model_id.clone(),
                     max_tokens: effective_model.max_tokens,
                 })
-                .await?;
+                .await
+            {
+                Ok(response) => {
+                    if let Some(span) = chat_span.as_mut() {
+                        span.set_attribute(
+                            "gen_ai.usage.input_tokens",
+                            allbert_proto::AttributeValue::Int(
+                                response.usage.input_tokens.try_into().unwrap_or(i64::MAX),
+                            ),
+                        );
+                        span.set_attribute(
+                            "gen_ai.usage.output_tokens",
+                            allbert_proto::AttributeValue::Int(
+                                response.usage.output_tokens.try_into().unwrap_or(i64::MAX),
+                            ),
+                        );
+                    }
+                    if let Some(span) = chat_span {
+                        span.finish_ok();
+                    }
+                    response
+                }
+                Err(err) => {
+                    if let Some(mut span) = chat_span {
+                        span.add_event("retry", BTreeMap::new());
+                        span.finish_error(err.to_string());
+                    }
+                    return Err(err.into());
+                }
+            };
 
             tracing::debug!(
                 session = %state.session_id,
@@ -849,6 +1120,8 @@ impl Kernel {
                 .filter(|invocation| invocation.name == "spawn_subagent")
                 .count();
             if tool_calls.is_empty() {
+                let finalize_span =
+                    self.begin_trace_span("finalize", allbert_proto::SpanKind::Internal);
                 if emit_terminal_events {
                     self.emit_activity(
                         allbert_proto::ActivityPhase::Finalizing,
@@ -871,7 +1144,15 @@ impl Kernel {
                 end_ctx.intent = resolved_intent.clone();
                 match self.hooks.run(HookPoint::OnTurnEnd, &mut end_ctx).await {
                     HookOutcome::Continue => {}
-                    HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+                    HookOutcome::Abort(message) => {
+                        if let Some(span) = finalize_span {
+                            span.finish_error(message.clone());
+                        }
+                        return Err(KernelError::Hook(message));
+                    }
+                }
+                if let Some(span) = finalize_span {
+                    span.finish_ok();
                 }
                 return Ok(AgentRunSummary {
                     hit_turn_limit: false,
@@ -943,6 +1224,18 @@ impl Kernel {
                     "dispatch tool"
                 );
 
+                let mut tool_span =
+                    self.begin_trace_span("execute_tool", allbert_proto::SpanKind::Internal);
+                if let Some(span) = tool_span.as_mut() {
+                    span.set_attribute(
+                        "allbert.tool.name",
+                        allbert_proto::AttributeValue::String(invocation.name.clone()),
+                    );
+                    span.set_attribute(
+                        "allbert.tool.args",
+                        allbert_proto::AttributeValue::String(invocation.input.to_string()),
+                    );
+                }
                 let mut tool_hook_ctx = HookCtx::before_tool(
                     &state.session_id,
                     state.agent_name(),
@@ -990,7 +1283,12 @@ impl Kernel {
                     .await
                 {
                     HookOutcome::Continue => {}
-                    HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+                    HookOutcome::Abort(message) => {
+                        if let Some(span) = tool_span {
+                            span.finish_error(message.clone());
+                        }
+                        return Err(KernelError::Hook(message));
+                    }
                 }
 
                 let remaining = self
@@ -999,6 +1297,9 @@ impl Kernel {
                     .max_tool_output_bytes_total
                     .saturating_sub(tool_output_total);
                 if remaining == 0 {
+                    if let Some(span) = tool_span {
+                        span.finish_error("tool output budget exhausted");
+                    }
                     if emit_terminal_events {
                         (self.adapter.on_event)(&KernelEvent::TurnDone {
                             hit_turn_limit: true,
@@ -1028,6 +1329,29 @@ impl Kernel {
                     .min(remaining);
                 let content = truncate_to_bytes(&tool_output.content, per_call_limit);
                 tool_output_total += content.len();
+                if let Some(span) = tool_span.as_mut() {
+                    span.set_attribute(
+                        "allbert.tool.ok",
+                        allbert_proto::AttributeValue::Bool(tool_output.ok),
+                    );
+                    span.set_attribute(
+                        "allbert.tool.output_bytes",
+                        allbert_proto::AttributeValue::Int(
+                            content.len().try_into().unwrap_or(i64::MAX),
+                        ),
+                    );
+                    span.set_attribute(
+                        "allbert.tool.result",
+                        allbert_proto::AttributeValue::String(content.clone()),
+                    );
+                }
+                if let Some(span) = tool_span {
+                    if tool_output.ok {
+                        span.finish_ok();
+                    } else {
+                        span.finish_error("tool returned ok=false");
+                    }
+                }
 
                 if emit_terminal_events {
                     self.emit_activity(
@@ -1154,6 +1478,7 @@ impl Kernel {
     pub fn reset_session(&mut self) {
         let new_id = uuid::Uuid::new_v4().to_string();
         self.state.reset(new_id);
+        self.refresh_trace_hooks_for_current_session().ok();
     }
 
     pub fn export_session_snapshot(&self) -> SessionSnapshot {
@@ -1195,6 +1520,7 @@ impl Kernel {
             snapshot.ephemeral_memory,
             self.config.memory.max_ephemeral_bytes,
         );
+        self.refresh_trace_hooks_for_current_session()?;
 
         let mut restored_skills = Vec::new();
         for skill in snapshot.active_skills {
@@ -1577,6 +1903,7 @@ impl Kernel {
 
         self.config = config;
         *self.security_state.lock().unwrap() = self.config.security.clone();
+        self.refresh_trace_hooks_for_current_session()?;
         let rendered = self
             .skills
             .render_agents_markdown_with_routing(&self.config.memory.routing);
@@ -1596,6 +1923,11 @@ impl Kernel {
 
     pub fn paths(&self) -> &AllbertPaths {
         &self.paths
+    }
+
+    fn refresh_trace_hooks_for_current_session(&mut self) -> Result<(), KernelError> {
+        self.trace_hooks = build_trace_hooks(&self.config, &self.paths, &self.state.session_id)?;
+        Ok(())
     }
 
     async fn resolve_intent_for_turn(
@@ -2657,7 +2989,22 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             None => contributed_preamble,
         };
 
-        let run_result = Box::pin(self.run_turn_for_agent(
+        let mut invoke_span =
+            self.begin_trace_span("invoke_agent", allbert_proto::SpanKind::Internal);
+        if let Some(span) = invoke_span.as_mut() {
+            span.set_attribute(
+                "allbert.agent.child_name",
+                allbert_proto::AttributeValue::String(subagent_state.agent_name().to_string()),
+            );
+        }
+        let trace_parent = invoke_span.as_ref().and_then(|span| {
+            self.current_trace_context().map(|context| TraceParent {
+                trace_id: context.trace_id.clone(),
+                span_id: span.id().to_string(),
+            })
+        });
+
+        let run_result = Box::pin(self.run_turn_for_agent_with_trace_parent(
             &mut subagent_state,
             &composed_prompt,
             Vec::new(),
@@ -2665,6 +3012,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             state.cost_cap_override_active_this_turn,
             Some(spawn_budget),
             false,
+            trace_parent,
         ))
         .await;
 
@@ -2675,6 +3023,12 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
 
         let tool_output = match run_result {
             Ok(summary) => {
+                if let Some(span) = invoke_span.as_mut() {
+                    span.set_attribute(
+                        "allbert.agent.hit_limit",
+                        allbert_proto::AttributeValue::Bool(summary.hit_turn_limit),
+                    );
+                }
                 let result = SpawnSubagentResult {
                     agent_name: subagent_state.agent_name().to_string(),
                     parent_agent_name: state.agent_name().to_string(),
@@ -2685,12 +3039,20 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 };
                 let content = serde_json::to_string_pretty(&result)
                     .unwrap_or_else(|_| "{\"error\":\"failed to encode spawn result\"}".into());
+                if let Some(span) = invoke_span {
+                    span.finish_ok();
+                }
                 ToolOutput { content, ok: true }
             }
-            Err(err) => ToolOutput {
-                content: format!("sub-agent failed: {err}"),
-                ok: false,
-            },
+            Err(err) => {
+                if let Some(span) = invoke_span {
+                    span.finish_error(err.to_string());
+                }
+                ToolOutput {
+                    content: format!("sub-agent failed: {err}"),
+                    ok: false,
+                }
+            }
         };
 
         let result_json = json!({
@@ -8757,6 +9119,168 @@ mod tests {
         fn supports_image_input(&self, _model: &str) -> bool {
             self.supports_image_input
         }
+    }
+
+    fn scripted_response(text: &str) -> CompletionResponse {
+        CompletionResponse {
+            text: text.into(),
+            usage: Usage {
+                input_tokens: 11,
+                output_tokens: 7,
+                cache_read: 0,
+                cache_create: 0,
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn kernel_tracing_persists_turn_chat_tool_and_finalize_spans() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths ensure");
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut config = Config::default_template();
+        config.trace = true;
+        config.intent_classifier.enabled = false;
+        config.memory.refresh_after_external_evidence = false;
+
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(events),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "test",
+                vec![
+                    scripted_response(
+                        "<tool_call>{\"name\":\"list_skills\",\"input\":{}}</tool_call>",
+                    ),
+                    scripted_response("done"),
+                ],
+                None,
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel
+            .run_turn("use a tool")
+            .await
+            .expect("turn should run");
+        let read = TraceReader::new(paths.clone())
+            .read_session(kernel.session_id())
+            .expect("trace should read");
+        let names = read
+            .spans
+            .iter()
+            .map(|span| span.name.as_str())
+            .collect::<Vec<_>>();
+        for expected in [
+            "turn",
+            "classify_intent",
+            "route_skill",
+            "prepare_context",
+            "chat",
+            "execute_tool",
+            "finalize",
+        ] {
+            assert!(
+                names.contains(&expected),
+                "missing span `{expected}` from {names:?}"
+            );
+        }
+        let tool_span = read
+            .spans
+            .iter()
+            .find(|span| span.name == "execute_tool")
+            .expect("tool span");
+        assert!(tool_span.duration_ms.is_some());
+        assert_eq!(
+            tool_span.attributes.get("allbert.tool.name"),
+            Some(&allbert_proto::AttributeValue::String("list_skills".into()))
+        );
+    }
+
+    #[tokio::test]
+    async fn kernel_tracing_nests_subagent_turn_under_invoke_agent() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths ensure");
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut config = Config::default_template();
+        config.trace = true;
+        config.intent_classifier.enabled = false;
+
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(events),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "test",
+                vec![
+                    scripted_response("<tool_call>{\"name\":\"spawn_subagent\",\"input\":{\"name\":\"helper\",\"prompt\":\"help\"}}</tool_call>"),
+                    scripted_response("child done"),
+                    scripted_response("parent done"),
+                ],
+                None,
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("delegate").await.expect("turn should run");
+        let read = TraceReader::new(paths.clone())
+            .read_session(kernel.session_id())
+            .expect("trace should read");
+        let invoke = read
+            .spans
+            .iter()
+            .find(|span| span.name == "invoke_agent")
+            .expect("invoke_agent span");
+        let child_turn = read
+            .spans
+            .iter()
+            .find(|span| span.name == "turn" && span.parent_id.as_deref() == Some(&invoke.id))
+            .expect("child turn should be parented by invoke_agent");
+        assert_eq!(child_turn.trace_id, invoke.trace_id);
+    }
+
+    #[tokio::test]
+    async fn kernel_tracing_records_provider_error_as_chat_retry_event() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths ensure");
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut config = Config::default_template();
+        config.trace = true;
+        config.intent_classifier.enabled = false;
+
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(events),
+            paths.clone(),
+            Arc::new(TestFactory::new("test", Vec::new(), None)),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let err = kernel
+            .run_turn("this will fail")
+            .await
+            .expect_err("missing scripted response should fail");
+        assert!(err.to_string().contains("no scripted response left"));
+        let read = TraceReader::new(paths.clone())
+            .read_session(kernel.session_id())
+            .expect("trace should read");
+        let chat = read
+            .spans
+            .iter()
+            .find(|span| span.name == "chat")
+            .expect("chat span");
+        assert!(matches!(
+            chat.status,
+            allbert_proto::SpanStatus::Error { .. }
+        ));
+        assert!(chat.events.iter().any(|event| event.name == "retry"));
     }
 
     fn repo_root() -> PathBuf {

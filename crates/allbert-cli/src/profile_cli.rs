@@ -2,7 +2,7 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 
-use allbert_kernel::{memory, AllbertPaths, Config};
+use allbert_kernel::{memory, trace_artifact_bytes, trace_artifact_count, AllbertPaths, Config};
 use anyhow::{anyhow, Context, Result};
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
@@ -40,6 +40,8 @@ struct ManifestCounts {
     memory_staged: usize,
     jobs: usize,
     skills: usize,
+    trace_artifacts: usize,
+    trace_bytes: u64,
 }
 
 struct ImportEntry {
@@ -248,6 +250,7 @@ fn collect_counts(paths: &AllbertPaths) -> Result<ManifestCounts> {
             }
         }
     }
+    let (trace_artifacts, trace_bytes) = collect_trace_counts(paths)?;
     Ok(ManifestCounts {
         sessions: immediate_dir_count(&paths.sessions)?,
         approvals_pending: pending,
@@ -266,7 +269,31 @@ fn collect_counts(paths: &AllbertPaths) -> Result<ManifestCounts> {
             .count(),
         jobs: collect_files_recursive(&paths.jobs_definitions)?.len(),
         skills: immediate_dir_count(&paths.skills_installed)?,
+        trace_artifacts,
+        trace_bytes,
     })
+}
+
+fn collect_trace_counts(paths: &AllbertPaths) -> Result<(usize, u64)> {
+    if !paths.sessions.exists() {
+        return Ok((0, 0));
+    }
+    let mut artifacts = 0usize;
+    let mut bytes = 0u64;
+    for entry in fs::read_dir(&paths.sessions).with_context(|| {
+        format!(
+            "read sessions for trace accounting at {}",
+            paths.sessions.display()
+        )
+    })? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() || entry.file_name().to_string_lossy().starts_with('.') {
+            continue;
+        }
+        artifacts = artifacts.saturating_add(trace_artifact_count(&entry.path())?);
+        bytes = bytes.saturating_add(trace_artifact_bytes(&entry.path())?);
+    }
+    Ok((artifacts, bytes))
 }
 
 fn immediate_dir_count(root: &Path) -> Result<usize> {
@@ -457,6 +484,47 @@ mod tests {
         let restored =
             std::fs::read_to_string(approval_dir.join("approval-1.md")).expect("approval exists");
         assert!(restored.contains("status: pending"));
+    }
+
+    #[test]
+    fn export_manifest_counts_session_traces_and_excludes_top_level_traces() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should ensure");
+
+        let session_dir = paths.sessions.join("trace-session");
+        std::fs::create_dir_all(&session_dir).expect("session dir should create");
+        std::fs::write(session_dir.join("trace.jsonl"), "{}\n").expect("session trace writes");
+        std::fs::write(paths.traces.join("legacy.log"), "debug only").expect("legacy trace writes");
+
+        let archive = temp.path.join("profile-trace.tgz");
+        export_profile(&paths, &archive, false, Some("usr_test")).expect("export should succeed");
+
+        let file = File::open(&archive).expect("archive should open");
+        let mut archive = Archive::new(GzDecoder::new(file));
+        let mut manifest = None;
+        let mut saw_session_trace = false;
+        let mut saw_top_level_trace = false;
+        for entry_result in archive.entries().expect("archive entries") {
+            let mut entry = entry_result.expect("entry");
+            let rel = entry.path().expect("entry path").to_path_buf();
+            if rel == Path::new(MANIFEST_PATH) {
+                let mut raw = String::new();
+                entry.read_to_string(&mut raw).expect("manifest reads");
+                manifest = Some(raw);
+            } else if rel == Path::new("sessions/trace-session/trace.jsonl") {
+                saw_session_trace = true;
+            } else if rel == Path::new("traces/legacy.log") {
+                saw_top_level_trace = true;
+            }
+        }
+
+        let manifest: serde_json::Value =
+            serde_json::from_str(&manifest.expect("manifest exists")).expect("manifest json");
+        assert_eq!(manifest["counts"]["trace_artifacts"], 1);
+        assert_eq!(manifest["counts"]["trace_bytes"], 3);
+        assert!(saw_session_trace);
+        assert!(!saw_top_level_trace);
     }
 
     #[test]
