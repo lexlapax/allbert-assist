@@ -23,7 +23,7 @@ The v4 surface is additive and includes span types, `ServerMessage::TraceSpan` c
 
 OTLP export is file-only in v0.12.2. `allbert-cli trace export <session> --format otlp-json` writes an OTLP/JSON trace payload under `ALLBERT_HOME/exports/traces` by default, using `trace.otel_export_dir` only when the configured directory stays inside `ALLBERT_HOME`. `--out` may override the export path, but the resolved path must still remain under `ALLBERT_HOME`. Absolute paths and path escapes are rejected. No HTTP/gRPC/network exporter ships in v0.12.2.
 
-Allbert's internal JSONL trace schema is the durable replay contract. The OTLP-JSON exporter maps internal spans to the current OTLP trace payload shape and the current OpenTelemetry GenAI semantic convention names at export time. If GenAI conventions change, the exporter mapping can change without migrating historical internal trace files unless the Allbert schema itself changes.
+Allbert's internal JSONL trace schema is the durable replay contract. The OTLP-JSON exporter maps internal spans to the current OTLP trace payload shape and the current OpenTelemetry GenAI semantic convention names at export time. If GenAI conventions change, the exporter mapping can change without migrating historical internal trace files unless the Allbert schema itself changes. Concretely: the persisted JSONL retains the Allbert-chosen attribute key (for example `gen_ai.provider.name`) for the lifetime of `schema_version = 1`, even if upstream renames it (for example back to `gen_ai.system`); the exporter remaps at write-out time and the durable record is unaffected.
 
 ## Consequences
 

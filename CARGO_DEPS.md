@@ -94,3 +94,72 @@ Revisit the Tantivy choice if any of the following become true:
 If we revisit it, preserve the public curated-memory contract from ADRs 0041 and 0045:
 markdown remains ground truth, the index remains derived, and operator surfaces such as
 `memory status`, `memory rebuild-index`, and later `search_memory` stay stable.
+
+## v0.12.2 Tracing and replay
+
+ADRs 0081, 0082, and 0083 commit v0.12.2 to a session-local span trace under
+`~/.allbert/sessions/<id>/trace.jsonl` with optional file-based OTLP-JSON export.
+
+### No new top-level dependencies
+
+v0.12.2 adds no new top-level workspace crates. The implementation reuses crates
+already in the tree:
+
+| Crate | What v0.12.2 uses it for |
+| --- | --- |
+| `flate2` | Gzip rotation for `trace.<n>.jsonl.gz` archives. Currently declared only in `allbert-cli`; v0.12.2 adds it to `allbert-kernel` since the writer/reader live there. |
+| `serde_json` | Allbert-owned `TraceRecord` JSONL persistence and OTLP-JSON exporter shape. |
+| `uuid` | Span ids, parent ids, and trace ids. |
+| `chrono` | `DateTime<Utc>` span timestamps with the existing `serde` feature. |
+| `toml_edit` | Path-preserving `[trace]` default-write for existing profiles. Already present from v0.12.1. |
+
+The existing `tracing`/`tracing-subscriber`/`tracing-appender` triple in
+`allbert-kernel` continues to drive **diagnostic daemon logging only**. v0.12.2
+does not change that subsystem and does not graft span-replay onto it. The new
+trace storage layer lives in a new module to avoid colliding with the existing
+`crates/allbert-kernel/src/trace.rs` logging-init module.
+
+### Considered and rejected: OpenTelemetry SDK crates
+
+v0.12.2 deliberately does **not** add the OpenTelemetry SDK crates:
+
+- `opentelemetry`
+- `opentelemetry-sdk`
+- `opentelemetry-otlp`
+- `tracing-opentelemetry`
+- `opentelemetry-proto`
+- `tonic` / `prost` (transitive of `opentelemetry-otlp`)
+
+Rationale:
+
+- v0.12.2 ships file-only OTLP-JSON export. Network OTLP (HTTP/gRPC) is in the
+  deferred list. `opentelemetry-otlp` and its `tonic`/`prost` subtree would be
+  unused weight today.
+- Redaction must run before persistence, display, and export. v0.12.1 already
+  established a single kernel-owned emission boundary (`ActivityUpdate`).
+  v0.12.2 reuses that boundary for spans. Layering on top of
+  `tracing-opentelemetry` would create a second span source to reconcile and
+  push redaction below an SDK we do not control.
+- OTel GenAI semantic conventions are still in Development. Allbert needs a
+  durable replay schema even if external attribute names evolve. Owning the
+  span shape in `allbert-proto` plus a versioned `TraceRecord` envelope keeps
+  internal replay stable while the exporter remaps to current OTel names at
+  export time (per ADR 0083).
+
+### Revisit conditions
+
+Revisit the OTel SDK decision if any of the following become true:
+
+- Network OTLP export ships (HTTP or gRPC). At that point `opentelemetry-otlp`
+  becomes load-bearing and pulling in the broader SDK is justified.
+- A second in-process emission source (for example, a Rust-native instrumented
+  library Allbert depends on) starts producing OTel spans that we want to
+  capture alongside kernel spans.
+- The OTel GenAI conventions stabilize and the upstream SDK gains
+  redaction-before-emission hooks that match Allbert's privacy contract.
+- Allbert needs distributed tracing across multiple hosts.
+
+If we revisit it, preserve the v0.12.2 contracts: durable JSONL stays the
+replay source of truth (ADR 0081), unconditional secret redaction stays
+unconditional (ADR 0082), and v2/v3/v4 protocol compatibility stays additive
+(ADR 0083).

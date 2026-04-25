@@ -2,6 +2,8 @@
 
 v0.12.1 keeps session telemetry daemon-owned and adds daemon-owned live activity. The TUI, classic REPL, CLI, Telegram, jobs, and future frontends all read the same kernel-derived `TelemetrySnapshot` and `ActivitySnapshot` instead of guessing from frontend timers.
 
+This guide covers **live** runtime visibility. Durable, after-the-fact session **replay** is a separate v0.12.2 system documented in the upcoming [tracing operator guide](tracing.md). Use this guide to answer "what is Allbert doing right now?"; use the tracing guide to answer "what happened in that session, and why?"
+
 ## Commands
 
 Use `/status` for the concise backward-compatible view:
@@ -89,3 +91,4 @@ Telemetry is local daemon state. It is not uploaded by the status line, `/teleme
 - [TUI operator guide](tui.md)
 - [Adaptive memory guide](adaptive-memory.md)
 - [Telegram operator guide](telegram.md)
+- [Tracing operator guide](tracing.md) — durable session span replay (v0.12.2)
