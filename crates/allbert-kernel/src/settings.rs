@@ -3,7 +3,8 @@ use std::fmt;
 use std::path::{Component, Path};
 
 use crate::{
-    Config, MemoryRoutingMode, Provider, ReplUiMode, ScriptingEngineConfig, StatusLineItem,
+    atomic_write, AllbertPaths, Config, MemoryRoutingMode, Provider, ReplUiMode,
+    ScriptingEngineConfig, StatusLineItem,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -167,6 +168,71 @@ impl fmt::Display for SettingValidationError {
 }
 
 impl std::error::Error for SettingValidationError {}
+
+#[derive(Debug)]
+pub enum SettingPersistenceError {
+    Validation(SettingValidationError),
+    Read {
+        path: String,
+        source: std::io::Error,
+    },
+    Parse {
+        path: String,
+        message: String,
+    },
+    UnsafeEdit {
+        key: String,
+        hint: String,
+    },
+    RenderedConfigInvalid {
+        key: String,
+        message: String,
+    },
+    Write {
+        path: String,
+        source: std::io::Error,
+    },
+}
+
+impl fmt::Display for SettingPersistenceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Validation(err) => write!(f, "{err}"),
+            Self::Read { path, source } => write!(f, "read {path}: {source}"),
+            Self::Parse { path, message } => write!(f, "parse {path}: {message}"),
+            Self::UnsafeEdit { key, hint } => {
+                write!(
+                    f,
+                    "cannot safely edit `{key}` while preserving TOML: {hint}"
+                )
+            }
+            Self::RenderedConfigInvalid { key, message } => {
+                write!(
+                    f,
+                    "not writing `{key}` because rendered config is invalid: {message}"
+                )
+            }
+            Self::Write { path, source } => write!(f, "write {path}: {source}"),
+        }
+    }
+}
+
+impl std::error::Error for SettingPersistenceError {}
+
+impl From<SettingValidationError> for SettingPersistenceError {
+    fn from(value: SettingValidationError) -> Self {
+        Self::Validation(value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettingMutation {
+    pub key: String,
+    pub config_path: String,
+    pub previous_value: Option<String>,
+    pub new_value: Option<String>,
+    pub changed: bool,
+}
 
 pub fn settings_catalog() -> Vec<SettingDescriptor> {
     vec![
@@ -601,6 +667,56 @@ pub fn validate_setting_value(key: &str, raw: &str) -> Result<(), SettingValidat
     validate_value(&descriptor, raw)
 }
 
+pub fn persist_setting_value(
+    paths: &AllbertPaths,
+    key: &str,
+    raw: &str,
+) -> Result<SettingMutation, SettingPersistenceError> {
+    validate_setting_value(key, raw)?;
+    let descriptor = find_setting(key).expect("validated setting must exist");
+    let mut document = load_config_document(paths)?;
+    let previous_value = document_value_for_descriptor(&document, &descriptor);
+    set_document_value(&mut document, &descriptor, raw)?;
+    write_validated_document(paths, &descriptor, &document)?;
+    Ok(SettingMutation {
+        key: descriptor.key.to_string(),
+        config_path: descriptor.config_path.to_string(),
+        previous_value,
+        new_value: Some(raw.trim().to_string()),
+        changed: true,
+    })
+}
+
+pub fn reset_setting_value(
+    paths: &AllbertPaths,
+    key: &str,
+) -> Result<SettingMutation, SettingPersistenceError> {
+    validate_key_shape(key)?;
+    if looks_like_secret_key(key) {
+        return Err(SettingPersistenceError::Validation(
+            SettingValidationError::SecretLikeKey(key.trim().to_string()),
+        ));
+    }
+    let Some(descriptor) = find_setting(key) else {
+        return Err(SettingPersistenceError::Validation(
+            SettingValidationError::UnsupportedKey(key.trim().to_string()),
+        ));
+    };
+    let mut document = load_config_document(paths)?;
+    let previous_value = document_value_for_descriptor(&document, &descriptor);
+    let changed = remove_document_value(&mut document, &descriptor)?;
+    if changed {
+        write_validated_document(paths, &descriptor, &document)?;
+    }
+    Ok(SettingMutation {
+        key: descriptor.key.to_string(),
+        config_path: descriptor.config_path.to_string(),
+        previous_value,
+        new_value: None,
+        changed,
+    })
+}
+
 pub fn settings_catalog_errors(catalog: &[SettingDescriptor]) -> Vec<String> {
     let mut errors = Vec::new();
     let mut seen_keys = BTreeSet::new();
@@ -665,6 +781,210 @@ fn descriptor(
         restart,
         safety_note,
         redaction,
+    }
+}
+
+fn load_config_document(
+    paths: &AllbertPaths,
+) -> Result<toml_edit::DocumentMut, SettingPersistenceError> {
+    let raw =
+        std::fs::read_to_string(&paths.config).map_err(|source| SettingPersistenceError::Read {
+            path: paths.config.display().to_string(),
+            source,
+        })?;
+    raw.parse::<toml_edit::DocumentMut>()
+        .map_err(|err| SettingPersistenceError::Parse {
+            path: paths.config.display().to_string(),
+            message: err.to_string(),
+        })
+}
+
+fn write_validated_document(
+    paths: &AllbertPaths,
+    descriptor: &SettingDescriptor,
+    document: &toml_edit::DocumentMut,
+) -> Result<(), SettingPersistenceError> {
+    let rendered = document.to_string();
+    let parsed = toml::from_str::<Config>(&rendered).map_err(|err| {
+        SettingPersistenceError::RenderedConfigInvalid {
+            key: descriptor.key.to_string(),
+            message: err.to_string(),
+        }
+    })?;
+    parsed
+        .validate()
+        .map_err(|message| SettingPersistenceError::RenderedConfigInvalid {
+            key: descriptor.key.to_string(),
+            message,
+        })?;
+    atomic_write(&paths.config, rendered.as_bytes()).map_err(|source| {
+        SettingPersistenceError::Write {
+            path: paths.config.display().to_string(),
+            source,
+        }
+    })
+}
+
+fn set_document_value(
+    document: &mut toml_edit::DocumentMut,
+    descriptor: &SettingDescriptor,
+    raw: &str,
+) -> Result<(), SettingPersistenceError> {
+    let segments = split_key(descriptor.key);
+    let value = item_for_descriptor(descriptor, raw)?;
+    let table = ensure_parent_table(document, descriptor.key, &segments)?;
+    let leaf = segments
+        .last()
+        .expect("setting keys always contain at least one segment");
+    table[leaf] = value;
+    Ok(())
+}
+
+fn remove_document_value(
+    document: &mut toml_edit::DocumentMut,
+    descriptor: &SettingDescriptor,
+) -> Result<bool, SettingPersistenceError> {
+    let segments = split_key(descriptor.key);
+    let Some(table) = parent_table_mut(document, descriptor.key, &segments)? else {
+        return Ok(false);
+    };
+    let leaf = segments
+        .last()
+        .expect("setting keys always contain at least one segment");
+    Ok(table.remove(leaf).is_some())
+}
+
+fn ensure_parent_table<'a>(
+    document: &'a mut toml_edit::DocumentMut,
+    key: &str,
+    segments: &[&str],
+) -> Result<&'a mut toml_edit::Table, SettingPersistenceError> {
+    let mut item = document.as_item_mut();
+    for segment in &segments[..segments.len().saturating_sub(1)] {
+        if !item.is_table() {
+            return Err(unsafe_edit(key, format!("`{segment}` is not a TOML table")));
+        }
+        let table = item.as_table_mut().expect("checked table");
+        if !table.contains_key(segment) {
+            table[segment] = toml_edit::Item::Table(toml_edit::Table::new());
+        }
+        item = table
+            .get_mut(segment)
+            .ok_or_else(|| unsafe_edit(key, format!("cannot create table `{segment}`")))?;
+    }
+    item.as_table_mut()
+        .ok_or_else(|| unsafe_edit(key, "parent path is not a TOML table"))
+}
+
+fn parent_table_mut<'a>(
+    document: &'a mut toml_edit::DocumentMut,
+    key: &str,
+    segments: &[&str],
+) -> Result<Option<&'a mut toml_edit::Table>, SettingPersistenceError> {
+    let mut item = document.as_item_mut();
+    for segment in &segments[..segments.len().saturating_sub(1)] {
+        if !item.is_table() {
+            return Err(unsafe_edit(key, format!("`{segment}` is not a TOML table")));
+        }
+        let table = item.as_table_mut().expect("checked table");
+        let Some(next) = table.get_mut(segment) else {
+            return Ok(None);
+        };
+        item = next;
+    }
+    item.as_table_mut()
+        .map(Some)
+        .ok_or_else(|| unsafe_edit(key, "parent path is not a TOML table"))
+}
+
+fn document_value_for_descriptor(
+    document: &toml_edit::DocumentMut,
+    descriptor: &SettingDescriptor,
+) -> Option<String> {
+    let mut item = document.as_item();
+    for segment in split_key(descriptor.key) {
+        item = item.get(segment)?;
+    }
+    Some(match item {
+        toml_edit::Item::Value(value) => value_to_display(value),
+        toml_edit::Item::None => return None,
+        other => other.to_string().trim().to_string(),
+    })
+}
+
+fn item_for_descriptor(
+    descriptor: &SettingDescriptor,
+    raw: &str,
+) -> Result<toml_edit::Item, SettingPersistenceError> {
+    let value = raw.trim();
+    let item = match &descriptor.value_type {
+        SettingValueType::Bool => toml_edit::value(parse_bool(value).expect("validated bool")),
+        SettingValueType::UnsignedInteger { .. } => {
+            let parsed = value.parse::<i64>().map_err(|_| {
+                SettingPersistenceError::RenderedConfigInvalid {
+                    key: descriptor.key.to_string(),
+                    message: "validated integer could not be rendered".into(),
+                }
+            })?;
+            toml_edit::value(parsed)
+        }
+        SettingValueType::Float { .. } => {
+            let parsed = value.parse::<f64>().map_err(|_| {
+                SettingPersistenceError::RenderedConfigInvalid {
+                    key: descriptor.key.to_string(),
+                    message: "validated float could not be rendered".into(),
+                }
+            })?;
+            toml_edit::value(parsed)
+        }
+        SettingValueType::String | SettingValueType::OptionalString => toml_edit::value(value),
+        SettingValueType::Enum(values) => {
+            let normalized = value.replace('_', "-").to_ascii_lowercase();
+            let canonical = values
+                .iter()
+                .find(|allowed| allowed.replace('_', "-") == normalized)
+                .copied()
+                .unwrap_or(value);
+            toml_edit::value(canonical)
+        }
+        SettingValueType::StringList => {
+            let mut array = toml_edit::Array::default();
+            for item in parse_string_list(value) {
+                array.push(item);
+            }
+            toml_edit::value(array)
+        }
+        SettingValueType::Path(_) | SettingValueType::OptionalPath(_) => toml_edit::value(value),
+    };
+    Ok(item)
+}
+
+fn value_to_display(value: &toml_edit::Value) -> String {
+    match value {
+        toml_edit::Value::String(value) => value.value().to_string(),
+        toml_edit::Value::Integer(value) => value.value().to_string(),
+        toml_edit::Value::Float(value) => value.value().to_string(),
+        toml_edit::Value::Boolean(value) => value.value().to_string(),
+        toml_edit::Value::Array(array) => array
+            .iter()
+            .map(|item| match item {
+                toml_edit::Value::String(value) => value.value().to_string(),
+                other => other.to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(","),
+        other => other.to_string(),
+    }
+}
+
+fn split_key(key: &str) -> Vec<&str> {
+    key.split('.').collect()
+}
+
+fn unsafe_edit(key: &str, hint: impl Into<String>) -> SettingPersistenceError {
+    SettingPersistenceError::UnsafeEdit {
+        key: key.to_string(),
+        hint: hint.into(),
     }
 }
 
@@ -959,7 +1279,54 @@ fn _typed_parsing_reaches_existing_config_types() {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
+
+    fn test_paths() -> (tempfile::TempDir, AllbertPaths) {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join("home"));
+        fs::create_dir_all(&paths.root).expect("home dir");
+        fs::write(
+            &paths.config,
+            format!(
+                r#"# keep top comment
+[setup]
+version = {}
+
+[model]
+# keep provider comment
+provider = "ollama"
+model_id = "gemma4"
+base_url = "http://127.0.0.1:11434"
+max_tokens = 4096
+context_window_tokens = 0
+
+[repl]
+ui = "tui"
+show_inbox_on_attach = true
+
+[repl.tui.status_line]
+enabled = true
+items = ["model", "cost"]
+
+[memory]
+prefetch_enabled = true
+trash_retention_days = 30
+rejected_retention_days = 30
+
+[learning.personality_digest]
+output_path = "PERSONALITY.md"
+
+[custom]
+keep = "yes"
+"#,
+                crate::CURRENT_SETUP_VERSION
+            ),
+        )
+        .expect("write config");
+        (temp, paths)
+    }
 
     #[test]
     fn settings_catalog_is_complete_and_described() {
@@ -1073,5 +1440,125 @@ mod tests {
             validate_setting_value("self_improvement.worktree_root", "sessions/worktrees"),
             Err(SettingValidationError::ReservedRuntimePath { .. })
         ));
+    }
+
+    #[test]
+    fn settings_persistence_preserves_comments_and_unknown_tables() {
+        let (_temp, paths) = test_paths();
+        let mutation =
+            persist_setting_value(&paths, "model.max_tokens", "8192").expect("persist setting");
+        assert_eq!(mutation.previous_value.as_deref(), Some("4096"));
+        assert_eq!(mutation.new_value.as_deref(), Some("8192"));
+
+        let raw = fs::read_to_string(&paths.config).expect("read config");
+        assert!(raw.contains("# keep top comment"));
+        assert!(raw.contains("# keep provider comment"));
+        assert!(raw.contains("[custom]"));
+        assert!(raw.contains("max_tokens = 8192"));
+        let parsed: Config = toml::from_str(&raw).expect("rendered config should parse");
+        assert_eq!(parsed.model.max_tokens, 8192);
+    }
+
+    #[test]
+    fn settings_persistence_sets_representative_types() {
+        let (_temp, paths) = test_paths();
+        persist_setting_value(&paths, "repl.ui", "classic").expect("enum set");
+        persist_setting_value(&paths, "memory.prefetch_enabled", "false").expect("bool set");
+        persist_setting_value(&paths, "repl.tui.status_line.items", "model,cost,trace")
+            .expect("list set");
+        persist_setting_value(
+            &paths,
+            "learning.personality_digest.output_path",
+            "profiles/PERSONALITY.md",
+        )
+        .expect("path set");
+
+        let raw = fs::read_to_string(&paths.config).expect("read config");
+        let parsed: Config = toml::from_str(&raw).expect("rendered config should parse");
+        assert_eq!(parsed.repl.ui, ReplUiMode::Classic);
+        assert!(!parsed.memory.prefetch_enabled);
+        assert_eq!(
+            parsed
+                .repl
+                .tui
+                .status_line
+                .items
+                .iter()
+                .map(|item| item.label())
+                .collect::<Vec<_>>(),
+            vec!["model", "cost", "trace"]
+        );
+        assert_eq!(
+            parsed.learning.personality_digest.output_path,
+            "profiles/PERSONALITY.md"
+        );
+    }
+
+    #[test]
+    fn settings_reset_removes_explicit_override() {
+        let (_temp, paths) = test_paths();
+        persist_setting_value(&paths, "memory.prefetch_enabled", "false").expect("set");
+        let mutation =
+            reset_setting_value(&paths, "memory.prefetch_enabled").expect("reset setting");
+        assert!(mutation.changed);
+        assert_eq!(mutation.previous_value.as_deref(), Some("false"));
+
+        let raw = fs::read_to_string(&paths.config).expect("read config");
+        assert!(!raw.contains("prefetch_enabled"));
+        let parsed: Config = toml::from_str(&raw).expect("rendered config should parse");
+        assert!(parsed.memory.prefetch_enabled);
+    }
+
+    #[test]
+    fn settings_persistence_rejects_unsafe_values_without_writing() {
+        let (_temp, paths) = test_paths();
+        let before = fs::read_to_string(&paths.config).expect("read before");
+        let err =
+            persist_setting_value(&paths, "learning.personality_digest.output_path", "../x.md")
+                .expect_err("path escape should fail");
+        assert!(matches!(
+            err,
+            SettingPersistenceError::Validation(SettingValidationError::PathEscape { .. })
+        ));
+        assert_eq!(
+            fs::read_to_string(&paths.config).expect("read after"),
+            before
+        );
+
+        let err = persist_setting_value(&paths, "model.api_key_env", "OPENAI_API_KEY")
+            .expect_err("secret-like key should fail");
+        assert!(matches!(
+            err,
+            SettingPersistenceError::Validation(SettingValidationError::SecretLikeKey(_))
+        ));
+        assert_eq!(
+            fs::read_to_string(&paths.config).expect("read final"),
+            before
+        );
+    }
+
+    #[test]
+    fn settings_persistence_rejects_conflicting_toml_shape_without_writing() {
+        let (_temp, paths) = test_paths();
+        fs::write(
+            &paths.config,
+            r#"repl = "not a table"
+
+[model]
+provider = "ollama"
+model_id = "gemma4"
+max_tokens = 4096
+context_window_tokens = 0
+"#,
+        )
+        .expect("write invalid shape");
+        let before = fs::read_to_string(&paths.config).expect("read before");
+        let err = persist_setting_value(&paths, "repl.ui", "classic")
+            .expect_err("shape conflict should fail");
+        assert!(matches!(err, SettingPersistenceError::UnsafeEdit { .. }));
+        assert_eq!(
+            fs::read_to_string(&paths.config).expect("read after"),
+            before
+        );
     }
 }

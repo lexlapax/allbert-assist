@@ -96,8 +96,9 @@ pub use self_improvement::{
     WorktreeGcReport,
 };
 pub use settings::{
-    find_setting, settings_catalog, settings_catalog_errors, settings_for_config,
-    validate_setting_value, SettingDescriptor, SettingPathPolicy, SettingRedactionPolicy,
+    find_setting, persist_setting_value, reset_setting_value, settings_catalog,
+    settings_catalog_errors, settings_for_config, validate_setting_value, SettingDescriptor,
+    SettingMutation, SettingPathPolicy, SettingPersistenceError, SettingRedactionPolicy,
     SettingRestartRequirement, SettingValidationError, SettingValueType, SettingView,
     SettingsGroup,
 };
