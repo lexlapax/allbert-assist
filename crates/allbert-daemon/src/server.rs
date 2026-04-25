@@ -539,6 +539,8 @@ pub async fn spawn_with_factory(
         .clone()
         .unwrap_or_else(|| paths.logs.clone());
     std::fs::create_dir_all(&log_dir)?;
+    let trace_defaults_write = allbert_kernel::ensure_trace_defaults_block(&paths)
+        .map_err(|err| DaemonError::Protocol(err.to_string()))?;
     let lock_record = acquire_daemon_lock(&paths)?;
 
     prepare_socket_dir(&socket_path)?;
@@ -594,6 +596,17 @@ pub async fn spawn_with_factory(
             lock_record.host
         ),
     )?;
+    match trace_defaults_write {
+        allbert_kernel::TraceDefaultsWriteResult::Installed => append_log_line(
+            &state.log_path,
+            "Trace defaults installed (capture_messages=true, retention_days=30). Use `/settings show trace` or `allbert-cli trace --help` to inspect.",
+        )?,
+        allbert_kernel::TraceDefaultsWriteResult::Skipped { hint } => append_log_line(
+            &state.log_path,
+            &format!("Trace defaults not installed: {hint}"),
+        )?,
+        allbert_kernel::TraceDefaultsWriteResult::AlreadyPresent => {}
+    }
 
     if let Err(error) = spawn_telegram_pilot(state.clone()).await {
         let _ = release_daemon_lock(&state.paths, Some(std::process::id()));

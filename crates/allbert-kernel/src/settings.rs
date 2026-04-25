@@ -11,6 +11,7 @@ use crate::{
 pub enum SettingsGroup {
     Ui,
     Activity,
+    Trace,
     Memory,
     Learning,
     SelfImprovement,
@@ -18,9 +19,10 @@ pub enum SettingsGroup {
 }
 
 impl SettingsGroup {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Ui,
         Self::Activity,
+        Self::Trace,
         Self::Memory,
         Self::Learning,
         Self::SelfImprovement,
@@ -31,6 +33,7 @@ impl SettingsGroup {
         match self {
             Self::Ui => "ui",
             Self::Activity => "activity",
+            Self::Trace => "trace",
             Self::Memory => "memory",
             Self::Learning => "learning",
             Self::SelfImprovement => "self_improvement",
@@ -42,6 +45,7 @@ impl SettingsGroup {
         match self {
             Self::Ui => "UI",
             Self::Activity => "Activity",
+            Self::Trace => "Trace",
             Self::Memory => "Memory",
             Self::Learning => "Learning",
             Self::SelfImprovement => "Self-improvement",
@@ -339,6 +343,147 @@ pub fn settings_catalog() -> Vec<SettingDescriptor> {
             "operator_ux.activity.show_activity_breadcrumbs",
             SettingRestartRequirement::Live,
             "Disabling display does not disable daemon activity tracking.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "trace.enabled",
+            SettingsGroup::Trace,
+            "Trace persistence",
+            "Persist durable session spans for after-the-fact replay.",
+            SettingValueType::Bool,
+            "true",
+            "trace.enabled",
+            SettingRestartRequirement::Live,
+            "Disabling this stops trace persistence; live activity surfaces continue working.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "trace.capture_messages",
+            SettingsGroup::Trace,
+            "Capture message text",
+            "Capture full prompts, responses, tool args, and tool results before redaction.",
+            SettingValueType::Bool,
+            "true",
+            "trace.capture_messages",
+            SettingRestartRequirement::Restart,
+            "When false, capture policies for tool args, tool results, and provider payloads are coerced to summary for that load.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "trace.session_disk_cap_mb",
+            SettingsGroup::Trace,
+            "Per-session trace cap",
+            "Per-session trace artifact cap in MiB.",
+            SettingValueType::UnsignedInteger {
+                min: Some(5),
+                max: Some(500),
+            },
+            "50",
+            "trace.session_disk_cap_mb",
+            SettingRestartRequirement::Restart,
+            "Old trace archives may be evicted past this cap; other session artifacts are not removed.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "trace.total_disk_cap_mb",
+            SettingsGroup::Trace,
+            "Total trace cap",
+            "Total trace artifact cap across sessions in MiB.",
+            SettingValueType::UnsignedInteger {
+                min: Some(100),
+                max: Some(51200),
+            },
+            "2048",
+            "trace.total_disk_cap_mb",
+            SettingRestartRequirement::Restart,
+            "Trace GC removes only trace artifacts, never unrelated session files.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "trace.retention_days",
+            SettingsGroup::Trace,
+            "Trace retention",
+            "Days to retain trace artifacts before trace GC may remove them.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(365),
+            },
+            "30",
+            "trace.retention_days",
+            SettingRestartRequirement::Restart,
+            "Retention applies to trace artifacts only.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "trace.otel_export_dir",
+            SettingsGroup::Trace,
+            "OTLP export directory",
+            "Profile-relative directory for explicit OTLP-JSON exports.",
+            SettingValueType::OptionalPath(SettingPathPolicy::AllbertHomeRelative),
+            "",
+            "trace.otel_export_dir",
+            SettingRestartRequirement::Live,
+            "Exports must stay inside ALLBERT_HOME; network exporters are not supported.",
+            SettingRedactionPolicy::Path,
+        ),
+        descriptor(
+            "trace.otel_service_name",
+            SettingsGroup::Trace,
+            "OTLP service name",
+            "Service name written into file-based OTLP-JSON exports.",
+            SettingValueType::String,
+            "allbert",
+            "trace.otel_service_name",
+            SettingRestartRequirement::Live,
+            "Changing this affects future exports only.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "trace.redaction.secrets",
+            SettingsGroup::Trace,
+            "Secret redaction",
+            "Secret redaction posture for trace writes and exports.",
+            SettingValueType::Enum(&["always"]),
+            "always",
+            "trace.redaction.secrets",
+            SettingRestartRequirement::Restart,
+            "Read-only: secrets are always redacted and this setting cannot be weakened.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "trace.redaction.tool_args",
+            SettingsGroup::Trace,
+            "Tool argument capture",
+            "Capture policy for tool argument attributes.",
+            SettingValueType::Enum(&["capture", "summary", "drop"]),
+            "capture",
+            "trace.redaction.tool_args",
+            SettingRestartRequirement::Restart,
+            "Use summary or drop when tool arguments may contain sensitive data.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "trace.redaction.tool_results",
+            SettingsGroup::Trace,
+            "Tool result capture",
+            "Capture policy for tool result attributes.",
+            SettingValueType::Enum(&["capture", "summary", "drop"]),
+            "capture",
+            "trace.redaction.tool_results",
+            SettingRestartRequirement::Restart,
+            "Use summary or drop when tool results may contain sensitive data.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "trace.redaction.provider_payloads",
+            SettingsGroup::Trace,
+            "Provider payload capture",
+            "Capture policy for raw prompt/response provider payload attributes.",
+            SettingValueType::Enum(&["capture", "summary", "drop"]),
+            "capture",
+            "trace.redaction.provider_payloads",
+            SettingRestartRequirement::Restart,
+            "Use summary or drop to avoid storing raw model input or output text.",
             SettingRedactionPolicy::Plain,
         ),
         descriptor(
@@ -652,6 +797,12 @@ pub fn validate_setting_value(key: &str, raw: &str) -> Result<(), SettingValidat
             key.trim().to_string(),
         ));
     };
+    if descriptor.key == "trace.redaction.secrets" && raw.trim() != descriptor.default_value {
+        return Err(SettingValidationError::InvalidValue {
+            key: descriptor.key.to_string(),
+            reason: "trace secret redaction is read-only and must remain `always`".into(),
+        });
+    }
     if !matches!(
         descriptor.value_type,
         SettingValueType::Path(_)
@@ -674,6 +825,14 @@ pub fn persist_setting_value(
 ) -> Result<SettingMutation, SettingPersistenceError> {
     validate_setting_value(key, raw)?;
     let descriptor = find_setting(key).expect("validated setting must exist");
+    if descriptor.key == "trace.redaction.secrets" {
+        return Err(SettingPersistenceError::Validation(
+            SettingValidationError::InvalidValue {
+                key: descriptor.key.to_string(),
+                reason: "trace secret redaction is read-only and must remain `always`".into(),
+            },
+        ));
+    }
     let mut document = load_config_document(paths)?;
     let previous_value = document_value_for_descriptor(&document, &descriptor);
     set_document_value(&mut document, &descriptor, raw)?;
@@ -702,6 +861,14 @@ pub fn reset_setting_value(
             SettingValidationError::UnsupportedKey(key.trim().to_string()),
         ));
     };
+    if descriptor.key == "trace.redaction.secrets" {
+        return Err(SettingPersistenceError::Validation(
+            SettingValidationError::InvalidValue {
+                key: descriptor.key.to_string(),
+                reason: "trace secret redaction is read-only and must remain `always`".into(),
+            },
+        ));
+    }
     let mut document = load_config_document(paths)?;
     let previous_value = document_value_for_descriptor(&document, &descriptor);
     let changed = remove_document_value(&mut document, &descriptor)?;
@@ -1158,6 +1325,19 @@ fn setting_value_for_key(config: &Config, descriptor: &SettingDescriptor) -> Opt
             .activity
             .show_activity_breadcrumbs
             .to_string(),
+        "trace.enabled" => config.trace.enabled.to_string(),
+        "trace.capture_messages" => config.trace.capture_messages.to_string(),
+        "trace.session_disk_cap_mb" => config.trace.session_disk_cap_mb.to_string(),
+        "trace.total_disk_cap_mb" => config.trace.total_disk_cap_mb.to_string(),
+        "trace.retention_days" => config.trace.retention_days.to_string(),
+        "trace.otel_export_dir" => config.trace.otel_export_dir.clone(),
+        "trace.otel_service_name" => config.trace.otel_service_name.clone(),
+        "trace.redaction.secrets" => config.trace.redaction.secrets.clone(),
+        "trace.redaction.tool_args" => config.trace.redaction.tool_args.label().to_string(),
+        "trace.redaction.tool_results" => config.trace.redaction.tool_results.label().to_string(),
+        "trace.redaction.provider_payloads" => {
+            config.trace.redaction.provider_payloads.label().to_string()
+        }
         "memory.prefetch_enabled" => config.memory.prefetch_enabled.to_string(),
         "memory.routing.mode" => config.memory.routing.mode.label().to_string(),
         "memory.episodes.prefetch_enabled" => config.memory.episodes.prefetch_enabled.to_string(),
@@ -1388,6 +1568,8 @@ keep = "yes"
             .expect("list should validate");
         validate_setting_value("learning.personality_digest.output_path", "PERSONALITY.md")
             .expect("path should validate");
+        validate_setting_value("trace.redaction.provider_payloads", "summary")
+            .expect("trace field policy should validate");
     }
 
     #[test]
@@ -1408,6 +1590,29 @@ keep = "yes"
             validate_setting_value("repl.tui.status_line.items", "model,nope"),
             Err(SettingValidationError::InvalidValue { .. })
         ));
+        assert!(matches!(
+            validate_setting_value("trace.redaction.secrets", "never"),
+            Err(SettingValidationError::InvalidValue { .. })
+        ));
+    }
+
+    #[test]
+    fn trace_settings_are_cataloged_and_read_only_secret_redaction_is_enforced() {
+        let catalog = settings_catalog();
+        assert!(catalog.iter().any(|descriptor| {
+            descriptor.key == "trace.enabled" && descriptor.group == SettingsGroup::Trace
+        }));
+        assert!(catalog.iter().any(|descriptor| {
+            descriptor.key == "trace.redaction.secrets"
+                && descriptor.group == SettingsGroup::Trace
+                && descriptor.default_value == "always"
+        }));
+
+        validate_setting_value("trace.redaction.secrets", "always")
+            .expect("secret redaction default remains valid");
+        let err = validate_setting_value("trace.redaction.secrets", "drop")
+            .expect_err("secret redaction cannot be weakened");
+        assert!(matches!(err, SettingValidationError::InvalidValue { .. }));
     }
 
     #[test]
@@ -1503,6 +1708,43 @@ keep = "yes"
             parsed.learning.personality_digest.output_path,
             "profiles/PERSONALITY.md"
         );
+    }
+
+    #[test]
+    fn trace_settings_persist_with_allowlist_and_keep_secret_redaction_read_only() {
+        let (_temp, paths) = test_paths();
+        persist_setting_value(&paths, "trace.capture_messages", "false").expect("bool set");
+        persist_setting_value(&paths, "trace.redaction.provider_payloads", "summary")
+            .expect("trace policy set");
+
+        let raw = fs::read_to_string(&paths.config).expect("read config");
+        assert!(raw.contains("[trace]"));
+        assert!(raw.contains("capture_messages = false"));
+        assert!(raw.contains("[trace.redaction]"));
+        assert!(raw.contains("provider_payloads = \"summary\""));
+
+        let parsed: Config = toml::from_str(&raw).expect("rendered config should parse");
+        assert!(!parsed.trace.capture_messages);
+        assert_eq!(parsed.trace.redaction.provider_payloads.label(), "summary");
+
+        let before = fs::read_to_string(&paths.config).expect("read before");
+        let err = persist_setting_value(&paths, "trace.redaction.secrets", "always")
+            .expect_err("read-only trace secret redaction should not persist");
+        assert!(matches!(
+            err,
+            SettingPersistenceError::Validation(SettingValidationError::InvalidValue { .. })
+        ));
+        assert_eq!(
+            fs::read_to_string(&paths.config).expect("read after"),
+            before
+        );
+
+        let err = reset_setting_value(&paths, "trace.redaction.secrets")
+            .expect_err("read-only trace secret redaction should not reset");
+        assert!(matches!(
+            err,
+            SettingPersistenceError::Validation(SettingValidationError::InvalidValue { .. })
+        ));
     }
 
     #[test]

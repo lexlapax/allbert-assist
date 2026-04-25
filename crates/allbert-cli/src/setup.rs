@@ -31,6 +31,11 @@ pub struct SetupAnswers {
     pub jobs_enabled: bool,
     pub jobs_default_timezone: Option<String>,
     pub enabled_bundled_jobs: Vec<String>,
+    pub trace_enabled: bool,
+    pub trace_capture_messages: bool,
+    pub trace_session_disk_cap_mb: u16,
+    pub trace_total_disk_cap_mb: u32,
+    pub trace_retention_days: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -233,6 +238,58 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         Vec::new()
     };
 
+    println!("\nTrace and replay records spans for decisions, routing, tool calls, model calls, and durations. It is after-the-fact history; live activity remains the daemon-owned current-state surface.");
+    let trace_enabled = match prompt_yes_no(
+        "Enable durable trace and replay for this profile?",
+        config.trace.enabled,
+    )? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let trace_capture_messages = if trace_enabled {
+        println!("Trace capture defaults to full prompts, responses, tool args, and tool results because it makes replay useful. Secrets are always redacted before write/export, retention is bounded, and you can lower fidelity later with `/settings show trace`.");
+        match prompt_yes_no(
+            "Capture full prompt and response text in traces?",
+            config.trace.capture_messages,
+        )? {
+            Some(value) => value,
+            None => return Ok(None),
+        }
+    } else {
+        config.trace.capture_messages
+    };
+    let trace_session_disk_cap_mb = match prompt_u16(
+        "Per-session trace disk cap in MiB",
+        config.trace.session_disk_cap_mb,
+        5,
+        500,
+    )? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let trace_total_disk_cap_mb = match prompt_u32(
+        "Total trace disk cap in MiB",
+        config.trace.total_disk_cap_mb,
+        100,
+        51_200,
+    )? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let trace_retention_days = match prompt_u16(
+        "Trace retention in days",
+        config.trace.retention_days,
+        1,
+        365,
+    )? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    println!(
+        "Trace artifacts live under {}. Inspect later with `/settings show trace` or `allbert-cli trace --help`.",
+        paths.sessions.display()
+    );
+
     let answers = SetupAnswers {
         provider,
         model_id,
@@ -252,11 +309,16 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         jobs_enabled,
         jobs_default_timezone,
         enabled_bundled_jobs,
+        trace_enabled,
+        trace_capture_messages,
+        trace_session_disk_cap_mb,
+        trace_total_disk_cap_mb,
+        trace_retention_days,
     };
 
     let mut updated = config.clone();
     apply_setup_answers(paths, &mut updated, &answers)?;
-    println!("\nSetup saved.\n");
+    println!("\nSetup saved. Inspect trace settings later with `/settings show trace` or `allbert-cli trace --help`.\n");
     Ok(Some(updated))
 }
 
@@ -291,6 +353,11 @@ pub fn apply_setup_answers(
     };
     config.jobs.enabled = answers.jobs_enabled;
     config.jobs.default_timezone = answers.jobs_default_timezone.clone();
+    config.trace.enabled = answers.trace_enabled;
+    config.trace.capture_messages = answers.trace_capture_messages;
+    config.trace.session_disk_cap_mb = answers.trace_session_disk_cap_mb;
+    config.trace.total_disk_cap_mb = answers.trace_total_disk_cap_mb;
+    config.trace.retention_days = answers.trace_retention_days;
     config.setup.version = CURRENT_SETUP_VERSION;
     config.persist(paths)?;
     enable_bundled_jobs(paths, &answers.enabled_bundled_jobs)?;
@@ -492,6 +559,32 @@ fn prompt_yes_no(label: &str, default: bool) -> Result<Option<bool>> {
             "y" | "yes" => return Ok(Some(true)),
             "n" | "no" => return Ok(Some(false)),
             _ => println!("Please answer yes or no."),
+        }
+    }
+}
+
+fn prompt_u16(label: &str, default: u16, min: u16, max: u16) -> Result<Option<u16>> {
+    loop {
+        let raw = match prompt_line(label, Some(&default.to_string()))? {
+            PromptLine::Cancelled => return Ok(None),
+            PromptLine::Submitted(value) => value,
+        };
+        match raw.parse::<u16>() {
+            Ok(value) if (min..=max).contains(&value) => return Ok(Some(value)),
+            _ => println!("{label} must be between {min} and {max}."),
+        }
+    }
+}
+
+fn prompt_u32(label: &str, default: u32, min: u32, max: u32) -> Result<Option<u32>> {
+    loop {
+        let raw = match prompt_line(label, Some(&default.to_string()))? {
+            PromptLine::Cancelled => return Ok(None),
+            PromptLine::Submitted(value) => value,
+        };
+        match raw.parse::<u32>() {
+            Ok(value) if (min..=max).contains(&value) => return Ok(Some(value)),
+            _ => println!("{label} must be between {min} and {max}."),
         }
     }
 }
@@ -968,6 +1061,11 @@ mod tests {
             jobs_enabled: true,
             jobs_default_timezone: Some("America/Los_Angeles".into()),
             enabled_bundled_jobs: vec!["daily-brief".into()],
+            trace_enabled: true,
+            trace_capture_messages: false,
+            trace_session_disk_cap_mb: 25,
+            trace_total_disk_cap_mb: 1024,
+            trace_retention_days: 14,
         }
     }
 
@@ -988,6 +1086,11 @@ mod tests {
         assert_eq!(config.model.provider, Provider::Ollama);
         assert_eq!(config.model.model_id, "gemma4");
         assert_eq!(config.model.api_key_env, None);
+        assert!(config.trace.enabled);
+        assert!(!config.trace.capture_messages);
+        assert_eq!(config.trace.session_disk_cap_mb, 25);
+        assert_eq!(config.trace.total_disk_cap_mb, 1024);
+        assert_eq!(config.trace.retention_days, 14);
         assert_eq!(
             config.model.base_url.as_deref(),
             Some("http://127.0.0.1:11434")

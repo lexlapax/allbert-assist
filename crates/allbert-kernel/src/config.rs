@@ -9,7 +9,14 @@ use crate::scripting::{
     LUA_MAX_EXECUTION_MS_CEILING, LUA_MAX_MEMORY_KB_CEILING, LUA_MAX_OUTPUT_BYTES_CEILING,
 };
 
-pub const CURRENT_SETUP_VERSION: u8 = 4;
+pub const CURRENT_SETUP_VERSION: u8 = 5;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TraceDefaultsWriteResult {
+    Installed,
+    AlreadyPresent,
+    Skipped { hint: String },
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -1043,7 +1050,6 @@ impl Config {
                 path: paths.config.clone(),
                 source,
             })?;
-            parsed.apply_trace_capture_override();
             let migrated = parsed.migrate_loaded_config(raw_had_repl_ui);
             let scripting_normalized = parsed.normalize_scripting_config();
             let operator_ux_normalized = parsed.normalize_operator_ux_config();
@@ -1052,6 +1058,7 @@ impl Config {
             if migrated || normalized {
                 parsed.persist(paths)?;
             }
+            parsed.apply_trace_capture_override();
             parsed
                 .validate()
                 .map_err(|e| KernelError::InitFailed(format!("invalid config: {e}")))?;
@@ -1374,6 +1381,63 @@ pub fn write_last_good_config(paths: &AllbertPaths) -> Result<(), KernelError> {
         source,
     })?;
     Ok(())
+}
+
+pub fn ensure_trace_defaults_block(
+    paths: &AllbertPaths,
+) -> Result<TraceDefaultsWriteResult, KernelError> {
+    if !paths.config.exists() {
+        return Ok(TraceDefaultsWriteResult::Skipped {
+            hint: "config.toml does not exist yet; initial config persistence will include trace defaults".into(),
+        });
+    }
+    let raw = std::fs::read_to_string(&paths.config)
+        .map_err(|source| KernelError::InitFailed(format!("read config: {source}")))?;
+    let mut document = match raw.parse::<toml_edit::DocumentMut>() {
+        Ok(document) => document,
+        Err(err) => {
+            return Ok(TraceDefaultsWriteResult::Skipped {
+                hint: format!(
+                    "could not parse config.toml with the path-preserving editor: {err}; add [trace] manually or run `allbert-cli settings show trace`"
+                ),
+            });
+        }
+    };
+    if document.as_table().contains_key("trace") {
+        return Ok(TraceDefaultsWriteResult::AlreadyPresent);
+    }
+
+    let defaults = TraceConfig::default();
+    let mut trace = toml_edit::Table::new();
+    trace["enabled"] = toml_edit::value(defaults.enabled);
+    trace["capture_messages"] = toml_edit::value(defaults.capture_messages);
+    trace["session_disk_cap_mb"] = toml_edit::value(i64::from(defaults.session_disk_cap_mb));
+    trace["total_disk_cap_mb"] = toml_edit::value(i64::from(defaults.total_disk_cap_mb));
+    trace["retention_days"] = toml_edit::value(i64::from(defaults.retention_days));
+    trace["otel_export_dir"] = toml_edit::value(defaults.otel_export_dir.clone());
+    trace["otel_service_name"] = toml_edit::value(defaults.otel_service_name.clone());
+
+    let mut redaction = toml_edit::Table::new();
+    redaction["secrets"] = toml_edit::value(defaults.redaction.secrets.clone());
+    redaction["tool_args"] = toml_edit::value(defaults.redaction.tool_args.label());
+    redaction["tool_results"] = toml_edit::value(defaults.redaction.tool_results.label());
+    redaction["provider_payloads"] = toml_edit::value(defaults.redaction.provider_payloads.label());
+    trace["redaction"] = toml_edit::Item::Table(redaction);
+    document["trace"] = toml_edit::Item::Table(trace);
+
+    let rendered = document.to_string();
+    let parsed = toml::from_str::<Config>(&rendered).map_err(|source| ConfigError::Parse {
+        path: paths.config.clone(),
+        source,
+    })?;
+    parsed.validate().map_err(|error| {
+        KernelError::InitFailed(format!("invalid config after trace default write: {error}"))
+    })?;
+    atomic_write(&paths.config, rendered.as_bytes()).map_err(|source| ConfigError::Write {
+        path: paths.config.clone(),
+        source,
+    })?;
+    Ok(TraceDefaultsWriteResult::Installed)
 }
 
 pub fn restore_last_good_config(paths: &AllbertPaths) -> Result<PathBuf, KernelError> {
@@ -1980,6 +2044,55 @@ secrets = "never"
             .validate()
             .expect_err("secrets=never should be rejected");
         assert!(validation.contains("trace.redaction.secrets"));
+    }
+
+    #[test]
+    fn trace_default_block_installs_once_without_overwriting_partial_trace() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should be created");
+        std::fs::write(
+            &paths.config,
+            r#"# keep me
+[model]
+provider = "ollama"
+model_id = "gemma4"
+base_url = "http://127.0.0.1:11434"
+max_tokens = 4096
+"#,
+        )
+        .expect("config should write");
+
+        let result = ensure_trace_defaults_block(&paths).expect("default write");
+        assert_eq!(result, TraceDefaultsWriteResult::Installed);
+        let raw = std::fs::read_to_string(&paths.config).expect("config should read");
+        assert!(raw.contains("# keep me"));
+        assert!(raw.contains("[trace]"));
+        assert!(raw.contains("capture_messages = true"));
+        assert!(raw.contains("[trace.redaction]"));
+
+        let second = ensure_trace_defaults_block(&paths).expect("second default write");
+        assert_eq!(second, TraceDefaultsWriteResult::AlreadyPresent);
+
+        std::fs::write(
+            &paths.config,
+            r#"
+[model]
+provider = "ollama"
+model_id = "gemma4"
+base_url = "http://127.0.0.1:11434"
+max_tokens = 4096
+
+[trace]
+enabled = false
+"#,
+        )
+        .expect("partial trace config should write");
+        let partial = ensure_trace_defaults_block(&paths).expect("partial should skip");
+        assert_eq!(partial, TraceDefaultsWriteResult::AlreadyPresent);
+        let raw = std::fs::read_to_string(&paths.config).expect("config should read");
+        assert!(raw.contains("enabled = false"));
+        assert!(!raw.contains("capture_messages"));
     }
 
     #[test]

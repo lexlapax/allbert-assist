@@ -28,10 +28,16 @@ pub fn list(config: &Config, group: Option<&str>) -> Result<String> {
 }
 
 pub fn show(config: &Config, key: &str) -> Result<String> {
+    let trimmed = key.trim();
     let view = settings_for_config(config)
         .into_iter()
-        .find(|view| view.key == key.trim())
-        .ok_or_else(|| anyhow!("unsupported setting key `{}`", key.trim()))?;
+        .find(|view| view.key == trimmed);
+    let Some(view) = view else {
+        if parse_group(trimmed).is_ok() {
+            return list(config, Some(trimmed));
+        }
+        return Err(anyhow!("unsupported setting key `{}`", trimmed));
+    };
     Ok(format!(
         "{}\n{}\ncurrent: {}\ndefault: {}\nconfig path: {}\nrestart: {}\nprivacy: {}\nsafety: {}",
         view.key,
@@ -52,6 +58,9 @@ pub fn explain(group: &str) -> Result<String> {
             "examples: repl.ui, repl.tui.spinner_style, repl.tui.status_line.items"
         }
         SettingsGroup::Activity => "examples: operator_ux.activity.stuck_notice_after_s",
+        SettingsGroup::Trace => {
+            "examples: trace.enabled, trace.capture_messages, trace.redaction.provider_payloads"
+        }
         SettingsGroup::Memory => "examples: memory.prefetch_enabled, memory.trash_retention_days",
         SettingsGroup::Learning => {
             "examples: learning.enabled, learning.personality_digest.output_path"
@@ -107,6 +116,9 @@ fn group_description(group: SettingsGroup) -> &'static str {
     match group {
         SettingsGroup::Ui => "Local terminal and status-line behavior.",
         SettingsGroup::Activity => "Daemon-owned live activity and stuck-hint display.",
+        SettingsGroup::Trace => {
+            "Durable session trace capture, privacy, retention, and export posture."
+        }
         SettingsGroup::Memory => "Memory routing, retention, and retrieval posture.",
         SettingsGroup::Learning => "Reviewed learning and personality digest behavior.",
         SettingsGroup::SelfImprovement => "Review-first rebuild, scripting, and worktree posture.",
@@ -199,6 +211,10 @@ mod tests {
         let shown = show(&config, "repl.tui.spinner_style").expect("show should render");
         assert!(shown.contains("config path: repl.tui.spinner_style"));
         assert!(shown.contains("safety:"));
+
+        let trace_group = show(&config, "trace").expect("group show should render");
+        assert!(trace_group.contains("trace.enabled"));
+        assert!(trace_group.contains("trace.redaction.secrets"));
 
         let explained = explain("activity").expect("explain should render");
         assert!(explained.contains("Activity settings"));
