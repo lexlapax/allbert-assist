@@ -19,7 +19,7 @@ v0.12.2 stores durable span traces as session artifacts:
 ~/.allbert/sessions/<session_id>/current_spans/<span_id>.json
 ```
 
-`trace.jsonl` is append-only and line-oriented. Each completed span is written as one `TraceRecord` JSON object with an Allbert-owned `schema_version`, `record_type = "span"`, and a span payload containing span id, parent id, session id, trace id, span name, kind, timestamps, duration, status, attributes, and events. The persisted record envelope is separate from the live protocol `Span` payload so file-format migrations are explicit. The schema tolerates additive attributes and events; schema-breaking changes require a version bump and reader compatibility tests.
+`trace.jsonl` is append-only and line-oriented. Each completed span is written as one `TraceRecord` JSON object with an Allbert-owned `schema_version`, `record_type = "span"`, and a span payload containing OTel-compatible lowercase-hex span id, parent id, session id, trace id, span name, kind, timestamps, duration, status, attributes, and events. The persisted record envelope is separate from the live protocol `Span` payload so file-format migrations are explicit. The schema tolerates additive attributes and events; schema-breaking changes require a version bump and reader compatibility tests.
 
 `current_spans/` is crash-recovery state only. On daemon start, leftover in-flight span snapshots are finalized with a `truncated_at_restart` error/event, appended to `trace.jsonl`, and removed from `current_spans/`.
 

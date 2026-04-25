@@ -99,7 +99,7 @@ v0.12.1 shipped as a patch release, not a new self-change capability layer. It h
 
 v0.12.2 deliberately builds on v0.12.1 instead of competing with it. v0.12.1 owns live legibility: daemon-owned `ActivitySnapshot`, responsive TUI behavior, settings/command descriptors, setup state, and path-preserving settings persistence. v0.12.2 owns after-the-fact legibility: durable session spans, replay, redacted trace inspection, and file-based OTLP-JSON export.
 
-That split keeps protocol and persistence work orderly. v0.12.1's protocol v3 is only a live activity surface and remains backward-compatible with shipped v2 clients. v0.12.2's protocol v4 is additive on top of that: v4 daemons accept v2, v3, and v4 clients, filter messages per peer, and expose trace events only to v4 clients. The v0.12.1 settings registry and path-preserving TOML writer become the mechanism for v0.12.2's `trace` settings and existing-profile default-write, so trace rollout does not introduce a second configuration mutation policy.
+That split keeps protocol and persistence work orderly. v0.12.1's protocol v3 is only a live activity surface and remains backward-compatible with shipped v2 clients. v0.12.2's protocol v4 is additive on top of that: v4 daemons accept v2, v3, and v4 clients, filter messages per peer, and expose trace read responses plus subscribed completed-span broadcasts only to v4 clients. The v0.12.1 settings registry and path-preserving TOML writer become the mechanism for v0.12.2's `trace` settings and existing-profile default-write, so trace rollout does not introduce a second configuration mutation policy.
 
 ### v0.12.2 before v0.13
 

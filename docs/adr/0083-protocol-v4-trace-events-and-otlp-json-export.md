@@ -1,4 +1,4 @@
-# ADR 0083: Protocol v4 trace events and OTLP-JSON export
+# ADR 0083: Protocol v4 trace messages and OTLP-JSON export
 
 Date: 2026-04-25
 Status: Accepted
@@ -15,11 +15,11 @@ v0.12.2 bumps the daemon protocol from `3` to `4` additively. A v4 daemon accept
 
 - v2 peers receive only v2-safe messages and fields.
 - v3 peers receive v0.12.1 activity messages and fields, but no v4 trace messages.
-- v4 peers receive trace span messages, trace read responses, and trace session summaries.
+- v4 peers receive trace read responses, trace session summaries, and completed-span broadcasts after explicit subscription.
 
 Unsupported versions below `2` or above `4` receive `ProtocolError { code: "version_mismatch", ... }` with remediation that names whether to upgrade the client or daemon. A v4 client connected to a v3 daemon must surface `upgrade the daemon to v0.12.2 to use trace surfaces` and must not synthesize spans locally.
 
-The v4 surface is additive and includes span types, `ServerMessage::TraceSpan` completed-span broadcasts, trace read/list requests, one-span detail requests, and trace read/list responses. `SpanEvent` remains the name for events nested inside a span, not the daemon broadcast message. Live trace broadcast is optional for subscribers; durable replay remains file-backed through ADR 0081.
+The v4 surface is additive and includes span types, `ClientMessage::TraceSubscribe` / `TraceUnsubscribe`, `ServerMessage::TraceSubscribed`, `ServerMessage::TraceSpan` completed-span broadcasts, trace read/list requests, one-span detail requests, and trace read/list responses. `SpanEvent` remains the name for events nested inside a span, not the daemon broadcast message. Live trace broadcast is sent only to subscribed v4 peers; durable replay remains file-backed through ADR 0081.
 
 OTLP export is file-only in v0.12.2. `allbert-cli trace export <session> --format otlp-json` writes an OTLP/JSON trace payload under `ALLBERT_HOME/exports/traces` by default, using `trace.otel_export_dir` only when the configured directory stays inside `ALLBERT_HOME`. `--out` may override the export path, but the resolved path must still remain under `ALLBERT_HOME`. Absolute paths and path escapes are rejected. No HTTP/gRPC/network exporter ships in v0.12.2.
 

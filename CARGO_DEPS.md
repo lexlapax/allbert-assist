@@ -109,8 +109,8 @@ already in the tree:
 | --- | --- |
 | `flate2` | Gzip rotation for `trace.<n>.jsonl.gz` archives. Currently declared only in `allbert-cli`; v0.12.2 adds it to `allbert-kernel` since the writer/reader live there. |
 | `serde_json` | Allbert-owned `TraceRecord` JSONL persistence and OTLP-JSON exporter shape. |
-| `uuid` | Span ids, parent ids, and trace ids. |
-| `chrono` | `DateTime<Utc>` span timestamps with the existing `serde` feature. |
+| `uuid` | Generates random bytes for trace/span identifiers. Persisted and protocol identifiers are OTel-compatible lowercase hex strings: 32 chars for `trace_id`, 16 chars for `id`/`parent_id`, not hyphenated UUID display strings. |
+| `chrono` | `DateTime<Utc>` span timestamps. v0.12.2 adds `chrono` to `allbert-proto` with `default-features = false` and `features = ["serde"]` because shared `Span` payloads derive serde; `allbert-kernel` keeps its existing `clock` feature for timestamp creation. |
 | `toml_edit` | Path-preserving `[trace]` default-write for existing profiles. Already present from v0.12.1. |
 
 The existing `tracing`/`tracing-subscriber`/`tracing-appender` triple in
