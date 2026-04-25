@@ -56,6 +56,8 @@ commands:
             inspect or change TUI status-line items
   /telemetry
             show live model, token, cost, memory, skill, inbox, and trace telemetry
+  /trace [show|show-span|tail|export|settings]
+            inspect durable spans, tail completed spans, export OTLP-JSON, or open trace settings
   /exit     leave the REPL
   /quit     leave the REPL
   operator inspection:
@@ -120,6 +122,7 @@ const SUPPORTED_SLASH_COMMANDS: &[&str] = &[
     "/status",
     "/statusline",
     "/telemetry",
+    "/trace",
 ];
 
 pub enum LocalCommand<'a> {
@@ -139,6 +142,7 @@ pub enum LocalCommand<'a> {
     Status,
     StatusLine(&'a str),
     Telemetry,
+    Trace(&'a str),
     UnknownSlash(&'a str),
     Turn(&'a str),
 }
@@ -218,6 +222,9 @@ pub async fn run_loop(
                     LocalCommand::Telemetry => {
                         println!("{}", handle_telemetry_command(client).await?);
                     }
+                    LocalCommand::Trace(command) => {
+                        println!("{}", handle_trace_command(client, paths, command).await?);
+                    }
                     LocalCommand::UnknownSlash(command) => {
                         eprintln!("{}", unknown_slash_guidance(command));
                     }
@@ -256,6 +263,7 @@ pub fn slash_argument_hint(input: &str) -> Option<&'static str> {
         "/memory" => Some("hint: /memory staged list | staged show <id> | show staged | show today | routing show"),
         "/self-improvement" => Some("hint: /self-improvement install <approval-id> --allow-needs-review | gc --dry-run"),
         "/settings" => Some("hint: /settings list <group> | show <key> | set <key> <value> | reset <key>"),
+        "/trace" => Some("hint: /trace show [session] | show-span <id> [--session <session>] | tail [session] | export [session] | settings"),
         _ => None,
     }
 }
@@ -313,6 +321,7 @@ pub fn parse_local_command(input: &str) -> LocalCommand<'_> {
         "/status" | "/s" => LocalCommand::Status,
         command if command.starts_with("/statusline") => LocalCommand::StatusLine(command),
         "/telemetry" => LocalCommand::Telemetry,
+        command if command.starts_with("/trace") => LocalCommand::Trace(command),
         command if command.starts_with("/model") => LocalCommand::Model(command),
         command if command.starts_with('/') => LocalCommand::UnknownSlash(command),
         other => LocalCommand::Turn(other),
@@ -325,6 +334,9 @@ async fn run_turn(client: &mut DaemonClient, input: &str) -> Result<()> {
         match client.recv().await? {
             ServerMessage::Event(event) => render_event(event),
             ServerMessage::ActivityUpdate(activity) => render_activity_update(&activity),
+            ServerMessage::TraceSpan(span) => {
+                eprintln!("[trace] {}", crate::trace_cli::render_span_compact(&span));
+            }
             ServerMessage::ConfirmRequest(request) => {
                 let decision = prompt_confirm(
                     &request.program,
@@ -558,6 +570,69 @@ pub async fn handle_telemetry_command(client: &mut DaemonClient) -> Result<Strin
 pub async fn handle_activity_command(client: &mut DaemonClient) -> Result<String> {
     let activity = client.activity_snapshot().await?;
     Ok(render_activity_snapshot(&activity))
+}
+
+pub async fn handle_trace_command(
+    client: &mut DaemonClient,
+    paths: &allbert_kernel::AllbertPaths,
+    command: &str,
+) -> Result<String> {
+    if let Some(hint) = slash_argument_hint(command) {
+        return Ok(hint.into());
+    }
+    let args = command.split_whitespace().collect::<Vec<_>>();
+    match args.as_slice() {
+        ["/trace"] | ["/trace", "show"] => {
+            let spans = client.trace_show(None).await?;
+            let session = spans
+                .first()
+                .map(|span| span.session_id.as_str())
+                .unwrap_or("(resolved)");
+            Ok(crate::trace_cli::render_span_tree(session, &spans, 0))
+        }
+        ["/trace", "show", session] => {
+            let spans = client.trace_show(Some((*session).to_string())).await?;
+            Ok(crate::trace_cli::render_span_tree(session, &spans, 0))
+        }
+        ["/trace", "show-span", span_id] => {
+            let span = client.trace_show_span(None, (*span_id).to_string()).await?;
+            Ok(crate::trace_cli::render_span_detail(&span))
+        }
+        ["/trace", "show-span", span_id, "--session", session] => {
+            let span = client
+                .trace_show_span(Some((*session).to_string()), (*span_id).to_string())
+                .await?;
+            Ok(crate::trace_cli::render_span_detail(&span))
+        }
+        ["/trace", "tail"] => {
+            let session = client.trace_subscribe(None).await?;
+            Ok(format!("tailing trace session {session}; completed spans will appear inline"))
+        }
+        ["/trace", "tail", session] => {
+            let session = client.trace_subscribe(Some((*session).to_string())).await?;
+            Ok(format!("tailing trace session {session}; completed spans will appear inline"))
+        }
+        ["/trace", "export"] => {
+            let telemetry = client.session_telemetry().await?;
+            let config = allbert_kernel::Config::load_or_create(paths)?;
+            crate::trace_cli::export(paths, &config, &telemetry.session_id, "otlp-json", None)
+        }
+        ["/trace", "export", session] => {
+            let config = allbert_kernel::Config::load_or_create(paths)?;
+            crate::trace_cli::export(paths, &config, session, "otlp-json", None)
+        }
+        ["/trace", "export", session, "--format", format] => {
+            let config = allbert_kernel::Config::load_or_create(paths)?;
+            crate::trace_cli::export(paths, &config, session, format, None)
+        }
+        ["/trace", "export", "--format", format] => {
+            let telemetry = client.session_telemetry().await?;
+            let config = allbert_kernel::Config::load_or_create(paths)?;
+            crate::trace_cli::export(paths, &config, &telemetry.session_id, format, None)
+        }
+        ["/trace", "settings"] => crate::settings_cli::handle_command(paths, "/settings show trace"),
+        _ => Ok("usage: /trace [show [session] | show-span <id> [--session <session>] | tail [session] | export [session] | settings]".into()),
+    }
 }
 
 pub async fn handle_context_command(client: &mut DaemonClient) -> Result<String> {
@@ -985,6 +1060,9 @@ pub fn render_async_server_message(message: ServerMessage) {
     match message {
         ServerMessage::Event(event) => render_event(event),
         ServerMessage::ActivityUpdate(activity) => render_activity_update(&activity),
+        ServerMessage::TraceSpan(span) => {
+            eprintln!("[trace] {}", crate::trace_cli::render_span_compact(&span));
+        }
         _ => {}
     }
 }
@@ -1236,6 +1314,22 @@ mod tests {
             parse_local_command("/self-improvement gc --dry-run"),
             LocalCommand::SelfImprovement("/self-improvement gc --dry-run")
         ));
+    }
+
+    #[test]
+    fn v0_12_2_trace_slash_commands_are_local() {
+        assert!(matches!(
+            parse_local_command("/trace"),
+            LocalCommand::Trace("/trace")
+        ));
+        assert!(matches!(
+            parse_local_command("/trace show repl-primary"),
+            LocalCommand::Trace("/trace show repl-primary")
+        ));
+        assert_eq!(
+            slash_argument_hint("/trace --"),
+            Some("hint: /trace show [session] | show-span <id> [--session <session>] | tail [session] | export [session] | settings")
+        );
     }
 
     #[test]

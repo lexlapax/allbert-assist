@@ -33,7 +33,7 @@ use allbert_proto::{
     ConfirmRequestPayload, DaemonLockPayload, DaemonStatus, InboxApprovalPayload,
     InboxQueryPayload, InboxResolveResultPayload, InputReplyPayload, InputRequestPayload,
     InputResponsePayload, KernelEventPayload, ModelConfigPayload, PatchApprovalPayload,
-    ProtocolError, ServerHello, ServerMessage, SessionResumeEntry, SessionStatus,
+    ProtocolError, ServerHello, ServerMessage, SessionResumeEntry, SessionStatus, Span, SpanStatus,
     TelemetrySnapshot, TurnBudgetOverridePayload, TurnResult, MIN_PROTOCOL_VERSION,
     PROTOCOL_VERSION,
 };
@@ -1542,6 +1542,71 @@ fn render_telegram_status_card(session: &SessionHandle, pending_inbox_count: usi
     )
 }
 
+fn render_telegram_trace_summary(spans: &[Span]) -> String {
+    if spans.is_empty() {
+        return "Trace\nNo spans recorded for the current session yet.".into();
+    }
+    let root_count = spans.iter().filter(|span| span.parent_id.is_none()).count();
+    let error_count = spans
+        .iter()
+        .filter(|span| matches!(span.status, SpanStatus::Error { .. }))
+        .count();
+    let total_duration_ms = spans
+        .iter()
+        .filter(|span| span.parent_id.is_none())
+        .filter_map(|span| span.duration_ms)
+        .sum::<u64>();
+    let mut lines = vec![
+        "Trace".to_string(),
+        format!("Session: {}", spans[0].session_id),
+        format!(
+            "Spans: {} (roots {}, errors {})",
+            spans.len(),
+            root_count,
+            error_count
+        ),
+        format!("Duration: {}", render_trace_duration(total_duration_ms)),
+        "Recent:".into(),
+    ];
+    for span in spans.iter().rev().take(5).rev() {
+        lines.push(format!(
+            "- {} {} {}",
+            span.name,
+            render_trace_duration(span.duration_ms.unwrap_or_default()),
+            render_trace_status(&span.status)
+        ));
+    }
+    lines.join("\n")
+}
+
+fn render_telegram_trace_span(span: &Span) -> String {
+    format!(
+        "Trace span\nName: {}\nSession: {}\nSpan: {}\nParent: {}\nStatus: {}\nDuration: {}\nEvents: {}",
+        span.name,
+        span.session_id,
+        span.id,
+        span.parent_id.as_deref().unwrap_or("(none)"),
+        render_trace_status(&span.status),
+        render_trace_duration(span.duration_ms.unwrap_or_default()),
+        span.events.len()
+    )
+}
+
+fn render_trace_status(status: &SpanStatus) -> &'static str {
+    match status {
+        SpanStatus::Ok => "ok",
+        SpanStatus::Error { .. } => "error",
+    }
+}
+
+fn render_trace_duration(ms: u64) -> String {
+    if ms >= 1000 {
+        format!("{:.2}s", ms as f64 / 1000.0)
+    } else {
+        format!("{ms}ms")
+    }
+}
+
 fn render_telegram_resolution_feedback(
     approval_id: &str,
     allow: bool,
@@ -1802,6 +1867,8 @@ enum TelegramCommand {
     Text(String),
     Activity,
     Status,
+    TraceLast,
+    TraceSpan(String),
     Reset,
     Approve(String),
     Reject(String),
@@ -1861,6 +1928,12 @@ impl TelegramRuntime {
             }
             TelegramCommand::Status => {
                 self.send_status(chat_id, &sender_id).await?;
+            }
+            TelegramCommand::TraceLast => {
+                self.send_trace_last(chat_id, &sender_id).await?;
+            }
+            TelegramCommand::TraceSpan(span_id) => {
+                self.send_trace_span(chat_id, &sender_id, &span_id).await?;
             }
             TelegramCommand::Approve(approval_id) => {
                 self.resolve_approval(chat_id, &sender_id, &approval_id, true)
@@ -1944,6 +2017,34 @@ impl TelegramRuntime {
         let session = self.select_session(sender_id, false).await?;
         let pending = pending_inbox_count_for_session(&self.state, &session);
         self.send_text(chat_id, render_telegram_status_card(&session, pending))
+            .await?;
+        Ok(())
+    }
+
+    async fn send_trace_last(&self, chat_id: i64, sender_id: &str) -> Result<(), DaemonError> {
+        let session = self.select_session(sender_id, false).await?;
+        let reader = TraceReader::new(self.state.paths.clone());
+        let result = reader
+            .read_session(&session.session_id)
+            .map_err(map_trace_error)?;
+        self.send_text(chat_id, render_telegram_trace_summary(&result.spans))
+            .await?;
+        Ok(())
+    }
+
+    async fn send_trace_span(
+        &self,
+        chat_id: i64,
+        sender_id: &str,
+        span_id: &str,
+    ) -> Result<(), DaemonError> {
+        let session = self.select_session(sender_id, false).await?;
+        let reader = TraceReader::new(self.state.paths.clone());
+        let span = reader
+            .find_span(Some(&session.session_id), span_id)
+            .map_err(map_trace_error)?
+            .ok_or_else(|| DaemonError::Protocol(format!("trace span not found: {span_id}")))?;
+        self.send_text(chat_id, render_telegram_trace_span(&span))
             .await?;
         Ok(())
     }
@@ -2742,6 +2843,15 @@ fn parse_telegram_command(text: &str) -> TelegramCommand {
     }
     if trimmed == "/status" {
         return TelegramCommand::Status;
+    }
+    if trimmed == "/trace last" {
+        return TelegramCommand::TraceLast;
+    }
+    if let Some(value) = trimmed.strip_prefix("/trace span ") {
+        let value = value.trim();
+        if !value.is_empty() {
+            return TelegramCommand::TraceSpan(value.to_string());
+        }
     }
     if trimmed == "/reset" {
         return TelegramCommand::Reset;
@@ -5770,6 +5880,14 @@ mod telegram_tests {
             TelegramCommand::Reject("approval-456".into())
         );
         assert_eq!(
+            parse_telegram_command("/trace last"),
+            TelegramCommand::TraceLast
+        );
+        assert_eq!(
+            parse_telegram_command("/trace span 1111111111111111"),
+            TelegramCommand::TraceSpan("1111111111111111".into())
+        );
+        assert_eq!(
             parse_telegram_command("/override release smoke"),
             TelegramCommand::Override("release smoke".into())
         );
@@ -5805,6 +5923,31 @@ mod telegram_tests {
         assert!(rendered.contains("calling_tool"));
         assert!(rendered.contains("Tool input: [redacted]"));
         assert!(!rendered.contains("abc123"));
+    }
+
+    #[test]
+    fn telegram_trace_summary_is_structural_only() {
+        let mut span = fixture_trace_span();
+        span.attributes.insert(
+            "allbert.provider_payload.prompt".into(),
+            allbert_proto::AttributeValue::String("raw prompt text with secret sk-leaky".into()),
+        );
+        span.attributes.insert(
+            "allbert.tool.result".into(),
+            allbert_proto::AttributeValue::String("full tool payload".into()),
+        );
+        let rendered = render_telegram_trace_summary(&[span.clone()]);
+        assert!(rendered.contains("Trace"));
+        assert!(rendered.contains("Spans: 1"));
+        assert!(rendered.contains("turn"));
+        assert!(!rendered.contains("raw prompt"));
+        assert!(!rendered.contains("sk-leaky"));
+        assert!(!rendered.contains("full tool payload"));
+
+        let detail = render_telegram_trace_span(&span);
+        assert!(detail.contains("Trace span"));
+        assert!(!detail.contains("raw prompt"));
+        assert!(!detail.contains("full tool payload"));
     }
 
     #[test]

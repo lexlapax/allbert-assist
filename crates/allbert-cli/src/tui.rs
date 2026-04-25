@@ -55,6 +55,7 @@ pub struct TuiApp {
     tick_ms: u64,
     modal: Option<Modal>,
     in_flight: bool,
+    trace_tail_active: bool,
     should_exit: bool,
 }
 
@@ -72,6 +73,7 @@ impl TuiApp {
             tick_ms: 80,
             modal: None,
             in_flight: false,
+            trace_tail_active: false,
             should_exit: false,
         }
     }
@@ -163,6 +165,12 @@ impl TuiApp {
             ServerMessage::ActivitySnapshot(activity) | ServerMessage::ActivityUpdate(activity) => {
                 self.activity = Some(activity);
             }
+            ServerMessage::TraceSpan(span) => {
+                self.push_line(format!(
+                    "trace: {}",
+                    crate::trace_cli::render_span_compact(&span)
+                ));
+            }
             _ => {}
         }
         false
@@ -226,6 +234,7 @@ impl TuiApp {
             | LocalCommand::Status
             | LocalCommand::StatusLine(_)
             | LocalCommand::Telemetry => None,
+            LocalCommand::Trace(_) => None,
             LocalCommand::UnknownSlash(command) => Some(repl::unknown_slash_guidance(command)),
             LocalCommand::Turn(input) => Some(input.to_string()),
         }
@@ -289,7 +298,7 @@ async fn run_event_loop(
                     None => return Ok(()),
                 }
             }
-            message = client.recv(), if app.in_flight => {
+            message = client.recv(), if app.in_flight || app.trace_tail_active => {
                 match message {
                     Ok(message) => {
                         app.process_server_message(message);
@@ -385,6 +394,13 @@ async fn handle_key(
                     app.push_line(repl::handle_statusline_command(paths, command)?);
                     let config = allbert_kernel::Config::load_or_create(paths)?;
                     app.status_items = configured_status_items(&config);
+                }
+                LocalCommand::Trace(command) => {
+                    let rendered = repl::handle_trace_command(client, paths, command).await?;
+                    if command.split_whitespace().nth(1) == Some("tail") {
+                        app.trace_tail_active = true;
+                    }
+                    app.push_line(rendered);
                 }
                 command => {
                     if let Some(turn) = app.handle_local_command(command) {
@@ -817,6 +833,7 @@ mod tests {
         ChannelKind, MemoryTelemetry, ModelConfigPayload, ProviderKind, TokenUsagePayload,
         TurnBudgetTelemetry,
     };
+    use chrono::{DateTime, Utc};
     use ratatui::backend::TestBackend;
 
     fn fixture_telemetry() -> TelemetrySnapshot {
@@ -887,6 +904,27 @@ mod tests {
             .map(|cell| cell.symbol())
             .collect::<Vec<_>>()
             .join("")
+    }
+
+    fn ts(seconds: i64) -> DateTime<Utc> {
+        DateTime::from_timestamp(seconds, 0).expect("timestamp")
+    }
+
+    fn fixture_span(widthy_name: &str, status: allbert_proto::SpanStatus) -> allbert_proto::Span {
+        allbert_proto::Span {
+            id: "1111111111111111".into(),
+            parent_id: None,
+            session_id: "repl-primary".into(),
+            trace_id: "33333333333333333333333333333333".into(),
+            name: widthy_name.into(),
+            kind: allbert_proto::SpanKind::Internal,
+            started_at: ts(1),
+            ended_at: Some(ts(2)),
+            duration_ms: Some(1000),
+            status,
+            attributes: std::collections::BTreeMap::new(),
+            events: Vec::new(),
+        }
     }
 
     #[test]
@@ -1027,6 +1065,21 @@ mod tests {
                 hit_turn_limit: false
             }))
         );
+    }
+
+    #[test]
+    fn tui_renders_trace_span_broadcasts() {
+        let backend = TestBackend::new(70, 12);
+        let mut terminal = Terminal::new(backend).expect("terminal should build");
+        let mut app = TuiApp::new(vec!["trace".into()]);
+        app.process_server_message(ServerMessage::TraceSpan(fixture_span(
+            "chat",
+            allbert_proto::SpanStatus::Ok,
+        )));
+
+        terminal.draw(|frame| render(frame, &app)).expect("draw");
+        let rendered = rendered_buffer(&terminal);
+        assert!(rendered.contains("trace: chat [1111111111111111] ok 1.00s"));
     }
 
     #[test]

@@ -235,7 +235,7 @@ pub fn render_span_detail(span: &Span) -> String {
     lines.join("\n")
 }
 
-fn render_span_compact(span: &Span) -> String {
+pub fn render_span_compact(span: &Span) -> String {
     format!(
         "{} [{}] {} {}",
         span.name,
