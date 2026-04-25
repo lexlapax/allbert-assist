@@ -16,6 +16,7 @@ pub mod learning;
 pub mod llm;
 pub mod memory;
 pub mod paths;
+pub mod replay;
 pub mod scripting;
 pub mod security;
 pub mod self_improvement;
@@ -83,6 +84,7 @@ pub use memory::{
 };
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
+pub use replay::{TraceRecord, TraceRecordError, TraceRecordType, TRACE_RECORD_SCHEMA_VERSION};
 pub use scripting::{
     BudgetUsed, CapKind, LoadedScript, LuaEngine, LuaSandboxPolicy, ScriptBudget, ScriptOutcome,
     ScriptingCapabilities, ScriptingEngine, ScriptingError, LUA_MAX_EXECUTION_MS_CEILING,

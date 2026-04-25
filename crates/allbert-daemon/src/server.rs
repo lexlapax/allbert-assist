@@ -910,7 +910,7 @@ async fn handle_connection(
             }
             ClientMessage::ActivitySnapshot => {
                 let session = require_session(attached_session.as_ref())?;
-                if client_protocol < PROTOCOL_VERSION {
+                if client_protocol < 3 {
                     send_server_message(
                         &mut framed,
                         &ServerMessage::Error(ProtocolError {
@@ -1061,6 +1061,25 @@ async fn handle_connection(
                 }
                 append_debug_line(&state, &format!("trace={enabled}")).ok();
                 send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
+            ClientMessage::TraceSubscribe { .. }
+            | ClientMessage::TraceUnsubscribe { .. }
+            | ClientMessage::TraceShow { .. }
+            | ClientMessage::TraceShowSpan { .. }
+            | ClientMessage::TraceList => {
+                let message = if client_protocol < 4 {
+                    "trace surfaces require protocol v4; upgrade the client to v0.12.2"
+                } else {
+                    "trace surfaces are not wired yet; continue v0.12.2 implementation through M3"
+                };
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::Error(ProtocolError {
+                        code: "unsupported_protocol_feature".into(),
+                        message: message.into(),
+                    }),
+                )
+                .await?;
             }
             ClientMessage::ReloadSessionConfig => {
                 let session = require_session(attached_session.as_ref())?;
@@ -5321,7 +5340,22 @@ async fn send_server_message_for_protocol(
 }
 
 fn message_for_protocol(message: &ServerMessage, protocol_version: u32) -> Option<ServerMessage> {
-    if protocol_version >= PROTOCOL_VERSION {
+    if protocol_version >= 4 {
+        return Some(message.clone());
+    }
+
+    if matches!(
+        message,
+        ServerMessage::TraceSubscribed { .. }
+            | ServerMessage::TraceSpan(_)
+            | ServerMessage::TraceSpans(_)
+            | ServerMessage::TraceSpanDetail(_)
+            | ServerMessage::TraceSessions(_)
+    ) {
+        return None;
+    }
+
+    if protocol_version >= 3 {
         return Some(message.clone());
     }
 

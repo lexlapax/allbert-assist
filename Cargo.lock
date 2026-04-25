@@ -137,6 +137,7 @@ dependencies = [
 name = "allbert-proto"
 version = "0.12.1"
 dependencies = [
+ "chrono",
  "serde",
  "serde_json",
 ]

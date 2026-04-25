@@ -1,8 +1,11 @@
+use std::collections::BTreeMap;
+
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const MIN_PROTOCOL_VERSION: u32 = 2;
-pub const PROTOCOL_VERSION: u32 = 3;
+pub const PROTOCOL_VERSION: u32 = 4;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -84,6 +87,22 @@ pub struct DaemonLockPayload {
 pub struct ProtocolError {
     pub code: String,
     pub message: String,
+}
+
+pub fn is_valid_otlp_trace_id(value: &str) -> bool {
+    is_valid_lower_hex_id(value, 32)
+}
+
+pub fn is_valid_otlp_span_id(value: &str) -> bool {
+    is_valid_lower_hex_id(value, 16)
+}
+
+fn is_valid_lower_hex_id(value: &str, len: usize) -> bool {
+    value.len() == len
+        && value.bytes().any(|byte| byte != b'0')
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -268,6 +287,75 @@ pub struct SessionResumeEntry {
     pub started_at: String,
     pub last_activity_at: String,
     pub turn_count: u32,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SpanKind {
+    Internal,
+    Client,
+    Server,
+    Producer,
+    Consumer,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SpanStatus {
+    Ok,
+    Error { message: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SpanEvent {
+    pub timestamp: DateTime<Utc>,
+    pub name: String,
+    pub attributes: BTreeMap<String, AttributeValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
+pub enum AttributeValue {
+    String(String),
+    Int(i64),
+    Float(f64),
+    Bool(bool),
+    StringArray(Vec<String>),
+    IntArray(Vec<i64>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Span {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
+    pub session_id: String,
+    pub trace_id: String,
+    pub name: String,
+    pub kind: SpanKind,
+    pub started_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ended_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
+    pub status: SpanStatus,
+    #[serde(default)]
+    pub attributes: BTreeMap<String, AttributeValue>,
+    #[serde(default)]
+    pub events: Vec<SpanEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TraceSessionSummary {
+    pub session_id: String,
+    pub span_count: u64,
+    pub root_span_count: u64,
+    pub started_at: DateTime<Utc>,
+    pub last_touched_at: DateTime<Utc>,
+    pub total_duration_ms: u64,
+    pub bytes: u64,
+    pub has_rotated_archives: bool,
+    pub truncated_count: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -526,6 +614,24 @@ pub enum ClientMessage {
     SetTurnBudgetOverride(TurnBudgetOverridePayload),
     SetAutoConfirm(bool),
     SetTrace(bool),
+    TraceSubscribe {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+    },
+    TraceUnsubscribe {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+    },
+    TraceShow {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+    },
+    TraceShowSpan {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+        span_id: String,
+    },
+    TraceList,
     ReloadSessionConfig,
     ListChannelRuntimes,
     ListJobs,
@@ -564,13 +670,24 @@ pub enum ServerMessage {
     Job(JobStatusPayload),
     JobRun(JobRunRecordPayload),
     JobRuns(Vec<JobRunRecordPayload>),
+    TraceSubscribed { session_id: String },
+    TraceSpan(Span),
+    TraceSpans(Vec<Span>),
+    TraceSpanDetail(Span),
+    TraceSessions(Vec<TraceSessionSummary>),
     Ack,
     Error(ProtocolError),
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::*;
+
+    fn ts(seconds: i64) -> DateTime<Utc> {
+        DateTime::from_timestamp(seconds, 0).expect("fixture timestamp should be valid")
+    }
 
     fn fixture_activity() -> ActivitySnapshot {
         ActivitySnapshot {
@@ -667,6 +784,97 @@ mod tests {
             serde_json::from_str(&raw).expect("activity should deserialize");
 
         assert_eq!(decoded, ServerMessage::ActivityUpdate(snapshot));
+    }
+
+    #[test]
+    fn proto_span_payload_json_roundtrip() {
+        let mut attributes = BTreeMap::new();
+        attributes.insert(
+            "gen_ai.operation.name".into(),
+            AttributeValue::String("chat".into()),
+        );
+        attributes.insert("gen_ai.usage.input_tokens".into(), AttributeValue::Int(42));
+
+        let event = SpanEvent {
+            timestamp: ts(1_774_044_801),
+            name: "retry".into(),
+            attributes: BTreeMap::from([(
+                "reason".into(),
+                AttributeValue::String("provider_timeout".into()),
+            )]),
+        };
+        let span = Span {
+            id: "1111111111111111".into(),
+            parent_id: Some("2222222222222222".into()),
+            session_id: "repl-primary".into(),
+            trace_id: "33333333333333333333333333333333".into(),
+            name: "chat".into(),
+            kind: SpanKind::Client,
+            started_at: ts(1_774_044_800),
+            ended_at: Some(ts(1_774_044_802)),
+            duration_ms: Some(2000),
+            status: SpanStatus::Error {
+                message: "provider_timeout".into(),
+            },
+            attributes,
+            events: vec![event],
+        };
+
+        let raw =
+            serde_json::to_string(&ServerMessage::TraceSpan(span.clone())).expect("serialize span");
+        let decoded: ServerMessage = serde_json::from_str(&raw).expect("deserialize span");
+        assert_eq!(decoded, ServerMessage::TraceSpan(span));
+    }
+
+    #[test]
+    fn proto_trace_messages_json_roundtrip() {
+        let subscribe = ClientMessage::TraceSubscribe {
+            session_id: Some("session-a".into()),
+        };
+        let raw = serde_json::to_string(&subscribe).expect("subscribe should serialize");
+        let decoded: ClientMessage =
+            serde_json::from_str(&raw).expect("subscribe should deserialize");
+        assert_eq!(decoded, subscribe);
+
+        let show_span = ClientMessage::TraceShowSpan {
+            session_id: None,
+            span_id: "1111111111111111".into(),
+        };
+        let raw = serde_json::to_string(&show_span).expect("show-span should serialize");
+        let decoded: ClientMessage =
+            serde_json::from_str(&raw).expect("show-span should deserialize");
+        assert_eq!(decoded, show_span);
+
+        let summary = TraceSessionSummary {
+            session_id: "session-a".into(),
+            span_count: 3,
+            root_span_count: 1,
+            started_at: ts(1_774_044_800),
+            last_touched_at: ts(1_774_044_810),
+            total_duration_ms: 10_000,
+            bytes: 2048,
+            has_rotated_archives: true,
+            truncated_count: 1,
+        };
+        let raw = serde_json::to_string(&ServerMessage::TraceSessions(vec![summary.clone()]))
+            .expect("summary should serialize");
+        let decoded: ServerMessage =
+            serde_json::from_str(&raw).expect("summary should deserialize");
+        assert_eq!(decoded, ServerMessage::TraceSessions(vec![summary]));
+    }
+
+    #[test]
+    fn proto_trace_identifier_helpers_accept_only_otlp_hex() {
+        assert!(is_valid_otlp_trace_id("33333333333333333333333333333333"));
+        assert!(is_valid_otlp_span_id("1111111111111111"));
+
+        assert!(!is_valid_otlp_trace_id("00000000000000000000000000000000"));
+        assert!(!is_valid_otlp_span_id("0000000000000000"));
+        assert!(!is_valid_otlp_trace_id(
+            "33333333-3333-3333-3333-333333333333"
+        ));
+        assert!(!is_valid_otlp_span_id("ABCDEFABCDEFABCD"));
+        assert!(!is_valid_otlp_span_id("abc"));
     }
 
     #[test]
