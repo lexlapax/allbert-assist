@@ -1,7 +1,7 @@
 # ADR 0067: Self-modification uses a sibling worktree with operator diff review
 
 Date: 2026-04-23
-Status: Proposed
+Status: Accepted
 
 ## Context
 

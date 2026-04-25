@@ -1,7 +1,7 @@
 # ADR 0072: Skill-authoring is a first-party natural-language skill
 
 Date: 2026-04-23
-Status: Proposed
+Status: Accepted
 
 Reinforces: [ADR 0038](0038-natural-interface-is-the-users-extension-surface.md), [ADR 0048](0048-v0-5-ships-a-first-party-memory-curator-skill.md)
 

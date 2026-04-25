@@ -1,7 +1,7 @@
 # ADR 0071: Self-authored skills route through the standard install quarantine
 
 Date: 2026-04-23
-Status: Proposed
+Status: Accepted
 
 Amends: [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
 

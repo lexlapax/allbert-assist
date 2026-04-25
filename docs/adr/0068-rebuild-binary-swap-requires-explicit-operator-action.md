@@ -1,7 +1,7 @@
 # ADR 0068: Rebuild binary swap requires explicit operator action
 
 Date: 2026-04-23
-Status: Proposed
+Status: Accepted
 
 ## Context
 

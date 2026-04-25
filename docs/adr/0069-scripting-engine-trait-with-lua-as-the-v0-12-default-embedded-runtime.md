@@ -1,7 +1,7 @@
 # ADR 0069: ScriptingEngine trait with Lua as the v0.12 default embedded runtime
 
 Date: 2026-04-23
-Status: Proposed
+Status: Accepted
 
 ## Context
 

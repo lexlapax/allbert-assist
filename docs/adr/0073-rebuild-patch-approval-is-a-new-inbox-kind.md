@@ -1,7 +1,7 @@
 # ADR 0073: Rebuild patch approval is a new inbox kind
 
 Date: 2026-04-23
-Status: Proposed
+Status: Accepted
 
 Amends: [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md)
 

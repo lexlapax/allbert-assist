@@ -1,7 +1,7 @@
 # ADR 0070: Embedded-script sandbox policy
 
 Date: 2026-04-23
-Status: Proposed
+Status: Accepted
 
 ## Context
 
