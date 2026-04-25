@@ -1,8 +1,12 @@
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::process::Command;
 
 use serde::Serialize;
+use serde_json::json;
+use uuid::Uuid;
 
+use crate::atomic_write;
 use crate::config::{Config, SelfImprovementConfig};
 use crate::error::KernelError;
 use crate::paths::AllbertPaths;
@@ -55,6 +59,90 @@ pub struct WorktreeGcReport {
     pub entries: Vec<WorktreeDiskEntry>,
     pub reclaimed_entries: usize,
     pub reclaimed_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RebuildWorktree {
+    pub branch: String,
+    pub path: PathBuf,
+    pub source_checkout: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ValidationCommand {
+    pub label: String,
+    pub program: String,
+    pub args: Vec<String>,
+    pub env_remove: Vec<String>,
+    pub env: Vec<(String, String)>,
+}
+
+impl ValidationCommand {
+    pub fn new(label: impl Into<String>, program: impl Into<String>, args: Vec<String>) -> Self {
+        Self {
+            label: label.into(),
+            program: program.into(),
+            args,
+            env_remove: Vec::new(),
+            env: Vec::new(),
+        }
+    }
+
+    pub fn without_env(mut self, name: impl Into<String>) -> Self {
+        self.env_remove.push(name.into());
+        self
+    }
+
+    pub fn with_env(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.env.push((name.into(), value.into()));
+        self
+    }
+
+    pub fn rendered(&self) -> String {
+        let mut parts = vec![self.program.clone()];
+        parts.extend(self.args.iter().cloned());
+        parts.join(" ")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ValidationOverall {
+    SafeToMerge,
+    NeedsReview,
+}
+
+impl ValidationOverall {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::SafeToMerge => "safe-to-merge",
+            Self::NeedsReview => "needs-review",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ValidationStepResult {
+    pub label: String,
+    pub command: String,
+    pub success: bool,
+    pub exit_code: Option<i32>,
+    pub stdout_tail: String,
+    pub stderr_tail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct TierAValidationReport {
+    pub worktree_path: PathBuf,
+    pub overall: ValidationOverall,
+    pub steps: Vec<ValidationStepResult>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PatchArtifact {
+    pub artifact_id: String,
+    pub path: PathBuf,
+    pub bytes: u64,
 }
 
 pub fn resolve_source_checkout(
@@ -218,6 +306,213 @@ pub fn collect_worktree_gc(
     })
 }
 
+pub fn create_rust_rebuild_worktree(
+    paths: &AllbertPaths,
+    config: &Config,
+    branch_hint: Option<&str>,
+) -> Result<RebuildWorktree, KernelError> {
+    let source = assert_rust_rebuild_ready(paths, config)?;
+    let _usage = ensure_worktree_creation_allowed(paths, &config.self_improvement)?;
+    let worktree_root = resolve_worktree_root(paths, &config.self_improvement);
+    fs::create_dir_all(&worktree_root).map_err(|err| {
+        KernelError::InitFailed(format!("create {}: {err}", worktree_root.display()))
+    })?;
+
+    let branch = unique_rebuild_branch(branch_hint);
+    let worktree_path = worktree_root.join(&branch);
+    run_command_checked(
+        Command::new("git")
+            .arg("-C")
+            .arg(&source.path)
+            .arg("worktree")
+            .arg("add")
+            .arg("-b")
+            .arg(&branch)
+            .arg(&worktree_path)
+            .arg("HEAD"),
+        "git worktree add",
+    )?;
+
+    let metadata = json!({
+        "branch": branch,
+        "source_checkout": source.path,
+        "created_by": "allbert-rust-rebuild",
+    });
+    let metadata_path = worktree_path.join(".allbert-worktree.json");
+    atomic_write(
+        &metadata_path,
+        serde_json::to_string_pretty(&metadata)
+            .map_err(|err| KernelError::InitFailed(format!("serialize worktree metadata: {err}")))?
+            .as_bytes(),
+    )
+    .map_err(|err| KernelError::InitFailed(format!("write {}: {err}", metadata_path.display())))?;
+
+    Ok(RebuildWorktree {
+        branch,
+        path: worktree_path,
+        source_checkout: source.path,
+    })
+}
+
+pub fn tier_a_validation_commands(temp_home: &Path) -> Vec<ValidationCommand> {
+    vec![
+        ValidationCommand::new("cargo fmt", "cargo", vec!["fmt".into(), "--check".into()]),
+        ValidationCommand::new(
+            "cargo clippy",
+            "cargo",
+            vec![
+                "clippy".into(),
+                "--workspace".into(),
+                "--all-targets".into(),
+                "--".into(),
+                "-D".into(),
+                "warnings".into(),
+            ],
+        )
+        .without_env("RUSTC_WRAPPER"),
+        ValidationCommand::new("cargo test", "cargo", vec!["test".into(), "-q".into()])
+            .without_env("RUSTC_WRAPPER"),
+        ValidationCommand::new(
+            "cli help",
+            "cargo",
+            vec![
+                "run".into(),
+                "-q".into(),
+                "-p".into(),
+                "allbert-cli".into(),
+                "--".into(),
+                "--help".into(),
+            ],
+        )
+        .without_env("RUSTC_WRAPPER"),
+        ValidationCommand::new(
+            "temp-home daemon status smoke",
+            "cargo",
+            vec![
+                "run".into(),
+                "-q".into(),
+                "-p".into(),
+                "allbert-cli".into(),
+                "--".into(),
+                "daemon".into(),
+                "status".into(),
+            ],
+        )
+        .without_env("RUSTC_WRAPPER")
+        .with_env("ALLBERT_HOME", temp_home.display().to_string()),
+    ]
+}
+
+pub fn run_tier_a_validation(worktree_path: &Path) -> TierAValidationReport {
+    let temp_home = std::env::temp_dir().join(format!(
+        "allbert-rust-rebuild-tier-a-{}",
+        Uuid::new_v4().simple()
+    ));
+    let commands = tier_a_validation_commands(&temp_home);
+    let report = run_validation_commands(worktree_path, &commands);
+    let _ = fs::remove_dir_all(temp_home);
+    report
+}
+
+pub fn run_validation_commands(
+    worktree_path: &Path,
+    commands: &[ValidationCommand],
+) -> TierAValidationReport {
+    let mut steps = Vec::new();
+    for validation in commands {
+        let mut command = Command::new(&validation.program);
+        command.current_dir(worktree_path);
+        command.args(&validation.args);
+        for name in &validation.env_remove {
+            command.env_remove(name);
+        }
+        for (name, value) in &validation.env {
+            command.env(name, value);
+        }
+        let output = command.output();
+        let step = match output {
+            Ok(output) => ValidationStepResult {
+                label: validation.label.clone(),
+                command: validation.rendered(),
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout_tail: truncate_tail(&String::from_utf8_lossy(&output.stdout), 4000),
+                stderr_tail: truncate_tail(&String::from_utf8_lossy(&output.stderr), 4000),
+            },
+            Err(err) => ValidationStepResult {
+                label: validation.label.clone(),
+                command: validation.rendered(),
+                success: false,
+                exit_code: None,
+                stdout_tail: String::new(),
+                stderr_tail: err.to_string(),
+            },
+        };
+        steps.push(step);
+    }
+    let overall = if steps.iter().all(|step| step.success) {
+        ValidationOverall::SafeToMerge
+    } else {
+        ValidationOverall::NeedsReview
+    };
+    TierAValidationReport {
+        worktree_path: worktree_path.to_path_buf(),
+        overall,
+        steps,
+    }
+}
+
+pub fn emit_patch_artifact(
+    paths: &AllbertPaths,
+    worktree_path: &Path,
+    session_id: &str,
+    artifact_id: Option<&str>,
+) -> Result<PatchArtifact, KernelError> {
+    run_command_checked(
+        Command::new("git")
+            .arg("-C")
+            .arg(worktree_path)
+            .arg("add")
+            .arg("-N")
+            .arg("."),
+        "git add -N",
+    )?;
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(worktree_path)
+        .arg("diff")
+        .arg("--binary")
+        .arg("--no-ext-diff")
+        .output()
+        .map_err(|err| KernelError::InitFailed(format!("run git diff: {err}")))?;
+    if !output.status.success() {
+        return Err(KernelError::InitFailed(format!(
+            "git diff failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+
+    let artifact_id = artifact_id
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("rust-rebuild-{}", Uuid::new_v4().simple()));
+    let artifact_dir = paths
+        .sessions
+        .join(session_id)
+        .join("artifacts")
+        .join(&artifact_id);
+    fs::create_dir_all(&artifact_dir).map_err(|err| {
+        KernelError::InitFailed(format!("create {}: {err}", artifact_dir.display()))
+    })?;
+    let path = artifact_dir.join("patch.diff");
+    atomic_write(&path, &output.stdout)
+        .map_err(|err| KernelError::InitFailed(format!("write {}: {err}", path.display())))?;
+    Ok(PatchArtifact {
+        artifact_id,
+        path,
+        bytes: output.stdout.len() as u64,
+    })
+}
+
 fn resolve_source_checkout_candidate(
     candidate: &Path,
     source: SourceCheckoutSource,
@@ -229,6 +524,51 @@ fn resolve_source_checkout_candidate(
             candidate.display()
         ))),
     }
+}
+
+fn unique_rebuild_branch(branch_hint: Option<&str>) -> String {
+    let hint = branch_hint
+        .map(sanitize_branch_component)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "patch".into());
+    format!("allbert-rebuild-{hint}-{}", Uuid::new_v4().simple())
+}
+
+fn sanitize_branch_component(raw: &str) -> String {
+    let mut out = String::new();
+    let mut last_dash = false;
+    for ch in raw.chars() {
+        let normalized = if ch.is_ascii_alphanumeric() {
+            ch.to_ascii_lowercase()
+        } else {
+            '-'
+        };
+        if normalized == '-' {
+            if !last_dash {
+                out.push('-');
+            }
+            last_dash = true;
+        } else {
+            out.push(normalized);
+            last_dash = false;
+        }
+    }
+    out.trim_matches('-').chars().take(40).collect()
+}
+
+fn run_command_checked(command: &mut Command, label: &str) -> Result<(), KernelError> {
+    let output = command
+        .output()
+        .map_err(|err| KernelError::InitFailed(format!("run {label}: {err}")))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    Err(KernelError::InitFailed(format!(
+        "{label} failed with status {}:\n{}{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    )))
 }
 
 fn find_source_checkout_from_executable(executable_path: &Path) -> Option<PathBuf> {
@@ -497,6 +837,18 @@ pub fn render_bytes(bytes: u64) -> String {
     }
 }
 
+fn truncate_tail(raw: &str, max_bytes: usize) -> String {
+    if raw.len() <= max_bytes {
+        return raw.to_string();
+    }
+    let start = raw
+        .char_indices()
+        .map(|(idx, _)| idx)
+        .find(|idx| raw.len() - idx <= max_bytes)
+        .unwrap_or(raw.len());
+    format!("[truncated]\n{}", &raw[start..])
+}
+
 #[cfg(test)]
 fn write_fixture_file(path: &Path, content: &str) {
     if let Some(parent) = path.parent() {
@@ -533,6 +885,94 @@ edition = "2021"
 "#
             ),
         );
+    }
+
+    fn write_rust_rebuild_fixture_source(root: &Path) {
+        write_fixture_file(
+            &root.join("Cargo.toml"),
+            r#"[workspace]
+members = [
+    "crates/allbert-kernel",
+    "crates/allbert-cli"
+]
+resolver = "2"
+"#,
+        );
+        write_fixture_file(
+            &root.join("rust-toolchain.toml"),
+            include_str!("../../../rust-toolchain.toml"),
+        );
+        write_fixture_file(&root.join(".gitignore"), "target/\n");
+        write_fixture_file(
+            &root.join("crates/allbert-kernel/Cargo.toml"),
+            r#"[package]
+name = "allbert-kernel"
+version = "0.0.0"
+edition = "2021"
+"#,
+        );
+        write_fixture_file(
+            &root.join("crates/allbert-kernel/src/lib.rs"),
+            "pub fn fixture() -> &'static str {\n    \"ok\"\n}\n",
+        );
+        write_fixture_file(
+            &root.join("crates/allbert-cli/Cargo.toml"),
+            r#"[package]
+name = "allbert-cli"
+version = "0.0.0"
+edition = "2021"
+"#,
+        );
+        write_fixture_file(
+            &root.join("crates/allbert-cli/src/main.rs"),
+            "fn main() {\n    println!(\"fixture allbert-cli\");\n}\n",
+        );
+    }
+
+    fn init_rust_rebuild_fixture_source(temp: &Path) -> PathBuf {
+        let root = temp.join("source");
+        write_rust_rebuild_fixture_source(&root);
+        run_fixture_command(Command::new("git").arg("init").current_dir(&root));
+        run_fixture_command(
+            Command::new("git")
+                .arg("config")
+                .arg("user.email")
+                .arg("allbert@example.invalid")
+                .current_dir(&root),
+        );
+        run_fixture_command(
+            Command::new("git")
+                .arg("config")
+                .arg("user.name")
+                .arg("Allbert Test")
+                .current_dir(&root),
+        );
+        run_fixture_command(Command::new("git").arg("add").arg(".").current_dir(&root));
+        run_fixture_command(
+            Command::new("git")
+                .arg("commit")
+                .arg("-m")
+                .arg("initial")
+                .current_dir(&root),
+        );
+        root
+    }
+
+    fn run_fixture_command(command: &mut Command) {
+        let output = command.output().expect("fixture command should spawn");
+        assert!(
+            output.status.success(),
+            "fixture command failed: {}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn rust_rebuild_fixture_config(source: &Path) -> Config {
+        let mut config = Config::default_template();
+        config.self_improvement.source_checkout = Some(source.to_path_buf());
+        config.self_improvement.worktree_root = PathBuf::from("worktrees");
+        config
     }
 
     #[test]
@@ -709,5 +1149,94 @@ edition = "2021"
         assert_eq!(report.reclaimed_entries, 1);
         assert!(root.join("active").exists());
         assert!(!root.join("stale").exists());
+    }
+
+    #[test]
+    fn rust_rebuild_creates_isolated_git_worktree_from_fixture_source() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = init_rust_rebuild_fixture_source(temp.path());
+        let paths = fixture_paths(temp.path());
+        let config = rust_rebuild_fixture_config(&source);
+
+        let worktree = create_rust_rebuild_worktree(&paths, &config, Some("test patch"))
+            .expect("worktree should be created");
+
+        assert!(worktree.path.is_dir());
+        assert!(worktree.path.join(".git").exists());
+        assert!(worktree.path.join(".allbert-worktree.json").exists());
+        assert!(worktree.branch.starts_with("allbert-rebuild-test-patch-"));
+        assert_eq!(
+            worktree.source_checkout,
+            source.canonicalize().expect("canonical source")
+        );
+    }
+
+    #[test]
+    fn rust_rebuild_path_isolation_denies_source_skill_and_allows_worktree() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = init_rust_rebuild_fixture_source(temp.path());
+        write_fixture_file(
+            &source.join("skills/rust-rebuild/SKILL.md"),
+            "---\nname: rust-rebuild\n",
+        );
+        let paths = fixture_paths(temp.path());
+        let config = rust_rebuild_fixture_config(&source);
+        let worktree = create_rust_rebuild_worktree(&paths, &config, Some("isolation"))
+            .expect("worktree should be created");
+
+        assert!(check_self_improvement_write_target(
+            &worktree.path.join("crates/allbert-kernel/src/lib.rs"),
+            &worktree.path,
+            &source,
+            &paths,
+        )
+        .is_ok());
+        let err = check_self_improvement_write_target(
+            &source.join("skills/rust-rebuild/SKILL.md"),
+            &worktree.path,
+            &source,
+            &paths,
+        )
+        .expect_err("source skill write should be denied");
+        assert!(err.contains("rust-rebuild"));
+    }
+
+    #[test]
+    fn rust_rebuild_tier_a_validation_passes_against_fixture_workspace() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = init_rust_rebuild_fixture_source(temp.path());
+        let paths = fixture_paths(temp.path());
+        let config = rust_rebuild_fixture_config(&source);
+        let worktree = create_rust_rebuild_worktree(&paths, &config, Some("validation"))
+            .expect("worktree should be created");
+
+        let report = run_tier_a_validation(&worktree.path);
+
+        assert_eq!(report.overall, ValidationOverall::SafeToMerge);
+        assert_eq!(report.steps.len(), 5);
+        assert!(report.steps.iter().all(|step| step.success));
+    }
+
+    #[test]
+    fn rust_rebuild_patch_artifact_captures_modified_and_new_files() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = init_rust_rebuild_fixture_source(temp.path());
+        let paths = fixture_paths(temp.path());
+        let config = rust_rebuild_fixture_config(&source);
+        let worktree = create_rust_rebuild_worktree(&paths, &config, Some("artifact"))
+            .expect("worktree should be created");
+        write_fixture_file(
+            &worktree.path.join("crates/allbert-kernel/src/lib.rs"),
+            "pub fn fixture() -> &'static str {\n    \"changed\"\n}\n",
+        );
+        write_fixture_file(&worktree.path.join("NEW.md"), "# New file\n");
+
+        let artifact = emit_patch_artifact(&paths, &worktree.path, "session-1", Some("approval-1"))
+            .expect("patch artifact should be emitted");
+        let patch = fs::read_to_string(&artifact.path).expect("patch should be readable");
+
+        assert_eq!(artifact.artifact_id, "approval-1");
+        assert!(patch.contains("changed"));
+        assert!(patch.contains("diff --git a/NEW.md b/NEW.md"));
     }
 }

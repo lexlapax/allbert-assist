@@ -167,6 +167,7 @@ Do not mutate SOUL.md. Draft the learned overlay first and require explicit oper
 const MEMORY_CURATOR_SKILL_TEMPLATE: &str = include_str!("../../../skills/memory-curator/SKILL.md");
 const MEMORY_CURATOR_EXTRACT_AGENT_TEMPLATE: &str =
     include_str!("../../../skills/memory-curator/agents/extract-from-turn.md");
+const RUST_REBUILD_SKILL_TEMPLATE: &str = include_str!("../../../skills/rust-rebuild/SKILL.md");
 
 #[derive(Debug, Clone)]
 pub struct AllbertPaths {
@@ -419,6 +420,10 @@ impl AllbertPaths {
                 .join("agents")
                 .join("extract-from-turn.md"),
             MEMORY_CURATOR_EXTRACT_AGENT_TEMPLATE,
+        )?;
+        self.seed_file_if_missing(
+            &self.skills_installed.join("rust-rebuild").join("SKILL.md"),
+            RUST_REBUILD_SKILL_TEMPLATE,
         )?;
 
         let daily_brief = self.jobs_templates.join("daily-brief.md");

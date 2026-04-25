@@ -75,10 +75,13 @@ pub use paths::AllbertPaths;
 pub use security::SecurityHook;
 pub use self_improvement::{
     assert_rust_rebuild_ready, check_self_improvement_write_target, collect_worktree_gc,
-    ensure_worktree_creation_allowed, has_pinned_rust_toolchain, render_bytes,
-    resolve_source_checkout, resolve_source_checkout_from, resolve_worktree_root,
-    worktree_disk_usage, ResolvedSourceCheckout, SourceCheckoutSource, WorktreeDiskEntry,
-    WorktreeDiskUsage, WorktreeGcReport,
+    create_rust_rebuild_worktree, emit_patch_artifact, ensure_worktree_creation_allowed,
+    has_pinned_rust_toolchain, render_bytes, resolve_source_checkout, resolve_source_checkout_from,
+    resolve_worktree_root, run_tier_a_validation, run_validation_commands,
+    tier_a_validation_commands, worktree_disk_usage, PatchArtifact, RebuildWorktree,
+    ResolvedSourceCheckout, SourceCheckoutSource, TierAValidationReport, ValidationCommand,
+    ValidationOverall, ValidationStepResult, WorktreeDiskEntry, WorktreeDiskUsage,
+    WorktreeGcReport,
 };
 pub use skills::{
     ActiveSkill, ContributedAgent, CreateSkillInput, InvokeSkillInput, Skill, SkillStore,
