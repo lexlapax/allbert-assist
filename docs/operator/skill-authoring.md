@@ -56,6 +56,17 @@ cargo run -p allbert-cli -- skills show <name>
 
 The `Source` column is observability, not a policy bypass. Self-authored skills are reviewed like any external install.
 
+## Enable And Disable
+
+v0.12.1 lets you disable an installed skill without deleting it:
+
+```bash
+cargo run -p allbert-cli -- skills disable <name>
+cargo run -p allbert-cli -- skills enable <name>
+```
+
+The flag lives in installed-skill metadata. Missing `enabled` metadata means enabled, so existing skills keep loading after upgrade. Disabled skills remain on disk for inspection with `skills show`, but the runtime loader omits them from active discovery and generated `AGENTS.md`.
+
 ## Interpreter Guidance
 
 If you do not specify an interpreter, `skill-author` recommends Python because fresh profiles already allow `python` in `security.exec_allow`.
@@ -86,4 +97,4 @@ That path is explicit and local. The natural-language `skill-author` flow is the
 
 - [Self-improvement guide](self-improvement.md)
 - [Scripting guide](scripting.md)
-- [v0.12 upgrade notes](../notes/v0.12-upgrade-2026-04-25.md)
+- [v0.12.1 upgrade notes](../notes/v0.12.1-upgrade-2026-04-25.md)

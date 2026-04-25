@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.12.1 - 2026-04-25
+
+- shipped daemon-owned live activity snapshots over protocol v3, with backward-compatible v2 filtering and shared `/activity`/`allbert-cli activity` surfaces
+- made the TUI responsive during in-flight turns with activity status, spinner/caret behavior, next-turn draft buffering, separated modal input, and richer local review commands
+- added the typed settings hub with path-preserving TOML writes, grouped command descriptors, CLI examples, slash typo suggestions, argument hints, and remediation hints for common operator-facing errors
+- added bounded approval context across TUI, REPL, CLI, and Telegram, including patch-preview context while keeping full diffs artifact-backed and install separate
+- added recovery affordances for durable-memory trash/restore, staged-memory reject/reconsider, installed-skill enable/disable, and `config.toml.last-good` restore
+- improved Telegram with `/activity`, compact `/status`, typing indication, markdown-aware replies, and clearer approval feedback
+- updated operator docs for TUI, telemetry/activity, adaptive-memory recovery, skill enablement, self-improvement review, continuity/config recovery, and Telegram
+- bumped all crates and lockfile package entries to `0.12.1`
+
+More detail: [v0.12.1 upgrade notes](docs/notes/v0.12.1-upgrade-2026-04-25.md), [v0.12.1 plan](docs/plans/v0.12.1-operator-ux-polish.md), [TUI guide](docs/operator/tui.md), [Telemetry guide](docs/operator/telemetry.md), and [Telegram guide](docs/operator/telegram.md).
+
 ## v0.12.0 - 2026-04-25
 
 - shipped review-first self-improvement with source-checkout detection, sibling worktrees, disk-cap-aware GC, and path isolation for rebuild proposals

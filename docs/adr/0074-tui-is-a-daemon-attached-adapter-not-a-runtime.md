@@ -3,7 +3,7 @@
 Date: 2026-04-24
 Status: Accepted
 
-> **Planned v0.12.1 amendment**: the TUI may move to an async event loop for responsive redraw and local input editing while a daemon turn is in flight. That does not make the TUI a runtime. The TUI owns next-turn draft buffering, spinner animation, caret placement, and separate modal input state; the daemon remains authoritative for activity phase, stuck hints, approvals, turns, and all runtime state.
+> **Amended in v0.12.1**: the TUI may use an async event loop for responsive redraw and local input editing while a daemon turn is in flight. That does not make the TUI a runtime. The TUI owns next-turn draft buffering, spinner animation, caret placement, and separate modal input state; the daemon remains authoritative for activity phase, stuck hints, approvals, turns, and all runtime state.
 
 ## Context
 

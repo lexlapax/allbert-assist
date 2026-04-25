@@ -1,6 +1,6 @@
 # TUI operator guide
 
-v0.11 adds a Ratatui/Crossterm terminal UI as the default interactive surface for fresh profiles. The TUI is only a frontend adapter: the daemon and kernel still own turns, tools, memory, approvals, cost, telemetry, and session state.
+v0.12.1 makes the Ratatui/Crossterm terminal UI the main operator-legibility surface. The TUI is still only a frontend adapter: the daemon and kernel own turns, tools, memory, approvals, cost, telemetry, activity, and session state.
 
 ## Launching
 
@@ -32,6 +32,8 @@ ui = "tui" # or "classic"
 [repl.tui]
 mouse = true
 max_transcript_events = 500
+spinner_style = "braille"
+tick_ms = 80
 ```
 
 If raw mode or alternate-screen setup fails, the CLI prints a one-line notice and falls back to classic REPL instead of aborting the session.
@@ -39,10 +41,12 @@ If raw mode or alternate-screen setup fails, the CLI prints a one-line notice an
 ## Controls
 
 - Type a message and press Enter to send it.
-- Slash commands such as `/help`, `/status`, `/telemetry`, `/statusline`, `/memory stats`, and `/memory routing` run locally, matching the classic REPL command shape.
+- Slash commands such as `/help`, `/activity`, `/status`, `/telemetry`, `/settings`, `/inbox`, `/skills`, `/memory`, and `/self-improvement` run locally, matching the classic REPL command shape.
+- While a turn is running, the screen redraws asynchronously and shows the daemon-owned activity label, elapsed time, tool summary, and stuck hint when available.
+- Text typed during a running turn is kept as a next-turn draft. Pressing Enter while work is in flight keeps the draft and does not queue a concurrent turn.
 - Ctrl-D exits the TUI.
-- Ctrl-C does not kill the daemon; it prints a reminder to use `/exit`.
-- Confirmation modals accept `y` for allow once, `n` or any other key for deny, and `a` for allow-session when the request is not a durable mutation.
+- Ctrl-C does not kill the daemon or cancel the active turn; it prints a truthful reminder.
+- Confirmation modals accept `y` for allow once, `n` or any other key for deny, and `a` for allow-session when the request is not a durable mutation. Input modals keep their own buffer separate from the next-turn draft.
 
 ## Status Line
 
@@ -65,7 +69,40 @@ Use `/statusline` to inspect or change the configured items:
 /statusline enable
 ```
 
-The command persists to config immediately in v0.11. Unknown item names are rejected locally.
+The command persists to config immediately. Unknown item names are rejected locally.
+
+## Settings And Discovery
+
+Use `/settings` for supported profile edits without hand-editing TOML:
+
+```text
+/settings list ui
+/settings show repl.tui.spinner_style
+/settings set repl.tui.spinner_style off
+/settings reset repl.tui.spinner_style
+```
+
+Settings writes are typed, allowlisted, path-preserving TOML edits. Unsupported keys, unsafe paths, secrets, and edits that cannot preserve unrelated TOML structure are rejected with a hint instead of rewriting the whole config.
+
+Unknown slash commands suggest a close match when the typo is small, for example `/stats` suggests `/status`. Typing a supported command with a trailing `--` shows a one-line argument hint.
+
+## Review And Recovery
+
+The TUI now exposes the v0.12 review workflows directly:
+
+```text
+/inbox list
+/inbox show <approval-id>
+/inbox accept <approval-id> --reason "reviewed"
+/memory staged list
+/memory staged show <id>
+/skills list
+/skills show <name>
+/self-improvement diff <approval-id>
+/self-improvement install <approval-id>
+```
+
+Recovery-only flows remain CLI commands: `allbert-cli memory restore <id>`, `allbert-cli memory reconsider <id>`, `allbert-cli skills disable|enable <name>`, and `allbert-cli config restore-last-good`.
 
 ## Narrow Terminals
 
@@ -78,4 +115,4 @@ cargo run -p allbert-cli -- repl --classic
 ## Related Docs
 
 - [Telemetry operator guide](telemetry.md)
-- [v0.11 upgrade notes](../notes/v0.11-upgrade-2026-04-24.md)
+- [v0.12.1 upgrade notes](../notes/v0.12.1-upgrade-2026-04-25.md)

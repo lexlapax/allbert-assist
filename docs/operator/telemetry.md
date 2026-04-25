@@ -1,6 +1,6 @@
 # Telemetry operator guide
 
-v0.11 makes session telemetry a daemon protocol surface. The TUI, classic REPL, CLI, and future frontends all read the same kernel-owned `TelemetrySnapshot`.
+v0.12.1 keeps session telemetry daemon-owned and adds daemon-owned live activity. The TUI, classic REPL, CLI, Telegram, jobs, and future frontends all read the same kernel-derived `TelemetrySnapshot` and `ActivitySnapshot` instead of guessing from frontend timers.
 
 ## Commands
 
@@ -22,6 +22,17 @@ Use CLI JSON for scripts and release smokes:
 cargo run -p allbert-cli -- telemetry --json
 ```
 
+Use activity when you want the live answer to "what is Allbert doing right now?":
+
+```text
+/activity
+```
+
+```bash
+cargo run -p allbert-cli -- activity
+cargo run -p allbert-cli -- activity --json
+```
+
 ## Snapshot Fields
 
 `TelemetrySnapshot` includes:
@@ -34,9 +45,21 @@ cargo run -p allbert-cli -- telemetry --json
 - memory synopsis bytes, ephemeral bytes, durable count, staged count, episode count, fact count, staged-this-turn count, and prefetch-hit count
 - active skills, always-eligible memory skills, last agent stack, and last resolved intent
 - pending inbox count and trace state
+- current daemon-owned activity snapshot when attached through protocol v3
 - setup version
 
-Token and context values are provider-reported from the latest model response. v0.11 does not estimate preflight context pressure with a tokenizer.
+Token and context values are provider-reported from the latest model response. Allbert does not estimate preflight context pressure with a tokenizer.
+
+## Activity Snapshot
+
+`ActivitySnapshot` is live operational state, not a trace or replay artifact. It includes:
+
+- phase, label, session id, channel, start time, and elapsed time
+- optional current tool name and bounded tool summary
+- optional active skill name or approval id
+- optional stuck hint and next actions
+
+The daemon derives this state from bounded kernel activity transitions and filters it per client protocol. v2 clients do not receive v3-only activity fields or messages. v0.12.1 does not persist spans; v0.12.2 owns durable tracing and replay.
 
 ## Status-Line Catalog
 
@@ -65,3 +88,4 @@ Telemetry is local daemon state. It is not uploaded by the status line, `/teleme
 
 - [TUI operator guide](tui.md)
 - [Adaptive memory guide](adaptive-memory.md)
+- [Telegram operator guide](telegram.md)

@@ -45,13 +45,22 @@ The daemon does not run GC automatically.
 
 ## Patch Approval Flow
 
-`rust-rebuild` produces a patch artifact and a `patch-approval` inbox item. The diff lives under the session artifacts directory and is referenced by the approval markdown; it is not inlined into the inbox file.
+`rust-rebuild` produces a patch artifact and a `patch-approval` inbox item. The full diff lives under the session artifacts directory and is referenced by the approval markdown; the approval context may include a bounded preview so TUI, REPL, CLI, and Telegram can show what is being reviewed without inlining unbounded diffs.
 
 Inspect pending approvals:
 
 ```bash
 cargo run -p allbert-cli -- inbox list
 cargo run -p allbert-cli -- inbox show <approval-id>
+```
+
+The TUI and classic REPL expose the same review path:
+
+```text
+/inbox list
+/inbox show <approval-id>
+/self-improvement diff <approval-id>
+/self-improvement install <approval-id>
 ```
 
 Accepting a patch approval records review only:
@@ -88,7 +97,7 @@ cargo run -p allbert-cli -- self-improvement install <approval-id>
 cargo run -p allbert-cli -- self-improvement install <approval-id> --allow-needs-review
 ```
 
-Install mode is `apply-to-current-branch` in v0.12. After applying the patch, the CLI prints the operator-owned next steps:
+Install mode is `apply-to-current-branch`. After applying the patch, the CLI prints the operator-owned next steps:
 
 ```bash
 cargo install --path crates/allbert-cli
@@ -110,9 +119,10 @@ It records the approval id, applied SHA, operator identity, and timestamp. It do
 - Inbox acceptance is review, not install.
 - Install applies a patch, not a binary swap.
 - The operator owns `cargo install` and daemon restart.
+- v0.12.1 adds clearer approval context and next-step feedback, but does not weaken the review/install split.
 
 ## Related Docs
 
 - [Skill authoring guide](skill-authoring.md)
 - [Scripting guide](scripting.md)
-- [v0.12 upgrade notes](../notes/v0.12-upgrade-2026-04-25.md)
+- [v0.12.1 upgrade notes](../notes/v0.12.1-upgrade-2026-04-25.md)

@@ -1425,6 +1425,7 @@ async fn session_auto_confirm_skips_confirm_prompt() {
             }
             ServerMessage::TurnResult(_) => break,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("unexpected message: {:?}", other),
         }
     }
@@ -1463,6 +1464,7 @@ async fn trace_toggle_updates_status_and_debug_log() {
         match client.recv().await.expect("daemon should respond") {
             ServerMessage::TurnResult(_) => break,
             ServerMessage::Event(_) => {}
+            ServerMessage::ActivityUpdate(_) => {}
             other => panic!("unexpected message: {:?}", other),
         }
     }
@@ -3549,7 +3551,7 @@ async fn due_jobs_run_concurrently_up_to_limit_and_defer_excess() {
 async fn running_job_is_not_reentered_while_it_is_still_active() {
     let home = TempHome::new();
     let paths = home.paths();
-    let probe = ProbeFactory::new(250, "still running");
+    let probe = ProbeFactory::new(2_000, "still running");
     let handle = spawn_with_factory(jobs_test_config(), paths.clone(), Arc::new(probe))
         .await
         .expect("daemon should boot");

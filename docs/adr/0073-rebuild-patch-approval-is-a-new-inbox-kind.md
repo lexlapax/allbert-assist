@@ -5,7 +5,7 @@ Status: Accepted
 
 Amends: [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md)
 
-> **Planned v0.12.1 amendment**: patch approval context may include a bounded diff preview for approval modals and channel messages. The full diff remains artifact-backed at `artifact_path`, inbox accept still only records review approval, and `self-improvement install` remains the separate operator action.
+> **Amended in v0.12.1**: patch approval context can include a bounded diff preview for approval modals and channel messages. The full diff remains artifact-backed at `artifact_path`, inbox accept still only records review approval, and `self-improvement install` remains the separate operator action.
 
 ## Context
 

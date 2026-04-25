@@ -5,7 +5,7 @@ Status: Accepted
 
 > **Amended in part by [ADR 0073](0073-rebuild-patch-approval-is-a-new-inbox-kind.md) in v0.12**: a fourth inbox kind `patch-approval` is added for rebuild diffs, with diff artifacts stored outside the approval markdown and accept/reject semantics tuned for the rebuild install flow. The inbox file layout, identity scoping, and retention defaults in this ADR remain in force.
 
-> **Planned v0.12.1 amendment**: bounded `ApprovalContext` may be attached to protocol approval payloads so TUI, REPL, CLI, and Telegram can render why an approval matters and what changes. It is presentation metadata derived from the existing approval/tool/job/memory state, not a new ground-truth approval store. The per-session approval markdown remains authoritative.
+> **Amended in v0.12.1**: bounded `ApprovalContext` can be attached to protocol approval payloads so TUI, REPL, CLI, and Telegram can render why an approval matters and what changes. It is presentation metadata derived from the existing approval/tool/job/memory state, not a new ground-truth approval store. The per-session approval markdown remains authoritative.
 
 ## Context
 

@@ -1,6 +1,6 @@
 # Adaptive memory operator guide
 
-v0.11 keeps Allbert markdown-first and review-first, but makes memory easier to reach during ordinary work.
+Allbert keeps memory markdown-first and review-first, while making memory easy to reach during ordinary work.
 
 ## Routing
 
@@ -89,7 +89,7 @@ embedding_model = ""
 hybrid_weight = 0.35
 ```
 
-v0.11 ships the derived-index seam and a fake deterministic provider for provider-free validation. Do not configure a hosted semantic provider in v0.11; real embedding adapters are an additive follow-up. If semantic retrieval is enabled for validation, use:
+Allbert ships the derived-index seam and a fake deterministic provider for provider-free validation. Do not configure a hosted semantic provider for semantic retrieval yet; real embedding adapters are an additive follow-up. If semantic retrieval is enabled for validation, use:
 
 ```toml
 [memory.semantic]
@@ -112,7 +112,30 @@ cargo run -p allbert-cli -- memory verify
 
 `memory stats` reports durable, staged, episode, and fact counts plus index metadata. `memory verify` remains the reconciliation check for markdown ground truth versus derived artifacts.
 
+## Recovery
+
+v0.12.1 makes memory forget/reject operations reversible within retention windows:
+
+```bash
+cargo run -p allbert-cli -- memory forget "notes/projects/postgres.md" --confirm
+cargo run -p allbert-cli -- memory restore notes_projects_postgres
+cargo run -p allbert-cli -- memory reject <staged-id> --reason "not durable"
+cargo run -p allbert-cli -- memory reconsider <staged-id>
+cargo run -p allbert-cli -- memory recovery-gc
+```
+
+Durable-memory trash entries live under `~/.allbert/memory/trash/` with original id, original path, deletion time, and reason metadata. Restore refuses to overwrite a live memory path.
+
+Soft-rejected staged entries live under `~/.allbert/memory/reject/<session>/` with original staged id, source session, rejection time, and reason metadata. Reconsider refuses to collide with an active staged entry of the same id. Retention is controlled by:
+
+```toml
+[memory]
+trash_retention_days = 30
+rejected_retention_days = 30
+```
+
 ## Related Docs
 
 - [Telemetry operator guide](telemetry.md)
 - [Personality digest guide](personality-digest.md)
+- [v0.12.1 upgrade notes](../notes/v0.12.1-upgrade-2026-04-25.md)

@@ -1,6 +1,6 @@
-# Allbert v0.12 Onboarding and Operations
+# Allbert v0.12.1 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.12 release.
+This guide is the operator reference for the source-based v0.12.1 release.
 
 ## Quickstart
 
@@ -8,8 +8,8 @@ This guide is the operator reference for the source-based v0.12 release.
 2. Export a hosted-provider API key only if you plan to use Anthropic, OpenRouter, OpenAI, or Gemini.
 3. Run `cargo run -p allbert-cli --`.
 4. Complete the guided setup flow.
-5. Confirm daemon/session state with `/status` or `/telemetry`.
-6. Use `allbert-cli daemon status`, `allbert-cli telemetry --json`, `allbert-cli jobs list`, `allbert-cli memory stats`, and `allbert-cli memory routing show` as needed.
+5. Confirm daemon/session state with `/status`, `/telemetry`, or `/activity`.
+6. Use `allbert-cli daemon status`, `allbert-cli telemetry --json`, `allbert-cli activity --json`, `allbert-cli jobs list`, `allbert-cli memory stats`, and `allbert-cli memory routing show` as needed.
 7. Inspect the current agent catalog with `allbert-cli agents list` and the shipped curator and authoring flows with `allbert-cli skills show memory-curator` and `allbert-cli skills show skill-author`.
 8. If you want source-checkout-bound self-improvement, pin a checkout with `allbert-cli self-improvement config set --source-checkout <path>`.
 
@@ -32,7 +32,7 @@ On first run, Allbert creates `~/.allbert/` and asks for:
 - the default timezone for scheduled jobs
 - whether to enable any bundled maintenance job templates immediately
 
-Type `/cancel` at any setup prompt to abort setup cleanly.
+Type `/cancel` at any setup prompt to abort setup cleanly. If setup is interrupted after writing setup state, resume with `cargo run -p allbert-cli -- setup --resume`.
 
 If setup completes:
 
@@ -65,7 +65,7 @@ This is intentional. Allbert still prefers explicit workspace trust over permiss
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical fresh v0.12 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical fresh v0.12.1 file looks like:
 
 ```toml
 trace = false
@@ -243,9 +243,10 @@ TUI controls:
 
 - type a message and press Enter to send it
 - use slash commands exactly as in classic REPL
+- while a turn is running, the TUI redraws activity from the daemon and keeps typed text as a next-turn draft instead of queueing a concurrent turn
 - Ctrl-D exits
-- Ctrl-C reminds you to type `/exit` rather than stopping the daemon
-- confirmation modals accept `y`, `n`, and `a` for allow-session when the action is not durable
+- Ctrl-C does not cancel the active daemon turn; it prints a truthful reminder that the turn continues
+- confirmation modals accept `y`, `n`, and `a` for allow-session when the action is not durable, while input modals keep their own buffer separate from the next-turn draft
 
 Useful REPL commands:
 
@@ -259,8 +260,14 @@ Useful REPL commands:
   Shows provider, model, root agent, last active agent stack, last resolved intent, API-key env presence or `not required`, setup version, bootstrap pending state, trusted roots, daemon auto-spawn, jobs enablement, jobs timezone, skill count, and trace mode.
 - `/telemetry`
   Shows live model, token, cost, memory, skill, inbox, and trace telemetry.
+- `/activity`
+  Shows the daemon-owned live phase, elapsed time, stuck hint, and next actions.
+- `/settings`
+  Lists, explains, sets, and resets supported profile settings through typed path-preserving edits.
 - `/statusline [show|enable|disable|toggle <item>|add <item>|remove <item>]`
   Inspects or changes configured TUI status-line items.
+- `/inbox`, `/skills`, `/memory staged`, and `/self-improvement`
+  Expose approval, skill, staged-memory, and patch-review workflows without leaving the TUI/REPL.
 - `/memory stats`
   Shows durable, staged, episode, and fact counts.
 - `/memory routing`
@@ -284,7 +291,7 @@ Useful REPL commands:
 - `/exit`
   Leaves the REPL without stopping the daemon.
 
-Unknown slash commands are rejected locally with a short hint to use `/help`; they are not forwarded to the model.
+Unknown slash commands are rejected locally with a short hint and a close suggestion when the typo is small; they are not forwarded to the model.
 
 For curated-memory review, the most useful operator commands are:
 
@@ -300,6 +307,9 @@ For curated-memory review, the most useful operator commands are:
 - `cargo run -p allbert-cli -- memory promote <id> --confirm`
 - `cargo run -p allbert-cli -- memory reject <id> --reason "not durable"`
 - `cargo run -p allbert-cli -- memory forget <path-or-query> --confirm`
+- `cargo run -p allbert-cli -- memory restore <id-or-path>`
+- `cargo run -p allbert-cli -- memory reconsider <staged-id>`
+- `cargo run -p allbert-cli -- memory recovery-gc`
 - `cargo run -p allbert-cli -- memory rebuild-index --force`
 
 And in normal conversation:
@@ -341,6 +351,16 @@ Agent commands:
 
 - `cargo run -p allbert-cli -- agents list`
 
+Settings and activity commands:
+
+- `cargo run -p allbert-cli -- activity`
+- `cargo run -p allbert-cli -- activity --json`
+- `cargo run -p allbert-cli -- settings list`
+- `cargo run -p allbert-cli -- settings show <key-or-group>`
+- `cargo run -p allbert-cli -- settings set <key> <value>`
+- `cargo run -p allbert-cli -- settings reset <key>`
+- `cargo run -p allbert-cli -- config restore-last-good`
+
 Approval commands:
 
 - `cargo run -p allbert-cli -- approvals list`
@@ -366,7 +386,7 @@ Notes:
 
 ## Telegram channel
 
-Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.12 end-user release.
+Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.12.1 end-user release.
 
 Setup:
 
@@ -378,7 +398,8 @@ Setup:
 
 Operational notes:
 
-- CLI, REPL, TUI, and Telegram can all resolve pending approvals through the shared inbox in v0.12.
+- CLI, REPL, TUI, and Telegram can all resolve pending approvals through the shared inbox.
+- `/activity` and compact `/status` show daemon-owned live activity without raw prompt, secret, or full tool-output data.
 - `/approve <approval-id>` accepts an async approval from Telegram itself.
 - `/reject <approval-id>` rejects an async approval from Telegram itself.
 - `/override <reason>` retries one turn after a daily cost-cap refusal and mirrors the same `cost-cap-override` item into the inbox.
@@ -389,7 +410,7 @@ Operational notes:
 
 ## Continuity across devices
 
-v0.12 treats profile continuity as an explicit operator workflow rather than an accidental side effect of copying `~/.allbert/`.
+Allbert treats profile continuity as an explicit operator workflow rather than an accidental side effect of copying `~/.allbert/`.
 
 Recommended second-device flow:
 
@@ -447,7 +468,7 @@ Conversational scheduling works best when you ask plainly. Good examples:
 - `resume it`
 - `delete it`
 
-Common schedule forms the assistant should compile naturally in v0.12:
+Common schedule forms the assistant should compile naturally:
 
 - `@daily at HH:MM`
 - `@weekly on monday at HH:MM`
@@ -458,7 +479,7 @@ When you create, update, pause, resume, or remove a job from normal conversation
 
 ## Bundled maintenance jobs
 
-v0.12 seeds these bundled templates:
+Allbert seeds these bundled templates:
 
 - `daily-brief`
 - `weekly-review`
@@ -471,7 +492,7 @@ The setup wizard can enable selected templates for you. Fresh profiles that expl
 
 ## Skills and memory
 
-The canonical installed skill root in v0.12 is `~/.allbert/skills/installed/`.
+The canonical installed skill root is `~/.allbert/skills/installed/`.
 
 Quarantine lives under `~/.allbert/skills/incoming/`; fetched or copied skills stay there until you approve the preview.
 
@@ -484,6 +505,8 @@ Skill commands:
 - `cargo run -p allbert-cli -- skills update <name>`
 - `cargo run -p allbert-cli -- skills remove <name>`
 - `cargo run -p allbert-cli -- skills init <name>`
+- `cargo run -p allbert-cli -- skills disable <name>`
+- `cargo run -p allbert-cli -- skills enable <name>`
 
 `skills list` is the quickest operator view of installed skills. `skills show <name>` prints the installed path, allowed tools, scripts, references, assets, and install metadata such as source kind and resolved commit.
 
@@ -497,9 +520,9 @@ Skill install/update preview shows:
 - declared scripts with interpreter, path, and SHA-256
 - the first lines of `SKILL.md`
 
-v0.12 expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
+Allbert expects strict AgentSkills-format skill trees at install time. `skills validate` is the preflight tool; Allbert does not ship a runtime migration helper for older relaxed skill layouts.
 
-In v0.12, skills can also preview:
+Skills can also preview:
 
 - `intents:` metadata to hint the intent router
 - `agents:` metadata to contribute namespaced sub-agents
@@ -520,10 +543,11 @@ Curated memory is durable and markdown-grounded:
 - `~/.allbert/memory/daily/`
 - `~/.allbert/memory/notes/`
 - `~/.allbert/memory/staging/`
+- `~/.allbert/memory/trash/`
+- `~/.allbert/memory/reject/`
 - `~/.allbert/memory/manifest.json`
 - `~/.allbert/memory/index/`
 - `~/.allbert/memory/index/semantic/`
-- `~/.allbert/memory/.trash/`
 - `~/.allbert/memory/migrations/`
 
 Workflow summary:
@@ -531,15 +555,16 @@ Workflow summary:
 - approved durable memory lives under `notes/`
 - candidate learnings land in `staging/`
 - `memory promote` moves staged entries into `notes/` and schedules re-index
-- `memory reject` archives staged entries under `staging/.rejected/`
-- `memory forget` moves approved durable notes into `.trash/` with explicit confirmation
+- `memory reject` archives staged entries under `memory/reject/<session>/` for reconsideration during the retention window
+- `memory forget` moves approved durable notes into `memory/trash/` with explicit confirmation
+- `memory restore`, `memory reconsider`, and `memory recovery-gc` handle recovery windows
 - `memory search --tier episode` searches bounded working history from session journals
 - `memory search --tier fact` searches approved durable fact metadata
 - `memory verify` performs the same checksum-based reconciliation check you can script against when the daemon is offline
 
 Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs. Episode recall is explicitly labelled working history, and facts become approved only after promotion.
 
-If you are upgrading to v0.12, see [v0.12-upgrade-2026-04-25.md](notes/v0.12-upgrade-2026-04-25.md), [v0.11-upgrade-2026-04-24.md](notes/v0.11-upgrade-2026-04-24.md), and [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
+If you are upgrading to v0.12.1, see [v0.12.1-upgrade-2026-04-25.md](notes/v0.12.1-upgrade-2026-04-25.md), [v0.12-upgrade-2026-04-25.md](notes/v0.12-upgrade-2026-04-25.md), [v0.11-upgrade-2026-04-24.md](notes/v0.11-upgrade-2026-04-24.md), and [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
 
 ## Self-improvement and scripting
 
@@ -576,7 +601,7 @@ engine = "lua"
 exec_allow = ["bash", "python", "lua"]
 ```
 
-Lua is an embedded JSON-in/JSON-out transform surface. It has no host tool bridge in v0.12 and runs with a strict standard-library allowlist plus execution, memory, and output caps. See [scripting.md](operator/scripting.md) for details.
+Lua is an embedded JSON-in/JSON-out transform surface. It has no host tool bridge and runs with a strict standard-library allowlist plus execution, memory, and output caps. See [scripting.md](operator/scripting.md) for details.
 
 ## Personality digest
 
@@ -691,13 +716,14 @@ TUI unavailable:
 
 ## Release posture
 
-v0.12 is a shipped technical-user release:
+v0.12.1 is a shipped technical-user release:
 
 - source-based
 - terminal-first
 - daemon-backed but still local-user-only
 - fresh-profile TUI with classic REPL fallback for upgrades
-- daemon-owned telemetry through TUI, REPL, and CLI
+- daemon-owned telemetry and live activity through TUI, REPL, CLI, jobs, and Telegram
+- typed settings edits through `/settings` and `allbert-cli settings`
 - explicit workspace trust
 - guided bootstrap and daemon/jobs setup
 - restart-durable sessions with `sessions resume`
@@ -708,6 +734,7 @@ v0.12 is a shipped technical-user release:
 - explicit episode and fact memory search tiers
 - optional semantic retrieval seam, disabled by default
 - review-first personality digest seam and optional `PERSONALITY.md` learned overlay
+- recovery affordances for durable-memory trash, staged-memory reconsideration, skill disablement, and last-good config restore
 - source-checkout-bound self-improvement worktrees with `patch-approval` review
 - explicit `self-improvement diff|install|gc` operator commands
 - first-party `skill-author` natural-language skill drafting through quarantine
@@ -736,4 +763,6 @@ Known limitations remain explicit:
 - semantic retrieval is fake-provider-only
 - personality digest output is deterministic and review-first; model-authored digest prose and adapter training are future work
 - `rust-rebuild` requires a local source checkout and never swaps the running binary automatically
-- Lua scripting is JSON-in/JSON-out only; it has no host tool bridge in v0.12
+- Lua scripting is JSON-in/JSON-out only; it has no host tool bridge
+- Ctrl-C does not cancel an active turn yet; the turn continues and the UI says so
+- durable trace persistence and replay are planned for v0.12.2; v0.12.1 activity is live operational state
