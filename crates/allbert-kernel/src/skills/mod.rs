@@ -15,6 +15,7 @@ use crate::{atomic_write, AllbertPaths, MemoryRoutingConfig, ModelConfig, Provid
 pub struct Skill {
     pub name: String,
     pub description: String,
+    pub provenance: SkillProvenance,
     pub intents: Vec<Intent>,
     pub agents: Vec<ContributedAgent>,
     pub scripts: Vec<SkillScript>,
@@ -28,6 +29,27 @@ impl Skill {
         self.path
             .parent()
             .ok_or_else(|| SkillError::Load(format!("missing parent for {}", self.path.display())))
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum SkillProvenance {
+    #[default]
+    External,
+    LocalPath,
+    Git,
+    SelfAuthored,
+}
+
+impl SkillProvenance {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::External => "external",
+            Self::LocalPath => "local-path",
+            Self::Git => "git",
+            Self::SelfAuthored => "self-authored",
+        }
     }
 }
 
@@ -67,6 +89,7 @@ pub struct InvokeSkillInput {
 pub struct CreateSkillInput {
     pub name: String,
     pub description: String,
+    pub skip_quarantine: bool,
     #[serde(default)]
     pub allowed_tools: Vec<String>,
     pub body: String,
@@ -155,6 +178,26 @@ impl SkillStore {
             "- allowed-tools: session default".to_string(),
             "- model override: none".to_string(),
         ];
+
+        sections.push(String::new());
+        sections.push("## Skills".to_string());
+        if self.skills.is_empty() {
+            sections.push("- (none)".to_string());
+        } else {
+            for skill in &self.skills {
+                sections.push(format!(
+                    "- {}: {} (provenance: {}; allowed-tools: {})",
+                    skill.name,
+                    skill.description,
+                    skill.provenance.label(),
+                    if skill.allowed_tools.is_empty() {
+                        "none".into()
+                    } else {
+                        skill.allowed_tools.join(", ")
+                    }
+                ));
+            }
+        }
 
         for agent in self.contributed_agents() {
             sections.push(String::new());
@@ -250,6 +293,7 @@ impl SkillStore {
         description: &str,
         allowed_tools: &[String],
         body: &str,
+        provenance: SkillProvenance,
     ) -> Result<Skill, SkillError> {
         validate_strict_skill_name(name)?;
         let skill_dir = skills_root.join(name);
@@ -261,6 +305,7 @@ impl SkillStore {
         frontmatter.push_str("---\n");
         frontmatter.push_str(&format!("name: {}\n", name));
         frontmatter.push_str(&format!("description: {}\n", yaml_quote(description)));
+        frontmatter.push_str(&format!("provenance: {}\n", provenance.label()));
         if !allowed_tools.is_empty() {
             frontmatter.push_str("allowed-tools: ");
             frontmatter.push_str(&allowed_tools.join(" "));
@@ -286,9 +331,10 @@ impl SkillStore {
             .iter()
             .map(|skill| {
                 format!(
-                    "- {}: {} (allowed-tools: {})",
+                    "- {}: {} (provenance: {}; allowed-tools: {})",
                     skill.name,
                     skill.description,
+                    skill.provenance.label(),
                     if skill.allowed_tools.is_empty() {
                         "none".into()
                     } else {
@@ -357,6 +403,11 @@ impl SkillStore {
             let Some(skill) = self.get(&active.name) else {
                 continue;
             };
+            tracing::info!(
+                skill = %skill.name,
+                provenance = skill.provenance.label(),
+                "activating skill"
+            );
             let mut block = format!("### Skill: {}\n{}\n", skill.name, skill.body.trim());
             if let Some(args) = &active.args {
                 let serialized = serde_json::to_string_pretty(args).unwrap_or_else(|_| "{}".into());
@@ -447,6 +498,7 @@ impl SkillStore {
             scripts: data.scripts.normalize()?,
             name: data.name,
             description: data.description,
+            provenance: data.provenance,
             allowed_tools: data.allowed_tools.normalize(),
             body: parsed.content.trim().to_string(),
             path: path.to_path_buf(),
@@ -475,6 +527,9 @@ struct Frontmatter {
     name: String,
     description: String,
     #[serde(default)]
+    #[allow(dead_code)]
+    provenance: SkillProvenance,
+    #[serde(default)]
     intents: IntentList,
     #[serde(default)]
     agents: AgentContributions,
@@ -488,6 +543,9 @@ struct Frontmatter {
 struct ValidationFrontmatter {
     name: String,
     description: String,
+    #[serde(default)]
+    #[allow(dead_code)]
+    provenance: SkillProvenance,
     #[serde(default)]
     compatibility: Option<CompatibilityFrontmatter>,
     #[serde(default)]
@@ -1007,7 +1065,38 @@ mod tests {
             store.get("installed-skill").unwrap().description,
             "Installed."
         );
+        assert_eq!(
+            store.get("installed-skill").unwrap().provenance,
+            SkillProvenance::External
+        );
         assert!(store.get("incoming-skill").is_none());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn frontmatter_provenance_defaults_and_parses() {
+        let root = temp_dir("provenance");
+        let skills_root = root.join("skills/installed");
+        write_skill(
+            &skills_root.join("external-skill/SKILL.md"),
+            "---\nname: external-skill\ndescription: Missing provenance.\n---\n\nbody\n",
+        );
+        write_skill(
+            &skills_root.join("authored-skill/SKILL.md"),
+            "---\nname: authored-skill\ndescription: Authored.\nprovenance: self-authored\n---\n\nbody\n",
+        );
+
+        let store = SkillStore::discover(&root.join("skills"));
+
+        assert_eq!(
+            store.get("external-skill").unwrap().provenance,
+            SkillProvenance::External
+        );
+        assert_eq!(
+            store.get("authored-skill").unwrap().provenance,
+            SkillProvenance::SelfAuthored
+        );
 
         let _ = fs::remove_dir_all(root);
     }

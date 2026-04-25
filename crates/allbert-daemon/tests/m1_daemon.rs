@@ -1529,7 +1529,7 @@ async fn daemon_restart_rehydrates_session_journal_and_ephemeral_memory() {
 async fn telegram_async_confirm_persists_pending_approval_and_clears_on_reply() {
     let home = TempHome::new();
     let paths = home.paths();
-    let skill_dir = paths.skills_installed.join("existing-skill");
+    let skill_dir = paths.skills_incoming.join("existing-skill");
     std::fs::create_dir_all(&skill_dir).expect("skill dir should exist");
     std::fs::write(
         skill_dir.join("SKILL.md"),
@@ -1542,7 +1542,7 @@ async fn telegram_async_confirm_persists_pending_approval_and_clears_on_reply() 
         paths.clone(),
         Arc::new(TestFactory::new(vec![
             scripted(
-                "<tool_call>{\"name\":\"create_skill\",\"input\":{\"name\":\"existing-skill\",\"description\":\"Updated skill\",\"allowed_tools\":[\"read_reference\"],\"body\":\"Updated body\"}}</tool_call>",
+                "<tool_call>{\"name\":\"create_skill\",\"input\":{\"name\":\"existing-skill\",\"description\":\"Updated skill\",\"skip_quarantine\":false,\"allowed_tools\":[\"read_reference\"],\"body\":\"Updated body\"}}</tool_call>",
             ),
             scripted("updated"),
         ])),
@@ -1623,7 +1623,7 @@ async fn telegram_async_confirm_persists_pending_approval_and_clears_on_reply() 
 async fn telegram_async_confirm_timeout_marks_approval_and_restart_reconciles_meta() {
     let home = TempHome::new();
     let paths = home.paths();
-    let skill_dir = paths.skills_installed.join("existing-skill");
+    let skill_dir = paths.skills_incoming.join("existing-skill");
     std::fs::create_dir_all(&skill_dir).expect("skill dir should exist");
     std::fs::write(
         skill_dir.join("SKILL.md"),
@@ -1639,7 +1639,7 @@ async fn telegram_async_confirm_timeout_marks_approval_and_restart_reconciles_me
         paths.clone(),
         Arc::new(TestFactory::new(vec![
             scripted(
-                "<tool_call>{\"name\":\"create_skill\",\"input\":{\"name\":\"existing-skill\",\"description\":\"Updated skill\",\"allowed_tools\":[\"read_reference\"],\"body\":\"Updated body\"}}</tool_call>",
+                "<tool_call>{\"name\":\"create_skill\",\"input\":{\"name\":\"existing-skill\",\"description\":\"Updated skill\",\"skip_quarantine\":false,\"allowed_tools\":[\"read_reference\"],\"body\":\"Updated body\"}}</tool_call>",
             ),
             scripted("timed out"),
         ])),
@@ -1876,7 +1876,7 @@ async fn cli_inbox_accept_resumes_live_telegram_tool_approval() {
         "2026-04-21T17:00:00Z",
     );
 
-    let skill_dir = paths.skills_installed.join("existing-skill");
+    let skill_dir = paths.skills_incoming.join("existing-skill");
     std::fs::create_dir_all(&skill_dir).expect("skill dir should exist");
     std::fs::write(
         skill_dir.join("SKILL.md"),
@@ -1889,7 +1889,7 @@ async fn cli_inbox_accept_resumes_live_telegram_tool_approval() {
         paths.clone(),
         Arc::new(TestFactory::new(vec![
             scripted(
-                "<tool_call>{\"name\":\"create_skill\",\"input\":{\"name\":\"existing-skill\",\"description\":\"Updated skill\",\"allowed_tools\":[\"read_reference\"],\"body\":\"Updated body\"}}</tool_call>",
+                "<tool_call>{\"name\":\"create_skill\",\"input\":{\"name\":\"existing-skill\",\"description\":\"Updated skill\",\"skip_quarantine\":false,\"allowed_tools\":[\"read_reference\"],\"body\":\"Updated body\"}}</tool_call>",
             ),
             scripted("approved via inbox"),
         ])),

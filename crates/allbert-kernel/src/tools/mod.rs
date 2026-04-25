@@ -917,16 +917,17 @@ impl Tool for CreateSkillTool {
     }
 
     fn description(&self) -> &'static str {
-        "Create a skill under ~/.allbert/skills/installed/<name>/SKILL.md"
+        "Create a self-authored skill draft under ~/.allbert/skills/incoming/<name>/SKILL.md"
     }
 
     fn schema(&self) -> Value {
         json!({
             "type": "object",
-            "required": ["name", "description", "allowed_tools", "body"],
+            "required": ["name", "description", "skip_quarantine", "allowed_tools", "body"],
             "properties": {
                 "name": {"type": "string"},
                 "description": {"type": "string"},
+                "skip_quarantine": {"type": "boolean"},
                 "allowed_tools": {"type": "array", "items": {"type": "string"}},
                 "body": {"type": "string"}
             }

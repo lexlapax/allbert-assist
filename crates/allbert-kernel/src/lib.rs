@@ -84,7 +84,8 @@ pub use self_improvement::{
     WorktreeGcReport,
 };
 pub use skills::{
-    ActiveSkill, ContributedAgent, CreateSkillInput, InvokeSkillInput, Skill, SkillStore,
+    ActiveSkill, ContributedAgent, CreateSkillInput, InvokeSkillInput, Skill, SkillProvenance,
+    SkillStore,
 };
 pub use tools::{ProcessExecInput, ToolCtx, ToolInvocation, ToolOutput, ToolRegistry, ToolRuntime};
 pub use trace::TraceHandles;
@@ -2446,25 +2447,28 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             }
         };
 
+        if parsed.skip_quarantine {
+            return ToolOutput {
+                content: "skip_quarantine=true is reserved for first-party kernel seeding".into(),
+                ok: false,
+            };
+        }
+
         match self.skills.create(
-            &self.paths.skills_installed,
+            &self.paths.skills_incoming,
             &parsed.name,
             &parsed.description,
             &parsed.allowed_tools,
             &parsed.body,
+            skills::SkillProvenance::SelfAuthored,
         ) {
-            Ok(skill) => match self.refresh_skill_catalog() {
-                Ok(()) => ToolOutput {
-                    content: format!("created skill {} at {}", skill.name, skill.path.display()),
-                    ok: true,
-                },
-                Err(err) => ToolOutput {
-                    content: format!(
-                        "created skill {}, but failed to refresh AGENTS.md: {err}",
-                        skill.name
-                    ),
-                    ok: false,
-                },
+            Ok(skill) => ToolOutput {
+                content: format!(
+                    "created skill draft {} at {}; review and install it through the standard skill install flow",
+                    skill.name,
+                    skill.path.display()
+                ),
+                ok: true,
             },
             Err(err) => ToolOutput {
                 content: err.to_string(),
@@ -6127,19 +6131,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_skill_writes_file_and_created_skill_can_be_invoked() {
+    async fn provenance_create_skill_writes_incoming_draft_and_does_not_install() {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().unwrap();
-        let captured_requests = Arc::new(Mutex::new(Vec::new()));
+        let events = Arc::new(Mutex::new(Vec::new()));
 
         let mut kernel = Kernel::boot_with_parts(
             Config::default_template(),
-            test_adapter(Arc::new(Mutex::new(Vec::new()))),
+            test_adapter(Arc::clone(&events)),
             paths.clone(),
-            Arc::new(TestFactory::with_requests(
+            Arc::new(TestFactory::new(
                 "anthropic",
-                captured_requests.clone(),
                 vec![
                     CompletionResponse {
                         text: format!(
@@ -6149,6 +6152,7 @@ mod tests {
                                 "input":{
                                     "name":"weather-note",
                                     "description":"Capture weather notes",
+                                    "skip_quarantine":false,
                                     "allowed_tools":["request_input"],
                                     "body":"Ask for weather details with request_input."
                                 }
@@ -6158,18 +6162,6 @@ mod tests {
                     },
                     CompletionResponse {
                         text: "created".into(),
-                        usage: Usage::default(),
-                    },
-                    CompletionResponse {
-                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"weather-note\"}}</tool_call>".into(),
-                        usage: Usage::default(),
-                    },
-                    CompletionResponse {
-                        text: "invoked".into(),
-                        usage: Usage::default(),
-                    },
-                    CompletionResponse {
-                        text: "final".into(),
                         usage: Usage::default(),
                     },
                 ],
@@ -6184,32 +6176,38 @@ mod tests {
             .await
             .expect("create turn should pass");
         assert!(paths
+            .skills_incoming
+            .join("weather-note")
+            .join("SKILL.md")
+            .exists());
+        assert!(!paths
             .skills_installed
             .join("weather-note")
             .join("SKILL.md")
             .exists());
-
-        kernel
-            .run_turn("invoke skill")
-            .await
-            .expect("invoke turn should pass");
-        kernel
-            .run_turn("use skill")
-            .await
-            .expect("use turn should pass");
-
-        let requests = captured_requests.lock().unwrap();
-        let last_system = requests.last().unwrap().system.as_ref().unwrap();
-        assert!(last_system.contains("weather-note"));
-        assert!(last_system.contains("Ask for weather details with request_input."));
+        let persisted =
+            fs::read_to_string(paths.skills_incoming.join("weather-note").join("SKILL.md"))
+                .unwrap();
+        assert!(persisted.contains("provenance: self-authored"));
+        assert!(events.lock().unwrap().iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "create_skill" && *ok && content.contains("standard skill install flow")
+        )));
     }
 
     #[tokio::test]
-    async fn create_skill_overwrite_requires_confirm() {
+    async fn provenance_create_skill_overwrite_requires_confirm() {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().unwrap();
-        write_skill(&paths, "overwrite-me", "Old", "request_input", "Old body");
+        let incoming = paths.skills_incoming.join("overwrite-me");
+        fs::create_dir_all(&incoming).unwrap();
+        fs::write(
+            incoming.join("SKILL.md"),
+            "---\nname: overwrite-me\ndescription: Old\nprovenance: self-authored\nallowed-tools: request_input\n---\n\nOld body\n",
+        )
+        .unwrap();
         let events = Arc::new(Mutex::new(Vec::new()));
         let confirm = Arc::new(QueueConfirm::new(vec![ConfirmDecision::Deny]));
         let seen = confirm.seen();
@@ -6229,6 +6227,7 @@ mod tests {
                                 "input":{
                                     "name":"overwrite-me",
                                     "description":"New",
+                                    "skip_quarantine":false,
                                     "allowed_tools":["request_input"],
                                     "body":"New body"
                                 }
@@ -6253,9 +6252,106 @@ mod tests {
             .expect("turn should pass");
         assert_eq!(seen.lock().unwrap().len(), 1);
         let persisted =
-            fs::read_to_string(paths.skills_installed.join("overwrite-me").join("SKILL.md"))
+            fs::read_to_string(paths.skills_incoming.join("overwrite-me").join("SKILL.md"))
                 .unwrap();
         assert!(persisted.contains("Old body"));
+    }
+
+    #[tokio::test]
+    async fn provenance_create_skill_requires_explicit_quarantine_choice() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::clone(&events)),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name":"create_skill",
+                                "input":{
+                                    "name":"missing-choice",
+                                    "description":"Missing",
+                                    "allowed_tools":["request_input"],
+                                    "body":"Body"
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "done".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("create").await.expect("turn should pass");
+        assert!(events.lock().unwrap().iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "create_skill" && !*ok && content.contains("skip_quarantine")
+        )));
+    }
+
+    #[tokio::test]
+    async fn provenance_create_skill_rejects_prompt_originated_quarantine_bypass() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let events = Arc::new(Mutex::new(Vec::new()));
+
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::clone(&events)),
+            paths,
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: format!(
+                            "<tool_call>{}</tool_call>",
+                            json!({
+                                "name":"create_skill",
+                                "input":{
+                                    "name":"bypass",
+                                    "description":"Bypass",
+                                    "skip_quarantine":true,
+                                    "allowed_tools":["request_input"],
+                                    "body":"Body"
+                                }
+                            })
+                        ),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "done".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        kernel.run_turn("create").await.expect("turn should pass");
+        assert!(events.lock().unwrap().iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "create_skill" && !*ok && content.contains("first-party kernel seeding")
+        )));
     }
 
     #[tokio::test]

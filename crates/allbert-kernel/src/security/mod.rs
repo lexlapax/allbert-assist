@@ -430,10 +430,15 @@ impl Hook for SecurityHook {
                             return HookOutcome::Abort(format!("invalid create_skill input: {err}"))
                         }
                     };
+                if parsed.skip_quarantine {
+                    return HookOutcome::Abort(
+                        "skip_quarantine=true is reserved for first-party kernel seeding".into(),
+                    );
+                }
 
                 let target = self
                     .paths
-                    .skills_installed
+                    .skills_incoming
                     .join(&parsed.name)
                     .join("SKILL.md");
 

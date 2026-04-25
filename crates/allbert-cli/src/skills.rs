@@ -3,7 +3,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command as StdCommand;
 
-use allbert_kernel::skills::validate_skill_path;
+use allbert_kernel::skills::{validate_skill_path, SkillProvenance};
 use allbert_kernel::{atomic_write, refresh_agents_markdown, AllbertPaths, Config};
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
@@ -105,6 +105,7 @@ pub fn show_installed_skill(paths: &AllbertPaths, name: &str) -> Result<String> 
     let mut lines = Vec::new();
     lines.push(format!("name:           {}", preview.name));
     lines.push(format!("description:    {}", preview.description));
+    lines.push(format!("provenance:     {}", preview.provenance.label()));
     lines.push(format!("installed path: {}", root.display()));
     lines.push(format!("tree sha256:    {}", tree_sha));
     lines.push(format!(
@@ -265,6 +266,7 @@ pub fn init_skill_scaffold(
     body.push_str("---\n");
     body.push_str(&format!("name: {name}\n"));
     body.push_str(&format!("description: {}\n", yaml_quote(description)));
+    body.push_str("provenance: local-path\n");
     body.push_str("---\n\n");
     body.push_str(
         "Describe when to use this skill, what it does, and any important constraints.\n",
@@ -377,6 +379,7 @@ impl PreparedInstall {
 struct SkillPreview {
     name: String,
     description: String,
+    provenance: SkillProvenance,
     allowed_tools: Vec<String>,
     agents: Vec<String>,
     scripts: Vec<PreviewScript>,
@@ -397,6 +400,8 @@ struct PreviewScript {
 struct PreviewFrontmatter {
     name: String,
     description: String,
+    #[serde(default)]
+    provenance: SkillProvenance,
     #[serde(default)]
     scripts: PreviewScripts,
     #[serde(default)]
@@ -680,6 +685,7 @@ fn inspect_candidate(skill_path: &Path, source_label: &str) -> Result<SkillPrevi
     Ok(SkillPreview {
         name: data.name,
         description: data.description,
+        provenance: data.provenance,
         allowed_tools: data.allowed_tools.values(),
         agents: data.agents.paths(),
         scripts,
@@ -694,6 +700,7 @@ fn render_install_preview(preview: &SkillPreview) -> String {
     lines.push("Skill install preview".to_string());
     lines.push(format!("name:           {}", preview.name));
     lines.push(format!("description:    {}", preview.description));
+    lines.push(format!("provenance:     {}", preview.provenance.label()));
     lines.push(format!("source:         {}", preview.source_label));
     lines.push(format!("tree sha256:    {}", preview.tree_sha256));
     lines.push(format!(
@@ -721,6 +728,7 @@ fn format_skill_summary(preview: &SkillPreview, metadata: Option<&InstallMetadat
     let mut lines = Vec::new();
     lines.push(preview.name.to_string());
     lines.push(format!("  description: {}", preview.description));
+    lines.push(format!("  source: {}", preview.provenance.label()));
     lines.push(format!(
         "  allowed-tools: {}",
         render_list(&preview.allowed_tools)
@@ -732,7 +740,7 @@ fn format_skill_summary(preview: &SkillPreview, metadata: Option<&InstallMetadat
     ));
     if let Some(metadata) = metadata {
         lines.push(format!(
-            "  source: {} ({})",
+            "  install source: {} ({})",
             metadata.source.identity, metadata.source.kind
         ));
         if let Some(commit) = &metadata.resolved_commit {
@@ -1064,6 +1072,7 @@ mod tests {
         install_answers: std::sync::Mutex<Vec<bool>>,
         remove_answers: std::sync::Mutex<Vec<bool>>,
         install_calls: std::sync::Mutex<usize>,
+        previews: std::sync::Mutex<Vec<String>>,
     }
 
     impl FixedPrompter {
@@ -1072,17 +1081,23 @@ mod tests {
                 install_answers: std::sync::Mutex::new(install_answers),
                 remove_answers: std::sync::Mutex::new(remove_answers),
                 install_calls: std::sync::Mutex::new(0),
+                previews: std::sync::Mutex::new(Vec::new()),
             }
         }
 
         fn install_call_count(&self) -> usize {
             *self.install_calls.lock().unwrap()
         }
+
+        fn previews(&self) -> Vec<String> {
+            self.previews.lock().unwrap().clone()
+        }
     }
 
     impl SkillPrompter for FixedPrompter {
-        fn confirm_install(&self, _preview: &str) -> Result<bool> {
+        fn confirm_install(&self, preview: &str) -> Result<bool> {
             *self.install_calls.lock().unwrap() += 1;
+            self.previews.lock().unwrap().push(preview.to_string());
             Ok(self.install_answers.lock().unwrap().remove(0))
         }
 
@@ -1169,6 +1184,7 @@ mod tests {
         assert!(result.installed_path.join(INSTALL_METADATA_FILE).exists());
         assert!(paths.skills.join(APPROVALS_FILE).exists());
         assert_eq!(prompter.install_call_count(), 1);
+        assert!(prompter.previews()[0].contains("provenance:     external"));
     }
 
     #[test]
@@ -1310,7 +1326,7 @@ mod tests {
     }
 
     #[test]
-    fn list_and_show_installed_skills_render_operator_details() {
+    fn provenance_list_and_show_installed_skills_render_operator_details() {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().unwrap();
@@ -1336,10 +1352,12 @@ mod tests {
         let listing = list_installed_skills(&paths).expect("list should succeed");
         assert!(listing.contains("showcase-skill"));
         assert!(listing.contains("Valid test skill"));
+        assert!(listing.contains("source: external"));
         assert!(listing.contains("scripts: 1"));
 
         let shown = show_installed_skill(&paths, "showcase-skill").expect("show should succeed");
         assert!(shown.contains("name:           showcase-skill"));
+        assert!(shown.contains("provenance:     external"));
         assert!(shown.contains("scripts/helper.py"));
         assert!(shown.contains("references/guide.md"));
         assert!(shown.contains("source kind: local_path"));
