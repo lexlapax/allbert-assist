@@ -34,6 +34,8 @@ pub struct Config {
     #[serde(default)]
     pub self_improvement: SelfImprovementConfig,
     #[serde(default)]
+    pub scripting: ScriptingConfig,
+    #[serde(default)]
     pub security: SecurityConfig,
     #[serde(default)]
     pub limits: LimitsConfig,
@@ -668,6 +670,63 @@ impl SelfImprovementInstallMode {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ScriptingConfig {
+    #[serde(default)]
+    pub engine: ScriptingEngineConfig,
+    #[serde(default)]
+    pub max_execution_ms: u32,
+    #[serde(default)]
+    pub max_memory_kb: u32,
+    #[serde(default)]
+    pub max_output_bytes: u32,
+    #[serde(default)]
+    pub allow_stdlib: Vec<String>,
+    #[serde(default = "default_lua_deny_stdlib")]
+    pub deny_stdlib: Vec<String>,
+}
+
+impl Default for ScriptingConfig {
+    fn default() -> Self {
+        Self {
+            engine: ScriptingEngineConfig::Disabled,
+            max_execution_ms: 1000,
+            max_memory_kb: 16 * 1024,
+            max_output_bytes: 64 * 1024,
+            allow_stdlib: vec!["string".into(), "math".into(), "table".into()],
+            deny_stdlib: default_lua_deny_stdlib(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ScriptingEngineConfig {
+    #[default]
+    Disabled,
+    Lua,
+}
+
+impl ScriptingEngineConfig {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::Lua => "lua",
+        }
+    }
+}
+
+fn default_lua_deny_stdlib() -> Vec<String> {
+    vec![
+        "io".into(),
+        "os".into(),
+        "package".into(),
+        "require".into(),
+        "debug".into(),
+        "coroutine".into(),
+    ]
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
     #[serde(default)]
@@ -802,6 +861,7 @@ impl Config {
             memory: MemoryConfig::default(),
             learning: LearningConfig::default(),
             self_improvement: SelfImprovementConfig::default(),
+            scripting: ScriptingConfig::default(),
             security: SecurityConfig::default(),
             limits: LimitsConfig::default(),
             trace: false,
@@ -913,6 +973,7 @@ impl Config {
         }
         validate_personality_digest_config(&self.learning.personality_digest)?;
         validate_self_improvement_config(&self.self_improvement)?;
+        validate_scripting_config(&self.scripting)?;
         if matches!(self.limits.daily_usd_cap, Some(value) if value < 0.0) {
             return Err("limits.daily_usd_cap must be >= 0".into());
         }
@@ -970,6 +1031,19 @@ fn validate_self_improvement_config(config: &SelfImprovementConfig) -> Result<()
     }
     if config.max_worktree_gb == 0 {
         return Err("self_improvement.max_worktree_gb must be >= 1".into());
+    }
+    Ok(())
+}
+
+fn validate_scripting_config(config: &ScriptingConfig) -> Result<(), String> {
+    if config.max_execution_ms == 0 {
+        return Err("scripting.max_execution_ms must be >= 1".into());
+    }
+    if config.max_memory_kb == 0 {
+        return Err("scripting.max_memory_kb must be >= 1".into());
+    }
+    if config.max_output_bytes == 0 {
+        return Err("scripting.max_output_bytes must be >= 1".into());
     }
     Ok(())
 }
@@ -1171,6 +1245,9 @@ max_tokens = 4096
         assert!(rendered.contains("source_checkout = \"\""));
         assert!(rendered.contains("worktree_root = \"~/.allbert/worktrees\""));
         assert!(rendered.contains("install_mode = \"apply-to-current-branch\""));
+        assert!(rendered.contains("[scripting]"));
+        assert!(rendered.contains("engine = \"disabled\""));
+        assert!(rendered.contains("max_execution_ms = 1000"));
     }
 
     #[test]
@@ -1344,6 +1421,22 @@ mode = "always_active"
 
         config.memory.semantic.hybrid_weight = 1.0;
         config.validate().expect("upper bound is valid");
+    }
+
+    #[test]
+    fn scripting_config_validation_rejects_zero_budgets() {
+        let mut config = Config::default_template();
+        config.scripting.max_execution_ms = 0;
+        let err = config.validate().expect_err("zero budget should fail");
+        assert!(err.contains("scripting.max_execution_ms"));
+
+        let mut config = Config::default_template();
+        config.scripting.max_memory_kb = 0;
+        assert!(config.validate().is_err());
+
+        let mut config = Config::default_template();
+        config.scripting.max_output_bytes = 0;
+        assert!(config.validate().is_err());
     }
 
     #[test]

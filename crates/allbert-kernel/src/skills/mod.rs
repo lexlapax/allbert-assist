@@ -462,6 +462,7 @@ impl SkillStore {
             skill_name: skill.name.clone(),
             script_name: script.name.clone(),
             interpreter: script.interpreter.clone(),
+            declared_path: script.path.clone(),
             path,
         })
     }
@@ -519,6 +520,7 @@ pub struct ResolvedSkillScript {
     pub skill_name: String,
     pub script_name: String,
     pub interpreter: String,
+    pub declared_path: String,
     pub path: PathBuf,
 }
 

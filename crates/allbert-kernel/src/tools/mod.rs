@@ -898,6 +898,7 @@ impl Tool for RunSkillScriptTool {
                 "skill": {"type": "string"},
                 "script": {"type": "string"},
                 "args": {"type": "array", "items": {"type": "string"}},
+                "input": {},
                 "timeout_s": {"type": "integer", "minimum": 1}
             }
         })

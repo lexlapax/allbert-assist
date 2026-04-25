@@ -28,3 +28,4 @@ tempfile = "3.13"
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 chrono-tz = "0.10"
+mlua = { version = "0.10", features = ["lua54", "vendored", "serialize"] }

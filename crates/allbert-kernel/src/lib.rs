@@ -15,6 +15,7 @@ pub mod learning;
 pub mod llm;
 pub mod memory;
 pub mod paths;
+pub mod scripting;
 pub mod security;
 pub mod self_improvement;
 pub mod skills;
@@ -38,9 +39,9 @@ pub use config::{
     Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig, JobsConfig, LearningConfig,
     LimitsConfig, MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig,
     MemoryRoutingMode, MemorySemanticConfig, ModelConfig, PersonalityDigestConfig, Provider,
-    ReplConfig, ReplUiMode, SecurityConfig, SelfImprovementConfig, SelfImprovementInstallMode,
-    SessionsConfig, SetupConfig, StatusLineConfig, StatusLineItem, TuiConfig, WebSecurityConfig,
-    CURRENT_SETUP_VERSION,
+    ReplConfig, ReplUiMode, ScriptingConfig, ScriptingEngineConfig, SecurityConfig,
+    SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig, SetupConfig,
+    StatusLineConfig, StatusLineItem, TuiConfig, WebSecurityConfig, CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{ConfigError, KernelError, SkillError, ToolError};
@@ -72,6 +73,10 @@ pub use memory::{
 };
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
+pub use scripting::{
+    BudgetUsed, CapKind, LoadedScript, LuaEngine, ScriptBudget, ScriptOutcome,
+    ScriptingCapabilities, ScriptingEngine, ScriptingError,
+};
 pub use security::SecurityHook;
 pub use self_improvement::{
     assert_rust_rebuild_ready, check_self_improvement_write_target, collect_worktree_gc,
@@ -216,6 +221,8 @@ struct RunSkillScriptInput {
     script: String,
     #[serde(default)]
     args: Vec<String>,
+    #[serde(default)]
+    input: Option<serde_json::Value>,
     #[serde(default)]
     timeout_s: Option<u64>,
 }
@@ -2189,6 +2196,13 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             }
         };
 
+        if resolved.interpreter.eq_ignore_ascii_case("lua") {
+            let input = parsed
+                .input
+                .unwrap_or_else(|| json!({ "args": parsed.args }));
+            return self.dispatch_lua_skill_script(state, resolved, input).await;
+        }
+
         if self
             .config
             .security
@@ -2259,6 +2273,132 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             Ok(output) => output,
             Err(err) => ToolOutput {
                 content: err.to_string(),
+                ok: false,
+            },
+        }
+    }
+
+    async fn dispatch_lua_skill_script(
+        &mut self,
+        state: &mut AgentState,
+        resolved: skills::ResolvedSkillScript,
+        input: serde_json::Value,
+    ) -> ToolOutput {
+        if self.config.scripting.engine != config::ScriptingEngineConfig::Lua {
+            return ToolOutput {
+                content: "Lua scripting engine is disabled; set scripting.engine = \"lua\" and add \"lua\" to config.security.exec_allow before running Lua skill scripts".into(),
+                ok: false,
+            };
+        }
+        if self
+            .config
+            .security
+            .exec_deny
+            .iter()
+            .any(|value| value == "lua")
+        {
+            return ToolOutput {
+                content: "interpreter 'lua' is hard-blocked by config.security.exec_deny".into(),
+                ok: false,
+            };
+        }
+        if !self
+            .config
+            .security
+            .exec_allow
+            .iter()
+            .any(|value| value == "lua")
+        {
+            return ToolOutput {
+                content:
+                    "interpreter 'lua' is not allowlisted; add it to config.security.exec_allow"
+                        .into(),
+                ok: false,
+            };
+        }
+
+        let source = match std::fs::read_to_string(&resolved.path) {
+            Ok(source) => source,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("read {}: {err}", resolved.path.display()),
+                    ok: false,
+                }
+            }
+        };
+
+        let source_ref = format!("{}/{}", resolved.skill_name, resolved.declared_path);
+        let synthetic_name = format!("exec.lua:{source_ref}");
+        let budget = scripting::ScriptBudget {
+            max_execution_ms: self.config.scripting.max_execution_ms,
+            max_memory_kb: self.config.scripting.max_memory_kb,
+            max_output_bytes: self.config.scripting.max_output_bytes,
+        };
+        let before_input = json!({
+            "engine": "lua",
+            "skill": resolved.skill_name,
+            "script": resolved.script_name,
+            "path": resolved.declared_path,
+            "source_ref": source_ref,
+            "budget": budget,
+        });
+
+        let mut before_ctx = HookCtx::before_tool(
+            &state.session_id,
+            state.agent_name(),
+            None,
+            ToolInvocation {
+                name: synthetic_name.clone(),
+                input: before_input.clone(),
+            },
+            None,
+        );
+        match self.hooks.run(HookPoint::BeforeTool, &mut before_ctx).await {
+            HookOutcome::Continue => {}
+            HookOutcome::Abort(message) => {
+                return ToolOutput {
+                    content: message,
+                    ok: false,
+                }
+            }
+        }
+
+        let engine = scripting::LuaEngine::new();
+        let outcome = match engine.load(&source, &source_ref) {
+            Ok(script) => engine.invoke(&script, input, budget),
+            Err(err) => Err(err),
+        };
+        let (content, ok, after_input) = match outcome {
+            Ok(outcome) => render_script_outcome(before_input, outcome),
+            Err(err) => {
+                let content = err.to_string();
+                (
+                    content.clone(),
+                    false,
+                    json!({
+                        "engine": "lua",
+                        "source_ref": source_ref,
+                        "outcome": "error",
+                        "error": content,
+                    }),
+                )
+            }
+        };
+
+        let mut after_ctx = HookCtx::before_tool(
+            &state.session_id,
+            state.agent_name(),
+            None,
+            ToolInvocation {
+                name: synthetic_name,
+                input: after_input,
+            },
+            None,
+        );
+        match self.hooks.run(HookPoint::AfterTool, &mut after_ctx).await {
+            HookOutcome::Continue => ToolOutput { content, ok },
+            HookOutcome::Abort(message) => ToolOutput {
+                content: message,
                 ok: false,
             },
         }
@@ -3338,6 +3478,78 @@ fn truncate_prompt_bytes(input: &str, max_bytes: usize) -> String {
     input[..end].to_string()
 }
 
+fn render_script_outcome(
+    mut base_input: serde_json::Value,
+    outcome: scripting::ScriptOutcome,
+) -> (String, bool, serde_json::Value) {
+    match outcome {
+        scripting::ScriptOutcome::Ok {
+            result,
+            budget_used,
+        } => {
+            attach_script_outcome_metadata(&mut base_input, "ok", Some(budget_used), None);
+            let content =
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string());
+            (content, true, base_input)
+        }
+        scripting::ScriptOutcome::CapExceeded { which, budget_used } => {
+            let which = cap_kind_label(which);
+            attach_script_outcome_metadata(
+                &mut base_input,
+                "cap-exceeded",
+                Some(budget_used),
+                Some(which),
+            );
+            (
+                format!("Lua script cap exceeded: {which}"),
+                false,
+                base_input,
+            )
+        }
+        scripting::ScriptOutcome::Error {
+            message,
+            budget_used,
+        } => {
+            attach_script_outcome_metadata(&mut base_input, "error", Some(budget_used), None);
+            if let serde_json::Value::Object(map) = &mut base_input {
+                map.insert("error".into(), serde_json::Value::String(message.clone()));
+            }
+            (message, false, base_input)
+        }
+    }
+}
+
+fn attach_script_outcome_metadata(
+    value: &mut serde_json::Value,
+    outcome: &str,
+    budget_used: Option<scripting::BudgetUsed>,
+    cap: Option<&str>,
+) {
+    if let serde_json::Value::Object(map) = value {
+        map.insert(
+            "outcome".into(),
+            serde_json::Value::String(outcome.to_string()),
+        );
+        if let Some(budget_used) = budget_used {
+            map.insert(
+                "budget_used".into(),
+                serde_json::to_value(budget_used).unwrap_or(serde_json::Value::Null),
+            );
+        }
+        if let Some(cap) = cap {
+            map.insert("cap".into(), serde_json::Value::String(cap.to_string()));
+        }
+    }
+}
+
+fn cap_kind_label(kind: scripting::CapKind) -> &'static str {
+    match kind {
+        scripting::CapKind::ExecutionTime => "execution-time",
+        scripting::CapKind::Memory => "memory",
+        scripting::CapKind::OutputBytes => "output-bytes",
+    }
+}
+
 fn render_upsert_job_preview(
     existing: Option<&allbert_proto::JobStatusPayload>,
     definition: &allbert_proto::JobDefinitionPayload,
@@ -3879,6 +4091,25 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push((self.label.to_string(), ctx.intent.clone()));
+            HookOutcome::Continue
+        }
+    }
+
+    struct ToolHookRecorder {
+        label: &'static str,
+        seen: Arc<Mutex<Vec<(String, String, serde_json::Value)>>>,
+    }
+
+    #[async_trait]
+    impl Hook for ToolHookRecorder {
+        async fn call(&self, ctx: &mut HookCtx) -> HookOutcome {
+            if let Some(invocation) = &ctx.tool_invocation {
+                self.seen.lock().unwrap().push((
+                    self.label.to_string(),
+                    invocation.name.clone(),
+                    invocation.input.clone(),
+                ));
+            }
             HookOutcome::Continue
         }
     }
@@ -6031,6 +6262,161 @@ mod tests {
                     && content.contains("not allowlisted")
                     && content.contains("config.security.exec_allow")
         )));
+    }
+
+    #[tokio::test]
+    async fn scripting_lua_skill_loads_but_reports_engine_disabled() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill_with_script(
+            &paths,
+            "lua-runner",
+            "Run a Lua helper",
+            "Use the Lua helper when needed.",
+            "helper",
+            "lua",
+            "scripts/helper.lua",
+            "return function(input) return { ok = true, args = input.args } end\n",
+        );
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            Config::default_template(),
+            test_adapter(Arc::clone(&events)),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"lua-runner\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Activated.".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"lua-runner\",\"script\":\"helper\",\"args\":[\"alpha\"]}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Done.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot with Lua-declaring skill");
+
+        kernel.run_turn("activate").await.expect("turn should pass");
+        events.lock().unwrap().clear();
+        kernel.run_turn("run it").await.expect("turn should pass");
+
+        let recorded = events.lock().unwrap();
+        assert!(recorded.iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "run_skill_script"
+                    && !*ok
+                    && content.contains("Lua scripting engine is disabled")
+        )));
+    }
+
+    #[tokio::test]
+    async fn scripting_lua_invocation_emits_synthetic_hook_metadata() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        write_skill_with_script(
+            &paths,
+            "lua-runner",
+            "Run a Lua helper",
+            "Use the Lua helper when needed.",
+            "helper",
+            "lua",
+            "scripts/helper.lua",
+            "return function(input) return { message = 'hello ' .. input.name } end\n",
+        );
+
+        let mut config = Config::default_template();
+        config.scripting.engine = config::ScriptingEngineConfig::Lua;
+        config.security.exec_allow.push("lua".into());
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let hook_events = Arc::new(Mutex::new(Vec::new()));
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::clone(&events)),
+            paths.clone(),
+            Arc::new(TestFactory::new(
+                "anthropic",
+                vec![
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"lua-runner\"}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Activated.".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"lua-runner\",\"script\":\"helper\",\"input\":{\"name\":\"Allbert\"}}}</tool_call>".into(),
+                        usage: Usage::default(),
+                    },
+                    CompletionResponse {
+                        text: "Done.".into(),
+                        usage: Usage::default(),
+                    },
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+        kernel.register_hook(
+            HookPoint::BeforeTool,
+            Arc::new(ToolHookRecorder {
+                label: "before",
+                seen: Arc::clone(&hook_events),
+            }),
+        );
+        kernel.register_hook(
+            HookPoint::AfterTool,
+            Arc::new(ToolHookRecorder {
+                label: "after",
+                seen: Arc::clone(&hook_events),
+            }),
+        );
+
+        kernel.run_turn("activate").await.expect("turn should pass");
+        events.lock().unwrap().clear();
+        hook_events.lock().unwrap().clear();
+        kernel.run_turn("run it").await.expect("turn should pass");
+
+        let recorded = events.lock().unwrap();
+        assert!(recorded.iter().any(|event| matches!(
+            event,
+            KernelEvent::ToolResult { name, ok, content }
+                if name == "run_skill_script"
+                    && *ok
+                    && content.contains("\"message\": \"hello Allbert\"")
+        )));
+
+        let hooks = hook_events.lock().unwrap();
+        assert!(hooks.iter().any(|(label, name, input)| {
+            label == "before"
+                && name == "exec.lua:lua-runner/scripts/helper.lua"
+                && input["engine"] == "lua"
+        }));
+        assert!(hooks.iter().any(|(label, name, input)| {
+            label == "after"
+                && name == "exec.lua:lua-runner/scripts/helper.lua"
+                && input["outcome"] == "ok"
+                && input["budget_used"]["output_bytes"].as_u64().unwrap_or(0) > 0
+        }));
     }
 
     #[tokio::test]

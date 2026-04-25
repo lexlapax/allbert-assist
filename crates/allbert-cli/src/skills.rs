@@ -681,8 +681,13 @@ fn validate_preview_against_config(preview: &SkillPreview, config: &Config) -> R
     Ok(())
 }
 
-fn lua_scripts_allowed(_config: &Config) -> bool {
-    false
+fn lua_scripts_allowed(config: &Config) -> bool {
+    config.scripting.engine == allbert_kernel::ScriptingEngineConfig::Lua
+        && config
+            .security
+            .exec_allow
+            .iter()
+            .any(|value| value == "lua")
 }
 
 fn inspect_candidate(skill_path: &Path, source_label: &str) -> Result<SkillPreview> {
