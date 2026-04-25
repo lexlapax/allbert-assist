@@ -36,6 +36,8 @@ commands:
   /skills [list|show <name>|search <substring>]
             inspect installed skills and routing metadata
   /setup    rerun guided setup and reload config for this session
+  /settings list [group]
+            inspect or safely change supported profile settings
   /status   show provider, current agent context, setup, roots, and trace state
   /statusline [show|enable|disable|toggle <item>|add <item>|remove <item>]
             inspect or change TUI status-line items
@@ -95,6 +97,7 @@ pub enum LocalCommand<'a> {
     Model(&'a str),
     Setup,
     Skills(&'a str),
+    Settings(&'a str),
     Status,
     StatusLine(&'a str),
     Telemetry,
@@ -143,6 +146,9 @@ pub async fn run_loop(
                     LocalCommand::Skills(command) => {
                         println!("{}", handle_skills_command(paths, command)?);
                     }
+                    LocalCommand::Settings(command) => {
+                        println!("{}", crate::settings_cli::handle_command(paths, command)?);
+                    }
                     LocalCommand::Status => {
                         let status = client.session_status().await?;
                         let config = allbert_kernel::Config::load_or_create(paths)?;
@@ -187,6 +193,7 @@ pub fn parse_local_command(input: &str) -> LocalCommand<'_> {
         command if command.starts_with("/memory") => LocalCommand::Memory(command),
         "/setup" => LocalCommand::Setup,
         command if command.starts_with("/skills") => LocalCommand::Skills(command),
+        command if command.starts_with("/settings") => LocalCommand::Settings(command),
         "/status" | "/s" => LocalCommand::Status,
         command if command.starts_with("/statusline") => LocalCommand::StatusLine(command),
         "/telemetry" => LocalCommand::Telemetry,
@@ -873,6 +880,10 @@ mod tests {
         assert!(matches!(
             parse_local_command("/skills search memory"),
             LocalCommand::Skills("/skills search memory")
+        ));
+        assert!(matches!(
+            parse_local_command("/settings list ui"),
+            LocalCommand::Settings("/settings list ui")
         ));
         assert!(matches!(
             parse_local_command("/memory show staged"),

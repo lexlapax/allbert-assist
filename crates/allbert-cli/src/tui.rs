@@ -214,6 +214,7 @@ impl TuiApp {
             | LocalCommand::Memory(_)
             | LocalCommand::Model(_)
             | LocalCommand::Setup
+            | LocalCommand::Settings(_)
             | LocalCommand::Status
             | LocalCommand::StatusLine(_)
             | LocalCommand::Telemetry => None,
@@ -349,6 +350,12 @@ async fn handle_key(
                 }
                 LocalCommand::Skills(command) => {
                     app.push_line(repl::handle_skills_command(paths, command)?);
+                }
+                LocalCommand::Settings(command) => {
+                    app.push_line(crate::settings_cli::handle_command(paths, command)?);
+                    let config = allbert_kernel::Config::load_or_create(paths)?;
+                    app.status_items = configured_status_items(&config);
+                    app.configure_tui(&config.repl.tui);
                 }
                 LocalCommand::StatusLine(command) => {
                     app.push_line(repl::handle_statusline_command(paths, command)?);

@@ -18,6 +18,7 @@ mod memory_cli;
 mod profile_cli;
 mod repl;
 mod self_improvement_cli;
+mod settings_cli;
 mod setup;
 mod skills;
 mod tui;
@@ -61,6 +62,17 @@ enum Command {
         #[command(subcommand)]
         command: SkillsCommand,
     },
+    /// Inspect and safely change supported profile settings.
+    Settings {
+        #[command(subcommand)]
+        command: SettingsCommand,
+    },
+    /// Run or resume guided profile setup.
+    Setup {
+        /// Resume from saved setup state when present.
+        #[arg(long)]
+        resume: bool,
+    },
     Identity {
         #[command(subcommand)]
         command: IdentityCommand,
@@ -89,11 +101,15 @@ enum Command {
         #[command(subcommand)]
         command: SessionsCommand,
     },
+    /// Start an interactive daemon-backed REPL.
     Repl {
+        /// Use the classic line-oriented REPL for this launch.
         #[arg(long)]
         classic: bool,
+        /// Use the responsive terminal UI for this launch.
         #[arg(long)]
         tui: bool,
+        /// Persist the selected REPL mode to config.toml.
         #[arg(long)]
         save: bool,
     },
@@ -146,6 +162,20 @@ enum SkillsCommand {
     Remove { name: String },
     /// Scaffold a new strict AgentSkills-format skill in the current directory.
     Init { name: String },
+}
+
+#[derive(Subcommand, Debug)]
+enum SettingsCommand {
+    /// List supported settings, optionally scoped to one group.
+    List { group: Option<String> },
+    /// Show one setting with validation and safety details.
+    Show { key: String },
+    /// Persist one allowlisted setting using path-preserving TOML edits.
+    Set { key: String, value: Vec<String> },
+    /// Remove an explicit override and fall back to the default.
+    Reset { key: String },
+    /// Explain a settings group and common examples.
+    Explain { group: String },
 }
 
 #[derive(Subcommand, Debug)]
@@ -441,6 +471,19 @@ async fn main() -> Result<()> {
         Some(Command::InternalDaemonHost) => run_internal_daemon_host().await,
         Some(Command::Skills { command }) => {
             run_skills_command(Some(&paths), Some(&config), command).await
+        }
+        Some(Command::Settings { command }) => run_settings_command(&paths, &config, command),
+        Some(Command::Setup { resume: _ }) => {
+            match setup::run_setup_wizard(&paths, &config)? {
+                Some(updated) => {
+                    updated.persist(&paths)?;
+                    println!(
+                        "Setup saved. Change these choices later with `allbert-cli settings`."
+                    );
+                }
+                None => println!("Setup cancelled."),
+            }
+            Ok(())
         }
         Some(Command::Identity { command }) => run_identity_command(&paths, command),
         Some(Command::Memory { command }) => run_memory_command(&paths, &config, command).await,
@@ -1557,6 +1600,27 @@ async fn run_skills_command(
     }
 }
 
+fn run_settings_command(
+    paths: &AllbertPaths,
+    config: &Config,
+    command: SettingsCommand,
+) -> Result<()> {
+    let rendered = match command {
+        SettingsCommand::List { group } => settings_cli::list(config, group.as_deref())?,
+        SettingsCommand::Show { key } => settings_cli::show(config, &key)?,
+        SettingsCommand::Set { key, value } => {
+            if value.is_empty() {
+                anyhow::bail!("usage: allbert-cli settings set <key> <value>");
+            }
+            settings_cli::set(paths, &key, &value.join(" "))?
+        }
+        SettingsCommand::Reset { key } => settings_cli::reset(paths, &key)?,
+        SettingsCommand::Explain { group } => settings_cli::explain(&group)?,
+    };
+    println!("{rendered}");
+    Ok(())
+}
+
 async fn run_repl(
     paths: &AllbertPaths,
     config: &Config,
@@ -1927,6 +1991,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
+    use clap::CommandFactory;
 
     static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -1986,5 +2051,19 @@ mod tests {
             .detail
             .unwrap_or_default()
             .contains("missing bot token"));
+    }
+
+    #[test]
+    fn cli_help_has_high_value_command_descriptions() {
+        let help = Args::command().render_long_help().to_string();
+        for expected in [
+            "settings",
+            "Run or resume guided profile setup",
+            "Inspect and safely change supported profile settings",
+            "repl",
+            "daemon",
+        ] {
+            assert!(help.contains(expected), "missing help text: {expected}");
+        }
     }
 }
