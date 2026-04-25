@@ -5,7 +5,7 @@ Status: Accepted
 
 > **Amended in v0.12.1**: `ActivitySnapshot` extends this daemon-owned telemetry posture with protocol v3 activity and stuck-state visibility. v3 daemons remain compatible with shipped v2 clients by negotiating the client protocol per connection and filtering v3-only activity messages and fields away from v2 peers.
 >
-> **Planned v0.12.2 amendment**: protocol v4 span events extend the same daemon-owned telemetry posture for trace/replay, while `ActivitySnapshot` remains the live operational truth. v4 daemons accept v2, v3, and v4 clients, negotiate per connection, and filter v3/v4-only messages and fields away from older peers. Frontends must not infer spans or activity phases locally.
+> **Planned v0.12.2 amendment**: protocol v4 trace span messages extend the same daemon-owned telemetry posture for trace/replay, while `ActivitySnapshot` remains the live operational truth. v4 daemons accept v2, v3, and v4 clients, negotiate per connection, and filter v3/v4-only messages and fields away from older peers. Frontends must not infer spans or activity phases locally.
 
 ## Context
 

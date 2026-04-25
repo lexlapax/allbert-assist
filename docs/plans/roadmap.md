@@ -115,7 +115,7 @@ v0.14 (self-diagnosis + Unix co-tenant) is scoped after v0.13 primarily for scop
 
 - v0.11's telemetry + routing + staging expose the trace and memory surfaces self-diagnosis reads and writes through.
 - v0.12's sibling-worktree, Tier A validation, `patch-approval` inbox, and `skill-author` give candidate self-fixes a review home and an isolation mechanism.
-- v0.12.2's persisted session traces and trace read/export APIs give self-diagnosis durable diagnostic input.
+- v0.12.2's persisted session traces and bounded trace read APIs over active plus rotated session artifacts give self-diagnosis durable diagnostic input.
 - v0.13's personalization establishes that "Allbert changes itself, operator reviews before it lands" is a familiar loop, not a novel one.
 
 v0.14's *hard runtime* dependencies are v0.11, v0.12, and v0.12.2. v0.13 is a sequencing neighbor: shipping v0.14 alongside personalization would combine two hard reviews (training data scope and self-modification proposals) into one release, which we deliberately avoid. If personalization were ever deprioritized, v0.14 could ship directly after v0.12.2 without code-level conflicts; the sequencing choice is reviewability, not capability.

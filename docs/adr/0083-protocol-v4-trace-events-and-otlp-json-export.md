@@ -15,13 +15,13 @@ v0.12.2 bumps the daemon protocol from `3` to `4` additively. A v4 daemon accept
 
 - v2 peers receive only v2-safe messages and fields.
 - v3 peers receive v0.12.1 activity messages and fields, but no v4 trace messages.
-- v4 peers receive trace messages, span events, trace read responses, and trace session summaries.
+- v4 peers receive trace span messages, trace read responses, and trace session summaries.
 
 Unsupported versions below `2` or above `4` receive `ProtocolError { code: "version_mismatch", ... }` with remediation that names whether to upgrade the client or daemon. A v4 client connected to a v3 daemon must surface `upgrade the daemon to v0.12.2 to use trace surfaces` and must not synthesize spans locally.
 
-The v4 surface is additive and includes span types, `ServerMessage::SpanEvent`, trace read/list requests, and trace read/list responses. Live trace broadcast is optional for subscribers; durable replay remains file-backed through ADR 0081.
+The v4 surface is additive and includes span types, `ServerMessage::TraceSpan` completed-span broadcasts, trace read/list requests, one-span detail requests, and trace read/list responses. `SpanEvent` remains the name for events nested inside a span, not the daemon broadcast message. Live trace broadcast is optional for subscribers; durable replay remains file-backed through ADR 0081.
 
-OTLP export is file-only in v0.12.2. `allbert-cli trace export <session> --format otlp-json` writes an OTLP/JSON trace payload under `ALLBERT_HOME` by default, using `trace.otel_export_dir` only when the configured directory stays inside `ALLBERT_HOME`. Absolute paths and path escapes are rejected. No HTTP/gRPC/network exporter ships in v0.12.2.
+OTLP export is file-only in v0.12.2. `allbert-cli trace export <session> --format otlp-json` writes an OTLP/JSON trace payload under `ALLBERT_HOME/exports/traces` by default, using `trace.otel_export_dir` only when the configured directory stays inside `ALLBERT_HOME`. `--out` may override the export path, but the resolved path must still remain under `ALLBERT_HOME`. Absolute paths and path escapes are rejected. No HTTP/gRPC/network exporter ships in v0.12.2.
 
 Allbert's internal JSONL trace schema is the durable replay contract. The OTLP-JSON exporter maps internal spans to the current OTLP trace payload shape and the current OpenTelemetry GenAI semantic convention names at export time. If GenAI conventions change, the exporter mapping can change without migrating historical internal trace files unless the Allbert schema itself changes.
 
