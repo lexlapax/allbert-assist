@@ -221,6 +221,7 @@ impl TuiApp {
             }
             LocalCommand::Help => Some(repl::HELP_TEXT.to_string()),
             LocalCommand::Agents
+            | LocalCommand::Adapters(_)
             | LocalCommand::Activity
             | LocalCommand::Context
             | LocalCommand::Inbox(_)
@@ -374,6 +375,9 @@ async fn handle_key(
                 }
                 LocalCommand::Memory(command) => {
                     app.push_line(repl::handle_memory_command(paths, command)?);
+                }
+                LocalCommand::Adapters(command) => {
+                    app.push_line(repl::handle_adapters_command(paths, command)?);
                 }
                 LocalCommand::Skills(command) => {
                     app.push_line(repl::handle_skills_command(paths, command)?);
@@ -690,6 +694,14 @@ fn status_item(item: &str, telemetry: &TelemetrySnapshot) -> String {
         ),
         "skills" => format!("skills {}", telemetry.active_skills.len()),
         "inbox" => format!("inbox {}", telemetry.inbox_count),
+        "adapter" => format!(
+            "adapter {}",
+            telemetry
+                .adapter
+                .as_ref()
+                .map(|adapter| adapter.active_id.as_str())
+                .unwrap_or("none")
+        ),
         "channel" => format!("ch {:?}", telemetry.channel),
         "trace" => format!(
             "trace {}",
@@ -891,6 +903,7 @@ mod tests {
             inbox_count: 1,
             trace_enabled: false,
             setup_version: 4,
+            adapter: None,
             current_activity: None,
         }
     }

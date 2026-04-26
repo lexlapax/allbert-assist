@@ -11,6 +11,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde::Serialize;
 
+mod adapters_cli;
 mod approvals;
 mod heartbeat_cli;
 mod identity_cli;
@@ -24,13 +25,15 @@ mod skills;
 mod trace_cli;
 mod tui;
 
+use adapters_cli::AdaptersCommand;
+
 #[derive(Parser, Debug)]
 #[command(
     author,
     version,
     about = "Allbert daemon-backed CLI",
     long_about = None,
-    after_long_help = "EXAMPLES:\n  allbert-cli repl\n  allbert-cli activity\n  allbert-cli trace show\n  allbert-cli settings list ui\n  allbert-cli memory staged list\n  allbert-cli skills show memory-curator\n  allbert-cli daemon status\n"
+    after_long_help = "EXAMPLES:\n  allbert-cli repl\n  allbert-cli activity\n  allbert-cli adapters status\n  allbert-cli adapters training preview\n  allbert-cli trace show\n  allbert-cli settings list ui\n  allbert-cli memory staged list\n  allbert-cli skills show memory-curator\n  allbert-cli daemon status\n"
 )]
 struct Args {
     /// Enable daemon debug logging for the running daemon at ~/.allbert/logs/daemon.debug.log.
@@ -56,6 +59,11 @@ enum Command {
     Jobs {
         #[command(subcommand)]
         command: JobsCommand,
+    },
+    /// Manage local personalization adapters.
+    Adapters {
+        #[command(subcommand)]
+        command: AdaptersCommand,
     },
     Learning {
         #[command(subcommand)]
@@ -612,6 +620,7 @@ async fn run_cli() -> Result<()> {
         Some(Command::Inbox { command }) => run_inbox_command(&paths, &config, command).await,
         Some(Command::Activity { json }) => run_activity_command(&paths, &config, json).await,
         Some(Command::Trace { command }) => run_trace_command(&paths, &config, command).await,
+        Some(Command::Adapters { command }) => adapters_cli::run(&paths, &config, command),
         Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
         Some(Command::Heartbeat { command }) => run_heartbeat_command(&paths, command),
         Some(Command::Sessions { command }) => run_sessions_command(&paths, &config, command).await,
@@ -2109,12 +2118,18 @@ fn render_telemetry_summary(snapshot: &allbert_proto::TelemetrySnapshot) -> Stri
         .as_ref()
         .map(|usage| format!("{} in / {} out", usage.input_tokens, usage.output_tokens))
         .unwrap_or_else(|| "(none yet)".into());
+    let adapter = snapshot
+        .adapter
+        .as_ref()
+        .map(|adapter| adapter.active_id.as_str())
+        .unwrap_or("(none)");
     format!(
-        "session:       {}\nchannel:       {:?}\nmodel:         {} ({})\ncontext:       {}\nlast tokens:   {}\nsession tokens:{}\ncost:          session ${:.6}, today ${:.6}\nmemory:        durable {}, staged {}, episodes {}, facts {}\ninbox:         {}\nintent:        {}\ntrace:         {}",
+        "session:       {}\nchannel:       {:?}\nmodel:         {} ({})\nadapter:       {}\ncontext:       {}\nlast tokens:   {}\nsession tokens:{}\ncost:          session ${:.6}, today ${:.6}\nmemory:        durable {}, staged {}, episodes {}, facts {}\ninbox:         {}\nintent:        {}\ntrace:         {}",
         snapshot.session_id,
         snapshot.channel,
         snapshot.model.model_id,
         snapshot.provider,
+        adapter,
         ctx,
         last,
         snapshot.session_usage.total_tokens,

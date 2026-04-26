@@ -1910,6 +1910,8 @@ enum TelegramCommand {
     Text(String),
     Activity,
     Status,
+    AdapterStatus,
+    AdapterApprovals,
     TraceLast,
     TraceSpan(String),
     Reset,
@@ -1971,6 +1973,40 @@ impl TelegramRuntime {
             }
             TelegramCommand::Status => {
                 self.send_status(chat_id, &sender_id).await?;
+            }
+            TelegramCommand::AdapterStatus => {
+                let store = allbert_kernel::AdapterStore::new(self.state.paths.clone());
+                let rendered = match store.active().map_err(map_kernel_error)? {
+                    Some(active) => format!(
+                        "Adapter active: `{}` on `{}`.",
+                        active.adapter_id, active.base_model.model_id
+                    ),
+                    None => "Adapter active: none.".into(),
+                };
+                self.send_text(chat_id, rendered).await?;
+            }
+            TelegramCommand::AdapterApprovals => {
+                let approvals = list_inbox_entries(
+                    &self.state,
+                    allbert_proto::InboxQueryPayload {
+                        identity: None,
+                        include_resolved: false,
+                        kind: Some("adapter-approval".into()),
+                    },
+                );
+                self.send_text(
+                    chat_id,
+                    if approvals.is_empty() {
+                        "No pending adapter approvals.".into()
+                    } else {
+                        approvals
+                            .iter()
+                            .map(|approval| format!("{} {}", approval.id, approval.status))
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                    },
+                )
+                .await?;
             }
             TelegramCommand::TraceLast => {
                 self.send_trace_last(chat_id, &sender_id).await?;
@@ -2892,6 +2928,12 @@ fn parse_telegram_command(text: &str) -> TelegramCommand {
     }
     if trimmed == "/status" {
         return TelegramCommand::Status;
+    }
+    if trimmed == "/adapter status" {
+        return TelegramCommand::AdapterStatus;
+    }
+    if trimmed == "/adapter approvals" {
+        return TelegramCommand::AdapterApprovals;
     }
     if trimmed == "/trace last" {
         return TelegramCommand::TraceLast;

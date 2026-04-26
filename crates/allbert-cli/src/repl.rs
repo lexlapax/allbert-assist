@@ -22,6 +22,8 @@ commands:
             allow the next turn to bypass the daily cap once
   /help     show this help
   /agents   show the generated AGENTS.md routing summary
+  /adapters [status|list|history]
+            inspect local personalization adapter state
   /activity show what the daemon says Allbert is doing right now
   /context  show context-window usage and pressure
   /inbox [list|show <id>|accept <id>|reject <id>]
@@ -104,6 +106,7 @@ commands:
 
 const SUPPORTED_SLASH_COMMANDS: &[&str] = &[
     "/activity",
+    "/adapters",
     "/agents",
     "/context",
     "/cost",
@@ -130,6 +133,7 @@ pub enum LocalCommand<'a> {
     Help,
     Agents,
     Activity,
+    Adapters(&'a str),
     Context,
     Cost(&'a str),
     Inbox(&'a str),
@@ -173,6 +177,9 @@ pub async fn run_loop(
                     LocalCommand::Help => println!("{HELP_TEXT}"),
                     LocalCommand::Agents => {
                         println!("{}", handle_agents_command(paths)?);
+                    }
+                    LocalCommand::Adapters(command) => {
+                        println!("{}", handle_adapters_command(paths, command)?);
                     }
                     LocalCommand::Activity => {
                         println!("{}", handle_activity_command(client).await?);
@@ -263,6 +270,7 @@ pub fn slash_argument_hint(input: &str) -> Option<&'static str> {
         "/memory" => Some("hint: /memory staged list | staged show <id> | show staged | show today | routing show"),
         "/self-improvement" => Some("hint: /self-improvement install <approval-id> --allow-needs-review | gc --dry-run"),
         "/settings" => Some("hint: /settings list <group> | show <key> | set <key> <value> | reset <key>"),
+        "/adapters" => Some("hint: /adapters status | list | history"),
         "/trace" => Some("hint: /trace show [session] | show-span <id> [--session <session>] | tail [session] | export [session] | settings"),
         _ => None,
     }
@@ -307,6 +315,7 @@ pub fn parse_local_command(input: &str) -> LocalCommand<'_> {
         "/exit" | "/quit" => LocalCommand::Exit,
         "/help" | "/h" => LocalCommand::Help,
         "/agents" => LocalCommand::Agents,
+        command if command.starts_with("/adapters") => LocalCommand::Adapters(command),
         "/activity" => LocalCommand::Activity,
         "/context" => LocalCommand::Context,
         command if command.starts_with("/cost") => LocalCommand::Cost(command),
@@ -673,6 +682,51 @@ pub async fn handle_context_command(client: &mut DaemonClient) -> Result<String>
 
 pub fn handle_agents_command(paths: &allbert_kernel::AllbertPaths) -> Result<String> {
     Ok(allbert_kernel::refresh_agents_markdown(paths)?)
+}
+
+pub fn handle_adapters_command(
+    paths: &allbert_kernel::AllbertPaths,
+    command: &str,
+) -> Result<String> {
+    if let Some(hint) = slash_argument_hint(command) {
+        return Ok(hint.into());
+    }
+    let store = allbert_kernel::AdapterStore::new(paths.clone());
+    let args = command.split_whitespace().collect::<Vec<_>>();
+    match args.as_slice() {
+        ["/adapters"] | ["/adapters", "status"] => Ok(match store.active()? {
+            Some(active) => format!(
+                "active adapter: {} ({})",
+                active.adapter_id, active.base_model.model_id
+            ),
+            None => "active adapter: none".into(),
+        }),
+        ["/adapters", "list"] => {
+            let rows = store
+                .list()?
+                .into_iter()
+                .map(|manifest| format!("{}\t{:?}", manifest.adapter_id, manifest.overall))
+                .collect::<Vec<_>>();
+            Ok(if rows.is_empty() {
+                "no installed adapters".into()
+            } else {
+                rows.join("\n")
+            })
+        }
+        ["/adapters", "history"] => {
+            let rows = store
+                .history(Some(10))?
+                .into_iter()
+                .map(|entry| format!("{}\t{}\t{}", entry.at, entry.action, entry.adapter_id))
+                .collect::<Vec<_>>();
+            Ok(if rows.is_empty() {
+                "no adapter history".into()
+            } else {
+                rows.join("\n")
+            })
+        }
+        _ => Ok("usage: /adapters [status|list|history]".into()),
+    }
 }
 
 pub fn handle_skills_command(

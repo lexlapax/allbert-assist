@@ -1714,8 +1714,26 @@ impl Kernel {
             inbox_count,
             trace_enabled,
             setup_version: self.config.setup.version,
+            adapter: self.adapter_telemetry().ok().flatten(),
             current_activity: None,
         })
+    }
+
+    fn adapter_telemetry(&self) -> Result<Option<allbert_proto::AdapterTelemetry>, KernelError> {
+        let store = AdapterStore::new(self.paths.clone());
+        let Some(active) = store.active()? else {
+            return Ok(None);
+        };
+        let Some(manifest) = store.show(&active.adapter_id)? else {
+            return Ok(None);
+        };
+        Ok(Some(allbert_proto::AdapterTelemetry {
+            active_id: active.adapter_id,
+            base_model: manifest.base_model.model_id,
+            provenance: format!("{:?}", manifest.provenance),
+            trained_at: manifest.created_at.to_rfc3339(),
+            golden_pass_rate: manifest.eval_summary.golden_pass_rate,
+        }))
     }
 
     fn effective_root_turn_budget(

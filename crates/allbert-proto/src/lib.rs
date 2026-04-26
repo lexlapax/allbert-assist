@@ -257,6 +257,15 @@ pub struct MemoryTelemetry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AdapterTelemetry {
+    pub active_id: String,
+    pub base_model: String,
+    pub provenance: String,
+    pub trained_at: String,
+    pub golden_pass_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TelemetrySnapshot {
     pub session_id: String,
     pub channel: ChannelKind,
@@ -277,6 +286,8 @@ pub struct TelemetrySnapshot {
     pub inbox_count: usize,
     pub trace_enabled: bool,
     pub setup_version: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adapter: Option<AdapterTelemetry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_activity: Option<ActivitySnapshot>,
 }
@@ -1038,6 +1049,7 @@ mod tests {
             inbox_count: 1,
             trace_enabled: true,
             setup_version: 4,
+            adapter: None,
             current_activity: Some(activity.clone()),
         };
 

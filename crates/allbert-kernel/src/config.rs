@@ -412,12 +412,13 @@ pub enum StatusLineItem {
     Intent,
     Skills,
     Inbox,
+    Adapter,
     Channel,
     Trace,
 }
 
 impl StatusLineItem {
-    pub const CATALOG: [Self; 10] = [
+    pub const CATALOG: [Self; 11] = [
         Self::Model,
         Self::Context,
         Self::Tokens,
@@ -426,6 +427,7 @@ impl StatusLineItem {
         Self::Intent,
         Self::Skills,
         Self::Inbox,
+        Self::Adapter,
         Self::Channel,
         Self::Trace,
     ];
@@ -444,6 +446,7 @@ impl StatusLineItem {
             Self::Intent => "intent",
             Self::Skills => "skills",
             Self::Inbox => "inbox",
+            Self::Adapter => "adapter",
             Self::Channel => "channel",
             Self::Trace => "trace",
         }
