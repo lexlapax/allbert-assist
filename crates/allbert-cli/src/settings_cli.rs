@@ -68,6 +68,9 @@ pub fn explain(group: &str) -> Result<String> {
         SettingsGroup::Trace => {
             "examples: trace.enabled, trace.capture_messages, trace.redaction.provider_payloads"
         }
+        SettingsGroup::SelfDiagnosis => {
+            "examples: self_diagnosis.enabled, self_diagnosis.lookback_days"
+        }
         SettingsGroup::Memory => "examples: memory.prefetch_enabled, memory.trash_retention_days",
         SettingsGroup::Learning => {
             "examples: learning.enabled, learning.personality_digest.output_path"
@@ -129,6 +132,7 @@ fn group_description(group: SettingsGroup) -> &'static str {
         SettingsGroup::Trace => {
             "Durable session trace capture, privacy, retention, and export posture."
         }
+        SettingsGroup::SelfDiagnosis => "Bounded trace diagnosis and remediation gate posture.",
         SettingsGroup::Memory => "Memory routing, retention, and retrieval posture.",
         SettingsGroup::Learning => "Reviewed learning and personality digest behavior.",
         SettingsGroup::Personalization => {

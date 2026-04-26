@@ -53,6 +53,8 @@ pub struct Config {
     #[serde(default)]
     pub self_improvement: SelfImprovementConfig,
     #[serde(default)]
+    pub self_diagnosis: SelfDiagnosisConfig,
+    #[serde(default)]
     pub scripting: ScriptingConfig,
     #[serde(default)]
     pub security: SecurityConfig,
@@ -555,6 +557,34 @@ impl Default for TraceConfig {
             otel_export_dir: String::new(),
             otel_service_name: "allbert".into(),
             redaction: TraceRedactionConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct SelfDiagnosisConfig {
+    pub enabled: bool,
+    pub lookback_days: u16,
+    pub max_sessions: usize,
+    pub max_spans: usize,
+    pub max_events: usize,
+    pub max_text_snippet_bytes: usize,
+    pub max_report_bytes: usize,
+    pub allow_remediation: bool,
+}
+
+impl Default for SelfDiagnosisConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            lookback_days: 7,
+            max_sessions: 5,
+            max_spans: 1_000,
+            max_events: 2_000,
+            max_text_snippet_bytes: 32_768,
+            max_report_bytes: 262_144,
+            allow_remediation: false,
         }
     }
 }
@@ -1123,6 +1153,7 @@ impl Config {
             memory: MemoryConfig::default(),
             learning: LearningConfig::default(),
             self_improvement: SelfImprovementConfig::default(),
+            self_diagnosis: SelfDiagnosisConfig::default(),
             scripting: ScriptingConfig::default(),
             security: SecurityConfig::default(),
             limits: LimitsConfig::default(),
@@ -1442,6 +1473,7 @@ impl Config {
         validate_personality_digest_config(&self.learning.personality_digest)?;
         validate_adapter_training_config(&self.learning.adapter_training)?;
         validate_self_improvement_config(&self.self_improvement)?;
+        validate_self_diagnosis_config(&self.self_diagnosis)?;
         validate_scripting_config(&self.scripting)?;
         validate_trace_config(&self.trace)?;
         if matches!(self.limits.daily_usd_cap, Some(value) if value < 0.0) {
@@ -1867,6 +1899,28 @@ fn validate_self_improvement_config(config: &SelfImprovementConfig) -> Result<()
     }
     if config.max_worktree_gb == 0 {
         return Err("self_improvement.max_worktree_gb must be >= 1".into());
+    }
+    Ok(())
+}
+
+fn validate_self_diagnosis_config(config: &SelfDiagnosisConfig) -> Result<(), String> {
+    if !(1..=90).contains(&config.lookback_days) {
+        return Err("self_diagnosis.lookback_days must be between 1 and 90".into());
+    }
+    if !(1..=50).contains(&config.max_sessions) {
+        return Err("self_diagnosis.max_sessions must be between 1 and 50".into());
+    }
+    if !(1..=10_000).contains(&config.max_spans) {
+        return Err("self_diagnosis.max_spans must be between 1 and 10000".into());
+    }
+    if config.max_events > 50_000 {
+        return Err("self_diagnosis.max_events must be <= 50000".into());
+    }
+    if !(1_024..=262_144).contains(&config.max_text_snippet_bytes) {
+        return Err("self_diagnosis.max_text_snippet_bytes must be between 1024 and 262144".into());
+    }
+    if !(8_192..=1_048_576).contains(&config.max_report_bytes) {
+        return Err("self_diagnosis.max_report_bytes must be between 8192 and 1048576".into());
     }
     Ok(())
 }

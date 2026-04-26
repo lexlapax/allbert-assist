@@ -20,6 +20,7 @@ pub mod paths;
 pub mod replay;
 pub mod scripting;
 pub mod security;
+pub mod self_diagnosis;
 pub mod self_improvement;
 pub mod settings;
 pub mod skills;
@@ -67,9 +68,10 @@ pub use config::{
     MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig, MemoryRoutingMode,
     MemorySemanticConfig, ModelConfig, OperatorUxConfig, PersonalityDigestConfig, Provider,
     ReplConfig, ReplUiMode, ScriptingConfig, ScriptingEngineConfig, SecurityConfig,
-    SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig, SetupConfig,
-    StatusLineConfig, StatusLineItem, TraceConfig, TraceDefaultsWriteResult, TraceFieldPolicy,
-    TraceRedactionConfig, TuiConfig, TuiSpinnerStyle, WebSecurityConfig, CURRENT_SETUP_VERSION,
+    SelfDiagnosisConfig, SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig,
+    SetupConfig, StatusLineConfig, StatusLineItem, TraceConfig, TraceDefaultsWriteResult,
+    TraceFieldPolicy, TraceRedactionConfig, TuiConfig, TuiSpinnerStyle, WebSecurityConfig,
+    CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{
@@ -117,6 +119,14 @@ pub use scripting::{
     LUA_MAX_MEMORY_KB_CEILING, LUA_MAX_OUTPUT_BYTES_CEILING,
 };
 pub use security::SecurityHook;
+pub use self_diagnosis::{
+    build_trace_diagnostic_bundle, diagnosis_report_summary, diagnosis_summary,
+    generate_diagnosis_id, DiagnosisRemediationStatus, DiagnosisRemediationSummary,
+    DiagnosisReportSummary, DiagnosisSummary, DiagnosticEvent, DiagnosticSpan,
+    DiagnosticSpanStatus, DiagnosticTruncation, FailureClassification, FailureKind,
+    SelfDiagnoseInput, TraceDiagnosticBounds, TraceDiagnosticBundle,
+    DIAGNOSIS_REPORT_SUMMARY_SCHEMA_VERSION, TRACE_DIAGNOSTIC_BUNDLE_VERSION,
+};
 pub use self_improvement::{
     assert_rust_rebuild_ready, check_self_improvement_write_target, collect_worktree_gc,
     create_rust_rebuild_worktree, emit_patch_artifact, ensure_worktree_creation_allowed,
@@ -492,6 +502,10 @@ impl ToolRuntime for KernelToolRuntime<'_> {
 
     fn create_skill(&mut self, input: serde_json::Value) -> ToolOutput {
         self.kernel.dispatch_create_skill(input)
+    }
+
+    fn self_diagnose(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_self_diagnose(self.state, input)
     }
 
     async fn spawn_subagent(&mut self, input: serde_json::Value) -> ToolOutput {
@@ -3199,6 +3213,43 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 ok: false,
             },
         }
+    }
+
+    fn dispatch_self_diagnose(&self, state: &AgentState, input: serde_json::Value) -> ToolOutput {
+        if !self.config.self_diagnosis.enabled {
+            return ToolOutput {
+                content: "self_diagnosis.enabled is false; enable it before running self_diagnose"
+                    .into(),
+                ok: false,
+            };
+        }
+
+        let parsed = match serde_json::from_value::<SelfDiagnoseInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid self_diagnose input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+
+        let bundle = match self_diagnosis::build_trace_diagnostic_bundle(
+            &self.paths,
+            &self.config.self_diagnosis,
+            &state.session_id,
+            parsed.session_id.as_deref(),
+            parsed.lookback_days,
+        ) {
+            Ok(bundle) => bundle,
+            Err(err) => {
+                return ToolOutput {
+                    content: err.to_string(),
+                    ok: false,
+                }
+            }
+        };
+        serialize_tool_value(&self_diagnosis::diagnosis_report_summary(&bundle, None))
     }
 
     fn dispatch_read_memory(&self, input: serde_json::Value) -> ToolOutput {

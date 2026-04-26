@@ -41,6 +41,7 @@ pub trait ToolRuntime: Send {
     fn read_reference(&mut self, input: Value) -> ToolOutput;
     async fn run_skill_script(&mut self, input: Value) -> ToolOutput;
     fn create_skill(&mut self, input: Value) -> ToolOutput;
+    fn self_diagnose(&mut self, input: Value) -> ToolOutput;
 
     async fn spawn_subagent(&mut self, input: Value) -> ToolOutput;
 }
@@ -87,6 +88,7 @@ impl ToolRegistry {
         registry.register(ReadReferenceTool);
         registry.register(RunSkillScriptTool);
         registry.register(CreateSkillTool);
+        registry.register(SelfDiagnoseTool);
         registry.register(SpawnSubagentTool);
         registry
     }
@@ -950,6 +952,34 @@ impl Tool for CreateSkillTool {
 
 struct SpawnSubagentTool;
 
+struct SelfDiagnoseTool;
+
+#[async_trait]
+impl Tool for SelfDiagnoseTool {
+    fn name(&self) -> &'static str {
+        "self_diagnose"
+    }
+
+    fn description(&self) -> &'static str {
+        "Build a bounded, redacted diagnostic summary from local trace artifacts"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "session_id": {"type": "string"},
+                "lookback_days": {"type": "integer", "minimum": 1, "maximum": 90}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.self_diagnose(input))
+    }
+}
+
 #[async_trait]
 impl Tool for SpawnSubagentTool {
     fn name(&self) -> &'static str {
@@ -1228,6 +1258,12 @@ mod tests {
         fn create_skill(&mut self, _input: Value) -> ToolOutput {
             ToolOutput {
                 content: String::new(),
+                ok: true,
+            }
+        }
+        fn self_diagnose(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput {
+                content: "{\"summary\":{\"primary_failure\":\"unknown_local\"}}".into(),
                 ok: true,
             }
         }
