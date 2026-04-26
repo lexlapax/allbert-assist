@@ -14,7 +14,7 @@ use gray_matter::Matter;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
-use allbert_kernel::{
+use allbert_kernel_services::{
     llm::ProviderFactory, AllbertPaths, Config, FrontendAdapter, Kernel, KernelError, ModelConfig,
     Provider,
 };
@@ -856,7 +856,7 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), std::io::Error> {
         ));
     };
     let _ = parent;
-    allbert_kernel::atomic_write(path, bytes)
+    allbert_kernel_services::atomic_write(path, bytes)
 }
 
 fn validate_job_name(name: &str) -> Result<(), DaemonError> {
@@ -1001,8 +1001,8 @@ pub(crate) async fn execute_job(
     }
 
     let ended_at;
-    if definition.name == allbert_kernel::PERSONALITY_ADAPTER_JOB_NAME {
-        let result = allbert_kernel::run_personality_adapter_training_with_session(
+    if definition.name == allbert_kernel_services::PERSONALITY_ADAPTER_JOB_NAME {
+        let result = allbert_kernel_services::run_personality_adapter_training_with_session(
             paths,
             &config,
             &session_id,

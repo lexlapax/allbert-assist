@@ -1,4 +1,4 @@
-use allbert_kernel::{
+use allbert_kernel_services::{
     find_setting, persist_setting_value, reset_setting_value, settings_for_config, AllbertPaths,
     Config, SettingMutation, SettingPersistenceError, SettingRedactionPolicy, SettingsGroup,
 };

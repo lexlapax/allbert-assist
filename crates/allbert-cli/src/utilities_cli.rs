@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use allbert_kernel::{
+use allbert_kernel_services::{
     disable_utility, discover_utilities, enable_utility, inspect_utility, list_enabled_utilities,
     utility_doctor, AllbertPaths, Config, EnabledUtilityEntry, LocalUtilityDiscovery,
     UtilityDoctorReport, UtilityEnableResult,
@@ -354,7 +354,7 @@ fn yes_no(value: bool) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use allbert_kernel::AllbertPaths;
+    use allbert_kernel_services::AllbertPaths;
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 

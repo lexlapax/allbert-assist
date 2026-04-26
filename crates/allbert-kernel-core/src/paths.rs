@@ -171,7 +171,7 @@ const RUST_REBUILD_SKILL_TEMPLATE: &str = include_str!("../../../skills/rust-reb
 const SKILL_AUTHOR_SKILL_TEMPLATE: &str = include_str!("../../../skills/skill-author/SKILL.md");
 const SELF_DIAGNOSE_SKILL_TEMPLATE: &str = include_str!("../../../skills/self-diagnose/SKILL.md");
 const ADAPTER_GOLDEN_BOOTSTRAP_TEMPLATE: &str =
-    include_str!("../../allbert-kernel/assets/adapter-golden-bootstrap.jsonl");
+    include_str!("../assets/adapter-golden-bootstrap.jsonl");
 
 #[derive(Debug, Clone)]
 pub struct AllbertPaths {

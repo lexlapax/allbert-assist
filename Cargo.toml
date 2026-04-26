@@ -2,7 +2,6 @@
 members = [
     "crates/allbert-kernel-core",
     "crates/allbert-kernel-services",
-    "crates/allbert-kernel",
     "crates/allbert-cli",
     "crates/allbert-proto",
     "crates/allbert-channels",

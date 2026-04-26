@@ -10,11 +10,11 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use allbert_daemon::{spawn, spawn_with_factory, DaemonClient, DaemonError, RunningDaemon};
-use allbert_kernel::error::LlmError;
-use allbert_kernel::llm::{
+use allbert_kernel_services::error::LlmError;
+use allbert_kernel_services::llm::{
     CompletionRequest, CompletionResponse, LlmProvider, ProviderFactory, Usage,
 };
-use allbert_kernel::{
+use allbert_kernel_services::{
     add_identity_channel, ensure_identity_record, load_identity_record, memory, AllbertPaths,
     Config, ModelConfig,
 };
@@ -363,7 +363,7 @@ async fn daemon_adapter_protocol_uses_store_and_training_runner() {
         .parent()
         .expect("manifest should have run parent")
         .to_path_buf();
-    let installed = allbert_kernel::AdapterStore::new(paths.clone())
+    let installed = allbert_kernel_services::AdapterStore::new(paths.clone())
         .install_from_run(&run_dir)
         .expect("trained adapter should install");
 
@@ -719,7 +719,7 @@ impl LlmProvider for TestProvider {
             .ok_or_else(|| LlmError::Response("no scripted response left".into()))
     }
 
-    fn pricing(&self, _model: &str) -> Option<allbert_kernel::llm::Pricing> {
+    fn pricing(&self, _model: &str) -> Option<allbert_kernel_services::llm::Pricing> {
         None
     }
 
@@ -844,11 +844,11 @@ fn continuity_bearing_modules_do_not_use_raw_fs_write() {
         .to_path_buf();
     for (relative, forbidden) in [
         (
-            "crates/allbert-kernel/src/config.rs",
+            "crates/allbert-kernel-core/src/config.rs",
             vec!["std::fs::write(&paths.config, rendered)"],
         ),
         (
-            "crates/allbert-kernel/src/paths.rs",
+            "crates/allbert-kernel-core/src/paths.rs",
             vec!["std::fs::write(path, content)"],
         ),
         (
@@ -874,7 +874,7 @@ fn continuity_bearing_modules_do_not_use_raw_fs_write() {
             ],
         ),
         (
-            "crates/allbert-kernel/src/lib.rs",
+            "crates/allbert-kernel-services/src/lib.rs",
             vec![
                 "std::fs::write(&paths.agents_notes, &rendered)",
                 "std::fs::write(&paths.agents_notes, rendered_agents)",
@@ -882,7 +882,7 @@ fn continuity_bearing_modules_do_not_use_raw_fs_write() {
             ],
         ),
         (
-            "crates/allbert-kernel/src/memory/mod.rs",
+            "crates/allbert-kernel-services/src/memory/mod.rs",
             vec![
                 "std::fs::write(&paths.memory_index, \"# MEMORY\\n\\n\")",
                 "WriteMemoryMode::Write => std::fs::write(&target, input.content.as_bytes())",
@@ -892,7 +892,7 @@ fn continuity_bearing_modules_do_not_use_raw_fs_write() {
             ],
         ),
         (
-            "crates/allbert-kernel/src/memory/curated.rs",
+            "crates/allbert-kernel-services/src/memory/curated.rs",
             vec![
                 "fs::write(&paths.memory_index, \"# MEMORY\\n\\n\")",
                 "fs::write(path, contents)",
@@ -900,7 +900,7 @@ fn continuity_bearing_modules_do_not_use_raw_fs_write() {
             ],
         ),
         (
-            "crates/allbert-kernel/src/skills/mod.rs",
+            "crates/allbert-kernel-services/src/skills/mod.rs",
             vec![
                 "fs::write(&skill_path, frontmatter)",
                 "fs::write(&paths.agents_notes, &rendered)",
@@ -1092,7 +1092,7 @@ impl LlmProvider for ProbeProvider {
         Ok(scripted(&self.response_text))
     }
 
-    fn pricing(&self, _model: &str) -> Option<allbert_kernel::llm::Pricing> {
+    fn pricing(&self, _model: &str) -> Option<allbert_kernel_services::llm::Pricing> {
         None
     }
 
@@ -2862,9 +2862,9 @@ async fn job_session_name_shares_ephemeral_and_stages_job_summaries() {
         .await
         .expect("second run should succeed");
 
-    let staged = allbert_kernel::memory::list_staged_memory(
+    let staged = allbert_kernel_services::memory::list_staged_memory(
         &paths,
-        &allbert_kernel::MemoryConfig::default(),
+        &allbert_kernel_services::MemoryConfig::default(),
         Some("job_summary"),
         None,
         Some(10),

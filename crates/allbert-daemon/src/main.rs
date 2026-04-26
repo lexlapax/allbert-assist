@@ -1,5 +1,5 @@
 use allbert_daemon::spawn;
-use allbert_kernel::{AllbertPaths, Config};
+use allbert_kernel_services::{AllbertPaths, Config};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]

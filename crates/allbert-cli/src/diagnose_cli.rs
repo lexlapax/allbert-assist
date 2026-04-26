@@ -1,4 +1,4 @@
-use allbert_kernel::{
+use allbert_kernel_services::{
     list_diagnosis_reports, read_diagnosis_report, run_diagnosis_report,
     run_diagnosis_report_with_remediation, AllbertPaths, Config, DiagnosisRemediationKind,
     DiagnosisRemediationRequest, DiagnosisReportSummary, TraceReader,
@@ -290,7 +290,9 @@ pub fn render_report_payload(report: &DiagnosisReportPayload, offline: bool) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use allbert_kernel::{AllbertPaths, JsonlTraceWriter, TraceStorageLimits, TraceWriter};
+    use allbert_kernel_services::{
+        AllbertPaths, JsonlTraceWriter, TraceStorageLimits, TraceWriter,
+    };
     use allbert_proto::{Span, SpanKind, SpanStatus};
     use chrono::Utc;
     use std::collections::BTreeMap;
@@ -391,9 +393,14 @@ mod tests {
         )
         .unwrap();
         assert!(output.contains("remediation:    memory"));
-        let staged =
-            allbert_kernel::memory::list_staged_memory(&paths, &config.memory, None, None, None)
-                .unwrap();
+        let staged = allbert_kernel_services::memory::list_staged_memory(
+            &paths,
+            &config.memory,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(staged.len(), 1);
         assert_eq!(staged[0].kind, "explicit_request");
     }

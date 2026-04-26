@@ -1,5 +1,5 @@
 use allbert_jobs::{run_command, JobsCommand};
-use allbert_kernel::{AllbertPaths, Config};
+use allbert_kernel_services::{AllbertPaths, Config};
 use anyhow::Result;
 use clap::Parser;
 

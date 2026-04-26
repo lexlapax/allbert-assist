@@ -3,8 +3,8 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command as StdCommand;
 
-use allbert_kernel::skills::{validate_skill_path, SkillProvenance};
-use allbert_kernel::{atomic_write, refresh_agents_markdown, AllbertPaths, Config};
+use allbert_kernel_services::skills::{validate_skill_path, SkillProvenance};
+use allbert_kernel_services::{atomic_write, refresh_agents_markdown, AllbertPaths, Config};
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use gray_matter::engine::YAML;
@@ -746,7 +746,7 @@ fn validate_preview_against_config(preview: &SkillPreview, config: &Config) -> R
 }
 
 fn lua_scripts_allowed(config: &Config) -> bool {
-    config.scripting.engine == allbert_kernel::ScriptingEngineConfig::Lua
+    config.scripting.engine == allbert_kernel_services::ScriptingEngineConfig::Lua
         && config
             .security
             .exec_allow
@@ -1324,12 +1324,12 @@ mod tests {
         assert!(listing.contains("enabled: no"));
         let shown = show_installed_skill(&paths, "toggle-skill").unwrap();
         assert!(shown.contains("enabled:        no"));
-        let store = allbert_kernel::SkillStore::discover(&paths.skills);
+        let store = allbert_kernel_services::SkillStore::discover(&paths.skills);
         assert!(store.get("toggle-skill").is_none());
 
         let enabled = set_skill_enabled(&paths, "toggle-skill", true).unwrap();
         assert!(enabled.contains("enabled skill toggle-skill"));
-        let store = allbert_kernel::SkillStore::discover(&paths.skills);
+        let store = allbert_kernel_services::SkillStore::discover(&paths.skills);
         assert!(store.get("toggle-skill").is_some());
     }
 

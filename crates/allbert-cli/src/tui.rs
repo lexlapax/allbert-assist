@@ -2,7 +2,7 @@ use std::io::{self, Stdout};
 use std::time::Duration;
 
 use allbert_daemon::DaemonClient;
-use allbert_kernel::TuiSpinnerStyle;
+use allbert_kernel_services::TuiSpinnerStyle;
 use allbert_proto::{
     ActivitySnapshot, ApprovalContext, ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload,
     InputReplyPayload, InputResponsePayload, KernelEventPayload, ServerMessage, TelemetrySnapshot,
@@ -93,7 +93,7 @@ impl TuiApp {
         self.telemetry = Some(telemetry);
     }
 
-    pub fn configure_tui(&mut self, config: &allbert_kernel::TuiConfig) {
+    pub fn configure_tui(&mut self, config: &allbert_kernel_services::TuiConfig) {
         self.spinner_style = config.spinner_style;
         self.tick_ms = config.tick_ms.clamp(40, 250);
     }
@@ -157,7 +157,7 @@ impl TuiApp {
                 self.in_flight = false;
                 self.push_line(format!(
                     "[error] {}",
-                    allbert_kernel::append_error_hint(&error.message)
+                    allbert_kernel_services::append_error_hint(&error.message)
                 ));
                 return true;
             }
@@ -245,9 +245,9 @@ impl TuiApp {
 
 pub async fn run_loop(
     client: &mut DaemonClient,
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
     session_id: &str,
-    config: &allbert_kernel::Config,
+    config: &allbert_kernel_services::Config,
 ) -> Result<()> {
     let status_items = configured_status_items(config);
     let transcript = replay_session_tail(paths, session_id, config.repl.tui.max_transcript_events);
@@ -266,7 +266,7 @@ pub async fn run_loop(
 async fn run_event_loop(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     client: &mut DaemonClient,
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
     app: &mut TuiApp,
 ) -> Result<()> {
     let mut events = EventStream::new();
@@ -315,7 +315,7 @@ async fn run_event_loop(
 
 async fn handle_key(
     client: &mut DaemonClient,
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
     app: &mut TuiApp,
     key: KeyEvent,
 ) -> Result<()> {
@@ -389,19 +389,19 @@ async fn handle_key(
                 }
                 LocalCommand::Settings(command) => {
                     app.push_line(crate::settings_cli::handle_command(paths, command)?);
-                    let config = allbert_kernel::Config::load_or_create(paths)?;
+                    let config = allbert_kernel_services::Config::load_or_create(paths)?;
                     app.status_items = configured_status_items(&config);
                     app.configure_tui(&config.repl.tui);
                 }
                 LocalCommand::SelfImprovement(command) => {
-                    let config = allbert_kernel::Config::load_or_create(paths)?;
+                    let config = allbert_kernel_services::Config::load_or_create(paths)?;
                     app.push_line(repl::handle_self_improvement_command(
                         paths, &config, command,
                     )?);
                 }
                 LocalCommand::StatusLine(command) => {
                     app.push_line(repl::handle_statusline_command(paths, command)?);
-                    let config = allbert_kernel::Config::load_or_create(paths)?;
+                    let config = allbert_kernel_services::Config::load_or_create(paths)?;
                     app.status_items = configured_status_items(&config);
                 }
                 LocalCommand::Trace(command) => {
@@ -757,7 +757,7 @@ fn render_telemetry_summary(snapshot: &TelemetrySnapshot) -> String {
     )
 }
 
-fn configured_status_items(config: &allbert_kernel::Config) -> Vec<String> {
+fn configured_status_items(config: &allbert_kernel_services::Config) -> Vec<String> {
     if !config.repl.tui.status_line.enabled {
         return Vec::new();
     }
@@ -772,7 +772,7 @@ fn configured_status_items(config: &allbert_kernel::Config) -> Vec<String> {
 }
 
 fn replay_session_tail(
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
     session_id: &str,
     max_lines: usize,
 ) -> Vec<String> {

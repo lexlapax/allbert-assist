@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-use allbert_kernel::{
+use allbert_kernel_services::{
     load_heartbeat_record, validate_heartbeat_record, AllbertPaths, HeartbeatNagCadence,
 };
 use allbert_proto::ChannelKind;

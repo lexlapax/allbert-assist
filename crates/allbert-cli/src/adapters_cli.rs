@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use allbert_kernel::{
+use allbert_kernel_services::{
     activate_adapter, adapter_compute_used_today_seconds, cleanup_runtime_files,
     deactivate_adapter, preview_personality_adapter_training,
     run_personality_adapter_training_with_override, AdapterStore, AllbertPaths, Config,
@@ -200,7 +200,7 @@ pub fn run(paths: &AllbertPaths, config: &Config, command: AdaptersCommand) -> R
 }
 
 fn quarantine_external_adapter(paths: &AllbertPaths, source: &Path) -> Result<PathBuf> {
-    let manifest = allbert_kernel::read_adapter_manifest(&source.join("manifest.json"))?;
+    let manifest = allbert_kernel_services::read_adapter_manifest(&source.join("manifest.json"))?;
     let destination = paths.adapters_incoming.join(&manifest.adapter_id);
     if destination.exists() {
         return Err(anyhow!(

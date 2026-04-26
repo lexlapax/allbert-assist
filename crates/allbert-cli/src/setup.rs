@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use allbert_kernel::{
+use allbert_kernel_services::{
     atomic_write, discover_utilities, AllbertPaths, Config, Provider, ReplUiMode, StatusLineItem,
     CURRENT_SETUP_VERSION,
 };

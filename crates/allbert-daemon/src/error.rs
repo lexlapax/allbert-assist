@@ -3,7 +3,7 @@ use std::path::PathBuf;
 #[derive(Debug, thiserror::Error)]
 pub enum DaemonError {
     #[error("kernel error: {0}")]
-    Kernel(#[from] allbert_kernel::KernelError),
+    Kernel(#[from] allbert_kernel_services::KernelError),
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
     #[error("serialization error: {0}")]

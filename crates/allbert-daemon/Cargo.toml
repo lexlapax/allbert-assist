@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 allbert-channels = { path = "../allbert-channels" }
-allbert-kernel = { path = "../allbert-kernel" }
+allbert-kernel-services = { path = "../allbert-kernel-services" }
 allbert-proto = { path = "../allbert-proto" }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["codec", "rt"] }

@@ -520,7 +520,7 @@ fn resolve_source_checkout_candidate(
     match find_source_checkout_root(candidate) {
         Some(path) => Ok(ResolvedSourceCheckout { path, source }),
         None => Err(KernelError::InitFailed(format!(
-            "{} is not a valid Allbert source checkout. Run `allbert-cli self-improvement config set --source-checkout <path>` with a checkout containing crates/allbert-kernel.",
+            "{} is not a valid Allbert source checkout. Run `allbert-cli self-improvement config set --source-checkout <path>` with a checkout containing crates/allbert-kernel-core and crates/allbert-kernel-services.",
             candidate.display()
         ))),
     }
@@ -590,7 +590,7 @@ fn find_source_checkout_root(start: &Path) -> Option<PathBuf> {
         start.to_path_buf()
     };
     for candidate in start.ancestors() {
-        if workspace_has_allbert_kernel(candidate) {
+        if workspace_has_split_kernel_crates(candidate) {
             return candidate
                 .canonicalize()
                 .ok()
@@ -600,7 +600,7 @@ fn find_source_checkout_root(start: &Path) -> Option<PathBuf> {
     None
 }
 
-fn workspace_has_allbert_kernel(root: &Path) -> bool {
+fn workspace_has_split_kernel_crates(root: &Path) -> bool {
     if !root.join(".git").exists() {
         return false;
     }
@@ -619,14 +619,23 @@ fn workspace_has_allbert_kernel(root: &Path) -> bool {
         return false;
     };
 
-    members
-        .iter()
-        .filter_map(|member| member.as_str())
-        .any(|member| {
-            let normalized = member.replace('\\', "/");
-            normalized.ends_with("crates/allbert-kernel")
-                || member_manifest_package_name(root, member).as_deref() == Some("allbert-kernel")
-        })
+    let mut has_core = false;
+    let mut has_services = false;
+    for member in members.iter().filter_map(|member| member.as_str()) {
+        let normalized = member.replace('\\', "/");
+        let package = member_manifest_package_name(root, member);
+        if normalized.ends_with("crates/allbert-kernel-core")
+            || package.as_deref() == Some("allbert-kernel-core")
+        {
+            has_core = true;
+        }
+        if normalized.ends_with("crates/allbert-kernel-services")
+            || package.as_deref() == Some("allbert-kernel-services")
+        {
+            has_services = true;
+        }
+    }
+    has_core && has_services
 }
 
 fn member_manifest_package_name(root: &Path, member: &str) -> Option<String> {
@@ -865,21 +874,32 @@ mod tests {
         AllbertPaths::under(root.join(".allbert"))
     }
 
-    fn write_workspace(root: &Path, kernel_member: &str, kernel_package: &str) {
+    fn write_workspace(root: &Path, services_member: &str, services_package: &str) {
         fs::create_dir_all(root.join(".git")).expect("git metadata should be created");
         write_fixture_file(
             &root.join("Cargo.toml"),
             &format!(
                 r#"[workspace]
-members = ["{kernel_member}"]
+members = [
+    "crates/allbert-kernel-core",
+    "{services_member}"
+]
 "#
             ),
         );
         write_fixture_file(
-            &root.join(kernel_member).join("Cargo.toml"),
+            &root.join("crates/allbert-kernel-core/Cargo.toml"),
+            r#"[package]
+name = "allbert-kernel-core"
+version = "0.0.0"
+edition = "2021"
+"#,
+        );
+        write_fixture_file(
+            &root.join(services_member).join("Cargo.toml"),
             &format!(
                 r#"[package]
-name = "{kernel_package}"
+name = "{services_package}"
 version = "0.0.0"
 edition = "2021"
 "#
@@ -892,7 +912,8 @@ edition = "2021"
             &root.join("Cargo.toml"),
             r#"[workspace]
 members = [
-    "crates/allbert-kernel",
+    "crates/allbert-kernel-core",
+    "crates/allbert-kernel-services",
     "crates/allbert-cli"
 ]
 resolver = "2"
@@ -904,15 +925,27 @@ resolver = "2"
         );
         write_fixture_file(&root.join(".gitignore"), "target/\n");
         write_fixture_file(
-            &root.join("crates/allbert-kernel/Cargo.toml"),
+            &root.join("crates/allbert-kernel-core/Cargo.toml"),
             r#"[package]
-name = "allbert-kernel"
+name = "allbert-kernel-core"
 version = "0.0.0"
 edition = "2021"
 "#,
         );
         write_fixture_file(
-            &root.join("crates/allbert-kernel/src/lib.rs"),
+            &root.join("crates/allbert-kernel-core/src/lib.rs"),
+            "pub fn core_fixture() -> &'static str {\n    \"ok\"\n}\n",
+        );
+        write_fixture_file(
+            &root.join("crates/allbert-kernel-services/Cargo.toml"),
+            r#"[package]
+name = "allbert-kernel-services"
+version = "0.0.0"
+edition = "2021"
+"#,
+        );
+        write_fixture_file(
+            &root.join("crates/allbert-kernel-services/src/lib.rs"),
             "pub fn fixture() -> &'static str {\n    \"ok\"\n}\n",
         );
         write_fixture_file(
@@ -981,9 +1014,21 @@ edition = "2021"
         let config_root = temp.path().join("config-checkout");
         let env_root = temp.path().join("env-checkout");
         let exe_root = temp.path().join("exe-checkout");
-        write_workspace(&config_root, "crates/allbert-kernel", "allbert-kernel");
-        write_workspace(&env_root, "crates/allbert-kernel", "allbert-kernel");
-        write_workspace(&exe_root, "crates/allbert-kernel", "allbert-kernel");
+        write_workspace(
+            &config_root,
+            "crates/allbert-kernel-services",
+            "allbert-kernel-services",
+        );
+        write_workspace(
+            &env_root,
+            "crates/allbert-kernel-services",
+            "allbert-kernel-services",
+        );
+        write_workspace(
+            &exe_root,
+            "crates/allbert-kernel-services",
+            "allbert-kernel-services",
+        );
         let exe_path = exe_root.join("target/debug/allbert-cli");
         write_fixture_file(&exe_path, "");
 
@@ -1024,7 +1069,7 @@ edition = "2021"
     fn workspace_detection_accepts_member_path_and_package_identity() {
         let temp = tempfile::tempdir().expect("tempdir");
         let root = temp.path().join("repo");
-        write_workspace(&root, "members/kernel", "allbert-kernel");
+        write_workspace(&root, "members/kernel", "allbert-kernel-services");
 
         let paths = fixture_paths(temp.path());
         let config = SelfImprovementConfig::default();
@@ -1033,7 +1078,11 @@ edition = "2021"
             .expect("member path should walk to workspace root");
         assert_eq!(resolved.path, root.canonicalize().expect("canonical root"));
 
-        write_workspace(&root, "crates/allbert-kernel", "not-the-package-name");
+        write_workspace(
+            &root,
+            "crates/allbert-kernel-services",
+            "not-the-package-name",
+        );
         let resolved = resolve_source_checkout_from(&paths, &config, Some(&root), None)
             .expect("current repo layout should be accepted by member path");
         assert_eq!(resolved.path, root.canonicalize().expect("canonical root"));
@@ -1054,7 +1103,11 @@ edition = "2021"
     fn rust_rebuild_ready_requires_pinned_toolchain() {
         let temp = tempfile::tempdir().expect("tempdir");
         let root = temp.path().join("repo");
-        write_workspace(&root, "crates/allbert-kernel", "allbert-kernel");
+        write_workspace(
+            &root,
+            "crates/allbert-kernel-services",
+            "allbert-kernel-services",
+        );
         assert!(!has_pinned_rust_toolchain(&root));
         write_fixture_file(
             &root.join("rust-toolchain.toml"),
@@ -1185,7 +1238,9 @@ edition = "2021"
             .expect("worktree should be created");
 
         assert!(check_self_improvement_write_target(
-            &worktree.path.join("crates/allbert-kernel/src/lib.rs"),
+            &worktree
+                .path
+                .join("crates/allbert-kernel-services/src/lib.rs"),
             &worktree.path,
             &source,
             &paths,
@@ -1226,7 +1281,9 @@ edition = "2021"
         let worktree = create_rust_rebuild_worktree(&paths, &config, Some("artifact"))
             .expect("worktree should be created");
         write_fixture_file(
-            &worktree.path.join("crates/allbert-kernel/src/lib.rs"),
+            &worktree
+                .path
+                .join("crates/allbert-kernel-services/src/lib.rs"),
             "pub fn fixture() -> &'static str {\n    \"changed\"\n}\n",
         );
         write_fixture_file(&worktree.path.join("NEW.md"), "# New file\n");

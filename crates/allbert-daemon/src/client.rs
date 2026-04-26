@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 
-use allbert_kernel::{AllbertPaths, Config};
+use allbert_kernel_services::{AllbertPaths, Config};
 use allbert_proto::{
     ActivitySnapshot, AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientHello,
     ClientKind, ClientMessage, DaemonStatus, DiagnosisListRequest, DiagnosisReportPayload,

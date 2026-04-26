@@ -5,7 +5,7 @@ use std::time::Duration;
 use allbert_channels::ChannelCapabilities;
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_jobs::JobsCommand;
-use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config, ReplUiMode};
+use allbert_kernel_services::{refresh_agents_markdown, AllbertPaths, Config, ReplUiMode};
 use allbert_proto::{
     ChannelKind, ChannelRuntimeStatusPayload, ClientKind, DaemonStatus,
     DiagnosisRemediationRequestPayload, DiagnosisRunRequest, UtilityEnableRequest,
@@ -578,7 +578,7 @@ async fn main() {
 }
 
 fn render_cli_error(error: &anyhow::Error) -> String {
-    allbert_kernel::append_error_hint(&error.to_string())
+    allbert_kernel_services::append_error_hint(&error.to_string())
 }
 
 async fn run_cli() -> Result<()> {
@@ -1043,7 +1043,7 @@ async fn run_memory_command(
 fn run_config_command(paths: &AllbertPaths, command: ConfigCommand) -> Result<()> {
     match command {
         ConfigCommand::RestoreLastGood => {
-            let backup = allbert_kernel::restore_last_good_config(paths)?;
+            let backup = allbert_kernel_services::restore_last_good_config(paths)?;
             println!(
                 "restored config.toml from last-good snapshot\nprevious config backup: {}",
                 backup.display()
@@ -1079,11 +1079,11 @@ fn run_learning_command(
             consent_hosted_provider,
         } => {
             if preview || !run {
-                let preview = allbert_kernel::preview_personality_digest(paths, config)?;
+                let preview = allbert_kernel_services::preview_personality_digest(paths, config)?;
                 println!("{}", preview.render());
                 return Ok(());
             }
-            let report = allbert_kernel::run_personality_digest(
+            let report = allbert_kernel_services::run_personality_digest(
                 paths,
                 config,
                 accept,

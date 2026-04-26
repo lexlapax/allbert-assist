@@ -2,7 +2,9 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 
-use allbert_kernel::{memory, trace_artifact_bytes, trace_artifact_count, AllbertPaths, Config};
+use allbert_kernel_services::{
+    memory, trace_artifact_bytes, trace_artifact_count, AllbertPaths, Config,
+};
 use anyhow::{anyhow, Context, Result};
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;

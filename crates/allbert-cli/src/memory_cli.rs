@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use allbert_kernel::{
+use allbert_kernel_services::{
     memory, AllbertPaths, Config, Intent, MemoryRoutingMode, MemoryTier, SearchMemoryInput,
 };
 use anyhow::{anyhow, Result};
@@ -419,7 +419,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use allbert_kernel::{memory, AllbertPaths, Config, MemoryTier, SearchMemoryInput};
+    use allbert_kernel_services::{memory, AllbertPaths, Config, MemoryTier, SearchMemoryInput};
 
     use super::{
         forget, promote, reject, routing_set, routing_show, search, staged_list, staged_show,

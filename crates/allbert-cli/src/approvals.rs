@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use allbert_kernel::{AdapterStore, AllbertPaths, Config};
+use allbert_kernel_services::{AdapterStore, AllbertPaths, Config};
 use allbert_proto::{
     ApprovalContext, ChannelKind, InboxApprovalPayload, InboxResolveResultPayload,
     PatchApprovalPayload,
@@ -616,7 +616,8 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     let Some(_parent) = path.parent() else {
         return Err(anyhow!("path has no parent: {}", path.display()));
     };
-    allbert_kernel::atomic_write(path, bytes).with_context(|| format!("write {}", path.display()))
+    allbert_kernel_services::atomic_write(path, bytes)
+        .with_context(|| format!("write {}", path.display()))
 }
 
 impl From<InboxApprovalPayload> for ApprovalView {
@@ -996,8 +997,8 @@ mod tests {
         let paths = temp.paths();
         paths.ensure().expect("paths should ensure");
         let config = fake_adapter_training_config();
-        let report =
-            allbert_kernel::run_personality_adapter_training(&paths, &config).expect("training");
+        let report = allbert_kernel_services::run_personality_adapter_training(&paths, &config)
+            .expect("training");
         let approval_id = report.execution["approval_id"]
             .as_str()
             .expect("approval id");
@@ -1018,8 +1019,8 @@ mod tests {
         let paths = temp.paths();
         paths.ensure().expect("paths should ensure");
         let config = fake_adapter_training_config();
-        let report =
-            allbert_kernel::run_personality_adapter_training(&paths, &config).expect("training");
+        let report = allbert_kernel_services::run_personality_adapter_training(&paths, &config)
+            .expect("training");
         let approval_id = report.execution["approval_id"]
             .as_str()
             .expect("approval id");

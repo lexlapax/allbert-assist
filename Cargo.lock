@@ -34,7 +34,7 @@ dependencies = [
  "allbert-channels",
  "allbert-daemon",
  "allbert-jobs",
- "allbert-kernel",
+ "allbert-kernel-services",
  "allbert-proto",
  "anyhow",
  "async-trait",
@@ -64,7 +64,7 @@ name = "allbert-daemon"
 version = "0.14.1"
 dependencies = [
  "allbert-channels",
- "allbert-kernel",
+ "allbert-kernel-services",
  "allbert-proto",
  "async-trait",
  "bytes",
@@ -91,7 +91,7 @@ name = "allbert-jobs"
 version = "0.14.1"
 dependencies = [
  "allbert-daemon",
- "allbert-kernel",
+ "allbert-kernel-services",
  "allbert-proto",
  "anyhow",
  "clap",
@@ -99,41 +99,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
-]
-
-[[package]]
-name = "allbert-kernel"
-version = "0.14.1"
-dependencies = [
- "allbert-proto",
- "async-trait",
- "base64",
- "chrono",
- "chrono-tz",
- "dirs",
- "flate2",
- "fs2",
- "gray_matter",
- "libc",
- "mlua",
- "pulldown-cmark",
- "regex",
- "reqwest",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2",
- "tantivy",
- "tempfile",
- "thiserror 2.0.18",
- "time",
- "tokio",
- "toml",
- "toml_edit",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]

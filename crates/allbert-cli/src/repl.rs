@@ -1,5 +1,5 @@
 use allbert_daemon::DaemonClient;
-use allbert_kernel::{Provider, StatusLineItem};
+use allbert_kernel_services::{Provider, StatusLineItem};
 use allbert_proto::{
     ActivityPhase, ActivitySnapshot, ApprovalContext, ClientMessage, ConfirmDecisionPayload,
     DiagnosisRunRequest, InputResponsePayload, KernelEventPayload, ModelConfigPayload,
@@ -162,7 +162,7 @@ pub enum LocalCommand<'a> {
 
 pub async fn run_loop(
     client: &mut DaemonClient,
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
 ) -> Result<()> {
     let mut line_editor = Reedline::create();
     let prompt = DefaultPrompt::new(
@@ -212,7 +212,7 @@ pub async fn run_loop(
                         handle_model_command(client, command).await?;
                     }
                     LocalCommand::SelfImprovement(command) => {
-                        let config = allbert_kernel::Config::load_or_create(paths)?;
+                        let config = allbert_kernel_services::Config::load_or_create(paths)?;
                         println!(
                             "{}",
                             handle_self_improvement_command(paths, &config, command)?
@@ -229,7 +229,7 @@ pub async fn run_loop(
                     }
                     LocalCommand::Status => {
                         let status = client.session_status().await?;
-                        let config = allbert_kernel::Config::load_or_create(paths)?;
+                        let config = allbert_kernel_services::Config::load_or_create(paths)?;
                         println!(
                             "{}",
                             setup::render_status(&snapshot_from_proto(&status, &config))
@@ -398,7 +398,7 @@ async fn run_turn(client: &mut DaemonClient, input: &str) -> Result<()> {
                 return Ok(());
             }
             ServerMessage::Error(error) => {
-                anyhow::bail!(allbert_kernel::append_error_hint(&error.message))
+                anyhow::bail!(allbert_kernel_services::append_error_hint(&error.message))
             }
             other => {
                 anyhow::bail!("unexpected server message during turn: {:?}", other);
@@ -464,7 +464,7 @@ async fn handle_model_command(client: &mut DaemonClient, command: &str) -> Resul
 
 async fn handle_cost_command(
     client: &mut DaemonClient,
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
     command: &str,
 ) -> Result<()> {
     if let Some(hint) = slash_argument_hint(command) {
@@ -474,7 +474,7 @@ async fn handle_cost_command(
     let parts: Vec<_> = command.split_whitespace().collect();
     if parts.len() == 1 {
         let status = client.session_status().await?;
-        let config = allbert_kernel::Config::load_or_create(paths)?;
+        let config = allbert_kernel_services::Config::load_or_create(paths)?;
         let cap = config
             .limits
             .daily_usd_cap
@@ -570,9 +570,9 @@ async fn handle_cost_command(
 
 async fn handle_setup_command(
     client: &mut DaemonClient,
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
 ) -> Result<()> {
-    let current = allbert_kernel::Config::load_or_create(paths)?;
+    let current = allbert_kernel_services::Config::load_or_create(paths)?;
     let updated = match setup::run_setup_wizard(paths, &current)? {
         Some(config) => config,
         None => {
@@ -602,7 +602,7 @@ pub async fn handle_activity_command(client: &mut DaemonClient) -> Result<String
 
 pub async fn handle_trace_command(
     client: &mut DaemonClient,
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
     command: &str,
 ) -> Result<String> {
     if let Some(hint) = slash_argument_hint(command) {
@@ -642,20 +642,20 @@ pub async fn handle_trace_command(
         }
         ["/trace", "export"] => {
             let telemetry = client.session_telemetry().await?;
-            let config = allbert_kernel::Config::load_or_create(paths)?;
+            let config = allbert_kernel_services::Config::load_or_create(paths)?;
             crate::trace_cli::export(paths, &config, &telemetry.session_id, "otlp-json", None)
         }
         ["/trace", "export", session] => {
-            let config = allbert_kernel::Config::load_or_create(paths)?;
+            let config = allbert_kernel_services::Config::load_or_create(paths)?;
             crate::trace_cli::export(paths, &config, session, "otlp-json", None)
         }
         ["/trace", "export", session, "--format", format] => {
-            let config = allbert_kernel::Config::load_or_create(paths)?;
+            let config = allbert_kernel_services::Config::load_or_create(paths)?;
             crate::trace_cli::export(paths, &config, session, format, None)
         }
         ["/trace", "export", "--format", format] => {
             let telemetry = client.session_telemetry().await?;
-            let config = allbert_kernel::Config::load_or_create(paths)?;
+            let config = allbert_kernel_services::Config::load_or_create(paths)?;
             crate::trace_cli::export(paths, &config, &telemetry.session_id, format, None)
         }
         ["/trace", "settings"] => crate::settings_cli::handle_command(paths, "/settings show trace"),
@@ -768,18 +768,18 @@ pub async fn handle_context_command(client: &mut DaemonClient) -> Result<String>
     ))
 }
 
-pub fn handle_agents_command(paths: &allbert_kernel::AllbertPaths) -> Result<String> {
-    Ok(allbert_kernel::refresh_agents_markdown(paths)?)
+pub fn handle_agents_command(paths: &allbert_kernel_services::AllbertPaths) -> Result<String> {
+    Ok(allbert_kernel_services::refresh_agents_markdown(paths)?)
 }
 
 pub fn handle_adapters_command(
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
     command: &str,
 ) -> Result<String> {
     if let Some(hint) = slash_argument_hint(command) {
         return Ok(hint.into());
     }
-    let store = allbert_kernel::AdapterStore::new(paths.clone());
+    let store = allbert_kernel_services::AdapterStore::new(paths.clone());
     let args = command.split_whitespace().collect::<Vec<_>>();
     match args.as_slice() {
         ["/adapters"] | ["/adapters", "status"] => Ok(match store.active()? {
@@ -818,7 +818,7 @@ pub fn handle_adapters_command(
 }
 
 pub fn handle_skills_command(
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
     command: &str,
 ) -> Result<String> {
     if let Some(hint) = slash_argument_hint(command) {
@@ -834,13 +834,13 @@ pub fn handle_skills_command(
 }
 
 pub fn handle_memory_command(
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
     command: &str,
 ) -> Result<String> {
     if let Some(hint) = slash_argument_hint(command) {
         return Ok(hint.into());
     }
-    let config = allbert_kernel::Config::load_or_create(paths)?;
+    let config = allbert_kernel_services::Config::load_or_create(paths)?;
     let args = command.split_whitespace().collect::<Vec<_>>();
     match args.as_slice() {
         ["/memory", "stats"] => crate::memory_cli::stats(paths, &config),
@@ -918,8 +918,8 @@ fn parse_reason_tail(command: &str) -> Option<String> {
 }
 
 pub fn handle_self_improvement_command(
-    paths: &allbert_kernel::AllbertPaths,
-    config: &allbert_kernel::Config,
+    paths: &allbert_kernel_services::AllbertPaths,
+    config: &allbert_kernel_services::Config,
     command: &str,
 ) -> Result<String> {
     if let Some(hint) = slash_argument_hint(command) {
@@ -951,10 +951,10 @@ pub fn handle_self_improvement_command(
 }
 
 pub fn handle_statusline_command(
-    paths: &allbert_kernel::AllbertPaths,
+    paths: &allbert_kernel_services::AllbertPaths,
     command: &str,
 ) -> Result<String> {
-    let mut config = allbert_kernel::Config::load_or_create(paths)?;
+    let mut config = allbert_kernel_services::Config::load_or_create(paths)?;
     let args = command.split_whitespace().collect::<Vec<_>>();
     let mut changed = false;
     let rendered = match args.as_slice() {
@@ -1029,7 +1029,7 @@ pub fn handle_statusline_command(
     Ok(rendered)
 }
 
-fn render_statusline_config(config: &allbert_kernel::Config) -> String {
+fn render_statusline_config(config: &allbert_kernel_services::Config) -> String {
     format!(
         "status line: {}\nitems: {}\ncatalog: {}",
         if config.repl.tui.status_line.enabled {
@@ -1315,7 +1315,7 @@ fn default_base_url(provider: ProviderKind, current: &ModelConfigPayload) -> Opt
 
 fn snapshot_from_proto(
     status: &allbert_proto::SessionStatus,
-    config: &allbert_kernel::Config,
+    config: &allbert_kernel_services::Config,
 ) -> StatusSnapshot {
     StatusSnapshot {
         provider: status.provider.clone(),

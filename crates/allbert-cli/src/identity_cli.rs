@@ -1,4 +1,4 @@
-use allbert_kernel::{
+use allbert_kernel_services::{
     add_identity_channel, ensure_identity_record, identity_inconsistencies,
     remove_identity_channel, rename_identity, AllbertPaths, IdentityRecord,
 };
@@ -46,7 +46,7 @@ pub fn rename(paths: &AllbertPaths, new_name: &str) -> Result<String> {
 fn render_record(
     paths: &AllbertPaths,
     record: &IdentityRecord,
-    consistency: &allbert_kernel::IdentityConsistency,
+    consistency: &allbert_kernel_services::IdentityConsistency,
 ) -> String {
     let mut lines = vec![
         format!("file:              {}", paths.identity_user.display()),

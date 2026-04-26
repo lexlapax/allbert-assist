@@ -13,12 +13,12 @@ use allbert_channels::{
     Channel, ChannelCapabilities, ChannelError, ChannelInbound, ChannelOutbound, ConfirmOutcome,
     ConfirmPrompt,
 };
-use allbert_kernel::{
+use allbert_kernel_services::{
     check_in_enabled, ensure_identity_record, load_heartbeat_record, quiet_hours_active,
     resolve_identity_id_for_sender, supports_proactive_delivery, AllbertPaths, Config,
     CrossChannelRouting, HeartbeatNagCadence,
 };
-use allbert_kernel::{
+use allbert_kernel_services::{
     job_manager::JobManager as KernelJobManager,
     llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole},
     llm::{DefaultProviderFactory, ProviderFactory},
@@ -90,7 +90,8 @@ struct SharedState {
     sessions: Arc<RwLock<HashMap<String, Arc<SessionHandle>>>>,
     job_ephemeral_sessions: Arc<Mutex<HashMap<String, Vec<String>>>>,
     job_manager: Arc<Mutex<JobManager>>,
-    active_adapter_training: Arc<Mutex<HashMap<String, allbert_kernel::CancellationToken>>>,
+    active_adapter_training:
+        Arc<Mutex<HashMap<String, allbert_kernel_services::CancellationToken>>>,
     telegram_status: Arc<TelegramRuntimeStatus>,
     approval_inbox_retention_days: Arc<AtomicUsize>,
     inbox_index: Arc<StdMutex<HashMap<String, InboxApprovalPayload>>>,
@@ -528,11 +529,11 @@ pub async fn spawn_with_factory(
     provider_factory: Arc<dyn ProviderFactory>,
 ) -> Result<RunningDaemon, DaemonError> {
     paths.ensure()?;
-    allbert_kernel::ensure_identity_record(&paths)?;
-    allbert_kernel::memory::bootstrap_curated_memory(&paths, &config.memory)?;
+    allbert_kernel_services::ensure_identity_record(&paths)?;
+    allbert_kernel_services::memory::bootstrap_curated_memory(&paths, &config.memory)?;
     archive_expired_sessions(&paths, &config)?;
     if config.trace.enabled {
-        allbert_kernel::recover_all_in_flight_spans(&paths, TraceStorageLimits::default())
+        allbert_kernel_services::recover_all_in_flight_spans(&paths, TraceStorageLimits::default())
             .map_err(|err| DaemonError::Protocol(format!("trace recovery failed: {err}")))?;
     }
     reconcile_pending_approvals(&paths)?;
@@ -549,10 +550,10 @@ pub async fn spawn_with_factory(
         .clone()
         .unwrap_or_else(|| paths.logs.clone());
     std::fs::create_dir_all(&log_dir)?;
-    let trace_defaults_write = allbert_kernel::ensure_trace_defaults_block(&paths)
+    let trace_defaults_write = allbert_kernel_services::ensure_trace_defaults_block(&paths)
         .map_err(|err| DaemonError::Protocol(err.to_string()))?;
     let adapter_training_defaults_write =
-        allbert_kernel::ensure_adapter_training_defaults_block(&paths)
+        allbert_kernel_services::ensure_adapter_training_defaults_block(&paths)
             .map_err(|err| DaemonError::Protocol(err.to_string()))?;
     let lock_record = acquire_daemon_lock(&paths)?;
 
@@ -567,7 +568,7 @@ pub async fn spawn_with_factory(
     if !paths.config.exists() {
         config.persist(&paths)?;
     }
-    allbert_kernel::write_last_good_config(&paths)?;
+    allbert_kernel_services::write_last_good_config(&paths)?;
 
     let shutdown = CancellationToken::new();
     let (notifications, _) = broadcast::channel(64);
@@ -611,26 +612,26 @@ pub async fn spawn_with_factory(
         ),
     )?;
     match trace_defaults_write {
-        allbert_kernel::TraceDefaultsWriteResult::Installed => append_log_line(
+        allbert_kernel_services::TraceDefaultsWriteResult::Installed => append_log_line(
             &state.log_path,
             "Trace defaults installed (capture_messages=true, retention_days=30). Use `/settings show trace` or `allbert-cli trace --help` to inspect.",
         )?,
-        allbert_kernel::TraceDefaultsWriteResult::Skipped { hint } => append_log_line(
+        allbert_kernel_services::TraceDefaultsWriteResult::Skipped { hint } => append_log_line(
             &state.log_path,
             &format!("Trace defaults not installed: {hint}"),
         )?,
-        allbert_kernel::TraceDefaultsWriteResult::AlreadyPresent => {}
+        allbert_kernel_services::TraceDefaultsWriteResult::AlreadyPresent => {}
     }
     match adapter_training_defaults_write {
-        allbert_kernel::AdapterTrainingDefaultsWriteResult::Installed => append_log_line(
+        allbert_kernel_services::AdapterTrainingDefaultsWriteResult::Installed => append_log_line(
             &state.log_path,
             "Adapter training defaults installed (enabled=false). Use `/settings show learning.adapter_training` or `allbert-cli adapters --help` to inspect.",
         )?,
-        allbert_kernel::AdapterTrainingDefaultsWriteResult::Skipped { hint } => append_log_line(
+        allbert_kernel_services::AdapterTrainingDefaultsWriteResult::Skipped { hint } => append_log_line(
             &state.log_path,
             &format!("Adapter training defaults not installed: {hint}"),
         )?,
-        allbert_kernel::AdapterTrainingDefaultsWriteResult::AlreadyPresent => {}
+        allbert_kernel_services::AdapterTrainingDefaultsWriteResult::AlreadyPresent => {}
     }
 
     if let Err(error) = spawn_telegram_pilot(state.clone()).await {
@@ -759,7 +760,7 @@ async fn accept_loop(listener: LocalSocketListener, state: SharedState) -> Resul
             }
             _ = tick.tick() => {
                 let defaults = state.default_config.read().await.clone();
-                let _ = allbert_kernel::memory::reconcile_curated_memory(&state.paths, &defaults.memory);
+                let _ = allbert_kernel_services::memory::reconcile_curated_memory(&state.paths, &defaults.memory);
                 if defaults.jobs.enabled {
                     let _ = run_due_jobs(&state, &defaults, Utc::now()).await;
                 }
@@ -1187,7 +1188,7 @@ async fn handle_connection(
                     send_adapter_protocol_error(&mut framed).await?;
                     continue;
                 }
-                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+                let store = allbert_kernel_services::AdapterStore::new(state.paths.clone());
                 let manifests = store.list().map_err(map_kernel_error)?;
                 send_server_message(&mut framed, &ServerMessage::Adapters(manifests)).await?;
             }
@@ -1196,7 +1197,7 @@ async fn handle_connection(
                     send_adapter_protocol_error(&mut framed).await?;
                     continue;
                 }
-                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+                let store = allbert_kernel_services::AdapterStore::new(state.paths.clone());
                 match store.show(&adapter_id).map_err(map_kernel_error)? {
                     Some(manifest) => {
                         send_server_message(&mut framed, &ServerMessage::Adapter(manifest)).await?;
@@ -1209,9 +1210,9 @@ async fn handle_connection(
                     send_adapter_protocol_error(&mut framed).await?;
                     continue;
                 }
-                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+                let store = allbert_kernel_services::AdapterStore::new(state.paths.clone());
                 let config = state.default_config.read().await.clone();
-                let activation = allbert_kernel::activate_adapter(
+                let activation = allbert_kernel_services::activate_adapter(
                     &store,
                     &config.model,
                     &request.adapter_id,
@@ -1229,8 +1230,8 @@ async fn handle_connection(
                     send_adapter_protocol_error(&mut framed).await?;
                     continue;
                 }
-                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
-                allbert_kernel::deactivate_adapter(&store, Some("daemon request"))
+                let store = allbert_kernel_services::AdapterStore::new(state.paths.clone());
+                allbert_kernel_services::deactivate_adapter(&store, Some("daemon request"))
                     .map_err(map_kernel_error)?;
                 send_server_message(&mut framed, &ServerMessage::ActiveAdapter(None)).await?;
             }
@@ -1239,7 +1240,7 @@ async fn handle_connection(
                     send_adapter_protocol_error(&mut framed).await?;
                     continue;
                 }
-                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+                let store = allbert_kernel_services::AdapterStore::new(state.paths.clone());
                 store
                     .remove(&request.adapter_id, request.force)
                     .map_err(map_kernel_error)?;
@@ -1258,7 +1259,7 @@ async fn handle_connection(
                     send_adapter_protocol_error(&mut framed).await?;
                     continue;
                 }
-                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+                let store = allbert_kernel_services::AdapterStore::new(state.paths.clone());
                 let entries = store
                     .history(request.limit.map(|limit| limit as usize))
                     .map_err(map_kernel_error)?;
@@ -1300,7 +1301,7 @@ async fn handle_connection(
                     send_v6_protocol_error(&mut framed).await?;
                     continue;
                 }
-                let entries = allbert_kernel::list_diagnosis_reports(
+                let entries = allbert_kernel_services::list_diagnosis_reports(
                     &state.paths,
                     request.session_id.as_deref(),
                 )
@@ -1315,9 +1316,11 @@ async fn handle_connection(
                     send_v6_protocol_error(&mut framed).await?;
                     continue;
                 }
-                let artifact =
-                    allbert_kernel::read_diagnosis_report(&state.paths, &request.diagnosis_id)
-                        .map_err(map_kernel_error)?;
+                let artifact = allbert_kernel_services::read_diagnosis_report(
+                    &state.paths,
+                    &request.diagnosis_id,
+                )
+                .map_err(map_kernel_error)?;
                 send_server_message(
                     &mut framed,
                     &ServerMessage::DiagnosisReport(diagnosis_report_to_payload(&artifact)?),
@@ -1329,7 +1332,7 @@ async fn handle_connection(
                     send_v6_protocol_error(&mut framed).await?;
                     continue;
                 }
-                let entries = allbert_kernel::discover_utilities(&state.paths)
+                let entries = allbert_kernel_services::discover_utilities(&state.paths)
                     .map_err(map_kernel_error)?
                     .into_iter()
                     .map(utility_discovery_to_payload)
@@ -1341,7 +1344,7 @@ async fn handle_connection(
                     send_v6_protocol_error(&mut framed).await?;
                     continue;
                 }
-                let entries = allbert_kernel::list_enabled_utilities(&state.paths)
+                let entries = allbert_kernel_services::list_enabled_utilities(&state.paths)
                     .map_err(map_kernel_error)?
                     .into_iter()
                     .map(enabled_utility_to_payload)
@@ -1354,7 +1357,7 @@ async fn handle_connection(
                     continue;
                 }
                 let (discovery, enabled) =
-                    allbert_kernel::inspect_utility(&state.paths, &utility_id)
+                    allbert_kernel_services::inspect_utility(&state.paths, &utility_id)
                         .map_err(map_kernel_error)?;
                 send_server_message(
                     &mut framed,
@@ -1368,7 +1371,7 @@ async fn handle_connection(
                     continue;
                 }
                 let config = state.default_config.read().await.clone();
-                let result = allbert_kernel::enable_utility(
+                let result = allbert_kernel_services::enable_utility(
                     &state.paths,
                     &config.security,
                     &request.utility_id,
@@ -1376,7 +1379,7 @@ async fn handle_connection(
                 )
                 .map_err(map_kernel_error)?;
                 let (discovery, enabled) =
-                    allbert_kernel::inspect_utility(&state.paths, &request.utility_id)
+                    allbert_kernel_services::inspect_utility(&state.paths, &request.utility_id)
                         .map_err(map_kernel_error)?;
                 send_server_message(
                     &mut framed,
@@ -1393,7 +1396,7 @@ async fn handle_connection(
                     send_v6_protocol_error(&mut framed).await?;
                     continue;
                 }
-                allbert_kernel::disable_utility(&state.paths, &utility_id)
+                allbert_kernel_services::disable_utility(&state.paths, &utility_id)
                     .map_err(map_kernel_error)?;
                 send_server_message(&mut framed, &ServerMessage::Ack).await?;
             }
@@ -1403,8 +1406,9 @@ async fn handle_connection(
                     continue;
                 }
                 let config = state.default_config.read().await.clone();
-                let report = allbert_kernel::utility_doctor(&state.paths, &config.security)
-                    .map_err(map_kernel_error)?;
+                let report =
+                    allbert_kernel_services::utility_doctor(&state.paths, &config.security)
+                        .map_err(map_kernel_error)?;
                 send_server_message(
                     &mut framed,
                     &ServerMessage::UtilitiesDoctor(utilities_doctor_to_payload(report)),
@@ -1563,21 +1567,21 @@ async fn handle_diagnose_run(
             let remediation = remediation_request_from_payload(remediation)?;
             match state.provider_factory.build(&config.model).await {
                 Ok(provider) => {
-                    allbert_kernel::run_diagnosis_report_with_remediation_provider(
+                    allbert_kernel_services::run_diagnosis_report_with_remediation_provider(
                         &state.paths,
                         &config,
                         &session.session_id,
                         request.session_id.as_deref(),
                         request.lookback_days,
                         remediation,
-                        Some(allbert_kernel::DiagnosisCandidateProvider {
+                        Some(allbert_kernel_services::DiagnosisCandidateProvider {
                             provider: provider.as_ref(),
                             model: &config.model,
                         }),
                     )
                     .await
                 }
-                Err(_) => allbert_kernel::run_diagnosis_report_with_remediation_fallback(
+                Err(_) => allbert_kernel_services::run_diagnosis_report_with_remediation_fallback(
                     &state.paths,
                     &config,
                     &session.session_id,
@@ -1588,7 +1592,7 @@ async fn handle_diagnose_run(
                 ),
             }
         }
-        None => allbert_kernel::run_diagnosis_report(
+        None => allbert_kernel_services::run_diagnosis_report(
             &state.paths,
             &config.self_diagnosis,
             &session.session_id,
@@ -1786,7 +1790,7 @@ async fn run_heartbeat_tick(
 }
 
 fn inbox_nag_marker(
-    record: &allbert_kernel::HeartbeatRecord,
+    record: &allbert_kernel_services::HeartbeatRecord,
     now: chrono::DateTime<Utc>,
 ) -> Option<String> {
     let timezone = record.timezone.parse::<chrono_tz::Tz>().ok()?;
@@ -1942,7 +1946,7 @@ fn render_telegram_trace_span(span: &Span) -> String {
 }
 
 fn render_telegram_diagnosis_summary(
-    reports: &[allbert_kernel::DiagnosisReportIndexEntry],
+    reports: &[allbert_kernel_services::DiagnosisReportIndexEntry],
 ) -> String {
     let Some(report) = reports.first() else {
         return "Diagnosis\nNo diagnosis reports for the current Telegram session yet.".into();
@@ -1966,7 +1970,9 @@ fn render_telegram_diagnosis_summary(
     lines.join("\n")
 }
 
-fn render_telegram_utilities_status(entries: &[allbert_kernel::EnabledUtilityEntry]) -> String {
+fn render_telegram_utilities_status(
+    entries: &[allbert_kernel_services::EnabledUtilityEntry],
+) -> String {
     if entries.is_empty() {
         return "Utilities\nNo local utilities are enabled.".into();
     }
@@ -2329,7 +2335,7 @@ impl TelegramRuntime {
                 self.send_status(chat_id, &sender_id).await?;
             }
             TelegramCommand::AdapterStatus => {
-                let store = allbert_kernel::AdapterStore::new(self.state.paths.clone());
+                let store = allbert_kernel_services::AdapterStore::new(self.state.paths.clone());
                 let rendered = match store.active().map_err(map_kernel_error)? {
                     Some(active) => format!(
                         "Adapter active: `{}` on `{}`.",
@@ -2490,17 +2496,19 @@ impl TelegramRuntime {
 
     async fn send_diagnose_last(&self, chat_id: i64, sender_id: &str) -> Result<(), DaemonError> {
         let session = self.select_session(sender_id, false).await?;
-        let reports =
-            allbert_kernel::list_diagnosis_reports(&self.state.paths, Some(&session.session_id))
-                .map_err(map_kernel_error)?;
+        let reports = allbert_kernel_services::list_diagnosis_reports(
+            &self.state.paths,
+            Some(&session.session_id),
+        )
+        .map_err(map_kernel_error)?;
         self.send_text(chat_id, render_telegram_diagnosis_summary(&reports))
             .await?;
         Ok(())
     }
 
     async fn send_utilities_status(&self, chat_id: i64) -> Result<(), DaemonError> {
-        let entries =
-            allbert_kernel::list_enabled_utilities(&self.state.paths).map_err(map_kernel_error)?;
+        let entries = allbert_kernel_services::list_enabled_utilities(&self.state.paths)
+            .map_err(map_kernel_error)?;
         self.send_text(chat_id, render_telegram_utilities_status(&entries))
             .await?;
         Ok(())
@@ -2733,7 +2741,7 @@ impl TelegramRuntime {
             }
             Err(error) => {
                 typing_cancel.cancel();
-                let mut message = allbert_kernel::append_error_hint(&error.to_string());
+                let mut message = allbert_kernel_services::append_error_hint(&error.to_string());
                 if message.contains("/cost --override <reason>") {
                     let approval_id = format!("approval-{}", uuid::Uuid::new_v4().simple());
                     let approval_timeout_s = self
@@ -2845,7 +2853,7 @@ impl TelegramRuntime {
             Err(error) => {
                 self.send_text(
                     chat_id,
-                    allbert_kernel::append_error_hint(&error.to_string()),
+                    allbert_kernel_services::append_error_hint(&error.to_string()),
                 )
                 .await?;
             }
@@ -4265,10 +4273,10 @@ async fn send_adapter_not_found(
 async fn adapter_status_payload(
     state: &SharedState,
 ) -> Result<allbert_proto::AdaptersStatusPayload, DaemonError> {
-    let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+    let store = allbert_kernel_services::AdapterStore::new(state.paths.clone());
     let active = store.active().map_err(map_kernel_error)?;
     let today_compute_wall_seconds =
-        allbert_kernel::adapter_compute_used_today_seconds(&state.paths)
+        allbert_kernel_services::adapter_compute_used_today_seconds(&state.paths)
             .map_err(map_kernel_error)?;
     let config = state.default_config.read().await.clone();
     let compute_cap_wall_seconds = config.learning.compute_cap_wall_seconds;
@@ -4319,7 +4327,7 @@ async fn handle_adapter_training_start(
         None
     };
     if let Err(error) =
-        allbert_kernel::build_trainer(&state.paths, &config, request.backend.as_deref())
+        allbert_kernel_services::build_trainer(&state.paths, &config, request.backend.as_deref())
     {
         send_server_message(
             framed,
@@ -4333,7 +4341,7 @@ async fn handle_adapter_training_start(
     }
 
     let run_id = new_daemon_adapter_training_run_id();
-    let cancel = allbert_kernel::CancellationToken::new();
+    let cancel = allbert_kernel_services::CancellationToken::new();
     state
         .active_adapter_training
         .lock()
@@ -4364,11 +4372,11 @@ async fn handle_adapter_training_start(
     let training_run_id = run_id.clone();
     let training_cancel = cancel.clone();
     let report = tokio::task::spawn_blocking(move || {
-        allbert_kernel::run_personality_adapter_training_controlled(
+        allbert_kernel_services::run_personality_adapter_training_controlled(
             &paths,
             &config,
-            allbert_kernel::AdapterTrainingRunRequest {
-                session_id: allbert_kernel::PERSONALITY_ADAPTER_SESSION_ID.into(),
+            allbert_kernel_services::AdapterTrainingRunRequest {
+                session_id: allbert_kernel_services::PERSONALITY_ADAPTER_SESSION_ID.into(),
                 requested_backend: backend,
                 backend_override_reason,
                 compute_cap_override_reason,
@@ -4417,7 +4425,7 @@ async fn handle_adapter_training_cancel(
 
 fn adapter_training_final_payload(
     run_id: &str,
-    result: Result<allbert_kernel::LearningJobReport, KernelError>,
+    result: Result<allbert_kernel_services::LearningJobReport, KernelError>,
 ) -> allbert_proto::AdapterTrainingFinalPayload {
     match result {
         Ok(report) => allbert_proto::AdapterTrainingFinalPayload {
@@ -4468,7 +4476,7 @@ fn quarantine_external_adapter(
     paths: &AllbertPaths,
     source: &Path,
 ) -> Result<PathBuf, KernelError> {
-    let manifest = allbert_kernel::read_adapter_manifest(&source.join("manifest.json"))?;
+    let manifest = allbert_kernel_services::read_adapter_manifest(&source.join("manifest.json"))?;
     let destination = paths.adapters_incoming.join(&manifest.adapter_id);
     if destination.exists() {
         return Err(KernelError::Request(format!(
@@ -5467,17 +5475,17 @@ async fn handle_adapter_approval_resolution(
     };
     let config = state.default_config.read().await.clone();
     if accept {
-        let mut manifest = allbert_kernel::read_adapter_manifest(
+        let mut manifest = allbert_kernel_services::read_adapter_manifest(
             &PathBuf::from(&frontmatter.artifact_root).join("manifest.json"),
         )
         .map_err(map_kernel_error)?;
         manifest.accepted_at = Some(chrono::Utc::now());
-        allbert_kernel::write_adapter_manifest(
+        allbert_kernel_services::write_adapter_manifest(
             &PathBuf::from(&frontmatter.artifact_root).join("manifest.json"),
             &manifest,
         )
         .map_err(map_kernel_error)?;
-        let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+        let store = allbert_kernel_services::AdapterStore::new(state.paths.clone());
         store
             .install_from_run(&PathBuf::from(&frontmatter.artifact_root))
             .map_err(map_kernel_error)?;
@@ -6060,7 +6068,7 @@ fn model_to_payload(model: &ModelConfig) -> ModelConfigPayload {
 
 fn model_from_payload(model: ModelConfigPayload) -> ModelConfig {
     ModelConfig {
-        provider: allbert_kernel::Provider::from_proto_kind(model.provider),
+        provider: allbert_kernel_services::Provider::from_proto_kind(model.provider),
         model_id: model.model_id,
         api_key_env: model.api_key_env,
         base_url: model.base_url,
@@ -6179,25 +6187,25 @@ fn render_approval_context_plain(context: &ApprovalContext) -> String {
 
 fn remediation_request_from_payload(
     payload: DiagnosisRemediationRequestPayload,
-) -> Result<allbert_kernel::DiagnosisRemediationRequest, DaemonError> {
+) -> Result<allbert_kernel_services::DiagnosisRemediationRequest, DaemonError> {
     let kind = match payload.kind.as_str() {
-        "code" => allbert_kernel::DiagnosisRemediationKind::Code,
-        "skill" => allbert_kernel::DiagnosisRemediationKind::Skill,
-        "memory" => allbert_kernel::DiagnosisRemediationKind::Memory,
+        "code" => allbert_kernel_services::DiagnosisRemediationKind::Code,
+        "skill" => allbert_kernel_services::DiagnosisRemediationKind::Skill,
+        "memory" => allbert_kernel_services::DiagnosisRemediationKind::Memory,
         other => {
             return Err(DaemonError::Protocol(format!(
                 "unsupported diagnosis remediation kind: {other}"
             )))
         }
     };
-    Ok(allbert_kernel::DiagnosisRemediationRequest {
+    Ok(allbert_kernel_services::DiagnosisRemediationRequest {
         kind,
         reason: payload.reason,
     })
 }
 
 fn diagnosis_summary_to_payload(
-    summary: &allbert_kernel::DiagnosisReportSummary,
+    summary: &allbert_kernel_services::DiagnosisReportSummary,
 ) -> Result<DiagnosisReportSummaryPayload, DaemonError> {
     Ok(DiagnosisReportSummaryPayload {
         schema_version: summary.schema_version,
@@ -6229,17 +6237,17 @@ fn diagnosis_summary_to_payload(
 }
 
 fn diagnosis_remediation_status_label(
-    status: &allbert_kernel::DiagnosisRemediationStatus,
+    status: &allbert_kernel_services::DiagnosisRemediationStatus,
 ) -> &'static str {
     match status {
-        allbert_kernel::DiagnosisRemediationStatus::NotRequested => "not_requested",
-        allbert_kernel::DiagnosisRemediationStatus::Refused => "refused",
-        allbert_kernel::DiagnosisRemediationStatus::Routed => "routed",
+        allbert_kernel_services::DiagnosisRemediationStatus::NotRequested => "not_requested",
+        allbert_kernel_services::DiagnosisRemediationStatus::Refused => "refused",
+        allbert_kernel_services::DiagnosisRemediationStatus::Routed => "routed",
     }
 }
 
 fn diagnosis_report_to_payload(
-    artifact: &allbert_kernel::DiagnosisReportArtifact,
+    artifact: &allbert_kernel_services::DiagnosisReportArtifact,
 ) -> Result<DiagnosisReportPayload, DaemonError> {
     Ok(DiagnosisReportPayload {
         summary: diagnosis_summary_to_payload(&artifact.summary)?,
@@ -6248,7 +6256,7 @@ fn diagnosis_report_to_payload(
 }
 
 fn utility_discovery_to_payload(
-    discovery: allbert_kernel::LocalUtilityDiscovery,
+    discovery: allbert_kernel_services::LocalUtilityDiscovery,
 ) -> UtilityCatalogEntryPayload {
     UtilityCatalogEntryPayload {
         id: discovery.id,
@@ -6268,8 +6276,8 @@ fn utility_discovery_to_payload(
 }
 
 fn utility_detail_to_payload(
-    discovery: allbert_kernel::LocalUtilityDiscovery,
-    enabled: Option<allbert_kernel::EnabledUtilityEntry>,
+    discovery: allbert_kernel_services::LocalUtilityDiscovery,
+    enabled: Option<allbert_kernel_services::EnabledUtilityEntry>,
     exec_note: Option<String>,
 ) -> UtilityCatalogEntryPayload {
     let mut payload = utility_discovery_to_payload(discovery);
@@ -6285,7 +6293,9 @@ fn utility_detail_to_payload(
     payload
 }
 
-fn enabled_utility_to_payload(entry: allbert_kernel::EnabledUtilityEntry) -> EnabledUtilityPayload {
+fn enabled_utility_to_payload(
+    entry: allbert_kernel_services::EnabledUtilityEntry,
+) -> EnabledUtilityPayload {
     EnabledUtilityPayload {
         id: entry.id,
         path: entry.path,
@@ -6302,7 +6312,7 @@ fn enabled_utility_to_payload(entry: allbert_kernel::EnabledUtilityEntry) -> Ena
 }
 
 fn utilities_doctor_to_payload(
-    report: allbert_kernel::UtilityDoctorReport,
+    report: allbert_kernel_services::UtilityDoctorReport,
 ) -> UtilitiesDoctorPayload {
     UtilitiesDoctorPayload {
         manifest_path: report.manifest_path,
@@ -6315,7 +6325,9 @@ fn utilities_doctor_to_payload(
 }
 
 #[allow(dead_code)]
-fn unix_pipe_to_payload(summary: allbert_kernel::UnixPipeRunSummary) -> UnixPipeRunSummaryPayload {
+fn unix_pipe_to_payload(
+    summary: allbert_kernel_services::UnixPipeRunSummary,
+) -> UnixPipeRunSummaryPayload {
     UnixPipeRunSummaryPayload {
         ok: summary.ok,
         timed_out: summary.timed_out,
@@ -6381,7 +6393,7 @@ fn map_kernel_error(error: KernelError) -> DaemonError {
     DaemonError::Protocol(error.to_string())
 }
 
-fn map_trace_error(error: allbert_kernel::TraceStoreError) -> DaemonError {
+fn map_trace_error(error: allbert_kernel_services::TraceStoreError) -> DaemonError {
     DaemonError::Protocol(error.to_string())
 }
 
@@ -6392,7 +6404,7 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), DaemonError> {
             path.display()
         )));
     }
-    allbert_kernel::atomic_write(path, bytes).map_err(DaemonError::Io)
+    allbert_kernel_services::atomic_write(path, bytes).map_err(DaemonError::Io)
 }
 
 fn current_host() -> String {
@@ -7009,7 +7021,7 @@ mod telegram_tests {
 
     #[test]
     fn telegram_error_guidance_uses_shared_remediation_hints() {
-        let rendered = allbert_kernel::append_error_hint("telegram missing bot token");
+        let rendered = allbert_kernel_services::append_error_hint("telegram missing bot token");
         assert!(rendered.contains("hint:"));
         assert!(rendered.contains("daemon channels add telegram"));
     }

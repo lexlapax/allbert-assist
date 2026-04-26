@@ -7,7 +7,7 @@ edition = "2021"
 allbert-channels = { path = "../allbert-channels" }
 allbert-daemon = { path = "../allbert-daemon" }
 allbert-jobs = { path = "../allbert-jobs" }
-allbert-kernel = { path = "../allbert-kernel" }
+allbert-kernel-services = { path = "../allbert-kernel-services" }
 allbert-proto = { path = "../allbert-proto" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"

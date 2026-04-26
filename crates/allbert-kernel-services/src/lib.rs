@@ -9908,7 +9908,7 @@ mod tests {
         )
         .await;
         assert!(cargo_toml.ok, "trusted-root file read should succeed");
-        assert!(cargo_toml.content.contains("allbert-kernel"));
+        assert!(cargo_toml.content.contains("allbert-kernel-services"));
 
         let denied = run_tool_via_kernel(
             &mut kernel,
@@ -10043,7 +10043,7 @@ mod tests {
         )
         .await;
         assert!(cargo_toml.ok, "trusted-root file read should succeed");
-        assert!(cargo_toml.content.contains("allbert-kernel"));
+        assert!(cargo_toml.content.contains("allbert-kernel-services"));
 
         kernel
             .set_model(ModelConfig {

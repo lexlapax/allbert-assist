@@ -2,7 +2,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use allbert_kernel::{
+use allbert_kernel_services::{
     collect_worktree_gc, ensure_identity_record, has_pinned_rust_toolchain, render_bytes,
     resolve_source_checkout, resolve_source_checkout_from, resolve_worktree_root,
     worktree_disk_usage, AllbertPaths, Config,

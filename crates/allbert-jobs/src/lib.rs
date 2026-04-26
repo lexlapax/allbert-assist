@@ -1,7 +1,7 @@
 use std::fs;
 
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
-use allbert_kernel::{AllbertPaths, Config, Provider};
+use allbert_kernel_services::{AllbertPaths, Config, Provider};
 use allbert_proto::{
     ActivityPhase, ActivitySnapshot, ChannelKind, ClientKind, JobBudgetPayload,
     JobDefinitionPayload, JobReportPolicyPayload, JobRunRecordPayload, JobStatusPayload,
@@ -125,7 +125,7 @@ fn run_template_command(paths: &AllbertPaths, command: JobTemplateCommand) -> Re
                     .with_context(|| format!("create {}", parent.display()))?;
             }
             let enabled = set_job_enabled(&raw, true);
-            allbert_kernel::atomic_write(&dest, enabled.as_bytes())
+            allbert_kernel_services::atomic_write(&dest, enabled.as_bytes())
                 .with_context(|| format!("write {}", dest.display()))?;
             Ok(format!(
                 "enabled job template {name}\ndefinition: {}",
@@ -140,7 +140,7 @@ fn run_template_command(paths: &AllbertPaths, command: JobTemplateCommand) -> Re
             let raw = fs::read_to_string(&dest)
                 .with_context(|| format!("read job definition {}", dest.display()))?;
             let disabled = set_job_enabled(&raw, false);
-            allbert_kernel::atomic_write(&dest, disabled.as_bytes())
+            allbert_kernel_services::atomic_write(&dest, disabled.as_bytes())
                 .with_context(|| format!("write {}", dest.display()))?;
             Ok(format!(
                 "disabled job template {name}\ndefinition: {}",

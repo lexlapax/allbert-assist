@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use allbert_daemon::{DaemonClient, DaemonError};
-use allbert_kernel::{
+use allbert_kernel_services::{
     apply_trace_gc, export_session_otlp_json, plan_trace_gc, AllbertPaths, Config, TraceReader,
 };
 use allbert_proto::{
@@ -270,7 +270,7 @@ fn render_attribute_value(value: &AttributeValue) -> String {
 }
 
 fn render_gc_plan(
-    plan: &allbert_kernel::TraceGcPlan,
+    plan: &allbert_kernel_services::TraceGcPlan,
     dry_run: bool,
     removed: usize,
     freed_bytes: u64,
