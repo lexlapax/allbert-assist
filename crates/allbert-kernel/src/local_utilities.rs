@@ -1,15 +1,26 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::process::Stdio;
+use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::process::Command;
 
 use crate::atomic_write;
 use crate::config::SecurityConfig;
 use crate::error::KernelError;
 use crate::paths::AllbertPaths;
+use crate::security::{self, NormalizedExec, PolicyDecision};
+use crate::Config;
 
 pub const UTILITY_MANIFEST_SCHEMA_VERSION: u16 = 1;
+const UNIX_PIPE_MAX_STAGES: usize = 5;
+const UNIX_PIPE_DEFAULT_TIMEOUT_S: u64 = 30;
+const UNIX_PIPE_MAX_STDIN_BYTES: usize = 1024 * 1024;
+const UNIX_PIPE_MAX_STDOUT_BYTES: usize = 1024 * 1024;
+const UNIX_PIPE_MAX_STDERR_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
@@ -101,6 +112,58 @@ pub struct UtilityExecPolicy {
     pub auto_allowed: bool,
     pub requires_approval: bool,
     pub note: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct UnixPipeInput {
+    pub stages: Vec<UnixPipeStageInput>,
+    pub stdin: Option<String>,
+    pub cwd: Option<String>,
+    pub timeout_s: Option<u64>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct UnixPipeStageInput {
+    pub utility_id: String,
+    pub args: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct UnixPipeRunSummary {
+    pub ok: bool,
+    pub timed_out: bool,
+    pub cap_violated: bool,
+    pub stdout: String,
+    pub stdout_bytes: usize,
+    pub stdout_truncated: bool,
+    pub lossy_utf8: bool,
+    pub stages: Vec<UnixPipeStageSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct UnixPipeStageSummary {
+    pub utility_id: String,
+    pub exit_code: Option<i32>,
+    pub stdout_bytes: usize,
+    pub stderr_bytes: usize,
+    pub stderr_summary: String,
+    pub stderr_truncated: bool,
+}
+
+#[derive(Debug, Clone)]
+struct PreparedUnixPipeStage {
+    utility_id: String,
+    path: PathBuf,
+    args: Vec<String>,
+}
+
+#[derive(Debug)]
+struct BoundedBytes {
+    bytes: Vec<u8>,
+    total_bytes: usize,
+    truncated: bool,
 }
 
 const UTILITY_CATALOG: &[LocalUtilityCatalogEntry] = &[
@@ -338,6 +401,80 @@ pub fn load_manifest(paths: &AllbertPaths) -> Result<UtilityManifest, KernelErro
     Ok(manifest)
 }
 
+pub async fn run_unix_pipe(
+    paths: &AllbertPaths,
+    config: &Config,
+    input: UnixPipeInput,
+) -> Result<UnixPipeRunSummary, KernelError> {
+    if !config.local_utilities.enabled {
+        return Err(KernelError::Request(
+            "local_utilities.enabled is false; enable local utilities before running unix_pipe"
+                .into(),
+        ));
+    }
+
+    let stdin = input.stdin.unwrap_or_default().into_bytes();
+    if stdin.len() > UNIX_PIPE_MAX_STDIN_BYTES {
+        return Err(KernelError::Request(format!(
+            "unix_pipe stdin is {} bytes; max is {}",
+            stdin.len(),
+            UNIX_PIPE_MAX_STDIN_BYTES
+        )));
+    }
+    let timeout_s = input.timeout_s.unwrap_or(UNIX_PIPE_DEFAULT_TIMEOUT_S);
+    if timeout_s == 0 {
+        return Err(KernelError::Request(
+            "unix_pipe timeout_s must be greater than 0".into(),
+        ));
+    }
+
+    let cwd = match input
+        .cwd
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(raw) => Some(
+            security::sandbox::check(Path::new(raw), &config.security.fs_roots)
+                .map_err(KernelError::Request)?,
+        ),
+        None => None,
+    };
+    let prepared = prepare_unix_pipe(paths, config, input.stages, cwd.clone())?;
+    let timeout_stage_ids = prepared
+        .iter()
+        .map(|stage| stage.utility_id.clone())
+        .collect::<Vec<_>>();
+    match tokio::time::timeout(
+        Duration::from_secs(timeout_s),
+        execute_prepared_unix_pipe(prepared, stdin, cwd),
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(_) => Ok(UnixPipeRunSummary {
+            ok: false,
+            timed_out: true,
+            cap_violated: false,
+            stdout: String::new(),
+            stdout_bytes: 0,
+            stdout_truncated: false,
+            lossy_utf8: false,
+            stages: timeout_stage_ids
+                .into_iter()
+                .map(|utility_id| UnixPipeStageSummary {
+                    utility_id,
+                    exit_code: None,
+                    stdout_bytes: 0,
+                    stderr_bytes: 0,
+                    stderr_summary: "unix_pipe timed out; running children were killed".into(),
+                    stderr_truncated: false,
+                })
+                .collect(),
+        }),
+    }
+}
+
 fn save_manifest(paths: &AllbertPaths, manifest: &UtilityManifest) -> Result<(), KernelError> {
     std::fs::create_dir_all(&paths.utilities).map_err(|err| {
         KernelError::Io(std::io::Error::new(
@@ -353,6 +490,370 @@ fn save_manifest(paths: &AllbertPaths, manifest: &UtilityManifest) -> Result<(),
             format!("write {}: {err}", paths.utilities_enabled.display()),
         ))
     })
+}
+
+fn prepare_unix_pipe(
+    paths: &AllbertPaths,
+    config: &Config,
+    stages: Vec<UnixPipeStageInput>,
+    cwd: Option<PathBuf>,
+) -> Result<Vec<PreparedUnixPipeStage>, KernelError> {
+    if stages.is_empty() {
+        return Err(KernelError::Request(
+            "unix_pipe requires at least one stage".into(),
+        ));
+    }
+    if stages.len() > UNIX_PIPE_MAX_STAGES {
+        return Err(KernelError::Request(format!(
+            "unix_pipe supports at most {} stages",
+            UNIX_PIPE_MAX_STAGES
+        )));
+    }
+
+    let report = utility_doctor(paths, &config.security)?;
+    let enabled = report
+        .entries
+        .into_iter()
+        .map(|entry| (entry.id.clone(), entry))
+        .collect::<BTreeMap<_, _>>();
+    let mut prepared = Vec::with_capacity(stages.len());
+    for stage in stages {
+        let id = stage.utility_id.trim();
+        if id.is_empty() {
+            return Err(KernelError::Request(
+                "unix_pipe stage utility_id must not be empty".into(),
+            ));
+        }
+        let catalog = catalog_entry(id)?;
+        if !catalog.pipe_allowed {
+            return Err(KernelError::Request(format!(
+                "utility {id} is not allowed for unix_pipe"
+            )));
+        }
+        let entry = enabled.get(id).ok_or_else(|| {
+            KernelError::Request(format!(
+                "utility {id} is not enabled; run `allbert-cli utilities enable {id}` first"
+            ))
+        })?;
+        if entry.status != UtilityStatus::Ok {
+            return Err(KernelError::Request(format!(
+                "utility {id} status is {}; run `allbert-cli utilities doctor` and review before unix_pipe",
+                entry.status.label()
+            )));
+        }
+        for arg in &stage.args {
+            validate_unix_pipe_arg(id, arg)?;
+        }
+        let path = PathBuf::from(&entry.path_canonical);
+        if !is_executable_file(&path) {
+            return Err(KernelError::Request(format!(
+                "utility {id} is no longer executable at {}",
+                path.display()
+            )));
+        }
+        preflight_unix_pipe_exec(&config.security, catalog, &path, &stage.args, cwd.clone())?;
+        prepared.push(PreparedUnixPipeStage {
+            utility_id: id.into(),
+            path,
+            args: stage.args,
+        });
+    }
+    Ok(prepared)
+}
+
+fn validate_unix_pipe_arg(utility_id: &str, arg: &str) -> Result<(), KernelError> {
+    if arg.contains('\0') {
+        return Err(KernelError::Request(format!(
+            "unix_pipe arg for {utility_id} contains a NUL byte"
+        )));
+    }
+    if arg
+        .chars()
+        .any(|ch| matches!(ch, '|' | '>' | '<' | '*' | '?'))
+    {
+        return Err(KernelError::Request(format!(
+            "unix_pipe arg for {utility_id} contains shell operators, redirection, or glob characters"
+        )));
+    }
+    Ok(())
+}
+
+fn preflight_unix_pipe_exec(
+    security: &SecurityConfig,
+    catalog: &LocalUtilityCatalogEntry,
+    path: &Path,
+    args: &[String],
+    cwd: Option<PathBuf>,
+) -> Result<(), KernelError> {
+    let utility_policy = utility_exec_policy(security, catalog, path);
+    if utility_policy.hard_denied {
+        return Err(KernelError::Request(utility_policy.note));
+    }
+
+    let normalized = NormalizedExec {
+        program: path.display().to_string(),
+        args: args.to_vec(),
+        cwd,
+    };
+    match security::exec_policy(&normalized, security, &HashSet::new()) {
+        PolicyDecision::Deny(message) => Err(KernelError::Request(message)),
+        PolicyDecision::AutoAllow => Ok(()),
+        PolicyDecision::NeedsConfirm(_) if utility_policy.auto_allowed => Ok(()),
+        PolicyDecision::NeedsConfirm(_) => Err(KernelError::Request(format!(
+            "utility {} still requires exec approval; add its id, filename, or canonical path to security.exec_allow before unix_pipe",
+            catalog.id
+        ))),
+    }
+}
+
+async fn execute_prepared_unix_pipe(
+    stages: Vec<PreparedUnixPipeStage>,
+    stdin: Vec<u8>,
+    cwd: Option<PathBuf>,
+) -> Result<UnixPipeRunSummary, KernelError> {
+    let stage_count = stages.len();
+    let mut children = Vec::with_capacity(stage_count);
+    let mut stdins = Vec::with_capacity(stage_count);
+    let mut stdouts = Vec::with_capacity(stage_count);
+    let mut stderr_handles = Vec::with_capacity(stage_count);
+
+    for stage in &stages {
+        let mut command = Command::new(&stage.path);
+        command.args(&stage.args);
+        if let Some(cwd) = &cwd {
+            command.current_dir(cwd);
+        }
+        command.stdin(Stdio::piped());
+        command.stdout(Stdio::piped());
+        command.stderr(Stdio::piped());
+        command.kill_on_drop(true);
+        let mut child = command.spawn().map_err(|err| {
+            KernelError::Request(format!("spawn unix_pipe stage {}: {err}", stage.utility_id))
+        })?;
+        let stdin = child.stdin.take().ok_or_else(|| {
+            KernelError::Request(format!(
+                "open stdin for unix_pipe stage {}",
+                stage.utility_id
+            ))
+        })?;
+        let stdout = child.stdout.take().ok_or_else(|| {
+            KernelError::Request(format!(
+                "open stdout for unix_pipe stage {}",
+                stage.utility_id
+            ))
+        })?;
+        let stderr = child.stderr.take().ok_or_else(|| {
+            KernelError::Request(format!(
+                "open stderr for unix_pipe stage {}",
+                stage.utility_id
+            ))
+        })?;
+        stderr_handles.push(tokio::spawn(read_bounded(
+            stderr,
+            UNIX_PIPE_MAX_STDERR_BYTES,
+        )));
+        stdins.push(Some(stdin));
+        stdouts.push(Some(stdout));
+        children.push(child);
+    }
+
+    let mut copy_handles = Vec::with_capacity(stage_count.saturating_sub(1));
+    let first_stdin = stdins
+        .get_mut(0)
+        .and_then(Option::take)
+        .ok_or_else(|| KernelError::Request("open first unix_pipe stdin".into()))?;
+    let stdin_handle = tokio::spawn(write_pipe_stdin(first_stdin, stdin));
+    for idx in 0..stage_count.saturating_sub(1) {
+        let stdout = stdouts
+            .get_mut(idx)
+            .and_then(Option::take)
+            .ok_or_else(|| KernelError::Request("open intermediate unix_pipe stdout".into()))?;
+        let stdin = stdins
+            .get_mut(idx + 1)
+            .and_then(Option::take)
+            .ok_or_else(|| KernelError::Request("open intermediate unix_pipe stdin".into()))?;
+        copy_handles.push(tokio::spawn(copy_bounded(
+            stdout,
+            stdin,
+            UNIX_PIPE_MAX_STDOUT_BYTES,
+        )));
+    }
+    let final_stdout = stdouts
+        .get_mut(stage_count - 1)
+        .and_then(Option::take)
+        .ok_or_else(|| KernelError::Request("open final unix_pipe stdout".into()))?;
+    let final_stdout_handle = tokio::spawn(read_bounded(final_stdout, UNIX_PIPE_MAX_STDOUT_BYTES));
+
+    let mut exit_codes = Vec::with_capacity(stage_count);
+    for (stage, child) in stages.iter().zip(children.iter_mut()) {
+        let status = child.wait().await.map_err(|err| {
+            KernelError::Request(format!(
+                "wait for unix_pipe stage {}: {err}",
+                stage.utility_id
+            ))
+        })?;
+        exit_codes.push(status.code());
+    }
+
+    let _ = join_bounded_task(stdin_handle).await?;
+    let mut stdout_counts = vec![0usize; stage_count];
+    let mut cap_violated = false;
+    for (idx, handle) in copy_handles.into_iter().enumerate() {
+        let outcome = join_bounded_task(handle).await?;
+        stdout_counts[idx] = outcome.total_bytes;
+        cap_violated |= outcome.truncated;
+    }
+    let final_stdout = join_bounded_task(final_stdout_handle).await?;
+    stdout_counts[stage_count - 1] = final_stdout.total_bytes;
+    cap_violated |= final_stdout.truncated;
+
+    let mut stderr_results = Vec::with_capacity(stage_count);
+    for handle in stderr_handles {
+        let outcome = join_bounded_task(handle).await?;
+        cap_violated |= outcome.truncated;
+        stderr_results.push(outcome);
+    }
+
+    let mut summaries = Vec::with_capacity(stage_count);
+    for idx in 0..stage_count {
+        let stderr = &stderr_results[idx];
+        let (stderr_summary, _) = render_lossy_output(&stderr.bytes, stderr.truncated);
+        summaries.push(UnixPipeStageSummary {
+            utility_id: stages[idx].utility_id.clone(),
+            exit_code: exit_codes[idx],
+            stdout_bytes: stdout_counts[idx],
+            stderr_bytes: stderr.total_bytes,
+            stderr_summary,
+            stderr_truncated: stderr.truncated,
+        });
+    }
+    let (stdout, lossy_utf8) = render_lossy_output(&final_stdout.bytes, final_stdout.truncated);
+    let ok = !cap_violated && exit_codes.iter().all(|code| *code == Some(0));
+    Ok(UnixPipeRunSummary {
+        ok,
+        timed_out: false,
+        cap_violated,
+        stdout,
+        stdout_bytes: final_stdout.total_bytes,
+        stdout_truncated: final_stdout.truncated,
+        lossy_utf8,
+        stages: summaries,
+    })
+}
+
+async fn join_bounded_task(
+    handle: tokio::task::JoinHandle<std::io::Result<BoundedBytes>>,
+) -> Result<BoundedBytes, KernelError> {
+    handle
+        .await
+        .map_err(|err| KernelError::Request(format!("unix_pipe io task failed: {err}")))?
+        .map_err(|err| KernelError::Request(format!("unix_pipe io failed: {err}")))
+}
+
+async fn write_pipe_stdin<W>(mut writer: W, input: Vec<u8>) -> std::io::Result<BoundedBytes>
+where
+    W: AsyncWrite + Unpin,
+{
+    match writer.write_all(&input).await {
+        Ok(()) => {}
+        Err(err) if err.kind() == ErrorKind::BrokenPipe => {}
+        Err(err) => return Err(err),
+    }
+    let _ = writer.shutdown().await;
+    Ok(BoundedBytes {
+        bytes: Vec::new(),
+        total_bytes: input.len(),
+        truncated: false,
+    })
+}
+
+async fn copy_bounded<R, W>(
+    mut reader: R,
+    mut writer: W,
+    cap: usize,
+) -> std::io::Result<BoundedBytes>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
+    let mut total = 0usize;
+    let mut written = 0usize;
+    let mut truncated = false;
+    let mut buffer = vec![0_u8; 8192];
+    loop {
+        let read = reader.read(&mut buffer).await?;
+        if read == 0 {
+            break;
+        }
+        total = total.saturating_add(read);
+        let remaining = cap.saturating_sub(written);
+        if remaining == 0 {
+            truncated = true;
+            continue;
+        }
+        let to_write = read.min(remaining);
+        if let Err(err) = writer.write_all(&buffer[..to_write]).await {
+            if err.kind() == ErrorKind::BrokenPipe {
+                truncated = true;
+                break;
+            }
+            return Err(err);
+        }
+        written = written.saturating_add(to_write);
+        if read > to_write {
+            truncated = true;
+        }
+    }
+    let _ = writer.shutdown().await;
+    Ok(BoundedBytes {
+        bytes: Vec::new(),
+        total_bytes: total,
+        truncated,
+    })
+}
+
+async fn read_bounded<R>(mut reader: R, cap: usize) -> std::io::Result<BoundedBytes>
+where
+    R: AsyncRead + Unpin,
+{
+    let mut bytes = Vec::new();
+    let mut total = 0usize;
+    let mut truncated = false;
+    let mut buffer = vec![0_u8; 8192];
+    loop {
+        let read = reader.read(&mut buffer).await?;
+        if read == 0 {
+            break;
+        }
+        total = total.saturating_add(read);
+        let remaining = cap.saturating_sub(bytes.len());
+        if remaining == 0 {
+            truncated = true;
+            continue;
+        }
+        let to_store = read.min(remaining);
+        bytes.extend_from_slice(&buffer[..to_store]);
+        if read > to_store {
+            truncated = true;
+        }
+    }
+    Ok(BoundedBytes {
+        bytes,
+        total_bytes: total,
+        truncated,
+    })
+}
+
+fn render_lossy_output(bytes: &[u8], truncated: bool) -> (String, bool) {
+    let lossy = std::str::from_utf8(bytes).is_err();
+    let mut rendered = String::from_utf8_lossy(bytes).to_string();
+    if truncated {
+        rendered.push_str("\n[unix_pipe warning: output truncated]");
+    }
+    if lossy {
+        rendered.push_str("\n[unix_pipe warning: invalid utf-8 rendered lossily]");
+    }
+    (rendered, lossy)
 }
 
 fn catalog_entry(id: &str) -> Result<&'static LocalUtilityCatalogEntry, KernelError> {
@@ -607,5 +1108,76 @@ mod tests {
         };
         let err = enable_utility(&paths, &security, "sed", Some(&bin)).unwrap_err();
         assert!(err.to_string().contains("exec_deny"));
+    }
+
+    #[tokio::test]
+    async fn unix_pipe_runs_enabled_direct_spawn_stage() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths");
+        let bin = temp.path().join("sed");
+        std::fs::write(
+            &bin,
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo sed-test 1.0; exit 0; fi\ncat\n",
+        )
+        .expect("binary");
+        make_executable(&bin);
+        let canonical = bin.canonicalize().expect("canonical");
+        let mut config = Config::default_template();
+        config.security.exec_allow = vec![canonical.display().to_string()];
+        config.security.fs_roots = vec![temp.path().to_path_buf()];
+        enable_utility(&paths, &config.security, "sed", Some(&bin)).expect("enable");
+
+        let result = run_unix_pipe(
+            &paths,
+            &config,
+            UnixPipeInput {
+                stages: vec![UnixPipeStageInput {
+                    utility_id: "sed".into(),
+                    args: Vec::new(),
+                }],
+                stdin: Some("hello\n".into()),
+                cwd: Some(temp.path().display().to_string()),
+                timeout_s: Some(2),
+            },
+        )
+        .await
+        .expect("run");
+
+        assert!(result.ok);
+        assert_eq!(result.stdout, "hello\n");
+        assert_eq!(result.stages[0].exit_code, Some(0));
+        assert_eq!(result.stages[0].stdout_bytes, 6);
+    }
+
+    #[tokio::test]
+    async fn unix_pipe_refuses_needs_review_utility() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths");
+        let bin = temp.path().join("jq");
+        std::fs::write(&bin, "#!/bin/sh\ncat\n").expect("binary");
+        make_executable(&bin);
+        let mut config = Config::default_template();
+        config.security.fs_roots = vec![temp.path().to_path_buf()];
+        enable_utility(&paths, &config.security, "jq", Some(&bin)).expect("enable");
+
+        let err = run_unix_pipe(
+            &paths,
+            &config,
+            UnixPipeInput {
+                stages: vec![UnixPipeStageInput {
+                    utility_id: "jq".into(),
+                    args: Vec::new(),
+                }],
+                stdin: Some("{}".into()),
+                cwd: Some(temp.path().display().to_string()),
+                timeout_s: Some(2),
+            },
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.to_string().contains("needs-review"));
     }
 }

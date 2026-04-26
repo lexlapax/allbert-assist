@@ -103,9 +103,10 @@ pub use learning::{
 pub use llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, Usage};
 pub use local_utilities::{
     disable_utility, discover_utilities, enable_utility, inspect_utility, list_enabled_utilities,
-    utility_doctor, EnabledUtilityEntry, LocalUtilityCatalogEntry, LocalUtilityDiscovery,
-    UtilityDoctorReport, UtilityEnableResult, UtilityExecPolicy, UtilityManifest, UtilityStatus,
-    UTILITY_MANIFEST_SCHEMA_VERSION,
+    run_unix_pipe, utility_doctor, EnabledUtilityEntry, LocalUtilityCatalogEntry,
+    LocalUtilityDiscovery, UnixPipeInput, UnixPipeRunSummary, UnixPipeStageInput,
+    UnixPipeStageSummary, UtilityDoctorReport, UtilityEnableResult, UtilityExecPolicy,
+    UtilityManifest, UtilityStatus, UTILITY_MANIFEST_SCHEMA_VERSION,
 };
 pub use memory::{
     MemoryFact, MemoryTier, SearchMemoryHit, SearchMemoryInput, StageMemoryInput, StagedMemoryKind,
@@ -516,6 +517,10 @@ impl ToolRuntime for KernelToolRuntime<'_> {
 
     fn self_diagnose(&mut self, input: serde_json::Value) -> ToolOutput {
         self.kernel.dispatch_self_diagnose(self.state, input)
+    }
+
+    async fn unix_pipe(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_unix_pipe(input).await
     }
 
     async fn spawn_subagent(&mut self, input: serde_json::Value) -> ToolOutput {
@@ -3260,6 +3265,25 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             }
         };
         serialize_tool_value(&artifact.summary)
+    }
+
+    async fn dispatch_unix_pipe(&self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<UnixPipeInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid unix_pipe input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        match local_utilities::run_unix_pipe(&self.paths, &self.config, parsed).await {
+            Ok(summary) => serialize_tool_value(&summary),
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
+        }
     }
 
     fn dispatch_read_memory(&self, input: serde_json::Value) -> ToolOutput {

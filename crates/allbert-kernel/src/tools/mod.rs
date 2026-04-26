@@ -42,6 +42,7 @@ pub trait ToolRuntime: Send {
     async fn run_skill_script(&mut self, input: Value) -> ToolOutput;
     fn create_skill(&mut self, input: Value) -> ToolOutput;
     fn self_diagnose(&mut self, input: Value) -> ToolOutput;
+    async fn unix_pipe(&mut self, input: Value) -> ToolOutput;
 
     async fn spawn_subagent(&mut self, input: Value) -> ToolOutput;
 }
@@ -89,6 +90,7 @@ impl ToolRegistry {
         registry.register(RunSkillScriptTool);
         registry.register(CreateSkillTool);
         registry.register(SelfDiagnoseTool);
+        registry.register(UnixPipeTool);
         registry.register(SpawnSubagentTool);
         registry
     }
@@ -953,6 +955,7 @@ impl Tool for CreateSkillTool {
 struct SpawnSubagentTool;
 
 struct SelfDiagnoseTool;
+struct UnixPipeTool;
 
 #[async_trait]
 impl Tool for SelfDiagnoseTool {
@@ -977,6 +980,48 @@ impl Tool for SelfDiagnoseTool {
 
     async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
         Ok(ctx.runtime.self_diagnose(input))
+    }
+}
+
+#[async_trait]
+impl Tool for UnixPipeTool {
+    fn name(&self) -> &'static str {
+        "unix_pipe"
+    }
+
+    fn description(&self) -> &'static str {
+        "Run a bounded direct-spawn pipeline of operator-enabled local utilities"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["stages"],
+            "properties": {
+                "stages": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["utility_id"],
+                        "properties": {
+                            "utility_id": {"type": "string"},
+                            "args": {"type": "array", "items": {"type": "string"}}
+                        }
+                    }
+                },
+                "stdin": {"type": "string"},
+                "cwd": {"type": "string"},
+                "timeout_s": {"type": "integer", "minimum": 1}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.unix_pipe(input).await)
     }
 }
 
@@ -1264,6 +1309,12 @@ mod tests {
         fn self_diagnose(&mut self, _input: Value) -> ToolOutput {
             ToolOutput {
                 content: "{\"summary\":{\"primary_failure\":\"unknown_local\"}}".into(),
+                ok: true,
+            }
+        }
+        async fn unix_pipe(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput {
+                content: "{\"ok\":true}".into(),
                 ok: true,
             }
         }
