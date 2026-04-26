@@ -65,7 +65,7 @@ eval_summary:
 overall: ready-for-review           # ready-for-review | needs-attention
 ```
 
-`overall = ready-for-review` only when training completed without errors, the eval golden_pass_rate is at or above the configured threshold (`learning.adapter_training.min_golden_pass_rate`, default `0.85`), and the resource_cost stayed within the per-run compute cap. Any failure marks `needs-attention`; activation paths refuse `needs-attention` adapters and require an explicit override flag (`adapters activate <id> --override`).
+`overall = ready-for-review` only when training completed without errors, the eval golden_pass_rate is at or above the configured threshold (`learning.adapter_training.min_golden_pass_rate`, default `0.85`), and the run stayed within the daily compute-cap budget enforced by ADR 0087. Any failure marks `needs-attention`; activation paths refuse `needs-attention` adapters and require an explicit override reason (`adapters activate <id> --override <reason>`).
 
 ### Weights stay out of the approval markdown
 
@@ -157,3 +157,4 @@ Adapter approvals follow the same retention as other inbox kinds: pending and re
 - [ADR 0080](0080-self-change-artifacts-share-approval-provenance-and-rollback-envelope.md)
 - [ADR 0084](0084-personality-adapter-job-is-a-learning-job-with-an-owned-trainer-trait.md)
 - [ADR 0085](0085-adapter-activation-is-local-only-and-base-model-pinned.md)
+- [ADR 0087](0087-adapter-compute-cap-is-a-wall-clock-daily-gate.md)

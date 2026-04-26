@@ -17,8 +17,8 @@ Trainer subprocesses run under the existing `security.exec_allow` / `security.ex
 
 ```toml
 [learning.adapter_training]
-allowed_backends = ["mlx-lm-lora", "llama-cpp-finetune", "fake"]   # kind-scoped allowlist
-default_backend = "mlx-lm-lora"
+allowed_backends = ["mlx-lm-lora"]   # kind-scoped allowlist populated by setup
+default_backend = "mlx-lm-lora"      # required only when adapter training is enabled
 ```
 
 The kernel resolves a trainer invocation in two steps:

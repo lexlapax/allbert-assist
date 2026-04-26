@@ -35,7 +35,7 @@ Raise cap with `/settings set learning.compute_cap_wall_seconds <n>` or run `ada
 - **Override.** `adapters training start --override <reason>` consumes a one-run override. The override is recorded in the training-run manifest under `compute_cap_override.{reason, requested_at, requested_by}`. Channels without a CLI surface refuse and direct the operator to REPL/CLI; this matches ADR 0051's REPL-only override.
 - **Jobs.** Scheduled `PersonalityAdapterJob` runs that hit the cap refuse silently, log the refusal in the job run record, and set the job's last-outcome to `compute-cap-reached`. ADR 0015 (fail-closed scheduling) applies: scheduled training never auto-overrides the cap.
 - **Sub-trainers.** The cap is per top-level training run; chained or restart-resumed runs share the same UTC-day aggregate.
-- **Null cap.** A `null` value (or `0`) disables enforcement. The default is `7200` (2 hours) and the v0.13 setup wizard explains how to raise or disable it.
+- **Disabled cap.** A `null` value or `0` disables enforcement. Positive values clamp to `[60, 86400]` seconds (1 minute to 24 hours) during config validation. The default is `7200` (2 hours) and the v0.13 setup wizard explains how to raise or disable it.
 - **Double-counted with the spend cap?** No. They count distinct resources. A hosted training run (deferred beyond v0.13) would consume both caps independently.
 
 ### Placement

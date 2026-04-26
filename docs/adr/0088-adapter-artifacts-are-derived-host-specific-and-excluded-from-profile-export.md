@@ -42,7 +42,7 @@ The `adapter-approval` markdown under `sessions/<sid>/approvals/` follows the ex
 
 ### Opt-in inclusion
 
-`profile export --include-adapters` (a new flag in the v0.13 release) lets an operator who explicitly wants a full adapter copy include `~/.allbert/adapters/installed/` and the active-adapter pointer in the export. The default remains exclusion. Including adapters does not include training-run staging or incoming external adapters.
+`profile export --include-adapters` (a new flag in the v0.13 release) lets an operator who explicitly wants an installed-adapter copy include `~/.allbert/adapters/installed/` and the active-adapter pointer in the export. The default remains exclusion. Including adapters does not include training-run staging, incoming external adapters, runtime caches, or `history.jsonl`.
 
 The export manifest reports the included adapter count and total bytes when `--include-adapters` is set, so the operator can confirm size before transmitting.
 
@@ -60,7 +60,7 @@ The export manifest reports the included adapter count and total bytes when `--i
 
 **Negative**
 
-- Operators wanting a full mirror across two machines need either `--include-adapters` or an out-of-band copy. Acceptable: the flag exists; the dry-run output names the exclusion.
+- Operators wanting installed adapter weights on two machines need either `--include-adapters` or an out-of-band copy. Acceptable: the flag exists; the dry-run output names the exclusion.
 - Re-training across machines requires duplicate compute. Acceptable: the corpus determinism (same inputs → same digest) makes this auditable and reviewers can compare the resulting adapter approvals.
 
 **Neutral**
