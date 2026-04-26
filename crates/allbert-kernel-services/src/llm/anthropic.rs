@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::LlmError;
 
-use super::provider::{
+use super::{
     ChatAttachment, ChatAttachmentKind, ChatMessage, CompletionRequest, CompletionResponse,
     LlmProvider, Pricing, Usage,
 };
@@ -127,8 +127,8 @@ impl TryFrom<ChatMessage> for AnthropicMessage {
 
     fn try_from(value: ChatMessage) -> Result<Self, Self::Error> {
         let role = match value.role {
-            super::provider::ChatRole::User => "user",
-            super::provider::ChatRole::Assistant => "assistant",
+            super::ChatRole::User => "user",
+            super::ChatRole::Assistant => "assistant",
         };
         let content = if value.attachments.is_empty() {
             AnthropicContent::Text(value.content)

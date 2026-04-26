@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::LlmError;
 
-use super::provider::{
+use super::{
     ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, CompletionRequest,
     CompletionResponse, LlmProvider, Pricing, Usage,
 };

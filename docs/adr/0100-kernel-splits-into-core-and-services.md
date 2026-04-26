@@ -122,6 +122,8 @@ v0.14.2 adds validation scripts wired into the standard local validation path:
   - `crates/allbert-kernel-core/src/` total < 20,000 LOC;
   - `crates/allbert-kernel-services/src/` total < 30,000 LOC;
   - `crates/allbert-kernel/` is not a workspace member at release exit.
+- The size gate counts checked-in `.rs` files under each crate `src/`. Test-only unit suites may live outside `src/` in crate-local test support only when they remain compiled by `cargo test`; production service code must remain under `src/` and count against the gate.
+- If the services gate fails, the release must reduce duplicate service code or explicitly re-scope this ADR. It must not silently raise the limit or hide service implementation code outside `src/`.
 - `tools/check_kernel_crate_graph.sh`:
   - rejects any dependency from core to services or the retired monolith;
   - rejects any dependency from services to the retired monolith;
@@ -140,6 +142,8 @@ New core modules require reviewer signoff. New concrete behavior modules land in
 - v0.15 ingestion lands in services rather than growing core.
 - CLI, daemon, jobs, and tests get explicit import churn in v0.14.2.
 - The final crate graph is simpler than the facade design: core below services, with no third compatibility layer.
+- The services crate size limit remains intentionally tight. v0.14.2 may use thin service module shims that re-export core-owned contracts during migration, but duplicate contract implementations belong in core, not services.
+- Large runtime unit tests remain part of validation even when their source moves to crate-local test support outside `src/`; this keeps the LOC gate focused on production service implementation rather than removing coverage.
 - The release remains operator-invisible: no protocol bump, storage migration, command change, or behavior change is required by the split.
 
 ## Alternatives considered

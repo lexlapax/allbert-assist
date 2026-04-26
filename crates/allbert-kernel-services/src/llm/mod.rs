@@ -3,23 +3,22 @@ pub mod gemini;
 pub mod ollama;
 pub mod openai;
 pub mod openrouter;
-pub mod provider;
 
 use async_trait::async_trait;
 
 use crate::config::{ModelConfig, Provider};
 use crate::error::LlmError;
 
+pub use allbert_kernel_core::llm::{
+    ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, CompletionRequest,
+    CompletionResponse, LlmProvider, Pricing, ProviderFactory, ToolCallSpan, ToolDeclaration,
+    Usage,
+};
 pub use anthropic::AnthropicProvider;
 pub use gemini::GeminiProvider;
 pub use ollama::OllamaProvider;
 pub use openai::OpenAiProvider;
 pub use openrouter::OpenRouterProvider;
-pub use provider::{
-    ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, CompletionRequest,
-    CompletionResponse, LlmProvider, Pricing, ProviderFactory, ToolCallSpan, ToolDeclaration,
-    Usage,
-};
 
 #[derive(Clone)]
 pub struct DefaultProviderFactory {
