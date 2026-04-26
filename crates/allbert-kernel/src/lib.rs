@@ -38,7 +38,8 @@ pub use adapter::{
 };
 pub use adapters::{
     build_adapter_corpus, read_adapter_manifest, write_adapter_manifest, AdapterCorpusConfig,
-    AdapterCorpusItem, AdapterCorpusSnapshot, AdapterStore,
+    AdapterCorpusItem, AdapterCorpusSnapshot, AdapterStore, AdapterTrainer, CancellationToken,
+    FakeAdapterTrainer, TrainerError, TrainerHooks, TrainerProgress, TrainingOutcome, TrainingPlan,
 };
 pub use agent::{
     ActiveTurnBudget, Agent, AgentDefinition, AgentState, StagedNoticeEntry, TurnBudget,

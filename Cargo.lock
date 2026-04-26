@@ -114,6 +114,7 @@ dependencies = [
  "flate2",
  "fs2",
  "gray_matter",
+ "libc",
  "mlua",
  "pulldown-cmark",
  "regex",

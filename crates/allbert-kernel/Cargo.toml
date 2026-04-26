@@ -32,3 +32,4 @@ chrono-tz = "0.10"
 mlua = { version = "0.10", features = ["lua54", "vendored", "serialize"] }
 flate2 = "1"
 regex = "1"
+libc = "0.2"
