@@ -21,7 +21,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.12.1 | Operator UX polish: shared activity awareness, responsive TUI, settings/command hub, legibility, approval context, channel-native Telegram, recovery, discovery, error hints | Shipped | [v0.12.1-operator-ux-polish.md](v0.12.1-operator-ux-polish.md) |
 | v0.12.2 | Tracing and replay: persisted session spans, trace/replay surfaces, privacy/redaction posture, protocol v4, OTLP-JSON export | Shipped | [v0.12.2-tracing-and-replay.md](v0.12.2-tracing-and-replay.md) |
 | v0.13 | Local personalization: LoRA/adapter training through the v0.11 `LearningJob` seam, owned `AdapterTrainer` trait with mlx + llama.cpp + fake backends, local-only base-model-pinned activation, `adapter-approval` inbox kind, daily wall-clock compute cap, profile-export exclusion | Shipped | [v0.13-personalization.md](v0.13-personalization.md) |
-| v0.14 | Self-diagnosis and Unix co-tenant: trace-aware self-diagnose skill, curated local-utilities surface, bounded `unix_pipe` tool shape | Draft | [v0.14-self-diagnosis.md](v0.14-self-diagnosis.md) |
+| v0.14 | Self-diagnosis and Unix co-tenant: trace-aware self-diagnose skill, curated local-utilities surface, bounded `unix_pipe` tool shape | Shipped | [v0.14-self-diagnosis.md](v0.14-self-diagnosis.md) |
 
 Note: some v0.9 contributor-contract work landed before the final v0.8 release-alignment pass. The roadmap order still reflects dependency intent rather than strict commit chronology.
 
@@ -122,7 +122,7 @@ v0.14's *hard runtime* dependencies are v0.11, v0.12, and v0.12.2. v0.13 is a se
 
 Trace persistence no longer belongs to v0.14. v0.12.2 owns the durable trace storage location, schema version, retention policy, read API, privacy defaults, and OTLP export boundary. v0.14 consumes those session trace artifacts through bounded read APIs and focuses on correlation, explanation, candidate remediation, and Unix co-tenant tooling.
 
-The v0.14 decision set is intentionally split across four ADRs before implementation: [ADR 0091](../adr/0091-self-diagnosis-uses-bounded-trace-bundles-and-existing-remediation-surfaces.md) fixes bounded trace diagnosis and remediation routing, [ADR 0092](../adr/0092-local-utility-discovery-uses-curated-operator-enabled-manifests.md) fixes curated utility enablement, [ADR 0093](../adr/0093-unix-pipe-is-a-structured-direct-spawn-tool-not-a-shell-runtime.md) fixes structured pipeline policy, and [ADR 0094](../adr/0094-protocol-v6-self-diagnosis-and-local-utility-surfaces.md) fixes protocol v6 compatibility.
+The v0.14 decision set shipped across four ADRs: [ADR 0091](../adr/0091-self-diagnosis-uses-bounded-trace-bundles-and-existing-remediation-surfaces.md) fixes bounded trace diagnosis and remediation routing, [ADR 0092](../adr/0092-local-utility-discovery-uses-curated-operator-enabled-manifests.md) fixes curated utility enablement, [ADR 0093](../adr/0093-unix-pipe-is-a-structured-direct-spawn-tool-not-a-shell-runtime.md) fixes structured pipeline policy, and [ADR 0094](../adr/0094-protocol-v6-self-diagnosis-and-local-utility-surfaces.md) fixes protocol v6 compatibility.
 
 ## Cross-cutting concerns
 

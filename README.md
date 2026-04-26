@@ -4,11 +4,11 @@ Allbert is a terminal-first personal assistant built around a small Rust kernel,
 
 For repository development and contributor setup, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
-v0.13.0 is the current technical source-based release in this repo. You build it from source, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for TUI/classic REPL work, daemon lifecycle commands, recurring jobs, identity/session continuity, strict AgentSkills-format skill management, curated-memory review and recovery, approval inbox resolution, profile export/import, provider/model selection, telemetry/activity inspection, trace replay/export, local personalization adapters, settings changes, self-improvement review, skill authoring, scripting controls, and channel administration. Fresh profiles default to local Ollama with `gemma4` and the TUI; upgraded profiles preserve the classic REPL unless you opt in.
+v0.14.0 is the current technical source-based release in this repo. You build it from source, complete a guided first-run setup flow, and then use `allbert-cli` as the primary entry point for TUI/classic REPL work, daemon lifecycle commands, recurring jobs, identity/session continuity, strict AgentSkills-format skill management, curated-memory review and recovery, approval inbox resolution, profile export/import, provider/model selection, telemetry/activity inspection, trace replay/export, local personalization adapters, settings changes, self-diagnosis reports, local utility enablement, self-improvement review, skill authoring, scripting controls, and channel administration. Fresh profiles default to local Ollama with `gemma4` and the TUI; upgraded profiles preserve the classic REPL unless you opt in.
 
-The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection/reconsideration, the shipped `memory-curator` skill, restart-durable sessions, daily cost-cap enforcement, operator-visible memory verification, the `Channel` trait, Telegram async approvals and activity/status commands, cross-surface approval inbox resolution, identity-routed session continuity, explicit sync posture, profile export/import, `HEARTBEAT.md` cadence controls, explicit-intent web learning, Telegram photo input for vision-capable models, direct Anthropic/OpenRouter/OpenAI/Gemini/Ollama provider support, kernel-owned telemetry and activity snapshots, durable session trace/replay, file-based OTLP-JSON trace export, configurable TUI status-line items, typed settings changes, always-eligible memory routing, episode/fact recall tiers, the review-first personality digest seam, review-first local adapter training, source-checkout-bound self-improvement worktrees, `patch-approval` inbox items with bounded context, the `skill-author` natural-language authoring skill, skill provenance and enablement controls, and opt-in embedded Lua scripting are all part of the current v0.13.0 end-user experience.
+The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection/reconsideration, the shipped `memory-curator` skill, restart-durable sessions, daily cost-cap enforcement, operator-visible memory verification, the `Channel` trait, Telegram async approvals and activity/status commands, cross-surface approval inbox resolution, identity-routed session continuity, explicit sync posture, profile export/import, `HEARTBEAT.md` cadence controls, explicit-intent web learning, Telegram photo input for vision-capable models, direct Anthropic/OpenRouter/OpenAI/Gemini/Ollama provider support, kernel-owned telemetry and activity snapshots, durable session trace/replay, file-based OTLP-JSON trace export, configurable TUI status-line items, typed settings changes, always-eligible memory routing, episode/fact recall tiers, the review-first personality digest seam, review-first local adapter training, source-checkout-bound self-improvement worktrees, `patch-approval` inbox items with bounded context, bounded self-diagnosis reports, curated local-utility enablement, the `unix_pipe` direct-spawn tool, the `skill-author` natural-language authoring skill, skill provenance and enablement controls, and opt-in embedded Lua scripting are all part of the current v0.14.0 end-user experience.
 
-## What v0.13.0 includes
+## What v0.14.0 includes
 
 - a kernel that owns the agent loop, tools, memory, skills, policy, cost, and tracing
 - a local daemon host with attachable TUI, classic REPL, CLI, jobs, and Telegram channels
@@ -61,12 +61,18 @@ The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-
 - `adapter-approval` inbox items with eval summaries, loss curves, behavioral diffs, and explicit install-before-activation review
 - single-slot local adapter activation through `allbert-cli adapters activate|deactivate|status|list|show|eval|loss|remove|history|gc`
 - profile export excludes adapter artifacts by default; `--include-adapters` includes installed adapters plus `active.json` only
+- bounded self-diagnosis through `allbert-cli diagnose run|list|show`, REPL/TUI `/diagnose`, and the first-party `self-diagnose` skill
+- diagnosis reports stored as session artifacts under `~/.allbert/sessions/<session-id>/artifacts/diagnostics/`
+- optional diagnosis remediation that requires `self_diagnosis.allow_remediation`, an explicit `--remediate <code|skill|memory> --reason <text>`, and the existing review surfaces
+- curated local-utility discovery and enablement through `allbert-cli utilities discover|list|show|enable|disable|doctor`
+- host-specific `~/.allbert/utilities/enabled.toml`, excluded from profile export/sync by default
+- `unix_pipe`, a structured direct-spawn tool over enabled utility ids, with bounded text I/O and no shell-string parsing
 - self-improvement controls under `allbert-cli self-improvement config|diff|install|gc`
 - isolated rebuild worktrees under `~/.allbert/worktrees/` with source-checkout detection and disk-cap-aware GC
 - `patch-approval` inbox rendering for self-improvement diffs; acceptance records review and install remains a separate operator command
 - `skills/rust-rebuild` for source-checkout-bound Rust patch proposals
 - `skills/skill-author` seeded on first run, so natural-language skill authoring routes through the same install quarantine as external skills
-- skill provenance (`external`, `local-path`, `git`, `self-authored`) surfaced in previews and `skills list`
+- skill provenance (`external`, `local-path`, `git`, `self-authored`, `self-diagnosed`) surfaced in previews and `skills list`
 - an opt-in Lua `ScriptingEngine` seam for JSON-in/JSON-out skill scripts with two-gate enablement, stdlib allowlist, deny floor, and execution/memory/output caps
 - a turn-start daily cost cap with `/cost --override <reason>` for one-turn operator escape
 - explicit-intent web learning through `record_as` on `web_search` and `fetch_url`
@@ -189,6 +195,15 @@ Show telemetry as JSON:
 cargo run -p allbert-cli -- telemetry --json
 ```
 
+Create a bounded self-diagnosis report and inspect local utilities:
+
+```bash
+cargo run -p allbert-cli -- diagnose run
+cargo run -p allbert-cli -- diagnose list
+cargo run -p allbert-cli -- utilities discover
+cargo run -p allbert-cli -- utilities list
+```
+
 Show self-improvement state and configure a source checkout:
 
 ```bash
@@ -266,6 +281,7 @@ The setup wizard asks for:
 - whether to enable any bundled maintenance job templates immediately
 - whether to enable trace/replay, capture full message text, and use the default trace retention/disk caps
 - whether to enable local adapter training, which trainer backend to allowlist, the local compute cap, and whether redacted trace excerpts may enter adapter training
+- whether to discover local utility candidates; setup never enables utilities by default
 
 Trusted roots matter: file tools are disabled outside the directories you explicitly trust. The wizard recommends the current working directory but does not auto-trust it.
 
@@ -276,6 +292,7 @@ When setup completes successfully:
 - daemon/jobs defaults are written into config
 - trace/replay defaults are written into config
 - adapter-training defaults are written into config; existing profiles also get a safe path-preserving `[learning.adapter_training]` default-write when the daemon starts
+- self-diagnosis and local-utility defaults load from config defaults; fresh profiles record the local-utility setup step, and existing profiles are not forced through setup again
 - selected bundled job templates are copied into `~/.allbert/jobs/definitions/`
 - `BOOTSTRAP.md` is removed
 
@@ -294,6 +311,8 @@ REPL slash commands:
 - `/activity` shows the daemon-owned live phase, elapsed time, stuck hint, and next actions
 - `/trace [show|show-span|tail|export|settings]` inspects durable session spans, tails completed spans, exports OTLP-JSON, or opens trace settings
 - `/adapters [status|list|history]` inspects local personalization adapter state
+- `/diagnose [run|list|show <id>]` creates or inspects bounded diagnosis reports
+- `/utilities [discover|list|show <id>|enable <id>|disable <id>|doctor]` inspects and manages host-local utility enablement
 - `/settings` lists, explains, sets, and resets supported profile settings
 - `/statusline [show|enable|disable|toggle <item>|add <item>|remove <item>]` inspects or changes configured TUI status-line items
 - `/inbox`, `/skills`, `/memory staged`, and `/self-improvement` expose review workflows without leaving the TUI/REPL
@@ -308,7 +327,7 @@ REPL slash commands:
 
 Unknown slash commands are rejected locally instead of being sent through to the model, and close typos get a short suggestion.
 
-Memory examples that work well in v0.13:
+Memory examples that work well in v0.14:
 
 - `what do you remember about Postgres?`
 - `remember that we use Postgres for primary storage`
@@ -395,8 +414,9 @@ Common skill commands:
 The bundled example skill is [examples/skills/note-taker/SKILL.md](examples/skills/note-taker/SKILL.md). It demonstrates the current AgentSkills shape: `SKILL.md` plus `references/` and `scripts/`.
 The shipped [skills/memory-curator/SKILL.md](skills/memory-curator/SKILL.md) skill is available on fresh profiles and packages the review/promotion workflow around the kernel-owned memory tools.
 The shipped [skills/skill-author/SKILL.md](skills/skill-author/SKILL.md) skill is also available on fresh profiles and helps draft new AgentSkills-format skills through natural language while preserving the install quarantine.
+The shipped `self-diagnose` skill is seeded into fresh profiles and calls only the bounded `self_diagnose` tool; it does not parse trace files directly or start remediation from model output.
 
-`skills list` includes a `Source` column. Existing skills without provenance load as `external`; skills drafted by `skill-author` carry `self-authored`.
+`skills list` includes a `Source` column. Existing skills without provenance load as `external`; skills drafted by `skill-author` carry `self-authored`, and diagnosis-proposed drafts carry `self-diagnosed`.
 
 Curated memory lives under `~/.allbert/memory/`:
 
@@ -451,7 +471,7 @@ engine = "lua"
 exec_allow = ["bash", "python", "lua"]
 ```
 
-If you are upgrading an existing profile, see [docs/notes/v0.13-upgrade-2026-04-26.md](docs/notes/v0.13-upgrade-2026-04-26.md), [docs/notes/v0.12.2-upgrade-2026-04-25.md](docs/notes/v0.12.2-upgrade-2026-04-25.md), [docs/notes/v0.12.1-upgrade-2026-04-25.md](docs/notes/v0.12.1-upgrade-2026-04-25.md), [docs/notes/v0.12-upgrade-2026-04-25.md](docs/notes/v0.12-upgrade-2026-04-25.md), [docs/notes/v0.11-upgrade-2026-04-24.md](docs/notes/v0.11-upgrade-2026-04-24.md), and [docs/notes/v0.10-upgrade-2026-04-24.md](docs/notes/v0.10-upgrade-2026-04-24.md). Users coming from v0.8 or earlier should also review [docs/notes/v0.9-upgrade-2026-04-24.md](docs/notes/v0.9-upgrade-2026-04-24.md) and [docs/notes/v0.8-upgrade-2026-04-23.md](docs/notes/v0.8-upgrade-2026-04-23.md).
+If you are upgrading an existing profile, see [docs/notes/v0.14-upgrade-2026-04-26.md](docs/notes/v0.14-upgrade-2026-04-26.md), [docs/notes/v0.13-upgrade-2026-04-26.md](docs/notes/v0.13-upgrade-2026-04-26.md), [docs/notes/v0.12.2-upgrade-2026-04-25.md](docs/notes/v0.12.2-upgrade-2026-04-25.md), [docs/notes/v0.12.1-upgrade-2026-04-25.md](docs/notes/v0.12.1-upgrade-2026-04-25.md), [docs/notes/v0.12-upgrade-2026-04-25.md](docs/notes/v0.12-upgrade-2026-04-25.md), [docs/notes/v0.11-upgrade-2026-04-24.md](docs/notes/v0.11-upgrade-2026-04-24.md), and [docs/notes/v0.10-upgrade-2026-04-24.md](docs/notes/v0.10-upgrade-2026-04-24.md). Users coming from v0.8 or earlier should also review [docs/notes/v0.9-upgrade-2026-04-24.md](docs/notes/v0.9-upgrade-2026-04-24.md) and [docs/notes/v0.8-upgrade-2026-04-23.md](docs/notes/v0.8-upgrade-2026-04-23.md).
 
 ## Telegram channel
 
@@ -471,12 +491,13 @@ Useful operator commands:
 - `cargo run -p allbert-cli -- inbox show <approval-id>`
 - `cargo run -p allbert-cli -- inbox accept <approval-id> --reason "approved from shell"`
 
-Telegram behaviour in v0.13:
+Telegram behaviour in v0.14:
 
 - pending approvals can be resolved from Telegram, CLI, TUI, or an attached classic REPL inbox
 - `/activity` and compact `/status` render daemon-owned activity without raw prompt, secret, or full tool-output data
 - `/trace last` and `/trace span <span-id>` render compact, redacted structural trace summaries; full trace content stays on local disk
 - `/approve <approval-id>` and `/reject <approval-id>` still resolve pending async approvals from Telegram itself
+- `/diagnose last` and `/utilities status` render compact structural summaries; Telegram does not start remediation or utility mutation
 - `/override <reason>` still retries one turn after a daily cost-cap refusal, and the same `cost-cap-override` item appears in the shared inbox
 - `/reset` starts a new Telegram session
 - typing indication and markdown-aware replies are best-effort channel presentation; daemon state remains authoritative
@@ -509,6 +530,7 @@ Telegram behaviour in v0.13:
 - `~/.allbert/self-improvement/`
 - `~/.allbert/self-improvement/history.md`
 - `~/.allbert/worktrees/`
+- `~/.allbert/utilities/enabled.toml`
 - `~/.allbert/skills/`
 - `~/.allbert/skills/installed/`
 - `~/.allbert/skills/incoming/`
@@ -522,6 +544,7 @@ Telegram behaviour in v0.13:
 - `~/.allbert/memory/index/semantic/`
 - `~/.allbert/costs.jsonl`
 - `~/.allbert/sessions/<session-id>/artifacts/`
+- `~/.allbert/sessions/<session-id>/artifacts/diagnostics/<diagnosis-id>/report.md`
 - `~/.allbert/sessions/<session-id>/trace.jsonl`
 - `~/.allbert/sessions/<session-id>/trace-*.jsonl.gz`
 - `~/.allbert/sessions/<session-id>/current_spans/`
@@ -546,6 +569,9 @@ Telegram behaviour in v0.13:
 - semantic retrieval ships as an off-by-default derived index with only the fake deterministic provider
 - personality digest remains a review-first, provider-free deterministic markdown overlay; local adapter training is optional, disabled by default, and requires a compatible local backend
 - hosted providers ignore active adapters; only local Ollama activation is supported in v0.13
+- self-diagnosis explains by default; remediation is opt-in and always routes through existing review surfaces
+- local utilities are host-specific; `utilities/enabled.toml` is excluded from profile export/sync by default
+- `unix_pipe` is text-only, bounded, and direct-spawn; it is not a shell runtime
 - `rust-rebuild` requires a local source checkout with the pinned Rust toolchain; binary-drop users can still use skill authoring and Lua scripting
 - Lua scripting is off by default and intentionally limited to JSON-in/JSON-out transforms with no host tool bridge
 - Ctrl-C does not cancel an active turn yet; the turn continues and the UI says so
@@ -553,7 +579,7 @@ Telegram behaviour in v0.13:
 
 ## More detail
 
-See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the operator walkthrough, config examples, daemon lifecycle guidance, jobs workflow, curated-memory workflow, continuity workflow, and troubleshooting. Focused guides: [TUI](docs/operator/tui.md), [telemetry/activity](docs/operator/telemetry.md), [tracing](docs/operator/tracing.md), [adaptive memory](docs/operator/adaptive-memory.md), [personality digest](docs/operator/personality-digest.md), [personalization](docs/operator/personalization.md), [self-improvement](docs/operator/self-improvement.md), [skill authoring](docs/operator/skill-authoring.md), [Telegram](docs/operator/telegram.md), and [scripting](docs/operator/scripting.md). For sync posture and heartbeat policy, see [docs/operator/continuity.md](docs/operator/continuity.md) and [docs/operator/heartbeat.md](docs/operator/heartbeat.md).
+See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the operator walkthrough, config examples, daemon lifecycle guidance, jobs workflow, curated-memory workflow, continuity workflow, and troubleshooting. Focused guides: [TUI](docs/operator/tui.md), [telemetry/activity](docs/operator/telemetry.md), [tracing](docs/operator/tracing.md), [adaptive memory](docs/operator/adaptive-memory.md), [personality digest](docs/operator/personality-digest.md), [personalization](docs/operator/personalization.md), [self-diagnosis and local utilities](docs/operator/self-diagnosis-and-utilities.md), [self-improvement](docs/operator/self-improvement.md), [skill authoring](docs/operator/skill-authoring.md), [Telegram](docs/operator/telegram.md), and [scripting](docs/operator/scripting.md). For sync posture and heartbeat policy, see [docs/operator/continuity.md](docs/operator/continuity.md) and [docs/operator/heartbeat.md](docs/operator/heartbeat.md).
 Inspect heartbeat cadence and validation warnings:
 
 ```bash

@@ -214,6 +214,14 @@ fn render_show(discovery: &LocalUtilityDiscovery, enabled: Option<&EnabledUtilit
             discovery.executable_candidates.join(", ")
         ),
         format!(
+            "pipe:        {}",
+            if discovery.pipe_allowed {
+                "allowed"
+            } else {
+                "blocked"
+            }
+        ),
+        format!(
             "installed:   {}",
             discovery.installed_path.as_deref().unwrap_or("(not found)")
         ),
@@ -234,6 +242,14 @@ pub fn render_show_payload(entry: &UtilityCatalogEntryPayload) -> String {
         format!("name:        {}", entry.name),
         format!("description: {}", entry.description),
         format!("candidates:  {}", entry.executable_candidates.join(", ")),
+        format!(
+            "pipe:        {}",
+            if entry.pipe_allowed {
+                "allowed"
+            } else {
+                "blocked"
+            }
+        ),
         format!(
             "installed:   {}",
             entry.installed_path.as_deref().unwrap_or("(not found)")

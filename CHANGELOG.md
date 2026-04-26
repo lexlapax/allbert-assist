@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.14.0 - 2026-04-26
+
+- shipped bounded self-diagnosis over v0.12.2 trace artifacts with report artifacts under session diagnostics directories
+- added the first-party `self-diagnose` skill and report-only `self_diagnose` tool, with remediation refused unless explicit config and command intent are present
+- routed optional code, skill, and memory remediation through existing `patch-approval`, skill quarantine, and staged-memory review surfaces
+- added protocol v6 diagnosis and local-utility messages, `ActivityPhase::Diagnosing`, daemon filtering for older v2-v5 peers, and daemon-backed CLI/REPL/TUI surfaces
+- added `allbert-cli diagnose run|list|show` plus REPL/TUI `/diagnose` and structural Telegram `/diagnose last`
+- added the curated local-utility catalog, host-specific `utilities/enabled.toml`, utility drift status, and `allbert-cli utilities discover|list|show|enable|disable|doctor`
+- added the bounded `unix_pipe` direct-spawn tool for enabled utility ids, with text I/O caps and no shell-string parsing
+- added setup and settings support for self-diagnosis/local utilities, including configurable `unix_pipe` limits and `CURRENT_SETUP_VERSION = 6`
+- updated profile export dry-run and continuity docs so `utilities/enabled.toml` is named as host-specific and excluded by default
+- bumped all crates and lockfile package entries to `0.14.0`
+
+More detail: [v0.14 upgrade notes](docs/notes/v0.14-upgrade-2026-04-26.md), [v0.14 plan](docs/plans/v0.14-self-diagnosis.md), [Self-diagnosis and local utilities guide](docs/operator/self-diagnosis-and-utilities.md), [Tracing guide](docs/operator/tracing.md), and [Self-improvement guide](docs/operator/self-improvement.md).
+
 ## v0.13.0 - 2026-04-26
 
 - shipped review-first local personalization with `PersonalityAdapterJob`, protocol v5 adapter messages, and live `ActivityPhase::Training`

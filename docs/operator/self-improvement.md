@@ -120,9 +120,11 @@ It records the approval id, applied SHA, operator identity, and timestamp. It do
 - Install applies a patch, not a binary swap.
 - The operator owns `cargo install` and daemon restart.
 - v0.12.1 adds clearer approval context and next-step feedback, but does not weaken the review/install split.
+- v0.14 diagnosis can recommend code-shaped remediation, but it still routes through `patch-approval`; diagnosis never installs or applies a patch directly.
 
 ## Related Docs
 
 - [Skill authoring guide](skill-authoring.md)
+- [Self-diagnosis and local utilities](self-diagnosis-and-utilities.md)
 - [Scripting guide](scripting.md)
-- [v0.12.1 upgrade notes](../notes/v0.12.1-upgrade-2026-04-25.md)
+- [v0.14 upgrade notes](../notes/v0.14-upgrade-2026-04-26.md)

@@ -235,7 +235,7 @@ fn excluded_paths(include_secrets: bool, include_adapters: bool) -> Vec<String> 
         "run/".to_string(),
         "logs/".to_string(),
         "traces/".to_string(),
-        "utilities/".to_string(),
+        "utilities/enabled.toml".to_string(),
         "costs.jsonl".to_string(),
         "daemon.lock".to_string(),
     ];
@@ -646,6 +646,7 @@ mod tests {
         assert!(dry_run.contains("include adapters: yes"));
         assert!(dry_run.contains("adapters installed: 1"));
         assert!(dry_run.contains("adapters/runs/"));
+        assert!(dry_run.contains("utilities/enabled.toml"));
     }
 
     #[test]

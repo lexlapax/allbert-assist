@@ -14,13 +14,13 @@ This behavior is now an explicit shipped policy for v0.8 M9.
 
 This follows the local-only continuity posture in ADR 0061. Today there is no hosted/shared counter for cost usage, and v0.8 intentionally avoids introducing one.
 
-## Explicit non-goal through v0.13
+## Explicit non-goal through v0.14
 
-Cross-device aggregate cap enforcement is out of scope through v0.13. v0.13 adds a separate local adapter-training wall-clock cap, `learning.compute_cap_wall_seconds`; it does not change hosted-provider spend-cap aggregation.
+Cross-device aggregate cap enforcement is out of scope through v0.14. v0.13 adds a separate local adapter-training wall-clock cap, `learning.compute_cap_wall_seconds`; v0.14 adds self-diagnosis and local utilities without changing hosted-provider spend-cap aggregation.
 
 A future design would require either:
 
 - a central shared counter/service, or
 - a sync-safe replicated counter approach (for example CRDT-backed accounting),
 
-which depends on hosted/sync capabilities that are not planned for v0.13.
+which depends on hosted/sync capabilities that are not planned for v0.14.

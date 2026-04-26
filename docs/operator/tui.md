@@ -1,6 +1,6 @@
 # TUI operator guide
 
-v0.12.1 made the Ratatui/Crossterm terminal UI the main operator-legibility surface. v0.12.2 adds durable trace/replay commands to that same surface. The TUI is still only a frontend adapter: the daemon and kernel own turns, tools, memory, approvals, cost, telemetry, activity, trace state, and session state.
+v0.12.1 made the Ratatui/Crossterm terminal UI the main operator-legibility surface. v0.12.2 adds durable trace/replay commands to that same surface, v0.13 adds adapter inspection, and v0.14 adds diagnosis and local-utility commands. The TUI is still only a frontend adapter: the daemon and kernel own turns, tools, memory, approvals, cost, telemetry, activity, trace state, diagnosis state, utility state, and session state.
 
 ## Launching
 
@@ -41,7 +41,7 @@ If raw mode or alternate-screen setup fails, the CLI prints a one-line notice an
 ## Controls
 
 - Type a message and press Enter to send it.
-- Slash commands such as `/help`, `/activity`, `/status`, `/telemetry`, `/trace`, `/adapters`, `/settings`, `/inbox`, `/skills`, `/memory`, and `/self-improvement` run locally, matching the classic REPL command shape.
+- Slash commands such as `/help`, `/activity`, `/status`, `/telemetry`, `/trace`, `/adapters`, `/diagnose`, `/utilities`, `/settings`, `/inbox`, `/skills`, `/memory`, and `/self-improvement` run locally, matching the classic REPL command shape.
 - While a turn is running, the screen redraws asynchronously and shows the daemon-owned activity label, elapsed time, tool summary, and stuck hint when available.
 - Text typed during a running turn is kept as a next-turn draft. Pressing Enter while work is in flight keeps the draft and does not queue a concurrent turn.
 - Ctrl-D exits the TUI.
@@ -109,6 +109,27 @@ Trace settings are ordinary typed settings:
 /settings set trace.redaction.provider_payloads summary
 ```
 
+## Diagnosis And Utilities
+
+Use `/diagnose` for bounded self-diagnosis reports:
+
+```text
+/diagnose run
+/diagnose list
+/diagnose show <diagnosis-id>
+```
+
+Use `/utilities` to inspect host-local utility enablement:
+
+```text
+/utilities discover
+/utilities list
+/utilities show rg
+/utilities doctor
+```
+
+Diagnosis progress renders through daemon-owned `ActivityPhase::Diagnosing`. Utility status comes from the daemon; the TUI does not infer it from local `PATH` or manifest files.
+
 ## Review And Recovery
 
 The TUI now exposes the v0.12 review workflows directly:
@@ -140,4 +161,5 @@ cargo run -p allbert-cli -- repl --classic
 - [Telemetry operator guide](telemetry.md)
 - [Tracing operator guide](tracing.md)
 - [Personalization guide](personalization.md)
-- [v0.13 upgrade notes](../notes/v0.13-upgrade-2026-04-26.md)
+- [Self-diagnosis and local utilities](self-diagnosis-and-utilities.md)
+- [v0.14 upgrade notes](../notes/v0.14-upgrade-2026-04-26.md)

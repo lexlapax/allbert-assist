@@ -1,6 +1,6 @@
-# Allbert v0.13.0 Onboarding and Operations
+# Allbert v0.14.0 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.13.0 release.
+This guide is the operator reference for the source-based v0.14.0 release.
 
 ## Quickstart
 
@@ -11,7 +11,8 @@ This guide is the operator reference for the source-based v0.13.0 release.
 5. Confirm daemon/session state with `/status`, `/telemetry`, or `/activity`.
 6. Use `allbert-cli daemon status`, `allbert-cli telemetry --json`, `allbert-cli activity --json`, `allbert-cli jobs list`, `allbert-cli memory stats`, and `allbert-cli memory routing show` as needed.
 7. Inspect the current agent catalog with `allbert-cli agents list` and the shipped curator and authoring flows with `allbert-cli skills show memory-curator` and `allbert-cli skills show skill-author`.
-8. If you want source-checkout-bound self-improvement, pin a checkout with `allbert-cli self-improvement config set --source-checkout <path>`.
+8. Inspect bounded diagnosis and host-local utility state with `allbert-cli diagnose list --offline` and `allbert-cli utilities discover --offline`.
+9. If you want source-checkout-bound self-improvement, pin a checkout with `allbert-cli self-improvement config set --source-checkout <path>`.
 
 ## Guided setup
 
@@ -32,6 +33,7 @@ On first run, Allbert creates `~/.allbert/` and asks for:
 - the default timezone for scheduled jobs
 - whether to enable any bundled maintenance job templates immediately
 - whether local adapter training should be enabled, which trainer backend is allowed, the daily compute cap, and whether redacted trace excerpts can augment the training corpus
+- whether to discover local utility candidates; setup does not enable utilities by default
 
 Type `/cancel` at any setup prompt to abort setup cleanly. If setup is interrupted after writing setup state, resume with `cargo run -p allbert-cli -- setup --resume`.
 
@@ -43,6 +45,7 @@ If setup completes:
 - daemon/jobs defaults are written into config
 - selected bundled job templates are copied into `~/.allbert/jobs/definitions/`
 - adapter-training defaults are written under `[learning.adapter_training]`
+- self-diagnosis and local-utility defaults are available; local utility setup records only whether discovery was shown
 - `BOOTSTRAP.md` is deleted
 
 If setup is cancelled:
@@ -67,7 +70,7 @@ This is intentional. Allbert still prefers explicit workspace trust over permiss
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical fresh v0.13.0 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical fresh v0.14.0 file looks like:
 
 ```toml
 trace = false
@@ -80,7 +83,7 @@ max_tokens = 4096
 context_window_tokens = 0 # 0 means unknown; set explicitly when your model/window is known
 
 [setup]
-version = 4
+version = 6
 
 [daemon]
 log_retention_days = 7
@@ -220,6 +223,27 @@ keep_rejected_runs = false
 max_log_bytes = 16777216
 cancel_grace_seconds = 30
 
+[self_diagnosis]
+enabled = true
+lookback_days = 7
+max_sessions = 5
+max_spans = 1000
+max_events = 2000
+max_text_snippet_bytes = 32768
+max_report_bytes = 262144
+allow_remediation = false
+
+[local_utilities]
+enabled = true
+unix_pipe_max_stages = 5
+unix_pipe_timeout_s = 30
+unix_pipe_max_stdin_bytes = 1048576
+unix_pipe_max_stdout_bytes = 1048576
+unix_pipe_max_stderr_bytes = 262144
+unix_pipe_max_args_per_stage = 64
+unix_pipe_max_arg_bytes = 4096
+unix_pipe_max_argv_bytes = 32768
+
 [security]
 exec_allow = ["bash", "python"]
 exec_deny = ["sh", "zsh", "fish", "ruby", "perl"]
@@ -294,6 +318,10 @@ Useful REPL commands:
   Lists, explains, sets, and resets supported profile settings through typed path-preserving edits.
 - `/adapters`
   Shows local personalization status and adapter training/review commands.
+- `/diagnose`
+  Creates and inspects bounded self-diagnosis reports.
+- `/utilities`
+  Inspects host-local utility discovery, enablement, and drift status.
 - `/statusline [show|enable|disable|toggle <item>|add <item>|remove <item>]`
   Inspects or changes configured TUI status-line items.
 - `/inbox`, `/skills`, `/memory staged`, and `/self-improvement`
@@ -385,6 +413,15 @@ Settings and activity commands:
 
 - `cargo run -p allbert-cli -- activity`
 - `cargo run -p allbert-cli -- activity --json`
+- `cargo run -p allbert-cli -- diagnose run`
+- `cargo run -p allbert-cli -- diagnose list [--offline]`
+- `cargo run -p allbert-cli -- diagnose show <diagnosis-id> [--offline]`
+- `cargo run -p allbert-cli -- utilities discover [--offline]`
+- `cargo run -p allbert-cli -- utilities list [--offline]`
+- `cargo run -p allbert-cli -- utilities show <utility-id> [--offline]`
+- `cargo run -p allbert-cli -- utilities enable <utility-id> [--path <path>]`
+- `cargo run -p allbert-cli -- utilities disable <utility-id>`
+- `cargo run -p allbert-cli -- utilities doctor`
 - `cargo run -p allbert-cli -- settings list`
 - `cargo run -p allbert-cli -- settings show <key-or-group>`
 - `cargo run -p allbert-cli -- settings set <key> <value>`
@@ -416,7 +453,7 @@ Notes:
 
 ## Telegram channel
 
-Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.13.0 end-user release.
+Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.14.0 end-user release.
 
 Setup:
 
@@ -434,6 +471,7 @@ Operational notes:
 - `/reject <approval-id>` rejects an async approval from Telegram itself.
 - `/override <reason>` retries one turn after a daily cost-cap refusal and mirrors the same `cost-cap-override` item into the inbox.
 - `/adapter status` and `/adapter approvals` show structural adapter state without raw training corpus content.
+- `/diagnose last` and `/utilities status` show structural diagnosis and utility summaries without allowing Telegram to start remediation or utility mutation.
 - `/reset` forces a new Telegram session.
 - incoming photos work only when the active provider/model supports image input; Anthropic, OpenAI, Gemini, and supported local Ollama vision models are enabled through the provider capability gate
 - downloaded photos are stored under `~/.allbert/sessions/<session-id>/artifacts/`
@@ -560,13 +598,14 @@ Skills can also preview:
 
 The active agent roster is written to `~/.allbert/AGENTS.md` and included in the bootstrap prompt bundle.
 
-Fresh profiles also seed the shipped `memory-curator` and `skill-author` skills. `memory-curator` is the first-party review surface around the kernel-owned memory tools; `skill-author` is the natural-language path for drafting new AgentSkills-format skills.
+Fresh profiles also seed the shipped `memory-curator`, `skill-author`, and `self-diagnose` skills. `memory-curator` is the first-party review surface around the kernel-owned memory tools; `skill-author` is the natural-language path for drafting new AgentSkills-format skills; `self-diagnose` formats bounded diagnosis reports without reading trace files directly.
 
 - `cargo run -p allbert-cli -- skills list`
 - `cargo run -p allbert-cli -- skills show memory-curator`
 - `cargo run -p allbert-cli -- skills show skill-author`
+- `cargo run -p allbert-cli -- skills show self-diagnose`
 
-`skills list` includes a `Source` column. Existing skills without provenance load as `external`; drafts created by `skill-author` land in `~/.allbert/skills/incoming/<draft-name>/` with `provenance: self-authored` and still require install preview plus confirmation.
+`skills list` includes a `Source` column. Existing skills without provenance load as `external`; drafts created by `skill-author` land in `~/.allbert/skills/incoming/<draft-name>/` with `provenance: self-authored`; diagnosis-proposed skill drafts use `provenance: self-diagnosed`. Both generated draft kinds still require install preview plus confirmation.
 
 Curated memory is durable and markdown-grounded:
 
@@ -595,7 +634,29 @@ Workflow summary:
 
 Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs. Episode recall is explicitly labelled working history, and facts become approved only after promotion.
 
-If you are upgrading to v0.13.0, see [v0.13-upgrade-2026-04-26.md](notes/v0.13-upgrade-2026-04-26.md), [v0.12.2-upgrade-2026-04-25.md](notes/v0.12.2-upgrade-2026-04-25.md), [v0.12.1-upgrade-2026-04-25.md](notes/v0.12.1-upgrade-2026-04-25.md), [v0.12-upgrade-2026-04-25.md](notes/v0.12-upgrade-2026-04-25.md), [v0.11-upgrade-2026-04-24.md](notes/v0.11-upgrade-2026-04-24.md), and [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
+If you are upgrading to v0.14.0, see [v0.14-upgrade-2026-04-26.md](notes/v0.14-upgrade-2026-04-26.md), [v0.13-upgrade-2026-04-26.md](notes/v0.13-upgrade-2026-04-26.md), [v0.12.2-upgrade-2026-04-25.md](notes/v0.12.2-upgrade-2026-04-25.md), [v0.12.1-upgrade-2026-04-25.md](notes/v0.12.1-upgrade-2026-04-25.md), [v0.12-upgrade-2026-04-25.md](notes/v0.12-upgrade-2026-04-25.md), [v0.11-upgrade-2026-04-24.md](notes/v0.11-upgrade-2026-04-24.md), and [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
+
+## Self-diagnosis and local utilities
+
+Diagnosis reads bounded v0.12.2 trace bundles and writes session-local reports:
+
+```bash
+cargo run -p allbert-cli -- diagnose run
+cargo run -p allbert-cli -- diagnose list
+cargo run -p allbert-cli -- diagnose show <diagnosis-id>
+```
+
+Reports live under `~/.allbert/sessions/<session-id>/artifacts/diagnostics/`. By default they explain only. Remediation requires `self_diagnosis.allow_remediation = true` plus an explicit `--remediate <code|skill|memory> --reason <text>` command, and every kind routes through the existing review surface.
+
+Local utilities are host-specific:
+
+```bash
+cargo run -p allbert-cli -- utilities discover
+cargo run -p allbert-cli -- utilities enable rg
+cargo run -p allbert-cli -- utilities doctor
+```
+
+The manifest is `~/.allbert/utilities/enabled.toml` and is excluded from profile export/sync by default. `unix_pipe` can use only enabled utilities with `ok` status and exec-policy approval. It is direct-spawn, text-only, bounded, and does not run shell strings.
 
 ## Self-improvement and scripting
 
@@ -747,7 +808,7 @@ TUI unavailable:
 
 ## Release posture
 
-v0.13.0 is a shipped technical-user release:
+v0.14.0 is a shipped technical-user release:
 
 - source-based
 - terminal-first
@@ -766,6 +827,8 @@ v0.13.0 is a shipped technical-user release:
 - optional semantic retrieval seam, disabled by default
 - review-first personality digest seam and optional `PERSONALITY.md` learned overlay
 - review-first local adapter training with `adapter-approval`, explicit activation, and hosted-provider no-op semantics
+- bounded self-diagnosis reports with optional remediation through existing review surfaces only
+- curated local-utility enablement plus bounded `unix_pipe` direct-spawn composition
 - persisted session-local traces and redacted replay/export surfaces
 - recovery affordances for durable-memory trash, staged-memory reconsideration, skill disablement, and last-good config restore
 - source-checkout-bound self-improvement worktrees with `patch-approval` review
@@ -791,11 +854,14 @@ Known limitations remain explicit:
 - unsolicited heartbeat delivery is still Telegram-only
 - daily cost caps are still per-device
 - adapter-training compute caps are also per-device
+- local utility enablement is host-specific and excluded from profile export/sync by default
 - Telegram multimodal support is photos-in only; voice notes, audio, and image output are deferred
 - the daemon is lightweight and in-process, not a heavy isolated supervisor
 - sub-agent depth is budget-governed rather than fixed by nesting count
 - semantic retrieval is fake-provider-only
 - personality digest output is deterministic and review-first; trained adapters are optional, local-only, and never activated automatically
+- diagnosis explains by default; remediation requires explicit config and command intent
+- `unix_pipe` is text-only and bounded; it is not a shell runtime
 - `rust-rebuild` requires a local source checkout and never swaps the running binary automatically
 - Lua scripting is JSON-in/JSON-out only; it has no host tool bridge
 - Ctrl-C does not cancel an active turn yet; the turn continues and the UI says so

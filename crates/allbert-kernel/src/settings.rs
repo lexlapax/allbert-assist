@@ -625,6 +625,126 @@ pub fn settings_catalog() -> Vec<SettingDescriptor> {
             SettingRedactionPolicy::Plain,
         ),
         descriptor(
+            "local_utilities.unix_pipe_max_stages",
+            SettingsGroup::LocalUtilities,
+            "Unix pipe stages",
+            "Maximum number of direct-spawn utility stages in one unix_pipe run.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(10),
+            },
+            "5",
+            "local_utilities.unix_pipe_max_stages",
+            SettingRestartRequirement::Live,
+            "Lower this if you want fewer composed processes per tool call.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "local_utilities.unix_pipe_timeout_s",
+            SettingsGroup::LocalUtilities,
+            "Unix pipe timeout",
+            "Maximum wall-clock seconds for one unix_pipe run.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(300),
+            },
+            "30",
+            "local_utilities.unix_pipe_timeout_s",
+            SettingRestartRequirement::Live,
+            "Timeout kills the whole pipeline rather than leaving child processes running.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "local_utilities.unix_pipe_max_stdin_bytes",
+            SettingsGroup::LocalUtilities,
+            "Unix pipe stdin cap",
+            "Maximum bytes accepted as stdin for one unix_pipe run.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1_024),
+                max: Some(16_777_216),
+            },
+            "1048576",
+            "local_utilities.unix_pipe_max_stdin_bytes",
+            SettingRestartRequirement::Live,
+            "Large inputs should travel through files under trusted roots instead of tool arguments.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "local_utilities.unix_pipe_max_stdout_bytes",
+            SettingsGroup::LocalUtilities,
+            "Unix pipe stdout cap",
+            "Maximum bytes retained from final unix_pipe stdout.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1_024),
+                max: Some(16_777_216),
+            },
+            "1048576",
+            "local_utilities.unix_pipe_max_stdout_bytes",
+            SettingRestartRequirement::Live,
+            "Output beyond this cap is truncated with an explicit marker.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "local_utilities.unix_pipe_max_stderr_bytes",
+            SettingsGroup::LocalUtilities,
+            "Unix pipe stderr cap",
+            "Maximum bytes retained from each unix_pipe stage stderr.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1_024),
+                max: Some(16_777_216),
+            },
+            "262144",
+            "local_utilities.unix_pipe_max_stderr_bytes",
+            SettingRestartRequirement::Live,
+            "Stderr summaries stay bounded for trace and report safety.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "local_utilities.unix_pipe_max_args_per_stage",
+            SettingsGroup::LocalUtilities,
+            "Unix pipe args per stage",
+            "Maximum argv argument count for a single unix_pipe stage.",
+            SettingValueType::UnsignedInteger {
+                min: Some(0),
+                max: Some(256),
+            },
+            "64",
+            "local_utilities.unix_pipe_max_args_per_stage",
+            SettingRestartRequirement::Live,
+            "Use stdin or trusted-root files for larger inputs.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "local_utilities.unix_pipe_max_arg_bytes",
+            SettingsGroup::LocalUtilities,
+            "Unix pipe arg cap",
+            "Maximum bytes for one unix_pipe argv argument.",
+            SettingValueType::UnsignedInteger {
+                min: Some(64),
+                max: Some(65_536),
+            },
+            "4096",
+            "local_utilities.unix_pipe_max_arg_bytes",
+            SettingRestartRequirement::Live,
+            "Arguments remain bounded because they are captured in policy and trace metadata.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "local_utilities.unix_pipe_max_argv_bytes",
+            SettingsGroup::LocalUtilities,
+            "Unix pipe argv cap",
+            "Maximum total argv bytes for one unix_pipe stage.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1_024),
+                max: Some(262_144),
+            },
+            "32768",
+            "local_utilities.unix_pipe_max_argv_bytes",
+            SettingRestartRequirement::Live,
+            "The total cap must stay at least as large as the per-argument cap.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
             "memory.prefetch_enabled",
             SettingsGroup::Memory,
             "Memory prefetch",
@@ -1848,6 +1968,33 @@ fn setting_value_for_key(config: &Config, descriptor: &SettingDescriptor) -> Opt
         "self_diagnosis.max_report_bytes" => config.self_diagnosis.max_report_bytes.to_string(),
         "self_diagnosis.allow_remediation" => config.self_diagnosis.allow_remediation.to_string(),
         "local_utilities.enabled" => config.local_utilities.enabled.to_string(),
+        "local_utilities.unix_pipe_max_stages" => {
+            config.local_utilities.unix_pipe_max_stages.to_string()
+        }
+        "local_utilities.unix_pipe_timeout_s" => {
+            config.local_utilities.unix_pipe_timeout_s.to_string()
+        }
+        "local_utilities.unix_pipe_max_stdin_bytes" => {
+            config.local_utilities.unix_pipe_max_stdin_bytes.to_string()
+        }
+        "local_utilities.unix_pipe_max_stdout_bytes" => config
+            .local_utilities
+            .unix_pipe_max_stdout_bytes
+            .to_string(),
+        "local_utilities.unix_pipe_max_stderr_bytes" => config
+            .local_utilities
+            .unix_pipe_max_stderr_bytes
+            .to_string(),
+        "local_utilities.unix_pipe_max_args_per_stage" => config
+            .local_utilities
+            .unix_pipe_max_args_per_stage
+            .to_string(),
+        "local_utilities.unix_pipe_max_arg_bytes" => {
+            config.local_utilities.unix_pipe_max_arg_bytes.to_string()
+        }
+        "local_utilities.unix_pipe_max_argv_bytes" => {
+            config.local_utilities.unix_pipe_max_argv_bytes.to_string()
+        }
         "memory.prefetch_enabled" => config.memory.prefetch_enabled.to_string(),
         "memory.routing.mode" => config.memory.routing.mode.label().to_string(),
         "memory.episodes.prefetch_enabled" => config.memory.episodes.prefetch_enabled.to_string(),

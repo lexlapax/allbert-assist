@@ -595,11 +595,29 @@ impl Default for SelfDiagnosisConfig {
 #[serde(default)]
 pub struct LocalUtilitiesConfig {
     pub enabled: bool,
+    pub unix_pipe_max_stages: usize,
+    pub unix_pipe_timeout_s: u64,
+    pub unix_pipe_max_stdin_bytes: usize,
+    pub unix_pipe_max_stdout_bytes: usize,
+    pub unix_pipe_max_stderr_bytes: usize,
+    pub unix_pipe_max_args_per_stage: usize,
+    pub unix_pipe_max_arg_bytes: usize,
+    pub unix_pipe_max_argv_bytes: usize,
 }
 
 impl Default for LocalUtilitiesConfig {
     fn default() -> Self {
-        Self { enabled: true }
+        Self {
+            enabled: true,
+            unix_pipe_max_stages: 5,
+            unix_pipe_timeout_s: 30,
+            unix_pipe_max_stdin_bytes: 1_048_576,
+            unix_pipe_max_stdout_bytes: 1_048_576,
+            unix_pipe_max_stderr_bytes: 262_144,
+            unix_pipe_max_args_per_stage: 64,
+            unix_pipe_max_arg_bytes: 4_096,
+            unix_pipe_max_argv_bytes: 32_768,
+        }
     }
 }
 
@@ -1489,6 +1507,7 @@ impl Config {
         validate_adapter_training_config(&self.learning.adapter_training)?;
         validate_self_improvement_config(&self.self_improvement)?;
         validate_self_diagnosis_config(&self.self_diagnosis)?;
+        validate_local_utilities_config(&self.local_utilities)?;
         validate_scripting_config(&self.scripting)?;
         validate_trace_config(&self.trace)?;
         if matches!(self.limits.daily_usd_cap, Some(value) if value < 0.0) {
@@ -1936,6 +1955,48 @@ fn validate_self_diagnosis_config(config: &SelfDiagnosisConfig) -> Result<(), St
     }
     if !(8_192..=1_048_576).contains(&config.max_report_bytes) {
         return Err("self_diagnosis.max_report_bytes must be between 8192 and 1048576".into());
+    }
+    Ok(())
+}
+
+fn validate_local_utilities_config(config: &LocalUtilitiesConfig) -> Result<(), String> {
+    if !(1..=10).contains(&config.unix_pipe_max_stages) {
+        return Err("local_utilities.unix_pipe_max_stages must be between 1 and 10".into());
+    }
+    if !(1..=300).contains(&config.unix_pipe_timeout_s) {
+        return Err("local_utilities.unix_pipe_timeout_s must be between 1 and 300".into());
+    }
+    if !(1_024..=16_777_216).contains(&config.unix_pipe_max_stdin_bytes) {
+        return Err(
+            "local_utilities.unix_pipe_max_stdin_bytes must be between 1024 and 16777216".into(),
+        );
+    }
+    if !(1_024..=16_777_216).contains(&config.unix_pipe_max_stdout_bytes) {
+        return Err(
+            "local_utilities.unix_pipe_max_stdout_bytes must be between 1024 and 16777216".into(),
+        );
+    }
+    if !(1_024..=16_777_216).contains(&config.unix_pipe_max_stderr_bytes) {
+        return Err(
+            "local_utilities.unix_pipe_max_stderr_bytes must be between 1024 and 16777216".into(),
+        );
+    }
+    if config.unix_pipe_max_args_per_stage > 256 {
+        return Err("local_utilities.unix_pipe_max_args_per_stage must be <= 256".into());
+    }
+    if !(64..=65_536).contains(&config.unix_pipe_max_arg_bytes) {
+        return Err("local_utilities.unix_pipe_max_arg_bytes must be between 64 and 65536".into());
+    }
+    if !(1_024..=262_144).contains(&config.unix_pipe_max_argv_bytes) {
+        return Err(
+            "local_utilities.unix_pipe_max_argv_bytes must be between 1024 and 262144".into(),
+        );
+    }
+    if config.unix_pipe_max_argv_bytes < config.unix_pipe_max_arg_bytes {
+        return Err(
+            "local_utilities.unix_pipe_max_argv_bytes must be at least unix_pipe_max_arg_bytes"
+                .into(),
+        );
     }
     Ok(())
 }

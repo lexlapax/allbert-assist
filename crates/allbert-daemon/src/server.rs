@@ -5891,6 +5891,7 @@ fn utility_discovery_to_payload(
         name: discovery.name,
         description: discovery.description,
         executable_candidates: discovery.executable_candidates,
+        pipe_allowed: discovery.pipe_allowed,
         installed_path: discovery.installed_path,
         enabled: discovery.enabled,
         status: discovery.status.map(|status| status.label().into()),
@@ -5932,6 +5933,7 @@ fn enabled_utility_to_payload(entry: allbert_kernel::EnabledUtilityEntry) -> Ena
         status: entry.status.label().into(),
         size_bytes: entry.size_bytes,
         modified_at: entry.modified_at,
+        pipe_allowed: entry.pipe_allowed,
     }
 }
 

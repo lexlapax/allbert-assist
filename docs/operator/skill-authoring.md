@@ -42,10 +42,10 @@ Incoming drafts persist across turns and sessions. Final submission still uses t
 Skills now carry optional provenance frontmatter:
 
 ```yaml
-provenance: external | local-path | git | self-authored
+provenance: external | local-path | git | self-authored | self-diagnosed
 ```
 
-Existing skills without the field load as `external`. Drafts produced by `skill-author` carry `self-authored`, and that value survives promotion from `incoming/` to `installed/`.
+Existing skills without the field load as `external`. Drafts produced by `skill-author` carry `self-authored`; skill remediation proposed by v0.14 diagnosis carries `self-diagnosed`. Both values survive promotion from `incoming/` to `installed/`.
 
 Show installed provenance:
 

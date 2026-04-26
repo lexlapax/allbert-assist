@@ -9,18 +9,13 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::process::Command;
 
 use crate::atomic_write;
-use crate::config::SecurityConfig;
+use crate::config::{LocalUtilitiesConfig, SecurityConfig};
 use crate::error::KernelError;
 use crate::paths::AllbertPaths;
 use crate::security::{self, NormalizedExec, PolicyDecision};
 use crate::Config;
 
 pub const UTILITY_MANIFEST_SCHEMA_VERSION: u16 = 1;
-const UNIX_PIPE_MAX_STAGES: usize = 5;
-const UNIX_PIPE_DEFAULT_TIMEOUT_S: u64 = 30;
-const UNIX_PIPE_MAX_STDIN_BYTES: usize = 1024 * 1024;
-const UNIX_PIPE_MAX_STDOUT_BYTES: usize = 1024 * 1024;
-const UNIX_PIPE_MAX_STDERR_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
@@ -56,6 +51,12 @@ pub struct EnabledUtilityEntry {
     pub status: UtilityStatus,
     pub size_bytes: u64,
     pub modified_at: String,
+    #[serde(default = "default_pipe_allowed")]
+    pub pipe_allowed: bool,
+}
+
+fn default_pipe_allowed() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -89,6 +90,7 @@ pub struct LocalUtilityDiscovery {
     pub name: String,
     pub description: String,
     pub executable_candidates: Vec<String>,
+    pub pipe_allowed: bool,
     pub installed_path: Option<String>,
     pub enabled: bool,
     pub status: Option<UtilityStatus>,
@@ -126,6 +128,7 @@ pub struct UnixPipeInput {
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
 pub struct UnixPipeStageInput {
+    #[serde(alias = "utility")]
     pub utility_id: String,
     pub args: Vec<String>,
 }
@@ -277,6 +280,7 @@ pub fn discover_utilities(paths: &AllbertPaths) -> Result<Vec<LocalUtilityDiscov
                     .iter()
                     .map(|value| (*value).into())
                     .collect(),
+                pipe_allowed: entry.pipe_allowed,
                 installed_path: find_candidate(entry).map(|path| path.display().to_string()),
                 enabled: enabled_entry.is_some(),
                 status: enabled_entry.map(|entry| entry.status),
@@ -339,6 +343,7 @@ pub fn enable_utility(
         },
         size_bytes: metadata.len(),
         modified_at: modified_at(&metadata),
+        pipe_allowed: catalog.pipe_allowed,
     };
     let mut manifest = load_manifest(paths)?;
     manifest
@@ -414,18 +419,21 @@ pub async fn run_unix_pipe(
     }
 
     let stdin = input.stdin.unwrap_or_default().into_bytes();
-    if stdin.len() > UNIX_PIPE_MAX_STDIN_BYTES {
+    if stdin.len() > config.local_utilities.unix_pipe_max_stdin_bytes {
         return Err(KernelError::Request(format!(
             "unix_pipe stdin is {} bytes; max is {}",
             stdin.len(),
-            UNIX_PIPE_MAX_STDIN_BYTES
+            config.local_utilities.unix_pipe_max_stdin_bytes
         )));
     }
-    let timeout_s = input.timeout_s.unwrap_or(UNIX_PIPE_DEFAULT_TIMEOUT_S);
-    if timeout_s == 0 {
-        return Err(KernelError::Request(
-            "unix_pipe timeout_s must be greater than 0".into(),
-        ));
+    let timeout_s = input
+        .timeout_s
+        .unwrap_or(config.local_utilities.unix_pipe_timeout_s);
+    if timeout_s == 0 || timeout_s > config.local_utilities.unix_pipe_timeout_s {
+        return Err(KernelError::Request(format!(
+            "unix_pipe timeout_s must be between 1 and {}",
+            config.local_utilities.unix_pipe_timeout_s
+        )));
     }
 
     let cwd = match input
@@ -447,7 +455,13 @@ pub async fn run_unix_pipe(
         .collect::<Vec<_>>();
     match tokio::time::timeout(
         Duration::from_secs(timeout_s),
-        execute_prepared_unix_pipe(prepared, stdin, cwd),
+        execute_prepared_unix_pipe(
+            prepared,
+            stdin,
+            cwd,
+            config.local_utilities.unix_pipe_max_stdout_bytes,
+            config.local_utilities.unix_pipe_max_stderr_bytes,
+        ),
     )
     .await
     {
@@ -503,10 +517,10 @@ fn prepare_unix_pipe(
             "unix_pipe requires at least one stage".into(),
         ));
     }
-    if stages.len() > UNIX_PIPE_MAX_STAGES {
+    if stages.len() > config.local_utilities.unix_pipe_max_stages {
         return Err(KernelError::Request(format!(
             "unix_pipe supports at most {} stages",
-            UNIX_PIPE_MAX_STAGES
+            config.local_utilities.unix_pipe_max_stages
         )));
     }
 
@@ -541,8 +555,27 @@ fn prepare_unix_pipe(
                 entry.status.label()
             )));
         }
+        if !entry.pipe_allowed {
+            return Err(KernelError::Request(format!(
+                "utility {id} manifest entry is not allowed for unix_pipe"
+            )));
+        }
+        if stage.args.len() > config.local_utilities.unix_pipe_max_args_per_stage {
+            return Err(KernelError::Request(format!(
+                "unix_pipe stage {id} has {} args; max is {}",
+                stage.args.len(),
+                config.local_utilities.unix_pipe_max_args_per_stage
+            )));
+        }
+        let argv_bytes = stage.args.iter().map(|arg| arg.len()).sum::<usize>();
+        if argv_bytes > config.local_utilities.unix_pipe_max_argv_bytes {
+            return Err(KernelError::Request(format!(
+                "unix_pipe stage {id} argv is {argv_bytes} bytes; max is {}",
+                config.local_utilities.unix_pipe_max_argv_bytes
+            )));
+        }
         for arg in &stage.args {
-            validate_unix_pipe_arg(id, arg)?;
+            validate_unix_pipe_arg(id, arg, &config.local_utilities)?;
         }
         let path = PathBuf::from(&entry.path_canonical);
         if !is_executable_file(&path) {
@@ -561,10 +594,21 @@ fn prepare_unix_pipe(
     Ok(prepared)
 }
 
-fn validate_unix_pipe_arg(utility_id: &str, arg: &str) -> Result<(), KernelError> {
+fn validate_unix_pipe_arg(
+    utility_id: &str,
+    arg: &str,
+    limits: &LocalUtilitiesConfig,
+) -> Result<(), KernelError> {
     if arg.contains('\0') {
         return Err(KernelError::Request(format!(
             "unix_pipe arg for {utility_id} contains a NUL byte"
+        )));
+    }
+    if arg.len() > limits.unix_pipe_max_arg_bytes {
+        return Err(KernelError::Request(format!(
+            "unix_pipe arg for {utility_id} is {} bytes; max is {}",
+            arg.len(),
+            limits.unix_pipe_max_arg_bytes
         )));
     }
     if arg
@@ -610,6 +654,8 @@ async fn execute_prepared_unix_pipe(
     stages: Vec<PreparedUnixPipeStage>,
     stdin: Vec<u8>,
     cwd: Option<PathBuf>,
+    stdout_cap: usize,
+    stderr_cap: usize,
 ) -> Result<UnixPipeRunSummary, KernelError> {
     let stage_count = stages.len();
     let mut children = Vec::with_capacity(stage_count);
@@ -648,10 +694,7 @@ async fn execute_prepared_unix_pipe(
                 stage.utility_id
             ))
         })?;
-        stderr_handles.push(tokio::spawn(read_bounded(
-            stderr,
-            UNIX_PIPE_MAX_STDERR_BYTES,
-        )));
+        stderr_handles.push(tokio::spawn(read_bounded(stderr, stderr_cap)));
         stdins.push(Some(stdin));
         stdouts.push(Some(stdout));
         children.push(child);
@@ -672,17 +715,13 @@ async fn execute_prepared_unix_pipe(
             .get_mut(idx + 1)
             .and_then(Option::take)
             .ok_or_else(|| KernelError::Request("open intermediate unix_pipe stdin".into()))?;
-        copy_handles.push(tokio::spawn(copy_bounded(
-            stdout,
-            stdin,
-            UNIX_PIPE_MAX_STDOUT_BYTES,
-        )));
+        copy_handles.push(tokio::spawn(copy_bounded(stdout, stdin, stdout_cap)));
     }
     let final_stdout = stdouts
         .get_mut(stage_count - 1)
         .and_then(Option::take)
         .ok_or_else(|| KernelError::Request("open final unix_pipe stdout".into()))?;
-    let final_stdout_handle = tokio::spawn(read_bounded(final_stdout, UNIX_PIPE_MAX_STDOUT_BYTES));
+    let final_stdout_handle = tokio::spawn(read_bounded(final_stdout, stdout_cap));
 
     let mut exit_codes = Vec::with_capacity(stage_count);
     for (stage, child) in stages.iter().zip(children.iter_mut()) {
@@ -1000,6 +1039,7 @@ fn refresh_entry_status(
         .canonicalize()
         .map_err(|err| KernelError::Request(format!("canonicalize {}: {err}", path.display())))?;
     let policy = utility_exec_policy(security, catalog, &canonical);
+    entry.pipe_allowed = catalog.pipe_allowed;
     if policy.hard_denied {
         entry.status = UtilityStatus::Denied;
         entry.verified_at = chrono::Utc::now().to_rfc3339();

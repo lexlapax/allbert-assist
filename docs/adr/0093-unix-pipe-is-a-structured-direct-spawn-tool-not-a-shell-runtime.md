@@ -18,10 +18,11 @@ Example:
 ```json
 {
   "stages": [
-    { "utility": "rg", "args": ["TODO"], "cwd": "/workspace" },
-    { "utility": "head", "args": ["-n", "20"] }
+    { "utility_id": "rg", "args": ["TODO"] },
+    { "utility_id": "head", "args": ["-n", "20"] }
   ],
   "stdin": null,
+  "cwd": "/workspace",
   "timeout_s": 30
 }
 ```
@@ -50,20 +51,17 @@ Active skills must list `unix_pipe` in `allowed-tools` to call it. Listing `unix
 
 Every stage is preflighted before any process starts. Preflight validates stage count, argument count/length, enabled utility status, `cwd`, byte caps, timeout, active-skill `allowed-tools`, and central exec policy. After preflight succeeds, stages launch as one direct-spawn pipeline. Success requires every stage to exit `0` and no timeout or cap violation. Timeout or cap failure kills every running child.
 
-v0.14 supports text I/O only. `stdin` is UTF-8 text, final stdout is rendered as UTF-8 text, and invalid UTF-8 from child processes is lossy-rendered with an explicit `invalid_utf8` flag. Binary-safe streaming needs a future ADR.
+v0.14 supports text I/O only. `stdin` is UTF-8 text, final stdout is rendered as UTF-8 text, and invalid UTF-8 from child processes is lossy-rendered with an explicit `lossy_utf8` flag. Binary-safe streaming needs a future ADR.
 
 Tool output is a structured JSON string with:
 
 - `ok`;
-- `duration_ms`;
-- `stage_count`;
+- `timed_out` and `cap_violated`;
 - bounded final `stdout`;
 - `stdout_bytes`;
-- per-stage stderr summaries with byte counts and truncation flags;
-- per-stage exit codes;
-- `timed_out`;
-- aggregate `truncated`;
-- `invalid_utf8`.
+- `stdout_truncated`;
+- `lossy_utf8`;
+- per-stage `utility_id`, exit code, stdout byte count, stderr summary, stderr byte count, and stderr truncation flag.
 
 Hook metadata records utility ids, resolved executables, stage count, exit statuses, byte counts, timeout/cap flags, and truncation flags. v0.12.2 trace spans use `tool.name = "unix_pipe"` with per-stage events.
 

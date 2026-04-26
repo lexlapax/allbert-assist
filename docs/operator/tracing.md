@@ -2,6 +2,8 @@
 
 v0.12.2 adds durable, local session traces for after-the-fact replay. Live status still comes from daemon-owned telemetry and activity snapshots; traces answer what happened in a completed or in-progress session.
 
+v0.14 self-diagnosis consumes these same trace artifacts through bounded, redacted diagnostic bundles. It does not add another trace persistence location or change trace retention.
+
 ## Commands
 
 Use the REPL or TUI slash command when attached to the daemon:
@@ -136,3 +138,4 @@ Allbert aligns exported trace fields with OpenTelemetry where practical, but its
 - [Telemetry operator guide](telemetry.md)
 - [TUI operator guide](tui.md)
 - [Continuity and sync posture](continuity.md)
+- [Self-diagnosis and local utilities](self-diagnosis-and-utilities.md)

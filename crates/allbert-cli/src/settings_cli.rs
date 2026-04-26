@@ -71,7 +71,9 @@ pub fn explain(group: &str) -> Result<String> {
         SettingsGroup::SelfDiagnosis => {
             "examples: self_diagnosis.enabled, self_diagnosis.lookback_days"
         }
-        SettingsGroup::LocalUtilities => "examples: local_utilities.enabled",
+        SettingsGroup::LocalUtilities => {
+            "examples: local_utilities.enabled, local_utilities.unix_pipe_timeout_s"
+        }
         SettingsGroup::Memory => "examples: memory.prefetch_enabled, memory.trash_retention_days",
         SettingsGroup::Learning => {
             "examples: learning.enabled, learning.personality_digest.output_path"

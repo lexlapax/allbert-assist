@@ -900,6 +900,7 @@ pub struct UtilityCatalogEntryPayload {
     pub name: String,
     pub description: String,
     pub executable_candidates: Vec<String>,
+    pub pipe_allowed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub installed_path: Option<String>,
     pub enabled: bool,
@@ -929,6 +930,7 @@ pub struct EnabledUtilityPayload {
     pub status: String,
     pub size_bytes: u64,
     pub modified_at: String,
+    pub pipe_allowed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1509,6 +1511,7 @@ mod tests {
             name: "ripgrep".into(),
             description: "Fast search".into(),
             executable_candidates: vec!["rg".into()],
+            pipe_allowed: true,
             installed_path: Some("/usr/bin/rg".into()),
             enabled: true,
             status: Some("ok".into()),

@@ -1,6 +1,6 @@
 # Telemetry operator guide
 
-v0.12.1 kept session telemetry daemon-owned and added daemon-owned live activity. v0.12.2 keeps that live-state boundary and adds durable trace/replay as a separate after-the-fact surface. v0.13 adds daemon-owned adapter telemetry for local personalization. The TUI, classic REPL, CLI, Telegram, jobs, and future frontends all read the same kernel-derived `TelemetrySnapshot` and `ActivitySnapshot` instead of guessing from frontend timers.
+v0.12.1 kept session telemetry daemon-owned and added daemon-owned live activity. v0.12.2 keeps that live-state boundary and adds durable trace/replay as a separate after-the-fact surface. v0.13 adds daemon-owned adapter telemetry for local personalization. v0.14 adds daemon-owned diagnosis and local-utility status surfaces. The TUI, classic REPL, CLI, Telegram, jobs, and future frontends all read kernel/daemon-owned state instead of guessing from frontend timers.
 
 This guide covers **live** runtime visibility. Durable, after-the-fact session **replay** is documented in the [tracing operator guide](tracing.md). Use this guide to answer "what is Allbert doing right now?"; use the tracing guide to answer "what happened in that session, and why?"
 
@@ -62,7 +62,7 @@ Token and context values are provider-reported from the latest model response. A
 - optional active skill name or approval id
 - optional stuck hint and next actions
 
-The daemon derives this state from bounded kernel activity transitions and filters it per client protocol. v2 clients do not receive v3-only activity fields or messages. Activity snapshots are not persisted spans; v0.12.2 durable tracing and replay is the separate history surface.
+The daemon derives this state from bounded kernel activity transitions and filters it per client protocol. v2 clients do not receive v3-only activity fields or messages. v0.14 diagnosis runs use `ActivityPhase::Diagnosing`; `unix_pipe` uses the existing tool activity posture with `tool_name = "unix_pipe"`. Activity snapshots are not persisted spans; v0.12.2 durable tracing and replay is the separate history surface.
 
 ## Status-Line Catalog
 
@@ -93,5 +93,6 @@ Telemetry is local daemon state. It is not uploaded by the status line, `/teleme
 - [TUI operator guide](tui.md)
 - [Adaptive memory guide](adaptive-memory.md)
 - [Personalization guide](personalization.md)
+- [Self-diagnosis and local utilities](self-diagnosis-and-utilities.md)
 - [Telegram operator guide](telegram.md)
 - [Tracing operator guide](tracing.md) — durable session span replay (v0.12.2)
