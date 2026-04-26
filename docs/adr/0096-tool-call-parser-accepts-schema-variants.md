@@ -33,14 +33,30 @@ The parser accepts five shapes inside `<tool_call>...</tool_call>`:
 
 The first four shapes require object inputs. The only accepted array-args shape is the direct-spawn `program` form.
 
-The direct-spawn form is accepted only when all authorization context agrees:
+The implementation is explicitly two-stage:
+
+1. `parse_tool_call_blocks(text)` extracts XML-contained JSON into
+   `ParsedToolCall` values without consulting runtime policy.
+2. `resolve_tool_calls(parsed, catalog, active_skill_policy, security)` converts
+   parsed values into `ToolInvocation` values only after runtime context agrees.
+
+The direct-spawn form is resolved only when all authorization context agrees:
 
 - `process_exec` is present in the active tool catalog for the turn;
 - every active skill that constrains tools permits `process_exec` through `allowed-tools`;
 - the requested program and arguments pass the existing `security.exec_allow` / `security.exec_deny` policy;
 - the normalized input is the same structured `ProcessExecInput` the existing tool already expects, with no shell-string parsing.
 
-Normalization is deterministic: every accepted variant produces a normal `ToolInvocation`, and normal tool dispatch still performs policy checks before execution.
+For direct-spawn calls, `args` is the argv tail. If the first arg exactly
+matches `program` or `basename(program)`, the resolver drops that duplicate
+command name before policy checks and records the normalization reason in trace
+metadata. This accepts the observed Gemma4 shape
+`{"program":"date","args":["date"]}` as a single `date` invocation instead of
+`date date`.
+
+Normalization is deterministic: every accepted variant produces either a
+policy-approved `ToolInvocation` or a refusal/retry error. Normal tool dispatch
+still performs policy checks before execution as defense in depth.
 
 On parse failure, the kernel issues exactly one corrective retry with a system message naming the canonical shape and active tool catalog. This retry is controlled by:
 
@@ -49,7 +65,10 @@ On parse failure, the kernel issues exactly one corrective retry with a system m
 tool_call_retry_enabled = true
 ```
 
-Default: `true`. Validation accepts only booleans. When disabled, or after one failed retry, the kernel surfaces an operator-facing remediation rather than passing literal `<tool_call>` text through to the user.
+Default: `true`. Validation accepts only booleans. Parse/resolve happens before
+assistant-message persistence and before `AssistantText` is emitted. When retry
+is disabled, or after one failed retry, the kernel surfaces an operator-facing
+remediation rather than passing literal `<tool_call>` text through to the user.
 
 The retry is bounded by the same daily cost cap and cost logging as any other provider call.
 

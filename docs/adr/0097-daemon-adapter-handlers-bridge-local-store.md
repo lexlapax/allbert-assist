@@ -25,6 +25,11 @@ ClientMessage::AdaptersList
 
 This means TUI, Telegram, classic REPL, and any future channel that talks to the daemon over protocol v5 cannot reach adapter state. Only the CLI works, and only because it bypasses the daemon. The result is an architecturally inconsistent v0.13 surface.
 
+Cancelable training needs one additional contract because the existing local job
+allocates its run id and cancellation token internally. A daemon peer cannot
+cancel a job it cannot name, so daemon starts must allocate the run id/token
+before the supervised task is spawned.
+
 ## Decision
 
 The v0.14.1 daemon implements every v5 adapter message by delegating to the same disk-backed adapter APIs the CLI uses. The daemon is a thin RPC bridge. It does not own a second adapter database, does not duplicate manifest logic, and does not introduce a new protocol version.
@@ -40,11 +45,24 @@ Per-message handlers:
 | `AdaptersRemove(req)` | call `AdapterStore::remove(id, force)`; preserve active-adapter refusal without force |
 | `AdaptersStatus` | aggregate today's compute, active adapter, last run/history, and configured training posture using existing store/history/compute helpers |
 | `AdaptersHistory(limit)` | call `AdapterStore::history(limit)`; return newest-first entries |
-| `AdaptersTrainingStart(req)` | spawn a supervised background task that runs `PersonalityAdapterJob` through the v0.14.1 production trainer factory ([ADR 0098](0098-adapter-trainer-factory-selects-from-config.md)); emit `AdapterTrainingProgress` and `AdapterTrainingFinal` |
+| `AdaptersTrainingStart(req)` | preallocate a run id and cancellation token, spawn a supervised background task that runs `PersonalityAdapterJob` through the v0.14.1 production trainer factory ([ADR 0098](0098-adapter-trainer-factory-selects-from-config.md)), pass the run id/token into the job, immediately emit `AdapterTrainingProgress { run_id, phase: "queued", ... }`, then emit progress and final messages from the job |
 | `AdaptersTrainingCancel(run_id)` | look up the active-training registry entry by run id, signal its cancellation token, and return a clear not-found response if no active task exists |
 | `AdaptersInstallExternal(req)` | copy/quarantine into `adapters/incoming/` and generate the existing `adapter-approval` flow |
 
-Background training uses the daemon's existing task-supervision posture ([ADR 0019](0019-v0-2-services-are-supervised-in-process-tasks-with-future-subprocess-seams.md)). The daemon keeps an in-memory active-training registry keyed by run id. Each entry contains the task handle, cancellation token, and peer subscription metadata needed for progress/final messages. The registry is runtime coordination only; disk-backed run manifests and adapter history remain the durable source of truth.
+Background training uses the daemon's existing task-supervision posture ([ADR 0019](0019-v0-2-services-are-supervised-in-process-tasks-with-future-subprocess-seams.md)). The daemon keeps an in-memory active-training registry keyed by the preallocated run id. Each entry contains the task handle, cancellation token, and peer subscription metadata needed for progress/final messages. The registry is runtime coordination only; disk-backed run manifests and adapter history remain the durable source of truth.
+
+`PersonalityAdapterJob` gains a production constructor that accepts externally
+allocated `run_id` and `CancellationToken` values for daemon starts. CLI and
+scheduled local starts may continue to allocate them internally, but daemon
+starts must allocate before spawning so cancellation can target a known run
+immediately.
+
+For terminal outcomes, the daemon writes a run-status manifest before emitting
+`AdapterTrainingFinal`. Successful runs point at the trained adapter manifest.
+Failed or cancelled runs point at the terminal run-status manifest containing
+`status`, `reason`, `started_at`, `finished_at`, and the backend selected by
+the factory. This preserves the existing non-optional
+`AdapterTrainingFinal.manifest_path` field without a protocol bump.
 
 Per-peer protocol filtering preserves the existing v2/v3/v4-vs-v5 boundary:
 

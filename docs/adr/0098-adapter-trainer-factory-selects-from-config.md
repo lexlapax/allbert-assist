@@ -1,4 +1,4 @@
-# ADR 0098: Adapter trainer factory selects backend from `default_backend`
+# ADR 0098: Adapter trainer factory selects the effective backend from config and request override
 
 Date: 2026-04-26
 Status: Accepted
@@ -17,31 +17,43 @@ Despite that, production call sites construct the fake trainer directly:
 
 `default_backend` is therefore observable in setup state but does not reliably affect training. An operator who selects `mlx-lm-lora` can still get fake-trainer artifacts. That makes v0.13 partial as of v0.14 and tracked by v0.14.1.
 
+Protocol v5 also already exposes per-run trainer selection through
+`AdapterTrainingStartRequest { backend: Option<String>, override_reason:
+Option<String> }`. v0.14.1 must therefore define how request-level backend
+overrides interact with `default_backend`; leaving the field ignored would make
+the protocol misleading.
+
 ## Decision
 
-A production trainer factory selects the backend from config:
+A production trainer factory selects the effective backend from config and an
+optional per-run request override:
 
 ```rust
 pub fn build_trainer(
     paths: &AllbertPaths,
     config: &Config,
+    requested_backend: Option<&str>,
 ) -> Result<Arc<dyn AdapterTrainer>, KernelError>;
 ```
 
 Production selection rules:
 
 - `learning.adapter_training.enabled = false` refuses training with a remediation hint; it never returns fake.
-- empty `default_backend` refuses training and names `learning.adapter_training.default_backend`.
-- unknown `default_backend` refuses training and names `learning.adapter_training.allowed_backends`.
-- `default_backend = "mlx-lm-lora"` returns `MlxLoraTrainer` after the kind allowlist and exec policy gates pass.
-- `default_backend = "llama-cpp-finetune"` returns `LlamaCppLoraTrainer` after the same gates pass.
-- `default_backend = "fake"` returns `FakeAdapterTrainer` only because fake was explicitly configured.
+- The effective backend is `requested_backend` when present, otherwise `learning.adapter_training.default_backend`.
+- CLI and scheduled adapter training normally pass `None`.
+- Daemon `AdaptersTrainingStart` passes `req.backend.as_deref()` from protocol v5. If a daemon request supplies a backend override, `req.override_reason` is required and is recorded in run metadata.
+- empty effective backend refuses training and names `learning.adapter_training.default_backend`.
+- unknown effective backend refuses training and names `learning.adapter_training.allowed_backends` and the request-level `backend` when present.
+- request-level overrides do not bypass gates. They must be in `learning.adapter_training.allowed_backends`, must pass the trainer-binary and exec-policy gates, and must fail closed when unknown or disallowed instead of falling back to `default_backend`.
+- `effective_backend = "mlx-lm-lora"` returns `MlxLoraTrainer` after the trainer-binary and exec-policy gates pass.
+- `effective_backend = "llama-cpp-finetune"` returns `LlamaCppLoraTrainer` after the same gates pass.
+- `effective_backend = "fake"` returns `FakeAdapterTrainer` only because fake was explicitly configured or explicitly requested and `fake` is allowed.
 
 Every non-preview production call site is updated to call the factory:
 
-- `PersonalityAdapterJob::production(paths, config)` calls `build_trainer`.
+- `PersonalityAdapterJob::production(paths, config, requested_backend)` calls `build_trainer`.
 - CLI `adapters training start` goes through `PersonalityAdapterJob::production`.
-- daemon `AdaptersTrainingStart` goes through `PersonalityAdapterJob::production`.
+- daemon `AdaptersTrainingStart` goes through `PersonalityAdapterJob::production` with the protocol request's backend override, if any.
 - scheduled adapter training goes through `PersonalityAdapterJob::production`.
 
 Preview and test paths stay fake but are explicit:
@@ -58,13 +70,17 @@ The factory does not bypass existing gates. Real backends still require:
 
 If any gate refuses, the factory surfaces a clear error naming all relevant keys before any trainer is constructed.
 
+The factory is the only production place where a backend name becomes an
+`AdapterTrainer`. Callers may pass an override request, but they may not
+pre-construct a fake or real trainer outside the factory for production starts.
+
 ## Consequences
 
 - An operator who enables a real backend gets that backend at training time, or a clear refusal explaining what is missing.
 - Fake training stops being the silent production fallback.
 - Tests and provider-free validation continue to call explicit fake constructors.
 - The "v0.13 real backend training" claim becomes true only after v0.14.1 lands; until then it remains partial as of v0.14 and tracked by v0.14.1.
-- Future trainer backends plug into the factory by adding one arm; production call sites do not change.
+- Future trainer backends plug into the factory by adding one arm; production call sites do not change beyond optionally passing a request override.
 
 ## Alternatives considered
 

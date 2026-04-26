@@ -47,6 +47,33 @@ remediation_provider_max_tokens = 4096
 
 Default: `4096`. Validation clamps to `[256, 16384]`.
 
+## Provider and cost accounting
+
+Candidate generation is normal model work and uses the same provider and cost
+accounting envelope as assistant turns.
+
+Provider ownership:
+
+- Daemon-started remediation uses the attached session's effective provider and
+  effective model. It does not invent a second provider selection path.
+- CLI/offline remediation does not silently construct a provider. If there is no
+  attached/effective provider, remediation keeps the diagnosis report and writes
+  the existing report-only scaffold with `candidate_status =
+  "fallback:offline_no_provider"`.
+- Provider construction, connection, or availability failure writes
+  `candidate_status = "fallback:provider_unavailable"`.
+
+Cost ownership:
+
+- The daily monetary cost cap is checked before the candidate-generation call.
+  If the cap is already exhausted, no provider call is made and the scaffold is
+  written with `candidate_status = "fallback:cost_cap"`.
+- Usage from the candidate-generation call is recorded through the same ledger
+  and hook path as normal provider calls.
+- Approval, quarantine, and memory-staging frontmatter record provider, model,
+  token usage, estimated cost, diagnosis id, and candidate/fallback/validation
+  status.
+
 ## Validation and fallback
 
 Each candidate is validated kind-specifically:
@@ -55,7 +82,13 @@ Each candidate is validated kind-specifically:
 - Skill: must include valid frontmatter, `allowed-tools`, and a non-empty `## Behavior` section.
 - Memory: must be at least 64 characters and reference at least one specific identifier from the bundle, such as a span id, tool name, classification label, or report evidence item.
 
-Provider failure, empty output, malformed output, cost-cap refusal, disabled remediation, or validation failure falls back to the existing report-only scaffold unless the candidate is valid enough to route with a validation-failure marker. Fallback records `remediation.candidate_status = "fallback:<reason>"`. Reasons include `empty`, `malformed_diff`, `disallowed_path`, `missing_frontmatter`, `cost_cap`, `provider_error`, and `disabled`.
+Provider failure, provider unavailability, offline/no-provider paths, empty
+output, malformed output, cost-cap refusal, disabled remediation, or validation
+failure falls back to the existing report-only scaffold unless the candidate is
+valid enough to route with a validation-failure marker. Fallback records
+`remediation.candidate_status = "fallback:<reason>"`. Reasons include `empty`,
+`malformed_diff`, `disallowed_path`, `missing_frontmatter`, `cost_cap`,
+`provider_error`, `provider_unavailable`, `offline_no_provider`, and `disabled`.
 
 ## Code remediation safety envelope
 
@@ -86,6 +119,7 @@ The candidate's frontmatter records:
 - `diagnosis_id`;
 - `candidate_status: routed | validation_failed:<reason> | fallback:<reason>`;
 - `candidate_tokens_used`;
+- `candidate_estimated_cost`;
 - `candidate_provider`;
 - `candidate_model`;
 - for code remediation, sibling worktree path, validation command list, validation status, and validation-output artifact paths.
