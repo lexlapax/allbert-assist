@@ -6,6 +6,8 @@ Status: Accepted
 > **Amended in v0.12.2**: session-local trace artifacts under `sessions/*/trace.jsonl`, `sessions/*/trace.<n>.jsonl.gz`, and recoverable `sessions/*/current_spans/` are continuity-bearing session artifacts and are included with `sessions/` in profile export/sync by default. Top-level `traces/` remains derived legacy/debug output and stays excluded. Trace GC may remove only trace artifacts, never unrelated session journals, metadata, approvals, attachments, or patch artifacts.
 >
 > **Amended in v0.13**: adapter artifacts under `~/.allbert/adapters/` (training run staging, installed weights, runtime caches, the active-adapter pointer, history, and incoming external adapters) are derived/host-specific and are excluded from profile export and filesystem sync by default. The corpus inputs (durable memory, accepted facts, bounded episode summaries, accepted `PERSONALITY.md`, `SOUL.md`) continue to travel. `profile export --include-adapters` is the explicit opt-in for installed adapters plus the active-adapter pointer only; it does not include runs, incoming external adapters, runtime caches, or history. The `adapter-approval` markdown under `sessions/<sid>/approvals/` continues to travel as a session artifact, while its referenced weights live in the excluded `~/.allbert/adapters/` tree. See ADR 0088.
+>
+> **Amended in v0.14**: `utilities/enabled.toml` is host-specific local utility enablement metadata and is excluded from profile export and filesystem sync by default. Diagnosis reports under `sessions/<sid>/artifacts/diagnostics/` are session artifacts and travel with sessions. See ADR 0091 and ADR 0092.
 
 ## Context
 
@@ -33,7 +35,7 @@ Every file under `~/.allbert/` falls into exactly one category.
 | `identity/user.md` | ADR 0058 |
 | `config.toml` and `config/` | operator-owned config plus channel allowlists |
 | `memory/MEMORY.md`, `memory/notes/`, `memory/daily/`, `memory/staging/` | ADR 0003, ADR 0045, ADR 0047 |
-| `sessions/` (journals, meta, approvals, session trace artifacts) | ADR 0049, ADR 0056, ADR 0060, ADR 0081 |
+| `sessions/` (journals, meta, approvals, session trace artifacts, diagnosis reports) | ADR 0049, ADR 0056, ADR 0060, ADR 0081, ADR 0091 |
 | `jobs/` | ADR 0022 |
 | `skills/installed/` and `skills/incoming/` | ADR 0032, ADR 0037 |
 | `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, `AGENTS.md`, `HEARTBEAT.md` | ADR 0010, ADR 0039, ADR 0062 |
@@ -47,6 +49,12 @@ Every file under `~/.allbert/` falls into exactly one category.
 | `logs/` | daemon logs and debug logs |
 | `traces/` | legacy/debug trace output and debugging artifacts; replay traces live under `sessions/` |
 | future cache subdirs (if introduced) | LLM/media caches or delivery queues, rebuilt or safely disposable |
+
+**Host-specific** — excluded from sync/export by default:
+
+| Path | Why host-local |
+| --- | --- |
+| `utilities/enabled.toml` | Points at host-local utility executable paths and verification state (ADR 0092). |
 
 **Sensitive** — continuity-bearing but excluded by default:
 
@@ -115,7 +123,7 @@ allbert-cli profile export <path.tgz> [--include-secrets] [--identity <id>]
       "jobs": 5,
       "skills": 12
     },
-    "excluded": ["secrets/", "memory/index/", "run/", "logs/", "traces/", "costs.jsonl"]
+    "excluded": ["secrets/", "memory/index/", "run/", "logs/", "traces/", "utilities/enabled.toml", "costs.jsonl"]
   }
   ```
 - v0.12.2+ exports report trace artifact counts and bytes in the manifest so operators can understand the size and sensitivity of session trace history.
@@ -181,4 +189,6 @@ No conflict-resolution protocol is shipped. The operator promises not to run two
 - [ADR 0062](0062-heartbeat-md-joins-the-bootstrap-bundle-in-v0-8.md)
 - [ADR 0081](0081-durable-session-trace-artifacts-and-replay-envelope.md)
 - [ADR 0088](0088-adapter-artifacts-are-derived-host-specific-and-excluded-from-profile-export.md) — extends the derived/host-specific exclusion list to v0.13 adapter artifacts.
+- [ADR 0091](0091-self-diagnosis-uses-bounded-trace-bundles-and-existing-remediation-surfaces.md)
+- [ADR 0092](0092-local-utility-discovery-uses-curated-operator-enabled-manifests.md)
 - [docs/plans/v0.08-continuity-and-sync.md](../plans/v0.08-continuity-and-sync.md)

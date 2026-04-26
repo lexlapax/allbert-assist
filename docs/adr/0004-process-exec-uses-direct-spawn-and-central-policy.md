@@ -3,6 +3,8 @@
 Date: 2026-04-17
 Status: Accepted
 
+> **Amended in v0.14**: `unix_pipe` adds Unix-style composition without reintroducing shell-string execution. Each pipeline stage is still a normalized direct spawn, resolved from an operator-enabled local utility id, and checked by the same central exec policy. See [ADR 0093](0093-unix-pipe-is-a-structured-direct-spawn-tool-not-a-shell-runtime.md).
+
 ## Context
 
 Early Allbert needs command execution. That is one of the smallest useful tools and one of the highest-risk ones. A naive shell-string contract such as `"run this command"` is attractive, but it creates ambiguity about quoting, redirection, pipes, glob expansion, and what exactly the security layer is approving.
@@ -32,7 +34,7 @@ The intent is to make both execution behavior and approval semantics auditable f
 - The MVP will feel less flexible than a full shell agent.
 
 **Neutral**
-- Richer execution modes can be added later, but they will need their own explicit policy model.
+- Richer execution modes can be added later, but they need an explicit policy model. v0.14's `unix_pipe` is one such additive mode and preserves direct-spawn semantics per ADR 0093.
 - Skills may request execution, but they do not own execution policy.
 
 ## References

@@ -8,6 +8,8 @@ Status: Accepted
 > **Amended in v0.12.2**: protocol v4 trace span messages extend the same daemon-owned telemetry posture for trace/replay, while `ActivitySnapshot` remains the live operational truth. v4 daemons accept v2, v3, and v4 clients, negotiate per connection, and filter v3/v4-only messages and fields away from older peers. Frontends must not infer spans or activity phases locally.
 >
 > **Amended in v0.13**: protocol v5 adapter-management and training-progress messages extend this same daemon-owned posture. `ActivityPhase::Training` is live operational truth; durable training spans remain v0.12.2 trace artifacts. v5 daemons accept v2/v3/v4/v5 clients, filter per peer, and require v5 clients connected to older daemons to surface actionable remediation instead of synthesizing adapter state locally. See ADR 0090.
+>
+> **Amended in v0.14**: protocol v6 self-diagnosis and local-utility messages extend the daemon-owned telemetry posture again. `ActivityPhase::Diagnosing` is live operational truth for diagnosis runs; frontends must not infer diagnosis state from trace files or utility state from PATH. v6 daemons accept v2/v3/v4/v5/v6 clients and filter per peer. See ADR 0094.
 
 ## Context
 
@@ -61,8 +63,10 @@ Context usage is based on provider-reported latest response usage. v0.11 does no
 - [docs/plans/v0.11-tui-and-memory.md](../plans/v0.11-tui-and-memory.md)
 - [docs/plans/v0.12.1-operator-ux-polish.md](../plans/v0.12.1-operator-ux-polish.md)
 - [docs/plans/v0.12.2-tracing-and-replay.md](../plans/v0.12.2-tracing-and-replay.md)
+- [docs/plans/v0.14-self-diagnosis.md](../plans/v0.14-self-diagnosis.md)
 - [ADR 0051](0051-daily-cost-cap-is-a-hard-gate-at-turn-boundary.md)
 - [ADR 0066](0066-owned-provider-seam-over-rig-for-v0-10.md)
 - [ADR 0074](0074-tui-is-a-daemon-attached-adapter-not-a-runtime.md)
 - [ADR 0083](0083-protocol-v4-trace-events-and-otlp-json-export.md)
 - [ADR 0090](0090-protocol-v5-adapter-management-and-training-progress.md)
+- [ADR 0094](0094-protocol-v6-self-diagnosis-and-local-utility-surfaces.md)

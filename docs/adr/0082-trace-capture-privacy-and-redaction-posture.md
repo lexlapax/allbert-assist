@@ -3,6 +3,8 @@
 Date: 2026-04-25
 Status: Accepted
 
+> **Amended in v0.14**: self-diagnosis reads trace data through bounded diagnostic bundles and re-runs the secret redactor before report or prompt inclusion as a defensive pass. This does not change v0.12.2 capture defaults, Telegram structural-only limits, or the rule that secret redaction is unconditional before write/export. See [ADR 0091](0091-self-diagnosis-uses-bounded-trace-bundles-and-existing-remediation-surfaces.md).
+
 ## Context
 
 Trace replay is most useful when it captures the actual prompt, response, tool arguments, tool results, and provider payloads that shaped a turn. Allbert is a local personal assistant, so the operator owns this data. But trace persistence also increases the amount of sensitive local state, especially when session traces travel through profile export/sync under ADR 0081.

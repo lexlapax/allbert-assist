@@ -3,6 +3,8 @@
 Date: 2026-04-18
 Status: Accepted
 
+> **Amended in v0.14**: `unix_pipe` is a tool, not a skill-script interpreter and not a shell runtime. Skills may call it only when `allowed-tools` includes `unix_pipe`; each stage still uses an operator-enabled utility and the central exec policy. See [ADR 0093](0093-unix-pipe-is-a-structured-direct-spawn-tool-not-a-shell-runtime.md).
+
 ## Context
 
 AgentSkills allows shipping `scripts/` directories inside a skill folder — typically Bash, Python, or Node programs that support the skill's prompt. v0.1 already established a central `exec_policy` (ADR 0004) and a policy envelope (ADR 0009). v0.4 adopts the folder format (ADR 0032); the question is how skill scripts should execute.

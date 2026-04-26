@@ -6,6 +6,8 @@ Status: Accepted
 Amends: [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md)
 
 > **Amended in v0.12.1**: patch approval context can include a bounded diff preview for approval modals and channel messages. The full diff remains artifact-backed at `artifact_path`, inbox accept still only records review approval, and `self-improvement install` remains the separate operator action.
+>
+> **Amended in v0.14**: diagnostic code-shaped remediation from `self-diagnose` reuses `patch-approval` rather than adding a diagnostic-specific patch inbox kind. Diff artifacts, validation metadata, accept-vs-install separation, and rejected-worktree handling stay exactly as defined here. See [ADR 0091](0091-self-diagnosis-uses-bounded-trace-bundles-and-existing-remediation-surfaces.md).
 
 ## Context
 

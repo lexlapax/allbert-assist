@@ -5,6 +5,8 @@ Status: Accepted
 
 Amends: [ADR 0032](0032-agentskills-folder-format-is-the-canonical-skill-shape.md)
 
+> **Amended in v0.14**: `provenance` gains `self-diagnosed` for skills drafted as optional remediation from `self-diagnose`. The storage and trust posture remain identical to `self-authored`: drafts land in `skills/incoming/`, preview is required, and installed skills preserve provenance. See [ADR 0091](0091-self-diagnosis-uses-bounded-trace-bundles-and-existing-remediation-surfaces.md).
+
 ## Context
 
 The v0.12 skill-authoring skill (`skill-author`, ADR 0072) lets a user describe a skill in natural language and have Allbert produce an AgentSkills folder for it. That capability needs a clear answer to two questions:
@@ -31,7 +33,7 @@ Iterative drafts persist across turns and survive session exit. The drafts direc
 ADR 0032's optional frontmatter list gains:
 
 ```yaml
-provenance: external | local-path | git | self-authored
+provenance: external | local-path | git | self-authored | self-diagnosed
 ```
 
 Defaults and meanings:
@@ -42,6 +44,7 @@ Defaults and meanings:
 | `local-path` | Skill installed from a local filesystem path. | Set by the install flow when the source is a local path. |
 | `git` | Skill installed from a git URL + ref. | Set by the install flow when the source is a git remote. |
 | `self-authored` | Skill produced by `skill-author` (or by any future authoring skill). | Set by `skill-author` when writing the draft. |
+| `self-diagnosed` | Skill proposed by `self-diagnose` as optional remediation. | Set by v0.14 diagnostic remediation when writing the draft. |
 
 Validation is additive. Skills without the field load as `external` — no migration is required for installed content.
 

@@ -9,6 +9,8 @@ Status: Accepted
 
 > **Amended in v0.13**: a fifth inbox kind `adapter-approval` is added for trained LoRA/adapter artifacts. Weights and eval artifacts live outside the approval markdown (referenced by `weights_path`, `loss_curve_path`, `behavioral_diff_path`); accept installs the reviewed artifact but does not activate it; activation is a separate explicit operator command. The inbox file layout, identity scoping, and retention defaults in this ADR remain in force. See ADR 0086.
 
+> **Amended in v0.14**: self-diagnosis does not add another inbox kind. Diagnostic code-shaped remediation reuses `patch-approval`; memory-shaped remediation uses the staging pipeline; skill-shaped remediation uses skill install quarantine. Diagnosis reports may point to approvals they created, but the per-session approval markdown remains the only approval ground truth. See ADR 0091.
+
 ## Context
 
 v0.7 (ADR 0056) shipped the async-confirm state machine with two deliberate constraints to keep the v0.7 surface small:

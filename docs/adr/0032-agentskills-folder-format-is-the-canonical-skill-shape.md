@@ -4,6 +4,8 @@ Date: 2026-04-18
 Status: Accepted
 
 > **Amended in part by [ADR 0071](0071-self-authored-skills-route-through-the-standard-install-quarantine.md) in v0.12**: the optional frontmatter field list gains `provenance` (`external` | `local-path` | `git` | `self-authored`). Existing skills without the field load as `external`. Everything else in this ADR (folder layout, required frontmatter, name/description constraints, validation posture) remains in force.
+>
+> **Amended in v0.14**: `provenance` gains the additive value `self-diagnosed` for skills proposed by the `self-diagnose` flow. Those skills still use the standard `skills/incoming/` quarantine, install preview, and confirmation path; provenance is observability, not a policy bypass. See [ADR 0091](0091-self-diagnosis-uses-bounded-trace-bundles-and-existing-remediation-surfaces.md).
 
 ## Context
 
@@ -29,7 +31,7 @@ v0.4 adopts the AgentSkills folder format as the canonical skill shape.
 
 - A skill is a directory `<skill-name>/` containing `SKILL.md` and optional `scripts/`, `references/`, `assets/` subdirectories.
 - The directory name is the canonical skill name; it must be kebab-case, unique, and stable, and it must match the `name` field in frontmatter.
-- `SKILL.md` has YAML frontmatter followed by a markdown body. Required fields: `name`, `description`. Optional: `license`, `compatibility`, `metadata`, `allowed-tools`, plus Allbert extensions (`agents`, `bundles`).
+- `SKILL.md` has YAML frontmatter followed by a markdown body. Required fields: `name`, `description`. Optional: `license`, `compatibility`, `metadata`, `allowed-tools`, plus Allbert extensions (`agents`, `bundles`, `provenance`).
 - Skill-local references are addressable as `references/<file>` within the skill; links in the body use relative paths.
 - Skill-local scripts are declared in frontmatter under `scripts:` and invoked through the kernel exec seam (ADR 0034).
 - Validation uses an Allbert-internal validator that is compatible with the `skills-ref` schema; skills that pass upstream validation pass Allbert validation as long as no Allbert extensions are misused.

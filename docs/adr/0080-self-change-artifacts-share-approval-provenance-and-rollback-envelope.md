@@ -4,6 +4,8 @@ Date: 2026-04-24
 Status: Accepted
 
 > **Amended in v0.12.2**: session trace artifacts are diagnostic inputs to the self-change envelope, not a new self-change artifact location. v0.12.2 stores replay traces under `sessions/<id>/trace*` for operator replay and later self-diagnosis; self-change outputs still use their subsystem-owned isolated or reviewable locations such as sibling worktrees, `skills/incoming/`, `~/.allbert/adapters/`, and staging.
+>
+> **Amended in v0.14**: self-diagnosis reports are explanatory session artifacts, not activated self-change outputs. Optional diagnostic remediations stay inside this ADR's envelope: code uses sibling worktrees and `patch-approval`, skills use `skills/incoming/` with `provenance: self-diagnosed`, and memory uses staging. See ADR 0091.
 
 ## Context
 
@@ -33,9 +35,9 @@ Concrete mappings:
 - v0.12 source patches use sibling worktrees and `patch-approval`.
 - v0.12 self-authored skills use `skills/incoming/` and install preview.
 - v0.13 adapters use `~/.allbert/adapters/` and `adapter-approval` (ADR 0086). Trained weights stage under `~/.allbert/adapters/runs/<run_id>/` and install to `~/.allbert/adapters/installed/<adapter_id>/` only after operator acceptance. Activation is single-slot, base-model-pinned, and explicit per ADR 0085. Adapter weights are derived/host-specific and excluded from profile export by default per ADR 0088.
-- v0.14 diagnostic skills use the skill quarantine and `provenance: self-diagnosed`; diagnostic memory remediation uses staging. v0.14 may read v0.12.2 session trace artifacts as diagnostic input, but those traces are not themselves self-change outputs.
+- v0.14 diagnosis reports live under session artifacts and explain; they do not activate state. Diagnostic skills use the skill quarantine and `provenance: self-diagnosed`; diagnostic memory remediation uses staging; diagnostic code remediation uses `patch-approval`. v0.14 may read v0.12.2 session trace artifacts as diagnostic input, but those traces are not themselves self-change outputs.
 
-The provenance enum is additive across releases. Planned values include `self-authored`, `self-trained`, and `self-diagnosed`.
+The provenance enum is additive across releases. Values include `self-authored`, `self-trained`, and `self-diagnosed`.
 
 ## Consequences
 
@@ -72,3 +74,4 @@ The provenance enum is additive across releases. Planned values include `self-au
 - [ADR 0087](0087-adapter-compute-cap-is-a-wall-clock-daily-gate.md)
 - [ADR 0088](0088-adapter-artifacts-are-derived-host-specific-and-excluded-from-profile-export.md)
 - [ADR 0089](0089-trainer-subprocess-runs-under-existing-exec-policy-with-kind-scoped-allowlist.md)
+- [ADR 0091](0091-self-diagnosis-uses-bounded-trace-bundles-and-existing-remediation-surfaces.md)

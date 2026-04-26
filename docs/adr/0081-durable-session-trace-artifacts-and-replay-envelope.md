@@ -3,6 +3,8 @@
 Date: 2026-04-25
 Status: Accepted
 
+> **Amended in v0.14**: self-diagnosis consumes these session trace artifacts through bounded `TraceDiagnosticBundle` reads. v0.14 does not change trace file locations, schema version, rotation, crash recovery, retention, or GC ownership. See [ADR 0091](0091-self-diagnosis-uses-bounded-trace-bundles-and-existing-remediation-surfaces.md).
+
 ## Context
 
 v0.12.1 makes Allbert legible while work is happening through daemon-owned `ActivitySnapshot` state. v0.12.2 needs after-the-fact replay: operators should be able to ask what happened in a session, which model/tool/skill work ran, how long each phase took, and what v0.14 self-diagnosis can read later.
