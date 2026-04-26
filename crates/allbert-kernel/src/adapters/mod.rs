@@ -18,9 +18,9 @@ pub use eval::{
 };
 pub use job::{
     adapter_compute_used_today_seconds, preview_personality_adapter_training,
-    run_personality_adapter_training, run_personality_adapter_training_with_override,
-    run_personality_adapter_training_with_session, PersonalityAdapterJob,
-    DEFAULT_ADAPTER_COMPUTE_CAP_WALL_SECONDS, DEFAULT_MIN_GOLDEN_PASS_RATE,
+    run_personality_adapter_training, run_personality_adapter_training_controlled,
+    run_personality_adapter_training_with_override, run_personality_adapter_training_with_session,
+    PersonalityAdapterJob, DEFAULT_ADAPTER_COMPUTE_CAP_WALL_SECONDS, DEFAULT_MIN_GOLDEN_PASS_RATE,
     PERSONALITY_ADAPTER_JOB_NAME, PERSONALITY_ADAPTER_SESSION_ID,
 };
 pub use manifest::{read_adapter_manifest, write_adapter_manifest};

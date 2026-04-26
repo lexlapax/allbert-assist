@@ -90,6 +90,7 @@ struct SharedState {
     sessions: Arc<RwLock<HashMap<String, Arc<SessionHandle>>>>,
     job_ephemeral_sessions: Arc<Mutex<HashMap<String, Vec<String>>>>,
     job_manager: Arc<Mutex<JobManager>>,
+    active_adapter_training: Arc<Mutex<HashMap<String, allbert_kernel::CancellationToken>>>,
     telegram_status: Arc<TelegramRuntimeStatus>,
     approval_inbox_retention_days: Arc<AtomicUsize>,
     inbox_index: Arc<StdMutex<HashMap<String, InboxApprovalPayload>>>,
@@ -588,6 +589,7 @@ pub async fn spawn_with_factory(
         sessions: Arc::new(RwLock::new(HashMap::new())),
         job_ephemeral_sessions: Arc::new(Mutex::new(HashMap::new())),
         job_manager: Arc::new(Mutex::new(job_manager)),
+        active_adapter_training: Arc::new(Mutex::new(HashMap::new())),
         telegram_status: Arc::new(TelegramRuntimeStatus::default()),
         approval_inbox_retention_days: Arc::new(AtomicUsize::new(approval_inbox_retention_days)),
         inbox_index: Arc::new(StdMutex::new(HashMap::new())),
@@ -1180,28 +1182,110 @@ async fn handle_connection(
                 let summaries = reader.list_sessions().map_err(map_trace_error)?;
                 send_server_message(&mut framed, &ServerMessage::TraceSessions(summaries)).await?;
             }
-            ClientMessage::AdaptersList
-            | ClientMessage::AdaptersShow(_)
-            | ClientMessage::AdaptersActivate(_)
-            | ClientMessage::AdaptersDeactivate
-            | ClientMessage::AdaptersRemove(_)
-            | ClientMessage::AdaptersStatus
-            | ClientMessage::AdaptersHistory(_)
-            | ClientMessage::AdaptersTrainingStart(_)
-            | ClientMessage::AdaptersTrainingCancel(_)
-            | ClientMessage::AdaptersInstallExternal(_) => {
+            ClientMessage::AdaptersList => {
                 if client_protocol < 5 {
                     send_adapter_protocol_error(&mut framed).await?;
                     continue;
                 }
+                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+                let manifests = store.list().map_err(map_kernel_error)?;
+                send_server_message(&mut framed, &ServerMessage::Adapters(manifests)).await?;
+            }
+            ClientMessage::AdaptersShow(adapter_id) => {
+                if client_protocol < 5 {
+                    send_adapter_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+                match store.show(&adapter_id).map_err(map_kernel_error)? {
+                    Some(manifest) => {
+                        send_server_message(&mut framed, &ServerMessage::Adapter(manifest)).await?;
+                    }
+                    None => send_adapter_not_found(&mut framed, &adapter_id).await?,
+                }
+            }
+            ClientMessage::AdaptersActivate(request) => {
+                if client_protocol < 5 {
+                    send_adapter_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+                let config = state.default_config.read().await.clone();
+                let activation = allbert_kernel::activate_adapter(
+                    &store,
+                    &config.model,
+                    &request.adapter_id,
+                    request.override_reason.as_deref(),
+                )
+                .map_err(map_kernel_error)?;
                 send_server_message(
                     &mut framed,
-                    &ServerMessage::Error(ProtocolError {
-                        code: "adapter_surface_not_implemented".into(),
-                        message: "adapter surfaces are reserved for v0.13 implementation milestones after M0".into(),
-                    }),
+                    &ServerMessage::ActiveAdapter(Some(activation.active)),
                 )
                 .await?;
+            }
+            ClientMessage::AdaptersDeactivate => {
+                if client_protocol < 5 {
+                    send_adapter_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+                allbert_kernel::deactivate_adapter(&store, Some("daemon request"))
+                    .map_err(map_kernel_error)?;
+                send_server_message(&mut framed, &ServerMessage::ActiveAdapter(None)).await?;
+            }
+            ClientMessage::AdaptersRemove(request) => {
+                if client_protocol < 5 {
+                    send_adapter_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+                store
+                    .remove(&request.adapter_id, request.force)
+                    .map_err(map_kernel_error)?;
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
+            ClientMessage::AdaptersStatus => {
+                if client_protocol < 5 {
+                    send_adapter_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let status = adapter_status_payload(&state).await?;
+                send_server_message(&mut framed, &ServerMessage::AdaptersStatus(status)).await?;
+            }
+            ClientMessage::AdaptersHistory(request) => {
+                if client_protocol < 5 {
+                    send_adapter_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+                let entries = store
+                    .history(request.limit.map(|limit| limit as usize))
+                    .map_err(map_kernel_error)?;
+                send_server_message(&mut framed, &ServerMessage::AdaptersHistory(entries)).await?;
+            }
+            ClientMessage::AdaptersTrainingStart(request) => {
+                if client_protocol < 5 {
+                    send_adapter_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                handle_adapter_training_start(&mut framed, &state, request).await?;
+            }
+            ClientMessage::AdaptersTrainingCancel(request) => {
+                if client_protocol < 5 {
+                    send_adapter_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                handle_adapter_training_cancel(&mut framed, &state, request).await?;
+            }
+            ClientMessage::AdaptersInstallExternal(request) => {
+                if client_protocol < 5 {
+                    send_adapter_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                quarantine_external_adapter(&state.paths, Path::new(&request.path))
+                    .map_err(map_kernel_error)?;
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
             }
             ClientMessage::DiagnoseRun(request) => {
                 if client_protocol < 6 {
@@ -4141,6 +4225,269 @@ async fn send_adapter_protocol_error(framed: &mut FramedStream) -> Result<(), Da
         }),
     )
     .await
+}
+
+async fn send_adapter_not_found(
+    framed: &mut FramedStream,
+    adapter_id: &str,
+) -> Result<(), DaemonError> {
+    send_server_message(
+        framed,
+        &ServerMessage::Error(ProtocolError {
+            code: "adapter_not_found".into(),
+            message: format!("adapter not installed: {adapter_id}"),
+        }),
+    )
+    .await
+}
+
+async fn adapter_status_payload(
+    state: &SharedState,
+) -> Result<allbert_proto::AdaptersStatusPayload, DaemonError> {
+    let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+    let active = store.active().map_err(map_kernel_error)?;
+    let today_compute_wall_seconds =
+        allbert_kernel::adapter_compute_used_today_seconds(&state.paths)
+            .map_err(map_kernel_error)?;
+    let config = state.default_config.read().await.clone();
+    let compute_cap_wall_seconds = config.learning.compute_cap_wall_seconds;
+    let remaining_compute_wall_seconds =
+        compute_cap_wall_seconds.map(|cap| cap.saturating_sub(today_compute_wall_seconds));
+    Ok(allbert_proto::AdaptersStatusPayload {
+        active,
+        today_compute_wall_seconds,
+        compute_cap_wall_seconds,
+        remaining_compute_wall_seconds,
+        last_training_run_id: None,
+        last_training_status: None,
+    })
+}
+
+async fn handle_adapter_training_start(
+    framed: &mut FramedStream,
+    state: &SharedState,
+    request: allbert_proto::AdapterTrainingStartRequest,
+) -> Result<(), DaemonError> {
+    let config = state.default_config.read().await.clone();
+    let backend = match adapter_training_backend(&config, request.backend.as_deref()) {
+        Ok(backend) => backend,
+        Err(error) => {
+            send_server_message(framed, &ServerMessage::Error(error)).await?;
+            return Ok(());
+        }
+    };
+    if backend != "fake" {
+        send_server_message(
+            framed,
+            &ServerMessage::Error(ProtocolError {
+                code: "adapter_training_backend_unavailable".into(),
+                message: format!(
+                    "adapter training backend `{backend}` is not wired into daemon training yet"
+                ),
+            }),
+        )
+        .await?;
+        return Ok(());
+    }
+
+    let run_id = new_daemon_adapter_training_run_id();
+    let cancel = allbert_kernel::CancellationToken::new();
+    state
+        .active_adapter_training
+        .lock()
+        .await
+        .insert(run_id.clone(), cancel.clone());
+    send_server_message(
+        framed,
+        &ServerMessage::AdapterTrainingProgress(allbert_proto::AdapterTrainingProgressPayload {
+            run_id: run_id.clone(),
+            phase: "queued".into(),
+            step: 0,
+            total_steps: config.learning.adapter_training.default_max_steps,
+            elapsed_seconds: 0,
+            eta_seconds: None,
+            peak_resident_mb: 0,
+            last_loss: None,
+        }),
+    )
+    .await?;
+
+    let paths = state.paths.clone();
+    let override_reason = request.override_reason.clone();
+    let training_run_id = run_id.clone();
+    let training_cancel = cancel.clone();
+    let report = tokio::task::spawn_blocking(move || {
+        allbert_kernel::run_personality_adapter_training_controlled(
+            &paths,
+            &config,
+            allbert_kernel::PERSONALITY_ADAPTER_SESSION_ID,
+            override_reason.as_deref(),
+            training_run_id,
+            training_cancel,
+        )
+    })
+    .await
+    .map_err(|error| {
+        DaemonError::Protocol(format!("adapter training task join failed: {error}"))
+    })?;
+
+    state.active_adapter_training.lock().await.remove(&run_id);
+    let final_payload = adapter_training_final_payload(&run_id, report);
+    send_server_message(framed, &ServerMessage::AdapterTrainingFinal(final_payload)).await
+}
+
+async fn handle_adapter_training_cancel(
+    framed: &mut FramedStream,
+    state: &SharedState,
+    request: allbert_proto::AdapterTrainingCancelRequest,
+) -> Result<(), DaemonError> {
+    match state
+        .active_adapter_training
+        .lock()
+        .await
+        .remove(&request.run_id)
+    {
+        Some(cancel) => {
+            cancel.cancel();
+            send_server_message(framed, &ServerMessage::Ack).await
+        }
+        None => {
+            send_server_message(
+                framed,
+                &ServerMessage::Error(ProtocolError {
+                    code: "adapter_training_not_found".into(),
+                    message: format!("no active adapter training run: {}", request.run_id),
+                }),
+            )
+            .await
+        }
+    }
+}
+
+fn adapter_training_backend(
+    config: &Config,
+    requested_backend: Option<&str>,
+) -> Result<String, ProtocolError> {
+    let training = &config.learning.adapter_training;
+    if !training.enabled {
+        return Err(ProtocolError {
+            code: "adapter_training_disabled".into(),
+            message: "adapter training is disabled in configuration".into(),
+        });
+    }
+    let backend = requested_backend
+        .map(str::trim)
+        .filter(|backend| !backend.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| training.default_backend.clone())
+        .ok_or_else(|| ProtocolError {
+            code: "adapter_training_backend_missing".into(),
+            message: "adapter training requires a default_backend or request backend".into(),
+        })?;
+    if !training.allowed_backends.is_empty()
+        && !training
+            .allowed_backends
+            .iter()
+            .any(|allowed| allowed == &backend)
+    {
+        return Err(ProtocolError {
+            code: "adapter_training_backend_not_allowed".into(),
+            message: format!("adapter training backend `{backend}` is not in allowed_backends"),
+        });
+    }
+    Ok(backend)
+}
+
+fn adapter_training_final_payload(
+    run_id: &str,
+    result: Result<allbert_kernel::LearningJobReport, KernelError>,
+) -> allbert_proto::AdapterTrainingFinalPayload {
+    match result {
+        Ok(report) => allbert_proto::AdapterTrainingFinalPayload {
+            run_id: report_string(&report.execution, "run_id").unwrap_or_else(|| run_id.into()),
+            status: allbert_proto::AdapterTrainingFinalStatus::Succeeded,
+            ended_at: Utc::now(),
+            manifest_path: report
+                .output_artifacts
+                .iter()
+                .find(|artifact| artifact.kind == "adapter_manifest")
+                .map(|artifact| artifact.path.clone())
+                .unwrap_or_default(),
+            approval_id: report_string(&report.execution, "approval_id"),
+        },
+        Err(error) => {
+            let message = error.to_string().to_ascii_lowercase();
+            let status = if message.contains("cancel") {
+                allbert_proto::AdapterTrainingFinalStatus::Cancelled
+            } else if message.contains("compute cap") {
+                allbert_proto::AdapterTrainingFinalStatus::CapExceeded
+            } else {
+                allbert_proto::AdapterTrainingFinalStatus::Failed
+            };
+            allbert_proto::AdapterTrainingFinalPayload {
+                run_id: run_id.into(),
+                status,
+                ended_at: Utc::now(),
+                manifest_path: String::new(),
+                approval_id: None,
+            }
+        }
+    }
+}
+
+fn report_string(value: &serde_json::Value, key: &str) -> Option<String> {
+    value.get(key)?.as_str().map(ToOwned::to_owned)
+}
+
+fn new_daemon_adapter_training_run_id() -> String {
+    format!(
+        "{}-{}",
+        Utc::now().format("%Y%m%dT%H%M%SZ"),
+        uuid::Uuid::new_v4().simple()
+    )
+}
+
+fn quarantine_external_adapter(
+    paths: &AllbertPaths,
+    source: &Path,
+) -> Result<PathBuf, KernelError> {
+    let manifest = allbert_kernel::read_adapter_manifest(&source.join("manifest.json"))?;
+    let destination = paths.adapters_incoming.join(&manifest.adapter_id);
+    if destination.exists() {
+        return Err(KernelError::Request(format!(
+            "incoming adapter already exists: {}",
+            manifest.adapter_id
+        )));
+    }
+    fs::create_dir_all(&destination).map_err(|error| {
+        KernelError::InitFailed(format!(
+            "create incoming adapter dir {}: {error}",
+            destination.display()
+        ))
+    })?;
+    let entries = fs::read_dir(source).map_err(|error| {
+        KernelError::InitFailed(format!("read adapter dir {}: {error}", source.display()))
+    })?;
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            KernelError::InitFailed(format!("read adapter dir {}: {error}", source.display()))
+        })?;
+        let file_type = entry.file_type().map_err(|error| {
+            KernelError::InitFailed(format!(
+                "read adapter entry {}: {error}",
+                entry.path().display()
+            ))
+        })?;
+        if file_type.is_file() {
+            fs::copy(entry.path(), destination.join(entry.file_name())).map_err(|error| {
+                KernelError::InitFailed(format!(
+                    "copy adapter file {}: {error}",
+                    entry.path().display()
+                ))
+            })?;
+        }
+    }
+    Ok(destination)
 }
 
 async fn send_v6_protocol_error(framed: &mut FramedStream) -> Result<(), DaemonError> {

@@ -77,7 +77,22 @@ impl PersonalityAdapterJob {
         ctx: &LearningJobContext<'_>,
         session_id: &str,
     ) -> Result<LearningJobReport, KernelError> {
-        run_personality_adapter_job(self, ctx, session_id)
+        self.run_with_session_and_control(
+            ctx,
+            session_id,
+            new_training_run_id(),
+            CancellationToken::new(),
+        )
+    }
+
+    pub fn run_with_session_and_control(
+        &self,
+        ctx: &LearningJobContext<'_>,
+        session_id: &str,
+        run_id: String,
+        cancel: CancellationToken,
+    ) -> Result<LearningJobReport, KernelError> {
+        run_personality_adapter_job(self, ctx, session_id, run_id, cancel)
     }
 }
 
@@ -145,6 +160,27 @@ pub fn run_personality_adapter_training_with_session(
     run_personality_adapter_training_with_session_and_override(paths, config, session_id, None)
 }
 
+pub fn run_personality_adapter_training_controlled(
+    paths: &crate::AllbertPaths,
+    config: &Config,
+    session_id: &str,
+    override_reason: Option<&str>,
+    run_id: String,
+    cancel: CancellationToken,
+) -> Result<LearningJobReport, KernelError> {
+    let mut job = PersonalityAdapterJob::fake();
+    if let Some(reason) = override_reason {
+        job = job.with_compute_cap_override(reason);
+    }
+    let ctx = LearningJobContext {
+        paths,
+        config,
+        accept_output: false,
+        consent_hosted_provider: false,
+    };
+    job.run_with_session_and_control(&ctx, session_id, run_id, cancel)
+}
+
 fn run_personality_adapter_training_with_session_and_override(
     paths: &crate::AllbertPaths,
     config: &Config,
@@ -168,6 +204,8 @@ fn run_personality_adapter_job(
     job: &PersonalityAdapterJob,
     ctx: &LearningJobContext<'_>,
     session_id: &str,
+    run_id: String,
+    cancel: CancellationToken,
 ) -> Result<LearningJobReport, KernelError> {
     ctx.paths.ensure()?;
     let trace_hooks = match job.trace_hooks.clone() {
@@ -215,7 +253,6 @@ fn run_personality_adapter_job(
         }
     };
 
-    let run_id = new_training_run_id();
     root.set_attribute(
         "allbert.adapter.run_id",
         AttributeValue::String(run_id.clone()),
@@ -270,7 +307,7 @@ fn run_personality_adapter_job(
             Ok(())
         }
     }));
-    let outcome = match job.trainer.train(&plan, &hooks, &CancellationToken::new()) {
+    let outcome = match job.trainer.train(&plan, &hooks, &cancel) {
         Ok(outcome) => {
             trainer_span.finish_ok();
             outcome

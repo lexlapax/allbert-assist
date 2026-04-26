@@ -72,6 +72,15 @@ fn jobs_test_config() -> Config {
     config
 }
 
+fn adapter_training_test_config() -> Config {
+    let mut config = sample_config();
+    config.learning.adapter_training.enabled = true;
+    config.learning.adapter_training.default_backend = Some("fake".into());
+    config.learning.adapter_training.allowed_backends = vec!["fake".into()];
+    config.learning.adapter_training.default_max_steps = 1;
+    config
+}
+
 #[tokio::test]
 async fn daemon_boot_seeds_identity_record() {
     let home = TempHome::new();
@@ -259,6 +268,133 @@ async fn daemon_protocol_v3_accepts_v2_and_v3_clients_and_rejects_mismatches() {
         too_old.to_string().contains("protocol version mismatch"),
         "{too_old}"
     );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn daemon_adapter_protocol_uses_store_and_training_runner() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        adapter_training_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![])),
+    )
+    .await
+    .expect("daemon should start");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .send(&ClientMessage::AdaptersList)
+        .await
+        .expect("list should send");
+    match client.recv().await.expect("list response") {
+        ServerMessage::Adapters(manifests) => assert!(manifests.is_empty()),
+        other => panic!("expected adapters list, got {other:?}"),
+    }
+
+    client
+        .send(&ClientMessage::AdaptersStatus)
+        .await
+        .expect("status should send");
+    match client.recv().await.expect("status response") {
+        ServerMessage::AdaptersStatus(status) => {
+            assert!(status.active.is_none());
+            assert_eq!(status.today_compute_wall_seconds, 0);
+            assert_eq!(
+                status.compute_cap_wall_seconds,
+                adapter_training_test_config()
+                    .learning
+                    .compute_cap_wall_seconds
+            );
+        }
+        other => panic!("expected adapters status, got {other:?}"),
+    }
+
+    client
+        .send(&ClientMessage::AdaptersTrainingStart(
+            allbert_proto::AdapterTrainingStartRequest {
+                backend: Some("fake".into()),
+                override_reason: None,
+            },
+        ))
+        .await
+        .expect("training start should send");
+    let queued = match client.recv().await.expect("queued progress") {
+        ServerMessage::AdapterTrainingProgress(progress) => progress,
+        other => panic!("expected queued progress, got {other:?}"),
+    };
+    assert_eq!(queued.phase, "queued");
+
+    let final_payload = match client.recv().await.expect("final training payload") {
+        ServerMessage::AdapterTrainingFinal(payload) => payload,
+        other => panic!("expected training final, got {other:?}"),
+    };
+    assert_eq!(final_payload.run_id, queued.run_id);
+    assert_eq!(
+        final_payload.status,
+        allbert_proto::AdapterTrainingFinalStatus::Succeeded
+    );
+    assert!(!final_payload.manifest_path.is_empty());
+    let manifest_path = PathBuf::from(&final_payload.manifest_path);
+    assert!(manifest_path.exists());
+    assert!(final_payload.approval_id.is_some());
+    let run_dir = manifest_path
+        .parent()
+        .expect("manifest should have run parent")
+        .to_path_buf();
+    let installed = allbert_kernel::AdapterStore::new(paths.clone())
+        .install_from_run(&run_dir)
+        .expect("trained adapter should install");
+
+    client
+        .send(&ClientMessage::AdaptersShow(installed.adapter_id.clone()))
+        .await
+        .expect("show should send");
+    match client.recv().await.expect("show response") {
+        ServerMessage::Adapter(manifest) => assert_eq!(manifest.adapter_id, installed.adapter_id),
+        other => panic!("expected adapter manifest, got {other:?}"),
+    }
+
+    client
+        .send(&ClientMessage::AdaptersActivate(
+            allbert_proto::AdapterActivateRequest {
+                adapter_id: installed.adapter_id.clone(),
+                override_reason: None,
+            },
+        ))
+        .await
+        .expect("activate should send");
+    match client.recv().await.expect("activate response") {
+        ServerMessage::ActiveAdapter(Some(active)) => {
+            assert_eq!(active.adapter_id, installed.adapter_id)
+        }
+        other => panic!("expected active adapter, got {other:?}"),
+    }
+
+    client
+        .send(&ClientMessage::AdaptersDeactivate)
+        .await
+        .expect("deactivate should send");
+    match client.recv().await.expect("deactivate response") {
+        ServerMessage::ActiveAdapter(None) => {}
+        other => panic!("expected empty active adapter, got {other:?}"),
+    }
+
+    client
+        .send(&ClientMessage::AdaptersRemove(
+            allbert_proto::AdapterRemoveRequest {
+                adapter_id: installed.adapter_id.clone(),
+                force: false,
+            },
+        ))
+        .await
+        .expect("remove should send");
+    assert!(matches!(
+        client.recv().await.expect("remove response"),
+        ServerMessage::Ack
+    ));
 
     shutdown_daemon(handle, &paths).await;
 }
