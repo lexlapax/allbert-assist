@@ -169,6 +169,8 @@ const MEMORY_CURATOR_EXTRACT_AGENT_TEMPLATE: &str =
     include_str!("../../../skills/memory-curator/agents/extract-from-turn.md");
 const RUST_REBUILD_SKILL_TEMPLATE: &str = include_str!("../../../skills/rust-rebuild/SKILL.md");
 const SKILL_AUTHOR_SKILL_TEMPLATE: &str = include_str!("../../../skills/skill-author/SKILL.md");
+const ADAPTER_GOLDEN_BOOTSTRAP_TEMPLATE: &str =
+    include_str!("../assets/adapter-golden-bootstrap.jsonl");
 
 #[derive(Debug, Clone)]
 pub struct AllbertPaths {
@@ -484,6 +486,10 @@ impl AllbertPaths {
         ] {
             self.seed_file_if_missing(path, template)?;
         }
+        self.seed_file_if_missing(
+            &self.adapters_evals.join("golden.jsonl"),
+            ADAPTER_GOLDEN_BOOTSTRAP_TEMPLATE,
+        )?;
 
         Ok(())
     }

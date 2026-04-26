@@ -19,8 +19,9 @@ use allbert_kernel::{
     Provider,
 };
 use allbert_proto::{
-    JobBudgetPayload, JobDefinitionPayload, JobReportPolicyPayload, JobRunRecordPayload,
-    JobStatePayload, JobStatusPayload, ModelConfigPayload, ProviderKind,
+    ActivityPhase, ActivitySnapshot, ChannelKind, JobBudgetPayload, JobDefinitionPayload,
+    JobReportPolicyPayload, JobRunRecordPayload, JobStatePayload, JobStatusPayload,
+    ModelConfigPayload, ProviderKind,
 };
 
 use crate::error::DaemonError;
@@ -1000,6 +1001,50 @@ pub(crate) async fn execute_job(
     }
 
     let ended_at;
+    if definition.name == allbert_kernel::PERSONALITY_ADAPTER_JOB_NAME {
+        let result = allbert_kernel::run_personality_adapter_training_with_session(
+            paths,
+            &config,
+            &session_id,
+        );
+        ended_at = Utc::now();
+        let (outcome, stop_reason) = match result {
+            Ok(_) => ("success".to_string(), None),
+            Err(err) => ("failure".to_string(), Some(err.to_string())),
+        };
+        return JobRunRecordPayload {
+            run_id,
+            job_name: definition.name.clone(),
+            session_id: session_id.clone(),
+            started_at: to_rfc3339(started_at),
+            ended_at: to_rfc3339(ended_at),
+            outcome,
+            cost_usd: 0.0,
+            skills_attached: definition.skills.clone(),
+            stop_reason,
+            last_activity: Some(ActivitySnapshot {
+                phase: ActivityPhase::Training,
+                label: "personality adapter training finished".into(),
+                started_at: to_rfc3339(started_at),
+                elapsed_ms: ended_at
+                    .signed_duration_since(started_at)
+                    .num_milliseconds()
+                    .max(0)
+                    .try_into()
+                    .unwrap_or(u64::MAX),
+                session_id,
+                channel: ChannelKind::Jobs,
+                tool_name: None,
+                tool_summary: None,
+                skill_name: None,
+                approval_id: None,
+                last_progress_at: Some(to_rfc3339(ended_at)),
+                stuck_hint: None,
+                next_actions: vec!["review the adapter approval".into()],
+            }),
+        };
+    }
+
     let boot = Kernel::boot_with_paths_and_factory(
         config,
         adapter,

@@ -37,9 +37,15 @@ pub use adapter::{
     InputPrompter, InputRequest, InputResponse,
 };
 pub use adapters::{
-    build_adapter_corpus, read_adapter_manifest, write_adapter_manifest, AdapterCorpusConfig,
-    AdapterCorpusItem, AdapterCorpusSnapshot, AdapterStore, AdapterTrainer, CancellationToken,
-    FakeAdapterTrainer, TrainerError, TrainerHooks, TrainerProgress, TrainingOutcome, TrainingPlan,
+    build_adapter_corpus, golden_pass_rate, load_golden_cases,
+    preview_personality_adapter_training, read_adapter_manifest, render_ascii_loss_curve,
+    render_behavioral_diff, run_fixed_evals, run_personality_adapter_training,
+    run_personality_adapter_training_with_session, write_adapter_manifest, AdapterCorpusConfig,
+    AdapterCorpusItem, AdapterCorpusSnapshot, AdapterEvalArtifacts, AdapterStore, AdapterTrainer,
+    CancellationToken, FakeAdapterTrainer, GoldenCase, PersonalityAdapterJob, TrainerError,
+    TrainerHooks, TrainerProgress, TrainingOutcome, TrainingPlan,
+    DEFAULT_ADAPTER_COMPUTE_CAP_WALL_SECONDS, DEFAULT_MIN_GOLDEN_PASS_RATE,
+    PERSONALITY_ADAPTER_JOB_NAME, PERSONALITY_ADAPTER_SESSION_ID,
 };
 pub use agent::{
     ActiveTurnBudget, Agent, AgentDefinition, AgentState, StagedNoticeEntry, TurnBudget,
