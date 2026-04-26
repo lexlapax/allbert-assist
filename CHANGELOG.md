@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.13.0 - 2026-04-26
+
+- shipped review-first local personalization with `PersonalityAdapterJob`, protocol v5 adapter messages, and live `ActivityPhase::Training`
+- added the owned `AdapterTrainer` seam with mlx-lm-lora, llama.cpp, and deterministic fake trainer backends behind both `learning.adapter_training.allowed_backends` and `security.exec_allow`
+- added adapter corpus assembly from `SOUL.md`, accepted `PERSONALITY.md`, approved durable/fact memory, bounded episode summaries, and opt-in redacted v0.12.2 trace excerpts
+- added `adapter-approval` inbox items with eval summary, loss curve, behavioral diff artifacts, and accept/reject handling; accepting installs but does not activate
+- added explicit single-slot local activation for Ollama, base-model pinning, automatic incompatible-model deactivation, and hosted-provider one-shot ignore notices
+- added `allbert-cli adapters ...`, REPL/TUI `/adapters`, Telegram `/adapter status` and `/adapter approvals`, adapter telemetry, and a status-line adapter item
+- added setup and settings support for local personalization, including safe `[learning.adapter_training]` default-write for upgraded profiles
+- updated profile export so adapter artifacts are excluded by default and `--include-adapters` includes only installed adapters plus `active.json`
+- hardened adapter corpus privacy with trace redaction double-pass tests and staged-memory exclusion
+- bumped all crates and lockfile package entries to `0.13.0`
+
+More detail: [v0.13 upgrade notes](docs/notes/v0.13-upgrade-2026-04-26.md), [v0.13 plan](docs/plans/v0.13-personalization.md), [Personalization guide](docs/operator/personalization.md), [Personality digest guide](docs/operator/personality-digest.md), and [Telemetry guide](docs/operator/telemetry.md).
+
 ## v0.12.2 - 2026-04-25
 
 - shipped durable session-local trace artifacts under `sessions/<session-id>/trace.jsonl`, with rotated trace archives and in-flight span recovery

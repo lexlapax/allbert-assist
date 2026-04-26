@@ -3,9 +3,9 @@
 Date: 2026-04-20
 Status: Accepted
 
-> **Planned v0.12.2 amendment**: session-local trace artifacts under `sessions/*/trace.jsonl`, `sessions/*/trace.<n>.jsonl.gz`, and recoverable `sessions/*/current_spans/` are continuity-bearing session artifacts and are included with `sessions/` in profile export/sync by default. Top-level `traces/` remains derived legacy/debug output and stays excluded. Trace GC may remove only trace artifacts, never unrelated session journals, metadata, approvals, attachments, or patch artifacts.
+> **Amended in v0.12.2**: session-local trace artifacts under `sessions/*/trace.jsonl`, `sessions/*/trace.<n>.jsonl.gz`, and recoverable `sessions/*/current_spans/` are continuity-bearing session artifacts and are included with `sessions/` in profile export/sync by default. Top-level `traces/` remains derived legacy/debug output and stays excluded. Trace GC may remove only trace artifacts, never unrelated session journals, metadata, approvals, attachments, or patch artifacts.
 >
-> **Planned v0.13 amendment**: adapter artifacts under `~/.allbert/adapters/` (training run staging, installed weights, runtime caches, the active-adapter pointer, history, and incoming external adapters) are derived/host-specific and are excluded from profile export and filesystem sync by default. The corpus inputs (durable memory, accepted facts, bounded episode summaries, accepted `PERSONALITY.md`, `SOUL.md`) continue to travel. `profile export --include-adapters` is the explicit opt-in for installed adapters plus the active-adapter pointer only; it does not include runs, incoming external adapters, runtime caches, or history. The `adapter-approval` markdown under `sessions/<sid>/approvals/` continues to travel as a session artifact, while its referenced weights live in the excluded `~/.allbert/adapters/` tree. See ADR 0088.
+> **Amended in v0.13**: adapter artifacts under `~/.allbert/adapters/` (training run staging, installed weights, runtime caches, the active-adapter pointer, history, and incoming external adapters) are derived/host-specific and are excluded from profile export and filesystem sync by default. The corpus inputs (durable memory, accepted facts, bounded episode summaries, accepted `PERSONALITY.md`, `SOUL.md`) continue to travel. `profile export --include-adapters` is the explicit opt-in for installed adapters plus the active-adapter pointer only; it does not include runs, incoming external adapters, runtime caches, or history. The `adapter-approval` markdown under `sessions/<sid>/approvals/` continues to travel as a session artifact, while its referenced weights live in the excluded `~/.allbert/adapters/` tree. See ADR 0088.
 
 ## Context
 
@@ -18,7 +18,7 @@ v0.8 promises "continuity across surfaces" without committing to a hosted sync b
 
 Through v0.7 these concerns were implicit: the paths exist, the writes are mostly atomic, but nothing in the documentation told an operator which directories to sync and which to leave alone. Accidental sync of `~/.allbert/index/` would thrash; accidental sync of `~/.allbert/secrets/` would exfiltrate; accidental cross-host daemons on the same profile would corrupt.
 
-v0.8 resolves the sync story without committing to a hosted backend. The daemon stays local-only through v0.12; this ADR codifies the posture.
+v0.8 resolves the sync story without committing to a hosted backend. The daemon stays local-only through v0.13; this ADR codifies the posture.
 
 ## Decision
 
@@ -33,7 +33,7 @@ Every file under `~/.allbert/` falls into exactly one category.
 | `identity/user.md` | ADR 0058 |
 | `config.toml` and `config/` | operator-owned config plus channel allowlists |
 | `memory/MEMORY.md`, `memory/notes/`, `memory/daily/`, `memory/staging/` | ADR 0003, ADR 0045, ADR 0047 |
-| `sessions/` (journals, meta, approvals, planned v0.12.2 session trace artifacts) | ADR 0049, ADR 0056, ADR 0060, ADR 0081 |
+| `sessions/` (journals, meta, approvals, session trace artifacts) | ADR 0049, ADR 0056, ADR 0060, ADR 0081 |
 | `jobs/` | ADR 0022 |
 | `skills/installed/` and `skills/incoming/` | ADR 0032, ADR 0037 |
 | `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, `AGENTS.md`, `HEARTBEAT.md` | ADR 0010, ADR 0039, ADR 0062 |
@@ -45,7 +45,7 @@ Every file under `~/.allbert/` falls into exactly one category.
 | `memory/index/` | tantivy retrieval index (ADR 0046) |
 | `run/` | `daemon.sock` and other live runtime state |
 | `logs/` | daemon logs and debug logs |
-| `traces/` | legacy/debug trace output and debugging artifacts; planned v0.12.2 replay traces live under `sessions/` |
+| `traces/` | legacy/debug trace output and debugging artifacts; replay traces live under `sessions/` |
 | future cache subdirs (if introduced) | LLM/media caches or delivery queues, rebuilt or safely disposable |
 
 **Sensitive** — continuity-bearing but excluded by default:
@@ -58,7 +58,7 @@ Every file under `~/.allbert/` falls into exactly one category.
 
 | Path | Why device-local |
 | --- | --- |
-| `costs.jsonl` | Per-device accounting (ADR 0051); cap aggregation across devices is out of scope through v0.12. |
+| `costs.jsonl` | Per-device accounting (ADR 0051); cap aggregation across devices is out of scope through v0.13. |
 | `daemon.lock` | Describes the local daemon process; meaningless elsewhere. |
 
 ### Concurrency guard: `daemon.lock`
@@ -118,7 +118,7 @@ allbert-cli profile export <path.tgz> [--include-secrets] [--identity <id>]
     "excluded": ["secrets/", "memory/index/", "run/", "logs/", "traces/", "costs.jsonl"]
   }
   ```
-- Planned v0.12.2 exports should also report trace artifact counts and bytes in the manifest so operators can understand the size and sensitivity of session trace history.
+- v0.12.2+ exports report trace artifact counts and bytes in the manifest so operators can understand the size and sensitivity of session trace history.
 - Export is safe against a live daemon: the export tool takes a read-lock on the profile and snapshots via copy. Continuity-bearing writes continue but are not reflected in the export after the snapshot boundary.
 
 ### Profile import
@@ -134,7 +134,7 @@ allbert-cli profile import <path.tgz> [--overlay | --replace] [--yes]
 
 ### Cross-device cost cap: per-device (documented limitation)
 
-`limits.daily_usd_cap` (ADR 0051) stays per-device in v0.8. Operators running the same profile on two devices get an aggregate cap of roughly 2× the configured value. This is documented; cross-device aggregation would require either a central counter or a file-sync-safe CRDT and is out of scope through v0.12 alongside the hosted sync backend.
+`limits.daily_usd_cap` (ADR 0051) stays per-device in v0.8. Operators running the same profile on two devices get an aggregate cap of roughly 2x the configured value. This is documented; cross-device aggregation would require either a central counter or a file-sync-safe CRDT and is out of scope through v0.13 alongside the hosted sync backend.
 
 ### Filesystem sync (Syncthing et al.)
 

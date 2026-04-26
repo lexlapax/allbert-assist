@@ -41,7 +41,7 @@ If raw mode or alternate-screen setup fails, the CLI prints a one-line notice an
 ## Controls
 
 - Type a message and press Enter to send it.
-- Slash commands such as `/help`, `/activity`, `/status`, `/telemetry`, `/trace`, `/settings`, `/inbox`, `/skills`, `/memory`, and `/self-improvement` run locally, matching the classic REPL command shape.
+- Slash commands such as `/help`, `/activity`, `/status`, `/telemetry`, `/trace`, `/adapters`, `/settings`, `/inbox`, `/skills`, `/memory`, and `/self-improvement` run locally, matching the classic REPL command shape.
 - While a turn is running, the screen redraws asynchronously and shows the daemon-owned activity label, elapsed time, tool summary, and stuck hint when available.
 - Text typed during a running turn is kept as a next-turn draft. Pressing Enter while work is in flight keeps the draft and does not queue a concurrent turn.
 - Ctrl-D exits the TUI.
@@ -55,7 +55,7 @@ The status line renders from daemon telemetry, not from shell hooks or client-si
 ```toml
 [repl.tui.status_line]
 enabled = true
-items = ["model", "context", "tokens", "cost", "memory", "intent", "skills", "inbox", "channel", "trace"]
+items = ["model", "context", "tokens", "cost", "memory", "intent", "skills", "inbox", "channel", "trace", "adapter"]
 ```
 
 Use `/statusline` to inspect or change the configured items:
@@ -139,4 +139,5 @@ cargo run -p allbert-cli -- repl --classic
 
 - [Telemetry operator guide](telemetry.md)
 - [Tracing operator guide](tracing.md)
-- [v0.12.2 upgrade notes](../notes/v0.12.2-upgrade-2026-04-25.md)
+- [Personalization guide](personalization.md)
+- [v0.13 upgrade notes](../notes/v0.13-upgrade-2026-04-26.md)

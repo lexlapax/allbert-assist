@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use allbert_kernel::{
-    activate_adapter, cleanup_runtime_files, deactivate_adapter,
-    preview_personality_adapter_training, run_personality_adapter_training, AdapterStore,
-    AllbertPaths, Config,
+    activate_adapter, adapter_compute_used_today_seconds, cleanup_runtime_files,
+    deactivate_adapter, preview_personality_adapter_training,
+    run_personality_adapter_training_with_override, AdapterStore, AllbertPaths, Config,
 };
 use anyhow::{anyhow, Context, Result};
 use clap::Subcommand;
@@ -20,7 +20,11 @@ pub enum AdaptersCommand {
     /// Activate one reviewed adapter.
     Activate {
         id: String,
-        #[arg(long = "override")]
+        #[arg(
+            long = "override",
+            value_name = "REASON",
+            help = "Activate a needs-attention adapter with a recorded reason"
+        )]
         override_reason: Option<String>,
     },
     /// Clear the active adapter pointer.
@@ -59,7 +63,11 @@ pub enum AdapterTrainingCommand {
     Preview,
     /// Start a local adapter training run.
     Start {
-        #[arg(long = "override")]
+        #[arg(
+            long = "override",
+            value_name = "REASON",
+            help = "Bypass the daily compute cap for this run with a recorded reason"
+        )]
         override_reason: Option<String>,
     },
     /// Request cancellation of an active training run.
@@ -107,6 +115,7 @@ pub fn run(paths: &AllbertPaths, config: &Config, command: AdaptersCommand) -> R
             println!("removed {id}");
         }
         AdaptersCommand::Status => {
+            let compute_used_today_seconds = adapter_compute_used_today_seconds(paths)?;
             match store.active()? {
                 Some(active) => println!(
                     "active: {} on {}",
@@ -122,6 +131,13 @@ pub fn run(paths: &AllbertPaths, config: &Config, command: AdaptersCommand) -> R
                     .map(|value| format!("{value}s"))
                     .unwrap_or_else(|| "disabled".into())
             );
+            println!("today's adapter compute: {compute_used_today_seconds}s");
+            if let Some(cap) = config.learning.compute_cap_wall_seconds {
+                println!(
+                    "remaining adapter compute: {}s",
+                    cap.saturating_sub(compute_used_today_seconds)
+                );
+            }
         }
         AdaptersCommand::History { limit } => {
             for entry in store.history(limit)? {
@@ -166,8 +182,13 @@ pub fn run(paths: &AllbertPaths, config: &Config, command: AdaptersCommand) -> R
                 let corpus = preview_personality_adapter_training(paths, config)?;
                 println!("{}", serde_json::to_string_pretty(&corpus.summary)?);
             }
-            AdapterTrainingCommand::Start { override_reason: _ } => {
-                let report = run_personality_adapter_training(paths, config)?;
+            AdapterTrainingCommand::Start { override_reason } => {
+                let override_reason = override_reason
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|reason| !reason.is_empty());
+                let report =
+                    run_personality_adapter_training_with_override(paths, config, override_reason)?;
                 println!("{}", serde_json::to_string_pretty(&report)?);
             }
             AdapterTrainingCommand::Cancel => {

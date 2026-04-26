@@ -101,12 +101,15 @@ The body uses fixed sections:
 
 `PERSONALITY.md` must not store raw transcript excerpts, unapproved staged facts, or durable factual claims that belong in memory. Net-new learnings still route through staging.
 
-## Current v0.11 Boundary
+## Digest And Adapters
 
-v0.11 ships the `LearningJob` trait, corpus accounting, draft/install envelope, hosted-consent seam, and provider-free deterministic digest renderer. Future releases can make the digest prose model-authored or add adapter training without changing the review-first envelope. v0.13 is where local adapter training is planned.
+The digest remains the human-readable markdown overlay. v0.13 adds local adapter training as a second, optional personalization surface that plugs into the same `LearningJob` seam and review-first envelope. Adapter training can consume accepted `PERSONALITY.md` as input, but it does not replace it and does not write `SOUL.md`.
+
+Use the digest when you want inspectable collaboration guidance in markdown. Use personalization adapters when you have opted into local training and want a base-model-pinned local adapter reviewed through `adapter-approval`.
 
 ## Related Docs
 
 - [Adaptive memory guide](adaptive-memory.md)
+- [Personalization guide](personalization.md)
 - [v0.11 upgrade notes](../notes/v0.11-upgrade-2026-04-24.md)
-- [v0.13 personalization plan](../plans/v0.13-personalization.md)
+- [v0.13 upgrade notes](../notes/v0.13-upgrade-2026-04-26.md)

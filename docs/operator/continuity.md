@@ -25,6 +25,7 @@ For cost-limit behavior across multiple devices, see [`docs/operator/cost-caps.m
 - `run/`
 - `logs/`
 - `traces/` (top-level legacy/debug trace output only; session-local traces under `sessions/` are continuity-bearing)
+- `adapters/runs/`, `adapters/incoming/`, `adapters/runtime/`, and `adapters/history.jsonl`
 - `config.toml.last-good` is a local daemon recovery snapshot; regenerate it by starting the daemon after a known-good config load.
 
 ### Sensitive (exclude by default)
@@ -50,6 +51,8 @@ Recommended flow:
 
 `--overlay` is the safe default. `--replace` is only for cases where you intentionally want the imported profile to win wholesale and there is no live daemon holding the lock.
 
+Adapter weights are derived and host-specific. `profile export` excludes `adapters/` by default; `--include-adapters` includes installed adapters plus `adapters/active.json` only.
+
 ## Sync excludes
 
 If you use `rsync`, Syncthing, cloud-drive mirroring, or another file-level sync tool instead of `profile export/import`, keep the continuity-bearing list above and explicitly exclude the rest.
@@ -60,6 +63,7 @@ Exclude by default:
 - `run/`
 - `logs/`
 - `traces/` (top-level legacy/debug trace output only)
+- `adapters/runs/`, `adapters/incoming/`, `adapters/runtime/`, and `adapters/history.jsonl`
 - `secrets/`
 - `costs.jsonl`
 - `daemon.lock`
@@ -69,6 +73,7 @@ Tool-specific reminder:
 - file sync tools should not try to merge `daemon.lock` or any file under `run/`
 - index directories and top-level legacy/debug trace output are disposable and should be rebuilt, not mirrored
 - session-local trace artifacts under `sessions/` are continuity-bearing; include them when you want replay history to travel with the session
+- installed adapters under `adapters/installed/` and `adapters/active.json` are optional host-specific mirrors, not default continuity state
 - `memory/trash/` and `memory/reject/` are continuity-bearing only for recovery; omit them if you intentionally do not want deleted/rejected memory to travel
 - secrets should move only through an explicit operator action, not through routine sync
 

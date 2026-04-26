@@ -37,10 +37,11 @@ pub use adapter::{
     InputPrompter, InputRequest, InputResponse,
 };
 pub use adapters::{
-    activate_adapter, active_adapter_for_model, build_adapter_corpus, cleanup_runtime_files,
-    deactivate_adapter, golden_pass_rate, load_golden_cases, preview_personality_adapter_training,
-    read_adapter_manifest, register_ollama_adapter, render_ascii_loss_curve,
-    render_behavioral_diff, run_fixed_evals, run_personality_adapter_training,
+    activate_adapter, active_adapter_for_model, adapter_compute_used_today_seconds,
+    build_adapter_corpus, cleanup_runtime_files, deactivate_adapter, golden_pass_rate,
+    load_golden_cases, preview_personality_adapter_training, read_adapter_manifest,
+    register_ollama_adapter, render_ascii_loss_curve, render_behavioral_diff, run_fixed_evals,
+    run_personality_adapter_training, run_personality_adapter_training_with_override,
     run_personality_adapter_training_with_session, write_adapter_manifest, AdapterActivation,
     AdapterCorpusConfig, AdapterCorpusItem, AdapterCorpusSnapshot, AdapterEvalArtifacts,
     AdapterStore, AdapterTrainer, CancellationToken, DerivedOllamaAdapter, FakeAdapterTrainer,

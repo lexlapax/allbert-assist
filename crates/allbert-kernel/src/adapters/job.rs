@@ -35,6 +35,7 @@ pub struct PersonalityAdapterJob {
     trainer: Arc<dyn AdapterTrainer>,
     trace_hooks: Option<Arc<dyn TracingHooks>>,
     on_event: Option<Arc<dyn Fn(KernelEvent) + Send + Sync>>,
+    compute_cap_override_reason: Option<String>,
 }
 
 impl PersonalityAdapterJob {
@@ -43,6 +44,7 @@ impl PersonalityAdapterJob {
             trainer: Arc::new(FakeAdapterTrainer::new()),
             trace_hooks: None,
             on_event: None,
+            compute_cap_override_reason: None,
         }
     }
 
@@ -51,6 +53,7 @@ impl PersonalityAdapterJob {
             trainer,
             trace_hooks: None,
             on_event: None,
+            compute_cap_override_reason: None,
         }
     }
 
@@ -61,6 +64,11 @@ impl PersonalityAdapterJob {
 
     pub fn with_event_sink(mut self, on_event: Arc<dyn Fn(KernelEvent) + Send + Sync>) -> Self {
         self.on_event = Some(on_event);
+        self
+    }
+
+    pub fn with_compute_cap_override(mut self, reason: impl Into<String>) -> Self {
+        self.compute_cap_override_reason = Some(reason.into());
         self
     }
 
@@ -116,12 +124,37 @@ pub fn run_personality_adapter_training(
     run_personality_adapter_training_with_session(paths, config, PERSONALITY_ADAPTER_SESSION_ID)
 }
 
+pub fn run_personality_adapter_training_with_override(
+    paths: &crate::AllbertPaths,
+    config: &Config,
+    override_reason: Option<&str>,
+) -> Result<LearningJobReport, KernelError> {
+    run_personality_adapter_training_with_session_and_override(
+        paths,
+        config,
+        PERSONALITY_ADAPTER_SESSION_ID,
+        override_reason,
+    )
+}
+
 pub fn run_personality_adapter_training_with_session(
     paths: &crate::AllbertPaths,
     config: &Config,
     session_id: &str,
 ) -> Result<LearningJobReport, KernelError> {
-    let job = PersonalityAdapterJob::fake();
+    run_personality_adapter_training_with_session_and_override(paths, config, session_id, None)
+}
+
+fn run_personality_adapter_training_with_session_and_override(
+    paths: &crate::AllbertPaths,
+    config: &Config,
+    session_id: &str,
+    override_reason: Option<&str>,
+) -> Result<LearningJobReport, KernelError> {
+    let mut job = PersonalityAdapterJob::fake();
+    if let Some(reason) = override_reason {
+        job = job.with_compute_cap_override(reason);
+    }
     let ctx = LearningJobContext {
         paths,
         config,
@@ -188,12 +221,20 @@ fn run_personality_adapter_job(
         AttributeValue::String(run_id.clone()),
     );
     let run_dir = ctx.paths.adapters_runs.join(&run_id);
+    let compute_used_today_seconds = adapter_compute_used_today_seconds(ctx.paths)?;
+    let compute_cap_wall_seconds = if job.compute_cap_override_reason.is_some() {
+        None
+    } else {
+        ctx.config.learning.compute_cap_wall_seconds
+    };
     let plan = training_plan(
         ctx,
         &run_id,
         &run_dir,
         corpus.clone(),
         job.trainer.backend_id(),
+        compute_used_today_seconds,
+        compute_cap_wall_seconds,
     );
 
     let mut trainer_span = ActiveTraceSpan::new(
@@ -281,13 +322,13 @@ fn run_personality_adapter_job(
     let approval_id = write_adapter_approval(ctx.paths, session_id, &manifest, &run_dir)?;
     let approval_path = approval_path_for(ctx.paths, session_id, &approval_id);
     let report = learning_report(
-        &run_id,
         &approval_id,
         &approval_path,
         &manifest,
         &run_dir,
         &outcome,
         &corpus,
+        job.compute_cap_override_reason.as_deref(),
     )?;
     atomic_write(
         &run_dir.join("report.json"),
@@ -327,6 +368,8 @@ fn training_plan(
     run_dir: &Path,
     corpus: AdapterCorpusSnapshot,
     trainer_backend: &str,
+    compute_used_today_seconds: u64,
+    compute_cap_wall_seconds: Option<u64>,
 ) -> TrainingPlan {
     TrainingPlan {
         run_id: run_id.into(),
@@ -352,8 +395,8 @@ fn training_plan(
             batch_size: ctx.config.learning.adapter_training.default_batch_size,
             seed: ctx.config.learning.adapter_training.default_seed,
         },
-        compute_used_today_seconds: 0,
-        compute_cap_wall_seconds: ctx.config.learning.compute_cap_wall_seconds,
+        compute_used_today_seconds,
+        compute_cap_wall_seconds,
         total_steps: ctx.config.learning.adapter_training.default_max_steps,
         estimated_peak_resident_mb: 256,
         max_log_bytes: ctx.config.learning.adapter_training.max_log_bytes,
@@ -362,13 +405,13 @@ fn training_plan(
 }
 
 fn learning_report(
-    run_id: &str,
     approval_id: &str,
     approval_path: &Path,
     manifest: &AdapterManifest,
     run_dir: &Path,
     outcome: &crate::TrainingOutcome,
     corpus: &AdapterCorpusSnapshot,
+    compute_cap_override_reason: Option<&str>,
 ) -> Result<LearningJobReport, KernelError> {
     Ok(LearningJobReport {
         job_name: PERSONALITY_ADAPTER_JOB_NAME.into(),
@@ -379,11 +422,12 @@ fn learning_report(
             "base_model": manifest.base_model,
         }),
         execution: json!({
-            "run_id": run_id,
+            "run_id": manifest.training_run_id,
             "trainer_backend": manifest.trainer_backend,
             "adapter_id": manifest.adapter_id,
             "approval_id": approval_id,
             "overall": manifest.overall,
+            "compute_cap_override_reason": compute_cap_override_reason,
         }),
         resource_cost: json!({
             "usd": manifest.resource_cost.usd,
@@ -405,6 +449,56 @@ fn learning_report(
         ],
         staged_candidates: Vec::new(),
     })
+}
+
+pub fn adapter_compute_used_today_seconds(paths: &crate::AllbertPaths) -> Result<u64, KernelError> {
+    adapter_compute_used_on_utc_day(paths, &Utc::now().format("%Y%m%d").to_string())
+}
+
+fn adapter_compute_used_on_utc_day(
+    paths: &crate::AllbertPaths,
+    utc_day: &str,
+) -> Result<u64, KernelError> {
+    let mut total = 0u64;
+    let entries = match std::fs::read_dir(&paths.adapters_runs) {
+        Ok(entries) => entries,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(err) => {
+            return Err(KernelError::InitFailed(format!(
+                "read adapter runs {}: {err}",
+                paths.adapters_runs.display()
+            )));
+        }
+    };
+
+    for entry in entries {
+        let entry = entry.map_err(|err| {
+            KernelError::InitFailed(format!(
+                "read adapter run entry {}: {err}",
+                paths.adapters_runs.display()
+            ))
+        })?;
+        let file_type = entry.file_type().map_err(|err| {
+            KernelError::InitFailed(format!(
+                "read adapter run file type {}: {err}",
+                entry.path().display()
+            ))
+        })?;
+        if !file_type.is_dir() {
+            continue;
+        }
+        let manifest_path = entry.path().join(MANIFEST_FILE);
+        if !manifest_path.exists() {
+            continue;
+        }
+        let manifest = crate::adapters::manifest::read_adapter_manifest(&manifest_path)?;
+        if manifest.training_run_id.starts_with(utc_day)
+            || manifest.created_at.format("%Y%m%d").to_string() == utc_day
+        {
+            total = total.saturating_add(manifest.resource_cost.compute_wall_seconds);
+        }
+    }
+    Ok(total)
 }
 
 fn artifact(path: impl AsRef<Path>, kind: &str, installed: bool) -> LearningOutputArtifact {
@@ -509,7 +603,7 @@ Adapter `{adapter_id}` completed training from corpus `{corpus_digest}`.
 - Compute: {compute_wall_seconds}s wall, peak {peak_resident_mb} MB
 - Eval: golden {golden_percent}%, final loss {loss_final}
 
-Accepting this approval records review only. Activation remains a separate `adapters activate {adapter_id}` action.
+Accepting this approval installs the adapter but does not activate it. Activation remains a separate `adapters activate {adapter_id}` action.
 "#,
         adapter_id = manifest.adapter_id,
         provenance = provenance_label(manifest.provenance),
@@ -663,6 +757,7 @@ fn overall_label(value: AdapterOverallStatus) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::adapters::store::tests_support::write_run;
     use allbert_proto::{Span, SpanStatus};
     use std::sync::Mutex;
 
@@ -733,6 +828,46 @@ mod tests {
                 .as_u64()
                 .expect("peak"),
             256
+        );
+    }
+
+    #[test]
+    fn adapter_compute_cap_uses_today_aggregate_and_override_bypasses() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = crate::AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths");
+        crate::atomic_write(&paths.soul, b"# SOUL\n\nSteady.\n").expect("soul");
+        crate::atomic_write(&paths.personality, b"# PERSONALITY\n\nConcise.\n")
+            .expect("personality");
+        write_run(&paths, "already-used-today", 0);
+        write_run(&paths, "old-run", -172_800);
+
+        assert_eq!(
+            adapter_compute_used_today_seconds(&paths).expect("aggregate"),
+            9
+        );
+
+        let mut config = config();
+        config.learning.compute_cap_wall_seconds = Some(9);
+        let ctx = LearningJobContext {
+            paths: &paths,
+            config: &config,
+            accept_output: false,
+            consent_hosted_provider: false,
+        };
+
+        let err = PersonalityAdapterJob::fake()
+            .run_with_session(&ctx, "adapter-job-cap")
+            .expect_err("cap should block dispatch");
+        assert!(err.to_string().contains("compute cap"));
+
+        let report = PersonalityAdapterJob::fake()
+            .with_compute_cap_override("release smoke")
+            .run_with_session(&ctx, "adapter-job-cap-override")
+            .expect("override bypasses cap");
+        assert_eq!(
+            report.execution["compute_cap_override_reason"],
+            "release smoke"
         );
     }
 

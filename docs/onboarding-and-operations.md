@@ -1,6 +1,6 @@
-# Allbert v0.12.1 Onboarding and Operations
+# Allbert v0.13.0 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.12.1 release.
+This guide is the operator reference for the source-based v0.13.0 release.
 
 ## Quickstart
 
@@ -31,6 +31,7 @@ On first run, Allbert creates `~/.allbert/` and asks for:
 - whether recurring jobs are enabled for this profile
 - the default timezone for scheduled jobs
 - whether to enable any bundled maintenance job templates immediately
+- whether local adapter training should be enabled, which trainer backend is allowed, the daily compute cap, and whether redacted trace excerpts can augment the training corpus
 
 Type `/cancel` at any setup prompt to abort setup cleanly. If setup is interrupted after writing setup state, resume with `cargo run -p allbert-cli -- setup --resume`.
 
@@ -41,6 +42,7 @@ If setup completes:
 - `IDENTITY.md` is updated only if you chose to customize assistant identity
 - daemon/jobs defaults are written into config
 - selected bundled job templates are copied into `~/.allbert/jobs/definitions/`
+- adapter-training defaults are written under `[learning.adapter_training]`
 - `BOOTSTRAP.md` is deleted
 
 If setup is cancelled:
@@ -65,7 +67,7 @@ This is intentional. Allbert still prefers explicit workspace trust over permiss
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical fresh v0.12.1 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical fresh v0.13.0 file looks like:
 
 ```toml
 trace = false
@@ -113,7 +115,7 @@ max_transcript_events = 500
 
 [repl.tui.status_line]
 enabled = true
-items = ["model", "context", "tokens", "cost", "memory", "intent", "skills", "inbox", "channel", "trace"]
+items = ["model", "context", "tokens", "cost", "memory", "intent", "skills", "inbox", "channel", "trace", "adapter"]
 
 [self_improvement]
 source_checkout = ""
@@ -180,6 +182,7 @@ hybrid_weight = 0.35
 
 [learning]
 enabled = false
+compute_cap_wall_seconds = 7200
 
 [learning.personality_digest]
 enabled = false
@@ -191,6 +194,31 @@ episode_lookback_days = 30
 max_episode_summaries = 10
 max_input_bytes = 24576
 max_output_bytes = 4096
+
+[learning.adapter_training]
+enabled = false
+allowed_backends = []
+default_backend = ""
+schedule = ""
+include_tiers = ["durable", "fact"]
+include_episodes = true
+episode_lookback_days = 30
+max_episode_summaries = 16
+max_input_bytes = 262144
+max_output_artifact_bytes = 5368709120
+capture_traces = false
+trace_lookback_days = 14
+default_lora_rank = 8
+max_lora_rank = 64
+default_alpha = 16
+default_learning_rate = "0.0001"
+default_max_steps = 200
+default_batch_size = 4
+default_seed = 42
+min_golden_pass_rate = "0.85"
+keep_rejected_runs = false
+max_log_bytes = 16777216
+cancel_grace_seconds = 30
 
 [security]
 exec_allow = ["bash", "python"]
@@ -264,6 +292,8 @@ Useful REPL commands:
   Shows the daemon-owned live phase, elapsed time, stuck hint, and next actions.
 - `/settings`
   Lists, explains, sets, and resets supported profile settings through typed path-preserving edits.
+- `/adapters`
+  Shows local personalization status and adapter training/review commands.
 - `/statusline [show|enable|disable|toggle <item>|add <item>|remove <item>]`
   Inspects or changes configured TUI status-line items.
 - `/inbox`, `/skills`, `/memory staged`, and `/self-improvement`
@@ -386,7 +416,7 @@ Notes:
 
 ## Telegram channel
 
-Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.12.1 end-user release.
+Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.13.0 end-user release.
 
 Setup:
 
@@ -403,6 +433,7 @@ Operational notes:
 - `/approve <approval-id>` accepts an async approval from Telegram itself.
 - `/reject <approval-id>` rejects an async approval from Telegram itself.
 - `/override <reason>` retries one turn after a daily cost-cap refusal and mirrors the same `cost-cap-override` item into the inbox.
+- `/adapter status` and `/adapter approvals` show structural adapter state without raw training corpus content.
 - `/reset` forces a new Telegram session.
 - incoming photos work only when the active provider/model supports image input; Anthropic, OpenAI, Gemini, and supported local Ollama vision models are enabled through the provider capability gate
 - downloaded photos are stored under `~/.allbert/sessions/<session-id>/artifacts/`
@@ -564,7 +595,7 @@ Workflow summary:
 
 Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs. Episode recall is explicitly labelled working history, and facts become approved only after promotion.
 
-If you are upgrading to v0.12.1, see [v0.12.1-upgrade-2026-04-25.md](notes/v0.12.1-upgrade-2026-04-25.md), [v0.12-upgrade-2026-04-25.md](notes/v0.12-upgrade-2026-04-25.md), [v0.11-upgrade-2026-04-24.md](notes/v0.11-upgrade-2026-04-24.md), and [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
+If you are upgrading to v0.13.0, see [v0.13-upgrade-2026-04-26.md](notes/v0.13-upgrade-2026-04-26.md), [v0.12.2-upgrade-2026-04-25.md](notes/v0.12.2-upgrade-2026-04-25.md), [v0.12.1-upgrade-2026-04-25.md](notes/v0.12.1-upgrade-2026-04-25.md), [v0.12-upgrade-2026-04-25.md](notes/v0.12-upgrade-2026-04-25.md), [v0.11-upgrade-2026-04-24.md](notes/v0.11-upgrade-2026-04-24.md), and [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
 
 ## Self-improvement and scripting
 
@@ -716,7 +747,7 @@ TUI unavailable:
 
 ## Release posture
 
-v0.12.1 is a shipped technical-user release:
+v0.13.0 is a shipped technical-user release:
 
 - source-based
 - terminal-first
@@ -734,6 +765,8 @@ v0.12.1 is a shipped technical-user release:
 - explicit episode and fact memory search tiers
 - optional semantic retrieval seam, disabled by default
 - review-first personality digest seam and optional `PERSONALITY.md` learned overlay
+- review-first local adapter training with `adapter-approval`, explicit activation, and hosted-provider no-op semantics
+- persisted session-local traces and redacted replay/export surfaces
 - recovery affordances for durable-memory trash, staged-memory reconsideration, skill disablement, and last-good config restore
 - source-checkout-bound self-improvement worktrees with `patch-approval` review
 - explicit `self-improvement diff|install|gc` operator commands
@@ -757,12 +790,13 @@ Known limitations remain explicit:
 - incomplete tool invocations still rewind to the last completed turn boundary after daemon restart
 - unsolicited heartbeat delivery is still Telegram-only
 - daily cost caps are still per-device
+- adapter-training compute caps are also per-device
 - Telegram multimodal support is photos-in only; voice notes, audio, and image output are deferred
 - the daemon is lightweight and in-process, not a heavy isolated supervisor
 - sub-agent depth is budget-governed rather than fixed by nesting count
 - semantic retrieval is fake-provider-only
-- personality digest output is deterministic and review-first; model-authored digest prose and adapter training are future work
+- personality digest output is deterministic and review-first; trained adapters are optional, local-only, and never activated automatically
 - `rust-rebuild` requires a local source checkout and never swaps the running binary automatically
 - Lua scripting is JSON-in/JSON-out only; it has no host tool bridge
 - Ctrl-C does not cancel an active turn yet; the turn continues and the UI says so
-- durable trace persistence and replay are planned for v0.12.2; v0.12.1 activity is live operational state
+- live activity remains operational state; durable traces are replay/export artifacts, not hidden long-lived chat memory

@@ -26,7 +26,7 @@ impl AdapterStore {
     pub fn install_from_run(&self, run_dir: &Path) -> Result<AdapterManifest, KernelError> {
         self.paths.ensure()?;
         let manifest_path = run_dir.join(MANIFEST_FILE);
-        let manifest = read_adapter_manifest(&manifest_path)?;
+        let mut manifest = read_adapter_manifest(&manifest_path)?;
         validate_adapter_id(&manifest.adapter_id)?;
         let destination = self.installed_dir(&manifest.adapter_id)?;
         if destination.exists() {
@@ -43,6 +43,7 @@ impl AdapterStore {
             ))
         })?;
         copy_dir_contents(run_dir, &destination)?;
+        manifest.accepted_at = Some(Utc::now());
         write_adapter_manifest(&destination.join(MANIFEST_FILE), &manifest)?;
         self.append_history(AdaptersHistoryEntry {
             adapter_id: manifest.adapter_id.clone(),

@@ -7,7 +7,7 @@ Status: Accepted
 
 > **Amended in v0.12.1**: bounded `ApprovalContext` can be attached to protocol approval payloads so TUI, REPL, CLI, and Telegram can render why an approval matters and what changes. It is presentation metadata derived from the existing approval/tool/job/memory state, not a new ground-truth approval store. The per-session approval markdown remains authoritative.
 
-> **Planned v0.13 amendment**: a fifth inbox kind `adapter-approval` is added for trained LoRA/adapter artifacts. Weights and eval artifacts live outside the approval markdown (referenced by `weights_path`, `loss_curve_path`, `behavioral_diff_path`); accept does not activate; activation is a separate explicit operator command. The inbox file layout, identity scoping, and retention defaults in this ADR remain in force. See ADR 0086.
+> **Amended in v0.13**: a fifth inbox kind `adapter-approval` is added for trained LoRA/adapter artifacts. Weights and eval artifacts live outside the approval markdown (referenced by `weights_path`, `loss_curve_path`, `behavioral_diff_path`); accept installs the reviewed artifact but does not activate it; activation is a separate explicit operator command. The inbox file layout, identity scoping, and retention defaults in this ADR remain in force. See ADR 0086.
 
 ## Context
 

@@ -1,6 +1,6 @@
 # Telemetry operator guide
 
-v0.12.1 kept session telemetry daemon-owned and added daemon-owned live activity. v0.12.2 keeps that live-state boundary and adds durable trace/replay as a separate after-the-fact surface. The TUI, classic REPL, CLI, Telegram, jobs, and future frontends all read the same kernel-derived `TelemetrySnapshot` and `ActivitySnapshot` instead of guessing from frontend timers.
+v0.12.1 kept session telemetry daemon-owned and added daemon-owned live activity. v0.12.2 keeps that live-state boundary and adds durable trace/replay as a separate after-the-fact surface. v0.13 adds daemon-owned adapter telemetry for local personalization. The TUI, classic REPL, CLI, Telegram, jobs, and future frontends all read the same kernel-derived `TelemetrySnapshot` and `ActivitySnapshot` instead of guessing from frontend timers.
 
 This guide covers **live** runtime visibility. Durable, after-the-fact session **replay** is documented in the [tracing operator guide](tracing.md). Use this guide to answer "what is Allbert doing right now?"; use the tracing guide to answer "what happened in that session, and why?"
 
@@ -47,6 +47,7 @@ cargo run -p allbert-cli -- activity --json
 - memory synopsis bytes, ephemeral bytes, durable count, staged count, episode count, fact count, staged-this-turn count, and prefetch-hit count
 - active skills, always-eligible memory skills, last agent stack, and last resolved intent
 - pending inbox count and trace state
+- active adapter id, base model, provenance, trained-at timestamp, and golden pass rate when a local adapter is active
 - current daemon-owned activity snapshot when attached through protocol v3
 - setup version
 
@@ -79,6 +80,7 @@ The TUI status line is a selected view over telemetry:
 | `inbox` | pending approval count |
 | `channel` | attached channel/session posture |
 | `trace` | trace on/off |
+| `adapter` | active adapter id, or none |
 
 Configure the catalog in TOML or from the REPL/TUI with `/statusline`.
 
@@ -90,5 +92,6 @@ Telemetry is local daemon state. It is not uploaded by the status line, `/teleme
 
 - [TUI operator guide](tui.md)
 - [Adaptive memory guide](adaptive-memory.md)
+- [Personalization guide](personalization.md)
 - [Telegram operator guide](telegram.md)
 - [Tracing operator guide](tracing.md) — durable session span replay (v0.12.2)

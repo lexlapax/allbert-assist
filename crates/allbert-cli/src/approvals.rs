@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use allbert_kernel::{AllbertPaths, Config};
+use allbert_kernel::{AdapterStore, AllbertPaths, Config};
 use allbert_proto::{
     ApprovalContext, ChannelKind, InboxApprovalPayload, InboxResolveResultPayload,
     PatchApprovalPayload,
@@ -78,6 +78,12 @@ struct ApprovalFrontmatter {
     artifact_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     overall: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    adapter_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    artifact_root: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    weights_path: Option<String>,
 }
 
 fn default_approval_kind() -> String {
@@ -183,7 +189,7 @@ pub fn render_resolution(result: &InboxResolveResultPayload) -> String {
     }
     if result.status == "accepted" {
         rendered.push_str(
-            "\nnext steps: accepting records review approval only; run install/apply commands when a patch needs installation",
+            "\nnext steps: acceptance never activates or swaps runtime artifacts; run the relevant install/apply/activate command when needed",
         );
     }
     rendered
@@ -448,6 +454,88 @@ fn maybe_cleanup_rejected_patch_worktree(
     )))
 }
 
+fn adapter_run_dir_from_frontmatter(
+    paths: &AllbertPaths,
+    frontmatter: &ApprovalFrontmatter,
+) -> Result<Option<PathBuf>> {
+    if frontmatter.kind != "adapter-approval" {
+        return Ok(None);
+    }
+    let run_dir = if let Some(root) = frontmatter.artifact_root.as_deref() {
+        PathBuf::from(root)
+    } else if let Some(weights_path) = frontmatter.weights_path.as_deref() {
+        Path::new(weights_path)
+            .parent()
+            .ok_or_else(|| anyhow!("adapter approval weights_path has no parent directory"))?
+            .to_path_buf()
+    } else {
+        return Err(anyhow!(
+            "adapter approval is missing artifact_root or weights_path"
+        ));
+    };
+
+    let canonical_run_dir = run_dir
+        .canonicalize()
+        .with_context(|| format!("resolve adapter run dir {}", run_dir.display()))?;
+    let canonical_runs_root = paths.adapters_runs.canonicalize().with_context(|| {
+        format!(
+            "resolve adapter runs root {}",
+            paths.adapters_runs.display()
+        )
+    })?;
+    if !canonical_run_dir.starts_with(&canonical_runs_root) {
+        return Err(anyhow!(
+            "adapter approval artifact root is outside adapter runs: {}",
+            canonical_run_dir.display()
+        ));
+    }
+    Ok(Some(canonical_run_dir))
+}
+
+fn maybe_install_accepted_adapter(
+    paths: &AllbertPaths,
+    frontmatter: &ApprovalFrontmatter,
+) -> Result<Option<String>> {
+    let Some(run_dir) = adapter_run_dir_from_frontmatter(paths, frontmatter)? else {
+        return Ok(None);
+    };
+    let manifest = AdapterStore::new(paths.clone())
+        .install_from_run(&run_dir)
+        .map_err(|err| anyhow!("{err}"))?;
+    Ok(Some(format!(
+        "installed adapter {}; activate with `allbert-cli adapters activate {}`",
+        manifest.adapter_id, manifest.adapter_id
+    )))
+}
+
+fn maybe_cleanup_rejected_adapter_run(
+    paths: &AllbertPaths,
+    config: &Config,
+    frontmatter: &ApprovalFrontmatter,
+) -> Result<Option<String>> {
+    let Some(run_dir) = adapter_run_dir_from_frontmatter(paths, frontmatter)? else {
+        return Ok(None);
+    };
+    if config.learning.adapter_training.keep_rejected_runs {
+        return Ok(Some(format!(
+            "rejected adapter run preserved by learning.adapter_training.keep_rejected_runs: {}",
+            run_dir.display()
+        )));
+    }
+    if !run_dir.exists() {
+        return Ok(Some(format!(
+            "adapter run already absent: {}",
+            run_dir.display()
+        )));
+    }
+    std::fs::remove_dir_all(&run_dir)
+        .with_context(|| format!("remove rejected adapter run {}", run_dir.display()))?;
+    Ok(Some(format!(
+        "removed rejected adapter run: {}",
+        run_dir.display()
+    )))
+}
+
 pub fn resolve(
     paths: &AllbertPaths,
     config: &Config,
@@ -482,16 +570,27 @@ pub fn resolve(
     frontmatter.resolved_at = Some(now_rfc3339());
     frontmatter.resolver = Some("cli".into());
     frontmatter.reply = reason.map(|value| value.to_string());
-    let frontmatter = serde_yaml::to_string(&frontmatter)?;
-    let rendered = format!("---\n{}---\n\n{}", frontmatter, parsed.content.trim());
+    let serialized_frontmatter = serde_yaml::to_string(&frontmatter)?;
+    let rendered = format!(
+        "---\n{}---\n\n{}",
+        serialized_frontmatter,
+        parsed.content.trim()
+    );
     atomic_write(path, rendered.as_bytes()).with_context(|| format!("write {}", path.display()))?;
     let mut message = format!(
         "{} {}",
         if accept { "accepted" } else { "rejected" },
         approval.id
     );
-    if !accept {
+    if accept {
+        if let Some(note) = maybe_install_accepted_adapter(paths, &frontmatter)? {
+            message.push_str(&format!("\n{note}"));
+        }
+    } else {
         if let Some(note) = maybe_cleanup_rejected_patch_worktree(config, &approval)? {
+            message.push_str(&format!("\n{note}"));
+        }
+        if let Some(note) = maybe_cleanup_rejected_adapter_run(paths, config, &frontmatter)? {
             message.push_str(&format!("\n{note}"));
         }
     }
@@ -779,7 +878,7 @@ mod tests {
         });
 
         assert!(rendered.contains("accepted approval-patch"));
-        assert!(rendered.contains("run install/apply commands"));
+        assert!(rendered.contains("never activates or swaps"));
     }
 
     #[test]
@@ -889,6 +988,50 @@ mod tests {
 
         assert!(rendered.contains("preserved"));
         assert!(worktree.exists());
+    }
+
+    #[test]
+    fn adapter_approval_accept_installs_without_activating() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should ensure");
+        let config = Config::default_template();
+        let report =
+            allbert_kernel::run_personality_adapter_training(&paths, &config).expect("training");
+        let approval_id = report.execution["approval_id"]
+            .as_str()
+            .expect("approval id");
+        let adapter_id = report.execution["adapter_id"].as_str().expect("adapter id");
+
+        let rendered =
+            resolve(&paths, &config, approval_id, true, Some("approved")).expect("accept");
+
+        assert!(rendered.contains("installed adapter"));
+        let store = AdapterStore::new(paths.clone());
+        assert!(store.show(adapter_id).expect("show").is_some());
+        assert!(store.active().expect("active").is_none());
+    }
+
+    #[test]
+    fn adapter_approval_reject_removes_run_by_default() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should ensure");
+        let config = Config::default_template();
+        let report =
+            allbert_kernel::run_personality_adapter_training(&paths, &config).expect("training");
+        let approval_id = report.execution["approval_id"]
+            .as_str()
+            .expect("approval id");
+        let run_id = report.execution["run_id"].as_str().expect("run id");
+        let run_dir = paths.adapters_runs.join(run_id);
+        assert!(run_dir.exists());
+
+        let rendered =
+            resolve(&paths, &config, approval_id, false, Some("reject")).expect("reject");
+
+        assert!(rendered.contains("removed rejected adapter run"));
+        assert!(!run_dir.exists());
     }
 
     fn write_approval(

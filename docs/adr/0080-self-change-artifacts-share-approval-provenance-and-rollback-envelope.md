@@ -3,7 +3,7 @@
 Date: 2026-04-24
 Status: Accepted
 
-> **Planned v0.12.2 amendment**: session trace artifacts are diagnostic inputs to the self-change envelope, not a new self-change artifact location. v0.12.2 stores replay traces under `sessions/<id>/trace*` for operator replay and later self-diagnosis; self-change outputs still use their subsystem-owned isolated or reviewable locations such as sibling worktrees, `skills/incoming/`, `~/.allbert/adapters/`, and staging.
+> **Amended in v0.12.2**: session trace artifacts are diagnostic inputs to the self-change envelope, not a new self-change artifact location. v0.12.2 stores replay traces under `sessions/<id>/trace*` for operator replay and later self-diagnosis; self-change outputs still use their subsystem-owned isolated or reviewable locations such as sibling worktrees, `skills/incoming/`, `~/.allbert/adapters/`, and staging.
 
 ## Context
 

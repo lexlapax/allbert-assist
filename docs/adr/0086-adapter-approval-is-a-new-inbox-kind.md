@@ -14,7 +14,7 @@ ADR 0073 set the precedent for adding a kind: reuse the inbox file layout, add k
 Adapter approvals are different in shape from the existing kinds in three ways:
 
 1. **Artifact size.** Adapter weights are tens of megabytes to gigabytes. They cannot be inlined; they must be referenced by path the same way ADR 0073 references diff artifacts.
-2. **Activation is a separate verb.** Like patch-approval, accepting an adapter approval does NOT activate the adapter; activation is a separate explicit operator command. This preserves the no-auto-swap posture from ADR 0068 and matches operator muscle memory.
+2. **Activation is a separate verb.** Accepting an adapter approval installs the reviewed adapter artifact but does NOT activate it; activation is a separate explicit operator command. This preserves the no-auto-swap posture from ADR 0068 while making the approved artifact available for explicit activation.
 3. **Eval data attaches to the approval.** Reviewers who are not ML engineers need a structured eval summary at the approval surface so they can decide without reading loss curves.
 
 ## Decision
@@ -102,7 +102,7 @@ The renderer never inlines binary weights, never inlines full eval traces, and n
 
 ### Resolution semantics (where this differs from other kinds)
 
-- **`inbox accept <aid>`** marks the adapter approved for activation, records approver identity + reason, and **does nothing else**. Specifically: it does NOT activate the adapter and does NOT change any active-adapter pointer. The operator is directed to `allbert-cli adapters activate <adapter_id>` as the next step (per ADR 0085).
+- **`inbox accept <aid>`** marks the adapter approved, records approver identity + reason, installs the reviewed artifact under `~/.allbert/adapters/installed/<adapter_id>/`, and **does not activate it**. It does not change any active-adapter pointer. The operator is directed to `allbert-cli adapters activate <adapter_id>` as the next step (per ADR 0085).
 - **`inbox reject <aid>`** marks the adapter rejected, records rejector identity + reason, and (by default) deletes the run directory at `artifact_root`. The deletion is configurable via `learning.adapter_training.keep_rejected_runs` (default `false`); when `true`, the run is preserved for forensic review and operators must `adapters gc` to reclaim disk later.
 
 Both verbs use the same vocabulary as other inbox kinds.
@@ -138,7 +138,7 @@ Adapter approvals follow the same retention as other inbox kinds: pending and re
 **Negative**
 
 - A fifth inbox kind adds rendering surface in the inbox CLI. Acceptable: rendering is per-kind anyway, and the patterns from cost-cap-override, job-approval, and patch-approval already established that inbox rendering is kind-aware.
-- Operators may expect `inbox accept` to actually activate the adapter. Documentation in `docs/operator/personalization.md` covers this; the renderer message also calls it out.
+- Operators may expect `inbox accept` to activate the adapter after installing it. Documentation in `docs/operator/personalization.md` covers this; the renderer message also calls it out.
 
 **Neutral**
 
