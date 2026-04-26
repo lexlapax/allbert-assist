@@ -261,6 +261,7 @@ fn write_failed_at(
 #[cfg(test)]
 pub mod tests_support {
     use super::*;
+    use crate::adapters::trainer::TRAINER_STDIO_CAPTURE_BYTES;
     use crate::adapters::{build_adapter_corpus, AdapterCorpusConfig};
     use allbert_proto::{AdapterHyperparameters, BaseModelRef, ProviderKind};
 
@@ -293,6 +294,8 @@ pub mod tests_support {
             compute_cap_wall_seconds: compute_cap,
             total_steps: 4,
             estimated_peak_resident_mb: 256,
+            max_log_bytes: TRAINER_STDIO_CAPTURE_BYTES,
+            cancel_grace_seconds: 30,
         }
     }
 }

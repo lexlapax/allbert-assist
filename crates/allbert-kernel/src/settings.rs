@@ -14,17 +14,19 @@ pub enum SettingsGroup {
     Trace,
     Memory,
     Learning,
+    Personalization,
     SelfImprovement,
     Providers,
 }
 
 impl SettingsGroup {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Ui,
         Self::Activity,
         Self::Trace,
         Self::Memory,
         Self::Learning,
+        Self::Personalization,
         Self::SelfImprovement,
         Self::Providers,
     ];
@@ -36,6 +38,7 @@ impl SettingsGroup {
             Self::Trace => "trace",
             Self::Memory => "memory",
             Self::Learning => "learning",
+            Self::Personalization => "personalization",
             Self::SelfImprovement => "self_improvement",
             Self::Providers => "providers",
         }
@@ -48,6 +51,7 @@ impl SettingsGroup {
             Self::Trace => "Trace",
             Self::Memory => "Memory",
             Self::Learning => "Learning",
+            Self::Personalization => "Personalization",
             Self::SelfImprovement => "Self-improvement",
             Self::Providers => "Providers",
         }
@@ -574,6 +578,342 @@ pub fn settings_catalog() -> Vec<SettingDescriptor> {
             "learning.enabled",
             SettingRestartRequirement::Live,
             "Learning jobs remain review-first.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.compute_cap_wall_seconds",
+            SettingsGroup::Personalization,
+            "Daily adapter compute cap",
+            "Daily wall-clock cap for local adapter training; 0 disables the cap.",
+            SettingValueType::UnsignedInteger {
+                min: Some(0),
+                max: Some(86_400),
+            },
+            "7200",
+            "learning.compute_cap_wall_seconds",
+            SettingRestartRequirement::Live,
+            "Only local trainer wall-clock time is counted; hosted-provider spend caps are separate.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.enabled",
+            SettingsGroup::Personalization,
+            "Adapter training",
+            "Enable local review-first personality adapter training.",
+            SettingValueType::Bool,
+            "false",
+            "learning.adapter_training.enabled",
+            SettingRestartRequirement::Live,
+            "Training still requires an allowed backend and exec-policy allowlist entry.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.allowed_backends",
+            SettingsGroup::Personalization,
+            "Allowed adapter backends",
+            "Comma-separated trainer backend identifiers allowed for local adapter training.",
+            SettingValueType::StringList,
+            "",
+            "learning.adapter_training.allowed_backends",
+            SettingRestartRequirement::Live,
+            "Allowed values are mlx-lm-lora, llama-cpp-finetune, and fake.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.default_backend",
+            SettingsGroup::Personalization,
+            "Default adapter backend",
+            "Trainer backend used when adapter training starts without an explicit backend.",
+            SettingValueType::OptionalString,
+            "",
+            "learning.adapter_training.default_backend",
+            SettingRestartRequirement::Live,
+            "Required only when adapter training is enabled and must also appear in allowed_backends.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.schedule",
+            SettingsGroup::Personalization,
+            "Adapter training schedule",
+            "Optional bounded schedule expression for future scheduled adapter training.",
+            SettingValueType::OptionalString,
+            "",
+            "learning.adapter_training.schedule",
+            SettingRestartRequirement::Live,
+            "Empty disables scheduled adapter training.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.include_tiers",
+            SettingsGroup::Personalization,
+            "Adapter corpus memory tiers",
+            "Comma-separated memory tiers included in adapter-training corpus assembly.",
+            SettingValueType::StringList,
+            "durable,fact",
+            "learning.adapter_training.include_tiers",
+            SettingRestartRequirement::Live,
+            "Allowed values are durable, fact, and episode.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.include_episodes",
+            SettingsGroup::Personalization,
+            "Adapter corpus episodes",
+            "Allow bounded episode summaries in adapter-training corpus input.",
+            SettingValueType::Bool,
+            "true",
+            "learning.adapter_training.include_episodes",
+            SettingRestartRequirement::Live,
+            "Episodes remain bounded working-history input.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.episode_lookback_days",
+            SettingsGroup::Personalization,
+            "Adapter episode lookback",
+            "Days of session history eligible for adapter corpus episode summaries.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(365),
+            },
+            "30",
+            "learning.adapter_training.episode_lookback_days",
+            SettingRestartRequirement::Live,
+            "Corpus assembly remains bounded by max_episode_summaries and max_input_bytes.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.max_episode_summaries",
+            SettingsGroup::Personalization,
+            "Adapter max episodes",
+            "Maximum episode summaries included in an adapter corpus.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(1024),
+            },
+            "16",
+            "learning.adapter_training.max_episode_summaries",
+            SettingRestartRequirement::Live,
+            "Higher values can increase local training time and corpus size.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.max_input_bytes",
+            SettingsGroup::Personalization,
+            "Adapter max input bytes",
+            "Maximum bytes of local corpus input for one adapter training run.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1024),
+                max: Some(10 * 1024 * 1024),
+            },
+            "262144",
+            "learning.adapter_training.max_input_bytes",
+            SettingRestartRequirement::Live,
+            "Corpus material is assembled locally and remains review-first.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.max_output_artifact_bytes",
+            SettingsGroup::Personalization,
+            "Adapter max artifact bytes",
+            "Maximum bytes a trainer may write for one adapter run.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1024),
+                max: Some(100 * 1024 * 1024 * 1024),
+            },
+            "5368709120",
+            "learning.adapter_training.max_output_artifact_bytes",
+            SettingRestartRequirement::Live,
+            "Prevents runaway local artifacts from filling the profile.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.capture_traces",
+            SettingsGroup::Personalization,
+            "Adapter corpus traces",
+            "Opt into redacted v0.12.2 trace excerpts as adapter corpus input.",
+            SettingValueType::Bool,
+            "false",
+            "learning.adapter_training.capture_traces",
+            SettingRestartRequirement::Live,
+            "Trace text is redacted again at corpus-build time.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.trace_lookback_days",
+            SettingsGroup::Personalization,
+            "Adapter trace lookback",
+            "Days of trace artifacts eligible for adapter corpus excerpts.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(365),
+            },
+            "14",
+            "learning.adapter_training.trace_lookback_days",
+            SettingRestartRequirement::Live,
+            "Trace inclusion is ignored unless capture_traces is true.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.default_lora_rank",
+            SettingsGroup::Personalization,
+            "Default LoRA rank",
+            "Default LoRA rank for local adapter training.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(256),
+            },
+            "8",
+            "learning.adapter_training.default_lora_rank",
+            SettingRestartRequirement::Live,
+            "Must be less than or equal to max_lora_rank.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.max_lora_rank",
+            SettingsGroup::Personalization,
+            "Max LoRA rank",
+            "Maximum allowed LoRA rank for local adapter training.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(256),
+            },
+            "64",
+            "learning.adapter_training.max_lora_rank",
+            SettingRestartRequirement::Live,
+            "Higher rank can increase memory use and training time.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.default_alpha",
+            SettingsGroup::Personalization,
+            "Default LoRA alpha",
+            "Default LoRA alpha for local adapter training.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(1024),
+            },
+            "16",
+            "learning.adapter_training.default_alpha",
+            SettingRestartRequirement::Live,
+            "Mapped into kernel-built trainer arguments.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.default_learning_rate",
+            SettingsGroup::Personalization,
+            "Default learning rate",
+            "Default positive learning rate for local adapter training.",
+            SettingValueType::Float {
+                min: Some(0.0000001),
+                max: Some(1.0),
+            },
+            "0.0001",
+            "learning.adapter_training.default_learning_rate",
+            SettingRestartRequirement::Live,
+            "Mapped into kernel-built trainer arguments.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.default_max_steps",
+            SettingsGroup::Personalization,
+            "Default max steps",
+            "Default trainer step count for local adapter training.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(1_000_000),
+            },
+            "200",
+            "learning.adapter_training.default_max_steps",
+            SettingRestartRequirement::Live,
+            "Higher values consume more local compute budget.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.default_batch_size",
+            SettingsGroup::Personalization,
+            "Default batch size",
+            "Default trainer batch size for local adapter training.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(1024),
+            },
+            "4",
+            "learning.adapter_training.default_batch_size",
+            SettingRestartRequirement::Live,
+            "Mapped into kernel-built trainer arguments.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.default_seed",
+            SettingsGroup::Personalization,
+            "Default adapter seed",
+            "Default deterministic seed for local adapter training.",
+            SettingValueType::UnsignedInteger {
+                min: Some(0),
+                max: Some(i64::MAX as u64),
+            },
+            "42",
+            "learning.adapter_training.default_seed",
+            SettingRestartRequirement::Live,
+            "Changing the seed changes reproducibility for future runs only.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.min_golden_pass_rate",
+            SettingsGroup::Personalization,
+            "Minimum golden pass rate",
+            "Minimum fixed-eval pass rate required for ready-for-review adapter status.",
+            SettingValueType::Float {
+                min: Some(0.0),
+                max: Some(1.0),
+            },
+            "0.85",
+            "learning.adapter_training.min_golden_pass_rate",
+            SettingRestartRequirement::Live,
+            "Lower thresholds make adapter approval less strict.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.keep_rejected_runs",
+            SettingsGroup::Personalization,
+            "Keep rejected adapter runs",
+            "Preserve rejected adapter run directories for forensic review.",
+            SettingValueType::Bool,
+            "false",
+            "learning.adapter_training.keep_rejected_runs",
+            SettingRestartRequirement::Live,
+            "When false, rejecting an adapter approval deletes its run directory.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.max_log_bytes",
+            SettingsGroup::Personalization,
+            "Adapter max log bytes",
+            "Maximum stdout/stderr bytes retained per trainer stream.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1024),
+                max: Some(1024 * 1024 * 1024),
+            },
+            "16777216",
+            "learning.adapter_training.max_log_bytes",
+            SettingRestartRequirement::Live,
+            "Excess trainer output is truncated with a marker.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "learning.adapter_training.cancel_grace_seconds",
+            SettingsGroup::Personalization,
+            "Adapter cancel grace",
+            "Seconds to wait after SIGTERM before force-killing a trainer subprocess.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(600),
+            },
+            "30",
+            "learning.adapter_training.cancel_grace_seconds",
+            SettingRestartRequirement::Live,
+            "Only affects future cancellation attempts.",
             SettingRedactionPolicy::Plain,
         ),
         descriptor(
@@ -1223,11 +1563,16 @@ fn validate_value(descriptor: &SettingDescriptor, raw: &str) -> Result<(), Setti
         }
         SettingValueType::StringList => {
             let parsed = parse_string_list(value);
-            if parsed.is_empty() {
+            if parsed.is_empty()
+                && matches!(
+                    descriptor.key,
+                    "repl.tui.status_line.items" | "learning.adapter_training.include_tiers"
+                )
+            {
                 return Err(invalid(descriptor, "list must not be empty"));
             }
             if descriptor.key == "repl.tui.status_line.items" {
-                for item in parsed {
+                for item in &parsed {
                     if !StatusLineItem::CATALOG
                         .iter()
                         .any(|allowed| allowed.label() == item)
@@ -1235,6 +1580,26 @@ fn validate_value(descriptor: &SettingDescriptor, raw: &str) -> Result<(), Setti
                         return Err(invalid(
                             descriptor,
                             "list contains an unsupported status-line item",
+                        ));
+                    }
+                }
+            }
+            if descriptor.key == "learning.adapter_training.allowed_backends" {
+                for item in &parsed {
+                    if !matches!(item.as_str(), "fake" | "mlx-lm-lora" | "llama-cpp-finetune") {
+                        return Err(invalid(
+                            descriptor,
+                            "list contains an unsupported adapter backend",
+                        ));
+                    }
+                }
+            }
+            if descriptor.key == "learning.adapter_training.include_tiers" {
+                for item in &parsed {
+                    if !matches!(item.as_str(), "durable" | "fact" | "episode") {
+                        return Err(invalid(
+                            descriptor,
+                            "list contains an unsupported adapter corpus tier",
                         ));
                     }
                 }
@@ -1345,6 +1710,103 @@ fn setting_value_for_key(config: &Config, descriptor: &SettingDescriptor) -> Opt
         "memory.trash_retention_days" => config.memory.trash_retention_days.to_string(),
         "memory.rejected_retention_days" => config.memory.rejected_retention_days.to_string(),
         "learning.enabled" => config.learning.enabled.to_string(),
+        "learning.compute_cap_wall_seconds" => config
+            .learning
+            .compute_cap_wall_seconds
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "0".into()),
+        "learning.adapter_training.enabled" => config.learning.adapter_training.enabled.to_string(),
+        "learning.adapter_training.allowed_backends" => {
+            config.learning.adapter_training.allowed_backends.join(",")
+        }
+        "learning.adapter_training.default_backend" => config
+            .learning
+            .adapter_training
+            .default_backend
+            .clone()
+            .unwrap_or_default(),
+        "learning.adapter_training.schedule" => config.learning.adapter_training.schedule.clone(),
+        "learning.adapter_training.include_tiers" => {
+            config.learning.adapter_training.include_tiers.join(",")
+        }
+        "learning.adapter_training.include_episodes" => config
+            .learning
+            .adapter_training
+            .include_episodes
+            .to_string(),
+        "learning.adapter_training.episode_lookback_days" => config
+            .learning
+            .adapter_training
+            .episode_lookback_days
+            .to_string(),
+        "learning.adapter_training.max_episode_summaries" => config
+            .learning
+            .adapter_training
+            .max_episode_summaries
+            .to_string(),
+        "learning.adapter_training.max_input_bytes" => {
+            config.learning.adapter_training.max_input_bytes.to_string()
+        }
+        "learning.adapter_training.max_output_artifact_bytes" => config
+            .learning
+            .adapter_training
+            .max_output_artifact_bytes
+            .to_string(),
+        "learning.adapter_training.capture_traces" => {
+            config.learning.adapter_training.capture_traces.to_string()
+        }
+        "learning.adapter_training.trace_lookback_days" => config
+            .learning
+            .adapter_training
+            .trace_lookback_days
+            .to_string(),
+        "learning.adapter_training.default_lora_rank" => config
+            .learning
+            .adapter_training
+            .default_lora_rank
+            .to_string(),
+        "learning.adapter_training.max_lora_rank" => {
+            config.learning.adapter_training.max_lora_rank.to_string()
+        }
+        "learning.adapter_training.default_alpha" => {
+            config.learning.adapter_training.default_alpha.to_string()
+        }
+        "learning.adapter_training.default_learning_rate" => config
+            .learning
+            .adapter_training
+            .default_learning_rate
+            .clone(),
+        "learning.adapter_training.default_max_steps" => config
+            .learning
+            .adapter_training
+            .default_max_steps
+            .to_string(),
+        "learning.adapter_training.default_batch_size" => config
+            .learning
+            .adapter_training
+            .default_batch_size
+            .to_string(),
+        "learning.adapter_training.default_seed" => {
+            config.learning.adapter_training.default_seed.to_string()
+        }
+        "learning.adapter_training.min_golden_pass_rate" => config
+            .learning
+            .adapter_training
+            .min_golden_pass_rate
+            .clone(),
+        "learning.adapter_training.keep_rejected_runs" => config
+            .learning
+            .adapter_training
+            .keep_rejected_runs
+            .to_string(),
+        "learning.adapter_training.max_log_bytes" => {
+            config.learning.adapter_training.max_log_bytes.to_string()
+        }
+        "learning.adapter_training.cancel_grace_seconds" => config
+            .learning
+            .adapter_training
+            .cancel_grace_seconds
+            .to_string(),
         "learning.personality_digest.enabled" => {
             config.learning.personality_digest.enabled.to_string()
         }

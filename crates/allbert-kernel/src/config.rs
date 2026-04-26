@@ -18,6 +18,13 @@ pub enum TraceDefaultsWriteResult {
     Skipped { hint: String },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdapterTrainingDefaultsWriteResult {
+    Installed,
+    AlreadyPresent,
+    Skipped { hint: String },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub model: ModelConfig,
@@ -176,9 +183,18 @@ impl Provider {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
-#[derive(Default)]
 pub struct SetupConfig {
     pub version: u8,
+    pub state_path: String,
+}
+
+impl Default for SetupConfig {
+    fn default() -> Self {
+        Self {
+            version: 0,
+            state_path: "setup-state.toml".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -792,9 +808,26 @@ pub struct AdapterTrainingConfig {
     pub enabled: bool,
     pub default_backend: Option<String>,
     pub allowed_backends: Vec<String>,
+    pub schedule: String,
+    pub include_tiers: Vec<String>,
+    pub include_episodes: bool,
+    pub episode_lookback_days: u16,
+    pub max_episode_summaries: usize,
+    pub max_input_bytes: usize,
     pub max_output_artifact_bytes: usize,
+    pub capture_traces: bool,
+    pub trace_lookback_days: u16,
+    pub default_lora_rank: u32,
+    pub max_lora_rank: u32,
+    pub default_alpha: u32,
+    pub default_learning_rate: String,
+    pub default_max_steps: u32,
+    pub default_batch_size: u32,
+    pub default_seed: u64,
     pub min_golden_pass_rate: String,
     pub keep_rejected_runs: bool,
+    pub max_log_bytes: usize,
+    pub cancel_grace_seconds: u64,
 }
 
 impl Default for AdapterTrainingConfig {
@@ -803,9 +836,26 @@ impl Default for AdapterTrainingConfig {
             enabled: false,
             default_backend: None,
             allowed_backends: Vec::new(),
-            max_output_artifact_bytes: 512 * 1024 * 1024,
+            schedule: String::new(),
+            include_tiers: vec!["durable".into(), "fact".into()],
+            include_episodes: true,
+            episode_lookback_days: 30,
+            max_episode_summaries: 16,
+            max_input_bytes: 256 * 1024,
+            max_output_artifact_bytes: 5 * 1024 * 1024 * 1024,
+            capture_traces: false,
+            trace_lookback_days: 14,
+            default_lora_rank: 8,
+            max_lora_rank: 64,
+            default_alpha: 16,
+            default_learning_rate: "0.0001".into(),
+            default_max_steps: 200,
+            default_batch_size: 4,
+            default_seed: 42,
             min_golden_pass_rate: "0.85".into(),
             keep_rejected_runs: false,
+            max_log_bytes: 16 * 1024 * 1024,
+            cancel_grace_seconds: 30,
         }
     }
 }
@@ -1094,7 +1144,11 @@ impl Config {
             let scripting_normalized = parsed.normalize_scripting_config();
             let operator_ux_normalized = parsed.normalize_operator_ux_config();
             let trace_normalized = parsed.normalize_trace_config();
-            let normalized = scripting_normalized || operator_ux_normalized || trace_normalized;
+            let learning_normalized = parsed.normalize_learning_config();
+            let normalized = scripting_normalized
+                || operator_ux_normalized
+                || trace_normalized
+                || learning_normalized;
             if migrated || normalized {
                 parsed.persist(paths)?;
             }
@@ -1257,7 +1311,82 @@ impl Config {
         changed
     }
 
+    fn normalize_learning_config(&mut self) -> bool {
+        let mut changed = false;
+        if self.learning.compute_cap_wall_seconds == Some(0) {
+            self.learning.compute_cap_wall_seconds = None;
+            changed = true;
+        }
+        if let Some(cap) = self.learning.compute_cap_wall_seconds {
+            if cap < 60 {
+                tracing::warn!(
+                    configured = cap,
+                    floor = 60,
+                    "clamping learning.compute_cap_wall_seconds to supported floor"
+                );
+                self.learning.compute_cap_wall_seconds = Some(60);
+                changed = true;
+            } else if cap > 86_400 {
+                tracing::warn!(
+                    configured = cap,
+                    ceiling = 86_400,
+                    "clamping learning.compute_cap_wall_seconds to supported ceiling"
+                );
+                self.learning.compute_cap_wall_seconds = Some(86_400);
+                changed = true;
+            }
+        }
+
+        let adapter = &mut self.learning.adapter_training;
+        if adapter.max_lora_rank == 0 {
+            tracing::warn!("clamping learning.adapter_training.max_lora_rank to supported floor");
+            adapter.max_lora_rank = 1;
+            changed = true;
+        } else if adapter.max_lora_rank > 256 {
+            tracing::warn!("clamping learning.adapter_training.max_lora_rank to supported ceiling");
+            adapter.max_lora_rank = 256;
+            changed = true;
+        }
+        if adapter.default_lora_rank == 0 {
+            tracing::warn!(
+                "clamping learning.adapter_training.default_lora_rank to supported floor"
+            );
+            adapter.default_lora_rank = 1;
+            changed = true;
+        }
+        if adapter.default_lora_rank > adapter.max_lora_rank {
+            tracing::warn!(
+                default_lora_rank = adapter.default_lora_rank,
+                max_lora_rank = adapter.max_lora_rank,
+                "clamping learning.adapter_training.default_lora_rank to max_lora_rank"
+            );
+            adapter.default_lora_rank = adapter.max_lora_rank;
+            changed = true;
+        }
+        if let Ok(min_golden) = adapter.min_golden_pass_rate.parse::<f64>() {
+            let clamped = min_golden.clamp(0.0, 1.0);
+            if (clamped - min_golden).abs() > f64::EPSILON {
+                tracing::warn!(
+                    configured = min_golden,
+                    "clamping learning.adapter_training.min_golden_pass_rate to 0..=1"
+                );
+                adapter.min_golden_pass_rate = clamped.to_string();
+                changed = true;
+            }
+        }
+        changed
+    }
+
     pub fn validate(&self) -> Result<(), String> {
+        validate_setup_config(&self.setup)?;
+        if let Some(cap) = self.learning.compute_cap_wall_seconds {
+            if cap != 0 && !(60..=86_400).contains(&cap) {
+                return Err(
+                    "learning.compute_cap_wall_seconds must be null, 0, or between 60 and 86400"
+                        .into(),
+                );
+            }
+        }
         if self.repl.tui.max_transcript_events == 0 {
             return Err("repl.tui.max_transcript_events must be >= 1".into());
         }
@@ -1481,6 +1610,106 @@ pub fn ensure_trace_defaults_block(
     Ok(TraceDefaultsWriteResult::Installed)
 }
 
+pub fn ensure_adapter_training_defaults_block(
+    paths: &AllbertPaths,
+) -> Result<AdapterTrainingDefaultsWriteResult, KernelError> {
+    if !paths.config.exists() {
+        return Ok(AdapterTrainingDefaultsWriteResult::Skipped {
+            hint: "config.toml does not exist yet; initial config persistence will include adapter-training defaults".into(),
+        });
+    }
+    let raw = std::fs::read_to_string(&paths.config)
+        .map_err(|source| KernelError::InitFailed(format!("read config: {source}")))?;
+    let mut document = match raw.parse::<toml_edit::DocumentMut>() {
+        Ok(document) => document,
+        Err(err) => {
+            return Ok(AdapterTrainingDefaultsWriteResult::Skipped {
+                hint: format!(
+                    "could not parse config.toml with the path-preserving editor: {err}; add [learning.adapter_training] manually or run `allbert-cli settings show learning.adapter_training`"
+                ),
+            });
+        }
+    };
+
+    let Some(root) = document.as_table_mut().get_mut("learning") else {
+        document["learning"] = toml_edit::Item::Table(toml_edit::Table::new());
+        let learning = document["learning"]
+            .as_table_mut()
+            .ok_or_else(|| KernelError::InitFailed("learning table could not be created".into()))?;
+        learning["adapter_training"] = adapter_training_defaults_table();
+        return write_adapter_training_defaults(paths, &document);
+    };
+    let Some(learning) = root.as_table_mut() else {
+        return Ok(AdapterTrainingDefaultsWriteResult::Skipped {
+            hint: "`learning` is not a TOML table; leave it unchanged and add [learning.adapter_training] manually".into(),
+        });
+    };
+    if learning.contains_key("adapter_training") {
+        return Ok(AdapterTrainingDefaultsWriteResult::AlreadyPresent);
+    }
+    learning["adapter_training"] = adapter_training_defaults_table();
+    write_adapter_training_defaults(paths, &document)
+}
+
+fn adapter_training_defaults_table() -> toml_edit::Item {
+    let defaults = AdapterTrainingConfig::default();
+    let mut table = toml_edit::Table::new();
+    table["enabled"] = toml_edit::value(defaults.enabled);
+    table["allowed_backends"] = string_array_item(defaults.allowed_backends);
+    table["default_backend"] = toml_edit::value("");
+    table["schedule"] = toml_edit::value(defaults.schedule);
+    table["include_tiers"] = string_array_item(defaults.include_tiers);
+    table["include_episodes"] = toml_edit::value(defaults.include_episodes);
+    table["episode_lookback_days"] = toml_edit::value(i64::from(defaults.episode_lookback_days));
+    table["max_episode_summaries"] = toml_edit::value(defaults.max_episode_summaries as i64);
+    table["max_input_bytes"] = toml_edit::value(defaults.max_input_bytes as i64);
+    table["max_output_artifact_bytes"] =
+        toml_edit::value(defaults.max_output_artifact_bytes as i64);
+    table["capture_traces"] = toml_edit::value(defaults.capture_traces);
+    table["trace_lookback_days"] = toml_edit::value(i64::from(defaults.trace_lookback_days));
+    table["default_lora_rank"] = toml_edit::value(i64::from(defaults.default_lora_rank));
+    table["max_lora_rank"] = toml_edit::value(i64::from(defaults.max_lora_rank));
+    table["default_alpha"] = toml_edit::value(i64::from(defaults.default_alpha));
+    table["default_learning_rate"] = toml_edit::value(defaults.default_learning_rate);
+    table["default_max_steps"] = toml_edit::value(i64::from(defaults.default_max_steps));
+    table["default_batch_size"] = toml_edit::value(i64::from(defaults.default_batch_size));
+    table["default_seed"] = toml_edit::value(defaults.default_seed as i64);
+    table["min_golden_pass_rate"] = toml_edit::value(defaults.min_golden_pass_rate);
+    table["keep_rejected_runs"] = toml_edit::value(defaults.keep_rejected_runs);
+    table["max_log_bytes"] = toml_edit::value(defaults.max_log_bytes as i64);
+    table["cancel_grace_seconds"] = toml_edit::value(defaults.cancel_grace_seconds as i64);
+    toml_edit::Item::Table(table)
+}
+
+fn string_array_item(values: Vec<String>) -> toml_edit::Item {
+    let mut array = toml_edit::Array::default();
+    for value in values {
+        array.push(value);
+    }
+    toml_edit::value(array)
+}
+
+fn write_adapter_training_defaults(
+    paths: &AllbertPaths,
+    document: &toml_edit::DocumentMut,
+) -> Result<AdapterTrainingDefaultsWriteResult, KernelError> {
+    let rendered = document.to_string();
+    let parsed = toml::from_str::<Config>(&rendered).map_err(|source| ConfigError::Parse {
+        path: paths.config.clone(),
+        source,
+    })?;
+    parsed.validate().map_err(|error| {
+        KernelError::InitFailed(format!(
+            "invalid config after adapter-training default write: {error}"
+        ))
+    })?;
+    atomic_write(&paths.config, rendered.as_bytes()).map_err(|source| ConfigError::Write {
+        path: paths.config.clone(),
+        source,
+    })?;
+    Ok(AdapterTrainingDefaultsWriteResult::Installed)
+}
+
 pub fn restore_last_good_config(paths: &AllbertPaths) -> Result<PathBuf, KernelError> {
     paths.ensure()?;
     if !paths.config_last_good.exists() {
@@ -1558,6 +1787,27 @@ where
         }),
         Compat::Table(config) => Ok(config),
     }
+}
+
+fn validate_setup_config(config: &SetupConfig) -> Result<(), String> {
+    let state_path = config.state_path.trim();
+    if state_path.is_empty() {
+        return Err("setup.state_path must not be empty".into());
+    }
+    let path = std::path::Path::new(state_path);
+    if path.is_absolute()
+        || path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+    {
+        return Err("setup.state_path must be relative to ALLBERT_HOME".into());
+    }
+    Ok(())
 }
 
 fn validate_trace_config(config: &TraceConfig) -> Result<(), String> {
@@ -1716,6 +1966,16 @@ fn validate_personality_digest_config(config: &PersonalityDigestConfig) -> Resul
 }
 
 fn validate_adapter_training_config(config: &AdapterTrainingConfig) -> Result<(), String> {
+    for tier in &config.include_tiers {
+        match tier.as_str() {
+            "durable" | "fact" | "episode" => {}
+            other => {
+                return Err(format!(
+                    "learning.adapter_training.include_tiers contains unsupported tier `{other}`"
+                ))
+            }
+        }
+    }
     for backend in &config.allowed_backends {
         match backend.as_str() {
             "fake" | "mlx-lm-lora" | "llama-cpp-finetune" => {}
@@ -1727,10 +1987,13 @@ fn validate_adapter_training_config(config: &AdapterTrainingConfig) -> Result<()
         }
     }
     if let Some(default_backend) = &config.default_backend {
-        if default_backend.trim().is_empty() {
-            return Err("learning.adapter_training.default_backend must not be empty".into());
+        if config.enabled && default_backend.trim().is_empty() {
+            return Err(
+                "learning.adapter_training.default_backend must not be empty when enabled".into(),
+            );
         }
         if config.enabled
+            && !default_backend.trim().is_empty()
             && !config
                 .allowed_backends
                 .iter()
@@ -1741,9 +2004,44 @@ fn validate_adapter_training_config(config: &AdapterTrainingConfig) -> Result<()
                     .into(),
             );
         }
+    } else if config.enabled {
+        return Err(
+            "learning.adapter_training.default_backend is required when adapter training is enabled"
+                .into(),
+        );
+    }
+    if config.max_episode_summaries == 0 {
+        return Err("learning.adapter_training.max_episode_summaries must be >= 1".into());
+    }
+    if config.max_input_bytes < 1024 {
+        return Err("learning.adapter_training.max_input_bytes must be >= 1024".into());
     }
     if config.max_output_artifact_bytes < 1024 {
         return Err("learning.adapter_training.max_output_artifact_bytes must be >= 1024".into());
+    }
+    if !(1..=256).contains(&config.max_lora_rank) {
+        return Err("learning.adapter_training.max_lora_rank must be between 1 and 256".into());
+    }
+    if config.default_lora_rank == 0 || config.default_lora_rank > config.max_lora_rank {
+        return Err(
+            "learning.adapter_training.default_lora_rank must be between 1 and max_lora_rank"
+                .into(),
+        );
+    }
+    let learning_rate: f64 = config.default_learning_rate.parse().map_err(|_| {
+        "learning.adapter_training.default_learning_rate must be a positive number".to_string()
+    })?;
+    if !learning_rate.is_finite() || learning_rate <= 0.0 {
+        return Err("learning.adapter_training.default_learning_rate must be positive".into());
+    }
+    if config.default_alpha == 0 {
+        return Err("learning.adapter_training.default_alpha must be >= 1".into());
+    }
+    if config.default_max_steps == 0 {
+        return Err("learning.adapter_training.default_max_steps must be >= 1".into());
+    }
+    if config.default_batch_size == 0 {
+        return Err("learning.adapter_training.default_batch_size must be >= 1".into());
     }
     let min_golden: f64 = config.min_golden_pass_rate.parse().map_err(|_| {
         "learning.adapter_training.min_golden_pass_rate must be a number between 0 and 1"
@@ -1753,6 +2051,12 @@ fn validate_adapter_training_config(config: &AdapterTrainingConfig) -> Result<()
         return Err(
             "learning.adapter_training.min_golden_pass_rate must be between 0 and 1".into(),
         );
+    }
+    if config.max_log_bytes < 1024 {
+        return Err("learning.adapter_training.max_log_bytes must be >= 1024".into());
+    }
+    if config.cancel_grace_seconds == 0 {
+        return Err("learning.adapter_training.cancel_grace_seconds must be >= 1".into());
     }
     Ok(())
 }
@@ -2176,6 +2480,58 @@ enabled = false
         let raw = std::fs::read_to_string(&paths.config).expect("config should read");
         assert!(raw.contains("enabled = false"));
         assert!(!raw.contains("capture_messages"));
+    }
+
+    #[test]
+    fn adapter_training_default_block_installs_once_without_overwriting_partial_block() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should be created");
+        std::fs::write(
+            &paths.config,
+            r#"# keep me
+[model]
+provider = "ollama"
+model_id = "gemma4"
+base_url = "http://127.0.0.1:11434"
+max_tokens = 4096
+
+[learning]
+enabled = true
+"#,
+        )
+        .expect("config should write");
+
+        let result = ensure_adapter_training_defaults_block(&paths).expect("default write");
+        assert_eq!(result, AdapterTrainingDefaultsWriteResult::Installed);
+        let raw = std::fs::read_to_string(&paths.config).expect("config should read");
+        assert!(raw.contains("# keep me"));
+        assert!(raw.contains("[learning.adapter_training]"));
+        assert!(raw.contains("enabled = false"));
+        assert!(raw.contains("capture_traces = false"));
+
+        let second = ensure_adapter_training_defaults_block(&paths).expect("second default write");
+        assert_eq!(second, AdapterTrainingDefaultsWriteResult::AlreadyPresent);
+
+        std::fs::write(
+            &paths.config,
+            r#"
+[model]
+provider = "ollama"
+model_id = "gemma4"
+base_url = "http://127.0.0.1:11434"
+max_tokens = 4096
+
+[learning.adapter_training]
+enabled = true
+"#,
+        )
+        .expect("partial adapter config should write");
+        let partial = ensure_adapter_training_defaults_block(&paths).expect("partial should skip");
+        assert_eq!(partial, AdapterTrainingDefaultsWriteResult::AlreadyPresent);
+        let raw = std::fs::read_to_string(&paths.config).expect("config should read");
+        assert!(raw.contains("enabled = true"));
+        assert!(!raw.contains("max_output_artifact_bytes"));
     }
 
     #[test]

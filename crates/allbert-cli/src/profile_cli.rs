@@ -42,6 +42,8 @@ struct ManifestCounts {
     skills: usize,
     trace_artifacts: usize,
     trace_bytes: u64,
+    adapters_installed: usize,
+    adapter_bytes: u64,
 }
 
 struct ImportEntry {
@@ -55,8 +57,13 @@ pub fn export_profile(
     paths: &AllbertPaths,
     destination: &Path,
     include_secrets: bool,
+    include_adapters: bool,
+    dry_run: bool,
     identity_id: Option<&str>,
 ) -> Result<String> {
+    if dry_run {
+        return render_export_dry_run(paths, destination, include_secrets, include_adapters);
+    }
     if let Some(parent) = destination.parent() {
         fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
     }
@@ -73,14 +80,26 @@ pub fn export_profile(
     if include_secrets {
         append_path_if_exists(&mut tar, &paths.secrets, Path::new("secrets"))?;
     }
+    if include_adapters {
+        append_path_if_exists(
+            &mut tar,
+            &paths.adapters_installed,
+            Path::new("adapters/installed"),
+        )?;
+        append_path_if_exists(
+            &mut tar,
+            &paths.adapters_active,
+            Path::new("adapters/active.json"),
+        )?;
+    }
 
     let manifest = ProfileManifest {
         version: PROFILE_FORMAT_VERSION.to_string(),
         exported_at: OffsetDateTime::now_utc().format(&Rfc3339)?,
         exported_from_host: hostname_guess(),
         identity_id: identity_id.map(|value| value.to_string()),
-        counts: collect_counts(paths)?,
-        excluded: excluded_paths(include_secrets),
+        counts: collect_counts(paths, include_adapters)?,
+        excluded: excluded_paths(include_secrets, include_adapters),
     };
     let manifest_json = serde_json::to_vec_pretty(&manifest)?;
     let mut header = Header::new_gnu();
@@ -92,10 +111,11 @@ pub fn export_profile(
     tar.finish()?;
 
     Ok(format!(
-        "exported profile to {}\nmanifest: {}\ninclude secrets: {}",
+        "exported profile to {}\nmanifest: {}\ninclude secrets: {}\ninclude adapters: {}",
         destination.display(),
         MANIFEST_PATH,
-        if include_secrets { "yes" } else { "no" }
+        if include_secrets { "yes" } else { "no" },
+        if include_adapters { "yes" } else { "no" }
     ))
 }
 
@@ -205,8 +225,12 @@ fn continuity_roots() -> Vec<&'static Path> {
     ]
 }
 
-fn excluded_paths(include_secrets: bool) -> Vec<String> {
+fn excluded_paths(include_secrets: bool, include_adapters: bool) -> Vec<String> {
     let mut excluded = vec![
+        "adapters/runs/".to_string(),
+        "adapters/incoming/".to_string(),
+        "adapters/runtime/".to_string(),
+        "adapters/history.jsonl".to_string(),
         "memory/index/".to_string(),
         "run/".to_string(),
         "logs/".to_string(),
@@ -216,6 +240,9 @@ fn excluded_paths(include_secrets: bool) -> Vec<String> {
     ];
     if !include_secrets {
         excluded.insert(0, "secrets/".to_string());
+    }
+    if !include_adapters {
+        excluded.insert(0, "adapters/".to_string());
     }
     excluded
 }
@@ -232,7 +259,7 @@ fn append_path_if_exists(tar: &mut Builder<GzEncoder<File>>, abs: &Path, rel: &P
     Ok(())
 }
 
-fn collect_counts(paths: &AllbertPaths) -> Result<ManifestCounts> {
+fn collect_counts(paths: &AllbertPaths, include_adapters: bool) -> Result<ManifestCounts> {
     let mut pending = 0usize;
     let mut resolved = 0usize;
     let approvals_root = &paths.sessions;
@@ -251,6 +278,11 @@ fn collect_counts(paths: &AllbertPaths) -> Result<ManifestCounts> {
         }
     }
     let (trace_artifacts, trace_bytes) = collect_trace_counts(paths)?;
+    let (adapters_installed, adapter_bytes) = if include_adapters {
+        collect_adapter_counts(paths)?
+    } else {
+        (0, 0)
+    };
     Ok(ManifestCounts {
         sessions: immediate_dir_count(&paths.sessions)?,
         approvals_pending: pending,
@@ -271,7 +303,51 @@ fn collect_counts(paths: &AllbertPaths) -> Result<ManifestCounts> {
         skills: immediate_dir_count(&paths.skills_installed)?,
         trace_artifacts,
         trace_bytes,
+        adapters_installed,
+        adapter_bytes,
     })
+}
+
+fn collect_adapter_counts(paths: &AllbertPaths) -> Result<(usize, u64)> {
+    let mut bytes = 0u64;
+    let installed = immediate_dir_count(&paths.adapters_installed)?;
+    for file in collect_files_recursive(&paths.adapters_installed)? {
+        bytes = bytes.saturating_add(fs::metadata(&file)?.len());
+    }
+    if paths.adapters_active.exists() {
+        bytes = bytes.saturating_add(fs::metadata(&paths.adapters_active)?.len());
+    }
+    Ok((installed, bytes))
+}
+
+fn render_export_dry_run(
+    paths: &AllbertPaths,
+    destination: &Path,
+    include_secrets: bool,
+    include_adapters: bool,
+) -> Result<String> {
+    let mut included = continuity_roots()
+        .into_iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>();
+    if include_secrets {
+        included.push("secrets/".into());
+    }
+    if include_adapters {
+        included.push("adapters/installed/".into());
+        included.push("adapters/active.json".into());
+    }
+    let counts = collect_counts(paths, include_adapters)?;
+    Ok(format!(
+        "profile export dry run\ndestination: {}\ninclude secrets: {}\ninclude adapters: {}\nincluded:\n  - {}\nexcluded:\n  - {}\nadapters installed: {}\nadapter bytes: {}",
+        destination.display(),
+        if include_secrets { "yes" } else { "no" },
+        if include_adapters { "yes" } else { "no" },
+        included.join("\n  - "),
+        excluded_paths(include_secrets, include_adapters).join("\n  - "),
+        counts.adapters_installed,
+        counts.adapter_bytes
+    ))
 }
 
 fn collect_trace_counts(paths: &AllbertPaths) -> Result<(usize, u64)> {
@@ -447,7 +523,8 @@ mod tests {
         std::fs::write(paths.memory_notes.join("sample.md"), "# Sample\n")
             .expect("sample note should write");
         let archive = temp.path.join("profile.tgz");
-        export_profile(&paths, &archive, false, Some("usr_test")).expect("export should succeed");
+        export_profile(&paths, &archive, false, false, false, Some("usr_test"))
+            .expect("export should succeed");
 
         std::fs::remove_file(paths.memory_notes.join("sample.md"))
             .expect("sample note should delete");
@@ -474,7 +551,8 @@ mod tests {
         .expect("approval should write");
 
         let archive = temp.path.join("profile-approval.tgz");
-        export_profile(&paths, &archive, false, Some("usr_test")).expect("export should succeed");
+        export_profile(&paths, &archive, false, false, false, Some("usr_test"))
+            .expect("export should succeed");
 
         std::fs::remove_file(approval_dir.join("approval-1.md")).expect("approval should delete");
         let rendered = import_profile(&paths, &config, &archive, ImportMode::Overlay, false)
@@ -498,7 +576,8 @@ mod tests {
         std::fs::write(paths.traces.join("legacy.log"), "debug only").expect("legacy trace writes");
 
         let archive = temp.path.join("profile-trace.tgz");
-        export_profile(&paths, &archive, false, Some("usr_test")).expect("export should succeed");
+        export_profile(&paths, &archive, false, false, false, Some("usr_test"))
+            .expect("export should succeed");
 
         let file = File::open(&archive).expect("archive should open");
         let mut archive = Archive::new(GzDecoder::new(file));
@@ -528,13 +607,54 @@ mod tests {
     }
 
     #[test]
+    fn profile_export_includes_adapters_only_when_requested() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should ensure");
+        let installed = paths.adapters_installed.join("adapter-1");
+        std::fs::create_dir_all(&installed).expect("installed adapter dir");
+        std::fs::write(installed.join("adapter.toml"), "id = \"adapter-1\"\n")
+            .expect("adapter manifest");
+        std::fs::write(&paths.adapters_active, "{\"adapter_id\":\"adapter-1\"}\n")
+            .expect("active pointer");
+        std::fs::write(&paths.adapters_history, "{}\n").expect("history");
+        std::fs::write(
+            paths.adapters_runtime.join("derived.Modelfile"),
+            "FROM base\n",
+        )
+        .expect("runtime");
+
+        let excluded_archive = temp.path.join("profile-no-adapters.tgz");
+        export_profile(&paths, &excluded_archive, false, false, false, None)
+            .expect("export should succeed");
+        let excluded_entries = archive_entries(&excluded_archive);
+        assert!(!excluded_entries.contains(&"adapters/installed/adapter-1/adapter.toml".into()));
+        assert!(!excluded_entries.contains(&"adapters/active.json".into()));
+
+        let included_archive = temp.path.join("profile-with-adapters.tgz");
+        export_profile(&paths, &included_archive, false, true, false, None)
+            .expect("export should succeed");
+        let included_entries = archive_entries(&included_archive);
+        assert!(included_entries.contains(&"adapters/installed/adapter-1/adapter.toml".into()));
+        assert!(included_entries.contains(&"adapters/active.json".into()));
+        assert!(!included_entries.contains(&"adapters/history.jsonl".into()));
+        assert!(!included_entries.contains(&"adapters/runtime/derived.Modelfile".into()));
+
+        let dry_run =
+            export_profile(&paths, &included_archive, false, true, true, None).expect("dry run");
+        assert!(dry_run.contains("include adapters: yes"));
+        assert!(dry_run.contains("adapters installed: 1"));
+        assert!(dry_run.contains("adapters/runs/"));
+    }
+
+    #[test]
     fn replace_requires_yes() {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().expect("paths should ensure");
         let config = Config::default_template();
         let archive = temp.path.join("empty.tgz");
-        export_profile(&paths, &archive, false, None).expect("export should succeed");
+        export_profile(&paths, &archive, false, false, false, None).expect("export should succeed");
 
         let err = import_profile(&paths, &config, &archive, ImportMode::Replace, false)
             .expect_err("replace should require yes");
@@ -550,7 +670,7 @@ mod tests {
 
         std::fs::write(paths.memory_notes.join("kept.md"), "# Kept\n").expect("kept note writes");
         let archive = temp.path.join("replace.tgz");
-        export_profile(&paths, &archive, false, None).expect("export should succeed");
+        export_profile(&paths, &archive, false, false, false, None).expect("export should succeed");
 
         std::fs::write(paths.memory_notes.join("local-only.md"), "# Local only\n")
             .expect("local-only note writes");
@@ -576,11 +696,28 @@ mod tests {
         paths.ensure().expect("paths should ensure");
         let config = Config::default_template();
         let archive = temp.path.join("daemon-lock.tgz");
-        export_profile(&paths, &archive, false, None).expect("export should succeed");
+        export_profile(&paths, &archive, false, false, false, None).expect("export should succeed");
 
         std::fs::write(paths.daemon_lock.clone(), "{\"pid\":1}").expect("daemon lock should write");
         let err = import_profile(&paths, &config, &archive, ImportMode::Replace, true)
             .expect_err("daemon lock should block import");
         assert!(err.to_string().contains("daemon.lock"));
+    }
+
+    fn archive_entries(path: &Path) -> Vec<String> {
+        let file = File::open(path).expect("archive should open");
+        let mut archive = Archive::new(GzDecoder::new(file));
+        archive
+            .entries()
+            .expect("archive entries")
+            .map(|entry| {
+                entry
+                    .expect("entry")
+                    .path()
+                    .expect("entry path")
+                    .display()
+                    .to_string()
+            })
+            .collect()
     }
 }

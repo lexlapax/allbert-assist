@@ -2,16 +2,18 @@ use std::collections::HashSet;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use allbert_kernel::{
     atomic_write, AllbertPaths, Config, Provider, ReplUiMode, StatusLineItem, CURRENT_SETUP_VERSION,
 };
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 
 const PLACEHOLDER_UNKNOWN: &str = "Unknown";
 const PLACEHOLDER_BOOTSTRAP: &str = "Fill this in during bootstrap.";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SetupAnswers {
     pub provider: Provider,
     pub model_id: String,
@@ -36,6 +38,40 @@ pub struct SetupAnswers {
     pub trace_session_disk_cap_mb: u16,
     pub trace_total_disk_cap_mb: u32,
     pub trace_retention_days: u16,
+    pub adapter_training: AdapterTrainingSetupAnswers,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AdapterTrainingSetupAnswers {
+    pub enabled: bool,
+    pub allowed_backends: Vec<String>,
+    pub default_backend: Option<String>,
+    pub exec_allow: Vec<String>,
+    pub compute_cap_wall_seconds: Option<u64>,
+    pub capture_traces: bool,
+}
+
+impl Default for AdapterTrainingSetupAnswers {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            allowed_backends: Vec::new(),
+            default_backend: None,
+            exec_allow: Vec::new(),
+            compute_cap_wall_seconds: Some(7_200),
+            capture_traces: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SetupState {
+    schema_version: u8,
+    current_step: String,
+    #[serde(default)]
+    answers: Option<SetupAnswers>,
+    #[serde(default)]
+    adapter_training: Option<AdapterTrainingSetupAnswers>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,8 +101,35 @@ pub fn needs_setup(config: &Config, paths: &AllbertPaths) -> bool {
 }
 
 pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<Config>> {
+    run_setup_wizard_with_resume(paths, config, false)
+}
+
+pub fn run_setup_wizard_with_resume(
+    paths: &AllbertPaths,
+    config: &Config,
+    resume: bool,
+) -> Result<Option<Config>> {
     println!("Allbert setup");
     println!("Type /cancel at any prompt to stop setup.\n");
+
+    if resume {
+        if let Some(state) = load_setup_state(paths, config)? {
+            if state.current_step == "adapter_training" {
+                if let Some(mut answers) = state.answers {
+                    println!("Resuming setup at local personalization.");
+                    answers.adapter_training = match prompt_adapter_training(paths, config)? {
+                        Some(value) => value,
+                        None => return Ok(None),
+                    };
+                    persist_setup_state(paths, config, "complete", Some(&answers), None)?;
+                    let mut updated = config.clone();
+                    apply_setup_answers(paths, &mut updated, &answers)?;
+                    println!("\nSetup saved. Inspect personalization later with `/settings show learning.adapter_training` or `allbert-cli adapters --help`.\n");
+                    return Ok(Some(updated));
+                }
+            }
+        }
+    }
 
     let user_raw = read_file_or_empty(&paths.user);
     let identity_raw = read_file_or_empty(&paths.identity);
@@ -290,7 +353,7 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         paths.sessions.display()
     );
 
-    let answers = SetupAnswers {
+    let mut answers = SetupAnswers {
         provider,
         model_id,
         api_key_env,
@@ -314,11 +377,18 @@ pub fn run_setup_wizard(paths: &AllbertPaths, config: &Config) -> Result<Option<
         trace_session_disk_cap_mb,
         trace_total_disk_cap_mb,
         trace_retention_days,
+        adapter_training: AdapterTrainingSetupAnswers::default(),
     };
+    persist_setup_state(paths, config, "adapter_training", Some(&answers), None)?;
+    answers.adapter_training = match prompt_adapter_training(paths, config)? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    persist_setup_state(paths, config, "complete", Some(&answers), None)?;
 
     let mut updated = config.clone();
     apply_setup_answers(paths, &mut updated, &answers)?;
-    println!("\nSetup saved. Inspect trace settings later with `/settings show trace` or `allbert-cli trace --help`.\n");
+    println!("\nSetup saved. Inspect trace settings later with `/settings show trace` or `allbert-cli trace --help`. Inspect personalization with `/settings show learning.adapter_training` or `allbert-cli adapters --help`.\n");
     Ok(Some(updated))
 }
 
@@ -358,6 +428,23 @@ pub fn apply_setup_answers(
     config.trace.session_disk_cap_mb = answers.trace_session_disk_cap_mb;
     config.trace.total_disk_cap_mb = answers.trace_total_disk_cap_mb;
     config.trace.retention_days = answers.trace_retention_days;
+    config.learning.adapter_training.enabled = answers.adapter_training.enabled;
+    config.learning.adapter_training.allowed_backends =
+        answers.adapter_training.allowed_backends.clone();
+    config.learning.adapter_training.default_backend =
+        answers.adapter_training.default_backend.clone();
+    config.learning.compute_cap_wall_seconds = answers.adapter_training.compute_cap_wall_seconds;
+    config.learning.adapter_training.capture_traces = answers.adapter_training.capture_traces;
+    for program in &answers.adapter_training.exec_allow {
+        if !config
+            .security
+            .exec_allow
+            .iter()
+            .any(|allowed| allowed == program)
+        {
+            config.security.exec_allow.push(program.clone());
+        }
+    }
     config.setup.version = CURRENT_SETUP_VERSION;
     config.persist(paths)?;
     enable_bundled_jobs(paths, &answers.enabled_bundled_jobs)?;
@@ -589,6 +676,25 @@ fn prompt_u32(label: &str, default: u32, min: u32, max: u32) -> Result<Option<u3
     }
 }
 
+fn prompt_u64_optional_zero_disables(
+    label: &str,
+    default: u64,
+    min: u64,
+    max: u64,
+) -> Result<Option<Option<u64>>> {
+    loop {
+        let raw = match prompt_line(label, Some(&default.to_string()))? {
+            PromptLine::Cancelled => return Ok(None),
+            PromptLine::Submitted(value) => value,
+        };
+        match raw.parse::<u64>() {
+            Ok(0) => return Ok(Some(None)),
+            Ok(value) if (min..=max).contains(&value) => return Ok(Some(Some(value))),
+            _ => println!("{label} must be 0 or between {min} and {max}."),
+        }
+    }
+}
+
 fn prompt_trusted_roots(cwd: &Path, current_roots: &[PathBuf]) -> Result<Option<Vec<PathBuf>>> {
     println!("\nTrusted roots control which directories Allbert's file tools may read and write.");
     if current_roots.is_empty() {
@@ -727,6 +833,169 @@ fn enable_bundled_jobs(paths: &AllbertPaths, selected: &[String]) -> Result<()> 
             .with_context(|| format!("write {}", destination.display()))?;
     }
     Ok(())
+}
+
+fn prompt_adapter_training(
+    paths: &AllbertPaths,
+    config: &Config,
+) -> Result<Option<AdapterTrainingSetupAnswers>> {
+    println!(
+        "\nLocal personalization is optional and trains review-first adapters on this machine."
+    );
+    println!(
+        "Hosted providers ignore active adapters. Local training requires both `learning.adapter_training.allowed_backends` and `security.exec_allow`."
+    );
+    let enabled = match prompt_yes_no(
+        "Enable local adapter training for this profile?",
+        config.learning.adapter_training.enabled,
+    )? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+
+    let mut answers = AdapterTrainingSetupAnswers {
+        enabled,
+        compute_cap_wall_seconds: config.learning.compute_cap_wall_seconds,
+        capture_traces: config.learning.adapter_training.capture_traces,
+        ..AdapterTrainingSetupAnswers::default()
+    };
+
+    if enabled {
+        let detected = detect_adapter_training_backends();
+        if detected.is_empty() {
+            println!(
+                "No supported real trainer backend was detected on PATH. Adapter training will stay disabled until you allowlist one with settings."
+            );
+            answers.enabled = false;
+        } else {
+            println!(
+                "Detected trainer backends:\n  - {}",
+                detected
+                    .iter()
+                    .map(|backend| format!("{} ({})", backend.id, backend.exec_allow))
+                    .collect::<Vec<_>>()
+                    .join("\n  - ")
+            );
+            let default_backend = config
+                .learning
+                .adapter_training
+                .default_backend
+                .as_deref()
+                .filter(|backend| detected.iter().any(|candidate| candidate.id == *backend))
+                .unwrap_or(detected[0].id);
+            let selected = loop {
+                match prompt_optional("Adapter trainer backend", Some(default_backend))? {
+                    Some(Some(value)) => {
+                        if let Some(backend) = detected.iter().find(|backend| backend.id == value) {
+                            break *backend;
+                        }
+                        println!(
+                            "Backend must be one of: {}.",
+                            detected
+                                .iter()
+                                .map(|backend| backend.id)
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        );
+                    }
+                    Some(None) => {
+                        answers.enabled = false;
+                        break DetectedAdapterBackend {
+                            id: "",
+                            exec_allow: "",
+                        };
+                    }
+                    None => return Ok(None),
+                }
+            };
+            if answers.enabled {
+                answers.allowed_backends = vec![selected.id.to_string()];
+                answers.default_backend = Some(selected.id.to_string());
+                answers.exec_allow = vec![selected.exec_allow.to_string()];
+            }
+        }
+    }
+
+    answers.compute_cap_wall_seconds = match prompt_u64_optional_zero_disables(
+        "Daily local-training compute cap in seconds",
+        config.learning.compute_cap_wall_seconds.unwrap_or(7_200),
+        60,
+        86_400,
+    )? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    answers.capture_traces = match prompt_yes_no(
+        "Include redacted trace excerpts in adapter training corpus?",
+        config.learning.adapter_training.capture_traces,
+    )? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    println!(
+        "Personalization summary: enabled={}, backends={}, capture_traces={}. Inspect later with `/settings show learning.adapter_training`, `allbert-cli adapters --help`, or `allbert-cli adapters training preview`.",
+        if answers.enabled { "yes" } else { "no" },
+        if answers.allowed_backends.is_empty() {
+            "(none)".into()
+        } else {
+            answers.allowed_backends.join(", ")
+        },
+        if answers.capture_traces { "yes" } else { "no" }
+    );
+    persist_setup_state(paths, config, "adapter_training", None, Some(&answers))?;
+    Ok(Some(answers))
+}
+
+#[derive(Clone, Copy)]
+struct DetectedAdapterBackend {
+    id: &'static str,
+    exec_allow: &'static str,
+}
+
+fn detect_adapter_training_backends() -> Vec<DetectedAdapterBackend> {
+    let mut detected = Vec::new();
+    if python_has_mlx_lm() {
+        detected.push(DetectedAdapterBackend {
+            id: "mlx-lm-lora",
+            exec_allow: "python3",
+        });
+    }
+    if command_on_path("llama-cpp-finetune") {
+        detected.push(DetectedAdapterBackend {
+            id: "llama-cpp-finetune",
+            exec_allow: "llama-cpp-finetune",
+        });
+    }
+    if std::env::var_os("ALLBERT_DEV_FAKE_ADAPTER_TRAINER").is_some() {
+        detected.push(DetectedAdapterBackend {
+            id: "fake",
+            exec_allow: "fake-adapter-trainer",
+        });
+    }
+    detected
+}
+
+fn python_has_mlx_lm() -> bool {
+    if !command_on_path("python3") {
+        return false;
+    }
+    Command::new("python3")
+        .args(["-c", "import mlx_lm"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn command_on_path(command: &str) -> bool {
+    let Some(path) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&path).any(|dir| {
+        let candidate = dir.join(command);
+        candidate.is_file()
+    })
 }
 
 fn list_job_templates(root: &Path) -> Result<Vec<String>> {
@@ -899,6 +1168,47 @@ fn read_file_or_empty(path: &Path) -> String {
     fs::read_to_string(path).unwrap_or_default()
 }
 
+fn setup_state_path(paths: &AllbertPaths, config: &Config) -> PathBuf {
+    paths.root.join(&config.setup.state_path)
+}
+
+fn load_setup_state(paths: &AllbertPaths, config: &Config) -> Result<Option<SetupState>> {
+    let path = setup_state_path(paths, config);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+    let state =
+        toml::from_str::<SetupState>(&raw).with_context(|| format!("parse {}", path.display()))?;
+    Ok(Some(state))
+}
+
+fn persist_setup_state(
+    paths: &AllbertPaths,
+    config: &Config,
+    current_step: &str,
+    answers: Option<&SetupAnswers>,
+    adapter_training: Option<&AdapterTrainingSetupAnswers>,
+) -> Result<()> {
+    let path = setup_state_path(paths, config);
+    let mut state = load_setup_state(paths, config)?.unwrap_or(SetupState {
+        schema_version: 1,
+        current_step: current_step.into(),
+        answers: None,
+        adapter_training: None,
+    });
+    state.schema_version = 1;
+    state.current_step = current_step.into();
+    if let Some(answers) = answers {
+        state.answers = Some(answers.clone());
+    }
+    if let Some(adapter_training) = adapter_training {
+        state.adapter_training = Some(adapter_training.clone());
+    }
+    let rendered = toml::to_string_pretty(&state).context("serialize setup state")?;
+    atomic_write(&path, rendered.as_bytes()).with_context(|| format!("write {}", path.display()))
+}
+
 fn extract_section_value(content: &str, heading: &str) -> Option<String> {
     let header = format!("## {heading}");
     let lines = content.lines().collect::<Vec<_>>();
@@ -1066,6 +1376,14 @@ mod tests {
             trace_session_disk_cap_mb: 25,
             trace_total_disk_cap_mb: 1024,
             trace_retention_days: 14,
+            adapter_training: AdapterTrainingSetupAnswers {
+                enabled: true,
+                allowed_backends: vec!["fake".into()],
+                default_backend: Some("fake".into()),
+                exec_allow: vec!["fake-adapter-trainer".into()],
+                compute_cap_wall_seconds: Some(3_600),
+                capture_traces: true,
+            },
         }
     }
 
@@ -1090,6 +1408,22 @@ mod tests {
         assert!(!config.trace.capture_messages);
         assert_eq!(config.trace.session_disk_cap_mb, 25);
         assert_eq!(config.trace.total_disk_cap_mb, 1024);
+        assert!(config.learning.adapter_training.enabled);
+        assert_eq!(
+            config.learning.adapter_training.allowed_backends,
+            vec!["fake"]
+        );
+        assert_eq!(
+            config.learning.adapter_training.default_backend.as_deref(),
+            Some("fake")
+        );
+        assert_eq!(config.learning.compute_cap_wall_seconds, Some(3_600));
+        assert!(config.learning.adapter_training.capture_traces);
+        assert!(config
+            .security
+            .exec_allow
+            .iter()
+            .any(|entry| entry == "fake-adapter-trainer"));
         assert_eq!(config.trace.retention_days, 14);
         assert_eq!(
             config.model.base_url.as_deref(),
@@ -1119,6 +1453,39 @@ mod tests {
         assert_eq!(loaded.repl.ui, ReplUiMode::Tui);
         assert!(loaded.daemon.auto_spawn);
         assert!(loaded.jobs.enabled);
+    }
+
+    #[test]
+    fn setup_state_persists_adapter_training_resume_block() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().expect("paths should be created");
+        let config = Config::default_template();
+        let workspace = temp.path.join("workspace");
+        fs::create_dir_all(&workspace).expect("workspace should exist");
+        let answers = sample_answers(&workspace);
+
+        persist_setup_state(
+            &paths,
+            &config,
+            "adapter_training",
+            Some(&answers),
+            Some(&answers.adapter_training),
+        )
+        .expect("setup state should write");
+        let loaded = load_setup_state(&paths, &config)
+            .expect("state should read")
+            .expect("state should exist");
+
+        assert_eq!(loaded.current_step, "adapter_training");
+        assert!(loaded.answers.is_some());
+        assert_eq!(
+            loaded
+                .adapter_training
+                .expect("adapter block")
+                .default_backend,
+            Some("fake".into())
+        );
     }
 
     #[test]

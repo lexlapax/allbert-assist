@@ -339,17 +339,25 @@ fn training_plan(
         },
         corpus,
         hyperparameters: AdapterHyperparameters {
-            rank: 8,
-            alpha: 16,
-            learning_rate: 0.0002,
-            max_steps: 4,
-            batch_size: 1,
-            seed: 42,
+            rank: ctx.config.learning.adapter_training.default_lora_rank,
+            alpha: ctx.config.learning.adapter_training.default_alpha,
+            learning_rate: ctx
+                .config
+                .learning
+                .adapter_training
+                .default_learning_rate
+                .parse()
+                .unwrap_or(0.0001),
+            max_steps: ctx.config.learning.adapter_training.default_max_steps,
+            batch_size: ctx.config.learning.adapter_training.default_batch_size,
+            seed: ctx.config.learning.adapter_training.default_seed,
         },
         compute_used_today_seconds: 0,
         compute_cap_wall_seconds: ctx.config.learning.compute_cap_wall_seconds,
-        total_steps: 4,
+        total_steps: ctx.config.learning.adapter_training.default_max_steps,
         estimated_peak_resident_mb: 256,
+        max_log_bytes: ctx.config.learning.adapter_training.max_log_bytes,
+        cancel_grace_seconds: ctx.config.learning.adapter_training.cancel_grace_seconds,
     }
 }
 
@@ -570,8 +578,15 @@ fn corpus_summary_for_snapshot(
     }
 }
 
-fn adapter_corpus_config(_config: &Config) -> AdapterCorpusConfig {
-    AdapterCorpusConfig::default()
+fn adapter_corpus_config(config: &Config) -> AdapterCorpusConfig {
+    AdapterCorpusConfig {
+        max_input_bytes: config.learning.adapter_training.max_input_bytes,
+        max_episode_summaries: config.learning.adapter_training.max_episode_summaries,
+        capture_traces: config.learning.adapter_training.capture_traces,
+        include_tiers: config.learning.adapter_training.include_tiers.clone(),
+        include_episodes: config.learning.adapter_training.include_episodes,
+        ..AdapterCorpusConfig::default()
+    }
 }
 
 fn min_golden_pass_rate(config: &Config) -> f64 {
@@ -671,6 +686,9 @@ mod tests {
         let mut config = Config::default_template();
         config.model.provider = Provider::Ollama;
         config.model.model_id = "gemma4".into();
+        config.learning.adapter_training.default_max_steps = 4;
+        config.learning.adapter_training.default_batch_size = 1;
+        config.learning.adapter_training.default_learning_rate = "0.0002".into();
         config
     }
 

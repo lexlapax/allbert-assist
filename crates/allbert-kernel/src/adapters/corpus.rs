@@ -12,6 +12,8 @@ pub struct AdapterCorpusConfig {
     pub max_episode_summaries: usize,
     pub max_trace_bytes_per_session: usize,
     pub capture_traces: bool,
+    pub include_tiers: Vec<String>,
+    pub include_episodes: bool,
 }
 
 impl Default for AdapterCorpusConfig {
@@ -21,6 +23,8 @@ impl Default for AdapterCorpusConfig {
             max_episode_summaries: 64,
             max_trace_bytes_per_session: 64 * 1024,
             capture_traces: false,
+            include_tiers: vec!["durable".into(), "fact".into()],
+            include_episodes: true,
         }
     }
 }
@@ -49,7 +53,9 @@ pub fn build_adapter_corpus(
     builder.add_file("soul", "bootstrap", &paths.soul)?;
     builder.add_file("personality", "personality", &paths.personality)?;
     builder.add_durable_memory()?;
-    builder.add_episode_summaries()?;
+    if config.include_episodes {
+        builder.add_episode_summaries()?;
+    }
     if config.capture_traces {
         builder.add_trace_excerpts()?;
     }
@@ -86,12 +92,22 @@ impl<'a> CorpusBuilder<'a> {
         if !self.paths.memory_notes.exists() {
             return Ok(());
         }
+        let include_durable = self
+            .config
+            .include_tiers
+            .iter()
+            .any(|tier| tier == "durable");
+        let include_fact = self.config.include_tiers.iter().any(|tier| tier == "fact");
         for path in markdown_files(&self.paths.memory_notes)? {
             let content = read_text(&path)?;
-            for fact in extract_fact_items(&content) {
-                self.push_item("fact", "memory-frontmatter", &path, fact);
+            if include_fact {
+                for fact in extract_fact_items(&content) {
+                    self.push_item("fact", "memory-frontmatter", &path, fact);
+                }
             }
-            self.push_item("durable", "memory-note", &path, content);
+            if include_durable {
+                self.push_item("durable", "memory-note", &path, content);
+            }
         }
         Ok(())
     }

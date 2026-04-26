@@ -59,15 +59,16 @@ pub use command_catalog::{
     CommandGroupDescriptor, CommandSurface,
 };
 pub use config::{
-    ensure_trace_defaults_block, restore_last_good_config, write_last_good_config, ActivityConfig,
-    AdapterTrainingConfig, Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig,
-    JobsConfig, LearningConfig, LimitsConfig, MemoryConfig, MemoryEpisodesConfig,
-    MemoryFactsConfig, MemoryRoutingConfig, MemoryRoutingMode, MemorySemanticConfig, ModelConfig,
-    OperatorUxConfig, PersonalityDigestConfig, Provider, ReplConfig, ReplUiMode, ScriptingConfig,
-    ScriptingEngineConfig, SecurityConfig, SelfImprovementConfig, SelfImprovementInstallMode,
-    SessionsConfig, SetupConfig, StatusLineConfig, StatusLineItem, TraceConfig,
-    TraceDefaultsWriteResult, TraceFieldPolicy, TraceRedactionConfig, TuiConfig, TuiSpinnerStyle,
-    WebSecurityConfig, CURRENT_SETUP_VERSION,
+    ensure_adapter_training_defaults_block, ensure_trace_defaults_block, restore_last_good_config,
+    write_last_good_config, ActivityConfig, AdapterTrainingConfig,
+    AdapterTrainingDefaultsWriteResult, Config, CrossChannelRouting, DaemonConfig,
+    IntentClassifierConfig, JobsConfig, LearningConfig, LimitsConfig, MemoryConfig,
+    MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig, MemoryRoutingMode,
+    MemorySemanticConfig, ModelConfig, OperatorUxConfig, PersonalityDigestConfig, Provider,
+    ReplConfig, ReplUiMode, ScriptingConfig, ScriptingEngineConfig, SecurityConfig,
+    SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig, SetupConfig,
+    StatusLineConfig, StatusLineItem, TraceConfig, TraceDefaultsWriteResult, TraceFieldPolicy,
+    TraceRedactionConfig, TuiConfig, TuiSpinnerStyle, WebSecurityConfig, CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{

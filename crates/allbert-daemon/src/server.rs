@@ -547,6 +547,9 @@ pub async fn spawn_with_factory(
     std::fs::create_dir_all(&log_dir)?;
     let trace_defaults_write = allbert_kernel::ensure_trace_defaults_block(&paths)
         .map_err(|err| DaemonError::Protocol(err.to_string()))?;
+    let adapter_training_defaults_write =
+        allbert_kernel::ensure_adapter_training_defaults_block(&paths)
+            .map_err(|err| DaemonError::Protocol(err.to_string()))?;
     let lock_record = acquire_daemon_lock(&paths)?;
 
     prepare_socket_dir(&socket_path)?;
@@ -612,6 +615,17 @@ pub async fn spawn_with_factory(
             &format!("Trace defaults not installed: {hint}"),
         )?,
         allbert_kernel::TraceDefaultsWriteResult::AlreadyPresent => {}
+    }
+    match adapter_training_defaults_write {
+        allbert_kernel::AdapterTrainingDefaultsWriteResult::Installed => append_log_line(
+            &state.log_path,
+            "Adapter training defaults installed (enabled=false). Use `/settings show learning.adapter_training` or `allbert-cli adapters --help` to inspect.",
+        )?,
+        allbert_kernel::AdapterTrainingDefaultsWriteResult::Skipped { hint } => append_log_line(
+            &state.log_path,
+            &format!("Adapter training defaults not installed: {hint}"),
+        )?,
+        allbert_kernel::AdapterTrainingDefaultsWriteResult::AlreadyPresent => {}
     }
 
     if let Err(error) = spawn_telegram_pilot(state.clone()).await {

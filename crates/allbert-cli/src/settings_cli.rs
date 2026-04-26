@@ -33,6 +33,13 @@ pub fn show(config: &Config, key: &str) -> Result<String> {
         .into_iter()
         .find(|view| view.key == trimmed);
     let Some(view) = view else {
+        let prefix = format!("{trimmed}.");
+        if settings_for_config(config)
+            .iter()
+            .any(|view| view.key.starts_with(&prefix))
+        {
+            return Ok(list_by_prefix(config, trimmed));
+        }
         if parse_group(trimmed).is_ok() {
             return list(config, Some(trimmed));
         }
@@ -64,6 +71,9 @@ pub fn explain(group: &str) -> Result<String> {
         SettingsGroup::Memory => "examples: memory.prefetch_enabled, memory.trash_retention_days",
         SettingsGroup::Learning => {
             "examples: learning.enabled, learning.personality_digest.output_path"
+        }
+        SettingsGroup::Personalization => {
+            "examples: learning.adapter_training.enabled, learning.adapter_training.allowed_backends"
         }
         SettingsGroup::SelfImprovement => {
             "examples: self_improvement.source_checkout, scripting.engine"
@@ -121,9 +131,32 @@ fn group_description(group: SettingsGroup) -> &'static str {
         }
         SettingsGroup::Memory => "Memory routing, retention, and retrieval posture.",
         SettingsGroup::Learning => "Reviewed learning and personality digest behavior.",
+        SettingsGroup::Personalization => {
+            "Local personalization adapters, corpus inputs, and trainer limits."
+        }
         SettingsGroup::SelfImprovement => "Review-first rebuild, scripting, and worktree posture.",
         SettingsGroup::Providers => "Non-secret model provider defaults.",
     }
+}
+
+fn list_by_prefix(config: &Config, prefix: &str) -> String {
+    let prefix = format!("{}.", prefix.trim_end_matches('.'));
+    let rows = settings_for_config(config)
+        .into_iter()
+        .filter(|view| view.key.starts_with(&prefix))
+        .map(|view| {
+            format!(
+                "{} [{}]\n  current: {}\n  default: {}\n  restart: {}\n  privacy: {}",
+                view.key,
+                view.group.id(),
+                render_value(&view.current_value, view.redaction),
+                render_value(&view.default_value, view.redaction),
+                view.restart.label(),
+                view.redaction.label()
+            )
+        })
+        .collect::<Vec<_>>();
+    rows.join("\n\n")
 }
 
 fn render_value(value: &str, redaction: SettingRedactionPolicy) -> String {

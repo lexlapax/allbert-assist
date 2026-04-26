@@ -10,7 +10,7 @@ use crate::adapters::manifest::{write_adapter_manifest, MANIFEST_FILE};
 use crate::adapters::trainer::{
     capture_trainer_output, ensure_trainer_allowed, minimal_trainer_env, AdapterTrainer,
     CancellationToken, TrainerCommand, TrainerError, TrainerHooks, TrainerProgress,
-    TrainingOutcome, TrainingPlan, TRAINER_STDIO_CAPTURE_BYTES,
+    TrainingOutcome, TrainingPlan,
 };
 use crate::{atomic_write, AllbertPaths, Config};
 
@@ -95,7 +95,7 @@ impl AdapterTrainer for MlxLoraTrainer {
         .map_err(|source| TrainerError::io(&corpus_path, source))?;
         let command = self.command_for_plan(plan);
         ensure_trainer_allowed(&self.config, self.backend_id(), &command)?;
-        let output = run_command(&self.paths, &command)?;
+        let output = run_command(&self.paths, &command, plan.max_log_bytes)?;
         write_captured_output(plan, &output)?;
         if output.status_success {
             materialize_manifest(
@@ -124,6 +124,7 @@ struct TrainerProcessOutput {
 fn run_command(
     paths: &AllbertPaths,
     command: &TrainerCommand,
+    max_log_bytes: usize,
 ) -> Result<TrainerProcessOutput, TrainerError> {
     let mut process = Command::new(&command.program);
     process
@@ -138,8 +139,7 @@ fn run_command(
     let output = process
         .output()
         .map_err(|source| TrainerError::io(&command.program, source))?;
-    let captured =
-        capture_trainer_output(&output.stdout, &output.stderr, TRAINER_STDIO_CAPTURE_BYTES);
+    let captured = capture_trainer_output(&output.stdout, &output.stderr, max_log_bytes);
     Ok(TrainerProcessOutput {
         stdout: captured.stdout,
         stderr: captured.stderr,

@@ -15,7 +15,7 @@ use crate::adapters::corpus::AdapterCorpusSnapshot;
 use crate::security::{exec_policy, NormalizedExec, PolicyDecision};
 use crate::{AllbertPaths, Config};
 
-pub const TRAINER_STDIO_CAPTURE_BYTES: usize = 64 * 1024;
+pub const TRAINER_STDIO_CAPTURE_BYTES: usize = 16 * 1024 * 1024;
 pub const TRAINER_TRUNCATION_MARKER: &str = "\n<truncated:trainer-output>\n";
 
 pub type TrainerProgressCallback =
@@ -44,6 +44,8 @@ pub struct TrainingPlan {
     pub compute_cap_wall_seconds: Option<u64>,
     pub total_steps: u32,
     pub estimated_peak_resident_mb: u64,
+    pub max_log_bytes: usize,
+    pub cancel_grace_seconds: u64,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]

@@ -420,6 +420,10 @@ enum ProfileCommand {
         #[arg(long)]
         include_secrets: bool,
         #[arg(long)]
+        include_adapters: bool,
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long)]
         identity: Option<String>,
     },
     Import {
@@ -601,8 +605,8 @@ async fn run_cli() -> Result<()> {
             run_skills_command(Some(&paths), Some(&config), command).await
         }
         Some(Command::Settings { command }) => run_settings_command(&paths, &config, command),
-        Some(Command::Setup { resume: _ }) => {
-            match setup::run_setup_wizard(&paths, &config)? {
+        Some(Command::Setup { resume }) => {
+            match setup::run_setup_wizard_with_resume(&paths, &config, resume)? {
                 Some(updated) => {
                     updated.persist(&paths)?;
                     println!(
@@ -1514,12 +1518,16 @@ fn run_profile_command(
         ProfileCommand::Export {
             path,
             include_secrets,
+            include_adapters,
+            dry_run,
             identity,
         } => {
             let rendered = profile_cli::export_profile(
                 paths,
                 Path::new(&path),
                 include_secrets,
+                include_adapters,
+                dry_run,
                 identity.as_deref(),
             )?;
             println!("{rendered}");
