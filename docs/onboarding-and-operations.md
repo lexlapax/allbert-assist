@@ -1,6 +1,6 @@
-# Allbert v0.14.0 Onboarding and Operations
+# Allbert v0.14.1 Onboarding and Operations
 
-This guide is the operator reference for the source-based v0.14.0 release.
+This guide is the operator reference for the source-based v0.14.1 release.
 
 ## Quickstart
 
@@ -70,7 +70,7 @@ This is intentional. Allbert still prefers explicit workspace trust over permiss
 
 ## Example config
 
-`~/.allbert/config.toml` is written automatically. A typical fresh v0.14.0 file looks like:
+`~/.allbert/config.toml` is written automatically. A typical fresh v0.14.1 file looks like:
 
 ```toml
 trace = false
@@ -453,7 +453,7 @@ Notes:
 
 ## Telegram channel
 
-Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.14.0 end-user release.
+Telegram first shipped as the non-REPL channel in v0.8 and remains part of the v0.14.1 end-user release.
 
 Setup:
 
@@ -634,7 +634,7 @@ Workflow summary:
 
 Use the assistant naturally, but remember the architecture rule: durable recall comes from curated memory files, not hidden long-lived chat logs. Episode recall is explicitly labelled working history, and facts become approved only after promotion.
 
-If you are upgrading to v0.14.0, see [v0.14-upgrade-2026-04-26.md](notes/v0.14-upgrade-2026-04-26.md), [v0.13-upgrade-2026-04-26.md](notes/v0.13-upgrade-2026-04-26.md), [v0.12.2-upgrade-2026-04-25.md](notes/v0.12.2-upgrade-2026-04-25.md), [v0.12.1-upgrade-2026-04-25.md](notes/v0.12.1-upgrade-2026-04-25.md), [v0.12-upgrade-2026-04-25.md](notes/v0.12-upgrade-2026-04-25.md), [v0.11-upgrade-2026-04-24.md](notes/v0.11-upgrade-2026-04-24.md), and [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
+If you are upgrading to v0.14.1, see [v0.14.1-upgrade-2026-04-26.md](notes/v0.14.1-upgrade-2026-04-26.md), [v0.14-upgrade-2026-04-26.md](notes/v0.14-upgrade-2026-04-26.md), [v0.13-upgrade-2026-04-26.md](notes/v0.13-upgrade-2026-04-26.md), [v0.12.2-upgrade-2026-04-25.md](notes/v0.12.2-upgrade-2026-04-25.md), [v0.12.1-upgrade-2026-04-25.md](notes/v0.12.1-upgrade-2026-04-25.md), [v0.12-upgrade-2026-04-25.md](notes/v0.12-upgrade-2026-04-25.md), [v0.11-upgrade-2026-04-24.md](notes/v0.11-upgrade-2026-04-24.md), and [v0.10-upgrade-2026-04-24.md](notes/v0.10-upgrade-2026-04-24.md). If you are coming from v0.8 or earlier, also review [v0.9-upgrade-2026-04-24.md](notes/v0.9-upgrade-2026-04-24.md) and [v0.8-upgrade-2026-04-23.md](notes/v0.8-upgrade-2026-04-23.md).
 
 ## Self-diagnosis and local utilities
 
@@ -808,7 +808,7 @@ TUI unavailable:
 
 ## Release posture
 
-v0.14.0 is a shipped technical-user release:
+v0.14.1 is a shipped technical-user release:
 
 - source-based
 - terminal-first

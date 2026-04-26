@@ -2,7 +2,7 @@
 
 v0.13 adds local personalization through review-first adapter training. It does not retrain a foundation model, does not send training data to hosted providers, and does not auto-activate trained weights.
 
-Reality note: daemon adapter handlers and production trainer selection from configured real backends are partial as of v0.14; tracked by v0.14.1. Prefer the CLI disk-backed adapter commands until daemon repair lands.
+Reality note: daemon adapter handlers and production trainer selection from configured real backends are reconciled in v0.14.1.
 
 ## Posture
 

@@ -2,7 +2,7 @@
 
 v0.14 adds bounded self-diagnosis and a curated local-utility surface. Diagnosis reads existing v0.12.2 session traces, writes markdown reports, and explains by default. Local utilities are host-specific helpers that the operator explicitly enables before Allbert can compose them through `unix_pipe`.
 
-Reality note: remediation routing is present, but concrete candidate generation is partial as of v0.14; tracked by v0.14.1. Until that repair lands, remediation artifacts may be scaffolds that point back to the report.
+Reality note: remediation routing and concrete candidate/fallback provenance are reconciled in v0.14.1. Remediation remains review-first and never installs generated code, skills, or memory automatically.
 
 ## Diagnosis
 

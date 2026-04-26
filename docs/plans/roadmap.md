@@ -22,7 +22,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.12.2 | Tracing and replay: persisted session spans, trace/replay surfaces, privacy/redaction posture, protocol v4, OTLP-JSON export | Shipped | [v0.12.2-tracing-and-replay.md](v0.12.2-tracing-and-replay.md) |
 | v0.13 | Local personalization: LoRA/adapter training through the v0.11 `LearningJob` seam, owned `AdapterTrainer` trait with mlx + llama.cpp + fake backends, local-only base-model-pinned activation, `adapter-approval` inbox kind, daily wall-clock compute cap, profile-export exclusion | Shipped | [v0.13-personalization.md](v0.13-personalization.md) |
 | v0.14 | Self-diagnosis and Unix co-tenant: trace-aware self-diagnose skill, curated local-utilities surface, bounded `unix_pipe` tool shape | Shipped | [v0.14-self-diagnosis.md](v0.14-self-diagnosis.md) |
-| v0.14.1 | Vision alignment: doc-reality gate, local-default tool-call parser fix, daemon adapter wiring, trainer factory wiring, concrete diagnosis remediation candidates | Draft | [v0.14.1-vision-alignment.md](v0.14.1-vision-alignment.md) |
+| v0.14.1 | Vision alignment: doc-reality gate, local-default tool-call parser fix, daemon adapter wiring, trainer factory wiring, concrete diagnosis remediation candidates | Shipped | [v0.14.1-vision-alignment.md](v0.14.1-vision-alignment.md) |
 | v0.14.2 | Kernel core/services split: acyclic core, services, and compatibility facade crates with size/dependency gates | Draft | [v0.14.2-kernel-core-services.md](v0.14.2-kernel-core-services.md) |
 | v0.15 | Growth loop: local staged ingestion endpoint, CLI feed, browser extension/proxy proofs, and review-first ingestion memory flow | Stub | [v0.15-growth-loop.md](v0.15-growth-loop.md) |
 
