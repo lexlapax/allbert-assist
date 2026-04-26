@@ -162,6 +162,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "allbert-kernel-services"
+version = "0.14.1"
+dependencies = [
+ "allbert-kernel-core",
+ "allbert-proto",
+ "async-trait",
+ "base64",
+ "chrono",
+ "chrono-tz",
+ "dirs",
+ "flate2",
+ "fs2",
+ "gray_matter",
+ "libc",
+ "mlua",
+ "pulldown-cmark",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "tantivy",
+ "tempfile",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
+ "toml",
+ "toml_edit",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "allbert-proto"
 version = "0.14.1"
 dependencies = [
