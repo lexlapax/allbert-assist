@@ -30,9 +30,37 @@ Protocol v6 adds additive payloads for:
 - local utility catalog and enabled-manifest status;
 - `unix_pipe` run summaries.
 
+Client messages:
+
+- `DiagnoseRun(DiagnosisRunRequest)`
+- `DiagnoseList { session_id: Option<String> }`
+- `DiagnoseShow { diagnosis_id: String }`
+- `UtilitiesDiscover`
+- `UtilitiesList`
+- `UtilitiesShow { utility_id: String }`
+- `UtilitiesEnable(UtilityEnableRequest)`
+- `UtilitiesDisable { utility_id: String }`
+- `UtilitiesDoctor`
+
+Server messages:
+
+- `DiagnosisStarted { diagnosis_id: String }`
+- `Diagnosis(DiagnosisSummary)`
+- `Diagnoses(Vec<DiagnosisSummary>)`
+- `DiagnosisReport { diagnosis_id: String, report_markdown: String, summary: DiagnosisReportSummary }`
+- `UtilityCatalog(Vec<UtilityCatalogEntryPayload>)`
+- `Utility(UtilityCatalogEntryPayload)`
+- `EnabledUtilities(Vec<EnabledUtilityPayload>)`
+- `UtilitiesDoctor(Vec<EnabledUtilityPayload>)`
+- `UnixPipeRun(UnixPipeRunSummary)`
+
+The core v6 payloads are `DiagnosisRunRequest`, `DiagnosisRemediationRequest`, `DiagnosisSummary`, `DiagnosisReportSummary`, `UtilityCatalogEntryPayload`, `EnabledUtilityPayload`, and `UnixPipeRunSummary`. They carry only bounded status/report paths and summaries; raw trace files, full utility help text, and unbounded stdout/stderr are not protocol payloads.
+
 `ActivityPhase::Diagnosing` is added for diagnosis runs. `unix_pipe` uses the existing tool activity posture with `tool_name = "unix_pipe"`.
 
 Frontends consume daemon messages and render them. They must not independently classify trace failures, probe PATH for enabled utilities, infer utility verification state, or synthesize diagnosis lifecycle events.
+
+CLI/TUI/Telegram live and mutating v0.14 surfaces use the daemon by default. CLI commands follow the existing `daemon.auto_spawn` setting when the daemon is not running. Mutating commands such as `diagnose run`, remediation, `utilities enable`, `utilities disable`, and `utilities doctor` must use protocol v6. Read-only CLI commands expose explicit `--offline` modes for artifact/catalog inspection, but those results are labeled offline and do not claim daemon-owned live status.
 
 ## Consequences
 

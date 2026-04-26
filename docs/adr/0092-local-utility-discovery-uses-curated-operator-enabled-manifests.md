@@ -18,7 +18,7 @@ The built-in catalog is compiled into `allbert-kernel`. Each catalog entry has:
 - stable utility id;
 - display name and description;
 - executable candidates;
-- optional version/help probe;
+- catalog-defined bounded version/help probe;
 - safe usage notes;
 - whether the utility may be used in `unix_pipe`.
 
@@ -30,7 +30,37 @@ The host-local enablement manifest lives at:
 ~/.allbert/utilities/enabled.toml
 ```
 
-Enabled entries record utility id, resolved absolute path, version string or bounded help summary when available, enabled timestamp, last verification timestamp, and verification status. If verification later finds the binary missing, changed, or no longer executable, the entry becomes `needs-review` and cannot be used by `unix_pipe` until re-enabled.
+Manifest schema is versioned:
+
+```toml
+schema_version = 1
+
+[[utility]]
+id = "rg"
+path = "/opt/homebrew/bin/rg"
+path_canonical = "/opt/homebrew/bin/rg"
+version = "ripgrep 14.1.1"
+help_summary = "rg [OPTIONS] PATTERN [PATH ...]"
+enabled_at = "2026-04-26T00:00:00Z"
+verified_at = "2026-04-26T00:00:00Z"
+status = "ok"
+size_bytes = 123456
+modified_at = "2026-04-01T00:00:00Z"
+pipe_allowed = true
+```
+
+The status enum is `ok`, `missing`, `changed`, `denied`, and `needs-review`.
+
+Enabling a utility resolves the chosen executable to an absolute canonical path, records the original path, records bounded version/help text when the catalog defines probes, and stores executable size and modified timestamp for drift detection. Verification marks an entry:
+
+- `missing` when the path no longer exists or is no longer executable;
+- `changed` when canonical path, size, or modified timestamp differs from the enabled record;
+- `denied` when central exec policy hard-denies the executable;
+- `needs-review` when metadata cannot be safely verified.
+
+Only entries with `status = "ok"` and `pipe_allowed = true` may be used by `unix_pipe`.
+
+`utilities enable` does not silently edit `security.exec_allow`. If the executable is allowed, enablement records that it is ready. If it is not hard-denied but will require confirmation at run time, enablement succeeds with an actionable note. If it is hard-denied, enablement refuses until the operator updates exec policy through the existing settings surface.
 
 Enabling a utility requires explicit operator action through CLI, TUI/REPL, or setup. Allbert does not install missing utilities. It reports missing tools and leaves installation to the operator.
 

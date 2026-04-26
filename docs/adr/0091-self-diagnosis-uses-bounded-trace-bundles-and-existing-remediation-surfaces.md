@@ -41,6 +41,8 @@ The bundle includes session ids, span ids, parent ids, names, statuses, duration
 
 `unknown_local` is a valid diagnosis when local trace data is insufficient.
 
+The internal DTO is owned by `allbert-kernel::self_diagnosis` and has `bundle_version = 1`, active session id, selected session ids, generation timestamp, effective bounds, summarized spans/events, warnings, truncation metadata, and classification. Proto owns only the daemon wire DTOs and must not become the on-disk report schema.
+
 v0.14 does not add a Tantivy trace tier. Diagnosis lists recent trace sessions through `TraceReader::list_sessions()`, reads selected sessions through `TraceReader::read_session()`, and summarizes in memory. If future work needs a derived trace index, it needs a separate decision with schema-version and rebuild rules.
 
 Diagnosis writes markdown reports under the active session:
@@ -50,7 +52,21 @@ sessions/<session_id>/artifacts/diagnostics/<diagnosis_id>/report.md
 sessions/<session_id>/artifacts/diagnostics/<diagnosis_id>/bundle.summary.json
 ```
 
-Reports explain by default. Candidate remediation requires explicit operator request or CLI flag and `self_diagnosis.allow_remediation = true`.
+Reports explain by default. Candidate remediation requires an explicit remediation command or slash-command field and `self_diagnosis.allow_remediation = true`.
+
+Diagnosis ids use `diag_<utc_timestamp>_<shortid>`, where the timestamp is UTC `YYYYMMDDTHHMMSSZ` and the short id is generated from local randomness. `bundle.summary.json` contains `schema_version = 1`, diagnosis id, session id, creation timestamp, selected session ids, classification, confidence, report path, effective bounds, truncation metadata, warnings, and remediation summary.
+
+The markdown report keeps stable sections: `Summary`, `Classification`, `Evidence`, `Skipped Or Truncated Data`, `Recommended Next Actions`, and `Remediation Status`.
+
+v0.14 exposes one skill-callable diagnosis tool, `self_diagnose`. The tool accepts optional `session_id`, optional `lookback_days`, and optional remediation `{ kind, reason }`, and returns the bounded summary plus report path. It never returns raw trace files or unbounded span/event payloads.
+
+Remediation requires all of the following:
+
+- `self_diagnosis.allow_remediation = true`;
+- explicit remediation kind `code`, `skill`, or `memory`;
+- non-empty operator reason supplied through `--reason <text>` or an equivalent slash-command field.
+
+Ordinary natural-language diagnosis requests may tell the operator what explicit command to run, but they must not start remediation. Telegram remains structural-only and cannot start remediation in v0.14.
 
 Remediation routes through existing surfaces only:
 

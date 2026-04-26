@@ -9,7 +9,7 @@ Status: Accepted
 >
 > **Amended in v0.13**: protocol v5 adapter-management and training-progress messages extend this same daemon-owned posture. `ActivityPhase::Training` is live operational truth; durable training spans remain v0.12.2 trace artifacts. v5 daemons accept v2/v3/v4/v5 clients, filter per peer, and require v5 clients connected to older daemons to surface actionable remediation instead of synthesizing adapter state locally. See ADR 0090.
 >
-> **Amended in v0.14**: protocol v6 self-diagnosis and local-utility messages extend the daemon-owned telemetry posture again. `ActivityPhase::Diagnosing` is live operational truth for diagnosis runs; frontends must not infer diagnosis state from trace files or utility state from PATH. v6 daemons accept v2/v3/v4/v5/v6 clients and filter per peer. See ADR 0094.
+> **Amended in v0.14**: protocol v6 self-diagnosis and local-utility messages extend the daemon-owned telemetry posture again. `ActivityPhase::Diagnosing` is live operational truth for diagnosis runs; frontends must not infer diagnosis state from trace files or utility state from PATH. v6 daemons accept v2/v3/v4/v5/v6 clients and filter per peer. ADR 0094 owns the exact v6 message set, including `DiagnoseRun`, `Diagnosis`, `UtilityCatalog`, `EnabledUtilities`, `UtilitiesDoctor`, and `UnixPipeRun`.
 
 ## Context
 
