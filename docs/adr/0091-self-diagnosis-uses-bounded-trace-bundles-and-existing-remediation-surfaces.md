@@ -58,7 +58,7 @@ Diagnosis ids use `diag_<utc_timestamp>_<shortid>`, where the timestamp is UTC `
 
 The markdown report keeps stable sections: `Summary`, `Classification`, `Evidence`, `Skipped Or Truncated Data`, `Recommended Next Actions`, and `Remediation Status`.
 
-v0.14 exposes one skill-callable diagnosis tool, `self_diagnose`. The tool accepts optional `session_id` and optional `lookback_days`, returns the bounded summary plus report path, and never returns raw trace files or unbounded span/event payloads. Its schema is closed and report-only: a model-emitted tool call that includes `remediation` or any unknown field is rejected.
+v0.14 exposes one skill-callable diagnosis tool, `self_diagnose`. Its closed input schema contains only optional `session_id` and optional `lookback_days`. It returns the bounded summary plus report path and never returns raw trace files or unbounded span/event payloads. Its schema is report-only: a model-emitted tool call that includes `remediation` or any unknown field is rejected.
 
 Remediation requires all of the following:
 
