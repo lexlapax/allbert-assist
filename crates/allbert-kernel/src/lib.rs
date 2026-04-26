@@ -134,13 +134,14 @@ pub use security::SecurityHook;
 pub use self_diagnosis::{
     build_trace_diagnostic_bundle, diagnosis_report_summary, diagnosis_summary,
     generate_diagnosis_id, list_diagnosis_reports, read_diagnosis_report, run_diagnosis_report,
-    run_diagnosis_report_with_remediation, write_diagnosis_report, DiagnosisRemediationKind,
-    DiagnosisRemediationRequest, DiagnosisRemediationStatus, DiagnosisRemediationSummary,
-    DiagnosisReportArtifact, DiagnosisReportIndexEntry, DiagnosisReportSummary, DiagnosisSummary,
-    DiagnosticEvent, DiagnosticSpan, DiagnosticSpanStatus, DiagnosticTruncation,
-    FailureClassification, FailureKind, SelfDiagnoseInput, TraceDiagnosticBounds,
-    TraceDiagnosticBundle, DIAGNOSIS_ARTIFACT_ROOT, DIAGNOSIS_REPORT_SUMMARY_SCHEMA_VERSION,
-    TRACE_DIAGNOSTIC_BUNDLE_VERSION,
+    run_diagnosis_report_with_remediation, run_diagnosis_report_with_remediation_fallback,
+    run_diagnosis_report_with_remediation_provider, write_diagnosis_report,
+    DiagnosisCandidateProvider, DiagnosisRemediationKind, DiagnosisRemediationRequest,
+    DiagnosisRemediationStatus, DiagnosisRemediationSummary, DiagnosisReportArtifact,
+    DiagnosisReportIndexEntry, DiagnosisReportSummary, DiagnosisSummary, DiagnosticEvent,
+    DiagnosticSpan, DiagnosticSpanStatus, DiagnosticTruncation, FailureClassification, FailureKind,
+    SelfDiagnoseInput, TraceDiagnosticBounds, TraceDiagnosticBundle, DIAGNOSIS_ARTIFACT_ROOT,
+    DIAGNOSIS_REPORT_SUMMARY_SCHEMA_VERSION, TRACE_DIAGNOSTIC_BUNDLE_VERSION,
 };
 pub use self_improvement::{
     assert_rust_rebuild_ready, check_self_improvement_write_target, collect_worktree_gc,

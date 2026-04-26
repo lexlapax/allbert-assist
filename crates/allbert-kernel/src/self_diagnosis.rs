@@ -5,10 +5,13 @@ use allbert_proto::{AttributeValue, Span, SpanStatus};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::process::Command;
 
 use crate::atomic_write;
 use crate::config::SelfDiagnosisConfig;
+use crate::cost::{append_cost_entry, build_cost_entry, sum_costs_for_today};
 use crate::error::KernelError;
+use crate::llm::{ChatMessage, ChatRole, CompletionRequest, LlmProvider, Usage};
 use crate::memory::{self, StageMemoryRequest, StagedMemoryKind};
 use crate::paths::AllbertPaths;
 use crate::replay::{DefaultSecretRedactor, SecretRedactor, TraceReader};
@@ -17,7 +20,7 @@ use crate::self_improvement::{
     RebuildWorktree, TierAValidationReport,
 };
 use crate::skills::{SkillProvenance, SkillStore};
-use crate::Config;
+use crate::{Config, ModelConfig};
 
 pub const TRACE_DIAGNOSTIC_BUNDLE_VERSION: u32 = 1;
 pub const DIAGNOSIS_REPORT_SUMMARY_SCHEMA_VERSION: u32 = 1;
@@ -176,6 +179,8 @@ pub struct DiagnosisRemediationSummary {
     pub status: DiagnosisRemediationStatus,
     pub message: String,
     pub artifact_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub candidate_status: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -200,6 +205,51 @@ impl DiagnosisRemediationKind {
 pub struct DiagnosisRemediationRequest {
     pub kind: DiagnosisRemediationKind,
     pub reason: String,
+}
+
+pub struct DiagnosisCandidateProvider<'a> {
+    pub provider: &'a dyn LlmProvider,
+    pub model: &'a ModelConfig,
+}
+
+#[derive(Debug, Clone)]
+struct CandidateGeneration {
+    content: Option<String>,
+    status: String,
+    provider: Option<String>,
+    model: Option<String>,
+    usage: Usage,
+    estimated_cost: f64,
+}
+
+impl CandidateGeneration {
+    fn fallback(reason: &str) -> Self {
+        Self {
+            content: None,
+            status: format!("fallback:{reason}"),
+            provider: None,
+            model: None,
+            usage: Usage::default(),
+            estimated_cost: 0.0,
+        }
+    }
+
+    fn routed(
+        content: String,
+        provider: &dyn LlmProvider,
+        model: &ModelConfig,
+        usage: Usage,
+    ) -> Self {
+        let estimated_cost = crate::cost::estimate_usd(&usage, provider.pricing(&model.model_id));
+        Self {
+            content: Some(content),
+            status: "routed".into(),
+            provider: Some(provider.provider_name().into()),
+            model: Some(model.model_id.clone()),
+            usage,
+            estimated_cost,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -374,6 +424,26 @@ pub fn run_diagnosis_report_with_remediation(
     lookback_days_override: Option<u16>,
     remediation: DiagnosisRemediationRequest,
 ) -> Result<DiagnosisReportArtifact, KernelError> {
+    run_diagnosis_report_with_remediation_fallback(
+        paths,
+        config,
+        active_session_id,
+        requested_session_id,
+        lookback_days_override,
+        remediation,
+        "offline_no_provider",
+    )
+}
+
+pub fn run_diagnosis_report_with_remediation_fallback(
+    paths: &AllbertPaths,
+    config: &Config,
+    active_session_id: &str,
+    requested_session_id: Option<&str>,
+    lookback_days_override: Option<u16>,
+    remediation: DiagnosisRemediationRequest,
+    fallback_reason: &str,
+) -> Result<DiagnosisReportArtifact, KernelError> {
     validate_remediation_request(&config.self_diagnosis, &remediation)?;
     let bundle = build_trace_diagnostic_bundle(
         paths,
@@ -384,10 +454,67 @@ pub fn run_diagnosis_report_with_remediation(
     )?;
     let mut artifact =
         write_diagnosis_report(paths, &config.self_diagnosis, active_session_id, &bundle)?;
-    let remediation_summary = route_remediation(paths, config, &artifact, &remediation)?;
+    finish_remediation_artifact(
+        paths,
+        config,
+        &bundle,
+        &mut artifact,
+        &remediation,
+        CandidateGeneration::fallback(fallback_reason),
+    )
+}
+
+pub async fn run_diagnosis_report_with_remediation_provider(
+    paths: &AllbertPaths,
+    config: &Config,
+    active_session_id: &str,
+    requested_session_id: Option<&str>,
+    lookback_days_override: Option<u16>,
+    remediation: DiagnosisRemediationRequest,
+    provider: Option<DiagnosisCandidateProvider<'_>>,
+) -> Result<DiagnosisReportArtifact, KernelError> {
+    validate_remediation_request(&config.self_diagnosis, &remediation)?;
+    let bundle = build_trace_diagnostic_bundle(
+        paths,
+        &config.self_diagnosis,
+        active_session_id,
+        requested_session_id,
+        lookback_days_override,
+    )?;
+    let mut artifact =
+        write_diagnosis_report(paths, &config.self_diagnosis, active_session_id, &bundle)?;
+    let candidate = generate_candidate(
+        paths,
+        config,
+        active_session_id,
+        &bundle,
+        &artifact,
+        &remediation,
+        provider,
+    )
+    .await?;
+    finish_remediation_artifact(
+        paths,
+        config,
+        &bundle,
+        &mut artifact,
+        &remediation,
+        candidate,
+    )
+}
+
+fn finish_remediation_artifact(
+    paths: &AllbertPaths,
+    config: &Config,
+    bundle: &TraceDiagnosticBundle,
+    artifact: &mut DiagnosisReportArtifact,
+    remediation: &DiagnosisRemediationRequest,
+    candidate: CandidateGeneration,
+) -> Result<DiagnosisReportArtifact, KernelError> {
+    let remediation_summary = route_remediation(paths, config, artifact, remediation, candidate)?;
     artifact.summary.remediation = Some(remediation_summary);
-    rewrite_diagnosis_artifact(paths, &config.self_diagnosis, &bundle, &mut artifact)?;
-    Ok(artifact)
+    rewrite_diagnosis_artifact(paths, &config.self_diagnosis, bundle, artifact)?;
+    Ok(artifact.clone())
 }
 
 fn validate_remediation_request(
@@ -583,16 +710,106 @@ fn route_remediation(
     config: &Config,
     artifact: &DiagnosisReportArtifact,
     remediation: &DiagnosisRemediationRequest,
+    candidate: CandidateGeneration,
 ) -> Result<DiagnosisRemediationSummary, KernelError> {
     match remediation.kind {
         DiagnosisRemediationKind::Code => {
-            route_code_remediation(paths, config, artifact, remediation)
+            route_code_remediation(paths, config, artifact, remediation, candidate)
         }
-        DiagnosisRemediationKind::Skill => route_skill_remediation(paths, artifact, remediation),
+        DiagnosisRemediationKind::Skill => {
+            route_skill_remediation(paths, artifact, remediation, candidate)
+        }
         DiagnosisRemediationKind::Memory => {
-            route_memory_remediation(paths, config, artifact, remediation)
+            route_memory_remediation(paths, config, artifact, remediation, candidate)
         }
     }
+}
+
+async fn generate_candidate(
+    paths: &AllbertPaths,
+    config: &Config,
+    active_session_id: &str,
+    bundle: &TraceDiagnosticBundle,
+    artifact: &DiagnosisReportArtifact,
+    remediation: &DiagnosisRemediationRequest,
+    provider: Option<DiagnosisCandidateProvider<'_>>,
+) -> Result<CandidateGeneration, KernelError> {
+    let Some(provider) = provider else {
+        return Ok(CandidateGeneration::fallback("offline_no_provider"));
+    };
+    if let Some(cap) = config.limits.daily_usd_cap {
+        let spent = sum_costs_for_today(&paths.costs)?;
+        if spent >= cap {
+            return Ok(CandidateGeneration::fallback("cost_cap"));
+        }
+    }
+    let response = match provider
+        .provider
+        .complete(CompletionRequest {
+            system: Some(candidate_system_prompt(remediation.kind).into()),
+            messages: vec![ChatMessage {
+                role: ChatRole::User,
+                content: candidate_user_prompt(bundle, artifact, remediation)?,
+                attachments: Vec::new(),
+            }],
+            model: provider.model.model_id.clone(),
+            max_tokens: config.self_diagnosis.remediation_provider_max_tokens,
+            tools: Vec::new(),
+        })
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => return Ok(CandidateGeneration::fallback("provider_error")),
+    };
+    let cost = build_cost_entry(
+        active_session_id,
+        "allbert/self-diagnosis",
+        None,
+        provider.provider.provider_name(),
+        &provider.model.model_id,
+        &response.usage,
+        provider.provider.pricing(&provider.model.model_id),
+    )?;
+    append_cost_entry(&paths.costs, &cost)?;
+    let candidate = response.text.trim().to_string();
+    if candidate.is_empty() {
+        return Ok(CandidateGeneration::fallback("empty"));
+    }
+    Ok(CandidateGeneration::routed(
+        candidate,
+        provider.provider,
+        provider.model,
+        response.usage,
+    ))
+}
+
+fn candidate_system_prompt(kind: DiagnosisRemediationKind) -> &'static str {
+    match kind {
+        DiagnosisRemediationKind::Code => {
+            "You are reviewing an Allbert self-diagnosis report. Produce a unified diff under the source tree that addresses the identified failure. Output only the diff."
+        }
+        DiagnosisRemediationKind::Skill => {
+            "You are reviewing an Allbert self-diagnosis report. Produce a SKILL.md body for a remediation skill, including frontmatter with allowed-tools and a populated ## Behavior section. Output only the SKILL.md."
+        }
+        DiagnosisRemediationKind::Memory => {
+            "You are reviewing an Allbert self-diagnosis report. Produce a memory candidate of at least 64 characters that is factually grounded in the bundle. Output only the memory body."
+        }
+    }
+}
+
+fn candidate_user_prompt(
+    bundle: &TraceDiagnosticBundle,
+    artifact: &DiagnosisReportArtifact,
+    remediation: &DiagnosisRemediationRequest,
+) -> Result<String, KernelError> {
+    let bundle_json = serde_json::to_string_pretty(bundle)
+        .map_err(|err| KernelError::InitFailed(format!("serialize diagnosis bundle: {err}")))?;
+    Ok(format!(
+        "reason:\n{}\n\ndiagnosis_report:\n{}\n\nbounded_bundle:\n{}",
+        remediation.reason.trim(),
+        artifact.report_markdown,
+        bundle_json
+    ))
 }
 
 fn route_code_remediation(
@@ -600,6 +817,7 @@ fn route_code_remediation(
     config: &Config,
     artifact: &DiagnosisReportArtifact,
     remediation: &DiagnosisRemediationRequest,
+    candidate: CandidateGeneration,
 ) -> Result<DiagnosisRemediationSummary, KernelError> {
     let branch_hint = format!("self-diagnosis-{}", artifact.summary.diagnosis_id);
     let worktree = create_rust_rebuild_worktree(paths, config, Some(&branch_hint))?;
@@ -615,6 +833,7 @@ fn route_code_remediation(
         ))
     })?;
     let target = target_dir.join(format!("{}.md", artifact.summary.diagnosis_id));
+    let mut candidate = candidate;
     let body = format!(
         "# Self-Diagnosed Code Remediation\n\nReason: {}\n\nSource report: {}\n\n{}",
         remediation.reason.trim(),
@@ -627,8 +846,20 @@ fn route_code_remediation(
             format!("write {}: {err}", target.display()),
         ))
     })?;
+    if let Some(diff) = candidate.content.as_deref() {
+        match validate_candidate_diff(diff).and_then(|_| apply_candidate_diff(&worktree.path, diff))
+        {
+            Ok(()) => {}
+            Err(reason) => {
+                candidate = CandidateGeneration::fallback(&reason);
+            }
+        }
+    }
 
     let validation = run_tier_a_validation(&worktree.path);
+    if candidate.status == "routed" && !validation.steps.iter().all(|step| step.success) {
+        candidate.status = "validation_failed:tier_a".into();
+    }
     let approval_id = format!("approval_{}", artifact.summary.diagnosis_id);
     let patch = emit_patch_artifact(
         paths,
@@ -636,15 +867,16 @@ fn route_code_remediation(
         &artifact.summary.session_id,
         Some(&artifact.summary.diagnosis_id),
     )?;
-    write_patch_approval(
+    write_patch_approval(PatchApprovalInput {
         paths,
         artifact,
         remediation,
-        &approval_id,
-        &worktree,
-        &patch,
-        &validation,
-    )?;
+        approval_id: &approval_id,
+        worktree: &worktree,
+        patch: &patch,
+        validation: &validation,
+        candidate: &candidate,
+    })?;
     Ok(DiagnosisRemediationSummary {
         kind: remediation.kind.label().into(),
         reason: remediation.reason.trim().into(),
@@ -653,6 +885,7 @@ fn route_code_remediation(
             "created patch approval {approval_id}; review with `allbert-cli approvals show {approval_id}`"
         ),
         artifact_path: Some(patch.path.display().to_string()),
+        candidate_status: Some(candidate.status),
     })
 }
 
@@ -660,6 +893,7 @@ fn route_skill_remediation(
     paths: &AllbertPaths,
     artifact: &DiagnosisReportArtifact,
     remediation: &DiagnosisRemediationRequest,
+    candidate: CandidateGeneration,
 ) -> Result<DiagnosisRemediationSummary, KernelError> {
     let mut skills = SkillStore::discover(&paths.skills);
     let suffix = artifact
@@ -669,18 +903,24 @@ fn route_skill_remediation(
         .next()
         .unwrap_or("diagnosis");
     let name = format!("self-diagnosed-{suffix}");
-    let body = format!(
-        "# Self-Diagnosed Skill Draft\n\nUse this quarantined draft only after reviewing the diagnosis report.\n\n- Diagnosis: `{}`\n- Reason: {}\n- Classification: `{}`\n- Report: `{}`\n\n## Candidate Behavior\n\nDescribe the repeatable procedure that would prevent or explain this failure. Keep any install decision in the normal skill review flow.\n",
-        artifact.summary.diagnosis_id,
-        remediation.reason.trim(),
-        artifact.summary.classification.label(),
-        artifact.summary.report_path
+    let mut candidate = candidate;
+    let body = match candidate.content.as_deref() {
+        Some(content) if valid_skill_candidate(content) => content.to_string(),
+        Some(_) => {
+            candidate = CandidateGeneration::fallback("missing_frontmatter");
+            fallback_skill_body(artifact, remediation)
+        }
+        None => fallback_skill_body(artifact, remediation),
+    };
+    let description = format!(
+        "Self-diagnosed remediation draft awaiting operator review. candidate_status={}",
+        candidate.status
     );
     let skill = skills
         .create(
             &paths.skills_incoming,
             &name,
-            "Self-diagnosed remediation draft awaiting operator review.",
+            &description,
             &[],
             &body,
             SkillProvenance::SelfDiagnosed,
@@ -696,7 +936,21 @@ fn route_skill_remediation(
             skill.path.display()
         ),
         artifact_path: Some(skill.path.display().to_string()),
+        candidate_status: Some(candidate.status),
     })
+}
+
+fn fallback_skill_body(
+    artifact: &DiagnosisReportArtifact,
+    remediation: &DiagnosisRemediationRequest,
+) -> String {
+    format!(
+        "# Self-Diagnosed Skill Draft\n\nUse this quarantined draft only after reviewing the diagnosis report.\n\n- Diagnosis: `{}`\n- Reason: {}\n- Classification: `{}`\n- Report: `{}`\n\n## Candidate Behavior\n\nDescribe the repeatable procedure that would prevent or explain this failure. Keep any install decision in the normal skill review flow.\n",
+        artifact.summary.diagnosis_id,
+        remediation.reason.trim(),
+        artifact.summary.classification.label(),
+        artifact.summary.report_path
+    )
 }
 
 fn route_memory_remediation(
@@ -704,30 +958,45 @@ fn route_memory_remediation(
     config: &Config,
     artifact: &DiagnosisReportArtifact,
     remediation: &DiagnosisRemediationRequest,
+    candidate: CandidateGeneration,
 ) -> Result<DiagnosisRemediationSummary, KernelError> {
+    let mut candidate = candidate;
+    let content = match candidate.content.as_deref() {
+        Some(content) if valid_memory_candidate(content, artifact) => content.to_string(),
+        Some(_) => {
+            candidate = CandidateGeneration::fallback("empty");
+            fallback_memory_body(artifact, remediation)
+        }
+        None => fallback_memory_body(artifact, remediation),
+    };
     let request = StageMemoryRequest {
         session_id: artifact.summary.session_id.clone(),
         turn_id: format!("diagnosis:{}", artifact.summary.diagnosis_id),
         agent: "allbert/self-diagnosis".into(),
         source: "self-diagnosis".into(),
-        content: format!(
-            "# Self-Diagnosis Memory Candidate\n\nReason: {}\n\nDiagnosis: `{}`\nClassification: `{}`\nReport: `{}`\n\nReview this candidate before promotion. Do not promote if it is only a transient local failure.",
-            remediation.reason.trim(),
-            artifact.summary.diagnosis_id,
-            artifact.summary.classification.label(),
-            artifact.summary.report_path
-        ),
+        content,
         kind: StagedMemoryKind::ExplicitRequest,
         summary: format!(
             "Self-diagnosis candidate: {}",
             artifact.summary.classification.label()
         ),
-        tags: vec!["self-diagnosis".into(), artifact.summary.classification.label().into()],
+        tags: vec![
+            "self-diagnosis".into(),
+            artifact.summary.classification.label().into(),
+        ],
         provenance: Some(json!({
             "source": "self-diagnosis",
             "diagnosis_id": artifact.summary.diagnosis_id,
             "report_path": artifact.summary.report_path,
             "reason": remediation.reason.trim(),
+            "candidate_status": candidate.status,
+            "candidate_provider": candidate.provider,
+            "candidate_model": candidate.model,
+            "candidate_tokens_used": candidate.usage.input_tokens
+                + candidate.usage.output_tokens
+                + candidate.usage.cache_read
+                + candidate.usage.cache_create,
+            "candidate_estimated_cost": candidate.estimated_cost,
         })),
         fingerprint_basis: Some(format!(
             "{}:{}:{}",
@@ -747,21 +1016,107 @@ fn route_memory_remediation(
             staged.id
         ),
         artifact_path: Some(staged.path),
+        candidate_status: Some(candidate.status),
     })
 }
 
-fn write_patch_approval(
-    paths: &AllbertPaths,
+fn fallback_memory_body(
     artifact: &DiagnosisReportArtifact,
     remediation: &DiagnosisRemediationRequest,
-    approval_id: &str,
-    worktree: &RebuildWorktree,
-    patch: &PatchArtifact,
-    validation: &TierAValidationReport,
-) -> Result<(), KernelError> {
-    let approvals_dir = paths
+) -> String {
+    format!(
+        "# Self-Diagnosis Memory Candidate\n\nReason: {}\n\nDiagnosis: `{}`\nClassification: `{}`\nReport: `{}`\n\nReview this candidate before promotion. Do not promote if it is only a transient local failure.",
+        remediation.reason.trim(),
+        artifact.summary.diagnosis_id,
+        artifact.summary.classification.label(),
+        artifact.summary.report_path
+    )
+}
+
+fn validate_candidate_diff(diff: &str) -> Result<(), String> {
+    if !diff.contains("diff --git ") || diff.trim().is_empty() {
+        return Err("malformed_diff".into());
+    }
+    for line in diff.lines() {
+        let Some(rest) = line.strip_prefix("diff --git ") else {
+            continue;
+        };
+        let mut parts = rest.split_whitespace();
+        for path in [parts.next(), parts.next()].into_iter().flatten() {
+            let path = path.trim_start_matches("a/").trim_start_matches("b/");
+            if disallowed_candidate_path(path) {
+                return Err("disallowed_path".into());
+            }
+        }
+    }
+    Ok(())
+}
+
+fn disallowed_candidate_path(path: &str) -> bool {
+    path.is_empty()
+        || path.starts_with('/')
+        || path.contains("..")
+        || path.starts_with(".git/")
+        || path.starts_with(".allbert/")
+        || path.starts_with("target/")
+        || path.starts_with("adapters/")
+        || path.contains("secret")
+        || path.contains(".env")
+}
+
+fn apply_candidate_diff(worktree: &Path, diff: &str) -> Result<(), String> {
+    let candidate_path = worktree.join(".allbert-diagnosis-candidate.diff");
+    std::fs::write(&candidate_path, diff).map_err(|_| "malformed_diff".to_string())?;
+    let status = Command::new("git")
+        .arg("apply")
+        .arg(&candidate_path)
+        .current_dir(worktree)
+        .status()
+        .map_err(|_| "malformed_diff".to_string())?;
+    let _ = std::fs::remove_file(candidate_path);
+    if status.success() {
+        Ok(())
+    } else {
+        Err("malformed_diff".into())
+    }
+}
+
+fn valid_skill_candidate(content: &str) -> bool {
+    content.trim_start().starts_with("---")
+        && content.contains("allowed-tools:")
+        && content.contains("## Behavior")
+        && content.len() >= 64
+}
+
+fn valid_memory_candidate(content: &str, artifact: &DiagnosisReportArtifact) -> bool {
+    let trimmed = content.trim();
+    trimmed.len() >= 64
+        && (trimmed.contains(&artifact.summary.diagnosis_id)
+            || trimmed.contains(artifact.summary.classification.label())
+            || artifact
+                .summary
+                .classification
+                .label()
+                .split('_')
+                .any(|part| !part.is_empty() && trimmed.contains(part)))
+}
+
+struct PatchApprovalInput<'a> {
+    paths: &'a AllbertPaths,
+    artifact: &'a DiagnosisReportArtifact,
+    remediation: &'a DiagnosisRemediationRequest,
+    approval_id: &'a str,
+    worktree: &'a RebuildWorktree,
+    patch: &'a PatchArtifact,
+    validation: &'a TierAValidationReport,
+    candidate: &'a CandidateGeneration,
+}
+
+fn write_patch_approval(input: PatchApprovalInput<'_>) -> Result<(), KernelError> {
+    let approvals_dir = input
+        .paths
         .sessions
-        .join(&artifact.summary.session_id)
+        .join(&input.artifact.summary.session_id)
         .join("approvals");
     std::fs::create_dir_all(&approvals_dir).map_err(|err| {
         KernelError::Io(std::io::Error::new(
@@ -771,25 +1126,35 @@ fn write_patch_approval(
     })?;
     let requested_at = Utc::now();
     let expires_at = requested_at + Duration::hours(24);
-    let validation_status = if validation.steps.iter().all(|step| step.success) {
+    let validation_status = if input.validation.steps.iter().all(|step| step.success) {
         "passed"
     } else {
         "needs-review"
     };
     let body = format!(
-        "---\nid: {approval_id}\nsession_id: {}\nchannel: repl\nsender: local\nagent: allbert/root\ntool: self-diagnosis\nrequest_id: 0\nkind: patch-approval\nrequested_at: {}\nexpires_at: {}\nstatus: pending\nsource_checkout: {}\nbranch: {}\nworktree_path: {}\nvalidation: {validation_status}\noverall: {}\nartifact_path: {}\n---\n\n# Self-diagnosed code remediation\n\nReason: {}\n\nDiagnosis report: {}\n\nThis approval was generated only from an explicit diagnose remediation command. Accepting records approval; install remains a separate `allbert-cli self-improvement install {approval_id}` action.\n",
-        artifact.summary.session_id,
+        "---\nid: {}\nsession_id: {}\nchannel: repl\nsender: local\nagent: allbert/root\ntool: self-diagnosis\nrequest_id: 0\nkind: patch-approval\nrequested_at: {}\nexpires_at: {}\nstatus: pending\nsource_checkout: {}\nbranch: {}\nworktree_path: {}\nvalidation: {validation_status}\noverall: {}\nartifact_path: {}\ncandidate_status: {}\ncandidate_tokens_used: {}\ncandidate_estimated_cost: {}\ncandidate_provider: {}\ncandidate_model: {}\n---\n\n# Self-diagnosed code remediation\n\nReason: {}\n\nDiagnosis report: {}\n\nThis approval was generated only from an explicit diagnose remediation command. Accepting records approval; install remains a separate `allbert-cli self-improvement install {}` action.\n",
+        input.approval_id,
+        input.artifact.summary.session_id,
         requested_at.to_rfc3339(),
         expires_at.to_rfc3339(),
-        worktree.source_checkout.display(),
-        worktree.branch,
-        worktree.path.display(),
-        validation.overall.label(),
-        patch.path.display(),
-        remediation.reason.trim(),
-        artifact.summary.report_path
+        input.worktree.source_checkout.display(),
+        input.worktree.branch,
+        input.worktree.path.display(),
+        input.validation.overall.label(),
+        input.patch.path.display(),
+        input.candidate.status,
+        input.candidate.usage.input_tokens
+            + input.candidate.usage.output_tokens
+            + input.candidate.usage.cache_read
+            + input.candidate.usage.cache_create,
+        input.candidate.estimated_cost,
+        input.candidate.provider.as_deref().unwrap_or("none"),
+        input.candidate.model.as_deref().unwrap_or("none"),
+        input.remediation.reason.trim(),
+        input.artifact.summary.report_path,
+        input.approval_id
     );
-    let path = approvals_dir.join(format!("{approval_id}.md"));
+    let path = approvals_dir.join(format!("{}.md", input.approval_id));
     atomic_write(&path, body.as_bytes()).map_err(|err| {
         KernelError::Io(std::io::Error::new(
             err.kind(),
@@ -1343,9 +1708,12 @@ fn classify_text(text: &str, findings: &mut BTreeSet<FailureKind>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::LlmError;
+    use crate::llm::{CompletionResponse, Pricing};
     use crate::replay::{JsonlTraceWriter, TraceStorageLimits, TraceWriter};
     use crate::self_improvement::{ValidationOverall, ValidationStepResult};
     use allbert_proto::{SpanKind, SpanStatus};
+    use async_trait::async_trait;
 
     fn span(session_id: &str, id: &str, name: &str, status: SpanStatus) -> Span {
         Span {
@@ -1508,15 +1876,17 @@ mod tests {
             kind: DiagnosisRemediationKind::Code,
             reason: "Review a code fix.".into(),
         };
-        write_patch_approval(
-            &paths,
-            &artifact,
-            &request,
-            "approval_diag_test",
-            &worktree,
-            &patch,
-            &validation,
-        )
+        let candidate = CandidateGeneration::fallback("offline_no_provider");
+        write_patch_approval(PatchApprovalInput {
+            paths: &paths,
+            artifact: &artifact,
+            remediation: &request,
+            approval_id: "approval_diag_test",
+            worktree: &worktree,
+            patch: &patch,
+            validation: &validation,
+            candidate: &candidate,
+        })
         .unwrap();
         let approval = std::fs::read_to_string(
             paths
@@ -1527,6 +1897,97 @@ mod tests {
         )
         .unwrap();
         assert!(approval.contains("kind: patch-approval"));
+        assert!(approval.contains("candidate_status: fallback:offline_no_provider"));
         assert!(approval.contains(&patch_path.display().to_string()));
+    }
+
+    #[tokio::test]
+    async fn memory_remediation_uses_provider_candidate_and_records_cost() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths");
+        let writer =
+            JsonlTraceWriter::new(&paths, "session-a", TraceStorageLimits::default()).unwrap();
+        writer
+            .span_ended(&span(
+                "session-a",
+                "span-a",
+                "tool call",
+                SpanStatus::Error {
+                    message: "tool execution failed".into(),
+                },
+            ))
+            .unwrap();
+        let mut config = Config::default_template();
+        config.self_diagnosis.allow_remediation = true;
+        config.limits.daily_usd_cap = Some(1.0);
+        let candidate = "tool_error span-a shows that remediation should preserve the exact failing tool name and route a reviewed memory candidate for future debugging.";
+        let provider = StaticCandidateProvider {
+            text: candidate.into(),
+        };
+        let artifact = run_diagnosis_report_with_remediation_provider(
+            &paths,
+            &config,
+            "session-a",
+            None,
+            None,
+            DiagnosisRemediationRequest {
+                kind: DiagnosisRemediationKind::Memory,
+                reason: "remember the failure pattern".into(),
+            },
+            Some(DiagnosisCandidateProvider {
+                provider: &provider,
+                model: &config.model,
+            }),
+        )
+        .await
+        .expect("remediation should run");
+        let remediation = artifact.summary.remediation.expect("remediation summary");
+        assert_eq!(remediation.candidate_status.as_deref(), Some("routed"));
+        let staged_path = remediation.artifact_path.expect("staged path");
+        let staged_path = PathBuf::from(staged_path);
+        let staged_path = if staged_path.is_absolute() {
+            staged_path
+        } else {
+            paths.memory.join(staged_path)
+        };
+        let staged = std::fs::read_to_string(staged_path).expect("staged candidate");
+        assert!(staged.contains(candidate));
+        let costs = std::fs::read_to_string(paths.costs).expect("cost log");
+        assert!(costs.contains("allbert/self-diagnosis"));
+    }
+
+    struct StaticCandidateProvider {
+        text: String,
+    }
+
+    #[async_trait]
+    impl LlmProvider for StaticCandidateProvider {
+        async fn complete(&self, _req: CompletionRequest) -> Result<CompletionResponse, LlmError> {
+            Ok(CompletionResponse {
+                text: self.text.clone(),
+                usage: Usage {
+                    input_tokens: 10,
+                    output_tokens: 5,
+                    cache_read: 0,
+                    cache_create: 0,
+                },
+                tool_calls: Vec::new(),
+            })
+        }
+
+        fn pricing(&self, _model: &str) -> Option<Pricing> {
+            Some(Pricing {
+                prompt_per_token_usd: 0.001,
+                completion_per_token_usd: 0.002,
+                cache_read_per_token_usd: 0.0,
+                cache_create_per_token_usd: 0.0,
+                request_usd: 0.0,
+            })
+        }
+
+        fn provider_name(&self) -> &'static str {
+            "static"
+        }
     }
 }

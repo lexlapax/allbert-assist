@@ -1559,14 +1559,35 @@ async fn handle_diagnose_run(
         kernel.config().clone()
     };
     let artifact = match request.remediation {
-        Some(remediation) => allbert_kernel::run_diagnosis_report_with_remediation(
-            &state.paths,
-            &config,
-            &session.session_id,
-            request.session_id.as_deref(),
-            request.lookback_days,
-            remediation_request_from_payload(remediation)?,
-        ),
+        Some(remediation) => {
+            let remediation = remediation_request_from_payload(remediation)?;
+            match state.provider_factory.build(&config.model).await {
+                Ok(provider) => {
+                    allbert_kernel::run_diagnosis_report_with_remediation_provider(
+                        &state.paths,
+                        &config,
+                        &session.session_id,
+                        request.session_id.as_deref(),
+                        request.lookback_days,
+                        remediation,
+                        Some(allbert_kernel::DiagnosisCandidateProvider {
+                            provider: provider.as_ref(),
+                            model: &config.model,
+                        }),
+                    )
+                    .await
+                }
+                Err(_) => allbert_kernel::run_diagnosis_report_with_remediation_fallback(
+                    &state.paths,
+                    &config,
+                    &session.session_id,
+                    request.session_id.as_deref(),
+                    request.lookback_days,
+                    remediation,
+                    "provider_unavailable",
+                ),
+            }
+        }
         None => allbert_kernel::run_diagnosis_report(
             &state.paths,
             &config.self_diagnosis,
