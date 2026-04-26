@@ -229,6 +229,14 @@ pub struct AllbertPaths {
     pub learning_personality_digest: PathBuf,
     pub learning_personality_digest_runs: PathBuf,
     pub learning_personality_digest_consent: PathBuf,
+    pub adapters_root: PathBuf,
+    pub adapters_runs: PathBuf,
+    pub adapters_installed: PathBuf,
+    pub adapters_incoming: PathBuf,
+    pub adapters_runtime: PathBuf,
+    pub adapters_active: PathBuf,
+    pub adapters_history: PathBuf,
+    pub adapters_evals: PathBuf,
     pub self_improvement: PathBuf,
     pub self_improvement_history: PathBuf,
     pub worktrees: PathBuf,
@@ -255,6 +263,7 @@ impl AllbertPaths {
         let jobs = root.join("jobs");
         let learning = root.join("learning");
         let learning_personality_digest = learning.join("personality-digest");
+        let adapters_root = root.join("adapters");
         let self_improvement = root.join("self-improvement");
         let sessions = root.join("sessions");
         let config_dir = root.join("config");
@@ -316,6 +325,14 @@ impl AllbertPaths {
             learning_personality_digest_consent: learning_personality_digest.join("consent.json"),
             learning_personality_digest,
             learning,
+            adapters_runs: adapters_root.join("runs"),
+            adapters_installed: adapters_root.join("installed"),
+            adapters_incoming: adapters_root.join("incoming"),
+            adapters_runtime: adapters_root.join("runtime"),
+            adapters_active: adapters_root.join("active.json"),
+            adapters_history: adapters_root.join("history.jsonl"),
+            adapters_evals: adapters_root.join("evals"),
+            adapters_root,
             self_improvement_history: self_improvement.join("history.md"),
             self_improvement,
             worktrees: root.join("worktrees"),
@@ -366,6 +383,12 @@ impl AllbertPaths {
             &self.learning,
             &self.learning_personality_digest,
             &self.learning_personality_digest_runs,
+            &self.adapters_root,
+            &self.adapters_runs,
+            &self.adapters_installed,
+            &self.adapters_incoming,
+            &self.adapters_runtime,
+            &self.adapters_evals,
             &self.self_improvement,
             &self.worktrees,
             &self.sessions,

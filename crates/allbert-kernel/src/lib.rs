@@ -1,4 +1,5 @@
 pub mod adapter;
+pub mod adapters;
 pub mod agent;
 pub mod atomic;
 mod bootstrap;
@@ -34,6 +35,10 @@ use serde_json::json;
 pub use adapter::{
     ConfirmDecision, ConfirmPrompter, ConfirmRequest, DynamicConfirmPrompter, FrontendAdapter,
     InputPrompter, InputRequest, InputResponse,
+};
+pub use adapters::{
+    build_adapter_corpus, read_adapter_manifest, write_adapter_manifest, AdapterCorpusConfig,
+    AdapterCorpusItem, AdapterCorpusSnapshot, AdapterStore,
 };
 pub use agent::{
     ActiveTurnBudget, Agent, AgentDefinition, AgentState, StagedNoticeEntry, TurnBudget,
