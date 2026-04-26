@@ -22,6 +22,15 @@ retired_kernel='^[[:space:]]*allbert-kernel[[:space:]]*=|package[[:space:]]*=[[:
 services_dependency='^[[:space:]]*allbert-kernel-services[[:space:]]*=|package[[:space:]]*=[[:space:]]*"allbert-kernel-services"|allbert_kernel_services\b'
 failures=0
 
+normal_dependencies() {
+  local manifest="$1"
+  awk '
+    /^\[dependencies\]$/ { in_deps = 1; next }
+    /^\[/ { in_deps = 0 }
+    in_deps { print }
+  ' "$manifest"
+}
+
 echo "kernel dependency compactness check mode: $([[ $enforce -eq 1 ]] && echo enforce || echo report)"
 
 if [[ ! -f "$core_manifest" ]]; then
@@ -31,7 +40,7 @@ if [[ ! -f "$core_manifest" ]]; then
   fi
 else
   echo "checking core forbidden normal dependencies"
-  if rg -n "$forbidden_core" "$core_manifest"; then
+  if normal_dependencies "$core_manifest" | rg -n "$forbidden_core"; then
     echo "core owns forbidden concrete-service dependencies"
     if (( enforce == 1 )); then
       failures=$((failures + 1))
@@ -40,7 +49,7 @@ else
     echo "core forbidden dependency check: ok"
   fi
 
-  if rg -n "$services_dependency" "$core_manifest"; then
+  if normal_dependencies "$core_manifest" | rg -n "$services_dependency"; then
     echo "core depends on services"
     if (( enforce == 1 )); then
       failures=$((failures + 1))
@@ -57,7 +66,7 @@ if [[ ! -f "$services_manifest" ]]; then
   fi
 else
   echo "checking services retired-monolith dependency"
-  if rg -n "$retired_kernel" "$services_manifest"; then
+  if normal_dependencies "$services_manifest" | rg -n "$retired_kernel"; then
     echo "services depends on retired allbert-kernel"
     if (( enforce == 1 )); then
       failures=$((failures + 1))

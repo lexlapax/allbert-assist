@@ -137,6 +137,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "allbert-kernel-core"
+version = "0.14.1"
+dependencies = [
+ "allbert-proto",
+ "async-trait",
+ "chrono",
+ "chrono-tz",
+ "dirs",
+ "fs2",
+ "gray_matter",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
+ "toml",
+ "toml_edit",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "allbert-proto"
 version = "0.14.1"
 dependencies = [

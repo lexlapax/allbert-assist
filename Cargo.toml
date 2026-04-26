@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/allbert-kernel-core",
     "crates/allbert-kernel",
     "crates/allbert-cli",
     "crates/allbert-proto",
