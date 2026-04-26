@@ -169,6 +169,7 @@ const MEMORY_CURATOR_EXTRACT_AGENT_TEMPLATE: &str =
     include_str!("../../../skills/memory-curator/agents/extract-from-turn.md");
 const RUST_REBUILD_SKILL_TEMPLATE: &str = include_str!("../../../skills/rust-rebuild/SKILL.md");
 const SKILL_AUTHOR_SKILL_TEMPLATE: &str = include_str!("../../../skills/skill-author/SKILL.md");
+const SELF_DIAGNOSE_SKILL_TEMPLATE: &str = include_str!("../../../skills/self-diagnose/SKILL.md");
 const ADAPTER_GOLDEN_BOOTSTRAP_TEMPLATE: &str =
     include_str!("../assets/adapter-golden-bootstrap.jsonl");
 
@@ -453,6 +454,22 @@ impl AllbertPaths {
             &self.skills_installed.join("rust-rebuild").join("SKILL.md"),
             RUST_REBUILD_SKILL_TEMPLATE,
         )?;
+        let self_diagnose_path = self.skills_installed.join("self-diagnose").join("SKILL.md");
+        let seeded_self_diagnose = !self_diagnose_path.exists();
+        self.seed_file_if_missing(&self_diagnose_path, SELF_DIAGNOSE_SKILL_TEMPLATE)?;
+        if seeded_self_diagnose {
+            let installed_at = chrono::Utc::now().to_rfc3339();
+            self.seed_file_if_missing(
+                &self
+                    .skills_installed
+                    .join("self-diagnose")
+                    .join(".allbert-install.toml"),
+                &first_party_skill_install_metadata(
+                    "allbert:first-party/self-diagnose",
+                    &installed_at,
+                ),
+            )?;
+        }
         let skill_author_path = self.skills_installed.join("skill-author").join("SKILL.md");
         let seeded_skill_author = !skill_author_path.exists();
         self.seed_file_if_missing(&skill_author_path, SKILL_AUTHOR_SKILL_TEMPLATE)?;
@@ -572,5 +589,14 @@ mod tests {
             .expect("first-party install metadata should be seeded");
         assert!(metadata.contains("kind = \"first_party\""));
         assert!(metadata.contains("allbert:first-party/skill-author"));
+
+        let self_diagnose = paths.skills_installed.join("self-diagnose");
+        let skill = std::fs::read_to_string(self_diagnose.join("SKILL.md"))
+            .expect("self-diagnose should be seeded");
+        assert!(skill.contains("name: self-diagnose"));
+        assert!(skill.contains("self_diagnose"));
+        let metadata = std::fs::read_to_string(self_diagnose.join(".allbert-install.toml"))
+            .expect("self-diagnose install metadata should be seeded");
+        assert!(metadata.contains("allbert:first-party/self-diagnose"));
     }
 }

@@ -121,11 +121,13 @@ pub use scripting::{
 pub use security::SecurityHook;
 pub use self_diagnosis::{
     build_trace_diagnostic_bundle, diagnosis_report_summary, diagnosis_summary,
-    generate_diagnosis_id, DiagnosisRemediationStatus, DiagnosisRemediationSummary,
-    DiagnosisReportSummary, DiagnosisSummary, DiagnosticEvent, DiagnosticSpan,
-    DiagnosticSpanStatus, DiagnosticTruncation, FailureClassification, FailureKind,
-    SelfDiagnoseInput, TraceDiagnosticBounds, TraceDiagnosticBundle,
-    DIAGNOSIS_REPORT_SUMMARY_SCHEMA_VERSION, TRACE_DIAGNOSTIC_BUNDLE_VERSION,
+    generate_diagnosis_id, list_diagnosis_reports, read_diagnosis_report, run_diagnosis_report,
+    write_diagnosis_report, DiagnosisRemediationStatus, DiagnosisRemediationSummary,
+    DiagnosisReportArtifact, DiagnosisReportIndexEntry, DiagnosisReportSummary, DiagnosisSummary,
+    DiagnosticEvent, DiagnosticSpan, DiagnosticSpanStatus, DiagnosticTruncation,
+    FailureClassification, FailureKind, SelfDiagnoseInput, TraceDiagnosticBounds,
+    TraceDiagnosticBundle, DIAGNOSIS_ARTIFACT_ROOT, DIAGNOSIS_REPORT_SUMMARY_SCHEMA_VERSION,
+    TRACE_DIAGNOSTIC_BUNDLE_VERSION,
 };
 pub use self_improvement::{
     assert_rust_rebuild_ready, check_self_improvement_write_target, collect_worktree_gc,
@@ -3234,14 +3236,14 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
             }
         };
 
-        let bundle = match self_diagnosis::build_trace_diagnostic_bundle(
+        let artifact = match self_diagnosis::run_diagnosis_report(
             &self.paths,
             &self.config.self_diagnosis,
             &state.session_id,
             parsed.session_id.as_deref(),
             parsed.lookback_days,
         ) {
-            Ok(bundle) => bundle,
+            Ok(artifact) => artifact,
             Err(err) => {
                 return ToolOutput {
                     content: err.to_string(),
@@ -3249,7 +3251,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 }
             }
         };
-        serialize_tool_value(&self_diagnosis::diagnosis_report_summary(&bundle, None))
+        serialize_tool_value(&artifact.summary)
     }
 
     fn dispatch_read_memory(&self, input: serde_json::Value) -> ToolOutput {

@@ -1,9 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
 
 use allbert_proto::{AttributeValue, Span, SpanStatus};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::atomic_write;
 use crate::config::SelfDiagnosisConfig;
 use crate::error::KernelError;
 use crate::paths::AllbertPaths;
@@ -11,6 +13,7 @@ use crate::replay::{DefaultSecretRedactor, SecretRedactor, TraceReader};
 
 pub const TRACE_DIAGNOSTIC_BUNDLE_VERSION: u32 = 1;
 pub const DIAGNOSIS_REPORT_SUMMARY_SCHEMA_VERSION: u32 = 1;
+pub const DIAGNOSIS_ARTIFACT_ROOT: &str = "artifacts/diagnostics";
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
@@ -170,12 +173,34 @@ pub struct DiagnosisRemediationSummary {
 pub struct DiagnosisReportSummary {
     pub schema_version: u32,
     pub diagnosis_id: String,
+    pub session_id: String,
     pub created_at: DateTime<Utc>,
-    pub summary: DiagnosisSummary,
     pub selected_session_ids: Vec<String>,
+    pub classification: FailureKind,
+    pub confidence: f32,
+    pub rationale: String,
     pub bounds: TraceDiagnosticBounds,
-    pub report_path: Option<String>,
+    pub truncation: DiagnosticTruncation,
+    pub warnings: Vec<String>,
+    pub span_count: usize,
+    pub event_count: usize,
+    pub report_path: String,
     pub remediation: Option<DiagnosisRemediationSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DiagnosisReportArtifact {
+    pub summary: DiagnosisReportSummary,
+    pub report_markdown: String,
+    pub report_path: PathBuf,
+    pub summary_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DiagnosisReportIndexEntry {
+    pub summary: DiagnosisReportSummary,
+    pub report_exists: bool,
+    pub summary_path: PathBuf,
 }
 
 pub fn build_trace_diagnostic_bundle(
@@ -286,6 +311,165 @@ pub fn build_trace_diagnostic_bundle(
     })
 }
 
+pub fn run_diagnosis_report(
+    paths: &AllbertPaths,
+    config: &SelfDiagnosisConfig,
+    active_session_id: &str,
+    requested_session_id: Option<&str>,
+    lookback_days_override: Option<u16>,
+) -> Result<DiagnosisReportArtifact, KernelError> {
+    if !config.enabled {
+        return Err(KernelError::Request(
+            "self_diagnosis.enabled is false; run `/settings show self_diagnosis` and enable self_diagnosis.enabled before diagnosing".into(),
+        ));
+    }
+    let bundle = build_trace_diagnostic_bundle(
+        paths,
+        config,
+        active_session_id,
+        requested_session_id,
+        lookback_days_override,
+    )?;
+    write_diagnosis_report(paths, config, active_session_id, &bundle)
+}
+
+pub fn write_diagnosis_report(
+    paths: &AllbertPaths,
+    config: &SelfDiagnosisConfig,
+    session_id: &str,
+    bundle: &TraceDiagnosticBundle,
+) -> Result<DiagnosisReportArtifact, KernelError> {
+    let created_at = Utc::now();
+    let diagnosis_id = generate_diagnosis_id(created_at);
+    let report_dir = diagnosis_report_dir(paths, session_id, &diagnosis_id);
+    std::fs::create_dir_all(&report_dir).map_err(|err| {
+        KernelError::Io(std::io::Error::new(
+            err.kind(),
+            format!("create {}: {err}", report_dir.display()),
+        ))
+    })?;
+    let report_path = report_dir.join("report.md");
+    let summary_path = report_dir.join("bundle.summary.json");
+    let mut summary = diagnosis_report_summary_with_id(
+        bundle,
+        session_id,
+        &diagnosis_id,
+        created_at,
+        report_path.display().to_string(),
+    );
+    let mut report_markdown = render_markdown_report(bundle, &summary);
+    if report_markdown.len() > config.max_report_bytes {
+        summary.truncation.report = true;
+        report_markdown = truncate_report(report_markdown, config.max_report_bytes);
+    }
+    let summary_json = serde_json::to_vec_pretty(&summary)
+        .map_err(|err| KernelError::InitFailed(format!("serialize diagnosis summary: {err}")))?;
+    atomic_write(&summary_path, &summary_json).map_err(|err| {
+        KernelError::Io(std::io::Error::new(
+            err.kind(),
+            format!("write {}: {err}", summary_path.display()),
+        ))
+    })?;
+    atomic_write(&report_path, report_markdown.as_bytes()).map_err(|err| {
+        KernelError::Io(std::io::Error::new(
+            err.kind(),
+            format!("write {}: {err}", report_path.display()),
+        ))
+    })?;
+    Ok(DiagnosisReportArtifact {
+        summary,
+        report_markdown,
+        report_path,
+        summary_path,
+    })
+}
+
+pub fn list_diagnosis_reports(
+    paths: &AllbertPaths,
+    session_id: Option<&str>,
+) -> Result<Vec<DiagnosisReportIndexEntry>, KernelError> {
+    let mut entries = Vec::new();
+    let session_dirs = diagnosis_session_dirs(paths, session_id)?;
+    for session_dir in session_dirs {
+        let diagnostics = session_dir.join(DIAGNOSIS_ARTIFACT_ROOT);
+        if !diagnostics.exists() {
+            continue;
+        }
+        let read_dir = std::fs::read_dir(&diagnostics).map_err(|err| {
+            KernelError::Io(std::io::Error::new(
+                err.kind(),
+                format!("read {}: {err}", diagnostics.display()),
+            ))
+        })?;
+        for entry in read_dir {
+            let entry = entry.map_err(KernelError::Io)?;
+            if !entry.path().is_dir() {
+                continue;
+            }
+            let summary_path = entry.path().join("bundle.summary.json");
+            if !summary_path.exists() {
+                continue;
+            }
+            let summary = read_summary_file(&summary_path)?;
+            let report_exists = entry.path().join("report.md").exists();
+            entries.push(DiagnosisReportIndexEntry {
+                summary,
+                report_exists,
+                summary_path,
+            });
+        }
+    }
+    entries.sort_by(|left, right| {
+        right
+            .summary
+            .created_at
+            .cmp(&left.summary.created_at)
+            .then_with(|| left.summary.diagnosis_id.cmp(&right.summary.diagnosis_id))
+    });
+    Ok(entries)
+}
+
+pub fn read_diagnosis_report(
+    paths: &AllbertPaths,
+    diagnosis_id: &str,
+) -> Result<DiagnosisReportArtifact, KernelError> {
+    if !valid_diagnosis_id(diagnosis_id) {
+        return Err(KernelError::Request(format!(
+            "invalid diagnosis id `{diagnosis_id}`"
+        )));
+    }
+    for entry in list_diagnosis_reports(paths, None)? {
+        if entry.summary.diagnosis_id != diagnosis_id {
+            continue;
+        }
+        let report_path = entry
+            .summary_path
+            .parent()
+            .map(|path| path.join("report.md"))
+            .ok_or_else(|| {
+                KernelError::Request(format!(
+                    "malformed diagnosis summary path: {}",
+                    entry.summary_path.display()
+                ))
+            })?;
+        let report_markdown = std::fs::read_to_string(&report_path).map_err(|err| {
+            KernelError::Io(std::io::Error::new(
+                err.kind(),
+                format!("read {}: {err}", report_path.display()),
+            ))
+        })?;
+        return Ok(DiagnosisReportArtifact {
+            summary: entry.summary,
+            report_markdown,
+            report_path,
+            summary_path: entry.summary_path,
+        });
+    }
+    Err(KernelError::Request(format!(
+        "diagnosis report not found: {diagnosis_id}"
+    )))
+}
+
 pub fn diagnosis_summary(bundle: &TraceDiagnosticBundle) -> DiagnosisSummary {
     DiagnosisSummary {
         primary_failure: bundle.classification.primary,
@@ -302,15 +486,40 @@ pub fn diagnosis_summary(bundle: &TraceDiagnosticBundle) -> DiagnosisSummary {
 
 pub fn diagnosis_report_summary(
     bundle: &TraceDiagnosticBundle,
-    report_path: Option<String>,
+    session_id: &str,
+    report_path: String,
+) -> DiagnosisReportSummary {
+    let created_at = Utc::now();
+    diagnosis_report_summary_with_id(
+        bundle,
+        session_id,
+        &generate_diagnosis_id(created_at),
+        created_at,
+        report_path,
+    )
+}
+
+fn diagnosis_report_summary_with_id(
+    bundle: &TraceDiagnosticBundle,
+    session_id: &str,
+    diagnosis_id: &str,
+    created_at: DateTime<Utc>,
+    report_path: String,
 ) -> DiagnosisReportSummary {
     DiagnosisReportSummary {
         schema_version: DIAGNOSIS_REPORT_SUMMARY_SCHEMA_VERSION,
-        diagnosis_id: generate_diagnosis_id(Utc::now()),
-        created_at: Utc::now(),
-        summary: diagnosis_summary(bundle),
+        diagnosis_id: diagnosis_id.to_string(),
+        session_id: session_id.to_string(),
+        created_at,
         selected_session_ids: bundle.selected_session_ids.clone(),
+        classification: bundle.classification.primary,
+        confidence: bundle.classification.confidence,
+        rationale: bundle.classification.rationale.clone(),
         bounds: bundle.bounds.clone(),
+        truncation: bundle.truncation.clone(),
+        warnings: bundle.warnings.clone(),
+        span_count: bundle.spans.len(),
+        event_count: bundle.events.len(),
         report_path,
         remediation: None,
     }
@@ -324,6 +533,261 @@ pub fn generate_diagnosis_id(now: DateTime<Utc>) -> String {
         .take(8)
         .collect::<String>();
     format!("diag_{}_{short}", now.format("%Y%m%dT%H%M%SZ"))
+}
+
+fn diagnosis_report_dir(paths: &AllbertPaths, session_id: &str, diagnosis_id: &str) -> PathBuf {
+    paths
+        .sessions
+        .join(session_id)
+        .join(DIAGNOSIS_ARTIFACT_ROOT)
+        .join(diagnosis_id)
+}
+
+fn diagnosis_session_dirs(
+    paths: &AllbertPaths,
+    session_id: Option<&str>,
+) -> Result<Vec<PathBuf>, KernelError> {
+    if let Some(session_id) = session_id {
+        return Ok(vec![paths.sessions.join(session_id)]);
+    }
+    if !paths.sessions.exists() {
+        return Ok(Vec::new());
+    }
+    let mut dirs = Vec::new();
+    for entry in std::fs::read_dir(&paths.sessions).map_err(|err| {
+        KernelError::Io(std::io::Error::new(
+            err.kind(),
+            format!("read {}: {err}", paths.sessions.display()),
+        ))
+    })? {
+        let entry = entry.map_err(KernelError::Io)?;
+        if entry.path().is_dir() && !entry.file_name().to_string_lossy().starts_with('.') {
+            dirs.push(entry.path());
+        }
+    }
+    Ok(dirs)
+}
+
+fn read_summary_file(path: &Path) -> Result<DiagnosisReportSummary, KernelError> {
+    let raw = std::fs::read_to_string(path).map_err(|err| {
+        KernelError::Io(std::io::Error::new(
+            err.kind(),
+            format!("read {}: {err}", path.display()),
+        ))
+    })?;
+    serde_json::from_str(&raw)
+        .map_err(|err| KernelError::Request(format!("parse {}: {err}", path.display())))
+}
+
+fn valid_diagnosis_id(input: &str) -> bool {
+    input.starts_with("diag_")
+        && input.len() >= "diag_20260426T000000Z_00000000".len()
+        && input.chars().all(|ch| {
+            ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_' || ch == 'T' || ch == 'Z'
+        })
+}
+
+fn render_markdown_report(
+    bundle: &TraceDiagnosticBundle,
+    summary: &DiagnosisReportSummary,
+) -> String {
+    let mut report = String::new();
+    report.push_str("# Allbert Diagnosis Report\n\n");
+    report.push_str("## Summary\n\n");
+    report.push_str(&format!("- Diagnosis id: `{}`\n", summary.diagnosis_id));
+    report.push_str(&format!("- Session artifact: `{}`\n", summary.session_id));
+    report.push_str(&format!("- Created: `{}`\n", summary.created_at));
+    report.push_str(&format!(
+        "- Selected sessions: `{}`\n",
+        if summary.selected_session_ids.is_empty() {
+            "(none)".to_string()
+        } else {
+            summary.selected_session_ids.join("`, `")
+        }
+    ));
+    report.push_str(&format!(
+        "- Spans/events: {}/{}\n\n",
+        summary.span_count, summary.event_count
+    ));
+
+    report.push_str("## Classification\n\n");
+    report.push_str(&format!(
+        "- Primary: `{}`\n- Confidence: {:.2}\n- Rationale: {}\n",
+        summary.classification.label(),
+        summary.confidence,
+        summary.rationale
+    ));
+    if bundle.classification.secondary.is_empty() {
+        report.push_str("- Secondary: none\n\n");
+    } else {
+        report.push_str(&format!(
+            "- Secondary: `{}`\n\n",
+            bundle
+                .classification
+                .secondary
+                .iter()
+                .map(|kind| kind.label())
+                .collect::<Vec<_>>()
+                .join("`, `")
+        ));
+    }
+
+    report.push_str("## Evidence\n\n");
+    append_evidence(bundle, &mut report);
+
+    report.push_str("\n## Skipped Or Truncated Data\n\n");
+    append_truncation(bundle, summary, &mut report);
+
+    report.push_str("\n## Recommended Next Actions\n\n");
+    for action in recommended_actions(summary.classification) {
+        report.push_str("- ");
+        report.push_str(action);
+        report.push('\n');
+    }
+
+    report.push_str("\n## Remediation Status\n\n");
+    match &summary.remediation {
+        Some(remediation) => {
+            report.push_str(&format!(
+                "- `{}` remediation: {:?}. {}\n",
+                remediation.kind, remediation.status, remediation.message
+            ));
+        }
+        None => report.push_str(
+            "- No remediation was requested. Run an explicit diagnose remediation command with `--reason` when you want Allbert to propose a reviewed fix.\n",
+        ),
+    }
+    report
+}
+
+fn append_evidence(bundle: &TraceDiagnosticBundle, report: &mut String) {
+    let error_spans = bundle
+        .spans
+        .iter()
+        .filter(|span| matches!(span.status, DiagnosticSpanStatus::Error { .. }))
+        .take(8)
+        .collect::<Vec<_>>();
+    if error_spans.is_empty() && bundle.events.is_empty() {
+        report.push_str("No error spans or events were present in the bounded trace bundle.\n");
+        return;
+    }
+    if !error_spans.is_empty() {
+        report.push_str("Error spans:\n");
+        for span in error_spans {
+            let status = match &span.status {
+                DiagnosticSpanStatus::Ok => "ok".to_string(),
+                DiagnosticSpanStatus::Error { message } => format!("error: {message}"),
+            };
+            report.push_str(&format!(
+                "- `{}` in `{}` at `{}`: {}\n",
+                span.name, span.session_id, span.started_at, status
+            ));
+        }
+    }
+    if !bundle.events.is_empty() {
+        report.push_str("Events:\n");
+        for event in bundle.events.iter().take(8) {
+            report.push_str(&format!(
+                "- `{}` in span `{}` at `{}`\n",
+                event.name, event.span_id, event.timestamp
+            ));
+        }
+    }
+}
+
+fn append_truncation(
+    bundle: &TraceDiagnosticBundle,
+    summary: &DiagnosisReportSummary,
+    report: &mut String,
+) {
+    report.push_str(&format!(
+        "- Bounds: sessions={}, spans={}, events={}, text_bytes={}, report_bytes={}\n",
+        summary.bounds.max_sessions,
+        summary.bounds.max_spans,
+        summary.bounds.max_events,
+        summary.bounds.max_text_snippet_bytes,
+        summary.bounds.max_report_bytes
+    ));
+    report.push_str(&format!(
+        "- Truncated: sessions={}, spans={}, events={}, text={}, report={}\n",
+        yes_no(summary.truncation.sessions),
+        yes_no(summary.truncation.spans),
+        yes_no(summary.truncation.events),
+        yes_no(summary.truncation.text),
+        yes_no(summary.truncation.report)
+    ));
+    report.push_str(&format!(
+        "- Bytes read: {}; rotated archives: {}; recovered stale spans: {}\n",
+        bundle.bytes_read,
+        yes_no(bundle.has_rotated_archives),
+        bundle.recovered_span_count
+    ));
+    if bundle.warnings.is_empty() {
+        report.push_str("- Warnings: none\n");
+    } else {
+        report.push_str("- Warnings:\n");
+        for warning in bundle.warnings.iter().take(8) {
+            report.push_str(&format!("  - {warning}\n"));
+        }
+    }
+}
+
+fn recommended_actions(kind: FailureKind) -> &'static [&'static str] {
+    match kind {
+        FailureKind::ProviderError => &[
+            "Check provider availability, model configuration, and visible API key environment.",
+            "Use `allbert-cli trace show` for nearby provider spans if more detail is needed.",
+        ],
+        FailureKind::ToolDenied => &[
+            "Review the denied command or path against `security.exec_allow` and filesystem roots.",
+            "Keep approval policy changes explicit; diagnosis does not weaken security settings.",
+        ],
+        FailureKind::ToolFailed => &[
+            "Inspect the failing tool inputs and stderr summary in the trace evidence.",
+            "Retry only after correcting the local command, path, or prerequisite.",
+        ],
+        FailureKind::Timeout => &[
+            "Check whether the operation needs a smaller input, a larger configured timeout, or a manual retry.",
+        ],
+        FailureKind::ApprovalAbandoned => &[
+            "Open the approval inbox and decide, reject, or recreate the stale request intentionally.",
+        ],
+        FailureKind::CostCap => &[
+            "Inspect cost caps before retrying; use an explicit override only when the task warrants it.",
+        ],
+        FailureKind::ContextPressure => &[
+            "Reduce prompt size, summarize older context, or use narrower retrieval before retrying.",
+        ],
+        FailureKind::MemoryMismatch => &[
+            "Review staged and durable memory before promoting or correcting any memory candidate.",
+        ],
+        FailureKind::AdapterTrainingFailure => &[
+            "Inspect adapter training artifacts and trainer environment before starting another run.",
+        ],
+        FailureKind::UnknownLocal => &[
+            "No fixed taxonomy match was found; inspect the report evidence and nearby trace session manually.",
+        ],
+    }
+}
+
+fn truncate_report(mut report: String, max_bytes: usize) -> String {
+    let marker = "\n\n[diagnosis report truncated at configured max_report_bytes]\n";
+    let keep = max_bytes.saturating_sub(marker.len());
+    let mut boundary = keep.min(report.len());
+    while boundary > 0 && !report.is_char_boundary(boundary) {
+        boundary -= 1;
+    }
+    report.truncate(boundary);
+    report.push_str(marker);
+    report
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value {
+        "yes"
+    } else {
+        "no"
+    }
 }
 
 fn select_sessions(

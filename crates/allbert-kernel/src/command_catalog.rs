@@ -392,6 +392,13 @@ pub fn command_catalog() -> Vec<CommandDescriptor> {
             "Preview or run learning jobs.",
         ),
         command(
+            "cli:diagnose",
+            "allbert-cli diagnose",
+            CommandGroup::System,
+            CLI,
+            "Create and inspect bounded self-diagnosis reports.",
+        ),
+        command(
             "cli:agents",
             "allbert-cli agents",
             CommandGroup::Status,

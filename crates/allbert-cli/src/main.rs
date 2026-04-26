@@ -13,6 +13,7 @@ use serde::Serialize;
 
 mod adapters_cli;
 mod approvals;
+mod diagnose_cli;
 mod heartbeat_cli;
 mod identity_cli;
 mod memory_cli;
@@ -26,6 +27,7 @@ mod trace_cli;
 mod tui;
 
 use adapters_cli::AdaptersCommand;
+use diagnose_cli::DiagnoseCommand;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -33,7 +35,7 @@ use adapters_cli::AdaptersCommand;
     version,
     about = "Allbert daemon-backed CLI",
     long_about = None,
-    after_long_help = "EXAMPLES:\n  allbert-cli repl\n  allbert-cli activity\n  allbert-cli adapters status\n  allbert-cli adapters training preview\n  allbert-cli trace show\n  allbert-cli settings list ui\n  allbert-cli memory staged list\n  allbert-cli skills show memory-curator\n  allbert-cli daemon status\n"
+    after_long_help = "EXAMPLES:\n  allbert-cli repl\n  allbert-cli activity\n  allbert-cli diagnose run\n  allbert-cli adapters status\n  allbert-cli adapters training preview\n  allbert-cli trace show\n  allbert-cli settings list ui\n  allbert-cli memory staged list\n  allbert-cli skills show memory-curator\n  allbert-cli daemon status\n"
 )]
 struct Args {
     /// Enable daemon debug logging for the running daemon at ~/.allbert/logs/daemon.debug.log.
@@ -118,6 +120,11 @@ enum Command {
     Trace {
         #[command(subcommand)]
         command: TraceCommand,
+    },
+    /// Create and inspect bounded self-diagnosis reports.
+    Diagnose {
+        #[command(subcommand)]
+        command: DiagnoseCommand,
     },
     Profile {
         #[command(subcommand)]
@@ -624,6 +631,7 @@ async fn run_cli() -> Result<()> {
         Some(Command::Inbox { command }) => run_inbox_command(&paths, &config, command).await,
         Some(Command::Activity { json }) => run_activity_command(&paths, &config, json).await,
         Some(Command::Trace { command }) => run_trace_command(&paths, &config, command).await,
+        Some(Command::Diagnose { command }) => diagnose_cli::run(&paths, &config, command),
         Some(Command::Adapters { command }) => adapters_cli::run(&paths, &config, command),
         Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
         Some(Command::Heartbeat { command }) => run_heartbeat_command(&paths, command),
