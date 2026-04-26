@@ -11,6 +11,7 @@ use serde_json::json;
 
 use crate::adapters::corpus::{build_adapter_corpus, AdapterCorpusConfig, AdapterCorpusSnapshot};
 use crate::adapters::eval::run_fixed_evals;
+use crate::adapters::factory::build_trainer;
 use crate::adapters::manifest::{write_adapter_manifest, MANIFEST_FILE};
 use crate::adapters::trainer::{AdapterTrainer, CancellationToken, TrainerHooks, TrainingPlan};
 use crate::adapters::trainer_fake::FakeAdapterTrainer;
@@ -30,12 +31,22 @@ pub const PERSONALITY_ADAPTER_SESSION_ID: &str = "learning-adapter";
 pub const DEFAULT_ADAPTER_COMPUTE_CAP_WALL_SECONDS: u64 = 7_200;
 pub const DEFAULT_MIN_GOLDEN_PASS_RATE: f64 = 0.85;
 
+pub struct AdapterTrainingRunRequest {
+    pub session_id: String,
+    pub requested_backend: Option<String>,
+    pub backend_override_reason: Option<String>,
+    pub compute_cap_override_reason: Option<String>,
+    pub run_id: String,
+    pub cancel: CancellationToken,
+}
+
 #[derive(Clone)]
 pub struct PersonalityAdapterJob {
     trainer: Arc<dyn AdapterTrainer>,
     trace_hooks: Option<Arc<dyn TracingHooks>>,
     on_event: Option<Arc<dyn Fn(KernelEvent) + Send + Sync>>,
     compute_cap_override_reason: Option<String>,
+    backend_override_reason: Option<String>,
 }
 
 impl PersonalityAdapterJob {
@@ -45,6 +56,7 @@ impl PersonalityAdapterJob {
             trace_hooks: None,
             on_event: None,
             compute_cap_override_reason: None,
+            backend_override_reason: None,
         }
     }
 
@@ -54,7 +66,21 @@ impl PersonalityAdapterJob {
             trace_hooks: None,
             on_event: None,
             compute_cap_override_reason: None,
+            backend_override_reason: None,
         }
+    }
+
+    pub fn production(
+        paths: &crate::AllbertPaths,
+        config: &Config,
+        requested_backend: Option<&str>,
+        backend_override_reason: Option<&str>,
+    ) -> Result<Self, KernelError> {
+        let mut job = Self::with_trainer(build_trainer(paths, config, requested_backend)?);
+        if let Some(reason) = backend_override_reason {
+            job = job.with_backend_override_reason(reason);
+        }
+        Ok(job)
     }
 
     pub fn with_trace_hooks(mut self, trace_hooks: Arc<dyn TracingHooks>) -> Self {
@@ -69,6 +95,11 @@ impl PersonalityAdapterJob {
 
     pub fn with_compute_cap_override(mut self, reason: impl Into<String>) -> Self {
         self.compute_cap_override_reason = Some(reason.into());
+        self
+    }
+
+    pub fn with_backend_override_reason(mut self, reason: impl Into<String>) -> Self {
+        self.backend_override_reason = Some(reason.into());
         self
     }
 
@@ -163,13 +194,15 @@ pub fn run_personality_adapter_training_with_session(
 pub fn run_personality_adapter_training_controlled(
     paths: &crate::AllbertPaths,
     config: &Config,
-    session_id: &str,
-    override_reason: Option<&str>,
-    run_id: String,
-    cancel: CancellationToken,
+    request: AdapterTrainingRunRequest,
 ) -> Result<LearningJobReport, KernelError> {
-    let mut job = PersonalityAdapterJob::fake();
-    if let Some(reason) = override_reason {
+    let mut job = PersonalityAdapterJob::production(
+        paths,
+        config,
+        request.requested_backend.as_deref(),
+        request.backend_override_reason.as_deref(),
+    )?;
+    if let Some(reason) = request.compute_cap_override_reason.as_deref() {
         job = job.with_compute_cap_override(reason);
     }
     let ctx = LearningJobContext {
@@ -178,7 +211,7 @@ pub fn run_personality_adapter_training_controlled(
         accept_output: false,
         consent_hosted_provider: false,
     };
-    job.run_with_session_and_control(&ctx, session_id, run_id, cancel)
+    job.run_with_session_and_control(&ctx, &request.session_id, request.run_id, request.cancel)
 }
 
 fn run_personality_adapter_training_with_session_and_override(
@@ -187,7 +220,7 @@ fn run_personality_adapter_training_with_session_and_override(
     session_id: &str,
     override_reason: Option<&str>,
 ) -> Result<LearningJobReport, KernelError> {
-    let mut job = PersonalityAdapterJob::fake();
+    let mut job = PersonalityAdapterJob::production(paths, config, None, None)?;
     if let Some(reason) = override_reason {
         job = job.with_compute_cap_override(reason);
     }
@@ -358,15 +391,16 @@ fn run_personality_adapter_job(
     write_adapter_manifest(&run_dir.join(MANIFEST_FILE), &manifest)?;
     let approval_id = write_adapter_approval(ctx.paths, session_id, &manifest, &run_dir)?;
     let approval_path = approval_path_for(ctx.paths, session_id, &approval_id);
-    let report = learning_report(
-        &approval_id,
-        &approval_path,
-        &manifest,
-        &run_dir,
-        &outcome,
-        &corpus,
-        job.compute_cap_override_reason.as_deref(),
-    )?;
+    let report = learning_report(LearningReportInput {
+        approval_id: &approval_id,
+        approval_path: &approval_path,
+        manifest: &manifest,
+        run_dir: &run_dir,
+        outcome: &outcome,
+        corpus: &corpus,
+        compute_cap_override_reason: job.compute_cap_override_reason.as_deref(),
+        backend_override_reason: job.backend_override_reason.as_deref(),
+    })?;
     atomic_write(
         &run_dir.join("report.json"),
         &serde_json::to_vec_pretty(&report)
@@ -441,48 +475,60 @@ fn training_plan(
     }
 }
 
-fn learning_report(
-    approval_id: &str,
-    approval_path: &Path,
-    manifest: &AdapterManifest,
-    run_dir: &Path,
-    outcome: &crate::TrainingOutcome,
-    corpus: &AdapterCorpusSnapshot,
-    compute_cap_override_reason: Option<&str>,
-) -> Result<LearningJobReport, KernelError> {
+struct LearningReportInput<'a> {
+    approval_id: &'a str,
+    approval_path: &'a Path,
+    manifest: &'a AdapterManifest,
+    run_dir: &'a Path,
+    outcome: &'a crate::TrainingOutcome,
+    corpus: &'a AdapterCorpusSnapshot,
+    compute_cap_override_reason: Option<&'a str>,
+    backend_override_reason: Option<&'a str>,
+}
+
+fn learning_report(input: LearningReportInput<'_>) -> Result<LearningJobReport, KernelError> {
     Ok(LearningJobReport {
         job_name: PERSONALITY_ADAPTER_JOB_NAME.into(),
         inputs: json!({
-            "corpus_digest": corpus.corpus_digest,
-            "corpus_item_count": corpus.items.len(),
-            "corpus_bytes": corpus.total_bytes,
-            "base_model": manifest.base_model,
+            "corpus_digest": input.corpus.corpus_digest,
+            "corpus_item_count": input.corpus.items.len(),
+            "corpus_bytes": input.corpus.total_bytes,
+            "base_model": input.manifest.base_model,
         }),
         execution: json!({
-            "run_id": manifest.training_run_id,
-            "trainer_backend": manifest.trainer_backend,
-            "adapter_id": manifest.adapter_id,
-            "approval_id": approval_id,
-            "overall": manifest.overall,
-            "compute_cap_override_reason": compute_cap_override_reason,
+            "run_id": input.manifest.training_run_id,
+            "trainer_backend": input.manifest.trainer_backend,
+            "adapter_id": input.manifest.adapter_id,
+            "approval_id": input.approval_id,
+            "overall": input.manifest.overall,
+            "compute_cap_override_reason": input.compute_cap_override_reason,
+            "backend_override_reason": input.backend_override_reason,
         }),
         resource_cost: json!({
-            "usd": manifest.resource_cost.usd,
-            "compute_wall_seconds": manifest.resource_cost.compute_wall_seconds,
-            "peak_resident_mb": manifest.resource_cost.peak_resident_mb,
+            "usd": input.manifest.resource_cost.usd,
+            "compute_wall_seconds": input.manifest.resource_cost.compute_wall_seconds,
+            "peak_resident_mb": input.manifest.resource_cost.peak_resident_mb,
         }),
         output_artifacts: vec![
-            artifact(run_dir.join(MANIFEST_FILE), "adapter_manifest", false),
-            artifact(&outcome.weights_path, "adapter_weights", false),
-            artifact(&outcome.loss_curve_path, "loss_curve_json", false),
-            artifact(&manifest.eval_summary.loss_curve_path, "loss_curve", false),
+            artifact(input.run_dir.join(MANIFEST_FILE), "adapter_manifest", false),
+            artifact(&input.outcome.weights_path, "adapter_weights", false),
+            artifact(&input.outcome.loss_curve_path, "loss_curve_json", false),
             artifact(
-                &manifest.eval_summary.behavioral_diff_path,
+                &input.manifest.eval_summary.loss_curve_path,
+                "loss_curve",
+                false,
+            ),
+            artifact(
+                &input.manifest.eval_summary.behavioral_diff_path,
                 "behavioral_diff",
                 false,
             ),
-            artifact(run_dir.join("eval-summary.json"), "eval_summary", false),
-            artifact(approval_path, "adapter_approval", false),
+            artifact(
+                input.run_dir.join("eval-summary.json"),
+                "eval_summary",
+                false,
+            ),
+            artifact(input.approval_path, "adapter_approval", false),
         ],
         staged_candidates: Vec::new(),
     })

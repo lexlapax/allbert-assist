@@ -4269,21 +4269,42 @@ async fn handle_adapter_training_start(
     request: allbert_proto::AdapterTrainingStartRequest,
 ) -> Result<(), DaemonError> {
     let config = state.default_config.read().await.clone();
-    let backend = match adapter_training_backend(&config, request.backend.as_deref()) {
-        Ok(backend) => backend,
-        Err(error) => {
-            send_server_message(framed, &ServerMessage::Error(error)).await?;
-            return Ok(());
+    let backend_override_reason = if request.backend.as_deref().is_some_and(|backend| {
+        !backend.trim().is_empty()
+            && config.learning.adapter_training.default_backend.as_deref() != Some(backend.trim())
+    }) {
+        match request
+            .override_reason
+            .as_deref()
+            .map(str::trim)
+            .filter(|reason| !reason.is_empty())
+        {
+            Some(reason) => Some(reason.to_string()),
+            None => {
+                send_server_message(
+                    framed,
+                    &ServerMessage::Error(ProtocolError {
+                        code: "adapter_training_backend_override_reason_required".into(),
+                        message:
+                            "daemon adapter training backend overrides require override_reason"
+                                .into(),
+                    }),
+                )
+                .await?;
+                return Ok(());
+            }
         }
+    } else {
+        None
     };
-    if backend != "fake" {
+    if let Err(error) =
+        allbert_kernel::build_trainer(&state.paths, &config, request.backend.as_deref())
+    {
         send_server_message(
             framed,
             &ServerMessage::Error(ProtocolError {
                 code: "adapter_training_backend_unavailable".into(),
-                message: format!(
-                    "adapter training backend `{backend}` is not wired into daemon training yet"
-                ),
+                message: error.to_string(),
             }),
         )
         .await?;
@@ -4313,17 +4334,26 @@ async fn handle_adapter_training_start(
     .await?;
 
     let paths = state.paths.clone();
-    let override_reason = request.override_reason.clone();
+    let backend = request.backend.clone();
+    let compute_cap_override_reason = if backend_override_reason.is_none() {
+        request.override_reason.clone()
+    } else {
+        None
+    };
     let training_run_id = run_id.clone();
     let training_cancel = cancel.clone();
     let report = tokio::task::spawn_blocking(move || {
         allbert_kernel::run_personality_adapter_training_controlled(
             &paths,
             &config,
-            allbert_kernel::PERSONALITY_ADAPTER_SESSION_ID,
-            override_reason.as_deref(),
-            training_run_id,
-            training_cancel,
+            allbert_kernel::AdapterTrainingRunRequest {
+                session_id: allbert_kernel::PERSONALITY_ADAPTER_SESSION_ID.into(),
+                requested_backend: backend,
+                backend_override_reason,
+                compute_cap_override_reason,
+                run_id: training_run_id,
+                cancel: training_cancel,
+            },
         )
     })
     .await
@@ -4362,40 +4392,6 @@ async fn handle_adapter_training_cancel(
             .await
         }
     }
-}
-
-fn adapter_training_backend(
-    config: &Config,
-    requested_backend: Option<&str>,
-) -> Result<String, ProtocolError> {
-    let training = &config.learning.adapter_training;
-    if !training.enabled {
-        return Err(ProtocolError {
-            code: "adapter_training_disabled".into(),
-            message: "adapter training is disabled in configuration".into(),
-        });
-    }
-    let backend = requested_backend
-        .map(str::trim)
-        .filter(|backend| !backend.is_empty())
-        .map(ToOwned::to_owned)
-        .or_else(|| training.default_backend.clone())
-        .ok_or_else(|| ProtocolError {
-            code: "adapter_training_backend_missing".into(),
-            message: "adapter training requires a default_backend or request backend".into(),
-        })?;
-    if !training.allowed_backends.is_empty()
-        && !training
-            .allowed_backends
-            .iter()
-            .any(|allowed| allowed == &backend)
-    {
-        return Err(ProtocolError {
-            code: "adapter_training_backend_not_allowed".into(),
-            message: format!("adapter training backend `{backend}` is not in allowed_backends"),
-        });
-    }
-    Ok(backend)
 }
 
 fn adapter_training_final_payload(

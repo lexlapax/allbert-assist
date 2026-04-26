@@ -995,7 +995,7 @@ mod tests {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().expect("paths should ensure");
-        let config = Config::default_template();
+        let config = fake_adapter_training_config();
         let report =
             allbert_kernel::run_personality_adapter_training(&paths, &config).expect("training");
         let approval_id = report.execution["approval_id"]
@@ -1017,7 +1017,7 @@ mod tests {
         let temp = TempRoot::new();
         let paths = temp.paths();
         paths.ensure().expect("paths should ensure");
-        let config = Config::default_template();
+        let config = fake_adapter_training_config();
         let report =
             allbert_kernel::run_personality_adapter_training(&paths, &config).expect("training");
         let approval_id = report.execution["approval_id"]
@@ -1089,5 +1089,13 @@ mod tests {
             None => "{\"identity_id\":null}".to_string(),
         };
         std::fs::write(dir.join("meta.json"), content).expect("meta should write");
+    }
+
+    fn fake_adapter_training_config() -> Config {
+        let mut config = Config::default_template();
+        config.learning.adapter_training.enabled = true;
+        config.learning.adapter_training.default_backend = Some("fake".into());
+        config.learning.adapter_training.allowed_backends = vec!["fake".into()];
+        config
     }
 }
