@@ -35,8 +35,11 @@ Default bounds are:
 - stdin cap: `1 MiB`;
 - final stdout cap: `1 MiB`;
 - aggregate stderr cap: `256 KiB`.
+- maximum args per stage: `64`;
+- maximum bytes per arg: `4096`;
+- maximum argv bytes per stage: `32768`.
 
-`cwd` is optional and must stay inside configured filesystem roots. Stages inherit the daemon's normal environment; v0.14 does not add tool-level env mutation.
+`cwd` is optional and must stay inside configured filesystem roots. When omitted, the daemon uses the active session workspace root if configured and otherwise `ALLBERT_HOME`. Stages inherit the daemon's normal environment; v0.14 does not add tool-level env mutation. Args must be UTF-8 text, each arg is capped individually, and the whole argv vector is capped per stage.
 
 Every stage must pass both gates:
 

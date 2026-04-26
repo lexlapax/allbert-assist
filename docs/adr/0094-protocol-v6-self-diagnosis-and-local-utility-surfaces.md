@@ -54,13 +54,17 @@ Server messages:
 - `UtilitiesDoctor(Vec<EnabledUtilityPayload>)`
 - `UnixPipeRun(UnixPipeRunSummary)`
 
-The core v6 payloads are `DiagnosisRunRequest`, `DiagnosisRemediationRequest`, `DiagnosisSummary`, `DiagnosisReportSummary`, `UtilityCatalogEntryPayload`, `EnabledUtilityPayload`, and `UnixPipeRunSummary`. They carry only bounded status/report paths and summaries; raw trace files, full utility help text, and unbounded stdout/stderr are not protocol payloads.
+The core v6 payloads are `DiagnosisRunRequest`, `DiagnosisRemediationRequest`, `DiagnosisSummary`, `DiagnosisReportSummary`, `UtilityCatalogEntryPayload`, `UtilityEnableRequest`, `EnabledUtilityPayload`, and `UnixPipeRunSummary`. They carry only bounded status/report paths and summaries; raw trace files, full utility help text, and unbounded stdout/stderr are not protocol payloads.
+
+`UtilityEnableRequest` contains `utility_id` and `path: Option<String>`. Omitted path means the daemon chooses the first verified, executable, not-hard-denied catalog candidate in catalog order. Present path must be absolute, canonicalizable, and valid for the requested utility id.
 
 `ActivityPhase::Diagnosing` is added for diagnosis runs. `unix_pipe` uses the existing tool activity posture with `tool_name = "unix_pipe"`.
 
 Frontends consume daemon messages and render them. They must not independently classify trace failures, probe PATH for enabled utilities, infer utility verification state, or synthesize diagnosis lifecycle events.
 
 CLI/TUI/Telegram live and mutating v0.14 surfaces use the daemon by default. CLI commands follow the existing `daemon.auto_spawn` setting when the daemon is not running. Mutating commands such as `diagnose run`, remediation, `utilities enable`, `utilities disable`, and `utilities doctor` must use protocol v6. Read-only CLI commands expose explicit `--offline` modes for artifact/catalog inspection, but those results are labeled offline and do not claim daemon-owned live status.
+
+The skill-callable `self_diagnose` tool is not a protocol remediation surface. Protocol remediation requests are created only from CLI/REPL/TUI command parsing and require explicit kind plus non-empty reason.
 
 ## Consequences
 

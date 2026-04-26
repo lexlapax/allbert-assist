@@ -58,7 +58,7 @@ Diagnosis ids use `diag_<utc_timestamp>_<shortid>`, where the timestamp is UTC `
 
 The markdown report keeps stable sections: `Summary`, `Classification`, `Evidence`, `Skipped Or Truncated Data`, `Recommended Next Actions`, and `Remediation Status`.
 
-v0.14 exposes one skill-callable diagnosis tool, `self_diagnose`. The tool accepts optional `session_id`, optional `lookback_days`, and optional remediation `{ kind, reason }`, and returns the bounded summary plus report path. It never returns raw trace files or unbounded span/event payloads.
+v0.14 exposes one skill-callable diagnosis tool, `self_diagnose`. The tool accepts optional `session_id` and optional `lookback_days`, returns the bounded summary plus report path, and never returns raw trace files or unbounded span/event payloads. Its schema is closed and report-only: a model-emitted tool call that includes `remediation` or any unknown field is rejected.
 
 Remediation requires all of the following:
 
@@ -66,7 +66,9 @@ Remediation requires all of the following:
 - explicit remediation kind `code`, `skill`, or `memory`;
 - non-empty operator reason supplied through `--reason <text>` or an equivalent slash-command field.
 
-Ordinary natural-language diagnosis requests may tell the operator what explicit command to run, but they must not start remediation. Telegram remains structural-only and cannot start remediation in v0.14.
+Remediation authorization is daemon-owned and command-originated. The daemon builds remediation requests only from parsed CLI/REPL/TUI command input, never from model-emitted tool calls. Ordinary natural-language diagnosis requests may tell the operator what explicit command to run, but they must not start remediation. Telegram remains structural-only and cannot start remediation in v0.14.
+
+When `[self_diagnosis].enabled = false`, `diagnose run` and the `self_diagnose` tool fail closed with a settings remediation hint. Offline report listing/showing may still read existing diagnosis artifacts because those artifacts are passive session history, not a new diagnosis run.
 
 Remediation routes through existing surfaces only:
 

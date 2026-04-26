@@ -62,7 +62,11 @@ Only entries with `status = "ok"` and `pipe_allowed = true` may be used by `unix
 
 `utilities enable` does not silently edit `security.exec_allow`. If the executable is allowed, enablement records that it is ready. If it is not hard-denied but will require confirmation at run time, enablement succeeds with an actionable note. If it is hard-denied, enablement refuses until the operator updates exec policy through the existing settings surface.
 
+Protocol and daemon surfaces use `UtilityEnableRequest { utility_id, path: Option<String> }`. If `path` is omitted, the daemon chooses the first catalog candidate in catalog order that exists, canonicalizes, is executable, and is not hard-denied. If `path` is present, it must be absolute, must canonicalize successfully, and must match the requested utility id by catalog-defined validation; otherwise enablement refuses.
+
 Enabling a utility requires explicit operator action through CLI, TUI/REPL, or setup. Allbert does not install missing utilities. It reports missing tools and leaves installation to the operator.
+
+When `[local_utilities].enabled = false`, enable, disable, doctor, and `unix_pipe` fail closed. Offline `utilities discover/list/show --offline` may still inspect the built-in catalog and existing manifest, but it is labelled disabled/offline and does not verify or mutate host state.
 
 The manifest is host-specific and excluded from profile export/sync by default. Export dry-runs name `utilities/enabled.toml` in the excluded host-specific set. A future opt-in export of local utility posture would need to avoid pretending host-local paths are portable.
 
