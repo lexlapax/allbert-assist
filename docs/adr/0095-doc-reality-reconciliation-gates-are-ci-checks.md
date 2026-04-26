@@ -8,34 +8,36 @@ Status: Accepted
 Through v0.14, several releases marked features as "Shipped" in the roadmap, plan files, README, CHANGELOG, and operator docs while leaving substantive parts unimplemented. Three concrete cases motivated this ADR:
 
 - v0.13 marked the daemon adapter protocol as shipped while [`server.rs:1183-1205`](../../crates/allbert-daemon/src/server.rs) returns `adapter_surface_not_implemented` for every adapter message.
-- v0.13 marked real-backend adapter training as shipped while [`adapters/job.rs`](../../crates/allbert-kernel/src/adapters/job.rs) only constructs `FakeAdapterTrainer`; `learning.adapter_training.default_backend` is collected and validated but never read by a factory.
-- v0.14 marked self-diagnosis remediation as shipped while [`self_diagnosis.rs:598-751`](../../crates/allbert-kernel/src/self_diagnosis.rs) writes empty review artifacts that point back at the diagnosis report instead of generating candidate fixes.
+- v0.13 marked real-backend adapter training as shipped while [`adapters/job.rs`](../../crates/allbert-kernel/src/adapters/job.rs) constructs `FakeAdapterTrainer` on production paths; `learning.adapter_training.default_backend` is collected and validated but not used for production trainer selection.
+- v0.14 marked self-diagnosis remediation as shipped while [`self_diagnosis.rs:598-751`](../../crates/allbert-kernel/src/self_diagnosis.rs) writes report-only scaffolds instead of candidate fixes.
 
-Each case is recoverable. Without a guardrail, the same pattern can re-occur as new releases add ambition.
+Each case is recoverable. Without a guardrail, the same pattern can recur as new releases add ambition.
 
 ## Decision
 
-Doc-reality reconciliation is a release-blocking CI gate, not a per-release review item.
+Doc-reality reconciliation is a release-blocking validation gate, not a manual checklist item.
 
-A new script `tools/check_doc_reality.sh` runs in the standard `cargo test` path. It enforces three rules:
+A new script `tools/check_doc_reality.sh` runs through the standard `cargo test` path by way of a Rust integration test wrapper. The wrapper invokes the script as a subprocess, checks its exit status, and prints the script output on failure so contributors see the same failure locally and in CI.
 
-1. **Overclaim phrases require qualification.** The script greps the docs tree for known overclaim patterns (an extensible list maintained alongside the script) and requires each occurrence to be within 5 lines of either "partial", "scaffolding", "v0.x.y reconciled", or "Status: Stub". Unqualified occurrences fail the build.
-2. **Code escape hatches require doc notes.** The script greps the codebase for `unimplemented!`, `todo!`, error codes ending in `_not_implemented`, and `FakeAdapterTrainer` outside `#[cfg(test)]` modules. Each occurrence must be paired with a doc-side acknowledgement in the relevant plan or upgrade note.
-3. **Roadmap rows match release status.** The script parses [`docs/plans/roadmap.md`](../plans/roadmap.md) and confirms every "Shipped" row points to a plan file whose `Status:` line says `Shipped` (not `Draft` or `Stub`).
+The script enforces three rules:
 
-Violations are release-blocking. The script's allowlist is reviewable in PRs; loosening it requires explicit reviewer signoff on the diff to the script itself.
+1. **Overclaim phrases require qualification.** The script greps the docs tree for known overclaim patterns maintained alongside the script. Each occurrence must be within 5 lines of one of these qualifiers: "partial as of v0.x", "planned for v0.x.y", "reconciled in v0.x.y", "scaffolded", or `Status: Stub`. Unqualified occurrences fail validation.
+2. **Code escape hatches require doc notes.** The script greps the codebase for `unimplemented!`, `todo!`, error codes ending in `_not_implemented`, and production uses of `FakeAdapterTrainer` outside test-only or explicit fake-backend paths. Each occurrence must be paired with a doc-side acknowledgement in the relevant plan, upgrade note, or operator limitation.
+3. **Roadmap rows match release status.** The script parses [`docs/plans/roadmap.md`](../plans/roadmap.md) and confirms every `Shipped` row points to a plan file whose `Status:` line says `Shipped`; draft and stub releases must be labelled as such.
+
+Violations are release-blocking. The script's pattern list and allowlist are reviewable in PRs; loosening either requires explicit reviewer signoff on the diff to the script itself.
 
 The script is wired into:
 
-- the workspace `cargo test` pre-step, via a build-script invocation or `[[test]]` integration test, so contributors see failures locally before pushing;
-- any CI workflow (when present) that runs `cargo test`.
+- a Rust integration test included in normal `cargo test`, so contributors see failures before pushing;
+- any CI workflow that runs the default test suite.
 
 ## Consequences
 
-- Reconciliation cost is paid up front, in v0.14.1, by adding qualifications to existing overclaims. Future releases pay it incrementally.
-- New `unimplemented!` paths require an explicit doc note instead of silent landing. This trades a small per-PR cost for sustained doc credibility.
-- The script's overclaim-pattern list is itself a doc artifact. As new release-blocking surfaces ship, the list grows; as old surfaces become stable, individual entries can be retired with reviewer signoff.
-- The script does not enforce code correctness; it only enforces that doc and code agree about what shipped. Tier A validation continues to enforce code correctness.
+- Reconciliation cost is paid up front in v0.14.1 by adding qualifications to existing overclaims.
+- Future releases pay the cost incrementally: a release can still ship partial surfaces, but the docs must say so.
+- New `unimplemented!` paths, `_not_implemented` errors, and fake-production fallbacks require explicit doc acknowledgement instead of silent landing.
+- The script does not enforce code correctness; it enforces agreement between docs and code. Tier A validation continues to enforce code behavior.
 
 ## Alternatives considered
 

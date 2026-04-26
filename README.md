@@ -8,6 +8,8 @@ v0.14.0 is the current technical source-based release in this repo. You build it
 
 The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, first-class sub-agents, intent routing, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection/reconsideration, the shipped `memory-curator` skill, restart-durable sessions, daily cost-cap enforcement, operator-visible memory verification, the `Channel` trait, Telegram async approvals and activity/status commands, cross-surface approval inbox resolution, identity-routed session continuity, explicit sync posture, profile export/import, `HEARTBEAT.md` cadence controls, explicit-intent web learning, Telegram photo input for vision-capable models, direct Anthropic/OpenRouter/OpenAI/Gemini/Ollama provider support, kernel-owned telemetry and activity snapshots, durable session trace/replay, file-based OTLP-JSON trace export, configurable TUI status-line items, typed settings changes, always-eligible memory routing, episode/fact recall tiers, the review-first personality digest seam, review-first local adapter training, source-checkout-bound self-improvement worktrees, `patch-approval` inbox items with bounded context, bounded self-diagnosis reports, curated local-utility enablement, the `unix_pipe` direct-spawn tool, the `skill-author` natural-language authoring skill, skill provenance and enablement controls, and opt-in embedded Lua scripting are all part of the current v0.14.0 end-user experience.
 
+Reality note: daemon adapter handlers, production trainer selection from configured real backends, and concrete diagnosis remediation candidates are partial as of v0.14; tracked by v0.14.1.
+
 ## What v0.14.0 includes
 
 - a kernel that owns the agent loop, tools, memory, skills, policy, cost, and tracing
@@ -57,13 +59,13 @@ The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-
 - optional semantic retrieval seam, disabled by default and fake-provider-only in the current release
 - optional `PERSONALITY.md` learned overlay loaded only when present, lower-authority than `SOUL.md`
 - `allbert-cli learning digest --preview|--run` and `jobs template enable|disable personality-digest`
-- local adapter training through `allbert-cli adapters training preview|start|cancel`, disabled by default and gated by trainer allowlists
+- local adapter training through `allbert-cli adapters training preview|start|cancel`, disabled by default and gated by trainer allowlists; daemon adapter handlers and real-backend trainer selection are partial as of v0.14; tracked by v0.14.1
 - `adapter-approval` inbox items with eval summaries, loss curves, behavioral diffs, and explicit install-before-activation review
 - single-slot local adapter activation through `allbert-cli adapters activate|deactivate|status|list|show|eval|loss|remove|history|gc`
 - profile export excludes adapter artifacts by default; `--include-adapters` includes installed adapters plus `active.json` only
 - bounded self-diagnosis through `allbert-cli diagnose run|list|show`, REPL/TUI `/diagnose`, and the first-party `self-diagnose` skill
 - diagnosis reports stored as session artifacts under `~/.allbert/sessions/<session-id>/artifacts/diagnostics/`
-- optional diagnosis remediation that requires `self_diagnosis.allow_remediation`, an explicit `--remediate <code|skill|memory> --reason <text>`, and the existing review surfaces
+- optional diagnosis remediation that requires `self_diagnosis.allow_remediation`, an explicit `--remediate <code|skill|memory> --reason <text>`, and the existing review surfaces; concrete candidate generation is partial as of v0.14; tracked by v0.14.1
 - curated local-utility discovery and enablement through `allbert-cli utilities discover|list|show|enable|disable|doctor`
 - host-specific `~/.allbert/utilities/enabled.toml`, excluded from profile export/sync by default
 - `unix_pipe`, a structured direct-spawn tool over enabled utility ids, with bounded text I/O and no shell-string parsing
@@ -568,8 +570,9 @@ Telegram behaviour in v0.14:
 - autonomous learnings are staged first; durable promotion and forgetting remain explicit review actions
 - semantic retrieval ships as an off-by-default derived index with only the fake deterministic provider
 - personality digest remains a review-first, provider-free deterministic markdown overlay; local adapter training is optional, disabled by default, and requires a compatible local backend
+- adapter daemon protocol and production real-backend trainer selection are partial as of v0.14; tracked by v0.14.1
 - hosted providers ignore active adapters; only local Ollama activation is supported in v0.13
-- self-diagnosis explains by default; remediation is opt-in and always routes through existing review surfaces
+- self-diagnosis explains by default; remediation is opt-in and always routes through existing review surfaces; concrete candidate generation is partial as of v0.14; tracked by v0.14.1
 - local utilities are host-specific; `utilities/enabled.toml` is excluded from profile export/sync by default
 - `unix_pipe` is text-only, bounded, and direct-spawn; it is not a shell runtime
 - `rust-rebuild` requires a local source checkout with the pinned Rust toolchain; binary-drop users can still use skill authoring and Lua scripting

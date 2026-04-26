@@ -4,7 +4,7 @@
 
 - shipped bounded self-diagnosis over v0.12.2 trace artifacts with report artifacts under session diagnostics directories
 - added the first-party `self-diagnose` skill and report-only `self_diagnose` tool, with remediation refused unless explicit config and command intent are present
-- routed optional code, skill, and memory remediation through existing `patch-approval`, skill quarantine, and staged-memory review surfaces
+- routed optional code, skill, and memory remediation through existing `patch-approval`, skill quarantine, and staged-memory review surfaces; concrete candidate generation is partial as of v0.14; tracked by v0.14.1
 - added protocol v6 diagnosis and local-utility messages, `ActivityPhase::Diagnosing`, daemon filtering for older v2-v5 peers, and daemon-backed CLI/REPL/TUI surfaces
 - added `allbert-cli diagnose run|list|show` plus REPL/TUI `/diagnose` and structural Telegram `/diagnose last`
 - added the curated local-utility catalog, host-specific `utilities/enabled.toml`, utility drift status, and `allbert-cli utilities discover|list|show|enable|disable|doctor`
@@ -17,8 +17,8 @@ More detail: [v0.14 upgrade notes](docs/notes/v0.14-upgrade-2026-04-26.md), [v0.
 
 ## v0.13.0 - 2026-04-26
 
-- shipped review-first local personalization with `PersonalityAdapterJob`, protocol v5 adapter messages, and live `ActivityPhase::Training`
-- added the owned `AdapterTrainer` seam with mlx-lm-lora, llama.cpp, and deterministic fake trainer backends behind both `learning.adapter_training.allowed_backends` and `security.exec_allow`
+- shipped review-first local personalization with `PersonalityAdapterJob`, protocol v5 adapter messages, and live `ActivityPhase::Training`; daemon adapter handlers are partial as of v0.14; tracked by v0.14.1
+- added the owned `AdapterTrainer` seam with mlx-lm-lora, llama.cpp, and deterministic fake trainer backends behind both `learning.adapter_training.allowed_backends` and `security.exec_allow`; production real-backend trainer selection is partial as of v0.14; tracked by v0.14.1
 - added adapter corpus assembly from `SOUL.md`, accepted `PERSONALITY.md`, approved durable/fact memory, bounded episode summaries, and opt-in redacted v0.12.2 trace excerpts
 - added `adapter-approval` inbox items with eval summary, loss curve, behavioral diff artifacts, and accept/reject handling; accepting installs but does not activate
 - added explicit single-slot local activation for Ollama, base-model pinning, automatic incompatible-model deactivation, and hosted-provider one-shot ignore notices

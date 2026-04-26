@@ -11,7 +11,7 @@ The origin note's first concrete functional requirement is that Allbert grows wi
 
 Through v0.14, the only ingestion path is the agent's own in-turn `web_search` and `fetch_url` with an opt-in `record_as` parameter ([ADR 0053](0053-background-web-learning-requires-explicit-user-intent.md)). That is a different feature: it captures what *the agent* searched mid-turn, not what *the user* did during their day.
 
-The roadmap and the deferred-ambitions list do not mention ambient ingestion. v0.15 fills the gap.
+The v0.15 stub now names ambient ingestion as the next major release after the v0.14.1 repair pass and v0.14.2 structural split. This ADR records the provisional posture until the full v0.15 plan is drafted.
 
 ## Decision (provisional)
 
@@ -30,7 +30,7 @@ This ADR will be finalized when the v0.15 plan moves from Stub to Draft.
 ## Consequences (preview)
 
 - The "grows with you" promise becomes structurally real; v0.13 adapter training has a path from user activity → corpus.
-- Ingestion adapters (browser extension, future Slack/iMessage/email) live outside the kernel and its services crate, posting through the existing daemon IPC.
+- Ingestion adapters (browser extension, future Slack/iMessage/email) live outside the kernel crates, posting through the existing daemon IPC.
 - Staging-only avoids the trust trap of silently building a full activity log; reviewers see what landed before it shapes anything.
 - The daemon IPC remains the single trust boundary; there is no new auth surface.
 

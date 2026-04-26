@@ -2,10 +2,13 @@
 
 Date: 2026-04-26
 Status: Accepted
+Amends: [ADR 0090](0090-protocol-v5-adapter-management-and-training-progress.md)
 
 ## Context
 
-v0.13 declared protocol v5 with adapter management and training-progress messages ([ADR 0090](0090-protocol-v5-adapter-management-and-training-progress.md)). The CLI commands shipped against the existing local `AdapterStore` and `PersonalityAdapterJob` and work correctly because they read disk directly. The daemon-side handler at [`server.rs:1183-1205`](../../crates/allbert-daemon/src/server.rs) was left as a `not_implemented` stub:
+v0.13 declared protocol v5 with adapter management and training-progress messages ([ADR 0090](0090-protocol-v5-adapter-management-and-training-progress.md)). The CLI commands shipped against the existing local `AdapterStore`, adapter runtime helpers, and `PersonalityAdapterJob` paths. They work because they read and write disk directly.
+
+The daemon-side handler at [`server.rs:1183-1205`](../../crates/allbert-daemon/src/server.rs) was left as a stub:
 
 ```rust
 ClientMessage::AdaptersList
@@ -20,41 +23,45 @@ ClientMessage::AdaptersList
 }
 ```
 
-This means TUI, Telegram, classic REPL, and any future channel that talks to the daemon over protocol v5 cannot reach adapter state. Only the CLI works, and only because it bypasses the daemon. The result is an architecturally inconsistent v0.13 release.
+This means TUI, Telegram, classic REPL, and any future channel that talks to the daemon over protocol v5 cannot reach adapter state. Only the CLI works, and only because it bypasses the daemon. The result is an architecturally inconsistent v0.13 surface.
 
 ## Decision
 
-The v0.14.1 daemon implements every v5 adapter message by delegating directly to the same `allbert_kernel::adapters` APIs the CLI uses today. The daemon is a thin RPC bridge over the existing local store. It does not own any new adapter state, does not introduce a new event kind, and does not duplicate the CLI's logic.
+The v0.14.1 daemon implements every v5 adapter message by delegating to the same disk-backed adapter APIs the CLI uses. The daemon is a thin RPC bridge. It does not own a second adapter database, does not duplicate manifest logic, and does not introduce a new protocol version.
 
 Per-message handlers:
 
 | Client message | Daemon action |
 | --- | --- |
-| `AdaptersList` | `AdapterStore::list()` → `ServerMessage::Adapters(Vec<AdapterManifest>)` |
-| `AdaptersShow(id)` | `AdapterStore::show(id)` → `ServerMessage::Adapter(AdapterManifest)` |
-| `AdaptersActivate(req)` | `AdapterStore::activate(...)` honoring base-model pin, `needs-attention` refusal, and `--override` |
-| `AdaptersDeactivate` | `AdapterStore::deactivate()` → updated `ActiveAdapter` broadcast |
-| `AdaptersRemove(req)` | `AdapterStore::remove(id, force)` |
-| `AdaptersStatus` | aggregate today's compute + active adapter + last training run |
-| `AdaptersHistory(limit)` | bounded read of `history.jsonl` newest-first |
-| `AdaptersTrainingStart(req)` | spawn a background task that runs `PersonalityAdapterJob` via the v0.14.1 trainer factory ([ADR 0098](0098-adapter-trainer-factory-selects-from-config.md)); emit `AdapterTrainingProgress` and `AdapterTrainingFinal` from the existing `KernelEvent` stream |
-| `AdaptersTrainingCancel(run_id)` | SIGTERM via existing cancellation token |
-| `AdaptersInstallExternal(req)` | quarantine into `adapters/incoming/`, generate `adapter-approval` |
+| `AdaptersList` | construct `AdapterStore` from daemon paths; call `list()`; return adapter manifests |
+| `AdaptersShow(id)` | call `AdapterStore::show(id)`; return manifest or a not-found error |
+| `AdaptersActivate(req)` | call the existing `activate_adapter(&store, &config.model, id, override_reason)` helper so base-model pinning and `needs-attention` refusal stay centralized |
+| `AdaptersDeactivate` | call `deactivate_adapter(&store, Some("daemon request"))`; broadcast updated active-adapter state |
+| `AdaptersRemove(req)` | call `AdapterStore::remove(id, force)`; preserve active-adapter refusal without force |
+| `AdaptersStatus` | aggregate today's compute, active adapter, last run/history, and configured training posture using existing store/history/compute helpers |
+| `AdaptersHistory(limit)` | call `AdapterStore::history(limit)`; return newest-first entries |
+| `AdaptersTrainingStart(req)` | spawn a supervised background task that runs `PersonalityAdapterJob` through the v0.14.1 production trainer factory ([ADR 0098](0098-adapter-trainer-factory-selects-from-config.md)); emit `AdapterTrainingProgress` and `AdapterTrainingFinal` |
+| `AdaptersTrainingCancel(run_id)` | look up the active-training registry entry by run id, signal its cancellation token, and return a clear not-found response if no active task exists |
+| `AdaptersInstallExternal(req)` | copy/quarantine into `adapters/incoming/` and generate the existing `adapter-approval` flow |
 
-Per-peer protocol filtering preserves the existing v2/v3/v4-vs-v5 boundary: only v5+ peers see adapter responses. v4 peers continue to receive `version_mismatch` with the existing remediation hint.
+Background training uses the daemon's existing task-supervision posture ([ADR 0019](0019-v0-2-services-are-supervised-in-process-tasks-with-future-subprocess-seams.md)). The daemon keeps an in-memory active-training registry keyed by run id. Each entry contains the task handle, cancellation token, and peer subscription metadata needed for progress/final messages. The registry is runtime coordination only; disk-backed run manifests and adapter history remain the durable source of truth.
 
-Background training runs use the daemon's existing task supervision (per [ADR 0019](0019-v0-2-services-are-supervised-in-process-tasks-with-future-subprocess-seams.md)). Cancellation, fail-closed scheduling, daily compute cap, and exec-policy gates remain owned by the kernel — the daemon does not reinvent those.
+Per-peer protocol filtering preserves the existing v2/v3/v4-vs-v5 boundary:
+
+- v5+ peers receive adapter responses and training progress.
+- v2/v3/v4 peers never receive adapter-only server messages.
+- older peers that send adapter requests receive `version_mismatch` with the existing upgrade remediation.
 
 ## Consequences
 
-- TUI, Telegram, classic REPL, and any future channel reach the same adapter state the CLI does.
-- The CLI continues to work without change (it can keep talking to disk directly or migrate to the daemon path; both are valid).
-- No new adapter state lives in the daemon; the disk is the source of truth.
-- Adapter-management tests at the daemon level become possible; v0.13's protocol-level tests stay valid.
-- The "v0.13 shipped" claim in roadmap and CHANGELOG becomes accurate after v0.14.1.
+- TUI, Telegram, classic REPL, and future channels reach the same adapter state the CLI does.
+- The CLI can continue to use direct disk-backed commands or later migrate to daemon calls without changing storage semantics.
+- No new adapter state lives durably in the daemon.
+- Adapter-management tests can now run at the daemon protocol level.
+- The "v0.13 protocol v5 adapter management" claim becomes true only after v0.14.1 lands; until then it remains partial as of v0.14 and tracked by v0.14.1.
 
 ## Alternatives considered
 
-- **Daemon-owned adapter state.** Rejected because it duplicates the disk-backed store and creates a second source of truth. The CLI bypass would still work, leading to drift.
-- **Defer adapter daemon protocol to v0.15.** Rejected because protocol v5 messages are already in the wire format; v5 clients exist; the gap is implementation, not design.
-- **Remove the v5 adapter messages until they are functional.** Rejected because v5 is shipped; removing messages is a protocol break.
+- **Daemon-owned adapter state.** Rejected because it duplicates the disk-backed store and creates a second source of truth.
+- **Defer adapter daemon protocol to v0.15.** Rejected because protocol v5 messages are already in the wire format; the gap is implementation, not design.
+- **Remove v5 adapter messages until functional.** Rejected because v5 is already shipped; removing messages would be a protocol break.

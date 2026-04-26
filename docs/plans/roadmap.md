@@ -22,6 +22,9 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.12.2 | Tracing and replay: persisted session spans, trace/replay surfaces, privacy/redaction posture, protocol v4, OTLP-JSON export | Shipped | [v0.12.2-tracing-and-replay.md](v0.12.2-tracing-and-replay.md) |
 | v0.13 | Local personalization: LoRA/adapter training through the v0.11 `LearningJob` seam, owned `AdapterTrainer` trait with mlx + llama.cpp + fake backends, local-only base-model-pinned activation, `adapter-approval` inbox kind, daily wall-clock compute cap, profile-export exclusion | Shipped | [v0.13-personalization.md](v0.13-personalization.md) |
 | v0.14 | Self-diagnosis and Unix co-tenant: trace-aware self-diagnose skill, curated local-utilities surface, bounded `unix_pipe` tool shape | Shipped | [v0.14-self-diagnosis.md](v0.14-self-diagnosis.md) |
+| v0.14.1 | Vision alignment: doc-reality gate, local-default tool-call parser fix, daemon adapter wiring, trainer factory wiring, concrete diagnosis remediation candidates | Draft | [v0.14.1-vision-alignment.md](v0.14.1-vision-alignment.md) |
+| v0.14.2 | Kernel core/services split: acyclic core, services, and compatibility facade crates with size/dependency gates | Draft | [v0.14.2-kernel-core-services.md](v0.14.2-kernel-core-services.md) |
+| v0.15 | Growth loop: local staged ingestion endpoint, CLI feed, browser-extension proof, and review-first ingestion memory flow | Stub | [v0.15-growth-loop.md](v0.15-growth-loop.md) |
 
 Note: some v0.9 contributor-contract work landed before the final v0.8 release-alignment pass. The roadmap order still reflects dependency intent rather than strict commit chronology.
 
@@ -124,6 +127,20 @@ Trace persistence no longer belongs to v0.14. v0.12.2 owns the durable trace sto
 
 The v0.14 decision set shipped across four ADRs: [ADR 0091](../adr/0091-self-diagnosis-uses-bounded-trace-bundles-and-existing-remediation-surfaces.md) fixes bounded trace diagnosis and remediation routing, [ADR 0092](../adr/0092-local-utility-discovery-uses-curated-operator-enabled-manifests.md) fixes curated utility enablement, [ADR 0093](../adr/0093-unix-pipe-is-a-structured-direct-spawn-tool-not-a-shell-runtime.md) fixes structured pipeline policy, and [ADR 0094](../adr/0094-protocol-v6-self-diagnosis-and-local-utility-surfaces.md) fixes protocol v6 compatibility.
 
+### v0.14 before v0.14.1
+
+The v0.14.1 release exists because the v0.13/v0.14 shipped narrative drifted ahead of the running code. Before adding another feature layer, Allbert needs the docs and product to agree again: daemon adapter requests must stop returning `adapter_surface_not_implemented`, production adapter training must use the configured backend instead of silently using fake, self-diagnosis remediation must produce candidate artifacts instead of placeholders, and the default local Gemma4 profile must be able to call tools reliably.
+
+v0.14.1 is therefore a repair point release. It does not add ingestion, a new protocol version, a new approval kind, or a large structural refactor.
+
+### v0.14.1 before v0.14.2
+
+The kernel split should happen only after the honesty repair lands. v0.14.1 freezes doc-reality checks and closes partial operator surfaces; v0.14.2 can then move code across crate boundaries without also carrying semantic behavior fixes. That separation keeps review focused: v0.14.1 proves the promised behavior, while v0.14.2 proves the architecture can stay compact without changing behavior.
+
+### v0.14.2 before v0.15
+
+Growth-loop ingestion adds a new local service and protocol surface. v0.14.2 creates the acyclic core/services/facade crate shape first, so ingestion can land in the service layer rather than inflating the runtime core. This keeps the origin note's "grows with you" ambition aligned with the equally important "compact, auditable kernel" principle.
+
 ## Cross-cutting concerns
 
 These themes recur across multiple releases. They are noted here so individual plans do not have to re-establish them.
@@ -151,7 +168,7 @@ Explicitly parked, not forgotten.
 - **Default embedding / vector retrieval for memory.** v0.5 commits to BM25 via tantivy (ADR 0046). v0.11 may add optional semantic retrieval as a derived, disabled-by-default layer; BM25 remains the default.
 - **Foundation-model retraining / distillation.** The origin note's ambition to retrain or distill a full local foundation model remains out of scope. v0.11 ships a review-first personality digest and `LearningJob` seam, and v0.13 trains small local adapters against that seam. Full foundation-model retraining is not on the roadmap.
 - **Website-serving / hosted web surfaces.** The origin note's idea that Allbert might eventually serve websites or richer hosted interfaces is explicitly deferred beyond the current roadmap. The near-term web story is channel expansion and future native/web UI planning, not site-hosting from the daemon.
-- **Additional messaging channels.** Discord, WhatsApp, email, and SMS channels from the origin note's wish list are deferred. v0.7 shipped a Telegram pilot and the `Channel` trait with multimodal flags, so each new channel can land as an adapter without reshaping the kernel. No specific channel is assigned a release through v0.14.
+- **Additional messaging channels.** Discord, WhatsApp, email, and SMS channels from the origin note's wish list are deferred. v0.7 shipped a Telegram pilot and the `Channel` trait with multimodal flags, so each new channel can land as an adapter without reshaping the kernel. No specific additional messaging channel is assigned a release through v0.15.
 
 ## References
 

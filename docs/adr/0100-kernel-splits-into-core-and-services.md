@@ -1,128 +1,143 @@
-# ADR 0100: Kernel splits into kernel-core and kernel-services without changing public API
+# ADR 0100: Kernel facade splits into core and services without crate cycles
 
 Date: 2026-04-26
 Status: Accepted
+Amends: [ADR 0001](0001-kernel-is-runtime-core-frontends-are-adapters.md), [ADR 0019](0019-v0-2-services-are-supervised-in-process-tasks-with-future-subprocess-seams.md)
 
 ## Context
 
-The vision document's first principle is "Kernel first… stay compact, auditable, and secure." [ADR 0001](0001-kernel-is-runtime-core-frontends-are-adapters.md) frames the kernel as the runtime core with thin frontend adapters.
+The vision document's first principle is "Kernel first": the runtime core should stay compact, auditable, and secure. [ADR 0001](0001-kernel-is-runtime-core-frontends-are-adapters.md) frames the kernel as runtime core with thin frontend adapters.
 
-Through v0.14, the `allbert-kernel` crate has grown to ~40,000 LOC across 28 public modules, with [`lib.rs`](../../crates/allbert-kernel/src/lib.rs) alone at 9,864 LOC. Module distribution by size:
+Through v0.14, the `allbert-kernel` crate has grown to roughly 40,000 LOC across many public modules, with [`lib.rs`](../../crates/allbert-kernel/src/lib.rs) alone near 10,000 LOC. Large service-like modules now sit next to core runtime contracts:
 
-| Module | LOC |
+| Module | Role |
 | --- | --- |
-| `lib.rs` | 9,864 |
-| `memory/curated.rs` | 4,242 |
-| `config.rs` | 2,855 |
-| `settings.rs` | 2,571 |
-| `replay.rs` | 2,090 |
-| `self_diagnosis.rs` | 1,532 |
-| `tools/mod.rs` | 1,462 |
-| `self_improvement.rs` | 1,242 |
-| `local_utilities.rs` | 1,223 |
-| `skills/mod.rs` | 1,206 |
-| `adapters/job.rs` | 918 |
-| `learning.rs` | 712 |
-| ... | ... |
+| `lib.rs` | agent loop, turn orchestration, parser helpers, exported API |
+| `memory/` | durable memory contracts and implementation |
+| `config.rs`, `settings.rs`, `paths.rs` | runtime/profile contracts |
+| `replay.rs` | trace replay service |
+| `self_diagnosis.rs` | diagnosis/remediation service |
+| `self_improvement.rs` | source patch proposal service |
+| `local_utilities.rs` | utility discovery/enablement service |
+| `scripting/` | embedded script service |
+| `adapters/` | personalization adapter service |
 
-There is no internal boundary between "kernel core" (agent loop, hooks, policy envelope, memory contracts, provider seam) and "kernel-owned services" (adapters, self-diagnosis, local utilities, replay, scripting, self-improvement). Every release added a new `pub mod` to `lib.rs`. The kernel has gradually become a kitchen sink that the origin warned against ("the runtime should not be bloated").
-
-v0.15 will add ingestion ([growth loop](../plans/v0.15-growth-loop.md)) and v0.16+ will add more services. Without a structural split, the trend continues.
+v0.14.1 deliberately stays focused on truth repair and does not perform a broad structural refactor. v0.14.2 is the dedicated structural release between v0.14.1 and v0.15. v0.15 adds growth-loop ingestion; it needs a service home that does not make the runtime core larger again.
 
 ## Decision
 
-v0.14.1 splits the kernel along the internal boundary it already has implicitly. A new sibling crate `allbert-kernel-services` holds owned services. `allbert-kernel` retains the runtime core.
+v0.14.2 splits the current kernel crate into three crates with an acyclic dependency graph:
 
-### Module relocation
-
-Moves to `allbert-kernel-services`:
-
-- `adapters/` (8 files, ~3500 LOC)
-- `self_diagnosis.rs`
-- `self_improvement.rs`
-- `local_utilities.rs`
-- `replay.rs`
-- `scripting/`
-
-Stays in `allbert-kernel`:
-
-- agent loop (`agent.rs`)
-- hooks (`hooks.rs`)
-- policy envelope (`security/`)
-- memory contracts (`memory/`)
-- intent classification (`intent.rs`)
-- identity (`identity.rs`)
-- provider seam (`llm/`)
-- tools registry (`tools/`)
-- skills loader (`skills/`)
-- session management (`heartbeat.rs`, paths, etc.)
-
-### Trait seams
-
-`allbert-kernel` defines narrow traits for each owned service:
-
-```rust
-pub trait DiagnosisService: Send + Sync {
-    fn run_diagnosis(&self, ...) -> Result<DiagnosisReportArtifact, KernelError>;
-    fn list_reports(&self, ...) -> Result<Vec<DiagnosisListEntry>, KernelError>;
-    fn read_report(&self, ...) -> Result<DiagnosisReportArtifact, KernelError>;
-}
-
-pub trait AdapterService: Send + Sync {
-    fn list(&self) -> Result<Vec<AdapterManifest>, KernelError>;
-    fn show(&self, id: &str) -> Result<AdapterManifest, KernelError>;
-    // ...
-}
-
-pub trait LocalUtilitiesService: Send + Sync { ... }
-pub trait ReplayService: Send + Sync { ... }
-pub trait ScriptingService: Send + Sync { ... }
-pub trait SelfImprovementService: Send + Sync { ... }
+```text
+allbert-kernel-core      # bottom layer: runtime contracts and core types
+        ^
+        |
+allbert-kernel-services  # owned service implementations
+        ^
+        |
+allbert-kernel           # compatibility facade preserving allbert_kernel::* imports
 ```
 
-`allbert-kernel-services` implements these traits against the same paths and config the kernel already uses. No new disk format, no new event kinds.
+Dependency rules:
 
-### Public API preservation
+- `allbert-kernel-core` depends on neither `allbert-kernel-services` nor `allbert-kernel`.
+- `allbert-kernel-services` depends on `allbert-kernel-core`.
+- `allbert-kernel` depends on both `allbert-kernel-core` and `allbert-kernel-services`.
+- Services must never depend on the facade crate.
+- Frontends continue to depend on `allbert-kernel` unless they need a narrow internal core/service crate during migration.
 
-`allbert-kernel/src/lib.rs` re-exports the moved public types:
+This fixes the crate-cycle problem: the facade can re-export service APIs because it depends on services, and services can consume core contracts because they depend only on core.
+
+## Crate responsibilities
+
+### `allbert-kernel-core`
+
+Owns runtime contracts, shared types, and low-level policies:
+
+- config, settings descriptors, setup/version constants, and path types;
+- kernel error type and result aliases;
+- provider seam (`LlmProvider`, completion request/response, tool declaration types);
+- tool contracts, tool registry traits, tool invocation/output types, and security policy;
+- memory contracts and frontmatter schemas used by multiple services;
+- hooks, activity/event types, cost accounting contracts, identity/session ids;
+- protocol-neutral DTOs shared by daemon, CLI, and services;
+- small utility helpers that are genuinely cross-cutting.
+
+The core crate should not know about concrete adapter training, self-diagnosis, self-improvement, replay rendering, local utility catalogs, scripting runtimes, or ingestion.
+
+### `allbert-kernel-services`
+
+Owns behavior modules that are not required for the minimal turn core:
+
+- `adapters/`;
+- self-diagnosis and remediation;
+- self-improvement;
+- local utilities;
+- trace replay;
+- scripting;
+- future v0.15 ingestion service.
+
+Services use `allbert-kernel-core` contracts and paths. They may expose concrete structs, service traits, and helper functions. They do not re-export through the facade themselves.
+
+### `allbert-kernel`
+
+Becomes the compatibility facade:
+
+- re-exports public API from core and services so existing `allbert_kernel::*` imports keep compiling;
+- holds compatibility wrappers only where needed to preserve old paths;
+- owns no substantial service implementation after the split;
+- remains the default crate for frontends and downstream code.
+
+The facade is allowed to depend on both lower crates. Lower crates are not allowed to depend on the facade.
+
+## Public API preservation
+
+Existing public imports remain valid through facade re-exports:
 
 ```rust
-pub use allbert_kernel_services::adapters::{AdapterStore, AdapterManifest, ...};
-pub use allbert_kernel_services::self_diagnosis::{
-    SelfDiagnosisConfig, DiagnosisReportArtifact, ...,
+pub use allbert_kernel_core::{
+    AllbertPaths, Config, KernelError, LlmProvider, ToolInvocation, ToolOutput,
 };
-// ...
+
+pub use allbert_kernel_services::adapters::{
+    AdapterStore, AdapterManifest, PersonalityAdapterJob,
+};
+
+pub use allbert_kernel_services::self_diagnosis::{
+    DiagnosisReportArtifact, DiagnosisRunRequest,
+};
 ```
 
-External consumers (`allbert-daemon`, `allbert-cli`, `allbert-channels`, `allbert-jobs`, downstream crates if any) keep using `allbert_kernel::SelfDiagnosisConfig`, `allbert_kernel::AdapterStore`, etc. without changing imports. The split is invisible to operators.
+This is a compatibility requirement, not a best-effort goal. v0.14.2 is not allowed to force broad import rewrites in daemon, CLI, jobs, channels, or tests merely because files moved.
 
-### Dependency direction
+## Size and dependency gates
 
-`allbert-kernel` does not depend on `allbert-kernel-services`. The dependency goes the other way. Frontend crates (`allbert-daemon`, `allbert-cli`, `allbert-channels`, `allbert-jobs`) depend on both crates.
+v0.14.2 adds validation scripts wired into the standard local validation path:
 
-The kernel core can be built and tested without the services crate, which keeps the core auditable independently. This also enables future deployments (embedded, restricted-feature builds) that omit services.
+- `tools/check_kernel_size.sh`:
+  - `crates/allbert-kernel/src/lib.rs` facade < 1,500 LOC;
+  - `crates/allbert-kernel-core/src/lib.rs` < 4,000 LOC;
+  - `crates/allbert-kernel-core/src/` total < 20,000 LOC;
+  - `crates/allbert-kernel-services/src/` total < 25,000 LOC.
+- `tools/check_kernel_crate_graph.sh`:
+  - rejects any dependency from core to services or facade;
+  - rejects any dependency from services to facade;
+  - allows facade to depend on both core and services.
 
-### Size targets
-
-After the split:
-
-- `crates/allbert-kernel/src/lib.rs` < 4,000 LOC.
-- `crates/allbert-kernel/src/` total < 20,000 LOC.
-- `crates/allbert-kernel-services/src/` < 20,000 LOC.
-
-These are tested via a `tools/check_kernel_size.sh` script wired into `cargo test` (alongside the [ADR 0095](0095-doc-reality-reconciliation-gates-are-ci-checks.md) doc-reality gate). New `pub mod` additions to the kernel core require explicit reviewer signoff; the size check fails the build if the targets regress.
+New `pub mod` additions to core require reviewer signoff. New service modules should land in services unless they are runtime contracts required by the turn core.
 
 ## Consequences
 
-- The kernel core stays inspectable by a contributor in an afternoon, matching the origin's "compact, auditable" principle.
-- Adding new services (v0.15 ingestion, v0.16+ adapters) lands in `allbert-kernel-services` without growing the core.
-- Public API surface for daemon/CLI/channels/jobs is unchanged. Existing tests continue to pass with no source changes outside the moved files and trait seams.
-- Build times marginally improve because changes to a service no longer recompile the kernel core.
-- ADR 0001's framing ("kernel is runtime core") is reaffirmed structurally, not just narratively.
+- The runtime core becomes inspectable independently from owned services.
+- v0.15 ingestion lands in the services crate rather than growing the core or facade.
+- Existing `allbert_kernel::*` imports remain stable through the facade.
+- Build boundaries become clearer: most behavior changes touch services, while core changes are reserved for contracts and policy.
+- v0.14.2 has no operator-visible behavior change; it is structural preparation.
 
 ## Alternatives considered
 
-- **Multiple per-service crates.** Considered; rejected for v0.14.1 because creating six new crates at once is a large surface to review. The single `allbert-kernel-services` crate can be split further later if any service grows large enough to warrant its own crate.
-- **In-place refactor of `lib.rs` without a new crate.** Considered; rejected because the size target (lib.rs < 4000) cannot be met without moving substantial code, and moving to a sibling crate is the cleanest way to preserve public API.
-- **Feature-gate services within `allbert-kernel`.** Considered; rejected because feature gates create N×M test matrices and obscure which surfaces are present at runtime. Crate boundaries are clearer.
-- **Defer the split to v0.15.** Rejected because v0.15 will add new services; doing the split first prevents the new ingestion module from being added to the wrong crate.
+- **Split into one services crate while keeping `allbert-kernel` as core and also re-exporting services.** Rejected because Rust requires a crate to depend on anything it re-exports; services also need kernel contracts, creating a dependency cycle.
+- **Only move files inside the same crate.** Rejected because it does not create enforceable crate boundaries and does not stop future services from growing the core.
+- **Multiple per-service crates immediately.** Rejected because it creates too much review surface. One services crate is enough for v0.14.2 and can be split later.
+- **Make frontends depend directly on core and services only.** Rejected because it would break the public `allbert_kernel::*` surface and create a large import churn release.
+- **Defer the split to v0.15.** Rejected because v0.15 adds ingestion; the structural home should exist first.
