@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use allbert_kernel::{
-    atomic_write, AllbertPaths, Config, Provider, ReplUiMode, StatusLineItem, CURRENT_SETUP_VERSION,
+    atomic_write, discover_utilities, AllbertPaths, Config, Provider, ReplUiMode, StatusLineItem,
+    CURRENT_SETUP_VERSION,
 };
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -39,6 +40,7 @@ pub struct SetupAnswers {
     pub trace_total_disk_cap_mb: u32,
     pub trace_retention_days: u16,
     pub adapter_training: AdapterTrainingSetupAnswers,
+    pub local_utilities: LocalUtilitiesSetupAnswers,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,6 +66,11 @@ impl Default for AdapterTrainingSetupAnswers {
     }
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LocalUtilitiesSetupAnswers {
+    pub discover: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SetupState {
     schema_version: u8,
@@ -72,6 +79,8 @@ struct SetupState {
     answers: Option<SetupAnswers>,
     #[serde(default)]
     adapter_training: Option<AdapterTrainingSetupAnswers>,
+    #[serde(default)]
+    local_utilities: Option<LocalUtilitiesSetupAnswers>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -121,10 +130,35 @@ pub fn run_setup_wizard_with_resume(
                         Some(value) => value,
                         None => return Ok(None),
                     };
-                    persist_setup_state(paths, config, "complete", Some(&answers), None)?;
+                    persist_setup_state(
+                        paths,
+                        config,
+                        "local_utilities",
+                        Some(&answers),
+                        None,
+                        None,
+                    )?;
+                    answers.local_utilities = match prompt_local_utilities(paths)? {
+                        Some(value) => value,
+                        None => return Ok(None),
+                    };
+                    persist_setup_state(paths, config, "complete", Some(&answers), None, None)?;
                     let mut updated = config.clone();
                     apply_setup_answers(paths, &mut updated, &answers)?;
                     println!("\nSetup saved. Inspect personalization later with `/settings show learning.adapter_training` or `allbert-cli adapters --help`.\n");
+                    return Ok(Some(updated));
+                }
+            } else if state.current_step == "local_utilities" {
+                if let Some(mut answers) = state.answers {
+                    println!("Resuming setup at local utilities.");
+                    answers.local_utilities = match prompt_local_utilities(paths)? {
+                        Some(value) => value,
+                        None => return Ok(None),
+                    };
+                    persist_setup_state(paths, config, "complete", Some(&answers), None, None)?;
+                    let mut updated = config.clone();
+                    apply_setup_answers(paths, &mut updated, &answers)?;
+                    println!("\nSetup saved. Inspect utilities later with `allbert-cli utilities --help`.\n");
                     return Ok(Some(updated));
                 }
             }
@@ -378,17 +412,30 @@ pub fn run_setup_wizard_with_resume(
         trace_total_disk_cap_mb,
         trace_retention_days,
         adapter_training: AdapterTrainingSetupAnswers::default(),
+        local_utilities: LocalUtilitiesSetupAnswers::default(),
     };
-    persist_setup_state(paths, config, "adapter_training", Some(&answers), None)?;
+    persist_setup_state(
+        paths,
+        config,
+        "adapter_training",
+        Some(&answers),
+        None,
+        None,
+    )?;
     answers.adapter_training = match prompt_adapter_training(paths, config)? {
         Some(value) => value,
         None => return Ok(None),
     };
-    persist_setup_state(paths, config, "complete", Some(&answers), None)?;
+    persist_setup_state(paths, config, "local_utilities", Some(&answers), None, None)?;
+    answers.local_utilities = match prompt_local_utilities(paths)? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    persist_setup_state(paths, config, "complete", Some(&answers), None, None)?;
 
     let mut updated = config.clone();
     apply_setup_answers(paths, &mut updated, &answers)?;
-    println!("\nSetup saved. Inspect trace settings later with `/settings show trace` or `allbert-cli trace --help`. Inspect personalization with `/settings show learning.adapter_training` or `allbert-cli adapters --help`.\n");
+    println!("\nSetup saved. Inspect trace settings later with `/settings show trace` or `allbert-cli trace --help`. Inspect personalization with `/settings show learning.adapter_training` or `allbert-cli adapters --help`. Inspect utilities with `allbert-cli utilities --help`.\n");
     Ok(Some(updated))
 }
 
@@ -942,8 +989,33 @@ fn prompt_adapter_training(
         },
         if answers.capture_traces { "yes" } else { "no" }
     );
-    persist_setup_state(paths, config, "adapter_training", None, Some(&answers))?;
+    persist_setup_state(
+        paths,
+        config,
+        "adapter_training",
+        None,
+        Some(&answers),
+        None,
+    )?;
     Ok(Some(answers))
+}
+
+fn prompt_local_utilities(paths: &AllbertPaths) -> Result<Option<LocalUtilitiesSetupAnswers>> {
+    println!("\nLocal utilities are optional host-specific helpers. Setup can discover catalog candidates now, but it will not enable any utility by default.");
+    let discover = match prompt_yes_no("Discover local utility candidates now?", false)? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    if discover {
+        let found = discover_utilities(paths)?
+            .into_iter()
+            .filter(|entry| entry.installed_path.is_some())
+            .count();
+        println!(
+            "Found {found} catalog utility candidate(s). Enable them later with `allbert-cli utilities enable <id>`."
+        );
+    }
+    Ok(Some(LocalUtilitiesSetupAnswers { discover }))
 }
 
 #[derive(Clone, Copy)]
@@ -1189,6 +1261,7 @@ fn persist_setup_state(
     current_step: &str,
     answers: Option<&SetupAnswers>,
     adapter_training: Option<&AdapterTrainingSetupAnswers>,
+    local_utilities: Option<&LocalUtilitiesSetupAnswers>,
 ) -> Result<()> {
     let path = setup_state_path(paths, config);
     let mut state = load_setup_state(paths, config)?.unwrap_or(SetupState {
@@ -1196,6 +1269,7 @@ fn persist_setup_state(
         current_step: current_step.into(),
         answers: None,
         adapter_training: None,
+        local_utilities: None,
     });
     state.schema_version = 1;
     state.current_step = current_step.into();
@@ -1204,6 +1278,9 @@ fn persist_setup_state(
     }
     if let Some(adapter_training) = adapter_training {
         state.adapter_training = Some(adapter_training.clone());
+    }
+    if let Some(local_utilities) = local_utilities {
+        state.local_utilities = Some(local_utilities.clone());
     }
     let rendered = toml::to_string_pretty(&state).context("serialize setup state")?;
     atomic_write(&path, rendered.as_bytes()).with_context(|| format!("write {}", path.display()))
@@ -1384,6 +1461,7 @@ mod tests {
                 compute_cap_wall_seconds: Some(3_600),
                 capture_traces: true,
             },
+            local_utilities: LocalUtilitiesSetupAnswers { discover: true },
         }
     }
 
@@ -1471,6 +1549,7 @@ mod tests {
             "adapter_training",
             Some(&answers),
             Some(&answers.adapter_training),
+            Some(&answers.local_utilities),
         )
         .expect("setup state should write");
         let loaded = load_setup_state(&paths, &config)
@@ -1486,6 +1565,7 @@ mod tests {
                 .default_backend,
             Some("fake".into())
         );
+        assert!(loaded.local_utilities.expect("utilities block").discover);
     }
 
     #[test]

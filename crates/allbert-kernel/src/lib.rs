@@ -15,6 +15,7 @@ pub mod intent;
 pub mod job_manager;
 pub mod learning;
 pub mod llm;
+pub mod local_utilities;
 pub mod memory;
 pub mod paths;
 pub mod replay;
@@ -64,8 +65,8 @@ pub use config::{
     ensure_adapter_training_defaults_block, ensure_trace_defaults_block, restore_last_good_config,
     write_last_good_config, ActivityConfig, AdapterTrainingConfig,
     AdapterTrainingDefaultsWriteResult, Config, CrossChannelRouting, DaemonConfig,
-    IntentClassifierConfig, JobsConfig, LearningConfig, LimitsConfig, MemoryConfig,
-    MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig, MemoryRoutingMode,
+    IntentClassifierConfig, JobsConfig, LearningConfig, LimitsConfig, LocalUtilitiesConfig,
+    MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig, MemoryRoutingMode,
     MemorySemanticConfig, ModelConfig, OperatorUxConfig, PersonalityDigestConfig, Provider,
     ReplConfig, ReplUiMode, ScriptingConfig, ScriptingEngineConfig, SecurityConfig,
     SelfDiagnosisConfig, SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig,
@@ -100,6 +101,12 @@ pub use learning::{
     LearningOutputArtifact, PersonalityDigestJob, PersonalityDigestPreview,
 };
 pub use llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, Usage};
+pub use local_utilities::{
+    disable_utility, discover_utilities, enable_utility, inspect_utility, list_enabled_utilities,
+    utility_doctor, EnabledUtilityEntry, LocalUtilityCatalogEntry, LocalUtilityDiscovery,
+    UtilityDoctorReport, UtilityEnableResult, UtilityExecPolicy, UtilityManifest, UtilityStatus,
+    UTILITY_MANIFEST_SCHEMA_VERSION,
+};
 pub use memory::{
     MemoryFact, MemoryTier, SearchMemoryHit, SearchMemoryInput, StageMemoryInput, StagedMemoryKind,
 };

@@ -9,7 +9,7 @@ use crate::scripting::{
     LUA_MAX_EXECUTION_MS_CEILING, LUA_MAX_MEMORY_KB_CEILING, LUA_MAX_OUTPUT_BYTES_CEILING,
 };
 
-pub const CURRENT_SETUP_VERSION: u8 = 5;
+pub const CURRENT_SETUP_VERSION: u8 = 6;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TraceDefaultsWriteResult {
@@ -54,6 +54,8 @@ pub struct Config {
     pub self_improvement: SelfImprovementConfig,
     #[serde(default)]
     pub self_diagnosis: SelfDiagnosisConfig,
+    #[serde(default)]
+    pub local_utilities: LocalUtilitiesConfig,
     #[serde(default)]
     pub scripting: ScriptingConfig,
     #[serde(default)]
@@ -586,6 +588,18 @@ impl Default for SelfDiagnosisConfig {
             max_report_bytes: 262_144,
             allow_remediation: false,
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct LocalUtilitiesConfig {
+    pub enabled: bool,
+}
+
+impl Default for LocalUtilitiesConfig {
+    fn default() -> Self {
+        Self { enabled: true }
     }
 }
 
@@ -1154,6 +1168,7 @@ impl Config {
             learning: LearningConfig::default(),
             self_improvement: SelfImprovementConfig::default(),
             self_diagnosis: SelfDiagnosisConfig::default(),
+            local_utilities: LocalUtilitiesConfig::default(),
             scripting: ScriptingConfig::default(),
             security: SecurityConfig::default(),
             limits: LimitsConfig::default(),

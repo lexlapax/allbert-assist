@@ -13,6 +13,7 @@ pub enum SettingsGroup {
     Activity,
     Trace,
     SelfDiagnosis,
+    LocalUtilities,
     Memory,
     Learning,
     Personalization,
@@ -21,11 +22,12 @@ pub enum SettingsGroup {
 }
 
 impl SettingsGroup {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Ui,
         Self::Activity,
         Self::Trace,
         Self::SelfDiagnosis,
+        Self::LocalUtilities,
         Self::Memory,
         Self::Learning,
         Self::Personalization,
@@ -39,6 +41,7 @@ impl SettingsGroup {
             Self::Activity => "activity",
             Self::Trace => "trace",
             Self::SelfDiagnosis => "self_diagnosis",
+            Self::LocalUtilities => "local_utilities",
             Self::Memory => "memory",
             Self::Learning => "learning",
             Self::Personalization => "personalization",
@@ -53,6 +56,7 @@ impl SettingsGroup {
             Self::Activity => "Activity",
             Self::Trace => "Trace",
             Self::SelfDiagnosis => "Self-diagnosis",
+            Self::LocalUtilities => "Local utilities",
             Self::Memory => "Memory",
             Self::Learning => "Learning",
             Self::Personalization => "Personalization",
@@ -606,6 +610,18 @@ pub fn settings_catalog() -> Vec<SettingDescriptor> {
             "self_diagnosis.allow_remediation",
             SettingRestartRequirement::Live,
             "Report-only diagnosis remains available while remediation is disabled.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "local_utilities.enabled",
+            SettingsGroup::LocalUtilities,
+            "Local utilities",
+            "Allow operator-enabled local utilities to be used by v0.14 utility surfaces.",
+            SettingValueType::Bool,
+            "true",
+            "local_utilities.enabled",
+            SettingRestartRequirement::Live,
+            "Disabling this leaves the host-specific manifest in place but refuses utility mutations and unix_pipe use.",
             SettingRedactionPolicy::Plain,
         ),
         descriptor(
@@ -1831,6 +1847,7 @@ fn setting_value_for_key(config: &Config, descriptor: &SettingDescriptor) -> Opt
         }
         "self_diagnosis.max_report_bytes" => config.self_diagnosis.max_report_bytes.to_string(),
         "self_diagnosis.allow_remediation" => config.self_diagnosis.allow_remediation.to_string(),
+        "local_utilities.enabled" => config.local_utilities.enabled.to_string(),
         "memory.prefetch_enabled" => config.memory.prefetch_enabled.to_string(),
         "memory.routing.mode" => config.memory.routing.mode.label().to_string(),
         "memory.episodes.prefetch_enabled" => config.memory.episodes.prefetch_enabled.to_string(),

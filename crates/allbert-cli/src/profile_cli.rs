@@ -235,6 +235,7 @@ fn excluded_paths(include_secrets: bool, include_adapters: bool) -> Vec<String> 
         "run/".to_string(),
         "logs/".to_string(),
         "traces/".to_string(),
+        "utilities/".to_string(),
         "costs.jsonl".to_string(),
         "daemon.lock".to_string(),
     ];

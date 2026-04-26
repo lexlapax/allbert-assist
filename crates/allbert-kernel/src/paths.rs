@@ -243,6 +243,8 @@ pub struct AllbertPaths {
     pub self_improvement: PathBuf,
     pub self_improvement_history: PathBuf,
     pub worktrees: PathBuf,
+    pub utilities: PathBuf,
+    pub utilities_enabled: PathBuf,
     pub sessions: PathBuf,
     pub sessions_archive: PathBuf,
     pub sessions_trash: PathBuf,
@@ -268,6 +270,7 @@ impl AllbertPaths {
         let learning_personality_digest = learning.join("personality-digest");
         let adapters_root = root.join("adapters");
         let self_improvement = root.join("self-improvement");
+        let utilities = root.join("utilities");
         let sessions = root.join("sessions");
         let config_dir = root.join("config");
         let channel_secrets = root.join("secrets");
@@ -339,6 +342,8 @@ impl AllbertPaths {
             self_improvement_history: self_improvement.join("history.md"),
             self_improvement,
             worktrees: root.join("worktrees"),
+            utilities_enabled: utilities.join("enabled.toml"),
+            utilities,
             sessions_archive: sessions.join(".archive"),
             sessions_trash: sessions.join(".trash"),
             traces: root.join("traces"),
@@ -394,6 +399,7 @@ impl AllbertPaths {
             &self.adapters_evals,
             &self.self_improvement,
             &self.worktrees,
+            &self.utilities,
             &self.sessions,
             &self.sessions_archive,
             &self.sessions_trash,

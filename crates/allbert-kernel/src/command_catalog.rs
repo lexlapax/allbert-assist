@@ -399,6 +399,13 @@ pub fn command_catalog() -> Vec<CommandDescriptor> {
             "Create and inspect bounded self-diagnosis reports.",
         ),
         command(
+            "cli:utilities",
+            "allbert-cli utilities",
+            CommandGroup::System,
+            CLI,
+            "Discover and manage operator-enabled local utilities.",
+        ),
+        command(
             "cli:agents",
             "allbert-cli agents",
             CommandGroup::Status,
