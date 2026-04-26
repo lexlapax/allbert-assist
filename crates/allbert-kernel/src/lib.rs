@@ -42,10 +42,11 @@ pub use adapters::{
     render_behavioral_diff, run_fixed_evals, run_personality_adapter_training,
     run_personality_adapter_training_with_session, write_adapter_manifest, AdapterCorpusConfig,
     AdapterCorpusItem, AdapterCorpusSnapshot, AdapterEvalArtifacts, AdapterStore, AdapterTrainer,
-    CancellationToken, FakeAdapterTrainer, GoldenCase, PersonalityAdapterJob, TrainerError,
-    TrainerHooks, TrainerProgress, TrainingOutcome, TrainingPlan,
-    DEFAULT_ADAPTER_COMPUTE_CAP_WALL_SECONDS, DEFAULT_MIN_GOLDEN_PASS_RATE,
-    PERSONALITY_ADAPTER_JOB_NAME, PERSONALITY_ADAPTER_SESSION_ID,
+    CancellationToken, FakeAdapterTrainer, GoldenCase, LlamaCppLoraTrainer, MlxLoraTrainer,
+    PersonalityAdapterJob, TrainerCommand, TrainerError, TrainerHooks, TrainerProgress,
+    TrainingOutcome, TrainingPlan, DEFAULT_ADAPTER_COMPUTE_CAP_WALL_SECONDS,
+    DEFAULT_MIN_GOLDEN_PASS_RATE, PERSONALITY_ADAPTER_JOB_NAME, PERSONALITY_ADAPTER_SESSION_ID,
+    TRAINER_STDIO_CAPTURE_BYTES, TRAINER_TRUNCATION_MARKER,
 };
 pub use agent::{
     ActiveTurnBudget, Agent, AgentDefinition, AgentState, StagedNoticeEntry, TurnBudget,
@@ -57,10 +58,10 @@ pub use command_catalog::{
 };
 pub use config::{
     ensure_trace_defaults_block, restore_last_good_config, write_last_good_config, ActivityConfig,
-    Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig, JobsConfig, LearningConfig,
-    LimitsConfig, MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig,
-    MemoryRoutingMode, MemorySemanticConfig, ModelConfig, OperatorUxConfig,
-    PersonalityDigestConfig, Provider, ReplConfig, ReplUiMode, ScriptingConfig,
+    AdapterTrainingConfig, Config, CrossChannelRouting, DaemonConfig, IntentClassifierConfig,
+    JobsConfig, LearningConfig, LimitsConfig, MemoryConfig, MemoryEpisodesConfig,
+    MemoryFactsConfig, MemoryRoutingConfig, MemoryRoutingMode, MemorySemanticConfig, ModelConfig,
+    OperatorUxConfig, PersonalityDigestConfig, Provider, ReplConfig, ReplUiMode, ScriptingConfig,
     ScriptingEngineConfig, SecurityConfig, SelfImprovementConfig, SelfImprovementInstallMode,
     SessionsConfig, SetupConfig, StatusLineConfig, StatusLineItem, TraceConfig,
     TraceDefaultsWriteResult, TraceFieldPolicy, TraceRedactionConfig, TuiConfig, TuiSpinnerStyle,

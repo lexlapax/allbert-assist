@@ -272,7 +272,7 @@ fn run_personality_adapter_job(
 
     let mut manifest = outcome.manifest.clone();
     manifest.eval_summary = eval.summary.clone();
-    manifest.overall = if eval.summary.golden_pass_rate >= DEFAULT_MIN_GOLDEN_PASS_RATE {
+    manifest.overall = if eval.summary.golden_pass_rate >= min_golden_pass_rate(ctx.config) {
         AdapterOverallStatus::ReadyForReview
     } else {
         AdapterOverallStatus::NeedsAttention
@@ -347,7 +347,7 @@ fn training_plan(
             seed: 42,
         },
         compute_used_today_seconds: 0,
-        compute_cap_wall_seconds: Some(DEFAULT_ADAPTER_COMPUTE_CAP_WALL_SECONDS),
+        compute_cap_wall_seconds: ctx.config.learning.compute_cap_wall_seconds,
         total_steps: 4,
         estimated_peak_resident_mb: 256,
     }
@@ -572,6 +572,15 @@ fn corpus_summary_for_snapshot(
 
 fn adapter_corpus_config(_config: &Config) -> AdapterCorpusConfig {
     AdapterCorpusConfig::default()
+}
+
+fn min_golden_pass_rate(config: &Config) -> f64 {
+    config
+        .learning
+        .adapter_training
+        .min_golden_pass_rate
+        .parse()
+        .unwrap_or(DEFAULT_MIN_GOLDEN_PASS_RATE)
 }
 
 fn emit_training_activity(job: &PersonalityAdapterJob, approval_id: Option<&str>) {

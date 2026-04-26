@@ -259,13 +259,12 @@ fn write_failed_at(
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests_support {
     use super::*;
     use crate::adapters::{build_adapter_corpus, AdapterCorpusConfig};
     use allbert_proto::{AdapterHyperparameters, BaseModelRef, ProviderKind};
-    use std::sync::{Arc, Mutex};
 
-    fn test_plan(root: &Path, run_id: &str, compute_cap: Option<u64>) -> TrainingPlan {
+    pub fn test_training_plan(root: &Path, run_id: &str, compute_cap: Option<u64>) -> TrainingPlan {
         let paths = crate::AllbertPaths::under(root.join(".allbert"));
         paths.ensure().expect("paths");
         crate::atomic_write(&paths.soul, b"# SOUL\n\nWarm and concrete.\n").expect("soul");
@@ -295,6 +294,16 @@ mod tests {
             total_steps: 4,
             estimated_peak_resident_mb: 256,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+
+    fn test_plan(root: &Path, run_id: &str, compute_cap: Option<u64>) -> TrainingPlan {
+        tests_support::test_training_plan(root, run_id, compute_cap)
     }
 
     #[test]

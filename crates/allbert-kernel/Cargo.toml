@@ -3,6 +3,9 @@ name = "allbert-kernel"
 version = "0.12.2"
 edition = "2021"
 
+[features]
+integration-trainer = []
+
 [dependencies]
 allbert-proto = { path = "../allbert-proto" }
 tokio = { version = "1", features = ["full"] }

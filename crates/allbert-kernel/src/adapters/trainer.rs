@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Child;
 use std::sync::{
@@ -11,6 +12,11 @@ use allbert_proto::{
 };
 
 use crate::adapters::corpus::AdapterCorpusSnapshot;
+use crate::security::{exec_policy, NormalizedExec, PolicyDecision};
+use crate::{AllbertPaths, Config};
+
+pub const TRAINER_STDIO_CAPTURE_BYTES: usize = 64 * 1024;
+pub const TRAINER_TRUNCATION_MARKER: &str = "\n<truncated:trainer-output>\n";
 
 pub type TrainerProgressCallback =
     Arc<dyn Fn(&TrainerProgress) -> Result<(), TrainerError> + Send + Sync>;
@@ -77,6 +83,96 @@ pub struct TrainingOutcome {
     pub progress: Vec<TrainerProgress>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TrainerCommand {
+    pub program: String,
+    pub args: Vec<String>,
+    pub cwd: Option<PathBuf>,
+}
+
+impl TrainerCommand {
+    pub fn normalized_exec(&self) -> NormalizedExec {
+        NormalizedExec {
+            program: self.program.clone(),
+            args: self.args.clone(),
+            cwd: self.cwd.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CapturedTrainerOutput {
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
+}
+
+pub fn minimal_trainer_env(paths: &AllbertPaths) -> Vec<(String, String)> {
+    [
+        ("PATH", std::env::var("PATH").unwrap_or_default()),
+        ("HOME", std::env::var("HOME").unwrap_or_default()),
+        (
+            "TMPDIR",
+            std::env::var("TMPDIR").unwrap_or_else(|_| "/tmp".into()),
+        ),
+        ("ALLBERT_HOME", paths.root.to_string_lossy().into_owned()),
+    ]
+    .into_iter()
+    .map(|(key, value)| (key.to_string(), value))
+    .collect()
+}
+
+pub fn capture_trainer_output(
+    stdout: &[u8],
+    stderr: &[u8],
+    cap_bytes: usize,
+) -> CapturedTrainerOutput {
+    let (stdout, stdout_truncated) = truncate_output(stdout, cap_bytes);
+    let (stderr, stderr_truncated) = truncate_output(stderr, cap_bytes);
+    CapturedTrainerOutput {
+        stdout,
+        stderr,
+        stdout_truncated,
+        stderr_truncated,
+    }
+}
+
+pub fn ensure_trainer_allowed(
+    config: &Config,
+    backend: &str,
+    command: &TrainerCommand,
+) -> Result<(), TrainerError> {
+    let backend_allowed = config
+        .learning
+        .adapter_training
+        .allowed_backends
+        .iter()
+        .any(|allowed| allowed == backend);
+    if !backend_allowed {
+        return Err(TrainerError::Backend(format!(
+            "trainer backend `{backend}` is not allowed; add it to learning.adapter_training.allowed_backends and add `{}` to security.exec_allow",
+            command.program
+        )));
+    }
+    let approved_session_execs = HashSet::new();
+    match exec_policy(
+        &command.normalized_exec(),
+        &config.security,
+        &approved_session_execs,
+    ) {
+        PolicyDecision::AutoAllow => Ok(()),
+        PolicyDecision::NeedsConfirm(_) => Err(TrainerError::Backend(format!(
+            "trainer command `{}` is not auto-allowed; add backend `{backend}` to learning.adapter_training.allowed_backends and add `{}` to security.exec_allow",
+            command.program, command.program
+        ))),
+        PolicyDecision::Deny(reason) => Err(TrainerError::Backend(format!(
+            "trainer command `{}` is denied ({reason}); backend `{backend}` must be listed in learning.adapter_training.allowed_backends and the binary must pass security.exec_allow/security.exec_deny",
+            command.program
+        ))),
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct TrainerHooks {
     on_progress: Option<TrainerProgressCallback>,
@@ -128,6 +224,17 @@ impl TrainerHooks {
         }
         Ok(())
     }
+}
+
+fn truncate_output(bytes: &[u8], cap_bytes: usize) -> (Vec<u8>, bool) {
+    if bytes.len() <= cap_bytes {
+        return (bytes.to_vec(), false);
+    }
+    let marker = TRAINER_TRUNCATION_MARKER.as_bytes();
+    let keep = cap_bytes.saturating_sub(marker.len());
+    let mut truncated = bytes[..keep.min(bytes.len())].to_vec();
+    truncated.extend_from_slice(marker);
+    (truncated, true)
 }
 
 #[derive(Debug, Clone, Default)]
@@ -239,4 +346,74 @@ pub fn terminate_child_with_grace(child: &mut Child, grace: Duration) -> Result<
         source,
     })?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Config;
+
+    fn command() -> TrainerCommand {
+        TrainerCommand {
+            program: "/usr/bin/fake-trainer".into(),
+            args: vec!["--safe".into()],
+            cwd: None,
+        }
+    }
+
+    #[test]
+    fn trainer_security_requires_backend_and_exec_allow_gates() {
+        let mut config = Config::default_template();
+        config.security.exec_allow.clear();
+        config.learning.adapter_training.allowed_backends = vec!["mlx-lm-lora".into()];
+
+        let err = ensure_trainer_allowed(&config, "llama-cpp-finetune", &command())
+            .expect_err("backend gate");
+        let rendered = err.to_string();
+        assert!(rendered.contains("learning.adapter_training.allowed_backends"));
+        assert!(rendered.contains("security.exec_allow"));
+
+        let err =
+            ensure_trainer_allowed(&config, "mlx-lm-lora", &command()).expect_err("exec gate");
+        let rendered = err.to_string();
+        assert!(rendered.contains("learning.adapter_training.allowed_backends"));
+        assert!(rendered.contains("security.exec_allow"));
+
+        config
+            .security
+            .exec_allow
+            .push("/usr/bin/fake-trainer".into());
+        ensure_trainer_allowed(&config, "mlx-lm-lora", &command()).expect("allowed");
+    }
+
+    #[test]
+    fn captured_output_gets_truncation_marker() {
+        let output = capture_trainer_output(b"abcdef", b"0123456789", 8);
+        assert!(!output.stdout_truncated);
+        assert!(output.stderr_truncated);
+        assert!(String::from_utf8_lossy(&output.stderr).contains(TRAINER_TRUNCATION_MARKER));
+    }
+
+    #[test]
+    fn minimal_env_has_exact_allowlist_keys() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        let keys = minimal_trainer_env(&paths)
+            .into_iter()
+            .map(|(key, _)| key)
+            .collect::<Vec<_>>();
+        assert_eq!(keys, vec!["PATH", "HOME", "TMPDIR", "ALLBERT_HOME"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn terminate_child_with_grace_stops_process() {
+        let mut child = std::process::Command::new("sh")
+            .arg("-c")
+            .arg("trap 'exit 0' TERM; sleep 5")
+            .spawn()
+            .expect("spawn");
+        terminate_child_with_grace(&mut child, Duration::from_secs(1)).expect("terminate");
+        assert!(child.try_wait().expect("wait").is_some());
+    }
 }

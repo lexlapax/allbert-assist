@@ -5,6 +5,8 @@ pub mod manifest;
 pub mod store;
 pub mod trainer;
 pub mod trainer_fake;
+pub mod trainer_llamacpp;
+pub mod trainer_mlx;
 
 pub use corpus::{
     build_adapter_corpus, AdapterCorpusConfig, AdapterCorpusItem, AdapterCorpusSnapshot,
@@ -22,10 +24,14 @@ pub use job::{
 pub use manifest::{read_adapter_manifest, write_adapter_manifest};
 pub use store::AdapterStore;
 pub use trainer::{
-    terminate_child_with_grace, AdapterTrainer, CancellationToken, TrainerError, TrainerHooks,
-    TrainerProgress, TrainingOutcome, TrainingPlan,
+    capture_trainer_output, ensure_trainer_allowed, minimal_trainer_env,
+    terminate_child_with_grace, AdapterTrainer, CancellationToken, TrainerCommand, TrainerError,
+    TrainerHooks, TrainerProgress, TrainingOutcome, TrainingPlan, TRAINER_STDIO_CAPTURE_BYTES,
+    TRAINER_TRUNCATION_MARKER,
 };
 pub use trainer_fake::FakeAdapterTrainer;
+pub use trainer_llamacpp::{parse_llama_cpp_progress_line, LlamaCppLoraTrainer};
+pub use trainer_mlx::{parse_mlx_progress_line, MlxLoraTrainer};
 
 #[cfg(test)]
 mod tests {

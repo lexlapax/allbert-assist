@@ -763,11 +763,46 @@ impl Default for MemorySemanticConfig {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct LearningConfig {
     pub enabled: bool,
+    pub compute_cap_wall_seconds: Option<u64>,
     pub personality_digest: PersonalityDigestConfig,
+    pub adapter_training: AdapterTrainingConfig,
+}
+
+impl Default for LearningConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            compute_cap_wall_seconds: Some(7_200),
+            personality_digest: PersonalityDigestConfig::default(),
+            adapter_training: AdapterTrainingConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct AdapterTrainingConfig {
+    pub enabled: bool,
+    pub default_backend: Option<String>,
+    pub allowed_backends: Vec<String>,
+    pub max_output_artifact_bytes: usize,
+    pub min_golden_pass_rate: String,
+}
+
+impl Default for AdapterTrainingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            default_backend: None,
+            allowed_backends: Vec::new(),
+            max_output_artifact_bytes: 512 * 1024 * 1024,
+            min_golden_pass_rate: "0.85".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1271,6 +1306,7 @@ impl Config {
             return Err("memory.semantic.hybrid_weight must be between 0 and 1".into());
         }
         validate_personality_digest_config(&self.learning.personality_digest)?;
+        validate_adapter_training_config(&self.learning.adapter_training)?;
         validate_self_improvement_config(&self.self_improvement)?;
         validate_scripting_config(&self.scripting)?;
         validate_trace_config(&self.trace)?;
@@ -1670,6 +1706,48 @@ fn validate_personality_digest_config(config: &PersonalityDigestConfig) -> Resul
     }
     if config.max_output_bytes < 512 {
         return Err("learning.personality_digest.max_output_bytes must be >= 512".into());
+    }
+    Ok(())
+}
+
+fn validate_adapter_training_config(config: &AdapterTrainingConfig) -> Result<(), String> {
+    for backend in &config.allowed_backends {
+        match backend.as_str() {
+            "fake" | "mlx-lm-lora" | "llama-cpp-finetune" => {}
+            other => {
+                return Err(format!(
+                "learning.adapter_training.allowed_backends contains unsupported backend `{other}`"
+            ))
+            }
+        }
+    }
+    if let Some(default_backend) = &config.default_backend {
+        if default_backend.trim().is_empty() {
+            return Err("learning.adapter_training.default_backend must not be empty".into());
+        }
+        if config.enabled
+            && !config
+                .allowed_backends
+                .iter()
+                .any(|backend| backend == default_backend)
+        {
+            return Err(
+                "learning.adapter_training.default_backend must be listed in learning.adapter_training.allowed_backends when adapter training is enabled"
+                    .into(),
+            );
+        }
+    }
+    if config.max_output_artifact_bytes < 1024 {
+        return Err("learning.adapter_training.max_output_artifact_bytes must be >= 1024".into());
+    }
+    let min_golden: f64 = config.min_golden_pass_rate.parse().map_err(|_| {
+        "learning.adapter_training.min_golden_pass_rate must be a number between 0 and 1"
+            .to_string()
+    })?;
+    if !(0.0..=1.0).contains(&min_golden) {
+        return Err(
+            "learning.adapter_training.min_golden_pass_rate must be between 0 and 1".into(),
+        );
     }
     Ok(())
 }
