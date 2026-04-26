@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+#[cfg(test)]
+use crate::SecretRedactor;
 use crate::{AllbertPaths, KernelError, TraceCapturePolicy};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -146,6 +148,9 @@ impl<'a> CorpusBuilder<'a> {
     }
 
     fn push_item(&mut self, tier: &str, source: &str, path: &Path, content: String) {
+        if path.starts_with(&self.paths.memory_staging) {
+            return;
+        }
         if content.trim().is_empty() || self.total_bytes >= self.config.max_input_bytes {
             return;
         }
@@ -311,6 +316,28 @@ fn corpus_error(message: impl Into<String>) -> KernelError {
 }
 
 #[cfg(test)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct AdapterCorpusRedactionReport {
+    scanned_items: usize,
+    leaks: Vec<String>,
+}
+
+#[cfg(test)]
+fn verify_adapter_corpus_redaction(
+    snapshot: &AdapterCorpusSnapshot,
+) -> AdapterCorpusRedactionReport {
+    let redactor = crate::replay::DefaultSecretRedactor::new();
+    let mut report = AdapterCorpusRedactionReport::default();
+    for item in &snapshot.items {
+        report.scanned_items += 1;
+        if redactor.redact(&item.content) != item.content {
+            report.leaks.push(item.path.clone());
+        }
+    }
+    report
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::atomic_write;
@@ -388,5 +415,100 @@ mod tests {
         assert!(!trace_item
             .content
             .contains("sk-proj-abcdefghijklmnopqrstuvwxyz"));
+        let report = verify_adapter_corpus_redaction(&with_trace);
+        assert_eq!(report.scanned_items, with_trace.items.len());
+        assert!(report.leaks.is_empty(), "corpus leaked: {report:?}");
+    }
+
+    #[test]
+    fn staged_memory_is_never_included_in_adapter_corpus() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths");
+        atomic_write(
+            &paths.memory_staging.join("pending.md"),
+            b"# Pending\n\nThis staged note should not train adapters.\n",
+        )
+        .expect("staged");
+        atomic_write(
+            &paths.memory_notes.join("accepted.md"),
+            b"# Accepted\n\nThis accepted durable note can train adapters.\n",
+        )
+        .expect("accepted");
+
+        let snapshot =
+            build_adapter_corpus(&paths, &AdapterCorpusConfig::default()).expect("corpus");
+
+        assert!(snapshot
+            .items
+            .iter()
+            .any(|item| item.path == "memory/notes/accepted.md"));
+        assert!(!snapshot
+            .items
+            .iter()
+            .any(|item| item.path.contains("memory/staging")));
+    }
+
+    #[test]
+    fn corpus_tier_and_episode_opt_ins_are_honored() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths");
+        atomic_write(
+            &paths.memory_notes.join("project.md"),
+            b"---\nfacts:\n  - subject: user\n    predicate: likes\n    object: quiet tools\n---\n# Project\n\nDurable detail.\n",
+        )
+        .expect("note");
+        let session_dir = paths.sessions.join("session-a");
+        fs::create_dir_all(&session_dir).expect("session dir");
+        atomic_write(
+            &session_dir.join("turns.md"),
+            b"# Turns\n\nEpisode detail.\n",
+        )
+        .expect("turns");
+
+        let snapshot = build_adapter_corpus(
+            &paths,
+            &AdapterCorpusConfig {
+                include_tiers: vec!["fact".into()],
+                include_episodes: false,
+                ..AdapterCorpusConfig::default()
+            },
+        )
+        .expect("corpus");
+
+        assert!(snapshot.items.iter().any(|item| item.tier == "fact"));
+        assert!(!snapshot.items.iter().any(|item| item.tier == "durable"));
+        assert!(!snapshot.items.iter().any(|item| item.tier == "episode"));
+    }
+
+    #[test]
+    fn release_smoke_corpus_fixture_has_no_secret_leaks() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths");
+        atomic_write(&paths.soul, b"# SOUL\n\nNo secrets here.\n").expect("soul");
+        let session_dir = paths.sessions.join("session-a");
+        fs::create_dir_all(&session_dir).expect("session dir");
+        atomic_write(
+            &session_dir.join("trace.jsonl"),
+            b"{\"provider_payload\":\"Authorization: Bearer ghp_abcdefghijklmnopqrstuvwxyz1234567890AB\"}\n",
+        )
+        .expect("trace");
+
+        let snapshot = build_adapter_corpus(
+            &paths,
+            &AdapterCorpusConfig {
+                capture_traces: true,
+                ..AdapterCorpusConfig::default()
+            },
+        )
+        .expect("corpus");
+        let report = verify_adapter_corpus_redaction(&snapshot);
+
+        assert!(report.scanned_items > 0);
+        assert!(report.leaks.is_empty(), "corpus leaked: {report:?}");
+        let rendered = serde_json::to_string(&snapshot).expect("snapshot json");
+        assert!(!rendered.contains("ghp_abcdefghijklmnopqrstuvwxyz1234567890AB"));
     }
 }
