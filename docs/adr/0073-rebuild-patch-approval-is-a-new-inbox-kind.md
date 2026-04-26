@@ -134,3 +134,4 @@ Patch approvals follow the same retention as other inbox kinds: pending and reso
 - [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md) — amended by this ADR (adds `patch-approval` kind).
 - [ADR 0067](0067-self-modification-uses-a-sibling-worktree-with-operator-diff-review.md)
 - [ADR 0068](0068-rebuild-binary-swap-requires-explicit-operator-action.md)
+- [ADR 0086](0086-adapter-approval-is-a-new-inbox-kind.md) — sibling kind addition; the amendment chain is now ADR 0056 → 0060 → 0073 → 0086.

@@ -4,6 +4,8 @@ Date: 2026-04-20
 Status: Accepted
 
 > **Planned v0.12.2 amendment**: session-local trace artifacts under `sessions/*/trace.jsonl`, `sessions/*/trace.<n>.jsonl.gz`, and recoverable `sessions/*/current_spans/` are continuity-bearing session artifacts and are included with `sessions/` in profile export/sync by default. Top-level `traces/` remains derived legacy/debug output and stays excluded. Trace GC may remove only trace artifacts, never unrelated session journals, metadata, approvals, attachments, or patch artifacts.
+>
+> **Planned v0.13 amendment**: adapter artifacts under `~/.allbert/adapters/` (training run staging, installed weights, runtime caches, the active-adapter pointer, history, and incoming external adapters) are derived/host-specific and are excluded from profile export and filesystem sync by default. The corpus inputs (durable memory, accepted facts, bounded episode summaries, accepted `PERSONALITY.md`, `SOUL.md`) continue to travel. `profile export --include-adapters` is the explicit opt-in for full mirrors; the `adapter-approval` markdown under `sessions/<sid>/approvals/` continues to travel as a session artifact, while its referenced weights live in the excluded `~/.allbert/adapters/` tree. See ADR 0088.
 
 ## Context
 
@@ -178,4 +180,5 @@ No conflict-resolution protocol is shipped. The operator promises not to run two
 - [ADR 0060](0060-approval-inbox-is-a-derived-cross-session-view.md)
 - [ADR 0062](0062-heartbeat-md-joins-the-bootstrap-bundle-in-v0-8.md)
 - [ADR 0081](0081-durable-session-trace-artifacts-and-replay-envelope.md)
+- [ADR 0088](0088-adapter-artifacts-are-derived-host-specific-and-excluded-from-profile-export.md) — extends the derived/host-specific exclusion list to v0.13 adapter artifacts.
 - [docs/plans/v0.08-continuity-and-sync.md](../plans/v0.08-continuity-and-sync.md)

@@ -3,6 +3,8 @@
 Date: 2026-04-20
 Status: Accepted
 
+> **Planned v0.13 amendment**: a sibling daily compute cap (`learning.compute_cap_wall_seconds`) gates local LoRA training wall-clock time using the same UTC-day aggregate keying, 60s aggregate cache TTL, override pattern, fail-closed-for-jobs rule, and refusal-message shape as this ADR. Spend cap and compute cap are independent gates; both must pass at job dispatch and at every progress checkpoint. See ADR 0087.
+
 ## Context
 
 Allbert tracks per-turn cost via CostHook (ADR 0006 + v0.1 work) and writes to `~/.allbert/costs.jsonl`. Through v0.5 there is no kernel-level daily spend cap: operators can inspect spend after the fact, but they cannot set a hard daily ceiling that refuses new turns.

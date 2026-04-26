@@ -23,7 +23,7 @@ All self-change artifacts share one envelope:
 - artifacts are produced in an isolated or reviewable location before activation;
 - artifacts carry provenance metadata where the artifact format supports it;
 - state-changing activation requires an approval surface or the staging pipeline;
-- monetary spend is gated by ADR 0051, and future local compute-bound jobs add compute caps explicitly where needed;
+- monetary spend is gated by ADR 0051; local compute-bound jobs add wall-clock compute caps explicitly per ADR 0087;
 - hook and telemetry surfaces make the attempted change observable;
 - accepted artifacts have an audit or rollback trail appropriate to their type.
 
@@ -32,7 +32,7 @@ Concrete mappings:
 - v0.11 personality digest drafts live under `~/.allbert/learning/personality-digest/runs/<run_id>/` and install to the configured personality output path (`PERSONALITY.md` by default) only after acceptance. The digest may install that learned overlay only; any proposed `SOUL.md` edit remains a separate sensitive bootstrap-file mutation requiring direct operator intent and confirmation.
 - v0.12 source patches use sibling worktrees and `patch-approval`.
 - v0.12 self-authored skills use `skills/incoming/` and install preview.
-- v0.13 adapters use `~/.allbert/adapters/` and `adapter-approval`.
+- v0.13 adapters use `~/.allbert/adapters/` and `adapter-approval` (ADR 0086). Trained weights stage under `~/.allbert/adapters/runs/<run_id>/` and install to `~/.allbert/adapters/installed/<adapter_id>/` only after operator acceptance. Activation is single-slot, base-model-pinned, and explicit per ADR 0085. Adapter weights are derived/host-specific and excluded from profile export by default per ADR 0088.
 - v0.14 diagnostic skills use the skill quarantine and `provenance: self-diagnosed`; diagnostic memory remediation uses staging. v0.14 may read v0.12.2 session trace artifacts as diagnostic input, but those traces are not themselves self-change outputs.
 
 The provenance enum is additive across releases. Planned values include `self-authored`, `self-trained`, and `self-diagnosed`.
@@ -66,3 +66,9 @@ The provenance enum is additive across releases. Planned values include `self-au
 - [ADR 0073](0073-rebuild-patch-approval-is-a-new-inbox-kind.md)
 - [ADR 0079](0079-personality-digest-is-a-review-first-learningjob-not-hidden-memory-or-training.md)
 - [ADR 0081](0081-durable-session-trace-artifacts-and-replay-envelope.md)
+- [ADR 0084](0084-personality-adapter-job-is-a-learning-job-with-an-owned-trainer-trait.md)
+- [ADR 0085](0085-adapter-activation-is-local-only-and-base-model-pinned.md)
+- [ADR 0086](0086-adapter-approval-is-a-new-inbox-kind.md)
+- [ADR 0087](0087-adapter-compute-cap-is-a-wall-clock-daily-gate.md)
+- [ADR 0088](0088-adapter-artifacts-are-derived-host-specific-and-excluded-from-profile-export.md)
+- [ADR 0089](0089-trainer-subprocess-runs-under-existing-exec-policy-with-kind-scoped-allowlist.md)
