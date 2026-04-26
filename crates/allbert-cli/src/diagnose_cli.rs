@@ -1,6 +1,7 @@
 use allbert_kernel::{
-    list_diagnosis_reports, read_diagnosis_report, run_diagnosis_report, AllbertPaths, Config,
-    DiagnosisReportSummary, TraceReader,
+    list_diagnosis_reports, read_diagnosis_report, run_diagnosis_report,
+    run_diagnosis_report_with_remediation, AllbertPaths, Config, DiagnosisRemediationKind,
+    DiagnosisRemediationRequest, DiagnosisReportSummary, TraceReader,
 };
 use anyhow::{anyhow, bail, Result};
 use clap::{Subcommand, ValueEnum};
@@ -47,6 +48,16 @@ pub enum DiagnoseRemediationArg {
     Code,
     Skill,
     Memory,
+}
+
+impl From<DiagnoseRemediationArg> for DiagnosisRemediationKind {
+    fn from(value: DiagnoseRemediationArg) -> Self {
+        match value {
+            DiagnoseRemediationArg::Code => Self::Code,
+            DiagnoseRemediationArg::Skill => Self::Skill,
+            DiagnoseRemediationArg::Memory => Self::Memory,
+        }
+    }
 }
 
 pub fn run(paths: &AllbertPaths, config: &Config, command: DiagnoseCommand) -> Result<()> {
@@ -101,21 +112,33 @@ pub fn run_report(
     reason: Option<String>,
     json: bool,
 ) -> Result<String> {
-    if remediate.is_some()
-        || reason
-            .as_ref()
-            .is_some_and(|value| !value.trim().is_empty())
-    {
-        bail!("diagnosis remediation routing is enabled in the next v0.14 milestone; run report-only diagnosis without --remediate for now");
-    }
     let active_session_id = resolve_active_session(paths, session.as_deref())?;
-    let artifact = run_diagnosis_report(
-        paths,
-        &config.self_diagnosis,
-        &active_session_id,
-        session.as_deref(),
-        lookback_days,
-    )?;
+    let artifact = match (remediate, reason) {
+        (Some(kind), Some(reason)) if !reason.trim().is_empty() => {
+            run_diagnosis_report_with_remediation(
+                paths,
+                config,
+                &active_session_id,
+                session.as_deref(),
+                lookback_days,
+                DiagnosisRemediationRequest {
+                    kind: kind.into(),
+                    reason,
+                },
+            )?
+        }
+        (Some(_), _) => bail!("diagnosis remediation requires --reason <text>"),
+        (None, Some(reason)) if !reason.trim().is_empty() => {
+            bail!("--reason requires --remediate <code|skill|memory>")
+        }
+        _ => run_diagnosis_report(
+            paths,
+            &config.self_diagnosis,
+            &active_session_id,
+            session.as_deref(),
+            lookback_days,
+        )?,
+    };
     if json {
         return Ok(serde_json::to_string_pretty(&artifact.summary)?);
     }
@@ -178,7 +201,7 @@ fn resolve_active_session(paths: &AllbertPaths, session: Option<&str>) -> Result
 }
 
 fn render_run_summary(summary: &DiagnosisReportSummary) -> String {
-    format!(
+    let mut rendered = format!(
         "diagnosis report written\nid:             {}\nsession:        {}\nclassification: {} ({:.2})\nreport:         {}\nsummary:        {}/bundle.summary.json",
         summary.diagnosis_id,
         summary.session_id,
@@ -188,7 +211,14 @@ fn render_run_summary(summary: &DiagnosisReportSummary) -> String {
         summary
             .report_path
             .trim_end_matches("/report.md")
-    )
+    );
+    if let Some(remediation) = &summary.remediation {
+        rendered.push_str(&format!(
+            "\nremediation:    {} ({:?})\nnext:           {}",
+            remediation.kind, remediation.status, remediation.message
+        ));
+    }
+    rendered
 }
 
 fn render_report_list(summaries: &[&DiagnosisReportSummary]) -> String {
@@ -294,5 +324,87 @@ mod tests {
         let shown = show_report(&paths, &id, true, false).unwrap();
         assert!(shown.contains("## Summary"));
         assert!(shown.contains("## Remediation Status"));
+    }
+
+    #[test]
+    fn memory_remediation_stages_candidate_only() {
+        let paths = temp_paths("memory-remediation");
+        write_fixture_trace(&paths, "session-a");
+        let mut config = Config::default_template();
+        config.self_diagnosis.allow_remediation = true;
+        let output = run_report(
+            &paths,
+            &config,
+            Some("session-a".into()),
+            None,
+            Some(DiagnoseRemediationArg::Memory),
+            Some("Remember the stable fix.".into()),
+            false,
+        )
+        .unwrap();
+        assert!(output.contains("remediation:    memory"));
+        let staged =
+            allbert_kernel::memory::list_staged_memory(&paths, &config.memory, None, None, None)
+                .unwrap();
+        assert_eq!(staged.len(), 1);
+        assert_eq!(staged[0].kind, "explicit_request");
+    }
+
+    #[test]
+    fn skill_remediation_creates_quarantined_self_diagnosed_skill() {
+        let paths = temp_paths("skill-remediation");
+        write_fixture_trace(&paths, "session-a");
+        let mut config = Config::default_template();
+        config.self_diagnosis.allow_remediation = true;
+        let output = run_report(
+            &paths,
+            &config,
+            Some("session-a".into()),
+            None,
+            Some(DiagnoseRemediationArg::Skill),
+            Some("Draft a repeatable diagnostic helper.".into()),
+            false,
+        )
+        .unwrap();
+        assert!(output.contains("remediation:    skill"));
+        let incoming = std::fs::read_dir(&paths.skills_incoming)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path().join("SKILL.md"))
+            .find(|path| path.exists())
+            .expect("incoming skill should exist");
+        let skill = std::fs::read_to_string(incoming).unwrap();
+        assert!(skill.contains("provenance: self-diagnosed"));
+    }
+
+    #[test]
+    fn remediation_requires_opt_in_and_reason() {
+        let paths = temp_paths("remediation-gates");
+        write_fixture_trace(&paths, "session-a");
+        let err = run_report(
+            &paths,
+            &Config::default_template(),
+            Some("session-a".into()),
+            None,
+            Some(DiagnoseRemediationArg::Memory),
+            Some("Remember this.".into()),
+            false,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("allow_remediation"));
+
+        let mut config = Config::default_template();
+        config.self_diagnosis.allow_remediation = true;
+        let err = run_report(
+            &paths,
+            &config,
+            Some("session-a".into()),
+            None,
+            Some(DiagnoseRemediationArg::Memory),
+            Some(" ".into()),
+            false,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("--reason"));
     }
 }

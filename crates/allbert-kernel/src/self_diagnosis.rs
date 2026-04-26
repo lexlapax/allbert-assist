@@ -4,12 +4,20 @@ use std::path::{Path, PathBuf};
 use allbert_proto::{AttributeValue, Span, SpanStatus};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::atomic_write;
 use crate::config::SelfDiagnosisConfig;
 use crate::error::KernelError;
+use crate::memory::{self, StageMemoryRequest, StagedMemoryKind};
 use crate::paths::AllbertPaths;
 use crate::replay::{DefaultSecretRedactor, SecretRedactor, TraceReader};
+use crate::self_improvement::{
+    create_rust_rebuild_worktree, emit_patch_artifact, run_tier_a_validation, PatchArtifact,
+    RebuildWorktree, TierAValidationReport,
+};
+use crate::skills::{SkillProvenance, SkillStore};
+use crate::Config;
 
 pub const TRACE_DIAGNOSTIC_BUNDLE_VERSION: u32 = 1;
 pub const DIAGNOSIS_REPORT_SUMMARY_SCHEMA_VERSION: u32 = 1;
@@ -167,6 +175,31 @@ pub struct DiagnosisRemediationSummary {
     pub reason: String,
     pub status: DiagnosisRemediationStatus,
     pub message: String,
+    pub artifact_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DiagnosisRemediationKind {
+    Code,
+    Skill,
+    Memory,
+}
+
+impl DiagnosisRemediationKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Code => "code",
+            Self::Skill => "skill",
+            Self::Memory => "memory",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DiagnosisRemediationRequest {
+    pub kind: DiagnosisRemediationKind,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -333,6 +366,52 @@ pub fn run_diagnosis_report(
     write_diagnosis_report(paths, config, active_session_id, &bundle)
 }
 
+pub fn run_diagnosis_report_with_remediation(
+    paths: &AllbertPaths,
+    config: &Config,
+    active_session_id: &str,
+    requested_session_id: Option<&str>,
+    lookback_days_override: Option<u16>,
+    remediation: DiagnosisRemediationRequest,
+) -> Result<DiagnosisReportArtifact, KernelError> {
+    validate_remediation_request(&config.self_diagnosis, &remediation)?;
+    let bundle = build_trace_diagnostic_bundle(
+        paths,
+        &config.self_diagnosis,
+        active_session_id,
+        requested_session_id,
+        lookback_days_override,
+    )?;
+    let mut artifact =
+        write_diagnosis_report(paths, &config.self_diagnosis, active_session_id, &bundle)?;
+    let remediation_summary = route_remediation(paths, config, &artifact, &remediation)?;
+    artifact.summary.remediation = Some(remediation_summary);
+    rewrite_diagnosis_artifact(paths, &config.self_diagnosis, &bundle, &mut artifact)?;
+    Ok(artifact)
+}
+
+fn validate_remediation_request(
+    config: &SelfDiagnosisConfig,
+    remediation: &DiagnosisRemediationRequest,
+) -> Result<(), KernelError> {
+    if !config.enabled {
+        return Err(KernelError::Request(
+            "self_diagnosis.enabled is false; run `/settings show self_diagnosis` and enable self_diagnosis.enabled before diagnosing".into(),
+        ));
+    }
+    if !config.allow_remediation {
+        return Err(KernelError::Request(
+            "self_diagnosis.allow_remediation is false; run `/settings show self_diagnosis.allow_remediation` and opt in before remediation".into(),
+        ));
+    }
+    if remediation.reason.trim().is_empty() {
+        return Err(KernelError::Request(
+            "diagnosis remediation requires a non-empty --reason".into(),
+        ));
+    }
+    Ok(())
+}
+
 pub fn write_diagnosis_report(
     paths: &AllbertPaths,
     config: &SelfDiagnosisConfig,
@@ -382,6 +461,35 @@ pub fn write_diagnosis_report(
         report_path,
         summary_path,
     })
+}
+
+fn rewrite_diagnosis_artifact(
+    _paths: &AllbertPaths,
+    config: &SelfDiagnosisConfig,
+    bundle: &TraceDiagnosticBundle,
+    artifact: &mut DiagnosisReportArtifact,
+) -> Result<(), KernelError> {
+    let mut report_markdown = render_markdown_report(bundle, &artifact.summary);
+    if report_markdown.len() > config.max_report_bytes {
+        artifact.summary.truncation.report = true;
+        report_markdown = truncate_report(report_markdown, config.max_report_bytes);
+    }
+    let summary_json = serde_json::to_vec_pretty(&artifact.summary)
+        .map_err(|err| KernelError::InitFailed(format!("serialize diagnosis summary: {err}")))?;
+    atomic_write(&artifact.summary_path, &summary_json).map_err(|err| {
+        KernelError::Io(std::io::Error::new(
+            err.kind(),
+            format!("write {}: {err}", artifact.summary_path.display()),
+        ))
+    })?;
+    atomic_write(&artifact.report_path, report_markdown.as_bytes()).map_err(|err| {
+        KernelError::Io(std::io::Error::new(
+            err.kind(),
+            format!("write {}: {err}", artifact.report_path.display()),
+        ))
+    })?;
+    artifact.report_markdown = report_markdown;
+    Ok(())
 }
 
 pub fn list_diagnosis_reports(
@@ -468,6 +576,227 @@ pub fn read_diagnosis_report(
     Err(KernelError::Request(format!(
         "diagnosis report not found: {diagnosis_id}"
     )))
+}
+
+fn route_remediation(
+    paths: &AllbertPaths,
+    config: &Config,
+    artifact: &DiagnosisReportArtifact,
+    remediation: &DiagnosisRemediationRequest,
+) -> Result<DiagnosisRemediationSummary, KernelError> {
+    match remediation.kind {
+        DiagnosisRemediationKind::Code => {
+            route_code_remediation(paths, config, artifact, remediation)
+        }
+        DiagnosisRemediationKind::Skill => route_skill_remediation(paths, artifact, remediation),
+        DiagnosisRemediationKind::Memory => {
+            route_memory_remediation(paths, config, artifact, remediation)
+        }
+    }
+}
+
+fn route_code_remediation(
+    paths: &AllbertPaths,
+    config: &Config,
+    artifact: &DiagnosisReportArtifact,
+    remediation: &DiagnosisRemediationRequest,
+) -> Result<DiagnosisRemediationSummary, KernelError> {
+    let branch_hint = format!("self-diagnosis-{}", artifact.summary.diagnosis_id);
+    let worktree = create_rust_rebuild_worktree(paths, config, Some(&branch_hint))?;
+    let target_dir = worktree
+        .path
+        .join("docs")
+        .join("reports")
+        .join("self-diagnosis");
+    std::fs::create_dir_all(&target_dir).map_err(|err| {
+        KernelError::Io(std::io::Error::new(
+            err.kind(),
+            format!("create {}: {err}", target_dir.display()),
+        ))
+    })?;
+    let target = target_dir.join(format!("{}.md", artifact.summary.diagnosis_id));
+    let body = format!(
+        "# Self-Diagnosed Code Remediation\n\nReason: {}\n\nSource report: {}\n\n{}",
+        remediation.reason.trim(),
+        artifact.summary.report_path,
+        artifact.report_markdown
+    );
+    atomic_write(&target, body.as_bytes()).map_err(|err| {
+        KernelError::Io(std::io::Error::new(
+            err.kind(),
+            format!("write {}: {err}", target.display()),
+        ))
+    })?;
+
+    let validation = run_tier_a_validation(&worktree.path);
+    let approval_id = format!("approval_{}", artifact.summary.diagnosis_id);
+    let patch = emit_patch_artifact(
+        paths,
+        &worktree.path,
+        &artifact.summary.session_id,
+        Some(&artifact.summary.diagnosis_id),
+    )?;
+    write_patch_approval(
+        paths,
+        artifact,
+        remediation,
+        &approval_id,
+        &worktree,
+        &patch,
+        &validation,
+    )?;
+    Ok(DiagnosisRemediationSummary {
+        kind: remediation.kind.label().into(),
+        reason: remediation.reason.trim().into(),
+        status: DiagnosisRemediationStatus::Routed,
+        message: format!(
+            "created patch approval {approval_id}; review with `allbert-cli approvals show {approval_id}`"
+        ),
+        artifact_path: Some(patch.path.display().to_string()),
+    })
+}
+
+fn route_skill_remediation(
+    paths: &AllbertPaths,
+    artifact: &DiagnosisReportArtifact,
+    remediation: &DiagnosisRemediationRequest,
+) -> Result<DiagnosisRemediationSummary, KernelError> {
+    let mut skills = SkillStore::discover(&paths.skills);
+    let suffix = artifact
+        .summary
+        .diagnosis_id
+        .rsplit('_')
+        .next()
+        .unwrap_or("diagnosis");
+    let name = format!("self-diagnosed-{suffix}");
+    let body = format!(
+        "# Self-Diagnosed Skill Draft\n\nUse this quarantined draft only after reviewing the diagnosis report.\n\n- Diagnosis: `{}`\n- Reason: {}\n- Classification: `{}`\n- Report: `{}`\n\n## Candidate Behavior\n\nDescribe the repeatable procedure that would prevent or explain this failure. Keep any install decision in the normal skill review flow.\n",
+        artifact.summary.diagnosis_id,
+        remediation.reason.trim(),
+        artifact.summary.classification.label(),
+        artifact.summary.report_path
+    );
+    let skill = skills
+        .create(
+            &paths.skills_incoming,
+            &name,
+            "Self-diagnosed remediation draft awaiting operator review.",
+            &[],
+            &body,
+            SkillProvenance::SelfDiagnosed,
+        )
+        .map_err(|err| KernelError::InitFailed(err.to_string()))?;
+    Ok(DiagnosisRemediationSummary {
+        kind: remediation.kind.label().into(),
+        reason: remediation.reason.trim().into(),
+        status: DiagnosisRemediationStatus::Routed,
+        message: format!(
+            "created quarantined skill draft {}; review with `allbert-cli skills validate {}`",
+            skill.name,
+            skill.path.display()
+        ),
+        artifact_path: Some(skill.path.display().to_string()),
+    })
+}
+
+fn route_memory_remediation(
+    paths: &AllbertPaths,
+    config: &Config,
+    artifact: &DiagnosisReportArtifact,
+    remediation: &DiagnosisRemediationRequest,
+) -> Result<DiagnosisRemediationSummary, KernelError> {
+    let request = StageMemoryRequest {
+        session_id: artifact.summary.session_id.clone(),
+        turn_id: format!("diagnosis:{}", artifact.summary.diagnosis_id),
+        agent: "allbert/self-diagnosis".into(),
+        source: "self-diagnosis".into(),
+        content: format!(
+            "# Self-Diagnosis Memory Candidate\n\nReason: {}\n\nDiagnosis: `{}`\nClassification: `{}`\nReport: `{}`\n\nReview this candidate before promotion. Do not promote if it is only a transient local failure.",
+            remediation.reason.trim(),
+            artifact.summary.diagnosis_id,
+            artifact.summary.classification.label(),
+            artifact.summary.report_path
+        ),
+        kind: StagedMemoryKind::ExplicitRequest,
+        summary: format!(
+            "Self-diagnosis candidate: {}",
+            artifact.summary.classification.label()
+        ),
+        tags: vec!["self-diagnosis".into(), artifact.summary.classification.label().into()],
+        provenance: Some(json!({
+            "source": "self-diagnosis",
+            "diagnosis_id": artifact.summary.diagnosis_id,
+            "report_path": artifact.summary.report_path,
+            "reason": remediation.reason.trim(),
+        })),
+        fingerprint_basis: Some(format!(
+            "{}:{}:{}",
+            artifact.summary.diagnosis_id,
+            remediation.kind.label(),
+            remediation.reason.trim()
+        )),
+        facts: Vec::new(),
+    };
+    let staged = memory::stage_memory(paths, &config.memory, request)?;
+    Ok(DiagnosisRemediationSummary {
+        kind: remediation.kind.label().into(),
+        reason: remediation.reason.trim().into(),
+        status: DiagnosisRemediationStatus::Routed,
+        message: format!(
+            "staged memory candidate {}; review with `allbert-cli memory staged list`",
+            staged.id
+        ),
+        artifact_path: Some(staged.path),
+    })
+}
+
+fn write_patch_approval(
+    paths: &AllbertPaths,
+    artifact: &DiagnosisReportArtifact,
+    remediation: &DiagnosisRemediationRequest,
+    approval_id: &str,
+    worktree: &RebuildWorktree,
+    patch: &PatchArtifact,
+    validation: &TierAValidationReport,
+) -> Result<(), KernelError> {
+    let approvals_dir = paths
+        .sessions
+        .join(&artifact.summary.session_id)
+        .join("approvals");
+    std::fs::create_dir_all(&approvals_dir).map_err(|err| {
+        KernelError::Io(std::io::Error::new(
+            err.kind(),
+            format!("create {}: {err}", approvals_dir.display()),
+        ))
+    })?;
+    let requested_at = Utc::now();
+    let expires_at = requested_at + Duration::hours(24);
+    let validation_status = if validation.steps.iter().all(|step| step.success) {
+        "passed"
+    } else {
+        "needs-review"
+    };
+    let body = format!(
+        "---\nid: {approval_id}\nsession_id: {}\nchannel: repl\nsender: local\nagent: allbert/root\ntool: self-diagnosis\nrequest_id: 0\nkind: patch-approval\nrequested_at: {}\nexpires_at: {}\nstatus: pending\nsource_checkout: {}\nbranch: {}\nworktree_path: {}\nvalidation: {validation_status}\noverall: {}\nartifact_path: {}\n---\n\n# Self-diagnosed code remediation\n\nReason: {}\n\nDiagnosis report: {}\n\nThis approval was generated only from an explicit diagnose remediation command. Accepting records approval; install remains a separate `allbert-cli self-improvement install {approval_id}` action.\n",
+        artifact.summary.session_id,
+        requested_at.to_rfc3339(),
+        expires_at.to_rfc3339(),
+        worktree.source_checkout.display(),
+        worktree.branch,
+        worktree.path.display(),
+        validation.overall.label(),
+        patch.path.display(),
+        remediation.reason.trim(),
+        artifact.summary.report_path
+    );
+    let path = approvals_dir.join(format!("{approval_id}.md"));
+    atomic_write(&path, body.as_bytes()).map_err(|err| {
+        KernelError::Io(std::io::Error::new(
+            err.kind(),
+            format!("write {}: {err}", path.display()),
+        ))
+    })?;
+    Ok(())
 }
 
 pub fn diagnosis_summary(bundle: &TraceDiagnosticBundle) -> DiagnosisSummary {
@@ -1015,6 +1344,7 @@ fn classify_text(text: &str, findings: &mut BTreeSet<FailureKind>) {
 mod tests {
     use super::*;
     use crate::replay::{JsonlTraceWriter, TraceStorageLimits, TraceWriter};
+    use crate::self_improvement::{ValidationOverall, ValidationStepResult};
     use allbert_proto::{SpanKind, SpanStatus};
 
     fn span(session_id: &str, id: &str, name: &str, status: SpanStatus) -> Span {
@@ -1114,5 +1444,89 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("lookback_days"));
+    }
+
+    #[test]
+    fn code_remediation_writes_patch_approval_surface() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        paths.ensure().expect("paths");
+        let writer =
+            JsonlTraceWriter::new(&paths, "session-a", TraceStorageLimits::default()).unwrap();
+        writer
+            .span_ended(&span(
+                "session-a",
+                "span-a",
+                "provider call",
+                SpanStatus::Error {
+                    message: "provider timeout".into(),
+                },
+            ))
+            .unwrap();
+        let bundle = build_trace_diagnostic_bundle(
+            &paths,
+            &SelfDiagnosisConfig::default(),
+            "session-a",
+            None,
+            None,
+        )
+        .unwrap();
+        let artifact = write_diagnosis_report(
+            &paths,
+            &SelfDiagnosisConfig::default(),
+            "session-a",
+            &bundle,
+        )
+        .unwrap();
+        let worktree_path = temp.path().join("worktree");
+        std::fs::create_dir_all(&worktree_path).unwrap();
+        let patch_path = temp.path().join("patch.diff");
+        std::fs::write(&patch_path, "diff --git a/a b/a\n").unwrap();
+        let worktree = RebuildWorktree {
+            branch: "self-diagnosis-test".into(),
+            path: worktree_path.clone(),
+            source_checkout: temp.path().join("source"),
+        };
+        let patch = PatchArtifact {
+            artifact_id: "diag-patch".into(),
+            path: patch_path.clone(),
+            bytes: 12,
+        };
+        let validation = TierAValidationReport {
+            worktree_path,
+            overall: ValidationOverall::SafeToMerge,
+            steps: vec![ValidationStepResult {
+                label: "fixture".into(),
+                command: "true".into(),
+                success: true,
+                exit_code: Some(0),
+                stdout_tail: String::new(),
+                stderr_tail: String::new(),
+            }],
+        };
+        let request = DiagnosisRemediationRequest {
+            kind: DiagnosisRemediationKind::Code,
+            reason: "Review a code fix.".into(),
+        };
+        write_patch_approval(
+            &paths,
+            &artifact,
+            &request,
+            "approval_diag_test",
+            &worktree,
+            &patch,
+            &validation,
+        )
+        .unwrap();
+        let approval = std::fs::read_to_string(
+            paths
+                .sessions
+                .join("session-a")
+                .join("approvals")
+                .join("approval_diag_test.md"),
+        )
+        .unwrap();
+        assert!(approval.contains("kind: patch-approval"));
+        assert!(approval.contains(&patch_path.display().to_string()));
     }
 }

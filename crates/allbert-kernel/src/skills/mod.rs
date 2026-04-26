@@ -42,6 +42,7 @@ pub enum SkillProvenance {
     LocalPath,
     Git,
     SelfAuthored,
+    SelfDiagnosed,
 }
 
 impl SkillProvenance {
@@ -51,6 +52,7 @@ impl SkillProvenance {
             Self::LocalPath => "local-path",
             Self::Git => "git",
             Self::SelfAuthored => "self-authored",
+            Self::SelfDiagnosed => "self-diagnosed",
         }
     }
 }

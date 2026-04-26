@@ -122,7 +122,8 @@ pub use security::SecurityHook;
 pub use self_diagnosis::{
     build_trace_diagnostic_bundle, diagnosis_report_summary, diagnosis_summary,
     generate_diagnosis_id, list_diagnosis_reports, read_diagnosis_report, run_diagnosis_report,
-    write_diagnosis_report, DiagnosisRemediationStatus, DiagnosisRemediationSummary,
+    run_diagnosis_report_with_remediation, write_diagnosis_report, DiagnosisRemediationKind,
+    DiagnosisRemediationRequest, DiagnosisRemediationStatus, DiagnosisRemediationSummary,
     DiagnosisReportArtifact, DiagnosisReportIndexEntry, DiagnosisReportSummary, DiagnosisSummary,
     DiagnosticEvent, DiagnosticSpan, DiagnosticSpanStatus, DiagnosticTruncation,
     FailureClassification, FailureKind, SelfDiagnoseInput, TraceDiagnosticBounds,
