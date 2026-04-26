@@ -19,6 +19,13 @@ Allbert resolves the checkout in this order:
 
 If no checkout is resolved, ordinary Allbert usage still works. The `rust-rebuild` skill simply refuses activation with a setup hint. Binary-drop users still get `skill-author` and the Lua scripting seam.
 
+Starting with v0.14.2, source-checkout validation, patch fixtures, generated remediation paths, and Tier A validation must understand the split source layout:
+
+- `crates/allbert-kernel-core`
+- `crates/allbert-kernel-services`
+
+Older v0.12-v0.14 docs and artifacts may mention `crates/allbert-kernel`; that path is historical after the split. Self-improvement patches may target core or services, but they still must stay inside the isolated sibling worktree and pass the same write guard and review-first approval flow.
+
 ## Worktrees And GC
 
 Rebuild work happens under the configured worktree root:
