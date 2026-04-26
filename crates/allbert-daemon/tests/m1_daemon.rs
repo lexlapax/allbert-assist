@@ -41,10 +41,29 @@ struct TempHome {
 impl TempHome {
     fn new() -> Self {
         let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let unique = format!("abd-{}-{}", std::process::id(), counter);
-        let root = PathBuf::from("/tmp").join(unique);
-        std::fs::create_dir_all(&root).expect("temp home should be created");
-        Self { root }
+        for attempt in 0..16 {
+            let unique = format!(
+                "abd-{}-{counter}-{attempt}-{}",
+                std::process::id(),
+                uuid::Uuid::new_v4().simple()
+            );
+            let root = PathBuf::from("/tmp").join(unique);
+            match std::fs::create_dir(&root) {
+                Ok(()) => {
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+
+                        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+                            .expect("temp home permissions should be set");
+                    }
+                    return Self { root };
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(err) => panic!("temp home should be created: {err}"),
+            }
+        }
+        panic!("unique temp home should be allocated")
     }
 
     fn paths(&self) -> AllbertPaths {
@@ -1107,6 +1126,108 @@ async fn daemon_boots_and_accepts_attach_and_status() {
 
     client.shutdown().await.expect("shutdown should succeed");
     handle.wait().await.expect("daemon should exit");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn parallel_daemon_boot_status_shutdown_and_restart_use_isolated_socket_state() {
+    let mut tasks = Vec::new();
+    for _ in 0..6 {
+        tasks.push(tokio::spawn(async {
+            let home = TempHome::new();
+            let paths = home.paths();
+            let handle = spawn_with_factory(
+                sample_config(),
+                paths.clone(),
+                Arc::new(TestFactory::new(vec![])),
+            )
+            .await
+            .map_err(|err| format!("daemon should boot: {err}"))?;
+
+            let mut client = wait_for_client(&paths).await;
+            let status = client
+                .status()
+                .await
+                .map_err(|err| format!("status should succeed: {err}"))?;
+            assert_eq!(status.pid, std::process::id());
+            assert_eq!(
+                status.socket_path,
+                handle.socket_path().display().to_string()
+            );
+            let attached = client
+                .attach(ChannelKind::Cli, None)
+                .await
+                .map_err(|err| format!("attach should succeed: {err}"))?;
+            assert_eq!(attached.channel, ChannelKind::Cli);
+
+            match spawn_with_factory(
+                sample_config(),
+                paths.clone(),
+                Arc::new(TestFactory::new(vec![])),
+            )
+            .await
+            {
+                Ok(unexpected) => {
+                    unexpected.shutdown();
+                    let _ = unexpected.wait().await;
+                    return Err("second daemon unexpectedly booted".into());
+                }
+                Err(err) => {
+                    assert!(
+                        err.to_string()
+                            .contains("daemon lock is held by live process"),
+                        "unexpected second-spawn error: {err}"
+                    );
+                }
+            }
+
+            client
+                .shutdown()
+                .await
+                .map_err(|err| format!("shutdown should succeed: {err}"))?;
+            handle
+                .wait()
+                .await
+                .map_err(|err| format!("daemon should stop cleanly: {err}"))?;
+            assert!(
+                !paths.daemon_socket.exists(),
+                "socket should be removed after shutdown"
+            );
+            assert!(
+                !paths.daemon_lock.exists(),
+                "lock should be removed after shutdown"
+            );
+
+            let restarted = spawn_with_factory(
+                sample_config(),
+                paths.clone(),
+                Arc::new(TestFactory::new(vec![])),
+            )
+            .await
+            .map_err(|err| format!("daemon should restart: {err}"))?;
+            let mut restarted_client = wait_for_client(&paths).await;
+            restarted_client
+                .status()
+                .await
+                .map_err(|err| format!("restarted status should succeed: {err}"))?;
+            shutdown_daemon(restarted, &paths).await;
+            assert!(
+                !paths.daemon_socket.exists(),
+                "socket should be removed after restart shutdown"
+            );
+            assert!(
+                !paths.daemon_lock.exists(),
+                "lock should be removed after restart shutdown"
+            );
+
+            Ok::<(), String>(())
+        }));
+    }
+
+    for task in tasks {
+        task.await
+            .expect("parallel daemon task should join")
+            .expect("parallel daemon boot/status/shutdown/restart flow should succeed");
+    }
 }
 
 #[tokio::test]
