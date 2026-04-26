@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const MIN_PROTOCOL_VERSION: u32 = 2;
-pub const PROTOCOL_VERSION: u32 = 4;
+pub const PROTOCOL_VERSION: u32 = 5;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -120,6 +120,7 @@ pub enum ActivityPhase {
     WaitingForInput,
     RunningValidation,
     RunningScript,
+    Training,
     Finalizing,
     Error,
     #[serde(other)]
@@ -356,6 +357,221 @@ pub struct TraceSessionSummary {
     pub bytes: u64,
     pub has_rotated_archives: bool,
     pub truncated_count: u64,
+}
+
+pub const ADAPTER_MANIFEST_SCHEMA_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdapterManifestSchemaError {
+    pub schema_version: u32,
+    pub supported_schema_version: u32,
+}
+
+impl std::fmt::Display for AdapterManifestSchemaError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "unsupported adapter manifest schema version {}; supported version is {}",
+            self.schema_version, self.supported_schema_version
+        )
+    }
+}
+
+impl std::error::Error for AdapterManifestSchemaError {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BaseModelRef {
+    pub provider: ProviderKind,
+    pub model_id: String,
+    pub model_digest: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AdapterHyperparameters {
+    pub rank: u32,
+    pub alpha: u32,
+    pub learning_rate: f64,
+    pub max_steps: u32,
+    pub batch_size: u32,
+    pub seed: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AdapterResourceCost {
+    pub compute_wall_seconds: u64,
+    pub peak_resident_mb: u64,
+    pub usd: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AdapterEvalSummary {
+    pub golden_pass_rate: f64,
+    pub loss_final: f64,
+    pub loss_curve_path: String,
+    pub behavioral_diff_path: String,
+    pub behavioral_samples: u32,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum AdapterProvenance {
+    SelfTrained,
+    External,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum AdapterWeightsFormat {
+    SafetensorsLora,
+    GgufLora,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum AdapterOverallStatus {
+    ReadyForReview,
+    NeedsAttention,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AdapterManifest {
+    #[serde(default = "default_adapter_manifest_schema_version")]
+    pub schema_version: u32,
+    pub adapter_id: String,
+    pub provenance: AdapterProvenance,
+    pub trainer_backend: String,
+    pub base_model: BaseModelRef,
+    pub training_run_id: String,
+    pub corpus_digest: String,
+    pub weights_format: AdapterWeightsFormat,
+    pub weights_size_bytes: u64,
+    pub hyperparameters: AdapterHyperparameters,
+    pub resource_cost: AdapterResourceCost,
+    pub eval_summary: AdapterEvalSummary,
+    pub overall: AdapterOverallStatus,
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accepted_at: Option<DateTime<Utc>>,
+}
+
+impl AdapterManifest {
+    pub fn validate_schema_version(&self) -> Result<(), AdapterManifestSchemaError> {
+        if self.schema_version == ADAPTER_MANIFEST_SCHEMA_VERSION {
+            Ok(())
+        } else {
+            Err(AdapterManifestSchemaError {
+                schema_version: self.schema_version,
+                supported_schema_version: ADAPTER_MANIFEST_SCHEMA_VERSION,
+            })
+        }
+    }
+}
+
+fn default_adapter_manifest_schema_version() -> u32 {
+    ADAPTER_MANIFEST_SCHEMA_VERSION
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ActiveAdapter {
+    pub adapter_id: String,
+    pub base_model: BaseModelRef,
+    pub activated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AdapterTrainingProgressPayload {
+    pub run_id: String,
+    pub phase: String,
+    pub step: u32,
+    pub total_steps: u32,
+    pub elapsed_seconds: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eta_seconds: Option<u64>,
+    pub peak_resident_mb: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_loss: Option<f64>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum AdapterTrainingFinalStatus {
+    Succeeded,
+    Cancelled,
+    Failed,
+    CapExceeded,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AdapterTrainingFinalPayload {
+    pub run_id: String,
+    pub status: AdapterTrainingFinalStatus,
+    pub ended_at: DateTime<Utc>,
+    pub manifest_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AdaptersStatusPayload {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active: Option<ActiveAdapter>,
+    pub today_compute_wall_seconds: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compute_cap_wall_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remaining_compute_wall_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_training_run_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_training_status: Option<AdapterTrainingFinalStatus>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AdaptersHistoryEntry {
+    pub adapter_id: String,
+    pub action: String,
+    pub at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AdapterActivateRequest {
+    pub adapter_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub override_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AdapterRemoveRequest {
+    pub adapter_id: String,
+    pub force: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AdaptersHistoryRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AdapterTrainingStartRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub override_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AdapterTrainingCancelRequest {
+    pub run_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AdapterInstallExternalRequest {
+    pub path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -632,6 +848,16 @@ pub enum ClientMessage {
         span_id: String,
     },
     TraceList,
+    AdaptersList,
+    AdaptersShow(String),
+    AdaptersActivate(AdapterActivateRequest),
+    AdaptersDeactivate,
+    AdaptersRemove(AdapterRemoveRequest),
+    AdaptersStatus,
+    AdaptersHistory(AdaptersHistoryRequest),
+    AdaptersTrainingStart(AdapterTrainingStartRequest),
+    AdaptersTrainingCancel(AdapterTrainingCancelRequest),
+    AdaptersInstallExternal(AdapterInstallExternalRequest),
     ReloadSessionConfig,
     ListChannelRuntimes,
     ListJobs,
@@ -675,6 +901,13 @@ pub enum ServerMessage {
     TraceSpans(Vec<Span>),
     TraceSpanDetail(Span),
     TraceSessions(Vec<TraceSessionSummary>),
+    Adapters(Vec<AdapterManifest>),
+    Adapter(AdapterManifest),
+    ActiveAdapter(Option<ActiveAdapter>),
+    AdaptersStatus(AdaptersStatusPayload),
+    AdaptersHistory(Vec<AdaptersHistoryEntry>),
+    AdapterTrainingProgress(AdapterTrainingProgressPayload),
+    AdapterTrainingFinal(AdapterTrainingFinalPayload),
     Ack,
     Error(ProtocolError),
 }
@@ -687,6 +920,47 @@ mod tests {
 
     fn ts(seconds: i64) -> DateTime<Utc> {
         DateTime::from_timestamp(seconds, 0).expect("fixture timestamp should be valid")
+    }
+
+    fn fixture_adapter_manifest() -> AdapterManifest {
+        AdapterManifest {
+            schema_version: ADAPTER_MANIFEST_SCHEMA_VERSION,
+            adapter_id: "20260501-personality-1".into(),
+            provenance: AdapterProvenance::SelfTrained,
+            trainer_backend: "fake".into(),
+            base_model: BaseModelRef {
+                provider: ProviderKind::Ollama,
+                model_id: "gemma4".into(),
+                model_digest: "sha256:base".into(),
+            },
+            training_run_id: "20260501-1842-lora".into(),
+            corpus_digest: "sha256:corpus".into(),
+            weights_format: AdapterWeightsFormat::SafetensorsLora,
+            weights_size_bytes: 128,
+            hyperparameters: AdapterHyperparameters {
+                rank: 8,
+                alpha: 16,
+                learning_rate: 0.0001,
+                max_steps: 200,
+                batch_size: 4,
+                seed: 42,
+            },
+            resource_cost: AdapterResourceCost {
+                compute_wall_seconds: 932,
+                peak_resident_mb: 6144,
+                usd: 0.0,
+            },
+            eval_summary: AdapterEvalSummary {
+                golden_pass_rate: 0.92,
+                loss_final: 0.81,
+                loss_curve_path: "/tmp/loss-curve.txt".into(),
+                behavioral_diff_path: "/tmp/behavioral-diff.md".into(),
+                behavioral_samples: 24,
+            },
+            overall: AdapterOverallStatus::ReadyForReview,
+            created_at: ts(1_777_657_331),
+            accepted_at: Some(ts(1_777_658_622)),
+        }
     }
 
     fn fixture_activity() -> ActivitySnapshot {
@@ -861,6 +1135,154 @@ mod tests {
         let decoded: ServerMessage =
             serde_json::from_str(&raw).expect("summary should deserialize");
         assert_eq!(decoded, ServerMessage::TraceSessions(vec![summary]));
+    }
+
+    #[test]
+    fn proto_adapter_manifest_json_roundtrip_and_schema_validation() {
+        let manifest = fixture_adapter_manifest();
+        manifest
+            .validate_schema_version()
+            .expect("fixture schema should be supported");
+
+        let raw =
+            serde_json::to_string(&ServerMessage::Adapter(manifest.clone())).expect("serialize");
+        let decoded: ServerMessage = serde_json::from_str(&raw).expect("deserialize");
+        assert_eq!(decoded, ServerMessage::Adapter(manifest));
+
+        let future = AdapterManifest {
+            schema_version: ADAPTER_MANIFEST_SCHEMA_VERSION + 1,
+            ..fixture_adapter_manifest()
+        };
+        let error = future
+            .validate_schema_version()
+            .expect_err("future schema should be rejected");
+        assert_eq!(error.schema_version, ADAPTER_MANIFEST_SCHEMA_VERSION + 1);
+        assert_eq!(
+            error.supported_schema_version,
+            ADAPTER_MANIFEST_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
+    fn proto_adapter_messages_json_roundtrip() {
+        let manifest = fixture_adapter_manifest();
+        let list = ServerMessage::Adapters(vec![manifest.clone()]);
+        let raw = serde_json::to_string(&list).expect("adapter list should serialize");
+        let decoded: ServerMessage =
+            serde_json::from_str(&raw).expect("adapter list should deserialize");
+        assert_eq!(decoded, list);
+
+        let active = ActiveAdapter {
+            adapter_id: manifest.adapter_id.clone(),
+            base_model: manifest.base_model.clone(),
+            activated_at: ts(1_777_659_000),
+        };
+        let status = ServerMessage::AdaptersStatus(AdaptersStatusPayload {
+            active: Some(active.clone()),
+            today_compute_wall_seconds: 932,
+            compute_cap_wall_seconds: Some(7200),
+            remaining_compute_wall_seconds: Some(6268),
+            last_training_run_id: Some(manifest.training_run_id.clone()),
+            last_training_status: Some(AdapterTrainingFinalStatus::Succeeded),
+        });
+        let raw = serde_json::to_string(&status).expect("status should serialize");
+        let decoded: ServerMessage = serde_json::from_str(&raw).expect("status should deserialize");
+        assert_eq!(decoded, status);
+
+        let progress = ServerMessage::AdapterTrainingProgress(AdapterTrainingProgressPayload {
+            run_id: manifest.training_run_id.clone(),
+            phase: "trainer_invocation".into(),
+            step: 4,
+            total_steps: 200,
+            elapsed_seconds: 30,
+            eta_seconds: Some(1200),
+            peak_resident_mb: 4096,
+            last_loss: Some(1.2),
+        });
+        let raw = serde_json::to_string(&progress).expect("progress should serialize");
+        let decoded: ServerMessage =
+            serde_json::from_str(&raw).expect("progress should deserialize");
+        assert_eq!(decoded, progress);
+
+        let final_payload = ServerMessage::AdapterTrainingFinal(AdapterTrainingFinalPayload {
+            run_id: manifest.training_run_id.clone(),
+            status: AdapterTrainingFinalStatus::Succeeded,
+            ended_at: ts(1_777_658_622),
+            manifest_path: "/tmp/manifest.json".into(),
+            approval_id: Some("aid-1".into()),
+        });
+        let raw = serde_json::to_string(&final_payload).expect("final should serialize");
+        let decoded: ServerMessage = serde_json::from_str(&raw).expect("final should deserialize");
+        assert_eq!(decoded, final_payload);
+
+        let history = ServerMessage::AdaptersHistory(vec![AdaptersHistoryEntry {
+            adapter_id: active.adapter_id,
+            action: "activated".into(),
+            at: active.activated_at,
+            actor: Some("cli".into()),
+            reason: None,
+        }]);
+        let raw = serde_json::to_string(&history).expect("history should serialize");
+        let decoded: ServerMessage =
+            serde_json::from_str(&raw).expect("history should deserialize");
+        assert_eq!(decoded, history);
+    }
+
+    #[test]
+    fn proto_adapter_client_messages_json_roundtrip() {
+        let messages = vec![
+            ClientMessage::AdaptersList,
+            ClientMessage::AdaptersShow("adapter-1".into()),
+            ClientMessage::AdaptersActivate(AdapterActivateRequest {
+                adapter_id: "adapter-1".into(),
+                override_reason: Some("reviewed eval output".into()),
+            }),
+            ClientMessage::AdaptersDeactivate,
+            ClientMessage::AdaptersRemove(AdapterRemoveRequest {
+                adapter_id: "adapter-1".into(),
+                force: false,
+            }),
+            ClientMessage::AdaptersStatus,
+            ClientMessage::AdaptersHistory(AdaptersHistoryRequest { limit: Some(10) }),
+            ClientMessage::AdaptersTrainingStart(AdapterTrainingStartRequest {
+                backend: Some("fake".into()),
+                override_reason: None,
+            }),
+            ClientMessage::AdaptersTrainingCancel(AdapterTrainingCancelRequest {
+                run_id: "run-1".into(),
+            }),
+            ClientMessage::AdaptersInstallExternal(AdapterInstallExternalRequest {
+                path: "/tmp/adapter.gguf".into(),
+            }),
+        ];
+
+        for message in messages {
+            let raw = serde_json::to_string(&message).expect("client message should serialize");
+            let decoded: ClientMessage =
+                serde_json::from_str(&raw).expect("client message should deserialize");
+            assert_eq!(decoded, message);
+        }
+    }
+
+    #[test]
+    fn proto_v2_v3_v4_envelopes_decode_under_v5_reader() {
+        let v2_status = r#"{"type":"status"}"#;
+        assert_eq!(
+            serde_json::from_str::<ClientMessage>(v2_status).expect("v2 status should decode"),
+            ClientMessage::Status
+        );
+
+        let v3_activity = r#"{"type":"activity_snapshot"}"#;
+        assert_eq!(
+            serde_json::from_str::<ClientMessage>(v3_activity).expect("v3 activity should decode"),
+            ClientMessage::ActivitySnapshot
+        );
+
+        let v4_trace = r#"{"type":"trace_list"}"#;
+        assert_eq!(
+            serde_json::from_str::<ClientMessage>(v4_trace).expect("v4 trace should decode"),
+            ClientMessage::TraceList
+        );
     }
 
     #[test]

@@ -769,7 +769,7 @@ async fn handle_connection(
             if !(MIN_PROTOCOL_VERSION..=PROTOCOL_VERSION).contains(&client.protocol_version) {
                 let message = if client.protocol_version < MIN_PROTOCOL_VERSION {
                     format!(
-                        "client protocol {} is too old for daemon protocol {}; upgrade the client to v0.12.1 or newer",
+                        "client protocol {} is too old for daemon protocol {}; upgrade the client to v0.13 or newer",
                         client.protocol_version, PROTOCOL_VERSION
                     )
                 } else {
@@ -1156,6 +1156,29 @@ async fn handle_connection(
                 let reader = TraceReader::new(state.paths.clone());
                 let summaries = reader.list_sessions().map_err(map_trace_error)?;
                 send_server_message(&mut framed, &ServerMessage::TraceSessions(summaries)).await?;
+            }
+            ClientMessage::AdaptersList
+            | ClientMessage::AdaptersShow(_)
+            | ClientMessage::AdaptersActivate(_)
+            | ClientMessage::AdaptersDeactivate
+            | ClientMessage::AdaptersRemove(_)
+            | ClientMessage::AdaptersStatus
+            | ClientMessage::AdaptersHistory(_)
+            | ClientMessage::AdaptersTrainingStart(_)
+            | ClientMessage::AdaptersTrainingCancel(_)
+            | ClientMessage::AdaptersInstallExternal(_) => {
+                if client_protocol < 5 {
+                    send_adapter_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::Error(ProtocolError {
+                        code: "adapter_surface_not_implemented".into(),
+                        message: "adapter surfaces are reserved for v0.13 implementation milestones after M0".into(),
+                    }),
+                )
+                .await?;
             }
             ClientMessage::ReloadSessionConfig => {
                 let session = require_session(attached_session.as_ref())?;
@@ -1666,6 +1689,7 @@ fn activity_phase_label(phase: ActivityPhase) -> &'static str {
         ActivityPhase::WaitingForInput => "waiting_for_input",
         ActivityPhase::RunningValidation => "running_validation",
         ActivityPhase::RunningScript => "running_script",
+        ActivityPhase::Training => "training",
         ActivityPhase::Finalizing => "finalizing",
         ActivityPhase::Error => "error",
         ActivityPhase::Unknown => "unknown",
@@ -3771,6 +3795,17 @@ async fn send_trace_protocol_error(framed: &mut FramedStream) -> Result<(), Daem
     .await
 }
 
+async fn send_adapter_protocol_error(framed: &mut FramedStream) -> Result<(), DaemonError> {
+    send_server_message(
+        framed,
+        &ServerMessage::Error(ProtocolError {
+            code: "unsupported_protocol_feature".into(),
+            message: "adapter surfaces require protocol v5; upgrade the client to v0.13".into(),
+        }),
+    )
+    .await
+}
+
 fn trace_span_ids(paths: &AllbertPaths, session_id: &str) -> HashSet<String> {
     TraceReader::new(paths.clone())
         .read_session(session_id)
@@ -5594,6 +5629,23 @@ async fn send_server_message_for_protocol(
 }
 
 fn message_for_protocol(message: &ServerMessage, protocol_version: u32) -> Option<ServerMessage> {
+    if protocol_version >= 5 {
+        return Some(message.clone());
+    }
+
+    if matches!(
+        message,
+        ServerMessage::Adapters(_)
+            | ServerMessage::Adapter(_)
+            | ServerMessage::ActiveAdapter(_)
+            | ServerMessage::AdaptersStatus(_)
+            | ServerMessage::AdaptersHistory(_)
+            | ServerMessage::AdapterTrainingProgress(_)
+            | ServerMessage::AdapterTrainingFinal(_)
+    ) {
+        return None;
+    }
+
     if protocol_version >= 4 {
         return Some(message.clone());
     }
@@ -5718,6 +5770,12 @@ mod telegram_tests {
         assert!(matches!(
             message_for_connection(&ServerMessage::TraceSpan(span), 4, &subscriptions),
             Some(ServerMessage::TraceSpan(_))
+        ));
+
+        assert!(message_for_protocol(&ServerMessage::Adapters(Vec::new()), 4).is_none());
+        assert!(matches!(
+            message_for_protocol(&ServerMessage::Adapters(Vec::new()), 5),
+            Some(ServerMessage::Adapters(_))
         ));
     }
 

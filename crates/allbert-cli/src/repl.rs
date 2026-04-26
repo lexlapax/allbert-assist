@@ -1135,6 +1135,7 @@ fn activity_phase_label(phase: ActivityPhase) -> &'static str {
         ActivityPhase::WaitingForInput => "waiting_for_input",
         ActivityPhase::RunningValidation => "running_validation",
         ActivityPhase::RunningScript => "running_script",
+        ActivityPhase::Training => "training",
         ActivityPhase::Finalizing => "finalizing",
         ActivityPhase::Error => "error",
         ActivityPhase::Unknown => "unknown",
