@@ -118,6 +118,7 @@ impl LlmProvider for GeminiProvider {
                     .unwrap_or(0),
                 cache_create: 0,
             },
+            tool_calls: Vec::new(),
         })
     }
 
@@ -335,6 +336,7 @@ mod tests {
                 }],
                 model: "gemini-2.5-flash".into(),
                 max_tokens: 12,
+                tools: Vec::new(),
             })
             .await
             .expect("request should succeed");
@@ -386,6 +388,7 @@ mod tests {
                 }],
                 model: "gemini-2.5-flash".into(),
                 max_tokens: 12,
+                tools: Vec::new(),
             })
             .await
             .expect("request should succeed");
@@ -413,6 +416,7 @@ mod tests {
                 messages: Vec::new(),
                 model: "gemini-2.5-flash".into(),
                 max_tokens: 12,
+                tools: Vec::new(),
             })
             .await
             .expect_err("request should fail");

@@ -87,6 +87,7 @@ impl LlmProvider for OllamaProvider {
                 cache_read: 0,
                 cache_create: 0,
             },
+            tool_calls: Vec::new(),
         })
     }
 
@@ -202,6 +203,7 @@ mod tests {
                 }],
                 model: "gemma4".into(),
                 max_tokens: 12,
+                tools: Vec::new(),
             })
             .await
             .expect("request should succeed");
@@ -248,6 +250,7 @@ mod tests {
                 }],
                 model: "gemma4".into(),
                 max_tokens: 12,
+                tools: Vec::new(),
             })
             .await
             .expect("request should succeed");
@@ -267,6 +270,7 @@ mod tests {
                 messages: Vec::new(),
                 model: "gemma4".into(),
                 max_tokens: 12,
+                tools: Vec::new(),
             })
             .await
             .expect_err("request should fail");

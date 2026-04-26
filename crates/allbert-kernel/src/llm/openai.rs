@@ -111,6 +111,7 @@ impl LlmProvider for OpenAiProvider {
                     .unwrap_or(0),
                 cache_create: 0,
             },
+            tool_calls: Vec::new(),
         })
     }
 
@@ -323,6 +324,7 @@ mod tests {
                 }],
                 model: "gpt-5.4-mini".into(),
                 max_tokens: 12,
+                tools: Vec::new(),
             })
             .await
             .expect("request should succeed");
@@ -377,6 +379,7 @@ mod tests {
                 }],
                 model: "gpt-5.4-mini".into(),
                 max_tokens: 12,
+                tools: Vec::new(),
             })
             .await
             .expect("request should succeed");
@@ -405,6 +408,7 @@ mod tests {
                 messages: Vec::new(),
                 model: "gpt-5.4-mini".into(),
                 max_tokens: 12,
+                tools: Vec::new(),
             })
             .await
             .expect_err("request should fail");

@@ -90,6 +90,7 @@ impl LlmProvider for AnthropicProvider {
                 cache_read: parsed.usage.cache_read_input_tokens,
                 cache_create: parsed.usage.cache_creation_input_tokens,
             },
+            tool_calls: Vec::new(),
         })
     }
 

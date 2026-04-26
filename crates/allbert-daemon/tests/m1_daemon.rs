@@ -577,6 +577,7 @@ fn scripted(text: &str) -> CompletionResponse {
     CompletionResponse {
         text: text.into(),
         usage: Usage::default(),
+        tool_calls: Vec::new(),
     }
 }
 

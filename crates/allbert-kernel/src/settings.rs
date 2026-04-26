@@ -11,6 +11,7 @@ use crate::{
 pub enum SettingsGroup {
     Ui,
     Activity,
+    Intent,
     Trace,
     SelfDiagnosis,
     LocalUtilities,
@@ -22,9 +23,10 @@ pub enum SettingsGroup {
 }
 
 impl SettingsGroup {
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 11] = [
         Self::Ui,
         Self::Activity,
+        Self::Intent,
         Self::Trace,
         Self::SelfDiagnosis,
         Self::LocalUtilities,
@@ -39,6 +41,7 @@ impl SettingsGroup {
         match self {
             Self::Ui => "ui",
             Self::Activity => "activity",
+            Self::Intent => "intent",
             Self::Trace => "trace",
             Self::SelfDiagnosis => "self_diagnosis",
             Self::LocalUtilities => "local_utilities",
@@ -54,6 +57,7 @@ impl SettingsGroup {
         match self {
             Self::Ui => "UI",
             Self::Activity => "Activity",
+            Self::Intent => "Intent",
             Self::Trace => "Trace",
             Self::SelfDiagnosis => "Self-diagnosis",
             Self::LocalUtilities => "Local utilities",
@@ -358,6 +362,18 @@ pub fn settings_catalog() -> Vec<SettingDescriptor> {
             SettingRedactionPolicy::Plain,
         ),
         descriptor(
+            "intent.tool_call_retry_enabled",
+            SettingsGroup::Intent,
+            "Tool-call retry",
+            "Retry once with corrective tool-call guidance when a model emits malformed tool XML.",
+            SettingValueType::Bool,
+            "true",
+            "intent.tool_call_retry_enabled",
+            SettingRestartRequirement::Live,
+            "Disabling retry surfaces parser failures directly instead of spending one more provider call.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
             "trace.enabled",
             SettingsGroup::Trace,
             "Trace persistence",
@@ -610,6 +626,21 @@ pub fn settings_catalog() -> Vec<SettingDescriptor> {
             "self_diagnosis.allow_remediation",
             SettingRestartRequirement::Live,
             "Report-only diagnosis remains available while remediation is disabled.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "self_diagnosis.remediation_provider_max_tokens",
+            SettingsGroup::SelfDiagnosis,
+            "Remediation max tokens",
+            "Maximum output tokens for self-diagnosis remediation candidate generation.",
+            SettingValueType::UnsignedInteger {
+                min: Some(256),
+                max: Some(16_384),
+            },
+            "4096",
+            "self_diagnosis.remediation_provider_max_tokens",
+            SettingRestartRequirement::Live,
+            "The daily cost cap still gates remediation calls before this token cap is used.",
             SettingRedactionPolicy::Plain,
         ),
         descriptor(
@@ -1944,6 +1975,7 @@ fn setting_value_for_key(config: &Config, descriptor: &SettingDescriptor) -> Opt
             .activity
             .show_activity_breadcrumbs
             .to_string(),
+        "intent.tool_call_retry_enabled" => config.intent.tool_call_retry_enabled.to_string(),
         "trace.enabled" => config.trace.enabled.to_string(),
         "trace.capture_messages" => config.trace.capture_messages.to_string(),
         "trace.session_disk_cap_mb" => config.trace.session_disk_cap_mb.to_string(),
@@ -1967,6 +1999,10 @@ fn setting_value_for_key(config: &Config, descriptor: &SettingDescriptor) -> Opt
         }
         "self_diagnosis.max_report_bytes" => config.self_diagnosis.max_report_bytes.to_string(),
         "self_diagnosis.allow_remediation" => config.self_diagnosis.allow_remediation.to_string(),
+        "self_diagnosis.remediation_provider_max_tokens" => config
+            .self_diagnosis
+            .remediation_provider_max_tokens
+            .to_string(),
         "local_utilities.enabled" => config.local_utilities.enabled.to_string(),
         "local_utilities.unix_pipe_max_stages" => {
             config.local_utilities.unix_pipe_max_stages.to_string()
@@ -2324,6 +2360,10 @@ keep = "yes"
             .expect("path should validate");
         validate_setting_value("trace.redaction.provider_payloads", "summary")
             .expect("trace field policy should validate");
+        validate_setting_value("intent.tool_call_retry_enabled", "true")
+            .expect("intent retry bool should validate");
+        validate_setting_value("self_diagnosis.remediation_provider_max_tokens", "4096")
+            .expect("remediation token cap should validate");
     }
 
     #[test]
@@ -2346,6 +2386,14 @@ keep = "yes"
         ));
         assert!(matches!(
             validate_setting_value("trace.redaction.secrets", "never"),
+            Err(SettingValidationError::InvalidValue { .. })
+        ));
+        assert!(matches!(
+            validate_setting_value("intent.tool_call_retry_enabled", "maybe"),
+            Err(SettingValidationError::InvalidValue { .. })
+        ));
+        assert!(matches!(
+            validate_setting_value("self_diagnosis.remediation_provider_max_tokens", "128"),
             Err(SettingValidationError::InvalidValue { .. })
         ));
     }

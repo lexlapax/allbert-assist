@@ -25,6 +25,7 @@ pub mod self_diagnosis;
 pub mod self_improvement;
 pub mod settings;
 pub mod skills;
+pub mod tool_call_parser;
 pub mod tools;
 pub mod trace;
 
@@ -65,14 +66,14 @@ pub use config::{
     ensure_adapter_training_defaults_block, ensure_trace_defaults_block, restore_last_good_config,
     write_last_good_config, ActivityConfig, AdapterTrainingConfig,
     AdapterTrainingDefaultsWriteResult, Config, CrossChannelRouting, DaemonConfig,
-    IntentClassifierConfig, JobsConfig, LearningConfig, LimitsConfig, LocalUtilitiesConfig,
-    MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig, MemoryRoutingConfig, MemoryRoutingMode,
-    MemorySemanticConfig, ModelConfig, OperatorUxConfig, PersonalityDigestConfig, Provider,
-    ReplConfig, ReplUiMode, ScriptingConfig, ScriptingEngineConfig, SecurityConfig,
-    SelfDiagnosisConfig, SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig,
-    SetupConfig, StatusLineConfig, StatusLineItem, TraceConfig, TraceDefaultsWriteResult,
-    TraceFieldPolicy, TraceRedactionConfig, TuiConfig, TuiSpinnerStyle, WebSecurityConfig,
-    CURRENT_SETUP_VERSION,
+    IntentClassifierConfig, IntentRuntimeConfig, JobsConfig, LearningConfig, LimitsConfig,
+    LocalUtilitiesConfig, MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig,
+    MemoryRoutingConfig, MemoryRoutingMode, MemorySemanticConfig, ModelConfig, OperatorUxConfig,
+    PersonalityDigestConfig, Provider, ReplConfig, ReplUiMode, ScriptingConfig,
+    ScriptingEngineConfig, SecurityConfig, SelfDiagnosisConfig, SelfImprovementConfig,
+    SelfImprovementInstallMode, SessionsConfig, SetupConfig, StatusLineConfig, StatusLineItem,
+    TraceConfig, TraceDefaultsWriteResult, TraceFieldPolicy, TraceRedactionConfig, TuiConfig,
+    TuiSpinnerStyle, WebSecurityConfig, CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{
@@ -100,7 +101,9 @@ pub use learning::{
     LearningCorpusItem, LearningCorpusSummary, LearningJob, LearningJobContext, LearningJobReport,
     LearningOutputArtifact, PersonalityDigestJob, PersonalityDigestPreview,
 };
-pub use llm::{ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, Usage};
+pub use llm::{
+    ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, ToolCallSpan, ToolDeclaration, Usage,
+};
 pub use local_utilities::{
     disable_utility, discover_utilities, enable_utility, inspect_utility, list_enabled_utilities,
     run_unix_pipe, utility_doctor, EnabledUtilityEntry, LocalUtilityCatalogEntry,
@@ -158,6 +161,10 @@ pub use settings::{
 pub use skills::{
     ActiveSkill, ContributedAgent, CreateSkillInput, InvokeSkillInput, Skill, SkillProvenance,
     SkillStore,
+};
+pub use tool_call_parser::{
+    corrective_retry_message, parse_and_resolve_tool_calls, parse_tool_call_blocks,
+    resolve_tool_calls, ParsedToolCall, ToolParseError,
 };
 pub use tools::{ProcessExecInput, ToolCtx, ToolInvocation, ToolOutput, ToolRegistry, ToolRuntime};
 pub use trace::TraceHandles;
@@ -1075,18 +1082,20 @@ impl Kernel {
                     allbert_proto::AttributeValue::String("chat".into()),
                 );
             }
+            let system_prompt = self.system_prompt_for_state(
+                state,
+                parent_agent_name.as_deref(),
+                resolved_intent.as_ref(),
+                &prompt_ctx.prompt_sections,
+            );
             let response = match self
                 .llm
                 .complete(CompletionRequest {
-                    system: Some(self.system_prompt_for_state(
-                        state,
-                        parent_agent_name.as_deref(),
-                        resolved_intent.as_ref(),
-                        &prompt_ctx.prompt_sections,
-                    )),
+                    system: Some(system_prompt.clone()),
                     messages: state.messages.clone(),
                     model: effective_model.model_id.clone(),
                     max_tokens: effective_model.max_tokens,
+                    tools: self.tools.tool_declarations(),
                 })
                 .await
             {
@@ -1162,6 +1171,101 @@ impl Kernel {
                 self.record_cached_cost_delta(entry.usd_estimate);
             }
 
+            let active_allowed_tools = combined_allowed_tools(
+                self.skills.allowed_tool_union(&state.active_skills),
+                state.allowed_tools.clone(),
+            );
+            let mut pending_model_events = hook_ctx.pending_events;
+            let mut response = response;
+            let mut tool_calls_result = parse_and_resolve_tool_calls(
+                &response.text,
+                &self.tools,
+                active_allowed_tools.as_ref(),
+                &self.config.security,
+            );
+
+            if tool_calls_result.is_err() && self.config.intent.tool_call_retry_enabled {
+                let retry_system = format!(
+                    "{}\n\n{}",
+                    system_prompt,
+                    corrective_retry_message(&self.tools.prompt_catalog())
+                );
+                let retry_response = self
+                    .llm
+                    .complete(CompletionRequest {
+                        system: Some(retry_system),
+                        messages: state.messages.clone(),
+                        model: effective_model.model_id.clone(),
+                        max_tokens: effective_model.max_tokens,
+                        tools: self.tools.tool_declarations(),
+                    })
+                    .await?;
+                state.record_response_usage(retry_response.usage.clone());
+
+                let mut retry_hook_ctx = HookCtx::on_model_response(
+                    &state.session_id,
+                    state.agent_name(),
+                    parent_agent_name.clone(),
+                    self.llm.provider_name(),
+                    &effective_model.model_id,
+                    retry_response.usage.clone(),
+                    self.llm.pricing(&effective_model.model_id),
+                    &self.paths,
+                );
+                retry_hook_ctx.intent = resolved_intent.clone();
+                match self
+                    .hooks
+                    .run(HookPoint::OnModelResponse, &mut retry_hook_ctx)
+                    .await
+                {
+                    HookOutcome::Continue => {}
+                    HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+                }
+                if let Some(entry) = retry_hook_ctx.recorded_cost.as_ref() {
+                    state.cost_total_usd += entry.usd_estimate;
+                    self.record_cached_cost_delta(entry.usd_estimate);
+                }
+                pending_model_events.extend(retry_hook_ctx.pending_events);
+                response = retry_response;
+                tool_calls_result = parse_and_resolve_tool_calls(
+                    &response.text,
+                    &self.tools,
+                    active_allowed_tools.as_ref(),
+                    &self.config.security,
+                );
+            }
+
+            let tool_calls = match tool_calls_result {
+                Ok(calls) => calls,
+                Err(err) => {
+                    let final_text = self.finish_turn_output(
+                        state,
+                        &format!(
+                            "I could not parse the model's tool call safely: {err}. Please try again or switch to a model that follows the listed tool schema."
+                        ),
+                    );
+                    state.messages.push(ChatMessage {
+                        role: ChatRole::Assistant,
+                        content: final_text.clone(),
+                        attachments: Vec::new(),
+                    });
+                    for event in pending_model_events {
+                        (self.adapter.on_event)(&event);
+                    }
+                    if emit_terminal_events {
+                        (self.adapter.on_event)(&KernelEvent::AssistantText(final_text.clone()));
+                        (self.adapter.on_event)(&KernelEvent::TurnDone {
+                            hit_turn_limit: false,
+                        });
+                    }
+                    return Ok(AgentRunSummary {
+                        hit_turn_limit: false,
+                        assistant_text: Some(final_text),
+                        stop_reason: Some("tool_call_parse_error".into()),
+                    });
+                }
+            };
+
             let final_text = self.finish_turn_output(state, &response.text);
             state.messages.push(ChatMessage {
                 role: ChatRole::Assistant,
@@ -1169,11 +1273,10 @@ impl Kernel {
                 attachments: Vec::new(),
             });
 
-            for event in hook_ctx.pending_events {
+            for event in pending_model_events {
                 (self.adapter.on_event)(&event);
             }
 
-            let tool_calls = parse_tool_calls(&response.text);
             state.spawn_siblings_remaining_this_round = tool_calls
                 .iter()
                 .filter(|invocation| invocation.name == "spawn_subagent")
@@ -2123,6 +2226,7 @@ Respond with only the lowercase label and no other text."
                 }],
                 model: classifier_model.clone(),
                 max_tokens,
+                tools: Vec::new(),
             })
             .await?;
 
@@ -4431,36 +4535,6 @@ fn yes_no(value: bool) -> &'static str {
     }
 }
 
-fn parse_tool_calls(text: &str) -> Vec<ToolInvocation> {
-    let mut calls = Vec::new();
-    let mut start = 0usize;
-    let open = "<tool_call>";
-    let close = "</tool_call>";
-
-    while let Some(open_idx_rel) = text[start..].find(open) {
-        let open_idx = start + open_idx_rel + open.len();
-        let Some(close_idx_rel) = text[open_idx..].find(close) else {
-            break;
-        };
-        let close_idx = open_idx + close_idx_rel;
-        let raw = text[open_idx..close_idx].trim();
-        if let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) {
-            if let (Some(name), Some(input)) = (
-                value.get("name").and_then(|value| value.as_str()),
-                value.get("input"),
-            ) {
-                calls.push(ToolInvocation {
-                    name: name.to_string(),
-                    input: input.clone(),
-                });
-            }
-        }
-        start = close_idx + close.len();
-    }
-
-    calls
-}
-
 fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
     if input.len() <= max_bytes {
         return input.to_string();
@@ -4855,6 +4929,8 @@ mod tests {
         assert_eq!(config.model.provider, Provider::Ollama);
         assert_eq!(config.model.model_id, "gemma4");
         assert_eq!(config.model.api_key_env, None);
+        assert!(config.intent.tool_call_retry_enabled);
+        assert_eq!(config.self_diagnosis.remediation_provider_max_tokens, 4096);
         assert_eq!(
             config.model.base_url.as_deref(),
             Some("http://127.0.0.1:11434")
@@ -4925,6 +5001,7 @@ mod tests {
                         cache_read: 0,
                         cache_create: 0,
                     },
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -4984,6 +5061,7 @@ mod tests {
                         cache_read: 2,
                         cache_create: 1,
                     },
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -5023,6 +5101,7 @@ mod tests {
                         cache_read: 0,
                         cache_create: 0,
                     },
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -5104,6 +5183,7 @@ mod tests {
                             cache_read: 0,
                             cache_create: 0,
                         },
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "SUBAGENT_OK".into(),
@@ -5113,6 +5193,7 @@ mod tests {
                             cache_read: 0,
                             cache_create: 0,
                         },
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "ROOT_OK".into(),
@@ -5122,6 +5203,7 @@ mod tests {
                             cache_read: 0,
                             cache_create: 0,
                         },
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -5211,14 +5293,17 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "SUBAGENT_OK".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "ROOT_OK".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -5275,14 +5360,17 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "SUBAGENT_OK".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "ROOT_OK".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -5325,6 +5413,7 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: format!(
@@ -5342,18 +5431,22 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "NESTED_DONE".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "SUBAGENT_DONE".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "ROOT_DONE".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -5416,10 +5509,12 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "ROOT_DONE".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -5477,6 +5572,7 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: format!(
@@ -5489,14 +5585,17 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "SUBAGENT_POLICY_OK".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "ROOT_POLICY_OK".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -5539,6 +5638,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "SCHEDULE_OK".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -5588,6 +5688,7 @@ mod tests {
                             cache_read: 0,
                             cache_create: 0,
                         },
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "CHAT_OK".into(),
@@ -5597,6 +5698,7 @@ mod tests {
                             cache_read: 0,
                             cache_create: 0,
                         },
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -5668,6 +5770,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "TASK_OK".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -5719,6 +5822,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "META_OK".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -5757,6 +5861,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "HOOK_OK".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -5880,6 +5985,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "done".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
                 true,
@@ -5952,6 +6058,7 @@ mod tests {
                             cache_read: 0,
                             cache_create: 0,
                         },
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "second".into(),
@@ -5961,6 +6068,7 @@ mod tests {
                             cache_read: 0,
                             cache_create: 0,
                         },
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6010,6 +6118,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "ok".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -6085,10 +6194,12 @@ mod tests {
                     CompletionResponse {
                         text: "first".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "second".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6143,6 +6254,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "ok".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -6185,6 +6297,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "ok".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -6355,10 +6468,12 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"favorite color?\",\"allow_empty\":false}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Thanks, I noted blue.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6405,10 +6520,12 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"anything else?\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "No extra input arrived.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6450,10 +6567,12 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"x\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "done".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6497,10 +6616,12 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"one\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"two\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6545,10 +6666,12 @@ mod tests {
                             json!({"name":"process_exec","input":{"program":"/bin/echo","args":["hello"]}})
                         ),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "done one".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: format!(
@@ -6556,10 +6679,12 @@ mod tests {
                             json!({"name":"process_exec","input":{"program":"/bin/echo","args":["hello"]}})
                         ),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "done two".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6627,14 +6752,17 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"note-taker\",\"args\":{\"topic\":\"retro\"}}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Skill is active now.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Using the active skill.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6686,14 +6814,17 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"research-assistant\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Activated.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Using the skill body only.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6748,10 +6879,12 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"research-assistant\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Activated.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: concat!(
@@ -6760,10 +6893,12 @@ mod tests {
                         )
                         .into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Done with the reference.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6875,18 +7010,22 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"script-runner\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Activated.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"script-runner\",\"script\":\"helper\",\"args\":[\"alpha\",\"beta\"]}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Done.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6934,18 +7073,22 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"node-runner\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Activated.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"node-runner\",\"script\":\"helper\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Done.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -6996,18 +7139,22 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"lua-runner\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Activated.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"lua-runner\",\"script\":\"helper\",\"args\":[\"alpha\"]}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Done.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -7060,18 +7207,22 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"lua-runner\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Activated.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"lua-runner\",\"script\":\"helper\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Done.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -7126,18 +7277,22 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"lua-runner\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Activated.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"lua-runner\",\"script\":\"helper\",\"input\":{\"name\":\"Allbert\"}}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Done.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -7219,18 +7374,22 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"lua-runner\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Activated.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"run_skill_script\",\"input\":{\"skill\":\"lua-runner\",\"script\":\"helper\",\"budget\":{\"max_execution_ms\":30001,\"max_memory_kb\":1024,\"max_output_bytes\":4096}}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Done.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -7329,10 +7488,12 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"small-skill\",\"args\":{\"long\":\"1234567890\"}}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "done".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -7379,10 +7540,12 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "created".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -7454,10 +7617,12 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "done".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -7505,10 +7670,12 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "done".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -7554,10 +7721,12 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "done".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -7590,6 +7759,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "ready".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -7643,26 +7813,32 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"skill-author\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"Skill name?\",\"allow_empty\":false}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"Description?\",\"allow_empty\":false}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"Capability summary?\",\"allow_empty\":false}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"Interpreter?\",\"allow_empty\":false}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"Allowed tools?\",\"allow_empty\":false}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: format!(
@@ -7679,10 +7855,12 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Draft is ready for install preview.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -7961,6 +8139,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "scheduled".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -8034,18 +8213,22 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"process_exec\",\"input\":{\"program\":\"/bin/echo\",\"args\":[\"blocked\"]}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "SUBAGENT_DONE".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "ROOT_DONE".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -8101,6 +8284,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "JOB_OK".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -8160,10 +8344,12 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"stage_memory\",\"input\":{\"content\":\"Nightly summary content\",\"kind\":\"job_summary\",\"summary\":\"Nightly summary\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "JOB_OK".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -8201,10 +8387,12 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"stage_memory\",\"input\":{\"content\":\"We use Postgres\",\"kind\":\"learned_fact\",\"summary\":\"We use Postgres\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Captured that.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -8321,6 +8509,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "hello".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -8357,6 +8546,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "I can help with memory.".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -8392,6 +8582,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "hello".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -8466,10 +8657,12 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"memory-curator\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"list_staged_memory\",\"input\":{\"limit\":10}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: format!(
@@ -8477,10 +8670,12 @@ mod tests {
                             first.id, second.id
                         ),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Reviewed and promoted the staged memory.".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -8569,6 +8764,7 @@ mod tests {
                             cache_read: 0,
                             cache_create: 0,
                         },
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"stage_memory\",\"input\":{\"content\":\"We use Postgres for primary storage.\",\"kind\":\"curator_extraction\",\"summary\":\"Primary database is Postgres\"}}</tool_call>".into(),
@@ -8578,6 +8774,7 @@ mod tests {
                             cache_read: 0,
                             cache_create: 0,
                         },
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Staged one durable memory candidate.".into(),
@@ -8587,6 +8784,7 @@ mod tests {
                             cache_read: 0,
                             cache_create: 0,
                         },
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "Done reviewing the turn.".into(),
@@ -8596,6 +8794,7 @@ mod tests {
                             cache_read: 0,
                             cache_create: 0,
                         },
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -8659,18 +8858,22 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"writer-only\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"request_input\",\"input\":{\"prompt\":\"still allowed?\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"process_exec\",\"input\":{\"program\":\"/bin/echo\",\"args\":[\"blocked\"]}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "done".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -8721,18 +8924,22 @@ mod tests {
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"bypass-attempt\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"process_exec\",\"input\":{\"program\":\"sh\",\"args\":[\"-c\",\"echo nope\"]}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"write_file\",\"input\":{\"path\":\"/tmp/outside.txt\",\"content\":\"oops\"}}</tool_call>".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "done".into(),
                         usage: Usage::default(),
+                    tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -8948,6 +9155,7 @@ mod tests {
                 vec![CompletionResponse {
                     text: "I remember.".into(),
                     usage: Usage::default(),
+                    tool_calls: Vec::new(),
                 }],
                 Some(test_pricing()),
             )),
@@ -8989,10 +9197,12 @@ mod tests {
                     CompletionResponse {
                         text: "chat".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "CHAT_OK".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -9050,10 +9260,12 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "DONE".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -9109,10 +9321,12 @@ mod tests {
                             })
                         ),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                     CompletionResponse {
                         text: "DONE".into(),
                         usage: Usage::default(),
+                        tool_calls: Vec::new(),
                     },
                 ],
                 Some(test_pricing()),
@@ -9292,7 +9506,62 @@ mod tests {
                 cache_read: 0,
                 cache_create: 0,
             },
+            tool_calls: Vec::new(),
         }
+    }
+
+    #[tokio::test]
+    async fn malformed_tool_call_retries_once_before_persisting_output() {
+        let temp = TempRoot::new();
+        let paths = temp.paths();
+        paths.ensure().unwrap();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let mut config = Config::default_template();
+        config.security.exec_allow.push("/bin/echo".into());
+
+        let mut kernel = Kernel::boot_with_parts(
+            config,
+            test_adapter(Arc::clone(&events)),
+            paths,
+            Arc::new(TestFactory::with_requests(
+                "anthropic",
+                Arc::clone(&requests),
+                vec![
+                    scripted_response(r#"<tool_call>{"args":[]}</tool_call>"#),
+                    scripted_response(
+                        r#"<tool_call>{"program":"/bin/echo","args":["echo","ok"]}</tool_call>"#,
+                    ),
+                    scripted_response("done"),
+                ],
+                Some(test_pricing()),
+            )),
+        )
+        .await
+        .expect("kernel should boot");
+
+        let summary = kernel.run_turn("run echo").await.unwrap();
+        assert!(!summary.hit_turn_limit);
+
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests.len(), 3);
+        assert!(!requests[0].tools.is_empty());
+        assert!(requests[1]
+            .system
+            .as_deref()
+            .unwrap()
+            .contains("invalid tool-call shape"));
+
+        let assistant_texts = events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(|event| match event {
+                KernelEvent::AssistantText(text) => Some(text.clone()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(assistant_texts, vec!["done"]);
     }
 
     #[tokio::test]

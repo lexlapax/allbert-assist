@@ -65,6 +65,7 @@ pub fn explain(group: &str) -> Result<String> {
             "examples: repl.ui, repl.tui.spinner_style, repl.tui.status_line.items"
         }
         SettingsGroup::Activity => "examples: operator_ux.activity.stuck_notice_after_s",
+        SettingsGroup::Intent => "examples: intent.tool_call_retry_enabled",
         SettingsGroup::Trace => {
             "examples: trace.enabled, trace.capture_messages, trace.redaction.provider_payloads"
         }
@@ -132,6 +133,7 @@ fn group_description(group: SettingsGroup) -> &'static str {
     match group {
         SettingsGroup::Ui => "Local terminal and status-line behavior.",
         SettingsGroup::Activity => "Daemon-owned live activity and stuck-hint display.",
+        SettingsGroup::Intent => "Intent routing and tool-call repair behavior.",
         SettingsGroup::Trace => {
             "Durable session trace capture, privacy, retention, and export posture."
         }

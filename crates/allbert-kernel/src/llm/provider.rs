@@ -45,6 +45,14 @@ pub struct CompletionRequest {
     pub messages: Vec<ChatMessage>,
     pub model: String,
     pub max_tokens: u32,
+    pub tools: Vec<ToolDeclaration>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ToolDeclaration {
+    pub name: String,
+    pub description: String,
+    pub schema: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -59,6 +67,14 @@ pub struct Usage {
 pub struct CompletionResponse {
     pub text: String,
     pub usage: Usage,
+    pub tool_calls: Vec<ToolCallSpan>,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct ToolCallSpan {
+    pub call_id: String,
+    pub name: String,
+    pub input: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

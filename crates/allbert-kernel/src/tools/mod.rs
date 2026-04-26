@@ -11,6 +11,7 @@ use tokio::process::Command;
 use crate::adapter::{InputPrompter, InputRequest, InputResponse};
 use crate::config::SecurityConfig;
 use crate::error::ToolError;
+use crate::llm::ToolDeclaration;
 use crate::security::sandbox;
 
 #[derive(Debug, Clone)]
@@ -120,6 +121,19 @@ impl ToolRegistry {
             catalog.push('\n');
         }
         catalog.trim_end().to_string()
+    }
+
+    pub fn tool_declarations(&self) -> Vec<ToolDeclaration> {
+        let mut entries = self.by_name.values().collect::<Vec<_>>();
+        entries.sort_by_key(|tool| tool.name());
+        entries
+            .into_iter()
+            .map(|tool| ToolDeclaration {
+                name: tool.name().to_string(),
+                description: tool.description().to_string(),
+                schema: tool.schema(),
+            })
+            .collect()
     }
 
     pub fn lookup(&self, name: &str) -> Option<Arc<dyn Tool>> {

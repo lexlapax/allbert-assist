@@ -140,6 +140,7 @@ impl LlmProvider for OpenRouterProvider {
                 cache_read: 0,
                 cache_create: 0,
             },
+            tool_calls: Vec::new(),
         })
     }
 

@@ -17,7 +17,8 @@ pub use openai::OpenAiProvider;
 pub use openrouter::OpenRouterProvider;
 pub use provider::{
     ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, CompletionRequest,
-    CompletionResponse, LlmProvider, Pricing, ProviderFactory, Usage,
+    CompletionResponse, LlmProvider, Pricing, ProviderFactory, ToolCallSpan, ToolDeclaration,
+    Usage,
 };
 
 #[derive(Clone)]

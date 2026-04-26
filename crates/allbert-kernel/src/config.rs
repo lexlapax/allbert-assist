@@ -45,6 +45,8 @@ pub struct Config {
     #[serde(default)]
     pub install: InstallConfig,
     #[serde(default)]
+    pub intent: IntentRuntimeConfig,
+    #[serde(default)]
     pub intent_classifier: IntentClassifierConfig,
     #[serde(default)]
     pub memory: MemoryConfig,
@@ -574,6 +576,7 @@ pub struct SelfDiagnosisConfig {
     pub max_text_snippet_bytes: usize,
     pub max_report_bytes: usize,
     pub allow_remediation: bool,
+    pub remediation_provider_max_tokens: u32,
 }
 
 impl Default for SelfDiagnosisConfig {
@@ -587,6 +590,7 @@ impl Default for SelfDiagnosisConfig {
             max_text_snippet_bytes: 32_768,
             max_report_bytes: 262_144,
             allow_remediation: false,
+            remediation_provider_max_tokens: 4096,
         }
     }
 }
@@ -666,6 +670,20 @@ pub struct IntentClassifierConfig {
     pub model: String,
     pub rule_only: bool,
     pub per_turn_token_budget: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct IntentRuntimeConfig {
+    pub tool_call_retry_enabled: bool,
+}
+
+impl Default for IntentRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            tool_call_retry_enabled: true,
+        }
+    }
 }
 
 impl Default for IntentClassifierConfig {
@@ -1181,6 +1199,7 @@ impl Config {
             operator_ux: OperatorUxConfig::default(),
             jobs: JobsConfig::default(),
             install: InstallConfig::default(),
+            intent: IntentRuntimeConfig::default(),
             intent_classifier: IntentClassifierConfig::default(),
             memory: MemoryConfig::default(),
             learning: LearningConfig::default(),
@@ -1955,6 +1974,11 @@ fn validate_self_diagnosis_config(config: &SelfDiagnosisConfig) -> Result<(), St
     }
     if !(8_192..=1_048_576).contains(&config.max_report_bytes) {
         return Err("self_diagnosis.max_report_bytes must be between 8192 and 1048576".into());
+    }
+    if !(256..=16_384).contains(&config.remediation_provider_max_tokens) {
+        return Err(
+            "self_diagnosis.remediation_provider_max_tokens must be between 256 and 16384".into(),
+        );
     }
     Ok(())
 }
