@@ -2,6 +2,7 @@ pub mod corpus;
 pub mod eval;
 pub mod job;
 pub mod manifest;
+pub mod runtime;
 pub mod store;
 pub mod trainer;
 pub mod trainer_fake;
@@ -22,6 +23,10 @@ pub use job::{
     PERSONALITY_ADAPTER_JOB_NAME, PERSONALITY_ADAPTER_SESSION_ID,
 };
 pub use manifest::{read_adapter_manifest, write_adapter_manifest};
+pub use runtime::{
+    activate_adapter, active_adapter_for_model, cleanup_runtime_files, deactivate_adapter,
+    register_ollama_adapter, AdapterActivation, DerivedOllamaAdapter, HostedAdapterNotice,
+};
 pub use store::AdapterStore;
 pub use trainer::{
     capture_trainer_output, ensure_trainer_allowed, minimal_trainer_env,

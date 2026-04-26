@@ -364,6 +364,10 @@ struct PendingApprovalFrontmatter {
     artifact_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     overall: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    adapter_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    artifact_root: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -373,6 +377,7 @@ enum PendingApprovalKind {
     CostCapOverride,
     JobApproval,
     PatchApproval,
+    AdapterApproval,
 }
 
 impl PendingApprovalKind {
@@ -382,6 +387,7 @@ impl PendingApprovalKind {
             Self::CostCapOverride => "cost-cap-override",
             Self::JobApproval => "job-approval",
             Self::PatchApproval => "patch-approval",
+            Self::AdapterApproval => "adapter-approval",
         }
     }
 }
@@ -2349,6 +2355,8 @@ impl TelegramRuntime {
                             validation: None,
                             artifact_path: None,
                             overall: None,
+                            adapter_id: None,
+                            artifact_root: None,
                         },
                         rendered: format!("{message}\n\n## Blocked input\n\n{}\n", input.trim()),
                     };
@@ -2537,6 +2545,8 @@ impl ConfirmPrompter for TelegramConfirmPrompter {
                 validation: None,
                 artifact_path: None,
                 overall: None,
+                adapter_id: None,
+                artifact_root: None,
             },
             rendered: req.rendered.clone(),
         };
@@ -2667,6 +2677,8 @@ impl ConfirmPrompter for JobApprovalPrompter {
                 validation: None,
                 artifact_path: None,
                 overall: None,
+                adapter_id: None,
+                artifact_root: None,
             },
             rendered: req.rendered,
         };
@@ -3316,6 +3328,8 @@ async fn run_turn_over_channel(
                                     validation: None,
                                     artifact_path: None,
                                     overall: None,
+                                    adapter_id: None,
+                                    artifact_root: None,
                                 },
                                 rendered: request.rendered.clone(),
                             };
@@ -3631,6 +3645,8 @@ async fn run_turn_over_channel(
                                     validation: None,
                                     artifact_path: None,
                                     overall: None,
+                                    adapter_id: None,
+                                    artifact_root: None,
                                 },
                                 rendered: format!(
                                     "{}\n\n## Blocked input\n\n{}\n",
@@ -4253,6 +4269,7 @@ fn approval_context_from_pending(
                 diff_preview: diff_preview_lines(&patch.artifact_path, 10),
             })
         }
+        PendingApprovalKind::AdapterApproval => None,
     }
 }
 
@@ -4727,8 +4744,75 @@ async fn handle_live_approval_resolution(
             Some("approval recorded, but the original turn is no longer active".into()),
         )),
         None if payload.kind == "patch-approval" => Ok((false, None)),
+        None if payload.kind == "adapter-approval" => {
+            handle_adapter_approval_resolution(state, payload, accept).await
+        }
         None => Ok((false, None)),
     }
+}
+
+async fn handle_adapter_approval_resolution(
+    state: &SharedState,
+    payload: &InboxApprovalPayload,
+    accept: bool,
+) -> Result<(bool, Option<String>), DaemonError> {
+    let raw = fs::read_to_string(&payload.path)?;
+    let matter = gray_matter::Matter::<gray_matter::engine::YAML>::new();
+    #[derive(Deserialize)]
+    struct AdapterApprovalFrontmatter {
+        adapter_id: String,
+        artifact_root: String,
+    }
+    let parsed = matter
+        .parse::<AdapterApprovalFrontmatter>(&raw)
+        .map_err(|err| DaemonError::Protocol(format!("parse adapter approval: {err}")))?;
+    let Some(frontmatter) = parsed.data else {
+        return Ok((false, Some("adapter approval missing metadata".into())));
+    };
+    let config = state.default_config.read().await.clone();
+    if accept {
+        let mut manifest = allbert_kernel::read_adapter_manifest(
+            &PathBuf::from(&frontmatter.artifact_root).join("manifest.json"),
+        )
+        .map_err(map_kernel_error)?;
+        manifest.accepted_at = Some(chrono::Utc::now());
+        allbert_kernel::write_adapter_manifest(
+            &PathBuf::from(&frontmatter.artifact_root).join("manifest.json"),
+            &manifest,
+        )
+        .map_err(map_kernel_error)?;
+        let store = allbert_kernel::AdapterStore::new(state.paths.clone());
+        store
+            .install_from_run(&PathBuf::from(&frontmatter.artifact_root))
+            .map_err(map_kernel_error)?;
+        return Ok((
+            false,
+            Some(format!(
+                "adapter `{}` approved and installed; activate it explicitly with `allbert-cli adapters activate {}`",
+                frontmatter.adapter_id, frontmatter.adapter_id
+            )),
+        ));
+    }
+    if !config.learning.adapter_training.keep_rejected_runs {
+        let artifact_root = PathBuf::from(&frontmatter.artifact_root);
+        if artifact_root.exists() {
+            fs::remove_dir_all(&artifact_root)?;
+        }
+        return Ok((
+            false,
+            Some(format!(
+                "adapter `{}` rejected and run artifacts removed",
+                frontmatter.adapter_id
+            )),
+        ));
+    }
+    Ok((
+        false,
+        Some(format!(
+            "adapter `{}` rejected; run artifacts preserved by config",
+            frontmatter.adapter_id
+        )),
+    ))
 }
 
 async fn cleanup_rejected_patch_worktree(
@@ -5901,6 +5985,8 @@ mod telegram_tests {
                 validation: Some("passed".into()),
                 artifact_path: Some("/tmp/patch.diff".into()),
                 overall: Some("safe-to-merge".into()),
+                adapter_id: None,
+                artifact_root: None,
             },
             rendered: "Patch summary".into(),
         };

@@ -383,14 +383,14 @@ fn adapter_error(message: impl Into<String>) -> KernelError {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests_support {
     use super::*;
     use allbert_proto::{
         AdapterEvalSummary, AdapterHyperparameters, AdapterOverallStatus, AdapterProvenance,
         AdapterResourceCost, AdapterWeightsFormat, BaseModelRef, ProviderKind,
     };
 
-    fn manifest(adapter_id: &str, created_offset_seconds: i64) -> AdapterManifest {
+    pub fn manifest(adapter_id: &str, created_offset_seconds: i64) -> AdapterManifest {
         AdapterManifest {
             schema_version: allbert_proto::ADAPTER_MANIFEST_SCHEMA_VERSION,
             adapter_id: adapter_id.into(),
@@ -431,7 +431,14 @@ mod tests {
         }
     }
 
-    fn write_run(paths: &AllbertPaths, id: &str, offset: i64) -> PathBuf {
+    pub fn install_manifest(paths: &AllbertPaths, manifest: &AdapterManifest, weights: &[u8]) {
+        let dir = paths.adapters_installed.join(&manifest.adapter_id);
+        fs::create_dir_all(&dir).expect("installed dir");
+        write_adapter_manifest(&dir.join(MANIFEST_FILE), manifest).expect("manifest");
+        fs::write(dir.join("adapter.safetensors"), weights).expect("weights");
+    }
+
+    pub fn write_run(paths: &AllbertPaths, id: &str, offset: i64) -> PathBuf {
         let run_dir = paths.adapters_runs.join(format!("run-{id}"));
         fs::create_dir_all(&run_dir).expect("run dir");
         write_adapter_manifest(&run_dir.join(MANIFEST_FILE), &manifest(id, offset))
@@ -439,6 +446,12 @@ mod tests {
         fs::write(run_dir.join("adapter.safetensors"), b"stub").expect("weights");
         run_dir
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tests_support::write_run;
 
     #[test]
     fn install_list_show_remove_state_machine() {

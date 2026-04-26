@@ -791,6 +791,7 @@ pub struct AdapterTrainingConfig {
     pub allowed_backends: Vec<String>,
     pub max_output_artifact_bytes: usize,
     pub min_golden_pass_rate: String,
+    pub keep_rejected_runs: bool,
 }
 
 impl Default for AdapterTrainingConfig {
@@ -801,6 +802,7 @@ impl Default for AdapterTrainingConfig {
             allowed_backends: Vec::new(),
             max_output_artifact_bytes: 512 * 1024 * 1024,
             min_golden_pass_rate: "0.85".into(),
+            keep_rejected_runs: false,
         }
     }
 }

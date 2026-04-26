@@ -26,7 +26,7 @@ pub mod skills;
 pub mod tools;
 pub mod trace;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -37,16 +37,18 @@ pub use adapter::{
     InputPrompter, InputRequest, InputResponse,
 };
 pub use adapters::{
-    build_adapter_corpus, golden_pass_rate, load_golden_cases,
-    preview_personality_adapter_training, read_adapter_manifest, render_ascii_loss_curve,
+    activate_adapter, active_adapter_for_model, build_adapter_corpus, cleanup_runtime_files,
+    deactivate_adapter, golden_pass_rate, load_golden_cases, preview_personality_adapter_training,
+    read_adapter_manifest, register_ollama_adapter, render_ascii_loss_curve,
     render_behavioral_diff, run_fixed_evals, run_personality_adapter_training,
-    run_personality_adapter_training_with_session, write_adapter_manifest, AdapterCorpusConfig,
-    AdapterCorpusItem, AdapterCorpusSnapshot, AdapterEvalArtifacts, AdapterStore, AdapterTrainer,
-    CancellationToken, FakeAdapterTrainer, GoldenCase, LlamaCppLoraTrainer, MlxLoraTrainer,
-    PersonalityAdapterJob, TrainerCommand, TrainerError, TrainerHooks, TrainerProgress,
-    TrainingOutcome, TrainingPlan, DEFAULT_ADAPTER_COMPUTE_CAP_WALL_SECONDS,
-    DEFAULT_MIN_GOLDEN_PASS_RATE, PERSONALITY_ADAPTER_JOB_NAME, PERSONALITY_ADAPTER_SESSION_ID,
-    TRAINER_STDIO_CAPTURE_BYTES, TRAINER_TRUNCATION_MARKER,
+    run_personality_adapter_training_with_session, write_adapter_manifest, AdapterActivation,
+    AdapterCorpusConfig, AdapterCorpusItem, AdapterCorpusSnapshot, AdapterEvalArtifacts,
+    AdapterStore, AdapterTrainer, CancellationToken, DerivedOllamaAdapter, FakeAdapterTrainer,
+    GoldenCase, HostedAdapterNotice, LlamaCppLoraTrainer, MlxLoraTrainer, PersonalityAdapterJob,
+    TrainerCommand, TrainerError, TrainerHooks, TrainerProgress, TrainingOutcome, TrainingPlan,
+    DEFAULT_ADAPTER_COMPUTE_CAP_WALL_SECONDS, DEFAULT_MIN_GOLDEN_PASS_RATE,
+    PERSONALITY_ADAPTER_JOB_NAME, PERSONALITY_ADAPTER_SESSION_ID, TRAINER_STDIO_CAPTURE_BYTES,
+    TRAINER_TRUNCATION_MARKER,
 };
 pub use agent::{
     ActiveTurnBudget, Agent, AgentDefinition, AgentState, StagedNoticeEntry, TurnBudget,
@@ -419,6 +421,7 @@ pub struct Kernel {
     trace: TraceHandles,
     trace_hooks: Option<Arc<dyn TracingHooks>>,
     trace_context_stack: Vec<TraceContext>,
+    adapter_notice_sessions: HashSet<String>,
 }
 
 struct KernelToolRuntime<'a> {
@@ -585,6 +588,7 @@ impl Kernel {
             trace,
             trace_hooks,
             trace_context_stack: Vec::new(),
+            adapter_notice_sessions: HashSet::new(),
         })
     }
 
@@ -945,6 +949,9 @@ impl Kernel {
                 .model_override
                 .clone()
                 .unwrap_or_else(|| self.config.model.clone());
+            let mut effective_model = effective_model;
+            self.apply_active_adapter_to_effective_model(&mut effective_model, &state.session_id)
+                .await?;
             if emit_terminal_events {
                 self.emit_activity(
                     allbert_proto::ActivityPhase::PreparingContext,
@@ -1910,9 +1917,38 @@ impl Kernel {
     }
 
     pub async fn set_model(&mut self, model: ModelConfig) -> Result<(), KernelError> {
+        let store = AdapterStore::new(self.paths.clone());
+        active_adapter_for_model(&store, &model)?;
         let llm = self.provider_factory.build(&model).await?;
         self.config.model = model;
         self.llm = llm;
+        Ok(())
+    }
+
+    async fn apply_active_adapter_to_effective_model(
+        &mut self,
+        model: &mut ModelConfig,
+        session_id: &str,
+    ) -> Result<(), KernelError> {
+        let store = AdapterStore::new(self.paths.clone());
+        let Some(active) = active_adapter_for_model(&store, model)? else {
+            return Ok(());
+        };
+        if model.provider == Provider::Ollama {
+            let derived =
+                register_ollama_adapter(&self.paths, &active, model.base_url.as_deref()).await?;
+            model.model_id = derived.model_name;
+            return Ok(());
+        }
+
+        let notice_key = format!("{session_id}:{}", active.adapter_id);
+        if self.adapter_notice_sessions.insert(notice_key) {
+            (self.adapter.on_event)(&KernelEvent::AssistantText(format!(
+                "Active adapter `{}` is local-only and is ignored by hosted provider `{}` for this session.",
+                active.adapter_id,
+                model.provider.label()
+            )));
+        }
         Ok(())
     }
 
