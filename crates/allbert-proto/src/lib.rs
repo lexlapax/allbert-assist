@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const MIN_PROTOCOL_VERSION: u32 = 2;
-pub const PROTOCOL_VERSION: u32 = 5;
+pub const PROTOCOL_VERSION: u32 = 6;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -121,6 +121,7 @@ pub enum ActivityPhase {
     RunningValidation,
     RunningScript,
     Training,
+    Diagnosing,
     Finalizing,
     Error,
     #[serde(other)]
@@ -817,6 +818,147 @@ pub enum KernelEventPayload {
     },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DiagnosisRunRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lookback_days: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remediation: Option<DiagnosisRemediationRequestPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DiagnosisRemediationRequestPayload {
+    pub kind: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DiagnosisListRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DiagnosisShowRequest {
+    pub diagnosis_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DiagnosisReportSummaryPayload {
+    pub schema_version: u32,
+    pub diagnosis_id: String,
+    pub session_id: String,
+    pub created_at: DateTime<Utc>,
+    pub selected_session_ids: Vec<String>,
+    pub classification: String,
+    pub confidence: f32,
+    pub rationale: String,
+    pub bounds: Value,
+    pub truncation: Value,
+    pub warnings: Vec<String>,
+    pub span_count: usize,
+    pub event_count: usize,
+    pub report_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remediation: Option<DiagnosisRemediationSummaryPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DiagnosisRemediationSummaryPayload {
+    pub kind: String,
+    pub reason: String,
+    pub status: String,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DiagnosisReportPayload {
+    pub summary: DiagnosisReportSummaryPayload,
+    pub report_markdown: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DiagnosisStartedPayload {
+    pub session_id: String,
+    pub diagnosis_id_hint: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UtilityEnableRequest {
+    pub utility_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UtilityCatalogEntryPayload {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub executable_candidates: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installed_path: Option<String>,
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path_canonical: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub help_summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exec_note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EnabledUtilityPayload {
+    pub id: String,
+    pub path: String,
+    pub path_canonical: String,
+    pub version: String,
+    pub help_summary: String,
+    pub enabled_at: String,
+    pub verified_at: String,
+    pub status: String,
+    pub size_bytes: u64,
+    pub modified_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UtilitiesDoctorPayload {
+    pub manifest_path: String,
+    pub entries: Vec<EnabledUtilityPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UnixPipeRunSummaryPayload {
+    pub ok: bool,
+    pub timed_out: bool,
+    pub cap_violated: bool,
+    pub stdout: String,
+    pub stdout_bytes: usize,
+    pub stdout_truncated: bool,
+    pub lossy_utf8: bool,
+    pub stages: Vec<UnixPipeStageSummaryPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UnixPipeStageSummaryPayload {
+    pub utility_id: String,
+    pub exit_code: Option<i32>,
+    pub stdout_bytes: usize,
+    pub stderr_bytes: usize,
+    pub stderr_summary: String,
+    pub stderr_truncated: bool,
+}
+
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "payload", rename_all = "snake_case")]
@@ -869,6 +1011,15 @@ pub enum ClientMessage {
     AdaptersTrainingStart(AdapterTrainingStartRequest),
     AdaptersTrainingCancel(AdapterTrainingCancelRequest),
     AdaptersInstallExternal(AdapterInstallExternalRequest),
+    DiagnoseRun(DiagnosisRunRequest),
+    DiagnoseList(DiagnosisListRequest),
+    DiagnoseShow(DiagnosisShowRequest),
+    UtilitiesDiscover,
+    UtilitiesList,
+    UtilitiesShow(String),
+    UtilitiesEnable(UtilityEnableRequest),
+    UtilitiesDisable(String),
+    UtilitiesDoctor,
     ReloadSessionConfig,
     ListChannelRuntimes,
     ListJobs,
@@ -919,6 +1070,15 @@ pub enum ServerMessage {
     AdaptersHistory(Vec<AdaptersHistoryEntry>),
     AdapterTrainingProgress(AdapterTrainingProgressPayload),
     AdapterTrainingFinal(AdapterTrainingFinalPayload),
+    DiagnosisStarted(DiagnosisStartedPayload),
+    Diagnosis(DiagnosisReportSummaryPayload),
+    Diagnoses(Vec<DiagnosisReportSummaryPayload>),
+    DiagnosisReport(DiagnosisReportPayload),
+    UtilityCatalog(Vec<UtilityCatalogEntryPayload>),
+    Utility(UtilityCatalogEntryPayload),
+    EnabledUtilities(Vec<EnabledUtilityPayload>),
+    UtilitiesDoctor(UtilitiesDoctorPayload),
+    UnixPipeRun(UnixPipeRunSummaryPayload),
     Ack,
     Error(ProtocolError),
 }
@@ -1277,7 +1437,7 @@ mod tests {
     }
 
     #[test]
-    fn proto_v2_v3_v4_envelopes_decode_under_v5_reader() {
+    fn proto_v2_v3_v4_v5_envelopes_decode_under_v6_reader() {
         let v2_status = r#"{"type":"status"}"#;
         assert_eq!(
             serde_json::from_str::<ClientMessage>(v2_status).expect("v2 status should decode"),
@@ -1295,6 +1455,73 @@ mod tests {
             serde_json::from_str::<ClientMessage>(v4_trace).expect("v4 trace should decode"),
             ClientMessage::TraceList
         );
+
+        let v5_adapter = r#"{"type":"adapters_status"}"#;
+        assert_eq!(
+            serde_json::from_str::<ClientMessage>(v5_adapter).expect("v5 adapter should decode"),
+            ClientMessage::AdaptersStatus
+        );
+    }
+
+    #[test]
+    fn proto_v6_diagnosis_and_utility_messages_json_roundtrip() {
+        let run = ClientMessage::DiagnoseRun(DiagnosisRunRequest {
+            session_id: Some("repl-primary".into()),
+            lookback_days: Some(7),
+            remediation: Some(DiagnosisRemediationRequestPayload {
+                kind: "skill".into(),
+                reason: "operator requested".into(),
+            }),
+        });
+        let raw = serde_json::to_string(&run).expect("diagnose run should serialize");
+        let decoded: ClientMessage =
+            serde_json::from_str(&raw).expect("diagnose run should deserialize");
+        assert_eq!(decoded, run);
+
+        let summary = DiagnosisReportSummaryPayload {
+            schema_version: 1,
+            diagnosis_id: "diag_20260426T000000Z_12345678".into(),
+            session_id: "repl-primary".into(),
+            created_at: ts(1_777_657_331),
+            selected_session_ids: vec!["repl-primary".into()],
+            classification: "tool_failed".into(),
+            confidence: 0.9,
+            rationale: "tool failed".into(),
+            bounds: serde_json::json!({"max_sessions": 5}),
+            truncation: serde_json::json!({"span_count": 0}),
+            warnings: Vec::new(),
+            span_count: 2,
+            event_count: 1,
+            report_path: "/tmp/report.md".into(),
+            remediation: None,
+        };
+        let report = ServerMessage::DiagnosisReport(DiagnosisReportPayload {
+            summary: summary.clone(),
+            report_markdown: "# Diagnosis\n".into(),
+        });
+        let raw = serde_json::to_string(&report).expect("diagnosis report should serialize");
+        let decoded: ServerMessage =
+            serde_json::from_str(&raw).expect("diagnosis report should deserialize");
+        assert_eq!(decoded, report);
+
+        let utility = ServerMessage::Utility(UtilityCatalogEntryPayload {
+            id: "rg".into(),
+            name: "ripgrep".into(),
+            description: "Fast search".into(),
+            executable_candidates: vec!["rg".into()],
+            installed_path: Some("/usr/bin/rg".into()),
+            enabled: true,
+            status: Some("ok".into()),
+            path_canonical: Some("/usr/bin/rg".into()),
+            version: Some("rg 14".into()),
+            help_summary: Some("Fast search".into()),
+            verified_at: Some("2026-04-26T00:00:00Z".into()),
+            exec_note: Some("exec policy auto-allows this utility".into()),
+        });
+        let raw = serde_json::to_string(&utility).expect("utility should serialize");
+        let decoded: ServerMessage =
+            serde_json::from_str(&raw).expect("utility should deserialize");
+        assert_eq!(decoded, utility);
     }
 
     #[test]

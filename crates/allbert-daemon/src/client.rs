@@ -6,11 +6,14 @@ use std::time::Duration;
 use allbert_kernel::{AllbertPaths, Config};
 use allbert_proto::{
     ActivitySnapshot, AttachedChannel, ChannelKind, ChannelRuntimeStatusPayload, ClientHello,
-    ClientKind, ClientMessage, DaemonStatus, InboxApprovalPayload, InboxQueryPayload,
-    InboxResolvePayload, InboxResolveResultPayload, JobDefinitionPayload, JobRunRecordPayload,
-    JobStatusPayload, ModelConfigPayload, OpenChannel, ProtocolError, ServerMessage,
-    SessionResumeEntry, SessionStatus, Span, TelemetrySnapshot, TraceSessionSummary,
-    TurnBudgetOverridePayload, TurnRequest, PROTOCOL_VERSION,
+    ClientKind, ClientMessage, DaemonStatus, DiagnosisListRequest, DiagnosisReportPayload,
+    DiagnosisReportSummaryPayload, DiagnosisRunRequest, DiagnosisShowRequest,
+    EnabledUtilityPayload, InboxApprovalPayload, InboxQueryPayload, InboxResolvePayload,
+    InboxResolveResultPayload, JobDefinitionPayload, JobRunRecordPayload, JobStatusPayload,
+    ModelConfigPayload, OpenChannel, ProtocolError, ServerMessage, SessionResumeEntry,
+    SessionStatus, Span, TelemetrySnapshot, TraceSessionSummary, TurnBudgetOverridePayload,
+    TurnRequest, UtilitiesDoctorPayload, UtilityCatalogEntryPayload, UtilityEnableRequest,
+    PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
@@ -441,6 +444,120 @@ impl DaemonClient {
         .await
     }
 
+    pub async fn diagnose_run(
+        &mut self,
+        request: DiagnosisRunRequest,
+    ) -> Result<DiagnosisReportSummaryPayload, DaemonError> {
+        self.send(&ClientMessage::DiagnoseRun(request)).await?;
+        self.recv_expected("diagnosis", |message| match message {
+            ServerMessage::Diagnosis(summary) => Some(Ok(summary)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn diagnose_list(
+        &mut self,
+        session_id: Option<String>,
+    ) -> Result<Vec<DiagnosisReportSummaryPayload>, DaemonError> {
+        self.send(&ClientMessage::DiagnoseList(DiagnosisListRequest {
+            session_id,
+        }))
+        .await?;
+        self.recv_expected("diagnoses", |message| match message {
+            ServerMessage::Diagnoses(entries) => Some(Ok(entries)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn diagnose_show(
+        &mut self,
+        diagnosis_id: String,
+    ) -> Result<DiagnosisReportPayload, DaemonError> {
+        self.send(&ClientMessage::DiagnoseShow(DiagnosisShowRequest {
+            diagnosis_id,
+        }))
+        .await?;
+        self.recv_expected("diagnosis report", |message| match message {
+            ServerMessage::DiagnosisReport(report) => Some(Ok(report)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn utilities_discover(
+        &mut self,
+    ) -> Result<Vec<UtilityCatalogEntryPayload>, DaemonError> {
+        self.send(&ClientMessage::UtilitiesDiscover).await?;
+        self.recv_expected("utility catalog", |message| match message {
+            ServerMessage::UtilityCatalog(entries) => Some(Ok(entries)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn utilities_list(&mut self) -> Result<Vec<EnabledUtilityPayload>, DaemonError> {
+        self.send(&ClientMessage::UtilitiesList).await?;
+        self.recv_expected("enabled utilities", |message| match message {
+            ServerMessage::EnabledUtilities(entries) => Some(Ok(entries)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn utilities_show(
+        &mut self,
+        utility_id: String,
+    ) -> Result<UtilityCatalogEntryPayload, DaemonError> {
+        self.send(&ClientMessage::UtilitiesShow(utility_id)).await?;
+        self.recv_expected("utility", |message| match message {
+            ServerMessage::Utility(entry) => Some(Ok(entry)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn utilities_enable(
+        &mut self,
+        request: UtilityEnableRequest,
+    ) -> Result<UtilityCatalogEntryPayload, DaemonError> {
+        self.send(&ClientMessage::UtilitiesEnable(request)).await?;
+        self.recv_expected("utility", |message| match message {
+            ServerMessage::Utility(entry) => Some(Ok(entry)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn utilities_disable(&mut self, utility_id: String) -> Result<(), DaemonError> {
+        self.send(&ClientMessage::UtilitiesDisable(utility_id))
+            .await?;
+        self.recv_expected("ack", |message| match message {
+            ServerMessage::Ack => Some(Ok(())),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn utilities_doctor(&mut self) -> Result<UtilitiesDoctorPayload, DaemonError> {
+        self.send(&ClientMessage::UtilitiesDoctor).await?;
+        self.recv_expected("utilities doctor", |message| match message {
+            ServerMessage::UtilitiesDoctor(report) => Some(Ok(report)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
     pub async fn list_channel_runtimes(
         &mut self,
     ) -> Result<Vec<ChannelRuntimeStatusPayload>, DaemonError> {
@@ -590,6 +707,7 @@ impl DaemonClient {
             match message {
                 ServerMessage::Event(_)
                 | ServerMessage::ActivityUpdate(_)
+                | ServerMessage::DiagnosisStarted(_)
                 | ServerMessage::TraceSpan(_) => buffered_events.push(message),
                 other => {
                     while let Some(buffered) = buffered_events.pop() {

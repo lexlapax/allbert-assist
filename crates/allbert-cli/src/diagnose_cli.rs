@@ -3,6 +3,7 @@ use allbert_kernel::{
     run_diagnosis_report_with_remediation, AllbertPaths, Config, DiagnosisRemediationKind,
     DiagnosisRemediationRequest, DiagnosisReportSummary, TraceReader,
 };
+use allbert_proto::{DiagnosisReportPayload, DiagnosisReportSummaryPayload};
 use anyhow::{anyhow, bail, Result};
 use clap::{Subcommand, ValueEnum};
 
@@ -221,6 +222,27 @@ fn render_run_summary(summary: &DiagnosisReportSummary) -> String {
     rendered
 }
 
+pub fn render_run_summary_payload(summary: &DiagnosisReportSummaryPayload) -> String {
+    let mut rendered = format!(
+        "diagnosis report written\nid:             {}\nsession:        {}\nclassification: {} ({:.2})\nreport:         {}\nsummary:        {}/bundle.summary.json",
+        summary.diagnosis_id,
+        summary.session_id,
+        summary.classification,
+        summary.confidence,
+        summary.report_path,
+        summary
+            .report_path
+            .trim_end_matches("/report.md")
+    );
+    if let Some(remediation) = &summary.remediation {
+        rendered.push_str(&format!(
+            "\nremediation:    {} ({})\nnext:           {}",
+            remediation.kind, remediation.status, remediation.message
+        ));
+    }
+    rendered
+}
+
 fn render_report_list(summaries: &[&DiagnosisReportSummary]) -> String {
     if summaries.is_empty() {
         return "no diagnosis reports".into();
@@ -237,6 +259,32 @@ fn render_report_list(summaries: &[&DiagnosisReportSummary]) -> String {
         ));
     }
     lines.join("\n")
+}
+
+pub fn render_report_list_payload(summaries: &[DiagnosisReportSummaryPayload]) -> String {
+    if summaries.is_empty() {
+        return "no diagnosis reports".into();
+    }
+    let mut lines = vec!["diagnosis reports:".to_string()];
+    for summary in summaries {
+        lines.push(format!(
+            "- {}  session={} classification={} confidence={:.2} report={}",
+            summary.diagnosis_id,
+            summary.session_id,
+            summary.classification,
+            summary.confidence,
+            summary.report_path
+        ));
+    }
+    lines.join("\n")
+}
+
+pub fn render_report_payload(report: &DiagnosisReportPayload, offline: bool) -> String {
+    if offline {
+        format!("offline diagnosis report\n\n{}", report.report_markdown)
+    } else {
+        report.report_markdown.clone()
+    }
 }
 
 #[cfg(test)]

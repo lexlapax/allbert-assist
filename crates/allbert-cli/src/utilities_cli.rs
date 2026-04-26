@@ -5,6 +5,7 @@ use allbert_kernel::{
     utility_doctor, AllbertPaths, Config, EnabledUtilityEntry, LocalUtilityDiscovery,
     UtilityDoctorReport, UtilityEnableResult,
 };
+use allbert_proto::{EnabledUtilityPayload, UtilitiesDoctorPayload, UtilityCatalogEntryPayload};
 use anyhow::{bail, Result};
 use clap::Subcommand;
 
@@ -155,6 +156,23 @@ fn render_discovery(entries: &[LocalUtilityDiscovery]) -> String {
     lines.join("\n")
 }
 
+pub fn render_discovery_payload(entries: &[UtilityCatalogEntryPayload]) -> String {
+    if entries.is_empty() {
+        return "no catalog utilities".into();
+    }
+    let mut lines = vec!["utility catalog:".to_string()];
+    for entry in entries {
+        lines.push(format!(
+            "- {} installed={} enabled={} path={}",
+            entry.id,
+            yes_no(entry.installed_path.is_some()),
+            yes_no(entry.enabled),
+            entry.installed_path.as_deref().unwrap_or("(not found)")
+        ));
+    }
+    lines.join("\n")
+}
+
 fn render_enabled(entries: &[EnabledUtilityEntry]) -> String {
     if entries.is_empty() {
         return "no enabled utilities".into();
@@ -167,6 +185,20 @@ fn render_enabled(entries: &[EnabledUtilityEntry]) -> String {
             entry.status.label(),
             entry.path_canonical,
             entry.verified_at
+        ));
+    }
+    lines.join("\n")
+}
+
+pub fn render_enabled_payload(entries: &[EnabledUtilityPayload]) -> String {
+    if entries.is_empty() {
+        return "no enabled utilities".into();
+    }
+    let mut lines = vec!["enabled utilities:".to_string()];
+    for entry in entries {
+        lines.push(format!(
+            "- {} status={} path={} verified={}",
+            entry.id, entry.status, entry.path_canonical, entry.verified_at
         ));
     }
     lines.join("\n")
@@ -196,6 +228,39 @@ fn render_show(discovery: &LocalUtilityDiscovery, enabled: Option<&EnabledUtilit
     lines.join("\n")
 }
 
+pub fn render_show_payload(entry: &UtilityCatalogEntryPayload) -> String {
+    let mut lines = vec![
+        format!("utility:     {}", entry.id),
+        format!("name:        {}", entry.name),
+        format!("description: {}", entry.description),
+        format!("candidates:  {}", entry.executable_candidates.join(", ")),
+        format!(
+            "installed:   {}",
+            entry.installed_path.as_deref().unwrap_or("(not found)")
+        ),
+    ];
+    if entry.enabled {
+        lines.push(format!(
+            "enabled:     yes ({})",
+            entry.status.as_deref().unwrap_or("(unknown)")
+        ));
+        lines.push(format!(
+            "path:        {}",
+            entry.path_canonical.as_deref().unwrap_or("(unknown)")
+        ));
+        lines.push(format!(
+            "version:     {}",
+            fallback(entry.version.as_deref().unwrap_or_default())
+        ));
+    } else {
+        lines.push("enabled:     no".into());
+    }
+    if let Some(note) = &entry.exec_note {
+        lines.push(format!("exec:        {note}"));
+    }
+    lines.join("\n")
+}
+
 fn render_enable(result: &UtilityEnableResult) -> String {
     format!(
         "enabled utility {}\npath:      {}\nstatus:    {}\nexec:      {}",
@@ -203,6 +268,16 @@ fn render_enable(result: &UtilityEnableResult) -> String {
         result.entry.path_canonical,
         result.entry.status.label(),
         result.exec_policy.note
+    )
+}
+
+pub fn render_enable_payload(entry: &UtilityCatalogEntryPayload) -> String {
+    format!(
+        "enabled utility {}\npath:      {}\nstatus:    {}\nexec:      {}",
+        entry.id,
+        entry.path_canonical.as_deref().unwrap_or("(unknown)"),
+        entry.status.as_deref().unwrap_or("(unknown)"),
+        entry.exec_note.as_deref().unwrap_or("(not reported)")
     )
 }
 
@@ -220,6 +295,24 @@ fn render_doctor(report: &UtilityDoctorReport) -> String {
                 entry.id,
                 entry.status.label(),
                 entry.path_canonical
+            ));
+        }
+    }
+    lines.join("\n")
+}
+
+pub fn render_doctor_payload(report: &UtilitiesDoctorPayload) -> String {
+    let mut lines = vec![format!(
+        "utilities doctor\nmanifest: {}",
+        report.manifest_path
+    )];
+    if report.entries.is_empty() {
+        lines.push("enabled utilities: none".into());
+    } else {
+        for entry in &report.entries {
+            lines.push(format!(
+                "- {} status={} path={}",
+                entry.id, entry.status, entry.path_canonical
             ));
         }
     }

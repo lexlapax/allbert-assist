@@ -30,12 +30,14 @@ use allbert_kernel::{
 use allbert_proto::{
     ActivityPhase, ActivitySnapshot, ApprovalContext, AttachedChannel, ChannelKind,
     ChannelRuntimeStatusPayload, ClientMessage, ConfirmDecisionPayload, ConfirmReplyPayload,
-    ConfirmRequestPayload, DaemonLockPayload, DaemonStatus, InboxApprovalPayload,
-    InboxQueryPayload, InboxResolveResultPayload, InputReplyPayload, InputRequestPayload,
-    InputResponsePayload, KernelEventPayload, ModelConfigPayload, PatchApprovalPayload,
-    ProtocolError, ServerHello, ServerMessage, SessionResumeEntry, SessionStatus, Span, SpanStatus,
-    TelemetrySnapshot, TurnBudgetOverridePayload, TurnResult, MIN_PROTOCOL_VERSION,
-    PROTOCOL_VERSION,
+    ConfirmRequestPayload, DaemonLockPayload, DaemonStatus, DiagnosisRemediationRequestPayload,
+    DiagnosisReportPayload, DiagnosisReportSummaryPayload, DiagnosisRunRequest,
+    DiagnosisStartedPayload, EnabledUtilityPayload, InboxApprovalPayload, InboxQueryPayload,
+    InboxResolveResultPayload, InputReplyPayload, InputRequestPayload, InputResponsePayload,
+    KernelEventPayload, ModelConfigPayload, PatchApprovalPayload, ProtocolError, ServerHello,
+    ServerMessage, SessionResumeEntry, SessionStatus, Span, SpanStatus, TelemetrySnapshot,
+    TurnBudgetOverridePayload, TurnResult, UnixPipeRunSummaryPayload, UnixPipeStageSummaryPayload,
+    UtilitiesDoctorPayload, UtilityCatalogEntryPayload, MIN_PROTOCOL_VERSION, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use chrono::{Datelike, Utc};
@@ -232,6 +234,7 @@ fn activity_with_elapsed(mut activity: ActivitySnapshot) -> ActivitySnapshot {
             ActivityPhase::CallingTool
             | ActivityPhase::RunningScript
             | ActivityPhase::RunningValidation
+            | ActivityPhase::Diagnosing
                 if elapsed_s >= 20 =>
             {
                 let label = activity
@@ -789,7 +792,7 @@ async fn handle_connection(
             if !(MIN_PROTOCOL_VERSION..=PROTOCOL_VERSION).contains(&client.protocol_version) {
                 let message = if client.protocol_version < MIN_PROTOCOL_VERSION {
                     format!(
-                        "client protocol {} is too old for daemon protocol {}; upgrade the client to v0.13 or newer",
+                        "client protocol {} is too old for daemon protocol {}; upgrade the client to v0.14 or newer",
                         client.protocol_version, PROTOCOL_VERSION
                     )
                 } else {
@@ -1200,6 +1203,130 @@ async fn handle_connection(
                 )
                 .await?;
             }
+            ClientMessage::DiagnoseRun(request) => {
+                if client_protocol < 6 {
+                    send_v6_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let session = require_session(attached_session.as_ref())?.clone();
+                handle_diagnose_run(&mut framed, &state, &session, request).await?;
+            }
+            ClientMessage::DiagnoseList(request) => {
+                if client_protocol < 6 {
+                    send_v6_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let entries = allbert_kernel::list_diagnosis_reports(
+                    &state.paths,
+                    request.session_id.as_deref(),
+                )
+                .map_err(map_kernel_error)?
+                .into_iter()
+                .map(|entry| diagnosis_summary_to_payload(&entry.summary))
+                .collect::<Result<Vec<_>, _>>()?;
+                send_server_message(&mut framed, &ServerMessage::Diagnoses(entries)).await?;
+            }
+            ClientMessage::DiagnoseShow(request) => {
+                if client_protocol < 6 {
+                    send_v6_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let artifact =
+                    allbert_kernel::read_diagnosis_report(&state.paths, &request.diagnosis_id)
+                        .map_err(map_kernel_error)?;
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::DiagnosisReport(diagnosis_report_to_payload(&artifact)?),
+                )
+                .await?;
+            }
+            ClientMessage::UtilitiesDiscover => {
+                if client_protocol < 6 {
+                    send_v6_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let entries = allbert_kernel::discover_utilities(&state.paths)
+                    .map_err(map_kernel_error)?
+                    .into_iter()
+                    .map(utility_discovery_to_payload)
+                    .collect::<Vec<_>>();
+                send_server_message(&mut framed, &ServerMessage::UtilityCatalog(entries)).await?;
+            }
+            ClientMessage::UtilitiesList => {
+                if client_protocol < 6 {
+                    send_v6_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let entries = allbert_kernel::list_enabled_utilities(&state.paths)
+                    .map_err(map_kernel_error)?
+                    .into_iter()
+                    .map(enabled_utility_to_payload)
+                    .collect::<Vec<_>>();
+                send_server_message(&mut framed, &ServerMessage::EnabledUtilities(entries)).await?;
+            }
+            ClientMessage::UtilitiesShow(utility_id) => {
+                if client_protocol < 6 {
+                    send_v6_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let (discovery, enabled) =
+                    allbert_kernel::inspect_utility(&state.paths, &utility_id)
+                        .map_err(map_kernel_error)?;
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::Utility(utility_detail_to_payload(discovery, enabled, None)),
+                )
+                .await?;
+            }
+            ClientMessage::UtilitiesEnable(request) => {
+                if client_protocol < 6 {
+                    send_v6_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let config = state.default_config.read().await.clone();
+                let result = allbert_kernel::enable_utility(
+                    &state.paths,
+                    &config.security,
+                    &request.utility_id,
+                    request.path.as_deref().map(Path::new),
+                )
+                .map_err(map_kernel_error)?;
+                let (discovery, enabled) =
+                    allbert_kernel::inspect_utility(&state.paths, &request.utility_id)
+                        .map_err(map_kernel_error)?;
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::Utility(utility_detail_to_payload(
+                        discovery,
+                        enabled,
+                        Some(result.exec_policy.note),
+                    )),
+                )
+                .await?;
+            }
+            ClientMessage::UtilitiesDisable(utility_id) => {
+                if client_protocol < 6 {
+                    send_v6_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                allbert_kernel::disable_utility(&state.paths, &utility_id)
+                    .map_err(map_kernel_error)?;
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
+            ClientMessage::UtilitiesDoctor => {
+                if client_protocol < 6 {
+                    send_v6_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let config = state.default_config.read().await.clone();
+                let report = allbert_kernel::utility_doctor(&state.paths, &config.security)
+                    .map_err(map_kernel_error)?;
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::UtilitiesDoctor(utilities_doctor_to_payload(report)),
+                )
+                .await?;
+            }
             ClientMessage::ReloadSessionConfig => {
                 let session = require_session(attached_session.as_ref())?;
                 let reloaded = Config::load_or_create(&state.paths).map_err(map_kernel_error)?;
@@ -1316,6 +1443,67 @@ async fn handle_connection(
             },
         }
     }
+}
+
+async fn handle_diagnose_run(
+    framed: &mut FramedStream,
+    state: &SharedState,
+    session: &Arc<SessionHandle>,
+    request: DiagnosisRunRequest,
+) -> Result<(), DaemonError> {
+    let started = activity_snapshot(
+        session,
+        ActivityPhase::Diagnosing,
+        "running self diagnosis",
+        vec!["wait for the diagnosis report".into()],
+    );
+    session.set_activity(started.clone());
+    let _ = state
+        .notifications
+        .send(ServerMessage::ActivityUpdate(started.clone()));
+    send_server_message(
+        framed,
+        &ServerMessage::DiagnosisStarted(DiagnosisStartedPayload {
+            session_id: session.session_id.clone(),
+            diagnosis_id_hint: None,
+        }),
+    )
+    .await?;
+
+    let config = {
+        let kernel = session.kernel.lock().await;
+        kernel.config().clone()
+    };
+    let artifact = match request.remediation {
+        Some(remediation) => allbert_kernel::run_diagnosis_report_with_remediation(
+            &state.paths,
+            &config,
+            &session.session_id,
+            request.session_id.as_deref(),
+            request.lookback_days,
+            remediation_request_from_payload(remediation)?,
+        ),
+        None => allbert_kernel::run_diagnosis_report(
+            &state.paths,
+            &config.self_diagnosis,
+            &session.session_id,
+            request.session_id.as_deref(),
+            request.lookback_days,
+        ),
+    }
+    .map_err(map_kernel_error)?;
+
+    send_server_message(
+        framed,
+        &ServerMessage::Diagnosis(diagnosis_summary_to_payload(&artifact.summary)?),
+    )
+    .await?;
+    let idle = idle_activity_snapshot(&session.session_id, session.channel());
+    session.set_activity(idle.clone());
+    let _ = state
+        .notifications
+        .send(ServerMessage::ActivityUpdate(idle));
+    Ok(())
 }
 
 async fn get_or_create_session(
@@ -1648,6 +1836,50 @@ fn render_telegram_trace_span(span: &Span) -> String {
     )
 }
 
+fn render_telegram_diagnosis_summary(
+    reports: &[allbert_kernel::DiagnosisReportIndexEntry],
+) -> String {
+    let Some(report) = reports.first() else {
+        return "Diagnosis\nNo diagnosis reports for the current Telegram session yet.".into();
+    };
+    let summary = &report.summary;
+    let mut lines = vec![
+        "Diagnosis".to_string(),
+        format!("ID: {}", summary.diagnosis_id),
+        format!("Session: {}", summary.session_id),
+        format!("Classification: {}", summary.classification.label()),
+        format!("Confidence: {:.2}", summary.confidence),
+        format!("Report: {}", summary.report_path),
+    ];
+    if let Some(remediation) = &summary.remediation {
+        lines.push(format!(
+            "Remediation: {} ({:?})",
+            remediation.kind, remediation.status
+        ));
+        lines.push("Telegram is structural-only; use CLI/TUI to start remediation.".into());
+    }
+    lines.join("\n")
+}
+
+fn render_telegram_utilities_status(entries: &[allbert_kernel::EnabledUtilityEntry]) -> String {
+    if entries.is_empty() {
+        return "Utilities\nNo local utilities are enabled.".into();
+    }
+    let mut lines = vec!["Utilities".to_string()];
+    for entry in entries.iter().take(10) {
+        lines.push(format!(
+            "- {} status={} path={}",
+            entry.id,
+            entry.status.label(),
+            entry.path_canonical
+        ));
+    }
+    if entries.len() > 10 {
+        lines.push(format!("... {} more", entries.len() - 10));
+    }
+    lines.join("\n")
+}
+
 fn render_trace_status(status: &SpanStatus) -> &'static str {
     match status {
         SpanStatus::Ok => "ok",
@@ -1710,6 +1942,7 @@ fn activity_phase_label(phase: ActivityPhase) -> &'static str {
         ActivityPhase::RunningValidation => "running_validation",
         ActivityPhase::RunningScript => "running_script",
         ActivityPhase::Training => "training",
+        ActivityPhase::Diagnosing => "diagnosing",
         ActivityPhase::Finalizing => "finalizing",
         ActivityPhase::Error => "error",
         ActivityPhase::Unknown => "unknown",
@@ -1928,6 +2161,8 @@ enum TelegramCommand {
     AdapterApprovals,
     TraceLast,
     TraceSpan(String),
+    DiagnoseLast,
+    UtilitiesStatus,
     Reset,
     Approve(String),
     Reject(String),
@@ -2027,6 +2262,12 @@ impl TelegramRuntime {
             }
             TelegramCommand::TraceSpan(span_id) => {
                 self.send_trace_span(chat_id, &sender_id, &span_id).await?;
+            }
+            TelegramCommand::DiagnoseLast => {
+                self.send_diagnose_last(chat_id, &sender_id).await?;
+            }
+            TelegramCommand::UtilitiesStatus => {
+                self.send_utilities_status(chat_id).await?;
             }
             TelegramCommand::Approve(approval_id) => {
                 self.resolve_approval(chat_id, &sender_id, &approval_id, true)
@@ -2138,6 +2379,24 @@ impl TelegramRuntime {
             .map_err(map_trace_error)?
             .ok_or_else(|| DaemonError::Protocol(format!("trace span not found: {span_id}")))?;
         self.send_text(chat_id, render_telegram_trace_span(&span))
+            .await?;
+        Ok(())
+    }
+
+    async fn send_diagnose_last(&self, chat_id: i64, sender_id: &str) -> Result<(), DaemonError> {
+        let session = self.select_session(sender_id, false).await?;
+        let reports =
+            allbert_kernel::list_diagnosis_reports(&self.state.paths, Some(&session.session_id))
+                .map_err(map_kernel_error)?;
+        self.send_text(chat_id, render_telegram_diagnosis_summary(&reports))
+            .await?;
+        Ok(())
+    }
+
+    async fn send_utilities_status(&self, chat_id: i64) -> Result<(), DaemonError> {
+        let entries =
+            allbert_kernel::list_enabled_utilities(&self.state.paths).map_err(map_kernel_error)?;
+        self.send_text(chat_id, render_telegram_utilities_status(&entries))
             .await?;
         Ok(())
     }
@@ -2957,6 +3216,12 @@ fn parse_telegram_command(text: &str) -> TelegramCommand {
         if !value.is_empty() {
             return TelegramCommand::TraceSpan(value.to_string());
         }
+    }
+    if trimmed == "/diagnose last" {
+        return TelegramCommand::DiagnoseLast;
+    }
+    if trimmed == "/utilities status" {
+        return TelegramCommand::UtilitiesStatus;
     }
     if trimmed == "/reset" {
         return TelegramCommand::Reset;
@@ -3873,6 +4138,17 @@ async fn send_adapter_protocol_error(framed: &mut FramedStream) -> Result<(), Da
         &ServerMessage::Error(ProtocolError {
             code: "unsupported_protocol_feature".into(),
             message: "adapter surfaces require protocol v5; upgrade the client to v0.13".into(),
+        }),
+    )
+    .await
+}
+
+async fn send_v6_protocol_error(framed: &mut FramedStream) -> Result<(), DaemonError> {
+    send_server_message(
+        framed,
+        &ServerMessage::Error(ProtocolError {
+            code: "unsupported_protocol_feature".into(),
+            message: "self-diagnosis and local utility daemon surfaces require protocol v6; upgrade the client to v0.14".into(),
         }),
     )
     .await
@@ -5537,6 +5813,166 @@ fn render_approval_context_plain(context: &ApprovalContext) -> String {
     }
 }
 
+fn remediation_request_from_payload(
+    payload: DiagnosisRemediationRequestPayload,
+) -> Result<allbert_kernel::DiagnosisRemediationRequest, DaemonError> {
+    let kind = match payload.kind.as_str() {
+        "code" => allbert_kernel::DiagnosisRemediationKind::Code,
+        "skill" => allbert_kernel::DiagnosisRemediationKind::Skill,
+        "memory" => allbert_kernel::DiagnosisRemediationKind::Memory,
+        other => {
+            return Err(DaemonError::Protocol(format!(
+                "unsupported diagnosis remediation kind: {other}"
+            )))
+        }
+    };
+    Ok(allbert_kernel::DiagnosisRemediationRequest {
+        kind,
+        reason: payload.reason,
+    })
+}
+
+fn diagnosis_summary_to_payload(
+    summary: &allbert_kernel::DiagnosisReportSummary,
+) -> Result<DiagnosisReportSummaryPayload, DaemonError> {
+    Ok(DiagnosisReportSummaryPayload {
+        schema_version: summary.schema_version,
+        diagnosis_id: summary.diagnosis_id.clone(),
+        session_id: summary.session_id.clone(),
+        created_at: summary.created_at,
+        selected_session_ids: summary.selected_session_ids.clone(),
+        classification: summary.classification.label().into(),
+        confidence: summary.confidence,
+        rationale: summary.rationale.clone(),
+        bounds: serde_json::to_value(&summary.bounds)
+            .map_err(|err| DaemonError::Protocol(err.to_string()))?,
+        truncation: serde_json::to_value(&summary.truncation)
+            .map_err(|err| DaemonError::Protocol(err.to_string()))?,
+        warnings: summary.warnings.clone(),
+        span_count: summary.span_count,
+        event_count: summary.event_count,
+        report_path: summary.report_path.clone(),
+        remediation: summary.remediation.as_ref().map(|remediation| {
+            allbert_proto::DiagnosisRemediationSummaryPayload {
+                kind: remediation.kind.clone(),
+                reason: remediation.reason.clone(),
+                status: diagnosis_remediation_status_label(&remediation.status).into(),
+                message: remediation.message.clone(),
+                artifact_path: remediation.artifact_path.clone(),
+            }
+        }),
+    })
+}
+
+fn diagnosis_remediation_status_label(
+    status: &allbert_kernel::DiagnosisRemediationStatus,
+) -> &'static str {
+    match status {
+        allbert_kernel::DiagnosisRemediationStatus::NotRequested => "not_requested",
+        allbert_kernel::DiagnosisRemediationStatus::Refused => "refused",
+        allbert_kernel::DiagnosisRemediationStatus::Routed => "routed",
+    }
+}
+
+fn diagnosis_report_to_payload(
+    artifact: &allbert_kernel::DiagnosisReportArtifact,
+) -> Result<DiagnosisReportPayload, DaemonError> {
+    Ok(DiagnosisReportPayload {
+        summary: diagnosis_summary_to_payload(&artifact.summary)?,
+        report_markdown: artifact.report_markdown.clone(),
+    })
+}
+
+fn utility_discovery_to_payload(
+    discovery: allbert_kernel::LocalUtilityDiscovery,
+) -> UtilityCatalogEntryPayload {
+    UtilityCatalogEntryPayload {
+        id: discovery.id,
+        name: discovery.name,
+        description: discovery.description,
+        executable_candidates: discovery.executable_candidates,
+        installed_path: discovery.installed_path,
+        enabled: discovery.enabled,
+        status: discovery.status.map(|status| status.label().into()),
+        path_canonical: None,
+        version: None,
+        help_summary: None,
+        verified_at: None,
+        exec_note: None,
+    }
+}
+
+fn utility_detail_to_payload(
+    discovery: allbert_kernel::LocalUtilityDiscovery,
+    enabled: Option<allbert_kernel::EnabledUtilityEntry>,
+    exec_note: Option<String>,
+) -> UtilityCatalogEntryPayload {
+    let mut payload = utility_discovery_to_payload(discovery);
+    if let Some(enabled) = enabled {
+        payload.enabled = true;
+        payload.status = Some(enabled.status.label().into());
+        payload.path_canonical = Some(enabled.path_canonical);
+        payload.version = Some(enabled.version);
+        payload.help_summary = Some(enabled.help_summary);
+        payload.verified_at = Some(enabled.verified_at);
+    }
+    payload.exec_note = exec_note;
+    payload
+}
+
+fn enabled_utility_to_payload(entry: allbert_kernel::EnabledUtilityEntry) -> EnabledUtilityPayload {
+    EnabledUtilityPayload {
+        id: entry.id,
+        path: entry.path,
+        path_canonical: entry.path_canonical,
+        version: entry.version,
+        help_summary: entry.help_summary,
+        enabled_at: entry.enabled_at,
+        verified_at: entry.verified_at,
+        status: entry.status.label().into(),
+        size_bytes: entry.size_bytes,
+        modified_at: entry.modified_at,
+    }
+}
+
+fn utilities_doctor_to_payload(
+    report: allbert_kernel::UtilityDoctorReport,
+) -> UtilitiesDoctorPayload {
+    UtilitiesDoctorPayload {
+        manifest_path: report.manifest_path,
+        entries: report
+            .entries
+            .into_iter()
+            .map(enabled_utility_to_payload)
+            .collect(),
+    }
+}
+
+#[allow(dead_code)]
+fn unix_pipe_to_payload(summary: allbert_kernel::UnixPipeRunSummary) -> UnixPipeRunSummaryPayload {
+    UnixPipeRunSummaryPayload {
+        ok: summary.ok,
+        timed_out: summary.timed_out,
+        cap_violated: summary.cap_violated,
+        stdout: summary.stdout,
+        stdout_bytes: summary.stdout_bytes,
+        stdout_truncated: summary.stdout_truncated,
+        lossy_utf8: summary.lossy_utf8,
+        stages: summary
+            .stages
+            .into_iter()
+            .map(|stage| UnixPipeStageSummaryPayload {
+                utility_id: stage.utility_id,
+                exit_code: stage.exit_code,
+                stdout_bytes: stage.stdout_bytes,
+                stderr_bytes: stage.stderr_bytes,
+                stderr_summary: stage.stderr_summary,
+                stderr_truncated: stage.stderr_truncated,
+            })
+            .collect(),
+    }
+}
+
 fn map_kernel_event(event: &KernelEvent) -> KernelEventPayload {
     match event {
         KernelEvent::SkillTier1Surfaced { skill_name } => KernelEventPayload::SkillTier1Surfaced {
@@ -5769,6 +6205,25 @@ async fn send_server_message_for_protocol(
 }
 
 fn message_for_protocol(message: &ServerMessage, protocol_version: u32) -> Option<ServerMessage> {
+    if protocol_version >= 6 {
+        return Some(message.clone());
+    }
+
+    if matches!(
+        message,
+        ServerMessage::DiagnosisStarted(_)
+            | ServerMessage::Diagnosis(_)
+            | ServerMessage::Diagnoses(_)
+            | ServerMessage::DiagnosisReport(_)
+            | ServerMessage::UtilityCatalog(_)
+            | ServerMessage::Utility(_)
+            | ServerMessage::EnabledUtilities(_)
+            | ServerMessage::UtilitiesDoctor(_)
+            | ServerMessage::UnixPipeRun(_)
+    ) {
+        return None;
+    }
+
     if protocol_version >= 5 {
         return Some(message.clone());
     }
@@ -5916,6 +6371,11 @@ mod telegram_tests {
         assert!(matches!(
             message_for_protocol(&ServerMessage::Adapters(Vec::new()), 5),
             Some(ServerMessage::Adapters(_))
+        ));
+        assert!(message_for_protocol(&ServerMessage::UtilityCatalog(Vec::new()), 5).is_none());
+        assert!(matches!(
+            message_for_protocol(&ServerMessage::UtilityCatalog(Vec::new()), 6),
+            Some(ServerMessage::UtilityCatalog(_))
         ));
     }
 
@@ -6099,6 +6559,14 @@ mod telegram_tests {
         assert_eq!(
             parse_telegram_command("/trace span 1111111111111111"),
             TelegramCommand::TraceSpan("1111111111111111".into())
+        );
+        assert_eq!(
+            parse_telegram_command("/diagnose last"),
+            TelegramCommand::DiagnoseLast
+        );
+        assert_eq!(
+            parse_telegram_command("/utilities status"),
+            TelegramCommand::UtilitiesStatus
         );
         assert_eq!(
             parse_telegram_command("/override release smoke"),

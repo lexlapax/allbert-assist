@@ -6,7 +6,10 @@ use allbert_channels::ChannelCapabilities;
 use allbert_daemon::{default_spawn_config, DaemonClient, DaemonError};
 use allbert_jobs::JobsCommand;
 use allbert_kernel::{refresh_agents_markdown, AllbertPaths, Config, ReplUiMode};
-use allbert_proto::{ChannelKind, ChannelRuntimeStatusPayload, ClientKind, DaemonStatus};
+use allbert_proto::{
+    ChannelKind, ChannelRuntimeStatusPayload, ClientKind, DaemonStatus,
+    DiagnosisRemediationRequestPayload, DiagnosisRunRequest, UtilityEnableRequest,
+};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde::Serialize;
@@ -638,8 +641,10 @@ async fn run_cli() -> Result<()> {
         Some(Command::Inbox { command }) => run_inbox_command(&paths, &config, command).await,
         Some(Command::Activity { json }) => run_activity_command(&paths, &config, json).await,
         Some(Command::Trace { command }) => run_trace_command(&paths, &config, command).await,
-        Some(Command::Diagnose { command }) => diagnose_cli::run(&paths, &config, command),
-        Some(Command::Utilities { command }) => utilities_cli::run(&paths, &config, command),
+        Some(Command::Diagnose { command }) => run_diagnose_command(&paths, &config, command).await,
+        Some(Command::Utilities { command }) => {
+            run_utilities_command(&paths, &config, command).await
+        }
         Some(Command::Adapters { command }) => adapters_cli::run(&paths, &config, command),
         Some(Command::Profile { command }) => run_profile_command(&paths, &config, command),
         Some(Command::Heartbeat { command }) => run_heartbeat_command(&paths, command),
@@ -2011,6 +2016,197 @@ async fn run_trace_command(
         }
     }
     Ok(())
+}
+
+async fn run_diagnose_command(
+    paths: &AllbertPaths,
+    config: &Config,
+    command: DiagnoseCommand,
+) -> Result<()> {
+    match command {
+        DiagnoseCommand::Run {
+            session,
+            lookback_days,
+            remediate,
+            reason,
+            json,
+        } => {
+            let remediation = match (remediate, reason) {
+                (Some(kind), Some(reason)) if !reason.trim().is_empty() => {
+                    Some(DiagnosisRemediationRequestPayload {
+                        kind: diagnose_remediation_label(kind).into(),
+                        reason,
+                    })
+                }
+                (Some(_), _) => anyhow::bail!("diagnosis remediation requires --reason <text>"),
+                (None, Some(reason)) if !reason.trim().is_empty() => {
+                    anyhow::bail!("--reason requires --remediate <code|skill|memory>")
+                }
+                _ => None,
+            };
+            let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
+            attach_latest_or_default(paths, &mut client).await?;
+            let summary = client
+                .diagnose_run(DiagnosisRunRequest {
+                    session_id: session,
+                    lookback_days,
+                    remediation,
+                })
+                .await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&summary)?);
+            } else {
+                println!("{}", diagnose_cli::render_run_summary_payload(&summary));
+            }
+        }
+        DiagnoseCommand::List {
+            session,
+            offline,
+            json,
+        } if offline => diagnose_cli::run(
+            paths,
+            config,
+            DiagnoseCommand::List {
+                session,
+                offline,
+                json,
+            },
+        )?,
+        DiagnoseCommand::List {
+            session,
+            offline: _,
+            json,
+        } => {
+            let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
+            attach_latest_or_default(paths, &mut client).await?;
+            let summaries = client.diagnose_list(session).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&summaries)?);
+            } else {
+                println!("{}", diagnose_cli::render_report_list_payload(&summaries));
+            }
+        }
+        DiagnoseCommand::Show {
+            diagnosis_id,
+            offline,
+            json,
+        } if offline => diagnose_cli::run(
+            paths,
+            config,
+            DiagnoseCommand::Show {
+                diagnosis_id,
+                offline,
+                json,
+            },
+        )?,
+        DiagnoseCommand::Show {
+            diagnosis_id,
+            offline: _,
+            json,
+        } => {
+            let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
+            attach_latest_or_default(paths, &mut client).await?;
+            let report = client.diagnose_show(diagnosis_id).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report.summary)?);
+            } else {
+                println!("{}", diagnose_cli::render_report_payload(&report, false));
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn run_utilities_command(
+    paths: &AllbertPaths,
+    config: &Config,
+    command: UtilitiesCommand,
+) -> Result<()> {
+    match command {
+        UtilitiesCommand::Discover { offline, json } if offline => {
+            utilities_cli::run(paths, config, UtilitiesCommand::Discover { offline, json })?
+        }
+        UtilitiesCommand::Discover { offline: _, json } => {
+            let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
+            let entries = client.utilities_discover().await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&entries)?);
+            } else {
+                println!("{}", utilities_cli::render_discovery_payload(&entries));
+            }
+        }
+        UtilitiesCommand::List { offline, json } if offline => {
+            utilities_cli::run(paths, config, UtilitiesCommand::List { offline, json })?
+        }
+        UtilitiesCommand::List { offline: _, json } => {
+            let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
+            let entries = client.utilities_list().await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&entries)?);
+            } else {
+                println!("{}", utilities_cli::render_enabled_payload(&entries));
+            }
+        }
+        UtilitiesCommand::Show {
+            utility_id,
+            offline,
+            json,
+        } if offline => utilities_cli::run(
+            paths,
+            config,
+            UtilitiesCommand::Show {
+                utility_id,
+                offline,
+                json,
+            },
+        )?,
+        UtilitiesCommand::Show {
+            utility_id,
+            offline: _,
+            json,
+        } => {
+            let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
+            let entry = client.utilities_show(utility_id).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&entry)?);
+            } else {
+                println!("{}", utilities_cli::render_show_payload(&entry));
+            }
+        }
+        UtilitiesCommand::Enable { utility_id, path } => {
+            let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
+            let entry = client
+                .utilities_enable(UtilityEnableRequest {
+                    utility_id,
+                    path: path.map(|path| path.display().to_string()),
+                })
+                .await?;
+            println!("{}", utilities_cli::render_enable_payload(&entry));
+        }
+        UtilitiesCommand::Disable { utility_id } => {
+            let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
+            client.utilities_disable(utility_id.clone()).await?;
+            println!("disabled utility {utility_id}");
+        }
+        UtilitiesCommand::Doctor { json } => {
+            let mut client = connect_for_use(paths, config, ClientKind::Cli).await?;
+            let report = client.utilities_doctor().await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                println!("{}", utilities_cli::render_doctor_payload(&report));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn diagnose_remediation_label(kind: diagnose_cli::DiagnoseRemediationArg) -> &'static str {
+    match kind {
+        diagnose_cli::DiagnoseRemediationArg::Code => "code",
+        diagnose_cli::DiagnoseRemediationArg::Skill => "skill",
+        diagnose_cli::DiagnoseRemediationArg::Memory => "memory",
+    }
 }
 
 async fn run_home_command(paths: &AllbertPaths, _config: &Config) -> Result<()> {

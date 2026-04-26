@@ -224,6 +224,7 @@ impl TuiApp {
             | LocalCommand::Adapters(_)
             | LocalCommand::Activity
             | LocalCommand::Context
+            | LocalCommand::Diagnose(_)
             | LocalCommand::Inbox(_)
             | LocalCommand::Skills(_)
             | LocalCommand::Cost(_)
@@ -235,7 +236,7 @@ impl TuiApp {
             | LocalCommand::Status
             | LocalCommand::StatusLine(_)
             | LocalCommand::Telemetry => None,
-            LocalCommand::Trace(_) => None,
+            LocalCommand::Trace(_) | LocalCommand::Utilities(_) => None,
             LocalCommand::UnknownSlash(command) => Some(repl::unknown_slash_guidance(command)),
             LocalCommand::Turn(input) => Some(input.to_string()),
         }
@@ -368,6 +369,10 @@ async fn handle_key(
                     let rendered = repl::handle_inbox_command(client, command).await?;
                     app.push_line(rendered);
                 }
+                LocalCommand::Diagnose(command) => {
+                    let rendered = repl::handle_diagnose_command(client, command).await?;
+                    app.push_line(rendered);
+                }
                 LocalCommand::Status | LocalCommand::Telemetry => {
                     let telemetry = client.session_telemetry().await?;
                     app.set_telemetry(telemetry.clone());
@@ -404,6 +409,10 @@ async fn handle_key(
                     if command.split_whitespace().nth(1) == Some("tail") {
                         app.trace_tail_active = true;
                     }
+                    app.push_line(rendered);
+                }
+                LocalCommand::Utilities(command) => {
+                    let rendered = repl::handle_utilities_command(client, command).await?;
                     app.push_line(rendered);
                 }
                 command => {

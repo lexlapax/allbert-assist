@@ -2,7 +2,8 @@ use allbert_daemon::DaemonClient;
 use allbert_kernel::{Provider, StatusLineItem};
 use allbert_proto::{
     ActivityPhase, ActivitySnapshot, ApprovalContext, ClientMessage, ConfirmDecisionPayload,
-    InputResponsePayload, KernelEventPayload, ModelConfigPayload, ProviderKind, ServerMessage,
+    DiagnosisRunRequest, InputResponsePayload, KernelEventPayload, ModelConfigPayload,
+    ProviderKind, ServerMessage,
 };
 use anyhow::Result;
 use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
@@ -26,6 +27,8 @@ commands:
             inspect local personalization adapter state
   /activity show what the daemon says Allbert is doing right now
   /context  show context-window usage and pressure
+  /diagnose [run|list|show <id>]
+            create and inspect bounded daemon-owned self-diagnosis reports
   /inbox [list|show <id>|accept <id>|reject <id>]
             review and resolve approval inbox items
   /memory routing
@@ -60,6 +63,8 @@ commands:
             show live model, token, cost, memory, skill, inbox, and trace telemetry
   /trace [show|show-span|tail|export|settings]
             inspect durable spans, tail completed spans, export OTLP-JSON, or open trace settings
+  /utilities [discover|list|show <id>|enable <id>|disable <id>|doctor]
+            inspect and manage operator-enabled local utility state
   /exit     leave the REPL
   /quit     leave the REPL
   operator inspection:
@@ -110,6 +115,7 @@ const SUPPORTED_SLASH_COMMANDS: &[&str] = &[
     "/agents",
     "/context",
     "/cost",
+    "/diagnose",
     "/exit",
     "/h",
     "/help",
@@ -126,6 +132,7 @@ const SUPPORTED_SLASH_COMMANDS: &[&str] = &[
     "/statusline",
     "/telemetry",
     "/trace",
+    "/utilities",
 ];
 
 pub enum LocalCommand<'a> {
@@ -136,6 +143,7 @@ pub enum LocalCommand<'a> {
     Adapters(&'a str),
     Context,
     Cost(&'a str),
+    Diagnose(&'a str),
     Inbox(&'a str),
     Memory(&'a str),
     Model(&'a str),
@@ -147,6 +155,7 @@ pub enum LocalCommand<'a> {
     StatusLine(&'a str),
     Telemetry,
     Trace(&'a str),
+    Utilities(&'a str),
     UnknownSlash(&'a str),
     Turn(&'a str),
 }
@@ -190,6 +199,9 @@ pub async fn run_loop(
                     LocalCommand::Cost(command) => {
                         handle_cost_command(client, paths, command).await?;
                     }
+                    LocalCommand::Diagnose(command) => {
+                        println!("{}", handle_diagnose_command(client, command).await?);
+                    }
                     LocalCommand::Inbox(command) => {
                         println!("{}", handle_inbox_command(client, command).await?);
                     }
@@ -232,6 +244,9 @@ pub async fn run_loop(
                     LocalCommand::Trace(command) => {
                         println!("{}", handle_trace_command(client, paths, command).await?);
                     }
+                    LocalCommand::Utilities(command) => {
+                        println!("{}", handle_utilities_command(client, command).await?);
+                    }
                     LocalCommand::UnknownSlash(command) => {
                         eprintln!("{}", unknown_slash_guidance(command));
                     }
@@ -266,12 +281,14 @@ pub fn slash_argument_hint(input: &str) -> Option<&'static str> {
     }
     match slash_command_name(input) {
         "/cost" => Some("hint: /cost --turn-budget <usd> | --turn-time <seconds> | --override <reason>"),
+        "/diagnose" => Some("hint: /diagnose run | list | show <id>"),
         "/inbox" => Some("hint: /inbox list --include-resolved | accept <id> --reason <text> | reject <id> --reason <text>"),
         "/memory" => Some("hint: /memory staged list | staged show <id> | show staged | show today | routing show"),
         "/self-improvement" => Some("hint: /self-improvement install <approval-id> --allow-needs-review | gc --dry-run"),
         "/settings" => Some("hint: /settings list <group> | show <key> | set <key> <value> | reset <key>"),
         "/adapters" => Some("hint: /adapters status | list | history"),
         "/trace" => Some("hint: /trace show [session] | show-span <id> [--session <session>] | tail [session] | export [session] | settings"),
+        "/utilities" => Some("hint: /utilities discover | list | show <id> | enable <id> | disable <id> | doctor"),
         _ => None,
     }
 }
@@ -319,6 +336,7 @@ pub fn parse_local_command(input: &str) -> LocalCommand<'_> {
         "/activity" => LocalCommand::Activity,
         "/context" => LocalCommand::Context,
         command if command.starts_with("/cost") => LocalCommand::Cost(command),
+        command if command.starts_with("/diagnose") => LocalCommand::Diagnose(command),
         command if command.starts_with("/inbox") => LocalCommand::Inbox(command),
         command if command.starts_with("/memory") => LocalCommand::Memory(command),
         command if command.starts_with("/self-improvement") => {
@@ -331,6 +349,7 @@ pub fn parse_local_command(input: &str) -> LocalCommand<'_> {
         command if command.starts_with("/statusline") => LocalCommand::StatusLine(command),
         "/telemetry" => LocalCommand::Telemetry,
         command if command.starts_with("/trace") => LocalCommand::Trace(command),
+        command if command.starts_with("/utilities") => LocalCommand::Utilities(command),
         command if command.starts_with("/model") => LocalCommand::Model(command),
         command if command.starts_with('/') => LocalCommand::UnknownSlash(command),
         other => LocalCommand::Turn(other),
@@ -641,6 +660,75 @@ pub async fn handle_trace_command(
         }
         ["/trace", "settings"] => crate::settings_cli::handle_command(paths, "/settings show trace"),
         _ => Ok("usage: /trace [show [session] | show-span <id> [--session <session>] | tail [session] | export [session] | settings]".into()),
+    }
+}
+
+pub async fn handle_diagnose_command(client: &mut DaemonClient, command: &str) -> Result<String> {
+    if let Some(hint) = slash_argument_hint(command) {
+        return Ok(hint.into());
+    }
+    let args = command.split_whitespace().collect::<Vec<_>>();
+    match args.as_slice() {
+        ["/diagnose"] | ["/diagnose", "run"] => {
+            let summary = client
+                .diagnose_run(DiagnosisRunRequest {
+                    session_id: None,
+                    lookback_days: None,
+                    remediation: None,
+                })
+                .await?;
+            Ok(crate::diagnose_cli::render_run_summary_payload(&summary))
+        }
+        ["/diagnose", "list"] => {
+            let summaries = client.diagnose_list(None).await?;
+            Ok(crate::diagnose_cli::render_report_list_payload(&summaries))
+        }
+        ["/diagnose", "show", diagnosis_id] => {
+            let report = client.diagnose_show((*diagnosis_id).to_string()).await?;
+            Ok(crate::diagnose_cli::render_report_payload(&report, false))
+        }
+        _ => Ok("usage: /diagnose [run|list|show <id>]".into()),
+    }
+}
+
+pub async fn handle_utilities_command(client: &mut DaemonClient, command: &str) -> Result<String> {
+    if let Some(hint) = slash_argument_hint(command) {
+        return Ok(hint.into());
+    }
+    let args = command.split_whitespace().collect::<Vec<_>>();
+    match args.as_slice() {
+        ["/utilities"] | ["/utilities", "list"] | ["/utilities", "status"] => {
+            let entries = client.utilities_list().await?;
+            Ok(crate::utilities_cli::render_enabled_payload(&entries))
+        }
+        ["/utilities", "discover"] => {
+            let entries = client.utilities_discover().await?;
+            Ok(crate::utilities_cli::render_discovery_payload(&entries))
+        }
+        ["/utilities", "show", utility_id] => {
+            let entry = client.utilities_show((*utility_id).to_string()).await?;
+            Ok(crate::utilities_cli::render_show_payload(&entry))
+        }
+        ["/utilities", "enable", utility_id] => {
+            let entry = client
+                .utilities_enable(allbert_proto::UtilityEnableRequest {
+                    utility_id: (*utility_id).to_string(),
+                    path: None,
+                })
+                .await?;
+            Ok(crate::utilities_cli::render_enable_payload(&entry))
+        }
+        ["/utilities", "disable", utility_id] => {
+            client.utilities_disable((*utility_id).to_string()).await?;
+            Ok(format!("disabled utility {utility_id}"))
+        }
+        ["/utilities", "doctor"] => {
+            let report = client.utilities_doctor().await?;
+            Ok(crate::utilities_cli::render_doctor_payload(&report))
+        }
+        _ => Ok(
+            "usage: /utilities [discover|list|show <id>|enable <id>|disable <id>|doctor]".into(),
+        ),
     }
 }
 
@@ -1190,6 +1278,7 @@ fn activity_phase_label(phase: ActivityPhase) -> &'static str {
         ActivityPhase::RunningValidation => "running_validation",
         ActivityPhase::RunningScript => "running_script",
         ActivityPhase::Training => "training",
+        ActivityPhase::Diagnosing => "diagnosing",
         ActivityPhase::Finalizing => "finalizing",
         ActivityPhase::Error => "error",
         ActivityPhase::Unknown => "unknown",
@@ -1384,6 +1473,34 @@ mod tests {
         assert_eq!(
             slash_argument_hint("/trace --"),
             Some("hint: /trace show [session] | show-span <id> [--session <session>] | tail [session] | export [session] | settings")
+        );
+    }
+
+    #[test]
+    fn v0_14_diagnosis_and_utility_slash_commands_are_local() {
+        assert!(matches!(
+            parse_local_command("/diagnose run"),
+            LocalCommand::Diagnose("/diagnose run")
+        ));
+        assert!(matches!(
+            parse_local_command("/diagnose show diag_20260426T000000Z_12345678"),
+            LocalCommand::Diagnose("/diagnose show diag_20260426T000000Z_12345678")
+        ));
+        assert!(matches!(
+            parse_local_command("/utilities status"),
+            LocalCommand::Utilities("/utilities status")
+        ));
+        assert!(matches!(
+            parse_local_command("/utilities doctor"),
+            LocalCommand::Utilities("/utilities doctor")
+        ));
+        assert_eq!(
+            slash_argument_hint("/diagnose --"),
+            Some("hint: /diagnose run | list | show <id>")
+        );
+        assert_eq!(
+            slash_argument_hint("/utilities --"),
+            Some("hint: /utilities discover | list | show <id> | enable <id> | disable <id> | doctor")
         );
     }
 
