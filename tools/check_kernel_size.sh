@@ -50,7 +50,7 @@ report_limit "current allbert-kernel src/" "crates/allbert-kernel/src" "none"
 report_limit "current allbert-kernel lib.rs" "crates/allbert-kernel/src/lib.rs" "none"
 report_limit "future allbert-kernel-core src/" "crates/allbert-kernel-core/src" "20000"
 report_limit "future allbert-kernel-core lib.rs" "crates/allbert-kernel-core/src/lib.rs" "4000"
-report_limit "future allbert-kernel-services src/" "crates/allbert-kernel-services/src" "30000"
+report_limit "future allbert-kernel-services src/" "crates/allbert-kernel-services/src" "40000"
 
 if [[ -d "crates/allbert-kernel" ]]; then
   echo "retired crate presence: crates/allbert-kernel exists"
@@ -65,4 +65,3 @@ if (( failures > 0 )); then
   echo "kernel size check failed with ${failures} violation(s)" >&2
   exit 1
 fi
-

@@ -17,11 +17,28 @@ Use `allbert-cli rag doctor` when the index is missing or appears stale.
 
 ## Posture
 
-v0.15 M2 supports real local vectors through Ollama embeddings and
-`sqlite-vec`. If Ollama or the configured embedding model is unavailable,
-hybrid/vector search degrades to SQLite FTS when `rag.vector.fallback_to_lexical`
-is enabled. Run `ollama pull embeddinggemma` for the default local embedding
-model.
+v0.15 supports real local vectors through Ollama embeddings and `sqlite-vec`.
+If Ollama or the configured embedding model is unavailable, hybrid/vector search
+degrades to SQLite FTS when `rag.vector.fallback_to_lexical` is enabled. Run
+`ollama pull embeddinggemma` for the default local embedding model.
+
+## Prompt Use
+
+RAG is not a separate agent. The kernel uses it in bounded places in the normal
+turn loop:
+
+- before the router, a tiny lexical hint may search only operator docs,
+  commands, settings, and bounded skill metadata;
+- after the router, eligible help/meta turns retrieve docs, commands, settings,
+  and skills, while memory-query turns retrieve durable memory, approved facts,
+  episode recall, and session summaries;
+- task turns retrieve only when the prompt or tool evidence asks for local
+  context, and ordinary chat usually skips RAG;
+- rendered snippets are labelled evidence with source ids, not authority.
+
+The root model also has a read-only `search_rag` tool for a capped second
+retrieval pass. It cannot mutate memory, schedules, settings, or the index, and
+review-only staged memory remains unavailable outside explicit review context.
 
 Durable memory and approved facts can enter ordinary RAG results. Pending
 staged memory is review-only: it is not indexed by default, and even an explicit

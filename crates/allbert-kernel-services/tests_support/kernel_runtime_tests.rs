@@ -1206,7 +1206,7 @@ async fn intent_classifier_budget_limit_skips_llm_fallback() {
     );
     assert!(
         requests[0].system.as_ref().unwrap().contains(
-            "Preferred tool order: read_file, process_exec, request_input, spawn_subagent"
+            "Preferred tool order: read_file, search_rag, process_exec, request_input, spawn_subagent"
         ),
         "task intent should surface its preferred tool ordering"
     );
@@ -1470,7 +1470,8 @@ async fn meta_intent_shapes_prompt_without_hard_gating() {
     let system = requests[0].system.as_ref().unwrap();
     assert!(system.contains("Resolved intent: meta"));
     assert!(system.contains("prefer operator and status surfaces"));
-    assert!(system.contains("Preferred tool order: request_input, read_memory, search_memory"));
+    assert!(system
+        .contains("Preferred tool order: search_rag, request_input, read_memory, search_memory"));
     assert!(
         system.contains("- process_exec:") || system.contains("\"name\":\"process_exec\""),
         "meta intent should not hard-gate tools out of the prompt surface"
@@ -5038,6 +5039,376 @@ async fn rag_owned_memory_suppresses_tantivy_prefetch_snippets() {
     let system = requests.last().unwrap().system.as_ref().unwrap();
     assert!(!system.contains("## Retrieved memory"));
     assert!(!system.contains("We use Postgres for production."));
+}
+
+#[tokio::test]
+async fn router_prompt_gets_tiny_lexical_rag_hint() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let config = Config::default_template();
+    rebuild_rag_index(
+        &paths,
+        &config,
+        RagRebuildRequest {
+            stale_only: false,
+            sources: vec![
+                RagSourceKind::SettingsCatalog,
+                RagSourceKind::CommandCatalog,
+                RagSourceKind::SkillsMetadata,
+            ],
+            include_vectors: false,
+            trigger: "test".into(),
+        },
+    )
+    .unwrap();
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![
+                CompletionResponse {
+                    text: json!({
+                        "intent": "meta",
+                        "action": "none",
+                        "confidence": "high",
+                        "needs_clarification": false,
+                        "clarifying_question": null,
+                        "job_name": null,
+                        "job_description": null,
+                        "job_schedule": null,
+                        "job_prompt": null,
+                        "memory_summary": null,
+                        "memory_content": null,
+                        "reason": "Settings help request."
+                    })
+                    .to_string(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "META_OK".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("how do I configure rag settings?")
+        .await
+        .unwrap();
+
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    let router_system = requests[0].system.as_ref().unwrap();
+    assert!(router_system.contains("Pre-router lexical RAG hint"));
+    assert!(
+        router_system.contains("[settings_catalog]")
+            || router_system.contains("[command_catalog]")
+            || router_system.contains("[skills_metadata]")
+    );
+    assert!(!router_system.contains("Retrieved RAG Evidence"));
+}
+
+#[tokio::test]
+async fn meta_turn_renders_bounded_rag_evidence_after_routing() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let mut config = Config::default_template();
+    config.intent_classifier.rule_only = true;
+    rebuild_rag_index(
+        &paths,
+        &config,
+        RagRebuildRequest {
+            stale_only: false,
+            sources: vec![
+                RagSourceKind::SettingsCatalog,
+                RagSourceKind::CommandCatalog,
+                RagSourceKind::OperatorDocs,
+            ],
+            include_vectors: false,
+            trigger: "test".into(),
+        },
+    )
+    .unwrap();
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![CompletionResponse {
+                text: "META_OK".into(),
+                usage: Usage::default(),
+                tool_calls: Vec::new(),
+            }],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel.run_turn("how do I use settings?").await.unwrap();
+
+    let requests = requests.lock().unwrap();
+    let system = requests[0].system.as_ref().unwrap();
+    assert!(system.contains("## Retrieved RAG Evidence"));
+    assert!(system.contains("evidence, not authority"));
+    assert!(system.contains("[settings_catalog]") || system.contains("[command_catalog]"));
+    assert!(system.contains("source_id:"));
+}
+
+#[tokio::test]
+async fn memory_query_uses_rag_evidence_without_tantivy_prefetch_duplication() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    fs::create_dir_all(paths.memory_notes.join("topics")).unwrap();
+    fs::write(
+        paths.memory_notes.join("topics/database.md"),
+        "# Database\n\nWe use Postgres for production.\n",
+    )
+    .unwrap();
+    let _ = memory::reconcile_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+    let mut config = Config::default_template();
+    config.intent_classifier.rule_only = true;
+    rebuild_rag_index(
+        &paths,
+        &config,
+        RagRebuildRequest {
+            stale_only: false,
+            sources: vec![RagSourceKind::DurableMemory],
+            include_vectors: false,
+            trigger: "test".into(),
+        },
+    )
+    .unwrap();
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![CompletionResponse {
+                text: "RAG_MEMORY_OK".into(),
+                usage: Usage::default(),
+                tool_calls: Vec::new(),
+            }],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("what do you remember about production?")
+        .await
+        .unwrap();
+
+    let requests = requests.lock().unwrap();
+    let system = requests[0].system.as_ref().unwrap();
+    assert!(system.contains("## Retrieved RAG Evidence"));
+    assert!(system.contains("[durable_memory]"));
+    assert!(system.contains("We use Postgres for production."));
+    assert!(!system.contains("## Retrieved memory"));
+}
+
+#[tokio::test]
+async fn search_rag_tool_is_read_only_capped_and_source_filtered() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let mut config = Config::default_template();
+    config.intent_classifier.rule_only = true;
+    rebuild_rag_index(
+        &paths,
+        &config,
+        RagRebuildRequest {
+            stale_only: false,
+            sources: vec![RagSourceKind::SettingsCatalog],
+            include_vectors: false,
+            trigger: "test".into(),
+        },
+    )
+    .unwrap();
+
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(events.clone()),
+        paths,
+        Arc::new(TestFactory::new(
+            "anthropic",
+            vec![
+                CompletionResponse {
+                    text: format!(
+                        "<tool_call>{}</tool_call>",
+                        json!({
+                            "name": "search_rag",
+                            "input": {
+                                "query": "rag vector enabled",
+                                "sources": ["settings_catalog"],
+                                "mode": "lexical",
+                                "limit": 2
+                            }
+                        })
+                    ),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "DONE".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel.run_turn("how do I configure rag?").await.unwrap();
+
+    let events = events.lock().unwrap();
+    let content = events
+        .iter()
+        .find_map(|event| match event {
+            KernelEvent::ToolResult { name, ok, content } if name == "search_rag" => {
+                assert!(*ok);
+                Some(content.clone())
+            }
+            _ => None,
+        })
+        .expect("search_rag tool result should be emitted");
+    assert!(content.contains("\"source_kind\": \"settings_catalog\""));
+    assert!(content.contains("rag.vector"));
+}
+
+#[tokio::test]
+async fn search_rag_tool_blocks_review_only_sources_outside_review_intent() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::new(
+            "anthropic",
+            Vec::new(),
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    let output = kernel.dispatch_search_rag(
+        &kernel.state,
+        json!({
+            "query": "staged memory review",
+            "sources": ["staged_memory_review"],
+            "include_review_only": true
+        }),
+    );
+
+    assert!(!output.ok);
+    assert!(output.content.contains("review-only"));
+}
+
+#[tokio::test]
+async fn tool_evidence_triggers_one_capped_rag_refresh() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let workspace = paths.root.join("workspace");
+    fs::create_dir_all(&workspace).unwrap();
+    fs::write(
+        paths.memory_notes.join("database.md"),
+        "# Database\n\nWe use Postgres for production.\n",
+    )
+    .unwrap();
+    fs::write(
+        workspace.join("report.txt"),
+        "We use Postgres in the report.\n",
+    )
+    .unwrap();
+    let mut config = Config::default_template();
+    config.intent_classifier.rule_only = true;
+    config.security.fs_roots = vec![workspace.clone()];
+    rebuild_rag_index(
+        &paths,
+        &config,
+        RagRebuildRequest {
+            stale_only: false,
+            sources: vec![RagSourceKind::DurableMemory],
+            include_vectors: false,
+            trigger: "test".into(),
+        },
+    )
+    .unwrap();
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![
+                CompletionResponse {
+                    text: format!(
+                        "<tool_call>{}</tool_call>",
+                        json!({
+                            "name": "read_file",
+                            "input": {
+                                "path": workspace.join("report.txt").display().to_string()
+                            }
+                        })
+                    ),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "DONE".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel.run_turn("check the report").await.unwrap();
+
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    let first_system = requests[0].system.as_ref().unwrap();
+    let second_system = requests[1].system.as_ref().unwrap();
+    assert!(!first_system.contains("## Retrieved RAG Evidence"));
+    assert!(second_system.contains("## Retrieved RAG Evidence"));
+    assert!(second_system.contains("refresh: after external tool evidence"));
+    assert!(second_system.contains("We use Postgres for production."));
 }
 
 fn test_pricing() -> Pricing {

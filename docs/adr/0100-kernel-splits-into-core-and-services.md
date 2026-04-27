@@ -3,6 +3,7 @@
 Date: 2026-04-26
 Status: Accepted
 Amends: [ADR 0001](0001-kernel-is-runtime-core-frontends-are-adapters.md), [ADR 0019](0019-v0-2-services-are-supervised-in-process-tasks-with-future-subprocess-seams.md)
+Amended by: [ADR 0109](0109-v0-15-services-size-gate-rescoped-for-rag.md)
 
 ## Context
 
@@ -120,10 +121,13 @@ v0.14.2 adds validation scripts wired into the standard local validation path:
 - `tools/check_kernel_size.sh`:
   - `crates/allbert-kernel-core/src/lib.rs` < 4,000 LOC;
   - `crates/allbert-kernel-core/src/` total < 20,000 LOC;
-  - `crates/allbert-kernel-services/src/` total < 30,000 LOC;
+  - `crates/allbert-kernel-services/src/` total < 40,000 LOC as of
+    [ADR 0109](0109-v0-15-services-size-gate-rescoped-for-rag.md);
   - `crates/allbert-kernel/` is not a workspace member at release exit.
 - The size gate counts checked-in `.rs` files under each crate `src/`. Test-only unit suites may live outside `src/` in crate-local test support only when they remain compiled by `cargo test`; production service code must remain under `src/` and count against the gate.
-- If the services gate fails, the release must reduce duplicate service code or explicitly re-scope this ADR. It must not silently raise the limit or hide service implementation code outside `src/`.
+- If the services gate fails, the release must reduce duplicate service code or
+  explicitly re-scope this ADR with a follow-up ADR. It must not silently raise
+  the limit or hide service implementation code outside `src/`.
 - `tools/check_kernel_crate_graph.sh`:
   - rejects any dependency from core to services or the retired monolith;
   - rejects any dependency from services to the retired monolith;

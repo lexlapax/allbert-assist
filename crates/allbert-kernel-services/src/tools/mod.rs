@@ -31,6 +31,7 @@ pub trait ToolRuntime: Send {
     fn read_memory(&mut self, input: Value) -> ToolOutput;
     fn write_memory(&mut self, input: Value) -> ToolOutput;
     fn search_memory(&mut self, input: Value) -> ToolOutput;
+    fn search_rag(&mut self, input: Value) -> ToolOutput;
     async fn stage_memory(&mut self, input: Value) -> ToolOutput;
     fn list_staged_memory(&mut self, input: Value) -> ToolOutput;
     async fn promote_staged_memory(&mut self, input: Value) -> ToolOutput;
@@ -80,6 +81,7 @@ impl ToolRegistry {
         registry.register(ReadMemoryTool);
         registry.register(WriteMemoryTool);
         registry.register(SearchMemoryTool);
+        registry.register(SearchRagTool);
         registry.register(StageMemoryTool);
         registry.register(ListStagedMemoryTool);
         registry.register(PromoteStagedMemoryTool);
@@ -653,6 +655,53 @@ impl Tool for SearchMemoryTool {
 
     async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
         Ok(ctx.runtime.search_memory(input))
+    }
+}
+
+struct SearchRagTool;
+
+#[async_trait]
+impl Tool for SearchRagTool {
+    fn name(&self) -> &'static str {
+        "search_rag"
+    }
+
+    fn description(&self) -> &'static str {
+        "Search the bounded RAG index for local docs, settings, skills, memory, facts, episodes, and session summaries"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["query"],
+            "additionalProperties": false,
+            "properties": {
+                "query": {"type": "string", "maxLength": 4096},
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "enum": [
+                            "operator_docs",
+                            "command_catalog",
+                            "settings_catalog",
+                            "skills_metadata",
+                            "durable_memory",
+                            "fact_memory",
+                            "episode_recall",
+                            "session_summary",
+                            "staged_memory_review"
+                        ]
+                    }
+                },
+                "mode": {"enum": ["hybrid", "vector", "lexical"]},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 10},
+                "include_review_only": {"type": "boolean"}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.search_rag(input))
     }
 }
 
@@ -1254,6 +1303,12 @@ mod tests {
             }
         }
         fn search_memory(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput {
+                content: String::new(),
+                ok: true,
+            }
+        }
+        fn search_rag(&mut self, _input: Value) -> ToolOutput {
             ToolOutput {
                 content: String::new(),
                 ok: true,
