@@ -510,6 +510,65 @@ async fn daemon_activity_updates_cover_model_turn_and_idle() {
     shutdown_daemon(handle, &paths).await;
 }
 
+#[tokio::test]
+async fn rag_protocol_maintenance_runs_through_daemon_without_prompt_job() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let mut config = sample_config();
+    config.rag.index.auto_maintain = false;
+    let handle = spawn_with_factory(config, paths.clone(), Arc::new(TestFactory::new(vec![])))
+        .await
+        .expect("daemon should start");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, Some("rag-protocol".into()))
+        .await
+        .expect("attach should succeed");
+
+    let missing = client.rag_status(false).await.expect("status should load");
+    assert_eq!(missing.chunk_count, 0);
+
+    let summary = client
+        .rag_rebuild_start(false, vec!["settings_catalog".into()], false)
+        .await
+        .expect("daemon RAG rebuild should finish");
+    assert_eq!(summary.status, "succeeded");
+    assert!(summary.chunk_count > 0);
+
+    let search = client
+        .rag_search(
+            "rag vector enabled".into(),
+            vec!["settings_catalog".into()],
+            Some("lexical".into()),
+            Some(3),
+            false,
+        )
+        .await
+        .expect("daemon RAG search should work");
+    assert_eq!(search.mode, "lexical");
+    assert!(!search.results.is_empty());
+    assert!(search
+        .results
+        .iter()
+        .all(|result| result.source_kind == "settings_catalog"));
+
+    let has_prompt_job = if paths.jobs_definitions.exists() {
+        std::fs::read_dir(&paths.jobs_definitions)
+            .expect("jobs definitions should list")
+            .filter_map(Result::ok)
+            .any(|entry| entry.file_name().to_string_lossy().contains("rag"))
+    } else {
+        false
+    };
+    assert!(
+        !has_prompt_job,
+        "RAG maintenance must not create prompt-authored job definitions"
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
 async fn shutdown_daemon(handle: RunningDaemon, paths: &AllbertPaths) {
     let mut client = DaemonClient::connect(paths, ClientKind::Test)
         .await

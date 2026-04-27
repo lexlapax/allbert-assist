@@ -5173,6 +5173,236 @@ async fn meta_turn_renders_bounded_rag_evidence_after_routing() {
 }
 
 #[tokio::test]
+async fn turn_pipeline_routes_before_rendering_post_router_rag_evidence() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let config = Config::default_template();
+    rebuild_rag_index(
+        &paths,
+        &config,
+        RagRebuildRequest {
+            stale_only: false,
+            sources: vec![
+                RagSourceKind::SettingsCatalog,
+                RagSourceKind::CommandCatalog,
+                RagSourceKind::OperatorDocs,
+            ],
+            include_vectors: false,
+            trigger: "test".into(),
+        },
+    )
+    .unwrap();
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![
+                CompletionResponse {
+                    text: json!({
+                        "intent": "meta",
+                        "action": "none",
+                        "confidence": "high",
+                        "needs_clarification": false,
+                        "clarifying_question": null,
+                        "job_name": null,
+                        "job_description": null,
+                        "job_schedule": null,
+                        "job_prompt": null,
+                        "memory_summary": null,
+                        "memory_content": null,
+                        "reason": "RAG settings help request."
+                    })
+                    .to_string(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "PIPELINE_OK".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("help me configure rag settings")
+        .await
+        .unwrap();
+
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    assert!(matches!(
+        &requests[0].response_format,
+        CompletionResponseFormat::JsonSchema { name, .. } if name == "route_decision"
+    ));
+    let router_system = requests[0].system.as_ref().unwrap();
+    assert!(router_system.contains("Pre-router lexical RAG hint"));
+    assert!(!router_system.contains("## Retrieved RAG Evidence"));
+
+    let root_system = requests[1].system.as_ref().unwrap();
+    assert!(root_system.contains("## Retrieved RAG Evidence"));
+    assert!(root_system.contains("evidence, not authority"));
+    assert!(root_system.contains("source_id:"));
+    assert!(requests[1]
+        .tools
+        .iter()
+        .any(|tool| tool.name == "search_rag"));
+}
+
+#[tokio::test]
+async fn terminal_router_memory_action_wins_before_post_router_rag_or_root_model() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let config = Config::default_template();
+    rebuild_rag_index(
+        &paths,
+        &config,
+        RagRebuildRequest {
+            stale_only: false,
+            sources: vec![RagSourceKind::SettingsCatalog],
+            include_vectors: false,
+            trigger: "test".into(),
+        },
+    )
+    .unwrap();
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths.clone(),
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![CompletionResponse {
+                text: json!({
+                    "intent": "memory_query",
+                    "action": "memory_stage_explicit",
+                    "confidence": "high",
+                    "needs_clarification": false,
+                    "clarifying_question": null,
+                    "job_name": null,
+                    "job_description": null,
+                    "job_schedule": null,
+                    "job_prompt": null,
+                    "memory_summary": "Operator tests use temp profiles",
+                    "memory_content": "Allbert operator tests use temporary ALLBERT_HOME profiles.",
+                    "reason": "Explicit memory capture."
+                })
+                .to_string(),
+                usage: Usage::default(),
+                tool_calls: Vec::new(),
+            }],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("remember that operator tests use temp profiles")
+        .await
+        .unwrap();
+
+    let requests = requests.lock().unwrap();
+    assert_eq!(
+        requests.len(),
+        1,
+        "terminal router action should skip root model"
+    );
+    assert!(requests[0]
+        .system
+        .as_ref()
+        .unwrap()
+        .contains("Pre-router lexical RAG hint"));
+    let staged =
+        memory::list_staged_memory(&paths, &Config::default_template().memory, None, None, None)
+            .expect("staged memory should list");
+    assert_eq!(staged.len(), 1);
+    assert_eq!(staged[0].summary, "Operator tests use temp profiles");
+}
+
+#[tokio::test]
+async fn casual_chat_turn_skips_post_router_rag_context() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let config = Config::default_template();
+    rebuild_rag_index(
+        &paths,
+        &config,
+        RagRebuildRequest {
+            stale_only: false,
+            sources: vec![
+                RagSourceKind::SettingsCatalog,
+                RagSourceKind::CommandCatalog,
+            ],
+            include_vectors: false,
+            trigger: "test".into(),
+        },
+    )
+    .unwrap();
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![
+                CompletionResponse {
+                    text: json!({
+                        "intent": "chat",
+                        "action": "none",
+                        "confidence": "high",
+                        "needs_clarification": false,
+                        "clarifying_question": null,
+                        "job_name": null,
+                        "job_description": null,
+                        "job_schedule": null,
+                        "job_prompt": null,
+                        "memory_summary": null,
+                        "memory_content": null,
+                        "reason": "Plain greeting."
+                    })
+                    .to_string(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "CHAT_OK".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel.run_turn("hello there").await.unwrap();
+
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    let root_system = requests[1].system.as_ref().unwrap();
+    assert!(!root_system.contains("## Retrieved RAG Evidence"));
+}
+
+#[tokio::test]
 async fn memory_query_uses_rag_evidence_without_tantivy_prefetch_duplication() {
     let temp = TempRoot::new();
     let paths = temp.paths();
