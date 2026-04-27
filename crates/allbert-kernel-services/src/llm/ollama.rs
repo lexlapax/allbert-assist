@@ -6,7 +6,7 @@ use crate::error::LlmError;
 
 use super::{
     ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, CompletionRequest,
-    CompletionResponse, LlmProvider, Pricing, Usage,
+    CompletionResponse, CompletionResponseFormat, LlmProvider, Pricing, Usage,
 };
 
 const OLLAMA_BASE_URL: &str = "http://127.0.0.1:11434";
@@ -53,7 +53,9 @@ impl LlmProvider for OllamaProvider {
             stream: false,
             options: OllamaOptions {
                 num_predict: req.max_tokens,
+                temperature: req.temperature,
             },
+            format: ollama_format(req.response_format),
         };
 
         let response = self
@@ -117,6 +119,8 @@ struct OllamaRequest {
     messages: Vec<OllamaMessage>,
     stream: bool,
     options: OllamaOptions,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    format: Option<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -130,6 +134,15 @@ struct OllamaMessage {
 #[derive(Serialize)]
 struct OllamaOptions {
     num_predict: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
+}
+
+fn ollama_format(format: CompletionResponseFormat) -> Option<serde_json::Value> {
+    match format {
+        CompletionResponseFormat::Text => None,
+        CompletionResponseFormat::JsonSchema { schema, .. } => Some(schema),
+    }
 }
 
 impl TryFrom<ChatMessage> for OllamaMessage {
@@ -204,6 +217,8 @@ mod tests {
                 model: "gemma4".into(),
                 max_tokens: 12,
                 tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
             })
             .await
             .expect("request should succeed");
@@ -222,6 +237,42 @@ mod tests {
             provider.pricing("gemma4").unwrap().prompt_per_token_usd,
             0.0
         );
+    }
+
+    #[tokio::test]
+    async fn maps_json_schema_response_format_to_chat_format() {
+        let (url, request_rx) =
+            spawn_json_server("200 OK", r#"{"message":{"content":"{}"}}"#).await;
+        let provider = OllamaProvider::new_with_chat_url(url, reqwest::Client::new());
+
+        provider
+            .complete(CompletionRequest {
+                system: Some("route".into()),
+                messages: vec![ChatMessage {
+                    role: ChatRole::User,
+                    content: "classify".into(),
+                    attachments: Vec::new(),
+                }],
+                model: "gemma4".into(),
+                max_tokens: 12,
+                tools: Vec::new(),
+                response_format: CompletionResponseFormat::JsonSchema {
+                    name: "route_decision".into(),
+                    schema: serde_json::json!({
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {}
+                    }),
+                    strict: true,
+                },
+                temperature: Some(0.0),
+            })
+            .await
+            .expect("request should succeed");
+        let raw_request = request_rx.await.expect("server should capture request");
+        let body: Value = serde_json::from_str(http_body(&raw_request)).expect("json body");
+        assert_eq!(body["format"]["type"], "object");
+        assert_eq!(body["options"]["temperature"], 0.0);
     }
 
     #[tokio::test]
@@ -251,6 +302,8 @@ mod tests {
                 model: "gemma4".into(),
                 max_tokens: 12,
                 tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
             })
             .await
             .expect("request should succeed");
@@ -271,6 +324,8 @@ mod tests {
                 model: "gemma4".into(),
                 max_tokens: 12,
                 tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
             })
             .await
             .expect_err("request should fail");

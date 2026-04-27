@@ -103,6 +103,7 @@ impl LlmProvider for OpenRouterProvider {
                 model: req.model,
                 max_tokens: req.max_tokens,
                 messages,
+                temperature: req.temperature,
             })
             .send()
             .await
@@ -162,6 +163,8 @@ struct OpenRouterRequest {
     model: String,
     max_tokens: u32,
     messages: Vec<OpenRouterMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
 }
 
 #[derive(Serialize)]

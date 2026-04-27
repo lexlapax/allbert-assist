@@ -12,7 +12,8 @@ use std::time::Duration;
 use allbert_daemon::{spawn, spawn_with_factory, DaemonClient, DaemonError, RunningDaemon};
 use allbert_kernel_services::error::LlmError;
 use allbert_kernel_services::llm::{
-    CompletionRequest, CompletionResponse, LlmProvider, ProviderFactory, Usage,
+    CompletionRequest, CompletionResponse, CompletionResponseFormat, LlmProvider, ProviderFactory,
+    Usage,
 };
 use allbert_kernel_services::{
     add_identity_channel, ensure_identity_record, load_identity_record, memory, AllbertPaths,
@@ -699,6 +700,9 @@ struct TestProvider {
 #[async_trait]
 impl LlmProvider for TestProvider {
     async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse, LlmError> {
+        if is_route_decision_request(&req) && !scripted_front_is_route_decision(&self.responses) {
+            return Ok(synthetic_route_decision_response());
+        }
         self.requests.lock().unwrap().push(req.clone());
         if let Some(message) = req.messages.last() {
             if self
@@ -725,6 +729,33 @@ impl LlmProvider for TestProvider {
 
     fn provider_name(&self) -> &'static str {
         "test"
+    }
+}
+
+fn is_route_decision_request(req: &CompletionRequest) -> bool {
+    matches!(
+        &req.response_format,
+        CompletionResponseFormat::JsonSchema { name, .. } if name == "route_decision"
+    )
+}
+
+fn scripted_front_is_route_decision(responses: &Arc<Mutex<VecDeque<CompletionResponse>>>) -> bool {
+    responses
+        .lock()
+        .unwrap()
+        .front()
+        .map(|response| {
+            let trimmed = response.text.trim_start();
+            trimmed.starts_with('{') && trimmed.contains("\"intent\"")
+        })
+        .unwrap_or(false)
+}
+
+fn synthetic_route_decision_response() -> CompletionResponse {
+    CompletionResponse {
+        text: r#"{"intent":"task","action":"none","confidence":"low","needs_clarification":false,"clarifying_question":null,"job_name":null,"job_description":null,"job_schedule":null,"job_prompt":null,"memory_summary":null,"memory_content":null,"reason":"synthetic test router fallback"}"#.into(),
+        usage: Usage::default(),
+        tool_calls: Vec::new(),
     }
 }
 
@@ -1074,7 +1105,10 @@ struct ProbeProvider {
 
 #[async_trait]
 impl LlmProvider for ProbeProvider {
-    async fn complete(&self, _req: CompletionRequest) -> Result<CompletionResponse, LlmError> {
+    async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse, LlmError> {
+        if is_route_decision_request(&req) {
+            return Ok(synthetic_route_decision_response());
+        }
         let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
         let mut seen = self.max_seen.load(Ordering::SeqCst);
         while active > seen {
@@ -2981,6 +3015,49 @@ async fn interactive_session_can_upsert_and_inspect_jobs_via_prompt_tools() {
         Some("America/Los_Angeles")
     );
     assert_eq!(status.definition.allowed_tools, vec!["read_memory"]);
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
+async fn router_schedule_action_reaches_structured_job_confirmation() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![scripted(
+            r#"{"intent":"schedule","action":"schedule_upsert","confidence":"high","needs_clarification":false,"clarifying_question":null,"job_name":"daily-review","job_description":"Daily review","job_schedule":"@daily at 07:00","job_prompt":"Run a concise daily review.","memory_summary":null,"memory_content":null,"reason":"The user asked to schedule a daily review."}"#,
+        )])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+
+    let (messages, confirms) = run_turn_with_confirms(
+        &mut client,
+        "schedule a daily review at 07:00",
+        ConfirmDecisionPayload::AllowOnce,
+    )
+    .await;
+    assert_eq!(confirms.len(), 1);
+    assert_eq!(confirms[0].program, "upsert_job");
+    assert!(confirms[0].rendered.contains("durable job change preview"));
+    assert!(confirms[0]
+        .rendered
+        .contains("schedule:          @daily at 07:00"));
+    assert_eq!(tool_call_names(&messages), vec!["upsert_job".to_string()]);
+
+    let status = client
+        .get_job("daily-review")
+        .await
+        .expect("job should exist");
+    assert_eq!(status.definition.schedule, "@daily at 07:00");
 
     shutdown_daemon(handle, &paths).await;
 }

@@ -46,6 +46,20 @@ pub struct CompletionRequest {
     pub model: String,
     pub max_tokens: u32,
     pub tools: Vec<ToolDeclaration>,
+    pub response_format: CompletionResponseFormat,
+    pub temperature: Option<f32>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum CompletionResponseFormat {
+    #[default]
+    Text,
+    JsonSchema {
+        name: String,
+        schema: serde_json::Value,
+        strict: bool,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

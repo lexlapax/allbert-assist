@@ -8,7 +8,7 @@ use crate::error::LlmError;
 
 use super::{
     ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, CompletionRequest,
-    CompletionResponse, LlmProvider, Pricing, Usage,
+    CompletionResponse, CompletionResponseFormat, LlmProvider, Pricing, Usage,
 };
 
 const RESPONSES_URL: &str = "https://api.openai.com/v1/responses";
@@ -67,6 +67,8 @@ impl LlmProvider for OpenAiProvider {
             input,
             max_output_tokens: req.max_tokens,
             store: false,
+            text: OpenAiTextConfig::from_response_format(req.response_format),
+            temperature: req.temperature,
         };
 
         let response = self
@@ -136,6 +138,44 @@ struct OpenAiRequest {
     input: Vec<OpenAiInputMessage>,
     max_output_tokens: u32,
     store: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<OpenAiTextConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
+}
+
+#[derive(Serialize)]
+struct OpenAiTextConfig {
+    format: OpenAiTextFormat,
+}
+
+impl OpenAiTextConfig {
+    fn from_response_format(format: CompletionResponseFormat) -> Option<Self> {
+        match format {
+            CompletionResponseFormat::Text => None,
+            CompletionResponseFormat::JsonSchema {
+                name,
+                schema,
+                strict,
+            } => Some(Self {
+                format: OpenAiTextFormat::JsonSchema {
+                    name,
+                    schema,
+                    strict,
+                },
+            }),
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum OpenAiTextFormat {
+    JsonSchema {
+        name: String,
+        schema: serde_json::Value,
+        strict: bool,
+    },
 }
 
 #[derive(Serialize)]
@@ -338,6 +378,8 @@ mod tests {
                 model: "gpt-5.4-mini".into(),
                 max_tokens: 12,
                 tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
             })
             .await
             .expect("request should succeed");
@@ -355,6 +397,49 @@ mod tests {
         assert_eq!(response.usage.output_tokens, 3);
         assert_eq!(response.usage.cache_read, 2);
         assert!(provider.pricing("gpt-5.4-mini").is_some());
+    }
+
+    #[tokio::test]
+    async fn maps_json_schema_response_format_to_responses_text_format() {
+        let (url, request_rx) =
+            spawn_json_server("200 OK", r#"{"output_text":"{}","usage":{}}"#).await;
+        let provider = OpenAiProvider::new_with_url(
+            reqwest::Client::new(),
+            "OPENAI_API_KEY".into(),
+            Some("test-key".into()),
+            url,
+        );
+
+        provider
+            .complete(CompletionRequest {
+                system: Some("route".into()),
+                messages: vec![ChatMessage {
+                    role: ChatRole::User,
+                    content: "classify".into(),
+                    attachments: Vec::new(),
+                }],
+                model: "gpt-5.4-mini".into(),
+                max_tokens: 12,
+                tools: Vec::new(),
+                response_format: CompletionResponseFormat::JsonSchema {
+                    name: "route_decision".into(),
+                    schema: serde_json::json!({
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {}
+                    }),
+                    strict: true,
+                },
+                temperature: Some(0.0),
+            })
+            .await
+            .expect("request should succeed");
+        let raw_request = request_rx.await.expect("server should capture request");
+        let body: Value = serde_json::from_str(http_body(&raw_request)).expect("json body");
+        assert_eq!(body["text"]["format"]["type"], "json_schema");
+        assert_eq!(body["text"]["format"]["name"], "route_decision");
+        assert_eq!(body["text"]["format"]["strict"], true);
+        assert_eq!(body["temperature"], 0.0);
     }
 
     #[tokio::test]
@@ -394,6 +479,8 @@ mod tests {
                 model: "gpt-5.4-mini".into(),
                 max_tokens: 12,
                 tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
             })
             .await
             .expect("request should succeed");
@@ -444,6 +531,8 @@ mod tests {
                 model: "gpt-5.4-mini".into(),
                 max_tokens: 12,
                 tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
             })
             .await
             .expect("request should succeed");
@@ -473,6 +562,8 @@ mod tests {
                 model: "gpt-5.4-mini".into(),
                 max_tokens: 12,
                 tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
             })
             .await
             .expect_err("request should fail");

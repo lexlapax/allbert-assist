@@ -61,12 +61,12 @@ pub use identity::{
     IdentityChannelBinding, IdentityConsistency, IdentityRecord, LEGACY_SENTINEL_IDENTITY,
     LOCAL_REPL_SENDER,
 };
-pub use intent::Intent;
+pub use intent::{Intent, RouteAction, RouteConfidence, RouteDecision, RouteDecisionError};
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
 pub use llm::{
     ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, CompletionRequest,
-    CompletionResponse, LlmProvider, Pricing, ProviderFactory, ToolCallSpan, ToolDeclaration,
-    Usage,
+    CompletionResponse, CompletionResponseFormat, LlmProvider, Pricing, ProviderFactory,
+    ToolCallSpan, ToolDeclaration, Usage,
 };
 pub use memory::{
     MemoryFact, MemoryTier, ReadMemoryInput, SearchMemoryHit, SearchMemoryInput, StageMemoryInput,

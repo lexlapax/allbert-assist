@@ -11,7 +11,9 @@ use crate::atomic_write;
 use crate::config::SelfDiagnosisConfig;
 use crate::cost::{append_cost_entry, build_cost_entry, sum_costs_for_today};
 use crate::error::KernelError;
-use crate::llm::{ChatMessage, ChatRole, CompletionRequest, LlmProvider, Usage};
+use crate::llm::{
+    ChatMessage, ChatRole, CompletionRequest, CompletionResponseFormat, LlmProvider, Usage,
+};
 use crate::memory::{self, StageMemoryRequest, StagedMemoryKind};
 use crate::paths::AllbertPaths;
 use crate::replay::{DefaultSecretRedactor, SecretRedactor, TraceReader};
@@ -755,6 +757,8 @@ async fn generate_candidate(
             model: provider.model.model_id.clone(),
             max_tokens: config.self_diagnosis.remediation_provider_max_tokens,
             tools: Vec::new(),
+            response_format: CompletionResponseFormat::Text,
+            temperature: None,
         })
         .await
     {

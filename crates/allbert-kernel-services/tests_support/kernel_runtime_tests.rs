@@ -9,7 +9,7 @@ use serde_json::json;
 
 use super::*;
 use crate::error::LlmError;
-use crate::llm::{CompletionRequest, CompletionResponse, Pricing, Usage};
+use crate::llm::{CompletionRequest, CompletionResponse, CompletionResponseFormat, Pricing, Usage};
 use crate::security::{
     exec_policy, sandbox, web_policy, web_policy_with_resolver, HostResolver, NormalizedExec,
     PolicyDecision,
@@ -402,7 +402,7 @@ async fn run_turn_emits_cost_and_assistant_events() {
     let cost_entry = recorded
         .iter()
         .find_map(|event| match event {
-            KernelEvent::Cost(entry) => Some(entry),
+            KernelEvent::Cost(entry) if entry.agent_name == "allbert/root" => Some(entry),
             _ => None,
         })
         .expect("cost event should be emitted");
@@ -420,7 +420,12 @@ async fn run_turn_emits_cost_and_assistant_events() {
         .any(|event| matches!(event, KernelEvent::TurnDone { hit_turn_limit } if !hit_turn_limit)));
 
     let log = std::fs::read_to_string(kernel.paths().costs.clone()).expect("cost log should exist");
-    assert_eq!(log.lines().count(), 1);
+    assert_eq!(
+        log.lines()
+            .filter(|line| line.contains(r#""agent_name":"allbert/root""#))
+            .count(),
+        1
+    );
     assert!((kernel.session_cost_usd() - 0.02).abs() < 1e-9);
 }
 
@@ -633,6 +638,7 @@ async fn spawn_subagent_uses_fresh_history_and_records_costs_per_agent() {
     let entries = log
         .lines()
         .map(|line| serde_json::from_str::<CostEntry>(line).expect("valid cost entry"))
+        .filter(|entry| entry.usd_estimate > 0.0)
         .collect::<Vec<_>>();
     assert_eq!(entries.len(), 3);
     assert_eq!(entries[0].agent_name, "allbert/root");
@@ -1008,13 +1014,15 @@ async fn spawn_subagent_respects_shared_policy_envelope() {
 }
 
 #[tokio::test]
-async fn intent_rule_fast_path_sets_schedule_intent_without_extra_model_call() {
+async fn intent_rule_only_uses_legacy_schedule_rules_without_router_call() {
     let temp = TempRoot::new();
     let paths = temp.paths();
     let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut config = Config::default_template();
+    config.intent_classifier.rule_only = true;
 
     let mut kernel = Kernel::boot_with_parts(
-        Config::default_template(),
+        config,
         test_adapter(Arc::new(Mutex::new(Vec::new()))),
         paths,
         Arc::new(TestFactory::with_requests(
@@ -1040,7 +1048,7 @@ async fn intent_rule_fast_path_sets_schedule_intent_without_extra_model_call() {
     assert_eq!(
         requests.len(),
         1,
-        "rule classifier should avoid an LLM sub-call"
+        "legacy rule-only mode should avoid a router sub-call"
     );
     let system = requests[0]
         .system
@@ -1052,7 +1060,7 @@ async fn intent_rule_fast_path_sets_schedule_intent_without_extra_model_call() {
 }
 
 #[tokio::test]
-async fn intent_classifier_fallback_uses_llm_and_records_costs() {
+async fn intent_router_uses_schema_request_and_records_costs() {
     let temp = TempRoot::new();
     let paths = temp.paths();
     let requests = Arc::new(Mutex::new(Vec::new()));
@@ -1066,7 +1074,21 @@ async fn intent_classifier_fallback_uses_llm_and_records_costs() {
             requests.clone(),
             vec![
                 CompletionResponse {
-                    text: "chat".into(),
+                    text: json!({
+                        "intent": "chat",
+                        "action": "none",
+                        "confidence": "high",
+                        "needs_clarification": false,
+                        "clarifying_question": null,
+                        "job_name": null,
+                        "job_description": null,
+                        "job_schedule": null,
+                        "job_prompt": null,
+                        "memory_summary": null,
+                        "memory_content": null,
+                        "reason": "Ambiguous small-talk style input."
+                    })
+                    .to_string(),
                     usage: Usage {
                         input_tokens: 2,
                         output_tokens: 1,
@@ -1101,15 +1123,14 @@ async fn intent_classifier_fallback_uses_llm_and_records_costs() {
     assert_eq!(
         requests.len(),
         2,
-        "fallback classifier should use a model sub-call"
+        "default routing should use a router sub-call"
     );
     assert!(
-        requests[0]
-            .system
-            .as_ref()
-            .unwrap()
-            .contains("Classify the user's message"),
-        "first request should be the classifier sub-call"
+        matches!(
+            &requests[0].response_format,
+            CompletionResponseFormat::JsonSchema { name, strict: true, .. } if name == "route_decision"
+        ),
+        "first request should be the schema-bound router sub-call"
     );
     assert!(
         requests[1]
@@ -1130,8 +1151,8 @@ async fn intent_classifier_fallback_uses_llm_and_records_costs() {
 
     let log = fs::read_to_string(kernel.paths().costs.clone()).expect("cost log should exist");
     assert!(
-        log.contains("\"agent_name\":\"intent-classifier\""),
-        "classifier call should be attributed separately in cost logs"
+        log.contains("\"agent_name\":\"intent-router\""),
+        "router call should be attributed separately in cost logs"
     );
     assert!(kernel.session_cost_usd() > 0.0);
 }
@@ -1189,6 +1210,73 @@ async fn intent_classifier_budget_limit_skips_llm_fallback() {
         ),
         "task intent should surface its preferred tool ordering"
     );
+}
+
+#[tokio::test]
+async fn router_memory_action_stages_without_full_assistant_call() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let events = Arc::new(Mutex::new(Vec::new()));
+
+    let mut kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::clone(&events)),
+        paths.clone(),
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![CompletionResponse {
+                text: json!({
+                    "intent": "memory_query",
+                    "action": "memory_stage_explicit",
+                    "confidence": "high",
+                    "needs_clarification": false,
+                    "clarifying_question": null,
+                    "job_name": null,
+                    "job_description": null,
+                    "job_schedule": null,
+                    "job_prompt": null,
+                    "memory_summary": "Operator tests use temp profiles",
+                    "memory_content": "Allbert operator tests use temporary ALLBERT_HOME profiles.",
+                    "reason": "The user explicitly asked Allbert to remember a fact."
+                })
+                .to_string(),
+                usage: Usage::default(),
+                tool_calls: Vec::new(),
+            }],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("remember that Allbert operator tests use temporary ALLBERT_HOME profiles")
+        .await
+        .expect("turn should succeed");
+
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 1, "router action should be terminal");
+    assert!(matches!(
+        &requests[0].response_format,
+        CompletionResponseFormat::JsonSchema { name, .. } if name == "route_decision"
+    ));
+    let staged = memory::list_staged_memory(
+        &paths,
+        &Config::default_template().memory,
+        Some("explicit_request"),
+        None,
+        None,
+    )
+    .expect("staged memory should list");
+    assert_eq!(staged.len(), 1);
+    assert_eq!(staged[0].summary, "Operator tests use temp profiles");
+    assert!(staged[0].body.contains("temporary ALLBERT_HOME profiles"));
+    assert!(events.lock().unwrap().iter().any(|event| matches!(
+        event,
+        KernelEvent::AssistantText(text) if text.contains("I'd like to remember 1 thing")
+    )));
 }
 
 #[tokio::test]
@@ -1473,7 +1561,13 @@ async fn session_cost_accumulates_across_turns() {
 
     assert!((kernel.session_cost_usd() - 0.04).abs() < 1e-9);
     let log = std::fs::read_to_string(paths.costs).expect("cost log should exist");
-    assert_eq!(log.lines().count(), 2);
+    assert_eq!(
+        log.lines()
+            .map(|line| serde_json::from_str::<CostEntry>(line).expect("valid cost entry"))
+            .filter(|entry| entry.usd_estimate > 0.0)
+            .count(),
+        2
+    );
 }
 
 #[tokio::test]
@@ -4854,6 +4948,9 @@ struct TestProvider {
 #[async_trait]
 impl LlmProvider for TestProvider {
     async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse, LlmError> {
+        if is_route_decision_request(&req) && !scripted_front_is_route_decision(&self.responses) {
+            return Ok(synthetic_route_decision_response(&req));
+        }
         self.requests.lock().unwrap().push(req);
         self.responses
             .lock()
@@ -4872,6 +4969,53 @@ impl LlmProvider for TestProvider {
 
     fn supports_image_input(&self, _model: &str) -> bool {
         self.supports_image_input
+    }
+}
+
+fn is_route_decision_request(req: &CompletionRequest) -> bool {
+    matches!(
+        &req.response_format,
+        CompletionResponseFormat::JsonSchema { name, .. } if name == "route_decision"
+    )
+}
+
+fn scripted_front_is_route_decision(responses: &Arc<Mutex<VecDeque<CompletionResponse>>>) -> bool {
+    responses
+        .lock()
+        .unwrap()
+        .front()
+        .map(|response| {
+            let trimmed = response.text.trim_start();
+            trimmed.starts_with('{') && trimmed.contains("\"intent\"")
+        })
+        .unwrap_or(false)
+}
+
+fn synthetic_route_decision_response(req: &CompletionRequest) -> CompletionResponse {
+    let user_input = req
+        .messages
+        .last()
+        .map(|message| message.content.as_str())
+        .unwrap_or_default();
+    let intent = classify_by_rules(user_input).unwrap_or_else(|| default_intent(user_input));
+    CompletionResponse {
+        text: json!({
+            "intent": intent.as_str(),
+            "action": "none",
+            "confidence": "low",
+            "needs_clarification": false,
+            "clarifying_question": null,
+            "job_name": null,
+            "job_description": null,
+            "job_schedule": null,
+            "job_prompt": null,
+            "memory_summary": null,
+            "memory_content": null,
+            "reason": "synthetic test router fallback"
+        })
+        .to_string(),
+        usage: Usage::default(),
+        tool_calls: Vec::new(),
     }
 }
 

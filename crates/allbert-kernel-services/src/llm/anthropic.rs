@@ -47,6 +47,7 @@ impl LlmProvider for AnthropicProvider {
                 .into_iter()
                 .map(AnthropicMessage::try_from)
                 .collect::<Result<Vec<_>, _>>()?,
+            temperature: req.temperature,
         };
 
         let response = self
@@ -114,6 +115,8 @@ struct AnthropicRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     system: Option<String>,
     messages: Vec<AnthropicMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
 }
 
 #[derive(Serialize)]

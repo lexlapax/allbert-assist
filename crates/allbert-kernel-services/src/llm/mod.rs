@@ -11,8 +11,8 @@ use crate::error::LlmError;
 
 pub use allbert_kernel_core::llm::{
     ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, CompletionRequest,
-    CompletionResponse, LlmProvider, Pricing, ProviderFactory, ToolCallSpan, ToolDeclaration,
-    Usage,
+    CompletionResponse, CompletionResponseFormat, LlmProvider, Pricing, ProviderFactory,
+    ToolCallSpan, ToolDeclaration, Usage,
 };
 pub use anthropic::AnthropicProvider;
 pub use gemini::GeminiProvider;

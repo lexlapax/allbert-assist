@@ -1,4 +1,6 @@
-use allbert_kernel_core::llm::{CompletionRequest, CompletionResponse, LlmProvider};
+use allbert_kernel_core::llm::{
+    CompletionRequest, CompletionResponse, CompletionResponseFormat, LlmProvider,
+};
 use allbert_kernel_core::memory::{
     MemoryTier, ReadMemoryInput, SearchMemoryInput, StageMemoryInput, WriteMemoryInput,
 };
@@ -25,6 +27,8 @@ fn representative_core_imports_compile() {
         messages: Vec::new(),
         max_tokens: 1,
         tools: Vec::new(),
+        response_format: CompletionResponseFormat::Text,
+        temperature: None,
     };
     let _response: Option<CompletionResponse> = None;
     let _provider: Option<&dyn LlmProvider> = None;

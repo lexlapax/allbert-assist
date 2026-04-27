@@ -120,7 +120,7 @@ pub use identity::{
     IdentityChannelBinding, IdentityConsistency, IdentityRecord, LEGACY_SENTINEL_IDENTITY,
     LOCAL_REPL_SENDER,
 };
-pub use intent::Intent;
+pub use intent::{Intent, RouteAction, RouteConfidence, RouteDecision, RouteDecisionError};
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
 pub use learning::{
     preview_personality_digest, resolve_digest_output_path, run_personality_digest, LearningCorpus,
@@ -198,13 +198,22 @@ pub use trace::TraceHandles;
 
 use hooks::HookRegistry;
 use intent::{classify_by_rules, default_intent};
-use llm::{CompletionRequest, DefaultProviderFactory, LlmProvider, ProviderFactory};
+use llm::{
+    CompletionRequest, CompletionResponse, CompletionResponseFormat, DefaultProviderFactory,
+    LlmProvider, ProviderFactory,
+};
 use replay::new_trace_id;
 
 struct DailyCostCache {
     utc_day: time::Date,
     total_usd: f64,
     refreshed_at: Instant,
+}
+
+#[derive(Debug, Clone)]
+struct RouteResolution {
+    intent: Option<Intent>,
+    decision: Option<RouteDecision>,
 }
 
 pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, KernelError> {
@@ -924,27 +933,45 @@ impl Kernel {
         }
         let mut classify_span =
             self.begin_trace_span("classify_intent", allbert_proto::SpanKind::Internal);
-        let resolved_intent = match self
+        let route_resolution = match self
             .resolve_intent_for_turn(state, user_input, parent_agent_name.clone())
             .await
         {
-            Ok(intent) => {
+            Ok(resolution) => {
                 if let Some(span) = classify_span.as_mut() {
                     span.set_attribute(
                         "allbert.intent",
                         allbert_proto::AttributeValue::String(
-                            intent
+                            resolution
+                                .intent
                                 .as_ref()
                                 .map(Intent::as_str)
                                 .unwrap_or("none")
                                 .to_string(),
                         ),
                     );
+                    if let Some(decision) = resolution.decision.as_ref() {
+                        span.set_attribute(
+                            "allbert.intent_router.action",
+                            allbert_proto::AttributeValue::String(decision.action.as_str().into()),
+                        );
+                        span.set_attribute(
+                            "allbert.intent_router.confidence",
+                            allbert_proto::AttributeValue::String(format!(
+                                "{:?}",
+                                decision.confidence
+                            )),
+                        );
+                        span.set_attribute(
+                            "allbert.intent_router.needs_clarification",
+                            allbert_proto::AttributeValue::Bool(decision.needs_clarification),
+                        );
+                    }
                 }
                 if let Some(span) = classify_span {
                     span.finish_ok();
                 }
-                intent
+                resolution
             }
             Err(err) => {
                 if let Some(span) = classify_span {
@@ -953,6 +980,7 @@ impl Kernel {
                 return Err(err);
             }
         };
+        let resolved_intent = route_resolution.intent.clone();
         state.last_resolved_intent = resolved_intent.clone();
         let route_span = self.begin_trace_span("route_skill", allbert_proto::SpanKind::Internal);
         if let Err(err) = self.apply_memory_routing(
@@ -977,6 +1005,19 @@ impl Kernel {
             intent = ?resolved_intent.as_ref().map(Intent::as_str),
             "turn start"
         );
+        if let Some(summary) = self
+            .maybe_execute_router_action(
+                state,
+                user_input,
+                &user_attachments,
+                parent_agent_name.clone(),
+                route_resolution.decision.as_ref(),
+                emit_terminal_events,
+            )
+            .await?
+        {
+            return Ok(summary);
+        }
         let rendered_user_input = render_user_input_for_history(user_input, &user_attachments);
         state.append_ephemeral_note(
             format!("User: {}", rendered_user_input.trim()),
@@ -1123,6 +1164,8 @@ impl Kernel {
                     model: effective_model.model_id.clone(),
                     max_tokens: effective_model.max_tokens,
                     tools: self.tools.tool_declarations(),
+                    response_format: CompletionResponseFormat::Text,
+                    temperature: None,
                 })
                 .await
             {
@@ -1225,6 +1268,8 @@ impl Kernel {
                         model: effective_model.model_id.clone(),
                         max_tokens: effective_model.max_tokens,
                         tools: self.tools.tool_declarations(),
+                        response_format: CompletionResponseFormat::Text,
+                        temperature: None,
                     })
                     .await?;
                 state.record_response_usage(retry_response.usage.clone());
@@ -2171,9 +2216,12 @@ impl Kernel {
         state: &mut AgentState,
         user_input: &str,
         parent_agent_name: Option<String>,
-    ) -> Result<Option<Intent>, KernelError> {
+    ) -> Result<RouteResolution, KernelError> {
         if !self.config.intent_classifier.enabled {
-            return Ok(None);
+            return Ok(RouteResolution {
+                intent: None,
+                decision: None,
+            });
         }
 
         let mut before_ctx = HookCtx::before_intent(
@@ -2191,21 +2239,26 @@ impl Kernel {
             HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
         }
 
-        let intent = if let Some(intent) = before_ctx.intent.clone() {
-            intent
-        } else if let Some(intent) = classify_by_rules(user_input) {
-            intent
-        } else if self.config.intent_classifier.rule_only
-            || !within_intent_budget(
-                user_input,
-                self.config.intent_classifier.per_turn_token_budget,
+        let (intent, decision) = if let Some(intent) = before_ctx.intent.clone() {
+            (intent, None)
+        } else if self.config.intent_classifier.rule_only {
+            (
+                classify_by_rules(user_input).unwrap_or_else(|| default_intent(user_input)),
+                None,
             )
-        {
-            default_intent(user_input)
+        } else if !within_intent_budget(
+            user_input,
+            self.config.intent_classifier.per_turn_token_budget,
+        ) {
+            (default_intent(user_input), None)
         } else {
-            self.classify_intent_with_llm(state, user_input, parent_agent_name.clone())
+            match self
+                .route_intent_with_llm(state, user_input, parent_agent_name.clone())
                 .await?
-                .unwrap_or_else(|| default_intent(user_input))
+            {
+                Some(decision) => (decision.intent.clone(), Some(decision)),
+                None => (default_intent(user_input), None),
+            }
         };
 
         let mut after_ctx = HookCtx::after_intent(
@@ -2216,18 +2269,21 @@ impl Kernel {
             intent,
         );
         match self.hooks.run(HookPoint::AfterIntent, &mut after_ctx).await {
-            HookOutcome::Continue => Ok(after_ctx.intent),
+            HookOutcome::Continue => Ok(RouteResolution {
+                intent: after_ctx.intent,
+                decision,
+            }),
             HookOutcome::Abort(message) => Err(KernelError::Hook(message)),
         }
     }
 
-    async fn classify_intent_with_llm(
+    async fn route_intent_with_llm(
         &mut self,
         state: &mut AgentState,
         user_input: &str,
         parent_agent_name: Option<String>,
-    ) -> Result<Option<Intent>, KernelError> {
-        let classifier_model = if self.config.intent_classifier.model.trim().is_empty() {
+    ) -> Result<Option<RouteDecision>, KernelError> {
+        let router_model = if self.config.intent_classifier.model.trim().is_empty() {
             self.config.model.model_id.clone()
         } else {
             self.config.intent_classifier.model.clone()
@@ -2236,44 +2292,106 @@ impl Kernel {
             .config
             .intent_classifier
             .per_turn_token_budget
-            .clamp(8, 64);
+            .clamp(64, 256);
+        let system = self.route_decision_system_prompt().await;
+        let response = self
+            .complete_router_request(
+                state,
+                parent_agent_name.clone(),
+                &router_model,
+                max_tokens,
+                system.clone(),
+                user_input,
+            )
+            .await?;
+        match RouteDecision::from_json_str(response.text.trim()) {
+            Ok(decision) => Ok(Some(decision)),
+            Err(first_err) => {
+                tracing::debug!(
+                    session = %state.session_id,
+                    agent = "intent-router",
+                    model = %router_model,
+                    error = %first_err,
+                    "intent router returned invalid JSON; retrying once"
+                );
+                let retry_system = format!(
+                    "{system}\n\nYour previous route_decision was invalid: {first_err}. Respond with exactly one valid JSON object matching the route_decision schema. Do not include markdown or prose."
+                );
+                let retry = self
+                    .complete_router_request(
+                        state,
+                        parent_agent_name,
+                        &router_model,
+                        max_tokens,
+                        retry_system,
+                        user_input,
+                    )
+                    .await?;
+                match RouteDecision::from_json_str(retry.text.trim()) {
+                    Ok(decision) => Ok(Some(decision)),
+                    Err(second_err) => {
+                        tracing::warn!(
+                            session = %state.session_id,
+                            agent = "intent-router",
+                            model = %router_model,
+                            first_error = %first_err,
+                            second_error = %second_err,
+                            "intent router failed closed"
+                        );
+                        Ok(None)
+                    }
+                }
+            }
+        }
+    }
+
+    async fn complete_router_request(
+        &mut self,
+        state: &mut AgentState,
+        parent_agent_name: Option<String>,
+        router_model: &str,
+        max_tokens: u32,
+        system: String,
+        user_input: &str,
+    ) -> Result<CompletionResponse, KernelError> {
         let response = self
             .llm
             .complete(CompletionRequest {
-                system: Some(
-                    "Classify the user's message into exactly one intent label.\n\
-Allowed labels: task, chat, schedule, memory_query, meta.\n\
-Respond with only the lowercase label and no other text."
-                        .into(),
-                ),
+                system: Some(system),
                 messages: vec![ChatMessage {
                     role: ChatRole::User,
                     content: user_input.into(),
                     attachments: Vec::new(),
                 }],
-                model: classifier_model.clone(),
+                model: router_model.to_string(),
                 max_tokens,
                 tools: Vec::new(),
+                response_format: CompletionResponseFormat::JsonSchema {
+                    name: "route_decision".into(),
+                    schema: RouteDecision::schema(),
+                    strict: true,
+                },
+                temperature: Some(0.0),
             })
             .await?;
 
         tracing::debug!(
             session = %state.session_id,
-            agent = "intent-classifier",
+            agent = "intent-router",
             parent_agent = %state.agent_name(),
-            model = %classifier_model,
-            "intent classifier response received"
+            model = %router_model,
+            "intent router response received"
         );
         state.record_response_usage(response.usage.clone());
 
         let mut hook_ctx = HookCtx::on_model_response(
             &state.session_id,
-            "intent-classifier",
+            "intent-router",
             Some(parent_agent_name.unwrap_or_else(|| state.agent_name().to_string())),
             self.llm.provider_name(),
-            &classifier_model,
+            router_model,
             response.usage.clone(),
-            self.llm.pricing(&classifier_model),
+            self.llm.pricing(router_model),
             &self.paths,
         );
         match self
@@ -2292,7 +2410,48 @@ Respond with only the lowercase label and no other text."
             (self.adapter.on_event)(&event);
         }
 
-        Ok(Intent::parse(response.text.trim()))
+        Ok(response)
+    }
+
+    async fn route_decision_system_prompt(&self) -> String {
+        let now = time::OffsetDateTime::now_utc();
+        let job_names = match self.job_manager.as_ref() {
+            Some(manager) => manager
+                .list_jobs()
+                .await
+                .map(|jobs| {
+                    jobs.into_iter()
+                        .take(50)
+                        .map(|job| job.definition.name)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default(),
+            None => Vec::new(),
+        };
+        let timezone = self
+            .config
+            .jobs
+            .default_timezone
+            .as_deref()
+            .unwrap_or("local/default");
+        let schema = serde_json::to_string(&RouteDecision::schema()).unwrap_or_default();
+        format!(
+            "You are Allbert's internal intent router. Return exactly one JSON object named route_decision and no prose.\n\
+Schema: {schema}\n\
+Routing context:\n\
+- source: channel\n\
+- current_utc: {now}\n\
+- default_timezone: {timezone}\n\
+- known_job_names: {job_names:?}\n\
+Rules:\n\
+- Use high confidence only for clear operator intent.\n\
+- Schedule mutations draft schedule_upsert, schedule_pause, schedule_resume, or schedule_remove. The runtime will show the durable preview and ask for approval.\n\
+- Normalize `schedule a daily review at 07:00` to job_name `daily-review`, job_schedule `@daily at 07:00`, and a concise daily-review prompt.\n\
+- Read-only job questions such as `what jobs do I have?` use intent schedule with action none.\n\
+- Explicit memory capture such as `remember that X` drafts memory_stage_explicit with kind handled by the runtime. Do not stage stories, examples, or questions such as `do you remember...`.\n\
+- Ordinary chat mentioning words like daily, schedule, or remember should use action none.\n\
+- Use null for absent fields. All fields are required."
+        )
     }
 
     async fn build_turn_memory_prompt(
@@ -2578,6 +2737,234 @@ Respond with only the lowercase label and no other text."
             }
         }
         output
+    }
+
+    async fn maybe_execute_router_action(
+        &mut self,
+        state: &mut AgentState,
+        user_input: &str,
+        user_attachments: &[ChatAttachment],
+        parent_agent_name: Option<String>,
+        decision: Option<&RouteDecision>,
+        emit_terminal_events: bool,
+    ) -> Result<Option<AgentRunSummary>, KernelError> {
+        let Some(decision) = decision else {
+            return Ok(None);
+        };
+        if decision.needs_clarification {
+            if let Some(question) = decision.clarifying_question.as_deref() {
+                return self
+                    .finish_router_terminal_turn(
+                        state,
+                        user_input,
+                        user_attachments,
+                        parent_agent_name,
+                        question.to_string(),
+                        emit_terminal_events,
+                        Some("router_clarification".into()),
+                    )
+                    .await
+                    .map(Some);
+            }
+        }
+        if !decision.executable_action() {
+            return Ok(None);
+        }
+        let Some(invocation) = router_decision_invocation(decision, user_input) else {
+            return Ok(None);
+        };
+
+        let rendered_user_input = render_user_input_for_history(user_input, user_attachments);
+        state.append_ephemeral_note(
+            format!("User: {}", rendered_user_input.trim()),
+            self.config.memory.max_ephemeral_bytes,
+        );
+        state.messages.push(ChatMessage {
+            role: ChatRole::User,
+            content: rendered_user_input,
+            attachments: user_attachments.to_vec(),
+        });
+
+        if emit_terminal_events {
+            self.emit_activity_with(
+                allbert_proto::ActivityPhase::CallingTool,
+                format!("calling tool {}", invocation.name),
+                Some(invocation.name.clone()),
+                Some(summarize_tool_invocation(
+                    &invocation.name,
+                    &invocation.input,
+                )),
+                None,
+                None,
+                vec!["wait for the tool result".into()],
+            );
+            (self.adapter.on_event)(&KernelEvent::ToolCall {
+                name: invocation.name.clone(),
+                input: invocation.input.clone(),
+            });
+        }
+
+        let mut tool_span =
+            self.begin_trace_span("execute_tool", allbert_proto::SpanKind::Internal);
+        if let Some(span) = tool_span.as_mut() {
+            span.set_attribute(
+                "allbert.tool.name",
+                allbert_proto::AttributeValue::String(invocation.name.clone()),
+            );
+            span.set_attribute(
+                "allbert.tool.args",
+                allbert_proto::AttributeValue::String(invocation.input.to_string()),
+            );
+            span.set_attribute(
+                "allbert.tool.synthetic_source",
+                allbert_proto::AttributeValue::String("intent-router".into()),
+            );
+        }
+
+        let mut before_ctx = HookCtx::before_tool(
+            &state.session_id,
+            state.agent_name(),
+            parent_agent_name.clone(),
+            invocation.clone(),
+            None,
+        );
+        before_ctx.intent = state.last_resolved_intent.clone();
+        let tool_output = match self.hooks.run(HookPoint::BeforeTool, &mut before_ctx).await {
+            HookOutcome::Continue => {
+                self.dispatch_tool_for_state(state, parent_agent_name.clone(), invocation.clone())
+                    .await
+            }
+            HookOutcome::Abort(message) => ToolOutput {
+                content: message,
+                ok: false,
+            },
+        };
+
+        let mut after_ctx = HookCtx::before_tool(
+            &state.session_id,
+            state.agent_name(),
+            parent_agent_name.clone(),
+            invocation.clone(),
+            None,
+        );
+        after_ctx.intent = state.last_resolved_intent.clone();
+        match self.hooks.run(HookPoint::AfterTool, &mut after_ctx).await {
+            HookOutcome::Continue => {}
+            HookOutcome::Abort(message) => {
+                if let Some(span) = tool_span {
+                    span.finish_error(message.clone());
+                }
+                return Err(KernelError::Hook(message));
+            }
+        }
+
+        if let Some(span) = tool_span.as_mut() {
+            span.set_attribute(
+                "allbert.tool.ok",
+                allbert_proto::AttributeValue::Bool(tool_output.ok),
+            );
+            span.set_attribute(
+                "allbert.tool.output_bytes",
+                allbert_proto::AttributeValue::Int(
+                    tool_output.content.len().try_into().unwrap_or(i64::MAX),
+                ),
+            );
+        }
+        if let Some(span) = tool_span {
+            if tool_output.ok {
+                span.finish_ok();
+            } else {
+                span.finish_error("tool returned ok=false");
+            }
+        }
+
+        if emit_terminal_events {
+            self.emit_activity(
+                allbert_proto::ActivityPhase::Finalizing,
+                "recording router action result",
+                Vec::new(),
+            );
+            (self.adapter.on_event)(&KernelEvent::ToolResult {
+                name: invocation.name.clone(),
+                ok: tool_output.ok,
+                content: tool_output.content.clone(),
+            });
+        }
+
+        let assistant_text = if tool_output.ok {
+            router_success_text(decision)
+        } else {
+            tool_output.content
+        };
+        self.finish_router_terminal_turn(
+            state,
+            "",
+            &[],
+            parent_agent_name,
+            assistant_text,
+            emit_terminal_events,
+            Some("router_action".into()),
+        )
+        .await
+        .map(Some)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn finish_router_terminal_turn(
+        &mut self,
+        state: &mut AgentState,
+        user_input: &str,
+        user_attachments: &[ChatAttachment],
+        parent_agent_name: Option<String>,
+        assistant_text: String,
+        emit_terminal_events: bool,
+        stop_reason: Option<String>,
+    ) -> Result<AgentRunSummary, KernelError> {
+        if !user_input.is_empty() {
+            let rendered_user_input = render_user_input_for_history(user_input, user_attachments);
+            state.append_ephemeral_note(
+                format!("User: {}", rendered_user_input.trim()),
+                self.config.memory.max_ephemeral_bytes,
+            );
+            state.messages.push(ChatMessage {
+                role: ChatRole::User,
+                content: rendered_user_input,
+                attachments: user_attachments.to_vec(),
+            });
+        }
+        let final_text = self.finish_turn_output(state, &assistant_text);
+        state.messages.push(ChatMessage {
+            role: ChatRole::Assistant,
+            content: final_text.clone(),
+            attachments: Vec::new(),
+        });
+        state.append_ephemeral_note(
+            format!("Assistant: {}", final_text.trim()),
+            self.config.memory.max_ephemeral_bytes,
+        );
+        if emit_terminal_events {
+            self.emit_activity(
+                allbert_proto::ActivityPhase::Finalizing,
+                "finalizing turn",
+                Vec::new(),
+            );
+            (self.adapter.on_event)(&KernelEvent::AssistantText(final_text.clone()));
+            (self.adapter.on_event)(&KernelEvent::TurnDone {
+                hit_turn_limit: false,
+            });
+        }
+        let mut end_ctx =
+            HookCtx::on_turn_end(&state.session_id, state.agent_name(), parent_agent_name);
+        end_ctx.intent = state.last_resolved_intent.clone();
+        match self.hooks.run(HookPoint::OnTurnEnd, &mut end_ctx).await {
+            HookOutcome::Continue => {}
+            HookOutcome::Abort(message) => return Err(KernelError::Hook(message)),
+        }
+        Ok(AgentRunSummary {
+            hit_turn_limit: false,
+            assistant_text: Some(final_text),
+            stop_reason,
+        })
     }
 
     fn render_staged_notice_suffix(&self, state: &AgentState) -> String {
@@ -4203,6 +4590,70 @@ fn unavailable_job_manager_output() -> ToolOutput {
     ToolOutput {
         content: "job management is not available in this session".into(),
         ok: false,
+    }
+}
+
+fn router_decision_invocation(
+    decision: &RouteDecision,
+    user_input: &str,
+) -> Option<ToolInvocation> {
+    match decision.action {
+        RouteAction::None => None,
+        RouteAction::ScheduleUpsert => Some(ToolInvocation {
+            name: "upsert_job".into(),
+            input: json!({
+                "name": decision.job_name.as_ref()?,
+                "description": decision.job_description.as_ref()?,
+                "schedule": decision.job_schedule.as_ref()?,
+                "prompt": decision.job_prompt.as_ref()?,
+            }),
+        }),
+        RouteAction::SchedulePause => named_router_job_invocation("pause_job", decision),
+        RouteAction::ScheduleResume => named_router_job_invocation("resume_job", decision),
+        RouteAction::ScheduleRemove => named_router_job_invocation("remove_job", decision),
+        RouteAction::MemoryStageExplicit => Some(ToolInvocation {
+            name: "stage_memory".into(),
+            input: json!({
+                "content": decision.memory_content.as_ref()?,
+                "kind": "explicit_request",
+                "summary": decision.memory_summary.as_ref()?,
+                "provenance": {
+                    "prompt_excerpt": truncate_to_bytes(user_input.trim(), 512)
+                }
+            }),
+        }),
+    }
+}
+
+fn named_router_job_invocation(name: &str, decision: &RouteDecision) -> Option<ToolInvocation> {
+    Some(ToolInvocation {
+        name: name.into(),
+        input: json!({
+            "name": decision.job_name.as_ref()?,
+        }),
+    })
+}
+
+fn router_success_text(decision: &RouteDecision) -> String {
+    match decision.action {
+        RouteAction::None => String::new(),
+        RouteAction::ScheduleUpsert => format!(
+            "Scheduled `{}` through the durable job workflow.",
+            decision.job_name.as_deref().unwrap_or("job")
+        ),
+        RouteAction::SchedulePause => format!(
+            "Paused `{}` through the durable job workflow.",
+            decision.job_name.as_deref().unwrap_or("job")
+        ),
+        RouteAction::ScheduleResume => format!(
+            "Resumed `{}` through the durable job workflow.",
+            decision.job_name.as_deref().unwrap_or("job")
+        ),
+        RouteAction::ScheduleRemove => format!(
+            "Removed `{}` through the durable job workflow.",
+            decision.job_name.as_deref().unwrap_or("job")
+        ),
+        RouteAction::MemoryStageExplicit => String::new(),
     }
 }
 

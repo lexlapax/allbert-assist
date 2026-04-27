@@ -75,6 +75,7 @@ impl LlmProvider for GeminiProvider {
                 .collect::<Result<Vec<_>, _>>()?,
             generation_config: GeminiGenerationConfig {
                 max_output_tokens: req.max_tokens,
+                temperature: req.temperature,
             },
         };
 
@@ -148,6 +149,8 @@ struct GeminiRequest {
 #[serde(rename_all = "camelCase")]
 struct GeminiGenerationConfig {
     max_output_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -309,6 +312,7 @@ fn pricing_per_mtok(prompt: f64, completion: f64, cache_read: f64) -> Pricing {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::CompletionResponseFormat;
     use serde_json::Value;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -337,6 +341,8 @@ mod tests {
                 model: "gemini-2.5-flash".into(),
                 max_tokens: 12,
                 tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
             })
             .await
             .expect("request should succeed");
@@ -389,6 +395,8 @@ mod tests {
                 model: "gemini-2.5-flash".into(),
                 max_tokens: 12,
                 tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
             })
             .await
             .expect("request should succeed");
@@ -417,6 +425,8 @@ mod tests {
                 model: "gemini-2.5-flash".into(),
                 max_tokens: 12,
                 tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
             })
             .await
             .expect_err("request should fail");
