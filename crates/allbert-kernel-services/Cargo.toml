@@ -37,3 +37,5 @@ mlua = { version = "0.10", features = ["lua54", "vendored", "serialize"] }
 flate2 = "1"
 regex = "1"
 libc = "0.2"
+rusqlite = { version = "0.39.0", features = ["bundled"] }
+sqlite-vec = "=0.1.9"

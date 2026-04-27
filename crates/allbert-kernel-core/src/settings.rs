@@ -3,7 +3,7 @@ use std::fmt;
 use std::path::{Component, Path};
 
 use crate::{
-    atomic_write, AllbertPaths, Config, MemoryRoutingMode, Provider, ReplUiMode,
+    atomic_write, AllbertPaths, Config, MemoryRoutingMode, Provider, RagSourceKind, ReplUiMode,
     ScriptingEngineConfig, StatusLineItem, TuiSpinnerStyle,
 };
 
@@ -16,6 +16,7 @@ pub enum SettingsGroup {
     SelfDiagnosis,
     LocalUtilities,
     Memory,
+    Rag,
     Learning,
     Personalization,
     SelfImprovement,
@@ -23,7 +24,7 @@ pub enum SettingsGroup {
 }
 
 impl SettingsGroup {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::Ui,
         Self::Activity,
         Self::Intent,
@@ -31,6 +32,7 @@ impl SettingsGroup {
         Self::SelfDiagnosis,
         Self::LocalUtilities,
         Self::Memory,
+        Self::Rag,
         Self::Learning,
         Self::Personalization,
         Self::SelfImprovement,
@@ -46,6 +48,7 @@ impl SettingsGroup {
             Self::SelfDiagnosis => "self_diagnosis",
             Self::LocalUtilities => "local_utilities",
             Self::Memory => "memory",
+            Self::Rag => "rag",
             Self::Learning => "learning",
             Self::Personalization => "personalization",
             Self::SelfImprovement => "self_improvement",
@@ -62,6 +65,7 @@ impl SettingsGroup {
             Self::SelfDiagnosis => "Self-diagnosis",
             Self::LocalUtilities => "Local utilities",
             Self::Memory => "Memory",
+            Self::Rag => "RAG",
             Self::Learning => "Learning",
             Self::Personalization => "Personalization",
             Self::SelfImprovement => "Self-improvement",
@@ -851,6 +855,405 @@ pub fn settings_catalog() -> Vec<SettingDescriptor> {
             "memory.rejected_retention_days",
             SettingRestartRequirement::Live,
             "Reconsider can only restore non-conflicting entries.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.enabled",
+            SettingsGroup::Rag,
+            "RAG retrieval",
+            "Enable prompt-time RAG retrieval and operator RAG commands.",
+            SettingValueType::Bool,
+            "true",
+            "rag.enabled",
+            SettingRestartRequirement::Live,
+            "Disabling RAG leaves memory synopsis and explicit memory search available.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.mode",
+            SettingsGroup::Rag,
+            "RAG retrieval mode",
+            "Default retrieval mode when both lexical and vector indexes are available.",
+            SettingValueType::Enum(&["hybrid", "vector", "lexical"]),
+            "hybrid",
+            "rag.mode",
+            SettingRestartRequirement::Live,
+            "Vector mode degrades to lexical when vectors are disabled or unavailable.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.max_chunks_per_turn",
+            SettingsGroup::Rag,
+            "RAG chunk cap",
+            "Maximum RAG chunks injected into one prompt.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(32),
+            },
+            "6",
+            "rag.max_chunks_per_turn",
+            SettingRestartRequirement::Live,
+            "Prompt context stays bounded even when search returns many matches.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.max_chunk_bytes",
+            SettingsGroup::Rag,
+            "RAG chunk bytes",
+            "Maximum bytes retained for one retrieved RAG chunk.",
+            SettingValueType::UnsignedInteger {
+                min: Some(256),
+                max: Some(8192),
+            },
+            "1200",
+            "rag.max_chunk_bytes",
+            SettingRestartRequirement::Live,
+            "Larger source passages are truncated with provenance preserved.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.max_prompt_bytes",
+            SettingsGroup::Rag,
+            "RAG prompt bytes",
+            "Maximum total RAG evidence bytes injected into one prompt.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1024),
+                max: Some(65536),
+            },
+            "7200",
+            "rag.max_prompt_bytes",
+            SettingRestartRequirement::Live,
+            "RAG evidence is a bounded prompt section, not an unbounded transcript dump.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.refresh_after_external_evidence",
+            SettingsGroup::Rag,
+            "RAG refresh after tools",
+            "Allow one capped RAG refresh after file/process/search-like tool evidence.",
+            SettingValueType::Bool,
+            "true",
+            "rag.refresh_after_external_evidence",
+            SettingRestartRequirement::Live,
+            "Refreshes are capped and never authorize actions.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.sources",
+            SettingsGroup::Rag,
+            "RAG prompt sources",
+            "Source kinds eligible for ordinary prompt-time RAG retrieval.",
+            SettingValueType::StringList,
+            "operator_docs,command_catalog,settings_catalog,skills_metadata,durable_memory,fact_memory,episode_recall,session_summary",
+            "rag.sources",
+            SettingRestartRequirement::Live,
+            "Review-only staged content must not be enabled as an ordinary prompt source.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.include_inactive_skill_bodies",
+            SettingsGroup::Rag,
+            "Inactive skill bodies",
+            "Allow indexing inactive skill bodies instead of metadata only.",
+            SettingValueType::Bool,
+            "false",
+            "rag.include_inactive_skill_bodies",
+            SettingRestartRequirement::Live,
+            "The default indexes skill metadata without injecting inactive skill bodies.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.enabled",
+            SettingsGroup::Rag,
+            "RAG vectors",
+            "Enable local vector indexing and vector query retrieval.",
+            SettingValueType::Bool,
+            "false",
+            "rag.vector.enabled",
+            SettingRestartRequirement::Restart,
+            "Requires a local embedding provider and a vector rebuild.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.provider",
+            SettingsGroup::Rag,
+            "RAG vector provider",
+            "Embedding provider used for RAG vector indexing and queries.",
+            SettingValueType::Enum(&["ollama", "fake"]),
+            "ollama",
+            "rag.vector.provider",
+            SettingRestartRequirement::Restart,
+            "Fake embeddings are for deterministic tests only.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.model",
+            SettingsGroup::Rag,
+            "RAG embedding model",
+            "Embedding model identifier used by the vector provider.",
+            SettingValueType::String,
+            "embeddinggemma",
+            "rag.vector.model",
+            SettingRestartRequirement::Restart,
+            "Changing the model invalidates stored vectors and requires rebuild.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.base_url",
+            SettingsGroup::Rag,
+            "RAG vector base URL",
+            "Base URL for the local embedding provider.",
+            SettingValueType::String,
+            "http://127.0.0.1:11434",
+            "rag.vector.base_url",
+            SettingRestartRequirement::Restart,
+            "Use a local endpoint unless a future hosted-provider ADR permits otherwise.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.distance",
+            SettingsGroup::Rag,
+            "RAG vector distance",
+            "Distance metric used by the vector backend.",
+            SettingValueType::Enum(&["cosine"]),
+            "cosine",
+            "rag.vector.distance",
+            SettingRestartRequirement::Restart,
+            "The first implementation supports cosine only.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.batch_size",
+            SettingsGroup::Rag,
+            "RAG vector batch size",
+            "Maximum source chunks sent in one embedding batch.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(256),
+            },
+            "16",
+            "rag.vector.batch_size",
+            SettingRestartRequirement::Live,
+            "Lower this on machines with small local-model memory budgets.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.query_timeout_s",
+            SettingsGroup::Rag,
+            "RAG query timeout",
+            "Seconds allowed for one query embedding request.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(300),
+            },
+            "15",
+            "rag.vector.query_timeout_s",
+            SettingRestartRequirement::Live,
+            "Timeout falls back to lexical search when fallback is enabled.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.index_timeout_s",
+            SettingsGroup::Rag,
+            "RAG index timeout",
+            "Seconds allowed for one vector indexing phase.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(86400),
+            },
+            "900",
+            "rag.vector.index_timeout_s",
+            SettingRestartRequirement::Live,
+            "Long vector indexing work remains daemon-visible and cancellable.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.max_query_bytes",
+            SettingsGroup::Rag,
+            "RAG query byte cap",
+            "Maximum bytes accepted for a vector query embedding.",
+            SettingValueType::UnsignedInteger {
+                min: Some(128),
+                max: Some(65536),
+            },
+            "4096",
+            "rag.vector.max_query_bytes",
+            SettingRestartRequirement::Live,
+            "Query embeddings stay bounded before leaving the process.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.max_concurrent_queries",
+            SettingsGroup::Rag,
+            "RAG query concurrency",
+            "Maximum concurrent query embedding requests.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(16),
+            },
+            "2",
+            "rag.vector.max_concurrent_queries",
+            SettingRestartRequirement::Live,
+            "Protects local Ollama from prompt-time query storms.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.retry_attempts",
+            SettingsGroup::Rag,
+            "RAG vector retries",
+            "Retry attempts for transient embedding failures.",
+            SettingValueType::UnsignedInteger {
+                min: Some(0),
+                max: Some(10),
+            },
+            "2",
+            "rag.vector.retry_attempts",
+            SettingRestartRequirement::Live,
+            "Exhausted retries degrade vector posture rather than failing lexical search.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.fallback_to_lexical",
+            SettingsGroup::Rag,
+            "RAG lexical fallback",
+            "Fall back to lexical retrieval when vector search is unavailable.",
+            SettingValueType::Bool,
+            "true",
+            "rag.vector.fallback_to_lexical",
+            SettingRestartRequirement::Live,
+            "Disabling fallback can make vector-only searches fail closed.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.vector.fusion_vector_weight",
+            SettingsGroup::Rag,
+            "RAG vector fusion weight",
+            "Hybrid retrieval weight assigned to vector results.",
+            SettingValueType::Float {
+                min: Some(0.0),
+                max: Some(1.0),
+            },
+            "0.7",
+            "rag.vector.fusion_vector_weight",
+            SettingRestartRequirement::Live,
+            "Lexical search remains part of hybrid retrieval unless this is set to 1.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.index.auto_maintain",
+            SettingsGroup::Rag,
+            "RAG auto-maintain",
+            "Allow daemon-owned RAG maintenance service work.",
+            SettingValueType::Bool,
+            "true",
+            "rag.index.auto_maintain",
+            SettingRestartRequirement::Live,
+            "Maintenance is deterministic service work, not a prompt-authored job.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.index.schedule_enabled",
+            SettingsGroup::Rag,
+            "RAG schedule",
+            "Enable scheduled stale-only RAG maintenance.",
+            SettingValueType::Bool,
+            "false",
+            "rag.index.schedule_enabled",
+            SettingRestartRequirement::Live,
+            "Manual status/search/rebuild commands remain available while disabled.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.index.schedule",
+            SettingsGroup::Rag,
+            "RAG maintenance schedule",
+            "Bounded schedule expression for stale-only RAG maintenance.",
+            SettingValueType::String,
+            "@daily at 03:30",
+            "rag.index.schedule",
+            SettingRestartRequirement::Live,
+            "Missed scheduled runs coalesce instead of replaying a catch-up storm.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.index.stale_only",
+            SettingsGroup::Rag,
+            "RAG stale-only rebuild",
+            "Default scheduled rebuild posture.",
+            SettingValueType::Bool,
+            "true",
+            "rag.index.stale_only",
+            SettingRestartRequirement::Live,
+            "Scheduled maintenance should not rebuild unchanged sources.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.index.run_on_startup_if_missing",
+            SettingsGroup::Rag,
+            "RAG startup rebuild",
+            "Rebuild lexical RAG at startup when the derived SQLite file is missing.",
+            SettingValueType::Bool,
+            "true",
+            "rag.index.run_on_startup_if_missing",
+            SettingRestartRequirement::Live,
+            "Startup rebuild is lexical-first and vector work is a second phase.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.index.coalesce_missed_runs",
+            SettingsGroup::Rag,
+            "RAG missed-run coalescing",
+            "Coalesce missed scheduled runs into one stale-only run.",
+            SettingValueType::Bool,
+            "true",
+            "rag.index.coalesce_missed_runs",
+            SettingRestartRequirement::Live,
+            "Prevents maintenance storms after sleep or shutdown.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.index.shutdown_grace_s",
+            SettingsGroup::Rag,
+            "RAG shutdown grace",
+            "Seconds allowed for graceful scheduled rebuild cancellation.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(600),
+            },
+            "30",
+            "rag.index.shutdown_grace_s",
+            SettingRestartRequirement::Live,
+            "Manual cancellation is separate and explicit.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.index.max_run_seconds",
+            SettingsGroup::Rag,
+            "RAG run time cap",
+            "Maximum wall-clock seconds for one maintenance run.",
+            SettingValueType::UnsignedInteger {
+                min: Some(60),
+                max: Some(86400),
+            },
+            "1800",
+            "rag.index.max_run_seconds",
+            SettingRestartRequirement::Live,
+            "Long-running rebuilds fail visibly rather than running forever.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.index.max_chunks_per_run",
+            SettingsGroup::Rag,
+            "RAG run chunk cap",
+            "Maximum chunks processed in one maintenance run.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(1_000_000),
+            },
+            "5000",
+            "rag.index.max_chunks_per_run",
+            SettingRestartRequirement::Live,
+            "Caps protect daemon maintenance from unbounded source growth.",
             SettingRedactionPolicy::Plain,
         ),
         descriptor(
@@ -1889,6 +2292,22 @@ fn validate_value(descriptor: &SettingDescriptor, raw: &str) -> Result<(), Setti
                     }
                 }
             }
+            if descriptor.key == "rag.sources" {
+                for item in &parsed {
+                    let Some(source) = RagSourceKind::parse(item) else {
+                        return Err(invalid(
+                            descriptor,
+                            "list contains an unsupported RAG source kind",
+                        ));
+                    };
+                    if source == RagSourceKind::StagedMemoryReview {
+                        return Err(invalid(
+                            descriptor,
+                            "staged_memory_review is review-only and cannot be an ordinary prompt source",
+                        ));
+                    }
+                }
+            }
         }
         SettingValueType::Path(policy) => validate_path(descriptor, value, *policy, false)?,
         SettingValueType::OptionalPath(policy) => validate_path(descriptor, value, *policy, true)?,
@@ -2037,6 +2456,46 @@ fn setting_value_for_key(config: &Config, descriptor: &SettingDescriptor) -> Opt
         "memory.semantic.enabled" => config.memory.semantic.enabled.to_string(),
         "memory.trash_retention_days" => config.memory.trash_retention_days.to_string(),
         "memory.rejected_retention_days" => config.memory.rejected_retention_days.to_string(),
+        "rag.enabled" => config.rag.enabled.to_string(),
+        "rag.mode" => config.rag.mode.label().to_string(),
+        "rag.max_chunks_per_turn" => config.rag.max_chunks_per_turn.to_string(),
+        "rag.max_chunk_bytes" => config.rag.max_chunk_bytes.to_string(),
+        "rag.max_prompt_bytes" => config.rag.max_prompt_bytes.to_string(),
+        "rag.refresh_after_external_evidence" => {
+            config.rag.refresh_after_external_evidence.to_string()
+        }
+        "rag.sources" => config
+            .rag
+            .sources
+            .iter()
+            .map(|source| source.label())
+            .collect::<Vec<_>>()
+            .join(","),
+        "rag.include_inactive_skill_bodies" => config.rag.include_inactive_skill_bodies.to_string(),
+        "rag.vector.enabled" => config.rag.vector.enabled.to_string(),
+        "rag.vector.provider" => config.rag.vector.provider.label().to_string(),
+        "rag.vector.model" => config.rag.vector.model.clone(),
+        "rag.vector.base_url" => config.rag.vector.base_url.clone(),
+        "rag.vector.distance" => config.rag.vector.distance.label().to_string(),
+        "rag.vector.batch_size" => config.rag.vector.batch_size.to_string(),
+        "rag.vector.query_timeout_s" => config.rag.vector.query_timeout_s.to_string(),
+        "rag.vector.index_timeout_s" => config.rag.vector.index_timeout_s.to_string(),
+        "rag.vector.max_query_bytes" => config.rag.vector.max_query_bytes.to_string(),
+        "rag.vector.max_concurrent_queries" => config.rag.vector.max_concurrent_queries.to_string(),
+        "rag.vector.retry_attempts" => config.rag.vector.retry_attempts.to_string(),
+        "rag.vector.fallback_to_lexical" => config.rag.vector.fallback_to_lexical.to_string(),
+        "rag.vector.fusion_vector_weight" => config.rag.vector.fusion_vector_weight.to_string(),
+        "rag.index.auto_maintain" => config.rag.index.auto_maintain.to_string(),
+        "rag.index.schedule_enabled" => config.rag.index.schedule_enabled.to_string(),
+        "rag.index.schedule" => config.rag.index.schedule.clone(),
+        "rag.index.stale_only" => config.rag.index.stale_only.to_string(),
+        "rag.index.run_on_startup_if_missing" => {
+            config.rag.index.run_on_startup_if_missing.to_string()
+        }
+        "rag.index.coalesce_missed_runs" => config.rag.index.coalesce_missed_runs.to_string(),
+        "rag.index.shutdown_grace_s" => config.rag.index.shutdown_grace_s.to_string(),
+        "rag.index.max_run_seconds" => config.rag.index.max_run_seconds.to_string(),
+        "rag.index.max_chunks_per_run" => config.rag.index.max_chunks_per_run.to_string(),
         "learning.enabled" => config.learning.enabled.to_string(),
         "learning.compute_cap_wall_seconds" => config
             .learning
@@ -2346,6 +2805,14 @@ keep = "yes"
             .expect("model.model_id view");
         assert_eq!(model.default_value, "gemma4");
         assert_eq!(model.current_value, "gpt-test");
+
+        let rag = views
+            .iter()
+            .find(|view| view.key == "rag.mode")
+            .expect("rag.mode view");
+        assert_eq!(rag.group, SettingsGroup::Rag);
+        assert_eq!(rag.default_value, "hybrid");
+        assert_eq!(rag.current_value, "hybrid");
     }
 
     #[test]
@@ -2364,6 +2831,15 @@ keep = "yes"
             .expect("intent retry bool should validate");
         validate_setting_value("self_diagnosis.remediation_provider_max_tokens", "4096")
             .expect("remediation token cap should validate");
+        validate_setting_value("rag.mode", "hybrid").expect("rag mode should validate");
+        validate_setting_value("rag.sources", "operator_docs,commands,settings,memory")
+            .expect("rag sources should accept aliases");
+        validate_setting_value("rag.vector.provider", "ollama")
+            .expect("rag vector provider should validate");
+        validate_setting_value("rag.vector.fusion_vector_weight", "0.7")
+            .expect("rag fusion weight should validate");
+        validate_setting_value("rag.index.max_chunks_per_run", "5000")
+            .expect("rag run chunk cap should validate");
     }
 
     #[test]
@@ -2394,6 +2870,18 @@ keep = "yes"
         ));
         assert!(matches!(
             validate_setting_value("self_diagnosis.remediation_provider_max_tokens", "128"),
+            Err(SettingValidationError::InvalidValue { .. })
+        ));
+        assert!(matches!(
+            validate_setting_value("rag.mode", "semantic"),
+            Err(SettingValidationError::InvalidValue { .. })
+        ));
+        assert!(matches!(
+            validate_setting_value("rag.sources", "operator_docs,staged_memory_review"),
+            Err(SettingValidationError::InvalidValue { .. })
+        ));
+        assert!(matches!(
+            validate_setting_value("rag.vector.fusion_vector_weight", "1.5"),
             Err(SettingValidationError::InvalidValue { .. })
         ));
     }

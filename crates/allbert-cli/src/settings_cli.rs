@@ -76,6 +76,9 @@ pub fn explain(group: &str) -> Result<String> {
             "examples: local_utilities.enabled, local_utilities.unix_pipe_timeout_s"
         }
         SettingsGroup::Memory => "examples: memory.prefetch_enabled, memory.trash_retention_days",
+        SettingsGroup::Rag => {
+            "examples: rag.enabled, rag.mode, rag.vector.enabled, rag.index.schedule_enabled"
+        }
         SettingsGroup::Learning => {
             "examples: learning.enabled, learning.personality_digest.output_path"
         }
@@ -140,6 +143,7 @@ fn group_description(group: SettingsGroup) -> &'static str {
         SettingsGroup::SelfDiagnosis => "Bounded trace diagnosis and remediation gate posture.",
         SettingsGroup::LocalUtilities => "Host-specific utility discovery and enablement posture.",
         SettingsGroup::Memory => "Memory routing, retention, and retrieval posture.",
+        SettingsGroup::Rag => "RAG retrieval, vector backend, and index maintenance posture.",
         SettingsGroup::Learning => "Reviewed learning and personality digest behavior.",
         SettingsGroup::Personalization => {
             "Local personalization adapters, corpus inputs, and trainer limits."

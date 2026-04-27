@@ -7,6 +7,7 @@ pub mod learning;
 pub mod llm;
 pub mod local_utilities;
 pub mod memory;
+pub mod rag;
 pub mod replay;
 pub mod scripting;
 pub mod security;
@@ -95,11 +96,11 @@ pub use config::{
     IntentClassifierConfig, IntentRuntimeConfig, JobsConfig, LearningConfig, LimitsConfig,
     LocalUtilitiesConfig, MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig,
     MemoryRoutingConfig, MemoryRoutingMode, MemorySemanticConfig, ModelConfig, OperatorUxConfig,
-    PersonalityDigestConfig, Provider, ReplConfig, ReplUiMode, ScriptingConfig,
-    ScriptingEngineConfig, SecurityConfig, SelfDiagnosisConfig, SelfImprovementConfig,
-    SelfImprovementInstallMode, SessionsConfig, SetupConfig, StatusLineConfig, StatusLineItem,
-    TraceConfig, TraceDefaultsWriteResult, TraceFieldPolicy, TraceRedactionConfig, TuiConfig,
-    TuiSpinnerStyle, WebSecurityConfig, CURRENT_SETUP_VERSION,
+    PersonalityDigestConfig, Provider, RagConfig, RagIndexConfig, RagVectorConfig, ReplConfig,
+    ReplUiMode, ScriptingConfig, ScriptingEngineConfig, SecurityConfig, SelfDiagnosisConfig,
+    SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig, SetupConfig,
+    StatusLineConfig, StatusLineItem, TraceConfig, TraceDefaultsWriteResult, TraceFieldPolicy,
+    TraceRedactionConfig, TuiConfig, TuiSpinnerStyle, WebSecurityConfig, CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{
@@ -142,6 +143,10 @@ pub use memory::{
 };
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
+pub use rag::{
+    RagEmbeddingProvider, RagIndexRunStatus, RagRetrievalMode, RagSearchRequest, RagSearchResponse,
+    RagSearchResult, RagSourceKind, RagStatusSnapshot, RagVectorDistance, RagVectorPosture,
+};
 pub use replay::{
     apply_trace_gc, export_session_otlp_json, plan_trace_gc, read_session_trace_dir,
     recover_all_in_flight_spans, trace_artifact_bytes, trace_artifact_count, ActiveTraceSpan,

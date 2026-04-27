@@ -14,6 +14,7 @@ pub mod job_manager;
 pub mod llm;
 pub mod memory;
 pub mod paths;
+pub mod rag;
 pub mod scripting;
 pub mod security;
 pub mod settings;
@@ -41,11 +42,11 @@ pub use config::{
     IntentClassifierConfig, IntentRuntimeConfig, JobsConfig, LearningConfig, LimitsConfig,
     LocalUtilitiesConfig, MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig,
     MemoryRoutingConfig, MemoryRoutingMode, MemorySemanticConfig, ModelConfig, OperatorUxConfig,
-    PersonalityDigestConfig, Provider, ReplConfig, ReplUiMode, ScriptingConfig,
-    ScriptingEngineConfig, SecurityConfig, SelfDiagnosisConfig, SelfImprovementConfig,
-    SelfImprovementInstallMode, SessionsConfig, SetupConfig, StatusLineConfig, StatusLineItem,
-    TraceConfig, TraceDefaultsWriteResult, TraceFieldPolicy, TraceRedactionConfig, TuiConfig,
-    TuiSpinnerStyle, WebSecurityConfig, CURRENT_SETUP_VERSION,
+    PersonalityDigestConfig, Provider, RagConfig, RagIndexConfig, RagVectorConfig, ReplConfig,
+    ReplUiMode, ScriptingConfig, ScriptingEngineConfig, SecurityConfig, SelfDiagnosisConfig,
+    SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig, SetupConfig,
+    StatusLineConfig, StatusLineItem, TraceConfig, TraceDefaultsWriteResult, TraceFieldPolicy,
+    TraceRedactionConfig, TuiConfig, TuiSpinnerStyle, WebSecurityConfig, CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{
@@ -73,6 +74,10 @@ pub use memory::{
     StageMemoryRequest, StagedMemoryKind, WriteMemoryInput, WriteMemoryMode,
 };
 pub use paths::AllbertPaths;
+pub use rag::{
+    RagEmbeddingProvider, RagIndexRunStatus, RagRetrievalMode, RagSearchRequest, RagSearchResponse,
+    RagSearchResult, RagSourceKind, RagStatusSnapshot, RagVectorDistance, RagVectorPosture,
+};
 pub use scripting::{
     BudgetUsed, CapKind, LoadedScript, ScriptBudget, ScriptOutcome, ScriptingCapabilities,
     ScriptingEngine, ScriptingError, LUA_MAX_EXECUTION_MS_CEILING, LUA_MAX_MEMORY_KB_CEILING,

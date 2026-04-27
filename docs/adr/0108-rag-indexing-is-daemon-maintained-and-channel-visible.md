@@ -1,7 +1,7 @@
 # ADR 0108: RAG indexing is daemon-maintained and channel-visible
 
 Date: 2026-04-27
-Status: Draft (formalized when v0.15 RAG plan is finalized)
+Status: Accepted
 
 Amends: ADR 0019, ADR 0022, ADR 0075
 Related: ADR 0106, ADR 0107

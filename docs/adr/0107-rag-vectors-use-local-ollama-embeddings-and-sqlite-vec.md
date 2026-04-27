@@ -1,7 +1,7 @@
 # ADR 0107: RAG vectors use local Ollama embeddings and sqlite-vec
 
 Date: 2026-04-27
-Status: Draft (formalized when v0.15 RAG plan is finalized)
+Status: Accepted
 
 Amends: ADR 0078, ADR 0106
 
@@ -103,4 +103,3 @@ daily-cost-cap integration.
 - [sqlite-vec Rust docs](https://alexgarcia.xyz/sqlite-vec/rust.html)
 - [sqlite-vec KNN docs](https://alexgarcia.xyz/sqlite-vec/features/knn.html)
 - [SQLite vec1](https://sqlite.org/vec1)
-

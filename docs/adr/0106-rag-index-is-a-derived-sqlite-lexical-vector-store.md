@@ -1,7 +1,7 @@
 # ADR 0106: RAG index is a derived SQLite vector and lexical store
 
 Date: 2026-04-26
-Status: Draft (formalized when v0.15 RAG plan is finalized)
+Status: Accepted
 
 Amends: ADR 0045, ADR 0046, ADR 0078
 Related: ADR 0107, ADR 0108
@@ -140,6 +140,15 @@ separate privacy, cost, and provider-surface decision.
 - Future releases may switch the vector backend if official SQLite `vec1`
   matures enough to justify replacing `sqlite-vec`.
 - Hosted embeddings may be added later through the same owned provider seam.
+
+## Implementation note
+
+M0 pins the first dependency proof in `allbert-kernel-services` with
+`rusqlite` using bundled SQLite and the official `sqlite-vec` Rust crate. The
+initial pin uses exact `sqlite-vec` `0.1.9`; the newer `0.1.10-alpha.3` package
+failed the local build proof because its packaged C source referenced a missing
+`sqlite-vec-diskann.c` include. This keeps the derived RAG store local and
+rebuildable before the full store lands.
 
 ## References
 

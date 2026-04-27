@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{ConfigError, KernelError};
 use crate::intent::Intent;
 use crate::paths::AllbertPaths;
+use crate::rag::{RagEmbeddingProvider, RagRetrievalMode, RagSourceKind, RagVectorDistance};
 use crate::scripting::{
     LUA_MAX_EXECUTION_MS_CEILING, LUA_MAX_MEMORY_KB_CEILING, LUA_MAX_OUTPUT_BYTES_CEILING,
 };
@@ -50,6 +51,8 @@ pub struct Config {
     pub intent_classifier: IntentClassifierConfig,
     #[serde(default)]
     pub memory: MemoryConfig,
+    #[serde(default)]
+    pub rag: RagConfig,
     #[serde(default)]
     pub learning: LearningConfig,
     #[serde(default)]
@@ -862,6 +865,106 @@ impl Default for MemorySemanticConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct RagConfig {
+    pub enabled: bool,
+    pub mode: RagRetrievalMode,
+    pub max_chunks_per_turn: usize,
+    pub max_chunk_bytes: usize,
+    pub max_prompt_bytes: usize,
+    pub refresh_after_external_evidence: bool,
+    pub sources: Vec<RagSourceKind>,
+    pub include_inactive_skill_bodies: bool,
+    pub vector: RagVectorConfig,
+    pub index: RagIndexConfig,
+}
+
+impl Default for RagConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            mode: RagRetrievalMode::Hybrid,
+            max_chunks_per_turn: 6,
+            max_chunk_bytes: 1200,
+            max_prompt_bytes: 7200,
+            refresh_after_external_evidence: true,
+            sources: RagSourceKind::default_prompt_sources(),
+            include_inactive_skill_bodies: false,
+            vector: RagVectorConfig::default(),
+            index: RagIndexConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct RagVectorConfig {
+    pub enabled: bool,
+    pub provider: RagEmbeddingProvider,
+    pub model: String,
+    pub base_url: String,
+    pub distance: RagVectorDistance,
+    pub batch_size: usize,
+    pub query_timeout_s: u64,
+    pub index_timeout_s: u64,
+    pub max_query_bytes: usize,
+    pub max_concurrent_queries: usize,
+    pub retry_attempts: u8,
+    pub fallback_to_lexical: bool,
+    pub fusion_vector_weight: f64,
+}
+
+impl Default for RagVectorConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            provider: RagEmbeddingProvider::Ollama,
+            model: "embeddinggemma".into(),
+            base_url: "http://127.0.0.1:11434".into(),
+            distance: RagVectorDistance::Cosine,
+            batch_size: 16,
+            query_timeout_s: 15,
+            index_timeout_s: 900,
+            max_query_bytes: 4096,
+            max_concurrent_queries: 2,
+            retry_attempts: 2,
+            fallback_to_lexical: true,
+            fusion_vector_weight: 0.70,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct RagIndexConfig {
+    pub auto_maintain: bool,
+    pub schedule_enabled: bool,
+    pub schedule: String,
+    pub stale_only: bool,
+    pub run_on_startup_if_missing: bool,
+    pub coalesce_missed_runs: bool,
+    pub shutdown_grace_s: u64,
+    pub max_run_seconds: u64,
+    pub max_chunks_per_run: usize,
+}
+
+impl Default for RagIndexConfig {
+    fn default() -> Self {
+        Self {
+            auto_maintain: true,
+            schedule_enabled: false,
+            schedule: "@daily at 03:30".into(),
+            stale_only: true,
+            run_on_startup_if_missing: true,
+            coalesce_missed_runs: true,
+            shutdown_grace_s: 30,
+            max_run_seconds: 1800,
+            max_chunks_per_run: 5000,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct LearningConfig {
@@ -1202,6 +1305,7 @@ impl Config {
             intent: IntentRuntimeConfig::default(),
             intent_classifier: IntentClassifierConfig::default(),
             memory: MemoryConfig::default(),
+            rag: RagConfig::default(),
             learning: LearningConfig::default(),
             self_improvement: SelfImprovementConfig::default(),
             self_diagnosis: SelfDiagnosisConfig::default(),
@@ -1522,6 +1626,7 @@ impl Config {
         if !(0.0..=1.0).contains(&self.memory.semantic.hybrid_weight) {
             return Err("memory.semantic.hybrid_weight must be between 0 and 1".into());
         }
+        validate_rag_config(&self.rag)?;
         validate_personality_digest_config(&self.learning.personality_digest)?;
         validate_adapter_training_config(&self.learning.adapter_training)?;
         validate_self_improvement_config(&self.self_improvement)?;
@@ -1625,6 +1730,65 @@ impl Config {
         }
         changed
     }
+}
+
+fn validate_rag_config(config: &RagConfig) -> Result<(), String> {
+    if config.max_chunks_per_turn == 0 {
+        return Err("rag.max_chunks_per_turn must be > 0".into());
+    }
+    if config.max_chunk_bytes == 0 {
+        return Err("rag.max_chunk_bytes must be > 0".into());
+    }
+    if config.max_prompt_bytes < config.max_chunk_bytes {
+        return Err("rag.max_prompt_bytes must be >= rag.max_chunk_bytes".into());
+    }
+    if config.sources.is_empty() {
+        return Err("rag.sources must not be empty".into());
+    }
+    if config.sources.contains(&RagSourceKind::StagedMemoryReview) {
+        return Err("rag.sources must not include staged_memory_review by default".into());
+    }
+
+    let vector = &config.vector;
+    if vector.model.trim().is_empty() {
+        return Err("rag.vector.model must not be empty".into());
+    }
+    if vector.base_url.trim().is_empty() {
+        return Err("rag.vector.base_url must not be empty".into());
+    }
+    if vector.batch_size == 0 {
+        return Err("rag.vector.batch_size must be > 0".into());
+    }
+    if vector.query_timeout_s == 0 {
+        return Err("rag.vector.query_timeout_s must be > 0".into());
+    }
+    if vector.index_timeout_s == 0 {
+        return Err("rag.vector.index_timeout_s must be > 0".into());
+    }
+    if vector.max_query_bytes == 0 {
+        return Err("rag.vector.max_query_bytes must be > 0".into());
+    }
+    if vector.max_concurrent_queries == 0 {
+        return Err("rag.vector.max_concurrent_queries must be > 0".into());
+    }
+    if !(0.0..=1.0).contains(&vector.fusion_vector_weight) {
+        return Err("rag.vector.fusion_vector_weight must be between 0 and 1".into());
+    }
+
+    let index = &config.index;
+    if index.schedule.trim().is_empty() {
+        return Err("rag.index.schedule must not be empty".into());
+    }
+    if index.shutdown_grace_s == 0 {
+        return Err("rag.index.shutdown_grace_s must be > 0".into());
+    }
+    if index.max_run_seconds == 0 {
+        return Err("rag.index.max_run_seconds must be > 0".into());
+    }
+    if index.max_chunks_per_run == 0 {
+        return Err("rag.index.max_chunks_per_run must be > 0".into());
+    }
+    Ok(())
 }
 
 pub fn write_last_good_config(paths: &AllbertPaths) -> Result<(), KernelError> {
@@ -2343,6 +2507,51 @@ max_tokens = 4096
         assert!(rendered.contains("tick_ms = 80"));
         assert!(rendered.contains("[operator_ux.activity]"));
         assert!(rendered.contains("stuck_notice_after_s = 30"));
+        assert!(rendered.contains("[rag]"));
+        assert!(rendered.contains("mode = \"hybrid\""));
+        assert!(rendered.contains("[rag.vector]"));
+        assert!(rendered.contains("model = \"embeddinggemma\""));
+        assert!(rendered.contains("[rag.index]"));
+    }
+
+    #[test]
+    fn rag_config_defaults_are_vector_ready_but_lexical_safe() {
+        let config = Config::default_template();
+
+        assert!(config.rag.enabled);
+        assert_eq!(config.rag.mode, RagRetrievalMode::Hybrid);
+        assert_eq!(
+            config.rag.sources,
+            vec![
+                RagSourceKind::OperatorDocs,
+                RagSourceKind::CommandCatalog,
+                RagSourceKind::SettingsCatalog,
+                RagSourceKind::SkillsMetadata,
+                RagSourceKind::DurableMemory,
+                RagSourceKind::FactMemory,
+                RagSourceKind::EpisodeRecall,
+                RagSourceKind::SessionSummary,
+            ]
+        );
+        assert!(!config.rag.vector.enabled);
+        assert_eq!(config.rag.vector.provider, RagEmbeddingProvider::Ollama);
+        assert_eq!(config.rag.vector.model, "embeddinggemma");
+        assert!(config.rag.vector.fallback_to_lexical);
+        assert!(config.rag.index.auto_maintain);
+        config.validate().expect("default RAG config is valid");
+    }
+
+    #[test]
+    fn rag_config_rejects_unbounded_or_review_only_prompt_sources() {
+        let mut config = Config::default_template();
+        config.rag.sources = Vec::new();
+        assert!(config.validate().is_err());
+
+        config.rag.sources = vec![RagSourceKind::StagedMemoryReview];
+        let err = config
+            .validate()
+            .expect_err("review-only source should not be prompt eligible");
+        assert!(err.contains("staged_memory_review"));
     }
 
     #[test]
