@@ -255,8 +255,9 @@ Expected: `daemon channels status telegram` reports `enabled: yes`,
 mapped into identity continuity; `identity add-channel telegram
 "$TELEGRAM_CHAT_ID"` promotes that migration candidate, and the next
 `identity show` should include `telegram:<id>` under `channels` without that
-warning. Then send `/status`, `/activity`, `/approve <id>`, and `/reject <id>`
-in Telegram.
+warning. Runtime sender keys may include both chat id and Telegram user id, but
+the documented chat-id binding is sufficient. Then send `/status`, `/activity`,
+`/approve <id>`, and `/reject <id>` in Telegram.
 
 ## v0.8 Continuity, Identity, Inbox, Profile Sync, Heartbeat
 

@@ -194,10 +194,21 @@ pub fn resolve_identity_id_for_sender(
 ) -> Result<Option<String>, KernelError> {
     let record = ensure_identity_record(paths)?;
     let sender = normalize_sender(sender)?;
+    let telegram_chat_sender = if kind == ChannelKind::Telegram {
+        telegram_chat_sender(&sender)
+    } else {
+        None
+    };
     Ok(record
         .channels
         .iter()
-        .find(|binding| binding.kind == kind && binding.sender == sender)
+        .find(|binding| {
+            binding.kind == kind
+                && (binding.sender == sender
+                    || telegram_chat_sender
+                        .as_deref()
+                        .is_some_and(|chat_sender| binding.sender == chat_sender))
+        })
         .map(|_| record.id))
 }
 
@@ -297,6 +308,15 @@ fn normalize_sender(sender: &str) -> Result<String, KernelError> {
         return Err(KernelError::Request("sender must not be empty".into()));
     }
     Ok(trimmed.into())
+}
+
+fn telegram_chat_sender(sender: &str) -> Option<String> {
+    let rest = sender.strip_prefix("telegram:")?;
+    let chat_id = rest.split(':').next()?.trim();
+    if chat_id.is_empty() {
+        return None;
+    }
+    Some(chat_id.to_string())
 }
 
 fn sort_bindings(bindings: &mut [IdentityChannelBinding]) {
@@ -419,6 +439,31 @@ mod tests {
             }]
         );
         assert_eq!(consistency.warnings.len(), 1);
+    }
+
+    #[test]
+    fn telegram_identity_resolution_falls_back_to_chat_binding() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paths = AllbertPaths::under(temp.path().join(".allbert"));
+        let seeded = ensure_identity_record(&paths).expect("identity should seed");
+        let id = seeded.id.clone();
+        add_identity_channel(&paths, ChannelKind::Telegram, "7336421071")
+            .expect("chat binding should add");
+
+        assert_eq!(
+            resolve_identity_id_for_sender(&paths, ChannelKind::Telegram, "7336421071")
+                .expect("chat sender should resolve"),
+            Some(id.clone())
+        );
+        assert_eq!(
+            resolve_identity_id_for_sender(
+                &paths,
+                ChannelKind::Telegram,
+                "telegram:7336421071:7336421071",
+            )
+            .expect("specific Telegram sender should resolve"),
+            Some(id)
+        );
     }
 
     #[test]

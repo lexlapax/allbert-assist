@@ -88,7 +88,9 @@ cargo run -q -p allbert-cli -- identity show
 Expected: `identity show` lists `telegram:<id>` under `channels`, and the
 migration-candidate warning disappears. For a provider-free channel config
 smoke, the warning is informational; for real Telegram operation, map the
-channel.
+channel. Incoming Telegram runtime sender keys may include both the chat id and
+Telegram user id; a documented chat-id binding is still sufficient for identity
+continuity.
 
 After profile import on another temp profile or machine, you may see the
 opposite warning:
