@@ -1280,6 +1280,164 @@ async fn router_memory_action_stages_without_full_assistant_call() {
 }
 
 #[tokio::test]
+async fn router_explicit_memory_flow_remains_review_first() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let events = Arc::new(Mutex::new(Vec::new()));
+
+    let mut kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::clone(&events)),
+        paths.clone(),
+        Arc::new(TestFactory::new(
+            "anthropic",
+            vec![
+                CompletionResponse {
+                    text: json!({
+                        "intent": "memory_query",
+                        "action": "memory_stage_explicit",
+                        "confidence": "high",
+                        "needs_clarification": false,
+                        "clarifying_question": null,
+                        "job_name": null,
+                        "job_description": null,
+                        "job_schedule": null,
+                        "job_prompt": null,
+                        "memory_summary": "Release smokes use temp profiles",
+                        "memory_content": "Allbert release smokes use temporary ALLBERT_HOME profiles.",
+                        "reason": "The user explicitly asked Allbert to remember a fact."
+                    })
+                    .to_string(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                scripted_response(
+                    r#"<tool_call>{"name":"list_staged_memory","input":{"limit":10}}</tool_call>"#,
+                ),
+                scripted_response("Reviewed the staged memory."),
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("please remember release smokes use temp profiles")
+        .await
+        .expect("memory stage should succeed");
+    let staged = memory::list_staged_memory(
+        &paths,
+        &Config::default_template().memory,
+        Some("explicit_request"),
+        None,
+        None,
+    )
+    .expect("staged memory should list");
+    assert_eq!(staged.len(), 1);
+    let staged_id = staged[0].id.clone();
+
+    let durable_before = memory::search_memory(
+        &paths,
+        &Config::default_template().memory,
+        SearchMemoryInput {
+            query: "temporary ALLBERT_HOME profiles".into(),
+            tier: MemoryTier::Durable,
+            limit: Some(10),
+            include_superseded: false,
+        },
+    )
+    .expect("durable search should run");
+    assert!(durable_before.is_empty());
+
+    kernel
+        .run_turn("review what's staged")
+        .await
+        .expect("review should succeed");
+    assert!(events.lock().unwrap().iter().any(|event| matches!(
+        event,
+        KernelEvent::ToolResult { name, ok: true, content }
+            if name == "list_staged_memory" && content.contains("Release smokes use temp profiles")
+    )));
+
+    let preview = memory::preview_promote_staged_memory(
+        &paths,
+        &Config::default_template().memory,
+        &staged_id,
+        None,
+        None,
+    )
+    .expect("promotion preview should succeed");
+    memory::promote_staged_memory(&paths, &Config::default_template().memory, &preview)
+        .expect("promotion should succeed");
+    let durable_after = memory::search_memory(
+        &paths,
+        &Config::default_template().memory,
+        SearchMemoryInput {
+            query: "temporary ALLBERT_HOME profiles".into(),
+            tier: MemoryTier::Durable,
+            limit: Some(10),
+            include_superseded: false,
+        },
+    )
+    .expect("durable search should run after promotion");
+    assert!(!durable_after.is_empty());
+
+    let reject_candidate = memory::stage_memory(
+        &paths,
+        &Config::default_template().memory,
+        memory::StageMemoryRequest {
+            session_id: "session-reject".into(),
+            turn_id: "turn-1".into(),
+            agent: "allbert/root".into(),
+            source: "channel".into(),
+            content: "Rejectable staged router memory.".into(),
+            kind: StagedMemoryKind::ExplicitRequest,
+            summary: "Rejectable router memory".into(),
+            tags: Vec::new(),
+            provenance: None,
+            fingerprint_basis: None,
+            facts: Vec::new(),
+        },
+    )
+    .expect("reject candidate should stage");
+    memory::reject_staged_memory(
+        &paths,
+        &Config::default_template().memory,
+        &reject_candidate.id,
+        Some("test rejection"),
+    )
+    .expect("reject should succeed");
+    let remaining =
+        memory::list_staged_memory(&paths, &Config::default_template().memory, None, None, None)
+            .expect("remaining staged should list");
+    assert!(remaining
+        .iter()
+        .all(|entry| entry.id != reject_candidate.id));
+
+    let mut story_kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths.clone(),
+        Arc::new(TestFactory::new(
+            "anthropic",
+            vec![scripted_response("That sounds like a vivid memory.")],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("story kernel should boot");
+    story_kernel
+        .run_turn("I remember when daily notes were chaotic")
+        .await
+        .expect("story turn should succeed");
+    let after_story =
+        memory::list_staged_memory(&paths, &Config::default_template().memory, None, None, None)
+            .expect("staged should list after story");
+    assert!(after_story.is_empty());
+}
+
+#[tokio::test]
 async fn meta_intent_shapes_prompt_without_hard_gating() {
     let temp = TempRoot::new();
     let paths = temp.paths();
