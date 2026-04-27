@@ -6,7 +6,7 @@ It is **not** the same thing as the runtime-generated `~/.allbert/AGENTS.md` fil
 
 ## Default workflow
 
-Use this validation order unless a task explicitly calls for something narrower:
+Use this validation order unless a task explicitly calls for something narrower. The consolidated current release gate lives in [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md#release-validation); this default workflow is the provider-free contributor subset.
 
 ```bash
 cargo fmt --check

@@ -1,8 +1,8 @@
 # Telemetry operator guide
 
-v0.12.1 kept session telemetry daemon-owned and added daemon-owned live activity. v0.12.2 keeps that live-state boundary and adds durable trace/replay as a separate after-the-fact surface. v0.13 adds daemon-owned adapter telemetry for local personalization. v0.14 adds daemon-owned diagnosis and local-utility status surfaces. The TUI, classic REPL, CLI, Telegram, jobs, and future frontends all read kernel/daemon-owned state instead of guessing from frontend timers.
+Telemetry and activity are the current v0.14.2 live visibility surfaces. The TUI, classic REPL, CLI, Telegram, jobs, and future frontends all read daemon-owned state instead of guessing from frontend timers.
 
-This guide covers **live** runtime visibility. Durable, after-the-fact session **replay** is documented in the [tracing operator guide](tracing.md). Use this guide to answer "what is Allbert doing right now?"; use the tracing guide to answer "what happened in that session, and why?"
+This guide covers **live** runtime visibility. Durable, after-the-fact session **replay** is documented in the [tracing operator guide](tracing.md). Use this guide to answer "what is Allbert doing right now?"; use the tracing guide to answer "what happened in that session, and why?" Start with the [v0.14.2 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
 
 ## Commands
 
@@ -91,6 +91,7 @@ Telemetry is local daemon state. It is not uploaded by the status line, `/teleme
 ## Related Docs
 
 - [TUI operator guide](tui.md)
+- [v0.14.2 operator playbook](../onboarding-and-operations.md)
 - [Adaptive memory guide](adaptive-memory.md)
 - [Personalization guide](personalization.md)
 - [Self-diagnosis and local utilities](self-diagnosis-and-utilities.md)

@@ -1,6 +1,8 @@
 # Personality digest operator guide
 
-v0.11 adds a review-first learning seam and one concrete job: `personality-digest`. The job drafts a learned collaboration overlay, but it never trains a model, never writes durable memory directly, and never mutates `SOUL.md`.
+The personality digest is the current review-first markdown personalization seam. It drafts a learned collaboration overlay, but it never trains a model, never writes durable memory directly, and never mutates `SOUL.md`.
+
+Start with the [v0.14.2 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
 
 ## SOUL.md vs PERSONALITY.md
 
@@ -103,12 +105,13 @@ The body uses fixed sections:
 
 ## Digest And Adapters
 
-The digest remains the human-readable markdown overlay. v0.13 adds local adapter training as a second, optional personalization surface that plugs into the same `LearningJob` seam and review-first envelope. Adapter training can consume accepted `PERSONALITY.md` as input, but it does not replace it and does not write `SOUL.md`.
+The digest remains the human-readable markdown overlay. Local adapter training is a second, optional personalization surface that plugs into the same `LearningJob` seam and review-first envelope. Adapter training can consume accepted `PERSONALITY.md` as input, but it does not replace it and does not write `SOUL.md`.
 
 Use the digest when you want inspectable collaboration guidance in markdown. Use personalization adapters when you have opted into local training and want a base-model-pinned local adapter reviewed through `adapter-approval`.
 
 ## Related Docs
 
+- [v0.14.2 operator playbook](../onboarding-and-operations.md)
 - [Adaptive memory guide](adaptive-memory.md)
 - [Personalization guide](personalization.md)
 - [v0.11 upgrade notes](../notes/v0.11-upgrade-2026-04-24.md)

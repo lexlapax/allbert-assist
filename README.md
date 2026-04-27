@@ -10,10 +10,8 @@ The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-
 
 Architecture note: v0.14.2 retires the monolithic `allbert-kernel` crate and splits runtime code into direct `allbert-kernel-core` and `allbert-kernel-services` crates. This is an internal source-tree change; it does not add an operator-visible protocol, storage, or command migration.
 
-## What v0.14.2 includes
+## Operator Features
 
-- a kernel that owns the agent loop, tools, memory, skills, policy, cost, and tracing
-- an acyclic core/services crate split with size, import-migration, crate-graph, and dependency compactness gates
 - a local daemon host with attachable TUI, classic REPL, CLI, jobs, and Telegram channels
 - a Ratatui/Crossterm TUI for fresh profiles plus classic Reedline fallback for upgrades
 - daemon-owned telemetry through `/telemetry`, `allbert-cli telemetry --json`, and the TUI status line
@@ -83,6 +81,14 @@ Architecture note: v0.14.2 retires the monolithic `allbert-kernel` crate and spl
 - fresh-profile local-first defaults: `provider = "ollama"`, `model_id = "gemma4"`, and `base_url = "http://127.0.0.1:11434"`
 - Telegram async approvals via `/approve <approval-id>`, `/reject <approval-id>`, `/override <reason>`, `/activity`, and compact `/status`, plus cross-surface resolution from CLI, TUI, and REPL inbox commands
 - Telegram photo input for vision-capable models, with downloaded photos stored as session artifacts under the parent session
+
+## Architecture And Contributor Changes
+
+- the retired monolithic `allbert-kernel` crate is replaced by direct `allbert-kernel-core` and `allbert-kernel-services` imports
+- runtime contracts live in `allbert-kernel-core`; concrete behavior and default runtime wiring live in `allbert-kernel-services`
+- v0.14.2 has no compatibility facade for the old Rust `allbert_kernel` API
+- release validation enforces kernel size, crate graph, import migration, and dependency compactness gates
+- default-parallel daemon integration tests are part of the release gate and no longer depend on a serial-test workaround for local socket boot reliability
 
 ## Prerequisites
 
@@ -478,7 +484,7 @@ If you are upgrading an existing profile, see [docs/notes/v0.14-upgrade-2026-04-
 
 ## Telegram channel
 
-Telegram is the first shipped non-REPL channel in v0.8.
+Telegram is the optional remote-chat operator channel in the current release.
 
 Setup:
 
@@ -494,7 +500,7 @@ Useful operator commands:
 - `cargo run -p allbert-cli -- inbox show <approval-id>`
 - `cargo run -p allbert-cli -- inbox accept <approval-id> --reason "approved from shell"`
 
-Telegram behaviour in v0.14:
+Current Telegram behavior:
 
 - pending approvals can be resolved from Telegram, CLI, TUI, or an attached classic REPL inbox
 - `/activity` and compact `/status` render daemon-owned activity without raw prompt, secret, or full tool-output data
@@ -583,7 +589,7 @@ Telegram behaviour in v0.14:
 
 ## More detail
 
-See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the operator walkthrough, config examples, daemon lifecycle guidance, jobs workflow, curated-memory workflow, continuity workflow, and troubleshooting. Focused guides: [TUI](docs/operator/tui.md), [telemetry/activity](docs/operator/telemetry.md), [tracing](docs/operator/tracing.md), [adaptive memory](docs/operator/adaptive-memory.md), [personality digest](docs/operator/personality-digest.md), [personalization](docs/operator/personalization.md), [self-diagnosis and local utilities](docs/operator/self-diagnosis-and-utilities.md), [self-improvement](docs/operator/self-improvement.md), [skill authoring](docs/operator/skill-authoring.md), [Telegram](docs/operator/telegram.md), and [scripting](docs/operator/scripting.md). For sync posture and heartbeat policy, see [docs/operator/continuity.md](docs/operator/continuity.md) and [docs/operator/heartbeat.md](docs/operator/heartbeat.md).
+See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the current v0.14.2 operator playbook, end-to-end feature test checklist, release validation gate, config examples, daemon lifecycle guidance, jobs workflow, curated-memory workflow, continuity workflow, and troubleshooting. Focused guides: [TUI](docs/operator/tui.md), [telemetry/activity](docs/operator/telemetry.md), [tracing](docs/operator/tracing.md), [adaptive memory](docs/operator/adaptive-memory.md), [cost caps](docs/operator/cost-caps.md), [personality digest](docs/operator/personality-digest.md), [personalization](docs/operator/personalization.md), [self-diagnosis and local utilities](docs/operator/self-diagnosis-and-utilities.md), [self-improvement](docs/operator/self-improvement.md), [skill authoring](docs/operator/skill-authoring.md), [Telegram](docs/operator/telegram.md), and [scripting](docs/operator/scripting.md). For sync posture and heartbeat policy, see [docs/operator/continuity.md](docs/operator/continuity.md) and [docs/operator/heartbeat.md](docs/operator/heartbeat.md).
 Inspect heartbeat cadence and validation warnings:
 
 ```bash

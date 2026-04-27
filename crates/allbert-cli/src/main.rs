@@ -1315,7 +1315,7 @@ async fn run_daemon_channels_command(
             let kind = parse_channel_kind(&kind)?;
             if kind != ChannelKind::Telegram {
                 anyhow::bail!(
-                    "v0.7 only supports `daemon channels add telegram`; builtin {0} is always available",
+                    "only the optional Telegram channel can be enabled; builtin channel {0} is always available",
                     channel_kind_label(kind)
                 );
             }
@@ -1354,7 +1354,7 @@ async fn run_daemon_channels_command(
             let kind = parse_channel_kind(&kind)?;
             if kind != ChannelKind::Telegram {
                 anyhow::bail!(
-                    "v0.7 only supports `daemon channels remove telegram`; builtin {0} is not removable",
+                    "only the optional Telegram channel can be disabled; builtin channel {0} is not removable",
                     channel_kind_label(kind)
                 );
             }

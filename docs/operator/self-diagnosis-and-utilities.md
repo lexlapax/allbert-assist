@@ -1,8 +1,8 @@
 # Self-diagnosis and local utilities
 
-v0.14 adds bounded self-diagnosis and a curated local-utility surface. Diagnosis reads existing v0.12.2 session traces, writes markdown reports, and explains by default. Local utilities are host-specific helpers that the operator explicitly enables before Allbert can compose them through `unix_pipe`.
+Self-diagnosis and local utilities are current v0.14.2 operator surfaces. Diagnosis reads bounded session trace bundles, writes markdown reports, and explains by default. Local utilities are host-specific helpers that the operator explicitly enables before Allbert can compose them through `unix_pipe`.
 
-Reality note: remediation routing and concrete candidate/fallback provenance are reconciled in v0.14.1. Remediation remains review-first and never installs generated code, skills, or memory automatically.
+Remediation remains review-first and never installs generated code, skills, or memory automatically. Start with the [v0.14.2 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
 
 ## Diagnosis
 
@@ -123,8 +123,40 @@ Settings live under:
 /settings show self_diagnosis
 ```
 
+## unix_pipe Verification Recipe
+
+`unix_pipe` is invoked through the tool system, not as a direct CLI subcommand. A practical operator check is:
+
+1. Enable and verify utility entries:
+
+   ```bash
+   cargo run -p allbert-cli -- utilities discover
+   cargo run -p allbert-cli -- utilities enable rg
+   cargo run -p allbert-cli -- utilities enable head
+   cargo run -p allbert-cli -- utilities doctor
+   ```
+
+2. Confirm exec policy allows the resolved binaries:
+
+   ```bash
+   cargo run -p allbert-cli -- settings show security.exec_allow
+   ```
+
+   If needed, add the utility id, executable name, or canonical path through the settings surface.
+
+3. Ask from a trusted workspace:
+
+   ```text
+   Use the unix_pipe tool to search this trusted workspace for the text "TODO" with rg, pipe it to head -n 5, and report only the five lines.
+   ```
+
+4. Verify `/activity` or trace replay shows `tool_name = "unix_pipe"` with per-stage utility metadata.
+
+If the active skill does not list `unix_pipe` in `allowed-tools`, the utility is not enabled, the manifest status is not `ok`, or exec policy rejects the binary, the run fails before spawning any child process.
+
 ## Related Docs
 
+- [v0.14.2 operator playbook](../onboarding-and-operations.md)
 - [Tracing guide](tracing.md)
 - [Self-improvement guide](self-improvement.md)
 - [Continuity and sync posture](continuity.md)

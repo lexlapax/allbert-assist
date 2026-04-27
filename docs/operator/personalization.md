@@ -1,8 +1,8 @@
 # Personalization operator guide
 
-v0.13 adds local personalization through review-first adapter training. It does not retrain a foundation model, does not send training data to hosted providers, and does not auto-activate trained weights.
+Personalization in the current v0.14.2 release is review-first local adapter training. It does not retrain a foundation model, does not send training data to hosted providers, and does not auto-activate trained weights.
 
-Reality note: daemon adapter handlers and production trainer selection from configured real backends are reconciled in v0.14.1.
+Start with the [v0.14.2 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
 
 ## Posture
 
@@ -100,6 +100,29 @@ cargo run -p allbert-cli -- adapters gc
 
 The REPL and TUI also support `/adapters status`, `/adapters list`, and `/adapters history`. Telegram supports `/adapter status` and `/adapter approvals`.
 
+## Safe Smoke Paths
+
+Provider-free preview is the default contributor check:
+
+```bash
+cargo run -p allbert-cli -- adapters training preview
+```
+
+If training is disabled or no backend is configured, production `adapters training start` fails clearly. It must not silently fall back to fake training.
+
+For an end-to-end contributor smoke, use a temporary profile and configure the explicit fake backend only for that profile:
+
+```bash
+tmpdir=$(mktemp -d /tmp/allbert-adapter-smoke.XXXXXX)
+ALLBERT_HOME="$tmpdir" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- settings set learning.adapter_training.enabled true
+ALLBERT_HOME="$tmpdir" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- settings set learning.adapter_training.allowed_backends '["fake"]'
+ALLBERT_HOME="$tmpdir" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- settings set learning.adapter_training.default_backend fake
+ALLBERT_HOME="$tmpdir" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- settings set security.exec_allow '["fake-adapter-trainer"]'
+ALLBERT_HOME="$tmpdir" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- adapters training preview
+```
+
+Real training is an operator-credentialed local-hardware check. Enable it only after selecting a trainer backend, installing the backend binary, allowlisting the backend in `learning.adapter_training.allowed_backends`, allowing the executable in `security.exec_allow`, and choosing a compute cap.
+
 ## Evals and review
 
 Each adapter approval points to local artifacts:
@@ -127,6 +150,8 @@ Use `adapters deactivate` to stop using the active adapter. Use `adapters remove
 
 ## Related Docs
 
+- [v0.14.2 operator playbook](../onboarding-and-operations.md)
 - [Personality digest guide](personality-digest.md)
 - [Telemetry operator guide](telemetry.md)
+- [Cost-cap posture](cost-caps.md)
 - [v0.13 upgrade notes](../notes/v0.13-upgrade-2026-04-26.md)

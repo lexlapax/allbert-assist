@@ -1,6 +1,20 @@
 # Telegram operator guide
 
-v0.12.1 made the Telegram pilot more channel-native while keeping the daemon and kernel as the source of truth. v0.12.2 adds structural trace summaries without sending full local trace content back through Telegram. v0.13 adds structural adapter status and adapter-approval listing. v0.14 adds structural diagnosis and utility status without enabling Telegram-initiated remediation or utility mutation.
+Telegram is the optional remote-chat operator channel in the current v0.14.2 release. The daemon remains the source of truth: Telegram renders bounded structural status, activity, approvals, traces, adapter posture, diagnosis posture, and utility posture without reading local files directly.
+
+Start with the [v0.14.2 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
+
+## Provider-Free Smoke
+
+You can verify the local channel configuration path without a bot token or live Telegram message:
+
+```bash
+tmpdir=$(mktemp -d /tmp/allbert-telegram-smoke.XXXXXX)
+ALLBERT_HOME="$tmpdir" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- daemon channels add telegram
+ALLBERT_HOME="$tmpdir" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- daemon channels status telegram
+```
+
+This smoke proves the CLI/config/status surface works. It does not prove live polling, allowlist matching, photo download, or Telegram delivery; those require the credentialed setup below.
 
 ## Setup
 
@@ -48,9 +62,10 @@ Telegram turn failures append the same remediation hints as local surfaces where
 
 ## Related Docs
 
+- [v0.14.2 operator playbook](../onboarding-and-operations.md)
 - [Telemetry operator guide](telemetry.md)
 - [Tracing operator guide](tracing.md)
 - [Personalization guide](personalization.md)
 - [Self-diagnosis and local utilities](self-diagnosis-and-utilities.md)
 - [Self-improvement guide](self-improvement.md)
-- [v0.14 upgrade notes](../notes/v0.14-upgrade-2026-04-26.md)
+- [v0.14.2 upgrade notes](../notes/v0.14.2-upgrade-2026-04-26.md)
