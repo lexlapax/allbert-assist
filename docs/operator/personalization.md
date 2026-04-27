@@ -1,8 +1,8 @@
 # Personalization operator guide
 
-Personalization in the current v0.14.2 release is review-first local adapter training. It does not retrain a foundation model, does not send training data to hosted providers, and does not auto-activate trained weights.
+Personalization in the current v0.14.3 release is review-first local adapter training. It does not retrain a foundation model, does not send training data to hosted providers, and does not auto-activate trained weights.
 
-Start with the [v0.14.2 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
+Start with the [v0.14.3 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
 
 ## Posture
 
@@ -150,7 +150,7 @@ Use `adapters deactivate` to stop using the active adapter. Use `adapters remove
 
 ## Related Docs
 
-- [v0.14.2 operator playbook](../onboarding-and-operations.md)
+- [v0.14.3 operator playbook](../onboarding-and-operations.md)
 - [Personality digest guide](personality-digest.md)
 - [Telemetry operator guide](telemetry.md)
 - [Cost-cap posture](cost-caps.md)

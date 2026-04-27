@@ -12,7 +12,7 @@ Allbert already has several retrieval surfaces:
 - v0.5 memory search uses Tantivy/BM25 for curated memory.
 - v0.11 adds an optional semantic-memory seam, but the shipped provider is a
   deterministic fake and the derived index is memory-local JSON.
-- v0.14.3 plans a schema-bound router before full prompt assembly.
+- v0.14.3 ships a schema-bound router before full prompt assembly.
 - v0.15 plans growth-loop ingestion, which will create more candidate context
   than Allbert can use responsibly without a broader retrieval substrate.
 

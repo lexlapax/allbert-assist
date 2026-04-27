@@ -2,7 +2,7 @@
 
 The personality digest is the current review-first markdown personalization seam. It drafts a learned collaboration overlay, but it never trains a model, never writes durable memory directly, and never mutates `SOUL.md`.
 
-Start with the [v0.14.2 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
+Start with the [v0.14.3 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
 
 ## SOUL.md vs PERSONALITY.md
 
@@ -111,7 +111,7 @@ Use the digest when you want inspectable collaboration guidance in markdown. Use
 
 ## Related Docs
 
-- [v0.14.2 operator playbook](../onboarding-and-operations.md)
+- [v0.14.3 operator playbook](../onboarding-and-operations.md)
 - [Adaptive memory guide](adaptive-memory.md)
 - [Personalization guide](personalization.md)
 - [v0.11 upgrade notes](../notes/v0.11-upgrade-2026-04-24.md)

@@ -147,15 +147,15 @@ remember that Allbert operator tests use temporary ALLBERT_HOME profiles
 review what's staged
 ```
 
-Expected after the v0.14.3 router-first reliability fix lands: the schema-bound intent router drafts an explicit-memory action, Allbert creates one staged-memory candidate through the normal staging pipeline, and `review what's staged` lists it.
+Expected in v0.14.3: the schema-bound intent router drafts an explicit-memory action, Allbert creates one staged-memory candidate through the normal staging pipeline, and `review what's staged` lists it.
 
-Current v0.14.2 behavior with local models may fail before staging, for example:
+Failure to catch from v0.14.2 local-model testing:
 
 ```text
 I could not parse the model's tool call safely: unsupported tool call shape: expected name, tool, function, or program.
 ```
 
-Treat that as a local-model tool-call reliability finding, not as proof that staged-memory listing, promotion, or search is broken. Capture the trace and track it under the v0.14.3 explicit-memory milestone.
+Treat that as a regression if it returns in v0.14.3, not as proof that staged-memory listing, promotion, or search is broken. Capture the trace and inspect the v0.14.3 router/tool-parse provenance.
 
 CLI review:
 
@@ -599,7 +599,7 @@ Expected: no local socket `Operation not permitted` failures under default paral
 
 ## v0.14.3 Conversational Scheduling Reliability
 
-v0.14.3 is a draft operator reliability patch. The foundation is a schema-bound intent router that runs before full prompt assembly. The release-blocking smoke is the local-model scheduling transcript that exposed the bug:
+v0.14.3 is the shipped operator reliability patch. The foundation is a schema-bound intent router that runs before full prompt assembly. The release-blocking smoke is the local-model scheduling transcript that exposed the bug:
 
 ```bash
 run repl --classic
@@ -611,7 +611,7 @@ Then type:
 schedule a daily review at 07:00
 ```
 
-Expected after v0.14.3 lands: the router drafts a guarded `schedule_upsert` action and Allbert shows the structured durable scheduling confirmation in the same flow, not a plain prose `Shall I proceed?` prompt. Approve with `y`, then verify:
+Expected in v0.14.3: the router drafts a guarded `schedule_upsert` action and Allbert shows the structured durable scheduling confirmation in the same flow, not a plain prose `Shall I proceed?` prompt. Approve with `y`, then verify:
 
 ```bash
 run jobs status daily-review
@@ -621,7 +621,7 @@ Expected: the job exists with a daily 07:00 schedule.
 
 Failure to catch: the model asks `Shall I proceed?`, the operator types `yes`, and the next turn fails with `unsupported tool call shape: name input/arguments is missing`. That is the v0.14.3 blocking regression.
 
-Safe fallback before the product fix lands:
+Safe fallback if a local model still fails to produce a usable schedule action after the bounded retry:
 
 ```bash
 cat > "$ALLBERT_HOME/daily-review.md" <<'EOF'
@@ -643,9 +643,10 @@ run jobs status daily-review
 
 ## v0.14.3 Explicit Memory Reliability
 
-The v0.5 curated-memory smoke currently has a local-model dependency for the
-first staging step. After v0.14.3, the schema-bound router should draft
-explicit-memory staging actions before the full assistant prompt:
+The v0.5 curated-memory smoke no longer depends on a local model producing a
+valid `stage_memory` tool call for the first staging step. In v0.14.3, the
+schema-bound router drafts explicit-memory staging actions before the full
+assistant prompt:
 
 ```text
 remember that Allbert operator tests use temporary ALLBERT_HOME profiles
@@ -653,7 +654,7 @@ please remember operator release smokes use temp profiles
 remember: staged memory stays review-first
 ```
 
-Expected after v0.14.3 lands: each high-confidence router decision creates one staged
+Expected in v0.14.3: each high-confidence router decision creates one staged
 `explicit_request` entry with a non-empty summary and does not promote it
 directly to durable memory. Verify with:
 
@@ -662,9 +663,9 @@ run memory staged list
 run memory staged show <staged-id>
 ```
 
-Current v0.14.2 behavior may still route the first turn through the model and
-fail before staging. That is the v0.14.3 M2 blocking regression; it is not a
-failure of `memory staged list`, `memory promote`, or `memory search`.
+Failure to catch from v0.14.2: the first turn routes through the full model and
+fails before staging. That is now a v0.14.3 regression, not a failure of
+`memory staged list`, `memory promote`, or `memory search`.
 
 ## v0.14.3 OpenAI Responses History Reliability
 
@@ -683,7 +684,7 @@ hello
 say one more thing
 ```
 
-Expected after v0.14.3 lands: both turns succeed, including the second turn
+Expected in v0.14.3: both turns succeed, including the second turn
 after assistant history exists. The failure to catch is:
 
 ```text
@@ -692,7 +693,8 @@ param: input[1].content[0]
 ```
 
 That error means assistant history was serialized as `input_text` instead of
-OpenAI Responses `output_text`. Current v0.14.2 may show this failure. For
+OpenAI Responses `output_text`. In v0.14.3 this is a provider regression. For
 provider-free implementation validation, run the OpenAI provider mock tests that
-capture the request body and prove user text uses `input_text` while assistant
-history uses `output_text`.
+capture the request body and prove user text uses `input_text`, assistant
+history uses `output_text`, user images use `input_image`, and assistant images
+are rejected locally.

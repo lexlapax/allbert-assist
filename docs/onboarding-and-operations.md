@@ -1,6 +1,6 @@
-# Allbert v0.14.2 Operator Playbook
+# Allbert v0.14.3 Operator Playbook
 
-This is the current source-based operator playbook for Allbert v0.14.2. It is the start-here guide for running, checking, and release-validating the shipped operator surface from first setup through the latest v0.14.2 architecture gates.
+This is the current source-based operator playbook for Allbert v0.14.3. It is the start-here guide for running, checking, and release-validating the shipped operator surface from first setup through the latest v0.14.3 router reliability gates.
 
 Focused guides go deeper on individual areas:
 
@@ -120,7 +120,7 @@ Hosted providers use `api_key_env` in the same `[model]` table. Supported provid
 
 ## Feature Test Playbook
 
-The commands below are the practical operator checklist for the shipped v0.14.2 surface. Prefer a temp `ALLBERT_HOME` for smoke checks unless you intentionally want to inspect your real profile.
+The commands below are the practical operator checklist for the shipped v0.14.3 surface. Prefer a temp `ALLBERT_HOME` for smoke checks unless you intentionally want to inspect your real profile.
 
 ### v0.1 - CLI, Onboarding, Kernel, Skills, Memory, Policy
 
@@ -457,6 +457,47 @@ Test:
 - Confirm daemon integration tests pass under default parallel execution without the old local socket `Operation not permitted` workaround.
 - Confirm there is no operator-visible command, protocol, or profile migration for the core/services split.
 
+### v0.14.3 - Operator Reliability Patch
+
+In REPL/TUI with a local model:
+
+```text
+schedule a daily review at 07:00
+```
+
+Test:
+
+- Confirm Allbert shows the structured durable scheduling confirmation in the same conversational flow, not a plain prose `Shall I proceed?` prompt.
+- Approve with `y`, then confirm `allbert-cli jobs status daily-review` shows the intended daily schedule.
+- If the model emits a malformed schedule tool call, confirm the safe fallback names `allbert-cli jobs upsert <job-definition.md>` and trace inspection.
+
+Explicit memory smoke:
+
+```text
+remember that Allbert operator tests use temporary ALLBERT_HOME profiles
+review what's staged
+```
+
+Test:
+
+- Confirm the first turn creates one staged `explicit_request` candidate.
+- Confirm `review what's staged` or `allbert-cli memory staged list` shows the candidate.
+- Confirm promotion is still explicit and `allbert-cli memory search "temporary ALLBERT_HOME"` only finds the fact after promotion.
+- Confirm ordinary stories such as `I remember when daily notes were chaotic` do not create deterministic staged memory.
+
+Optional OpenAI live smoke:
+
+```text
+/model openai <model-id> OPENAI_API_KEY
+hello
+say one more thing
+```
+
+Test:
+
+- Confirm the second turn succeeds after assistant history exists.
+- Confirm no OpenAI Responses error reports assistant history encoded as `input_text`.
+
 ## Telegram
 
 Telegram is optional and credentialed.
@@ -516,7 +557,7 @@ env -u RUSTC_WRAPPER cargo test -q
 env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- --help
 ```
 
-Full v0.14.2 release validation:
+Full v0.14.3 release validation:
 
 ```bash
 cargo fmt --check

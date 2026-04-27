@@ -3,7 +3,7 @@
 Date: 2026-04-26
 Status: Accepted
 
-Amended by the v0.14.3 draft plan to add flat named-call normalization,
+Amended by the shipped v0.14.3 plan to add flat named-call normalization,
 a schedule-specific no-tool retry guard for mutating recurring-job requests,
 and a shared one-retry budget for generic malformed-tool and schedule-specific
 retry paths.
