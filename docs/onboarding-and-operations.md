@@ -5,6 +5,7 @@ This is the current source-based operator playbook for Allbert v0.14.2. It is th
 Focused guides go deeper on individual areas:
 
 - [TUI](operator/tui.md)
+- [Operator feature test runbook](operator/feature-test-runbook.md)
 - [Telemetry and activity](operator/telemetry.md)
 - [Tracing and replay](operator/tracing.md)
 - [Adaptive memory](operator/adaptive-memory.md)
