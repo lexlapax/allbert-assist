@@ -3,6 +3,8 @@
 Date: 2026-04-20
 Status: Accepted
 
+> **Amended in part by [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md) in v0.15 (planned)**: the derived-artifact rule extends to the cross-source RAG index. Markdown memory, operator docs, skills, generated descriptors, and promoted ingestion records remain ground truth; SQLite RAG artifacts are local rebuildable indexes.
+
 ## Context
 
 Curated memory needs an index to make ranked retrieval affordable. But the project already has a strong cross-cutting rule: markdown is the portable source of truth, and indexes or caches are rebuildable artifacts.
@@ -38,6 +40,7 @@ The v0.5 memory index is a derived artifact only.
 
 - Future retriever implementations may change the index format, but not the markdown-ground-truth rule.
 - The specific library commitment lives in ADR 0046, not here.
+- The broader v0.15 RAG index follows the same derived-artifact posture through ADR 0106 rather than making SQLite authoritative.
 
 ## References
 
@@ -46,3 +49,4 @@ The v0.5 memory index is a derived artifact only.
 - [ADR 0038](0038-natural-interface-is-the-users-extension-surface.md)
 - [ADR 0041](0041-memory-retrieval-uses-bounded-prefetch-and-explicit-search-read.md)
 - [ADR 0046](0046-v0-5-memory-retrieval-uses-tantivy.md)
+- [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md)

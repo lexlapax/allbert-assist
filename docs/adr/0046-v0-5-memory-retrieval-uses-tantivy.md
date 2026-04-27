@@ -4,6 +4,8 @@ Date: 2026-04-20
 Status: Accepted
 
 > **Amended in part by [ADR 0078](0078-semantic-memory-is-optional-derived-retrieval.md) in v0.11**: BM25/Tantivy remains the default retriever. Semantic retrieval may layer alongside it only as an off-by-default derived index.
+>
+> **Amended in part by [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md) in v0.15 (planned)**: Tantivy remains the curated-memory search baseline, while v0.15 adds a separate cross-source SQLite RAG substrate for operator docs, commands, settings, memory, facts, episodes, and promoted ingestion records.
 
 ## Context
 
@@ -74,6 +76,7 @@ The dependency footprint is non-trivial for a local-first binary. To prevent qui
 
 - If a later release decides to replace tantivy (e.g. with a WASM-friendly retriever), the `search_memory` / `read_memory` contract from ADR 0041 survives the swap.
 - Future optional embedding retrieval (explicitly deferred from v0.5) would likely layer alongside tantivy rather than replacing it.
+- v0.15's planned SQLite RAG service is additive. It does not retroactively change v0.5's memory-search decision or make staged/ingested records trusted prompt context.
 
 ## References
 
@@ -81,4 +84,5 @@ The dependency footprint is non-trivial for a local-first binary. To prevent qui
 - [ADR 0040](0040-curated-memory-has-identity-durable-staging-and-ephemeral-tiers.md)
 - [ADR 0041](0041-memory-retrieval-uses-bounded-prefetch-and-explicit-search-read.md)
 - [ADR 0045](0045-memory-index-is-a-derived-artifact-rebuilt-from-markdown-ground-truth.md)
+- [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md)
 - [tantivy](https://github.com/quickwit-oss/tantivy)

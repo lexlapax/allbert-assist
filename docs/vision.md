@@ -58,7 +58,7 @@ Allbert should keep its durable memory in markdown and linked files first, with 
 - making memory-curation skills always eligible through configurable routing without always loading their full prompt bodies
 - searching prior session episodes as working-history recall without treating transcripts as approved durable memory
 - attaching temporal fact metadata and provenance to staged/promoted memory while preserving review before durable promotion
-- optionally layering semantic retrieval as a derived index alongside BM25 rather than replacing markdown ground truth; v0.11 ships the seam with a fake deterministic provider first, and real embedding adapters can arrive additively
+- optionally layering semantic retrieval as a derived index alongside BM25 rather than replacing markdown ground truth; v0.11 ships the seam with a fake deterministic provider first, and v0.15 plans a broader SQLite-backed RAG substrate for operator docs, commands, settings, memory, and promoted ingestion records before growth-loop ingestion expands the corpus
 - adapting over time to the user's preferences and personality
 
 ## Identity Direction

@@ -11,7 +11,7 @@ The origin note's first concrete functional requirement is that Allbert grows wi
 
 Through v0.14, the only ingestion path is the agent's own in-turn `web_search` and `fetch_url` with an opt-in `record_as` parameter ([ADR 0053](0053-background-web-learning-requires-explicit-user-intent.md)). That is a different feature: it captures what *the agent* searched mid-turn, not what *the user* did during their day.
 
-The v0.15 stub now names ambient ingestion as the next major release after the v0.14.1 repair pass and v0.14.2 structural split. This ADR records the provisional posture until the full v0.15 plan is drafted.
+The v0.15 stub now names ambient ingestion as the next major release after the v0.14.1 repair pass, v0.14.2 structural split, and v0.14.3 router reliability work. v0.15 also adds a RAG foundation first ([ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md)) so ingestion has a bounded retrieval substrate before new staged records start arriving. This ADR records the provisional ingestion posture until the full v0.15 plan is drafted.
 
 ## Decision (provisional)
 
@@ -24,6 +24,7 @@ Growth-loop ingestion lands in v0.15 with the following invariants:
 5. **Defensive double-redaction.** The v0.12.2 secret redactor runs at ingest time (first pass, defensive) and again at adapter-corpus build time (existing second pass, [ADR 0082](0082-trace-capture-privacy-and-redaction-posture.md)).
 6. **Bounded by daily caps.** Per-record byte cap and per-day record cap enforced at the daemon. Existing daily monetary cost cap ([ADR 0051](0051-daily-cost-cap-is-a-hard-gate-at-turn-boundary.md)) covers any LLM use during ingestion review.
 7. **No flag-day removals.** The existing `record_as` agent-driven path stays. The new ingestion path is additive.
+8. **RAG after review.** Staged ingestion records may be searched through explicit review surfaces, but they do not become trusted prompt context. Promoted ingestion records enter RAG through the same durable-memory path as any other promoted memory.
 
 Browser proxy mode is provisional but important enough to include in the full
 v0.15 design. The daemon may expose an optional local HTTP proxy and PAC file so
@@ -47,6 +48,7 @@ This ADR will be finalized when the v0.15 plan moves from Stub to Draft.
 - The "grows with you" promise becomes structurally real; v0.13 adapter training has a path from user activity → corpus.
 - Ingestion adapters (browser extension, browser proxy mode, future Slack/iMessage/email) normalize through the daemon-owned ingestion shape.
 - Staging-only avoids the trust trap of silently building a full activity log; reviewers see what landed before it shapes anything.
+- The v0.15 RAG foundation gives promoted ingest records a retrieval path without letting unreviewed staged ingest leak into ordinary turns.
 - The daemon remains the single trust boundary, but v0.15 must document the loopback browser listener surface clearly because browsers can be configured to route traffic through it.
 
 ## Alternatives considered (preview)
@@ -57,8 +59,10 @@ This ADR will be finalized when the v0.15 plan moves from Stub to Draft.
 - **Use only a browser extension.** Rejected as the full v0.15 browser story because a proxy/PAC path lets an operator point a browser profile at Allbert without extension APIs or per-browser packaging. The proxy is weaker for HTTPS detail, so it complements rather than replaces the extension.
 - **TLS-intercepting proxy with a local root CA.** Rejected for v0.15 because it is too privacy- and security-sensitive for the first ingestion release and would require separate ADR, operator education, and rollback tooling.
 - **Skip a dedicated staged-memory kind and reuse `kind: research`.** Tentatively rejected because reviewers want to filter ingest separately from agent-staged candidates. Final decision lands when v0.15 plan is finalized.
+- **Build ingestion before RAG.** Rejected for v0.15 ordering because ingestion would create a larger review and memory corpus before Allbert has a unified retrieval substrate for help, memory, and promoted ingest records.
 
 ## References
 
 - [MDN: Proxy Auto-Configuration file](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Proxy_servers_and_tunneling/Proxy_Auto-Configuration_PAC_file)
 - [RFC 9110 section 9.3.6: CONNECT](https://datatracker.ietf.org/doc/html/rfc9110#section-9.3.6)
+- [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md)
