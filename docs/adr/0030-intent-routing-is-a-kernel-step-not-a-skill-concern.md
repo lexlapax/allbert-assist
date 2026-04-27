@@ -3,6 +3,12 @@
 Date: 2026-04-18
 Status: Accepted
 
+> **v0.14.3 amendment**: default intent routing moves from semantic keyword
+> fast paths to a schema-bound LLM router that runs before full prompt assembly.
+> The router remains kernel-owned, internal, and trace/cost-attributed. It may
+> emit guarded schedule and explicit-memory action drafts, but those drafts are
+> executed only through existing Allbert tool, preview, and staging surfaces.
+
 ## Context
 
 v0.3 introduces intent classification: understanding what a user turn wants so the root agent can pick appropriate skills, spawn the right sub-agent, or route to the scheduler. Two shapes were considered:
@@ -23,6 +29,27 @@ Intent routing is a kernel step.
 - Later releases may let intent bias tool ordering or default behaviour, but they do not remove tools from the runtime or create intent-exclusive tool surfaces without a separate ADR that explicitly revisits this decision.
 - The classifier sub-call runs through the same provider client pool, cost log, and trace surface as any other LLM call. It is attributed as `intent-classifier` in cost logs.
 - The classifier output is cacheable per turn; the kernel does not re-run it for the same input within a session.
+
+### v0.14.3 router-first amendment
+
+v0.14.3 changes the default implementation shape without changing the
+kernel-owned-routing decision:
+
+- Default routing uses a structured `RouteDecision` JSON object from the LLM
+  router. Legacy rule classification remains available only when
+  `intent_classifier.rule_only = true` or the classifier is disabled.
+- The router receives bounded routing context only: user message, source/channel,
+  current time/timezone, last resolved intent, pending confirmation state, and a
+  bounded job-name index. It does not receive bootstrap files, full memory,
+  skill bodies, or tool results.
+- The router may emit action drafts only for
+  `schedule_upsert`, `schedule_pause`, `schedule_resume`, `schedule_remove`, and
+  `memory_stage_explicit`.
+- All action drafts require high confidence, no clarification request, schema
+  validation, and complete action fields before the kernel converts them into a
+  synthetic tool invocation.
+- Router failure, low confidence, malformed JSON, or missing fields fails
+  closed: no mutation occurs.
 
 ## Consequences
 

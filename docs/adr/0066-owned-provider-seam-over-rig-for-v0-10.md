@@ -4,6 +4,16 @@ Status: Accepted
 
 This ADR is accepted before the v0.10 implementation ships because it gates the implementation approach: v0.10 remains a proposed release, but the provider-framework decision is frozen so code work can proceed without reopening the Rig-vs-owned-seam question.
 
+> **v0.14.3 amendment**: provider request-shape maintenance remains part of
+> Allbert's owned seam. The seam gains an internal structured JSON-schema
+> response option for the intent router. OpenAI Responses uses `text.format`;
+> Ollama chat uses `format`; providers without native support use strict prompt
+> JSON plus local validation. The OpenAI Responses request mapper must also
+> serialize user text as `input_text`, assistant-history text as `output_text`,
+> user images as `input_image`, and reject assistant-side image history locally.
+> Provider-free mock tests must capture request bodies for structured router
+> mapping, role-specific content mapping, and usage parsing.
+
 ## Context
 
 v0.10 expands Allbert's model-provider support from Anthropic and OpenRouter to Anthropic, OpenRouter, OpenAI, Gemini, and local Ollama. That raised the obvious framework question: should Allbert keep writing direct provider clients, or adopt a Rust provider framework such as Rig?
@@ -36,8 +46,14 @@ Rig remains worth revisiting later if Allbert needs capabilities it is specifica
 
 ## Consequences
 
-- Provider clients remain small direct HTTP modules under `crates/allbert-kernel/src/llm/`.
-- Allbert owns provider request/response mapping, usage parsing, pricing tables, and image serialization.
+- Provider clients remain small direct HTTP modules under
+  `crates/allbert-kernel-services/src/llm/`, with shared provider contracts in
+  `crates/allbert-kernel-core/src/llm/provider.rs`.
+- Allbert owns provider request/response mapping, structured response mapping,
+  usage parsing, pricing tables, and image serialization.
+- Owning the provider seam means live provider API validation failures caused
+  by request-shape drift are patch-release candidates when they break ordinary
+  operator workflows.
 - v0.10 can make `api_key_env` optional and add `base_url` without fitting another framework's model config shape.
 - There is more provider-specific boilerplate than a framework would provide.
 - Future framework adoption remains possible behind the same `LlmProvider` trait if the tradeoff changes.

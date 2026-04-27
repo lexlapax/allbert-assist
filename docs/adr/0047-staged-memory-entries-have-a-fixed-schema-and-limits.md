@@ -5,6 +5,11 @@ Status: Accepted
 
 > **Amended in part by [ADR 0077](0077-episode-and-fact-memory-are-indexed-recall-not-durable-memory.md) in v0.11**: staged entries may carry optional temporal `facts` metadata, but those facts are not approved durable facts until promotion.
 
+> **v0.14.3 amendment**: router-drafted explicit-memory capture must produce
+> normal `explicit_request` staged entries with required summary, body,
+> provenance, caps, deduplication, and TTL. The router path changes how the
+> candidate is drafted, not the review schema or promotion policy.
+
 ## Context
 
 Staging (ADR 0042) is where autonomous learned memory lands before operator review. For staging to be a durable review surface rather than a rapidly-blown-out queue, v0.5 needs an explicit contract for what a staged entry looks like on disk and what limits prevent the queue from growing unboundedly.
@@ -64,6 +69,25 @@ expires_at: 2026-07-19T14:23:11Z              # created_at + staged_entry_ttl_da
 Kind values are a bounded registry, but the registry is additive across releases. Later ADRs may introduce new `kind` values when a new staging source needs distinct operator handling or review policy. Those additions must be documented explicitly, but they do not require renaming or migrating older entries. The expected next additive values are `meta` for operator-facing verification and maintenance surfacing, and `research` for explicit-intent web learning.
 
 The body (below the frontmatter) is the candidate memory content rendered as markdown. No binary attachments.
+
+### Router-drafted explicit-request staging
+
+When v0.14.3's schema-bound intent router returns a high-confidence
+`memory_stage_explicit` action draft, the resulting staged entry still uses the
+fixed schema above:
+
+- `kind` is `explicit_request`.
+- The markdown body is the router `memory_content` field.
+- `summary` is required, single-line, deterministic, and no longer than 240
+  characters. It comes from the router `memory_summary` field and is validated
+  before staging.
+- `provenance.prompt_excerpt` records a bounded excerpt of the original
+  operator request.
+- `source` reflects the initiating channel, usually `cli` or `channel`.
+- The normal per-turn cap, global cap, fingerprint deduplication,
+  already-durable rejection, and staged-entry TTL all apply unchanged.
+
+This router path must not create approved durable memory directly.
 
 ### Dedup fingerprint
 

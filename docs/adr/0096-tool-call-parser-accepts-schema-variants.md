@@ -3,13 +3,14 @@
 Date: 2026-04-26
 Status: Accepted
 
-Amended by the v0.14.3 draft plan to add flat named-call normalization
-and a schedule-specific no-tool retry guard for mutating recurring-job
-requests.
+Amended by the v0.14.3 draft plan to add flat named-call normalization,
+a schedule-specific no-tool retry guard for mutating recurring-job requests,
+and a shared one-retry budget for generic malformed-tool and schedule-specific
+retry paths.
 
 ## Context
 
-Through v0.14, every Allbert provider returns plain text. The kernel system prompt instructs the model to emit `<tool_call>{"name":"<tool>","input":{...}}</tool_call>` and the parser at [`lib.rs:4434`](../../crates/allbert-kernel/src/lib.rs) accepts only that exact shape.
+Through v0.14, every Allbert provider returns plain text. The kernel system prompt instructs the model to emit `<tool_call>{"name":"<tool>","input":{...}}</tool_call>` and the tool-call parser now lives in the split kernel layout at [`allbert-kernel-core/src/tool_call_parser.rs`](../../crates/allbert-kernel-core/src/tool_call_parser.rs) with service re-exports in [`allbert-kernel-services/src/tool_call_parser.rs`](../../crates/allbert-kernel-services/src/tool_call_parser.rs).
 
 Strong frontier models generally follow the XML format. The v0.10 fresh-profile default Ollama Gemma4 does not. An end-user transcript captured during v0.14.1 review showed Gemma4 emitting:
 
@@ -19,7 +20,7 @@ Strong frontier models generally follow the XML format. The v0.10 fresh-profile 
 
 The parser rejected this because it had no `name` or `input` keys, and the literal `<tool_call>` block leaked through to the user as final assistant output. The result is tool calling broken-by-default on a fresh local profile.
 
-The deeper architectural issue is that the `LlmProvider` trait has no `tools` field on [`CompletionRequest`](../../crates/allbert-kernel/src/llm/provider.rs) and no `tool_calls` field on `CompletionResponse`. Every provider uses XML-tagged text even when the underlying API supports structured tool calls. XML-tagged text remains the universal lowest-common-denominator; it is also the least reliable on small/local models.
+The deeper architectural issue is that the `LlmProvider` trait has no `tools` field on [`CompletionRequest`](../../crates/allbert-kernel-core/src/llm/provider.rs) and no `tool_calls` field on `CompletionResponse`. Every provider uses XML-tagged text even when the underlying API supports structured tool calls. XML-tagged text remains the universal lowest-common-denominator; it is also the least reliable on small/local models.
 
 ## Decision
 
@@ -97,11 +98,14 @@ The retry is bounded by the same daily cost cap and cost logging as any other pr
 v0.14.3 adds one schedule-specific retry guard on top of the generic malformed
 tool-call retry. When the resolved intent is `schedule`, the original user
 request clearly asks for a durable schedule mutation, and the model responds
-with prose confirmation but no tool call, the kernel retries once with a
-corrective message requiring `upsert_job`, `pause_job`, `resume_job`, or
-`remove_job`. The model must not ask "Shall I proceed?" in prose before the job
-tool call. The structured durable-change confirmation prompt remains the only
-approval surface for job mutations.
+with prose confirmation but no tool call, the kernel retries with a corrective
+message requiring `upsert_job`, `pause_job`, `resume_job`, or `remove_job`.
+The model must not ask "Shall I proceed?" in prose before the job tool call.
+The structured durable-change confirmation prompt remains the only approval
+surface for job mutations. The schedule-specific retry and the generic
+malformed-tool retry share one retry budget per turn; Allbert must not do one
+generic retry and then one schedule retry for the same provider-response
+failure.
 
 If that retry still fails or emits malformed JSON, Allbert surfaces a safe
 operator message that names the CLI fallback, `allbert-cli jobs upsert

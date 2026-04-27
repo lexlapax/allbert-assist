@@ -147,7 +147,7 @@ remember that Allbert operator tests use temporary ALLBERT_HOME profiles
 review what's staged
 ```
 
-Expected after the v0.14.3 explicit-memory reliability fix lands: the `remember that ...` request creates one staged-memory candidate, and `review what's staged` lists it.
+Expected after the v0.14.3 router-first reliability fix lands: the schema-bound intent router drafts an explicit-memory action, Allbert creates one staged-memory candidate through the normal staging pipeline, and `review what's staged` lists it.
 
 Current v0.14.2 behavior with local models may fail before staging, for example:
 
@@ -599,7 +599,7 @@ Expected: no local socket `Operation not permitted` failures under default paral
 
 ## v0.14.3 Conversational Scheduling Reliability
 
-v0.14.3 is a draft operator reliability patch. The release-blocking smoke is the local-model scheduling transcript that exposed the bug:
+v0.14.3 is a draft operator reliability patch. The foundation is a schema-bound intent router that runs before full prompt assembly. The release-blocking smoke is the local-model scheduling transcript that exposed the bug:
 
 ```bash
 run repl --classic
@@ -611,7 +611,7 @@ Then type:
 schedule a daily review at 07:00
 ```
 
-Expected after v0.14.3 lands: Allbert shows the structured durable scheduling confirmation in the same flow, not a plain prose `Shall I proceed?` prompt. Approve with `y`, then verify:
+Expected after v0.14.3 lands: the router drafts a guarded `schedule_upsert` action and Allbert shows the structured durable scheduling confirmation in the same flow, not a plain prose `Shall I proceed?` prompt. Approve with `y`, then verify:
 
 ```bash
 run jobs status daily-review
@@ -640,3 +640,59 @@ EOF
 run jobs upsert "$ALLBERT_HOME/daily-review.md"
 run jobs status daily-review
 ```
+
+## v0.14.3 Explicit Memory Reliability
+
+The v0.5 curated-memory smoke currently has a local-model dependency for the
+first staging step. After v0.14.3, the schema-bound router should draft
+explicit-memory staging actions before the full assistant prompt:
+
+```text
+remember that Allbert operator tests use temporary ALLBERT_HOME profiles
+please remember operator release smokes use temp profiles
+remember: staged memory stays review-first
+```
+
+Expected after v0.14.3 lands: each high-confidence router decision creates one staged
+`explicit_request` entry with a non-empty summary and does not promote it
+directly to durable memory. Verify with:
+
+```bash
+run memory staged list
+run memory staged show <staged-id>
+```
+
+Current v0.14.2 behavior may still route the first turn through the model and
+fail before staging. That is the v0.14.3 M2 blocking regression; it is not a
+failure of `memory staged list`, `memory promote`, or `memory search`.
+
+## v0.14.3 OpenAI Responses History Reliability
+
+This is an optional credentialed smoke. It requires `OPENAI_API_KEY` and should
+be run only when you intend to test the live OpenAI provider path:
+
+```bash
+run repl --classic
+```
+
+Then type:
+
+```text
+/model openai <model-id> OPENAI_API_KEY
+hello
+say one more thing
+```
+
+Expected after v0.14.3 lands: both turns succeed, including the second turn
+after assistant history exists. The failure to catch is:
+
+```text
+Invalid value: 'input_text'. Supported values are: 'output_text' and 'refusal'.
+param: input[1].content[0]
+```
+
+That error means assistant history was serialized as `input_text` instead of
+OpenAI Responses `output_text`. Current v0.14.2 may show this failure. For
+provider-free implementation validation, run the OpenAI provider mock tests that
+capture the request body and prove user text uses `input_text` while assistant
+history uses `output_text`.

@@ -3,6 +3,12 @@
 Date: 2026-04-19
 Status: Accepted
 
+> **v0.14.3 amendment**: mutating conversational schedule requests may be
+> drafted by the schema-bound intent router, but they must still enter the
+> daemon-backed job mutation tool before any prose confirmation. The structured
+> preview/confirmation surface remains the only approval path; a model asking
+> "Shall I proceed?" in plain text is not an acceptable durable-change flow.
+
 ## Context
 
 Prompt-native job tools make it possible for an interactive assistant session to create or modify recurring work. That is powerful, but it is also a durable mutation to the user's automation state.
@@ -29,9 +35,11 @@ This applies to:
 
 The conversational flow should:
 
-1. Produce a normalized preview of the intended durable change.
-2. Ask for explicit confirmation before persisting it.
-3. Persist through `JobManagerService` only after confirmation.
+1. Call the relevant job mutation tool (`upsert_job`, `pause_job`,
+   `resume_job`, or `remove_job`) for the durable schedule mutation.
+2. Produce a normalized preview of the intended durable change.
+3. Ask for explicit confirmation before persisting it.
+4. Persist through `JobManagerService` only after confirmation.
 
 The preview should show enough detail to be auditable:
 

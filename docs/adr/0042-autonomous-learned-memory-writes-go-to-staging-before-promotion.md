@@ -3,6 +3,11 @@
 Date: 2026-04-20
 Status: Accepted
 
+> **v0.14.3 amendment**: the schema-bound intent router may draft an explicit
+> memory capture action, but it still creates a staged `explicit_request`
+> candidate first. Router-drafted memory never promotes directly into approved
+> durable memory.
+
 ## Context
 
 Allbert already has raw memory file tools. That is not the same thing as permitting the agent to silently add new approved durable memory based on its own judgment. Once the assistant can infer lessons, preferences, and recurring facts across long-lived sessions, silent direct writes would make the durable memory corpus drift in ways the operator may never notice.
@@ -16,6 +21,10 @@ Autonomous learned-memory capture in v0.5 goes to staging first.
 - Agent-authored candidate learnings are written under `~/.allbert/memory/staging/`.
 - Promotion from staging into approved durable memory requires explicit operator approval through prompt-native review or CLI/operator commands.
 - Autonomous reasoning does not directly write approved durable memory documents.
+- Router-drafted explicit-memory capture follows the same staging-first rule.
+  It may bypass the full assistant prompt and model-generated `stage_memory`
+  tool call for reliability, but it must not bypass review, caps,
+  deduplication, TTL, or promotion policy.
 
 This ADR does **not** remove raw file tools:
 
