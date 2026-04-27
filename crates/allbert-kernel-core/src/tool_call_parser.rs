@@ -133,10 +133,10 @@ fn parse_json_call(value: Value) -> Result<ParsedToolCall, ToolParseError> {
     }
 
     if let Some(name) = value.get("name").and_then(Value::as_str) {
-        let input = object_input(
-            value.get("input").or_else(|| value.get("arguments")),
-            "name input/arguments",
-        )?;
+        let input = match value.get("input").or_else(|| value.get("arguments")) {
+            Some(raw) => object_input(Some(raw), "name input/arguments")?,
+            None => flat_named_input(&value)?,
+        };
         return Ok(ParsedToolCall::Named {
             name: name.to_string(),
             input,
@@ -161,6 +161,26 @@ fn parse_json_call(value: Value) -> Result<ParsedToolCall, ToolParseError> {
     Err(ToolParseError::UnsupportedShape(
         "expected name, tool, function, or program".into(),
     ))
+}
+
+fn flat_named_input(value: &Value) -> Result<Value, ToolParseError> {
+    let Some(object) = value.as_object() else {
+        return Err(ToolParseError::UnsupportedShape(
+            "name input/arguments is missing".into(),
+        ));
+    };
+    let mut input = serde_json::Map::new();
+    for (key, item) in object {
+        if key != "name" {
+            input.insert(key.clone(), item.clone());
+        }
+    }
+    if input.is_empty() {
+        return Err(ToolParseError::UnsupportedShape(
+            "name input/arguments is missing".into(),
+        ));
+    }
+    Ok(Value::Object(input))
 }
 
 fn object_input(value: Option<&Value>, label: &str) -> Result<Value, ToolParseError> {
@@ -252,6 +272,25 @@ mod tests {
             assert_eq!(calls[0].name, "request_input");
             assert_eq!(calls[0].input["prompt"], "x");
         }
+    }
+
+    #[test]
+    fn accepts_flat_named_call_with_payload_fields() {
+        let calls = resolve(
+            r#"<tool_call>{"name":"upsert_job","description":"Daily review","schedule":"@daily at 07:00","prompt":"Run review."}</tool_call>"#,
+        )
+        .expect("flat named call should resolve");
+        assert_eq!(calls[0].name, "upsert_job");
+        assert_eq!(calls[0].input["description"], "Daily review");
+        assert_eq!(calls[0].input["schedule"], "@daily at 07:00");
+        assert!(calls[0].input.get("name").is_none());
+    }
+
+    #[test]
+    fn rejects_empty_flat_named_call() {
+        let err = parse_tool_call_blocks(r#"<tool_call>{"name":"upsert_job"}</tool_call>"#)
+            .expect_err("empty flat call should fail");
+        assert!(matches!(err, ToolParseError::UnsupportedShape(_)));
     }
 
     #[test]

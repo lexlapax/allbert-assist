@@ -1247,19 +1247,40 @@ impl Kernel {
             );
             let mut pending_model_events = hook_ctx.pending_events;
             let mut response = response;
+            let mut parse_span =
+                self.begin_trace_span("parse_tool_calls", allbert_proto::SpanKind::Internal);
             let mut tool_calls_result = parse_and_resolve_tool_calls(
                 &response.text,
                 &self.tools,
                 active_allowed_tools.as_ref(),
                 &self.config.security,
             );
+            let mut retry_path: Option<&'static str> = None;
+            let mut schedule_retry_attempted = false;
+            let schedule_retry_eligible = schedule_retry_eligible_for_turn(
+                route_resolution.decision.as_ref(),
+                self.config.intent_classifier.rule_only,
+                resolved_intent.as_ref(),
+            );
+            let schedule_prose_retry = schedule_retry_eligible
+                && tool_calls_result
+                    .as_ref()
+                    .map(|calls| calls.is_empty())
+                    .unwrap_or(false)
+                && looks_like_plain_schedule_confirmation(&response.text);
 
-            if tool_calls_result.is_err() && self.config.intent.tool_call_retry_enabled {
-                let retry_system = format!(
-                    "{}\n\n{}",
-                    system_prompt,
+            if (tool_calls_result.is_err() || schedule_prose_retry)
+                && self.config.intent.tool_call_retry_enabled
+            {
+                let retry_instruction = if schedule_prose_retry {
+                    schedule_retry_attempted = true;
+                    retry_path = Some("schedule_prose_confirmation");
+                    schedule_mutation_retry_message(&self.tools.prompt_catalog())
+                } else {
+                    retry_path = Some("malformed_tool_call");
                     corrective_retry_message(&self.tools.prompt_catalog())
-                );
+                };
+                let retry_system = format!("{}\n\n{}", system_prompt, retry_instruction);
                 let retry_response = self
                     .llm
                     .complete(CompletionRequest {
@@ -1306,16 +1327,37 @@ impl Kernel {
                     &self.config.security,
                 );
             }
+            if let Some(span) = parse_span.as_mut() {
+                span.set_attribute(
+                    "allbert.tool_parse.retry_path",
+                    allbert_proto::AttributeValue::String(retry_path.unwrap_or("none").into()),
+                );
+                span.set_attribute(
+                    "allbert.tool_parse.schedule_retry_attempted",
+                    allbert_proto::AttributeValue::Bool(schedule_retry_attempted),
+                );
+                if let Err(err) = &tool_calls_result {
+                    span.set_attribute(
+                        "allbert.tool_parse.error",
+                        allbert_proto::AttributeValue::String(err.to_string()),
+                    );
+                }
+            }
 
             let tool_calls = match tool_calls_result {
                 Ok(calls) => calls,
                 Err(err) => {
-                    let final_text = self.finish_turn_output(
-                        state,
-                        &format!(
+                    if let Some(span) = parse_span {
+                        span.finish_error(err.to_string());
+                    }
+                    let message = if schedule_retry_eligible {
+                        schedule_safe_failure_message(&err.to_string())
+                    } else {
+                        format!(
                             "I could not parse the model's tool call safely: {err}. Please try again or switch to a model that follows the listed tool schema."
-                        ),
-                    );
+                        )
+                    };
+                    let final_text = self.finish_turn_output(state, &message);
                     state.messages.push(ChatMessage {
                         role: ChatRole::Assistant,
                         content: final_text.clone(),
@@ -1337,6 +1379,37 @@ impl Kernel {
                     });
                 }
             };
+            if schedule_retry_attempted && tool_calls.is_empty() {
+                if let Some(span) = parse_span {
+                    span.finish_error("schedule retry returned no tool calls");
+                }
+                let final_text = self.finish_turn_output(
+                    state,
+                    &schedule_safe_failure_message("schedule retry returned no tool calls"),
+                );
+                state.messages.push(ChatMessage {
+                    role: ChatRole::Assistant,
+                    content: final_text.clone(),
+                    attachments: Vec::new(),
+                });
+                for event in pending_model_events {
+                    (self.adapter.on_event)(&event);
+                }
+                if emit_terminal_events {
+                    (self.adapter.on_event)(&KernelEvent::AssistantText(final_text.clone()));
+                    (self.adapter.on_event)(&KernelEvent::TurnDone {
+                        hit_turn_limit: false,
+                    });
+                }
+                return Ok(AgentRunSummary {
+                    hit_turn_limit: false,
+                    assistant_text: Some(final_text),
+                    stop_reason: Some("schedule_tool_retry_failed".into()),
+                });
+            }
+            if let Some(span) = parse_span {
+                span.finish_ok();
+            }
 
             let final_text = self.finish_turn_output(state, &response.text);
             state.messages.push(ChatMessage {
@@ -3042,6 +3115,7 @@ Treat those paths as the attachment handles; do not expect raw binary bytes in p
         if self.job_manager.is_some() {
             prompt.push_str(
                 "\nWhen the user asks for recurring or scheduled work, use the daemon-backed job tools instead of generic file edits or subprocesses.\n\
+For durable schedule mutations, call the correct job mutation tool first; Allbert handles the structured preview and approval. Do not ask for plain prose confirmation such as \"Shall I proceed?\" before calling the job tool.\n\
 Common schedule forms you may compile to are:\n\
 - @daily at HH:MM\n\
 - @weekly on monday at HH:MM\n\
@@ -4657,6 +4731,48 @@ fn router_success_text(decision: &RouteDecision) -> String {
     }
 }
 
+fn schedule_retry_eligible_for_turn(
+    decision: Option<&RouteDecision>,
+    rule_only: bool,
+    resolved_intent: Option<&Intent>,
+) -> bool {
+    if rule_only {
+        return matches!(resolved_intent, Some(Intent::Schedule));
+    }
+    let Some(decision) = decision else {
+        return false;
+    };
+    decision.intent == Intent::Schedule
+        && matches!(
+            decision.action,
+            RouteAction::ScheduleUpsert
+                | RouteAction::SchedulePause
+                | RouteAction::ScheduleResume
+                | RouteAction::ScheduleRemove
+        )
+}
+
+fn looks_like_plain_schedule_confirmation(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    lower.contains("shall i proceed")
+        || lower.contains("should i proceed")
+        || lower.contains("confirm")
+        || lower.contains("proceed with scheduling")
+        || lower.contains("proceed with this schedule")
+}
+
+fn schedule_mutation_retry_message(tool_catalog: &str) -> String {
+    format!(
+        "Your previous response asked for plain prose confirmation for a durable schedule change. That is not accepted. Respond only with one XML tool-call block for the appropriate job mutation tool: upsert_job, pause_job, resume_job, or remove_job. Allbert will render the structured durable-change preview and ask the operator for approval. The active tool catalog is:\n{tool_catalog}"
+    )
+}
+
+fn schedule_safe_failure_message(reason: &str) -> String {
+    format!(
+        "I could not safely convert this schedule change into the required job mutation tool call ({reason}). Use the CLI fallback:\n\nallbert-cli jobs upsert <job-definition.md>\n\nYou can inspect the session trace with `allbert-cli trace show` for the bounded malformed provider-response provenance."
+    )
+}
+
 fn serialize_tool_value<T: serde::Serialize>(value: &T) -> ToolOutput {
     match serde_json::to_string_pretty(value) {
         Ok(content) => ToolOutput { content, ok: true },
@@ -5049,7 +5165,7 @@ fn intent_shape(intent: &Intent) -> IntentShape {
         },
         Intent::Schedule => IntentShape {
             prompt_preamble:
-                "Intent guidance: prefer daemon-backed job management, foreground durable effects, and use confirmation language that makes recurring changes explicit.",
+                "Intent guidance: use daemon-backed job management. For durable schedule mutations, call the job mutation tool first; Allbert handles approval through the structured preview.",
             tool_priority_order: &[
                 "list_jobs",
                 "get_job",

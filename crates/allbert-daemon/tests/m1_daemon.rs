@@ -3063,6 +3063,63 @@ async fn router_schedule_action_reaches_structured_job_confirmation() {
 }
 
 #[tokio::test]
+async fn schedule_prose_confirmation_retries_once_for_job_tool() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![
+            scripted(
+                r#"{"intent":"schedule","action":"schedule_upsert","confidence":"medium","needs_clarification":false,"clarifying_question":null,"job_name":"daily-review","job_description":"Daily review","job_schedule":"@daily at 07:00","job_prompt":"Run a concise daily review.","memory_summary":null,"memory_content":null,"reason":"The user asked to schedule a daily review, but the router is not fully confident."}"#,
+            ),
+            scripted("I can set that up. Shall I proceed with scheduling this?"),
+            scripted(
+                concat!(
+                    "<tool_call>{\"name\":\"upsert_job\",\"input\":",
+                    "{\"name\":\"daily-review\",\"description\":\"Daily review\",",
+                    "\"schedule\":\"@daily at 07:00\",",
+                    "\"prompt\":\"Run a concise daily review.\"}}",
+                    "</tool_call>"
+                ),
+            ),
+            scripted("Scheduled the daily review."),
+        ])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Repl, None)
+        .await
+        .expect("attach should succeed");
+
+    let (messages, confirms) = run_turn_with_confirms(
+        &mut client,
+        "schedule a daily review at 07:00",
+        ConfirmDecisionPayload::AllowOnce,
+    )
+    .await;
+    assert_eq!(confirms.len(), 1);
+    assert_eq!(confirms[0].program, "upsert_job");
+    assert_eq!(tool_call_names(&messages), vec!["upsert_job".to_string()]);
+    assert!(messages.into_iter().any(|message| matches!(
+        message,
+        ServerMessage::Event(KernelEventPayload::AssistantText(text))
+            if text == "Scheduled the daily review."
+    )));
+
+    let status = client
+        .get_job("daily-review")
+        .await
+        .expect("job should exist");
+    assert_eq!(status.definition.schedule, "@daily at 07:00");
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
 async fn interactive_session_can_list_pause_resume_and_remove_jobs_via_prompt_tools() {
     let home = TempHome::new();
     let paths = home.paths();

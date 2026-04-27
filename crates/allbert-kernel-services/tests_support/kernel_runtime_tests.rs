@@ -1055,7 +1055,7 @@ async fn intent_rule_only_uses_legacy_schedule_rules_without_router_call() {
         .as_ref()
         .expect("system prompt should exist");
     assert!(system.contains("Resolved intent: schedule"));
-    assert!(system.contains("prefer daemon-backed job management"));
+    assert!(system.contains("use daemon-backed job management"));
     assert!(system.contains("Preferred tool order: list_jobs, get_job, upsert_job"));
 }
 
@@ -5084,6 +5084,56 @@ async fn malformed_tool_call_retries_once_before_persisting_output() {
         })
         .collect::<Vec<_>>();
     assert_eq!(assistant_texts, vec!["done"]);
+}
+
+#[tokio::test]
+async fn schedule_prose_retry_uses_shared_single_retry_budget() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let requests = Arc::new(Mutex::new(Vec::new()));
+
+    let mut kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::clone(&events)),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            Arc::clone(&requests),
+            vec![
+                scripted_response(
+                    r#"{"intent":"schedule","action":"schedule_upsert","confidence":"medium","needs_clarification":false,"clarifying_question":null,"job_name":"daily-review","job_description":"Daily review","job_schedule":"@daily at 07:00","job_prompt":"Run a concise daily review.","memory_summary":null,"memory_content":null,"reason":"The request appears to be a schedule mutation but needs main-turn help."}"#,
+                ),
+                scripted_response("I can set that up. Shall I proceed?"),
+                scripted_response("Yes, I can proceed after you confirm."),
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    let summary = kernel
+        .run_turn("schedule a daily review at 07:00")
+        .await
+        .expect("turn should succeed");
+    assert_eq!(
+        summary.stop_reason.as_deref(),
+        Some("schedule_tool_retry_failed")
+    );
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 3, "router, first model, one retry");
+    assert!(requests[2]
+        .system
+        .as_deref()
+        .unwrap()
+        .contains("plain prose confirmation"));
+    assert!(events.lock().unwrap().iter().any(|event| matches!(
+        event,
+        KernelEvent::AssistantText(text)
+            if text.contains("allbert-cli jobs upsert <job-definition.md>")
+    )));
 }
 
 #[tokio::test]
