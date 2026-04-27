@@ -23,6 +23,8 @@ use tantivy::{Index, Term};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
+use allbert_kernel_core::rag::RagSourceKind;
+
 use crate::config::MemoryConfig;
 use crate::error::KernelError;
 use crate::paths::AllbertPaths;
@@ -291,6 +293,19 @@ pub struct TurnMemorySnapshot {
     pub sections: Vec<String>,
     pub prefetch_hits: Vec<SearchMemoryHit>,
     pub trimmed_sources: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RagMemorySource {
+    pub kind: RagSourceKind,
+    pub source_id: String,
+    pub source_path: Option<String>,
+    pub title: String,
+    pub tags: Vec<String>,
+    pub text: String,
+    pub privacy_tier: &'static str,
+    pub prompt_eligible: bool,
+    pub review_only: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -669,6 +684,203 @@ pub fn build_turn_memory_snapshot(
         prefetch_hits,
         trimmed_sources,
     })
+}
+
+pub(crate) fn collect_rag_memory_sources(
+    paths: &AllbertPaths,
+    config: &MemoryConfig,
+    include_staged_review: bool,
+) -> Result<Vec<RagMemorySource>, KernelError> {
+    let _ = reconcile_curated_memory(paths, config)?;
+    let manifest = load_manifest(paths)?;
+    let superseded_fact_ids = durable_superseded_fact_ids(paths, config, &manifest)?;
+    let mut sources = Vec::new();
+
+    for entry in &manifest.documents {
+        let full_path = paths.memory.join(&entry.path);
+        let raw = fs::read_to_string(&full_path)
+            .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", full_path.display())))?;
+        let (_, body_markdown) = split_frontmatter_and_body(&raw);
+        let body = markdown_to_plain_text(&body_markdown);
+        if !body.trim().is_empty() {
+            sources.push(RagMemorySource {
+                kind: RagSourceKind::DurableMemory,
+                source_id: format!("memory:durable:{}", entry.path),
+                source_path: Some(format!("memory/{}", entry.path)),
+                title: entry.title.clone(),
+                tags: tags_with(&entry.tags, &["memory", "durable"]),
+                text: format!("# {}\n\n{}", entry.title, body.trim()),
+                privacy_tier: "durable_memory",
+                prompt_eligible: true,
+                review_only: false,
+            });
+        }
+
+        if config.facts.enabled {
+            for fact in durable_facts_for_entry(paths, entry)? {
+                if !fact.id.is_empty() && superseded_fact_ids.contains(&fact.id) {
+                    continue;
+                }
+                let fact_id = if fact.id.is_empty() {
+                    sha256_hex(
+                        format!(
+                            "{}:{}:{}:{}",
+                            entry.path, fact.subject, fact.predicate, fact.object
+                        )
+                        .as_bytes(),
+                    )
+                } else {
+                    fact.id.clone()
+                };
+                let title = format!("Fact: {} {} {}", fact.subject, fact.predicate, fact.object);
+                let mut text = format!(
+                    "# {title}\n\nSubject: {}\nPredicate: {}\nObject: {}\nSource memory: {}\n",
+                    fact.subject, fact.predicate, fact.object, entry.path
+                );
+                if let Some(valid_from) = fact.valid_from.as_deref() {
+                    text.push_str(&format!("Valid from: {valid_from}\n"));
+                }
+                if let Some(valid_until) = fact.valid_until.as_deref() {
+                    text.push_str(&format!("Valid until: {valid_until}\n"));
+                }
+                sources.push(RagMemorySource {
+                    kind: RagSourceKind::FactMemory,
+                    source_id: format!("memory:fact:{}:{fact_id}", entry.path),
+                    source_path: Some(format!("memory/{}#fact-{}", entry.path, slugify(&fact_id))),
+                    title,
+                    tags: tags_with(&entry.tags, &["memory", "fact"]),
+                    text,
+                    privacy_tier: "durable_fact",
+                    prompt_eligible: true,
+                    review_only: false,
+                });
+            }
+        }
+    }
+
+    if config.episodes.enabled {
+        let episodes = collect_episode_docs(paths, config)?;
+        let mut by_session: BTreeMap<String, Vec<EpisodeDoc>> = BTreeMap::new();
+        for episode in episodes {
+            sources.push(RagMemorySource {
+                kind: RagSourceKind::EpisodeRecall,
+                source_id: episode.id.clone(),
+                source_path: Some(episode.path.clone()),
+                title: episode.title.clone(),
+                tags: vec![
+                    "memory".into(),
+                    "episode".into(),
+                    episode.role.clone(),
+                    episode.channel.clone(),
+                ],
+                text: format!(
+                    "# {}\n\nSession: {}\nTurn: {}\nRole: {}\nChannel: {}\n\n{}",
+                    episode.title,
+                    episode.session_id,
+                    episode.turn_id,
+                    episode.role,
+                    episode.channel,
+                    episode.body
+                ),
+                privacy_tier: "working_history",
+                prompt_eligible: true,
+                review_only: false,
+            });
+            by_session
+                .entry(episode.session_id.clone())
+                .or_default()
+                .push(episode);
+        }
+
+        for (session_id, mut episodes) in by_session {
+            episodes.sort_by(|left, right| {
+                left.timestamp_secs
+                    .cmp(&right.timestamp_secs)
+                    .then_with(|| left.turn_id.cmp(&right.turn_id))
+                    .then_with(|| left.role.cmp(&right.role))
+            });
+            let source_path = episodes
+                .first()
+                .map(|episode| episode.source_path.clone())
+                .unwrap_or_else(|| format!("{session_id}/turns.md"));
+            let channel = episodes
+                .first()
+                .map(|episode| episode.channel.clone())
+                .unwrap_or_else(|| "unknown".into());
+            let mut text = format!(
+                "# Session {session_id} working-history summary\n\nChannel: {channel}\nSource: sessions/{source_path}\n\n"
+            );
+            for episode in episodes
+                .iter()
+                .take(config.episodes.max_episode_summaries.max(1))
+            {
+                text.push_str(&format!(
+                    "## {} {} {}\n\n{}\n\n",
+                    episode.turn_id,
+                    episode.role,
+                    episode.title,
+                    truncate_to_bytes(&episode.body, 700)
+                ));
+            }
+            sources.push(RagMemorySource {
+                kind: RagSourceKind::SessionSummary,
+                source_id: format!("session-summary:{session_id}"),
+                source_path: Some(format!("sessions/{source_path}#summary")),
+                title: format!("Session {session_id} working-history summary"),
+                tags: vec![
+                    "memory".into(),
+                    "session".into(),
+                    "working_history".into(),
+                    channel,
+                ],
+                text,
+                privacy_tier: "working_history",
+                prompt_eligible: true,
+                review_only: false,
+            });
+        }
+    }
+
+    if include_staged_review {
+        for staged in list_staging_entries(&paths.memory_staging)? {
+            let raw = fs::read_to_string(&staged)
+                .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", staged.display())))?;
+            let (frontmatter_raw, body_markdown) = split_frontmatter_and_body(&raw);
+            let frontmatter: StageFrontmatter = serde_yaml::from_str(frontmatter_raw)
+                .unwrap_or_else(|_| {
+                    let mut fallback = empty_stage_frontmatter();
+                    fallback.kind = Some("unknown".into());
+                    fallback
+                });
+            let title = derive_title(&body_markdown, &staged);
+            let id = frontmatter
+                .id
+                .clone()
+                .unwrap_or_else(|| sha256_hex(staged.to_string_lossy().as_bytes()));
+            let kind = frontmatter.kind.unwrap_or_else(|| "unknown".into());
+            let summary = frontmatter.summary.unwrap_or_default();
+            let mut tags = frontmatter.tags.unwrap_or_default();
+            tags.extend(["memory".into(), "staged_review".into(), kind.clone()]);
+            tags.sort();
+            tags.dedup();
+            sources.push(RagMemorySource {
+                kind: RagSourceKind::StagedMemoryReview,
+                source_id: format!("staged-memory-review:{id}"),
+                source_path: Some(format!("memory/{}", relative_to_memory(paths, &staged)?)),
+                title,
+                tags,
+                text: format!(
+                    "# Pending staged memory: {id}\n\nKind: {kind}\nSummary: {summary}\n\n{}",
+                    markdown_to_plain_text(&body_markdown).trim()
+                ),
+                privacy_tier: "staged_review",
+                prompt_eligible: false,
+                review_only: true,
+            });
+        }
+    }
+
+    Ok(sources)
 }
 
 pub fn search_memory(
@@ -2009,6 +2221,14 @@ fn normalize_facts(
         normalized.push(fact);
     }
     Ok(normalized)
+}
+
+fn tags_with(existing: &[String], extras: &[&str]) -> Vec<String> {
+    let mut tags = existing.to_vec();
+    tags.extend(extras.iter().map(|tag| (*tag).to_string()));
+    tags.sort();
+    tags.dedup();
+    tags
 }
 
 fn embedding_provider(

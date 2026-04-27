@@ -1,8 +1,9 @@
 # RAG
 
 Allbert's RAG index is a local derived SQLite artifact for operator help,
-command descriptions, settings descriptions, and skill metadata. The index can
-be deleted and rebuilt from source truth.
+command descriptions, settings descriptions, skill metadata, durable memory,
+approved facts, and bounded session working history. The index can be deleted
+and rebuilt from source truth.
 
 ## Commands
 
@@ -21,6 +22,11 @@ v0.15 M2 supports real local vectors through Ollama embeddings and
 hybrid/vector search degrades to SQLite FTS when `rag.vector.fallback_to_lexical`
 is enabled. Run `ollama pull embeddinggemma` for the default local embedding
 model.
+
+Durable memory and approved facts can enter ordinary RAG results. Pending
+staged memory is review-only: it is not indexed by default, and even an explicit
+staged-memory review index requires a review-only search path before snippets
+are returned.
 
 RAG results are evidence with source labels. They do not authorize actions,
 change schedules, promote memory, or replace guarded tool policy.

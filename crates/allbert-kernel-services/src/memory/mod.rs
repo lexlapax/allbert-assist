@@ -1,5 +1,7 @@
 mod curated;
 
+pub(crate) use curated::collect_rag_memory_sources;
+
 pub use curated::{
     bootstrap_curated_memory, build_turn_memory_snapshot, forget_memory, gc_memory_recovery,
     get_staged_memory, list_staged_memory, memory_status, preview_forget_memory,

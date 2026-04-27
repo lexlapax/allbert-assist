@@ -4872,6 +4872,7 @@ async fn task_turn_refreshes_memory_once_after_tool_evidence() {
 
     let requests = Arc::new(Mutex::new(Vec::new()));
     let mut config = Config::default_template();
+    config.rag.enabled = false;
     config.security.fs_roots = vec![workspace.clone()];
 
     let mut kernel = Kernel::boot_with_parts(
@@ -4935,6 +4936,7 @@ async fn memory_prefetch_hooks_fire_for_prefetch_and_refresh() {
 
     let seen = Arc::new(Mutex::new(Vec::new()));
     let mut config = Config::default_template();
+    config.rag.enabled = false;
     config.security.fs_roots = vec![workspace.clone()];
     let mut kernel = Kernel::boot_with_parts(
         config,
@@ -4994,6 +4996,48 @@ async fn memory_prefetch_hooks_fire_for_prefetch_and_refresh() {
             ("after".to_string(), true),
         ]
     );
+}
+
+#[tokio::test]
+async fn rag_owned_memory_suppresses_tantivy_prefetch_snippets() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    fs::write(
+        paths.memory_notes.join("database.md"),
+        "# Database\n\nWe use Postgres for production.\n",
+    )
+    .unwrap();
+    let _ = memory::reconcile_curated_memory(&paths, &MemoryConfig::default()).unwrap();
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![CompletionResponse {
+                text: "RAG-owned memory path.".into(),
+                usage: Usage::default(),
+                tool_calls: Vec::new(),
+            }],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("what do you remember about production?")
+        .await
+        .unwrap();
+
+    let requests = requests.lock().unwrap();
+    let system = requests.last().unwrap().system.as_ref().unwrap();
+    assert!(!system.contains("## Retrieved memory"));
+    assert!(!system.contains("We use Postgres for production."));
 }
 
 fn test_pricing() -> Pricing {

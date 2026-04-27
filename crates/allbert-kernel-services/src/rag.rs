@@ -13,8 +13,8 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{
-    command_catalog, settings_catalog, AllbertPaths, Config, KernelError, SettingDescriptor,
-    SkillStore,
+    command_catalog, memory, settings_catalog, AllbertPaths, Config, KernelError,
+    SettingDescriptor, SkillStore,
 };
 
 pub const RAG_SCHEMA_VERSION: u32 = 1;
@@ -1314,8 +1314,20 @@ fn collect_sources(
     collect_command_catalog(&mut sources)?;
     collect_settings_catalog(&mut sources);
     collect_skill_metadata(paths, config, &mut sources);
+    collect_memory_sources(
+        paths,
+        config,
+        only.contains(&RagSourceKind::StagedMemoryReview)
+            || config
+                .rag
+                .sources
+                .contains(&RagSourceKind::StagedMemoryReview),
+        &mut sources,
+    )?;
     if !only.is_empty() {
         sources.retain(|source| only.contains(&source.kind));
+    } else {
+        sources.retain(|source| config.rag.sources.contains(&source.kind));
     }
     sources.sort_by(|a, b| {
         a.kind
@@ -1324,6 +1336,29 @@ fn collect_sources(
             .then_with(|| a.source_id.cmp(&b.source_id))
     });
     Ok(sources)
+}
+
+fn collect_memory_sources(
+    paths: &AllbertPaths,
+    config: &Config,
+    include_staged_review: bool,
+    sources: &mut Vec<CollectedSource>,
+) -> Result<(), KernelError> {
+    for source in memory::collect_rag_memory_sources(paths, &config.memory, include_staged_review)?
+    {
+        sources.push(CollectedSource {
+            kind: source.kind,
+            source_id: source.source_id,
+            source_path: source.source_path,
+            title: source.title,
+            tags: source.tags,
+            text: source.text,
+            privacy_tier: source.privacy_tier,
+            prompt_eligible: source.prompt_eligible,
+            review_only: source.review_only,
+        });
+    }
+    Ok(())
 }
 
 fn collect_operator_docs(sources: &mut Vec<CollectedSource>) -> Result<(), KernelError> {
@@ -1888,6 +1923,7 @@ impl RagRunStatusLabel for RagIndexRunStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use std::sync::atomic::Ordering;
 
     fn temp_paths() -> (tempfile::TempDir, AllbertPaths) {
@@ -2169,5 +2205,217 @@ mod tests {
         let denied = acquire_vector_query_permit(1);
         ACTIVE_VECTOR_QUERIES.store(0, Ordering::Release);
         assert!(denied.is_err());
+    }
+
+    #[test]
+    fn rag_indexes_durable_memory_and_facts() {
+        let (_temp, paths) = temp_paths();
+        let config = Config::default_template();
+        fs::create_dir_all(paths.memory_notes.join("projects")).unwrap();
+        fs::write(
+            paths.memory_notes.join("projects/warehouse.md"),
+            "---\nfacts:\n  - id: warehouse_db\n    subject: Analytics warehouse\n    predicate: uses\n    object: Postgres\n---\n# Analytics warehouse\n\nThe analytics warehouse uses Postgres for reporting.\n",
+        )
+        .unwrap();
+        memory::bootstrap_curated_memory(&paths, &config.memory).unwrap();
+
+        let summary = rebuild_rag_index(
+            &paths,
+            &config,
+            RagRebuildRequest {
+                stale_only: false,
+                sources: vec![RagSourceKind::DurableMemory, RagSourceKind::FactMemory],
+                include_vectors: false,
+                trigger: "test".into(),
+            },
+        )
+        .expect("memory RAG rebuild should succeed");
+        assert!(summary.source_count >= 2);
+
+        let durable = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "analytics warehouse reporting".into(),
+                sources: vec![RagSourceKind::DurableMemory],
+                mode: Some(RagRetrievalMode::Lexical),
+                limit: Some(5),
+                include_review_only: false,
+            },
+        )
+        .expect("durable memory should be searchable");
+        assert!(durable
+            .results
+            .iter()
+            .any(|result| result.source_kind == RagSourceKind::DurableMemory));
+
+        let facts = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "warehouse Postgres".into(),
+                sources: vec![RagSourceKind::FactMemory],
+                mode: Some(RagRetrievalMode::Lexical),
+                limit: Some(5),
+                include_review_only: false,
+            },
+        )
+        .expect("facts should be searchable");
+        assert!(facts
+            .results
+            .iter()
+            .any(|result| result.source_kind == RagSourceKind::FactMemory));
+    }
+
+    #[test]
+    fn rag_indexes_episode_recall_and_session_summary() {
+        let (_temp, paths) = temp_paths();
+        let config = Config::default_template();
+        let session_dir = paths.sessions.join("episode-session");
+        fs::create_dir_all(&session_dir).unwrap();
+        fs::write(
+            session_dir.join("turns.md"),
+            "# Session episode-session\n\n- channel: cli\n- started_at: 2026-04-20T00:00:00Z\n\n## 2026-04-20T01:02:03Z\n- channel: cli\n- cost_delta_usd: 0.000000\n\n### user\n\nPlease remember the blue notebook lives on shelf seven.\n\n### assistant\n\nI noted the shelf-seven notebook detail as working history.\n",
+        )
+        .unwrap();
+        memory::bootstrap_curated_memory(&paths, &config.memory).unwrap();
+
+        rebuild_rag_index(
+            &paths,
+            &config,
+            RagRebuildRequest {
+                stale_only: false,
+                sources: vec![RagSourceKind::EpisodeRecall, RagSourceKind::SessionSummary],
+                include_vectors: false,
+                trigger: "test".into(),
+            },
+        )
+        .expect("episode RAG rebuild should succeed");
+
+        let episode = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "blue notebook".into(),
+                sources: vec![RagSourceKind::EpisodeRecall],
+                mode: Some(RagRetrievalMode::Lexical),
+                limit: Some(5),
+                include_review_only: false,
+            },
+        )
+        .expect("episode recall should be searchable");
+        assert!(episode
+            .results
+            .iter()
+            .any(|result| result.source_kind == RagSourceKind::EpisodeRecall));
+
+        let summary = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "shelf seven".into(),
+                sources: vec![RagSourceKind::SessionSummary],
+                mode: Some(RagRetrievalMode::Lexical),
+                limit: Some(5),
+                include_review_only: false,
+            },
+        )
+        .expect("session summary should be searchable");
+        assert!(summary
+            .results
+            .iter()
+            .any(|result| result.source_kind == RagSourceKind::SessionSummary));
+    }
+
+    #[test]
+    fn staged_memory_is_review_only_and_requires_explicit_source() {
+        let (_temp, paths) = temp_paths();
+        let config = Config::default_template();
+        memory::bootstrap_curated_memory(&paths, &config.memory).unwrap();
+        memory::stage_memory(
+            &paths,
+            &config.memory,
+            memory::StageMemoryRequest {
+                session_id: "session".into(),
+                turn_id: "turn".into(),
+                agent: "allbert/root".into(),
+                source: "test".into(),
+                content: "Quartz staging secret should stay review-only.".into(),
+                kind: memory::StagedMemoryKind::ExplicitRequest,
+                summary: "Quartz staging secret".into(),
+                tags: vec!["test".into()],
+                provenance: None,
+                fingerprint_basis: None,
+                facts: Vec::new(),
+            },
+        )
+        .expect("stage memory should succeed");
+
+        rebuild_rag_index(
+            &paths,
+            &config,
+            RagRebuildRequest {
+                stale_only: false,
+                sources: Vec::new(),
+                include_vectors: false,
+                trigger: "test".into(),
+            },
+        )
+        .expect("default RAG rebuild should succeed");
+        let ordinary = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "Quartz staging secret".into(),
+                sources: vec![RagSourceKind::StagedMemoryReview],
+                mode: Some(RagRetrievalMode::Lexical),
+                limit: Some(5),
+                include_review_only: true,
+            },
+        )
+        .expect("ordinary index should be searchable");
+        assert!(ordinary.results.is_empty());
+
+        rebuild_rag_index(
+            &paths,
+            &config,
+            RagRebuildRequest {
+                stale_only: false,
+                sources: vec![RagSourceKind::StagedMemoryReview],
+                include_vectors: false,
+                trigger: "test".into(),
+            },
+        )
+        .expect("explicit staged RAG rebuild should succeed");
+        let hidden = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "Quartz staging secret".into(),
+                sources: vec![RagSourceKind::StagedMemoryReview],
+                mode: Some(RagRetrievalMode::Lexical),
+                limit: Some(5),
+                include_review_only: false,
+            },
+        )
+        .expect("review-only search should respect gating");
+        assert!(hidden.results.is_empty());
+
+        let review = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "Quartz staging secret".into(),
+                sources: vec![RagSourceKind::StagedMemoryReview],
+                mode: Some(RagRetrievalMode::Lexical),
+                limit: Some(5),
+                include_review_only: true,
+            },
+        )
+        .expect("explicit review search should find staged memory");
+        assert!(review
+            .results
+            .iter()
+            .any(|result| result.source_kind == RagSourceKind::StagedMemoryReview));
     }
 }

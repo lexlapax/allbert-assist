@@ -2601,7 +2601,10 @@ Rules:\n\
             }
         }
 
-        let prefetch_query = if let Some(refresh_query) = refresh_query {
+        let rag_owns_prompt_memory = self.rag_owns_prompt_memory();
+        let prefetch_query = if rag_owns_prompt_memory {
+            None
+        } else if let Some(refresh_query) = refresh_query {
             Some(refresh_query.to_string())
         } else if matches!(state.memory_prefetch_override, Some(false)) {
             None
@@ -2610,7 +2613,7 @@ Rules:\n\
         } else {
             None
         };
-        let refresh = refresh_query.is_some();
+        let refresh = refresh_query.is_some() && !rag_owns_prompt_memory;
 
         if let Some(query) = prefetch_query.as_deref() {
             let mut before_ctx = HookCtx::memory_event(
@@ -2712,6 +2715,19 @@ Rules:\n\
             Some(Intent::Task) | Some(Intent::Schedule) => true,
             Some(Intent::Chat) | Some(Intent::Meta) | None => has_memory_cues(user_input),
         }
+    }
+
+    fn rag_owns_prompt_memory(&self) -> bool {
+        self.config.rag.enabled
+            && self.config.rag.sources.iter().any(|source| {
+                matches!(
+                    source,
+                    RagSourceKind::DurableMemory
+                        | RagSourceKind::FactMemory
+                        | RagSourceKind::EpisodeRecall
+                        | RagSourceKind::SessionSummary
+                )
+            })
     }
 
     fn apply_memory_routing(
