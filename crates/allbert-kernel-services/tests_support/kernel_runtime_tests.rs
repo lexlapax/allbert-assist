@@ -5744,7 +5744,7 @@ async fn run_live_ollama_release_smoke() {
     config.model.base_url = std::env::var("OLLAMA_BASE_URL")
         .ok()
         .or_else(|| Provider::Ollama.default_base_url().map(str::to_string));
-    config.model.max_tokens = 64;
+    config.model.max_tokens = live_smoke_max_tokens(Provider::Ollama);
     config.security.fs_roots = vec![workspace_root.clone()];
 
     seed_completed_setup(&paths, &config);
@@ -5786,7 +5786,7 @@ async fn run_live_ollama_release_smoke() {
             base_url: std::env::var("OLLAMA_BASE_URL")
                 .ok()
                 .or_else(|| Provider::Ollama.default_base_url().map(str::to_string)),
-            max_tokens: 64,
+            max_tokens: live_smoke_max_tokens(Provider::Ollama),
             context_window_tokens: 0,
         })
         .await

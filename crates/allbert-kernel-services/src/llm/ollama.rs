@@ -51,6 +51,7 @@ impl LlmProvider for OllamaProvider {
             model: req.model,
             messages,
             stream: false,
+            think: false,
             options: OllamaOptions {
                 num_predict: req.max_tokens,
                 temperature: req.temperature,
@@ -81,6 +82,11 @@ impl LlmProvider for OllamaProvider {
             .await
             .map_err(|err| LlmError::Response(err.to_string()))?;
         let text = parsed.message.content;
+        if text.trim().is_empty() && parsed.done_reason.as_deref() == Some("length") {
+            return Err(LlmError::Response(
+                "ollama response stopped at length before producing visible content; increase model.max_tokens".into(),
+            ));
+        }
         Ok(CompletionResponse {
             text,
             usage: Usage {
@@ -118,6 +124,7 @@ struct OllamaRequest {
     model: String,
     messages: Vec<OllamaMessage>,
     stream: bool,
+    think: bool,
     options: OllamaOptions,
     #[serde(skip_serializing_if = "Option::is_none")]
     format: Option<serde_json::Value>,
@@ -181,6 +188,8 @@ fn attachment_base64(attachment: &ChatAttachment) -> Result<String, LlmError> {
 struct OllamaResponse {
     message: OllamaResponseMessage,
     #[serde(default)]
+    done_reason: Option<String>,
+    #[serde(default)]
     prompt_eval_count: Option<u64>,
     #[serde(default)]
     eval_count: Option<u64>,
@@ -227,6 +236,7 @@ mod tests {
 
         assert_eq!(body["model"], "gemma4");
         assert_eq!(body["stream"], false);
+        assert_eq!(body["think"], false);
         assert_eq!(body["messages"][0]["role"], "system");
         assert_eq!(body["messages"][1]["role"], "user");
         assert_eq!(body["options"]["num_predict"], 12);
@@ -330,6 +340,31 @@ mod tests {
             .await
             .expect_err("request should fail");
         assert!(err.to_string().contains("ollama status 500"));
+    }
+
+    #[tokio::test]
+    async fn surfaces_empty_length_responses() {
+        let (url, _request_rx) = spawn_json_server(
+            "200 OK",
+            r#"{"message":{"content":"","thinking":"spent budget thinking"},"done_reason":"length","prompt_eval_count":5,"eval_count":64}"#,
+        )
+        .await;
+        let provider = OllamaProvider::new_with_chat_url(url, reqwest::Client::new());
+        let err = provider
+            .complete(CompletionRequest {
+                system: None,
+                messages: Vec::new(),
+                model: "gemma4".into(),
+                max_tokens: 64,
+                tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
+            })
+            .await
+            .expect_err("empty truncated content should fail clearly");
+        assert!(err
+            .to_string()
+            .contains("ollama response stopped at length before producing visible content"));
     }
 
     async fn spawn_json_server(

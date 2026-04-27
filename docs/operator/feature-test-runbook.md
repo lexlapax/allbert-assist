@@ -348,6 +348,13 @@ Then type:
 say hello
 ```
 
+Gemma4 may spend part of the output budget on hidden thinking. Allbert's Ollama
+provider disables hidden thinking for chat requests because the runtime does not
+surface Ollama `message.thinking` as assistant output. If a manually lowered
+`model.max_tokens` setting still causes Ollama to stop at length before
+returning visible content, Allbert should surface a clear Ollama provider error
+rather than a blank assistant reply.
+
 Hosted live:
 
 ```bash
