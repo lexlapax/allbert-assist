@@ -1,6 +1,6 @@
 # Operator Feature Test Runbook
 
-This runbook gives concrete commands for testing Allbert operator/user-facing features from v0.1 through v0.14.2. Run commands from the repository root.
+This runbook gives concrete commands for testing Allbert operator/user-facing features from v0.1 through the current v0.14.x patch line. Run commands from the repository root.
 
 The examples use the source-tree command form:
 
@@ -508,3 +508,47 @@ done
 ```
 
 Expected: no local socket `Operation not permitted` failures under default parallel execution.
+
+## v0.14.3 Conversational Scheduling Reliability
+
+v0.14.3 is a draft operator reliability patch. The release-blocking smoke is the local-model scheduling transcript that exposed the bug:
+
+```bash
+run repl --classic
+```
+
+Then type:
+
+```text
+schedule a daily review at 07:00
+```
+
+Expected after v0.14.3 lands: Allbert shows the structured durable scheduling confirmation in the same flow, not a plain prose `Shall I proceed?` prompt. Approve with `y`, then verify:
+
+```bash
+run jobs status daily-review
+```
+
+Expected: the job exists with a daily 07:00 schedule.
+
+Failure to catch: the model asks `Shall I proceed?`, the operator types `yes`, and the next turn fails with `unsupported tool call shape: name input/arguments is missing`. That is the v0.14.3 blocking regression.
+
+Safe fallback before the product fix lands:
+
+```bash
+cat > "$ALLBERT_HOME/daily-review.md" <<'EOF'
+---
+name: daily-review
+description: Daily review
+enabled: true
+schedule: "@daily at 07:00"
+report: always
+max_turns: 3
+---
+
+Run a concise daily review.
+EOF
+
+run jobs upsert "$ALLBERT_HOME/daily-review.md"
+run jobs status daily-review
+```

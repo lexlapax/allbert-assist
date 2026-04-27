@@ -3,6 +3,10 @@
 Date: 2026-04-26
 Status: Accepted
 
+Amended by the v0.14.3 draft plan to add flat named-call normalization
+and a schedule-specific no-tool retry guard for mutating recurring-job
+requests.
+
 ## Context
 
 Through v0.14, every Allbert provider returns plain text. The kernel system prompt instructs the model to emit `<tool_call>{"name":"<tool>","input":{...}}</tool_call>` and the parser at [`lib.rs:4434`](../../crates/allbert-kernel/src/lib.rs) accepts only that exact shape.
@@ -23,15 +27,16 @@ v0.14.1 takes two steps without making provider-native tool calling release-bloc
 
 ### Parser robustness
 
-The parser accepts five shapes inside `<tool_call>...</tool_call>`:
+The parser accepts six shapes inside `<tool_call>...</tool_call>`:
 
 - `{"name": <str>, "input": <object>}` — current canonical.
 - `{"name": <str>, "arguments": <object>}` — OpenAI-style alias.
+- `{"name": <str>, ...flat_fields}` — flat named local-model shape; every non-`name` field is normalized into `input`.
 - `{"tool": <str>, ("input"|"args"|"arguments"|"parameters"): <object>}` — local-model alias with object input.
 - `{"function": {"name": <str>, "arguments": <object>}}` — nested OpenAI legacy shape.
 - `{"program": <str>, "args": [<str>...]}` — direct-spawn shape normalized to `process_exec`.
 
-The first four shapes require object inputs. The only accepted array-args shape is the direct-spawn `program` form.
+The canonical, alias, `tool`, and nested `function` shapes require object inputs. The flat named shape is accepted only when the object has a string `name`, has no `input` or `arguments`, and has at least one non-`name` field. Empty flat calls such as `{"name":"upsert_job"}` are rejected. The only accepted array-args shape is the direct-spawn `program` form.
 
 The implementation is explicitly two-stage:
 
@@ -54,6 +59,23 @@ metadata. This accepts the observed Gemma4 shape
 `{"program":"date","args":["date"]}` as a single `date` invocation instead of
 `date date`.
 
+The flat named shape exists for local models that flatten a tool schema into
+top-level JSON fields:
+
+```json
+{"name":"upsert_job","description":"Daily review","schedule":"@daily at 07:00","prompt":"Run a concise daily review."}
+```
+
+It normalizes deterministically to:
+
+```json
+{"name":"upsert_job","input":{"description":"Daily review","schedule":"@daily at 07:00","prompt":"Run a concise daily review."}}
+```
+
+No authorization moves into the parser. After normalization, the same resolve
+step checks the active tool catalog, active skill `allowed-tools`, confirmation
+hooks, and exec policy before dispatch.
+
 Normalization is deterministic: every accepted variant produces either a
 policy-approved `ToolInvocation` or a refusal/retry error. Normal tool dispatch
 still performs policy checks before execution as defense in depth.
@@ -71,6 +93,23 @@ is disabled, or after one failed retry, the kernel surfaces an operator-facing
 remediation rather than passing literal `<tool_call>` text through to the user.
 
 The retry is bounded by the same daily cost cap and cost logging as any other provider call.
+
+v0.14.3 adds one schedule-specific retry guard on top of the generic malformed
+tool-call retry. When the resolved intent is `schedule`, the original user
+request clearly asks for a durable schedule mutation, and the model responds
+with prose confirmation but no tool call, the kernel retries once with a
+corrective message requiring `upsert_job`, `pause_job`, `resume_job`, or
+`remove_job`. The model must not ask "Shall I proceed?" in prose before the job
+tool call. The structured durable-change confirmation prompt remains the only
+approval surface for job mutations.
+
+If that retry still fails or emits malformed JSON, Allbert surfaces a safe
+operator message that names the CLI fallback, `allbert-cli jobs upsert
+<job-definition.md>`, and points to trace inspection. The failure records
+bounded, redacted trace provenance: parse error, whether flat normalization was
+attempted, whether the scheduling retry was attempted, and which retry path was
+taken. Raw malformed payloads do not appear in ordinary user output unless
+trace capture and redaction settings already permit them.
 
 ### Provider seam
 
@@ -109,6 +148,8 @@ When provider-native tool calling lands, the kernel call site prefers `tool_call
 - The default Gemma4 profile can call tools reliably once v0.14.1 lands because the parser accepts the shapes Gemma actually emits.
 - The XML protocol stays universal; no provider becomes a hard dependency on structured tool calling.
 - The direct-spawn variant cannot bypass active tool catalog, active skill `allowed-tools`, or exec policy.
+- Flat named-call normalization lets local models recover from a common schema-flattening error while preserving the same authorization and confirmation gates.
+- Mutating conversational scheduling becomes deterministic: the model calls the job tool first, and Allbert owns the approval surface.
 - The `tools` seam is added once; later provider-native work is additive.
 - Stronger models that already emit the canonical shape continue through the original path.
 

@@ -24,6 +24,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.14 | Self-diagnosis and Unix co-tenant: trace-aware self-diagnose skill, curated local-utilities surface, bounded `unix_pipe` tool shape | Shipped | [v0.14-self-diagnosis.md](v0.14-self-diagnosis.md) |
 | v0.14.1 | Vision alignment: doc-reality gate, local-default tool-call parser fix, daemon adapter wiring, trainer factory wiring, concrete diagnosis remediation candidates | Shipped | [v0.14.1-vision-alignment.md](v0.14.1-vision-alignment.md) |
 | v0.14.2 | Kernel core/services split: retire the monolithic kernel crate, add direct core/services imports, default-parallel daemon socket reliability, and size/dependency gates | Shipped | [v0.14.2-kernel-core-services.md](v0.14.2-kernel-core-services.md) |
+| v0.14.3 | Operator reliability patch: deterministic conversational scheduling, local-model tool-call retry/provenance, and follow-up operator-test fixes | Draft | [v0.14.3-operator-reliability.md](v0.14.3-operator-reliability.md) |
 | v0.15 | Growth loop: local staged ingestion endpoint, CLI feed, browser extension/proxy proofs, and review-first ingestion memory flow | Stub | [v0.15-growth-loop.md](v0.15-growth-loop.md) |
 
 Note: some v0.9 contributor-contract work landed before the final v0.8 release-alignment pass. The roadmap order still reflects dependency intent rather than strict commit chronology.
@@ -137,9 +138,13 @@ v0.14.1 is therefore a repair point release. It does not add ingestion, a new pr
 
 The kernel split should happen only after the honesty repair lands. v0.14.1 freezes doc-reality checks and closes partial operator surfaces; v0.14.2 can then move code across crate boundaries without also carrying semantic behavior fixes. It also fixes the default-parallel daemon integration socket flake before the structural work is treated as release-ready. That separation keeps review focused: v0.14.1 proves the promised behavior, while v0.14.2 proves the architecture can stay compact and the validation suite can stay trustworthy without changing operator behavior.
 
-### v0.14.2 before v0.15
+### v0.14.2 before v0.14.3
 
-Growth-loop ingestion adds a new local service and protocol surface. v0.14.2 creates the acyclic core/services crate shape first and retires the old monolithic kernel crate, so ingestion can land in the service layer rather than inflating the runtime core. This keeps the origin note's "grows with you" ambition aligned with the equally important "compact, auditable kernel" principle.
+v0.14.2 intentionally changed architecture without adding operator-visible behavior. Live operator testing after that release surfaced a different kind of risk: local-model conversational scheduling can ask for plain-text approval and then fail to produce a parseable job tool call. v0.14.3 keeps that repair isolated as a patch release before the roadmap moves on to growth-loop ingestion.
+
+### v0.14.3 before v0.15
+
+Growth-loop ingestion adds a new local service and protocol surface. v0.14.2 creates the acyclic core/services crate shape first and retires the old monolithic kernel crate, so ingestion can land in the service layer rather than inflating the runtime core. v0.14.3 then makes the operator scheduling path deterministic for local models, which matters before adding more review and recurring-work surfaces. Together they keep the origin note's "grows with you" ambition aligned with the equally important "compact, auditable kernel" and reliable-operator-loop principles.
 
 ## Cross-cutting concerns
 
