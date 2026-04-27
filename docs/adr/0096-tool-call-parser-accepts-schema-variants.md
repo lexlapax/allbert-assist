@@ -96,16 +96,23 @@ remediation rather than passing literal `<tool_call>` text through to the user.
 The retry is bounded by the same daily cost cap and cost logging as any other provider call.
 
 v0.14.3 adds one schedule-specific retry guard on top of the generic malformed
-tool-call retry. When the resolved intent is `schedule`, the original user
-request clearly asks for a durable schedule mutation, and the model responds
-with prose confirmation but no tool call, the kernel retries with a corrective
-message requiring `upsert_job`, `pause_job`, `resume_job`, or `remove_job`.
-The model must not ask "Shall I proceed?" in prose before the job tool call.
-The structured durable-change confirmation prompt remains the only approval
-surface for job mutations. The schedule-specific retry and the generic
-malformed-tool retry share one retry budget per turn; Allbert must not do one
-generic retry and then one schedule retry for the same provider-response
-failure.
+tool-call retry. Retry eligibility is based on validated router metadata, not a
+lexical scan of words such as `daily`, `remind`, or `pause`: the current turn
+must have a valid router decision with `intent = schedule` and action
+`schedule_upsert`, `schedule_pause`, `schedule_resume`, or `schedule_remove`,
+but must have fallen through to the full assistant path instead of executing a
+high-confidence router draft. In explicit compatibility mode
+(`intent_classifier.rule_only = true`), the legacy rule classifier may be used
+as the eligibility source.
+
+When retry is eligible and the model responds with prose confirmation but no
+tool call, the kernel retries with a corrective message requiring `upsert_job`,
+`pause_job`, `resume_job`, or `remove_job`. The model must not ask "Shall I
+proceed?" in prose before the job tool call. The structured durable-change
+confirmation prompt remains the only approval surface for job mutations. The
+schedule-specific retry and the generic malformed-tool retry share one retry
+budget per turn; Allbert must not do one generic retry and then one schedule
+retry for the same provider-response failure.
 
 If that retry still fails or emits malformed JSON, Allbert surfaces a safe
 operator message that names the CLI fallback, `allbert-cli jobs upsert
@@ -163,3 +170,10 @@ When provider-native tool calling lands, the kernel call site prefers `tool_call
 - **Drop the XML protocol entirely and require provider-native tools.** Rejected because some providers and local deployments still do not expose structured tools.
 - **Train the user to avoid tool calls on Gemma4.** Rejected because the local-default profile should work out of the box.
 - **Multiple retries with exponential backoff.** Rejected because cost grows quickly and most parse failures are deterministic. One corrective retry catches the realistic recovery cases.
+
+## References
+
+- [docs/plans/v0.14.1-vision-alignment.md](../plans/v0.14.1-vision-alignment.md)
+- [docs/plans/v0.14.3-operator-reliability.md](../plans/v0.14.3-operator-reliability.md)
+- [ADR 0027](0027-durable-schedule-mutations-require-preview-and-explicit-confirmation.md)
+- [ADR 0030](0030-intent-routing-is-a-kernel-step-not-a-skill-concern.md)

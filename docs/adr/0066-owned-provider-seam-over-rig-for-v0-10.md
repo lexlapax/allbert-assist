@@ -36,6 +36,42 @@ Allbert keeps its owned `LlmProvider` seam in v0.10 and adds OpenAI, Gemini, and
 
 Rig is not adopted as the runtime provider framework in v0.10.
 
+### v0.14.3 structured response contract
+
+v0.14.3 extends the owned seam with an internal response-format request option
+for the intent router:
+
+```rust
+pub enum CompletionResponseFormat {
+    Text,
+    JsonSchema {
+        name: String,
+        schema: serde_json::Value,
+        strict: bool,
+    },
+}
+
+pub struct CompletionRequest {
+    // existing fields...
+    pub response_format: CompletionResponseFormat,
+    pub temperature: Option<f32>,
+}
+```
+
+Rules:
+
+- Existing chat, job, skill, self-diagnosis, and remediation calls use
+  `CompletionResponseFormat::Text`.
+- Router calls use `JsonSchema { name: "route_decision", strict: true, ... }`
+  and request `temperature = Some(0.0)` where the provider supports it.
+- OpenAI maps JSON schema requests to Responses `text.format`.
+- Ollama maps JSON schema requests to chat `format` and validates the returned
+  JSON locally.
+- Anthropic, OpenRouter, Gemini, and providers without native structured output
+  support use strict prompt JSON plus local validation and one corrective retry.
+- Unsupported structured output never degrades into an unvalidated action draft;
+  invalid JSON fails closed with no mutation.
+
 ## Rationale
 
 The current seam is intentionally narrow: complete a prompt, report usage, expose pricing, expose provider name, and declare image-input support. That narrow shape keeps provider behavior auditable and lets the kernel remain the policy surface.
@@ -61,6 +97,7 @@ Rig remains worth revisiting later if Allbert needs capabilities it is specifica
 ## References
 
 - [docs/plans/v0.10-provider-expansion.md](../plans/v0.10-provider-expansion.md)
+- [docs/plans/v0.14.3-operator-reliability.md](../plans/v0.14.3-operator-reliability.md)
 - [ADR 0005](0005-support-anthropic-and-openrouter-in-v0-1.md)
 - [ADR 0051](0051-daily-cost-cap-is-a-hard-gate-at-turn-boundary.md)
 - [ADR 0064](0064-default-contributor-validation-is-provider-free-temp-home-based-and-network-optional.md)

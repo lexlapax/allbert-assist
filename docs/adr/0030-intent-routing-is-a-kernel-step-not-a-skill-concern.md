@@ -8,6 +8,10 @@ Status: Accepted
 > The router remains kernel-owned, internal, and trace/cost-attributed. It may
 > emit guarded schedule and explicit-memory action drafts, but those drafts are
 > executed only through existing Allbert tool, preview, and staging surfaces.
+> This supersedes semantic keyword fast paths as the default routing authority;
+> legacy rule classification remains only behind `intent_classifier.rule_only =
+> true`. When `intent_classifier.enabled = false`, routing stays disabled and no
+> router action draft is produced.
 
 ## Context
 
@@ -23,11 +27,11 @@ Option 1 makes routing invisible to hooks, cost logs, and policy — every chang
 Intent routing is a kernel step.
 
 - v0.3 ships a bounded taxonomy: `{task, chat, schedule, memory_query, meta}`. Any expansion is a minor-version change, not an ad hoc skill concern.
-- Classification runs in two stages: rule-based fast paths (keyword / shape heuristics) first, LLM sub-call fallback when rules are ambiguous or return low confidence.
+- Classification originally ran in two stages: rule-based fast paths (keyword / shape heuristics) first, LLM sub-call fallback when rules are ambiguous or return low confidence. This remains the v0.3-v0.14.2 history and the v0.14.3 `intent_classifier.rule_only = true` compatibility path, but is no longer the v0.14.3 default.
 - New hook points `BeforeIntent` and `AfterIntent` allow external code to observe, override, or short-circuit classification.
 - The resolved `Intent` lands on `HookCtx` and is available to skills and agents as declarative context. It is a hint that guides skill selection, preferred agents, prompt shaping, confirmation style, and other routing defaults — it is not a hard gate.
 - Later releases may let intent bias tool ordering or default behaviour, but they do not remove tools from the runtime or create intent-exclusive tool surfaces without a separate ADR that explicitly revisits this decision.
-- The classifier sub-call runs through the same provider client pool, cost log, and trace surface as any other LLM call. It is attributed as `intent-classifier` in cost logs.
+- The classifier/router sub-call runs through the same provider client pool, cost log, and trace surface as any other LLM call. v0.3-v0.14.2 attributed it as `intent-classifier`; v0.14.3 default router calls are attributed as `intent-router`.
 - The classifier output is cacheable per turn; the kernel does not re-run it for the same input within a session.
 
 ### v0.14.3 router-first amendment
@@ -37,7 +41,7 @@ kernel-owned-routing decision:
 
 - Default routing uses a structured `RouteDecision` JSON object from the LLM
   router. Legacy rule classification remains available only when
-  `intent_classifier.rule_only = true` or the classifier is disabled.
+  `intent_classifier.rule_only = true`; disabled routing remains disabled.
 - The router receives bounded routing context only: user message, source/channel,
   current time/timezone, last resolved intent, pending confirmation state, and a
   bounded job-name index. It does not receive bootstrap files, full memory,
@@ -47,7 +51,10 @@ kernel-owned-routing decision:
   `memory_stage_explicit`.
 - All action drafts require high confidence, no clarification request, schema
   validation, and complete action fields before the kernel converts them into a
-  synthetic tool invocation.
+  synthetic runtime action.
+- Router action conversion is terminal for the turn when it succeeds. Allbert
+  records a deterministic operator-facing notice and does not persist a fake
+  assistant-authored message for the router decision.
 - Router failure, low confidence, malformed JSON, or missing fields fails
   closed: no mutation occurs.
 
@@ -59,7 +66,7 @@ kernel-owned-routing decision:
 - Skills stop carrying routing logic that rightfully belongs in the runtime.
 
 **Negative**
-- Adds a potentially small LLM sub-call to some turns. Must be cheap; rules must carry the common cases.
+- Adds a potentially small LLM sub-call to some turns. From v0.14.3 onward the router call must be cheap and bounded; semantic keyword rules no longer carry common cases by default.
 - Taxonomy expansion means a kernel change rather than a prompt change.
 
 **Neutral**
@@ -72,3 +79,4 @@ kernel-owned-routing decision:
 - [ADR 0021](0021-kernel-multiplexes-sessions-shared-runtime-per-session-state.md)
 - [ADR 0029](0029-agents-are-first-class-runtime-participants.md)
 - [docs/plans/v0.03-agent-harness.md](../plans/v0.03-agent-harness.md)
+- [docs/plans/v0.14.3-operator-reliability.md](../plans/v0.14.3-operator-reliability.md)
