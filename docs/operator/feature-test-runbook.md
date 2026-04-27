@@ -818,3 +818,37 @@ Channel smoke:
 Expected: REPL/TUI support status, search, rebuild, cancel, and GC through the
 daemon. Telegram supports `/rag status` and `/rag search <query>` only; rebuild
 and GC stay on local terminal surfaces.
+
+Collection-aware M7 smoke:
+
+```bash
+run rag collections list
+run rag collections create user release-docs --source docs/operator
+run rag collections ingest user release-docs
+run rag collections rebuild user release-docs --vectors
+run rag search "configure Telegram" --collection-type user --collection release-docs
+run rag collections delete user release-docs
+```
+
+Expected: system collections remain searchable with omitted collection filters,
+the user collection search returns only `user/release-docs` snippets, prompt
+context does not include user collection snippets until the collection is
+explicitly attached to the task/session, and delete removes derived RAG rows
+without deleting source files.
+
+URL collection M7 smoke:
+
+```bash
+run rag collections create user release-web --source https://example.com/
+run rag collections ingest user release-web
+run rag collections rebuild user release-web --vectors
+run rag search "example domain" --collection-type user --collection release-web
+run rag collections delete user release-web
+```
+
+Expected: URL ingestion is exact-URL by default, records final URL/HTTP status
+and validator metadata when available, honors robots.txt, caps bytes/pages/time,
+and rejects unsupported schemes, embedded credentials, localhost, loopback,
+link-local/private targets, cloud-metadata targets, and unsafe redirects. Plain
+HTTP is either rejected by policy or recorded with a visible degraded/insecure
+posture.

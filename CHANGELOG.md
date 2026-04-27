@@ -2,6 +2,11 @@
 
 ## v0.15.0 - 2026-04-27
 
+Closeout note: M0-M6 are implemented, but the final v0.15.0 tag is blocked on
+M7 collection-aware user RAG. M7 adds schema-v2 logical collections, a built-in
+RAG skill surface, trusted local ingestion, and explicit HTTP(S) URL ingestion
+before release readiness review.
+
 - added a derived SQLite RAG index under `~/.allbert/index/rag/rag.sqlite` with source catalog, chunking, FTS fallback, run history, stale detection, status/search/rebuild/doctor/GC commands, and deterministic source ids
 - added real local vector RAG through Ollama embeddings and `sqlite-vec`, including `embeddinggemma` setup guidance, dimension/model invalidation, retry/timeout/concurrency limits, hybrid fusion, and lexical degradation when vectors are unavailable
 - indexed operator docs, command catalog, settings catalog, skill metadata, durable memory, approved facts, episode recall, and session summaries while keeping staged memory review-only
@@ -11,7 +16,7 @@
 - added end-to-end control-flow tests proving router-before-RAG ordering, terminal router action precedence, chat skip behavior, daemon-owned maintenance, and no prompt-authored RAG job definitions
 - bumped all crates and lockfile package entries to `0.15.0`
 
-More detail: [v0.15 upgrade notes](docs/notes/v0.15-upgrade-2026-04-27.md), [v0.15 plan](docs/plans/v0.15-rag-recall-help.md), [RAG operator guide](docs/operator/rag.md), [ADR 0106](docs/adr/0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md), [ADR 0107](docs/adr/0107-rag-vectors-use-local-ollama-embeddings-and-sqlite-vec.md), [ADR 0108](docs/adr/0108-rag-indexing-is-daemon-maintained-and-channel-visible.md), and [ADR 0109](docs/adr/0109-v0-15-services-size-gate-rescoped-for-rag.md).
+More detail: [v0.15 upgrade notes](docs/notes/v0.15-upgrade-2026-04-27.md), [v0.15 plan](docs/plans/v0.15-rag-recall-help.md), [RAG operator guide](docs/operator/rag.md), [ADR 0106](docs/adr/0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md), [ADR 0107](docs/adr/0107-rag-vectors-use-local-ollama-embeddings-and-sqlite-vec.md), [ADR 0108](docs/adr/0108-rag-indexing-is-daemon-maintained-and-channel-visible.md), [ADR 0109](docs/adr/0109-v0-15-services-size-gate-rescoped-for-rag.md), and [ADR 0110](docs/adr/0110-rag-collections-separate-system-and-user-corpora.md).
 
 ## v0.14.3 - 2026-04-27
 

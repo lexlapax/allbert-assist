@@ -534,6 +534,39 @@ Test:
 - Confirm Telegram exposes `/rag status` and `/rag search <query>` but does not start rebuilds.
 - Confirm scheduled RAG maintenance is daemon-owned and no `jobs/definitions/*rag*` prompt job appears.
 
+Release-blocking M7 collection smoke:
+
+```bash
+allbert-cli rag collections list
+allbert-cli rag collections create user release-docs --source docs/operator
+allbert-cli rag collections ingest user release-docs
+allbert-cli rag collections rebuild user release-docs --vectors
+allbert-cli rag search "configure Telegram" --collection-type user --collection release-docs
+allbert-cli rag collections delete user release-docs
+```
+
+Release-blocking M7 URL collection smoke:
+
+```bash
+allbert-cli rag collections create user release-web --source https://example.com/
+allbert-cli rag collections ingest user release-web
+allbert-cli rag collections rebuild user release-web --vectors
+allbert-cli rag search "example domain" --collection-type user --collection release-web
+allbert-cli rag collections delete user release-web
+```
+
+Test:
+
+- Confirm default system RAG searches still work when no user collection is selected.
+- Confirm the user collection search returns only `user/release-docs` snippets.
+- Confirm user collection snippets do not enter prompt context until explicitly attached to the task/session.
+- Confirm collection delete removes derived RAG rows without deleting source files.
+- Confirm URL ingestion records the final URL, HTTP status, robots posture,
+  ETag or Last-Modified when available, and a degraded posture for HTTP.
+- Confirm URL ingestion rejects unsupported schemes, embedded credentials,
+  localhost, loopback, private/link-local targets, cloud-metadata targets, and
+  redirects to any rejected target.
+
 ## Telegram
 
 Telegram is optional and credentialed.
@@ -615,6 +648,9 @@ Optional live/operator checks:
 - Telegram live bot test after token and allowlist setup.
 - Real adapter training after selecting, allowlisting, and installing a local trainer backend.
 - Ollama vector RAG smoke after `ollama pull embeddinggemma`.
+- Collection-aware user RAG smoke after M7 lands: create a user collection from
+  a trusted local path and an explicit HTTPS URL, rebuild vectors, search only
+  each collection, and verify default system RAG still works.
 
 ## Current Limitations
 
@@ -629,6 +665,11 @@ Optional live/operator checks:
 - Local utility enablement is host-specific and excluded from profile export/sync.
 - `unix_pipe` is text-only, bounded, and direct-spawn; it is not a shell runtime.
 - RAG vectors are local-Ollama only in this release; if Ollama or `embeddinggemma` is unavailable, RAG falls back to lexical SQLite FTS when configured to do so.
+- Collection-aware user RAG is release-blocking M7 scope for v0.15 closeout.
+  User collection ingestion supports trusted local files/directories and
+  explicit HTTP(S) URL sources. Ambient web crawling, browser capture,
+  authenticated web sessions, JavaScript execution, and broad URL traversal are
+  still out of scope.
 - Hosted providers ignore active adapters; adapter activation is local-provider-only.
 - Self-diagnosis explains by default; remediation is opt-in and review-first.
 - `rust-rebuild` requires a local source checkout and never swaps the running binary automatically.

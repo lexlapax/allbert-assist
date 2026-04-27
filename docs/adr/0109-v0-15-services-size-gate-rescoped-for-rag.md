@@ -4,7 +4,7 @@ Date: 2026-04-27
 Status: Accepted
 
 Amends: ADR 0100
-Related: ADR 0106, ADR 0107, ADR 0108
+Related: ADR 0106, ADR 0107, ADR 0108, ADR 0110
 
 ## Context
 
@@ -30,6 +30,12 @@ future allbert-kernel-services src/              32592 LOC  limit <30000  FAIL
 The failure is real: the old ceiling no longer matches the accepted v0.15 RAG
 scope.
 
+ADR 0110 adds collection-aware RAG and a built-in user RAG skill before v0.15
+closeout. That scope still belongs in `allbert-kernel-services` because
+collection schema, trusted-root ingestion, URL ingestion guards, search
+filtering, prompt eligibility, and daemon maintenance are concrete service
+behavior, not core DTO logic.
+
 ## Decision
 
 Raise the services size gate from `<30000` to `<40000` checked-in Rust lines for
@@ -51,12 +57,19 @@ indiscriminately. If services approaches 40,000 LOC, the next release must
 either split concrete service modules into narrower crates with a clear contract
 boundary or retire old service code.
 
+Collection-aware M7 work must stay within this `<40000` gate. If the RAG skill
+or collection ingestion pushes the services crate near the ceiling, the
+implementation must split along a concrete service boundary instead of raising
+the gate again inside v0.15.
+
 ## Consequences
 
 **Positive**
 
 - v0.15 can keep real RAG behavior in the service layer where ADR 0106 placed
   it.
+- v0.15 can add collection-aware user RAG without moving source policy or
+  trusted-root or URL ingestion into core.
 - The size gate remains honest: production code is counted instead of hidden.
 - The release validation path keeps a concrete ceiling and still fails on
   unbounded growth.
@@ -67,11 +80,14 @@ boundary or retire old service code.
   allowed.
 - Future feature work has less headroom before another split or retirement pass
   is required.
+- M7 consumes more of the v0.15 services headroom and should be reviewed as a
+  release-blocking expansion, not a casual doc tweak.
 
 **Neutral**
 
 - This does not change the core/services dependency direction.
-- This does not change any operator-visible RAG behavior.
+- ADR 0110 changes operator-visible RAG behavior, but not the reason the
+  concrete behavior belongs in services.
 
 ## References
 
@@ -79,4 +95,5 @@ boundary or retire old service code.
 - [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md)
 - [ADR 0107](0107-rag-vectors-use-local-ollama-embeddings-and-sqlite-vec.md)
 - [ADR 0108](0108-rag-indexing-is-daemon-maintained-and-channel-visible.md)
+- [ADR 0110](0110-rag-collections-separate-system-and-user-corpora.md)
 - [docs/plans/v0.15-rag-recall-help.md](../plans/v0.15-rag-recall-help.md)

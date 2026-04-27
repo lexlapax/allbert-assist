@@ -4,7 +4,7 @@ Date: 2026-04-26
 Status: Accepted
 
 Amends: ADR 0045, ADR 0046, ADR 0078
-Related: ADR 0107, ADR 0108
+Related: ADR 0107, ADR 0108, ADR 0110
 
 ## Context
 
@@ -28,6 +28,12 @@ The v0.15 plan now treats real local vectors as release scope, not a follow-up.
 SQLite FTS remains necessary for lexical fallback and source filtering, but the
 primary v0.15 RAG path is hybrid retrieval over local vector search plus FTS.
 
+ADR 0110 extends this decision before release closeout: the SQLite RAG database
+is collection-aware, so Allbert-owned system corpora and explicit user
+task/corpus collections can share the same retrieval engine without sharing
+prompt eligibility or trust boundaries. User collections can be backed by
+trusted local paths or explicit bounded HTTP(S) URL sources.
+
 ## Decision
 
 v0.15 introduces a `RagService` backed by a derived SQLite database.
@@ -35,12 +41,15 @@ v0.15 introduces a `RagService` backed by a derived SQLite database.
 - Concrete behavior lives in `allbert-kernel-services`.
 - Core owns only config and DTO/contract types frontends need.
 - The derived index lives under `~/.allbert/index/rag/rag.sqlite`.
+- The derived index contains logical collections. Existing source kinds map
+  into `system` collections, and explicit user-provided task corpora map into
+  `user` collections.
 - Source markdown, generated command descriptors, settings descriptors, skill
   metadata, memory markdown, session-derived recall artifacts, and future
   promoted ingestion records remain the sources of truth.
-- SQLite metadata tables track sources, chunks, content hashes, schema version,
-  source kind, provenance, lifecycle timestamps, vector posture, and run
-  history.
+- SQLite metadata tables track collections, sources, chunks, content hashes,
+  schema version, source kind, collection type/name, provenance, lifecycle
+  timestamps, vector posture, and run history.
 - SQLite FTS is the lexical retrieval baseline and fallback.
 - Vector retrieval is release scope and layers behind an owned vector backend
   trait.
@@ -103,6 +112,11 @@ separate privacy, cost, and provider-surface decision.
   episode working history.
 - Ordinary task turns receive bounded RAG snippets only when the router posture
   or explicit user request justifies it.
+- User collections are searched or rendered only when explicitly selected for a
+  task/session or named in a scoped RAG skill/search request.
+- URL-backed user collections are still user collections: they require explicit
+  operator creation, URL trust checks, and collection filters, and they do not
+  enter default prompt retrieval.
 - Staged memory and future staged ingestion records are searchable for explicit
   review surfaces but are not trusted prompt context.
 - Future promoted ingestion records enter RAG through the durable-memory path.
@@ -118,6 +132,8 @@ separate privacy, cost, and provider-surface decision.
   model memory.
 - Future growth-loop ingestion has a retrieval substrate before it starts
   collecting new staged records.
+- Explicit user RAG collections can reuse the same retrieval substrate without
+  becoming durable memory or ordinary prompt context.
 - Local vector RAG works without a hosted provider.
 - Lexical RAG remains available when vectors are disabled or degraded.
 - Semantic retrieval grows from a memory-only seam into a cross-source service
@@ -131,6 +147,8 @@ separate privacy, cost, and provider-surface decision.
   release decides whether consolidation is worth the migration cost.
 - Real local embeddings require Ollama and an embedding model to be installed
   for full vector behavior.
+- Collection-aware user RAG reopens v0.15 closeout with schema-v2 and
+  additional local-ingestion, URL-ingestion, and prompt-gating tests.
 
 **Neutral**
 
@@ -156,6 +174,7 @@ rebuildable before the full store lands.
 - [docs/plans/future-plans.md](../plans/future-plans.md)
 - [ADR 0107](0107-rag-vectors-use-local-ollama-embeddings-and-sqlite-vec.md)
 - [ADR 0108](0108-rag-indexing-is-daemon-maintained-and-channel-visible.md)
+- [ADR 0110](0110-rag-collections-separate-system-and-user-corpora.md)
 - [ADR 0045](0045-memory-index-is-a-derived-artifact-rebuilt-from-markdown-ground-truth.md)
 - [ADR 0046](0046-v0-5-memory-retrieval-uses-tantivy.md)
 - [ADR 0078](0078-semantic-memory-is-optional-derived-retrieval.md)
