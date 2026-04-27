@@ -3,7 +3,7 @@
 Date: 2026-04-24
 Status: Accepted
 
-> **Amended in part by [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md) in v0.15 (planned)**: the v0.11 fake-provider semantic-memory seam becomes the precursor to a broader SQLite-backed RAG service. v0.15 may add real embedding providers through an owned seam while preserving provider-free lexical retrieval and review gates.
+> **Amended in part by [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md) and [ADR 0107](0107-rag-vectors-use-local-ollama-embeddings-and-sqlite-vec.md) in v0.15 (planned)**: the v0.11 fake-provider semantic-memory seam becomes the precursor to a broader SQLite-backed RAG service. v0.15 plans real local Ollama embeddings through an owned seam while preserving provider-free lexical fallback and review gates.
 
 ## Context
 
@@ -47,8 +47,7 @@ Rules:
 
 **Neutral**
 
-- A future release may promote a local embedding model as a recommended default, but v0.11 does not.
-- v0.15 may introduce real embedding providers for RAG through ADR 0106, but vector retrieval remains optional and derived; no embedding call is required for provider-free lexical RAG.
+- v0.15 plans real local-vector RAG through ADR 0106 and ADR 0107, but vector retrieval remains optional and derived; no embedding call is required for lexical RAG fallback.
 
 ## References
 
@@ -57,3 +56,4 @@ Rules:
 - [ADR 0046](0046-v0-5-memory-retrieval-uses-tantivy.md)
 - [ADR 0066](0066-owned-provider-seam-over-rig-for-v0-10.md)
 - [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md)
+- [ADR 0107](0107-rag-vectors-use-local-ollama-embeddings-and-sqlite-vec.md)

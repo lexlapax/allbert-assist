@@ -13,7 +13,7 @@ Current planning anchors:
 - [Roadmap](roadmap.md)
 - [Vision](../vision.md)
 - [Origin note](../notes/origin-2026-04-17.md)
-- [ADR 0106: RAG index is a derived SQLite lexical/vector store](../adr/0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md)
+- [ADR 0106: RAG index is a derived SQLite vector and lexical store](../adr/0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md)
 - [ADR 0101: Growth-loop ingestion is daemon-owned, single-endpoint, staging-only](../adr/0101-growth-loop-ingestion-is-daemon-owned-staging-only.md)
 
 ## Growth-loop ingestion and activity capture
@@ -192,11 +192,11 @@ References:
 
 Status: Future seam.
 
-Provider-native tool calling is adjacent to the router/RAG work but should not
-be bundled into v0.15 unless the RAG implementation explicitly needs it. The
-current source tree already has the schema-bound router repair from v0.14.3 and
-provider-owned parsing improvements from v0.14.1; native provider tools can
-land as a focused follow-up.
+Provider-native tool calling is adjacent to the router/RAG work but is not
+bundled into v0.15. The current source tree already has the schema-bound router
+repair from v0.14.3 and provider-owned parsing improvements from v0.14.1;
+native provider tools can land as a focused follow-up if RAG or provider
+runtime work later needs it.
 
 References:
 
@@ -210,3 +210,17 @@ Open questions:
   envelope?
 - Does native tool calling simplify router output, or does it remain only a
   provider invocation optimization?
+
+## Hosted RAG embedding providers
+
+Status: Deferred.
+
+v0.15 chooses local Ollama embeddings for real vector RAG. Hosted embedding
+providers such as OpenAI can reuse the owned `EmbeddingProvider` seam later,
+but they need a separate privacy, upload, cost-cap, and operator-consent design
+pass before becoming supported.
+
+References:
+
+- [v0.15 RAG plan](v0.15-rag-recall-help.md)
+- [ADR 0107](../adr/0107-rag-vectors-use-local-ollama-embeddings-and-sqlite-vec.md)
