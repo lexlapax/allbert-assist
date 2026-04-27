@@ -27,7 +27,7 @@ Through v0.14, the `allbert-kernel` crate has grown to roughly 40,000 LOC across
 | `adapters/`, `learning.rs` | personalization adapter and learning services |
 | `heartbeat.rs` | heartbeat implementation |
 
-v0.14.1 deliberately stayed focused on truth repair and did not perform a broad structural refactor. v0.14.2 is the dedicated structural release between v0.14.1 and v0.15. v0.15 adds growth-loop ingestion; it needs a service home that does not make the runtime core larger again.
+v0.14.1 deliberately stayed focused on truth repair and did not perform a broad structural refactor. v0.14.2 is the dedicated structural release between v0.14.1 and v0.15. v0.15 adds a RAG service, and future growth-loop ingestion remains parked behind that substrate; both need a service home that does not make the runtime core larger again.
 
 The project does not need Rust crate backward compatibility for `allbert-kernel` at this stage. Preserving the old `allbert_kernel` import surface would add a compatibility facade whose only purpose is API stability. Without that requirement, the facade would hide ownership, keep old paths alive, and create one more crate boundary to police.
 
@@ -87,7 +87,7 @@ Owns behavior modules and default runtime wiring:
 - trace replay and concrete trace storage/export/setup;
 - scripting and Lua runtime;
 - heartbeat implementation;
-- future v0.15 ingestion service.
+- v0.15 RAG service and future ingestion service.
 
 Services use `allbert-kernel-core` contracts and paths. They may expose concrete structs, service traits, and helper functions. They must not depend on the retired `allbert-kernel` crate.
 
@@ -139,7 +139,7 @@ New core modules require reviewer signoff. New concrete behavior modules land in
 ## Consequences
 
 - The runtime core becomes inspectable independently from owned services.
-- v0.15 ingestion lands in services rather than growing core.
+- v0.15 RAG and future ingestion land in services rather than growing core.
 - CLI, daemon, jobs, and tests get explicit import churn in v0.14.2.
 - The final crate graph is simpler than the facade design: core below services, with no third compatibility layer.
 - The services crate size limit remains intentionally tight. v0.14.2 may use thin service module shims that re-export core-owned contracts during migration, but duplicate contract implementations belong in core, not services.
@@ -152,4 +152,4 @@ New core modules require reviewer signoff. New concrete behavior modules land in
 - **Split into one services crate while keeping `allbert-kernel` as core and also re-exporting services.** Rejected because Rust requires a crate to depend on anything it re-exports; services also need core contracts, creating a dependency cycle.
 - **Only move files inside the same crate.** Rejected because it does not create enforceable crate boundaries and does not stop future services from growing the core.
 - **Multiple per-service crates immediately.** Rejected because it creates too much review surface. One services crate is enough for v0.14.2 and can be split later.
-- **Defer the split to v0.15.** Rejected because v0.15 adds ingestion; the structural home should exist first.
+- **Defer the split to v0.15.** Rejected because v0.15 adds RAG and preserves a future ingestion path; the structural home should exist first.

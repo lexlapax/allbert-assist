@@ -1,7 +1,7 @@
 # ADR 0106: RAG index is a derived SQLite lexical/vector store
 
 Date: 2026-04-26
-Status: Draft (formalized when v0.15 plan is finalized)
+Status: Draft (formalized when v0.15 RAG plan is finalized)
 
 Amends: ADR 0045, ADR 0046, ADR 0078
 
@@ -13,14 +13,15 @@ Allbert already has several retrieval surfaces:
 - v0.11 adds an optional semantic-memory seam, but the shipped provider is a
   deterministic fake and the derived index is memory-local JSON.
 - v0.14.3 ships a schema-bound router before full prompt assembly.
-- v0.15 plans growth-loop ingestion, which will create more candidate context
-  than Allbert can use responsibly without a broader retrieval substrate.
+- future growth-loop ingestion will create more candidate context than Allbert
+  can use responsibly without a broader retrieval substrate.
 
 The missing piece is RAG across current operator docs, CLI help, settings,
-memory, facts, episode history, skills metadata, and later promoted ingestion
-records. That substrate must stay local-first, rebuildable, inspectable, and
-bounded. It must not turn staged ingestion into trusted prompt context, and it
-must not replace the router as the intent/action authority.
+memory, facts, episode history, session-derived history, skills metadata, and
+future promoted ingestion records. That substrate must stay local-first,
+rebuildable, inspectable, and bounded. It must not turn staged or future
+ingestion records into trusted prompt context, and it must not replace the
+router as the intent/action authority.
 
 ## Decision
 
@@ -30,8 +31,8 @@ v0.15 introduces a `RagService` backed by a derived SQLite database.
 - Core owns only config and DTO/contract types frontends need.
 - The derived index lives under `~/.allbert/index/rag/rag.sqlite`.
 - Source markdown, generated command descriptors, settings descriptors, skill
-  metadata, memory markdown, and promoted ingestion records remain the sources
-  of truth.
+  metadata, memory markdown, session-derived recall artifacts, and future
+  promoted ingestion records remain the sources of truth.
 - SQLite metadata tables track sources, chunks, content hashes, schema version,
   source kind, provenance, and lifecycle timestamps.
 - SQLite FTS is the provider-free lexical retrieval baseline.
@@ -75,9 +76,9 @@ OpenAI is optional, cost-logged, and daily-cost-cap gated.
   episode working history.
 - Ordinary task turns receive bounded RAG snippets only when the router posture
   or explicit user request justifies it.
-- Staged memory and staged ingestion records are searchable for explicit review
-  surfaces but are not trusted prompt context.
-- Promoted ingestion records enter RAG through the durable-memory path.
+- Staged memory and future staged ingestion records are searchable for explicit
+  review surfaces but are not trusted prompt context.
+- Future promoted ingestion records enter RAG through the durable-memory path.
 
 ## Consequences
 
@@ -85,8 +86,8 @@ OpenAI is optional, cost-logged, and daily-cost-cap gated.
 
 - Help-like prompts can be answered from current operator docs instead of vague
   model memory.
-- Growth-loop ingestion has a retrieval substrate before it starts collecting
-  new staged records.
+- Future growth-loop ingestion has a retrieval substrate before it starts
+  collecting new staged records.
 - Provider-free lexical RAG remains available without embeddings.
 - Semantic retrieval grows from a memory-only seam into a cross-source service
   without removing the existing memory search contract.
@@ -109,7 +110,8 @@ OpenAI is optional, cost-logged, and daily-cost-cap gated.
 
 ## References
 
-- [docs/plans/v0.15-growth-loop.md](../plans/v0.15-growth-loop.md)
+- [docs/plans/v0.15-rag-recall-help.md](../plans/v0.15-rag-recall-help.md)
+- [docs/plans/future-plans.md](../plans/future-plans.md)
 - [ADR 0045](0045-memory-index-is-a-derived-artifact-rebuilt-from-markdown-ground-truth.md)
 - [ADR 0046](0046-v0-5-memory-retrieval-uses-tantivy.md)
 - [ADR 0078](0078-semantic-memory-is-optional-derived-retrieval.md)
