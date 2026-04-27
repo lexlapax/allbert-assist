@@ -103,13 +103,15 @@ Expected: agent catalog loads without provider; actual delegation/intent behavio
 ## v0.4 AgentSkills
 
 ```bash
+repo_root="$(pwd)"
 skilldir="$(mktemp -d /tmp/allbert-skill.XXXXXX)"
 (
   cd "$skilldir"
-  ALLBERT_HOME="$ALLBERT_HOME" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- skills init demo-skill
+  printf 'Demo skill for operator smoke\nn\nn\n' | \
+    ALLBERT_HOME="$ALLBERT_HOME" env -u RUSTC_WRAPPER cargo run -q --manifest-path "$repo_root/Cargo.toml" -p allbert-cli -- skills init demo-skill
 )
 
-run skills validate "$skilldir/demo-skill"
+run skills validate "$skilldir/demo-skill/SKILL.md"
 run skills install "$skilldir/demo-skill"
 run skills list
 run skills show demo-skill
@@ -121,7 +123,18 @@ Expected: install preview appears, skill lands through the normal quarantine/ins
 
 ## v0.5 Curated Memory
 
-Live path:
+Provider-free checks:
+
+```bash
+run memory status
+run memory staged list
+run memory stats
+run memory verify
+```
+
+Expected: memory storage initializes, staged-memory listing works, and verification passes. A fresh temp profile may legitimately have no staged entries.
+
+Live explicit-memory path:
 
 ```bash
 run repl --classic
@@ -133,6 +146,16 @@ Then type:
 remember that Allbert operator tests use temporary ALLBERT_HOME profiles
 review what's staged
 ```
+
+Expected after the v0.14.3 explicit-memory reliability fix lands: the `remember that ...` request creates one staged-memory candidate, and `review what's staged` lists it.
+
+Current v0.14.2 behavior with local models may fail before staging, for example:
+
+```text
+I could not parse the model's tool call safely: unsupported tool call shape: expected name, tool, function, or program.
+```
+
+Treat that as a local-model tool-call reliability finding, not as proof that staged-memory listing, promotion, or search is broken. Capture the trace and track it under the v0.14.3 explicit-memory milestone.
 
 CLI review:
 
@@ -194,6 +217,25 @@ env -u RUSTC_WRAPPER cargo test -q telegram_command_parser
 
 Live Telegram requires credentials:
 
+`TELEGRAM_BOT_TOKEN` is the token from Telegram's BotFather. In Telegram,
+start a chat with `@BotFather`, run `/newbot`, follow the prompts, and copy the
+token it returns.
+
+`TELEGRAM_CHAT_ID` is the numeric id of the Telegram chat that is allowed to
+talk to your bot. To discover it, send a message to your bot first, then inspect
+the bot updates:
+
+```bash
+curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe"
+curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates"
+```
+
+Look for `message.chat.id` in the `getUpdates` response. For a direct chat it
+is usually a positive number like `123456789`. For a group or supergroup it is
+usually negative, often like `-1001234567890`. Use the whole number exactly as
+Telegram reports it. If `getUpdates` is empty, send `/start` or any message to
+the bot, then run it again.
+
 ```bash
 mkdir -p "$ALLBERT_HOME/secrets/telegram" "$ALLBERT_HOME/config/channels.telegram"
 printf '%s\n' "$TELEGRAM_BOT_TOKEN" > "$ALLBERT_HOME/secrets/telegram/bot_token"
@@ -202,9 +244,19 @@ printf '%s\n' "$TELEGRAM_CHAT_ID" > "$ALLBERT_HOME/config/channels.telegram.allo
 run daemon channels add telegram
 run daemon restart
 run daemon channels status telegram
+run identity show
+run identity add-channel telegram "$TELEGRAM_CHAT_ID"
+run identity show
 ```
 
-Then send `/status`, `/activity`, `/approve <id>`, and `/reject <id>` in Telegram.
+Expected: `daemon channels status telegram` reports `enabled: yes`,
+`state: configured`, and detail containing `allowlisted chats: 1`.
+`identity show` may initially warn that the Telegram allowlisted sender is not
+mapped into identity continuity; `identity add-channel telegram
+"$TELEGRAM_CHAT_ID"` promotes that migration candidate, and the next
+`identity show` should include `telegram:<id>` under `channels` without that
+warning. Then send `/status`, `/activity`, `/approve <id>`, and `/reject <id>`
+in Telegram.
 
 ## v0.8 Continuity, Identity, Inbox, Profile Sync, Heartbeat
 
@@ -212,6 +264,8 @@ Then send `/status`, `/activity`, `/approve <id>`, and `/reject <id>` in Telegra
 run identity show
 run heartbeat show
 run inbox list
+run identity add-channel telegram "$TELEGRAM_CHAT_ID"   # if identity show lists telegram:<id> as a migration candidate
+run heartbeat suggest --channel telegram                 # optional: writes a reviewed Telegram heartbeat template
 
 archive="/tmp/allbert-profile-test.tgz"
 run profile export "$archive"
@@ -223,6 +277,40 @@ ALLBERT_HOME="$import_home" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- 
 ```
 
 Expected: identity/profile artifacts import; secrets, sockets, logs, and local utility enablement remain excluded.
+
+If the imported profile has a Telegram identity binding but not the local
+allowlist, `identity show` may warn:
+
+```text
+telegram sender <id> is present in identity/user.md but missing from .../config/channels.telegram.allowed_chats
+```
+
+That means continuity imported the identity binding, but this destination
+profile is not configured to accept Telegram from that chat. For a profile-sync
+smoke, the warning is informational. If this destination should use Telegram,
+write the bot token and allowlist locally:
+
+```bash
+mkdir -p "$import_home/secrets/telegram" "$import_home/config/channels.telegram"
+printf '%s\n' "$TELEGRAM_BOT_TOKEN" > "$import_home/secrets/telegram/bot_token"
+printf '%s\n' "$TELEGRAM_CHAT_ID" > "$import_home/config/channels.telegram.allowed_chats"
+ALLBERT_HOME="$import_home" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- identity show
+```
+
+If this destination should not use Telegram, remove that imported binding:
+
+```bash
+ALLBERT_HOME="$import_home" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- identity remove-channel telegram "$TELEGRAM_CHAT_ID"
+```
+
+Fresh temp profiles default `HEARTBEAT.md` to `primary_channel: repl`.
+`heartbeat show` may warn that `repl` is not proactively deliverable because
+only Telegram currently receives unsolicited inbox nags/check-ins. That warning
+is expected for provider-free continuity smokes. If you want real proactive
+delivery, configure Telegram, map identity with `identity add-channel telegram
+<id>`, then edit `HEARTBEAT.md` or use `heartbeat suggest --channel telegram`
+and review the generated template. If you do not want proactive nags, leave the
+warning alone or set `inbox_nag.enabled: false`.
 
 ## v0.9 Contributor And Codex Web Readiness
 

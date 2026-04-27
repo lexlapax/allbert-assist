@@ -56,6 +56,20 @@ Adapter weights are derived and host-specific. `profile export` excludes `adapte
 
 Local utility enablement is also host-specific. `profile export` excludes `utilities/enabled.toml` by default, and there is no include flag for it in v0.14.
 
+### Post-import channel consistency
+
+`identity show` performs a consistency check between identity bindings and
+channel-local configuration. Telegram can warn in either direction:
+
+- allowlisted chat exists but identity does not include it: run `allbert-cli identity add-channel telegram <id>` if the chat belongs to this operator.
+- identity includes `telegram:<id>` but the destination profile lacks `config/channels.telegram.allowed_chats`: either recreate the destination allowlist and bot token, or remove the binding with `allbert-cli identity remove-channel telegram <id>`.
+
+The second warning commonly appears after profile import into a temporary or
+new machine-specific profile. It means continuity imported the identity record,
+but Telegram is not enabled for that destination yet. It is safe for a
+provider-free import smoke; fix it before relying on Telegram delivery,
+approvals, or heartbeat nags on that profile.
+
 ## Sync excludes
 
 If you use `rsync`, Syncthing, cloud-drive mirroring, or another file-level sync tool instead of `profile export/import`, keep the continuity-bearing list above and explicitly exclude the rest.

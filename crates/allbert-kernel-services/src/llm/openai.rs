@@ -150,6 +150,9 @@ enum OpenAiInputContent {
     InputText {
         text: String,
     },
+    OutputText {
+        text: String,
+    },
     InputImage {
         image_url: String,
         detail: &'static str,
@@ -166,11 +169,21 @@ impl TryFrom<ChatMessage> for OpenAiInputMessage {
         };
         let mut content = Vec::new();
         if !value.content.trim().is_empty() {
-            content.push(OpenAiInputContent::InputText {
-                text: value.content,
-            });
+            match value.role {
+                ChatRole::User => content.push(OpenAiInputContent::InputText {
+                    text: value.content,
+                }),
+                ChatRole::Assistant => content.push(OpenAiInputContent::OutputText {
+                    text: value.content,
+                }),
+            }
         }
         for attachment in value.attachments {
+            if value.role != ChatRole::User {
+                return Err(LlmError::Response(
+                    "openai image attachments are only supported on user messages".into(),
+                ));
+            }
             content.push(OpenAiInputContent::InputImage {
                 image_url: attachment_data_url(&attachment)?,
                 detail: "auto",
@@ -342,6 +355,57 @@ mod tests {
         assert_eq!(response.usage.output_tokens, 3);
         assert_eq!(response.usage.cache_read, 2);
         assert!(provider.pricing("gpt-5.4-mini").is_some());
+    }
+
+    #[tokio::test]
+    async fn serializes_assistant_history_as_output_text() {
+        let (url, request_rx) = spawn_json_server(
+            "200 OK",
+            r#"{"output_text":"ok","usage":{"input_tokens":5,"output_tokens":1}}"#,
+        )
+        .await;
+        let provider = OpenAiProvider::new_with_url(
+            reqwest::Client::new(),
+            "OPENAI_API_KEY".into(),
+            Some("test-key".into()),
+            url,
+        );
+
+        provider
+            .complete(CompletionRequest {
+                system: Some("system".into()),
+                messages: vec![
+                    ChatMessage {
+                        role: ChatRole::User,
+                        content: "hello".into(),
+                        attachments: Vec::new(),
+                    },
+                    ChatMessage {
+                        role: ChatRole::Assistant,
+                        content: "hi there".into(),
+                        attachments: Vec::new(),
+                    },
+                    ChatMessage {
+                        role: ChatRole::User,
+                        content: "again".into(),
+                        attachments: Vec::new(),
+                    },
+                ],
+                model: "gpt-5.4-mini".into(),
+                max_tokens: 12,
+                tools: Vec::new(),
+            })
+            .await
+            .expect("request should succeed");
+        let raw_request = request_rx.await.expect("server should capture request");
+        let body: Value = serde_json::from_str(http_body(&raw_request)).expect("json body");
+
+        assert_eq!(body["input"][0]["role"], "user");
+        assert_eq!(body["input"][0]["content"][0]["type"], "input_text");
+        assert_eq!(body["input"][1]["role"], "assistant");
+        assert_eq!(body["input"][1]["content"][0]["type"], "output_text");
+        assert_eq!(body["input"][2]["role"], "user");
+        assert_eq!(body["input"][2]["content"][0]["type"], "input_text");
     }
 
     #[tokio::test]

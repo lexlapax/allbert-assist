@@ -67,6 +67,36 @@ Current boundary:
 - proactive delivery is currently implemented only for `telegram`
 - choosing `repl`, `cli`, or `jobs` as a proactive channel is allowed in the file, but `heartbeat show` warns and the daemon skips unsolicited delivery there
 
+## Interpreting REPL Warnings
+
+Fresh profiles often start with:
+
+```yaml
+primary_channel: repl
+inbox_nag:
+  enabled: true
+  cadence: daily
+  time: "09:00"
+  channel: repl
+```
+
+`heartbeat show` then warns:
+
+```text
+inbox_nag.channel is not proactively deliverable in v0.8; only `telegram` is currently supported
+primary_channel is not proactively deliverable in v0.8; only `telegram` currently receives unsolicited nags
+```
+
+This is not corruption and does not block normal REPL, CLI, daemon, inbox, or
+profile-export use. It means only that Allbert will not deliver unsolicited
+heartbeat nags to the REPL.
+
+Choose one of three responses:
+
+- If you do not want proactive messages, leave the file as-is or set `inbox_nag.enabled: false`.
+- If you want proactive Telegram messages, first configure Telegram and map identity with `identity add-channel telegram <id>`, then set `primary_channel: telegram` and `inbox_nag.channel: telegram`.
+- If you want a reviewed template, run `allbert-cli heartbeat suggest --channel telegram`; it writes a scratch `HEARTBEAT.md` proposal you can inspect before replacing the live file.
+
 ## Validation warnings
 
 `heartbeat show` surfaces warnings instead of failing closed with a stack trace. Common warnings:

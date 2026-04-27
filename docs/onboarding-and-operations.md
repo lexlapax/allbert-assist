@@ -474,8 +474,9 @@ Live setup:
 1. Put the bot token in `~/.allbert/secrets/telegram/bot_token`.
 2. Put one allowlisted chat id per line in `~/.allbert/config/channels.telegram.allowed_chats`.
 3. Run `allbert-cli daemon channels add telegram`.
-4. Restart the daemon if it is already running.
-5. Test `/status`, `/activity`, `/trace last`, `/adapter status`, `/diagnose last`, `/utilities status`, `/approve <id>`, and `/reject <id>` from Telegram.
+4. Run `allbert-cli identity show`; if it lists `telegram:<id>` as a migration candidate, run `allbert-cli identity add-channel telegram <id>`.
+5. Restart the daemon if it is already running.
+6. Test `/status`, `/activity`, `/trace last`, `/adapter status`, `/diagnose last`, `/utilities status`, `/approve <id>`, and `/reject <id>` from Telegram.
 
 Telegram is structural-only for diagnosis remediation and local utility mutation. It does not start remediation, enable utilities, or run `unix_pipe`.
 

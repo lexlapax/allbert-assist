@@ -27,6 +27,85 @@ cargo run -p allbert-cli -- daemon channels status telegram
 
 The channel requires a bot token and at least one allowlisted chat. Secrets stay under `~/.allbert/secrets/`; the allowlist lives under `~/.allbert/config/`.
 
+### Credential Discovery
+
+Get the bot token from Telegram's BotFather:
+
+1. In Telegram, start a chat with `@BotFather`.
+2. Send `/newbot`.
+3. Follow the prompts for bot name and username.
+4. Copy the token BotFather returns. Use it as `TELEGRAM_BOT_TOKEN`.
+
+Find the allowlisted chat id after you have sent at least one message to the bot:
+
+```bash
+curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe"
+curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates"
+```
+
+In the `getUpdates` response, use `message.chat.id` as `TELEGRAM_CHAT_ID`.
+Direct chats are usually positive numbers. Groups and supergroups are usually
+negative numbers, often beginning with `-100`. Keep the full number exactly as
+Telegram reports it.
+
+If `getUpdates` returns an empty `result`, send `/start` or any short message to
+the bot from the Telegram chat you want to allow, then run `getUpdates` again.
+For a group, add the bot to the group and send a message in that group.
+
+Write credentials into Allbert:
+
+```bash
+mkdir -p ~/.allbert/secrets/telegram ~/.allbert/config/channels.telegram
+printf '%s\n' "$TELEGRAM_BOT_TOKEN" > ~/.allbert/secrets/telegram/bot_token
+printf '%s\n' "$TELEGRAM_CHAT_ID" > ~/.allbert/config/channels.telegram.allowed_chats
+```
+
+`allowed_chats` accepts one numeric chat id per line. Blank lines and comments
+are ignored.
+
+### Identity Continuity
+
+Allowlisting a chat lets Telegram talk to the bot. Identity continuity is a
+separate step that maps that Telegram sender to your primary Allbert identity.
+After adding the allowlist, `identity show` may print:
+
+```text
+warnings:
+- 1 Telegram allowlisted sender(s) are not yet mapped into identity continuity. Use `allbert-cli identity add-channel telegram <sender>` to promote them.
+migration candidates:
+- telegram:7336421071
+```
+
+That means the Telegram chat is allowed, but Allbert has not yet connected it to
+the same identity used by REPL, jobs, inbox approvals, and profile continuity.
+Promote the candidate with the same numeric chat id:
+
+```bash
+cargo run -q -p allbert-cli -- identity add-channel telegram "$TELEGRAM_CHAT_ID"
+cargo run -q -p allbert-cli -- identity show
+```
+
+Expected: `identity show` lists `telegram:<id>` under `channels`, and the
+migration-candidate warning disappears. For a provider-free channel config
+smoke, the warning is informational; for real Telegram operation, map the
+channel.
+
+After profile import on another temp profile or machine, you may see the
+opposite warning:
+
+```text
+telegram sender 7336421071 is present in identity/user.md but missing from .../config/channels.telegram.allowed_chats
+```
+
+That means the identity binding traveled with the profile, but the destination
+does not yet allow that Telegram chat. Recreate the local bot token and
+`allowed_chats` file if this destination should use Telegram. If it should not,
+remove the binding:
+
+```bash
+cargo run -q -p allbert-cli -- identity remove-channel telegram "$TELEGRAM_CHAT_ID"
+```
+
 ## Commands
 
 Telegram supports compact operator commands:
