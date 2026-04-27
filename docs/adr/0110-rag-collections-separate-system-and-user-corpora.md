@@ -32,13 +32,16 @@ metadata.
 v0.15 M7 makes RAG collection-aware while keeping one derived SQLite database.
 
 - The RAG database remains `~/.allbert/index/rag/rag.sqlite`.
-- `rag_collections` is the parent catalog for sources and chunks.
+- `rag_collections` is the materialized parent catalog for sources and chunks.
 - Every collection has `collection_type`: `system` or `user`.
 - Every collection has a stable `collection_name`, `source_uri`, lifecycle
   timestamps, prompt/review/privacy posture, and stale/index/access posture.
 - Existing v0.15 sources become default `system` collections.
 - User collections are explicit, task-scoped, and never auto-injected into
   prompts by default.
+- User collection definitions are source truth in manifests under
+  `~/.allbert/rag/collections/user/`; `rag.sqlite` remains rebuildable derived
+  state and must be restorable from those manifests.
 - User collection ingestion in v0.15 M7 supports trusted local filesystem
   sources and explicit HTTP(S) URL sources.
 - Local `file://` and `dir://` sources must stay under trusted roots.
@@ -75,8 +78,9 @@ v0.15 M7 makes RAG collection-aware while keeping one derived SQLite database.
 - The v0.15 closeout is reopened: schema v2, collection filtering, user
   ingestion, RAG skill surfaces, and additional tests become release-blocking.
 - The service layer grows further and must remain under the ADR 0109 size gate.
-- User-facing collection lifecycle commands and URL-fetch failure modes add more
-  operator documentation and UX surface before tagging.
+- User-facing collection lifecycle commands, manifest corruption diagnostics,
+  and URL-fetch failure modes add more operator documentation and UX surface
+  before tagging.
 
 **Neutral**
 
@@ -87,6 +91,8 @@ v0.15 M7 makes RAG collection-aware while keeping one derived SQLite database.
   still be explicitly selected or attached.
 - This does not split RAG into multiple SQLite databases; collection isolation
   is logical and enforced by schema, filters, prompt policy, and tests.
+- This does not make `rag.sqlite` the only copy of user collection definitions.
+  Operator-authored collection manifests are product state.
 
 ## Alternatives considered
 

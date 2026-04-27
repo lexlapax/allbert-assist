@@ -32,7 +32,8 @@ ADR 0110 extends this decision before release closeout: the SQLite RAG database
 is collection-aware, so Allbert-owned system corpora and explicit user
 task/corpus collections can share the same retrieval engine without sharing
 prompt eligibility or trust boundaries. User collections can be backed by
-trusted local paths or explicit bounded HTTP(S) URL sources.
+trusted local paths or explicit bounded HTTP(S) URL sources, with collection
+definitions stored outside the derived database as operator-owned manifests.
 
 ## Decision
 
@@ -47,6 +48,8 @@ v0.15 introduces a `RagService` backed by a derived SQLite database.
 - Source markdown, generated command descriptors, settings descriptors, skill
   metadata, memory markdown, session-derived recall artifacts, and future
   promoted ingestion records remain the sources of truth.
+- User collection manifests under `~/.allbert/rag/collections/user/` are the
+  source of truth for operator-created collection definitions.
 - SQLite metadata tables track collections, sources, chunks, content hashes,
   schema version, source kind, collection type/name, provenance, lifecycle
   timestamps, vector posture, and run history.

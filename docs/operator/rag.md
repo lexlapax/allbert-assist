@@ -45,16 +45,25 @@ allbert-cli rag collections list
 allbert-cli rag collections show user <name>
 allbert-cli rag collections create user <name> --source /trusted/path
 allbert-cli rag collections create user <name> --source https://example.com/page
+allbert-cli rag collections add-source user <name> --source <uri>
+allbert-cli rag collections remove-source user <name> --source <uri>
 allbert-cli rag collections ingest user <name>
 allbert-cli rag collections rebuild user <name> --vectors
 allbert-cli rag search "question" --collection-type user --collection <name>
-allbert-cli rag collections attach user <name>
-allbert-cli rag collections delete user <name>
+allbert-cli rag collections attach user <name> --scope turn --reason "task context"
+allbert-cli rag collections detach user <name> --scope turn
+allbert-cli rag collections delete user <name> --confirm
 ```
 
 REPL/TUI should expose equivalent `/rag collections ...` commands. Telegram
 remains read-only for collection status/search in v0.15 M7 and must not create,
 ingest, rebuild, delete, or attach user collections.
+
+User collection definitions live as manifests under
+`~/.allbert/rag/collections/user/`; the SQLite RAG database only materializes
+them for search. Deleting `rag.sqlite` and rebuilding should restore collection
+definitions from those manifests. Deleting a user collection removes its
+manifest and derived index rows, not original source files or remote content.
 
 User collection ingestion supports two source families in v0.15 M7:
 
@@ -71,8 +80,7 @@ embedded credentials, localhost, loopback, link-local, private, multicast,
 broadcast, and cloud-metadata targets are rejected before fetch and again after
 each redirect.
 
-Deleting a user collection deletes derived index rows, not local source files
-or remote content.
+Deleting a user collection never deletes local source files or remote content.
 
 ## Posture
 

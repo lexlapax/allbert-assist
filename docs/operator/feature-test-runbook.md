@@ -833,8 +833,9 @@ run rag collections delete user release-docs
 Expected: system collections remain searchable with omitted collection filters,
 the user collection search returns only `user/release-docs` snippets, prompt
 context does not include user collection snippets until the collection is
-explicitly attached to the task/session, and delete removes derived RAG rows
-without deleting source files.
+explicitly attached to the task/session, collection manifests survive deleting
+and rebuilding `rag.sqlite`, and delete removes the user manifest plus derived
+RAG rows without deleting source files.
 
 URL collection M7 smoke:
 

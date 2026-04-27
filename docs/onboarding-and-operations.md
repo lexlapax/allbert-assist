@@ -560,7 +560,11 @@ Test:
 - Confirm default system RAG searches still work when no user collection is selected.
 - Confirm the user collection search returns only `user/release-docs` snippets.
 - Confirm user collection snippets do not enter prompt context until explicitly attached to the task/session.
-- Confirm collection delete removes derived RAG rows without deleting source files.
+- Confirm collection definitions live in
+  `~/.allbert/rag/collections/user/*.toml`, survive deleting/rebuilding
+  `rag.sqlite`, and can be removed explicitly by collection delete.
+- Confirm collection delete removes the user manifest and derived RAG rows
+  without deleting source files.
 - Confirm URL ingestion records the final URL, HTTP status, robots posture,
   ETag or Last-Modified when available, and a degraded posture for HTTP.
 - Confirm URL ingestion rejects unsupported schemes, embedded credentials,
