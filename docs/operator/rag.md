@@ -15,12 +15,40 @@ Use `allbert-cli rag search <query> --mode hybrid` to search bounded snippets
 with vector/lexical fusion when vectors are healthy.
 Use `allbert-cli rag doctor` when the index is missing or appears stale.
 
+Inside daemon-backed channels, use `/rag status`, `/rag search <query>`,
+`/rag rebuild [--stale-only] [--vectors]`, and `/rag gc [--dry-run]` in the
+REPL/TUI. Telegram exposes `/rag status` and `/rag search <query>` only; rebuild
+and GC stay on local terminal surfaces because they can be long-running.
+
 ## Posture
 
 v0.15 supports real local vectors through Ollama embeddings and `sqlite-vec`.
 If Ollama or the configured embedding model is unavailable, hybrid/vector search
 degrades to SQLite FTS when `rag.vector.fallback_to_lexical` is enabled. Run
 `ollama pull embeddinggemma` for the default local embedding model.
+
+## Maintenance
+
+The daemon owns RAG maintenance. It is not a prompt-authored scheduled job and
+does not create markdown job definitions. Manual REPL/TUI rebuilds and scheduled
+maintenance share one rebuild lock. If another rebuild is active, the new run is
+coalesced instead of starting a second writer. Manual rebuilds report
+progress/results on the requesting protocol v7 connection; automatic
+startup/scheduled maintenance records daemon log and RAG status/run posture
+without injecting unsolicited messages into unrelated turns.
+
+When `[rag.index].auto_maintain` and `run_on_startup_if_missing` are enabled,
+the daemon starts one lexical-first rebuild if `rag.sqlite` is missing. When
+`schedule_enabled` is enabled, the daemon runs at most one stale-only rebuild
+per `@daily at HH:MM` window and does not replay missed windows after sleep or
+shutdown. Scheduled runs include vectors when `[rag.vector].enabled` is true;
+if Ollama is unavailable, lexical search remains usable and the vector posture
+is reported as degraded or stale.
+
+Protocol v7 carries `RagStatus`, `RagSearch`, `RagRebuildStart`,
+`RagRebuildCancel`, and `RagGc` requests plus status, search, rebuild progress,
+finished/cancelled/error, and GC result responses. Older v2-v6 clients can still
+attach but do not receive v7-only RAG messages.
 
 ## Prompt Use
 

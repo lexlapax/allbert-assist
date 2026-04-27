@@ -39,18 +39,20 @@ change them through existing settings surfaces:
 - `/settings show rag.index`
 - `allbert-cli settings ...`
 
-v0.15 introduces protocol v7 for channel-visible RAG status and search:
+v0.15 introduces protocol v7 for channel-visible RAG maintenance and search:
 
-- status request/response;
-- search request/response with bounded snippets and source labels;
-- rebuild start/completion/error notifications for clients that support them;
+- `RagStatus` request/response;
+- `RagSearch` request/response with bounded snippets and source labels;
+- `RagRebuildStart`, `RagRebuildCancel`, progress, finished, cancelled, and
+  error messages for clients that support them;
+- `RagGc` request/result for local operator cleanup;
 - per-peer filtering so v2-v6 clients never receive v7-only messages.
 
 ## Channel rules
 
 - CLI is authoritative for status, doctor, rebuild, search, and GC.
-- REPL/TUI support `/rag status`, `/rag search <query>`, and `/rag rebuild
-  --stale-only`.
+- REPL/TUI support `/rag status`, `/rag search <query>`, `/rag rebuild
+  [--stale-only] [--vectors]`, and `/rag gc [--dry-run]`.
 - Telegram supports `/rag status` and `/rag search <query>` only in v0.15.
 - Long-running rebuilds are not started from Telegram in v0.15.
 - Prompt-time help/meta/memory-query retrieval benefits every channel because

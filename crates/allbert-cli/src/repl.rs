@@ -42,6 +42,8 @@ commands:
   /memory staged show <id>
             show one staged memory candidate
   /model    show or change the active model
+  /rag [status|search <query>|rebuild [--stale-only] [--vectors]|gc [--dry-run]]
+            inspect and maintain daemon-owned RAG retrieval state
   /self-improvement config show
             inspect self-improvement source, worktree, and install policy
   /self-improvement diff <approval-id>
@@ -123,6 +125,7 @@ const SUPPORTED_SLASH_COMMANDS: &[&str] = &[
     "/memory",
     "/model",
     "/quit",
+    "/rag",
     "/s",
     "/self-improvement",
     "/settings",
@@ -147,6 +150,7 @@ pub enum LocalCommand<'a> {
     Inbox(&'a str),
     Memory(&'a str),
     Model(&'a str),
+    Rag(&'a str),
     SelfImprovement(&'a str),
     Setup,
     Skills(&'a str),
@@ -210,6 +214,9 @@ pub async fn run_loop(
                     }
                     LocalCommand::Model(command) => {
                         handle_model_command(client, command).await?;
+                    }
+                    LocalCommand::Rag(command) => {
+                        println!("{}", handle_rag_command(client, command).await?);
                     }
                     LocalCommand::SelfImprovement(command) => {
                         let config = allbert_kernel_services::Config::load_or_create(paths)?;
@@ -342,6 +349,7 @@ pub fn parse_local_command(input: &str) -> LocalCommand<'_> {
         command if command.starts_with("/self-improvement") => {
             LocalCommand::SelfImprovement(command)
         }
+        command if command.starts_with("/rag") => LocalCommand::Rag(command),
         "/setup" => LocalCommand::Setup,
         command if command.starts_with("/skills") => LocalCommand::Skills(command),
         command if command.starts_with("/settings") => LocalCommand::Settings(command),
@@ -460,6 +468,110 @@ async fn handle_model_command(client: &mut DaemonClient, command: &str) -> Resul
         active.model_id
     );
     Ok(())
+}
+
+pub async fn handle_rag_command(client: &mut DaemonClient, command: &str) -> Result<String> {
+    let trimmed = command.trim();
+    if trimmed == "/rag" || trimmed == "/rag status" {
+        let status = client.rag_status(false).await?;
+        let mut lines = vec![
+            format!(
+                "rag: {}",
+                if status.enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                }
+            ),
+            format!("mode: {}", status.mode),
+            format!("sources: {}", status.source_count),
+            format!("chunks: {}", status.chunk_count),
+            format!(
+                "vectors: {} ({})",
+                status.vector_count, status.vector_posture
+            ),
+        ];
+        if let Some(reason) = status.degraded_reason {
+            lines.push(format!("note: {reason}"));
+        }
+        return Ok(lines.join("\n"));
+    }
+
+    if let Some(query) = trimmed.strip_prefix("/rag search ") {
+        let query = query.trim();
+        if query.is_empty() {
+            return Ok("usage: /rag search <query>".into());
+        }
+        let response = client
+            .rag_search(query.to_string(), Vec::new(), None, Some(5), false)
+            .await?;
+        if response.results.is_empty() {
+            let mut rendered = "no RAG results".to_string();
+            if let Some(reason) = response.degraded_reason {
+                rendered.push_str(&format!("\nnote: {reason}"));
+            }
+            return Ok(rendered);
+        }
+        let mut lines = vec![format!(
+            "rag search: {} result(s), mode={}, vectors={}",
+            response.results.len(),
+            response.mode,
+            response.vector_posture
+        )];
+        for (idx, result) in response.results.iter().enumerate() {
+            lines.push(format!(
+                "{}. [{}] {} ({})\n{}",
+                idx + 1,
+                result.source_kind,
+                result.title,
+                result.source_id,
+                result.snippet
+            ));
+        }
+        if let Some(reason) = response.degraded_reason {
+            lines.push(format!("note: {reason}"));
+        }
+        return Ok(lines.join("\n"));
+    }
+
+    if trimmed.starts_with("/rag rebuild") {
+        let parts: Vec<_> = trimmed.split_whitespace().collect();
+        let stale_only = parts.contains(&"--stale-only");
+        let include_vectors = parts.contains(&"--vectors") && !parts.contains(&"--no-vectors");
+        let summary = client
+            .rag_rebuild_start(stale_only, Vec::new(), include_vectors)
+            .await?;
+        return Ok(format!(
+            "rag rebuild: {}\nrun: {}\nsources: {}\nchunks: {}\nvectors: {}\nelapsed_ms: {}\n{}",
+            summary.status,
+            summary.run_id,
+            summary.source_count,
+            summary.chunk_count,
+            summary.vector_count,
+            summary.elapsed_ms,
+            summary.message
+        ));
+    }
+
+    if trimmed.starts_with("/rag gc") {
+        let dry_run = trimmed.split_whitespace().any(|part| part == "--dry-run");
+        let summary = client.rag_gc(dry_run).await?;
+        return Ok(format!(
+            "rag gc: {}\norphans: {}\nvacuumed: {}",
+            if summary.dry_run {
+                "dry-run"
+            } else {
+                "applied"
+            },
+            summary.orphan_chunks,
+            if summary.vacuumed { "yes" } else { "no" }
+        ));
+    }
+
+    Ok(
+        "usage: /rag [status|search <query>|rebuild [--stale-only] [--vectors]|gc [--dry-run]]"
+            .into(),
+    )
 }
 
 async fn handle_cost_command(
@@ -1385,6 +1497,10 @@ mod tests {
         assert!(matches!(
             parse_local_command("/memory stats"),
             LocalCommand::Memory("/memory stats")
+        ));
+        assert!(matches!(
+            parse_local_command("/rag status"),
+            LocalCommand::Rag("/rag status")
         ));
         assert!(matches!(
             parse_local_command("/memory routing"),

@@ -34,13 +34,15 @@ use allbert_proto::{
     DiagnosisReportPayload, DiagnosisReportSummaryPayload, DiagnosisRunRequest,
     DiagnosisStartedPayload, EnabledUtilityPayload, InboxApprovalPayload, InboxQueryPayload,
     InboxResolveResultPayload, InputReplyPayload, InputRequestPayload, InputResponsePayload,
-    KernelEventPayload, ModelConfigPayload, PatchApprovalPayload, ProtocolError, ServerHello,
-    ServerMessage, SessionResumeEntry, SessionStatus, Span, SpanStatus, TelemetrySnapshot,
+    KernelEventPayload, ModelConfigPayload, PatchApprovalPayload, ProtocolError,
+    RagGcResultPayload, RagRebuildErrorPayload, RagRebuildProgressPayload, RagRebuildRunPayload,
+    RagSearchResultPayload, RagSearchResultsPayload, RagStatusPayload, ServerHello, ServerMessage,
+    SessionResumeEntry, SessionStatus, Span, SpanStatus, TelemetrySnapshot,
     TurnBudgetOverridePayload, TurnResult, UnixPipeRunSummaryPayload, UnixPipeStageSummaryPayload,
     UtilitiesDoctorPayload, UtilityCatalogEntryPayload, MIN_PROTOCOL_VERSION, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
-use chrono::{Datelike, Utc};
+use chrono::{Datelike, Timelike, Utc};
 use futures_util::{future::join_all, SinkExt, StreamExt};
 use interprocess::local_socket::{
     prelude::*,
@@ -98,6 +100,7 @@ struct SharedState {
     live_approvals: Arc<StdMutex<HashMap<String, LiveApproval>>>,
     telegram_runtime: Arc<StdMutex<Option<Arc<TelegramRuntime>>>>,
     heartbeat_runtime: Arc<StdMutex<HeartbeatRuntimeState>>,
+    rag_maintenance: Arc<RagMaintenanceService>,
     notifications: broadcast::Sender<ServerMessage>,
     tasks: Arc<TaskTracker>,
 }
@@ -116,6 +119,75 @@ struct TelegramRuntimeStatus {
     running: AtomicBool,
     queue_depth: AtomicUsize,
     last_error: StdMutex<Option<String>>,
+}
+
+#[derive(Default)]
+struct RagMaintenanceService {
+    active: AtomicBool,
+    startup_checked: AtomicBool,
+    last_scheduled_key: StdMutex<Option<String>>,
+    active_run: StdMutex<Option<RagActiveRun>>,
+}
+
+#[derive(Clone)]
+struct RagActiveRun {
+    run_id: String,
+    cancel: Arc<AtomicBool>,
+}
+
+struct RagRunGuard {
+    service: Arc<RagMaintenanceService>,
+    run_id: String,
+    cancel: Arc<AtomicBool>,
+}
+
+impl RagMaintenanceService {
+    fn try_start(self: &Arc<Self>, run_id: String) -> Option<RagRunGuard> {
+        if self
+            .active
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return None;
+        }
+        let cancel = Arc::new(AtomicBool::new(false));
+        *self.active_run.lock().unwrap() = Some(RagActiveRun {
+            run_id: run_id.clone(),
+            cancel: cancel.clone(),
+        });
+        Some(RagRunGuard {
+            service: self.clone(),
+            run_id,
+            cancel,
+        })
+    }
+
+    fn cancel(&self, run_id: &str) -> bool {
+        let active = self.active_run.lock().unwrap().clone();
+        if let Some(active) = active {
+            if active.run_id == run_id {
+                active.cancel.store(true, Ordering::Release);
+                return true;
+            }
+        }
+        false
+    }
+
+    fn cancel_active(&self) {
+        if let Some(active) = self.active_run.lock().unwrap().clone() {
+            active.cancel.store(true, Ordering::Release);
+        }
+    }
+}
+
+impl Drop for RagRunGuard {
+    fn drop(&mut self) {
+        let mut active_run = self.service.active_run.lock().unwrap();
+        if active_run.as_ref().map(|active| active.run_id.as_str()) == Some(self.run_id.as_str()) {
+            *active_run = None;
+        }
+        self.service.active.store(false, Ordering::Release);
+    }
 }
 
 impl SessionHandle {
@@ -597,6 +669,7 @@ pub async fn spawn_with_factory(
         live_approvals: Arc::new(StdMutex::new(HashMap::new())),
         telegram_runtime: Arc::new(StdMutex::new(None)),
         heartbeat_runtime: Arc::new(StdMutex::new(HeartbeatRuntimeState::default())),
+        rag_maintenance: Arc::new(RagMaintenanceService::default()),
         notifications,
         tasks: Arc::new(TaskTracker::new()),
     };
@@ -755,6 +828,7 @@ async fn accept_loop(listener: LocalSocketListener, state: SharedState) -> Resul
     loop {
         tokio::select! {
             _ = state.shutdown.cancelled() => {
+                state.rag_maintenance.cancel_active();
                 append_log_line(&state.log_path, "shutdown requested")?;
                 return Ok(());
             }
@@ -764,6 +838,7 @@ async fn accept_loop(listener: LocalSocketListener, state: SharedState) -> Resul
                 if defaults.jobs.enabled {
                     let _ = run_due_jobs(&state, &defaults, Utc::now()).await;
                 }
+                run_rag_maintenance_tick(&state, &defaults, Utc::now()).await;
                 let _ = run_heartbeat_tick(&state, Utc::now()).await;
             }
             stream = listener.accept() => {
@@ -1415,6 +1490,117 @@ async fn handle_connection(
                 )
                 .await?;
             }
+            ClientMessage::RagStatus { json: _ } => {
+                if client_protocol < 7 {
+                    send_v7_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let config = state.default_config.read().await.clone();
+                let status = allbert_kernel_services::rag_status(&state.paths, &config)
+                    .map_err(map_kernel_error)?;
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::RagStatus(rag_status_to_payload(status)),
+                )
+                .await?;
+            }
+            ClientMessage::RagSearch {
+                query,
+                sources,
+                mode,
+                limit,
+                include_review_only,
+            } => {
+                if client_protocol < 7 {
+                    send_v7_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let config = state.default_config.read().await.clone();
+                let response = allbert_kernel_services::search_rag(
+                    &state.paths,
+                    &config,
+                    allbert_kernel_services::RagSearchRequest {
+                        query,
+                        sources: parse_rag_sources(&sources)?,
+                        mode: mode.as_deref().map(parse_rag_mode).transpose()?,
+                        limit,
+                        include_review_only,
+                    },
+                )
+                .map_err(map_kernel_error)?;
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::RagSearchResults(rag_search_to_payload(response)),
+                )
+                .await?;
+            }
+            ClientMessage::RagRebuildStart {
+                stale_only,
+                sources,
+                include_vectors,
+            } => {
+                if client_protocol < 7 {
+                    send_v7_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                handle_rag_rebuild_start(
+                    &mut framed,
+                    &state,
+                    attached_session.as_deref(),
+                    stale_only,
+                    sources,
+                    include_vectors,
+                    "protocol-manual",
+                )
+                .await?;
+            }
+            ClientMessage::RagRebuildCancel { run_id } => {
+                if client_protocol < 7 {
+                    send_v7_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                if state.rag_maintenance.cancel(&run_id) {
+                    let payload = RagRebuildRunPayload {
+                        run_id,
+                        status: "cancelled".into(),
+                        source_count: 0,
+                        chunk_count: 0,
+                        vector_count: 0,
+                        skipped_count: 0,
+                        elapsed_ms: 0,
+                        db_path: state.paths.rag_db.display().to_string(),
+                        message: "RAG rebuild cancellation requested; active work stops at the next safe boundary".into(),
+                    };
+                    send_server_message(&mut framed, &ServerMessage::RagRebuildCancelled(payload))
+                        .await?;
+                } else {
+                    send_server_message(
+                        &mut framed,
+                        &ServerMessage::RagRebuildError(RagRebuildErrorPayload {
+                            run_id,
+                            message: "RAG rebuild is not active".into(),
+                        }),
+                    )
+                    .await?;
+                }
+            }
+            ClientMessage::RagGc { dry_run } => {
+                if client_protocol < 7 {
+                    send_v7_protocol_error(&mut framed).await?;
+                    continue;
+                }
+                let summary = allbert_kernel_services::rag_gc(&state.paths, dry_run)
+                    .map_err(map_kernel_error)?;
+                send_server_message(
+                    &mut framed,
+                    &ServerMessage::RagGcResult(RagGcResultPayload {
+                        dry_run: summary.dry_run,
+                        orphan_chunks: summary.orphan_chunks,
+                        vacuumed: summary.vacuumed,
+                    }),
+                )
+                .await?;
+            }
             ClientMessage::ReloadSessionConfig => {
                 let session = require_session(attached_session.as_ref())?;
                 let reloaded = Config::load_or_create(&state.paths).map_err(map_kernel_error)?;
@@ -1734,6 +1920,281 @@ async fn run_due_jobs(
         _ => true,
     });
     execute_planned_jobs(state, defaults, planned).await
+}
+
+async fn run_rag_maintenance_tick(
+    state: &SharedState,
+    defaults: &Config,
+    now: chrono::DateTime<Utc>,
+) {
+    if !defaults.rag.enabled || !defaults.rag.index.auto_maintain {
+        return;
+    }
+
+    if !state
+        .rag_maintenance
+        .startup_checked
+        .swap(true, Ordering::AcqRel)
+        && defaults.rag.index.run_on_startup_if_missing
+        && !state.paths.rag_db.exists()
+    {
+        spawn_rag_rebuild_task(
+            state.clone(),
+            defaults.clone(),
+            allbert_kernel_services::RagRebuildRequest {
+                stale_only: false,
+                sources: Vec::new(),
+                include_vectors: false,
+                trigger: "daemon-startup-missing-db".into(),
+            },
+            "startup-missing-db",
+        );
+        return;
+    }
+
+    if !defaults.rag.index.schedule_enabled {
+        return;
+    }
+    let Some(marker) = rag_schedule_marker(&defaults.rag.index.schedule, now) else {
+        return;
+    };
+    let should_run = {
+        let mut last = state.rag_maintenance.last_scheduled_key.lock().unwrap();
+        if last.as_deref() == Some(marker.as_str()) {
+            false
+        } else {
+            *last = Some(marker);
+            true
+        }
+    };
+    if !should_run {
+        return;
+    }
+
+    spawn_rag_rebuild_task(
+        state.clone(),
+        defaults.clone(),
+        allbert_kernel_services::RagRebuildRequest {
+            stale_only: defaults.rag.index.stale_only,
+            sources: Vec::new(),
+            include_vectors: defaults.rag.vector.enabled,
+            trigger: "daemon-scheduled".into(),
+        },
+        "scheduled",
+    );
+}
+
+fn rag_schedule_marker(schedule: &str, now: chrono::DateTime<Utc>) -> Option<String> {
+    let raw_time = schedule.trim().strip_prefix("@daily at ")?;
+    let (hour, minute) = raw_time.split_once(':')?;
+    let hour = hour.parse::<u32>().ok()?;
+    let minute = minute.parse::<u32>().ok()?;
+    if hour > 23 || minute > 59 {
+        return None;
+    }
+    if now.hour() < hour || (now.hour() == hour && now.minute() < minute) {
+        return None;
+    }
+    Some(format!("{} {hour:02}:{minute:02}", now.date_naive()))
+}
+
+fn spawn_rag_rebuild_task(
+    state: SharedState,
+    config: Config,
+    request: allbert_kernel_services::RagRebuildRequest,
+    label: &'static str,
+) {
+    let run_id = format!("rag-daemon-{}", uuid::Uuid::new_v4());
+    let Some(guard) = state.rag_maintenance.try_start(run_id.clone()) else {
+        append_log_line(
+            &state.log_path,
+            &format!("RAG {label} rebuild skipped because another rebuild is active: {run_id}"),
+        )
+        .ok();
+        return;
+    };
+    append_log_line(
+        &state.log_path,
+        &format!("RAG {label} rebuild started: {run_id}"),
+    )
+    .ok();
+
+    state.tasks.spawn(async move {
+        let result =
+            run_rag_rebuild_guarded(state.paths.clone(), config, request, run_id.clone(), guard)
+                .await;
+        match result {
+            Ok(summary)
+                if summary.status == allbert_kernel_services::RagIndexRunStatus::Cancelled =>
+            {
+                append_log_line(
+                    &state.log_path,
+                    &format!(
+                        "RAG {label} rebuild cancelled: {} {}",
+                        summary.run_id, summary.message
+                    ),
+                )
+                .ok();
+            }
+            Ok(summary) => {
+                append_log_line(
+                    &state.log_path,
+                    &format!(
+                        "RAG {label} rebuild finished: {} {}",
+                        summary.run_id, summary.message
+                    ),
+                )
+                .ok();
+            }
+            Err(message) => {
+                append_log_line(
+                    &state.log_path,
+                    &format!("RAG {label} rebuild failed: {run_id} {message}"),
+                )
+                .ok();
+            }
+        }
+    });
+}
+
+async fn handle_rag_rebuild_start(
+    framed: &mut FramedStream,
+    state: &SharedState,
+    session: Option<&SessionHandle>,
+    stale_only: bool,
+    sources: Vec<String>,
+    include_vectors: bool,
+    trigger: &str,
+) -> Result<(), DaemonError> {
+    let run_id = format!("rag-daemon-{}", uuid::Uuid::new_v4());
+    let Some(guard) = state.rag_maintenance.try_start(run_id.clone()) else {
+        send_server_message(
+            framed,
+            &ServerMessage::RagRebuildError(RagRebuildErrorPayload {
+                run_id,
+                message: "another RAG rebuild is active; this request was coalesced".into(),
+            }),
+        )
+        .await?;
+        return Ok(());
+    };
+    if let Some(session) = session {
+        set_session_activity(
+            state,
+            session,
+            activity_snapshot(
+                session,
+                ActivityPhase::RunningValidation,
+                "rebuilding RAG index",
+                vec!["wait for RAG rebuild completion".into()],
+            ),
+        );
+    }
+
+    let request = allbert_kernel_services::RagRebuildRequest {
+        stale_only,
+        sources: parse_rag_sources(&sources)?,
+        include_vectors,
+        trigger: trigger.into(),
+    };
+    send_server_message(
+        framed,
+        &ServerMessage::RagRebuildStarted(rag_started_payload(
+            &state.paths,
+            &run_id,
+            "RAG rebuild started".into(),
+        )),
+    )
+    .await?;
+    send_server_message(
+        framed,
+        &ServerMessage::RagRebuildProgress(RagRebuildProgressPayload {
+            run_id: run_id.clone(),
+            phase: "running".into(),
+            source_count: 0,
+            chunk_count: 0,
+            vector_count: 0,
+            elapsed_ms: 0,
+        }),
+    )
+    .await?;
+
+    let config = state.default_config.read().await.clone();
+    let result =
+        run_rag_rebuild_guarded(state.paths.clone(), config, request, run_id.clone(), guard).await;
+    if let Some(session) = session {
+        set_session_activity(
+            state,
+            session,
+            idle_activity_snapshot(&session.session_id, session.channel()),
+        );
+    }
+    match result {
+        Ok(summary) if summary.status == allbert_kernel_services::RagIndexRunStatus::Cancelled => {
+            send_server_message(
+                framed,
+                &ServerMessage::RagRebuildCancelled(rag_rebuild_to_payload(summary)),
+            )
+            .await
+        }
+        Ok(summary) => {
+            send_server_message(
+                framed,
+                &ServerMessage::RagRebuildFinished(rag_rebuild_to_payload(summary)),
+            )
+            .await
+        }
+        Err(message) => {
+            send_server_message(
+                framed,
+                &ServerMessage::RagRebuildError(RagRebuildErrorPayload { run_id, message }),
+            )
+            .await
+        }
+    }
+}
+
+async fn run_rag_rebuild_guarded(
+    paths: AllbertPaths,
+    config: Config,
+    request: allbert_kernel_services::RagRebuildRequest,
+    run_id: String,
+    guard: RagRunGuard,
+) -> Result<allbert_kernel_services::RagRebuildSummary, String> {
+    let cancel = guard.cancel.clone();
+    let blocking_run_id = run_id.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        allbert_kernel_services::rebuild_rag_index_with_control(
+            &paths,
+            &config,
+            request,
+            blocking_run_id,
+            || cancel.load(Ordering::Acquire),
+        )
+    })
+    .await
+    .map_err(|err| format!("RAG rebuild task join failed: {err}"))
+    .and_then(|result| result.map_err(|err| err.to_string()));
+    drop(guard);
+    result
+}
+
+fn rag_started_payload(
+    paths: &AllbertPaths,
+    run_id: &str,
+    message: String,
+) -> RagRebuildRunPayload {
+    RagRebuildRunPayload {
+        run_id: run_id.into(),
+        status: "running".into(),
+        source_count: 0,
+        chunk_count: 0,
+        vector_count: 0,
+        skipped_count: 0,
+        elapsed_ms: 0,
+        db_path: paths.rag_db.display().to_string(),
+        message,
+    }
 }
 
 async fn run_heartbeat_tick(
@@ -2274,6 +2735,8 @@ enum TelegramCommand {
     TraceSpan(String),
     DiagnoseLast,
     UtilitiesStatus,
+    RagStatus,
+    RagSearch(String),
     Reset,
     Approve(String),
     Reject(String),
@@ -2379,6 +2842,12 @@ impl TelegramRuntime {
             }
             TelegramCommand::UtilitiesStatus => {
                 self.send_utilities_status(chat_id).await?;
+            }
+            TelegramCommand::RagStatus => {
+                self.send_rag_status(chat_id).await?;
+            }
+            TelegramCommand::RagSearch(query) => {
+                self.send_rag_search(chat_id, &query).await?;
             }
             TelegramCommand::Approve(approval_id) => {
                 self.resolve_approval(chat_id, &sender_id, &approval_id, true)
@@ -2511,6 +2980,79 @@ impl TelegramRuntime {
             .map_err(map_kernel_error)?;
         self.send_text(chat_id, render_telegram_utilities_status(&entries))
             .await?;
+        Ok(())
+    }
+
+    async fn send_rag_status(&self, chat_id: i64) -> Result<(), DaemonError> {
+        let config = self.state.default_config.read().await.clone();
+        let status = allbert_kernel_services::rag_status(&self.state.paths, &config)
+            .map_err(map_kernel_error)?;
+        self.send_text(
+            chat_id,
+            format!(
+                "RAG: {}\nMode: {}\nSources: {}\nChunks: {}\nVectors: {} ({}){}",
+                if status.enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                },
+                status.mode.label(),
+                status.source_count,
+                status.chunk_count,
+                status.vector_count,
+                rag_vector_posture_label(status.vector_posture),
+                status
+                    .degraded_reason
+                    .map(|reason| format!("\nNote: {reason}"))
+                    .unwrap_or_default()
+            ),
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn send_rag_search(&self, chat_id: i64, query: &str) -> Result<(), DaemonError> {
+        let config = self.state.default_config.read().await.clone();
+        let response = allbert_kernel_services::search_rag(
+            &self.state.paths,
+            &config,
+            allbert_kernel_services::RagSearchRequest {
+                query: query.into(),
+                sources: Vec::new(),
+                mode: None,
+                limit: Some(5),
+                include_review_only: false,
+            },
+        )
+        .map_err(map_kernel_error)?;
+        if response.results.is_empty() {
+            let mut text = "No RAG results.".to_string();
+            if let Some(reason) = response.degraded_reason {
+                text.push_str(&format!("\nNote: {reason}"));
+            }
+            self.send_text(chat_id, text).await?;
+            return Ok(());
+        }
+        let mut lines = vec![format!(
+            "RAG search: {} result(s), mode={}, vectors={}",
+            response.results.len(),
+            response.mode.label(),
+            rag_vector_posture_label(response.vector_posture)
+        )];
+        for (idx, result) in response.results.iter().enumerate() {
+            lines.push(format!(
+                "{}. [{}] {} ({})\n{}",
+                idx + 1,
+                result.source_kind.label(),
+                result.title,
+                result.source_id,
+                result.snippet
+            ));
+        }
+        if let Some(reason) = response.degraded_reason {
+            lines.push(format!("Note: {reason}"));
+        }
+        self.send_text(chat_id, lines.join("\n")).await?;
         Ok(())
     }
 
@@ -3335,6 +3877,15 @@ fn parse_telegram_command(text: &str) -> TelegramCommand {
     }
     if trimmed == "/utilities status" {
         return TelegramCommand::UtilitiesStatus;
+    }
+    if trimmed == "/rag status" || trimmed == "/rag" {
+        return TelegramCommand::RagStatus;
+    }
+    if let Some(value) = trimmed.strip_prefix("/rag search ") {
+        let value = value.trim();
+        if !value.is_empty() {
+            return TelegramCommand::RagSearch(value.to_string());
+        }
     }
     if trimmed == "/reset" {
         return TelegramCommand::Reset;
@@ -4524,6 +5075,123 @@ async fn send_v6_protocol_error(framed: &mut FramedStream) -> Result<(), DaemonE
         }),
     )
     .await
+}
+
+async fn send_v7_protocol_error(framed: &mut FramedStream) -> Result<(), DaemonError> {
+    send_server_message(
+        framed,
+        &ServerMessage::Error(ProtocolError {
+            code: "unsupported_protocol_feature".into(),
+            message: "RAG daemon surfaces require protocol v7; upgrade the client to v0.15".into(),
+        }),
+    )
+    .await
+}
+
+fn parse_rag_sources(
+    values: &[String],
+) -> Result<Vec<allbert_kernel_services::RagSourceKind>, DaemonError> {
+    values
+        .iter()
+        .map(|value| {
+            allbert_kernel_services::RagSourceKind::parse(value)
+                .ok_or_else(|| DaemonError::Protocol(format!("unsupported RAG source `{value}`")))
+        })
+        .collect()
+}
+
+fn parse_rag_mode(value: &str) -> Result<allbert_kernel_services::RagRetrievalMode, DaemonError> {
+    match value.trim().replace('-', "_").to_ascii_lowercase().as_str() {
+        "hybrid" => Ok(allbert_kernel_services::RagRetrievalMode::Hybrid),
+        "vector" => Ok(allbert_kernel_services::RagRetrievalMode::Vector),
+        "lexical" => Ok(allbert_kernel_services::RagRetrievalMode::Lexical),
+        _ => Err(DaemonError::Protocol(format!(
+            "unsupported RAG mode `{value}`"
+        ))),
+    }
+}
+
+fn rag_status_to_payload(status: allbert_kernel_services::RagStatusSnapshot) -> RagStatusPayload {
+    RagStatusPayload {
+        enabled: status.enabled,
+        mode: status.mode.label().into(),
+        source_count: status.source_count,
+        chunk_count: status.chunk_count,
+        vector_count: status.vector_count,
+        vector_posture: rag_vector_posture_label(status.vector_posture).into(),
+        active_provider: status
+            .active_provider
+            .map(|provider| provider.label().into()),
+        active_model: status.active_model,
+        active_dimension: status.active_dimension,
+        last_run_id: status.last_run_id,
+        degraded_reason: status.degraded_reason,
+    }
+}
+
+fn rag_search_to_payload(
+    response: allbert_kernel_services::RagSearchResponse,
+) -> RagSearchResultsPayload {
+    RagSearchResultsPayload {
+        query: response.query,
+        mode: response.mode.label().into(),
+        vector_posture: rag_vector_posture_label(response.vector_posture).into(),
+        degraded_reason: response.degraded_reason,
+        results: response
+            .results
+            .into_iter()
+            .map(|result| RagSearchResultPayload {
+                source_kind: result.source_kind.label().into(),
+                source_id: result.source_id,
+                chunk_id: result.chunk_id,
+                title: result.title,
+                path: result.path,
+                snippet: result.snippet,
+                mode: result.mode.label().into(),
+                score: result.score,
+                vector_posture: rag_vector_posture_label(result.vector_posture).into(),
+                score_explanation: result.score_explanation,
+            })
+            .collect(),
+    }
+}
+
+fn rag_rebuild_to_payload(
+    summary: allbert_kernel_services::RagRebuildSummary,
+) -> RagRebuildRunPayload {
+    RagRebuildRunPayload {
+        run_id: summary.run_id,
+        status: rag_run_status_label(summary.status).into(),
+        source_count: summary.source_count,
+        chunk_count: summary.chunk_count,
+        vector_count: summary.vector_count,
+        skipped_count: summary.skipped_count,
+        elapsed_ms: summary.elapsed_ms,
+        db_path: summary.db_path.display().to_string(),
+        message: summary.message,
+    }
+}
+
+fn rag_vector_posture_label(posture: allbert_kernel_services::RagVectorPosture) -> &'static str {
+    match posture {
+        allbert_kernel_services::RagVectorPosture::Healthy => "healthy",
+        allbert_kernel_services::RagVectorPosture::Disabled => "disabled",
+        allbert_kernel_services::RagVectorPosture::MissingModel => "missing_model",
+        allbert_kernel_services::RagVectorPosture::Stale => "stale",
+        allbert_kernel_services::RagVectorPosture::Degraded => "degraded",
+        allbert_kernel_services::RagVectorPosture::Unavailable => "unavailable",
+    }
+}
+
+fn rag_run_status_label(status: allbert_kernel_services::RagIndexRunStatus) -> &'static str {
+    match status {
+        allbert_kernel_services::RagIndexRunStatus::Pending => "pending",
+        allbert_kernel_services::RagIndexRunStatus::Running => "running",
+        allbert_kernel_services::RagIndexRunStatus::Succeeded => "succeeded",
+        allbert_kernel_services::RagIndexRunStatus::Skipped => "skipped",
+        allbert_kernel_services::RagIndexRunStatus::Cancelled => "cancelled",
+        allbert_kernel_services::RagIndexRunStatus::Failed => "failed",
+    }
 }
 
 fn trace_span_ids(paths: &AllbertPaths, session_id: &str) -> HashSet<String> {
@@ -6583,6 +7251,24 @@ async fn send_server_message_for_protocol(
 }
 
 fn message_for_protocol(message: &ServerMessage, protocol_version: u32) -> Option<ServerMessage> {
+    if protocol_version >= 7 {
+        return Some(message.clone());
+    }
+
+    if matches!(
+        message,
+        ServerMessage::RagStatus(_)
+            | ServerMessage::RagSearchResults(_)
+            | ServerMessage::RagRebuildStarted(_)
+            | ServerMessage::RagRebuildProgress(_)
+            | ServerMessage::RagRebuildFinished(_)
+            | ServerMessage::RagRebuildCancelled(_)
+            | ServerMessage::RagRebuildError(_)
+            | ServerMessage::RagGcResult(_)
+    ) {
+        return None;
+    }
+
     if protocol_version >= 6 {
         return Some(message.clone());
     }
@@ -6755,6 +7441,40 @@ mod telegram_tests {
             message_for_protocol(&ServerMessage::UtilityCatalog(Vec::new()), 6),
             Some(ServerMessage::UtilityCatalog(_))
         ));
+        let rag_status = ServerMessage::RagStatus(RagStatusPayload {
+            enabled: true,
+            mode: "hybrid".into(),
+            source_count: 1,
+            chunk_count: 1,
+            vector_count: 0,
+            vector_posture: "disabled".into(),
+            active_provider: None,
+            active_model: None,
+            active_dimension: None,
+            last_run_id: None,
+            degraded_reason: None,
+        });
+        assert!(message_for_protocol(&rag_status, 6).is_none());
+        assert!(matches!(
+            message_for_protocol(&rag_status, 7),
+            Some(ServerMessage::RagStatus(_))
+        ));
+    }
+
+    #[test]
+    fn rag_schedule_marker_coalesces_daily_runs() {
+        let before = chrono::DateTime::parse_from_rfc3339("2026-04-27T03:29:00Z")
+            .expect("timestamp")
+            .with_timezone(&Utc);
+        let due = chrono::DateTime::parse_from_rfc3339("2026-04-27T03:30:00Z")
+            .expect("timestamp")
+            .with_timezone(&Utc);
+        assert_eq!(rag_schedule_marker("@daily at 03:30", before), None);
+        assert_eq!(
+            rag_schedule_marker("@daily at 03:30", due),
+            Some("2026-04-27 03:30".into())
+        );
+        assert_eq!(rag_schedule_marker("@hourly", due), None);
     }
 
     fn temp_paths() -> AllbertPaths {
@@ -6945,6 +7665,15 @@ mod telegram_tests {
         assert_eq!(
             parse_telegram_command("/utilities status"),
             TelegramCommand::UtilitiesStatus
+        );
+        assert_eq!(parse_telegram_command("/rag"), TelegramCommand::RagStatus);
+        assert_eq!(
+            parse_telegram_command("/rag status"),
+            TelegramCommand::RagStatus
+        );
+        assert_eq!(
+            parse_telegram_command("/rag search configure Telegram"),
+            TelegramCommand::RagSearch("configure Telegram".into())
         );
         assert_eq!(
             parse_telegram_command("/override release smoke"),

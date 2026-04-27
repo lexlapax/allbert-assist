@@ -19,6 +19,7 @@ use crate::{
 
 pub const RAG_SCHEMA_VERSION: u32 = 1;
 static ACTIVE_VECTOR_QUERIES: AtomicUsize = AtomicUsize::new(0);
+const RAG_REBUILD_CANCELLED: &str = "__rag_rebuild_cancelled__";
 
 type SqliteExtensionInit = unsafe extern "C" fn(
     *mut rusqlite::ffi::sqlite3,
@@ -315,13 +316,87 @@ pub fn rebuild_rag_index(
     config: &Config,
     request: RagRebuildRequest,
 ) -> Result<RagRebuildSummary, KernelError> {
+    rebuild_rag_index_inner(paths, config, request, None, &|| false)
+}
+
+pub fn rebuild_rag_index_with_control<F>(
+    paths: &AllbertPaths,
+    config: &Config,
+    request: RagRebuildRequest,
+    run_id: String,
+    should_cancel: F,
+) -> Result<RagRebuildSummary, KernelError>
+where
+    F: Fn() -> bool,
+{
+    rebuild_rag_index_inner(paths, config, request, Some(run_id), &should_cancel)
+}
+
+fn cancelled_rebuild_summary(
+    paths: &AllbertPaths,
+    run_id: String,
+    source_count: usize,
+    elapsed_ms: u64,
+) -> RagRebuildSummary {
+    RagRebuildSummary {
+        run_id,
+        status: RagIndexRunStatus::Cancelled,
+        source_count,
+        chunk_count: 0,
+        vector_count: 0,
+        skipped_count: 0,
+        elapsed_ms,
+        db_path: paths.rag_db.clone(),
+        message: "RAG rebuild cancelled before publishing a new index".into(),
+    }
+}
+
+fn record_cancelled_run_if_possible(
+    paths: &AllbertPaths,
+    run_id: &str,
+    request: &RagRebuildRequest,
+    requested_sources_json: &str,
+    source_count: usize,
+    elapsed_ms: u64,
+) -> Result<(), KernelError> {
+    if !paths.rag_db.exists() {
+        return Ok(());
+    }
+    let conn = open_rag_db(paths)?;
+    insert_run(
+        &conn,
+        run_id,
+        request,
+        requested_sources_json,
+        RunWrite {
+            status: RagIndexRunStatus::Cancelled,
+            source_count,
+            chunk_count: 0,
+            vector_count: 0,
+            skipped_count: 0,
+            elapsed_ms,
+            error: Some("cancelled"),
+        },
+    )
+}
+
+fn rebuild_rag_index_inner<F>(
+    paths: &AllbertPaths,
+    config: &Config,
+    request: RagRebuildRequest,
+    run_id: Option<String>,
+    should_cancel: &F,
+) -> Result<RagRebuildSummary, KernelError>
+where
+    F: Fn() -> bool,
+{
     paths.ensure()?;
     fs::create_dir_all(&paths.rag_index).map_err(|e| {
         KernelError::InitFailed(format!("create {}: {e}", paths.rag_index.display()))
     })?;
 
     let started = Instant::now();
-    let run_id = format!("rag-{}", Uuid::new_v4());
+    let run_id = run_id.unwrap_or_else(|| format!("rag-{}", Uuid::new_v4()));
     let sources = collect_sources(paths, config, &request.sources)?;
     let corpus_hash = hash_sources(&sources);
     let requested_sources_json = serde_json::to_string(
@@ -332,6 +407,23 @@ pub fn rebuild_rag_index(
             .collect::<Vec<_>>(),
     )
     .map_err(|e| KernelError::InitFailed(format!("serialize requested sources: {e}")))?;
+
+    if should_cancel() {
+        record_cancelled_run_if_possible(
+            paths,
+            &run_id,
+            &request,
+            &requested_sources_json,
+            sources.len(),
+            started.elapsed().as_millis() as u64,
+        )?;
+        return Ok(cancelled_rebuild_summary(
+            paths,
+            run_id,
+            sources.len(),
+            started.elapsed().as_millis() as u64,
+        ));
+    }
 
     if request.stale_only && paths.rag_db.exists() {
         let conn = open_rag_db(paths)?;
@@ -392,14 +484,79 @@ pub fn rebuild_rag_index(
         },
     )?;
 
-    let chunk_count = write_sources(&mut conn, config, &sources)?;
+    let chunk_count = match write_sources(&mut conn, config, &sources, should_cancel) {
+        Ok(chunk_count) => chunk_count,
+        Err(KernelError::Request(message)) if message == RAG_REBUILD_CANCELLED => {
+            finish_run(
+                &conn,
+                &run_id,
+                RunWrite {
+                    status: RagIndexRunStatus::Cancelled,
+                    source_count: sources.len(),
+                    chunk_count: 0,
+                    vector_count: 0,
+                    skipped_count: 0,
+                    elapsed_ms: started.elapsed().as_millis() as u64,
+                    error: Some("cancelled"),
+                },
+            )?;
+            drop(conn);
+            let _ = fs::remove_file(&tmp);
+            record_cancelled_run_if_possible(
+                paths,
+                &run_id,
+                &request,
+                &requested_sources_json,
+                sources.len(),
+                started.elapsed().as_millis() as u64,
+            )?;
+            return Ok(cancelled_rebuild_summary(
+                paths,
+                run_id,
+                sources.len(),
+                started.elapsed().as_millis() as u64,
+            ));
+        }
+        Err(error) => return Err(error),
+    };
     let mut vector_count = 0usize;
     let mut vector_note = String::new();
     if request.include_vectors && config.rag.vector.enabled {
-        match index_vectors(&mut conn, config) {
+        match index_vectors(&mut conn, config, should_cancel) {
             Ok(count) => {
                 vector_count = count;
                 vector_note = format!("; indexed {count} vectors");
+            }
+            Err(err) if err.message == RAG_REBUILD_CANCELLED => {
+                finish_run(
+                    &conn,
+                    &run_id,
+                    RunWrite {
+                        status: RagIndexRunStatus::Cancelled,
+                        source_count: sources.len(),
+                        chunk_count,
+                        vector_count,
+                        skipped_count: 0,
+                        elapsed_ms: started.elapsed().as_millis() as u64,
+                        error: Some("cancelled"),
+                    },
+                )?;
+                drop(conn);
+                let _ = fs::remove_file(&tmp);
+                record_cancelled_run_if_possible(
+                    paths,
+                    &run_id,
+                    &request,
+                    &requested_sources_json,
+                    sources.len(),
+                    started.elapsed().as_millis() as u64,
+                )?;
+                return Ok(cancelled_rebuild_summary(
+                    paths,
+                    run_id,
+                    sources.len(),
+                    started.elapsed().as_millis() as u64,
+                ));
             }
             Err(err) => {
                 vector_note = format!("; vector indexing skipped: {}", err.message);
@@ -417,6 +574,37 @@ pub fn rebuild_rag_index(
         "sqlite_vec_version",
         &sqlite_vec_dependency_probe().unwrap_or_default(),
     )?;
+    if should_cancel() {
+        finish_run(
+            &conn,
+            &run_id,
+            RunWrite {
+                status: RagIndexRunStatus::Cancelled,
+                source_count: sources.len(),
+                chunk_count,
+                vector_count,
+                skipped_count: 0,
+                elapsed_ms: started.elapsed().as_millis() as u64,
+                error: Some("cancelled"),
+            },
+        )?;
+        drop(conn);
+        let _ = fs::remove_file(&tmp);
+        record_cancelled_run_if_possible(
+            paths,
+            &run_id,
+            &request,
+            &requested_sources_json,
+            sources.len(),
+            started.elapsed().as_millis() as u64,
+        )?;
+        return Ok(cancelled_rebuild_summary(
+            paths,
+            run_id,
+            sources.len(),
+            started.elapsed().as_millis() as u64,
+        ));
+    }
     finish_run(
         &conn,
         &run_id,
@@ -892,7 +1080,14 @@ fn fuse_hybrid(
     results
 }
 
-fn index_vectors(conn: &mut Connection, config: &Config) -> Result<usize, EmbeddingError> {
+fn index_vectors<F>(
+    conn: &mut Connection,
+    config: &Config,
+    should_cancel: &F,
+) -> Result<usize, EmbeddingError>
+where
+    F: Fn() -> bool,
+{
     let mut stmt = conn
         .prepare(
             "SELECT id, text
@@ -925,6 +1120,9 @@ fn index_vectors(conn: &mut Connection, config: &Config) -> Result<usize, Embedd
     let mut indexed = Vec::with_capacity(chunks.len());
     let mut dimension = None;
     for batch in chunks.chunks(config.rag.vector.batch_size) {
+        if should_cancel() {
+            return Err(EmbeddingError::new(RAG_REBUILD_CANCELLED));
+        }
         let inputs = batch
             .iter()
             .map(|(_, text)| truncate_to_bytes(text, config.rag.vector.max_query_bytes))
@@ -979,6 +1177,9 @@ fn index_vectors(conn: &mut Connection, config: &Config) -> Result<usize, Embedd
             .map_err(|e| EmbeddingError::new(format!("prepare chunk vector update: {e}")))?;
         let now = chrono::Utc::now().to_rfc3339();
         for (rowid, embedding) in &indexed {
+            if should_cancel() {
+                return Err(EmbeddingError::new(RAG_REBUILD_CANCELLED));
+            }
             insert
                 .execute(params![rowid, vector_blob(embedding)])
                 .map_err(|e| EmbeddingError::new(format!("insert vector row {rowid}: {e}")))?;
@@ -1505,15 +1706,22 @@ fn collect_skill_metadata(
     }
 }
 
-fn write_sources(
+fn write_sources<F>(
     conn: &mut Connection,
     config: &Config,
     sources: &[CollectedSource],
-) -> Result<usize, KernelError> {
+    should_cancel: &F,
+) -> Result<usize, KernelError>
+where
+    F: Fn() -> bool,
+{
     let tx = conn.transaction().map_err(sql_err)?;
     let now = chrono::Utc::now().to_rfc3339();
     let mut chunk_total = 0;
     for source in sources {
+        if should_cancel() {
+            return Err(KernelError::Request(RAG_REBUILD_CANCELLED.into()));
+        }
         let tags_json = serde_json::to_string(&source.tags)
             .map_err(|e| KernelError::InitFailed(format!("serialize source tags: {e}")))?;
         let source_hash = hash_text(&source.text);
@@ -1539,6 +1747,9 @@ fn write_sources(
         let source_fk = tx.last_insert_rowid();
         let chunks = chunk_source(config, source);
         for chunk in chunks {
+            if should_cancel() {
+                return Err(KernelError::Request(RAG_REBUILD_CANCELLED.into()));
+            }
             let provenance_json = json!({
                 "source_id": source.source_id,
                 "source_path": source.source_path,
@@ -2001,6 +2212,28 @@ mod tests {
             .results
             .iter()
             .all(|result| result.source_kind != RagSourceKind::StagedMemoryReview));
+    }
+
+    #[test]
+    fn controlled_rebuild_can_cancel_before_publish() {
+        let (_temp, paths) = temp_paths();
+        let config = Config::default_template();
+        let summary = rebuild_rag_index_with_control(
+            &paths,
+            &config,
+            RagRebuildRequest {
+                stale_only: false,
+                sources: vec![RagSourceKind::CommandCatalog],
+                include_vectors: false,
+                trigger: "test-cancel".into(),
+            },
+            "rag-test-cancel".into(),
+            || true,
+        )
+        .expect("cancelled rebuild should report cleanly");
+        assert_eq!(summary.run_id, "rag-test-cancel");
+        assert_eq!(summary.status, RagIndexRunStatus::Cancelled);
+        assert!(!paths.rag_db.exists());
     }
 
     #[test]

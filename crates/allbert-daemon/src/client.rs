@@ -10,10 +10,11 @@ use allbert_proto::{
     DiagnosisReportSummaryPayload, DiagnosisRunRequest, DiagnosisShowRequest,
     EnabledUtilityPayload, InboxApprovalPayload, InboxQueryPayload, InboxResolvePayload,
     InboxResolveResultPayload, JobDefinitionPayload, JobRunRecordPayload, JobStatusPayload,
-    ModelConfigPayload, OpenChannel, ProtocolError, ServerMessage, SessionResumeEntry,
-    SessionStatus, Span, TelemetrySnapshot, TraceSessionSummary, TurnBudgetOverridePayload,
-    TurnRequest, UtilitiesDoctorPayload, UtilityCatalogEntryPayload, UtilityEnableRequest,
-    PROTOCOL_VERSION,
+    ModelConfigPayload, OpenChannel, ProtocolError, RagGcResultPayload, RagRebuildErrorPayload,
+    RagRebuildRunPayload, RagSearchResultsPayload, RagStatusPayload, ServerMessage,
+    SessionResumeEntry, SessionStatus, Span, TelemetrySnapshot, TraceSessionSummary,
+    TurnBudgetOverridePayload, TurnRequest, UtilitiesDoctorPayload, UtilityCatalogEntryPayload,
+    UtilityEnableRequest, PROTOCOL_VERSION,
 };
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
@@ -558,6 +559,91 @@ impl DaemonClient {
         .await
     }
 
+    pub async fn rag_status(&mut self, json: bool) -> Result<RagStatusPayload, DaemonError> {
+        self.send(&ClientMessage::RagStatus { json }).await?;
+        self.recv_expected("rag status", |message| match message {
+            ServerMessage::RagStatus(status) => Some(Ok(status)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn rag_search(
+        &mut self,
+        query: String,
+        sources: Vec<String>,
+        mode: Option<String>,
+        limit: Option<usize>,
+        include_review_only: bool,
+    ) -> Result<RagSearchResultsPayload, DaemonError> {
+        self.send(&ClientMessage::RagSearch {
+            query,
+            sources,
+            mode,
+            limit,
+            include_review_only,
+        })
+        .await?;
+        self.recv_expected("rag search", |message| match message {
+            ServerMessage::RagSearchResults(results) => Some(Ok(results)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn rag_rebuild_start(
+        &mut self,
+        stale_only: bool,
+        sources: Vec<String>,
+        include_vectors: bool,
+    ) -> Result<RagRebuildRunPayload, DaemonError> {
+        self.send(&ClientMessage::RagRebuildStart {
+            stale_only,
+            sources,
+            include_vectors,
+        })
+        .await?;
+        self.recv_expected("rag rebuild", |message| match message {
+            ServerMessage::RagRebuildFinished(summary)
+            | ServerMessage::RagRebuildCancelled(summary) => Some(Ok(summary)),
+            ServerMessage::RagRebuildError(RagRebuildErrorPayload { message, .. }) => {
+                Some(Err(DaemonError::Protocol(message)))
+            }
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn rag_rebuild_cancel(
+        &mut self,
+        run_id: String,
+    ) -> Result<RagRebuildRunPayload, DaemonError> {
+        self.send(&ClientMessage::RagRebuildCancel { run_id })
+            .await?;
+        self.recv_expected("rag rebuild cancel", |message| match message {
+            ServerMessage::RagRebuildCancelled(summary) => Some(Ok(summary)),
+            ServerMessage::RagRebuildError(RagRebuildErrorPayload { message, .. }) => {
+                Some(Err(DaemonError::Protocol(message)))
+            }
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
+    pub async fn rag_gc(&mut self, dry_run: bool) -> Result<RagGcResultPayload, DaemonError> {
+        self.send(&ClientMessage::RagGc { dry_run }).await?;
+        self.recv_expected("rag gc", |message| match message {
+            ServerMessage::RagGcResult(summary) => Some(Ok(summary)),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
     pub async fn list_channel_runtimes(
         &mut self,
     ) -> Result<Vec<ChannelRuntimeStatusPayload>, DaemonError> {
@@ -708,7 +794,9 @@ impl DaemonClient {
                 ServerMessage::Event(_)
                 | ServerMessage::ActivityUpdate(_)
                 | ServerMessage::DiagnosisStarted(_)
-                | ServerMessage::TraceSpan(_) => buffered_events.push(message),
+                | ServerMessage::TraceSpan(_)
+                | ServerMessage::RagRebuildStarted(_)
+                | ServerMessage::RagRebuildProgress(_) => buffered_events.push(message),
                 other => {
                     while let Some(buffered) = buffered_events.pop() {
                         self.pending.push_front(buffered);

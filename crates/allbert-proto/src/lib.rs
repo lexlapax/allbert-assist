@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const MIN_PROTOCOL_VERSION: u32 = 2;
-pub const PROTOCOL_VERSION: u32 = 6;
+pub const PROTOCOL_VERSION: u32 = 7;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -961,6 +961,88 @@ pub struct UnixPipeStageSummaryPayload {
     pub stderr_truncated: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RagStatusPayload {
+    pub enabled: bool,
+    pub mode: String,
+    pub source_count: usize,
+    pub chunk_count: usize,
+    pub vector_count: usize,
+    pub vector_posture: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_dimension: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_run_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub degraded_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RagSearchResultPayload {
+    pub source_kind: String,
+    pub source_id: String,
+    pub chunk_id: String,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    pub snippet: String,
+    pub mode: String,
+    pub score: f64,
+    pub vector_posture: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub score_explanation: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RagSearchResultsPayload {
+    pub query: String,
+    pub mode: String,
+    pub vector_posture: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub degraded_reason: Option<String>,
+    pub results: Vec<RagSearchResultPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RagRebuildRunPayload {
+    pub run_id: String,
+    pub status: String,
+    pub source_count: usize,
+    pub chunk_count: usize,
+    pub vector_count: usize,
+    pub skipped_count: usize,
+    pub elapsed_ms: u64,
+    pub db_path: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RagRebuildProgressPayload {
+    pub run_id: String,
+    pub phase: String,
+    pub source_count: usize,
+    pub chunk_count: usize,
+    pub vector_count: usize,
+    pub elapsed_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RagRebuildErrorPayload {
+    pub run_id: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RagGcResultPayload {
+    pub dry_run: bool,
+    pub orphan_chunks: usize,
+    pub vacuumed: bool,
+}
+
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "payload", rename_all = "snake_case")]
@@ -1022,6 +1104,32 @@ pub enum ClientMessage {
     UtilitiesEnable(UtilityEnableRequest),
     UtilitiesDisable(String),
     UtilitiesDoctor,
+    RagStatus {
+        json: bool,
+    },
+    RagSearch {
+        query: String,
+        #[serde(default)]
+        sources: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mode: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        limit: Option<usize>,
+        #[serde(default)]
+        include_review_only: bool,
+    },
+    RagRebuildStart {
+        stale_only: bool,
+        #[serde(default)]
+        sources: Vec<String>,
+        include_vectors: bool,
+    },
+    RagRebuildCancel {
+        run_id: String,
+    },
+    RagGc {
+        dry_run: bool,
+    },
     ReloadSessionConfig,
     ListChannelRuntimes,
     ListJobs,
@@ -1081,6 +1189,14 @@ pub enum ServerMessage {
     EnabledUtilities(Vec<EnabledUtilityPayload>),
     UtilitiesDoctor(UtilitiesDoctorPayload),
     UnixPipeRun(UnixPipeRunSummaryPayload),
+    RagStatus(RagStatusPayload),
+    RagSearchResults(RagSearchResultsPayload),
+    RagRebuildStarted(RagRebuildRunPayload),
+    RagRebuildProgress(RagRebuildProgressPayload),
+    RagRebuildFinished(RagRebuildRunPayload),
+    RagRebuildCancelled(RagRebuildRunPayload),
+    RagRebuildError(RagRebuildErrorPayload),
+    RagGcResult(RagGcResultPayload),
     Ack,
     Error(ProtocolError),
 }
@@ -1525,6 +1641,87 @@ mod tests {
         let decoded: ServerMessage =
             serde_json::from_str(&raw).expect("utility should deserialize");
         assert_eq!(decoded, utility);
+    }
+
+    #[test]
+    fn proto_v7_rag_messages_json_roundtrip() {
+        let search = ClientMessage::RagSearch {
+            query: "configure telegram".into(),
+            sources: vec!["operator_docs".into()],
+            mode: Some("hybrid".into()),
+            limit: Some(5),
+            include_review_only: false,
+        };
+        let raw = serde_json::to_string(&search).expect("rag search should serialize");
+        let decoded: ClientMessage =
+            serde_json::from_str(&raw).expect("rag search should deserialize");
+        assert_eq!(decoded, search);
+
+        let status = ServerMessage::RagStatus(RagStatusPayload {
+            enabled: true,
+            mode: "hybrid".into(),
+            source_count: 4,
+            chunk_count: 20,
+            vector_count: 20,
+            vector_posture: "healthy".into(),
+            active_provider: Some("ollama".into()),
+            active_model: Some("embeddinggemma".into()),
+            active_dimension: Some(768),
+            last_run_id: Some("rag-1".into()),
+            degraded_reason: None,
+        });
+        let raw = serde_json::to_string(&status).expect("rag status should serialize");
+        let decoded: ServerMessage =
+            serde_json::from_str(&raw).expect("rag status should deserialize");
+        assert_eq!(decoded, status);
+
+        let results = ServerMessage::RagSearchResults(RagSearchResultsPayload {
+            query: "telegram".into(),
+            mode: "hybrid".into(),
+            vector_posture: "healthy".into(),
+            degraded_reason: None,
+            results: vec![RagSearchResultPayload {
+                source_kind: "operator_docs".into(),
+                source_id: "doc:operator/rag.md".into(),
+                chunk_id: "chunk-1".into(),
+                title: "RAG".into(),
+                path: Some("docs/operator/rag.md".into()),
+                snippet: "Telegram exposes read-only RAG search.".into(),
+                mode: "hybrid".into(),
+                score: 0.42,
+                vector_posture: "healthy".into(),
+                score_explanation: Some("hybrid reciprocal-rank fusion".into()),
+            }],
+        });
+        let raw = serde_json::to_string(&results).expect("rag results should serialize");
+        let decoded: ServerMessage =
+            serde_json::from_str(&raw).expect("rag results should deserialize");
+        assert_eq!(decoded, results);
+
+        let started = ServerMessage::RagRebuildStarted(RagRebuildRunPayload {
+            run_id: "rag-1".into(),
+            status: "running".into(),
+            source_count: 0,
+            chunk_count: 0,
+            vector_count: 0,
+            skipped_count: 0,
+            elapsed_ms: 0,
+            db_path: "/tmp/rag.sqlite".into(),
+            message: "started".into(),
+        });
+        let raw = serde_json::to_string(&started).expect("rag started should serialize");
+        let decoded: ServerMessage =
+            serde_json::from_str(&raw).expect("rag started should deserialize");
+        assert_eq!(decoded, started);
+
+        let gc = ServerMessage::RagGcResult(RagGcResultPayload {
+            dry_run: true,
+            orphan_chunks: 2,
+            vacuumed: false,
+        });
+        let raw = serde_json::to_string(&gc).expect("rag gc should serialize");
+        let decoded: ServerMessage = serde_json::from_str(&raw).expect("rag gc should deserialize");
+        assert_eq!(decoded, gc);
     }
 
     #[test]

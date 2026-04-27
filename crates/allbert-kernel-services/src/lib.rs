@@ -144,10 +144,11 @@ pub use memory::{
 pub use memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 pub use paths::AllbertPaths;
 pub use rag::{
-    rag_doctor, rag_gc, rag_status, rebuild_rag_index, search_rag, sqlite_vec_dependency_probe,
-    RagDoctorReport, RagEmbeddingProvider, RagGcSummary, RagIndexRunStatus, RagRebuildRequest,
-    RagRebuildSummary, RagRetrievalMode, RagSearchRequest, RagSearchResponse, RagSearchResult,
-    RagSourceKind, RagStatusSnapshot, RagVectorDistance, RagVectorPosture,
+    rag_doctor, rag_gc, rag_status, rebuild_rag_index, rebuild_rag_index_with_control, search_rag,
+    sqlite_vec_dependency_probe, RagDoctorReport, RagEmbeddingProvider, RagGcSummary,
+    RagIndexRunStatus, RagRebuildRequest, RagRebuildSummary, RagRetrievalMode, RagSearchRequest,
+    RagSearchResponse, RagSearchResult, RagSourceKind, RagStatusSnapshot, RagVectorDistance,
+    RagVectorPosture,
 };
 pub use replay::{
     apply_trace_gc, export_session_otlp_json, plan_trace_gc, read_session_trace_dir,

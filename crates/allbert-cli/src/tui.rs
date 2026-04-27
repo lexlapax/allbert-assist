@@ -230,6 +230,7 @@ impl TuiApp {
             | LocalCommand::Cost(_)
             | LocalCommand::Memory(_)
             | LocalCommand::Model(_)
+            | LocalCommand::Rag(_)
             | LocalCommand::SelfImprovement(_)
             | LocalCommand::Setup
             | LocalCommand::Settings(_)
@@ -380,6 +381,10 @@ async fn handle_key(
                 }
                 LocalCommand::Memory(command) => {
                     app.push_line(repl::handle_memory_command(paths, command)?);
+                }
+                LocalCommand::Rag(command) => {
+                    let rendered = repl::handle_rag_command(client, command).await?;
+                    app.push_line(rendered);
                 }
                 LocalCommand::Adapters(command) => {
                     app.push_line(repl::handle_adapters_command(paths, command)?);
