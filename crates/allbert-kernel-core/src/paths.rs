@@ -250,6 +250,9 @@ pub struct AllbertPaths {
     pub sessions_trash: PathBuf,
     pub traces: PathBuf,
     pub costs: PathBuf,
+    pub index: PathBuf,
+    pub rag_index: PathBuf,
+    pub rag_db: PathBuf,
 }
 
 impl AllbertPaths {
@@ -272,6 +275,8 @@ impl AllbertPaths {
         let self_improvement = root.join("self-improvement");
         let utilities = root.join("utilities");
         let sessions = root.join("sessions");
+        let index = root.join("index");
+        let rag_index = index.join("rag");
         let config_dir = root.join("config");
         let channel_secrets = root.join("secrets");
         let identity_dir = root.join("identity");
@@ -348,6 +353,9 @@ impl AllbertPaths {
             sessions_trash: sessions.join(".trash"),
             traces: root.join("traces"),
             costs: root.join("costs.jsonl"),
+            rag_db: rag_index.join("rag.sqlite"),
+            rag_index,
+            index,
             memory,
             jobs,
             sessions,
@@ -404,6 +412,8 @@ impl AllbertPaths {
             &self.sessions_archive,
             &self.sessions_trash,
             &self.traces,
+            &self.index,
+            &self.rag_index,
         ] {
             std::fs::create_dir_all(dir)
                 .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", dir.display())))?;

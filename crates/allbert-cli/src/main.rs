@@ -21,6 +21,7 @@ mod heartbeat_cli;
 mod identity_cli;
 mod memory_cli;
 mod profile_cli;
+mod rag_cli;
 mod repl;
 mod self_improvement_cli;
 mod settings_cli;
@@ -32,6 +33,7 @@ mod utilities_cli;
 
 use adapters_cli::AdaptersCommand;
 use diagnose_cli::DiagnoseCommand;
+use rag_cli::RagCommand;
 use utilities_cli::UtilitiesCommand;
 
 #[derive(Parser, Debug)]
@@ -40,7 +42,7 @@ use utilities_cli::UtilitiesCommand;
     version,
     about = "Allbert daemon-backed CLI",
     long_about = None,
-    after_long_help = "EXAMPLES:\n  allbert-cli repl\n  allbert-cli activity\n  allbert-cli diagnose run\n  allbert-cli utilities discover --offline\n  allbert-cli adapters status\n  allbert-cli adapters training preview\n  allbert-cli trace show\n  allbert-cli settings list ui\n  allbert-cli memory staged list\n  allbert-cli skills show memory-curator\n  allbert-cli daemon status\n"
+    after_long_help = "EXAMPLES:\n  allbert-cli repl\n  allbert-cli activity\n  allbert-cli diagnose run\n  allbert-cli utilities discover --offline\n  allbert-cli adapters status\n  allbert-cli adapters training preview\n  allbert-cli trace show\n  allbert-cli settings list ui\n  allbert-cli rag status\n  allbert-cli memory staged list\n  allbert-cli skills show memory-curator\n  allbert-cli daemon status\n"
 )]
 struct Args {
     /// Enable daemon debug logging for the running daemon at ~/.allbert/logs/daemon.debug.log.
@@ -102,6 +104,11 @@ enum Command {
     Memory {
         #[command(subcommand)]
         command: MemoryCommand,
+    },
+    /// Inspect and maintain the local RAG index.
+    Rag {
+        #[command(subcommand)]
+        command: RagCommand,
     },
     Config {
         #[command(subcommand)]
@@ -636,6 +643,7 @@ async fn run_cli() -> Result<()> {
         }
         Some(Command::Identity { command }) => run_identity_command(&paths, command),
         Some(Command::Memory { command }) => run_memory_command(&paths, &config, command).await,
+        Some(Command::Rag { command }) => rag_cli::run(&paths, &config, command),
         Some(Command::Config { command }) => run_config_command(&paths, command),
         Some(Command::Approvals { command }) => run_approvals_command(&paths, command),
         Some(Command::Inbox { command }) => run_inbox_command(&paths, &config, command).await,
