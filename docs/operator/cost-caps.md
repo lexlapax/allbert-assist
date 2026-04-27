@@ -2,7 +2,7 @@
 
 Allbert's `limits.daily_usd_cap` is currently **per device profile**, not a globally shared cap.
 
-This behavior remains the explicit shipped policy in v0.14.3. Start with the [v0.14.3 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
+This behavior remains the explicit shipped policy in v0.15.0. Start with the [v0.15.0 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
 
 ## What this means in practice
 

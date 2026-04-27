@@ -1,8 +1,8 @@
 # Self-diagnosis and local utilities
 
-Self-diagnosis and local utilities are current v0.14.3 operator surfaces. Diagnosis reads bounded session trace bundles, writes markdown reports, and explains by default. Local utilities are host-specific helpers that the operator explicitly enables before Allbert can compose them through `unix_pipe`.
+Self-diagnosis and local utilities are current v0.15.0 operator surfaces. Diagnosis reads bounded session trace bundles, writes markdown reports, and explains by default. Local utilities are host-specific helpers that the operator explicitly enables before Allbert can compose them through `unix_pipe`.
 
-Remediation remains review-first and never installs generated code, skills, or memory automatically. Start with the [v0.14.3 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
+Remediation remains review-first and never installs generated code, skills, or memory automatically. Start with the [v0.15.0 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
 
 ## Diagnosis
 
@@ -156,7 +156,7 @@ If the active skill does not list `unix_pipe` in `allowed-tools`, the utility is
 
 ## Related Docs
 
-- [v0.14.3 operator playbook](../onboarding-and-operations.md)
+- [v0.15.0 operator playbook](../onboarding-and-operations.md)
 - [Tracing guide](tracing.md)
 - [Self-improvement guide](self-improvement.md)
 - [Continuity and sync posture](continuity.md)

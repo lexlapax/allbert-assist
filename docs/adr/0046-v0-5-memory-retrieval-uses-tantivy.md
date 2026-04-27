@@ -5,7 +5,7 @@ Status: Accepted
 
 > **Amended in part by [ADR 0078](0078-semantic-memory-is-optional-derived-retrieval.md) in v0.11**: BM25/Tantivy remains the default retriever. Semantic retrieval may layer alongside it only as an off-by-default derived index.
 >
-> **Amended in part by [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md) in v0.15 (planned)**: Tantivy remains the curated-memory search baseline, while v0.15 adds a separate cross-source SQLite RAG substrate for operator docs, commands, settings, memory, facts, episodes, session-derived recall, and future promoted ingestion records.
+> **Amended in part by [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md) in v0.15**: Tantivy remains the curated-memory search baseline, while v0.15 adds a separate cross-source SQLite RAG substrate for operator docs, commands, settings, memory, facts, episodes, session-derived recall, and future promoted ingestion records.
 
 ## Context
 
@@ -76,7 +76,7 @@ The dependency footprint is non-trivial for a local-first binary. To prevent qui
 
 - If a later release decides to replace tantivy (e.g. with a WASM-friendly retriever), the `search_memory` / `read_memory` contract from ADR 0041 survives the swap.
 - Future optional embedding retrieval (explicitly deferred from v0.5) would likely layer alongside tantivy rather than replacing it.
-- v0.15's planned SQLite RAG service is additive. It does not retroactively change v0.5's memory-search decision or make staged memory or future ingested records trusted prompt context.
+- v0.15's SQLite RAG service is additive. It does not retroactively change v0.5's memory-search decision or make staged memory or future ingested records trusted prompt context.
 
 ## References
 

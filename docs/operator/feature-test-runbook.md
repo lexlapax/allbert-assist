@@ -735,3 +735,86 @@ That error means the Gemini response parser rejected a live response shape
 instead of extracting text from text-bearing parts and ignoring non-text parts.
 For provider-free implementation validation, run the Gemini provider mock tests
 that include unknown non-text response parts before a text part.
+
+## v0.15.0 Vector RAG, Recall, And Help
+
+v0.15.0 adds a daemon-owned SQLite RAG index with provider-free lexical search
+and real local vectors through Ollama embeddings plus `sqlite-vec`. The release
+smoke should prove both the operator surfaces and the turn-control invariants,
+because RAG is prompt evidence and retrieval infrastructure, not a new action
+authority.
+
+Provider-free lexical smoke:
+
+```bash
+run rag rebuild --no-vectors
+run rag status
+run rag search "configure Telegram" --mode lexical
+```
+
+Expected: the rebuild completes, `rag status` reports indexed source/chunk
+counts, and lexical search returns bounded labelled snippets from current
+operator docs, command descriptors, settings descriptors, or skill metadata.
+
+Local vector smoke, outside default CI:
+
+```bash
+ollama pull embeddinggemma
+run settings set rag.vector.enabled true
+run rag rebuild --vectors
+run rag doctor
+run rag search "configure Telegram" --mode hybrid
+```
+
+Expected: the vector phase records the discovered embedding dimension, hybrid
+search includes vector/lexical posture in result metadata, and lexical fallback
+remains usable if Ollama is stopped or the vector phase is skipped.
+
+Turn-flow smoke in REPL or TUI:
+
+```text
+help me configure Telegram
+what do you remember about temporary ALLBERT_HOME profiles?
+hello, just chatting for a minute
+```
+
+Expected:
+
+- Channel input attaches to the daemon session and enters the normal kernel
+  turn runner.
+- The kernel emits classification/progress events before prompt evidence is
+  rendered.
+- Any pre-router RAG hint is tiny, lexical-only, and limited to command,
+  settings, operator-help, and bounded skill metadata sources.
+- The schema-bound router still owns intent classification and guarded action
+  drafts.
+- Terminal router actions still win; RAG does not authorize, replace, or bypass
+  schedule, memory, approval, or other guarded action checks.
+- Post-router RAG runs only when eligible: help/meta turns search docs,
+  commands, settings, and skills; memory-query turns search durable memory,
+  approved facts, episodes, and session summaries; ordinary task turns retrieve
+  only when local context is useful; casual chat usually skips RAG.
+- Prompt assembly keeps the memory synopsis and ephemeral/session summary, but
+  durable/fact/episode/session snippets come through RAG so Tantivy memory
+  prefetch and RAG do not inject duplicate snippets for the same content.
+- RAG snippets render as labelled evidence with source ids and freshness
+  posture, not as hidden instructions or unquestionable truth.
+- The root model can use that evidence and may call the capped read-only
+  `search_rag` tool for a second retrieval pass.
+- File/process/search-like tool evidence may trigger at most one capped RAG
+  refresh for the turn.
+- RAG indexing runs only through daemon-owned maintenance: protocol v7
+  status/search/rebuild/GC commands and scheduled stale-only runs, not
+  prompt-authored job definitions.
+
+Channel smoke:
+
+```text
+/rag status
+/rag search settings
+/rag rebuild --stale-only
+```
+
+Expected: REPL/TUI support status, search, rebuild, cancel, and GC through the
+daemon. Telegram supports `/rag status` and `/rag search <query>` only; rebuild
+and GC stay on local terminal surfaces.

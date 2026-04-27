@@ -3,7 +3,7 @@
 Date: 2026-04-20
 Status: Accepted
 
-> **Amended in part by [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md) in v0.15 (planned)**: the derived-artifact rule extends to the cross-source RAG index. Markdown memory, operator docs, skills, generated descriptors, session-derived recall artifacts, and future promoted ingestion records remain ground truth; SQLite RAG artifacts are local rebuildable indexes.
+> **Amended in part by [ADR 0106](0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md) in v0.15**: the derived-artifact rule extends to the cross-source RAG index. Markdown memory, operator docs, skills, generated descriptors, session-derived recall artifacts, and future promoted ingestion records remain ground truth; SQLite RAG artifacts are local rebuildable indexes.
 
 ## Context
 

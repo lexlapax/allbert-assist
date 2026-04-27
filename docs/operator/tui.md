@@ -1,8 +1,8 @@
 # TUI operator guide
 
-The Ratatui/Crossterm TUI is the default fresh-profile operator surface in v0.14.3. It remains a frontend adapter: the daemon and runtime services own turns, tools, memory, approvals, cost, telemetry, activity, trace state, diagnosis state, utility state, adapter state, and session state.
+The Ratatui/Crossterm TUI is the default fresh-profile operator surface in v0.15.0. It remains a frontend adapter: the daemon and runtime services own turns, tools, memory, approvals, cost, telemetry, activity, trace state, diagnosis state, utility state, adapter state, RAG status/search, and session state.
 
-Start with the [v0.14.3 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
+Start with the [v0.15.0 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
 
 ## Launching
 
@@ -160,9 +160,10 @@ cargo run -p allbert-cli -- repl --classic
 
 ## Related Docs
 
-- [v0.14.3 operator playbook](../onboarding-and-operations.md)
+- [v0.15.0 operator playbook](../onboarding-and-operations.md)
 - [Telemetry operator guide](telemetry.md)
 - [Tracing operator guide](tracing.md)
+- [RAG operator guide](rag.md)
 - [Personalization guide](personalization.md)
 - [Self-diagnosis and local utilities](self-diagnosis-and-utilities.md)
-- [v0.14.3 upgrade notes](../notes/v0.14.3-upgrade-2026-04-27.md)
+- [v0.15 upgrade notes](../notes/v0.15-upgrade-2026-04-27.md)

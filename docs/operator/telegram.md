@@ -1,8 +1,8 @@
 # Telegram operator guide
 
-Telegram is the optional remote-chat operator channel in the current v0.14.3 release. The daemon remains the source of truth: Telegram renders bounded structural status, activity, approvals, traces, adapter posture, diagnosis posture, and utility posture without reading local files directly.
+Telegram is the optional remote-chat operator channel in the current v0.15.0 release. The daemon remains the source of truth: Telegram renders bounded structural status, activity, approvals, traces, adapter posture, diagnosis posture, utility posture, and read-only RAG status/search without reading local files directly.
 
-Start with the [v0.14.3 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
+Start with the [v0.15.0 operator playbook](../onboarding-and-operations.md) for the full feature-test path.
 
 ## Provider-Free Smoke
 
@@ -143,10 +143,11 @@ Telegram turn failures append the same remediation hints as local surfaces where
 
 ## Related Docs
 
-- [v0.14.3 operator playbook](../onboarding-and-operations.md)
+- [v0.15.0 operator playbook](../onboarding-and-operations.md)
 - [Telemetry operator guide](telemetry.md)
 - [Tracing operator guide](tracing.md)
+- [RAG operator guide](rag.md)
 - [Personalization guide](personalization.md)
 - [Self-diagnosis and local utilities](self-diagnosis-and-utilities.md)
 - [Self-improvement guide](self-improvement.md)
-- [v0.14.3 upgrade notes](../notes/v0.14.3-upgrade-2026-04-27.md)
+- [v0.15 upgrade notes](../notes/v0.15-upgrade-2026-04-27.md)

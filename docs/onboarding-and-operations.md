@@ -1,6 +1,6 @@
-# Allbert v0.14.3 Operator Playbook
+# Allbert v0.15.0 Operator Playbook
 
-This is the current source-based operator playbook for Allbert v0.14.3. It is the start-here guide for running, checking, and release-validating the shipped operator surface from first setup through the latest v0.14.3 router reliability gates.
+This is the current source-based operator playbook for Allbert v0.15.0. It is the start-here guide for running, checking, and release-validating the shipped operator surface from first setup through the latest v0.15 vector RAG, recall, and help foundation.
 
 Focused guides go deeper on individual areas:
 
@@ -8,6 +8,7 @@ Focused guides go deeper on individual areas:
 - [Operator feature test runbook](operator/feature-test-runbook.md)
 - [Telemetry and activity](operator/telemetry.md)
 - [Tracing and replay](operator/tracing.md)
+- [RAG](operator/rag.md)
 - [Adaptive memory](operator/adaptive-memory.md)
 - [Cost caps](operator/cost-caps.md)
 - [Continuity and sync](operator/continuity.md)
@@ -120,7 +121,7 @@ Hosted providers use `api_key_env` in the same `[model]` table. Supported provid
 
 ## Feature Test Playbook
 
-The commands below are the practical operator checklist for the shipped v0.14.3 surface. Prefer a temp `ALLBERT_HOME` for smoke checks unless you intentionally want to inspect your real profile.
+The commands below are the practical operator checklist for the shipped v0.15.0 surface. Prefer a temp `ALLBERT_HOME` for smoke checks unless you intentionally want to inspect your real profile.
 
 ### v0.1 - CLI, Onboarding, Kernel, Skills, Memory, Policy
 
@@ -498,6 +499,41 @@ Test:
 - Confirm the second turn succeeds after assistant history exists.
 - Confirm no OpenAI Responses error reports assistant history encoded as `input_text`.
 
+### v0.15.0 - Vector RAG, Recall, And Help
+
+Provider-free lexical smoke:
+
+```bash
+allbert-cli rag rebuild --no-vectors
+allbert-cli rag status
+allbert-cli rag search "configure Telegram" --mode lexical
+```
+
+Local vector smoke after installing Ollama and pulling the embedding model:
+
+```bash
+ollama pull embeddinggemma
+allbert-cli settings set rag.vector.enabled true
+allbert-cli rag rebuild --vectors
+allbert-cli rag doctor
+allbert-cli rag search "configure Telegram" --mode hybrid
+```
+
+Turn-flow smoke in REPL/TUI:
+
+```text
+help me configure Telegram
+what do you remember about temporary ALLBERT_HOME profiles?
+```
+
+Test:
+
+- Confirm help/meta prompts retrieve labelled RAG evidence before the root answer.
+- Confirm memory-query prompts keep the memory synopsis while durable/fact/episode/session snippets come through RAG, not duplicate Tantivy prompt snippets.
+- Confirm `/rag status`, `/rag search <query>`, and `/rag rebuild --stale-only` work in REPL/TUI.
+- Confirm Telegram exposes `/rag status` and `/rag search <query>` but does not start rebuilds.
+- Confirm scheduled RAG maintenance is daemon-owned and no `jobs/definitions/*rag*` prompt job appears.
+
 ## Telegram
 
 Telegram is optional and credentialed.
@@ -517,7 +553,7 @@ Live setup:
 3. Run `allbert-cli daemon channels add telegram`.
 4. Run `allbert-cli identity show`; if it lists `telegram:<id>` as a migration candidate, run `allbert-cli identity add-channel telegram <id>`.
 5. Restart the daemon if it is already running.
-6. Test `/status`, `/activity`, `/trace last`, `/adapter status`, `/diagnose last`, `/utilities status`, `/approve <id>`, and `/reject <id>` from Telegram.
+6. Test `/status`, `/activity`, `/trace last`, `/adapter status`, `/diagnose last`, `/utilities status`, `/rag status`, `/rag search settings`, `/approve <id>`, and `/reject <id>` from Telegram.
 
 Telegram is structural-only for diagnosis remediation and local utility mutation. It does not start remediation, enable utilities, or run `unix_pipe`.
 
@@ -557,7 +593,7 @@ env -u RUSTC_WRAPPER cargo test -q
 env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- --help
 ```
 
-Full v0.14.3 release validation:
+Full v0.15.0 release validation:
 
 ```bash
 cargo fmt --check
@@ -578,6 +614,7 @@ Optional live/operator checks:
 - Hosted-provider live turn after exporting the provider key.
 - Telegram live bot test after token and allowlist setup.
 - Real adapter training after selecting, allowlisting, and installing a local trainer backend.
+- Ollama vector RAG smoke after `ollama pull embeddinggemma`.
 
 ## Current Limitations
 
@@ -591,7 +628,7 @@ Optional live/operator checks:
 - Telegram image input is photos-only; voice notes, audio, and image output are deferred.
 - Local utility enablement is host-specific and excluded from profile export/sync.
 - `unix_pipe` is text-only, bounded, and direct-spawn; it is not a shell runtime.
-- Semantic retrieval is off by default and uses only the fake deterministic provider in this release.
+- RAG vectors are local-Ollama only in this release; if Ollama or `embeddinggemma` is unavailable, RAG falls back to lexical SQLite FTS when configured to do so.
 - Hosted providers ignore active adapters; adapter activation is local-provider-only.
 - Self-diagnosis explains by default; remediation is opt-in and review-first.
 - `rust-rebuild` requires a local source checkout and never swaps the running binary automatically.
