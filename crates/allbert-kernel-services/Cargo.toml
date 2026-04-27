@@ -21,7 +21,7 @@ tracing-appender = "0.2"
 async-trait = "0.1"
 dirs = "5.0"
 uuid = { version = "1", features = ["v4"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 time = { version = "0.3", features = ["formatting", "parsing", "local-offset", "macros"] }
 gray_matter = "0.3"
 fs2 = "0.4"

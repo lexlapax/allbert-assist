@@ -89,11 +89,13 @@ pub fn run(paths: &AllbertPaths, config: &Config, command: RagCommand) -> Result
                 println!("{}", serde_json::to_string_pretty(&report)?);
             } else {
                 println!(
-                    "rag doctor: {}\ndb:         {}\nsources:    {}\nchunks:     {}",
+                    "rag doctor: {}\ndb:         {}\nsources:    {}\nchunks:     {}\nvectors:    {} ({})",
                     if report.ok { "ok" } else { "issues" },
                     report.db_path.display(),
                     report.source_count,
-                    report.chunk_count
+                    report.chunk_count,
+                    report.vector_count,
+                    format_vector_posture(&report.vector_posture)
                 );
                 for issue in report.issues {
                     println!("- {issue}");

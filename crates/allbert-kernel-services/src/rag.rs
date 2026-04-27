@@ -1,6 +1,9 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::thread;
+use std::time::{Duration, Instant};
 
 pub use allbert_kernel_core::rag::*;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -15,6 +18,7 @@ use crate::{
 };
 
 pub const RAG_SCHEMA_VERSION: u32 = 1;
+static ACTIVE_VECTOR_QUERIES: AtomicUsize = AtomicUsize::new(0);
 
 type SqliteExtensionInit = unsafe extern "C" fn(
     *mut rusqlite::ffi::sqlite3,
@@ -62,6 +66,8 @@ pub struct RagDoctorReport {
     pub schema_version: Option<String>,
     pub source_count: usize,
     pub chunk_count: usize,
+    pub vector_count: usize,
+    pub vector_posture: RagVectorPosture,
     pub issues: Vec<String>,
 }
 
@@ -109,10 +115,122 @@ struct RunWrite<'a> {
     error: Option<&'a str>,
 }
 
+#[derive(Debug)]
+struct EmbeddingError {
+    message: String,
+}
+
+impl EmbeddingError {
+    fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+trait EmbeddingProvider {
+    fn provider(&self) -> RagEmbeddingProvider;
+    fn model(&self) -> &str;
+    fn embed_batch(&self, inputs: &[String]) -> Result<Vec<Vec<f32>>, EmbeddingError>;
+
+    fn model_key(&self, dimension: usize) -> String {
+        format!("{}:{}:{dimension}", self.provider().label(), self.model())
+    }
+}
+
+struct FakeEmbeddingProvider {
+    model: String,
+    dimension: usize,
+}
+
+struct OllamaEmbeddingProvider {
+    model: String,
+    base_url: String,
+    timeout: Duration,
+}
+
+#[derive(Debug, Deserialize)]
+struct OllamaEmbedResponse {
+    embeddings: Vec<Vec<f32>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OllamaTagsResponse {
+    models: Vec<OllamaTagModel>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OllamaTagModel {
+    name: String,
+}
+
+struct VectorQueryPermit;
+
+impl Drop for VectorQueryPermit {
+    fn drop(&mut self) {
+        ACTIVE_VECTOR_QUERIES.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
 pub fn sqlite_vec_dependency_probe() -> Result<String, rusqlite::Error> {
     register_sqlite_vec();
     let db = rusqlite::Connection::open_in_memory()?;
     db.query_row("select vec_version()", [], |row| row.get(0))
+}
+
+impl EmbeddingProvider for FakeEmbeddingProvider {
+    fn provider(&self) -> RagEmbeddingProvider {
+        RagEmbeddingProvider::Fake
+    }
+
+    fn model(&self) -> &str {
+        &self.model
+    }
+
+    fn embed_batch(&self, inputs: &[String]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
+        Ok(inputs
+            .iter()
+            .map(|input| fake_embedding(input, self.dimension))
+            .collect())
+    }
+}
+
+impl EmbeddingProvider for OllamaEmbeddingProvider {
+    fn provider(&self) -> RagEmbeddingProvider {
+        RagEmbeddingProvider::Ollama
+    }
+
+    fn model(&self) -> &str {
+        &self.model
+    }
+
+    fn embed_batch(&self, inputs: &[String]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(self.timeout)
+            .build()
+            .map_err(|e| EmbeddingError::new(format!("build Ollama client: {e}")))?;
+        let url = format!("{}/api/embed", self.base_url.trim_end_matches('/'));
+        let response = client
+            .post(url)
+            .json(&json!({
+                "model": self.model,
+                "input": inputs,
+            }))
+            .send()
+            .and_then(|response| response.error_for_status())
+            .map_err(|e| EmbeddingError::new(format!("Ollama embed request failed: {e}")))?;
+        let parsed = response
+            .json::<OllamaEmbedResponse>()
+            .map_err(|e| EmbeddingError::new(format!("parse Ollama embed response: {e}")))?;
+        if parsed.embeddings.len() != inputs.len() {
+            return Err(EmbeddingError::new(format!(
+                "Ollama returned {} embeddings for {} inputs",
+                parsed.embeddings.len(),
+                inputs.len()
+            )));
+        }
+        Ok(parsed.embeddings)
+    }
 }
 
 pub fn rag_status(paths: &AllbertPaths, config: &Config) -> Result<RagStatusSnapshot, KernelError> {
@@ -123,7 +241,11 @@ pub fn rag_status(paths: &AllbertPaths, config: &Config) -> Result<RagStatusSnap
             source_count: 0,
             chunk_count: 0,
             vector_count: 0,
-            vector_posture: RagVectorPosture::Disabled,
+            vector_posture: if config.rag.vector.enabled {
+                RagVectorPosture::Unavailable
+            } else {
+                RagVectorPosture::Disabled
+            },
             active_provider: Some(config.rag.vector.provider),
             active_model: Some(config.rag.vector.model.clone()),
             active_dimension: None,
@@ -135,6 +257,31 @@ pub fn rag_status(paths: &AllbertPaths, config: &Config) -> Result<RagStatusSnap
     let conn = open_rag_db(paths)?;
     let source_count = count_table(&conn, "rag_sources")?;
     let chunk_count = count_table(&conn, "rag_chunks")?;
+    let vector_count = if table_exists(&conn, "rag_embeddings")? {
+        count_vectors(&conn)?
+    } else {
+        0
+    };
+    let active_dimension =
+        get_meta(&conn, "embedding_dimension")?.and_then(|value| value.parse::<usize>().ok());
+    let expected_key = active_dimension.map(|dimension| {
+        format!(
+            "{}:{}:{dimension}",
+            config.rag.vector.provider.label(),
+            config.rag.vector.model
+        )
+    });
+    let stored_key = get_meta(&conn, "embedding_model_key")?;
+    let vector_posture = if !config.rag.vector.enabled {
+        RagVectorPosture::Disabled
+    } else if vector_count == 0
+        || active_dimension.is_none()
+        || (expected_key.is_some() && stored_key != expected_key)
+    {
+        RagVectorPosture::Stale
+    } else {
+        RagVectorPosture::Healthy
+    };
     let last_run_id = conn
         .query_row(
             "SELECT run_id FROM rag_index_runs ORDER BY started_at DESC LIMIT 1",
@@ -148,18 +295,15 @@ pub fn rag_status(paths: &AllbertPaths, config: &Config) -> Result<RagStatusSnap
         mode: config.rag.mode,
         source_count,
         chunk_count,
-        vector_count: 0,
-        vector_posture: if config.rag.vector.enabled {
-            RagVectorPosture::Stale
-        } else {
-            RagVectorPosture::Disabled
-        },
+        vector_count,
+        vector_posture,
         active_provider: Some(config.rag.vector.provider),
         active_model: Some(config.rag.vector.model.clone()),
-        active_dimension: None,
+        active_dimension,
         last_run_id,
-        degraded_reason: if config.rag.vector.enabled {
-            Some("M1 builds lexical RAG only; vector tables land in M2".into())
+        degraded_reason: if config.rag.vector.enabled && vector_posture != RagVectorPosture::Healthy
+        {
+            Some("vector index is missing or stale; run `allbert-cli rag rebuild --vectors`".into())
         } else {
             None
         },
@@ -192,7 +336,10 @@ pub fn rebuild_rag_index(
     if request.stale_only && paths.rag_db.exists() {
         let conn = open_rag_db(paths)?;
         let previous = get_meta(&conn, "source_hash")?;
-        if previous.as_deref() == Some(&corpus_hash) {
+        let vectors_satisfied = !request.include_vectors
+            || !config.rag.vector.enabled
+            || vectors_current(&conn, config)?;
+        if previous.as_deref() == Some(&corpus_hash) && vectors_satisfied {
             insert_run(
                 &conn,
                 &run_id,
@@ -246,6 +393,23 @@ pub fn rebuild_rag_index(
     )?;
 
     let chunk_count = write_sources(&mut conn, config, &sources)?;
+    let mut vector_count = 0usize;
+    let mut vector_note = String::new();
+    if request.include_vectors && config.rag.vector.enabled {
+        match index_vectors(&mut conn, config) {
+            Ok(count) => {
+                vector_count = count;
+                vector_note = format!("; indexed {count} vectors");
+            }
+            Err(err) => {
+                vector_note = format!("; vector indexing skipped: {}", err.message);
+                set_meta(&conn, "vector_posture", RagVectorPosture::Degraded.label())?;
+                set_meta(&conn, "vector_degraded_reason", &err.message)?;
+            }
+        }
+    } else {
+        set_meta(&conn, "vector_posture", RagVectorPosture::Disabled.label())?;
+    }
     set_meta(&conn, "schema_version", &RAG_SCHEMA_VERSION.to_string())?;
     set_meta(&conn, "source_hash", &corpus_hash)?;
     set_meta(
@@ -253,7 +417,6 @@ pub fn rebuild_rag_index(
         "sqlite_vec_version",
         &sqlite_vec_dependency_probe().unwrap_or_default(),
     )?;
-    set_meta(&conn, "vector_posture", RagVectorPosture::Disabled.label())?;
     finish_run(
         &conn,
         &run_id,
@@ -261,7 +424,7 @@ pub fn rebuild_rag_index(
             status: RagIndexRunStatus::Succeeded,
             source_count: sources.len(),
             chunk_count,
-            vector_count: 0,
+            vector_count,
             skipped_count: 0,
             elapsed_ms: started.elapsed().as_millis() as u64,
             error: None,
@@ -282,11 +445,11 @@ pub fn rebuild_rag_index(
         status: RagIndexRunStatus::Succeeded,
         source_count: sources.len(),
         chunk_count,
-        vector_count: 0,
+        vector_count,
         skipped_count: 0,
         elapsed_ms: started.elapsed().as_millis() as u64,
         db_path: paths.rag_db.clone(),
-        message: "lexical RAG rebuilt".into(),
+        message: format!("lexical RAG rebuilt{vector_note}"),
     })
 }
 
@@ -305,25 +468,215 @@ pub fn search_rag(
         });
     }
     let conn = open_rag_db(paths)?;
-    let mode = match request.mode.unwrap_or(config.rag.mode) {
-        RagRetrievalMode::Vector if config.rag.vector.fallback_to_lexical => {
-            RagRetrievalMode::Lexical
-        }
-        RagRetrievalMode::Hybrid | RagRetrievalMode::Vector | RagRetrievalMode::Lexical => {
-            RagRetrievalMode::Lexical
-        }
-    };
+    let requested_mode = request.mode.unwrap_or(config.rag.mode);
     let limit = request.limit.unwrap_or(10).clamp(1, 50);
     let match_expr = fts_match_expression(&request.query);
     if match_expr.is_empty() {
         return Ok(RagSearchResponse {
             query: request.query,
-            mode,
+            mode: requested_mode,
             vector_posture: RagVectorPosture::Disabled,
             degraded_reason: None,
             results: Vec::new(),
         });
     }
+    let lexical = lexical_search(&conn, config, &request, &match_expr, limit * 4)?;
+    let vector_attempt = if matches!(
+        requested_mode,
+        RagRetrievalMode::Hybrid | RagRetrievalMode::Vector
+    ) && config.rag.vector.enabled
+    {
+        vector_search(&conn, config, &request, limit * 4).map_err(|err| err.message)
+    } else {
+        Err("vectors disabled".into())
+    };
+
+    let (mode, vector_posture, degraded_reason, results) = match (requested_mode, vector_attempt) {
+        (RagRetrievalMode::Vector, Ok(vector)) => (
+            RagRetrievalMode::Vector,
+            RagVectorPosture::Healthy,
+            None,
+            cap_results(vector, limit),
+        ),
+        (RagRetrievalMode::Hybrid, Ok(vector)) => (
+            RagRetrievalMode::Hybrid,
+            RagVectorPosture::Healthy,
+            None,
+            fuse_hybrid(
+                lexical,
+                vector,
+                config.rag.vector.fusion_vector_weight,
+                limit,
+            ),
+        ),
+        (RagRetrievalMode::Hybrid, Err(reason)) if reason == "vectors disabled" => (
+            RagRetrievalMode::Lexical,
+            RagVectorPosture::Disabled,
+            None,
+            cap_results(lexical, limit),
+        ),
+        (RagRetrievalMode::Vector, Err(reason))
+            if reason == "vectors disabled" && config.rag.vector.fallback_to_lexical =>
+        {
+            (
+                RagRetrievalMode::Lexical,
+                RagVectorPosture::Disabled,
+                Some("vector search disabled; used lexical fallback".into()),
+                cap_results(lexical, limit),
+            )
+        }
+        (RagRetrievalMode::Vector, Err(reason)) if config.rag.vector.fallback_to_lexical => (
+            RagRetrievalMode::Lexical,
+            RagVectorPosture::Degraded,
+            Some(format!(
+                "vector search degraded: {reason}; used lexical fallback"
+            )),
+            cap_results(lexical, limit),
+        ),
+        (RagRetrievalMode::Hybrid, Err(reason)) => (
+            RagRetrievalMode::Lexical,
+            RagVectorPosture::Degraded,
+            Some(format!(
+                "vector search degraded: {reason}; used lexical fallback"
+            )),
+            cap_results(lexical, limit),
+        ),
+        (RagRetrievalMode::Vector, Err(reason)) => (
+            RagRetrievalMode::Vector,
+            RagVectorPosture::Degraded,
+            Some(format!("vector search degraded: {reason}")),
+            Vec::new(),
+        ),
+        (RagRetrievalMode::Lexical, _) => (
+            RagRetrievalMode::Lexical,
+            RagVectorPosture::Disabled,
+            None,
+            cap_results(lexical, limit),
+        ),
+    };
+
+    Ok(RagSearchResponse {
+        query: request.query,
+        mode,
+        vector_posture,
+        degraded_reason,
+        results,
+    })
+}
+
+pub fn rag_doctor(paths: &AllbertPaths, config: &Config) -> Result<RagDoctorReport, KernelError> {
+    let db_exists = paths.rag_db.exists();
+    let mut issues = Vec::new();
+    if !db_exists {
+        issues.push("rag.sqlite is missing; run `allbert-cli rag rebuild`".into());
+        return Ok(RagDoctorReport {
+            ok: false,
+            db_path: paths.rag_db.clone(),
+            db_exists,
+            schema_version: None,
+            source_count: 0,
+            chunk_count: 0,
+            vector_count: 0,
+            vector_posture: RagVectorPosture::Unavailable,
+            issues,
+        });
+    }
+    let conn = open_rag_db(paths)?;
+    let schema_version = get_meta(&conn, "schema_version")?;
+    if schema_version.as_deref() != Some(&RAG_SCHEMA_VERSION.to_string()) {
+        issues.push(format!(
+            "schema_version is {}; expected {}",
+            schema_version.as_deref().unwrap_or("missing"),
+            RAG_SCHEMA_VERSION
+        ));
+    }
+    let source_count = count_table(&conn, "rag_sources")?;
+    let chunk_count = count_table(&conn, "rag_chunks")?;
+    if source_count == 0 {
+        issues.push("no RAG sources indexed".into());
+    }
+    if chunk_count == 0 {
+        issues.push("no RAG chunks indexed".into());
+    }
+    let vector_count = if table_exists(&conn, "rag_embeddings")? {
+        count_vectors(&conn)?
+    } else {
+        0
+    };
+    let vector_posture = if !config.rag.vector.enabled {
+        RagVectorPosture::Disabled
+    } else if !table_exists(&conn, "rag_embeddings")? {
+        issues.push("vector table is missing; run `allbert-cli rag rebuild --vectors`".into());
+        RagVectorPosture::Stale
+    } else if vector_count == 0 {
+        issues.push("vector table is empty; run `allbert-cli rag rebuild --vectors`".into());
+        RagVectorPosture::Stale
+    } else if !vectors_current(&conn, config)? {
+        issues.push(
+            "vector metadata is stale for the configured provider/model; rebuild vectors".into(),
+        );
+        RagVectorPosture::Stale
+    } else if let Err(issue) = check_embedding_provider(config) {
+        issues.push(issue);
+        RagVectorPosture::Degraded
+    } else {
+        RagVectorPosture::Healthy
+    };
+    Ok(RagDoctorReport {
+        ok: issues.is_empty(),
+        db_path: paths.rag_db.clone(),
+        db_exists,
+        schema_version,
+        source_count,
+        chunk_count,
+        vector_count,
+        vector_posture,
+        issues,
+    })
+}
+
+pub fn rag_gc(paths: &AllbertPaths, dry_run: bool) -> Result<RagGcSummary, KernelError> {
+    if !paths.rag_db.exists() {
+        return Ok(RagGcSummary {
+            dry_run,
+            orphan_chunks: 0,
+            vacuumed: false,
+        });
+    }
+    let conn = open_rag_db(paths)?;
+    let orphan_chunks: usize = conn
+        .query_row(
+            "SELECT COUNT(*) FROM rag_chunks
+             WHERE source_fk NOT IN (SELECT id FROM rag_sources)",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(sql_err)? as usize;
+    let mut vacuumed = false;
+    if !dry_run {
+        conn.execute(
+            "DELETE FROM rag_chunks
+             WHERE source_fk NOT IN (SELECT id FROM rag_sources)",
+            [],
+        )
+        .map_err(sql_err)?;
+        conn.execute_batch("VACUUM").map_err(sql_err)?;
+        vacuumed = true;
+    }
+    Ok(RagGcSummary {
+        dry_run,
+        orphan_chunks,
+        vacuumed,
+    })
+}
+
+fn lexical_search(
+    conn: &Connection,
+    config: &Config,
+    request: &RagSearchRequest,
+    match_expr: &str,
+    limit: usize,
+) -> Result<Vec<RagSearchResult>, KernelError> {
     let allowed_sources = request
         .sources
         .iter()
@@ -376,105 +729,476 @@ pub fn search_rag(
             title,
             path,
             snippet: truncate_to_bytes(text.trim(), config.rag.max_chunk_bytes),
-            mode,
+            mode: RagRetrievalMode::Lexical,
             score: -rank,
             vector_posture: RagVectorPosture::Disabled,
             score_explanation: Some("sqlite fts bm25".into()),
         });
-        if results.len() >= limit {
-            break;
+    }
+    Ok(results)
+}
+
+fn vector_search(
+    conn: &Connection,
+    config: &Config,
+    request: &RagSearchRequest,
+    limit: usize,
+) -> Result<Vec<RagSearchResult>, EmbeddingError> {
+    if !table_exists(conn, "rag_embeddings").map_err(|e| EmbeddingError::new(e.to_string()))? {
+        return Err(EmbeddingError::new("rag_embeddings table is missing"));
+    }
+    let dimension = get_meta(conn, "embedding_dimension")
+        .map_err(|e| EmbeddingError::new(e.to_string()))?
+        .and_then(|value| value.parse::<usize>().ok())
+        .ok_or_else(|| EmbeddingError::new("embedding dimension metadata is missing"))?;
+    let expected_key = format!(
+        "{}:{}:{dimension}",
+        config.rag.vector.provider.label(),
+        config.rag.vector.model
+    );
+    let stored_key =
+        get_meta(conn, "embedding_model_key").map_err(|e| EmbeddingError::new(e.to_string()))?;
+    if stored_key.as_deref() != Some(expected_key.as_str()) {
+        return Err(EmbeddingError::new("embedding model key is stale"));
+    }
+    let _permit = acquire_vector_query_permit(config.rag.vector.max_concurrent_queries)?;
+    let provider = embedding_provider(
+        config,
+        Duration::from_secs(config.rag.vector.query_timeout_s),
+    );
+    let query = truncate_to_bytes(&request.query, config.rag.vector.max_query_bytes);
+    let embedding = embed_with_retry(provider.as_ref(), &[query], config)?
+        .into_iter()
+        .next()
+        .ok_or_else(|| EmbeddingError::new("embedding provider returned no query vector"))?;
+    if embedding.len() != dimension {
+        return Err(EmbeddingError::new(format!(
+            "query dimension {} does not match stored dimension {dimension}",
+            embedding.len()
+        )));
+    }
+    let allowed_sources = request
+        .sources
+        .iter()
+        .map(|source| source.label().to_string())
+        .collect::<Vec<_>>();
+    let blob = vector_blob(&embedding);
+    let mut stmt = conn
+        .prepare(
+            "WITH knn AS (
+               SELECT rowid, distance
+               FROM rag_embeddings
+               WHERE embedding MATCH ?1 AND k = ?2
+               ORDER BY distance
+             )
+             SELECT c.chunk_id, c.title, c.text, c.source_kind, s.source_id,
+                    s.source_path, knn.distance
+             FROM knn
+             JOIN rag_chunks c ON c.id = knn.rowid
+             JOIN rag_sources s ON s.id = c.source_fk
+             WHERE (?3 OR c.review_only = 0)
+             ORDER BY knn.distance",
+        )
+        .map_err(|e| EmbeddingError::new(format!("prepare vector search: {e}")))?;
+    let rows = stmt
+        .query_map(
+            params![blob, limit as i64, request.include_review_only],
+            |row| {
+                let source_kind: String = row.get(3)?;
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    source_kind,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                    row.get::<_, f64>(6)?,
+                ))
+            },
+        )
+        .map_err(|e| EmbeddingError::new(format!("query vector search: {e}")))?;
+    let mut results = Vec::new();
+    for row in rows {
+        let (chunk_id, title, text, source_kind, source_id, path, distance) =
+            row.map_err(|e| EmbeddingError::new(format!("read vector row: {e}")))?;
+        if !allowed_sources.is_empty() && !allowed_sources.iter().any(|kind| kind == &source_kind) {
+            continue;
+        }
+        let Some(kind) = RagSourceKind::parse(&source_kind) else {
+            continue;
+        };
+        results.push(RagSearchResult {
+            source_kind: kind,
+            source_id,
+            chunk_id,
+            title,
+            path,
+            snippet: truncate_to_bytes(text.trim(), config.rag.max_chunk_bytes),
+            mode: RagRetrievalMode::Vector,
+            score: 1.0 / (1.0 + distance.max(0.0)),
+            vector_posture: RagVectorPosture::Healthy,
+            score_explanation: Some(format!("sqlite-vec cosine distance {distance:.6}")),
+        });
+    }
+    Ok(results)
+}
+
+fn cap_results(mut results: Vec<RagSearchResult>, limit: usize) -> Vec<RagSearchResult> {
+    results.truncate(limit);
+    results
+}
+
+fn fuse_hybrid(
+    lexical: Vec<RagSearchResult>,
+    vector: Vec<RagSearchResult>,
+    vector_weight: f64,
+    limit: usize,
+) -> Vec<RagSearchResult> {
+    let mut fused: HashMap<String, (RagSearchResult, f64)> = HashMap::new();
+    for (idx, result) in lexical.into_iter().enumerate() {
+        let score = (1.0 - vector_weight) / (60.0 + idx as f64 + 1.0);
+        fused
+            .entry(result.chunk_id.clone())
+            .and_modify(|(_, total)| *total += score)
+            .or_insert((result, score));
+    }
+    for (idx, mut result) in vector.into_iter().enumerate() {
+        let score = vector_weight / (60.0 + idx as f64 + 1.0);
+        result.mode = RagRetrievalMode::Hybrid;
+        result.score_explanation = Some("hybrid reciprocal-rank fusion".into());
+        fused
+            .entry(result.chunk_id.clone())
+            .and_modify(|(existing, total)| {
+                existing.mode = RagRetrievalMode::Hybrid;
+                existing.vector_posture = RagVectorPosture::Healthy;
+                existing.score_explanation = Some("hybrid reciprocal-rank fusion".into());
+                *total += score;
+            })
+            .or_insert((result, score));
+    }
+    let mut results = fused
+        .into_values()
+        .map(|(mut result, score)| {
+            result.score = score;
+            result
+        })
+        .collect::<Vec<_>>();
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    results.truncate(limit);
+    results
+}
+
+fn index_vectors(conn: &mut Connection, config: &Config) -> Result<usize, EmbeddingError> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, text
+             FROM rag_chunks
+             ORDER BY id
+             LIMIT ?1",
+        )
+        .map_err(|e| EmbeddingError::new(format!("prepare vector chunk scan: {e}")))?;
+    let rows = stmt
+        .query_map(params![config.rag.index.max_chunks_per_run as i64], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|e| EmbeddingError::new(format!("query vector chunks: {e}")))?;
+    let mut chunks = Vec::new();
+    for row in rows {
+        chunks.push(row.map_err(|e| EmbeddingError::new(format!("read vector chunk: {e}")))?);
+    }
+    drop(stmt);
+
+    if chunks.is_empty() {
+        set_meta(conn, "vector_posture", RagVectorPosture::Disabled.label())
+            .map_err(|e| EmbeddingError::new(e.to_string()))?;
+        return Ok(0);
+    }
+
+    let provider = embedding_provider(
+        config,
+        Duration::from_secs(config.rag.vector.index_timeout_s),
+    );
+    let mut indexed = Vec::with_capacity(chunks.len());
+    let mut dimension = None;
+    for batch in chunks.chunks(config.rag.vector.batch_size) {
+        let inputs = batch
+            .iter()
+            .map(|(_, text)| truncate_to_bytes(text, config.rag.vector.max_query_bytes))
+            .collect::<Vec<_>>();
+        let embeddings = embed_with_retry(provider.as_ref(), &inputs, config)?;
+        if embeddings.len() != batch.len() {
+            return Err(EmbeddingError::new(format!(
+                "embedding provider returned {} vectors for {} chunks",
+                embeddings.len(),
+                batch.len()
+            )));
+        }
+        for ((rowid, _), embedding) in batch.iter().zip(embeddings) {
+            if embedding.is_empty() {
+                return Err(EmbeddingError::new(
+                    "embedding provider returned an empty vector",
+                ));
+            }
+            match dimension {
+                Some(expected) if embedding.len() != expected => {
+                    return Err(EmbeddingError::new(format!(
+                        "embedding dimension changed from {expected} to {}",
+                        embedding.len()
+                    )));
+                }
+                None => dimension = Some(embedding.len()),
+                _ => {}
+            }
+            indexed.push((*rowid, normalize_vector(embedding)));
         }
     }
 
-    Ok(RagSearchResponse {
-        query: request.query,
-        mode,
-        vector_posture: RagVectorPosture::Disabled,
-        degraded_reason: if request.mode == Some(RagRetrievalMode::Vector) {
-            Some("M1 lexical fallback: vectors land in M2".into())
-        } else {
-            None
-        },
-        results,
-    })
+    let dimension =
+        dimension.ok_or_else(|| EmbeddingError::new("embedding provider returned no vectors"))?;
+    create_vector_table(conn, dimension)?;
+    let model_key = provider.model_key(dimension);
+    let tx = conn
+        .transaction()
+        .map_err(|e| EmbeddingError::new(format!("begin vector transaction: {e}")))?;
+    {
+        let mut insert = tx
+            .prepare("INSERT INTO rag_embeddings(rowid, embedding) VALUES (?1, ?2)")
+            .map_err(|e| EmbeddingError::new(format!("prepare vector insert: {e}")))?;
+        let mut update = tx
+            .prepare(
+                "UPDATE rag_chunks
+                 SET embedding_model_key = ?1,
+                     embedding_state = 'indexed',
+                     updated_at = ?2
+                 WHERE id = ?3",
+            )
+            .map_err(|e| EmbeddingError::new(format!("prepare chunk vector update: {e}")))?;
+        let now = chrono::Utc::now().to_rfc3339();
+        for (rowid, embedding) in &indexed {
+            insert
+                .execute(params![rowid, vector_blob(embedding)])
+                .map_err(|e| EmbeddingError::new(format!("insert vector row {rowid}: {e}")))?;
+            update
+                .execute(params![model_key, now, rowid])
+                .map_err(|e| EmbeddingError::new(format!("mark chunk {rowid} vectorized: {e}")))?;
+        }
+    }
+    tx.commit()
+        .map_err(|e| EmbeddingError::new(format!("commit vector transaction: {e}")))?;
+
+    set_meta(conn, "embedding_provider", provider.provider().label())
+        .map_err(|e| EmbeddingError::new(e.to_string()))?;
+    set_meta(conn, "embedding_model", provider.model())
+        .map_err(|e| EmbeddingError::new(e.to_string()))?;
+    set_meta(conn, "embedding_dimension", &dimension.to_string())
+        .map_err(|e| EmbeddingError::new(e.to_string()))?;
+    set_meta(conn, "embedding_model_key", &provider.model_key(dimension))
+        .map_err(|e| EmbeddingError::new(e.to_string()))?;
+    set_meta(conn, "vector_posture", RagVectorPosture::Healthy.label())
+        .map_err(|e| EmbeddingError::new(e.to_string()))?;
+    set_meta(conn, "vector_degraded_reason", "").map_err(|e| EmbeddingError::new(e.to_string()))?;
+    Ok(indexed.len())
 }
 
-pub fn rag_doctor(paths: &AllbertPaths, _config: &Config) -> Result<RagDoctorReport, KernelError> {
-    let db_exists = paths.rag_db.exists();
-    let mut issues = Vec::new();
-    if !db_exists {
-        issues.push("rag.sqlite is missing; run `allbert-cli rag rebuild`".into());
-        return Ok(RagDoctorReport {
-            ok: false,
-            db_path: paths.rag_db.clone(),
-            db_exists,
-            schema_version: None,
-            source_count: 0,
-            chunk_count: 0,
-            issues,
-        });
+fn embedding_provider(config: &Config, timeout: Duration) -> Box<dyn EmbeddingProvider> {
+    match config.rag.vector.provider {
+        RagEmbeddingProvider::Fake => Box::new(FakeEmbeddingProvider {
+            model: config.rag.vector.model.clone(),
+            dimension: fake_dimension_for_model(&config.rag.vector.model),
+        }),
+        RagEmbeddingProvider::Ollama => Box::new(OllamaEmbeddingProvider {
+            model: config.rag.vector.model.clone(),
+            base_url: config.rag.vector.base_url.clone(),
+            timeout,
+        }),
     }
-    let conn = open_rag_db(paths)?;
-    let schema_version = get_meta(&conn, "schema_version")?;
-    if schema_version.as_deref() != Some(&RAG_SCHEMA_VERSION.to_string()) {
-        issues.push(format!(
-            "schema_version is {}; expected {}",
-            schema_version.as_deref().unwrap_or("missing"),
-            RAG_SCHEMA_VERSION
-        ));
-    }
-    let source_count = count_table(&conn, "rag_sources")?;
-    let chunk_count = count_table(&conn, "rag_chunks")?;
-    if source_count == 0 {
-        issues.push("no RAG sources indexed".into());
-    }
-    if chunk_count == 0 {
-        issues.push("no RAG chunks indexed".into());
-    }
-    Ok(RagDoctorReport {
-        ok: issues.is_empty(),
-        db_path: paths.rag_db.clone(),
-        db_exists,
-        schema_version,
-        source_count,
-        chunk_count,
-        issues,
-    })
 }
 
-pub fn rag_gc(paths: &AllbertPaths, dry_run: bool) -> Result<RagGcSummary, KernelError> {
-    if !paths.rag_db.exists() {
-        return Ok(RagGcSummary {
-            dry_run,
-            orphan_chunks: 0,
-            vacuumed: false,
-        });
+fn embed_with_retry(
+    provider: &dyn EmbeddingProvider,
+    inputs: &[String],
+    config: &Config,
+) -> Result<Vec<Vec<f32>>, EmbeddingError> {
+    let attempts = usize::from(config.rag.vector.retry_attempts) + 1;
+    let mut last = None;
+    for attempt in 0..attempts {
+        match provider.embed_batch(inputs) {
+            Ok(vectors) => return Ok(vectors),
+            Err(err) => last = Some(err),
+        }
+        if attempt + 1 < attempts {
+            thread::sleep(Duration::from_millis(100 * (attempt as u64 + 1)));
+        }
     }
-    let conn = open_rag_db(paths)?;
-    let orphan_chunks: usize = conn
-        .query_row(
-            "SELECT COUNT(*) FROM rag_chunks
-             WHERE source_fk NOT IN (SELECT id FROM rag_sources)",
-            [],
-            |row| row.get::<_, i64>(0),
-        )
-        .map_err(sql_err)? as usize;
-    let mut vacuumed = false;
-    if !dry_run {
-        conn.execute(
-            "DELETE FROM rag_chunks
-             WHERE source_fk NOT IN (SELECT id FROM rag_sources)",
-            [],
-        )
-        .map_err(sql_err)?;
-        conn.execute_batch("VACUUM").map_err(sql_err)?;
-        vacuumed = true;
+    Err(last.unwrap_or_else(|| EmbeddingError::new("embedding failed without an error")))
+}
+
+fn create_vector_table(conn: &Connection, dimension: usize) -> Result<(), EmbeddingError> {
+    register_sqlite_vec();
+    conn.execute("DROP TABLE IF EXISTS rag_embeddings", [])
+        .map_err(|e| EmbeddingError::new(format!("drop stale vector table: {e}")))?;
+    conn.execute(
+        &format!(
+            "CREATE VIRTUAL TABLE rag_embeddings
+             USING vec0(embedding float[{dimension}] distance_metric=cosine)"
+        ),
+        [],
+    )
+    .map_err(|e| EmbeddingError::new(format!("create vector table: {e}")))?;
+    Ok(())
+}
+
+fn vectors_current(conn: &Connection, config: &Config) -> Result<bool, KernelError> {
+    if !table_exists(conn, "rag_embeddings")? || count_vectors(conn)? == 0 {
+        return Ok(false);
     }
-    Ok(RagGcSummary {
-        dry_run,
-        orphan_chunks,
-        vacuumed,
+    let Some(dimension) =
+        get_meta(conn, "embedding_dimension")?.and_then(|value| value.parse::<usize>().ok())
+    else {
+        return Ok(false);
+    };
+    let expected_key = format!(
+        "{}:{}:{dimension}",
+        config.rag.vector.provider.label(),
+        config.rag.vector.model
+    );
+    Ok(get_meta(conn, "embedding_model_key")?.as_deref() == Some(expected_key.as_str()))
+}
+
+fn table_exists(conn: &Connection, table: &str) -> Result<bool, KernelError> {
+    conn.query_row(
+        "SELECT EXISTS(
+           SELECT 1
+           FROM sqlite_master
+           WHERE name = ?1 AND type IN ('table', 'virtual table')
+         )",
+        [table],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|value| value != 0)
+    .map_err(sql_err)
+}
+
+fn count_vectors(conn: &Connection) -> Result<usize, KernelError> {
+    conn.query_row("SELECT COUNT(*) FROM rag_embeddings", [], |row| {
+        row.get::<_, i64>(0)
     })
+    .map(|value| value as usize)
+    .map_err(sql_err)
+}
+
+fn vector_blob(vector: &[f32]) -> Vec<u8> {
+    let mut blob = Vec::with_capacity(std::mem::size_of_val(vector));
+    for value in vector {
+        blob.extend_from_slice(&value.to_le_bytes());
+    }
+    blob
+}
+
+fn normalize_vector(mut vector: Vec<f32>) -> Vec<f32> {
+    let norm = vector
+        .iter()
+        .map(|value| f64::from(*value) * f64::from(*value))
+        .sum::<f64>()
+        .sqrt();
+    if norm > 0.0 {
+        for value in &mut vector {
+            *value = (f64::from(*value) / norm) as f32;
+        }
+    }
+    vector
+}
+
+fn fake_embedding(input: &str, dimension: usize) -> Vec<f32> {
+    let dimension = dimension.max(1);
+    let mut vector = vec![0.0f32; dimension];
+    for token in input
+        .split(|ch: char| !ch.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty())
+    {
+        let mut hasher = Sha256::new();
+        hasher.update(token.to_ascii_lowercase().as_bytes());
+        let digest = hasher.finalize();
+        let mut bytes = [0u8; 8];
+        bytes.copy_from_slice(&digest[..8]);
+        let idx = u64::from_le_bytes(bytes) as usize % dimension;
+        vector[idx] += 1.0;
+    }
+    if vector.iter().all(|value| *value == 0.0) {
+        vector[0] = 1.0;
+    }
+    normalize_vector(vector)
+}
+
+fn fake_dimension_for_model(model: &str) -> usize {
+    model
+        .rsplit_once('-')
+        .and_then(|(_, suffix)| suffix.strip_suffix('d').unwrap_or(suffix).parse().ok())
+        .unwrap_or(8)
+}
+
+fn acquire_vector_query_permit(max_concurrent: usize) -> Result<VectorQueryPermit, EmbeddingError> {
+    loop {
+        let current = ACTIVE_VECTOR_QUERIES.load(Ordering::Acquire);
+        if current >= max_concurrent {
+            return Err(EmbeddingError::new(format!(
+                "vector query concurrency limit reached ({max_concurrent})"
+            )));
+        }
+        if ACTIVE_VECTOR_QUERIES
+            .compare_exchange(current, current + 1, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+        {
+            return Ok(VectorQueryPermit);
+        }
+    }
+}
+
+fn check_embedding_provider(config: &Config) -> Result<(), String> {
+    match config.rag.vector.provider {
+        RagEmbeddingProvider::Fake => Ok(()),
+        RagEmbeddingProvider::Ollama => check_ollama_model(config),
+    }
+}
+
+fn check_ollama_model(config: &Config) -> Result<(), String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(config.rag.vector.query_timeout_s))
+        .build()
+        .map_err(|e| format!("build Ollama client: {e}"))?;
+    let url = format!(
+        "{}/api/tags",
+        config.rag.vector.base_url.trim_end_matches('/')
+    );
+    let tags = client
+        .get(url)
+        .send()
+        .and_then(|response| response.error_for_status())
+        .map_err(|e| {
+            format!(
+                "Ollama is not reachable for RAG vectors at {}; start Ollama and run `ollama pull {}` ({e})",
+                config.rag.vector.base_url, config.rag.vector.model
+            )
+        })?
+        .json::<OllamaTagsResponse>()
+        .map_err(|e| format!("parse Ollama tags response: {e}"))?;
+    let wanted = config.rag.vector.model.as_str();
+    if tags
+        .models
+        .iter()
+        .any(|model| model.name == wanted || model.name.split(':').next() == Some(wanted))
+    {
+        Ok(())
+    } else {
+        Err(format!(
+            "Ollama model `{}` is missing; run `ollama pull {}`",
+            config.rag.vector.model, config.rag.vector.model
+        ))
+    }
 }
 
 fn open_rag_db(paths: &AllbertPaths) -> Result<Connection, KernelError> {
@@ -484,6 +1208,7 @@ fn open_rag_db(paths: &AllbertPaths) -> Result<Connection, KernelError> {
 }
 
 fn open_path(path: &Path) -> Result<Connection, KernelError> {
+    register_sqlite_vec();
     let conn = Connection::open(path)
         .map_err(|e| KernelError::InitFailed(format!("open {}: {e}", path.display())))?;
     conn.pragma_update(None, "journal_mode", "WAL")
@@ -1163,6 +1888,7 @@ impl RagRunStatusLabel for RagIndexRunStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::Ordering;
 
     fn temp_paths() -> (tempfile::TempDir, AllbertPaths) {
         let temp = tempfile::tempdir().expect("tempdir");
@@ -1172,6 +1898,15 @@ mod tests {
             .persist(&paths)
             .expect("config should persist");
         (temp, paths)
+    }
+
+    fn fake_vector_config() -> Config {
+        let mut config = Config::default_template();
+        config.rag.vector.enabled = true;
+        config.rag.vector.provider = RagEmbeddingProvider::Fake;
+        config.rag.vector.model = "fake-8d".into();
+        config.rag.vector.retry_attempts = 0;
+        config
     }
 
     #[test]
@@ -1285,5 +2020,154 @@ mod tests {
         assert!(healthy.ok, "{:?}", healthy.issues);
         assert!(healthy.db_exists);
         assert_eq!(healthy.schema_version.as_deref(), Some("1"));
+    }
+
+    #[test]
+    fn rebuild_indexes_fake_vectors_and_hybrid_searches() {
+        let (_temp, paths) = temp_paths();
+        let config = fake_vector_config();
+        let summary = rebuild_rag_index(
+            &paths,
+            &config,
+            RagRebuildRequest {
+                stale_only: false,
+                sources: vec![
+                    RagSourceKind::SettingsCatalog,
+                    RagSourceKind::CommandCatalog,
+                ],
+                include_vectors: true,
+                trigger: "test".into(),
+            },
+        )
+        .expect("vector rebuild should succeed");
+        assert_eq!(summary.status, RagIndexRunStatus::Succeeded);
+        assert!(summary.vector_count > 0);
+
+        let status = rag_status(&paths, &config).expect("status should read");
+        assert_eq!(status.vector_posture, RagVectorPosture::Healthy);
+        assert_eq!(status.active_dimension, Some(8));
+        assert_eq!(status.vector_count, summary.vector_count);
+
+        let hybrid = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "settings catalog".into(),
+                sources: vec![RagSourceKind::SettingsCatalog],
+                mode: Some(RagRetrievalMode::Hybrid),
+                limit: Some(5),
+                include_review_only: false,
+            },
+        )
+        .expect("hybrid search should succeed");
+        assert_eq!(hybrid.mode, RagRetrievalMode::Hybrid);
+        assert_eq!(hybrid.vector_posture, RagVectorPosture::Healthy);
+        assert!(!hybrid.results.is_empty());
+        assert!(hybrid
+            .results
+            .iter()
+            .all(|result| result.source_kind == RagSourceKind::SettingsCatalog));
+
+        let vector = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "settings catalog".into(),
+                sources: vec![RagSourceKind::SettingsCatalog],
+                mode: Some(RagRetrievalMode::Vector),
+                limit: Some(3),
+                include_review_only: false,
+            },
+        )
+        .expect("vector search should succeed");
+        assert_eq!(vector.mode, RagRetrievalMode::Vector);
+        assert_eq!(vector.vector_posture, RagVectorPosture::Healthy);
+        assert!(!vector.results.is_empty());
+        assert!(vector
+            .results
+            .iter()
+            .all(|result| result.mode == RagRetrievalMode::Vector));
+
+        let doctor = rag_doctor(&paths, &config).expect("doctor should inspect vectors");
+        assert!(doctor.ok, "{:?}", doctor.issues);
+        assert_eq!(doctor.vector_posture, RagVectorPosture::Healthy);
+    }
+
+    #[test]
+    fn vector_search_falls_back_when_model_key_is_stale() {
+        let (_temp, paths) = temp_paths();
+        let config = fake_vector_config();
+        rebuild_rag_index(
+            &paths,
+            &config,
+            RagRebuildRequest {
+                stale_only: false,
+                sources: vec![RagSourceKind::SettingsCatalog],
+                include_vectors: true,
+                trigger: "test".into(),
+            },
+        )
+        .expect("vector rebuild should succeed");
+
+        let mut stale_config = config.clone();
+        stale_config.rag.vector.model = "fake-16d".into();
+        let status = rag_status(&paths, &stale_config).expect("status should read stale vectors");
+        assert_eq!(status.vector_posture, RagVectorPosture::Stale);
+
+        let search = search_rag(
+            &paths,
+            &stale_config,
+            RagSearchRequest {
+                query: "settings".into(),
+                sources: vec![RagSourceKind::SettingsCatalog],
+                mode: Some(RagRetrievalMode::Vector),
+                limit: Some(3),
+                include_review_only: false,
+            },
+        )
+        .expect("stale vectors should fall back");
+        assert_eq!(search.mode, RagRetrievalMode::Lexical);
+        assert_eq!(search.vector_posture, RagVectorPosture::Degraded);
+        assert!(!search.results.is_empty());
+    }
+
+    #[test]
+    fn stale_only_rebuild_runs_when_vectors_are_missing() {
+        let (_temp, paths) = temp_paths();
+        let lexical_config = Config::default_template();
+        rebuild_rag_index(
+            &paths,
+            &lexical_config,
+            RagRebuildRequest {
+                stale_only: false,
+                sources: vec![RagSourceKind::CommandCatalog],
+                include_vectors: false,
+                trigger: "test".into(),
+            },
+        )
+        .expect("lexical rebuild should succeed");
+
+        let config = fake_vector_config();
+        let summary = rebuild_rag_index(
+            &paths,
+            &config,
+            RagRebuildRequest {
+                stale_only: true,
+                sources: vec![RagSourceKind::CommandCatalog],
+                include_vectors: true,
+                trigger: "test".into(),
+            },
+        )
+        .expect("stale-only should rebuild missing vectors");
+        assert_eq!(summary.status, RagIndexRunStatus::Succeeded);
+        assert!(summary.vector_count > 0);
+    }
+
+    #[test]
+    fn vector_query_permit_enforces_configured_limit() {
+        ACTIVE_VECTOR_QUERIES.store(1, Ordering::Release);
+        let denied = acquire_vector_query_permit(1);
+        ACTIVE_VECTOR_QUERIES.store(0, Ordering::Release);
+        assert!(denied.is_err());
     }
 }
