@@ -206,32 +206,64 @@ impl EmbeddingProvider for OllamaEmbeddingProvider {
     }
 
     fn embed_batch(&self, inputs: &[String]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
-        let client = reqwest::blocking::Client::builder()
-            .timeout(self.timeout)
-            .build()
-            .map_err(|e| EmbeddingError::new(format!("build Ollama client: {e}")))?;
-        let url = format!("{}/api/embed", self.base_url.trim_end_matches('/'));
-        let response = client
-            .post(url)
-            .json(&json!({
-                "model": self.model,
-                "input": inputs,
-            }))
-            .send()
-            .and_then(|response| response.error_for_status())
-            .map_err(|e| EmbeddingError::new(format!("Ollama embed request failed: {e}")))?;
-        let parsed = response
-            .json::<OllamaEmbedResponse>()
-            .map_err(|e| EmbeddingError::new(format!("parse Ollama embed response: {e}")))?;
-        if parsed.embeddings.len() != inputs.len() {
-            return Err(EmbeddingError::new(format!(
-                "Ollama returned {} embeddings for {} inputs",
-                parsed.embeddings.len(),
-                inputs.len()
-            )));
-        }
-        Ok(parsed.embeddings)
+        let model = self.model.clone();
+        let base_url = self.base_url.clone();
+        let timeout = self.timeout;
+        let inputs = inputs.to_vec();
+        run_blocking_http(
+            move || ollama_embed_batch_blocking(model, base_url, timeout, inputs),
+            EmbeddingError::new,
+        )
     }
+}
+
+fn run_blocking_http<T, E, F, M>(work: F, map_panic: M) -> Result<T, E>
+where
+    T: Send + 'static,
+    E: Send + 'static,
+    F: FnOnce() -> Result<T, E> + Send + 'static,
+    M: FnOnce(String) -> E,
+{
+    if tokio::runtime::Handle::try_current().is_ok() {
+        thread::spawn(work)
+            .join()
+            .unwrap_or_else(|_| Err(map_panic("blocking HTTP worker panicked".into())))
+    } else {
+        work()
+    }
+}
+
+fn ollama_embed_batch_blocking(
+    model: String,
+    base_url: String,
+    timeout: Duration,
+    inputs: Vec<String>,
+) -> Result<Vec<Vec<f32>>, EmbeddingError> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(timeout)
+        .build()
+        .map_err(|e| EmbeddingError::new(format!("build Ollama client: {e}")))?;
+    let url = format!("{}/api/embed", base_url.trim_end_matches('/'));
+    let response = client
+        .post(url)
+        .json(&json!({
+            "model": model,
+            "input": inputs,
+        }))
+        .send()
+        .and_then(|response| response.error_for_status())
+        .map_err(|e| EmbeddingError::new(format!("Ollama embed request failed: {e}")))?;
+    let parsed = response
+        .json::<OllamaEmbedResponse>()
+        .map_err(|e| EmbeddingError::new(format!("parse Ollama embed response: {e}")))?;
+    if parsed.embeddings.len() != inputs.len() {
+        return Err(EmbeddingError::new(format!(
+            "Ollama returned {} embeddings for {} inputs",
+            parsed.embeddings.len(),
+            inputs.len()
+        )));
+    }
+    Ok(parsed.embeddings)
 }
 
 pub fn rag_status(paths: &AllbertPaths, config: &Config) -> Result<RagStatusSnapshot, KernelError> {
@@ -1367,26 +1399,13 @@ fn check_embedding_provider(config: &Config) -> Result<(), String> {
 }
 
 fn check_ollama_model(config: &Config) -> Result<(), String> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(config.rag.vector.query_timeout_s))
-        .build()
-        .map_err(|e| format!("build Ollama client: {e}"))?;
-    let url = format!(
-        "{}/api/tags",
-        config.rag.vector.base_url.trim_end_matches('/')
-    );
-    let tags = client
-        .get(url)
-        .send()
-        .and_then(|response| response.error_for_status())
-        .map_err(|e| {
-            format!(
-                "Ollama is not reachable for RAG vectors at {}; start Ollama and run `ollama pull {}` ({e})",
-                config.rag.vector.base_url, config.rag.vector.model
-            )
-        })?
-        .json::<OllamaTagsResponse>()
-        .map_err(|e| format!("parse Ollama tags response: {e}"))?;
+    let base_url = config.rag.vector.base_url.clone();
+    let model = config.rag.vector.model.clone();
+    let timeout = Duration::from_secs(config.rag.vector.query_timeout_s);
+    let tags = run_blocking_http(
+        move || ollama_tags_blocking(base_url, model, timeout),
+        std::convert::identity,
+    )?;
     let wanted = config.rag.vector.model.as_str();
     if tags
         .models
@@ -1400,6 +1419,29 @@ fn check_ollama_model(config: &Config) -> Result<(), String> {
             config.rag.vector.model, config.rag.vector.model
         ))
     }
+}
+
+fn ollama_tags_blocking(
+    base_url: String,
+    model: String,
+    timeout: Duration,
+) -> Result<OllamaTagsResponse, String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(timeout)
+        .build()
+        .map_err(|e| format!("build Ollama client: {e}"))?;
+    let url = format!("{}/api/tags", base_url.trim_end_matches('/'));
+    client
+        .get(url)
+        .send()
+        .and_then(|response| response.error_for_status())
+        .map_err(|e| {
+            format!(
+                "Ollama is not reachable for RAG vectors at {base_url}; start Ollama and run `ollama pull {model}` ({e})"
+            )
+        })?
+        .json::<OllamaTagsResponse>()
+        .map_err(|e| format!("parse Ollama tags response: {e}"))
 }
 
 fn open_rag_db(paths: &AllbertPaths) -> Result<Connection, KernelError> {
@@ -2163,6 +2205,24 @@ mod tests {
             version.starts_with("v0.") || version.starts_with("0."),
             "unexpected sqlite-vec version {version}"
         );
+    }
+
+    #[test]
+    fn blocking_http_helper_does_not_drop_reqwest_runtime_inside_tokio() {
+        let runtime = tokio::runtime::Runtime::new().expect("runtime");
+        runtime.block_on(async {
+            let result = run_blocking_http(
+                || {
+                    let _client = reqwest::blocking::Client::builder()
+                        .timeout(Duration::from_millis(10))
+                        .build()
+                        .map_err(|e| EmbeddingError::new(e.to_string()))?;
+                    Ok::<_, EmbeddingError>(())
+                },
+                EmbeddingError::new,
+            );
+            assert!(result.is_ok());
+        });
     }
 
     #[test]
