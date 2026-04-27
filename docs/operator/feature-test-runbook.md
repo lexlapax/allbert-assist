@@ -698,3 +698,32 @@ provider-free implementation validation, run the OpenAI provider mock tests that
 capture the request body and prove user text uses `input_text`, assistant
 history uses `output_text`, user images use `input_image`, and assistant images
 are rejected locally.
+
+## v0.14.3 Gemini Live-Provider Response Reliability
+
+This is an optional credentialed smoke. It requires `GEMINI_API_KEY` and should
+be run only when you intend to test the live Gemini provider path:
+
+```bash
+run repl --classic
+```
+
+Then type:
+
+```text
+/model gemini gemini-2.5-flash-lite GEMINI_API_KEY
+hello
+```
+
+Expected in v0.14.3: the turn succeeds, or the failure is a clear provider
+status such as quota exhaustion or temporary high demand. The failure to catch
+is a local decoder error:
+
+```text
+error decoding response body
+```
+
+That error means the Gemini response parser rejected a live response shape
+instead of extracting text from text-bearing parts and ignoring non-text parts.
+For provider-free implementation validation, run the Gemini provider mock tests
+that include unknown non-text response parts before a text part.

@@ -5602,7 +5602,7 @@ async fn run_live_release_smoke(
     config.model.model_id = start_model_id.into();
     config.model.api_key_env = Some(start_api_key_env.into());
     config.model.base_url = None;
-    config.model.max_tokens = 64;
+    config.model.max_tokens = live_smoke_max_tokens(start_provider);
     config.security.fs_roots = vec![workspace_root.clone()];
 
     seed_completed_setup(&paths, &config);
@@ -5706,7 +5706,7 @@ async fn run_live_release_smoke(
             model_id: switch_model_id.into(),
             api_key_env: Some(switch_api_key_env.into()),
             base_url: None,
-            max_tokens: 64,
+            max_tokens: live_smoke_max_tokens(switch_provider),
             context_window_tokens: 0,
         })
         .await
@@ -5720,6 +5720,13 @@ async fn run_live_release_smoke(
         kernel.today_cost_usd().expect("today cost should sum") > 0.0,
         "cost tracking should record live provider usage"
     );
+}
+
+fn live_smoke_max_tokens(provider: Provider) -> u32 {
+    match provider {
+        Provider::Gemini => 512,
+        _ => 64,
+    }
 }
 
 async fn run_live_ollama_release_smoke() {
@@ -5844,10 +5851,10 @@ async fn openai_release_smoke() {
 async fn gemini_release_smoke() {
     run_live_release_smoke(
         Provider::Gemini,
-        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
         "GEMINI_API_KEY",
         Provider::Gemini,
-        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
         "GEMINI_API_KEY",
     )
     .await;

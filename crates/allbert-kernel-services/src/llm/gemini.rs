@@ -98,10 +98,12 @@ impl LlmProvider for GeminiProvider {
             )));
         }
 
-        let parsed: GeminiResponse = response
-            .json()
+        let raw = response
+            .text()
             .await
             .map_err(|err| LlmError::Response(err.to_string()))?;
+        let parsed: GeminiResponse = serde_json::from_str(&raw)
+            .map_err(|err| LlmError::Response(format!("gemini response decode error: {err}")))?;
         let text = parsed.output_text();
         if text.is_empty() {
             return Err(LlmError::Response(
@@ -257,10 +259,7 @@ impl GeminiResponse {
         self.candidates
             .iter()
             .flat_map(|candidate| &candidate.content.parts)
-            .filter_map(|part| match part {
-                GeminiPart::Text { text } => Some(text.clone()),
-                GeminiPart::InlineData { .. } => None,
-            })
+            .filter_map(|part| part.text.clone())
             .collect::<Vec<_>>()
             .join("\n\n")
     }
@@ -268,7 +267,20 @@ impl GeminiResponse {
 
 #[derive(Deserialize)]
 struct GeminiCandidate {
-    content: GeminiContent,
+    #[serde(default)]
+    content: GeminiResponseContent,
+}
+
+#[derive(Default, Deserialize)]
+struct GeminiResponseContent {
+    #[serde(default)]
+    parts: Vec<GeminiResponsePart>,
+}
+
+#[derive(Deserialize)]
+struct GeminiResponsePart {
+    #[serde(default)]
+    text: Option<String>,
 }
 
 #[derive(Default, Deserialize)]
@@ -358,6 +370,42 @@ mod tests {
         assert_eq!(response.usage.output_tokens, 4);
         assert_eq!(response.usage.cache_read, 2);
         assert!(provider.pricing("gemini-2.5-flash").is_some());
+    }
+
+    #[tokio::test]
+    async fn ignores_unknown_response_parts() {
+        let (base_url, _request_rx) = spawn_json_server(
+            "200 OK",
+            r#"{"candidates":[{"content":{"parts":[{"functionCall":{"name":"noop","args":{}}},{"thoughtSignature":"opaque"},{"text":"hello gemini"}]}}],"usageMetadata":{"promptTokenCount":8,"candidatesTokenCount":4}}"#,
+        )
+        .await;
+        let provider = GeminiProvider::new_with_base_url(
+            reqwest::Client::new(),
+            "GEMINI_API_KEY".into(),
+            Some("test-key".into()),
+            base_url,
+        );
+
+        let response = provider
+            .complete(CompletionRequest {
+                system: None,
+                messages: vec![ChatMessage {
+                    role: ChatRole::User,
+                    content: "hi".into(),
+                    attachments: Vec::new(),
+                }],
+                model: "gemini-2.5-flash".into(),
+                max_tokens: 12,
+                tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
+            })
+            .await
+            .expect("request should succeed");
+
+        assert_eq!(response.text, "hello gemini");
+        assert_eq!(response.usage.input_tokens, 8);
+        assert_eq!(response.usage.output_tokens, 4);
     }
 
     #[tokio::test]

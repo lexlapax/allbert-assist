@@ -7,6 +7,7 @@
 - hardened conversational scheduling with flat named-call normalization, a schedule-specific prose-confirmation retry, bounded trace provenance, and a safe `allbert-cli jobs upsert <job-definition.md>` fallback
 - added router-drafted explicit-memory staging for high-confidence `remember that ...` requests while preserving review-first promotion and rejection
 - repaired OpenAI Responses request mapping so user text uses `input_text`, assistant history uses `output_text`, user images remain `input_image`, and assistant-side image attachments fail locally
+- hardened Gemini response parsing for live responses with non-text parts and raised the Gemini credentialed smoke output budget for Gemini 2.5 hidden thinking
 - bumped all crates and lockfile package entries to `0.14.3`
 
 More detail: [v0.14.3 upgrade notes](docs/notes/v0.14.3-upgrade-2026-04-27.md), [v0.14.3 plan](docs/plans/v0.14.3-operator-reliability.md), [operator feature test runbook](docs/operator/feature-test-runbook.md), [ADR 0030](docs/adr/0030-intent-routing-is-a-kernel-step-not-a-skill-concern.md), [ADR 0096](docs/adr/0096-tool-call-parser-accepts-schema-variants.md), and [ADR 0066](docs/adr/0066-owned-provider-seam-over-rig-for-v0-10.md).
