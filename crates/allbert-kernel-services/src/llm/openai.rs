@@ -546,6 +546,42 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rejects_assistant_image_attachments_before_provider_call() {
+        let provider = OpenAiProvider::new_with_url(
+            reqwest::Client::new(),
+            "OPENAI_API_KEY".into(),
+            Some("test-key".into()),
+            "http://127.0.0.1:1/v1/responses".into(),
+        );
+
+        let err = provider
+            .complete(CompletionRequest {
+                system: None,
+                messages: vec![ChatMessage {
+                    role: ChatRole::Assistant,
+                    content: "I saw this earlier".into(),
+                    attachments: vec![ChatAttachment {
+                        kind: ChatAttachmentKind::Image,
+                        path: std::path::PathBuf::from("assistant-image.png"),
+                        mime_type: Some("image/png".into()),
+                        display_name: None,
+                    }],
+                }],
+                model: "gpt-5.4-mini".into(),
+                max_tokens: 12,
+                tools: Vec::new(),
+                response_format: CompletionResponseFormat::Text,
+                temperature: None,
+            })
+            .await
+            .expect_err("assistant-side image should fail before HTTP");
+
+        assert!(err
+            .to_string()
+            .contains("openai image attachments are only supported on user messages"));
+    }
+
+    #[tokio::test]
     async fn surfaces_http_errors() {
         let (url, _request_rx) =
             spawn_json_server("429 Too Many Requests", r#"{"error":"rate"}"#).await;
