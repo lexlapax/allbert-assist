@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.14.2 - 2026-04-26
+
+- retired the monolithic `allbert-kernel` crate and moved workspace imports to direct `allbert-kernel-core` and `allbert-kernel-services` crates
+- added enforceable kernel size, crate-graph, import-migration, and dependency compactness gates
+- kept `allbert-kernel-services/src/` below the <30,000 LOC gate by deduplicating core-owned contracts and preserving the large runtime unit suite as compiled crate-local test support
+- hardened default-parallel daemon integration tests against the local socket `Operation not permitted` boot flake
+- updated self-improvement source-checkout validation and release docs for the new core/services source layout
+- bumped all crates and lockfile package entries to `0.14.2`
+
+More detail: [v0.14.2 upgrade notes](docs/notes/v0.14.2-upgrade-2026-04-26.md), [v0.14.2 plan](docs/plans/v0.14.2-kernel-core-services.md), [ADR 0100](docs/adr/0100-kernel-splits-into-core-and-services.md), [migration inventory](docs/notes/v0.14.2-migration-inventory-2026-04-26.md), [daemon socket reliability note](docs/notes/v0.14.2-daemon-socket-reliability-2026-04-26.md), and [size gate resolution note](docs/notes/v0.14.2-size-gate-resolution-2026-04-26.md).
+
 ## v0.14.1 - 2026-04-26
 
 - added a doc-reality gate that fails validation when shipped plans/docs overclaim implementation status without explicit `partial`, `planned`, `reconciled`, `scaffolded`, or `Status: Stub` wording
