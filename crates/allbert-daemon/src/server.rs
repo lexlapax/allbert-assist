@@ -1657,45 +1657,82 @@ async fn handle_connection(
                 send_server_message(&mut framed, &ServerMessage::Jobs(manager.list())).await?;
             }
             ClientMessage::GetJob(name) => {
-                let manager = state.job_manager.lock().await;
-                let job = manager.get(&name)?;
-                send_server_message(&mut framed, &ServerMessage::Job(job)).await?;
+                let result = {
+                    let manager = state.job_manager.lock().await;
+                    manager.get(&name)
+                };
+                match result {
+                    Ok(job) => send_server_message(&mut framed, &ServerMessage::Job(job)).await?,
+                    Err(error) => send_job_error(&mut framed, error).await?,
+                }
             }
             ClientMessage::UpsertJob(definition) => {
                 let defaults = state.default_config.read().await.clone();
-                let mut manager = state.job_manager.lock().await;
-                let job = manager.upsert(&state.paths, &defaults, definition)?;
-                send_server_message(&mut framed, &ServerMessage::Job(job)).await?;
+                let result = {
+                    let mut manager = state.job_manager.lock().await;
+                    manager.upsert(&state.paths, &defaults, definition)
+                };
+                match result {
+                    Ok(job) => send_server_message(&mut framed, &ServerMessage::Job(job)).await?,
+                    Err(error) => send_job_error(&mut framed, error).await?,
+                }
             }
             ClientMessage::PauseJob(name) => {
-                let mut manager = state.job_manager.lock().await;
-                let job = manager.pause(&state.paths, &name)?;
-                send_server_message(&mut framed, &ServerMessage::Job(job)).await?;
+                let result = {
+                    let mut manager = state.job_manager.lock().await;
+                    manager.pause(&state.paths, &name)
+                };
+                match result {
+                    Ok(job) => send_server_message(&mut framed, &ServerMessage::Job(job)).await?,
+                    Err(error) => send_job_error(&mut framed, error).await?,
+                }
             }
             ClientMessage::ResumeJob(name) => {
                 let defaults = state.default_config.read().await.clone();
-                let mut manager = state.job_manager.lock().await;
-                let job = manager.resume(&state.paths, &defaults, &name, Utc::now())?;
-                send_server_message(&mut framed, &ServerMessage::Job(job)).await?;
+                let result = {
+                    let mut manager = state.job_manager.lock().await;
+                    manager.resume(&state.paths, &defaults, &name, Utc::now())
+                };
+                match result {
+                    Ok(job) => send_server_message(&mut framed, &ServerMessage::Job(job)).await?,
+                    Err(error) => send_job_error(&mut framed, error).await?,
+                }
             }
             ClientMessage::RunJob(name) => {
                 let defaults = state.default_config.read().await.clone();
-                let run = run_named_job(&state, &defaults, &name).await?;
-                send_server_message(&mut framed, &ServerMessage::JobRun(run)).await?;
+                match run_named_job(&state, &defaults, &name).await {
+                    Ok(run) => {
+                        send_server_message(&mut framed, &ServerMessage::JobRun(run)).await?
+                    }
+                    Err(error) => send_job_error(&mut framed, error).await?,
+                }
             }
             ClientMessage::RemoveJob(name) => {
-                let mut manager = state.job_manager.lock().await;
-                manager.remove(&state.paths, &name)?;
-                send_server_message(&mut framed, &ServerMessage::Ack).await?;
+                let result = {
+                    let mut manager = state.job_manager.lock().await;
+                    manager.remove(&state.paths, &name)
+                };
+                match result {
+                    Ok(()) => send_server_message(&mut framed, &ServerMessage::Ack).await?,
+                    Err(error) => send_job_error(&mut framed, error).await?,
+                }
             }
             ClientMessage::SweepJobs(now) => {
-                let sweep_at = match now {
-                    Some(value) => parse_rfc3339(&value)?,
-                    None => Utc::now(),
-                };
-                let defaults = state.default_config.read().await.clone();
-                let runs = run_due_jobs(&state, &defaults, sweep_at).await?;
-                send_server_message(&mut framed, &ServerMessage::JobRuns(runs)).await?;
+                let result = async {
+                    let sweep_at = match now {
+                        Some(value) => parse_rfc3339(&value)?,
+                        None => Utc::now(),
+                    };
+                    let defaults = state.default_config.read().await.clone();
+                    run_due_jobs(&state, &defaults, sweep_at).await
+                }
+                .await;
+                match result {
+                    Ok(runs) => {
+                        send_server_message(&mut framed, &ServerMessage::JobRuns(runs)).await?
+                    }
+                    Err(error) => send_job_error(&mut framed, error).await?,
+                }
             }
             ClientMessage::RunTurn(turn) => {
                 let session = require_session(attached_session.as_ref())?.clone();
@@ -7276,6 +7313,35 @@ async fn send_server_message(
         .send(Bytes::from(bytes))
         .await
         .map_err(DaemonError::Io)
+}
+
+async fn send_job_error(framed: &mut FramedStream, error: DaemonError) -> Result<(), DaemonError> {
+    send_server_message(
+        framed,
+        &ServerMessage::Error(ProtocolError {
+            code: "job_error".into(),
+            message: daemon_error_message(error),
+        }),
+    )
+    .await
+}
+
+fn daemon_error_message(error: DaemonError) -> String {
+    match error {
+        DaemonError::Protocol(message) => message,
+        DaemonError::Kernel(error) => error.to_string(),
+        DaemonError::Io(error) => format!("I/O error: {error}"),
+        DaemonError::Serde(error) => format!("serialization error: {error}"),
+        DaemonError::Ipc(message) => format!("IPC error: {message}"),
+        DaemonError::AlreadyRunning(path) => {
+            format!("daemon already running at {}", path.display())
+        }
+        DaemonError::VersionMismatch { client, server } => {
+            format!("protocol version mismatch: client={client}, server={server}")
+        }
+        DaemonError::Spawn(message) => format!("spawn failed: {message}"),
+        DaemonError::Timeout(label) => format!("timed out while waiting for {label}"),
+    }
 }
 
 async fn send_server_message_for_protocol(

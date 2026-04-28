@@ -100,9 +100,17 @@ pub async fn run_command(
                 render_job_status(&job)
             );
         }
-        JobsCommand::Run { name } => {
-            println!("{}", render_job_run(&client.run_job(&name).await?));
-        }
+        JobsCommand::Run { name } => match client.run_job(&name).await {
+            Ok(run) => println!("{}", render_job_run(&run)),
+            Err(DaemonError::Protocol(message))
+                if is_missing_bundled_job(&message, paths, &name) =>
+            {
+                anyhow::bail!(
+                    "{message}\nhint: enable the bundled template first with `allbert-cli jobs template enable {name}`"
+                );
+            }
+            Err(err) => return Err(err.into()),
+        },
         JobsCommand::Remove { name } => {
             client.remove_job(&name).await?;
             println!("removed {name}");
@@ -111,6 +119,13 @@ pub async fn run_command(
     }
 
     Ok(())
+}
+
+fn is_missing_bundled_job(message: &str, paths: &AllbertPaths, name: &str) -> bool {
+    message == format!("job not found: {name}")
+        && !name.contains('/')
+        && !name.contains('\\')
+        && paths.jobs_templates.join(format!("{name}.md")).exists()
 }
 
 fn run_template_command(paths: &AllbertPaths, command: JobTemplateCommand) -> Result<String> {

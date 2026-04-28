@@ -3643,6 +3643,46 @@ async fn durable_job_mutations_still_prompt_when_session_auto_confirm_is_enabled
 }
 
 #[tokio::test]
+async fn manual_job_missing_definition_returns_error_without_closing_connection() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    let handle = spawn_with_factory(
+        jobs_test_config(),
+        paths.clone(),
+        Arc::new(TestFactory::new(vec![])),
+    )
+    .await
+    .expect("daemon should boot");
+
+    let mut client = wait_for_client(&paths).await;
+    client
+        .attach(ChannelKind::Jobs, None)
+        .await
+        .expect("jobs attach should succeed");
+
+    let error = match client.run_job("memory-compile").await {
+        Ok(run) => panic!("missing job should not run: {run:?}"),
+        Err(error) => error.to_string(),
+    };
+    assert!(
+        error.contains("job not found: memory-compile"),
+        "unexpected error: {error}"
+    );
+    assert!(
+        !error.contains("connection closed"),
+        "job errors should be structured protocol errors: {error}"
+    );
+
+    let jobs = client
+        .list_jobs()
+        .await
+        .expect("connection should remain usable after job error");
+    assert!(jobs.is_empty());
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
 async fn jobs_can_be_upserted_updated_and_swept_when_due() {
     let home = TempHome::new();
     let paths = home.paths();

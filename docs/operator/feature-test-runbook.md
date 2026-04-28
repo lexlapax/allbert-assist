@@ -112,10 +112,15 @@ To actually run `memory-compile`, use a working provider, usually Ollama:
 ```bash
 ollama run gemma4
 run daemon start
+run jobs template enable memory-compile
 run jobs run memory-compile
 run jobs status memory-compile
 run daemon stop
 ```
+
+`jobs enabled: no` in daemon status means scheduled background ticks are
+disabled for the profile. Explicit manual commands such as `jobs run
+memory-compile` are still allowed after the job definition exists.
 
 If the run ends with `outcome: limit` and `stop reason: hit max-turns limit`, the daemon, scheduler, session creation, and job record path still worked. That result means the live model kept calling tools or otherwise failed to produce a final answer before the job turn budget ended. Inspect the session trace and staged memory before treating it as a daemon failure:
 

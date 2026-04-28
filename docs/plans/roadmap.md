@@ -26,6 +26,7 @@ This is a living index of release plans. Each release has its own plan file with
 | v0.14.2 | Kernel core/services split: retire the monolithic kernel crate, add direct core/services imports, default-parallel daemon socket reliability, and size/dependency gates | Shipped | [v0.14.2-kernel-core-services.md](v0.14.2-kernel-core-services.md) |
 | v0.14.3 | Operator reliability patch: schema-bound intent router, deterministic conversational scheduling, explicit memory capture, OpenAI Responses assistant-history serialization, Gemini response compatibility, local-model tool-call retry/provenance, and follow-up operator-test fixes | Shipped | [v0.14.3-operator-reliability.md](v0.14.3-operator-reliability.md) |
 | v0.15 | Vector RAG, recall, and help foundation: Ollama embeddings, `sqlite-vec`, SQLite FTS fallback, router RAG hints, operator docs/help/settings retrieval, memory/fact/episode/session recall, daemon index maintenance, channel-visible RAG status, collection-aware user RAG, built-in RAG skill, trusted local ingestion, and explicit HTTP(S) URL ingestion | Shipped | [v0.15-rag-recall-help.md](v0.15-rag-recall-help.md) |
+| v0.15.1 | Feature-test follow-ups: patch-scoped fixes, operator-doc/runbook corrections, and validation deltas found while running the v0.15 feature test runbook | Draft | [v0.15.1-feature-test-followups.md](v0.15.1-feature-test-followups.md) |
 
 Note: some v0.9 contributor-contract work landed before the final v0.8 release-alignment pass. The roadmap order still reflects dependency intent rather than strict commit chronology.
 
@@ -147,6 +148,14 @@ v0.14.2 intentionally changed architecture without adding operator-visible behav
 v0.15 adds a new retrieval service and prompt-assembly surface. v0.14.2 creates the acyclic core/services crate shape first and retires the old monolithic kernel crate, so RAG can land in the service layer rather than inflating the runtime core. v0.14.3 then replaces brittle semantic keyword routing with a schema-bound router, makes the operator scheduling and explicit-memory paths deterministic for local models, and repairs the OpenAI Responses multi-turn history mapping.
 
 v0.15 stays focused on the RAG foundation itself. That ordering matters: browser/search ingestion would create more staged and promoted knowledge than Allbert can retrieve or explain well if the system still only had memory-local BM25 plus the v0.11 fake semantic seam. The v0.15 RAG substrate uses real local vectors through Ollama embeddings and `sqlite-vec`, keeps SQLite FTS as lexical fallback and hybrid partner, adds bounded RAG hints for the v0.14.3 router, and supports explicit recall over durable memory, approved facts, labelled episodes, and session-derived history. Daemon-owned RAG maintenance, settings, and channel-visible status/search make the index operable before growth-loop ingestion returns. Growth-loop ingestion, CLI feed, browser extension capture, browser proxy/PAC mode, staged ingestion review, and ingestion-driven learning refresh are preserved as parked stubs in [future-plans.md](future-plans.md).
+
+### v0.15 before v0.15.1
+
+v0.15 shipped the RAG foundation and expanded the feature-test runbook across
+the user-facing release surface. v0.15.1 is a patch-planning bucket for issues
+found while a human operator runs that runbook against v0.15.0. It should repair
+shipped behavior, operator UX, docs, and validation gaps before the roadmap
+returns to larger deferred work such as ambient ingestion or browser capture.
 
 ## Cross-cutting concerns
 
