@@ -2,10 +2,9 @@
 
 ## v0.15.0 - 2026-04-27
 
-Closeout note: M0-M6 are implemented, but the final v0.15.0 tag is blocked on
-M7 collection-aware user RAG. M7 adds schema-v2 logical collections, a built-in
-RAG skill surface, trusted local ingestion, and explicit HTTP(S) URL ingestion
-before release readiness review.
+v0.15.0 is the shipped vector RAG, recall, help, and collection-aware user RAG
+release. The `v0.15.0` tag was cut after the M0-M7 implementation and closeout
+validation passed.
 
 - added a derived SQLite RAG index under `~/.allbert/index/rag/rag.sqlite` with source catalog, chunking, FTS fallback, run history, stale detection, status/search/rebuild/doctor/GC commands, and deterministic source ids
 - added real local vector RAG through Ollama embeddings and `sqlite-vec`, including `embeddinggemma` setup guidance, dimension/model invalidation, retry/timeout/concurrency limits, hybrid fusion, and lexical degradation when vectors are unavailable
@@ -13,10 +12,16 @@ before release readiness review.
 - integrated RAG into the turn pipeline with tiny lexical pre-router hints, post-router eligible evidence rendering, memory/RAG prompt-boundary cleanup, labelled evidence sections, trace attributes, and one capped refresh after external tool evidence
 - exposed the read-only capped `search_rag` root-model tool with source filtering, byte/result caps, and review-only gating
 - added daemon-owned RAG maintenance, protocol v7 RAG status/search/rebuild/GC messages with v2-v6 filtering, REPL/TUI `/rag ...` commands, and Telegram read-only `/rag status` / `/rag search`
+- added schema-v2 logical RAG collections with materialized `rag_collections`, system/user collection separation, lifecycle timestamps, access tracking, collection-aware search/rebuild/status/run history, and manifest-backed user collection source truth under `~/.allbert/rag/collections/user/`
+- added explicit user collection ingestion for trusted local files/directories and HTTP(S) URLs, with filesystem-root checks, symlink/canonicalization checks, URL scheme policy, robots handling, redirect revalidation, SSRF/private-network blocking, content-type/byte/page/time caps, HTTP validators, and source-level skipped/error posture
+- added collection-aware prompt behavior so user collections are never auto-injected by default and enter prompt context only through explicit session attachment or scoped user-collection search
+- added the first-party `rag` skill for local-session list/show/create/ingest/search/attach/detach/delete operations over kernel-owned RAG collection APIs
+- persisted attached user RAG collections in session snapshots and cleaned up attachments on detach/delete while preserving source files and remote content
 - added end-to-end control-flow tests proving router-before-RAG ordering, terminal router action precedence, chat skip behavior, daemon-owned maintenance, and no prompt-authored RAG job definitions
+- added collection closeout tests and smokes covering schema-v2 migration/rebuild, collection isolation, trusted-local ingestion, HTTPS URL ingestion, `search_rag` collection filters, first-party `rag` skill policy gates, and real Ollama `embeddinggemma` vector search
 - bumped all crates and lockfile package entries to `0.15.0`
 
-More detail: [v0.15 upgrade notes](docs/notes/v0.15-upgrade-2026-04-27.md), [v0.15 plan](docs/plans/v0.15-rag-recall-help.md), [RAG operator guide](docs/operator/rag.md), [ADR 0106](docs/adr/0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md), [ADR 0107](docs/adr/0107-rag-vectors-use-local-ollama-embeddings-and-sqlite-vec.md), [ADR 0108](docs/adr/0108-rag-indexing-is-daemon-maintained-and-channel-visible.md), [ADR 0109](docs/adr/0109-v0-15-services-size-gate-rescoped-for-rag.md), and [ADR 0110](docs/adr/0110-rag-collections-separate-system-and-user-corpora.md).
+More detail: [v0.15 upgrade notes](docs/notes/v0.15-upgrade-2026-04-27.md), [v0.15 release readiness](docs/notes/v0.15-release-readiness-2026-04-27.md), [v0.15 plan](docs/plans/v0.15-rag-recall-help.md), [RAG operator guide](docs/operator/rag.md), [ADR 0106](docs/adr/0106-rag-index-is-a-derived-sqlite-lexical-vector-store.md), [ADR 0107](docs/adr/0107-rag-vectors-use-local-ollama-embeddings-and-sqlite-vec.md), [ADR 0108](docs/adr/0108-rag-indexing-is-daemon-maintained-and-channel-visible.md), [ADR 0109](docs/adr/0109-v0-15-services-size-gate-rescoped-for-rag.md), and [ADR 0110](docs/adr/0110-rag-collections-separate-system-and-user-corpora.md).
 
 ## v0.14.3 - 2026-04-27
 

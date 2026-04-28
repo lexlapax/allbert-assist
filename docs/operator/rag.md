@@ -7,8 +7,8 @@ and rebuilt from source truth.
 
 v0.15 includes the M7 collection model. Existing Allbert-owned RAG sources are
 `system` collections, and operator-created task/corpus RAG sources are explicit
-`user` collections in the same derived SQLite database. The release is ready for
-tag review only after the M7 collection tests in the feature runbook pass.
+`user` collections in the same derived SQLite database. The v0.15.0 release
+tag was cut after the M7 collection tests in the feature runbook passed.
 
 ## Commands
 
@@ -68,6 +68,11 @@ User collection ingestion supports two source families in v0.15 M7:
 - Local `file://` and `dir://` sources must stay inside trusted roots.
 - URL sources are explicit HTTP(S) sources. HTTPS is the default. Plain HTTP
   requires an explicit degraded/insecure posture.
+
+Trusted local roots are configured during first-run setup or in
+`~/.allbert/config.toml` under `[security].fs_roots`. Use absolute paths for
+long-lived profiles; relative examples in this guide assume the current source
+checkout was accepted as a trusted root during setup.
 
 URL ingestion is exact-URL by default. Same-origin expansion requires an
 explicit operator cap, such as crawl depth and page count. URL fetches use

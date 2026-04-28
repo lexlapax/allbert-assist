@@ -17,8 +17,8 @@ v0.15 also needs RAG status and search to be visible from the same operator
 surfaces as the rest of Allbert: CLI, REPL/TUI, Telegram, settings, telemetry,
 and daemon activity.
 
-ADR 0110 adds logical RAG collections before v0.15 closeout. Maintenance must
-therefore distinguish default system collections from explicit user collections
+ADR 0110 adds logical RAG collections. Maintenance must therefore distinguish
+default system collections from explicit user collections
 without turning user corpora into prompt-authored jobs. URL-backed user
 collections also need daemon-owned refresh semantics so network fetch,
 conditional refresh, and safety failures are visible as service posture rather

@@ -28,8 +28,8 @@ The v0.15 plan now treats real local vectors as release scope, not a follow-up.
 SQLite FTS remains necessary for lexical fallback and source filtering, but the
 primary v0.15 RAG path is hybrid retrieval over local vector search plus FTS.
 
-ADR 0110 extends this decision before release closeout: the SQLite RAG database
-is collection-aware, so Allbert-owned system corpora and explicit user
+ADR 0110 extends this decision: the SQLite RAG database is collection-aware, so
+Allbert-owned system corpora and explicit user
 task/corpus collections can share the same retrieval engine without sharing
 prompt eligibility or trust boundaries. User collections can be backed by
 trusted local paths or explicit bounded HTTP(S) URL sources, with collection

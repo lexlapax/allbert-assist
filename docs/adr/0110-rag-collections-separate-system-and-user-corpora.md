@@ -8,7 +8,7 @@ Related: ADR 0101
 
 ## Context
 
-v0.15 M0-M6 implement a single derived SQLite RAG index over Allbert-owned
+The first v0.15 RAG milestones implemented a single derived SQLite RAG index over Allbert-owned
 sources: operator docs, command and settings descriptors, skill metadata,
 durable memory, approved facts, episode recall, session summaries, and
 review-only staged memory. That is enough for system help, memory recall, and
@@ -69,20 +69,18 @@ v0.15 M7 makes RAG collection-aware while keeping one derived SQLite database.
   engine without mixing trust boundaries.
 - Operators can create and search temporary corpora without turning them into
   durable memory.
-- Prompt-time retrieval remains conservative: system collections behave as
-  M0-M6 already specify, and user collections require explicit selection.
+- Prompt-time retrieval remains conservative: system collections preserve the
+  base v0.15 RAG rules, and user collections require explicit selection.
 - Local and URL ingestion have the same collection lifecycle, search filters,
   vector/lexical substrate, and prompt eligibility rules.
 
 **Negative**
 
-- The v0.15 closeout must validate schema v2, collection filtering, user
-  ingestion, RAG skill surfaces, and additional collection tests before
-  tagging.
+- The v0.15 closeout validation includes schema v2, collection filtering, user
+  ingestion, RAG skill surfaces, and additional collection tests.
 - The service layer grows further and must remain under the ADR 0109 size gate.
 - User-facing collection lifecycle commands, manifest corruption diagnostics,
-  and URL-fetch failure modes add more operator documentation and UX surface
-  before tagging.
+  and URL-fetch failure modes add more operator documentation and UX surface.
 
 **Neutral**
 

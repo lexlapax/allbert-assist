@@ -30,8 +30,8 @@ future allbert-kernel-services src/              32592 LOC  limit <30000  FAIL
 The failure is real: the old ceiling no longer matches the accepted v0.15 RAG
 scope.
 
-ADR 0110 adds collection-aware RAG and a built-in user RAG skill before v0.15
-closeout. That scope still belongs in `allbert-kernel-services` because
+ADR 0110 adds collection-aware RAG and a built-in user RAG skill. That scope
+still belongs in `allbert-kernel-services` because
 collection schema, trusted-root ingestion, URL ingestion guards, search
 filtering, prompt eligibility, and daemon maintenance are concrete service
 behavior, not core DTO logic.
@@ -80,8 +80,8 @@ the gate again inside v0.15.
   allowed.
 - Future feature work has less headroom before another split or retirement pass
   is required.
-- M7 consumes more of the v0.15 services headroom and should be reviewed as a
-  release-blocking expansion, not a casual doc tweak.
+- M7 consumes more of the v0.15 services headroom and should continue to be
+  reviewed as a substantial RAG expansion, not a casual doc tweak.
 
 **Neutral**
 

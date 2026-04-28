@@ -1,12 +1,13 @@
 # Allbert
 
-Allbert is a terminal-first personal assistant built around a small Rust kernel, markdown bootstrap files, curated markdown memory, AgentSkills-format skills, built-in tools, policy checks, cost tracking, first-class agents, intent routing, and a local daemon runtime.
+Allbert is a terminal-first personal assistant built around a small Rust kernel, markdown bootstrap files, curated markdown memory, AgentSkills-format skills, built-in tools, policy checks, cost tracking, first-class agents, intent routing, local vector RAG, and a local daemon runtime.
+
+Allbert is designed with an opinionated agent-harness architecture in mind.
 
 For repository development and contributor setup, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
-v0.15.0 is the current technical source-based release candidate in this repo:
-M0-M6 are implemented, and M7 collection-aware user RAG is release-blocking
-before the final tag. You build it from source, complete a guided first-run
+v0.15.0 is the current tagged source-based release in this repo. You build it
+from source, complete a guided first-run
 setup flow, and then use `allbert-cli` as the primary entry point for
 TUI/classic REPL work, daemon lifecycle commands, recurring jobs,
 identity/session continuity, strict AgentSkills-format skill management,
@@ -19,7 +20,7 @@ authoring, scripting controls, and channel administration. Fresh profiles
 default to local Ollama with `gemma4` and the TUI; upgraded profiles preserve
 the classic REPL unless you opt in.
 
-The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, schema-bound intent router, router-drafted conversational scheduling, review-first explicit memory capture, bounded RAG hints/evidence, read-only `search_rag`, daemon-owned RAG maintenance, first-class sub-agents, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection/reconsideration, the shipped `memory-curator` skill, restart-durable sessions, daily cost-cap enforcement, operator-visible memory verification, the `Channel` trait, Telegram async approvals and activity/status/RAG commands, cross-surface approval inbox resolution, identity-routed session continuity, explicit sync posture, profile export/import, `HEARTBEAT.md` cadence controls, explicit-intent web learning, Telegram photo input for vision-capable models, direct Anthropic/OpenRouter/OpenAI/Gemini/Ollama provider support, role-correct OpenAI Responses history mapping, kernel-owned telemetry and activity snapshots, durable session trace/replay, file-based OTLP-JSON trace export, configurable TUI status-line items, typed settings changes, always-eligible memory routing, episode/fact recall tiers, the review-first personality digest seam, review-first local adapter training, source-checkout-bound self-improvement worktrees, `patch-approval` inbox items with bounded context, bounded self-diagnosis reports, curated local-utility enablement, the `unix_pipe` direct-spawn tool, the `skill-author` natural-language authoring skill, skill provenance and enablement controls, and opt-in embedded Lua scripting are all part of the current v0.15.0 release-candidate end-user experience.
+The daemon-backed jobs substrate, prompt-facing job tools, explicit preview-and-confirm flow for durable schedule mutation, schema-bound intent router, router-drafted conversational scheduling, review-first explicit memory capture, bounded RAG hints/evidence, read-only `search_rag`, daemon-owned RAG maintenance, collection-aware user RAG, the shipped `rag` skill, first-class sub-agents, generated `AGENTS.md` catalog, strict AgentSkills validation, install/update preview UX, skill script execution policy, tiered curated memory, staged promotion/rejection/reconsideration, the shipped `memory-curator` skill, restart-durable sessions, daily cost-cap enforcement, operator-visible memory verification, the `Channel` trait, Telegram async approvals and activity/status/RAG commands, cross-surface approval inbox resolution, identity-routed session continuity, explicit sync posture, profile export/import, `HEARTBEAT.md` cadence controls, explicit-intent web learning, Telegram photo input for vision-capable models, direct Anthropic/OpenRouter/OpenAI/Gemini/Ollama provider support, role-correct OpenAI Responses history mapping, kernel-owned telemetry and activity snapshots, durable session trace/replay, file-based OTLP-JSON trace export, configurable TUI status-line items, typed settings changes, always-eligible memory routing, episode/fact recall tiers, the review-first personality digest seam, review-first local adapter training, source-checkout-bound self-improvement worktrees, `patch-approval` inbox items with bounded context, bounded self-diagnosis reports, curated local-utility enablement, the `unix_pipe` direct-spawn tool, the `skill-author` natural-language authoring skill, skill provenance and enablement controls, and opt-in embedded Lua scripting are all part of the current v0.15.0 end-user experience.
 
 Architecture note: v0.14.2 retires the monolithic `allbert-kernel` crate and splits runtime code into direct `allbert-kernel-core` and `allbert-kernel-services` crates. This is an internal source-tree change; it does not add an operator-visible protocol, storage, or command migration.
 
@@ -69,10 +70,12 @@ Architecture note: v0.14.2 retires the monolithic `allbert-kernel` crate and spl
 - configurable memory routing where `memory-curator` is always eligible but not always active
 - explicit `episode` and `fact` memory search tiers that never bypass durable-memory review
 - local SQLite RAG under `~/.allbert/index/rag/rag.sqlite`, with FTS fallback, real Ollama vectors through `embeddinggemma`, and source labels for docs, commands, settings, skills, durable memory, facts, episodes, and session summaries
-- planned release-blocking M7 collection-aware user RAG over trusted local paths
-  and explicit HTTP(S) URL sources, using the same derived SQLite/FTS/vector
-  substrate without default prompt injection
+- collection-aware user RAG over trusted local paths and explicit HTTP(S) URL
+  sources, using the same derived SQLite/FTS/vector substrate without default
+  prompt injection
 - `allbert-cli rag status|doctor|rebuild|search|gc`, REPL/TUI `/rag ...`, Telegram read-only `/rag status`, and a bounded read-only `search_rag` model tool
+- first-party `rag` skill for explicit user collection create, ingest, search,
+  attach/detach, and delete flows inside local model sessions
 - optional `PERSONALITY.md` learned overlay loaded only when present, lower-authority than `SOUL.md`
 - `allbert-cli learning digest --preview|--run` and `jobs template enable|disable personality-digest`
 - local adapter training through `allbert-cli adapters training preview|start|cancel`, disabled by default and gated by trainer allowlists; daemon adapter handlers and real-backend trainer selection are reconciled in v0.14.1
@@ -319,6 +322,9 @@ When setup completes successfully:
 - trace/replay defaults are written into config
 - adapter-training defaults are written into config; existing profiles also get a safe path-preserving `[learning.adapter_training]` default-write when the daemon starts
 - self-diagnosis and local-utility defaults load from config defaults; fresh profiles record the local-utility setup step, and existing profiles are not forced through setup again
+- RAG defaults load from config; lexical RAG is available provider-free, vectors
+  stay disabled until you enable `[rag.vector]`, and user collection ingestion
+  obeys trusted filesystem roots plus explicit URL policy
 - selected bundled job templates are copied into `~/.allbert/jobs/definitions/`
 - `BOOTSTRAP.md` is removed
 
@@ -353,7 +359,7 @@ REPL slash commands:
 
 Unknown slash commands are rejected locally instead of being sent through to the model, and close typos get a short suggestion.
 
-Memory examples that work well in v0.14:
+Memory examples that work well in the current release:
 
 - `what do you remember about Postgres?`
 - `remember that we use Postgres for primary storage`
@@ -475,6 +481,53 @@ Chat history is not the durable store. Episode recall is searchable working hist
 
 If the turn-end staged-memory suffix feels noisy, set `memory.surface_staged_on_turn_end = false` in `~/.allbert/config.toml` and restart the REPL session.
 
+## RAG and user collections
+
+System RAG is a rebuildable SQLite index under
+`~/.allbert/index/rag/rag.sqlite`. It covers operator docs, commands, settings,
+skills, durable memory, approved facts, episode recall, and bounded session
+summaries. Lexical search works through SQLite FTS. Real local vector search
+uses Ollama embeddings with `embeddinggemma` and `sqlite-vec` when enabled.
+
+Provider-free RAG checks:
+
+```bash
+cargo run -p allbert-cli -- rag rebuild --no-vectors
+cargo run -p allbert-cli -- rag status
+cargo run -p allbert-cli -- rag search "configure Telegram" --mode lexical
+```
+
+Optional local vector setup:
+
+```bash
+ollama pull embeddinggemma
+cargo run -p allbert-cli -- settings set rag.vector.enabled true
+cargo run -p allbert-cli -- rag rebuild --vectors
+cargo run -p allbert-cli -- rag doctor
+```
+
+User collections are explicit task/corpus indexes. They never enter default
+prompt context unless attached in the current session or named in a scoped
+search. Local sources must be inside configured trusted roots; URL sources must
+be explicit HTTP(S) sources and pass the v0.15 fetch policy.
+
+```bash
+cargo run -p allbert-cli -- rag collections create release-docs --source docs/operator
+cargo run -p allbert-cli -- rag collections ingest release-docs --no-vectors
+cargo run -p allbert-cli -- rag collections search release-docs "configure Telegram" --mode lexical
+cargo run -p allbert-cli -- rag collections delete release-docs
+
+cargo run -p allbert-cli -- rag collections create example-web --source https://example.com/
+cargo run -p allbert-cli -- rag collections ingest example-web --no-vectors
+cargo run -p allbert-cli -- rag search "example domain" --collection-type user --collection example-web
+```
+
+The first-party `rag` skill is seeded on fresh profiles and lets local model
+sessions list/create/ingest/search/attach/detach/delete explicit user
+collections through the same kernel-owned policy gates. See
+[docs/operator/rag.md](docs/operator/rag.md) for the full lifecycle and trust
+posture.
+
 ## Self-improvement and scripting
 
 Source-checkout-bound self-improvement commands:
@@ -497,7 +550,7 @@ engine = "lua"
 exec_allow = ["bash", "python", "lua"]
 ```
 
-If you are upgrading an existing profile, see [docs/notes/v0.14-upgrade-2026-04-26.md](docs/notes/v0.14-upgrade-2026-04-26.md), [docs/notes/v0.13-upgrade-2026-04-26.md](docs/notes/v0.13-upgrade-2026-04-26.md), [docs/notes/v0.12.2-upgrade-2026-04-25.md](docs/notes/v0.12.2-upgrade-2026-04-25.md), [docs/notes/v0.12.1-upgrade-2026-04-25.md](docs/notes/v0.12.1-upgrade-2026-04-25.md), [docs/notes/v0.12-upgrade-2026-04-25.md](docs/notes/v0.12-upgrade-2026-04-25.md), [docs/notes/v0.11-upgrade-2026-04-24.md](docs/notes/v0.11-upgrade-2026-04-24.md), and [docs/notes/v0.10-upgrade-2026-04-24.md](docs/notes/v0.10-upgrade-2026-04-24.md). Users coming from v0.8 or earlier should also review [docs/notes/v0.9-upgrade-2026-04-24.md](docs/notes/v0.9-upgrade-2026-04-24.md) and [docs/notes/v0.8-upgrade-2026-04-23.md](docs/notes/v0.8-upgrade-2026-04-23.md).
+If you are upgrading an existing profile, see [docs/notes/v0.15-upgrade-2026-04-27.md](docs/notes/v0.15-upgrade-2026-04-27.md), [docs/notes/v0.14.3-upgrade-2026-04-27.md](docs/notes/v0.14.3-upgrade-2026-04-27.md), [docs/notes/v0.14.2-upgrade-2026-04-26.md](docs/notes/v0.14.2-upgrade-2026-04-26.md), [docs/notes/v0.14.1-upgrade-2026-04-26.md](docs/notes/v0.14.1-upgrade-2026-04-26.md), [docs/notes/v0.14-upgrade-2026-04-26.md](docs/notes/v0.14-upgrade-2026-04-26.md), [docs/notes/v0.13-upgrade-2026-04-26.md](docs/notes/v0.13-upgrade-2026-04-26.md), [docs/notes/v0.12.2-upgrade-2026-04-25.md](docs/notes/v0.12.2-upgrade-2026-04-25.md), [docs/notes/v0.12.1-upgrade-2026-04-25.md](docs/notes/v0.12.1-upgrade-2026-04-25.md), [docs/notes/v0.12-upgrade-2026-04-25.md](docs/notes/v0.12-upgrade-2026-04-25.md), [docs/notes/v0.11-upgrade-2026-04-24.md](docs/notes/v0.11-upgrade-2026-04-24.md), and [docs/notes/v0.10-upgrade-2026-04-24.md](docs/notes/v0.10-upgrade-2026-04-24.md). Users coming from v0.8 or earlier should also review [docs/notes/v0.9-upgrade-2026-04-24.md](docs/notes/v0.9-upgrade-2026-04-24.md) and [docs/notes/v0.8-upgrade-2026-04-23.md](docs/notes/v0.8-upgrade-2026-04-23.md).
 
 ## Telegram channel
 
@@ -568,6 +621,8 @@ Current Telegram behavior:
 - `~/.allbert/memory/manifest.json`
 - `~/.allbert/memory/index/`
 - `~/.allbert/memory/index/semantic/`
+- `~/.allbert/index/rag/rag.sqlite`
+- `~/.allbert/rag/collections/user/`
 - `~/.allbert/costs.jsonl`
 - `~/.allbert/sessions/<session-id>/artifacts/`
 - `~/.allbert/sessions/<session-id>/artifacts/diagnostics/<diagnosis-id>/report.md`
@@ -592,7 +647,8 @@ Current Telegram behavior:
 - conversational scheduling is optimized for the bounded schedule DSL used by v0.2/v0.3; raw cron remains an advanced escape hatch
 - skill installs assume strict AgentSkills-format trees; Allbert does not ship a runtime migration helper for older relaxed skill layouts
 - autonomous learnings are staged first; durable promotion and forgetting remain explicit review actions
-- semantic retrieval ships as an off-by-default derived index with only the fake deterministic provider
+- v0.11 semantic retrieval remains a compatibility seam; v0.15 RAG is the
+  current retrieval path and supports real local Ollama vectors
 - personality digest remains a review-first, provider-free deterministic markdown overlay; local adapter training is optional, disabled by default, and requires a compatible local backend
 - adapter daemon protocol and production real-backend trainer selection are available in the current release after v0.14.1 reconciliation
 - hosted providers ignore active adapters; only local Ollama activation is supported in v0.13
@@ -603,10 +659,16 @@ Current Telegram behavior:
 - Lua scripting is off by default and intentionally limited to JSON-in/JSON-out transforms with no host tool bridge
 - Ctrl-C does not cancel an active turn yet; the turn continues and the UI says so
 - trace export is file-based only; Allbert does not ship a network OTLP exporter
+- hosted embedding providers are deferred; v0.15 RAG vectors are local-Ollama
+  only, and lexical FTS remains the provider-free fallback
+- user RAG collection ingestion supports trusted local paths and explicit
+  HTTP(S) URLs only; ambient crawling, browser capture, authenticated web
+  sessions, JavaScript execution, broad traversal, and remote-control surfaces
+  are out of scope
 
 ## More detail
 
-See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the current v0.15.0 operator playbook, end-to-end feature test checklist, release validation gate, config examples, daemon lifecycle guidance, jobs workflow, RAG workflow, curated-memory workflow, continuity workflow, and troubleshooting. Focused guides: [RAG](docs/operator/rag.md), [TUI](docs/operator/tui.md), [telemetry/activity](docs/operator/telemetry.md), [tracing](docs/operator/tracing.md), [adaptive memory](docs/operator/adaptive-memory.md), [cost caps](docs/operator/cost-caps.md), [personality digest](docs/operator/personality-digest.md), [personalization](docs/operator/personalization.md), [self-diagnosis and local utilities](docs/operator/self-diagnosis-and-utilities.md), [self-improvement](docs/operator/self-improvement.md), [skill authoring](docs/operator/skill-authoring.md), [Telegram](docs/operator/telegram.md), and [scripting](docs/operator/scripting.md). For sync posture and heartbeat policy, see [docs/operator/continuity.md](docs/operator/continuity.md) and [docs/operator/heartbeat.md](docs/operator/heartbeat.md).
+See [docs/onboarding-and-operations.md](docs/onboarding-and-operations.md) for the current v0.15.0 operator playbook, end-to-end feature test checklist, release validation gate, config examples, daemon lifecycle guidance, jobs workflow, RAG workflow, curated-memory workflow, continuity workflow, and troubleshooting. The release closeout summary is [docs/notes/v0.15-release-readiness-2026-04-27.md](docs/notes/v0.15-release-readiness-2026-04-27.md). Focused guides: [RAG](docs/operator/rag.md), [TUI](docs/operator/tui.md), [telemetry/activity](docs/operator/telemetry.md), [tracing](docs/operator/tracing.md), [adaptive memory](docs/operator/adaptive-memory.md), [cost caps](docs/operator/cost-caps.md), [personality digest](docs/operator/personality-digest.md), [personalization](docs/operator/personalization.md), [self-diagnosis and local utilities](docs/operator/self-diagnosis-and-utilities.md), [self-improvement](docs/operator/self-improvement.md), [skill authoring](docs/operator/skill-authoring.md), [Telegram](docs/operator/telegram.md), and [scripting](docs/operator/scripting.md). For sync posture and heartbeat policy, see [docs/operator/continuity.md](docs/operator/continuity.md) and [docs/operator/heartbeat.md](docs/operator/heartbeat.md).
 Inspect heartbeat cadence and validation warnings:
 
 ```bash

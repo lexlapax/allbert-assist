@@ -1,6 +1,6 @@
 # Operator Feature Test Runbook
 
-This runbook gives concrete commands for testing Allbert operator/user-facing features from v0.1 through the current v0.14.x patch line. Run commands from the repository root.
+This runbook gives concrete commands for testing Allbert operator/user-facing features from v0.1 through the current v0.15.0 release. Run commands from the repository root.
 
 The examples use the source-tree command form:
 
@@ -820,7 +820,7 @@ Protocol v7 has rebuild-cancel support for clients that wire it. Telegram
 supports `/rag status` and `/rag search <query>` only; rebuild and GC stay on
 local terminal surfaces.
 
-Collection-aware M7 smoke:
+v0.15 M7 collection-aware smoke:
 
 ```bash
 run rag collections list
@@ -851,7 +851,7 @@ Expected: the session invokes the `rag` skill, lifecycle mutations route through
 kernel-services tools, user snippets appear only after attachment, detach stops
 future prompt injection, and delete keeps the source files intact.
 
-URL collection M7 smoke:
+v0.15 M7 URL collection smoke:
 
 ```bash
 run rag collections create release-web --source https://example.com/

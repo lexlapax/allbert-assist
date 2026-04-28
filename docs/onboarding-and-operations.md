@@ -1,6 +1,6 @@
 # Allbert v0.15.0 Operator Playbook
 
-This is the current source-based operator playbook for Allbert v0.15.0. It is the start-here guide for running, checking, and release-validating the shipped operator surface from first setup through the latest v0.15 vector RAG, recall, and help foundation.
+This is the current source-based operator playbook for Allbert v0.15.0. It is the start-here guide for running, checking, and release-validating the shipped operator surface from first setup through the latest v0.15 vector RAG, recall, help, and collection-aware user RAG foundation. The release closeout summary lives in [v0.15 release readiness](notes/v0.15-release-readiness-2026-04-27.md).
 
 Focused guides go deeper on individual areas:
 
@@ -534,7 +534,7 @@ Test:
 - Confirm Telegram exposes `/rag status` and `/rag search <query>` but does not start rebuilds.
 - Confirm scheduled RAG maintenance is daemon-owned and no `jobs/definitions/*rag*` prompt job appears.
 
-Release-blocking M7 collection smoke:
+v0.15.0 M7 collection smoke:
 
 ```bash
 allbert-cli rag collections list
@@ -546,7 +546,7 @@ allbert-cli rag search "configure Telegram" --collection-type user --collection 
 allbert-cli rag collections delete release-docs
 ```
 
-Release-blocking M7 URL collection smoke:
+v0.15.0 M7 URL collection smoke:
 
 ```bash
 allbert-cli rag collections create release-web --source https://example.com/
@@ -673,10 +673,10 @@ Optional live/operator checks:
 - Local utility enablement is host-specific and excluded from profile export/sync.
 - `unix_pipe` is text-only, bounded, and direct-spawn; it is not a shell runtime.
 - RAG vectors are local-Ollama only in this release; if Ollama or `embeddinggemma` is unavailable, RAG falls back to lexical SQLite FTS when configured to do so.
-- Collection-aware user RAG is implemented M7 scope; the release tag waits on
-  the v0.15 closeout validation and operator review.
-  User collection ingestion supports trusted local files/directories and
-  explicit HTTP(S) URL sources. Ambient web crawling, browser capture,
+- Collection-aware user RAG is implemented v0.15 M7 scope and shipped in the
+  `v0.15.0` tag. User collection ingestion supports trusted local
+  files/directories and explicit HTTP(S) URL sources. Ambient web crawling,
+  browser capture,
   authenticated web sessions, JavaScript execution, and broad URL traversal are
   still out of scope.
 - Hosted providers ignore active adapters; adapter activation is local-provider-only.
