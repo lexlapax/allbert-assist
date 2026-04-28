@@ -251,10 +251,20 @@ cargo run -p allbert-cli -- daemon channels add telegram
 cargo run -p allbert-cli -- daemon channels status telegram
 ```
 
+For live Telegram setup:
+
+```bash
+export TELEGRAM_BOT_TOKEN=...
+# send /start or any message to the bot, then:
+cargo run -p allbert-cli -- daemon channels setup telegram --latest --yes
+cargo run -p allbert-cli -- daemon channels status telegram
+```
+
 Test:
 
 - Provider-free smoke: enable Telegram config and inspect status without sending live messages.
-- Live Telegram requires a bot token and allowlisted chat id.
+- Live Telegram requires a bot token and a fresh DM to the bot; the setup
+  helper discovers the chat id from Telegram updates.
 - Explicit web learning still requires `record_as`; search/fetch does not silently write durable memory.
 
 ### v0.8 - Continuity, Identity, Inbox, Profile Export
@@ -588,11 +598,11 @@ ALLBERT_HOME="$tmpdir" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- daemo
 
 Live setup:
 
-1. Put the bot token in `~/.allbert/secrets/telegram/bot_token`.
-2. Put one allowlisted chat id per line in `~/.allbert/config/channels.telegram.allowed_chats`.
-3. Run `allbert-cli daemon channels add telegram`.
-4. Run `allbert-cli identity show`; if it lists `telegram:<id>` as a migration candidate, run `allbert-cli identity add-channel telegram <id>`.
-5. Restart the daemon if it is already running.
+1. Export the BotFather token as `TELEGRAM_BOT_TOKEN`.
+2. Send `/start` or any short message to the bot from the Telegram chat you want to allow.
+3. Run `allbert-cli daemon channels setup telegram --latest --yes`.
+4. Restart the daemon if it is already running.
+5. Run `allbert-cli daemon channels status telegram` and `allbert-cli identity show`.
 6. Test `/status`, `/activity`, `/trace last`, `/adapter status`, `/diagnose last`, `/utilities status`, `/rag status`, `/rag search settings`, `/approve <id>`, and `/reject <id>` from Telegram.
 
 Telegram is structural-only for diagnosis remediation and local utility mutation. It does not start remediation, enable utilities, or run `unix_pipe`.

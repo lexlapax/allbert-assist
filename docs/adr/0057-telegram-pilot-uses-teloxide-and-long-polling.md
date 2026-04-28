@@ -71,6 +71,16 @@ Per ADR 0056, Telegram async confirm uses `/approve <approval-id>` and `/reject 
 - File permissions match the IPC socket (ADR 0023).
 - Bot token is loaded once at daemon startup; rotation requires daemon restart in v0.7 (a hot-reload seam is not part of this ADR).
 
+### Operator setup helper
+
+As a v0.15.1 operator-UX repair, `allbert-cli daemon channels setup telegram`
+may use the Telegram Bot API `getMe` and `getUpdates` during an explicit local
+CLI setup run. This is not a daemon-side pairing protocol and does not change
+ADR 0055's fail-closed rule for unknown Telegram senders. The helper extracts
+`message.chat.id`, writes the existing bot-token file and allowlist only after
+local `--yes` confirmation, and leaves long-polling runtime behavior on
+teloxide unchanged.
+
 ### Minimum v0.7 capability contract
 
 Telegram's declared capabilities in v0.7:

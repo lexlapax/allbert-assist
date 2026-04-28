@@ -355,30 +355,46 @@ Parser/unit smoke:
 env -u RUSTC_WRAPPER cargo test -q telegram_command_parser
 ```
 
-Live Telegram requires credentials:
+Live Telegram requires credentials. `TELEGRAM_BOT_TOKEN` is the token from
+Telegram's BotFather. In Telegram, start a chat with `@BotFather`, run
+`/newbot`, follow the prompts, and copy the token it returns. Then send
+`/start` or any short message to your new bot from the Telegram chat you want
+to allow.
 
-`TELEGRAM_BOT_TOKEN` is the token from Telegram's BotFather. In Telegram,
-start a chat with `@BotFather`, run `/newbot`, follow the prompts, and copy the
-token it returns.
+Primary setup path:
 
-`TELEGRAM_CHAT_ID` is the numeric id of the Telegram chat that is allowed to
-talk to your bot. To discover it, send a message to your bot first, then inspect
-the bot updates:
+```bash
+export TELEGRAM_BOT_TOKEN=...
+run daemon channels setup telegram --latest --yes
+run daemon restart
+run daemon channels status telegram
+run identity show
+```
+
+Expected: setup prints `Telegram setup applied`, a `chat id: ...` line, and
+`bot: @...`. `daemon channels status telegram` reports `enabled: yes`,
+`state: configured`, and detail containing `allowlisted chats: 1`.
+`identity show` should include `telegram:<id>` under `channels` without a
+Telegram migration warning. Runtime sender keys may include both chat id and
+Telegram user id, but the documented chat-id binding is sufficient. Then send
+`/status`, `/activity`, `/approve <id>`, and `/reject <id>` in Telegram.
+If later runbook sections need `TELEGRAM_CHAT_ID`, set it to the `chat id:`
+value printed by setup.
+
+If setup reports no candidates, send `/start` or any message to the bot and
+rerun it. If setup reports multiple candidates, rerun with `--latest` after a
+fresh DM or use `--chat-id <id>` when intentionally configuring a group chat.
+
+Manual fallback for troubleshooting:
 
 ```bash
 curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe"
 curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates"
 ```
 
-Look for `message.chat.id` in the `getUpdates` response. For a direct chat it
-is usually a positive number like `123456789`. For a group or supergroup it is
-usually negative, often like `-1001234567890`. Use the whole number exactly as
-Telegram reports it. If `getUpdates` is empty, send `/start` or any message to
-the bot, then run it again.
-
 Do not use the bot id from `getMe.result.id`, the top-level `update_id`, the
 per-message `message.message_id`, or `message.from.id` for
-`TELEGRAM_CHAT_ID`. For example, in this shape:
+the allowlist. Use `message.chat.id`. For example, in this shape:
 
 ```json
 {
@@ -393,16 +409,10 @@ per-message `message.message_id`, or `message.from.id` for
 ```
 
 the Telegram message id is `17`, but the allowlisted chat id is `333`. That
-means the next commands should use:
+means manual setup should use:
 
 ```bash
 export TELEGRAM_CHAT_ID=333
-```
-
-If several updates are present, choose the update for the chat you just
-messaged and copy that update's `message.chat.id` exactly.
-
-```bash
 mkdir -p "$ALLBERT_HOME/secrets/telegram" "$ALLBERT_HOME/config/channels.telegram"
 printf '%s\n' "$TELEGRAM_BOT_TOKEN" > "$ALLBERT_HOME/secrets/telegram/bot_token"
 printf '%s\n' "$TELEGRAM_CHAT_ID" > "$ALLBERT_HOME/config/channels.telegram.allowed_chats"
@@ -415,20 +425,11 @@ run identity add-channel telegram "$TELEGRAM_CHAT_ID"
 run identity show
 ```
 
-Expected: `daemon channels status telegram` reports `enabled: yes`,
-`state: configured`, and detail containing `allowlisted chats: 1`.
-`identity show` may initially warn that the Telegram allowlisted sender is not
-mapped into identity continuity; `identity add-channel telegram
-"$TELEGRAM_CHAT_ID"` promotes that migration candidate, and the next
-`identity show` should include `telegram:<id>` under `channels` without that
-warning. Runtime sender keys may include both chat id and Telegram user id, but
-the documented chat-id binding is sufficient. Then send `/status`, `/activity`,
-`/approve <id>`, and `/reject <id>` in Telegram.
-
 What to verify:
 
 - Adding/removing the Telegram channel changes daemon channel state without
-  changing identity bindings unless you explicitly run `identity add-channel`.
+  changing identity bindings unless you use the setup helper or explicitly run
+  `identity add-channel`.
 - Telegram refuses chats that are not in
   `config/channels.telegram.allowed_chats`.
 - `/status` and `/activity` show compact daemon-owned state without local file

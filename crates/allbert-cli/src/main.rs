@@ -27,6 +27,7 @@ mod self_improvement_cli;
 mod settings_cli;
 mod setup;
 mod skills;
+mod telegram_setup_cli;
 mod trace_cli;
 mod tui;
 mod utilities_cli;
@@ -566,6 +567,30 @@ enum DaemonChannelsCommand {
     },
     Add {
         kind: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Configure an optional channel from local operator input.
+    #[command(
+        after_long_help = "EXAMPLES:\n  allbert-cli daemon channels setup telegram --latest --yes\n  allbert-cli daemon channels setup telegram --chat-id 123456789 --yes\n"
+    )]
+    Setup {
+        kind: String,
+        /// Environment variable containing the Telegram bot token.
+        #[arg(long, default_value = "TELEGRAM_BOT_TOKEN")]
+        token_env: String,
+        /// Explicit Telegram chat id to allowlist.
+        #[arg(long)]
+        chat_id: Option<i64>,
+        /// Select the most recent chat from Telegram getUpdates.
+        #[arg(long)]
+        latest: bool,
+        /// Apply the setup; without this flag, only preview changes.
+        #[arg(long)]
+        yes: bool,
+        /// Skip adding the Telegram sender to the local identity record.
+        #[arg(long)]
+        no_identity: bool,
         #[arg(long)]
         json: bool,
     },
@@ -1355,6 +1380,42 @@ async fn run_daemon_channels_command(
                         ""
                     }
                 );
+            }
+            Ok(())
+        }
+        DaemonChannelsCommand::Setup {
+            kind,
+            token_env,
+            chat_id,
+            latest,
+            yes,
+            no_identity,
+            json,
+        } => {
+            let kind = parse_channel_kind(&kind)?;
+            if kind != ChannelKind::Telegram {
+                anyhow::bail!(
+                    "only the optional Telegram channel has a setup helper; builtin channel {0} is always available",
+                    channel_kind_label(kind)
+                );
+            }
+            let daemon_running = DaemonClient::connect(paths, ClientKind::Cli).await.is_ok();
+            let result = telegram_setup_cli::setup_telegram(
+                paths,
+                telegram_setup_cli::TelegramSetupOptions {
+                    token_env,
+                    chat_id,
+                    latest,
+                    yes,
+                    no_identity,
+                },
+                daemon_running,
+            )
+            .await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            } else {
+                println!("{}", telegram_setup_cli::render_setup_result(&result));
             }
             Ok(())
         }

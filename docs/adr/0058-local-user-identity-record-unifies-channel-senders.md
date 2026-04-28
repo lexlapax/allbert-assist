@@ -83,6 +83,12 @@ Operators can migrate incrementally; nothing about v0.7 behaviour is removed.
 - `allbert-cli identity rename <new-name>` — update `name`.
 - Every mutation rewrites `user.md` atomically (fsync+rename).
 
+Telegram's explicit local setup helper may call the same identity mutation
+during `allbert-cli daemon channels setup telegram --yes`. That helper first
+adds the sender to the existing Telegram allowlist and then adds the matching
+`telegram:<chat-id>` identity binding unless the operator passes
+`--no-identity`.
+
 `id` is immutable once minted. Regenerating requires deleting the file, which is a profile-reset-level operation and is documented as such.
 
 ## Consequences

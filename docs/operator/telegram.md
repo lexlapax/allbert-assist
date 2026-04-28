@@ -18,17 +18,6 @@ This smoke proves the CLI/config/status surface works. It does not prove live po
 
 ## Setup
 
-Enable Telegram through the daemon channel command:
-
-```bash
-cargo run -p allbert-cli -- daemon channels add telegram
-cargo run -p allbert-cli -- daemon channels status telegram
-```
-
-The channel requires a bot token and at least one allowlisted chat. Secrets stay under `~/.allbert/secrets/`; the allowlist lives under `~/.allbert/config/`.
-
-### Credential Discovery
-
 Get the bot token from Telegram's BotFather:
 
 1. In Telegram, start a chat with `@BotFather`.
@@ -36,7 +25,31 @@ Get the bot token from Telegram's BotFather:
 3. Follow the prompts for bot name and username.
 4. Copy the token BotFather returns. Use it as `TELEGRAM_BOT_TOKEN`.
 
-Find the allowlisted chat id after you have sent at least one message to the bot:
+Then send `/start` or any short message to your new bot from the Telegram chat
+you want to allow, and run the setup helper:
+
+```bash
+export TELEGRAM_BOT_TOKEN=...
+cargo run -p allbert-cli -- daemon channels setup telegram --latest --yes
+cargo run -p allbert-cli -- daemon restart
+cargo run -p allbert-cli -- daemon channels status telegram
+cargo run -p allbert-cli -- identity show
+```
+
+The helper validates the token with Telegram, reads recent bot updates, extracts
+`message.chat.id`, writes the token under `~/.allbert/secrets/telegram/`,
+appends the chat id under `~/.allbert/config/`, enables the Telegram channel,
+and adds the identity binding after `--yes`. Without `--yes`, it prints a
+dry-run preview and does not mutate profile files.
+
+If setup reports no candidates, send `/start` or any message to the bot and
+rerun it. If setup reports multiple candidates, rerun with `--latest` after a
+fresh DM or use `--chat-id <id>` when intentionally configuring a group chat.
+
+### Manual Fallback
+
+Use raw Bot API calls only for troubleshooting or when you want to inspect the
+updates yourself:
 
 ```bash
 curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe"
@@ -66,6 +79,8 @@ Write credentials into Allbert:
 mkdir -p ~/.allbert/secrets/telegram ~/.allbert/config/channels.telegram
 printf '%s\n' "$TELEGRAM_BOT_TOKEN" > ~/.allbert/secrets/telegram/bot_token
 printf '%s\n' "$TELEGRAM_CHAT_ID" > ~/.allbert/config/channels.telegram.allowed_chats
+cargo run -p allbert-cli -- daemon channels add telegram
+cargo run -p allbert-cli -- daemon restart
 ```
 
 `allowed_chats` accepts one numeric chat id per line. Blank lines and comments
@@ -73,9 +88,11 @@ are ignored.
 
 ### Identity Continuity
 
-Allowlisting a chat lets Telegram talk to the bot. Identity continuity is a
-separate step that maps that Telegram sender to your primary Allbert identity.
-After adding the allowlist, `identity show` may print:
+The setup helper adds the identity binding by default. If you used
+`--no-identity` or the manual fallback, allowlisting a chat lets Telegram talk
+to the bot, but identity continuity remains a separate step that maps that
+Telegram sender to your primary Allbert identity. After adding only the
+allowlist, `identity show` may print:
 
 ```text
 warnings:
