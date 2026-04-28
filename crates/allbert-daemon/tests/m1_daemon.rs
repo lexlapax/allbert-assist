@@ -533,8 +533,8 @@ async fn rag_protocol_maintenance_runs_through_daemon_without_prompt_job() {
         .rag_rebuild_start(
             false,
             vec!["settings_catalog".into()],
-            None,
-            Vec::new(),
+            Some("system".into()),
+            vec!["settings".into()],
             false,
         )
         .await
@@ -546,8 +546,8 @@ async fn rag_protocol_maintenance_runs_through_daemon_without_prompt_job() {
         .rag_search(
             "rag vector enabled".into(),
             vec!["settings_catalog".into()],
-            None,
-            Vec::new(),
+            Some("system".into()),
+            vec!["settings".into()],
             Some("lexical".into()),
             Some(3),
             false,
@@ -560,6 +560,10 @@ async fn rag_protocol_maintenance_runs_through_daemon_without_prompt_job() {
         .results
         .iter()
         .all(|result| result.source_kind == "settings_catalog"));
+    assert!(search
+        .results
+        .iter()
+        .all(|result| result.collection_type == "system" && result.collection_name == "settings"));
 
     let has_prompt_job = if paths.jobs_definitions.exists() {
         std::fs::read_dir(&paths.jobs_definitions)

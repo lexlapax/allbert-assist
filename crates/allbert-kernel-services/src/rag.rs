@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fs;
 use std::net::{IpAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
@@ -2686,7 +2686,6 @@ fn collect_user_url(
     source_uri: &str,
     sources: &mut Vec<CollectedSource>,
 ) -> Result<(), KernelError> {
-    let started = Instant::now();
     let url = reqwest::Url::parse(source_uri)
         .map_err(|e| KernelError::Request(format!("invalid URL source `{source_uri}`: {e}")))?;
     if let Err(err) = validate_url_source(config, &url, &manifest.fetch_policy) {
@@ -2699,22 +2698,60 @@ fn collect_user_url(
         ));
         return Ok(());
     }
-    if manifest.fetch_policy.respect_robots_txt && !robots_allows(config, &url)? {
-        sources.push(user_skipped_source(
-            manifest,
-            RagSourceKind::WebUrl,
-            source_uri,
-            "robots.txt disallowed fetch".into(),
-        ));
-        return Ok(());
-    }
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(manifest.fetch_policy.fetch_timeout_s))
         .redirect(reqwest::redirect::Policy::none())
         .user_agent(config.rag.ingest.user_agent.clone())
         .build()
         .map_err(|e| KernelError::InitFailed(format!("build RAG URL client: {e}")))?;
-    let mut current = url;
+
+    let mut queue = VecDeque::from([(url, 0usize)]);
+    let mut seen = HashSet::new();
+    let mut fetched_pages = 0usize;
+    while let Some((current, depth)) = queue.pop_front() {
+        if fetched_pages >= manifest.fetch_policy.url_max_pages {
+            break;
+        }
+        let canonical = canonical_url(&current);
+        if !seen.insert(canonical) {
+            continue;
+        }
+        let links = collect_user_url_page(config, manifest, &client, &current, sources)?;
+        fetched_pages += 1;
+        if depth >= manifest.fetch_policy.url_depth {
+            continue;
+        }
+        for link in links {
+            if fetched_pages + queue.len() >= manifest.fetch_policy.url_max_pages {
+                break;
+            }
+            if same_origin(&current, &link) {
+                queue.push_back((link, depth + 1));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn collect_user_url_page(
+    config: &Config,
+    manifest: &RagCollectionManifest,
+    client: &reqwest::blocking::Client,
+    url: &reqwest::Url,
+    sources: &mut Vec<CollectedSource>,
+) -> Result<Vec<reqwest::Url>, KernelError> {
+    let source_uri = canonical_url(url);
+    let started = Instant::now();
+    if manifest.fetch_policy.respect_robots_txt && !robots_allows(config, url)? {
+        sources.push(user_skipped_source(
+            manifest,
+            RagSourceKind::WebUrl,
+            &source_uri,
+            "robots.txt disallowed fetch".into(),
+        ));
+        return Ok(Vec::new());
+    }
+    let mut current = url.clone();
     for _ in 0..=manifest.fetch_policy.url_max_redirects {
         validate_url_source(config, &current, &manifest.fetch_policy)?;
         let response = client
@@ -2738,11 +2775,11 @@ fn collect_user_url(
             sources.push(user_error_source(
                 manifest,
                 RagSourceKind::WebUrl,
-                source_uri,
+                &source_uri,
                 None,
                 format!("HTTP status {status}"),
             ));
-            return Ok(());
+            return Ok(Vec::new());
         }
         let content_type = response
             .headers()
@@ -2754,10 +2791,10 @@ fn collect_user_url(
             sources.push(user_skipped_source(
                 manifest,
                 RagSourceKind::WebUrl,
-                source_uri,
+                &source_uri,
                 format!("content type `{content_type}` is not allowed"),
             ));
-            return Ok(());
+            return Ok(Vec::new());
         }
         let etag = response
             .headers()
@@ -2776,22 +2813,24 @@ fn collect_user_url(
             sources.push(user_error_source(
                 manifest,
                 RagSourceKind::WebUrl,
-                source_uri,
+                &source_uri,
                 None,
                 "URL response exceeded byte cap".into(),
             ));
-            return Ok(());
+            return Ok(Vec::new());
         }
         let raw = String::from_utf8_lossy(&bytes).to_string();
-        let text = if content_type.contains("html") {
-            extract_html_text(&raw)
+        let html = content_type.contains("html");
+        let links = if html {
+            extract_html_links(&raw, &current, config, &manifest.fetch_policy)
         } else {
-            raw
+            Vec::new()
         };
+        let text = if html { extract_html_text(&raw) } else { raw };
         let mut source = user_text_source(
             manifest,
             RagSourceKind::WebUrl,
-            source_uri,
+            &source_uri,
             Some(current.to_string()),
             first_markdown_heading(&text).unwrap_or_else(|| current.to_string()),
             vec!["user".into(), "web".into()],
@@ -2808,16 +2847,16 @@ fn collect_user_url(
             .tags
             .push(format!("fetch_ms:{}", started.elapsed().as_millis()));
         sources.push(source);
-        return Ok(());
+        return Ok(links);
     }
     sources.push(user_error_source(
         manifest,
         RagSourceKind::WebUrl,
-        source_uri,
+        &source_uri,
         None,
         "too many redirects".into(),
     ));
-    Ok(())
+    Ok(Vec::new())
 }
 
 fn content_type_allowed(config: &Config, content_type: &str) -> bool {
@@ -2835,6 +2874,82 @@ fn content_type_allowed(config: &Config, content_type: &str) -> bool {
         .any(|allowed| allowed.eq_ignore_ascii_case(&base))
 }
 
+fn same_origin(left: &reqwest::Url, right: &reqwest::Url) -> bool {
+    left.scheme() == right.scheme()
+        && left.host_str() == right.host_str()
+        && left.port_or_known_default() == right.port_or_known_default()
+}
+
+fn extract_html_links(
+    raw: &str,
+    base: &reqwest::Url,
+    config: &Config,
+    policy: &RagFetchPolicy,
+) -> Vec<reqwest::Url> {
+    let lower = raw.to_ascii_lowercase();
+    let mut offset = 0usize;
+    let mut seen = HashSet::new();
+    let mut links = Vec::new();
+    while let Some(found) = lower[offset..].find("href") {
+        let mut pos = offset + found + "href".len();
+        while lower
+            .as_bytes()
+            .get(pos)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
+            pos += 1;
+        }
+        if lower.as_bytes().get(pos) != Some(&b'=') {
+            offset = pos;
+            continue;
+        }
+        pos += 1;
+        while lower
+            .as_bytes()
+            .get(pos)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
+            pos += 1;
+        }
+        let Some(first) = raw.as_bytes().get(pos).copied() else {
+            break;
+        };
+        let (start, end) = if first == b'\'' || first == b'"' {
+            let start = pos + 1;
+            let Some(relative_end) = raw[start..].find(first as char) else {
+                break;
+            };
+            (start, start + relative_end)
+        } else {
+            let start = pos;
+            let relative_end = raw[start..]
+                .find(|ch: char| ch.is_ascii_whitespace() || ch == '>')
+                .unwrap_or(raw.len() - start);
+            (start, start + relative_end)
+        };
+        offset = end.saturating_add(1);
+        let target = raw[start..end].trim();
+        if target.is_empty() || target.starts_with('#') {
+            continue;
+        }
+        let Ok(mut link) = base.join(target) else {
+            continue;
+        };
+        link.set_fragment(None);
+        if !same_origin(base, &link) {
+            continue;
+        }
+        if validate_url_source(config, &link, policy).is_err() {
+            continue;
+        }
+        let canonical = canonical_url(&link);
+        if seen.insert(canonical) {
+            links.push(link);
+        }
+    }
+    links
+}
+
 fn robots_allows(config: &Config, url: &reqwest::Url) -> Result<bool, KernelError> {
     let mut robots = url.clone();
     robots.set_path("/robots.txt");
@@ -2842,7 +2957,7 @@ fn robots_allows(config: &Config, url: &reqwest::Url) -> Result<bool, KernelErro
     robots.set_fragment(None);
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(5))
-        .redirect(reqwest::redirect::Policy::limited(3))
+        .redirect(reqwest::redirect::Policy::none())
         .user_agent(config.rag.ingest.user_agent.clone())
         .build()
         .map_err(|e| KernelError::InitFailed(format!("build robots client: {e}")))?;
@@ -4055,6 +4170,47 @@ mod tests {
         assert_eq!(collection.source_count, 1);
         assert!(collection.chunk_count > 0);
         assert!(collection.last_accessed_at.is_some());
+
+        fs::write(
+            corpus.join("notes.md"),
+            "# Amber Plateau\n\nThe Amber Plateau update should force a stale-only rebuild.\n",
+        )
+        .unwrap();
+        let stale_rebuild = rebuild_rag_index(
+            &paths,
+            &config,
+            RagRebuildRequest {
+                stale_only: true,
+                sources: Vec::new(),
+                collection_type: Some(RagCollectionType::User),
+                collections: vec!["project-notes".into()],
+                include_vectors: false,
+                trigger: "test-user-collection-stale".into(),
+            },
+        )
+        .expect("changed user collection should rebuild on stale-only");
+        assert_eq!(stale_rebuild.status, RagIndexRunStatus::Succeeded);
+        let amber_hits = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "Amber Plateau update".into(),
+                sources: vec![RagSourceKind::UserDocument],
+                collection_type: Some(RagCollectionType::User),
+                collections: vec!["project-notes".into()],
+                mode: Some(RagRetrievalMode::Lexical),
+                limit: Some(5),
+                include_review_only: false,
+            },
+        )
+        .expect("changed user collection should be searchable");
+        assert!(!amber_hits.results.is_empty());
+
+        delete_rag_collection(&paths, "project-notes").expect("collection should delete");
+        let listed = list_rag_collections(&paths, &config, Some(RagCollectionType::User)).unwrap();
+        assert!(!listed
+            .iter()
+            .any(|collection| collection.collection_name == "project-notes"));
     }
 
     #[test]
@@ -4095,6 +4251,96 @@ mod tests {
         )
         .expect_err("private URL source should be rejected");
         assert!(private.to_string().contains("disallowed address"));
+    }
+
+    #[test]
+    fn user_collection_local_ingest_enforces_trusted_roots_and_file_caps() {
+        let (_temp, paths) = temp_paths();
+        let trusted = paths.root.join("trusted");
+        let untrusted = paths.root.join("untrusted");
+        fs::create_dir_all(&trusted).unwrap();
+        fs::create_dir_all(&untrusted).unwrap();
+        fs::write(untrusted.join("notes.md"), "# Outside\n\nNope.\n").unwrap();
+        let mut config = Config::default_template();
+        config.security.fs_roots = vec![trusted.clone()];
+
+        let outside = create_rag_collection(
+            &paths,
+            &config,
+            RagCollectionCreateRequest {
+                collection_name: "outside".into(),
+                title: None,
+                description: None,
+                source_uris: vec![untrusted.join("notes.md").to_string_lossy().to_string()],
+                fetch_policy: RagFetchPolicy::default(),
+            },
+        )
+        .expect_err("untrusted local source should be rejected");
+        assert!(outside.to_string().contains("outside configured roots"));
+
+        fs::write(
+            trusted.join("large.md"),
+            "# Too Large\n\nThis file is larger than the configured cap.\n",
+        )
+        .unwrap();
+        config.rag.ingest.max_file_bytes = 8;
+        config.rag.ingest.max_collection_bytes = 64;
+        create_rag_collection(
+            &paths,
+            &config,
+            RagCollectionCreateRequest {
+                collection_name: "capped".into(),
+                title: None,
+                description: None,
+                source_uris: vec![trusted.join("large.md").to_string_lossy().to_string()],
+                fetch_policy: RagFetchPolicy::default(),
+            },
+        )
+        .expect("capped collection should create");
+        rebuild_rag_index(
+            &paths,
+            &config,
+            RagRebuildRequest {
+                stale_only: false,
+                sources: Vec::new(),
+                collection_type: Some(RagCollectionType::User),
+                collections: vec!["capped".into()],
+                include_vectors: false,
+                trigger: "test-user-collection-caps".into(),
+            },
+        )
+        .expect("capped collection should rebuild with an error source");
+        let conn = open_rag_db(&paths).expect("db should open");
+        let (state, error): (String, Option<String>) = conn
+            .query_row(
+                "SELECT ingest_state, last_error FROM rag_sources WHERE source_kind = 'user_document'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("error source should be indexed");
+        assert_eq!(state, "error");
+        assert!(error.unwrap_or_default().contains("file exceeds cap"));
+    }
+
+    #[test]
+    fn web_collection_link_extraction_is_same_origin_and_policy_checked() {
+        let mut config = Config::default_template();
+        config.rag.ingest.allowed_url_schemes = vec!["https".into()];
+        let policy = RagFetchPolicy::default();
+        let base = reqwest::Url::parse("https://93.184.216.34/docs/index.html").unwrap();
+        let links = extract_html_links(
+            r#"
+            <a href="/docs/next.html">next</a>
+            <a HREF='https://93.184.216.34/docs/next.html#section'>dupe</a>
+            <a href="https://93.184.216.35/docs/off-origin.html">off</a>
+            <a href="http://93.184.216.34/docs/insecure.html">scheme</a>
+            "#,
+            &base,
+            &config,
+            &policy,
+        );
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].as_str(), "https://93.184.216.34/docs/next.html");
     }
 
     #[test]
