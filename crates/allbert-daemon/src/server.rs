@@ -1507,6 +1507,8 @@ async fn handle_connection(
             ClientMessage::RagSearch {
                 query,
                 sources,
+                collection_type,
+                collections,
                 mode,
                 limit,
                 include_review_only,
@@ -1522,6 +1524,11 @@ async fn handle_connection(
                     allbert_kernel_services::RagSearchRequest {
                         query,
                         sources: parse_rag_sources(&sources)?,
+                        collection_type: collection_type
+                            .as_deref()
+                            .map(parse_rag_collection_type)
+                            .transpose()?,
+                        collections,
                         mode: mode.as_deref().map(parse_rag_mode).transpose()?,
                         limit,
                         include_review_only,
@@ -1537,6 +1544,8 @@ async fn handle_connection(
             ClientMessage::RagRebuildStart {
                 stale_only,
                 sources,
+                collection_type,
+                collections,
                 include_vectors,
             } => {
                 if client_protocol < 7 {
@@ -1549,6 +1558,8 @@ async fn handle_connection(
                     attached_session.as_deref(),
                     stale_only,
                     sources,
+                    collection_type,
+                    collections,
                     include_vectors,
                     "protocol-manual",
                 )
@@ -1944,6 +1955,8 @@ async fn run_rag_maintenance_tick(
             allbert_kernel_services::RagRebuildRequest {
                 stale_only: false,
                 sources: Vec::new(),
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: false,
                 trigger: "daemon-startup-missing-db".into(),
             },
@@ -1977,6 +1990,8 @@ async fn run_rag_maintenance_tick(
         allbert_kernel_services::RagRebuildRequest {
             stale_only: defaults.rag.index.stale_only,
             sources: Vec::new(),
+            collection_type: Some(allbert_kernel_services::RagCollectionType::System),
+            collections: Vec::new(),
             include_vectors: defaults.rag.vector.enabled,
             trigger: "daemon-scheduled".into(),
         },
@@ -2057,12 +2072,15 @@ fn spawn_rag_rebuild_task(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_rag_rebuild_start(
     framed: &mut FramedStream,
     state: &SharedState,
     session: Option<&SessionHandle>,
     stale_only: bool,
     sources: Vec<String>,
+    collection_type: Option<String>,
+    collections: Vec<String>,
     include_vectors: bool,
     trigger: &str,
 ) -> Result<(), DaemonError> {
@@ -2094,6 +2112,11 @@ async fn handle_rag_rebuild_start(
     let request = allbert_kernel_services::RagRebuildRequest {
         stale_only,
         sources: parse_rag_sources(&sources)?,
+        collection_type: collection_type
+            .as_deref()
+            .map(parse_rag_collection_type)
+            .transpose()?,
+        collections,
         include_vectors,
         trigger: trigger.into(),
     };
@@ -3019,6 +3042,8 @@ impl TelegramRuntime {
             allbert_kernel_services::RagSearchRequest {
                 query: query.into(),
                 sources: Vec::new(),
+                collection_type: None,
+                collections: Vec::new(),
                 mode: None,
                 limit: Some(5),
                 include_review_only: false,
@@ -5111,10 +5136,18 @@ fn parse_rag_mode(value: &str) -> Result<allbert_kernel_services::RagRetrievalMo
     }
 }
 
+fn parse_rag_collection_type(
+    value: &str,
+) -> Result<allbert_kernel_services::RagCollectionType, DaemonError> {
+    allbert_kernel_services::RagCollectionType::parse(value)
+        .ok_or_else(|| DaemonError::Protocol(format!("unsupported RAG collection type `{value}`")))
+}
+
 fn rag_status_to_payload(status: allbert_kernel_services::RagStatusSnapshot) -> RagStatusPayload {
     RagStatusPayload {
         enabled: status.enabled,
         mode: status.mode.label().into(),
+        collection_count: status.collection_count,
         source_count: status.source_count,
         chunk_count: status.chunk_count,
         vector_count: status.vector_count,
@@ -5141,6 +5174,8 @@ fn rag_search_to_payload(
             .results
             .into_iter()
             .map(|result| RagSearchResultPayload {
+                collection_type: result.collection_type.label().into(),
+                collection_name: result.collection_name,
                 source_kind: result.source_kind.label().into(),
                 source_id: result.source_id,
                 chunk_id: result.chunk_id,
@@ -7444,6 +7479,7 @@ mod telegram_tests {
         let rag_status = ServerMessage::RagStatus(RagStatusPayload {
             enabled: true,
             mode: "hybrid".into(),
+            collection_count: 1,
             source_count: 1,
             chunk_count: 1,
             vector_count: 0,

@@ -503,7 +503,15 @@ pub async fn handle_rag_command(client: &mut DaemonClient, command: &str) -> Res
             return Ok("usage: /rag search <query>".into());
         }
         let response = client
-            .rag_search(query.to_string(), Vec::new(), None, Some(5), false)
+            .rag_search(
+                query.to_string(),
+                Vec::new(),
+                None,
+                Vec::new(),
+                None,
+                Some(5),
+                false,
+            )
             .await?;
         if response.results.is_empty() {
             let mut rendered = "no RAG results".to_string();
@@ -539,7 +547,7 @@ pub async fn handle_rag_command(client: &mut DaemonClient, command: &str) -> Res
         let stale_only = parts.contains(&"--stale-only");
         let include_vectors = parts.contains(&"--vectors") && !parts.contains(&"--no-vectors");
         let summary = client
-            .rag_rebuild_start(stale_only, Vec::new(), include_vectors)
+            .rag_rebuild_start(stale_only, Vec::new(), None, Vec::new(), include_vectors)
             .await?;
         return Ok(format!(
             "rag rebuild: {}\nrun: {}\nsources: {}\nchunks: {}\nvectors: {}\nelapsed_ms: {}\n{}",

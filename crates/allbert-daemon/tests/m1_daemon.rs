@@ -530,7 +530,13 @@ async fn rag_protocol_maintenance_runs_through_daemon_without_prompt_job() {
     assert_eq!(missing.chunk_count, 0);
 
     let summary = client
-        .rag_rebuild_start(false, vec!["settings_catalog".into()], false)
+        .rag_rebuild_start(
+            false,
+            vec!["settings_catalog".into()],
+            None,
+            Vec::new(),
+            false,
+        )
         .await
         .expect("daemon RAG rebuild should finish");
     assert_eq!(summary.status, "succeeded");
@@ -540,6 +546,8 @@ async fn rag_protocol_maintenance_runs_through_daemon_without_prompt_job() {
         .rag_search(
             "rag vector enabled".into(),
             vec!["settings_catalog".into()],
+            None,
+            Vec::new(),
             Some("lexical".into()),
             Some(3),
             false,

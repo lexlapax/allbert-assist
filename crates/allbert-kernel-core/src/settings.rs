@@ -963,6 +963,186 @@ pub fn settings_catalog() -> Vec<SettingDescriptor> {
             SettingRedactionPolicy::Plain,
         ),
         descriptor(
+            "rag.ingest.max_files_per_collection",
+            SettingsGroup::Rag,
+            "RAG collection file cap",
+            "Maximum local files ingested for one user RAG collection.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(100_000),
+            },
+            "500",
+            "rag.ingest.max_files_per_collection",
+            SettingRestartRequirement::Live,
+            "Caps user corpus ingestion before it can grow unbounded.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.max_file_bytes",
+            SettingsGroup::Rag,
+            "RAG collection file bytes",
+            "Maximum bytes read from one local file source.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(104_857_600),
+            },
+            "1048576",
+            "rag.ingest.max_file_bytes",
+            SettingRestartRequirement::Live,
+            "Oversized files are recorded as skipped/error sources.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.max_collection_bytes",
+            SettingsGroup::Rag,
+            "RAG collection byte cap",
+            "Maximum total local bytes read for one collection ingest.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(10_737_418_240),
+            },
+            "52428800",
+            "rag.ingest.max_collection_bytes",
+            SettingRestartRequirement::Live,
+            "Caps protect the daemon from unbounded user corpora.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.allowed_url_schemes",
+            SettingsGroup::Rag,
+            "RAG URL schemes",
+            "URL schemes allowed for user RAG web ingestion.",
+            SettingValueType::StringList,
+            "https",
+            "rag.ingest.allowed_url_schemes",
+            SettingRestartRequirement::Live,
+            "HTTP also requires an explicit collection fetch policy opt-in.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.allow_insecure_http",
+            SettingsGroup::Rag,
+            "RAG insecure HTTP",
+            "Allow collection fetch policies to ingest http:// sources.",
+            SettingValueType::Bool,
+            "false",
+            "rag.ingest.allow_insecure_http",
+            SettingRestartRequirement::Live,
+            "Leave disabled unless a trusted local corpus requires HTTP.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.url_depth",
+            SettingsGroup::Rag,
+            "RAG URL crawl depth",
+            "Maximum same-origin crawl depth for web collection ingestion.",
+            SettingValueType::UnsignedInteger {
+                min: Some(0),
+                max: Some(3),
+            },
+            "0",
+            "rag.ingest.url_depth",
+            SettingRestartRequirement::Live,
+            "v0.15 defaults to exact URL fetches.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.url_max_pages",
+            SettingsGroup::Rag,
+            "RAG URL page cap",
+            "Maximum pages fetched for one URL collection source.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(1000),
+            },
+            "1",
+            "rag.ingest.url_max_pages",
+            SettingRestartRequirement::Live,
+            "Caps apply before content is indexed.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.url_max_bytes",
+            SettingsGroup::Rag,
+            "RAG URL byte cap",
+            "Maximum response bytes read from one URL.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(104_857_600),
+            },
+            "2097152",
+            "rag.ingest.url_max_bytes",
+            SettingRestartRequirement::Live,
+            "Oversized responses are skipped instead of partially indexed.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.url_max_redirects",
+            SettingsGroup::Rag,
+            "RAG URL redirects",
+            "Maximum redirects followed for one URL fetch.",
+            SettingValueType::UnsignedInteger {
+                min: Some(0),
+                max: Some(20),
+            },
+            "5",
+            "rag.ingest.url_max_redirects",
+            SettingRestartRequirement::Live,
+            "Each redirect target is revalidated before fetch.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.fetch_timeout_s",
+            SettingsGroup::Rag,
+            "RAG fetch timeout",
+            "Seconds allowed for one web fetch.",
+            SettingValueType::UnsignedInteger {
+                min: Some(1),
+                max: Some(600),
+            },
+            "20",
+            "rag.ingest.fetch_timeout_s",
+            SettingRestartRequirement::Live,
+            "Timed-out URL sources are recorded as errors.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.respect_robots_txt",
+            SettingsGroup::Rag,
+            "RAG robots.txt",
+            "Respect robots.txt when ingesting web URL collections.",
+            SettingValueType::Bool,
+            "true",
+            "rag.ingest.respect_robots_txt",
+            SettingRestartRequirement::Live,
+            "Collection policies can only be less permissive unless config allows otherwise.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.allowed_content_types",
+            SettingsGroup::Rag,
+            "RAG content types",
+            "HTTP content types allowed for web RAG ingestion.",
+            SettingValueType::StringList,
+            "text/plain,text/markdown,text/html,application/xhtml+xml",
+            "rag.ingest.allowed_content_types",
+            SettingRestartRequirement::Live,
+            "Binary or unknown web responses are skipped.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "rag.ingest.user_agent",
+            SettingsGroup::Rag,
+            "RAG fetch user agent",
+            "User-Agent string sent for web RAG ingestion.",
+            SettingValueType::String,
+            "AllbertRagBot/0.15",
+            "rag.ingest.user_agent",
+            SettingRestartRequirement::Live,
+            "Use an identifiable value for web-origin collection fetches.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
             "rag.vector.enabled",
             SettingsGroup::Rag,
             "RAG vectors",
@@ -2308,6 +2488,16 @@ fn validate_value(descriptor: &SettingDescriptor, raw: &str) -> Result<(), Setti
                     }
                 }
             }
+            if descriptor.key == "rag.ingest.allowed_url_schemes" {
+                for item in &parsed {
+                    if !matches!(item.as_str(), "https" | "http") {
+                        return Err(invalid(
+                            descriptor,
+                            "list contains an unsupported URL scheme",
+                        ));
+                    }
+                }
+            }
         }
         SettingValueType::Path(policy) => validate_path(descriptor, value, *policy, false)?,
         SettingValueType::OptionalPath(policy) => validate_path(descriptor, value, *policy, true)?,
@@ -2496,6 +2686,21 @@ fn setting_value_for_key(config: &Config, descriptor: &SettingDescriptor) -> Opt
         "rag.index.shutdown_grace_s" => config.rag.index.shutdown_grace_s.to_string(),
         "rag.index.max_run_seconds" => config.rag.index.max_run_seconds.to_string(),
         "rag.index.max_chunks_per_run" => config.rag.index.max_chunks_per_run.to_string(),
+        "rag.ingest.max_files_per_collection" => {
+            config.rag.ingest.max_files_per_collection.to_string()
+        }
+        "rag.ingest.max_file_bytes" => config.rag.ingest.max_file_bytes.to_string(),
+        "rag.ingest.max_collection_bytes" => config.rag.ingest.max_collection_bytes.to_string(),
+        "rag.ingest.allowed_url_schemes" => config.rag.ingest.allowed_url_schemes.join(","),
+        "rag.ingest.allow_insecure_http" => config.rag.ingest.allow_insecure_http.to_string(),
+        "rag.ingest.url_depth" => config.rag.ingest.url_depth.to_string(),
+        "rag.ingest.url_max_pages" => config.rag.ingest.url_max_pages.to_string(),
+        "rag.ingest.url_max_bytes" => config.rag.ingest.url_max_bytes.to_string(),
+        "rag.ingest.url_max_redirects" => config.rag.ingest.url_max_redirects.to_string(),
+        "rag.ingest.fetch_timeout_s" => config.rag.ingest.fetch_timeout_s.to_string(),
+        "rag.ingest.respect_robots_txt" => config.rag.ingest.respect_robots_txt.to_string(),
+        "rag.ingest.allowed_content_types" => config.rag.ingest.allowed_content_types.join(","),
+        "rag.ingest.user_agent" => config.rag.ingest.user_agent.clone(),
         "learning.enabled" => config.learning.enabled.to_string(),
         "learning.compute_cap_wall_seconds" => config
             .learning
@@ -2840,6 +3045,10 @@ keep = "yes"
             .expect("rag fusion weight should validate");
         validate_setting_value("rag.index.max_chunks_per_run", "5000")
             .expect("rag run chunk cap should validate");
+        validate_setting_value("rag.ingest.allowed_url_schemes", "https,http")
+            .expect("rag URL schemes should validate");
+        validate_setting_value("rag.ingest.url_max_pages", "1")
+            .expect("rag URL page cap should validate");
     }
 
     #[test]
@@ -2882,6 +3091,10 @@ keep = "yes"
         ));
         assert!(matches!(
             validate_setting_value("rag.vector.fusion_vector_weight", "1.5"),
+            Err(SettingValidationError::InvalidValue { .. })
+        ));
+        assert!(matches!(
+            validate_setting_value("rag.ingest.allowed_url_schemes", "https,ftp"),
             Err(SettingValidationError::InvalidValue { .. })
         ));
     }

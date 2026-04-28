@@ -42,11 +42,12 @@ pub use config::{
     IntentClassifierConfig, IntentRuntimeConfig, JobsConfig, LearningConfig, LimitsConfig,
     LocalUtilitiesConfig, MemoryConfig, MemoryEpisodesConfig, MemoryFactsConfig,
     MemoryRoutingConfig, MemoryRoutingMode, MemorySemanticConfig, ModelConfig, OperatorUxConfig,
-    PersonalityDigestConfig, Provider, RagConfig, RagIndexConfig, RagVectorConfig, ReplConfig,
-    ReplUiMode, ScriptingConfig, ScriptingEngineConfig, SecurityConfig, SelfDiagnosisConfig,
-    SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig, SetupConfig,
-    StatusLineConfig, StatusLineItem, TraceConfig, TraceDefaultsWriteResult, TraceFieldPolicy,
-    TraceRedactionConfig, TuiConfig, TuiSpinnerStyle, WebSecurityConfig, CURRENT_SETUP_VERSION,
+    PersonalityDigestConfig, Provider, RagConfig, RagIndexConfig, RagIngestConfig, RagVectorConfig,
+    ReplConfig, ReplUiMode, ScriptingConfig, ScriptingEngineConfig, SecurityConfig,
+    SelfDiagnosisConfig, SelfImprovementConfig, SelfImprovementInstallMode, SessionsConfig,
+    SetupConfig, StatusLineConfig, StatusLineItem, TraceConfig, TraceDefaultsWriteResult,
+    TraceFieldPolicy, TraceRedactionConfig, TuiConfig, TuiSpinnerStyle, WebSecurityConfig,
+    CURRENT_SETUP_VERSION,
 };
 pub use cost::CostEntry;
 pub use error::{
@@ -75,8 +76,10 @@ pub use memory::{
 };
 pub use paths::AllbertPaths;
 pub use rag::{
-    RagEmbeddingProvider, RagIndexRunStatus, RagRetrievalMode, RagSearchRequest, RagSearchResponse,
-    RagSearchResult, RagSourceKind, RagStatusSnapshot, RagVectorDistance, RagVectorPosture,
+    RagCollectionCreateRequest, RagCollectionManifest, RagCollectionRef, RagCollectionStatus,
+    RagCollectionType, RagEmbeddingProvider, RagFetchPolicy, RagIndexRunStatus, RagRetrievalMode,
+    RagSearchRequest, RagSearchResponse, RagSearchResult, RagSourceKind, RagStatusSnapshot,
+    RagVectorDistance, RagVectorPosture,
 };
 pub use scripting::{
     BudgetUsed, CapKind, LoadedScript, ScriptBudget, ScriptOutcome, ScriptingCapabilities,

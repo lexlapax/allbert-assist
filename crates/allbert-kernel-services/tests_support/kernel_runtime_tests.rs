@@ -5057,6 +5057,8 @@ async fn router_prompt_gets_tiny_lexical_rag_hint() {
                 RagSourceKind::CommandCatalog,
                 RagSourceKind::SkillsMetadata,
             ],
+            collection_type: None,
+            collections: Vec::new(),
             include_vectors: false,
             trigger: "test".into(),
         },
@@ -5137,6 +5139,8 @@ async fn meta_turn_renders_bounded_rag_evidence_after_routing() {
                 RagSourceKind::CommandCatalog,
                 RagSourceKind::OperatorDocs,
             ],
+            collection_type: None,
+            collections: Vec::new(),
             include_vectors: false,
             trigger: "test".into(),
         },
@@ -5188,6 +5192,8 @@ async fn turn_pipeline_routes_before_rendering_post_router_rag_evidence() {
                 RagSourceKind::CommandCatalog,
                 RagSourceKind::OperatorDocs,
             ],
+            collection_type: None,
+            collections: Vec::new(),
             include_vectors: false,
             trigger: "test".into(),
         },
@@ -5271,6 +5277,8 @@ async fn terminal_router_memory_action_wins_before_post_router_rag_or_root_model
         RagRebuildRequest {
             stale_only: false,
             sources: vec![RagSourceKind::SettingsCatalog],
+            collection_type: None,
+            collections: Vec::new(),
             include_vectors: false,
             trigger: "test".into(),
         },
@@ -5348,6 +5356,8 @@ async fn casual_chat_turn_skips_post_router_rag_context() {
                 RagSourceKind::SettingsCatalog,
                 RagSourceKind::CommandCatalog,
             ],
+            collection_type: None,
+            collections: Vec::new(),
             include_vectors: false,
             trigger: "test".into(),
         },
@@ -5422,6 +5432,8 @@ async fn memory_query_uses_rag_evidence_without_tantivy_prefetch_duplication() {
         RagRebuildRequest {
             stale_only: false,
             sources: vec![RagSourceKind::DurableMemory],
+            collection_type: None,
+            collections: Vec::new(),
             include_vectors: false,
             trigger: "test".into(),
         },
@@ -5461,6 +5473,77 @@ async fn memory_query_uses_rag_evidence_without_tantivy_prefetch_duplication() {
 }
 
 #[tokio::test]
+async fn user_rag_collection_is_not_injected_into_default_prompt_context() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let corpus = paths.root.join("trusted-corpus");
+    fs::create_dir_all(&corpus).unwrap();
+    fs::write(
+        corpus.join("notes.md"),
+        "# Cobalt Plateau\n\nThe Cobalt Plateau runbook lives in the user collection only.\n",
+    )
+    .unwrap();
+    let mut config = Config::default_template();
+    config.intent_classifier.rule_only = true;
+    config.security.fs_roots = vec![corpus.clone()];
+    create_rag_collection(
+        &paths,
+        &config,
+        RagCollectionCreateRequest {
+            collection_name: "project-notes".into(),
+            title: None,
+            description: None,
+            source_uris: vec![corpus.to_string_lossy().to_string()],
+            fetch_policy: RagFetchPolicy::default(),
+        },
+    )
+    .unwrap();
+    rebuild_rag_index(
+        &paths,
+        &config,
+        RagRebuildRequest {
+            stale_only: false,
+            sources: Vec::new(),
+            collection_type: Some(RagCollectionType::User),
+            collections: vec!["project-notes".into()],
+            include_vectors: false,
+            trigger: "test".into(),
+        },
+    )
+    .unwrap();
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![CompletionResponse {
+                text: "TASK_OK".into(),
+                usage: Usage::default(),
+                tool_calls: Vec::new(),
+            }],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("use local context to answer about the Cobalt Plateau")
+        .await
+        .unwrap();
+
+    let requests = requests.lock().unwrap();
+    let system = requests[0].system.as_ref().unwrap();
+    assert!(!system.contains("Cobalt Plateau runbook lives"));
+    assert!(!system.contains("[user:project-notes:user_document]"));
+}
+
+#[tokio::test]
 async fn search_rag_tool_is_read_only_capped_and_source_filtered() {
     let temp = TempRoot::new();
     let paths = temp.paths();
@@ -5473,6 +5556,8 @@ async fn search_rag_tool_is_read_only_capped_and_source_filtered() {
         RagRebuildRequest {
             stale_only: false,
             sources: vec![RagSourceKind::SettingsCatalog],
+            collection_type: None,
+            collections: Vec::new(),
             include_vectors: false,
             trigger: "test".into(),
         },
@@ -5533,6 +5618,89 @@ async fn search_rag_tool_is_read_only_capped_and_source_filtered() {
 }
 
 #[tokio::test]
+async fn search_rag_tool_requires_explicit_user_collection_selection() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let corpus = paths.root.join("trusted-corpus");
+    fs::create_dir_all(&corpus).unwrap();
+    fs::write(
+        corpus.join("notes.md"),
+        "# Cobalt Plateau\n\nThe Cobalt Plateau runbook lives in the user collection only.\n",
+    )
+    .unwrap();
+    let mut config = Config::default_template();
+    config.intent_classifier.rule_only = true;
+    config.security.fs_roots = vec![corpus.clone()];
+    create_rag_collection(
+        &paths,
+        &config,
+        RagCollectionCreateRequest {
+            collection_name: "project-notes".into(),
+            title: None,
+            description: None,
+            source_uris: vec![corpus.to_string_lossy().to_string()],
+            fetch_policy: RagFetchPolicy::default(),
+        },
+    )
+    .unwrap();
+    rebuild_rag_index(
+        &paths,
+        &config,
+        RagRebuildRequest {
+            stale_only: false,
+            sources: Vec::new(),
+            collection_type: Some(RagCollectionType::User),
+            collections: vec!["project-notes".into()],
+            include_vectors: false,
+            trigger: "test".into(),
+        },
+    )
+    .unwrap();
+
+    let kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::new(
+            "anthropic",
+            Vec::new(),
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    let blocked = kernel.dispatch_search_rag(
+        &kernel.state,
+        json!({
+            "query": "Cobalt Plateau",
+            "sources": ["user_document"]
+        }),
+    );
+    assert!(!blocked.ok);
+    assert!(blocked.content.contains("collection_type=user"));
+
+    let allowed = kernel.dispatch_search_rag(
+        &kernel.state,
+        json!({
+            "query": "Cobalt Plateau",
+            "collection_type": "user",
+            "collections": ["project-notes"],
+            "sources": ["user_document"],
+            "mode": "lexical",
+            "limit": 2
+        }),
+    );
+    assert!(allowed.ok, "{}", allowed.content);
+    assert!(allowed.content.contains("\"collection_type\": \"user\""));
+    assert!(allowed
+        .content
+        .contains("\"collection_name\": \"project-notes\""));
+    assert!(allowed.content.contains("Cobalt Plateau runbook lives"));
+}
+
+#[tokio::test]
 async fn search_rag_tool_blocks_review_only_sources_outside_review_intent() {
     let temp = TempRoot::new();
     let paths = temp.paths();
@@ -5589,6 +5757,8 @@ async fn tool_evidence_triggers_one_capped_rag_refresh() {
         RagRebuildRequest {
             stale_only: false,
             sources: vec![RagSourceKind::DurableMemory],
+            collection_type: None,
+            collections: Vec::new(),
             include_vectors: false,
             trigger: "test".into(),
         },

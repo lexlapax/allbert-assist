@@ -965,6 +965,8 @@ pub struct UnixPipeStageSummaryPayload {
 pub struct RagStatusPayload {
     pub enabled: bool,
     pub mode: String,
+    #[serde(default)]
+    pub collection_count: usize,
     pub source_count: usize,
     pub chunk_count: usize,
     pub vector_count: usize,
@@ -983,6 +985,8 @@ pub struct RagStatusPayload {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RagSearchResultPayload {
+    pub collection_type: String,
+    pub collection_name: String,
     pub source_kind: String,
     pub source_id: String,
     pub chunk_id: String,
@@ -1112,6 +1116,10 @@ pub enum ClientMessage {
         #[serde(default)]
         sources: Vec<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        collection_type: Option<String>,
+        #[serde(default)]
+        collections: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         mode: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         limit: Option<usize>,
@@ -1122,6 +1130,10 @@ pub enum ClientMessage {
         stale_only: bool,
         #[serde(default)]
         sources: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        collection_type: Option<String>,
+        #[serde(default)]
+        collections: Vec<String>,
         include_vectors: bool,
     },
     RagRebuildCancel {
@@ -1648,6 +1660,8 @@ mod tests {
         let search = ClientMessage::RagSearch {
             query: "configure telegram".into(),
             sources: vec!["operator_docs".into()],
+            collection_type: Some("system".into()),
+            collections: vec!["operator_docs".into()],
             mode: Some("hybrid".into()),
             limit: Some(5),
             include_review_only: false,
@@ -1660,6 +1674,7 @@ mod tests {
         let status = ServerMessage::RagStatus(RagStatusPayload {
             enabled: true,
             mode: "hybrid".into(),
+            collection_count: 3,
             source_count: 4,
             chunk_count: 20,
             vector_count: 20,
@@ -1681,6 +1696,8 @@ mod tests {
             vector_posture: "healthy".into(),
             degraded_reason: None,
             results: vec![RagSearchResultPayload {
+                collection_type: "system".into(),
+                collection_name: "operator_docs".into(),
                 source_kind: "operator_docs".into(),
                 source_id: "doc:operator/rag.md".into(),
                 chunk_id: "chunk-1".into(),

@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
+use std::net::{IpAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
@@ -13,13 +14,24 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{
-    command_catalog, memory, settings_catalog, AllbertPaths, Config, KernelError,
-    SettingDescriptor, SkillStore,
+    atomic_write, command_catalog, memory, security, settings_catalog, AllbertPaths, Config,
+    KernelError, SettingDescriptor, SkillStore,
 };
 
-pub const RAG_SCHEMA_VERSION: u32 = 1;
+pub const RAG_SCHEMA_VERSION: u32 = 2;
 static ACTIVE_VECTOR_QUERIES: AtomicUsize = AtomicUsize::new(0);
 const RAG_REBUILD_CANCELLED: &str = "__rag_rebuild_cancelled__";
+const SYSTEM_COLLECTION_KINDS: [RagSourceKind; 9] = [
+    RagSourceKind::OperatorDocs,
+    RagSourceKind::CommandCatalog,
+    RagSourceKind::SettingsCatalog,
+    RagSourceKind::SkillsMetadata,
+    RagSourceKind::DurableMemory,
+    RagSourceKind::FactMemory,
+    RagSourceKind::EpisodeRecall,
+    RagSourceKind::SessionSummary,
+    RagSourceKind::StagedMemoryReview,
+];
 
 type SqliteExtensionInit = unsafe extern "C" fn(
     *mut rusqlite::ffi::sqlite3,
@@ -31,6 +43,8 @@ type SqliteExtensionInit = unsafe extern "C" fn(
 pub struct RagRebuildRequest {
     pub stale_only: bool,
     pub sources: Vec<RagSourceKind>,
+    pub collection_type: Option<RagCollectionType>,
+    pub collections: Vec<String>,
     pub include_vectors: bool,
     pub trigger: String,
 }
@@ -40,6 +54,8 @@ impl Default for RagRebuildRequest {
         Self {
             stale_only: true,
             sources: Vec::new(),
+            collection_type: None,
+            collections: Vec::new(),
             include_vectors: false,
             trigger: "operator-request".into(),
         }
@@ -79,10 +95,23 @@ pub struct RagGcSummary {
     pub vacuumed: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RagCollectionMutationSummary {
+    pub collection_type: RagCollectionType,
+    pub collection_name: String,
+    pub manifest_path: Option<PathBuf>,
+    pub source_uris: Vec<String>,
+    pub stale: bool,
+    pub message: String,
+}
+
 #[derive(Debug, Clone)]
 struct CollectedSource {
+    collection_type: RagCollectionType,
+    collection_name: String,
     kind: RagSourceKind,
     source_id: String,
+    source_uri: String,
     source_path: Option<String>,
     title: String,
     tags: Vec<String>,
@@ -90,6 +119,14 @@ struct CollectedSource {
     privacy_tier: &'static str,
     prompt_eligible: bool,
     review_only: bool,
+    ingest_state: &'static str,
+    http_status: Option<i64>,
+    http_etag: Option<String>,
+    http_last_modified: Option<String>,
+    http_content_type: Option<String>,
+    final_url: Option<String>,
+    robots_allowed: Option<bool>,
+    last_error: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -114,6 +151,28 @@ struct RunWrite<'a> {
     skipped_count: usize,
     elapsed_ms: u64,
     error: Option<&'a str>,
+}
+
+#[derive(Debug, Clone)]
+struct CollectionCatalogEntry {
+    collection_type: RagCollectionType,
+    collection_name: String,
+    source_uri: String,
+    title: String,
+    description: String,
+    privacy_tier: String,
+    prompt_eligible: bool,
+    review_only: bool,
+    manifest_path: Option<String>,
+    manifest_hash: String,
+    fetch_policy_json: String,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum SourceUriKind {
+    File,
+    Dir,
+    Web,
 }
 
 #[derive(Debug)]
@@ -271,6 +330,7 @@ pub fn rag_status(paths: &AllbertPaths, config: &Config) -> Result<RagStatusSnap
         return Ok(RagStatusSnapshot {
             enabled: config.rag.enabled,
             mode: config.rag.mode,
+            collection_count: 0,
             source_count: 0,
             chunk_count: 0,
             vector_count: 0,
@@ -288,6 +348,11 @@ pub fn rag_status(paths: &AllbertPaths, config: &Config) -> Result<RagStatusSnap
     }
 
     let conn = open_rag_db(paths)?;
+    let collection_count = if table_exists(&conn, "rag_collections")? {
+        count_table(&conn, "rag_collections")?
+    } else {
+        0
+    };
     let source_count = count_table(&conn, "rag_sources")?;
     let chunk_count = count_table(&conn, "rag_chunks")?;
     let vector_count = if table_exists(&conn, "rag_embeddings")? {
@@ -326,6 +391,7 @@ pub fn rag_status(paths: &AllbertPaths, config: &Config) -> Result<RagStatusSnap
     Ok(RagStatusSnapshot {
         enabled: config.rag.enabled,
         mode: config.rag.mode,
+        collection_count,
         source_count,
         chunk_count,
         vector_count,
@@ -388,6 +454,7 @@ fn record_cancelled_run_if_possible(
     run_id: &str,
     request: &RagRebuildRequest,
     requested_sources_json: &str,
+    requested_collections_json: &str,
     source_count: usize,
     elapsed_ms: u64,
 ) -> Result<(), KernelError> {
@@ -400,6 +467,7 @@ fn record_cancelled_run_if_possible(
         run_id,
         request,
         requested_sources_json,
+        requested_collections_json,
         RunWrite {
             status: RagIndexRunStatus::Cancelled,
             source_count,
@@ -429,7 +497,7 @@ where
 
     let started = Instant::now();
     let run_id = run_id.unwrap_or_else(|| format!("rag-{}", Uuid::new_v4()));
-    let sources = collect_sources(paths, config, &request.sources)?;
+    let sources = collect_sources(paths, config, &request)?;
     let corpus_hash = hash_sources(&sources);
     let requested_sources_json = serde_json::to_string(
         &request
@@ -439,6 +507,8 @@ where
             .collect::<Vec<_>>(),
     )
     .map_err(|e| KernelError::InitFailed(format!("serialize requested sources: {e}")))?;
+    let requested_collections_json = serde_json::to_string(&request.collections)
+        .map_err(|e| KernelError::InitFailed(format!("serialize requested collections: {e}")))?;
 
     if should_cancel() {
         record_cancelled_run_if_possible(
@@ -446,6 +516,7 @@ where
             &run_id,
             &request,
             &requested_sources_json,
+            &requested_collections_json,
             sources.len(),
             started.elapsed().as_millis() as u64,
         )?;
@@ -469,6 +540,7 @@ where
                 &run_id,
                 &request,
                 &requested_sources_json,
+                &requested_collections_json,
                 RunWrite {
                     status: RagIndexRunStatus::Skipped,
                     source_count: sources.len(),
@@ -505,6 +577,7 @@ where
         &run_id,
         &request,
         &requested_sources_json,
+        &requested_collections_json,
         RunWrite {
             status: RagIndexRunStatus::Running,
             source_count: 0,
@@ -539,6 +612,7 @@ where
                 &run_id,
                 &request,
                 &requested_sources_json,
+                &requested_collections_json,
                 sources.len(),
                 started.elapsed().as_millis() as u64,
             )?;
@@ -580,6 +654,7 @@ where
                     &run_id,
                     &request,
                     &requested_sources_json,
+                    &requested_collections_json,
                     sources.len(),
                     started.elapsed().as_millis() as u64,
                 )?;
@@ -627,6 +702,7 @@ where
             &run_id,
             &request,
             &requested_sources_json,
+            &requested_collections_json,
             sources.len(),
             started.elapsed().as_millis() as u64,
         )?;
@@ -775,6 +851,7 @@ pub fn search_rag(
         ),
     };
 
+    record_rag_access(&conn, &results)?;
     Ok(RagSearchResponse {
         query: request.query,
         mode,
@@ -905,7 +982,8 @@ fn lexical_search(
     let mut stmt = conn
         .prepare(
             "SELECT c.chunk_id, c.title, c.text, c.source_kind, s.source_id,
-                    s.source_path, bm25(rag_chunks_fts) AS rank
+                    s.source_path, c.collection_type, c.collection_name,
+                    bm25(rag_chunks_fts) AS rank
              FROM rag_chunks_fts
              JOIN rag_chunks c ON c.id = rag_chunks_fts.rowid
              JOIN rag_sources s ON s.id = c.source_fk
@@ -927,7 +1005,9 @@ fn lexical_search(
                     source_kind,
                     row.get::<_, String>(4)?,
                     row.get::<_, Option<String>>(5)?,
-                    row.get::<_, f64>(6)?,
+                    row.get::<_, String>(6)?,
+                    row.get::<_, String>(7)?,
+                    row.get::<_, f64>(8)?,
                 ))
             },
         )
@@ -935,14 +1015,32 @@ fn lexical_search(
 
     let mut results = Vec::new();
     for row in rows {
-        let (chunk_id, title, text, source_kind, source_id, path, rank) = row.map_err(sql_err)?;
+        let (
+            chunk_id,
+            title,
+            text,
+            source_kind,
+            source_id,
+            path,
+            collection_type,
+            collection_name,
+            rank,
+        ) = row.map_err(sql_err)?;
         if !allowed_sources.is_empty() && !allowed_sources.iter().any(|kind| kind == &source_kind) {
             continue;
         }
         let Some(kind) = RagSourceKind::parse(&source_kind) else {
             continue;
         };
+        let Some(collection_type) = RagCollectionType::parse(&collection_type) else {
+            continue;
+        };
+        if !collection_allowed(request, collection_type, &collection_name) {
+            continue;
+        }
         results.push(RagSearchResult {
+            collection_type,
+            collection_name,
             source_kind: kind,
             source_id,
             chunk_id,
@@ -1012,7 +1110,8 @@ fn vector_search(
                ORDER BY distance
              )
              SELECT c.chunk_id, c.title, c.text, c.source_kind, s.source_id,
-                    s.source_path, knn.distance
+                    s.source_path, c.collection_type, c.collection_name,
+                    knn.distance
              FROM knn
              JOIN rag_chunks c ON c.id = knn.rowid
              JOIN rag_sources s ON s.id = c.source_fk
@@ -1032,22 +1131,41 @@ fn vector_search(
                     source_kind,
                     row.get::<_, String>(4)?,
                     row.get::<_, Option<String>>(5)?,
-                    row.get::<_, f64>(6)?,
+                    row.get::<_, String>(6)?,
+                    row.get::<_, String>(7)?,
+                    row.get::<_, f64>(8)?,
                 ))
             },
         )
         .map_err(|e| EmbeddingError::new(format!("query vector search: {e}")))?;
     let mut results = Vec::new();
     for row in rows {
-        let (chunk_id, title, text, source_kind, source_id, path, distance) =
-            row.map_err(|e| EmbeddingError::new(format!("read vector row: {e}")))?;
+        let (
+            chunk_id,
+            title,
+            text,
+            source_kind,
+            source_id,
+            path,
+            collection_type,
+            collection_name,
+            distance,
+        ) = row.map_err(|e| EmbeddingError::new(format!("read vector row: {e}")))?;
         if !allowed_sources.is_empty() && !allowed_sources.iter().any(|kind| kind == &source_kind) {
             continue;
         }
         let Some(kind) = RagSourceKind::parse(&source_kind) else {
             continue;
         };
+        let Some(collection_type) = RagCollectionType::parse(&collection_type) else {
+            continue;
+        };
+        if !collection_allowed(request, collection_type, &collection_name) {
+            continue;
+        }
         results.push(RagSearchResult {
+            collection_type,
+            collection_name,
             source_kind: kind,
             source_id,
             chunk_id,
@@ -1066,6 +1184,80 @@ fn vector_search(
 fn cap_results(mut results: Vec<RagSearchResult>, limit: usize) -> Vec<RagSearchResult> {
     results.truncate(limit);
     results
+}
+
+fn record_rag_access(conn: &Connection, results: &[RagSearchResult]) -> Result<(), KernelError> {
+    if results.is_empty() {
+        return Ok(());
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut seen_collections = HashSet::new();
+    let mut seen_sources = HashSet::new();
+    for result in results {
+        if seen_collections.insert((
+            result.collection_type.label().to_string(),
+            result.collection_name.clone(),
+        )) {
+            conn.execute(
+                "UPDATE rag_collections
+                 SET last_accessed_at = ?3
+                 WHERE collection_type = ?1 AND collection_name = ?2",
+                params![
+                    result.collection_type.label(),
+                    result.collection_name.as_str(),
+                    now.as_str(),
+                ],
+            )
+            .map_err(sql_err)?;
+        }
+        if seen_sources.insert((
+            result.collection_type.label().to_string(),
+            result.collection_name.clone(),
+            result.source_kind.label().to_string(),
+            result.source_id.clone(),
+        )) {
+            conn.execute(
+                "UPDATE rag_sources
+                 SET last_accessed_at = ?5
+                 WHERE collection_fk = (
+                   SELECT id FROM rag_collections
+                   WHERE collection_type = ?1 AND collection_name = ?2
+                 )
+                   AND source_kind = ?3
+                   AND source_id = ?4",
+                params![
+                    result.collection_type.label(),
+                    result.collection_name.as_str(),
+                    result.source_kind.label(),
+                    result.source_id.as_str(),
+                    now.as_str(),
+                ],
+            )
+            .map_err(sql_err)?;
+        }
+    }
+    Ok(())
+}
+
+fn collection_allowed(
+    request: &RagSearchRequest,
+    collection_type: RagCollectionType,
+    collection_name: &str,
+) -> bool {
+    if request
+        .collection_type
+        .is_some_and(|wanted| wanted != collection_type)
+    {
+        return false;
+    }
+    if request.collections.is_empty() {
+        return true;
+    }
+    let normalized = normalize_collection_name(collection_name);
+    request
+        .collections
+        .iter()
+        .any(|wanted| normalize_collection_name(wanted) == normalized)
 }
 
 fn fuse_hybrid(
@@ -1303,6 +1495,10 @@ fn vectors_current(conn: &Connection, config: &Config) -> Result<bool, KernelErr
 }
 
 fn table_exists(conn: &Connection, table: &str) -> Result<bool, KernelError> {
+    raw_table_exists(conn, table)
+}
+
+fn raw_table_exists(conn: &Connection, table: &str) -> Result<bool, KernelError> {
     conn.query_row(
         "SELECT EXISTS(
            SELECT 1
@@ -1314,6 +1510,21 @@ fn table_exists(conn: &Connection, table: &str) -> Result<bool, KernelError> {
     )
     .map(|value| value != 0)
     .map_err(sql_err)
+}
+
+fn raw_column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool, KernelError> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({})", table.replace('"', "")))
+        .map_err(sql_err)?;
+    let rows = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(sql_err)?;
+    for row in rows {
+        if row.map_err(sql_err)? == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn count_vectors(conn: &Connection) -> Result<usize, KernelError> {
@@ -1462,6 +1673,21 @@ fn open_path(path: &Path) -> Result<Connection, KernelError> {
 }
 
 fn init_schema(conn: &Connection) -> Result<(), KernelError> {
+    if raw_table_exists(conn, "rag_sources")?
+        && !raw_column_exists(conn, "rag_sources", "collection_fk")?
+    {
+        conn.execute_batch(
+            r#"
+DROP TABLE IF EXISTS rag_embeddings;
+DROP TABLE IF EXISTS rag_chunks_fts;
+DROP TABLE IF EXISTS rag_chunks;
+DROP TABLE IF EXISTS rag_sources;
+DROP TABLE IF EXISTS rag_collections;
+DROP TABLE IF EXISTS rag_index_runs;
+"#,
+        )
+        .map_err(sql_err)?;
+    }
     conn.execute_batch(
         r#"
 CREATE TABLE IF NOT EXISTS rag_meta (
@@ -1470,11 +1696,41 @@ CREATE TABLE IF NOT EXISTS rag_meta (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS rag_collections (
+  id INTEGER PRIMARY KEY,
+  collection_type TEXT NOT NULL CHECK(collection_type IN ('system', 'user')),
+  collection_name TEXT NOT NULL,
+  source_uri TEXT NOT NULL,
+  manifest_path TEXT,
+  manifest_hash TEXT NOT NULL DEFAULT '',
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  privacy_tier TEXT NOT NULL,
+  prompt_eligible INTEGER NOT NULL DEFAULT 0,
+  review_only INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  stale INTEGER NOT NULL DEFAULT 0,
+  content_hash TEXT NOT NULL DEFAULT '',
+  embedding_model_key TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  last_ingested_at TEXT,
+  last_indexed_at TEXT,
+  last_accessed_at TEXT,
+  fetch_policy_json TEXT NOT NULL DEFAULT '{}',
+  last_error TEXT,
+  last_error_at TEXT,
+  UNIQUE(collection_type, collection_name)
+);
+
 CREATE TABLE IF NOT EXISTS rag_sources (
   id INTEGER PRIMARY KEY,
+  collection_fk INTEGER NOT NULL REFERENCES rag_collections(id) ON DELETE CASCADE,
   source_kind TEXT NOT NULL,
   source_id TEXT NOT NULL,
+  parent_source_id TEXT,
   source_path TEXT,
+  source_uri TEXT NOT NULL DEFAULT '',
   title TEXT NOT NULL,
   tags_json TEXT NOT NULL DEFAULT '[]',
   content_hash TEXT NOT NULL,
@@ -1482,13 +1738,31 @@ CREATE TABLE IF NOT EXISTS rag_sources (
   prompt_eligible INTEGER NOT NULL DEFAULT 0,
   review_only INTEGER NOT NULL DEFAULT 0,
   stale INTEGER NOT NULL DEFAULT 0,
+  ingest_state TEXT NOT NULL DEFAULT 'active'
+    CHECK(ingest_state IN ('active', 'skipped', 'error')),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  UNIQUE(source_kind, source_id)
+  last_ingested_at TEXT,
+  last_indexed_at TEXT,
+  last_accessed_at TEXT,
+  fetched_at TEXT,
+  http_status INTEGER,
+  http_etag TEXT,
+  http_last_modified TEXT,
+  http_content_type TEXT,
+  http_content_length INTEGER,
+  final_url TEXT,
+  robots_allowed INTEGER,
+  robots_checked_at TEXT,
+  fetch_duration_ms INTEGER,
+  last_error TEXT,
+  last_error_at TEXT,
+  UNIQUE(collection_fk, source_kind, source_id)
 );
 
 CREATE TABLE IF NOT EXISTS rag_chunks (
   id INTEGER PRIMARY KEY,
+  collection_fk INTEGER NOT NULL REFERENCES rag_collections(id) ON DELETE CASCADE,
   source_fk INTEGER NOT NULL REFERENCES rag_sources(id) ON DELETE CASCADE,
   chunk_id TEXT NOT NULL UNIQUE,
   ordinal INTEGER NOT NULL,
@@ -1498,6 +1772,8 @@ CREATE TABLE IF NOT EXISTS rag_chunks (
   byte_len INTEGER NOT NULL,
   token_estimate INTEGER NOT NULL,
   tags TEXT NOT NULL DEFAULT '',
+  collection_type TEXT NOT NULL DEFAULT '',
+  collection_name TEXT NOT NULL DEFAULT '',
   source_kind TEXT NOT NULL DEFAULT '',
   labels TEXT NOT NULL DEFAULT '',
   provenance_json TEXT NOT NULL,
@@ -1514,6 +1790,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts USING fts5(
   text,
   tags,
   source_kind,
+  collection_type,
+  collection_name,
   labels,
   content='rag_chunks',
   content_rowid='id'
@@ -1522,6 +1800,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts USING fts5(
 CREATE TABLE IF NOT EXISTS rag_index_runs (
   run_id TEXT PRIMARY KEY,
   trigger TEXT NOT NULL,
+  requested_collections_json TEXT NOT NULL DEFAULT '[]',
   requested_sources_json TEXT NOT NULL DEFAULT '[]',
   include_vectors INTEGER NOT NULL DEFAULT 0,
   stale_only INTEGER NOT NULL DEFAULT 1,
@@ -1536,49 +1815,1187 @@ CREATE TABLE IF NOT EXISTS rag_index_runs (
   error TEXT
 );
 
+CREATE INDEX IF NOT EXISTS idx_rag_collections_type_name ON rag_collections(collection_type, collection_name);
+CREATE INDEX IF NOT EXISTS idx_rag_collections_stale ON rag_collections(stale);
+CREATE INDEX IF NOT EXISTS idx_rag_collections_accessed ON rag_collections(last_accessed_at);
+CREATE INDEX IF NOT EXISTS idx_rag_collections_manifest ON rag_collections(manifest_hash);
+CREATE INDEX IF NOT EXISTS idx_rag_sources_collection ON rag_sources(collection_fk);
 CREATE INDEX IF NOT EXISTS idx_rag_sources_kind ON rag_sources(source_kind);
 CREATE INDEX IF NOT EXISTS idx_rag_sources_stale ON rag_sources(stale);
+CREATE INDEX IF NOT EXISTS idx_rag_sources_state ON rag_sources(ingest_state);
+CREATE INDEX IF NOT EXISTS idx_rag_sources_uri ON rag_sources(source_uri);
+CREATE INDEX IF NOT EXISTS idx_rag_sources_accessed ON rag_sources(last_accessed_at);
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_source ON rag_chunks(source_fk);
+CREATE INDEX IF NOT EXISTS idx_rag_chunks_collection ON rag_chunks(collection_fk);
+CREATE INDEX IF NOT EXISTS idx_rag_chunks_collection_name ON rag_chunks(collection_type, collection_name);
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_prompt ON rag_chunks(prompt_eligible, review_only);
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_embedding ON rag_chunks(embedding_model_key, embedding_state);
 CREATE INDEX IF NOT EXISTS idx_rag_runs_started ON rag_index_runs(started_at);
 "#,
     )
-    .map_err(sql_err)
+    .map_err(sql_err)?;
+    conn.execute(
+        "INSERT INTO rag_meta (key, value, updated_at)
+         VALUES ('schema_version', ?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        params![
+            RAG_SCHEMA_VERSION.to_string(),
+            chrono::Utc::now().to_rfc3339()
+        ],
+    )
+    .map_err(sql_err)?;
+    Ok(())
 }
 
 fn collect_sources(
     paths: &AllbertPaths,
     config: &Config,
-    only: &[RagSourceKind],
+    request: &RagRebuildRequest,
 ) -> Result<Vec<CollectedSource>, KernelError> {
     let mut sources = Vec::new();
-    collect_operator_docs(&mut sources)?;
-    collect_command_catalog(&mut sources)?;
-    collect_settings_catalog(&mut sources);
-    collect_skill_metadata(paths, config, &mut sources);
-    collect_memory_sources(
-        paths,
-        config,
-        only.contains(&RagSourceKind::StagedMemoryReview)
-            || config
-                .rag
-                .sources
-                .contains(&RagSourceKind::StagedMemoryReview),
-        &mut sources,
-    )?;
-    if !only.is_empty() {
-        sources.retain(|source| only.contains(&source.kind));
+    if request.collection_type != Some(RagCollectionType::User) {
+        collect_operator_docs(&mut sources)?;
+        collect_command_catalog(&mut sources)?;
+        collect_settings_catalog(&mut sources);
+        collect_skill_metadata(paths, config, &mut sources);
+        collect_memory_sources(
+            paths,
+            config,
+            request.sources.contains(&RagSourceKind::StagedMemoryReview)
+                || config
+                    .rag
+                    .sources
+                    .contains(&RagSourceKind::StagedMemoryReview),
+            &mut sources,
+        )?;
+    }
+
+    let wants_user = request.collection_type == Some(RagCollectionType::User)
+        || !request.collections.is_empty()
+        || request
+            .sources
+            .iter()
+            .any(|source| matches!(source, RagSourceKind::UserDocument | RagSourceKind::WebUrl));
+    if wants_user {
+        collect_user_collection_sources(paths, config, request, &mut sources)?;
+    }
+
+    if let Some(collection_type) = request.collection_type {
+        sources.retain(|source| source.collection_type == collection_type);
+    }
+    if !request.collections.is_empty() {
+        let wanted = request
+            .collections
+            .iter()
+            .map(|value| normalize_collection_name(value))
+            .collect::<HashSet<_>>();
+        sources.retain(|source| wanted.contains(&source.collection_name));
+    }
+    if !request.sources.is_empty() {
+        sources.retain(|source| request.sources.contains(&source.kind));
     } else {
-        sources.retain(|source| config.rag.sources.contains(&source.kind));
+        sources.retain(|source| {
+            source.collection_type == RagCollectionType::User
+                || config.rag.sources.contains(&source.kind)
+        });
     }
     sources.sort_by(|a, b| {
-        a.kind
+        a.collection_type
             .label()
-            .cmp(b.kind.label())
+            .cmp(b.collection_type.label())
+            .then_with(|| a.collection_name.cmp(&b.collection_name))
+            .then_with(|| a.kind.label().cmp(b.kind.label()))
             .then_with(|| a.source_id.cmp(&b.source_id))
     });
     Ok(sources)
+}
+
+fn system_collection_for_kind(kind: RagSourceKind) -> (&'static str, &'static str, &'static str) {
+    match kind {
+        RagSourceKind::OperatorDocs => {
+            ("operator_docs", "allbert://docs/operator", "Operator docs")
+        }
+        RagSourceKind::CommandCatalog => ("commands", "allbert://generated/commands", "Commands"),
+        RagSourceKind::SettingsCatalog => ("settings", "allbert://generated/settings", "Settings"),
+        RagSourceKind::SkillsMetadata => ("skills", "allbert://skills/metadata", "Skills"),
+        RagSourceKind::DurableMemory => ("memory", "allbert://memory/durable", "Memory"),
+        RagSourceKind::FactMemory => ("facts", "allbert://memory/facts", "Facts"),
+        RagSourceKind::EpisodeRecall => ("episodes", "allbert://sessions/episodes", "Episodes"),
+        RagSourceKind::SessionSummary => ("sessions", "allbert://sessions/summaries", "Sessions"),
+        RagSourceKind::StagedMemoryReview => (
+            "staged_review",
+            "allbert://memory/staged-review",
+            "Staged review",
+        ),
+        RagSourceKind::UserDocument | RagSourceKind::WebUrl => {
+            ("user", "allbert://user", "User collection")
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn system_source(
+    kind: RagSourceKind,
+    source_id: String,
+    source_path: Option<String>,
+    title: String,
+    tags: Vec<String>,
+    text: String,
+    privacy_tier: &'static str,
+    prompt_eligible: bool,
+    review_only: bool,
+) -> CollectedSource {
+    let (collection_name, source_uri, _) = system_collection_for_kind(kind);
+    CollectedSource {
+        collection_type: RagCollectionType::System,
+        collection_name: collection_name.into(),
+        kind,
+        source_id,
+        source_uri: source_uri.into(),
+        source_path,
+        title,
+        tags,
+        text,
+        privacy_tier,
+        prompt_eligible,
+        review_only,
+        ingest_state: "active",
+        http_status: None,
+        http_etag: None,
+        http_last_modified: None,
+        http_content_type: None,
+        final_url: None,
+        robots_allowed: None,
+        last_error: None,
+    }
+}
+
+fn normalize_collection_name(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string()
+}
+
+fn user_collections_dir(paths: &AllbertPaths) -> PathBuf {
+    paths.root.join("rag").join("collections").join("user")
+}
+
+fn user_collection_manifest_path(paths: &AllbertPaths, name: &str) -> PathBuf {
+    user_collections_dir(paths).join(format!("{}.toml", normalize_collection_name(name)))
+}
+
+pub fn create_rag_collection(
+    paths: &AllbertPaths,
+    config: &Config,
+    request: RagCollectionCreateRequest,
+) -> Result<RagCollectionMutationSummary, KernelError> {
+    paths.ensure()?;
+    let collection_name = normalize_collection_name(&request.collection_name);
+    if collection_name.is_empty() {
+        return Err(KernelError::Request(
+            "RAG collection name must contain a letter or number".into(),
+        ));
+    }
+    let manifest_path = user_collection_manifest_path(paths, &collection_name);
+    if manifest_path.exists() {
+        return Err(KernelError::Request(format!(
+            "RAG collection `{collection_name}` already exists"
+        )));
+    }
+    let fetch_policy = merge_fetch_policy(config, request.fetch_policy);
+    let source_uris = normalize_source_uris(config, &fetch_policy, &request.source_uris)?;
+    if source_uris.is_empty() {
+        return Err(KernelError::Request(
+            "RAG collection needs at least one source".into(),
+        ));
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    let manifest = RagCollectionManifest {
+        version: 1,
+        collection_type: RagCollectionType::User,
+        collection_name: collection_name.clone(),
+        title: request.title.unwrap_or_else(|| collection_name.clone()),
+        description: request.description.unwrap_or_default(),
+        privacy_tier: "user_supplied".into(),
+        prompt_eligible: false,
+        review_only: false,
+        created_at: now.clone(),
+        updated_at: now,
+        source_uris,
+        fetch_policy,
+    };
+    write_collection_manifest(&manifest_path, &manifest)?;
+    materialize_user_collection(paths, config, &manifest, &manifest_path)?;
+    Ok(RagCollectionMutationSummary {
+        collection_type: RagCollectionType::User,
+        collection_name,
+        manifest_path: Some(manifest_path),
+        source_uris: manifest.source_uris,
+        stale: true,
+        message: "collection created; run ingest or rebuild to index sources".into(),
+    })
+}
+
+pub fn list_rag_collections(
+    paths: &AllbertPaths,
+    config: &Config,
+    collection_type: Option<RagCollectionType>,
+) -> Result<Vec<RagCollectionStatus>, KernelError> {
+    let mut statuses = Vec::new();
+    if collection_type != Some(RagCollectionType::User) {
+        for kind in SYSTEM_COLLECTION_KINDS {
+            let (name, uri, title) = system_collection_for_kind(kind);
+            statuses.push(RagCollectionStatus {
+                collection_type: RagCollectionType::System,
+                collection_name: name.into(),
+                title: title.into(),
+                source_uri: uri.into(),
+                enabled: true,
+                stale: false,
+                source_count: 0,
+                chunk_count: 0,
+                vector_count: 0,
+                skipped_count: 0,
+                manifest_path: None,
+                last_ingested_at: None,
+                last_indexed_at: None,
+                last_accessed_at: None,
+                vector_posture: if config.rag.vector.enabled {
+                    RagVectorPosture::Stale
+                } else {
+                    RagVectorPosture::Disabled
+                },
+                degraded_reason: None,
+            });
+        }
+    }
+    if collection_type != Some(RagCollectionType::System) {
+        for (path, manifest, _) in read_user_collection_manifests(paths)? {
+            statuses.push(RagCollectionStatus {
+                collection_type: RagCollectionType::User,
+                collection_name: manifest.collection_name,
+                title: manifest.title,
+                source_uri: manifest.source_uris.first().cloned().unwrap_or_default(),
+                enabled: true,
+                stale: true,
+                source_count: manifest.source_uris.len(),
+                chunk_count: 0,
+                vector_count: 0,
+                skipped_count: 0,
+                manifest_path: Some(path_display_under(&path, &paths.root)),
+                last_ingested_at: None,
+                last_indexed_at: None,
+                last_accessed_at: None,
+                vector_posture: if config.rag.vector.enabled {
+                    RagVectorPosture::Stale
+                } else {
+                    RagVectorPosture::Disabled
+                },
+                degraded_reason: None,
+            });
+        }
+    }
+    if paths.rag_db.exists() {
+        let conn = open_rag_db(paths)?;
+        overlay_collection_counts(&conn, config, &mut statuses)?;
+    }
+    statuses.sort_by(|a, b| {
+        a.collection_type
+            .label()
+            .cmp(b.collection_type.label())
+            .then_with(|| a.collection_name.cmp(&b.collection_name))
+    });
+    Ok(statuses)
+}
+
+pub fn delete_rag_collection(
+    paths: &AllbertPaths,
+    name: &str,
+) -> Result<RagCollectionMutationSummary, KernelError> {
+    let collection_name = normalize_collection_name(name);
+    let manifest_path = user_collection_manifest_path(paths, &collection_name);
+    let source_uris = if manifest_path.exists() {
+        let manifest = read_collection_manifest(&manifest_path)?;
+        manifest.source_uris
+    } else {
+        Vec::new()
+    };
+    if manifest_path.exists() {
+        fs::remove_file(&manifest_path).map_err(|e| {
+            KernelError::InitFailed(format!("remove {}: {e}", manifest_path.display()))
+        })?;
+    }
+    if paths.rag_db.exists() {
+        let conn = open_rag_db(paths)?;
+        conn.execute(
+            "DELETE FROM rag_collections WHERE collection_type = 'user' AND collection_name = ?1",
+            [collection_name.as_str()],
+        )
+        .map_err(sql_err)?;
+    }
+    Ok(RagCollectionMutationSummary {
+        collection_type: RagCollectionType::User,
+        collection_name,
+        manifest_path: Some(manifest_path),
+        source_uris,
+        stale: false,
+        message: "collection deleted; source files and remote content were not deleted".into(),
+    })
+}
+
+fn merge_fetch_policy(config: &Config, mut policy: RagFetchPolicy) -> RagFetchPolicy {
+    policy.allow_insecure_http |= config.rag.ingest.allow_insecure_http;
+    if policy.url_max_pages == 1 {
+        policy.url_max_pages = config.rag.ingest.url_max_pages;
+    }
+    if policy.url_max_bytes == 2_097_152 {
+        policy.url_max_bytes = config.rag.ingest.url_max_bytes;
+    }
+    if policy.url_max_redirects == 5 {
+        policy.url_max_redirects = config.rag.ingest.url_max_redirects;
+    }
+    if policy.fetch_timeout_s == 20 {
+        policy.fetch_timeout_s = config.rag.ingest.fetch_timeout_s;
+    }
+    policy.respect_robots_txt &= config.rag.ingest.respect_robots_txt;
+    policy
+}
+
+fn normalize_source_uris(
+    config: &Config,
+    policy: &RagFetchPolicy,
+    values: &[String],
+) -> Result<Vec<String>, KernelError> {
+    let mut normalized = Vec::new();
+    for value in values {
+        let (uri, _) = normalize_source_uri(config, policy, value)?;
+        if !normalized.contains(&uri) {
+            normalized.push(uri);
+        }
+    }
+    Ok(normalized)
+}
+
+fn normalize_source_uri(
+    config: &Config,
+    policy: &RagFetchPolicy,
+    value: &str,
+) -> Result<(String, SourceUriKind), KernelError> {
+    let raw = value.trim();
+    if raw.starts_with("http://") || raw.starts_with("https://") {
+        let url = reqwest::Url::parse(raw)
+            .map_err(|e| KernelError::Request(format!("invalid URL source `{raw}`: {e}")))?;
+        validate_url_source(config, &url, policy)?;
+        return Ok((canonical_url(&url), SourceUriKind::Web));
+    }
+    let path = if let Some(rest) = raw.strip_prefix("dir://") {
+        PathBuf::from(rest)
+    } else if raw.starts_with("file://") {
+        let url = reqwest::Url::parse(raw)
+            .map_err(|e| KernelError::Request(format!("invalid file source `{raw}`: {e}")))?;
+        url.to_file_path()
+            .map_err(|_| KernelError::Request(format!("invalid file URL source `{raw}`")))?
+    } else {
+        PathBuf::from(raw)
+    };
+    let canonical =
+        security::sandbox::check(&path, &config.security.fs_roots).map_err(KernelError::Request)?;
+    if canonical.is_dir() {
+        Ok((
+            format!("dir://{}", canonical.to_string_lossy().replace('\\', "/")),
+            SourceUriKind::Dir,
+        ))
+    } else {
+        Ok((
+            format!("file://{}", canonical.to_string_lossy().replace('\\', "/")),
+            SourceUriKind::File,
+        ))
+    }
+}
+
+fn validate_url_source(
+    config: &Config,
+    url: &reqwest::Url,
+    policy: &RagFetchPolicy,
+) -> Result<(), KernelError> {
+    let scheme_allowed = config
+        .rag
+        .ingest
+        .allowed_url_schemes
+        .iter()
+        .any(|scheme| scheme.eq_ignore_ascii_case(url.scheme()))
+        || (url.scheme() == "http" && policy.allow_insecure_http);
+    if !scheme_allowed {
+        return Err(KernelError::Request(format!(
+            "RAG URL scheme `{}` is not enabled",
+            url.scheme()
+        )));
+    }
+    match url.scheme() {
+        "https" => {}
+        "http" if policy.allow_insecure_http => {}
+        "http" => {
+            return Err(KernelError::Request(
+                "HTTP URL sources require --allow-insecure-http".into(),
+            ))
+        }
+        scheme => {
+            return Err(KernelError::Request(format!(
+                "unsupported RAG URL scheme `{scheme}`"
+            )))
+        }
+    }
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err(KernelError::Request(
+            "RAG URL sources must not include credentials".into(),
+        ));
+    }
+    let host = url
+        .host_str()
+        .ok_or_else(|| KernelError::Request("RAG URL source needs a host".into()))?;
+    if host.eq_ignore_ascii_case("localhost") {
+        return Err(KernelError::Request(
+            "RAG URL source host localhost is not allowed".into(),
+        ));
+    }
+    validate_resolved_host(host, url.port_or_known_default().unwrap_or(443))
+}
+
+fn validate_resolved_host(host: &str, port: u16) -> Result<(), KernelError> {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        validate_public_ip(ip)?;
+        return Ok(());
+    }
+    let addrs = (host, port)
+        .to_socket_addrs()
+        .map_err(|e| KernelError::Request(format!("resolve RAG URL host `{host}`: {e}")))?;
+    let mut saw = false;
+    for addr in addrs {
+        saw = true;
+        validate_public_ip(addr.ip())?;
+    }
+    if !saw {
+        return Err(KernelError::Request(format!(
+            "RAG URL host `{host}` resolved no addresses"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_public_ip(ip: IpAddr) -> Result<(), KernelError> {
+    let blocked = match ip {
+        IpAddr::V4(ip) => {
+            ip.is_private()
+                || ip.is_loopback()
+                || ip.is_link_local()
+                || ip.is_multicast()
+                || ip.is_broadcast()
+                || ip.is_unspecified()
+                || ip.octets() == [169, 254, 169, 254]
+        }
+        IpAddr::V6(ip) => {
+            ip.is_loopback()
+                || ip.is_multicast()
+                || ip.is_unspecified()
+                || ip.is_unique_local()
+                || ip.is_unicast_link_local()
+        }
+    };
+    if blocked {
+        Err(KernelError::Request(format!(
+            "RAG URL resolved to disallowed address {ip}"
+        )))
+    } else {
+        Ok(())
+    }
+}
+
+fn canonical_url(url: &reqwest::Url) -> String {
+    let mut cloned = url.clone();
+    cloned.set_fragment(None);
+    cloned.to_string()
+}
+
+fn write_collection_manifest(
+    path: &Path,
+    manifest: &RagCollectionManifest,
+) -> Result<(), KernelError> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| KernelError::InitFailed(format!("create {}: {e}", parent.display())))?;
+    }
+    let content = toml::to_string_pretty(manifest)
+        .map_err(|e| KernelError::InitFailed(format!("serialize RAG collection manifest: {e}")))?;
+    atomic_write(path, content.as_bytes())
+        .map_err(|e| KernelError::InitFailed(format!("write {}: {e}", path.display())))
+}
+
+fn read_collection_manifest(path: &Path) -> Result<RagCollectionManifest, KernelError> {
+    let raw = fs::read_to_string(path)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+    toml::from_str(&raw).map_err(|e| {
+        KernelError::InitFailed(format!(
+            "parse RAG collection manifest {}: {e}",
+            path.display()
+        ))
+    })
+}
+
+fn read_user_collection_manifests(
+    paths: &AllbertPaths,
+) -> Result<Vec<(PathBuf, RagCollectionManifest, String)>, KernelError> {
+    let dir = user_collections_dir(paths);
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(&dir)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", dir.display())))?
+    {
+        let entry = entry
+            .map_err(|e| KernelError::InitFailed(format!("read {} entry: {e}", dir.display())))?;
+        let path = entry.path();
+        if path.extension().is_none_or(|ext| ext != "toml") {
+            continue;
+        }
+        let raw = fs::read_to_string(&path)
+            .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+        let manifest: RagCollectionManifest = toml::from_str(&raw).map_err(|e| {
+            KernelError::InitFailed(format!(
+                "parse RAG collection manifest {}: {e}",
+                path.display()
+            ))
+        })?;
+        entries.push((path, manifest, hash_text(&raw)));
+    }
+    entries.sort_by(|a, b| a.1.collection_name.cmp(&b.1.collection_name));
+    Ok(entries)
+}
+
+fn materialize_user_collection(
+    paths: &AllbertPaths,
+    config: &Config,
+    manifest: &RagCollectionManifest,
+    manifest_path: &Path,
+) -> Result<(), KernelError> {
+    fs::create_dir_all(&paths.rag_index).map_err(|e| {
+        KernelError::InitFailed(format!("create {}: {e}", paths.rag_index.display()))
+    })?;
+    let conn = open_rag_db(paths)?;
+    let raw = fs::read_to_string(manifest_path)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", manifest_path.display())))?;
+    let entry = CollectionCatalogEntry {
+        collection_type: RagCollectionType::User,
+        collection_name: manifest.collection_name.clone(),
+        source_uri: manifest.source_uris.first().cloned().unwrap_or_default(),
+        title: manifest.title.clone(),
+        description: manifest.description.clone(),
+        privacy_tier: manifest.privacy_tier.clone(),
+        prompt_eligible: false,
+        review_only: manifest.review_only,
+        manifest_path: Some(path_display_under(manifest_path, &paths.root)),
+        manifest_hash: hash_text(&raw),
+        fetch_policy_json: serde_json::to_string(&manifest.fetch_policy)
+            .unwrap_or_else(|_| "{}".into()),
+    };
+    insert_collection_catalog(&conn, config, &entry, &[])?;
+    Ok(())
+}
+
+fn overlay_collection_counts(
+    conn: &Connection,
+    config: &Config,
+    statuses: &mut [RagCollectionStatus],
+) -> Result<(), KernelError> {
+    for status in statuses {
+        let collection_type = status.collection_type.label();
+        let row = conn
+            .query_row(
+                "SELECT c.id, c.source_uri, c.enabled, c.stale, c.last_ingested_at,
+                        c.last_indexed_at, c.last_accessed_at,
+                        COUNT(DISTINCT s.id),
+                        COUNT(DISTINCT ch.id),
+                        SUM(CASE WHEN s.ingest_state = 'skipped' THEN 1 ELSE 0 END)
+                 FROM rag_collections c
+                 LEFT JOIN rag_sources s ON s.collection_fk = c.id
+                 LEFT JOIN rag_chunks ch ON ch.collection_fk = c.id
+                 WHERE c.collection_type = ?1 AND c.collection_name = ?2
+                 GROUP BY c.id",
+                params![collection_type, status.collection_name],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, Option<String>>(4)?,
+                        row.get::<_, Option<String>>(5)?,
+                        row.get::<_, Option<String>>(6)?,
+                        row.get::<_, i64>(7)?,
+                        row.get::<_, i64>(8)?,
+                        row.get::<_, Option<i64>>(9)?.unwrap_or(0),
+                    ))
+                },
+            )
+            .optional()
+            .map_err(sql_err)?;
+        if let Some((
+            collection_id,
+            source_uri,
+            enabled,
+            stale,
+            last_ingested_at,
+            last_indexed_at,
+            last_accessed_at,
+            source_count,
+            chunk_count,
+            skipped_count,
+        )) = row
+        {
+            status.source_uri = source_uri;
+            status.enabled = enabled != 0;
+            status.stale = stale != 0;
+            status.source_count = source_count as usize;
+            status.chunk_count = chunk_count as usize;
+            status.skipped_count = skipped_count as usize;
+            status.last_ingested_at = last_ingested_at;
+            status.last_indexed_at = last_indexed_at;
+            status.last_accessed_at = last_accessed_at;
+            status.vector_count = if table_exists(conn, "rag_embeddings")? {
+                conn.query_row(
+                    "SELECT COUNT(*)
+                     FROM rag_embeddings e
+                     JOIN rag_chunks ch ON ch.id = e.rowid
+                     WHERE ch.collection_fk = ?1",
+                    [collection_id],
+                    |row| row.get::<_, i64>(0),
+                )
+                .map_err(sql_err)? as usize
+            } else {
+                0
+            };
+            status.vector_posture = if config.rag.vector.enabled {
+                if status.vector_count > 0 {
+                    RagVectorPosture::Healthy
+                } else {
+                    RagVectorPosture::Stale
+                }
+            } else {
+                RagVectorPosture::Disabled
+            };
+        }
+    }
+    Ok(())
+}
+
+fn collect_user_collection_sources(
+    paths: &AllbertPaths,
+    config: &Config,
+    request: &RagRebuildRequest,
+    sources: &mut Vec<CollectedSource>,
+) -> Result<(), KernelError> {
+    let wanted = request
+        .collections
+        .iter()
+        .map(|value| normalize_collection_name(value))
+        .collect::<HashSet<_>>();
+    for (_path, manifest, _hash) in read_user_collection_manifests(paths)? {
+        if !wanted.is_empty() && !wanted.contains(&manifest.collection_name) {
+            continue;
+        }
+        for uri in &manifest.source_uris {
+            collect_user_source_uri(paths, config, &manifest, uri, sources)?;
+        }
+    }
+    Ok(())
+}
+
+fn collect_user_source_uri(
+    paths: &AllbertPaths,
+    config: &Config,
+    manifest: &RagCollectionManifest,
+    uri: &str,
+    sources: &mut Vec<CollectedSource>,
+) -> Result<(), KernelError> {
+    let (normalized, kind) = normalize_source_uri(config, &manifest.fetch_policy, uri)?;
+    match kind {
+        SourceUriKind::File => {
+            let path = path_from_file_or_dir_uri(&normalized)?;
+            collect_user_file(paths, config, manifest, &normalized, &path, sources)
+        }
+        SourceUriKind::Dir => {
+            let path = path_from_file_or_dir_uri(&normalized)?;
+            collect_user_dir(paths, config, manifest, &normalized, &path, sources)
+        }
+        SourceUriKind::Web => collect_user_url(config, manifest, &normalized, sources),
+    }
+}
+
+fn path_from_file_or_dir_uri(uri: &str) -> Result<PathBuf, KernelError> {
+    if let Some(rest) = uri.strip_prefix("dir://") {
+        Ok(PathBuf::from(rest))
+    } else if let Some(rest) = uri.strip_prefix("file://") {
+        Ok(PathBuf::from(rest))
+    } else {
+        Err(KernelError::Request(format!(
+            "RAG source `{uri}` is not a local file or directory URI"
+        )))
+    }
+}
+
+fn collect_user_file(
+    paths: &AllbertPaths,
+    config: &Config,
+    manifest: &RagCollectionManifest,
+    source_uri: &str,
+    path: &Path,
+    sources: &mut Vec<CollectedSource>,
+) -> Result<(), KernelError> {
+    let bytes = fs::read(path)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", path.display())))?;
+    let max = config.rag.ingest.max_file_bytes.max(1);
+    if bytes.len() > max {
+        sources.push(user_error_source(
+            manifest,
+            RagSourceKind::UserDocument,
+            source_uri,
+            Some(path_display_under(path, &paths.root)),
+            format!("file exceeds cap: {}", path.display()),
+        ));
+        return Ok(());
+    }
+    let text = match String::from_utf8(bytes) {
+        Ok(text) => text,
+        Err(_) => {
+            sources.push(user_error_source(
+                manifest,
+                RagSourceKind::UserDocument,
+                source_uri,
+                Some(path_display_under(path, &paths.root)),
+                format!("file is not UTF-8 text: {}", path.display()),
+            ));
+            return Ok(());
+        }
+    };
+    sources.push(user_text_source(
+        manifest,
+        RagSourceKind::UserDocument,
+        source_uri,
+        Some(path_display_under(path, &paths.root)),
+        file_title(path, &text),
+        vec!["user".into(), "local".into()],
+        text,
+        None,
+    ));
+    Ok(())
+}
+
+fn collect_user_dir(
+    paths: &AllbertPaths,
+    config: &Config,
+    manifest: &RagCollectionManifest,
+    source_uri: &str,
+    dir: &Path,
+    sources: &mut Vec<CollectedSource>,
+) -> Result<(), KernelError> {
+    let mut files = Vec::new();
+    collect_text_files_bounded(dir, &mut files, config.rag.ingest.max_files_per_collection)?;
+    let mut total = 0usize;
+    for file in files {
+        let size = fs::metadata(&file)
+            .map_err(|e| KernelError::InitFailed(format!("stat {}: {e}", file.display())))?
+            .len() as usize;
+        total += size;
+        if total > config.rag.ingest.max_collection_bytes {
+            sources.push(user_error_source(
+                manifest,
+                RagSourceKind::UserDocument,
+                source_uri,
+                Some(path_display_under(&file, &paths.root)),
+                "collection byte cap exceeded".into(),
+            ));
+            break;
+        }
+        if size > config.rag.ingest.max_file_bytes {
+            sources.push(user_error_source(
+                manifest,
+                RagSourceKind::UserDocument,
+                source_uri,
+                Some(path_display_under(&file, &paths.root)),
+                format!("file exceeds cap: {}", file.display()),
+            ));
+            continue;
+        }
+        collect_user_file(paths, config, manifest, source_uri, &file, sources)?;
+    }
+    Ok(())
+}
+
+fn collect_text_files_bounded(
+    root: &Path,
+    files: &mut Vec<PathBuf>,
+    max_files: usize,
+) -> Result<(), KernelError> {
+    if files.len() >= max_files {
+        return Ok(());
+    }
+    for entry in fs::read_dir(root)
+        .map_err(|e| KernelError::InitFailed(format!("read {}: {e}", root.display())))?
+    {
+        if files.len() >= max_files {
+            break;
+        }
+        let entry = entry
+            .map_err(|e| KernelError::InitFailed(format!("read {} entry: {e}", root.display())))?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_text_files_bounded(&path, files, max_files)?;
+        } else if is_text_like_path(&path) {
+            files.push(path);
+        }
+    }
+    files.sort();
+    Ok(())
+}
+
+fn is_text_like_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| {
+            matches!(
+                ext.to_ascii_lowercase().as_str(),
+                "md" | "markdown" | "txt" | "toml" | "json" | "yaml" | "yml" | "rs"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn collect_user_url(
+    config: &Config,
+    manifest: &RagCollectionManifest,
+    source_uri: &str,
+    sources: &mut Vec<CollectedSource>,
+) -> Result<(), KernelError> {
+    let started = Instant::now();
+    let url = reqwest::Url::parse(source_uri)
+        .map_err(|e| KernelError::Request(format!("invalid URL source `{source_uri}`: {e}")))?;
+    if let Err(err) = validate_url_source(config, &url, &manifest.fetch_policy) {
+        sources.push(user_error_source(
+            manifest,
+            RagSourceKind::WebUrl,
+            source_uri,
+            None,
+            err.to_string(),
+        ));
+        return Ok(());
+    }
+    if manifest.fetch_policy.respect_robots_txt && !robots_allows(config, &url)? {
+        sources.push(user_skipped_source(
+            manifest,
+            RagSourceKind::WebUrl,
+            source_uri,
+            "robots.txt disallowed fetch".into(),
+        ));
+        return Ok(());
+    }
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(manifest.fetch_policy.fetch_timeout_s))
+        .redirect(reqwest::redirect::Policy::none())
+        .user_agent(config.rag.ingest.user_agent.clone())
+        .build()
+        .map_err(|e| KernelError::InitFailed(format!("build RAG URL client: {e}")))?;
+    let mut current = url;
+    for _ in 0..=manifest.fetch_policy.url_max_redirects {
+        validate_url_source(config, &current, &manifest.fetch_policy)?;
+        let response = client
+            .get(current.clone())
+            .send()
+            .map_err(|e| KernelError::Request(format!("fetch RAG URL `{current}`: {e}")))?;
+        let status = response.status();
+        if status.is_redirection() {
+            let Some(location) = response.headers().get(reqwest::header::LOCATION) else {
+                break;
+            };
+            let location = location.to_str().map_err(|e| {
+                KernelError::Request(format!("read redirect location for `{current}`: {e}"))
+            })?;
+            current = current.join(location).map_err(|e| {
+                KernelError::Request(format!("resolve redirect for RAG URL `{current}`: {e}"))
+            })?;
+            continue;
+        }
+        if !status.is_success() {
+            sources.push(user_error_source(
+                manifest,
+                RagSourceKind::WebUrl,
+                source_uri,
+                None,
+                format!("HTTP status {status}"),
+            ));
+            return Ok(());
+        }
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or("text/plain")
+            .to_string();
+        if !content_type_allowed(config, &content_type) {
+            sources.push(user_skipped_source(
+                manifest,
+                RagSourceKind::WebUrl,
+                source_uri,
+                format!("content type `{content_type}` is not allowed"),
+            ));
+            return Ok(());
+        }
+        let etag = response
+            .headers()
+            .get(reqwest::header::ETAG)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string);
+        let last_modified = response
+            .headers()
+            .get(reqwest::header::LAST_MODIFIED)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string);
+        let bytes = response
+            .bytes()
+            .map_err(|e| KernelError::Request(format!("read RAG URL `{current}`: {e}")))?;
+        if bytes.len() > manifest.fetch_policy.url_max_bytes {
+            sources.push(user_error_source(
+                manifest,
+                RagSourceKind::WebUrl,
+                source_uri,
+                None,
+                "URL response exceeded byte cap".into(),
+            ));
+            return Ok(());
+        }
+        let raw = String::from_utf8_lossy(&bytes).to_string();
+        let text = if content_type.contains("html") {
+            extract_html_text(&raw)
+        } else {
+            raw
+        };
+        let mut source = user_text_source(
+            manifest,
+            RagSourceKind::WebUrl,
+            source_uri,
+            Some(current.to_string()),
+            first_markdown_heading(&text).unwrap_or_else(|| current.to_string()),
+            vec!["user".into(), "web".into()],
+            text,
+            Some(current.to_string()),
+        );
+        source.http_status = Some(status.as_u16() as i64);
+        source.http_etag = etag;
+        source.http_last_modified = last_modified;
+        source.http_content_type = Some(content_type);
+        source.robots_allowed = Some(true);
+        source.final_url = Some(current.to_string());
+        source
+            .tags
+            .push(format!("fetch_ms:{}", started.elapsed().as_millis()));
+        sources.push(source);
+        return Ok(());
+    }
+    sources.push(user_error_source(
+        manifest,
+        RagSourceKind::WebUrl,
+        source_uri,
+        None,
+        "too many redirects".into(),
+    ));
+    Ok(())
+}
+
+fn content_type_allowed(config: &Config, content_type: &str) -> bool {
+    let base = content_type
+        .split(';')
+        .next()
+        .unwrap_or(content_type)
+        .trim()
+        .to_ascii_lowercase();
+    config
+        .rag
+        .ingest
+        .allowed_content_types
+        .iter()
+        .any(|allowed| allowed.eq_ignore_ascii_case(&base))
+}
+
+fn robots_allows(config: &Config, url: &reqwest::Url) -> Result<bool, KernelError> {
+    let mut robots = url.clone();
+    robots.set_path("/robots.txt");
+    robots.set_query(None);
+    robots.set_fragment(None);
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .redirect(reqwest::redirect::Policy::limited(3))
+        .user_agent(config.rag.ingest.user_agent.clone())
+        .build()
+        .map_err(|e| KernelError::InitFailed(format!("build robots client: {e}")))?;
+    let Ok(response) = client.get(robots).send() else {
+        return Ok(true);
+    };
+    if !response.status().is_success() {
+        return Ok(true);
+    }
+    let Ok(body) = response.text() else {
+        return Ok(true);
+    };
+    Ok(simple_robots_allows(&body, url.path()))
+}
+
+fn simple_robots_allows(body: &str, path: &str) -> bool {
+    let mut applies = false;
+    for line in body.lines() {
+        let line = line.split('#').next().unwrap_or("").trim();
+        let Some((key, value)) = line.split_once(':') else {
+            continue;
+        };
+        let key = key.trim().to_ascii_lowercase();
+        let value = value.trim();
+        match key.as_str() {
+            "user-agent" => {
+                applies = value == "*" || value.eq_ignore_ascii_case("AllbertRagBot");
+            }
+            "disallow" if applies && !value.is_empty() && path.starts_with(value) => {
+                return false;
+            }
+            _ => {}
+        }
+    }
+    true
+}
+
+fn extract_html_text(raw: &str) -> String {
+    let mut out = String::new();
+    let mut in_tag = false;
+    for ch in raw.chars() {
+        match ch {
+            '<' => {
+                in_tag = true;
+                out.push(' ');
+            }
+            '>' => in_tag = false,
+            _ if !in_tag => out.push(ch),
+            _ => {}
+        }
+    }
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn file_title(path: &Path, text: &str) -> String {
+    first_markdown_heading(text).unwrap_or_else(|| {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("user document")
+            .to_string()
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn user_text_source(
+    manifest: &RagCollectionManifest,
+    kind: RagSourceKind,
+    source_uri: &str,
+    source_path: Option<String>,
+    title: String,
+    tags: Vec<String>,
+    text: String,
+    final_url: Option<String>,
+) -> CollectedSource {
+    CollectedSource {
+        collection_type: RagCollectionType::User,
+        collection_name: manifest.collection_name.clone(),
+        kind,
+        source_id: user_source_id(
+            kind,
+            &manifest.collection_name,
+            source_uri,
+            source_path.as_deref(),
+        ),
+        source_uri: source_uri.into(),
+        source_path,
+        title,
+        tags,
+        text,
+        privacy_tier: if kind == RagSourceKind::WebUrl {
+            "user_supplied_web"
+        } else {
+            "user_supplied"
+        },
+        prompt_eligible: false,
+        review_only: manifest.review_only,
+        ingest_state: "active",
+        http_status: None,
+        http_etag: None,
+        http_last_modified: None,
+        http_content_type: None,
+        final_url,
+        robots_allowed: None,
+        last_error: None,
+    }
+}
+
+fn user_error_source(
+    manifest: &RagCollectionManifest,
+    kind: RagSourceKind,
+    source_uri: &str,
+    source_path: Option<String>,
+    error: String,
+) -> CollectedSource {
+    let mut source = user_text_source(
+        manifest,
+        kind,
+        source_uri,
+        source_path,
+        format!("Skipped {}", source_uri),
+        vec!["user".into(), "skipped".into()],
+        format!("Skipped source {source_uri}: {error}"),
+        None,
+    );
+    source.ingest_state = "error";
+    source.last_error = Some(error);
+    source.prompt_eligible = false;
+    source
+}
+
+fn user_skipped_source(
+    manifest: &RagCollectionManifest,
+    kind: RagSourceKind,
+    source_uri: &str,
+    reason: String,
+) -> CollectedSource {
+    let mut source = user_error_source(manifest, kind, source_uri, None, reason);
+    source.ingest_state = "skipped";
+    source
+}
+
+fn user_source_id(
+    kind: RagSourceKind,
+    collection_name: &str,
+    source_uri: &str,
+    source_path: Option<&str>,
+) -> String {
+    let suffix = source_path.unwrap_or(source_uri);
+    format!(
+        "{}:{collection_name}:{}",
+        kind.label(),
+        hash_text(&format!("{source_uri}#{suffix}"))
+    )
 }
 
 fn collect_memory_sources(
@@ -1589,17 +3006,17 @@ fn collect_memory_sources(
 ) -> Result<(), KernelError> {
     for source in memory::collect_rag_memory_sources(paths, &config.memory, include_staged_review)?
     {
-        sources.push(CollectedSource {
-            kind: source.kind,
-            source_id: source.source_id,
-            source_path: source.source_path,
-            title: source.title,
-            tags: source.tags,
-            text: source.text,
-            privacy_tier: source.privacy_tier,
-            prompt_eligible: source.prompt_eligible,
-            review_only: source.review_only,
-        });
+        sources.push(system_source(
+            source.kind,
+            source.source_id,
+            source.source_path,
+            source.title,
+            source.tags,
+            source.text,
+            source.privacy_tier,
+            source.prompt_eligible,
+            source.review_only,
+        ));
     }
     Ok(())
 }
@@ -1623,17 +3040,17 @@ fn collect_operator_docs(sources: &mut Vec<CollectedSource>) -> Result<(), Kerne
             .unwrap_or(&path)
             .to_string_lossy()
             .replace('\\', "/");
-        sources.push(CollectedSource {
-            kind: RagSourceKind::OperatorDocs,
-            source_id: format!("docs:{rel}"),
-            source_path: Some(rel.clone()),
-            title: first_markdown_heading(&raw).unwrap_or_else(|| rel.clone()),
-            tags: vec!["docs".into(), "operator".into()],
-            text: raw,
-            privacy_tier: "local_docs",
-            prompt_eligible: true,
-            review_only: false,
-        });
+        sources.push(system_source(
+            RagSourceKind::OperatorDocs,
+            format!("docs:{rel}"),
+            Some(rel.clone()),
+            first_markdown_heading(&raw).unwrap_or_else(|| rel.clone()),
+            vec!["docs".into(), "operator".into()],
+            raw,
+            "local_docs",
+            true,
+            false,
+        ));
     }
     Ok(())
 }
@@ -1658,17 +3075,17 @@ fn collect_command_catalog(sources: &mut Vec<CollectedSource>) -> Result<(), Ker
                 .join(", "),
             command.id
         );
-        sources.push(CollectedSource {
-            kind: RagSourceKind::CommandCatalog,
-            source_id: format!("command:{}", command.id),
-            source_path: None,
-            title: command.display.into(),
+        sources.push(system_source(
+            RagSourceKind::CommandCatalog,
+            format!("command:{}", command.id),
+            None,
+            command.display.into(),
             tags,
             text,
-            privacy_tier: "generated_public",
-            prompt_eligible: true,
-            review_only: false,
-        });
+            "generated_public",
+            true,
+            false,
+        ));
     }
     Ok(())
 }
@@ -1689,17 +3106,17 @@ fn setting_source(setting: &SettingDescriptor) -> CollectedSource {
         setting.restart.label(),
         setting.safety_note
     );
-    CollectedSource {
-        kind: RagSourceKind::SettingsCatalog,
-        source_id: format!("setting:{}", setting.key),
-        source_path: None,
-        title: setting.key.into(),
-        tags: vec![setting.group.id().into(), "settings".into()],
+    system_source(
+        RagSourceKind::SettingsCatalog,
+        format!("setting:{}", setting.key),
+        None,
+        setting.key.into(),
+        vec![setting.group.id().into(), "settings".into()],
         text,
-        privacy_tier: "generated_local",
-        prompt_eligible: true,
-        review_only: false,
-    }
+        "generated_local",
+        true,
+        false,
+    )
 }
 
 fn collect_skill_metadata(
@@ -1734,17 +3151,17 @@ fn collect_skill_metadata(
             skill.allowed_tools.join(", "),
             body
         );
-        sources.push(CollectedSource {
-            kind: RagSourceKind::SkillsMetadata,
-            source_id: format!("skill:installed:{}", skill.name),
-            source_path: Some(path_display_under(&skill.path, &paths.root)),
-            title: skill.name.clone(),
-            tags: vec!["skills".into(), skill.provenance.label().into()],
+        sources.push(system_source(
+            RagSourceKind::SkillsMetadata,
+            format!("skill:installed:{}", skill.name),
+            Some(path_display_under(&skill.path, &paths.root)),
+            skill.name.clone(),
+            vec!["skills".into(), skill.provenance.label().into()],
             text,
-            privacy_tier: "local_metadata",
-            prompt_eligible: true,
-            review_only: false,
-        });
+            "local_metadata",
+            true,
+            false,
+        ));
     }
 }
 
@@ -1760,29 +3177,70 @@ where
     let tx = conn.transaction().map_err(sql_err)?;
     let now = chrono::Utc::now().to_rfc3339();
     let mut chunk_total = 0;
+    let collections = collection_catalog_from_sources(config, sources)?;
+    let mut collection_ids = HashMap::new();
+    for entry in collections {
+        let id = insert_collection_catalog(&tx, config, &entry, sources)?;
+        collection_ids.insert(
+            (
+                entry.collection_type.label().to_string(),
+                entry.collection_name,
+            ),
+            id,
+        );
+    }
     for source in sources {
         if should_cancel() {
             return Err(KernelError::Request(RAG_REBUILD_CANCELLED.into()));
         }
+        let collection_fk = *collection_ids
+            .get(&(
+                source.collection_type.label().to_string(),
+                source.collection_name.clone(),
+            ))
+            .ok_or_else(|| {
+                KernelError::InitFailed(format!(
+                    "missing RAG collection {}:{}",
+                    source.collection_type.label(),
+                    source.collection_name
+                ))
+            })?;
         let tags_json = serde_json::to_string(&source.tags)
             .map_err(|e| KernelError::InitFailed(format!("serialize source tags: {e}")))?;
         let source_hash = hash_text(&source.text);
         tx.execute(
             "INSERT INTO rag_sources
-             (source_kind, source_id, source_path, title, tags_json, content_hash,
-              privacy_tier, prompt_eligible, review_only, stale, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, ?10, ?10)",
+             (collection_fk, source_kind, source_id, parent_source_id, source_path,
+              source_uri, title, tags_json, content_hash, privacy_tier,
+              prompt_eligible, review_only, stale, ingest_state, created_at, updated_at,
+              last_ingested_at, last_indexed_at, fetched_at, http_status, http_etag,
+              http_last_modified, http_content_type, final_url, robots_allowed,
+              last_error, last_error_at)
+             VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 0,
+                     ?12, ?13, ?13, ?13, ?13, ?13, ?14, ?15, ?16, ?17, ?18,
+                     ?19, ?20, ?21)",
             params![
+                collection_fk,
                 source.kind.label(),
                 source.source_id,
                 source.source_path,
+                source.source_uri,
                 source.title,
                 tags_json,
                 source_hash,
                 source.privacy_tier,
                 bool_int(source.prompt_eligible),
                 bool_int(source.review_only),
-                now
+                source.ingest_state,
+                now,
+                source.http_status,
+                source.http_etag,
+                source.http_last_modified,
+                source.http_content_type,
+                source.final_url,
+                source.robots_allowed.map(bool_int),
+                source.last_error,
+                source.last_error.as_ref().map(|_| now.clone()),
             ],
         )
         .map_err(sql_err)?;
@@ -1801,12 +3259,13 @@ where
             .to_string();
             tx.execute(
                 "INSERT INTO rag_chunks
-                 (source_fk, chunk_id, ordinal, title, heading_path, text, byte_len,
-                  token_estimate, tags, source_kind, labels, provenance_json,
+                 (collection_fk, source_fk, chunk_id, ordinal, title, heading_path, text, byte_len,
+                  token_estimate, tags, collection_type, collection_name, source_kind, labels, provenance_json,
                   prompt_eligible, review_only, content_hash, embedding_state, updated_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-                         ?13, ?14, ?15, 'missing', ?16)",
+                         ?13, ?14, ?15, ?16, ?17, ?18, 'missing', ?19)",
                 params![
+                    collection_fk,
                     source_fk,
                     chunk.chunk_id,
                     chunk.ordinal as i64,
@@ -1816,6 +3275,8 @@ where
                     chunk.text.len() as i64,
                     token_estimate(&chunk.text) as i64,
                     chunk.tags.join(" "),
+                    source.collection_type.label(),
+                    source.collection_name,
                     source.kind.label(),
                     chunk.labels.join(" "),
                     provenance_json,
@@ -1829,14 +3290,16 @@ where
             let rowid = tx.last_insert_rowid();
             tx.execute(
                 "INSERT INTO rag_chunks_fts
-                 (rowid, title, text, tags, source_kind, labels)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                 (rowid, title, text, tags, source_kind, collection_type, collection_name, labels)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![
                     rowid,
                     chunk.title,
                     chunk.text,
                     chunk.tags.join(" "),
                     source.kind.label(),
+                    source.collection_type.label(),
+                    source.collection_name,
                     chunk.labels.join(" "),
                 ],
             )
@@ -1846,6 +3309,133 @@ where
     }
     tx.commit().map_err(sql_err)?;
     Ok(chunk_total)
+}
+
+fn collection_catalog_from_sources(
+    config: &Config,
+    sources: &[CollectedSource],
+) -> Result<Vec<CollectionCatalogEntry>, KernelError> {
+    let mut by_key: BTreeMap<(RagCollectionType, String), Vec<&CollectedSource>> = BTreeMap::new();
+    for source in sources {
+        by_key
+            .entry((source.collection_type, source.collection_name.clone()))
+            .or_default()
+            .push(source);
+    }
+    let mut entries = Vec::new();
+    for ((collection_type, collection_name), group) in by_key {
+        let first = group[0];
+        let (source_uri, title, description, privacy_tier, prompt_eligible, review_only) =
+            if collection_type == RagCollectionType::System {
+                let (_, uri, title) = system_collection_for_kind(first.kind);
+                (
+                    uri.to_string(),
+                    title.to_string(),
+                    String::new(),
+                    first.privacy_tier.to_string(),
+                    group.iter().any(|source| source.prompt_eligible),
+                    group.iter().all(|source| source.review_only),
+                )
+            } else {
+                (
+                    first.source_uri.clone(),
+                    collection_name.clone(),
+                    String::new(),
+                    first.privacy_tier.to_string(),
+                    false,
+                    group.iter().all(|source| source.review_only),
+                )
+            };
+        let mut hasher = Sha256::new();
+        for source in &group {
+            hasher.update(&source.source_id);
+            hasher.update(&source.text);
+        }
+        let content_hash = format!("{:x}", hasher.finalize());
+        entries.push(CollectionCatalogEntry {
+            collection_type,
+            collection_name,
+            source_uri,
+            title,
+            description,
+            privacy_tier,
+            prompt_eligible,
+            review_only,
+            manifest_path: None,
+            manifest_hash: content_hash,
+            fetch_policy_json: serde_json::to_string(&config.rag.ingest)
+                .unwrap_or_else(|_| "{}".into()),
+        });
+    }
+    Ok(entries)
+}
+
+fn insert_collection_catalog(
+    conn: &Connection,
+    _config: &Config,
+    entry: &CollectionCatalogEntry,
+    sources: &[CollectedSource],
+) -> Result<i64, KernelError> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let content_hash = if sources.is_empty() {
+        entry.manifest_hash.clone()
+    } else {
+        let mut hasher = Sha256::new();
+        for source in sources.iter().filter(|source| {
+            source.collection_type == entry.collection_type
+                && source.collection_name == entry.collection_name
+        }) {
+            hasher.update(&source.source_id);
+            hasher.update(&source.text);
+        }
+        format!("{:x}", hasher.finalize())
+    };
+    conn.execute(
+        "INSERT INTO rag_collections
+         (collection_type, collection_name, source_uri, manifest_path, manifest_hash,
+          title, description, privacy_tier, prompt_eligible, review_only, enabled,
+          stale, content_hash, created_at, updated_at, last_ingested_at, last_indexed_at,
+          fetch_policy_json)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, 0, ?11, ?12, ?12,
+                 ?12, ?12, ?13)
+         ON CONFLICT(collection_type, collection_name) DO UPDATE SET
+           source_uri = excluded.source_uri,
+           manifest_path = excluded.manifest_path,
+           manifest_hash = excluded.manifest_hash,
+           title = excluded.title,
+           description = excluded.description,
+           privacy_tier = excluded.privacy_tier,
+           prompt_eligible = excluded.prompt_eligible,
+           review_only = excluded.review_only,
+           stale = excluded.stale,
+           content_hash = excluded.content_hash,
+           updated_at = excluded.updated_at,
+           last_ingested_at = excluded.last_ingested_at,
+           last_indexed_at = excluded.last_indexed_at,
+           fetch_policy_json = excluded.fetch_policy_json",
+        params![
+            entry.collection_type.label(),
+            entry.collection_name,
+            entry.source_uri,
+            entry.manifest_path,
+            entry.manifest_hash,
+            entry.title,
+            entry.description,
+            entry.privacy_tier,
+            bool_int(entry.prompt_eligible),
+            bool_int(entry.review_only),
+            content_hash,
+            now,
+            entry.fetch_policy_json,
+        ],
+    )
+    .map_err(sql_err)?;
+    conn.query_row(
+        "SELECT id FROM rag_collections WHERE collection_type = ?1 AND collection_name = ?2",
+        params![entry.collection_type.label(), entry.collection_name],
+        |row| row.get::<_, i64>(0),
+    )
+    .map_err(sql_err)
 }
 
 fn chunk_source(config: &Config, source: &CollectedSource) -> Vec<RagChunk> {
@@ -1937,17 +3527,20 @@ fn insert_run(
     run_id: &str,
     request: &RagRebuildRequest,
     requested_sources_json: &str,
+    requested_collections_json: &str,
     record: RunWrite<'_>,
 ) -> Result<(), KernelError> {
     conn.execute(
         "INSERT OR REPLACE INTO rag_index_runs
-         (run_id, trigger, requested_sources_json, include_vectors, stale_only, status,
+         (run_id, trigger, requested_collections_json, requested_sources_json,
+          include_vectors, stale_only, status,
           started_at, finished_at, source_count, chunk_count, vector_count, skipped_count,
           elapsed_ms, error)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
         params![
             run_id,
             request.trigger,
+            requested_collections_json,
             requested_sources_json,
             bool_int(request.include_vectors),
             bool_int(request.stale_only),
@@ -1994,6 +3587,7 @@ fn finish_run(conn: &Connection, run_id: &str, record: RunWrite<'_>) -> Result<(
 
 fn count_table(conn: &Connection, table: &str) -> Result<usize, KernelError> {
     let sql = match table {
+        "rag_collections" => "SELECT COUNT(*) FROM rag_collections",
         "rag_sources" => "SELECT COUNT(*) FROM rag_sources",
         "rag_chunks" => "SELECT COUNT(*) FROM rag_chunks",
         _ => {
@@ -2239,6 +3833,8 @@ mod tests {
                     RagSourceKind::SettingsCatalog,
                     RagSourceKind::SkillsMetadata,
                 ],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: false,
                 trigger: "test".into(),
             },
@@ -2261,6 +3857,8 @@ mod tests {
                     RagSourceKind::CommandCatalog,
                     RagSourceKind::SettingsCatalog,
                 ],
+                collection_type: None,
+                collections: Vec::new(),
                 mode: Some(RagRetrievalMode::Lexical),
                 limit: Some(5),
                 include_review_only: false,
@@ -2284,6 +3882,8 @@ mod tests {
             RagRebuildRequest {
                 stale_only: false,
                 sources: vec![RagSourceKind::CommandCatalog],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: false,
                 trigger: "test-cancel".into(),
             },
@@ -2306,6 +3906,8 @@ mod tests {
             RagRebuildRequest {
                 stale_only: false,
                 sources: vec![RagSourceKind::CommandCatalog],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: false,
                 trigger: "test".into(),
             },
@@ -2317,6 +3919,8 @@ mod tests {
             RagRebuildRequest {
                 stale_only: true,
                 sources: vec![RagSourceKind::CommandCatalog],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: false,
                 trigger: "test".into(),
             },
@@ -2324,6 +3928,173 @@ mod tests {
         .expect("stale-only rebuild should inspect corpus");
         assert_eq!(skipped.status, RagIndexRunStatus::Skipped);
         assert_eq!(skipped.message, "nothing stale");
+    }
+
+    #[test]
+    fn schema_v2_reinitializes_v1_rag_database_with_collections() {
+        let (_temp, paths) = temp_paths();
+        let config = Config::default_template();
+        let conn = Connection::open(&paths.rag_db).expect("old rag db should open");
+        conn.execute_batch(
+            "CREATE TABLE rag_sources (
+               id INTEGER PRIMARY KEY,
+               source_kind TEXT NOT NULL,
+               source_id TEXT NOT NULL
+             );",
+        )
+        .expect("old v1 source table should create");
+        drop(conn);
+
+        let status = rag_status(&paths, &config).expect("status should migrate schema");
+        assert_eq!(status.collection_count, 0);
+        let conn = open_rag_db(&paths).expect("db should reopen");
+        assert!(table_exists(&conn, "rag_collections").expect("table check should work"));
+        assert!(raw_column_exists(&conn, "rag_sources", "collection_fk")
+            .expect("column check should work"));
+        assert_eq!(
+            get_meta(&conn, "schema_version")
+                .expect("schema version should read")
+                .as_deref(),
+            Some("2")
+        );
+    }
+
+    #[test]
+    fn user_collection_local_ingest_search_filters_and_access_timestamps() {
+        let (_temp, paths) = temp_paths();
+        let corpus = paths.root.join("trusted-corpus");
+        fs::create_dir_all(&corpus).unwrap();
+        fs::write(
+            corpus.join("notes.md"),
+            "# Cobalt Plateau\n\nThe Cobalt Plateau runbook lives in the user collection only.\n",
+        )
+        .unwrap();
+        let mut config = Config::default_template();
+        config.security.fs_roots = vec![corpus.clone()];
+
+        let created = create_rag_collection(
+            &paths,
+            &config,
+            RagCollectionCreateRequest {
+                collection_name: "Project Notes".into(),
+                title: Some("Project Notes".into()),
+                description: Some("Task corpus".into()),
+                source_uris: vec![corpus.to_string_lossy().to_string()],
+                fetch_policy: RagFetchPolicy::default(),
+            },
+        )
+        .expect("collection should be created");
+        assert_eq!(created.collection_type, RagCollectionType::User);
+        assert_eq!(created.collection_name, "project-notes");
+        assert!(created.manifest_path.as_ref().unwrap().exists());
+
+        let listed = list_rag_collections(&paths, &config, Some(RagCollectionType::User)).unwrap();
+        assert!(listed
+            .iter()
+            .any(|collection| collection.collection_name == "project-notes"));
+
+        let summary = rebuild_rag_index(
+            &paths,
+            &config,
+            RagRebuildRequest {
+                stale_only: false,
+                sources: Vec::new(),
+                collection_type: Some(RagCollectionType::User),
+                collections: vec!["project-notes".into()],
+                include_vectors: false,
+                trigger: "test-user-collection".into(),
+            },
+        )
+        .expect("user collection should rebuild");
+        assert_eq!(summary.status, RagIndexRunStatus::Succeeded);
+        assert_eq!(summary.source_count, 1);
+        assert!(summary.chunk_count > 0);
+
+        let user_hits = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "Cobalt Plateau runbook".into(),
+                sources: vec![RagSourceKind::UserDocument],
+                collection_type: Some(RagCollectionType::User),
+                collections: vec!["project-notes".into()],
+                mode: Some(RagRetrievalMode::Lexical),
+                limit: Some(5),
+                include_review_only: false,
+            },
+        )
+        .expect("user collection search should work");
+        assert!(!user_hits.results.is_empty());
+        assert!(user_hits.results.iter().all(|result| {
+            result.collection_type == RagCollectionType::User
+                && result.collection_name == "project-notes"
+                && result.source_kind == RagSourceKind::UserDocument
+        }));
+
+        let system_hits = search_rag(
+            &paths,
+            &config,
+            RagSearchRequest {
+                query: "Cobalt Plateau runbook".into(),
+                sources: Vec::new(),
+                collection_type: Some(RagCollectionType::System),
+                collections: Vec::new(),
+                mode: Some(RagRetrievalMode::Lexical),
+                limit: Some(5),
+                include_review_only: false,
+            },
+        )
+        .expect("system-filtered search should work");
+        assert!(system_hits.results.is_empty());
+
+        let listed = list_rag_collections(&paths, &config, Some(RagCollectionType::User)).unwrap();
+        let collection = listed
+            .iter()
+            .find(|collection| collection.collection_name == "project-notes")
+            .expect("collection should list after search");
+        assert_eq!(collection.source_count, 1);
+        assert!(collection.chunk_count > 0);
+        assert!(collection.last_accessed_at.is_some());
+    }
+
+    #[test]
+    fn user_collection_url_sources_reject_localhost_and_private_ips() {
+        let (_temp, paths) = temp_paths();
+        let mut config = Config::default_template();
+        config.rag.ingest.allowed_url_schemes = vec!["https".into(), "http".into()];
+        let mut policy = RagFetchPolicy {
+            allow_insecure_http: true,
+            ..RagFetchPolicy::default()
+        };
+        policy.respect_robots_txt = false;
+
+        let localhost = create_rag_collection(
+            &paths,
+            &config,
+            RagCollectionCreateRequest {
+                collection_name: "localhost".into(),
+                title: None,
+                description: None,
+                source_uris: vec!["http://localhost:8000/notes".into()],
+                fetch_policy: policy.clone(),
+            },
+        )
+        .expect_err("localhost URL source should be rejected");
+        assert!(localhost.to_string().contains("localhost"));
+
+        let private = create_rag_collection(
+            &paths,
+            &config,
+            RagCollectionCreateRequest {
+                collection_name: "private".into(),
+                title: None,
+                description: None,
+                source_uris: vec!["http://127.0.0.1:8000/notes".into()],
+                fetch_policy: policy,
+            },
+        )
+        .expect_err("private URL source should be rejected");
+        assert!(private.to_string().contains("disallowed address"));
     }
 
     #[test]
@@ -2340,6 +4111,8 @@ mod tests {
             RagRebuildRequest {
                 stale_only: false,
                 sources: vec![RagSourceKind::SettingsCatalog],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: false,
                 trigger: "test".into(),
             },
@@ -2348,7 +4121,7 @@ mod tests {
         let healthy = rag_doctor(&paths, &config).expect("healthy doctor should return");
         assert!(healthy.ok, "{:?}", healthy.issues);
         assert!(healthy.db_exists);
-        assert_eq!(healthy.schema_version.as_deref(), Some("1"));
+        assert_eq!(healthy.schema_version.as_deref(), Some("2"));
     }
 
     #[test]
@@ -2364,6 +4137,8 @@ mod tests {
                     RagSourceKind::SettingsCatalog,
                     RagSourceKind::CommandCatalog,
                 ],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: true,
                 trigger: "test".into(),
             },
@@ -2383,6 +4158,8 @@ mod tests {
             RagSearchRequest {
                 query: "settings catalog".into(),
                 sources: vec![RagSourceKind::SettingsCatalog],
+                collection_type: None,
+                collections: Vec::new(),
                 mode: Some(RagRetrievalMode::Hybrid),
                 limit: Some(5),
                 include_review_only: false,
@@ -2403,6 +4180,8 @@ mod tests {
             RagSearchRequest {
                 query: "settings catalog".into(),
                 sources: vec![RagSourceKind::SettingsCatalog],
+                collection_type: None,
+                collections: Vec::new(),
                 mode: Some(RagRetrievalMode::Vector),
                 limit: Some(3),
                 include_review_only: false,
@@ -2432,6 +4211,8 @@ mod tests {
             RagRebuildRequest {
                 stale_only: false,
                 sources: vec![RagSourceKind::SettingsCatalog],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: true,
                 trigger: "test".into(),
             },
@@ -2449,6 +4230,8 @@ mod tests {
             RagSearchRequest {
                 query: "settings".into(),
                 sources: vec![RagSourceKind::SettingsCatalog],
+                collection_type: None,
+                collections: Vec::new(),
                 mode: Some(RagRetrievalMode::Vector),
                 limit: Some(3),
                 include_review_only: false,
@@ -2470,6 +4253,8 @@ mod tests {
             RagRebuildRequest {
                 stale_only: false,
                 sources: vec![RagSourceKind::CommandCatalog],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: false,
                 trigger: "test".into(),
             },
@@ -2483,6 +4268,8 @@ mod tests {
             RagRebuildRequest {
                 stale_only: true,
                 sources: vec![RagSourceKind::CommandCatalog],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: true,
                 trigger: "test".into(),
             },
@@ -2518,6 +4305,8 @@ mod tests {
             RagRebuildRequest {
                 stale_only: false,
                 sources: vec![RagSourceKind::DurableMemory, RagSourceKind::FactMemory],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: false,
                 trigger: "test".into(),
             },
@@ -2531,6 +4320,8 @@ mod tests {
             RagSearchRequest {
                 query: "analytics warehouse reporting".into(),
                 sources: vec![RagSourceKind::DurableMemory],
+                collection_type: None,
+                collections: Vec::new(),
                 mode: Some(RagRetrievalMode::Lexical),
                 limit: Some(5),
                 include_review_only: false,
@@ -2548,6 +4339,8 @@ mod tests {
             RagSearchRequest {
                 query: "warehouse Postgres".into(),
                 sources: vec![RagSourceKind::FactMemory],
+                collection_type: None,
+                collections: Vec::new(),
                 mode: Some(RagRetrievalMode::Lexical),
                 limit: Some(5),
                 include_review_only: false,
@@ -2579,6 +4372,8 @@ mod tests {
             RagRebuildRequest {
                 stale_only: false,
                 sources: vec![RagSourceKind::EpisodeRecall, RagSourceKind::SessionSummary],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: false,
                 trigger: "test".into(),
             },
@@ -2591,6 +4386,8 @@ mod tests {
             RagSearchRequest {
                 query: "blue notebook".into(),
                 sources: vec![RagSourceKind::EpisodeRecall],
+                collection_type: None,
+                collections: Vec::new(),
                 mode: Some(RagRetrievalMode::Lexical),
                 limit: Some(5),
                 include_review_only: false,
@@ -2608,6 +4405,8 @@ mod tests {
             RagSearchRequest {
                 query: "shelf seven".into(),
                 sources: vec![RagSourceKind::SessionSummary],
+                collection_type: None,
+                collections: Vec::new(),
                 mode: Some(RagRetrievalMode::Lexical),
                 limit: Some(5),
                 include_review_only: false,
@@ -2650,6 +4449,8 @@ mod tests {
             RagRebuildRequest {
                 stale_only: false,
                 sources: Vec::new(),
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: false,
                 trigger: "test".into(),
             },
@@ -2661,6 +4462,8 @@ mod tests {
             RagSearchRequest {
                 query: "Quartz staging secret".into(),
                 sources: vec![RagSourceKind::StagedMemoryReview],
+                collection_type: None,
+                collections: Vec::new(),
                 mode: Some(RagRetrievalMode::Lexical),
                 limit: Some(5),
                 include_review_only: true,
@@ -2675,6 +4478,8 @@ mod tests {
             RagRebuildRequest {
                 stale_only: false,
                 sources: vec![RagSourceKind::StagedMemoryReview],
+                collection_type: None,
+                collections: Vec::new(),
                 include_vectors: false,
                 trigger: "test".into(),
             },
@@ -2686,6 +4491,8 @@ mod tests {
             RagSearchRequest {
                 query: "Quartz staging secret".into(),
                 sources: vec![RagSourceKind::StagedMemoryReview],
+                collection_type: None,
+                collections: Vec::new(),
                 mode: Some(RagRetrievalMode::Lexical),
                 limit: Some(5),
                 include_review_only: false,
@@ -2700,6 +4507,8 @@ mod tests {
             RagSearchRequest {
                 query: "Quartz staging secret".into(),
                 sources: vec![RagSourceKind::StagedMemoryReview],
+                collection_type: None,
+                collections: Vec::new(),
                 mode: Some(RagRetrievalMode::Lexical),
                 limit: Some(5),
                 include_review_only: true,

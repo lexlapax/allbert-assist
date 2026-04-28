@@ -569,10 +569,13 @@ impl DaemonClient {
         .await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn rag_search(
         &mut self,
         query: String,
         sources: Vec<String>,
+        collection_type: Option<String>,
+        collections: Vec<String>,
         mode: Option<String>,
         limit: Option<usize>,
         include_review_only: bool,
@@ -580,6 +583,8 @@ impl DaemonClient {
         self.send(&ClientMessage::RagSearch {
             query,
             sources,
+            collection_type,
+            collections,
             mode,
             limit,
             include_review_only,
@@ -597,11 +602,15 @@ impl DaemonClient {
         &mut self,
         stale_only: bool,
         sources: Vec<String>,
+        collection_type: Option<String>,
+        collections: Vec<String>,
         include_vectors: bool,
     ) -> Result<RagRebuildRunPayload, DaemonError> {
         self.send(&ClientMessage::RagRebuildStart {
             stale_only,
             sources,
+            collection_type,
+            collections,
             include_vectors,
         })
         .await?;

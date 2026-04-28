@@ -878,6 +878,7 @@ pub struct RagConfig {
     pub include_inactive_skill_bodies: bool,
     pub vector: RagVectorConfig,
     pub index: RagIndexConfig,
+    pub ingest: RagIngestConfig,
 }
 
 impl Default for RagConfig {
@@ -893,6 +894,7 @@ impl Default for RagConfig {
             include_inactive_skill_bodies: false,
             vector: RagVectorConfig::default(),
             index: RagIndexConfig::default(),
+            ingest: RagIngestConfig::default(),
         }
     }
 }
@@ -961,6 +963,49 @@ impl Default for RagIndexConfig {
             shutdown_grace_s: 30,
             max_run_seconds: 1800,
             max_chunks_per_run: 5000,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct RagIngestConfig {
+    pub max_files_per_collection: usize,
+    pub max_file_bytes: usize,
+    pub max_collection_bytes: usize,
+    pub allowed_url_schemes: Vec<String>,
+    pub allow_insecure_http: bool,
+    pub url_depth: usize,
+    pub url_max_pages: usize,
+    pub url_max_bytes: usize,
+    pub url_max_redirects: usize,
+    pub fetch_timeout_s: u64,
+    pub respect_robots_txt: bool,
+    pub allowed_content_types: Vec<String>,
+    pub user_agent: String,
+}
+
+impl Default for RagIngestConfig {
+    fn default() -> Self {
+        Self {
+            max_files_per_collection: 500,
+            max_file_bytes: 1_048_576,
+            max_collection_bytes: 52_428_800,
+            allowed_url_schemes: vec!["https".into()],
+            allow_insecure_http: false,
+            url_depth: 0,
+            url_max_pages: 1,
+            url_max_bytes: 2_097_152,
+            url_max_redirects: 5,
+            fetch_timeout_s: 20,
+            respect_robots_txt: true,
+            allowed_content_types: vec![
+                "text/plain".into(),
+                "text/markdown".into(),
+                "text/html".into(),
+                "application/xhtml+xml".into(),
+            ],
+            user_agent: "AllbertRagBot/0.15".into(),
         }
     }
 }
@@ -1788,6 +1833,40 @@ fn validate_rag_config(config: &RagConfig) -> Result<(), String> {
     if index.max_chunks_per_run == 0 {
         return Err("rag.index.max_chunks_per_run must be > 0".into());
     }
+    let ingest = &config.ingest;
+    if ingest.max_files_per_collection == 0 {
+        return Err("rag.ingest.max_files_per_collection must be > 0".into());
+    }
+    if ingest.max_file_bytes == 0 {
+        return Err("rag.ingest.max_file_bytes must be > 0".into());
+    }
+    if ingest.max_collection_bytes < ingest.max_file_bytes {
+        return Err("rag.ingest.max_collection_bytes must be >= rag.ingest.max_file_bytes".into());
+    }
+    if ingest.allowed_url_schemes.is_empty() {
+        return Err("rag.ingest.allowed_url_schemes must not be empty".into());
+    }
+    if ingest.allowed_url_schemes.iter().any(|scheme| {
+        let normalized = scheme.trim().to_ascii_lowercase();
+        !matches!(normalized.as_str(), "https" | "http")
+    }) {
+        return Err("rag.ingest.allowed_url_schemes may only include https or http".into());
+    }
+    if ingest.url_max_pages == 0 {
+        return Err("rag.ingest.url_max_pages must be > 0".into());
+    }
+    if ingest.url_max_bytes == 0 {
+        return Err("rag.ingest.url_max_bytes must be > 0".into());
+    }
+    if ingest.fetch_timeout_s == 0 {
+        return Err("rag.ingest.fetch_timeout_s must be > 0".into());
+    }
+    if ingest.allowed_content_types.is_empty() {
+        return Err("rag.ingest.allowed_content_types must not be empty".into());
+    }
+    if ingest.user_agent.trim().is_empty() {
+        return Err("rag.ingest.user_agent must not be empty".into());
+    }
     Ok(())
 }
 
@@ -2512,6 +2591,8 @@ max_tokens = 4096
         assert!(rendered.contains("[rag.vector]"));
         assert!(rendered.contains("model = \"embeddinggemma\""));
         assert!(rendered.contains("[rag.index]"));
+        assert!(rendered.contains("[rag.ingest]"));
+        assert!(rendered.contains("user_agent = \"AllbertRagBot/0.15\""));
     }
 
     #[test]
@@ -2538,6 +2619,9 @@ max_tokens = 4096
         assert_eq!(config.rag.vector.model, "embeddinggemma");
         assert!(config.rag.vector.fallback_to_lexical);
         assert!(config.rag.index.auto_maintain);
+        assert_eq!(config.rag.ingest.allowed_url_schemes, vec!["https"]);
+        assert!(!config.rag.ingest.allow_insecure_http);
+        assert_eq!(config.rag.ingest.url_max_pages, 1);
         config.validate().expect("default RAG config is valid");
     }
 

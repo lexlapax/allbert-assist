@@ -18,6 +18,8 @@ pub enum RagSourceKind {
     #[serde(alias = "sessions")]
     SessionSummary,
     StagedMemoryReview,
+    UserDocument,
+    WebUrl,
 }
 
 impl RagSourceKind {
@@ -43,6 +45,8 @@ impl RagSourceKind {
             Self::EpisodeRecall => "episode_recall",
             Self::SessionSummary => "session_summary",
             Self::StagedMemoryReview => "staged_memory_review",
+            Self::UserDocument => "user_document",
+            Self::WebUrl => "web_url",
         }
     }
 
@@ -57,12 +61,53 @@ impl RagSourceKind {
             "episode_recall" | "episodes" | "episode" => Some(Self::EpisodeRecall),
             "session_summary" | "sessions" | "session" => Some(Self::SessionSummary),
             "staged_memory_review" | "staged" | "review_only" => Some(Self::StagedMemoryReview),
+            "user_document" | "user_docs" | "user_doc" => Some(Self::UserDocument),
+            "web_url" | "url" | "web" => Some(Self::WebUrl),
             _ => None,
         }
     }
 
     pub fn default_prompt_sources() -> Vec<Self> {
         Self::PROMPT_ELIGIBLE_DEFAULTS.to_vec()
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum RagCollectionType {
+    System,
+    User,
+}
+
+impl RagCollectionType {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::User => "user",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.trim().replace('-', "_").to_ascii_lowercase().as_str() {
+            "system" => Some(Self::System),
+            "user" => Some(Self::User),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RagCollectionRef {
+    pub collection_type: RagCollectionType,
+    pub collection_name: String,
+}
+
+impl RagCollectionRef {
+    pub fn new(collection_type: RagCollectionType, collection_name: impl Into<String>) -> Self {
+        Self {
+            collection_type,
+            collection_name: collection_name.into(),
+        }
     }
 }
 
@@ -141,6 +186,10 @@ pub struct RagSearchRequest {
     pub query: String,
     #[serde(default)]
     pub sources: Vec<RagSourceKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collection_type: Option<RagCollectionType>,
+    #[serde(default)]
+    pub collections: Vec<String>,
     #[serde(default)]
     pub mode: Option<RagRetrievalMode>,
     #[serde(default)]
@@ -151,6 +200,8 @@ pub struct RagSearchRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RagSearchResult {
+    pub collection_type: RagCollectionType,
+    pub collection_name: String,
     pub source_kind: RagSourceKind,
     pub source_id: String,
     pub chunk_id: String,
@@ -179,6 +230,7 @@ pub struct RagSearchResponse {
 pub struct RagStatusSnapshot {
     pub enabled: bool,
     pub mode: RagRetrievalMode,
+    pub collection_count: usize,
     pub source_count: usize,
     pub chunk_count: usize,
     pub vector_count: usize,
@@ -193,6 +245,82 @@ pub struct RagStatusSnapshot {
     pub last_run_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub degraded_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RagCollectionStatus {
+    pub collection_type: RagCollectionType,
+    pub collection_name: String,
+    pub title: String,
+    pub source_uri: String,
+    pub enabled: bool,
+    pub stale: bool,
+    pub source_count: usize,
+    pub chunk_count: usize,
+    pub vector_count: usize,
+    pub skipped_count: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_ingested_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_indexed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_accessed_at: Option<String>,
+    pub vector_posture: RagVectorPosture,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub degraded_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RagFetchPolicy {
+    pub allow_insecure_http: bool,
+    pub url_depth: usize,
+    pub url_max_pages: usize,
+    pub url_max_bytes: usize,
+    pub url_max_redirects: usize,
+    pub fetch_timeout_s: u64,
+    pub respect_robots_txt: bool,
+}
+
+impl Default for RagFetchPolicy {
+    fn default() -> Self {
+        Self {
+            allow_insecure_http: false,
+            url_depth: 0,
+            url_max_pages: 1,
+            url_max_bytes: 2_097_152,
+            url_max_redirects: 5,
+            fetch_timeout_s: 20,
+            respect_robots_txt: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RagCollectionManifest {
+    pub version: u32,
+    pub collection_type: RagCollectionType,
+    pub collection_name: String,
+    pub title: String,
+    pub description: String,
+    pub privacy_tier: String,
+    pub prompt_eligible: bool,
+    pub review_only: bool,
+    pub created_at: String,
+    pub updated_at: String,
+    pub source_uris: Vec<String>,
+    pub fetch_policy: RagFetchPolicy,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RagCollectionCreateRequest {
+    pub collection_name: String,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub source_uris: Vec<String>,
+    #[serde(default)]
+    pub fetch_policy: RagFetchPolicy,
 }
 
 fn normalize_source_kind(value: &str) -> String {

@@ -667,7 +667,7 @@ impl Tool for SearchRagTool {
     }
 
     fn description(&self) -> &'static str {
-        "Search the bounded RAG index for local docs, settings, skills, memory, facts, episodes, and session summaries"
+        "Search the bounded RAG index for system collections and explicitly selected user collections"
     }
 
     fn schema(&self) -> Value {
@@ -689,9 +689,16 @@ impl Tool for SearchRagTool {
                             "fact_memory",
                             "episode_recall",
                             "session_summary",
-                            "staged_memory_review"
+                            "staged_memory_review",
+                            "user_document",
+                            "web_url"
                         ]
                     }
+                },
+                "collection_type": {"enum": ["system", "user"]},
+                "collections": {
+                    "type": "array",
+                    "items": {"type": "string", "minLength": 1}
                 },
                 "mode": {"enum": ["hybrid", "vector", "lexical"]},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 10},
