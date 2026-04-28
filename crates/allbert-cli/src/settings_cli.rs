@@ -65,6 +65,7 @@ pub fn explain(group: &str) -> Result<String> {
             "examples: repl.ui, repl.tui.spinner_style, repl.tui.status_line.items"
         }
         SettingsGroup::Activity => "examples: operator_ux.activity.stuck_notice_after_s",
+        SettingsGroup::Limits => "examples: limits.daily_usd_cap",
         SettingsGroup::Intent => "examples: intent.tool_call_retry_enabled",
         SettingsGroup::Trace => {
             "examples: trace.enabled, trace.capture_messages, trace.redaction.provider_payloads"
@@ -136,6 +137,7 @@ fn group_description(group: SettingsGroup) -> &'static str {
     match group {
         SettingsGroup::Ui => "Local terminal and status-line behavior.",
         SettingsGroup::Activity => "Daemon-owned live activity and stuck-hint display.",
+        SettingsGroup::Limits => "Spend and turn-budget limits.",
         SettingsGroup::Intent => "Intent routing and tool-call repair behavior.",
         SettingsGroup::Trace => {
             "Durable session trace capture, privacy, retention, and export posture."
@@ -262,6 +264,13 @@ mod tests {
         let trace_group = show(&config, "trace").expect("group show should render");
         assert!(trace_group.contains("trace.enabled"));
         assert!(trace_group.contains("trace.redaction.secrets"));
+
+        let daily_cap = show(&config, "limits.daily_usd_cap").expect("cost cap should render");
+        assert!(daily_cap.contains("current: disabled"));
+        assert!(daily_cap.contains("config path: limits.daily_usd_cap"));
+
+        let limits_group = show(&config, "limits").expect("limits group should render");
+        assert!(limits_group.contains("limits.daily_usd_cap"));
 
         let explained = explain("activity").expect("explain should render");
         assert!(explained.contains("Activity settings"));

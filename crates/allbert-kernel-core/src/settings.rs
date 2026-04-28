@@ -11,6 +11,7 @@ use crate::{
 pub enum SettingsGroup {
     Ui,
     Activity,
+    Limits,
     Intent,
     Trace,
     SelfDiagnosis,
@@ -24,9 +25,10 @@ pub enum SettingsGroup {
 }
 
 impl SettingsGroup {
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Ui,
         Self::Activity,
+        Self::Limits,
         Self::Intent,
         Self::Trace,
         Self::SelfDiagnosis,
@@ -43,6 +45,7 @@ impl SettingsGroup {
         match self {
             Self::Ui => "ui",
             Self::Activity => "activity",
+            Self::Limits => "limits",
             Self::Intent => "intent",
             Self::Trace => "trace",
             Self::SelfDiagnosis => "self_diagnosis",
@@ -60,6 +63,7 @@ impl SettingsGroup {
         match self {
             Self::Ui => "UI",
             Self::Activity => "Activity",
+            Self::Limits => "Limits",
             Self::Intent => "Intent",
             Self::Trace => "Trace",
             Self::SelfDiagnosis => "Self-diagnosis",
@@ -363,6 +367,21 @@ pub fn settings_catalog() -> Vec<SettingDescriptor> {
             "operator_ux.activity.show_activity_breadcrumbs",
             SettingRestartRequirement::Live,
             "Disabling display does not disable daemon activity tracking.",
+            SettingRedactionPolicy::Plain,
+        ),
+        descriptor(
+            "limits.daily_usd_cap",
+            SettingsGroup::Limits,
+            "Daily cost cap",
+            "Daily hosted-provider spend cap for turn admission.",
+            SettingValueType::Float {
+                min: Some(0.0),
+                max: None,
+            },
+            "0",
+            "limits.daily_usd_cap",
+            SettingRestartRequirement::Live,
+            "Reset this setting to disable the cap; 0.0 is a valid hard cap.",
             SettingRedactionPolicy::Plain,
         ),
         descriptor(
@@ -2584,6 +2603,11 @@ fn setting_value_for_key(config: &Config, descriptor: &SettingDescriptor) -> Opt
             .activity
             .show_activity_breadcrumbs
             .to_string(),
+        "limits.daily_usd_cap" => config
+            .limits
+            .daily_usd_cap
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "disabled".into()),
         "intent.tool_call_retry_enabled" => config.intent.tool_call_retry_enabled.to_string(),
         "trace.enabled" => config.trace.enabled.to_string(),
         "trace.capture_messages" => config.trace.capture_messages.to_string(),
@@ -3018,6 +3042,14 @@ keep = "yes"
         assert_eq!(rag.group, SettingsGroup::Rag);
         assert_eq!(rag.default_value, "hybrid");
         assert_eq!(rag.current_value, "hybrid");
+
+        let daily_cap = views
+            .iter()
+            .find(|view| view.key == "limits.daily_usd_cap")
+            .expect("limits.daily_usd_cap view");
+        assert_eq!(daily_cap.group, SettingsGroup::Limits);
+        assert_eq!(daily_cap.default_value, "disabled");
+        assert_eq!(daily_cap.current_value, "disabled");
     }
 
     #[test]
@@ -3025,6 +3057,8 @@ keep = "yes"
         validate_setting_value("repl.ui", "classic").expect("enum should validate");
         validate_setting_value("repl.tui.status_line.enabled", "false")
             .expect("bool should validate");
+        validate_setting_value("limits.daily_usd_cap", "5.25").expect("cost cap should validate");
+        validate_setting_value("limits.daily_usd_cap", "0").expect("zero cap should validate");
         validate_setting_value("model.max_tokens", "8192").expect("integer should validate");
         validate_setting_value("repl.tui.status_line.items", "model,cost,trace")
             .expect("list should validate");
@@ -3063,6 +3097,14 @@ keep = "yes"
         ));
         assert!(matches!(
             validate_setting_value("model.max_tokens", "0"),
+            Err(SettingValidationError::InvalidValue { .. })
+        ));
+        assert!(matches!(
+            validate_setting_value("limits.daily_usd_cap", "-0.01"),
+            Err(SettingValidationError::InvalidValue { .. })
+        ));
+        assert!(matches!(
+            validate_setting_value("limits.daily_usd_cap", "NaN"),
             Err(SettingValidationError::InvalidValue { .. })
         ));
         assert!(matches!(
@@ -3183,6 +3225,7 @@ keep = "yes"
         let (_temp, paths) = test_paths();
         persist_setting_value(&paths, "repl.ui", "classic").expect("enum set");
         persist_setting_value(&paths, "memory.prefetch_enabled", "false").expect("bool set");
+        persist_setting_value(&paths, "limits.daily_usd_cap", "5.25").expect("float set");
         persist_setting_value(&paths, "repl.tui.status_line.items", "model,cost,trace")
             .expect("list set");
         persist_setting_value(
@@ -3211,6 +3254,7 @@ keep = "yes"
             parsed.learning.personality_digest.output_path,
             "profiles/PERSONALITY.md"
         );
+        assert_eq!(parsed.limits.daily_usd_cap, Some(5.25));
     }
 
     #[test]
@@ -3263,6 +3307,24 @@ keep = "yes"
         assert!(!raw.contains("prefetch_enabled"));
         let parsed: Config = toml::from_str(&raw).expect("rendered config should parse");
         assert!(parsed.memory.prefetch_enabled);
+    }
+
+    #[test]
+    fn settings_reset_disables_daily_cost_cap() {
+        let (_temp, paths) = test_paths();
+        persist_setting_value(&paths, "limits.daily_usd_cap", "3.50").expect("set cap");
+        let mutation = reset_setting_value(&paths, "limits.daily_usd_cap").expect("reset cap");
+        assert!(mutation.changed);
+        assert_eq!(mutation.previous_value.as_deref(), Some("3.5"));
+
+        let raw = fs::read_to_string(&paths.config).expect("read config");
+        let parsed: Config = toml::from_str(&raw).expect("rendered config should parse");
+        assert_eq!(parsed.limits.daily_usd_cap, None);
+        let view = settings_for_config(&parsed)
+            .into_iter()
+            .find(|view| view.key == "limits.daily_usd_cap")
+            .expect("daily cap view");
+        assert_eq!(view.current_value, "disabled");
     }
 
     #[test]
