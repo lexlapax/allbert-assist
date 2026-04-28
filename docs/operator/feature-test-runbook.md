@@ -1,6 +1,8 @@
 # Operator Feature Test Runbook
 
-This runbook gives concrete commands for testing Allbert operator/user-facing features from v0.1 through the current v0.15.0 release. Run commands from the repository root.
+This runbook gives concrete commands for testing Allbert operator/user-facing
+features from v0.1 through the current v0.15.0 release. Run commands from the
+repository root.
 
 The examples use the source-tree command form:
 
@@ -26,7 +28,48 @@ For most operator tests, run setup once first:
 run setup
 ```
 
-Accept defaults unless a test below says otherwise. Live-provider, Telegram, and real adapter-training checks require local credentials, a local model, or local trainer binaries.
+Accept defaults unless a test below says otherwise. When setup asks for trusted
+filesystem roots, accept the current repository root if you want to run the RAG,
+filesystem-tool, self-improvement, and `unix_pipe` examples against this source
+checkout. Live-provider, Telegram, URL-ingestion, and real adapter-training
+checks require network access, credentials, a local model, or local trainer
+binaries.
+
+Use this runbook in three layers:
+
+- Provider-free smoke: run the CLI/daemon/settings/storage commands that do not
+  call an LLM, Telegram, hosted API, live URL, or trainer binary.
+- Local-live smoke: add Ollama/Gemma4 turns, Ollama `embeddinggemma` vector
+  RAG, TUI interaction, and local process/tool checks.
+- Credentialed/operator smoke: add hosted providers, Telegram, URL ingestion,
+  and real adapter training only when you intentionally want those systems
+  exercised.
+
+For each feature below, verify three things:
+
+- The command or interaction exits cleanly and prints a specific state, count,
+  id, manifest path, approval id, session id, or error message.
+- The state lands in the expected owner: config in `config.toml`, jobs in
+  `jobs/definitions` or `jobs/runs`, skills in `skills/installed`, memory in
+  `memory/`, traces in `sessions/<id>/trace.jsonl`, RAG in
+  `index/rag/rag.sqlite` plus user manifests under `rag/collections/user/`.
+- Guardrails are visible: risky changes ask for confirmation, staged or review
+  content is not promoted automatically, trusted roots are enforced, and
+  Telegram or other reduced-capability channels do not gain mutation powers
+  they should not have.
+
+When a live turn fails, capture the state before rerunning:
+
+```bash
+run activity
+run trace show
+run inbox list
+run daemon logs --lines 120
+```
+
+Expected live-model failures are called out explicitly. Treat any unlabelled
+panic, blank assistant answer, silent state mutation, missing confirmation, or
+secret/raw-token leak as a regression.
 
 ## v0.1 Basic CLI, Onboarding, Kernel, Tools, Memory, Policy
 
@@ -41,7 +84,16 @@ for f in config.toml SOUL.md USER.md IDENTITY.md TOOLS.md AGENTS.md HEARTBEAT.md
 done
 ```
 
-Expected: setup completes, bootstrap/config files exist, `doctor` passes, skills and memory load.
+What to verify:
+
+- Setup writes `config.toml`, bootstrap markdown files, seeded skills, memory
+  folders, and daemon defaults under the temporary `ALLBERT_HOME`.
+- `doctor` reports actionable warnings instead of panics. A missing hosted API
+  key is acceptable when the profile uses local Ollama or you are only running
+  provider-free checks.
+- `repl --classic` starts after setup and exits cleanly with `/exit`.
+- `skills list` includes first-party skills, and `memory status` initializes
+  memory without requiring a live provider.
 
 ## v0.2 Daemon, Jobs, Sessions
 
@@ -75,6 +127,17 @@ run jobs status memory-compile
 
 For a release smoke, `jobs list`, `jobs template enable`, and `jobs status` are the provider-free job checks. `jobs run memory-compile` is a live-provider behavior check and may need a stronger model, a more focused job prompt, or a higher per-job `max_turns` in `~/.allbert/jobs/definitions/memory-compile.md`.
 
+What to verify:
+
+- `daemon status` shows the daemon socket path and running state for this temp
+  profile, not your real profile.
+- Enabling a template creates a markdown job definition with frontmatter; it
+  does not start running until explicitly scheduled or invoked.
+- `jobs status` reports enabled/paused, schedule, recent run outcome, failure
+  streak, and last stop reason.
+- `sessions list` shows daemon-owned sessions after jobs or interactive turns.
+- `daemon stop` leaves no stale daemon for this `ALLBERT_HOME`.
+
 ## v0.3 Agents And Intent Routing
 
 Provider-free inspection:
@@ -98,7 +161,14 @@ schedule a daily review at 07:00
 /status
 ```
 
-Expected: agent catalog loads without provider; actual delegation/intent behavior needs a live provider.
+What to verify:
+
+- `agents list` and generated `AGENTS.md` agree on root/sub-agent metadata.
+- `/agents` in the REPL shows the same catalog without forcing a model call.
+- `/status` exposes the last resolved intent after a live turn.
+- Scheduling and memory capture are still guarded actions. Intent routing may
+  draft the action, but durable mutation still goes through the confirmation or
+  review path described in later sections.
 
 ## v0.4 AgentSkills
 
@@ -119,7 +189,17 @@ run skills disable demo-skill
 run skills enable demo-skill
 ```
 
-Expected: install preview appears, skill lands through the normal quarantine/install flow, and enable/disable toggles cleanly.
+What to verify:
+
+- `skills validate` fails closed for malformed `SKILL.md` files and succeeds
+  for the generated canonical AgentSkills tree.
+- `skills install` shows a preview before installing. The installed copy lands
+  under `skills/installed/`; incoming downloads/clones stay quarantined until
+  approved.
+- `skills list` reports enabled state and source/provenance. `disable` removes
+  the skill from activation without deleting it, and `enable` restores it.
+- Skill scripts, when present, remain governed by `security.exec_allow` and the
+  skill `allowed-tools` policy.
 
 ## v0.5 Curated Memory
 
@@ -132,7 +212,17 @@ run memory stats
 run memory verify
 ```
 
-Expected: memory storage initializes, staged-memory listing works, and verification passes. A fresh temp profile may legitimately have no staged entries.
+What to verify:
+
+- `memory status`, `stats`, and `verify` agree about durable, staged, episode,
+  fact, and index state. A fresh temp profile may legitimately have no staged
+  entries.
+- Staged candidates are visible in `memory/staging/` and do not appear as
+  approved durable notes until promoted.
+- Promotion moves the candidate into durable memory and makes it searchable;
+  rejection records the reason and keeps the item out of durable search.
+- Forget/recovery flows remain explicit. A search hit should not disappear from
+  durable memory without an explicit `forget` or review action.
 
 Live explicit-memory path:
 
@@ -148,6 +238,10 @@ review what's staged
 ```
 
 Expected in v0.14.3: the schema-bound intent router drafts an explicit-memory action, Allbert creates one staged-memory candidate through the normal staging pipeline, and `review what's staged` lists it.
+
+In v0.15, memory-query prompt snippets are retrieved through RAG when eligible,
+but the memory CLI remains the source-of-truth review surface. Do not treat a
+RAG search hit as promotion.
 
 Failure to catch from v0.14.2 local-model testing:
 
@@ -197,7 +291,16 @@ Then type:
 /cost --override "operator test"
 ```
 
-Expected: override requires an explicit reason and applies to one turn only.
+What to verify:
+
+- `memory verify` and `recovery-gc` do not mutate approved notes unexpectedly.
+- `config restore-last-good` either restores a real backup or explains that no
+  backup is available.
+- `/cost --override <reason>` requires a non-empty reason, applies to exactly
+  one turn, and records the override in the normal cost/inbox surfaces.
+- Restarting the daemon preserves completed sessions and job records; incomplete
+  tool calls should rewind to a safe turn boundary rather than replaying an
+  unsafe mutation.
 
 ## v0.7 Channels, Telegram, Normalized Tools, Web-Learning Posture
 
@@ -259,6 +362,21 @@ warning. Runtime sender keys may include both chat id and Telegram user id, but
 the documented chat-id binding is sufficient. Then send `/status`, `/activity`,
 `/approve <id>`, and `/reject <id>` in Telegram.
 
+What to verify:
+
+- Adding/removing the Telegram channel changes daemon channel state without
+  changing identity bindings unless you explicitly run `identity add-channel`.
+- Telegram refuses chats that are not in
+  `config/channels.telegram.allowed_chats`.
+- `/status` and `/activity` show compact daemon-owned state without local file
+  dumps, raw trace payloads, or secret values.
+- Approval resolution works cross-surface: create or locate an approval in one
+  surface, then accept/reject it from Telegram, CLI, TUI, or REPL and verify the
+  other surfaces no longer show it as pending.
+- Explicit-intent web learning is not ambient browsing. If you ask Allbert to
+  fetch/search the web, verify any durable memory write still goes through the
+  documented `record_as` or staged-memory path.
+
 ## v0.8 Continuity, Identity, Inbox, Profile Sync, Heartbeat
 
 ```bash
@@ -313,6 +431,19 @@ delivery, configure Telegram, map identity with `identity add-channel telegram
 and review the generated template. If you do not want proactive nags, leave the
 warning alone or set `inbox_nag.enabled: false`.
 
+What to verify:
+
+- `profile export` excludes secrets, sockets, logs, local utility enablement,
+  and host-specific adapter artifacts unless an option explicitly includes an
+  allowed artifact.
+- `profile import --overlay` preserves identity, memory, heartbeat, jobs, and
+  config posture without requiring the destination machine to have the same
+  Telegram token or trusted local utilities.
+- `identity show` distinguishes continuity bindings from channel allowlists; a
+  warning about a missing local allowlist is not data loss.
+- `heartbeat suggest` writes a reviewed template, not a hidden scheduled job.
+  Proactive delivery remains Telegram-only in this release.
+
 ## v0.9 Contributor And Codex Web Readiness
 
 ```bash
@@ -323,6 +454,14 @@ env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- --help
 ```
 
 Expected: provider-free green gate.
+
+What to verify:
+
+- Run the gate from a clean source checkout and with `RUSTC_WRAPPER` unset.
+- Failures in this section are contributor-environment failures, not operator
+  profile failures. Fix them before running live-provider or release smokes.
+- `cargo run -q -p allbert-cli -- --help` should complete without setup or
+  provider credentials.
 
 ## v0.10 Provider Expansion
 
@@ -366,6 +505,18 @@ run settings set model.api_key_env OPENAI_API_KEY
 run repl --classic
 ```
 
+What to verify:
+
+- `settings show model` reflects the selected provider/model/api-key env
+  without erasing unrelated comments or config tables.
+- Local Ollama turns require a running Ollama service and a pulled chat model.
+  Allbert should surface provider errors clearly if Ollama is stopped or the
+  model is missing.
+- Hosted turns use the configured `api_key_env`; API keys should not appear in
+  traces, telemetry, activity, or errors.
+- Session-local `/model ...` changes affect the attached session only. Persistent
+  default model changes should be made through `settings set`.
+
 ## v0.11 TUI, Telemetry, Adaptive Memory, Personality Digest
 
 ```bash
@@ -378,7 +529,18 @@ run learning digest --preview
 run repl --tui
 ```
 
-Expected: telemetry JSON renders, digest preview does not install `PERSONALITY.md`, and TUI status/activity panes render.
+What to verify:
+
+- `telemetry --json` includes model, cost, memory, skill, inbox, trace, and
+  adapter posture with no secret values.
+- `activity --json` reports the current daemon phase and next-action hints; it
+  should not guess from frontend timers.
+- Episode and fact search tiers are labelled as recall/approved fact context,
+  not ordinary durable note text.
+- `learning digest --preview` writes or prints a preview only. It must not
+  install `PERSONALITY.md` unless you run the accepted install path.
+- TUI status line stays readable and updates model/context/cost/memory/intent
+  state during turns.
 
 ## v0.12 Self-Improvement, Skill Authoring, Lua
 
@@ -412,7 +574,17 @@ run settings show scripting
 run settings show security.exec_allow
 ```
 
-Expected: self-improvement uses sibling worktrees; install remains explicit; Lua stays opt-in.
+What to verify:
+
+- Self-improvement source checkout must point at a local source tree. Allbert
+  proposes patches in sibling worktrees and never swaps the running binary.
+- Patch approvals show bounded context in the inbox; full diffs remain artifact
+  backed and installation is a separate explicit command.
+- `skill-author` drafts skills into the same quarantine/review path as external
+  skills. It must not directly install prompt-authored skills.
+- Lua remains disabled unless both `[scripting].engine = "lua"` and exec policy
+  allow it. Lua scripts are JSON-in/JSON-out only and cannot call host tools
+  except through explicitly allowed Allbert tool surfaces.
 
 ## v0.12.1 Operator UX Polish
 
@@ -432,7 +604,16 @@ TUI narrow-terminal check:
 COLUMNS=70 LINES=20 ALLBERT_HOME="$ALLBERT_HOME" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- repl --tui
 ```
 
-Expected: settings descriptors explain/validate, reset works, and TUI remains usable or falls back cleanly.
+What to verify:
+
+- `settings list/show/explain` groups supported settings and prints allowed
+  values, defaults, and remediation hints.
+- `settings set` validates values and preserves unrelated TOML keys/comments as
+  much as the path-preserving writer allows.
+- `settings reset` restores the known default for that key without whole-file
+  rewrites.
+- Narrow TUI startup should either render usable panels or fall back with a
+  clear message; it should not corrupt terminal state.
 
 ## v0.12.2 Tracing And Replay
 
@@ -470,6 +651,18 @@ run settings set trace.redaction.provider_payloads summary
 run settings show trace
 ```
 
+What to verify:
+
+- Trace capture can be enabled through settings and survives daemon restart.
+- `trace list`, `show`, and `tail` read session-local trace files from
+  `sessions/<session-id>/trace.jsonl`.
+- `trace export --format otlp-json` writes a local file export only; Allbert
+  does not send traces to a network collector.
+- Redaction applies on read/export. API keys, Telegram tokens, and provider
+  payloads configured as `summary` or `drop` should not appear verbatim.
+- `trace gc --dry-run` reports what would be removed without deleting active
+  traces.
+
 ## v0.13 Personalization And Adapters
 
 Safe provider-free checks:
@@ -495,6 +688,19 @@ run inbox list --kind adapter-approval
 ```
 
 Real training additionally requires a real local backend, exec allowlist, and compute cap.
+
+What to verify:
+
+- Disabled training fails closed and does not silently use the fake backend.
+- Fake-backend training is allowed only when both
+  `learning.adapter_training.allowed_backends` and `security.exec_allow`
+  permit it.
+- Starting training creates a run record and an `adapter-approval` inbox item;
+  accepting installs the adapter artifact but does not activate it unless you
+  explicitly run the activation command.
+- Hosted providers ignore active adapters with a clear notice. Local adapter
+  activation is local-provider-only and base-model-pinned.
+- Profile export excludes adapter weights by default.
 
 ## v0.14 Self-Diagnosis, Local Utilities, unix_pipe
 
@@ -541,6 +747,20 @@ run activity
 run trace show
 ```
 
+What to verify:
+
+- `diagnose run` writes a bounded report artifact under the current session's
+  diagnostics directory. By default it explains only.
+- Remediation requires `self_diagnosis.allow_remediation = true` and an
+  explicit `--remediate <code|skill|memory> --reason <text>` command.
+- Memory-shaped remediation creates staged memory only; code-shaped remediation
+  creates `patch-approval`; skill-shaped remediation uses skill quarantine.
+- `utilities discover` finds candidates but enables nothing automatically.
+- `utilities enable` is host-local and profile-export excluded.
+- `unix_pipe` uses enabled utility ids, direct-spawn argv, trusted cwd, byte
+  caps, timeout caps, and no shell parsing. Globs, redirects, env overrides,
+  and arbitrary shell strings should be rejected.
+
 ## v0.14.1 Reconciliation Fixes
 
 Doctor/config checks:
@@ -577,6 +797,17 @@ run inbox list
 
 Expected: remediation routes through review surfaces, not direct install.
 
+What to verify:
+
+- `tool_call_parser` tests cover provider/tool-call schema variants that local
+  models may emit.
+- Disabled adapter training produces an explicit error and no run directory.
+- Diagnosis remediation candidate generation may call a provider when
+  configured, but the resulting artifact still routes through the same review
+  surface as a human-requested remediation.
+- OpenAI/Gemini/Ollama compatibility repairs should produce clear provider
+  errors instead of blank assistant output or local decoder panics.
+
 ## v0.14.2 Kernel Core/Services Split And Daemon Reliability
 
 No operator behavior change; run contributor/release gates:
@@ -605,6 +836,16 @@ done
 
 Expected: no local socket `Operation not permitted` failures under default parallel execution.
 
+What to verify:
+
+- The release gates still pass after source-tree changes, especially
+  `tools/check_doc_reality.sh` when docs mention shipped behavior.
+- Kernel size, crate graph, import migration, and dependency compactness gates
+  stay green. If a gate fails, fix the architecture or docs rather than
+  loosening the gate casually.
+- Daemon tests can run repeatedly without serial-test workarounds or stale
+  socket cleanup.
+
 ## v0.14.3 Conversational Scheduling Reliability
 
 v0.14.3 is the shipped operator reliability patch. The foundation is a schema-bound intent router that runs before full prompt assembly. The release-blocking smoke is the local-model scheduling transcript that exposed the bug:
@@ -628,6 +869,15 @@ run jobs status daily-review
 Expected: the job exists with a daily 07:00 schedule.
 
 Failure to catch: the model asks `Shall I proceed?`, the operator types `yes`, and the next turn fails with `unsupported tool call shape: name input/arguments is missing`. That is the v0.14.3 blocking regression.
+
+What to verify:
+
+- The first turn should produce a structured schedule confirmation, not a vague
+  prose-only approval.
+- Approval creates or updates exactly one markdown job definition.
+- Re-running `jobs status daily-review` should show the schedule and recent
+  state without needing to inspect JSONL logs.
+- Rejecting the confirmation should leave no job definition behind.
 
 Safe fallback if a local model still fails to produce a usable schedule action after the bounded retry:
 
@@ -675,6 +925,16 @@ Failure to catch from v0.14.2: the first turn routes through the full model and
 fails before staging. That is now a v0.14.3 regression, not a failure of
 `memory staged list`, `memory promote`, or `memory search`.
 
+What to verify:
+
+- Explicit-memory turns stage one candidate per high-confidence request.
+- The staged candidate has a non-empty summary and provenance showing it came
+  from an explicit request.
+- No durable note is created until `memory promote <id> --confirm` or the
+  equivalent review flow runs.
+- Rejecting the staged candidate keeps it out of durable/fact search and
+  records the rejection reason.
+
 ## v0.14.3 OpenAI Responses History Reliability
 
 This is an optional credentialed smoke. It requires `OPENAI_API_KEY` and should
@@ -707,6 +967,13 @@ capture the request body and prove user text uses `input_text`, assistant
 history uses `output_text`, user images use `input_image`, and assistant images
 are rejected locally.
 
+What to verify:
+
+- The second OpenAI turn succeeds after assistant history exists.
+- If the live API rejects the request for quota/model reasons, the error should
+  be a provider status, not a local serialization shape error.
+- Trace/provider debug output should not include the API key value.
+
 ## v0.14.3 Gemini Live-Provider Response Reliability
 
 This is an optional credentialed smoke. It requires `GEMINI_API_KEY` and should
@@ -736,6 +1003,15 @@ instead of extracting text from text-bearing parts and ignoring non-text parts.
 For provider-free implementation validation, run the Gemini provider mock tests
 that include unknown non-text response parts before a text part.
 
+What to verify:
+
+- A live Gemini text response with extra non-text parts still returns the text
+  part.
+- Quota, safety, or temporary demand errors surface as provider failures with
+  status/context.
+- A local `error decoding response body` is a regression unless the upstream
+  payload is genuinely malformed JSON.
+
 ## v0.15.0 Vector RAG, Recall, And Help
 
 v0.15.0 adds a daemon-owned SQLite RAG index with provider-free lexical search
@@ -743,6 +1019,20 @@ and real local vectors through Ollama embeddings plus `sqlite-vec`. The release
 smoke should prove both the operator surfaces and the turn-control invariants,
 because RAG is prompt evidence and retrieval infrastructure, not a new action
 authority.
+
+Configuration and bootstrap smoke:
+
+```bash
+run settings show rag
+run settings show rag.vector
+run settings show rag.index
+run settings show rag.ingest
+run skills show rag
+```
+
+Expected: RAG settings render from the central settings hub, vectors are
+disabled unless you enable them, URL-ingestion limits are visible, and the
+first-party `rag` skill is installed on a fresh profile.
 
 Provider-free lexical smoke:
 
@@ -755,6 +1045,17 @@ run rag search "configure Telegram" --mode lexical
 Expected: the rebuild completes, `rag status` reports indexed source/chunk
 counts, and lexical search returns bounded labelled snippets from current
 operator docs, command descriptors, settings descriptors, or skill metadata.
+
+What to verify:
+
+- `~/.allbert/index/rag/rag.sqlite` exists after rebuild and can be deleted and
+  recreated from source truth.
+- `rag status` reports system collection counts, source counts, chunk counts,
+  vector posture, last run posture, and stale/degraded state.
+- Lexical search works without Ollama, hosted providers, or network access.
+- Results include source labels such as docs, commands, settings, skills,
+  memory, facts, episodes, sessions, or collection names; snippets are bounded
+  and not raw unbounded file dumps.
 
 Local vector smoke, outside default CI:
 
@@ -769,6 +1070,17 @@ run rag search "configure Telegram" --mode hybrid
 Expected: the vector phase records the discovered embedding dimension, hybrid
 search includes vector/lexical posture in result metadata, and lexical fallback
 remains usable if Ollama is stopped or the vector phase is skipped.
+
+What to verify:
+
+- `rag doctor` distinguishes healthy vectors, disabled vectors, stale vectors,
+  and degraded lexical fallback.
+- If `embeddinggemma` is missing, Allbert prints an actionable Ollama/model
+  error and lexical search remains usable when fallback is enabled.
+- Rebuilding after changing the embedding model invalidates stale vectors rather
+  than mixing dimensions.
+- Hybrid search should still return labelled evidence; vector scores must not
+  remove source labels or prompt-eligibility gates.
 
 Turn-flow smoke in REPL or TUI:
 
@@ -807,6 +1119,29 @@ Expected:
   status/search/rebuild/GC commands and scheduled stale-only runs, not
   prompt-authored job definitions.
 
+How to observe it:
+
+```bash
+run settings set trace.enabled true
+run settings set trace.capture_messages true
+run repl --classic
+run trace show
+run activity
+find "$ALLBERT_HOME/jobs/definitions" -iname '*rag*' -print
+```
+
+What to verify:
+
+- Help/meta turns include compact RAG evidence before the root answer; ordinary
+  chat should not suddenly cite docs or memory.
+- Memory-query turns keep the memory synopsis but use RAG for durable/fact/
+  episode/session snippets. You should not see duplicate Tantivy and RAG
+  snippets for the same durable content.
+- A schedule or explicit-memory terminal router action should complete through
+  its guarded path before RAG prompt evidence could change the action.
+- The `find ... '*rag*'` command should print no prompt-authored RAG job
+  definitions. RAG maintenance is service-owned.
+
 Channel smoke:
 
 ```text
@@ -820,6 +1155,14 @@ Protocol v7 has rebuild-cancel support for clients that wire it. Telegram
 supports `/rag status` and `/rag search <query>` only; rebuild and GC stay on
 local terminal surfaces.
 
+What to verify:
+
+- REPL/TUI `/rag` commands report daemon-owned status and do not read SQLite
+  directly from the frontend.
+- Telegram `/rag status` and `/rag search <query>` return bounded structural
+  results and refuse rebuild, GC, collection mutation, or URL fetch flows.
+- Older protocol clients can attach without seeing v7-only RAG messages.
+
 v0.15 M7 collection-aware smoke:
 
 ```bash
@@ -827,17 +1170,57 @@ run rag collections list
 run rag collections create release-docs --source docs/operator
 run rag collections ingest release-docs --no-vectors
 run rag rebuild --collection-type user --collection release-docs --vectors
+run rag collections show release-docs --collection-type user
 run rag collections search release-docs "configure Telegram" --mode lexical
 run rag search "configure Telegram" --collection-type user --collection release-docs
-run rag collections delete release-docs
 ```
 
 Expected: system collections remain searchable with omitted collection filters,
 the user collection search returns only `user/release-docs` snippets, prompt
 context does not include user collection snippets until the collection is
 explicitly attached to the task/session, collection manifests survive deleting
-and rebuilding `rag.sqlite`, and delete removes the user manifest plus derived
-RAG rows without deleting source files.
+and rebuilding `rag.sqlite`.
+
+Manifest and derived-DB recovery smoke:
+
+```bash
+test -f "$ALLBERT_HOME/rag/collections/user/release-docs.toml"
+rm -f "$ALLBERT_HOME/index/rag/rag.sqlite"
+run rag rebuild --collection-type user --collection release-docs --no-vectors
+run rag collections search release-docs "configure Telegram" --mode lexical
+run rag collections delete release-docs
+```
+
+Expected: the user manifest is source truth, the derived database is restored
+from the manifest, and delete removes the user manifest plus derived RAG rows
+without deleting source files.
+
+Trust/refusal smoke:
+
+```bash
+run rag collections create bad-scheme --source ftp://example.com/file
+run rag collections create bad-host --source https://127.0.0.1/
+```
+
+Expected: unsupported URL schemes and local/private URL targets are rejected.
+For local-path refusal, choose a file outside every configured
+`security.fs_roots` entry and verify collection creation or ingest fails with a
+trusted-root error. Do not use your real profile for destructive refusal tests.
+
+Multiple-source smoke:
+
+```bash
+run rag collections create release-multi \
+  --source docs/operator/rag.md \
+  --source docs/operator/telegram.md
+run rag collections ingest release-multi --no-vectors
+run rag collections search release-multi "Telegram RAG status" --mode lexical
+run rag collections delete release-multi
+```
+
+Expected: one user collection can materialize multiple source URIs, search
+results remain scoped to that collection, and source ids are stable across
+delete/recreate with the same source set.
 
 First-party RAG skill smoke in a local REPL/TUI session:
 
@@ -850,6 +1233,17 @@ then detach it and delete it.
 Expected: the session invokes the `rag` skill, lifecycle mutations route through
 kernel-services tools, user snippets appear only after attachment, detach stops
 future prompt injection, and delete keeps the source files intact.
+
+What to verify:
+
+- The `rag` skill uses only `list_rag_collections`, `create_rag_collection`,
+  `ingest_rag_collection`, `search_rag`, `attach_rag_collection`,
+  `detach_rag_collection`, and `delete_rag_collection`.
+- The model cannot use the skill to ingest outside trusted roots, fetch blocked
+  URLs, search review-only staged memory as ordinary evidence, or attach a user
+  collection without explicit operator intent.
+- Attached collections persist in the session snapshot until detach, delete, or
+  session reset; they should not silently attach to unrelated sessions.
 
 v0.15 M7 URL collection smoke:
 
@@ -867,3 +1261,26 @@ and rejects unsupported schemes, embedded credentials, localhost, loopback,
 link-local/private targets, cloud-metadata targets, and unsafe redirects. Plain
 HTTP is either rejected by policy or recorded with a visible degraded/insecure
 posture.
+
+What to verify:
+
+- HTTPS URL ingestion does not use browser cookies, credentials, JavaScript
+  execution, or authenticated sessions.
+- Source status distinguishes active, skipped, and error states. A robots
+  refusal, content-type refusal, timeout, or byte cap should be reported as
+  source posture, not as a panic.
+- Conditional refresh stores and reuses `ETag` or `Last-Modified` when the
+  server provides them; otherwise content hash/stale detection still works.
+- Same-origin expansion stays bounded by configured depth/page caps and is not
+  ambient crawling.
+
+Current v0.15 closeout checklist:
+
+- Provider-free gate from v0.9 and v0.14.2 passes.
+- Provider-free lexical RAG rebuild/search/status passes.
+- Local Ollama `embeddinggemma` vector smoke passes on a machine with Ollama.
+- Local user collection create/ingest/search/delete passes.
+- HTTPS URL collection ingest/search/delete passes.
+- First-party `rag` skill can create, search, attach, detach, and delete a user
+  collection in a local session without bypassing trust policy.
+- Telegram remains read-only for RAG status/search.
