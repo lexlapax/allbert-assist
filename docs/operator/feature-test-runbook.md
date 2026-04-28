@@ -271,9 +271,18 @@ remember that the v0.5 reject-path smoke uses a disposable staged candidate
 review what's staged
 ```
 
-Use the first id for promotion and the second id for rejection. Promotion moves
-the staged candidate out of the staging queue, so the reject path needs a
-different staged id.
+Do not choose ids by display order. `memory staged list` prints newest
+candidates first, so the second `remember that ...` turn usually appears above
+the first one. Choose ids by the candidate summary or excerpt:
+
+- Use the id for `Allbert operator tests use temporary ALLBERT_HOME profiles`
+  as `<promote-staged-id>`, because the search command below validates that
+  promoted note.
+- Use the id for `the v0.5 reject-path smoke uses a disposable staged
+  candidate` as `<reject-staged-id>`.
+
+Promotion moves the staged candidate out of the staging queue, so the reject
+path needs a different staged id.
 
 ```bash
 run memory staged list
@@ -282,6 +291,11 @@ run memory promote <promote-staged-id> --confirm
 run memory stats
 run memory search "temporary ALLBERT_HOME"
 ```
+
+Expected: the search returns the promoted `Allbert operator tests use temporary
+ALLBERT_HOME profiles` note. If it returns no results, first confirm that the
+temp-profile candidate was promoted rather than the disposable reject-path
+candidate.
 
 Reject path:
 
