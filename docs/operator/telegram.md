@@ -48,6 +48,14 @@ Direct chats are usually positive numbers. Groups and supergroups are usually
 negative numbers, often beginning with `-100`. Keep the full number exactly as
 Telegram reports it.
 
+Do not use the bot id from `getMe.result.id`, the top-level `update_id`, the
+per-message `message.message_id`, or `message.from.id` for
+`TELEGRAM_CHAT_ID`. In a response shaped like
+`{"update_id":111,"message":{"message_id":17,"from":{"id":222},"chat":{"id":333}}}`,
+the Telegram message id is `17`, but the allowlisted chat id is `333`; set
+`TELEGRAM_CHAT_ID=333` before writing `allowed_chats` or running
+`identity add-channel`.
+
 If `getUpdates` returns an empty `result`, send `/start` or any short message to
 the bot from the Telegram chat you want to allow, then run `getUpdates` again.
 For a group, add the bot to the group and send a message in that group.

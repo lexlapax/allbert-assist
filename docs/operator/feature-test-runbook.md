@@ -376,6 +376,32 @@ usually negative, often like `-1001234567890`. Use the whole number exactly as
 Telegram reports it. If `getUpdates` is empty, send `/start` or any message to
 the bot, then run it again.
 
+Do not use the bot id from `getMe.result.id`, the top-level `update_id`, the
+per-message `message.message_id`, or `message.from.id` for
+`TELEGRAM_CHAT_ID`. For example, in this shape:
+
+```json
+{
+  "update_id": 111,
+  "message": {
+    "message_id": 17,
+    "from": { "id": 222 },
+    "chat": { "id": 333, "type": "private" },
+    "text": "hello bot"
+  }
+}
+```
+
+the Telegram message id is `17`, but the allowlisted chat id is `333`. That
+means the next commands should use:
+
+```bash
+export TELEGRAM_CHAT_ID=333
+```
+
+If several updates are present, choose the update for the chat you just
+messaged and copy that update's `message.chat.id` exactly.
+
 ```bash
 mkdir -p "$ALLBERT_HOME/secrets/telegram" "$ALLBERT_HOME/config/channels.telegram"
 printf '%s\n' "$TELEGRAM_BOT_TOKEN" > "$ALLBERT_HOME/secrets/telegram/bot_token"
