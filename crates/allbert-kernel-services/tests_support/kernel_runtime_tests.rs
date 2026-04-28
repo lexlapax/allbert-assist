@@ -5544,6 +5544,99 @@ async fn user_rag_collection_is_not_injected_into_default_prompt_context() {
 }
 
 #[tokio::test]
+async fn attached_user_rag_collection_enters_next_prompt_round() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let corpus = paths.root.join("trusted-corpus");
+    fs::create_dir_all(&corpus).unwrap();
+    fs::write(
+        corpus.join("notes.md"),
+        "# Cobalt Plateau\n\nThe Cobalt Plateau runbook lives in the user collection only.\n",
+    )
+    .unwrap();
+    let mut config = Config::default_template();
+    config.intent_classifier.rule_only = true;
+    config.security.fs_roots = vec![corpus.clone()];
+    create_rag_collection(
+        &paths,
+        &config,
+        RagCollectionCreateRequest {
+            collection_name: "project-notes".into(),
+            title: None,
+            description: None,
+            source_uris: vec![corpus.to_string_lossy().to_string()],
+            fetch_policy: RagFetchPolicy::default(),
+        },
+    )
+    .unwrap();
+    rebuild_rag_index(
+        &paths,
+        &config,
+        RagRebuildRequest {
+            stale_only: false,
+            sources: Vec::new(),
+            collection_type: Some(RagCollectionType::User),
+            collections: vec!["project-notes".into()],
+            include_vectors: false,
+            trigger: "test".into(),
+        },
+    )
+    .unwrap();
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![
+                CompletionResponse {
+                    text: format!(
+                        "<tool_call>{}</tool_call>",
+                        json!({
+                            "name": "attach_rag_collection",
+                            "input": {
+                                "collection": "project-notes",
+                                "collection_type": "user"
+                            }
+                        })
+                    ),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "ATTACHED_OK".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("use the project notes about Cobalt Plateau")
+        .await
+        .unwrap();
+
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    assert!(!requests[0]
+        .system
+        .as_ref()
+        .unwrap()
+        .contains("[user:project-notes:user_document]"));
+    let second_system = requests[1].system.as_ref().unwrap();
+    assert!(second_system.contains("[user:project-notes:user_document]"));
+    assert!(second_system.contains("Cobalt Plateau runbook lives"));
+}
+
+#[tokio::test]
 async fn search_rag_tool_is_read_only_capped_and_source_filtered() {
     let temp = TempRoot::new();
     let paths = temp.paths();

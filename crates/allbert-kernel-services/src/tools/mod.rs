@@ -32,6 +32,8 @@ pub trait ToolRuntime: Send {
     fn write_memory(&mut self, input: Value) -> ToolOutput;
     fn search_memory(&mut self, input: Value) -> ToolOutput;
     fn search_rag(&mut self, input: Value) -> ToolOutput;
+    fn attach_rag_collection(&mut self, input: Value) -> ToolOutput;
+    fn detach_rag_collection(&mut self, input: Value) -> ToolOutput;
     async fn stage_memory(&mut self, input: Value) -> ToolOutput;
     fn list_staged_memory(&mut self, input: Value) -> ToolOutput;
     async fn promote_staged_memory(&mut self, input: Value) -> ToolOutput;
@@ -82,6 +84,8 @@ impl ToolRegistry {
         registry.register(WriteMemoryTool);
         registry.register(SearchMemoryTool);
         registry.register(SearchRagTool);
+        registry.register(AttachRagCollectionTool);
+        registry.register(DetachRagCollectionTool);
         registry.register(StageMemoryTool);
         registry.register(ListStagedMemoryTool);
         registry.register(PromoteStagedMemoryTool);
@@ -712,6 +716,64 @@ impl Tool for SearchRagTool {
     }
 }
 
+struct AttachRagCollectionTool;
+
+#[async_trait]
+impl Tool for AttachRagCollectionTool {
+    fn name(&self) -> &'static str {
+        "attach_rag_collection"
+    }
+
+    fn description(&self) -> &'static str {
+        "Attach an explicit user RAG collection to the session prompt context"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["collection"],
+            "additionalProperties": false,
+            "properties": {
+                "collection": {"type": "string", "minLength": 1},
+                "collection_type": {"enum": ["user"]}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.attach_rag_collection(input))
+    }
+}
+
+struct DetachRagCollectionTool;
+
+#[async_trait]
+impl Tool for DetachRagCollectionTool {
+    fn name(&self) -> &'static str {
+        "detach_rag_collection"
+    }
+
+    fn description(&self) -> &'static str {
+        "Detach a previously attached user RAG collection from session prompt context"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["collection"],
+            "additionalProperties": false,
+            "properties": {
+                "collection": {"type": "string", "minLength": 1},
+                "collection_type": {"enum": ["user"]}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.detach_rag_collection(input))
+    }
+}
+
 struct StageMemoryTool;
 
 #[async_trait]
@@ -1318,6 +1380,18 @@ mod tests {
         fn search_rag(&mut self, _input: Value) -> ToolOutput {
             ToolOutput {
                 content: String::new(),
+                ok: true,
+            }
+        }
+        fn attach_rag_collection(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput {
+                content: "{\"attached\":true}".into(),
+                ok: true,
+            }
+        }
+        fn detach_rag_collection(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput {
+                content: "{\"attached\":false}".into(),
                 ok: true,
             }
         }

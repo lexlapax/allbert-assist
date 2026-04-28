@@ -59,6 +59,7 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use serde::Deserialize;
 use serde_json::json;
 
 pub use adapter::{
@@ -234,6 +235,13 @@ struct RagPromptSnapshot {
     vector_posture: Option<RagVectorPosture>,
     degraded_reason: Option<String>,
     refresh: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct RagCollectionToolInput {
+    collection: String,
+    #[serde(default)]
+    collection_type: Option<RagCollectionType>,
 }
 
 pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, KernelError> {
@@ -532,6 +540,16 @@ impl ToolRuntime for KernelToolRuntime<'_> {
 
     fn search_rag(&mut self, input: serde_json::Value) -> ToolOutput {
         self.kernel.dispatch_search_rag(self.state, input)
+    }
+
+    fn attach_rag_collection(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel
+            .dispatch_attach_rag_collection(self.state, input)
+    }
+
+    fn detach_rag_collection(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel
+            .dispatch_detach_rag_collection(self.state, input)
     }
 
     async fn stage_memory(&mut self, input: serde_json::Value) -> ToolOutput {
@@ -1150,6 +1168,7 @@ impl Kernel {
             prompt_ctx.prompt_sections.extend(turn_memory.sections);
             state.turn_prefetch_hits = turn_memory.prefetch_hits;
             let rag_snapshot = match self.build_turn_rag_prompt(
+                state,
                 resolved_intent.as_ref(),
                 user_input,
                 refresh_query.as_deref(),
@@ -2676,6 +2695,7 @@ Rules:\n\
 
     fn build_turn_rag_prompt(
         &self,
+        state: &AgentState,
         resolved_intent: Option<&Intent>,
         user_input: &str,
         refresh_query: Option<&str>,
@@ -2688,23 +2708,72 @@ Rules:\n\
             return Ok(RagPromptSnapshot::default());
         }
         let sources = self.prompt_rag_sources(resolved_intent, user_input, refresh_query.is_some());
-        if sources.is_empty() {
+        if sources.is_empty() && state.active_rag_collections.is_empty() {
             return Ok(RagPromptSnapshot::default());
         }
 
-        let response = rag::search_rag(
-            &self.paths,
-            &self.config,
-            RagSearchRequest {
-                query: truncate_to_bytes(query, self.config.rag.vector.max_query_bytes.min(4096)),
-                sources,
-                collection_type: None,
-                collections: Vec::new(),
-                mode: Some(self.config.rag.mode),
-                limit: Some(self.config.rag.max_chunks_per_turn),
-                include_review_only: false,
-            },
-        )?;
+        let query = truncate_to_bytes(query, self.config.rag.vector.max_query_bytes.min(4096));
+        let mut response = if sources.is_empty() {
+            RagSearchResponse {
+                query: query.clone(),
+                mode: self.config.rag.mode,
+                vector_posture: RagVectorPosture::Disabled,
+                degraded_reason: None,
+                results: Vec::new(),
+            }
+        } else {
+            rag::search_rag(
+                &self.paths,
+                &self.config,
+                RagSearchRequest {
+                    query: query.clone(),
+                    sources,
+                    collection_type: None,
+                    collections: Vec::new(),
+                    mode: Some(self.config.rag.mode),
+                    limit: Some(self.config.rag.max_chunks_per_turn),
+                    include_review_only: false,
+                },
+            )?
+        };
+        let attached_user_collections = state
+            .active_rag_collections
+            .iter()
+            .filter(|collection| collection.collection_type == RagCollectionType::User)
+            .map(|collection| collection.collection_name.clone())
+            .collect::<Vec<_>>();
+        if !attached_user_collections.is_empty() {
+            let remaining = self
+                .config
+                .rag
+                .max_chunks_per_turn
+                .saturating_sub(response.results.len())
+                .max(1);
+            let mut user_response = rag::search_rag(
+                &self.paths,
+                &self.config,
+                RagSearchRequest {
+                    query: query.clone(),
+                    sources: vec![RagSourceKind::UserDocument, RagSourceKind::WebUrl],
+                    collection_type: Some(RagCollectionType::User),
+                    collections: attached_user_collections,
+                    mode: Some(self.config.rag.mode),
+                    limit: Some(remaining),
+                    include_review_only: false,
+                },
+            )?;
+            if response.results.is_empty() {
+                response.mode = user_response.mode;
+                response.vector_posture = user_response.vector_posture;
+                response.degraded_reason = user_response.degraded_reason.take();
+            } else if response.degraded_reason.is_none() {
+                response.degraded_reason = user_response.degraded_reason.take();
+            }
+            response.results.append(&mut user_response.results);
+            response
+                .results
+                .truncate(self.config.rag.max_chunks_per_turn);
+        }
         let source_ids = response
             .results
             .iter()
@@ -4273,6 +4342,108 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         }
     }
 
+    fn dispatch_attach_rag_collection(
+        &self,
+        state: &mut AgentState,
+        input: serde_json::Value,
+    ) -> ToolOutput {
+        let parsed = match serde_json::from_value::<RagCollectionToolInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid attach_rag_collection input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        if !self.config.rag.enabled {
+            return ToolOutput {
+                content: "RAG is disabled by configuration".into(),
+                ok: false,
+            };
+        }
+        let collection_type = parsed.collection_type.unwrap_or(RagCollectionType::User);
+        if collection_type != RagCollectionType::User {
+            return ToolOutput {
+                content: "attach_rag_collection supports explicit user collections only".into(),
+                ok: false,
+            };
+        }
+        let collection_name = normalize_rag_collection_name(&parsed.collection);
+        if collection_name.is_empty() {
+            return ToolOutput {
+                content: "attach_rag_collection collection must not be empty".into(),
+                ok: false,
+            };
+        }
+        let collections =
+            match rag::list_rag_collections(&self.paths, &self.config, Some(collection_type)) {
+                Ok(collections) => collections,
+                Err(err) => {
+                    return ToolOutput {
+                        content: err.to_string(),
+                        ok: false,
+                    }
+                }
+            };
+        let Some(status) = collections
+            .into_iter()
+            .find(|status| status.collection_name == collection_name)
+        else {
+            return ToolOutput {
+                content: format!("RAG collection `user:{collection_name}` was not found"),
+                ok: false,
+            };
+        };
+        let collection_ref = RagCollectionRef::new(collection_type, collection_name.clone());
+        if !state.active_rag_collections.contains(&collection_ref) {
+            state.active_rag_collections.push(collection_ref);
+        }
+        serialize_tool_value(&json!({
+            "attached": true,
+            "collection_type": collection_type.label(),
+            "collection_name": collection_name,
+            "chunk_count": status.chunk_count,
+            "stale": status.stale,
+            "prompt_policy": "session-scoped until detached or session reset"
+        }))
+    }
+
+    fn dispatch_detach_rag_collection(
+        &self,
+        state: &mut AgentState,
+        input: serde_json::Value,
+    ) -> ToolOutput {
+        let parsed = match serde_json::from_value::<RagCollectionToolInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid detach_rag_collection input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        let collection_type = parsed.collection_type.unwrap_or(RagCollectionType::User);
+        if collection_type != RagCollectionType::User {
+            return ToolOutput {
+                content: "detach_rag_collection supports explicit user collections only".into(),
+                ok: false,
+            };
+        }
+        let collection_name = normalize_rag_collection_name(&parsed.collection);
+        let before = state.active_rag_collections.len();
+        state.active_rag_collections.retain(|collection| {
+            !(collection.collection_type == collection_type
+                && collection.collection_name == collection_name)
+        });
+        serialize_tool_value(&json!({
+            "attached": false,
+            "collection_type": collection_type.label(),
+            "collection_name": collection_name,
+            "changed": before != state.active_rag_collections.len()
+        }))
+    }
+
     fn dispatch_search_rag(&self, state: &AgentState, input: serde_json::Value) -> ToolOutput {
         if !self.config.rag.enabled {
             return ToolOutput {
@@ -5247,6 +5418,22 @@ fn serialize_tool_value<T: serde::Serialize>(value: &T) -> ToolOutput {
     }
 }
 
+fn normalize_rag_collection_name(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string()
+}
+
 fn combined_allowed_tools(
     active_skill_allowed: Option<std::collections::HashSet<String>>,
     agent_allowed: Option<std::collections::HashSet<String>>,
@@ -5687,6 +5874,7 @@ fn intent_shape(intent: &Intent) -> IntentShape {
             prompt_preamble:
                 "Intent guidance: use the normal problem-solving posture, act when useful, and keep delegated work within the default sub-agent budget unless the task clearly needs more.",
             tool_priority_order: &[
+                "attach_rag_collection",
                 "read_file",
                 "search_rag",
                 "process_exec",
@@ -5711,6 +5899,7 @@ fn intent_shape(intent: &Intent) -> IntentShape {
             prompt_preamble:
                 "Intent guidance: retrieve first, answer from evidence, and keep the response concise and grounded in cited memory hits when possible.",
             tool_priority_order: &[
+                "attach_rag_collection",
                 "search_rag",
                 "search_memory",
                 "read_memory",

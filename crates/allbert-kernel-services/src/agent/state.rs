@@ -5,7 +5,7 @@ use crate::intent::Intent;
 use crate::llm::{ChatMessage, Usage};
 use crate::memory::SearchMemoryHit;
 use crate::skills::ActiveSkill;
-use crate::ModelConfig;
+use crate::{ModelConfig, RagCollectionRef};
 
 #[derive(Debug, Clone)]
 pub struct StagedNoticeEntry {
@@ -65,6 +65,7 @@ pub struct AgentState {
     pub last_memory_context_bytes: usize,
     pub turn_prefetch_hits: Vec<SearchMemoryHit>,
     pub pending_memory_refresh_query: Option<String>,
+    pub active_rag_collections: Vec<RagCollectionRef>,
     pub memory_refreshes_this_turn: u32,
     pub staged_entries_this_turn: usize,
     pub staged_notice_entries_this_turn: Vec<StagedNoticeEntry>,
@@ -104,6 +105,7 @@ impl AgentState {
             last_memory_context_bytes: 0,
             turn_prefetch_hits: Vec::new(),
             pending_memory_refresh_query: None,
+            active_rag_collections: Vec::new(),
             memory_refreshes_this_turn: 0,
             staged_entries_this_turn: 0,
             staged_notice_entries_this_turn: Vec::new(),
@@ -136,6 +138,7 @@ impl AgentState {
         self.last_memory_context_bytes = 0;
         self.turn_prefetch_hits.clear();
         self.pending_memory_refresh_query = None;
+        self.active_rag_collections.clear();
         self.memory_refreshes_this_turn = 0;
         self.staged_entries_this_turn = 0;
         self.staged_notice_entries_this_turn.clear();
