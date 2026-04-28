@@ -244,6 +244,47 @@ struct RagCollectionToolInput {
     collection_type: Option<RagCollectionType>,
 }
 
+#[derive(Debug, Deserialize)]
+struct RagCollectionListToolInput {
+    #[serde(default)]
+    collection_type: Option<RagCollectionType>,
+    #[serde(default)]
+    collection: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateRagCollectionToolInput {
+    collection: String,
+    #[serde(default)]
+    collection_type: Option<RagCollectionType>,
+    sources: Vec<String>,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    allow_insecure_http: bool,
+    #[serde(default)]
+    respect_robots_txt: Option<bool>,
+    #[serde(default)]
+    url_depth: Option<usize>,
+    #[serde(default)]
+    url_max_pages: Option<usize>,
+    #[serde(default)]
+    url_max_bytes: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+struct IngestRagCollectionToolInput {
+    collection: String,
+    #[serde(default)]
+    collection_type: Option<RagCollectionType>,
+    #[serde(default)]
+    include_vectors: bool,
+    #[serde(default)]
+    stale_only: bool,
+}
+
 pub fn refresh_agents_markdown(paths: &AllbertPaths) -> Result<String, KernelError> {
     paths.ensure()?;
     let config = Config::load_or_create(paths)?;
@@ -540,6 +581,23 @@ impl ToolRuntime for KernelToolRuntime<'_> {
 
     fn search_rag(&mut self, input: serde_json::Value) -> ToolOutput {
         self.kernel.dispatch_search_rag(self.state, input)
+    }
+
+    fn list_rag_collections(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_list_rag_collections(input)
+    }
+
+    fn create_rag_collection(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_create_rag_collection(input)
+    }
+
+    fn delete_rag_collection(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel
+            .dispatch_delete_rag_collection(self.state, input)
+    }
+
+    fn ingest_rag_collection(&mut self, input: serde_json::Value) -> ToolOutput {
+        self.kernel.dispatch_ingest_rag_collection(input)
     }
 
     fn attach_rag_collection(&mut self, input: serde_json::Value) -> ToolOutput {
@@ -4342,6 +4400,182 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
         }
     }
 
+    fn dispatch_list_rag_collections(&self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<RagCollectionListToolInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid list_rag_collections input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        if !self.config.rag.enabled {
+            return ToolOutput {
+                content: "RAG is disabled by configuration".into(),
+                ok: false,
+            };
+        }
+        let mut collections =
+            match rag::list_rag_collections(&self.paths, &self.config, parsed.collection_type) {
+                Ok(collections) => collections,
+                Err(err) => {
+                    return ToolOutput {
+                        content: err.to_string(),
+                        ok: false,
+                    }
+                }
+            };
+        if let Some(collection) = parsed.collection {
+            let wanted = normalize_rag_collection_name(&collection);
+            collections.retain(|status| status.collection_name == wanted);
+        }
+        serialize_tool_value(&collections)
+    }
+
+    fn dispatch_create_rag_collection(&self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<CreateRagCollectionToolInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid create_rag_collection input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        if !self.config.rag.enabled {
+            return ToolOutput {
+                content: "RAG is disabled by configuration".into(),
+                ok: false,
+            };
+        }
+        let collection_type = parsed.collection_type.unwrap_or(RagCollectionType::User);
+        if collection_type != RagCollectionType::User {
+            return ToolOutput {
+                content: "create_rag_collection supports explicit user collections only".into(),
+                ok: false,
+            };
+        }
+        let mut fetch_policy = RagFetchPolicy {
+            allow_insecure_http: parsed.allow_insecure_http,
+            ..RagFetchPolicy::default()
+        };
+        if let Some(respect_robots_txt) = parsed.respect_robots_txt {
+            fetch_policy.respect_robots_txt = respect_robots_txt;
+        }
+        if let Some(url_depth) = parsed.url_depth {
+            fetch_policy.url_depth = url_depth;
+        }
+        if let Some(url_max_pages) = parsed.url_max_pages {
+            fetch_policy.url_max_pages = url_max_pages;
+        }
+        if let Some(url_max_bytes) = parsed.url_max_bytes {
+            fetch_policy.url_max_bytes = url_max_bytes;
+        }
+        match rag::create_rag_collection(
+            &self.paths,
+            &self.config,
+            RagCollectionCreateRequest {
+                collection_name: parsed.collection,
+                title: parsed.title,
+                description: parsed.description,
+                source_uris: parsed.sources,
+                fetch_policy,
+            },
+        ) {
+            Ok(summary) => serialize_tool_value(&summary),
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
+        }
+    }
+
+    fn dispatch_delete_rag_collection(
+        &self,
+        state: &mut AgentState,
+        input: serde_json::Value,
+    ) -> ToolOutput {
+        let parsed = match serde_json::from_value::<RagCollectionToolInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid delete_rag_collection input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        if !self.config.rag.enabled {
+            return ToolOutput {
+                content: "RAG is disabled by configuration".into(),
+                ok: false,
+            };
+        }
+        let collection_type = parsed.collection_type.unwrap_or(RagCollectionType::User);
+        if collection_type != RagCollectionType::User {
+            return ToolOutput {
+                content: "delete_rag_collection supports explicit user collections only".into(),
+                ok: false,
+            };
+        }
+        let collection_name = normalize_rag_collection_name(&parsed.collection);
+        state.active_rag_collections.retain(|collection| {
+            !(collection.collection_type == RagCollectionType::User
+                && collection.collection_name == collection_name)
+        });
+        match rag::delete_rag_collection(&self.paths, &collection_name) {
+            Ok(summary) => serialize_tool_value(&summary),
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
+        }
+    }
+
+    fn dispatch_ingest_rag_collection(&self, input: serde_json::Value) -> ToolOutput {
+        let parsed = match serde_json::from_value::<IngestRagCollectionToolInput>(input) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                return ToolOutput {
+                    content: format!("invalid ingest_rag_collection input: {err}"),
+                    ok: false,
+                }
+            }
+        };
+        if !self.config.rag.enabled {
+            return ToolOutput {
+                content: "RAG is disabled by configuration".into(),
+                ok: false,
+            };
+        }
+        let collection_type = parsed.collection_type.unwrap_or(RagCollectionType::User);
+        if collection_type != RagCollectionType::User {
+            return ToolOutput {
+                content: "ingest_rag_collection supports explicit user collections only".into(),
+                ok: false,
+            };
+        }
+        let collection_name = normalize_rag_collection_name(&parsed.collection);
+        match rag::rebuild_rag_index(
+            &self.paths,
+            &self.config,
+            RagRebuildRequest {
+                stale_only: parsed.stale_only,
+                sources: vec![RagSourceKind::UserDocument, RagSourceKind::WebUrl],
+                collection_type: Some(RagCollectionType::User),
+                collections: vec![collection_name],
+                include_vectors: parsed.include_vectors,
+                trigger: "rag-skill".into(),
+            },
+        ) {
+            Ok(summary) => serialize_tool_value(&summary),
+            Err(err) => ToolOutput {
+                content: err.to_string(),
+                ok: false,
+            },
+        }
+    }
+
     fn dispatch_attach_rag_collection(
         &self,
         state: &mut AgentState,
@@ -5874,6 +6108,9 @@ fn intent_shape(intent: &Intent) -> IntentShape {
             prompt_preamble:
                 "Intent guidance: use the normal problem-solving posture, act when useful, and keep delegated work within the default sub-agent budget unless the task clearly needs more.",
             tool_priority_order: &[
+                "list_rag_collections",
+                "create_rag_collection",
+                "ingest_rag_collection",
                 "attach_rag_collection",
                 "read_file",
                 "search_rag",
@@ -5899,6 +6136,7 @@ fn intent_shape(intent: &Intent) -> IntentShape {
             prompt_preamble:
                 "Intent guidance: retrieve first, answer from evidence, and keep the response concise and grounded in cited memory hits when possible.",
             tool_priority_order: &[
+                "list_rag_collections",
                 "attach_rag_collection",
                 "search_rag",
                 "search_memory",
@@ -5911,6 +6149,7 @@ fn intent_shape(intent: &Intent) -> IntentShape {
             prompt_preamble:
                 "Intent guidance: prefer operator and status surfaces, avoid unnecessary side effects, and reach for setup, model, cost, or daemon status tools before broader action.",
             tool_priority_order: &[
+                "list_rag_collections",
                 "search_rag",
                 "request_input",
                 "read_memory",

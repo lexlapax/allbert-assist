@@ -170,6 +170,7 @@ const MEMORY_CURATOR_EXTRACT_AGENT_TEMPLATE: &str =
 const RUST_REBUILD_SKILL_TEMPLATE: &str = include_str!("../../../skills/rust-rebuild/SKILL.md");
 const SKILL_AUTHOR_SKILL_TEMPLATE: &str = include_str!("../../../skills/skill-author/SKILL.md");
 const SELF_DIAGNOSE_SKILL_TEMPLATE: &str = include_str!("../../../skills/self-diagnose/SKILL.md");
+const RAG_SKILL_TEMPLATE: &str = include_str!("../../../skills/rag/SKILL.md");
 const ADAPTER_GOLDEN_BOOTSTRAP_TEMPLATE: &str =
     include_str!("../assets/adapter-golden-bootstrap.jsonl");
 
@@ -470,6 +471,19 @@ impl AllbertPaths {
             &self.skills_installed.join("rust-rebuild").join("SKILL.md"),
             RUST_REBUILD_SKILL_TEMPLATE,
         )?;
+        let rag_skill_path = self.skills_installed.join("rag").join("SKILL.md");
+        let seeded_rag_skill = !rag_skill_path.exists();
+        self.seed_file_if_missing(&rag_skill_path, RAG_SKILL_TEMPLATE)?;
+        if seeded_rag_skill {
+            let installed_at = chrono::Utc::now().to_rfc3339();
+            self.seed_file_if_missing(
+                &self
+                    .skills_installed
+                    .join("rag")
+                    .join(".allbert-install.toml"),
+                &first_party_skill_install_metadata("allbert:first-party/rag", &installed_at),
+            )?;
+        }
         let self_diagnose_path = self.skills_installed.join("self-diagnose").join("SKILL.md");
         let seeded_self_diagnose = !self_diagnose_path.exists();
         self.seed_file_if_missing(&self_diagnose_path, SELF_DIAGNOSE_SKILL_TEMPLATE)?;
@@ -614,5 +628,13 @@ mod tests {
         let metadata = std::fs::read_to_string(self_diagnose.join(".allbert-install.toml"))
             .expect("self-diagnose install metadata should be seeded");
         assert!(metadata.contains("allbert:first-party/self-diagnose"));
+
+        let rag = paths.skills_installed.join("rag");
+        let skill = std::fs::read_to_string(rag.join("SKILL.md")).expect("rag should be seeded");
+        assert!(skill.contains("name: rag"));
+        assert!(skill.contains("create_rag_collection"));
+        let metadata = std::fs::read_to_string(rag.join(".allbert-install.toml"))
+            .expect("rag install metadata should be seeded");
+        assert!(metadata.contains("allbert:first-party/rag"));
     }
 }

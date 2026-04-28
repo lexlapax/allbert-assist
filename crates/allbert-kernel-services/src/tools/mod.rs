@@ -32,6 +32,10 @@ pub trait ToolRuntime: Send {
     fn write_memory(&mut self, input: Value) -> ToolOutput;
     fn search_memory(&mut self, input: Value) -> ToolOutput;
     fn search_rag(&mut self, input: Value) -> ToolOutput;
+    fn list_rag_collections(&mut self, input: Value) -> ToolOutput;
+    fn create_rag_collection(&mut self, input: Value) -> ToolOutput;
+    fn delete_rag_collection(&mut self, input: Value) -> ToolOutput;
+    fn ingest_rag_collection(&mut self, input: Value) -> ToolOutput;
     fn attach_rag_collection(&mut self, input: Value) -> ToolOutput;
     fn detach_rag_collection(&mut self, input: Value) -> ToolOutput;
     async fn stage_memory(&mut self, input: Value) -> ToolOutput;
@@ -84,6 +88,10 @@ impl ToolRegistry {
         registry.register(WriteMemoryTool);
         registry.register(SearchMemoryTool);
         registry.register(SearchRagTool);
+        registry.register(ListRagCollectionsTool);
+        registry.register(CreateRagCollectionTool);
+        registry.register(DeleteRagCollectionTool);
+        registry.register(IngestRagCollectionTool);
         registry.register(AttachRagCollectionTool);
         registry.register(DetachRagCollectionTool);
         registry.register(StageMemoryTool);
@@ -713,6 +721,135 @@ impl Tool for SearchRagTool {
 
     async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
         Ok(ctx.runtime.search_rag(input))
+    }
+}
+
+struct ListRagCollectionsTool;
+
+#[async_trait]
+impl Tool for ListRagCollectionsTool {
+    fn name(&self) -> &'static str {
+        "list_rag_collections"
+    }
+
+    fn description(&self) -> &'static str {
+        "List or show RAG collections and their index posture"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "collection_type": {"enum": ["system", "user"]},
+                "collection": {"type": "string", "minLength": 1}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.list_rag_collections(input))
+    }
+}
+
+struct CreateRagCollectionTool;
+
+#[async_trait]
+impl Tool for CreateRagCollectionTool {
+    fn name(&self) -> &'static str {
+        "create_rag_collection"
+    }
+
+    fn description(&self) -> &'static str {
+        "Create an explicit user RAG collection manifest from trusted local paths or allowed HTTP(S) URLs"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["collection", "sources"],
+            "additionalProperties": false,
+            "properties": {
+                "collection": {"type": "string", "minLength": 1},
+                "collection_type": {"enum": ["user"]},
+                "sources": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {"type": "string", "minLength": 1}
+                },
+                "title": {"type": "string"},
+                "description": {"type": "string"},
+                "allow_insecure_http": {"type": "boolean"},
+                "respect_robots_txt": {"type": "boolean"},
+                "url_depth": {"type": "integer", "minimum": 0, "maximum": 2},
+                "url_max_pages": {"type": "integer", "minimum": 1, "maximum": 25},
+                "url_max_bytes": {"type": "integer", "minimum": 1}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.create_rag_collection(input))
+    }
+}
+
+struct DeleteRagCollectionTool;
+
+#[async_trait]
+impl Tool for DeleteRagCollectionTool {
+    fn name(&self) -> &'static str {
+        "delete_rag_collection"
+    }
+
+    fn description(&self) -> &'static str {
+        "Delete a user RAG collection manifest and derived index rows without deleting source content"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["collection"],
+            "additionalProperties": false,
+            "properties": {
+                "collection": {"type": "string", "minLength": 1},
+                "collection_type": {"enum": ["user"]}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.delete_rag_collection(input))
+    }
+}
+
+struct IngestRagCollectionTool;
+
+#[async_trait]
+impl Tool for IngestRagCollectionTool {
+    fn name(&self) -> &'static str {
+        "ingest_rag_collection"
+    }
+
+    fn description(&self) -> &'static str {
+        "Ingest or rebuild one explicit user RAG collection"
+    }
+
+    fn schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "required": ["collection"],
+            "additionalProperties": false,
+            "properties": {
+                "collection": {"type": "string", "minLength": 1},
+                "collection_type": {"enum": ["user"]},
+                "include_vectors": {"type": "boolean"},
+                "stale_only": {"type": "boolean"}
+            }
+        })
+    }
+
+    async fn call(&self, input: Value, ctx: &mut ToolCtx<'_>) -> Result<ToolOutput, ToolError> {
+        Ok(ctx.runtime.ingest_rag_collection(input))
     }
 }
 
@@ -1383,6 +1520,30 @@ mod tests {
                 ok: true,
             }
         }
+        fn list_rag_collections(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput {
+                content: "[]".into(),
+                ok: true,
+            }
+        }
+        fn create_rag_collection(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput {
+                content: "{\"created\":true}".into(),
+                ok: true,
+            }
+        }
+        fn delete_rag_collection(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput {
+                content: "{\"deleted\":true}".into(),
+                ok: true,
+            }
+        }
+        fn ingest_rag_collection(&mut self, _input: Value) -> ToolOutput {
+            ToolOutput {
+                content: "{\"ingested\":true}".into(),
+                ok: true,
+            }
+        }
         fn attach_rag_collection(&mut self, _input: Value) -> ToolOutput {
             ToolOutput {
                 content: "{\"attached\":true}".into(),
@@ -1498,6 +1659,21 @@ mod tests {
         let mut security = SecurityConfig::default();
         security.web = WebSecurityConfig::default();
         security
+    }
+
+    #[test]
+    fn rag_collection_tools_are_registered() {
+        let names = ToolRegistry::builtins().tool_names();
+        for expected in [
+            "list_rag_collections",
+            "create_rag_collection",
+            "ingest_rag_collection",
+            "delete_rag_collection",
+            "attach_rag_collection",
+            "detach_rag_collection",
+        ] {
+            assert!(names.iter().any(|name| name == expected), "{expected}");
+        }
     }
 
     #[tokio::test]

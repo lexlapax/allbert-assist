@@ -5637,6 +5637,96 @@ async fn attached_user_rag_collection_enters_next_prompt_round() {
 }
 
 #[tokio::test]
+async fn rag_skill_tools_create_ingest_and_attach_user_collection() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().unwrap();
+    let corpus = paths.root.join("trusted-corpus");
+    fs::create_dir_all(&corpus).unwrap();
+    fs::write(
+        corpus.join("field-guide.md"),
+        "# Amber Lab\n\nThe Amber Lab calibration note is user collection context.\n",
+    )
+    .unwrap();
+    let mut config = Config::default_template();
+    config.intent_classifier.rule_only = true;
+    config.security.fs_roots = vec![corpus.clone()];
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths.clone(),
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![
+                CompletionResponse {
+                    text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"rag\"}}</tool_call>"
+                        .into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: format!(
+                        "<tool_call>{}</tool_call>",
+                        json!({
+                            "name": "create_rag_collection",
+                            "input": {
+                                "collection": "amber-lab",
+                                "sources": [corpus.to_string_lossy().to_string()]
+                            }
+                        })
+                    ),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "<tool_call>{\"name\":\"ingest_rag_collection\",\"input\":{\"collection\":\"amber-lab\",\"include_vectors\":false}}</tool_call>"
+                        .into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "<tool_call>{\"name\":\"attach_rag_collection\",\"input\":{\"collection\":\"amber-lab\"}}</tool_call>"
+                        .into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "AMBER_READY".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("create a RAG collection from my trusted corpus and use it")
+        .await
+        .unwrap();
+
+    assert!(paths
+        .root
+        .join("rag/collections/user/amber-lab.toml")
+        .exists());
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 5);
+    assert!(requests[1]
+        .system
+        .as_ref()
+        .unwrap()
+        .contains("### Skill: rag"));
+    let final_system = requests[4].system.as_ref().unwrap();
+    assert!(final_system.contains("[user:amber-lab:user_document]"));
+    assert!(final_system.contains("Amber Lab calibration note"));
+}
+
+#[tokio::test]
 async fn search_rag_tool_is_read_only_capped_and_source_filtered() {
     let temp = TempRoot::new();
     let paths = temp.paths();
