@@ -815,19 +815,21 @@ Channel smoke:
 /rag rebuild --stale-only
 ```
 
-Expected: REPL/TUI support status, search, rebuild, cancel, and GC through the
-daemon. Telegram supports `/rag status` and `/rag search <query>` only; rebuild
-and GC stay on local terminal surfaces.
+Expected: REPL/TUI support status, search, rebuild, and GC through the daemon.
+Protocol v7 has rebuild-cancel support for clients that wire it. Telegram
+supports `/rag status` and `/rag search <query>` only; rebuild and GC stay on
+local terminal surfaces.
 
 Collection-aware M7 smoke:
 
 ```bash
 run rag collections list
-run rag collections create user release-docs --source docs/operator
-run rag collections ingest user release-docs
-run rag collections rebuild user release-docs --vectors
+run rag collections create release-docs --source docs/operator
+run rag collections ingest release-docs --no-vectors
+run rag rebuild --collection-type user --collection release-docs --vectors
+run rag collections search release-docs "configure Telegram" --mode lexical
 run rag search "configure Telegram" --collection-type user --collection release-docs
-run rag collections delete user release-docs
+run rag collections delete release-docs
 ```
 
 Expected: system collections remain searchable with omitted collection filters,
@@ -837,14 +839,26 @@ explicitly attached to the task/session, collection manifests survive deleting
 and rebuilding `rag.sqlite`, and delete removes the user manifest plus derived
 RAG rows without deleting source files.
 
+First-party RAG skill smoke in a local REPL/TUI session:
+
+```text
+Use the rag skill to create a collection named release-docs from docs/operator,
+ingest it without vectors, search it for Telegram, attach it to this session,
+then detach it and delete it.
+```
+
+Expected: the session invokes the `rag` skill, lifecycle mutations route through
+kernel-services tools, user snippets appear only after attachment, detach stops
+future prompt injection, and delete keeps the source files intact.
+
 URL collection M7 smoke:
 
 ```bash
-run rag collections create user release-web --source https://example.com/
-run rag collections ingest user release-web
-run rag collections rebuild user release-web --vectors
+run rag collections create release-web --source https://example.com/
+run rag collections ingest release-web --no-vectors
+run rag rebuild --collection-type user --collection release-web --vectors
 run rag search "example domain" --collection-type user --collection release-web
-run rag collections delete user release-web
+run rag collections delete release-web
 ```
 
 Expected: URL ingestion is exact-URL by default, records final URL/HTTP status

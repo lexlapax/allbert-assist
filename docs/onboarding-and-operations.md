@@ -538,21 +538,22 @@ Release-blocking M7 collection smoke:
 
 ```bash
 allbert-cli rag collections list
-allbert-cli rag collections create user release-docs --source docs/operator
-allbert-cli rag collections ingest user release-docs
-allbert-cli rag collections rebuild user release-docs --vectors
+allbert-cli rag collections create release-docs --source docs/operator
+allbert-cli rag collections ingest release-docs --no-vectors
+allbert-cli rag rebuild --collection-type user --collection release-docs --vectors
+allbert-cli rag collections search release-docs "configure Telegram" --mode lexical
 allbert-cli rag search "configure Telegram" --collection-type user --collection release-docs
-allbert-cli rag collections delete user release-docs
+allbert-cli rag collections delete release-docs
 ```
 
 Release-blocking M7 URL collection smoke:
 
 ```bash
-allbert-cli rag collections create user release-web --source https://example.com/
-allbert-cli rag collections ingest user release-web
-allbert-cli rag collections rebuild user release-web --vectors
+allbert-cli rag collections create release-web --source https://example.com/
+allbert-cli rag collections ingest release-web --no-vectors
+allbert-cli rag rebuild --collection-type user --collection release-web --vectors
 allbert-cli rag search "example domain" --collection-type user --collection release-web
-allbert-cli rag collections delete user release-web
+allbert-cli rag collections delete release-web
 ```
 
 Test:
@@ -560,6 +561,8 @@ Test:
 - Confirm default system RAG searches still work when no user collection is selected.
 - Confirm the user collection search returns only `user/release-docs` snippets.
 - Confirm user collection snippets do not enter prompt context until explicitly attached to the task/session.
+- Confirm a local session can invoke the first-party `rag` skill to create,
+  ingest, search, attach/detach, and delete an explicit user collection.
 - Confirm collection definitions live in
   `~/.allbert/rag/collections/user/*.toml`, survive deleting/rebuilding
   `rag.sqlite`, and can be removed explicitly by collection delete.
@@ -652,9 +655,10 @@ Optional live/operator checks:
 - Telegram live bot test after token and allowlist setup.
 - Real adapter training after selecting, allowlisting, and installing a local trainer backend.
 - Ollama vector RAG smoke after `ollama pull embeddinggemma`.
-- Collection-aware user RAG smoke after M7 lands: create a user collection from
-  a trusted local path and an explicit HTTPS URL, rebuild vectors, search only
-  each collection, and verify default system RAG still works.
+- Collection-aware user RAG smoke: create a user collection from a trusted
+  local path and an explicit HTTPS URL, rebuild vectors, search only each
+  collection, verify default system RAG still works, and verify the first-party
+  `rag` skill can attach/detach a user collection in a local session.
 
 ## Current Limitations
 
@@ -669,7 +673,8 @@ Optional live/operator checks:
 - Local utility enablement is host-specific and excluded from profile export/sync.
 - `unix_pipe` is text-only, bounded, and direct-spawn; it is not a shell runtime.
 - RAG vectors are local-Ollama only in this release; if Ollama or `embeddinggemma` is unavailable, RAG falls back to lexical SQLite FTS when configured to do so.
-- Collection-aware user RAG is release-blocking M7 scope for v0.15 closeout.
+- Collection-aware user RAG is implemented M7 scope; the release tag waits on
+  the v0.15 closeout validation and operator review.
   User collection ingestion supports trusted local files/directories and
   explicit HTTP(S) URL sources. Ambient web crawling, browser capture,
   authenticated web sessions, JavaScript execution, and broad URL traversal are

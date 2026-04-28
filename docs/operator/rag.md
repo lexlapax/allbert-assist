@@ -5,12 +5,10 @@ command descriptions, settings descriptions, skill metadata, durable memory,
 approved facts, and bounded session working history. The index can be deleted
 and rebuilt from source truth.
 
-v0.15 closeout now includes a release-blocking M7 collection model. In that
-target design, existing Allbert-owned RAG sources are `system` collections, and
-operator-created task/corpus RAG sources are explicit `user` collections in the
-same derived SQLite database. User collection commands are documented here as
-the M7 implementation target; they are not considered release-ready until the
-M7 tests in the feature runbook pass.
+v0.15 includes the M7 collection model. Existing Allbert-owned RAG sources are
+`system` collections, and operator-created task/corpus RAG sources are explicit
+`user` collections in the same derived SQLite database. The release is ready for
+tag review only after the M7 collection tests in the feature runbook pass.
 
 ## Commands
 
@@ -38,26 +36,26 @@ M7 adds logical collections to the RAG index:
   corpora for a task or session. These are never searched or injected by
   default.
 
-Planned local terminal command shape:
+Local terminal command shape:
 
 ```bash
-allbert-cli rag collections list
-allbert-cli rag collections show user <name>
-allbert-cli rag collections create user <name> --source /trusted/path
-allbert-cli rag collections create user <name> --source https://example.com/page
-allbert-cli rag collections add-source user <name> --source <uri>
-allbert-cli rag collections remove-source user <name> --source <uri>
-allbert-cli rag collections ingest user <name>
-allbert-cli rag collections rebuild user <name> --vectors
+allbert-cli rag collections list [--collection-type system|user]
+allbert-cli rag collections show <name> [--collection-type system|user]
+allbert-cli rag collections create <name> --source /trusted/path
+allbert-cli rag collections create <name> --source https://example.com/page
+allbert-cli rag collections ingest <name> [--vectors|--no-vectors]
+allbert-cli rag collections search <name> "question" [--mode hybrid|vector|lexical]
+allbert-cli rag rebuild --collection-type user --collection <name> --vectors
 allbert-cli rag search "question" --collection-type user --collection <name>
-allbert-cli rag collections attach user <name> --scope turn --reason "task context"
-allbert-cli rag collections detach user <name> --scope turn
-allbert-cli rag collections delete user <name> --confirm
+allbert-cli rag collections delete <name>
 ```
 
-REPL/TUI should expose equivalent `/rag collections ...` commands. Telegram
-remains read-only for collection status/search in v0.15 M7 and must not create,
-ingest, rebuild, delete, or attach user collections.
+The first-party `rag` skill exposes local-session model tools for
+list/show/create, ingest/rebuild, search, attach/detach, and delete. Dedicated
+`/rag collections ...` slash commands are future work; REPL/TUI currently expose
+daemon status/search/rebuild/GC, and local natural-language sessions can invoke
+the RAG skill. Telegram remains read-only for collection status/search in v0.15
+M7 and must not create, ingest, rebuild, delete, or attach user collections.
 
 User collection definitions live as manifests under
 `~/.allbert/rag/collections/user/`; the SQLite RAG database only materializes
@@ -81,6 +79,9 @@ broadcast, and cloud-metadata targets are rejected before fetch and again after
 each redirect.
 
 Deleting a user collection never deletes local source files or remote content.
+Editing individual source URIs inside an existing collection is future work;
+for v0.15, create the collection with the intended source set or delete and
+recreate it.
 
 ## Posture
 

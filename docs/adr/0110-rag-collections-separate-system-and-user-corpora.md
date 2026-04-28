@@ -56,9 +56,10 @@ v0.15 M7 makes RAG collection-aware while keeping one derived SQLite database.
   content-type allowlists, byte/page/time caps, robots.txt checks, and
   conditional refresh metadata such as ETag and Last-Modified.
 - The built-in RAG skill is a thin operator/user interface over
-  kernel-services collection APIs. It cannot own indexing policy, bypass
-  filesystem or URL trust checks, weaken review-only gates, or grant prompt
-  eligibility.
+  kernel-services collection tools. It supports list/show, create,
+  ingest/rebuild, search, attach/detach, and delete. It cannot own indexing
+  policy, bypass filesystem or URL trust checks, weaken review-only gates, or
+  grant prompt eligibility.
 
 ## Consequences
 
@@ -75,8 +76,9 @@ v0.15 M7 makes RAG collection-aware while keeping one derived SQLite database.
 
 **Negative**
 
-- The v0.15 closeout is reopened: schema v2, collection filtering, user
-  ingestion, RAG skill surfaces, and additional tests become release-blocking.
+- The v0.15 closeout must validate schema v2, collection filtering, user
+  ingestion, RAG skill surfaces, and additional collection tests before
+  tagging.
 - The service layer grows further and must remain under the ADR 0109 size gate.
 - User-facing collection lifecycle commands, manifest corruption diagnostics,
   and URL-fetch failure modes add more operator documentation and UX surface

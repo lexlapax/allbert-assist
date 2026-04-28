@@ -150,8 +150,8 @@ separate privacy, cost, and provider-surface decision.
   release decides whether consolidation is worth the migration cost.
 - Real local embeddings require Ollama and an embedding model to be installed
   for full vector behavior.
-- Collection-aware user RAG reopens v0.15 closeout with schema-v2 and
-  additional local-ingestion, URL-ingestion, and prompt-gating tests.
+- Collection-aware user RAG makes schema-v2 and additional local-ingestion,
+  URL-ingestion, skill-tool, and prompt-gating tests part of v0.15 closeout.
 
 **Neutral**
 

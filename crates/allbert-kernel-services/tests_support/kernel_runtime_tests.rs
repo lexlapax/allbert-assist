@@ -5714,16 +5714,52 @@ async fn rag_skill_tools_create_ingest_and_attach_user_collection() {
         .root
         .join("rag/collections/user/amber-lab.toml")
         .exists());
-    let requests = requests.lock().unwrap();
-    assert_eq!(requests.len(), 5);
-    assert!(requests[1]
-        .system
-        .as_ref()
-        .unwrap()
-        .contains("### Skill: rag"));
-    let final_system = requests[4].system.as_ref().unwrap();
-    assert!(final_system.contains("[user:amber-lab:user_document]"));
-    assert!(final_system.contains("Amber Lab calibration note"));
+    {
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests.len(), 5);
+        assert!(requests[1]
+            .system
+            .as_ref()
+            .unwrap()
+            .contains("### Skill: rag"));
+        let final_system = requests[4].system.as_ref().unwrap();
+        assert!(final_system.contains("[user:amber-lab:user_document]"));
+        assert!(final_system.contains("Amber Lab calibration note"));
+    }
+
+    let snapshot = kernel.export_session_snapshot();
+    assert_eq!(snapshot.active_rag_collections.len(), 1);
+    assert_eq!(
+        snapshot.active_rag_collections[0],
+        RagCollectionRef::new(RagCollectionType::User, "amber-lab")
+    );
+
+    let restored_requests = Arc::new(Mutex::new(Vec::new()));
+    let mut restored = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            restored_requests.clone(),
+            vec![CompletionResponse {
+                text: "RESTORED_OK".into(),
+                usage: Usage::default(),
+                tool_calls: Vec::new(),
+            }],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("restored kernel should boot");
+    restored.restore_session_snapshot(snapshot).await.unwrap();
+    restored
+        .run_turn("use the attached Amber Lab collection again")
+        .await
+        .unwrap();
+    let restored_requests = restored_requests.lock().unwrap();
+    let restored_system = restored_requests[0].system.as_ref().unwrap();
+    assert!(restored_system.contains("[user:amber-lab:user_document]"));
 }
 
 #[tokio::test]

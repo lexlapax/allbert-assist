@@ -24,8 +24,8 @@ use allbert_kernel_services::{
     llm::{DefaultProviderFactory, ProviderFactory},
     ActiveSkill, ActivityTransition, ConfirmDecision, ConfirmPrompter, ConfirmRequest,
     FrontendAdapter, InputPrompter, InputRequest, InputResponse, Intent, Kernel, KernelError,
-    KernelEvent, ModelConfig, SessionSnapshot, TraceReader, TraceStorageLimits, Usage,
-    LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
+    KernelEvent, ModelConfig, RagCollectionRef, SessionSnapshot, TraceReader, TraceStorageLimits,
+    Usage, LEGACY_SENTINEL_IDENTITY, LOCAL_REPL_SENDER,
 };
 use allbert_proto::{
     ActivityPhase, ActivitySnapshot, ApprovalContext, AttachedChannel, ChannelKind,
@@ -365,6 +365,8 @@ struct SessionJournalMeta {
     last_resolved_intent: Option<String>,
     intent_history: Vec<String>,
     active_skills: Vec<ActiveSkill>,
+    #[serde(default)]
+    active_rag_collections: Vec<RagCollectionRef>,
     ephemeral_memory: Vec<String>,
     model: ModelConfigPayload,
     turn_count: u32,
@@ -5359,6 +5361,7 @@ fn snapshot_to_kernel(meta: SessionJournalMeta) -> SessionSnapshot {
         root_agent_name: meta.root_agent_name,
         messages: meta.messages,
         active_skills: meta.active_skills,
+        active_rag_collections: meta.active_rag_collections,
         turn_count: meta.turn_count,
         cost_total_usd: meta.cost_total_usd,
         session_usage: meta.session_usage,
@@ -5408,6 +5411,7 @@ fn build_session_meta(
             .map(str::to_string),
         intent_history,
         active_skills: snapshot.active_skills,
+        active_rag_collections: snapshot.active_rag_collections,
         ephemeral_memory: snapshot.ephemeral_memory,
         model: model_to_payload(&snapshot.model),
         turn_count: snapshot.turn_count,
@@ -7541,6 +7545,7 @@ mod telegram_tests {
             last_resolved_intent: Some("task".into()),
             intent_history: vec!["task".into()],
             active_skills: Vec::new(),
+            active_rag_collections: Vec::new(),
             ephemeral_memory: Vec::new(),
             model: model_to_payload(&Config::default_template().model),
             turn_count: 1,

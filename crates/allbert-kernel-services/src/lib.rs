@@ -389,6 +389,8 @@ pub struct SessionSnapshot {
     pub root_agent_name: String,
     pub messages: Vec<ChatMessage>,
     pub active_skills: Vec<ActiveSkill>,
+    #[serde(default)]
+    pub active_rag_collections: Vec<RagCollectionRef>,
     pub turn_count: u32,
     pub cost_total_usd: f64,
     #[serde(default)]
@@ -1950,6 +1952,7 @@ impl Kernel {
             root_agent_name: self.state.root_agent.name.clone(),
             messages: self.state.messages.clone(),
             active_skills: self.state.active_skills.clone(),
+            active_rag_collections: self.state.active_rag_collections.clone(),
             turn_count: self.state.turn_count,
             cost_total_usd: self.state.cost_total_usd,
             session_usage: self.state.session_usage.clone(),
@@ -1992,6 +1995,11 @@ impl Kernel {
             }
         }
         self.state.active_skills = restored_skills;
+        self.state.active_rag_collections = snapshot
+            .active_rag_collections
+            .into_iter()
+            .filter(|collection| collection.collection_type == RagCollectionType::User)
+            .collect();
         self.state.begin_turn();
         Ok(())
     }

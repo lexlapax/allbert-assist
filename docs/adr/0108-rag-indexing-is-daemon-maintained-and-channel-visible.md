@@ -57,8 +57,8 @@ v0.15 introduces protocol v7 for channel-visible RAG maintenance and search:
 
 - `RagStatus` request/response;
 - `RagSearch` request/response with bounded snippets and source labels;
-- collection-aware status/search/rebuild filters for `collection_type` and
-  named collections;
+- collection-aware search/rebuild filters for `collection_type` and named
+  collections;
 - `RagRebuildStart`, `RagRebuildCancel`, progress, finished, cancelled, and
   error messages for clients that support them;
 - `RagGc` request/result for local operator cleanup;
@@ -67,9 +67,12 @@ v0.15 introduces protocol v7 for channel-visible RAG maintenance and search:
 ## Channel rules
 
 - CLI is authoritative for status, doctor, rebuild, search, and GC.
-- CLI and local REPL/TUI are authoritative for user collection create, ingest,
-  rebuild, delete, and attach-to-task operations, including explicit URL
-  sources.
+- CLI is authoritative for user collection list/show/create, ingest/rebuild,
+  search, and delete operations, including explicit URL sources.
+- Local natural-language sessions can invoke the first-party `rag` skill for
+  user collection list/show, create, ingest/rebuild, search, attach/detach, and
+  delete. The skill calls kernel-services tools and does not own maintenance or
+  trust policy.
 - REPL/TUI support `/rag status`, `/rag search <query>`, `/rag rebuild
   [--stale-only] [--vectors]`, and `/rag gc [--dry-run]`.
 - Telegram supports `/rag status` and `/rag search <query>` only in v0.15.
@@ -98,8 +101,9 @@ v0.15 introduces protocol v7 for channel-visible RAG maintenance and search:
 - The daemon gains another supervised maintenance service.
 - Protocol v7 adds compatibility tests and filtering work.
 - Settings catalog and setup need a new group and more descriptors.
-- Collection-aware status/search/rebuild and user collection lifecycle commands
-  add protocol and operator-surface test coverage.
+- Collection-aware search/rebuild and user collection lifecycle commands add
+  operator-surface and model-tool test coverage. Dedicated protocol lifecycle
+  mutation messages are deferred.
 
 **Neutral**
 
