@@ -1280,6 +1280,81 @@ async fn router_memory_action_stages_without_full_assistant_call() {
 }
 
 #[tokio::test]
+async fn explicit_memory_fallback_stages_when_router_declines_action() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let events = Arc::new(Mutex::new(Vec::new()));
+
+    let mut kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::clone(&events)),
+        paths.clone(),
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![CompletionResponse {
+                text: json!({
+                    "intent": "memory_query",
+                    "action": "none",
+                    "confidence": "low",
+                    "needs_clarification": false,
+                    "clarifying_question": null,
+                    "job_name": null,
+                    "job_description": null,
+                    "job_schedule": null,
+                    "job_prompt": null,
+                    "memory_summary": null,
+                    "memory_content": null,
+                    "reason": "local router declined explicit-memory staging"
+                })
+                .to_string(),
+                usage: Usage::default(),
+                tool_calls: Vec::new(),
+            }],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("remember that operator tests use temporary ALLBERT_HOME profiles")
+        .await
+        .expect("turn should succeed");
+
+    let requests = requests.lock().unwrap();
+    assert_eq!(
+        requests.len(),
+        1,
+        "fallback should be terminal after the router sub-call"
+    );
+
+    let staged = memory::list_staged_memory(
+        &paths,
+        &Config::default_template().memory,
+        Some("explicit_request"),
+        None,
+        None,
+    )
+    .expect("staged memory should list");
+    assert_eq!(staged.len(), 1);
+    assert!(staged[0].body.contains("temporary ALLBERT_HOME profiles"));
+    assert_eq!(
+        staged[0]
+            .provenance
+            .as_ref()
+            .and_then(|value| value.get("route_source"))
+            .and_then(|value| value.as_str()),
+        Some("explicit-memory-fallback")
+    );
+    assert!(events.lock().unwrap().iter().any(|event| matches!(
+        event,
+        KernelEvent::AssistantText(text) if text.contains("I'd like to remember 1 thing")
+    )));
+}
+
+#[tokio::test]
 async fn router_explicit_memory_flow_remains_review_first() {
     let temp = TempRoot::new();
     let paths = temp.paths();

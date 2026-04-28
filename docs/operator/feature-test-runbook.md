@@ -258,10 +258,27 @@ Treat that as a regression if it returns in v0.14.3, not as proof that staged-me
 
 CLI review:
 
+The CLI review commands below require at least one staged candidate. On a fresh
+temp profile, `memory staged list` may legitimately print `no staged memory
+entries`. In that case, run the live explicit-memory path above first, then copy
+the staged id from the `id:` line in `memory staged list`.
+
+For a realistic review pass, stage two candidates before returning to the CLI:
+
+```text
+remember that Allbert operator tests use temporary ALLBERT_HOME profiles
+remember that the v0.5 reject-path smoke uses a disposable staged candidate
+review what's staged
+```
+
+Use the first id for promotion and the second id for rejection. Promotion moves
+the staged candidate out of the staging queue, so the reject path needs a
+different staged id.
+
 ```bash
 run memory staged list
-run memory staged show <staged-id>
-run memory promote <staged-id> --confirm
+run memory staged show <promote-staged-id>
+run memory promote <promote-staged-id> --confirm
 run memory stats
 run memory search "temporary ALLBERT_HOME"
 ```
@@ -269,7 +286,8 @@ run memory search "temporary ALLBERT_HOME"
 Reject path:
 
 ```bash
-run memory reject <staged-id> --reason "test rejection"
+run memory staged show <reject-staged-id>
+run memory reject <reject-staged-id> --reason "test rejection"
 run memory verify
 ```
 
