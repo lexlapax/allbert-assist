@@ -2686,6 +2686,23 @@ fn collect_user_url(
     source_uri: &str,
     sources: &mut Vec<CollectedSource>,
 ) -> Result<(), KernelError> {
+    let config = config.clone();
+    let manifest = manifest.clone();
+    let source_uri = source_uri.to_string();
+    let mut collected = run_blocking_http(
+        move || collect_user_url_blocking(&config, &manifest, &source_uri),
+        KernelError::InitFailed,
+    )?;
+    sources.append(&mut collected);
+    Ok(())
+}
+
+fn collect_user_url_blocking(
+    config: &Config,
+    manifest: &RagCollectionManifest,
+    source_uri: &str,
+) -> Result<Vec<CollectedSource>, KernelError> {
+    let mut sources = Vec::new();
     let url = reqwest::Url::parse(source_uri)
         .map_err(|e| KernelError::Request(format!("invalid URL source `{source_uri}`: {e}")))?;
     if let Err(err) = validate_url_source(config, &url, &manifest.fetch_policy) {
@@ -2696,7 +2713,7 @@ fn collect_user_url(
             None,
             err.to_string(),
         ));
-        return Ok(());
+        return Ok(sources);
     }
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(manifest.fetch_policy.fetch_timeout_s))
@@ -2716,7 +2733,7 @@ fn collect_user_url(
         if !seen.insert(canonical) {
             continue;
         }
-        let links = collect_user_url_page(config, manifest, &client, &current, sources)?;
+        let links = collect_user_url_page(config, manifest, &client, &current, &mut sources)?;
         fetched_pages += 1;
         if depth >= manifest.fetch_policy.url_depth {
             continue;
@@ -2730,7 +2747,7 @@ fn collect_user_url(
             }
         }
     }
-    Ok(())
+    Ok(sources)
 }
 
 fn collect_user_url_page(
