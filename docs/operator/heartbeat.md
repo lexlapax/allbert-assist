@@ -83,13 +83,13 @@ inbox_nag:
 `heartbeat show` then warns:
 
 ```text
-inbox_nag.channel is not proactively deliverable in v0.8; only `telegram` is currently supported
-primary_channel is not proactively deliverable in v0.8; only `telegram` currently receives unsolicited nags
+inbox_nag targets `repl`, but proactive messages can only be delivered to `telegram`; run `heartbeat suggest --channel telegram`, review the generated file, and replace HEARTBEAT.md, or set `inbox_nag.enabled: false` to stay local-only
 ```
 
 This is not corruption and does not block normal REPL, CLI, daemon, inbox, or
 profile-export use. It means only that Allbert will not deliver unsolicited
-heartbeat nags to the REPL.
+heartbeat nags to the REPL. `primary_channel: repl` by itself is allowed and is
+only warned about when an enabled proactive item actually falls back to it.
 
 Choose one of three responses:
 

@@ -283,6 +283,9 @@ Test:
 
 - Export from one temp profile and import into another.
 - Confirm secrets, local utility enablement, run sockets, and host-specific caches are excluded.
+- `heartbeat show` may warn when an enabled proactive nag/check-in targets
+  `repl`; choose Telegram delivery via `heartbeat suggest --channel telegram`
+  or disable that proactive item to stay local-only.
 - Confirm approvals can be resolved from CLI, TUI, REPL, or Telegram when identity matches.
 
 ### v0.9 - Contributor And Codex-Web Readiness

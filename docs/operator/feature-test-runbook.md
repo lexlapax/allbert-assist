@@ -487,13 +487,24 @@ ALLBERT_HOME="$import_home" env -u RUSTC_WRAPPER cargo run -q -p allbert-cli -- 
 ```
 
 Fresh temp profiles default `HEARTBEAT.md` to `primary_channel: repl`.
-`heartbeat show` may warn that `repl` is not proactively deliverable because
-only Telegram currently receives unsolicited inbox nags/check-ins. That warning
-is expected for provider-free continuity smokes. If you want real proactive
-delivery, configure Telegram, map identity with `identity add-channel telegram
-<id>`, then edit `HEARTBEAT.md` or use `heartbeat suggest --channel telegram`
-and review the generated template. If you do not want proactive nags, leave the
-warning alone or set `inbox_nag.enabled: false`.
+`heartbeat show` may warn that the enabled `inbox_nag` targets `repl` because
+only Telegram currently receives unsolicited inbox nags/check-ins. This is not
+data loss and does not block identity, inbox, or profile export/import testing.
+If v0.7 Telegram setup already added the identity binding, `identity
+add-channel telegram "$TELEGRAM_CHAT_ID"` may simply report that the binding
+already exists.
+
+Expected warning shape for the default local-only heartbeat:
+
+```text
+inbox_nag targets `repl`, but proactive messages can only be delivered to `telegram`; run `heartbeat suggest --channel telegram`, review the generated file, and replace HEARTBEAT.md, or set `inbox_nag.enabled: false` to stay local-only
+```
+
+If you want real proactive delivery, configure Telegram, ensure identity
+includes `telegram:<id>`, then edit `HEARTBEAT.md` or use
+`heartbeat suggest --channel telegram` and review the generated template. If
+you do not want proactive nags, leave the warning alone or set
+`inbox_nag.enabled: false`.
 
 What to verify:
 

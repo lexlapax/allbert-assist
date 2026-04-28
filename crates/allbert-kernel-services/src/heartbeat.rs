@@ -151,39 +151,39 @@ pub fn validate_heartbeat_record(record: &HeartbeatRecord) -> HeartbeatValidatio
         "check_ins.daily_brief",
         &record.check_ins.daily_brief,
         false,
+        record.primary_channel,
     );
     validate_check_in(
         &mut warnings,
         "check_ins.weekly_review",
         &record.check_ins.weekly_review,
         true,
+        record.primary_channel,
     );
     if record.inbox_nag.enabled {
-        if !matches!(record.inbox_nag.cadence, HeartbeatNagCadence::Off)
-            && record
+        let inbox_nag_active = !matches!(record.inbox_nag.cadence, HeartbeatNagCadence::Off);
+        if inbox_nag_active {
+            if record
                 .inbox_nag
                 .time
                 .as_deref()
                 .is_none_or(|value| !is_valid_hh_mm(value))
-        {
-            warnings.push("inbox_nag.time is invalid; expected HH:MM".into());
+            {
+                warnings.push("inbox_nag.time is invalid; expected HH:MM".into());
+            }
+            let channel = record.inbox_nag.channel.unwrap_or(record.primary_channel);
+            if !supports_proactive_delivery(channel) {
+                warnings.push(format!(
+                    "inbox_nag targets `{}`, but proactive messages can only be delivered to `telegram`; run `heartbeat suggest --channel telegram`, review the generated file, and replace HEARTBEAT.md, or set `inbox_nag.enabled: false` to stay local-only",
+                    channel_label(channel)
+                ));
+            }
         }
         if matches!(record.inbox_nag.cadence, HeartbeatNagCadence::Weekly)
             && record.inbox_nag.time.is_none()
         {
             warnings.push("inbox_nag.time is required for weekly inbox nags".into());
         }
-        if !supports_proactive_delivery(record.inbox_nag.channel.unwrap_or(record.primary_channel))
-        {
-            warnings.push(
-                "inbox_nag.channel is not proactively deliverable in v0.8; only `telegram` is currently supported".into(),
-            );
-        }
-    }
-    if !supports_proactive_delivery(record.primary_channel) {
-        warnings.push(
-            "primary_channel is not proactively deliverable in v0.8; only `telegram` currently receives unsolicited nags".into(),
-        );
     }
 
     HeartbeatValidation { warnings }
@@ -366,6 +366,7 @@ fn validate_check_in(
     label: &str,
     check_in: &HeartbeatCheckIn,
     requires_day: bool,
+    primary_channel: ChannelKind,
 ) {
     if !check_in.enabled {
         return;
@@ -387,12 +388,21 @@ fn validate_check_in(
             "{label}.day is invalid; expected a weekday like `Sunday`"
         ));
     }
-    if let Some(channel) = check_in.channel {
-        if !supports_proactive_delivery(channel) {
-            warnings.push(format!(
-                "{label}.channel is not proactively deliverable in v0.8; only `telegram` is currently supported"
-            ));
-        }
+    let channel = check_in.channel.unwrap_or(primary_channel);
+    if !supports_proactive_delivery(channel) {
+        warnings.push(format!(
+            "{label} targets `{}`, but proactive messages can only be delivered to `telegram`; set `{label}.channel: telegram` or set `{label}.enabled: false`",
+            channel_label(channel)
+        ));
+    }
+}
+
+fn channel_label(kind: ChannelKind) -> &'static str {
+    match kind {
+        ChannelKind::Cli => "cli",
+        ChannelKind::Repl => "repl",
+        ChannelKind::Jobs => "jobs",
+        ChannelKind::Telegram => "telegram",
     }
 }
 
@@ -432,6 +442,76 @@ mod tests {
 
         let validation = validate_heartbeat_record(&record);
         assert!(validation.warnings.len() >= 3);
+    }
+
+    #[test]
+    fn heartbeat_validation_collapses_default_repl_proactive_warning() {
+        let record = HeartbeatRecord {
+            timezone: "UTC".into(),
+            primary_channel: ChannelKind::Repl,
+            quiet_hours: vec!["22:00-07:00".into()],
+            check_ins: HeartbeatCheckIns {
+                daily_brief: HeartbeatCheckIn {
+                    enabled: false,
+                    day: None,
+                    time: None,
+                    channel: None,
+                },
+                weekly_review: HeartbeatCheckIn {
+                    enabled: false,
+                    day: None,
+                    time: None,
+                    channel: None,
+                },
+            },
+            inbox_nag: HeartbeatInboxNag {
+                enabled: true,
+                cadence: HeartbeatNagCadence::Daily,
+                time: Some("09:00".into()),
+                channel: Some(ChannelKind::Repl),
+            },
+            body: String::new(),
+        };
+
+        let validation = validate_heartbeat_record(&record);
+        assert_eq!(validation.warnings.len(), 1);
+        assert!(validation.warnings[0].contains("inbox_nag targets `repl`"));
+        assert!(validation.warnings[0].contains("proactive messages can only be delivered"));
+        assert!(validation.warnings[0].contains("heartbeat suggest --channel telegram"));
+        assert!(validation.warnings[0].contains("inbox_nag.enabled: false"));
+    }
+
+    #[test]
+    fn heartbeat_validation_does_not_warn_for_unused_repl_primary_channel() {
+        let record = HeartbeatRecord {
+            timezone: "UTC".into(),
+            primary_channel: ChannelKind::Repl,
+            quiet_hours: vec!["22:00-07:00".into()],
+            check_ins: HeartbeatCheckIns {
+                daily_brief: HeartbeatCheckIn {
+                    enabled: false,
+                    day: None,
+                    time: None,
+                    channel: None,
+                },
+                weekly_review: HeartbeatCheckIn {
+                    enabled: false,
+                    day: None,
+                    time: None,
+                    channel: None,
+                },
+            },
+            inbox_nag: HeartbeatInboxNag {
+                enabled: false,
+                cadence: HeartbeatNagCadence::Daily,
+                time: Some("09:00".into()),
+                channel: None,
+            },
+            body: String::new(),
+        };
+
+        let validation = validate_heartbeat_record(&record);
+        assert!(validation.warnings.is_empty());
     }
 
     #[test]
