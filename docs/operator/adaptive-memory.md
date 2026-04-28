@@ -14,7 +14,7 @@ auto_activate_intents = ["memory_query"]
 auto_activate_cues = ["remember", "recall", "what do you remember", "review staged", "promote that", "forget"]
 ```
 
-`memory-curator` is surfaced as a nearby option on root turns. Its full skill body is loaded only when policy activates it, such as for the `memory_query` intent or configured memory-review cues.
+`memory-curator` is surfaced as a nearby option on root turns. Its full skill body is loaded only when policy activates it, such as for the `memory_query` intent or configured memory-review cues. Automatic activation is intended to be current-turn scoped: after an ordinary auto-routed memory turn finishes, telemetry should return to no active skill unless the operator explicitly activated one for the session.
 
 Inspect or adjust routing without editing code:
 

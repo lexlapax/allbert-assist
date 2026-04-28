@@ -561,6 +561,7 @@ Then type:
 ```text
 /model ollama gemma4
 say hello
+hello what's today's top news?
 ```
 
 Gemma4 may spend part of the output budget on hidden thinking. Allbert's Ollama
@@ -587,6 +588,14 @@ What to verify:
 - Local Ollama turns require a running Ollama service and a pulled chat model.
   Allbert should surface provider errors clearly if Ollama is stopped or the
   model is missing.
+- The current-info smoke may call `web_search`. With web access available it
+  should answer from current search results. Without web access, it should
+  surface a clear web/network/policy error. It should not fail because
+  `web_search` is blocked by an unrelated active memory skill from earlier
+  tests.
+- If a tool is denied unexpectedly, run `/telemetry` in the REPL before
+  continuing. After ordinary auto-routed memory turns, active skills should
+  return to `(none)` unless the operator explicitly activated a session skill.
 - Hosted turns use the configured `api_key_env`; API keys should not appear in
   traces, telemetry, activity, or errors.
 - Session-local `/model ...` changes affect the attached session only. Persistent
