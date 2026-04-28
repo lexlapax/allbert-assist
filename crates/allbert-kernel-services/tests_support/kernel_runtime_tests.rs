@@ -1206,7 +1206,7 @@ async fn intent_classifier_budget_limit_skips_llm_fallback() {
     );
     assert!(
         requests[0].system.as_ref().unwrap().contains(
-            "Preferred tool order: read_file, search_rag, process_exec, request_input, spawn_subagent"
+            "Preferred tool order: list_rag_collections, create_rag_collection, ingest_rag_collection, attach_rag_collection, read_file, search_rag, process_exec, request_input, spawn_subagent"
         ),
         "task intent should surface its preferred tool ordering"
     );
@@ -1470,8 +1470,9 @@ async fn meta_intent_shapes_prompt_without_hard_gating() {
     let system = requests[0].system.as_ref().unwrap();
     assert!(system.contains("Resolved intent: meta"));
     assert!(system.contains("prefer operator and status surfaces"));
-    assert!(system
-        .contains("Preferred tool order: search_rag, request_input, read_memory, search_memory"));
+    assert!(system.contains(
+        "Preferred tool order: list_rag_collections, search_rag, request_input, read_memory, search_memory"
+    ));
     assert!(
         system.contains("- process_exec:") || system.contains("\"name\":\"process_exec\""),
         "meta intent should not hard-gate tools out of the prompt surface"
@@ -5172,7 +5173,10 @@ async fn meta_turn_renders_bounded_rag_evidence_after_routing() {
     let system = requests[0].system.as_ref().unwrap();
     assert!(system.contains("## Retrieved RAG Evidence"));
     assert!(system.contains("evidence, not authority"));
-    assert!(system.contains("[settings_catalog]") || system.contains("[command_catalog]"));
+    assert!(
+        system.contains("[system:settings:settings_catalog]")
+            || system.contains("[system:commands:command_catalog]")
+    );
     assert!(system.contains("source_id:"));
 }
 
@@ -5467,7 +5471,7 @@ async fn memory_query_uses_rag_evidence_without_tantivy_prefetch_duplication() {
     let requests = requests.lock().unwrap();
     let system = requests[0].system.as_ref().unwrap();
     assert!(system.contains("## Retrieved RAG Evidence"));
-    assert!(system.contains("[durable_memory]"));
+    assert!(system.contains("[system:memory:durable_memory]"));
     assert!(system.contains("We use Postgres for production."));
     assert!(!system.contains("## Retrieved memory"));
 }
