@@ -8,6 +8,13 @@ a schedule-specific no-tool retry guard for mutating recurring-job requests,
 and a shared one-retry budget for generic malformed-tool and schedule-specific
 retry paths.
 
+v0.15.1 adds a planning note: local-model tool reliability is not only about
+malformed tool-call syntax. When router posture says a tool is required for a
+safe answer, a prose response that omits the required tool call can also be a
+retryable tool-use failure. The motivating case is current-information
+questions where Gemma4 says it cannot browse instead of calling the available
+`web_search` tool.
+
 ## Context
 
 Through v0.14, every Allbert provider returns plain text. The kernel system prompt instructs the model to emit `<tool_call>{"name":"<tool>","input":{...}}</tool_call>` and the tool-call parser now lives in the split kernel layout at [`allbert-kernel-core/src/tool_call_parser.rs`](../../crates/allbert-kernel-core/src/tool_call_parser.rs) with service re-exports in [`allbert-kernel-services/src/tool_call_parser.rs`](../../crates/allbert-kernel-services/src/tool_call_parser.rs).
@@ -121,6 +128,18 @@ bounded, redacted trace provenance: parse error, whether flat normalization was
 attempted, whether the scheduling retry was attempted, and which retry path was
 taken. Raw malformed payloads do not appear in ordinary user output unless
 trace capture and redaction settings already permit them.
+
+v0.15.1 may add the same bounded-retry pattern for missing required tool calls
+when that requirement comes from a validated structured turn plan rather than
+lexical guesswork. For example, if the router plans a read-only `tool_first`
+turn requiring `web_search`, the tool is visible in the active tool catalog, and
+the model replies in prose that it cannot browse without making a tool call, the
+kernel may retry once with direct `web_search` tool-call guidance. This is not a
+general "force tools" mode: if policy hides the tool, if the tool fails, if the
+router plan does not require the tool, or if the requested tool/capability is
+unknown, the runtime should not invent a search. Missing required-tool retries
+share the same bounded, cost-logged posture as the existing malformed-tool and
+schedule-specific retries.
 
 ### Provider seam
 

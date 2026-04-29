@@ -561,6 +561,7 @@ Then type:
 ```text
 /model ollama gemma4
 say hello
+web search for today's top news
 hello what's today's top news?
 ```
 
@@ -588,11 +589,12 @@ What to verify:
 - Local Ollama turns require a running Ollama service and a pulled chat model.
   Allbert should surface provider errors clearly if Ollama is stopped or the
   model is missing.
-- The current-info smoke may call `web_search`. With web access available it
-  should answer from current search results. Without web access, it should
-  surface a clear web/network/policy error. It should not fail because
-  `web_search` is blocked by an unrelated active memory skill from earlier
-  tests.
+- The explicit web-search smoke and the current-info smoke should call
+  `web_search` when that tool is available; each transcript should include
+  `[activity] calling tool web_search`. With web access available they should
+  answer from current search results. Without web access, they should surface a
+  clear web/network/policy error. A no-tool prose apology such as "I cannot
+  browse" is a failure, distinct from a real web/network/policy error.
 - If a tool is denied unexpectedly, run `/telemetry` in the REPL before
   continuing. After ordinary auto-routed memory turns, active skills should
   return to `(none)` unless the operator explicitly activated a session skill.

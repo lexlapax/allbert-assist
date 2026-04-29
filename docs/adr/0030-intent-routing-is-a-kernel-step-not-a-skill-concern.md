@@ -12,6 +12,17 @@ Status: Accepted
 > legacy rule classification remains only behind `intent_classifier.rule_only =
 > true`. When `intent_classifier.enabled = false`, routing stays disabled and no
 > router action draft is produced.
+>
+> **v0.15.1 amendment**: the router may grow from broad intent classification
+> into a bounded structured turn plan. The plan is non-mutating runtime guidance
+> distinct from terminal action drafts: it can say the turn should answer
+> directly, clarify, retrieve evidence, or call an available tool first. A web
+> search request is the motivating acceptance case, but the design is capability
+> routing rather than a one-off current-info flag. This remains kernel-owned,
+> trace/cost-attributed, schema-bound, and policy-aware. It does not expand
+> terminal router mutations beyond the existing schedule and explicit-memory
+> action drafts, and it does not permit tools to bypass active-skill or security
+> policy.
 
 ## Context
 
@@ -58,6 +69,39 @@ kernel-owned-routing decision:
 - Router failure, low confidence, malformed JSON, or missing fields fails
   closed: no mutation occurs.
 
+### v0.15.1 structured turn-plan amendment
+
+v0.15.1 recognizes that broad intent alone is not enough for local-model tool
+reliability. A prompt can be ordinary `task` or `chat` while still requiring a
+specific capability before a truthful answer: fresh web evidence, local memory,
+RAG context, a file read, a clarification, or a job/status surface. That is not
+a terminal router action and should not be encoded as one.
+
+- The router may add a bounded structured turn plan to `RouteDecision` for
+  non-mutating runtime guidance. Useful fields include an execution path,
+  required capabilities, preferred or required tools, an evidence policy, and a
+  mutation-risk classification.
+- The plan may bias prompt assembly, preferred tool ordering, deterministic
+  policy messaging, and missing-tool-call retry eligibility. It must not execute
+  a tool by itself.
+- The plan remains observable through existing intent, trace, and cost surfaces.
+  It is not hidden inside a skill prompt.
+- Active-skill allowlists and security policy still decide whether a tool is
+  actually available. If the plan requires `web_search` but policy hides it, the
+  runtime reports policy reality instead of encouraging a bypass.
+- Explicit operator tool requests and implicit evidence needs both fit this
+  structure. `web search for rust shell library` should become a read-only
+  `tool_first` plan requiring the `clear_web` capability and `web_search` tool.
+  `what's today's top news?` should reach the same plan through freshness and
+  public-world cues.
+- Router-provided tool names and capabilities are validated against the kernel's
+  bounded registry. Unknown capabilities, unknown tools, and tools not visible
+  under active policy fail closed to ordinary answer/clarification behavior or a
+  deterministic policy message, depending on the user request.
+- Fresh/current-info routing is separate from ADR 0053 web learning. Searching
+  to answer a fresh question does not stage or remember results unless the user
+  explicitly asks to remember them.
+
 ## Consequences
 
 **Positive**
@@ -80,3 +124,4 @@ kernel-owned-routing decision:
 - [ADR 0029](0029-agents-are-first-class-runtime-participants.md)
 - [docs/plans/v0.03-agent-harness.md](../plans/v0.03-agent-harness.md)
 - [docs/plans/v0.14.3-operator-reliability.md](../plans/v0.14.3-operator-reliability.md)
+- [docs/plans/v0.15.1-feature-test-followups.md](../plans/v0.15.1-feature-test-followups.md)
