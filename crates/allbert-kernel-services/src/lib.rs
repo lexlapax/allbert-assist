@@ -2604,6 +2604,13 @@ impl Kernel {
                 None => (default_intent(user_input), None),
             }
         };
+        let decision = decision.or_else(|| {
+            RouteDecision::lexical_turn_plan(
+                intent.clone(),
+                user_input,
+                "lexical structured turn-plan fallback",
+            )
+        });
 
         let mut after_ctx = HookCtx::after_intent(
             &state.session_id,

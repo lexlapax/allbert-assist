@@ -407,6 +407,32 @@ impl RouteDecision {
         self.tool_query_hint = Some(query_hint);
     }
 
+    pub fn lexical_turn_plan(intent: Intent, user_input: &str, reason: &str) -> Option<Self> {
+        let query_hint = clear_web_query_hint(user_input)?;
+        Some(Self {
+            intent,
+            action: RouteAction::None,
+            confidence: RouteConfidence::High,
+            execution_path: RouteExecutionPath::ToolFirst,
+            required_capabilities: vec![RouteCapability::ClearWeb],
+            tool_strategy: RouteToolStrategy::RequireOne,
+            preferred_tools: vec!["web_search".into()],
+            required_tools: vec!["web_search".into()],
+            evidence_policy: RouteEvidencePolicy::RequireFreshExternal,
+            mutation_risk: RouteMutationRisk::ReadOnly,
+            tool_query_hint: Some(query_hint),
+            needs_clarification: false,
+            clarifying_question: None,
+            job_name: None,
+            job_description: None,
+            job_schedule: None,
+            job_prompt: None,
+            memory_summary: None,
+            memory_content: None,
+            reason: truncate_to_bytes(reason.trim(), 512),
+        })
+    }
+
     fn normalize_strings(&mut self) {
         self.clarifying_question = normalize_optional_string(self.clarifying_question.take(), 512);
         self.job_name = normalize_optional_string(self.job_name.take(), 128);

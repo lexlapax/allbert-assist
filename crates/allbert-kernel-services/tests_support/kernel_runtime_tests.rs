@@ -4601,6 +4601,72 @@ async fn structured_turn_plan_retries_missing_required_web_search_call() {
 }
 
 #[tokio::test]
+async fn lexical_turn_plan_fallback_requires_web_search_when_router_has_no_decision() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let mut config = Config::default_template();
+    config.intent_classifier.rule_only = true;
+    config
+        .security
+        .web
+        .deny_hosts
+        .push("html.duckduckgo.com".into());
+
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::clone(&events)),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            Arc::clone(&requests),
+            vec![
+                CompletionResponse {
+                    text: "I cannot use web_search in this session.".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: r#"<tool_call>{"name":"web_search","input":{"query":"today's top news"}}</tool_call>"#.into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "The search was blocked by policy.".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("what's today's top news? use web search")
+        .await
+        .expect("turn should complete");
+
+    let recorded_requests = requests.lock().unwrap();
+    assert_eq!(
+        recorded_requests.len(),
+        3,
+        "rule-only mode should skip router but still retry missing required web_search"
+    );
+    let first_model_system = recorded_requests[0].system.as_deref().unwrap_or_default();
+    assert!(first_model_system.contains("Turn plan from router"));
+    assert!(first_model_system.contains("required available tool(s): web_search"));
+    let retry_system = recorded_requests[1].system.as_deref().unwrap_or_default();
+    assert!(retry_system.contains("validated turn plan requires a tool call"));
+    assert!(events.lock().unwrap().iter().any(|event| matches!(
+        event,
+        KernelEvent::ToolCall { name, .. } if name == "web_search"
+    )));
+}
+
+#[tokio::test]
 async fn structured_turn_plan_fails_closed_when_required_tool_retry_still_omits_call() {
     let temp = TempRoot::new();
     let paths = temp.paths();

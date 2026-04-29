@@ -553,6 +553,7 @@ Local live Ollama:
 
 ```bash
 ollama run gemma4
+run daemon restart
 run repl --classic
 ```
 
@@ -598,6 +599,8 @@ What to verify:
 - If a tool is denied unexpectedly, run `/telemetry` in the REPL before
   continuing. After ordinary auto-routed memory turns, active skills should
   return to `(none)` unless the operator explicitly activated a session skill.
+  If the daemon has been running across a local source patch, restart it before
+  retesting so the REPL is attached to the rebuilt runtime.
 - Hosted turns use the configured `api_key_env`; API keys should not appear in
   traces, telemetry, activity, or errors.
 - Session-local `/model ...` changes affect the attached session only. Persistent
