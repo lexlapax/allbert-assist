@@ -3967,7 +3967,7 @@ async fn contributed_agent_registry_can_shape_spawned_subagent_policy() {
             .last()
             .unwrap()
             .content
-            .contains("not permitted by active skill"),
+            .contains("process_exec is blocked by the current tool allowlist"),
         "contributed agent allowed-tools should fence spawned sub-agent tools"
     );
 }
@@ -4269,7 +4269,10 @@ async fn memory_routing_auto_activates_memory_curator_on_memory_query() {
         .run_turn("what do you remember about Postgres?")
         .await
         .expect("turn should pass");
-    assert_eq!(kernel.active_skills()[0].name, "memory-curator");
+    assert!(
+        kernel.active_skills().is_empty(),
+        "auto-routed memory skill should be cleared after the turn"
+    );
     let request = requests.lock().unwrap();
     let system = request[0].system.as_deref().unwrap_or_default();
     assert!(system.contains("### Skill: memory-curator"));
@@ -4305,10 +4308,143 @@ async fn memory_routing_auto_activates_memory_curator_on_configured_chat_cue() {
         .run_turn("hello there")
         .await
         .expect("turn should pass");
+    assert!(
+        kernel.active_skills().is_empty(),
+        "configured cue activation should be current-turn scoped"
+    );
+    let request = requests.lock().unwrap();
+    let system = request[0].system.as_deref().unwrap_or_default();
+    assert!(system.contains("### Skill: memory-curator"));
+}
+
+#[tokio::test]
+async fn memory_routing_preserves_preexisting_session_skill() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![CompletionResponse {
+                text: "I can help with memory.".into(),
+                usage: Usage::default(),
+                tool_calls: Vec::new(),
+            }],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+    kernel
+        .activate_session_skill("memory-curator", None)
+        .expect("memory-curator should activate");
+
+    kernel
+        .run_turn("what do you remember about Postgres?")
+        .await
+        .expect("turn should pass");
+
+    assert_eq!(kernel.active_skills().len(), 1);
     assert_eq!(kernel.active_skills()[0].name, "memory-curator");
     let request = requests.lock().unwrap();
     let system = request[0].system.as_deref().unwrap_or_default();
     assert!(system.contains("### Skill: memory-curator"));
+}
+
+#[tokio::test]
+async fn memory_routing_clears_auto_activation_after_error() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let mut kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::new(
+            "anthropic",
+            Vec::new(),
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    let err = kernel
+        .run_turn("what do you remember about Postgres?")
+        .await
+        .expect_err("missing scripted response should fail the turn");
+
+    assert!(err.to_string().contains("no scripted response left"));
+    assert!(
+        kernel.active_skills().is_empty(),
+        "auto-routed memory skill should be cleared even when the turn errors"
+    );
+}
+
+#[tokio::test]
+async fn memory_routing_does_not_fence_followup_current_info_turn() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            requests.clone(),
+            vec![
+                CompletionResponse {
+                    text: "I can help with memory.".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "I would search for current news if needed.".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    kernel
+        .run_turn("what do you remember about Postgres?")
+        .await
+        .expect("memory turn should pass");
+    kernel
+        .run_turn("hello what's today's top news?")
+        .await
+        .expect("current-info turn should pass");
+
+    let recorded_requests = requests.lock().unwrap();
+    let current_info_request = &recorded_requests[1];
+    let system = current_info_request.system.as_deref().unwrap_or_default();
+    assert!(
+        system.contains("- web_search:"),
+        "follow-up current-info turn should still advertise web_search"
+    );
+    assert!(
+        !system.contains("### Skill: memory-curator"),
+        "follow-up current-info turn should not retain the memory-curator body"
+    );
+    assert!(
+        current_info_request
+            .tools
+            .iter()
+            .any(|tool| tool.name == "web_search"),
+        "follow-up current-info turn should still declare web_search"
+    );
+    assert!(
+        kernel.active_skills().is_empty(),
+        "auto-routed skill should not persist after follow-up turn"
+    );
 }
 
 #[tokio::test]
@@ -4554,6 +4690,7 @@ async fn active_skill_fence_blocks_tools_outside_allowed_set() {
     );
 
     let events = Arc::new(Mutex::new(Vec::new()));
+    let requests = Arc::new(Mutex::new(Vec::new()));
     let mut kernel = Kernel::boot_with_parts(
             Config::default_template(),
             test_adapter_with(
@@ -4562,8 +4699,9 @@ async fn active_skill_fence_blocks_tools_outside_allowed_set() {
                 Arc::new(QueueInput::new(vec![InputResponse::Submitted("hi".into())])),
             ),
             paths,
-            Arc::new(TestFactory::new(
+            Arc::new(TestFactory::with_requests(
                 "anthropic",
+                requests.clone(),
                 vec![
                     CompletionResponse {
                         text: "<tool_call>{\"name\":\"invoke_skill\",\"input\":{\"name\":\"writer-only\"}}</tool_call>".into(),
@@ -4606,8 +4744,29 @@ async fn active_skill_fence_blocks_tools_outside_allowed_set() {
     assert!(recorded.iter().any(|event| matches!(
         event,
         KernelEvent::ToolResult { name, ok, content }
-            if name == "process_exec" && !*ok && content.contains("not permitted by active skill")
+            if name == "process_exec" && !*ok && content.contains("process_exec is blocked by active skill policy for active skill(s): writer-only")
     )));
+
+    let recorded_requests = requests.lock().unwrap();
+    let fenced_request = &recorded_requests[1];
+    assert!(
+        !fenced_request
+            .tools
+            .iter()
+            .any(|tool| tool.name == "web_search" || tool.name == "process_exec"),
+        "active skill fence should hide tools outside the allowed set"
+    );
+    assert!(
+        fenced_request
+            .tools
+            .iter()
+            .any(|tool| tool.name == "request_input" || tool.name == "write_file"),
+        "active skill fence should keep allowed and always-available tools visible"
+    );
+    let system = fenced_request.system.as_deref().unwrap_or_default();
+    assert!(!system.contains("- web_search:"));
+    assert!(!system.contains("- process_exec:"));
+    assert!(system.contains("- write_file:"));
 }
 
 #[tokio::test]
@@ -6600,12 +6759,14 @@ fn seed_completed_setup(paths: &AllbertPaths, config: &Config) {
 async fn run_tool_via_kernel(kernel: &mut Kernel, invocation: ToolInvocation) -> ToolOutput {
     let placeholder = AgentState::new(kernel.state.session_id.clone());
     let mut state = std::mem::replace(&mut kernel.state, placeholder);
+    let (active_allowed_tools, active_skill_names) = kernel.active_tool_policy_for_state(&state);
     let mut tool_hook_ctx = HookCtx::before_tool(
         &state.session_id,
         state.agent_name(),
         None,
         invocation.clone(),
-        kernel.skills.allowed_tool_union(&state.active_skills),
+        active_allowed_tools,
+        active_skill_names,
     );
     let output = match kernel
         .hooks

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -121,11 +121,23 @@ impl ToolRegistry {
     }
 
     pub fn prompt_catalog(&self) -> String {
+        self.prompt_catalog_for_policy(None)
+    }
+
+    pub fn prompt_catalog_for_policy(
+        &self,
+        active_tool_policy: Option<&HashSet<String>>,
+    ) -> String {
         let mut entries = self.by_name.values().collect::<Vec<_>>();
         entries.sort_by_key(|tool| tool.name());
 
         let mut catalog = String::new();
         for tool in entries {
+            if let Some(allowed) = active_tool_policy {
+                if !tool_allowed_by_active_tool_policy(tool.name(), allowed) {
+                    continue;
+                }
+            }
             catalog.push_str("- ");
             catalog.push_str(tool.name());
             catalog.push_str(": ");
@@ -138,10 +150,22 @@ impl ToolRegistry {
     }
 
     pub fn tool_declarations(&self) -> Vec<ToolDeclaration> {
+        self.tool_declarations_for_policy(None)
+    }
+
+    pub fn tool_declarations_for_policy(
+        &self,
+        active_tool_policy: Option<&HashSet<String>>,
+    ) -> Vec<ToolDeclaration> {
         let mut entries = self.by_name.values().collect::<Vec<_>>();
         entries.sort_by_key(|tool| tool.name());
         entries
             .into_iter()
+            .filter(|tool| {
+                active_tool_policy
+                    .map(|allowed| tool_allowed_by_active_tool_policy(tool.name(), allowed))
+                    .unwrap_or(true)
+            })
             .map(|tool| ToolDeclaration {
                 name: tool.name().to_string(),
                 description: tool.description().to_string(),
@@ -165,6 +189,18 @@ impl ToolRegistry {
             .ok_or_else(|| ToolError::NotFound(invocation.name.clone()))?;
         tool.call(invocation.input, ctx).await
     }
+}
+
+pub fn tool_allowed_by_active_tool_policy(tool_name: &str, allowed: &HashSet<String>) -> bool {
+    matches!(
+        tool_name,
+        "request_input"
+            | "invoke_skill"
+            | "list_skills"
+            | "read_memory"
+            | "read_reference"
+            | "run_skill_script"
+    ) || allowed.contains(tool_name)
 }
 
 #[derive(Debug, Clone, Deserialize)]

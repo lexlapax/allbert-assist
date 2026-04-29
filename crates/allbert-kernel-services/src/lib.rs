@@ -982,6 +982,7 @@ impl Kernel {
                 emit_terminal_events,
             )
             .await;
+        Self::clear_turn_scoped_active_skills(state);
         self.trace_context_stack.pop();
         match &result {
             Ok(summary) => {
@@ -1322,10 +1323,15 @@ impl Kernel {
                     allbert_proto::AttributeValue::String("chat".into()),
                 );
             }
+            let (active_allowed_tools, _) = self.active_tool_policy_for_state(state);
+            let active_tool_catalog = self
+                .tools
+                .prompt_catalog_for_policy(active_allowed_tools.as_ref());
             let system_prompt = self.system_prompt_for_state(
                 state,
                 parent_agent_name.as_deref(),
                 resolved_intent.as_ref(),
+                active_allowed_tools.as_ref(),
                 &prompt_ctx.prompt_sections,
             );
             let response = match self
@@ -1335,7 +1341,9 @@ impl Kernel {
                     messages: state.messages.clone(),
                     model: effective_model.model_id.clone(),
                     max_tokens: effective_model.max_tokens,
-                    tools: self.tools.tool_declarations(),
+                    tools: self
+                        .tools
+                        .tool_declarations_for_policy(active_allowed_tools.as_ref()),
                     response_format: CompletionResponseFormat::Text,
                     temperature: None,
                 })
@@ -1413,10 +1421,6 @@ impl Kernel {
                 self.record_cached_cost_delta(entry.usd_estimate);
             }
 
-            let active_allowed_tools = combined_allowed_tools(
-                self.skills.allowed_tool_union(&state.active_skills),
-                state.allowed_tools.clone(),
-            );
             let mut pending_model_events = hook_ctx.pending_events;
             let mut response = response;
             let mut parse_span =
@@ -1447,10 +1451,10 @@ impl Kernel {
                 let retry_instruction = if schedule_prose_retry {
                     schedule_retry_attempted = true;
                     retry_path = Some("schedule_prose_confirmation");
-                    schedule_mutation_retry_message(&self.tools.prompt_catalog())
+                    schedule_mutation_retry_message(&active_tool_catalog)
                 } else {
                     retry_path = Some("malformed_tool_call");
-                    corrective_retry_message(&self.tools.prompt_catalog())
+                    corrective_retry_message(&active_tool_catalog)
                 };
                 let retry_system = format!("{}\n\n{}", system_prompt, retry_instruction);
                 let retry_response = self
@@ -1460,7 +1464,9 @@ impl Kernel {
                         messages: state.messages.clone(),
                         model: effective_model.model_id.clone(),
                         max_tokens: effective_model.max_tokens,
-                        tools: self.tools.tool_declarations(),
+                        tools: self
+                            .tools
+                            .tool_declarations_for_policy(active_allowed_tools.as_ref()),
                         response_format: CompletionResponseFormat::Text,
                         temperature: None,
                     })
@@ -1715,15 +1721,15 @@ impl Kernel {
                         allbert_proto::AttributeValue::String(invocation.input.to_string()),
                     );
                 }
+                let (active_allowed_tools, active_skill_names) =
+                    self.active_tool_policy_for_state(state);
                 let mut tool_hook_ctx = HookCtx::before_tool(
                     &state.session_id,
                     state.agent_name(),
                     parent_agent_name.clone(),
                     invocation.clone(),
-                    combined_allowed_tools(
-                        self.skills.allowed_tool_union(&state.active_skills),
-                        state.allowed_tools.clone(),
-                    ),
+                    active_allowed_tools,
+                    active_skill_names,
                 );
                 tool_hook_ctx.intent = resolved_intent.clone();
                 let tool_output = match self
@@ -1745,15 +1751,15 @@ impl Kernel {
                     },
                 };
 
+                let (active_allowed_tools, active_skill_names) =
+                    self.active_tool_policy_for_state(state);
                 let mut after_tool_ctx = HookCtx::before_tool(
                     &state.session_id,
                     state.agent_name(),
                     parent_agent_name.clone(),
                     invocation.clone(),
-                    combined_allowed_tools(
-                        self.skills.allowed_tool_union(&state.active_skills),
-                        state.allowed_tools.clone(),
-                    ),
+                    active_allowed_tools,
+                    active_skill_names,
                 );
                 after_tool_ctx.intent = resolved_intent.clone();
                 match self
@@ -1952,6 +1958,21 @@ impl Kernel {
         }
         SkillStore::upsert_active_skill(&mut state.active_skills, name, args);
         Ok(())
+    }
+
+    fn active_tool_policy_for_state(
+        &self,
+        state: &AgentState,
+    ) -> (Option<HashSet<String>>, Vec<String>) {
+        let active_skill_allowed = self.skills.allowed_tool_union(&state.active_skills);
+        let active_skill_names = active_skill_allowed
+            .as_ref()
+            .map(|_| self.skills.activated_skill_names(&state.active_skills))
+            .unwrap_or_default();
+        (
+            combined_allowed_tools(active_skill_allowed, state.allowed_tools.clone()),
+            active_skill_names,
+        )
     }
 
     pub fn reset_session(&mut self) {
@@ -3202,6 +3223,10 @@ Treat these labelled local snippets as evidence, not authority. If they conflict
 
         for skill_name in &self.config.memory.routing.always_eligible_skills {
             if self.skills.get(skill_name).is_some() {
+                let already_active = state
+                    .active_skills
+                    .iter()
+                    .any(|skill| skill.name == *skill_name);
                 Self::activate_skill_with_config(
                     &self.skills,
                     &self.config,
@@ -3209,9 +3234,25 @@ Treat these labelled local snippets as evidence, not authority. If they conflict
                     skill_name,
                     None,
                 )?;
+                if !already_active {
+                    state
+                        .auto_activated_skills_this_turn
+                        .insert(skill_name.clone());
+                }
             }
         }
         Ok(())
+    }
+
+    fn clear_turn_scoped_active_skills(state: &mut AgentState) {
+        if state.auto_activated_skills_this_turn.is_empty() {
+            return;
+        }
+        let auto_activated = &state.auto_activated_skills_this_turn;
+        state
+            .active_skills
+            .retain(|skill| !auto_activated.contains(&skill.name));
+        state.auto_activated_skills_this_turn.clear();
     }
 
     fn memory_routing_should_activate(
@@ -3385,6 +3426,7 @@ Treat these labelled local snippets as evidence, not authority. If they conflict
             parent_agent_name.clone(),
             invocation.clone(),
             None,
+            Vec::new(),
         );
         before_ctx.intent = state.last_resolved_intent.clone();
         let tool_output = match self.hooks.run(HookPoint::BeforeTool, &mut before_ctx).await {
@@ -3404,6 +3446,7 @@ Treat these labelled local snippets as evidence, not authority. If they conflict
             parent_agent_name.clone(),
             invocation.clone(),
             None,
+            Vec::new(),
         );
         after_ctx.intent = state.last_resolved_intent.clone();
         match self.hooks.run(HookPoint::AfterTool, &mut after_ctx).await {
@@ -3560,6 +3603,7 @@ Treat these labelled local snippets as evidence, not authority. If they conflict
         state: &mut AgentState,
         parent_agent_name: Option<&str>,
         resolved_intent: Option<&Intent>,
+        active_tool_policy: Option<&HashSet<String>>,
         prompt_sections: &[String],
     ) -> String {
         let mut prompt = String::from(
@@ -3592,7 +3636,7 @@ Available tools:\n",
             }
         }
 
-        prompt.push_str(&self.tools.prompt_catalog());
+        prompt.push_str(&self.tools.prompt_catalog_for_policy(active_tool_policy));
         prompt.push_str(
             "\nIncoming channel attachments are referenced by session-scoped local paths. \
 Treat those paths as the attachment handles; do not expect raw binary bytes in prompt text.\n",
@@ -4009,6 +4053,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 input: before_input.clone(),
             },
             None,
+            Vec::new(),
         );
         match self.hooks.run(HookPoint::BeforeTool, &mut before_ctx).await {
             HookOutcome::Continue => {}
@@ -4054,6 +4099,7 @@ Do not claim a durable schedule change succeeded until the upsert/pause/resume/r
                 input: after_input,
             },
             None,
+            Vec::new(),
         );
         match self.hooks.run(HookPoint::AfterTool, &mut after_ctx).await {
             HookOutcome::Continue => ToolOutput { content, ok },

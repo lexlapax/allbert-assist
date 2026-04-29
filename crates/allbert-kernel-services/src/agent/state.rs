@@ -57,6 +57,7 @@ pub struct AgentState {
     pub last_agent_stack: Vec<String>,
     pub surfaced_skills_this_turn: HashSet<String>,
     pub activated_skills_this_turn: HashSet<String>,
+    pub auto_activated_skills_this_turn: HashSet<String>,
     pub referenced_resources_this_turn: HashSet<String>,
     pub reference_cache_this_turn: HashMap<String, String>,
     pub ephemeral_memory: VecDeque<String>,
@@ -97,6 +98,7 @@ impl AgentState {
             last_agent_stack: vec![root_name],
             surfaced_skills_this_turn: HashSet::new(),
             activated_skills_this_turn: HashSet::new(),
+            auto_activated_skills_this_turn: HashSet::new(),
             referenced_resources_this_turn: HashSet::new(),
             reference_cache_this_turn: HashMap::new(),
             ephemeral_memory: VecDeque::new(),
@@ -130,6 +132,7 @@ impl AgentState {
         self.last_agent_stack = vec![self.root_agent.name.clone()];
         self.surfaced_skills_this_turn.clear();
         self.activated_skills_this_turn.clear();
+        self.auto_activated_skills_this_turn.clear();
         self.referenced_resources_this_turn.clear();
         self.reference_cache_this_turn.clear();
         self.ephemeral_memory.clear();
@@ -157,6 +160,7 @@ impl AgentState {
         self.last_memory_context_bytes = 0;
         self.surfaced_skills_this_turn.clear();
         self.activated_skills_this_turn.clear();
+        self.auto_activated_skills_this_turn.clear();
         self.referenced_resources_this_turn.clear();
         self.reference_cache_this_turn.clear();
         self.turn_prefetch_hits.clear();

@@ -12,7 +12,7 @@ use crate::config::{SecurityConfig, WebSecurityConfig};
 use crate::hooks::{Hook, HookCtx, HookOutcome};
 use crate::memory::{ReadMemoryInput, WriteMemoryInput, WriteMemoryMode};
 use crate::skills::CreateSkillInput;
-use crate::tools::{ProcessExecInput, WriteFileInput};
+use crate::tools::{tool_allowed_by_active_tool_policy, ProcessExecInput, WriteFileInput};
 use crate::AllbertPaths;
 
 #[async_trait]
@@ -276,9 +276,21 @@ impl Hook for SecurityHook {
 
         if let Some(allowed) = &ctx.active_allowed_tools {
             if !is_skill_script_exec
-                && !tool_allowed_by_active_skills(invocation.name.as_str(), allowed)
+                && !tool_allowed_by_active_tool_policy(invocation.name.as_str(), allowed)
             {
-                return HookOutcome::Abort("tool not permitted by active skill(s)".into());
+                let message = if ctx.active_skill_names.is_empty() {
+                    format!(
+                        "{} is blocked by the current tool allowlist",
+                        invocation.name
+                    )
+                } else {
+                    format!(
+                        "{} is blocked by active skill policy for active skill(s): {}",
+                        invocation.name,
+                        ctx.active_skill_names.join(", ")
+                    )
+                };
+                return HookOutcome::Abort(message);
             }
         }
 
@@ -488,18 +500,6 @@ impl Hook for SecurityHook {
             _ => HookOutcome::Continue,
         }
     }
-}
-
-fn tool_allowed_by_active_skills(tool_name: &str, allowed: &HashSet<String>) -> bool {
-    matches!(
-        tool_name,
-        "request_input"
-            | "invoke_skill"
-            | "list_skills"
-            | "read_memory"
-            | "read_reference"
-            | "run_skill_script"
-    ) || allowed.contains(tool_name)
 }
 
 fn host_matches(host: &str, patterns: &[String]) -> bool {
