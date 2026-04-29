@@ -1078,6 +1078,14 @@ async fn intent_router_uses_schema_request_and_records_costs() {
                         "intent": "chat",
                         "action": "none",
                         "confidence": "high",
+                        "execution_path": "answer_direct",
+                        "required_capabilities": [],
+                        "tool_strategy": "none",
+                        "preferred_tools": [],
+                        "required_tools": [],
+                        "evidence_policy": "none",
+                        "mutation_risk": "read_only",
+                        "tool_query_hint": null,
                         "needs_clarification": false,
                         "clarifying_question": null,
                         "job_name": null,
@@ -1231,6 +1239,14 @@ async fn router_memory_action_stages_without_full_assistant_call() {
                     "intent": "memory_query",
                     "action": "memory_stage_explicit",
                     "confidence": "high",
+                    "execution_path": "terminal_action",
+                    "required_capabilities": [],
+                    "tool_strategy": "none",
+                    "preferred_tools": [],
+                    "required_tools": [],
+                    "evidence_policy": "none",
+                    "mutation_risk": "profile_write",
+                    "tool_query_hint": null,
                     "needs_clarification": false,
                     "clarifying_question": null,
                     "job_name": null,
@@ -1298,6 +1314,14 @@ async fn explicit_memory_fallback_stages_when_router_declines_action() {
                     "intent": "memory_query",
                     "action": "none",
                     "confidence": "low",
+                    "execution_path": "answer_direct",
+                    "required_capabilities": [],
+                    "tool_strategy": "none",
+                    "preferred_tools": [],
+                    "required_tools": [],
+                    "evidence_policy": "none",
+                    "mutation_risk": "read_only",
+                    "tool_query_hint": null,
                     "needs_clarification": false,
                     "clarifying_question": null,
                     "job_name": null,
@@ -1372,6 +1396,14 @@ async fn router_explicit_memory_flow_remains_review_first() {
                         "intent": "memory_query",
                         "action": "memory_stage_explicit",
                         "confidence": "high",
+                        "execution_path": "terminal_action",
+                        "required_capabilities": [],
+                        "tool_strategy": "none",
+                        "preferred_tools": [],
+                        "required_tools": [],
+                        "evidence_policy": "none",
+                        "mutation_risk": "profile_write",
+                        "tool_query_hint": null,
                         "needs_clarification": false,
                         "clarifying_question": null,
                         "job_name": null,
@@ -4389,8 +4421,14 @@ async fn memory_routing_does_not_fence_followup_current_info_turn() {
     let temp = TempRoot::new();
     let paths = temp.paths();
     let requests = Arc::new(Mutex::new(Vec::new()));
+    let mut config = Config::default_template();
+    config
+        .security
+        .web
+        .deny_hosts
+        .push("html.duckduckgo.com".into());
     let mut kernel = Kernel::boot_with_parts(
-        Config::default_template(),
+        config,
         test_adapter(Arc::new(Mutex::new(Vec::new()))),
         paths,
         Arc::new(TestFactory::with_requests(
@@ -4403,7 +4441,12 @@ async fn memory_routing_does_not_fence_followup_current_info_turn() {
                     tool_calls: Vec::new(),
                 },
                 CompletionResponse {
-                    text: "I would search for current news if needed.".into(),
+                    text: r#"<tool_call>{"name":"web_search","input":{"query":"today's top news"}}</tool_call>"#.into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "Search was unavailable under the configured web policy.".into(),
                     usage: Usage::default(),
                     tool_calls: Vec::new(),
                 },
@@ -4431,6 +4474,11 @@ async fn memory_routing_does_not_fence_followup_current_info_turn() {
         "follow-up current-info turn should still advertise web_search"
     );
     assert!(
+        system.contains("Turn plan from router")
+            && system.contains("required available tool(s): web_search"),
+        "follow-up current-info turn should carry web-search turn-plan guidance"
+    );
+    assert!(
         !system.contains("### Skill: memory-curator"),
         "follow-up current-info turn should not retain the memory-curator body"
     );
@@ -4445,6 +4493,189 @@ async fn memory_routing_does_not_fence_followup_current_info_turn() {
         kernel.active_skills().is_empty(),
         "auto-routed skill should not persist after follow-up turn"
     );
+}
+
+#[tokio::test]
+async fn structured_turn_plan_retries_missing_required_web_search_call() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let mut config = Config::default_template();
+    config
+        .security
+        .web
+        .deny_hosts
+        .push("html.duckduckgo.com".into());
+
+    let mut kernel = Kernel::boot_with_parts(
+        config,
+        test_adapter(Arc::clone(&events)),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            Arc::clone(&requests),
+            vec![
+                CompletionResponse {
+                    text: json!({
+                        "intent": "task",
+                        "action": "none",
+                        "confidence": "high",
+                        "execution_path": "answer_direct",
+                        "required_capabilities": [],
+                        "tool_strategy": "none",
+                        "preferred_tools": [],
+                        "required_tools": [],
+                        "evidence_policy": "none",
+                        "mutation_risk": "read_only",
+                        "tool_query_hint": null,
+                        "needs_clarification": false,
+                        "clarifying_question": null,
+                        "job_name": null,
+                        "job_description": null,
+                        "job_schedule": null,
+                        "job_prompt": null,
+                        "memory_summary": null,
+                        "memory_content": null,
+                        "reason": "Generic task; lexical turn-plan enrichment should recognize explicit web search."
+                    })
+                    .to_string(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "I cannot browse the web from this session.".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: r#"<tool_call>{"name":"web_search","input":{"query":"today's top news"}}</tool_call>"#.into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "The configured web policy denied the search, so I cannot provide fresh results.".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    let summary = kernel
+        .run_turn("web search for today's top news")
+        .await
+        .expect("turn should succeed");
+    assert_eq!(summary.stop_reason, None);
+
+    let recorded_requests = requests.lock().unwrap();
+    assert_eq!(
+        recorded_requests.len(),
+        4,
+        "router, first model, required-tool retry, and final answer"
+    );
+    let first_model_system = recorded_requests[1].system.as_deref().unwrap_or_default();
+    assert!(first_model_system.contains("Turn plan from router"));
+    assert!(first_model_system.contains("execution_path: tool_first"));
+    assert!(first_model_system.contains("required available tool(s): web_search"));
+    assert!(first_model_system.contains("tool_query_hint: today's top news"));
+    let retry_system = recorded_requests[2].system.as_deref().unwrap_or_default();
+    assert!(retry_system.contains("validated turn plan requires a tool call"));
+    assert!(retry_system.contains("web_search"));
+
+    let recorded_events = events.lock().unwrap();
+    assert!(recorded_events.iter().any(|event| matches!(
+        event,
+        KernelEvent::ToolCall { name, .. } if name == "web_search"
+    )));
+    assert!(recorded_events.iter().any(|event| matches!(
+        event,
+        KernelEvent::ToolResult { name, ok, content }
+            if name == "web_search"
+                && !*ok
+                && content.contains("host 'html.duckduckgo.com' is denied")
+    )));
+}
+
+#[tokio::test]
+async fn structured_turn_plan_fails_closed_when_required_tool_retry_still_omits_call() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let events = Arc::new(Mutex::new(Vec::new()));
+
+    let mut kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::clone(&events)),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            Arc::clone(&requests),
+            vec![
+                CompletionResponse {
+                    text: json!({
+                        "intent": "chat",
+                        "action": "none",
+                        "confidence": "high",
+                        "execution_path": "tool_first",
+                        "required_capabilities": ["clear_web"],
+                        "tool_strategy": "require_one",
+                        "preferred_tools": ["web_search"],
+                        "required_tools": ["web_search"],
+                        "evidence_policy": "require_fresh_external",
+                        "mutation_risk": "read_only",
+                        "tool_query_hint": "today's top news",
+                        "needs_clarification": false,
+                        "clarifying_question": null,
+                        "job_name": null,
+                        "job_description": null,
+                        "job_schedule": null,
+                        "job_prompt": null,
+                        "memory_summary": null,
+                        "memory_content": null,
+                        "reason": "Fresh public information needs web search."
+                    })
+                    .to_string(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "I cannot browse.".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "I still cannot browse.".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    let summary = kernel
+        .run_turn("what's today's top news?")
+        .await
+        .expect("turn should complete with safe failure");
+    assert_eq!(
+        summary.stop_reason.as_deref(),
+        Some("required_tool_retry_failed")
+    );
+    assert!(events.lock().unwrap().iter().any(|event| matches!(
+        event,
+        KernelEvent::AssistantText(text)
+            if text.contains("could not get the model to call the required tool")
+    )));
+    assert_eq!(requests.lock().unwrap().len(), 3);
+    assert!(events.lock().unwrap().iter().all(|event| {
+        !matches!(event, KernelEvent::ToolCall { name, .. } if name == "web_search")
+    }));
 }
 
 #[tokio::test]
@@ -5314,6 +5545,14 @@ async fn router_prompt_gets_tiny_lexical_rag_hint() {
                         "intent": "meta",
                         "action": "none",
                         "confidence": "high",
+                        "execution_path": "answer_direct",
+                        "required_capabilities": [],
+                        "tool_strategy": "none",
+                        "preferred_tools": [],
+                        "required_tools": [],
+                        "evidence_policy": "none",
+                        "mutation_risk": "read_only",
+                        "tool_query_hint": null,
                         "needs_clarification": false,
                         "clarifying_question": null,
                         "job_name": null,
@@ -5452,6 +5691,14 @@ async fn turn_pipeline_routes_before_rendering_post_router_rag_evidence() {
                         "intent": "meta",
                         "action": "none",
                         "confidence": "high",
+                        "execution_path": "answer_direct",
+                        "required_capabilities": [],
+                        "tool_strategy": "none",
+                        "preferred_tools": [],
+                        "required_tools": [],
+                        "evidence_policy": "none",
+                        "mutation_risk": "read_only",
+                        "tool_query_hint": null,
                         "needs_clarification": false,
                         "clarifying_question": null,
                         "job_name": null,
@@ -5536,6 +5783,14 @@ async fn terminal_router_memory_action_wins_before_post_router_rag_or_root_model
                     "intent": "memory_query",
                     "action": "memory_stage_explicit",
                     "confidence": "high",
+                    "execution_path": "terminal_action",
+                    "required_capabilities": [],
+                    "tool_strategy": "none",
+                    "preferred_tools": [],
+                    "required_tools": [],
+                    "evidence_policy": "none",
+                    "mutation_risk": "profile_write",
+                    "tool_query_hint": null,
                     "needs_clarification": false,
                     "clarifying_question": null,
                     "job_name": null,
@@ -5616,6 +5871,14 @@ async fn casual_chat_turn_skips_post_router_rag_context() {
                         "intent": "chat",
                         "action": "none",
                         "confidence": "high",
+                        "execution_path": "answer_direct",
+                        "required_capabilities": [],
+                        "tool_strategy": "none",
+                        "preferred_tools": [],
+                        "required_tools": [],
+                        "evidence_policy": "none",
+                        "mutation_risk": "read_only",
+                        "tool_query_hint": null,
                         "needs_clarification": false,
                         "clarifying_question": null,
                         "job_name": null,
@@ -6433,6 +6696,14 @@ fn synthetic_route_decision_response(req: &CompletionRequest) -> CompletionRespo
             "intent": intent.as_str(),
             "action": "none",
             "confidence": "low",
+            "execution_path": "answer_direct",
+            "required_capabilities": [],
+            "tool_strategy": "none",
+            "preferred_tools": [],
+            "required_tools": [],
+            "evidence_policy": "none",
+            "mutation_risk": "read_only",
+            "tool_query_hint": null,
             "needs_clarification": false,
             "clarifying_question": null,
             "job_name": null,
@@ -6533,7 +6804,29 @@ async fn schedule_prose_retry_uses_shared_single_retry_budget() {
             Arc::clone(&requests),
             vec![
                 scripted_response(
-                    r#"{"intent":"schedule","action":"schedule_upsert","confidence":"medium","needs_clarification":false,"clarifying_question":null,"job_name":"daily-review","job_description":"Daily review","job_schedule":"@daily at 07:00","job_prompt":"Run a concise daily review.","memory_summary":null,"memory_content":null,"reason":"The request appears to be a schedule mutation but needs main-turn help."}"#,
+                    &json!({
+                        "intent": "schedule",
+                        "action": "schedule_upsert",
+                        "confidence": "medium",
+                        "execution_path": "terminal_action",
+                        "required_capabilities": [],
+                        "tool_strategy": "none",
+                        "preferred_tools": [],
+                        "required_tools": [],
+                        "evidence_policy": "none",
+                        "mutation_risk": "external_effect",
+                        "tool_query_hint": null,
+                        "needs_clarification": false,
+                        "clarifying_question": null,
+                        "job_name": "daily-review",
+                        "job_description": "Daily review",
+                        "job_schedule": "@daily at 07:00",
+                        "job_prompt": "Run a concise daily review.",
+                        "memory_summary": null,
+                        "memory_content": null,
+                        "reason": "The request appears to be a schedule mutation but needs main-turn help."
+                    })
+                    .to_string(),
                 ),
                 scripted_response("I can set that up. Shall I proceed?"),
                 scripted_response("Yes, I can proceed after you confirm."),

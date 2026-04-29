@@ -63,7 +63,10 @@ pub use identity::{
     IdentityChannelBinding, IdentityConsistency, IdentityRecord, LEGACY_SENTINEL_IDENTITY,
     LOCAL_REPL_SENDER,
 };
-pub use intent::{Intent, RouteAction, RouteConfidence, RouteDecision, RouteDecisionError};
+pub use intent::{
+    Intent, RouteAction, RouteCapability, RouteConfidence, RouteDecision, RouteDecisionError,
+    RouteEvidencePolicy, RouteExecutionPath, RouteMutationRisk, RouteToolStrategy,
+};
 pub use job_manager::{JobManager, ListJobRunsInput, NamedJobInput, UpsertJobInput};
 pub use llm::{
     ChatAttachment, ChatAttachmentKind, ChatMessage, ChatRole, CompletionRequest,

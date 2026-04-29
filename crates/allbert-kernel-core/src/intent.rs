@@ -72,11 +72,129 @@ pub enum RouteConfidence {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RouteExecutionPath {
+    AnswerDirect,
+    Clarify,
+    ToolFirst,
+    TerminalAction,
+}
+
+impl RouteExecutionPath {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::AnswerDirect => "answer_direct",
+            Self::Clarify => "clarify",
+            Self::ToolFirst => "tool_first",
+            Self::TerminalAction => "terminal_action",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RouteCapability {
+    ClearWeb,
+    MemorySearch,
+    RagSearch,
+    LocalFiles,
+    Jobs,
+    Identity,
+    Inbox,
+    Profile,
+    UserInput,
+    Subagent,
+}
+
+impl RouteCapability {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::ClearWeb => "clear_web",
+            Self::MemorySearch => "memory_search",
+            Self::RagSearch => "rag_search",
+            Self::LocalFiles => "local_files",
+            Self::Jobs => "jobs",
+            Self::Identity => "identity",
+            Self::Inbox => "inbox",
+            Self::Profile => "profile",
+            Self::UserInput => "user_input",
+            Self::Subagent => "subagent",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RouteToolStrategy {
+    None,
+    Prefer,
+    RequireOne,
+    RequireAny,
+}
+
+impl RouteToolStrategy {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Prefer => "prefer",
+            Self::RequireOne => "require_one",
+            Self::RequireAny => "require_any",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RouteEvidencePolicy {
+    None,
+    PreferLocal,
+    RequireLocal,
+    RequireFreshExternal,
+}
+
+impl RouteEvidencePolicy {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::PreferLocal => "prefer_local",
+            Self::RequireLocal => "require_local",
+            Self::RequireFreshExternal => "require_fresh_external",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RouteMutationRisk {
+    ReadOnly,
+    ProfileWrite,
+    ExternalEffect,
+}
+
+impl RouteMutationRisk {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReadOnly => "read_only",
+            Self::ProfileWrite => "profile_write",
+            Self::ExternalEffect => "external_effect",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RouteDecision {
     pub intent: Intent,
     pub action: RouteAction,
     pub confidence: RouteConfidence,
+    pub execution_path: RouteExecutionPath,
+    pub required_capabilities: Vec<RouteCapability>,
+    pub tool_strategy: RouteToolStrategy,
+    pub preferred_tools: Vec<String>,
+    pub required_tools: Vec<String>,
+    pub evidence_policy: RouteEvidencePolicy,
+    pub mutation_risk: RouteMutationRisk,
+    pub tool_query_hint: Option<String>,
     pub needs_clarification: bool,
     pub clarifying_question: Option<String>,
     pub job_name: Option<String>,
@@ -113,10 +231,33 @@ impl std::fmt::Display for RouteDecisionError {
 
 impl std::error::Error for RouteDecisionError {}
 
-const ROUTE_DECISION_FIELDS: [&str; 12] = [
+const BASE_ROUTE_DECISION_FIELDS: [&str; 12] = [
     "intent",
     "action",
     "confidence",
+    "needs_clarification",
+    "clarifying_question",
+    "job_name",
+    "job_description",
+    "job_schedule",
+    "job_prompt",
+    "memory_summary",
+    "memory_content",
+    "reason",
+];
+
+const ROUTE_DECISION_FIELDS: [&str; 20] = [
+    "intent",
+    "action",
+    "confidence",
+    "execution_path",
+    "required_capabilities",
+    "tool_strategy",
+    "preferred_tools",
+    "required_tools",
+    "evidence_policy",
+    "mutation_risk",
+    "tool_query_hint",
     "needs_clarification",
     "clarifying_question",
     "job_name",
@@ -154,6 +295,49 @@ impl RouteDecision {
                     "type": "string",
                     "enum": ["low", "medium", "high"]
                 },
+                "execution_path": {
+                    "type": "string",
+                    "enum": ["answer_direct", "clarify", "tool_first", "terminal_action"]
+                },
+                "required_capabilities": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "clear_web",
+                            "memory_search",
+                            "rag_search",
+                            "local_files",
+                            "jobs",
+                            "identity",
+                            "inbox",
+                            "profile",
+                            "user_input",
+                            "subagent"
+                        ]
+                    }
+                },
+                "tool_strategy": {
+                    "type": "string",
+                    "enum": ["none", "prefer", "require_one", "require_any"]
+                },
+                "preferred_tools": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                },
+                "required_tools": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                },
+                "evidence_policy": {
+                    "type": "string",
+                    "enum": ["none", "prefer_local", "require_local", "require_fresh_external"]
+                },
+                "mutation_risk": {
+                    "type": "string",
+                    "enum": ["read_only", "profile_write", "external_effect"]
+                },
+                "tool_query_hint": { "type": ["string", "null"], "maxLength": 256 },
                 "needs_clarification": { "type": "boolean" },
                 "clarifying_question": { "type": ["string", "null"] },
                 "job_name": { "type": ["string", "null"] },
@@ -176,7 +360,10 @@ impl RouteDecision {
     pub fn from_value(value: Value) -> Result<Self, RouteDecisionError> {
         let object = value.as_object().ok_or(RouteDecisionError::NotObject)?;
         let expected = ROUTE_DECISION_FIELDS.into_iter().collect::<BTreeSet<_>>();
-        for field in expected.iter() {
+        let required = BASE_ROUTE_DECISION_FIELDS
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        for field in required.iter() {
             if !object.contains_key(*field) {
                 return Err(RouteDecisionError::MissingField((*field).into()));
             }
@@ -187,7 +374,9 @@ impl RouteDecision {
             }
         }
 
-        let mut decision: RouteDecision = serde_json::from_value(Value::Object(object.clone()))
+        let mut object = object.clone();
+        add_default_turn_plan_fields(&mut object);
+        let mut decision: RouteDecision = serde_json::from_value(Value::Object(object))
             .map_err(|err| RouteDecisionError::InvalidShape(err.to_string()))?;
         decision.normalize_strings();
         decision.validate()?;
@@ -201,6 +390,23 @@ impl RouteDecision {
             && self.action_requirements_met()
     }
 
+    pub fn apply_lexical_turn_plan(&mut self, user_input: &str) {
+        if self.action.is_action() || self.needs_clarification {
+            return;
+        }
+        let Some(query_hint) = clear_web_query_hint(user_input) else {
+            return;
+        };
+        self.execution_path = RouteExecutionPath::ToolFirst;
+        self.required_capabilities = vec![RouteCapability::ClearWeb];
+        self.tool_strategy = RouteToolStrategy::RequireOne;
+        self.preferred_tools = vec!["web_search".into()];
+        self.required_tools = vec!["web_search".into()];
+        self.evidence_policy = RouteEvidencePolicy::RequireFreshExternal;
+        self.mutation_risk = RouteMutationRisk::ReadOnly;
+        self.tool_query_hint = Some(query_hint);
+    }
+
     fn normalize_strings(&mut self) {
         self.clarifying_question = normalize_optional_string(self.clarifying_question.take(), 512);
         self.job_name = normalize_optional_string(self.job_name.take(), 128);
@@ -209,6 +415,9 @@ impl RouteDecision {
         self.job_prompt = normalize_optional_string(self.job_prompt.take(), 4096);
         self.memory_summary = normalize_optional_string(self.memory_summary.take(), 240);
         self.memory_content = normalize_optional_string(self.memory_content.take(), 16 * 1024);
+        self.preferred_tools = normalize_tool_names(std::mem::take(&mut self.preferred_tools));
+        self.required_tools = normalize_tool_names(std::mem::take(&mut self.required_tools));
+        self.tool_query_hint = normalize_optional_string(self.tool_query_hint.take(), 256);
         self.reason = truncate_to_bytes(self.reason.trim(), 512);
     }
 
@@ -227,6 +436,22 @@ impl RouteDecision {
         if self.reason.trim().is_empty() {
             return Err(RouteDecisionError::InvalidShape(
                 "reason must not be empty".into(),
+            ));
+        }
+        if self.tool_strategy == RouteToolStrategy::None
+            && (!self.required_tools.is_empty() || !self.preferred_tools.is_empty())
+        {
+            return Err(RouteDecisionError::InvalidShape(
+                "tool_strategy none cannot include tools".into(),
+            ));
+        }
+        if matches!(
+            self.tool_strategy,
+            RouteToolStrategy::RequireOne | RouteToolStrategy::RequireAny
+        ) && self.required_tools.is_empty()
+        {
+            return Err(RouteDecisionError::InvalidShape(
+                "required_tools must not be empty when tool_strategy requires tools".into(),
             ));
         }
         Ok(())
@@ -251,6 +476,41 @@ impl RouteDecision {
     }
 }
 
+fn add_default_turn_plan_fields(object: &mut serde_json::Map<String, Value>) {
+    object
+        .entry("execution_path")
+        .or_insert_with(|| json!("answer_direct"));
+    object
+        .entry("required_capabilities")
+        .or_insert_with(|| json!([]));
+    object
+        .entry("tool_strategy")
+        .or_insert_with(|| json!("none"));
+    object.entry("preferred_tools").or_insert_with(|| json!([]));
+    object.entry("required_tools").or_insert_with(|| json!([]));
+    object
+        .entry("evidence_policy")
+        .or_insert_with(|| json!("none"));
+    object
+        .entry("mutation_risk")
+        .or_insert_with(|| json!("read_only"));
+    object.entry("tool_query_hint").or_insert(Value::Null);
+}
+
+fn normalize_tool_names(values: Vec<String>) -> Vec<String> {
+    let mut seen = BTreeSet::new();
+    values
+        .into_iter()
+        .filter_map(|raw| normalize_optional_string(Some(raw), 128))
+        .filter(|name| {
+            let valid = name
+                .chars()
+                .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_');
+            valid && seen.insert(name.clone())
+        })
+        .collect()
+}
+
 fn normalize_optional_string(value: Option<String>, max_bytes: usize) -> Option<String> {
     value.and_then(|raw| {
         let trimmed = truncate_to_bytes(raw.trim(), max_bytes);
@@ -260,6 +520,74 @@ fn normalize_optional_string(value: Option<String>, max_bytes: usize) -> Option<
             Some(trimmed)
         }
     })
+}
+
+fn clear_web_query_hint(input: &str) -> Option<String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    for prefix in [
+        "web search for ",
+        "web search ",
+        "search the web for ",
+        "search the web ",
+        "search online for ",
+        "search online ",
+        "look up ",
+        "google ",
+        "browse for ",
+        "browse ",
+    ] {
+        if let Some(rest) = lower.strip_prefix(prefix) {
+            let offset = lower.len() - rest.len();
+            let query = trimmed[offset..].trim();
+            return (!query.is_empty()).then(|| query.to_string());
+        }
+    }
+
+    if local_today_context(&lower) {
+        return None;
+    }
+
+    let current_info_cues = [
+        "today's top news",
+        "todays top news",
+        "top news today",
+        "latest news",
+        "breaking news",
+        "current events",
+        "what happened today",
+        "who won today",
+        "latest on ",
+        "latest about ",
+        "most recent ",
+        "right now",
+    ];
+    if current_info_cues.iter().any(|cue| lower.contains(cue)) {
+        return Some(trimmed.to_string());
+    }
+    None
+}
+
+fn local_today_context(lower: &str) -> bool {
+    [
+        "today's cost",
+        "todays cost",
+        "cost today",
+        "what did we do today",
+        "what have we done today",
+        "our session today",
+        "my session today",
+        "memory today",
+        "inbox today",
+        "heartbeat today",
+        "profile today",
+        "jobs today",
+    ]
+    .iter()
+    .any(|cue| lower.contains(cue))
 }
 
 fn truncate_to_bytes(input: &str, max_bytes: usize) -> String {
@@ -451,6 +779,14 @@ mod tests {
             "intent": "schedule",
             "action": "schedule_upsert",
             "confidence": "high",
+            "execution_path": "terminal_action",
+            "required_capabilities": [],
+            "tool_strategy": "none",
+            "preferred_tools": [],
+            "required_tools": [],
+            "evidence_policy": "none",
+            "mutation_risk": "profile_write",
+            "tool_query_hint": null,
             "needs_clarification": false,
             "clarifying_question": null,
             "job_name": "daily-review",
@@ -497,10 +833,98 @@ mod tests {
     fn route_decision_normalizes_empty_optional_strings() {
         let mut value = base_decision();
         value["action"] = json!("none");
+        value["execution_path"] = json!("answer_direct");
+        value["mutation_risk"] = json!("read_only");
         value["job_name"] = json!("   ");
         let decision = RouteDecision::from_value(value).expect("none action accepts absent fields");
         assert_eq!(decision.action, RouteAction::None);
         assert_eq!(decision.job_name, None);
         assert!(!decision.executable_action());
+    }
+
+    #[test]
+    fn route_decision_supports_tool_first_clear_web_plan() {
+        let mut value = base_decision();
+        value["intent"] = json!("task");
+        value["action"] = json!("none");
+        value["execution_path"] = json!("tool_first");
+        value["required_capabilities"] = json!(["clear_web"]);
+        value["tool_strategy"] = json!("require_one");
+        value["preferred_tools"] = json!(["web_search"]);
+        value["required_tools"] = json!(["web_search"]);
+        value["evidence_policy"] = json!("require_fresh_external");
+        value["mutation_risk"] = json!("read_only");
+        value["tool_query_hint"] = json!("today's top news");
+        value["job_name"] = serde_json::Value::Null;
+        value["job_description"] = serde_json::Value::Null;
+        value["job_schedule"] = serde_json::Value::Null;
+        value["job_prompt"] = serde_json::Value::Null;
+        let decision = RouteDecision::from_value(value).expect("tool-first plan should validate");
+        assert_eq!(decision.execution_path, RouteExecutionPath::ToolFirst);
+        assert_eq!(
+            decision.required_capabilities,
+            vec![RouteCapability::ClearWeb]
+        );
+        assert_eq!(decision.required_tools, vec!["web_search"]);
+        assert_eq!(
+            decision.evidence_policy,
+            RouteEvidencePolicy::RequireFreshExternal
+        );
+    }
+
+    #[test]
+    fn lexical_turn_plan_marks_explicit_and_current_web_requests() {
+        let mut explicit = RouteDecision::from_value({
+            let mut value = base_decision();
+            value["intent"] = json!("task");
+            value["action"] = json!("none");
+            value["execution_path"] = json!("answer_direct");
+            value["mutation_risk"] = json!("read_only");
+            value["job_name"] = serde_json::Value::Null;
+            value["job_description"] = serde_json::Value::Null;
+            value["job_schedule"] = serde_json::Value::Null;
+            value["job_prompt"] = serde_json::Value::Null;
+            value
+        })
+        .expect("base none decision");
+        explicit.apply_lexical_turn_plan("web search for today's top news");
+        assert_eq!(explicit.execution_path, RouteExecutionPath::ToolFirst);
+        assert_eq!(explicit.required_tools, vec!["web_search"]);
+        assert_eq!(
+            explicit.tool_query_hint.as_deref(),
+            Some("today's top news")
+        );
+
+        let mut current = explicit.clone();
+        current.execution_path = RouteExecutionPath::AnswerDirect;
+        current.required_capabilities.clear();
+        current.tool_strategy = RouteToolStrategy::None;
+        current.preferred_tools.clear();
+        current.required_tools.clear();
+        current.evidence_policy = RouteEvidencePolicy::None;
+        current.tool_query_hint = None;
+        current.apply_lexical_turn_plan("what's today's top news?");
+        assert_eq!(current.execution_path, RouteExecutionPath::ToolFirst);
+        assert_eq!(current.required_tools, vec!["web_search"]);
+    }
+
+    #[test]
+    fn lexical_turn_plan_does_not_mark_local_today_questions() {
+        let mut decision = RouteDecision::from_value({
+            let mut value = base_decision();
+            value["intent"] = json!("meta");
+            value["action"] = json!("none");
+            value["execution_path"] = json!("answer_direct");
+            value["mutation_risk"] = json!("read_only");
+            value["job_name"] = serde_json::Value::Null;
+            value["job_description"] = serde_json::Value::Null;
+            value["job_schedule"] = serde_json::Value::Null;
+            value["job_prompt"] = serde_json::Value::Null;
+            value
+        })
+        .expect("base none decision");
+        decision.apply_lexical_turn_plan("what is today's cost?");
+        assert_eq!(decision.execution_path, RouteExecutionPath::AnswerDirect);
+        assert!(decision.required_tools.is_empty());
     }
 }

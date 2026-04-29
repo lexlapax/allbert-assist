@@ -3098,7 +3098,7 @@ async fn router_schedule_action_reaches_structured_job_confirmation() {
         jobs_test_config(),
         paths.clone(),
         Arc::new(TestFactory::new(vec![scripted(
-            r#"{"intent":"schedule","action":"schedule_upsert","confidence":"high","needs_clarification":false,"clarifying_question":null,"job_name":"daily-review","job_description":"Daily review","job_schedule":"@daily at 07:00","job_prompt":"Run a concise daily review.","memory_summary":null,"memory_content":null,"reason":"The user asked to schedule a daily review."}"#,
+            r#"{"intent":"schedule","action":"schedule_upsert","confidence":"high","execution_path":"terminal_action","required_capabilities":[],"tool_strategy":"none","preferred_tools":[],"required_tools":[],"evidence_policy":"none","mutation_risk":"external_effect","tool_query_hint":null,"needs_clarification":false,"clarifying_question":null,"job_name":"daily-review","job_description":"Daily review","job_schedule":"@daily at 07:00","job_prompt":"Run a concise daily review.","memory_summary":null,"memory_content":null,"reason":"The user asked to schedule a daily review."}"#,
         )])),
     )
     .await
@@ -3142,7 +3142,7 @@ async fn schedule_prose_confirmation_retries_once_for_job_tool() {
         paths.clone(),
         Arc::new(TestFactory::new(vec![
             scripted(
-                r#"{"intent":"schedule","action":"schedule_upsert","confidence":"medium","needs_clarification":false,"clarifying_question":null,"job_name":"daily-review","job_description":"Daily review","job_schedule":"@daily at 07:00","job_prompt":"Run a concise daily review.","memory_summary":null,"memory_content":null,"reason":"The user asked to schedule a daily review, but the router is not fully confident."}"#,
+                r#"{"intent":"schedule","action":"schedule_upsert","confidence":"medium","execution_path":"terminal_action","required_capabilities":[],"tool_strategy":"none","preferred_tools":[],"required_tools":[],"evidence_policy":"none","mutation_risk":"external_effect","tool_query_hint":null,"needs_clarification":false,"clarifying_question":null,"job_name":"daily-review","job_description":"Daily review","job_schedule":"@daily at 07:00","job_prompt":"Run a concise daily review.","memory_summary":null,"memory_content":null,"reason":"The user asked to schedule a daily review, but the router is not fully confident."}"#,
             ),
             scripted("I can set that up. Shall I proceed with scheduling this?"),
             scripted(

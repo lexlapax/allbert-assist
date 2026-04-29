@@ -178,6 +178,10 @@ impl ToolRegistry {
         self.by_name.get(name).cloned()
     }
 
+    pub fn contains(&self, name: &str) -> bool {
+        self.by_name.contains_key(name)
+    }
+
     pub async fn dispatch(
         &self,
         invocation: ToolInvocation,
