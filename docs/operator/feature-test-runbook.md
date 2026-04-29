@@ -596,10 +596,19 @@ What to verify:
   answer from current search results. Without web access, they should surface a
   clear web/network/policy error. A no-tool prose apology such as "I cannot
   browse" is a failure, distinct from a real web/network/policy error.
-- If a tool is denied unexpectedly, run `/telemetry` in the REPL before
-  continuing. After ordinary auto-routed memory turns, active skills should
-  return to `(none)` unless the operator explicitly activated a session skill.
-  If the daemon has been running across a local source patch, restart it before
+- If a tool is denied unexpectedly, type `/telemetry` as a clean REPL slash
+  command on its own line before continuing. Do not paste the `allbert〉` prompt
+  marker or previous telemetry output back into the REPL; those lines become
+  ordinary model prompts. After ordinary auto-routed memory turns, active skills
+  should return to `(none)` unless the operator explicitly activated a session
+  skill.
+- If `/telemetry` shows `skills: memory-curator` during an ordinary web-search
+  turn, record the transcript as the M11 stale active-skill finding. Do not use
+  `sessions forget repl-primary` as the recovery path while attached to that
+  active session; active-session forget is expected to refuse. Until M11 lands,
+  stop the v0.10 web-search smoke and report the transcript rather than trying
+  unsupported recovery commands.
+- If the daemon has been running across a local source patch, restart it before
   retesting so the REPL is attached to the rebuilt runtime.
 - Hosted turns use the configured `api_key_env`; API keys should not appear in
   traces, telemetry, activity, or errors.
