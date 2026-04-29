@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use gray_matter::engine::YAML;
 use gray_matter::Matter;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use crate::error::SkillError;
@@ -76,10 +76,65 @@ pub struct SkillScript {
     pub interpreter: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ActiveSkillActivation {
+    #[default]
+    ExplicitSession,
+    AutoRoutedTurn,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct ActiveSkill {
     pub name: String,
     pub args: Option<Value>,
+    pub activation: ActiveSkillActivation,
+    #[serde(skip)]
+    pub activation_was_defaulted: bool,
+}
+
+impl ActiveSkill {
+    pub fn new(
+        name: impl Into<String>,
+        args: Option<Value>,
+        activation: ActiveSkillActivation,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            args,
+            activation,
+            activation_was_defaulted: false,
+        }
+    }
+
+    pub fn is_auto_routed(&self) -> bool {
+        self.activation == ActiveSkillActivation::AutoRoutedTurn
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ActiveSkillWire {
+    name: String,
+    #[serde(default)]
+    args: Option<Value>,
+    #[serde(default)]
+    activation: Option<ActiveSkillActivation>,
+}
+
+impl<'de> Deserialize<'de> for ActiveSkill {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let wire = ActiveSkillWire::deserialize(deserializer)?;
+        let activation_was_defaulted = wire.activation.is_none();
+        Ok(Self {
+            name: wire.name,
+            args: wire.args,
+            activation: wire.activation.unwrap_or_default(),
+            activation_was_defaulted,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -268,15 +323,19 @@ impl SkillStore {
         active_skills: &mut Vec<ActiveSkill>,
         name: &str,
         args: Option<Value>,
+        activation: ActiveSkillActivation,
     ) {
         if let Some(existing) = active_skills.iter_mut().find(|skill| skill.name == name) {
             existing.args = args;
+            if activation == ActiveSkillActivation::ExplicitSession
+                || existing.activation != ActiveSkillActivation::ExplicitSession
+            {
+                existing.activation = activation;
+                existing.activation_was_defaulted = false;
+            }
             return;
         }
-        active_skills.push(ActiveSkill {
-            name: name.into(),
-            args,
-        });
+        active_skills.push(ActiveSkill::new(name, args, activation));
     }
 
     pub fn allowed_tool_union(&self, active_skills: &[ActiveSkill]) -> Option<HashSet<String>> {

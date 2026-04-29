@@ -603,11 +603,12 @@ What to verify:
   should return to `(none)` unless the operator explicitly activated a session
   skill.
 - If `/telemetry` shows `skills: memory-curator` during an ordinary web-search
-  turn, record the transcript as the M11 stale active-skill finding. Do not use
-  `sessions forget repl-primary` as the recovery path while attached to that
-  active session; active-session forget is expected to refuse. Until M11 lands,
-  stop the v0.10 web-search smoke and report the transcript rather than trying
-  unsupported recovery commands.
+  turn, clear the stale active-skill fence with `/skills clear` from inside the
+  REPL, or from another shell with `run sessions clear-skills repl-primary`.
+  Do not use `sessions forget repl-primary` as the recovery path while attached
+  to that active session; active-session forget is expected to refuse. After
+  clearing, run `/telemetry` again and confirm active skills are `(none)`, then
+  retry `web search for today's top news`.
 - If the daemon has been running across a local source patch, restart it before
   retesting so the REPL is attached to the rebuilt runtime.
 - Hosted turns use the configured `api_key_env`; API keys should not appear in

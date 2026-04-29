@@ -53,8 +53,8 @@ commands:
   /self-improvement gc [--dry-run]
             clean stale self-improvement worktrees
   /s        show provider, intent, agent, setup, roots, and trace state
-  /skills [list|show <name>|search <substring>]
-            inspect installed skills and routing metadata
+  /skills [list|show <name>|search <substring>|clear]
+            inspect installed skills, or clear active skills for this session
   /setup    rerun guided setup and reload config for this session
   /settings list [group]
             inspect or safely change supported profile settings
@@ -74,6 +74,7 @@ commands:
     - allbert-cli sessions show <id>
     - allbert-cli sessions resume <id>
     - allbert-cli sessions forget <id>
+    - allbert-cli sessions clear-skills <id>
     - allbert-cli daemon channels list
     - allbert-cli daemon channels status telegram
     - allbert-cli daemon channels add telegram
@@ -229,7 +230,11 @@ pub async fn run_loop(
                         handle_setup_command(client, paths).await?;
                     }
                     LocalCommand::Skills(command) => {
-                        println!("{}", handle_skills_command(paths, command)?);
+                        if command.trim() == "/skills clear" {
+                            println!("{}", handle_skills_clear_command(client).await?);
+                        } else {
+                            println!("{}", handle_skills_command(paths, command)?);
+                        }
                     }
                     LocalCommand::Settings(command) => {
                         println!("{}", crate::settings_cli::handle_command(paths, command)?);
@@ -949,8 +954,18 @@ pub fn handle_skills_command(
         ["/skills"] | ["/skills", "list"] => crate::skills::list_installed_skills(paths),
         ["/skills", "show", name] => crate::skills::show_installed_skill(paths, name),
         ["/skills", "search", query] => crate::skills::search_installed_skills(paths, query),
-        _ => Ok("usage: /skills [list|show <name>|search <substring>]".into()),
+        ["/skills", "clear"] => Ok("usage: /skills clear is available in the REPL only".into()),
+        _ => Ok("usage: /skills [list|show <name>|search <substring>|clear]".into()),
     }
+}
+
+async fn handle_skills_clear_command(client: &mut DaemonClient) -> Result<String> {
+    let status = client.session_status().await?;
+    client.clear_session_skills(&status.session_id).await?;
+    Ok(format!(
+        "cleared active skills for session {}",
+        status.session_id
+    ))
 }
 
 pub fn handle_memory_command(

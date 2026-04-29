@@ -4382,9 +4382,171 @@ async fn memory_routing_preserves_preexisting_session_skill() {
 
     assert_eq!(kernel.active_skills().len(), 1);
     assert_eq!(kernel.active_skills()[0].name, "memory-curator");
+    assert_eq!(
+        kernel.active_skills()[0].activation,
+        ActiveSkillActivation::ExplicitSession
+    );
     let request = requests.lock().unwrap();
     let system = request[0].system.as_deref().unwrap_or_default();
     assert!(system.contains("### Skill: memory-curator"));
+}
+
+#[tokio::test]
+async fn auto_routed_active_skill_is_not_restored_from_snapshot() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let config = Config::default_template();
+    let mut kernel = Kernel::boot_with_parts(
+        config.clone(),
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::new(
+            "anthropic",
+            Vec::new(),
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    let snapshot = SessionSnapshot {
+        session_id: "restore-auto".into(),
+        root_agent_name: "allbert/root".into(),
+        messages: Vec::new(),
+        active_skills: vec![ActiveSkill::new(
+            "memory-curator",
+            None,
+            ActiveSkillActivation::AutoRoutedTurn,
+        )],
+        active_rag_collections: Vec::new(),
+        turn_count: 1,
+        cost_total_usd: 0.0,
+        session_usage: Usage::default(),
+        last_resolved_intent: None,
+        last_agent_stack: vec!["allbert/root".into()],
+        ephemeral_memory: Vec::new(),
+        model: config.model,
+    };
+
+    kernel
+        .restore_session_snapshot(snapshot)
+        .await
+        .expect("snapshot should restore");
+
+    assert!(
+        kernel.active_skills().is_empty(),
+        "auto-routed active skills should not restore as session skills"
+    );
+}
+
+#[tokio::test]
+async fn legacy_memory_router_skill_is_dropped_on_restore() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let config = Config::default_template();
+    let mut kernel = Kernel::boot_with_parts(
+        config.clone(),
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::new(
+            "anthropic",
+            Vec::new(),
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    let legacy_memory_curator: ActiveSkill =
+        serde_json::from_value(json!({"name": "memory-curator", "args": null}))
+            .expect("legacy active skill should deserialize");
+    assert!(legacy_memory_curator.activation_was_defaulted);
+    let snapshot = SessionSnapshot {
+        session_id: "restore-legacy-memory".into(),
+        root_agent_name: "allbert/root".into(),
+        messages: Vec::new(),
+        active_skills: vec![legacy_memory_curator],
+        active_rag_collections: Vec::new(),
+        turn_count: 1,
+        cost_total_usd: 0.0,
+        session_usage: Usage::default(),
+        last_resolved_intent: None,
+        last_agent_stack: vec!["allbert/root".into()],
+        ephemeral_memory: Vec::new(),
+        model: config.model,
+    };
+
+    kernel
+        .restore_session_snapshot(snapshot)
+        .await
+        .expect("snapshot should restore");
+
+    assert!(
+        kernel.active_skills().is_empty(),
+        "legacy persisted memory-curator should be treated as stale auto routing"
+    );
+}
+
+#[tokio::test]
+async fn legacy_non_router_active_skill_is_preserved_on_restore() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    paths.ensure().expect("paths should initialize");
+    write_skill(
+        &paths,
+        "note-taker",
+        "Take notes",
+        "[write_memory]",
+        "Capture notes.",
+    );
+    let config = Config::default_template();
+    let mut kernel = Kernel::boot_with_parts(
+        config.clone(),
+        test_adapter(Arc::new(Mutex::new(Vec::new()))),
+        paths,
+        Arc::new(TestFactory::new(
+            "anthropic",
+            Vec::new(),
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    let legacy_note_taker: ActiveSkill =
+        serde_json::from_value(json!({"name": "note-taker", "args": null}))
+            .expect("legacy active skill should deserialize");
+    assert!(legacy_note_taker.activation_was_defaulted);
+    let snapshot = SessionSnapshot {
+        session_id: "restore-legacy-note".into(),
+        root_agent_name: "allbert/root".into(),
+        messages: Vec::new(),
+        active_skills: vec![legacy_note_taker],
+        active_rag_collections: Vec::new(),
+        turn_count: 1,
+        cost_total_usd: 0.0,
+        session_usage: Usage::default(),
+        last_resolved_intent: None,
+        last_agent_stack: vec!["allbert/root".into()],
+        ephemeral_memory: Vec::new(),
+        model: config.model,
+    };
+
+    kernel
+        .restore_session_snapshot(snapshot)
+        .await
+        .expect("snapshot should restore");
+
+    assert_eq!(kernel.active_skills().len(), 1);
+    assert_eq!(kernel.active_skills()[0].name, "note-taker");
+    assert_eq!(
+        kernel.active_skills()[0].activation,
+        ActiveSkillActivation::ExplicitSession
+    );
+    assert!(
+        !kernel.active_skills()[0].activation_was_defaulted,
+        "restored legacy non-router skills should serialize with explicit provenance"
+    );
 }
 
 #[tokio::test]

@@ -493,6 +493,9 @@ enum SessionsCommand {
     Forget {
         session_id: String,
     },
+    ClearSkills {
+        session_id: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -912,6 +915,13 @@ async fn run_sessions_command(
             let mut client = DaemonClient::connect_or_spawn(paths, ClientKind::Cli, &spawn).await?;
             client.forget_session(&session_id).await?;
             println!("forgot session {session_id}");
+            Ok(())
+        }
+        SessionsCommand::ClearSkills { session_id } => {
+            let spawn = default_spawn_config(paths, config)?;
+            let mut client = DaemonClient::connect_or_spawn(paths, ClientKind::Cli, &spawn).await?;
+            client.clear_session_skills(&session_id).await?;
+            println!("cleared active skills for session {session_id}");
             Ok(())
         }
     }

@@ -16,7 +16,7 @@ auto_activate_cues = ["remember", "recall", "what do you remember", "review stag
 
 `memory-curator` is surfaced as a nearby option on root turns. Its full skill body is loaded only when policy activates it, such as for the `memory_query` intent or configured memory-review cues. Automatic activation is current-turn scoped: after an ordinary auto-routed memory turn finishes, telemetry returns to no active skill unless the operator explicitly activated one for the session. Auto-routed memory activation is not intended to become durable session state or restore from a saved session as an active skill.
 
-Explicit skill activation is different: when the operator intentionally activates a skill for the session, that skill may remain active and narrow the available tools according to its `allowed-tools` fence. If telemetry shows `memory-curator` after an unrelated ordinary turn, such as a web-search or provider smoke, treat that as the v0.15.1 M11 stale active-skill finding rather than expected adaptive-memory behavior.
+Explicit skill activation is different: when the operator intentionally activates a skill for the session, that skill may remain active and narrow the available tools according to its `allowed-tools` fence. If telemetry shows `memory-curator` after an unrelated ordinary turn, such as a web-search or provider smoke, clear the active skill fence with `/skills clear` from inside the REPL, or `allbert-cli sessions clear-skills <session-id>` from another shell.
 
 Inspect or adjust routing without editing code:
 

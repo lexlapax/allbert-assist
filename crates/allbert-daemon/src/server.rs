@@ -1120,6 +1120,25 @@ async fn handle_connection(
                 forget_session_dir(&state.paths, &session_id)?;
                 send_server_message(&mut framed, &ServerMessage::Ack).await?;
             }
+            ClientMessage::ClearSessionSkills(session_id) => {
+                let active_session = { state.sessions.read().await.get(&session_id).cloned() };
+                if let Some(session) = active_session {
+                    let mut kernel = session.kernel.lock().await;
+                    kernel.clear_active_skills();
+                    persist_kernel_session(
+                        &state.paths,
+                        session.channel(),
+                        session.sender_id(),
+                        session.identity_id(),
+                        &kernel,
+                    )
+                    .map_err(map_kernel_error)?;
+                    send_server_message(&mut framed, &ServerMessage::Ack).await?;
+                    continue;
+                }
+                clear_inactive_session_skills(&state.paths, &session_id)?;
+                send_server_message(&mut framed, &ServerMessage::Ack).await?;
+            }
             ClientMessage::GetModel => {
                 let session = require_session(attached_session.as_ref())?;
                 let kernel = session.kernel.lock().await;
@@ -6618,6 +6637,19 @@ fn forget_session_dir(paths: &AllbertPaths, session_id: &str) -> Result<(), Daem
     }
     fs::rename(source, destination)?;
     Ok(())
+}
+
+fn clear_inactive_session_skills(
+    paths: &AllbertPaths,
+    session_id: &str,
+) -> Result<(), DaemonError> {
+    let Some(mut snapshot) = load_session_snapshot(paths, session_id)? else {
+        return Err(DaemonError::Protocol(format!(
+            "session not found: {session_id}"
+        )));
+    };
+    snapshot.meta.active_skills.clear();
+    persist_session_meta(paths, &snapshot.meta).map_err(map_kernel_error)
 }
 
 fn now_rfc3339_fallback() -> String {

@@ -2662,6 +2662,82 @@ async fn active_session_cannot_be_forgotten() {
 }
 
 #[tokio::test]
+async fn active_session_skills_can_be_cleared_without_forgetting_session() {
+    let home = TempHome::new();
+    let paths = home.paths();
+    seed_session_meta(
+        &paths,
+        "active-skill-session",
+        ChannelKind::Repl,
+        None,
+        None,
+        "2026-04-21T17:00:00Z",
+    );
+    let meta_path = paths
+        .sessions
+        .join("active-skill-session")
+        .join("meta.json");
+    let mut meta: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&meta_path).expect("meta should read"))
+            .expect("meta should parse");
+    meta["active_skills"] = serde_json::json!([
+        {
+            "name": "memory-curator",
+            "args": null,
+            "activation": "explicit_session"
+        }
+    ]);
+    std::fs::write(
+        &meta_path,
+        serde_json::to_vec_pretty(&meta).expect("meta should serialize"),
+    )
+    .expect("meta should write");
+
+    let handle = spawn(sample_config(), paths.clone())
+        .await
+        .expect("daemon should boot");
+
+    let mut active = wait_for_client(&paths).await;
+    active
+        .attach(ChannelKind::Repl, Some("active-skill-session".into()))
+        .await
+        .expect("attach should succeed");
+    let telemetry = active
+        .session_telemetry()
+        .await
+        .expect("telemetry should load");
+    assert_eq!(telemetry.active_skills, vec!["memory-curator"]);
+
+    let mut other = wait_for_client(&paths).await;
+    other
+        .clear_session_skills("active-skill-session")
+        .await
+        .expect("clear should work while session is active");
+
+    let telemetry = active
+        .session_telemetry()
+        .await
+        .expect("telemetry should reload");
+    assert!(
+        telemetry.active_skills.is_empty(),
+        "clear-skills should clear active session fences"
+    );
+    let meta: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&meta_path).expect("meta should reread"))
+            .expect("meta should reparse");
+    assert_eq!(
+        meta["active_skills"]
+            .as_array()
+            .expect("active_skills should be an array")
+            .len(),
+        0,
+        "clear-skills should persist cleared active skills"
+    );
+
+    shutdown_daemon(handle, &paths).await;
+}
+
+#[tokio::test]
 async fn old_sessions_are_archived_when_daemon_starts() {
     let home = TempHome::new();
     let paths = home.paths();

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const MIN_PROTOCOL_VERSION: u32 = 2;
-pub const PROTOCOL_VERSION: u32 = 7;
+pub const PROTOCOL_VERSION: u32 = 8;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -1062,6 +1062,7 @@ pub enum ClientMessage {
     ShowInboxApproval(String),
     ResolveInboxApproval(InboxResolvePayload),
     ForgetSession(String),
+    ClearSessionSkills(String),
     RunTurn(TurnRequest),
     ConfirmReply(ConfirmReplyPayload),
     InputReply(InputReplyPayload),

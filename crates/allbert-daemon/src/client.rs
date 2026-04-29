@@ -296,6 +296,17 @@ impl DaemonClient {
         .await
     }
 
+    pub async fn clear_session_skills(&mut self, session_id: &str) -> Result<(), DaemonError> {
+        self.send(&ClientMessage::ClearSessionSkills(session_id.to_string()))
+            .await?;
+        self.recv_expected("ack", |message| match message {
+            ServerMessage::Ack => Some(Ok(())),
+            ServerMessage::Error(error) => Some(Err(DaemonError::Protocol(error.message))),
+            _ => None,
+        })
+        .await
+    }
+
     pub async fn get_model(&mut self) -> Result<ModelConfigPayload, DaemonError> {
         self.send(&ClientMessage::GetModel).await?;
         self.recv_expected("model", |message| match message {
