@@ -1556,7 +1556,7 @@ impl Kernel {
                 }
             }
 
-            let tool_calls = match tool_calls_result {
+            let mut tool_calls = match tool_calls_result {
                 Ok(calls) => calls,
                 Err(err) => {
                     if let Some(span) = parse_span {
@@ -1620,32 +1620,46 @@ impl Kernel {
                 });
             }
             if required_tool_retry_attempted && tool_calls.is_empty() {
-                if let Some(span) = parse_span {
-                    span.finish_error("required tool retry returned no tool calls");
-                }
-                let final_text = self.finish_turn_output(
-                    state,
-                    &required_tool_safe_failure_message(&required_tool_retry_tools),
-                );
-                state.messages.push(ChatMessage {
-                    role: ChatRole::Assistant,
-                    content: final_text.clone(),
-                    attachments: Vec::new(),
-                });
-                for event in pending_model_events {
-                    (self.adapter.on_event)(&event);
-                }
-                if emit_terminal_events {
-                    (self.adapter.on_event)(&KernelEvent::AssistantText(final_text.clone()));
-                    (self.adapter.on_event)(&KernelEvent::TurnDone {
+                if let Some(invocation) = synthesize_required_tool_invocation(
+                    &required_tool_retry_tools,
+                    route_resolution.decision.as_ref(),
+                ) {
+                    if let Some(span) = parse_span.as_mut() {
+                        span.set_attribute(
+                            "allbert.tool_parse.synthesized_required_tool",
+                            allbert_proto::AttributeValue::String(invocation.name.clone()),
+                        );
+                    }
+                    response.text = synthetic_tool_call_text(&invocation);
+                    tool_calls.push(invocation);
+                } else {
+                    if let Some(span) = parse_span {
+                        span.finish_error("required tool retry returned no tool calls");
+                    }
+                    let final_text = self.finish_turn_output(
+                        state,
+                        &required_tool_safe_failure_message(&required_tool_retry_tools),
+                    );
+                    state.messages.push(ChatMessage {
+                        role: ChatRole::Assistant,
+                        content: final_text.clone(),
+                        attachments: Vec::new(),
+                    });
+                    for event in pending_model_events {
+                        (self.adapter.on_event)(&event);
+                    }
+                    if emit_terminal_events {
+                        (self.adapter.on_event)(&KernelEvent::AssistantText(final_text.clone()));
+                        (self.adapter.on_event)(&KernelEvent::TurnDone {
+                            hit_turn_limit: false,
+                        });
+                    }
+                    return Ok(AgentRunSummary {
                         hit_turn_limit: false,
+                        assistant_text: Some(final_text),
+                        stop_reason: Some("required_tool_retry_failed".into()),
                     });
                 }
-                return Ok(AgentRunSummary {
-                    hit_turn_limit: false,
-                    assistant_text: Some(final_text),
-                    stop_reason: Some("required_tool_retry_failed".into()),
-                });
             }
             if let Some(span) = parse_span {
                 span.finish_ok();
@@ -6036,6 +6050,40 @@ fn required_tool_retry_message(
         "The router's validated turn plan requires a tool call before answering. Respond only with one XML tool-call block for one of these required tool(s): {}. Do not answer in prose first. If the required tool fails, Allbert will return the real tool result to you for a grounded answer.{query_hint}\nThe active tool catalog is:\n{tool_catalog}",
         required_tools.join(", ")
     )
+}
+
+fn synthesize_required_tool_invocation(
+    required_tools: &[String],
+    decision: Option<&RouteDecision>,
+) -> Option<ToolInvocation> {
+    let decision = decision?;
+    if !required_tools.iter().any(|tool| tool == "web_search")
+        || !decision
+            .required_tools
+            .iter()
+            .any(|tool| tool == "web_search")
+        || decision.execution_path != RouteExecutionPath::ToolFirst
+        || decision.evidence_policy != RouteEvidencePolicy::RequireFreshExternal
+        || decision.mutation_risk != RouteMutationRisk::ReadOnly
+    {
+        return None;
+    }
+    let query = decision.tool_query_hint.as_deref()?.trim();
+    if query.is_empty() {
+        return None;
+    }
+    Some(ToolInvocation {
+        name: "web_search".into(),
+        input: json!({ "query": truncate_to_bytes(query, 1024) }),
+    })
+}
+
+fn synthetic_tool_call_text(invocation: &ToolInvocation) -> String {
+    let block = json!({
+        "name": invocation.name,
+        "input": invocation.input,
+    });
+    format!("<tool_call>{}</tool_call>", block)
 }
 
 fn required_tool_safe_failure_message(required_tools: &[String]) -> String {

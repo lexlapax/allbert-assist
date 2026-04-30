@@ -8,12 +8,15 @@ a schedule-specific no-tool retry guard for mutating recurring-job requests,
 and a shared one-retry budget for generic malformed-tool and schedule-specific
 retry paths.
 
-v0.15.1 adds a planning note: local-model tool reliability is not only about
-malformed tool-call syntax. When router posture says a tool is required for a
-safe answer, a prose response that omits the required tool call can also be a
-retryable tool-use failure. The motivating case is current-information
+v0.15.1 adds a planning/runtime note: local-model tool reliability is not only
+about malformed tool-call syntax. When router posture says a tool is required
+for a safe answer, a prose response that omits the required tool call can also
+be a retryable tool-use failure. The motivating case is current-information
 questions where Gemma4 says it cannot browse instead of calling the available
-`web_search` tool.
+`web_search` tool. If a validated read-only fresh-external `web_search` plan
+still gets no tool call after that retry, the kernel may synthesize the first
+`web_search` invocation from the validated query hint and run it through normal
+tool dispatch and web policy.
 
 ## Context
 
@@ -129,17 +132,27 @@ attempted, whether the scheduling retry was attempted, and which retry path was
 taken. Raw malformed payloads do not appear in ordinary user output unless
 trace capture and redaction settings already permit them.
 
-v0.15.1 may add the same bounded-retry pattern for missing required tool calls
+v0.15.1 adds the same bounded-retry pattern for missing required tool calls
 when that requirement comes from a validated structured turn plan rather than
 lexical guesswork. For example, if the router plans a read-only `tool_first`
 turn requiring `web_search`, the tool is visible in the active tool catalog, and
 the model replies in prose that it cannot browse without making a tool call, the
-kernel may retry once with direct `web_search` tool-call guidance. This is not a
-general "force tools" mode: if policy hides the tool, if the tool fails, if the
-router plan does not require the tool, or if the requested tool/capability is
-unknown, the runtime should not invent a search. Missing required-tool retries
-share the same bounded, cost-logged posture as the existing malformed-tool and
-schedule-specific retries.
+kernel retries once with direct `web_search` tool-call guidance. Missing
+required-tool retries share the same bounded, cost-logged posture as the
+existing malformed-tool and schedule-specific retries.
+
+If that retry still omits a tool call, v0.15.1 permits one narrow deterministic
+bridge: the kernel may synthesize the first `web_search` invocation only when
+the validated plan requires visible `web_search`, uses `execution_path =
+tool_first`, uses `evidence_policy = require_fresh_external`, is
+`mutation_risk = read_only`, and includes a non-empty query hint. The
+synthesized invocation is then dispatched through the same tool executor,
+active-skill checks, web policy, trace, and tool-result loop as a model-authored
+call. This is not a general "force tools" mode: if policy hides the tool, if the
+tool fails, if the router plan does not require the tool, if the query hint is
+missing, or if the requested tool/capability is unknown, the runtime must not
+invent a search. Non-web required tools still fail closed after the bounded
+retry.
 
 ### Provider seam
 

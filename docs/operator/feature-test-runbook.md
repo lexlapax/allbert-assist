@@ -540,6 +540,11 @@ What to verify:
 
 ## v0.10 Provider Expansion
 
+Status: completed in v0.15.1 follow-up testing on 2026-04-30. Manual retest
+confirmed that local Gemma4 can reach the validated `web_search` path for
+explicit/current-info prompts after the M10 structured turn-plan work, M11
+active-skill cleanup, and M12 read-only web-search synthesis bridge.
+
 Provider-free config inspection:
 
 ```bash
@@ -595,7 +600,10 @@ What to verify:
   `[activity] calling tool web_search`. With web access available they should
   answer from current search results. Without web access, they should surface a
   clear web/network/policy error. A no-tool prose apology such as "I cannot
-  browse" is a failure, distinct from a real web/network/policy error.
+  browse" is a failure, distinct from a real web/network/policy error. A safe
+  failure that says Allbert could not get the model to call required
+  `web_search` is also a failure for this smoke; the runtime should now execute
+  the validated read-only search plan itself after the bounded retry fails.
 - If a tool is denied unexpectedly, type `/telemetry` as a clean REPL slash
   command on its own line before continuing. Do not paste the `allbert〉` prompt
   marker or previous telemetry output back into the REPL; those lines become

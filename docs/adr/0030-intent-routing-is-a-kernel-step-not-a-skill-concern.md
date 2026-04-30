@@ -83,7 +83,9 @@ a terminal router action and should not be encoded as one.
   mutation-risk classification.
 - The plan may bias prompt assembly, preferred tool ordering, deterministic
   policy messaging, and missing-tool-call retry eligibility. It must not execute
-  a tool by itself.
+  a tool by itself. After the bounded retry fails, the kernel may synthesize a
+  first tool call only for the narrow v0.15.1 read-only `web_search` bridge
+  documented in ADR 0096; the router still does not execute tools directly.
 - The plan remains observable through existing intent, trace, and cost surfaces.
   It is not hidden inside a skill prompt.
 - Active-skill allowlists and security policy still decide whether a tool is

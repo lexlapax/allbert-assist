@@ -4829,14 +4829,20 @@ async fn lexical_turn_plan_fallback_requires_web_search_when_router_has_no_decis
 }
 
 #[tokio::test]
-async fn structured_turn_plan_fails_closed_when_required_tool_retry_still_omits_call() {
+async fn structured_turn_plan_synthesizes_required_web_search_when_retry_still_omits_call() {
     let temp = TempRoot::new();
     let paths = temp.paths();
     let requests = Arc::new(Mutex::new(Vec::new()));
     let events = Arc::new(Mutex::new(Vec::new()));
+    let mut config = Config::default_template();
+    config
+        .security
+        .web
+        .deny_hosts
+        .push("html.duckduckgo.com".into());
 
     let mut kernel = Kernel::boot_with_parts(
-        Config::default_template(),
+        config,
         test_adapter(Arc::clone(&events)),
         paths,
         Arc::new(TestFactory::with_requests(
@@ -4880,6 +4886,11 @@ async fn structured_turn_plan_fails_closed_when_required_tool_retry_still_omits_
                     usage: Usage::default(),
                     tool_calls: Vec::new(),
                 },
+                CompletionResponse {
+                    text: "The configured web policy denied the search, so I cannot provide fresh results.".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
             ],
             Some(test_pricing()),
         )),
@@ -4889,6 +4900,94 @@ async fn structured_turn_plan_fails_closed_when_required_tool_retry_still_omits_
 
     let summary = kernel
         .run_turn("what's today's top news?")
+        .await
+        .expect("turn should complete by running the validated web-search plan");
+    assert_eq!(summary.stop_reason, None);
+    assert_eq!(
+        requests.lock().unwrap().len(),
+        4,
+        "router, first model, required-tool retry, and final answer"
+    );
+    let recorded_events = events.lock().unwrap();
+    assert!(recorded_events.iter().any(|event| matches!(
+        event,
+        KernelEvent::ToolCall { name, .. } if name == "web_search"
+    )));
+    assert!(recorded_events.iter().any(|event| matches!(
+        event,
+        KernelEvent::ToolResult { name, ok, content }
+            if name == "web_search"
+                && !*ok
+                && content.contains("host 'html.duckduckgo.com' is denied")
+    )));
+    assert!(recorded_events.iter().any(|event| matches!(
+        event,
+        KernelEvent::AssistantText(text)
+            if text.contains("configured web policy denied the search")
+    )));
+}
+
+#[tokio::test]
+async fn required_tool_retry_still_fails_closed_for_non_synthesizable_tools() {
+    let temp = TempRoot::new();
+    let paths = temp.paths();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let events = Arc::new(Mutex::new(Vec::new()));
+
+    let mut kernel = Kernel::boot_with_parts(
+        Config::default_template(),
+        test_adapter(Arc::clone(&events)),
+        paths,
+        Arc::new(TestFactory::with_requests(
+            "anthropic",
+            Arc::clone(&requests),
+            vec![
+                CompletionResponse {
+                    text: json!({
+                        "intent": "memory_query",
+                        "action": "none",
+                        "confidence": "high",
+                        "execution_path": "tool_first",
+                        "required_capabilities": ["memory_search"],
+                        "tool_strategy": "require_one",
+                        "preferred_tools": ["search_memory"],
+                        "required_tools": ["search_memory"],
+                        "evidence_policy": "require_local",
+                        "mutation_risk": "read_only",
+                        "tool_query_hint": "Postgres",
+                        "needs_clarification": false,
+                        "clarifying_question": null,
+                        "job_name": null,
+                        "job_description": null,
+                        "job_schedule": null,
+                        "job_prompt": null,
+                        "memory_summary": null,
+                        "memory_content": null,
+                        "reason": "Local memory search should use search_memory."
+                    })
+                    .to_string(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "I will answer without searching memory.".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+                CompletionResponse {
+                    text: "I still will not call a tool.".into(),
+                    usage: Usage::default(),
+                    tool_calls: Vec::new(),
+                },
+            ],
+            Some(test_pricing()),
+        )),
+    )
+    .await
+    .expect("kernel should boot");
+
+    let summary = kernel
+        .run_turn("search memory for Postgres")
         .await
         .expect("turn should complete with safe failure");
     assert_eq!(
@@ -4902,7 +5001,7 @@ async fn structured_turn_plan_fails_closed_when_required_tool_retry_still_omits_
     )));
     assert_eq!(requests.lock().unwrap().len(), 3);
     assert!(events.lock().unwrap().iter().all(|event| {
-        !matches!(event, KernelEvent::ToolCall { name, .. } if name == "web_search")
+        !matches!(event, KernelEvent::ToolCall { name, .. } if name == "search_memory")
     }));
 }
 
