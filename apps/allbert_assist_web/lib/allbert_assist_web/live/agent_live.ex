@@ -13,7 +13,7 @@ defmodule AllbertAssistWeb.AgentLive do
   def mount(_params, _session, socket) do
     socket =
       assign(socket,
-        prompt: "Say hello from the runtime boundary.",
+        prompt: "Hello Allbert. What can you do right now?",
         response: nil,
         error: nil,
         asking?: false,
@@ -75,8 +75,7 @@ defmodule AllbertAssistWeb.AgentLive do
           <h1 class="text-3xl font-bold">Allbert Runtime</h1>
           <p class="text-base-content/70 mt-2">
             Routes prompts through <code>AllbertAssist.Runtime</code>
-            using Jido signals and the <code>:local</code>
-            model alias.
+            using Jido signals and the primary intent agent.
           </p>
         </header>
 
@@ -90,7 +89,7 @@ defmodule AllbertAssistWeb.AgentLive do
           ><%= @prompt %></textarea>
 
           <button id="agent-submit" type="submit" class="btn btn-primary" disabled={@asking?}>
-            {if @asking?, do: "Thinking…", else: "Ask agent"}
+            {if @asking?, do: "Thinking…", else: "Ask Allbert"}
           </button>
         </form>
 

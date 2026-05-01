@@ -19,7 +19,7 @@ defmodule AllbertAssist.Runtime do
 
   require Logger
 
-  alias AllbertAssist.Agents.SampleAgent
+  alias AllbertAssist.Agents.IntentAgent
   alias Jido.Signal
 
   @input_received "allbert.input.received"
@@ -160,30 +160,10 @@ defmodule AllbertAssist.Runtime do
   defp agent_runner do
     :allbert_assist
     |> Application.get_env(__MODULE__, [])
-    |> Keyword.get(:agent_runner, &run_sample_agent/2)
+    |> Keyword.get(:agent_runner, &run_intent_agent/2)
   end
 
-  defp run_sample_agent(_signal, request) do
-    case AllbertAssist.Jido.start_agent(SampleAgent) do
-      {:ok, pid} ->
-        try do
-          pid
-          |> SampleAgent.ask_sync(request.text, timeout: request.timeout_ms)
-          |> normalize_agent_result()
-        after
-          AllbertAssist.Jido.stop_agent(pid)
-        end
-
-      {:error, reason} ->
-        {:error, {:agent_start_failed, reason}}
-    end
-  end
-
-  defp normalize_agent_result({:ok, result}) do
-    {:ok, %{message: format_agent_result(result), status: :completed, actions: []}}
-  end
-
-  defp normalize_agent_result({:error, reason}), do: {:error, reason}
+  defp run_intent_agent(_signal, request), do: IntentAgent.respond(request)
 
   defp format_agent_result(%{message: message}) when is_binary(message), do: message
   defp format_agent_result(%{content: content}) when is_binary(content), do: content
