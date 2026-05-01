@@ -139,6 +139,105 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert [%{name: "read_recent_memory", memory_count: 1}] = response.actions
   end
 
+  test "captures low-risk personal identity statements as preference memory", %{root: root} do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "my name is Sandeep",
+               channel: :test,
+               operator_id: "local",
+               input_signal_id: "sig-name"
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "Saved markdown memory"
+    assert response.memory.path =~ Path.join(root, "preferences")
+    assert response.memory.body =~ "Heuristic family: identity.name"
+    assert response.memory.body =~ "Preferred name: Sandeep"
+    assert File.exists?(response.memory.path)
+
+    assert [
+             %{
+               name: "append_memory",
+               memory_category: :preferences,
+               permission_decision: %{decision: :allowed}
+             }
+           ] = response.actions
+  end
+
+  test "recalls personal identity from markdown memory" do
+    assert {:ok, _response} =
+             IntentAgent.respond(%{
+               text: "my name is Sandeep",
+               channel: :test,
+               operator_id: "local",
+               input_signal_id: "sig-name"
+             })
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "what is my name?",
+               channel: :test,
+               operator_id: "local",
+               input_signal_id: "sig-name-recall"
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "markdown-backed memories"
+    assert response.message =~ "Preferred name: Sandeep"
+
+    assert [%{name: "read_recent_memory", memory_count: 1, input: %{query: query}}] =
+             response.actions
+
+    assert query =~ "preferred name"
+  end
+
+  test "captures and recalls communication preferences" do
+    assert {:ok, write_response} =
+             IntentAgent.respond(%{
+               text: "I prefer short implementation updates.",
+               channel: :test,
+               operator_id: "local",
+               input_signal_id: "sig-preference"
+             })
+
+    assert write_response.status == :completed
+    assert write_response.memory.category == :preferences
+    assert write_response.memory.body =~ "Heuristic family: local_context.preference"
+
+    assert {:ok, read_response} =
+             IntentAgent.respond(%{
+               text: "how should you update me?",
+               channel: :test,
+               operator_id: "local",
+               input_signal_id: "sig-preference-recall"
+             })
+
+    assert read_response.status == :completed
+    assert read_response.message =~ "short implementation updates"
+
+    assert [%{name: "read_recent_memory", memory_count: 1, input: %{query: query}}] =
+             read_response.actions
+
+    assert query =~ "preference communication update"
+  end
+
+  test "does not silently store sensitive personal data without explicit memory intent", %{
+    root: root
+  } do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "I prefer my password to be hunter2.",
+               channel: :test,
+               operator_id: "local",
+               input_signal_id: "sig-sensitive"
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "side-effect-free"
+    assert [%{name: "direct_answer"}] = response.actions
+    assert [] = Path.wildcard(Path.join([root, "**", "*.md"]))
+  end
+
   test "refuses command execution while offering only the plan action" do
     assert {:ok, response} =
              IntentAgent.respond(%{

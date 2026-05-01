@@ -60,7 +60,7 @@ defmodule AllbertAssist.Actions.Intent.ReadRecentMemory do
     memory_lines =
       entries
       |> Enum.map(fn entry ->
-        "- #{entry.summary} (#{entry.category}, #{entry.timestamp})\n  #{entry.path}"
+        "- #{entry.summary} (#{entry.category}, #{entry.timestamp})\n  #{memory_excerpt(entry)}\n  #{entry.path}"
       end)
       |> Enum.join("\n")
 
@@ -72,5 +72,12 @@ defmodule AllbertAssist.Actions.Intent.ReadRecentMemory do
     #{memory_lines}
     """
     |> String.trim()
+  end
+
+  defp memory_excerpt(entry) do
+    entry.body
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+    |> String.slice(0, 180)
   end
 end

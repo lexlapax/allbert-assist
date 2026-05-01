@@ -35,6 +35,9 @@ defmodule AllbertAssist.Agents.IntentAgent do
     - You may list or read v0.01 skill declarations.
     - You may append and read markdown-backed memory for explicit memory
       requests.
+    - You may append and read markdown-backed memory for low-risk personal
+      identity and preference statements recognized by deterministic
+      heuristics.
     - You may plan shell commands, but you must not claim to execute them.
     - You may recognize external-network requests, but you must not make them.
     - Sensitive or destructive work must be refused or marked for future
@@ -85,29 +88,44 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp route(text) do
     normalized = String.downcase(text)
 
-    cond do
-      command_request?(normalized) ->
-        :plan_shell_command
+    [
+      fn -> command_route(normalized) end,
+      fn -> external_network_route(normalized) end,
+      fn -> explicit_memory_route(normalized) end,
+      fn -> personal_memory_route(text) end,
+      fn -> memory_read_route(text, normalized) end,
+      fn -> skill_route(text, normalized) end,
+      fn -> capability_route(normalized) end
+    ]
+    |> Enum.find_value(:direct_answer, & &1.())
+  end
 
-      external_network_request?(normalized) ->
-        :external_network_request
+  defp command_route(text), do: if(command_request?(text), do: :plan_shell_command)
 
-      memory_append_request?(normalized) ->
-        :append_memory
+  defp external_network_route(text),
+    do: if(external_network_request?(text), do: :external_network_request)
 
-      memory_read_request?(normalized) ->
-        :read_recent_memory
+  defp explicit_memory_route(text), do: if(memory_append_request?(text), do: :append_memory)
 
-      read_skill_request?(normalized) ->
-        {:read_skill, skill_name(text)}
-
-      capability_request?(normalized) ->
-        :list_skills
-
-      true ->
-        :direct_answer
+  defp personal_memory_route(text) do
+    if personal_fact_statement?(text) || personal_preference_statement?(text) do
+      {:append_personal_memory, personal_memory(text)}
     end
   end
+
+  defp memory_read_route(text, normalized) do
+    if memory_read_request?(normalized) || personal_recall_request?(normalized) do
+      {:read_recent_memory, recall_query(text)}
+    end
+  end
+
+  defp skill_route(text, normalized) do
+    if read_skill_request?(normalized) do
+      {:read_skill, skill_name(text)}
+    end
+  end
+
+  defp capability_route(text), do: if(capability_request?(text), do: :list_skills)
 
   defp run_route(:plan_shell_command, text, context) do
     PlanShellCommand.run(%{command: requested_command(text), source_text: text}, context)
@@ -121,8 +139,12 @@ defmodule AllbertAssist.Agents.IntentAgent do
     AppendMemory.run(%{memory: memory_text(text), source_text: text}, context)
   end
 
-  defp run_route(:read_recent_memory, text, context) do
-    ReadRecentMemory.run(%{query: text}, context)
+  defp run_route({:append_personal_memory, memory}, text, context) do
+    AppendMemory.run(%{memory: memory, source_text: text}, context)
+  end
+
+  defp run_route({:read_recent_memory, query}, _text, context) do
+    ReadRecentMemory.run(%{query: query}, context)
   end
 
   defp run_route({:read_skill, name}, _text, context) do
@@ -166,6 +188,77 @@ defmodule AllbertAssist.Agents.IntentAgent do
       String.contains?(text, "recent memory")
   end
 
+  defp personal_fact_statement?(text) do
+    !sensitive_personal_data?(text) &&
+      (identity_statement?(text) || timezone_statement?(text) ||
+         working_preference_statement?(text))
+  end
+
+  defp personal_preference_statement?(text) do
+    !sensitive_personal_data?(text) &&
+      (communication_preference_statement?(text) || working_preference_statement?(text))
+  end
+
+  defp personal_recall_request?(text) do
+    identity_recall_request?(text) ||
+      preference_recall_request?(text) ||
+      working_context_recall_request?(text)
+  end
+
+  defp identity_statement?(text) do
+    Regex.match?(~r/^\s*my\s+name\s+is\s+\S+/i, text) ||
+      Regex.match?(~r/^\s*i\s+am\s+\S+/i, text) ||
+      Regex.match?(~r/^\s*i'm\s+\S+/i, text) ||
+      Regex.match?(~r/^\s*call\s+me\s+\S+/i, text)
+  end
+
+  defp communication_preference_statement?(text) do
+    Regex.match?(~r/^\s*i\s+prefer\s+.+/i, text) ||
+      Regex.match?(~r/^\s*i\s+like\s+.+/i, text) ||
+      Regex.match?(~r/^\s*please\s+keep\s+(responses|updates|answers)\s+.+/i, text) ||
+      Regex.match?(~r/^\s*i\s+want\s+.+/i, text)
+  end
+
+  defp timezone_statement?(text) do
+    Regex.match?(~r/^\s*my\s+time\s*zone\s+is\s+\S+/i, text) ||
+      Regex.match?(~r/^\s*my\s+timezone\s+is\s+\S+/i, text)
+  end
+
+  defp working_preference_statement?(text) do
+    Regex.match?(~r/^\s*i\s+usually\s+.+/i, text) ||
+      Regex.match?(~r/^\s*i\s+prefer\s+.+\b(test|docs?|planning|implementation|browser)\b/i, text)
+  end
+
+  defp identity_recall_request?(text) do
+    String.contains?(text, "what is my name") ||
+      String.contains?(text, "who am i") ||
+      String.contains?(text, "what should you call me")
+  end
+
+  defp preference_recall_request?(text) do
+    String.contains?(text, "what do you know about my preferences") ||
+      String.contains?(text, "how should you update me") ||
+      String.contains?(text, "how should you communicate with me")
+  end
+
+  defp working_context_recall_request?(text) do
+    String.contains?(text, "what timezone am i in") ||
+      String.contains?(text, "what time zone am i in") ||
+      String.contains?(text, "how do i like to test") ||
+      String.contains?(text, "what do you remember about my planning preference")
+  end
+
+  defp sensitive_personal_data?(text) do
+    Regex.match?(~r/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i, text) ||
+      Regex.match?(~r/\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/, text) ||
+      Regex.match?(~r/\b\d{3}-\d{2}-\d{4}\b/, text) ||
+      Regex.match?(~r/\b(password|passphrase|secret|api[_ -]?key|token|private key)\b/i, text) ||
+      Regex.match?(
+        ~r/\b(home address|street address|credit card|bank account|routing number)\b/i,
+        text
+      )
+  end
+
   defp read_skill_request?(text) do
     String.contains?(text, "read skill") ||
       String.contains?(text, "show skill") ||
@@ -186,6 +279,67 @@ defmodule AllbertAssist.Agents.IntentAgent do
     |> String.replace(~r/^\s*(please\s+)?remember\s+(that\s+)?/i, "")
     |> String.replace(~r/^\s*(save|store|note)\s+(this|that)\s*/i, "")
     |> String.trim()
+  end
+
+  defp personal_memory(text) do
+    family = personal_memory_family(text)
+    extracted = personal_memory_fact(text, family)
+
+    """
+    Heuristic family: #{family}
+    Inferred memory: #{extracted}
+    Original statement: #{String.trim(text)}
+    """
+    |> String.trim()
+  end
+
+  defp personal_memory_family(text) do
+    cond do
+      identity_statement?(text) -> "identity.name"
+      timezone_statement?(text) -> "local_context.timezone"
+      working_preference_statement?(text) -> "local_context.preference"
+      communication_preference_statement?(text) -> "communication.preference"
+    end
+  end
+
+  defp personal_memory_fact(text, "identity.name") do
+    case Regex.run(~r/^\s*(?:my\s+name\s+is|i\s+am|i'm|call\s+me)\s+(.+?)\.?\s*$/i, text) do
+      [_, name] -> "Preferred name: #{String.trim(name)}"
+      _match -> "Preferred name from statement"
+    end
+  end
+
+  defp personal_memory_fact(text, "local_context.timezone") do
+    case Regex.run(~r/^\s*my\s+(?:time\s*zone|timezone)\s+is\s+(.+?)\.?\s*$/i, text) do
+      [_, timezone] -> "Timezone: #{String.trim(timezone)}"
+      _match -> "Timezone from statement"
+    end
+  end
+
+  defp personal_memory_fact(text, "local_context.preference") do
+    "Local working preference: #{String.trim(text)}"
+  end
+
+  defp personal_memory_fact(text, "communication.preference") do
+    "Communication preference: #{String.trim(text)}"
+  end
+
+  defp recall_query(text) do
+    normalized = String.downcase(text)
+
+    cond do
+      identity_recall_request?(normalized) ->
+        "#{text} name call me identity preferred name"
+
+      preference_recall_request?(normalized) ->
+        "#{text} preference communication update responses concise brief"
+
+      working_context_recall_request?(normalized) ->
+        "#{text} timezone time zone planning test browser docs implementation preference local context"
+
+      true ->
+        text
+    end
   end
 
   defp requested_command(text) do

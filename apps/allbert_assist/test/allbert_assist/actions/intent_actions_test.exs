@@ -76,6 +76,25 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
     assert memory_path == response.memory.path
   end
 
+  test "append_memory stores heuristic identity memory under preferences", %{root: root} do
+    assert {:ok, response} =
+             AppendMemory.run(
+               %{
+                 memory: """
+                 Heuristic family: identity.name
+                 Inferred memory: Preferred name: Sandeep
+                 Original statement: my name is Sandeep
+                 """
+               },
+               %{request: %{input_signal_id: "sig-name", operator_id: "local", channel: :test}}
+             )
+
+    assert response.status == :completed
+    assert response.memory.path =~ Path.join(root, "preferences")
+    assert response.memory.category == :preferences
+    assert response.memory.body =~ "Preferred name: Sandeep"
+  end
+
   test "read_recent_memory returns markdown-backed entries" do
     assert {:ok, _response} =
              AppendMemory.run(

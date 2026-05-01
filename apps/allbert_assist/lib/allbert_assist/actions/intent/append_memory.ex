@@ -65,7 +65,8 @@ defmodule AllbertAssist.Actions.Intent.AppendMemory do
   end
 
   defp category_for(memory) do
-    if memory =~ ~r/\b(prefer|preference|like|dislike)\b/i do
+    if memory =~
+         ~r/\b(prefer|preferred|preference|like|dislike|identity|timezone|communication|local_context)\b/i do
       :preferences
     else
       :notes

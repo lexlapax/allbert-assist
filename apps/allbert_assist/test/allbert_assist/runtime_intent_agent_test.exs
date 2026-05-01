@@ -102,4 +102,32 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert read_response.message =~ "planning docs should be implementation-ready"
     assert [%{name: "read_recent_memory", memory_count: 1}] = read_response.actions
   end
+
+  test "default runtime captures and recalls personal preference heuristics", %{root: root} do
+    assert {:ok, name_response} =
+             Runtime.submit_user_input(%{
+               text: "my name is Sandeep",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert name_response.status == :completed
+
+    assert [%{name: "append_memory", memory_category: :preferences, memory_path: name_path}] =
+             name_response.actions
+
+    assert name_path =~ Path.join(root, "preferences")
+    assert File.exists?(name_path)
+
+    assert {:ok, recall_response} =
+             Runtime.submit_user_input(%{
+               text: "what is my name?",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert recall_response.status == :completed
+    assert recall_response.message =~ "Preferred name: Sandeep"
+    assert [%{name: "read_recent_memory", memory_count: 1}] = recall_response.actions
+  end
 end

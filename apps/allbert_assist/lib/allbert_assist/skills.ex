@@ -17,7 +17,8 @@ defmodule AllbertAssist.Skills do
     %{
       name: "append_memory",
       title: "Append Memory",
-      description: "Save explicit user memory requests as durable markdown.",
+      description:
+        "Save explicit memory requests and low-risk personal preference heuristics as durable markdown.",
       permission: :memory_write,
       status: :available
     },

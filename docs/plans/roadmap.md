@@ -21,7 +21,7 @@ Request flow: `docs/plans/v0.01-request-flow.md`
 Status: in progress. Milestones 1 and 2 are complete and tested; Milestone 3
 is complete, tested, and operator-verified; Milestone 4 is complete, tested,
 and operator-verified; Milestone 5 is complete and tested. Milestone 5.1 is
-planned as a docs-first refinement before tracing.
+complete and tested.
 
 Summary:
 
@@ -30,7 +30,7 @@ Summary:
 - Add the first primary intent agent. Complete.
 - Add explicit Jido actions and a permission gate. Complete.
 - Add markdown memory v0. Complete.
-- Add deterministic personal preference heuristics. Planned.
+- Add deterministic personal preference heuristics. Complete.
 - Record traces and basic cost/diagnostic metadata.
 - Expose the same loop through CLI/REPL and Phoenix LiveView.
 
@@ -47,9 +47,9 @@ Current operator loop:
 - `AllbertAssist.Memory` stores explicit memories as user-readable markdown
   under `ALLBERT_MEMORY_ROOT` or `var/allbert/memory`, and recall prompts read
   the same markdown source of truth.
-- M5.1 will make basic identity and preference statements, such as "my name is
-  Sandeep" and "I prefer short updates", flow through that same markdown memory
-  path with conservative heuristics.
+- Basic identity and preference statements, such as "my name is Sandeep" and
+  "I prefer short updates", flow through the same markdown memory path with
+  conservative heuristics.
 - The `/agent` LiveView uses the same runtime boundary and displays the
   response, status, and signal id.
 
