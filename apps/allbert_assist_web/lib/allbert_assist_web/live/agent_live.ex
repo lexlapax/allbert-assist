@@ -48,9 +48,12 @@ defmodule AllbertAssistWeb.AgentLive do
   end
 
   defp start_agent(socket) do
-    case Jido.AgentServer.start(agent: SampleAgent) do
-      {:ok, pid} -> assign(socket, agent_pid: pid)
-      {:error, reason} -> assign(socket, agent_pid: nil, error: "Failed to start agent: #{inspect(reason)}")
+    case AllbertAssist.Jido.start_agent(SampleAgent) do
+      {:ok, pid} ->
+        assign(socket, agent_pid: pid)
+
+      {:error, reason} ->
+        assign(socket, agent_pid: nil, error: "Failed to start agent: #{inspect(reason)}")
     end
   end
 
@@ -66,8 +69,9 @@ defmodule AllbertAssistWeb.AgentLive do
         <header>
           <h1 class="text-3xl font-bold">Sample Jido Agent</h1>
           <p class="text-base-content/70 mt-2">
-            Talks to <code>AllbertAssist.Agents.SampleAgent</code> using the
-            <code>:fast</code> model alias. Set <code>ANTHROPIC_API_KEY</code>
+            Talks to <code>AllbertAssist.Agents.SampleAgent</code>
+            using the <code>:fast</code>
+            model alias. Set <code>ANTHROPIC_API_KEY</code>
             (or change the alias in <code>config/config.exs</code>) before asking.
           </p>
         </header>
@@ -81,7 +85,7 @@ defmodule AllbertAssistWeb.AgentLive do
           ><%= @prompt %></textarea>
 
           <button type="submit" class="btn btn-primary" disabled={@asking?}>
-            <%= if @asking?, do: "Thinking…", else: "Ask agent" %>
+            {if @asking?, do: "Thinking…", else: "Ask agent"}
           </button>
         </form>
 
@@ -96,7 +100,7 @@ defmodule AllbertAssistWeb.AgentLive do
 
         <%= if @error do %>
           <section class="alert alert-error">
-            <span><%= @error %></span>
+            <span>{@error}</span>
           </section>
         <% end %>
       </div>

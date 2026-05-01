@@ -6,10 +6,11 @@ defmodule AllbertAssist.Actions.Multiply do
   use Jido.Action,
     name: "multiply",
     description: "Multiply two integers and return the product.",
-    schema: Zoi.object(%{
-      a: Zoi.integer(),
-      b: Zoi.integer()
-    })
+    schema:
+      Zoi.object(%{
+        a: Zoi.integer(),
+        b: Zoi.integer()
+      })
 
   @impl true
   def run(%{a: a, b: b}, _context) do

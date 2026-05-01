@@ -10,12 +10,15 @@ import Config
 config :allbert_assist_web, AllbertAssistWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+ollama_base_url = System.get_env("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+
 # LLM provider credentials, read from the environment so secrets stay out
 # of source control. Set whichever providers you actually use.
 config :req_llm,
   anthropic_api_key: System.get_env("ANTHROPIC_API_KEY"),
-  openai_api_key: System.get_env("OPENAI_API_KEY"),
-  ollama_base_url: System.get_env("OLLAMA_BASE_URL", "http://localhost:11434")
+  openai_api_key: System.get_env("OPENAI_API_KEY")
+
+config :req_llm, :openai, base_url: ollama_base_url
 
 if config_env() == :prod do
   database_path =

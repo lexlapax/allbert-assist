@@ -73,14 +73,15 @@ config :allbert_assist, AllbertAssist.Jido,
 
 # Jido.AI model aliases. Reference these by atom (`:fast`, `:capable`, ...)
 # in agent code so swapping providers is a config-only change.
-# Format is "<provider>:<model>". Provider keys come from runtime.exs.
+# Format is "<provider>:<model>". ReqLLM uses the OpenAI-compatible provider
+# for local Ollama models, with the Ollama base URL configured in runtime.exs.
 config :jido_ai,
   model_aliases: %{
     fast: "anthropic:claude-haiku-4-5",
     capable: "anthropic:claude-sonnet-4-5",
     thinking: "anthropic:claude-opus-4-5",
     gpt: "openai:gpt-4o-mini",
-    local: "ollama:gemma4:26b"
+    local: "openai:gemma4:26b"
   },
   llm_defaults: %{
     text: %{model: :fast, temperature: 0.2, max_tokens: 1024, timeout: 30_000},
