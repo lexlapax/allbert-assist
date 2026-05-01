@@ -21,7 +21,7 @@ Request flow: `docs/plans/v0.01-request-flow.md`
 Status: in progress. Milestones 1 and 2 are complete and tested; Milestone 3
 is complete, tested, and operator-verified; Milestone 4 is complete, tested,
 and operator-verified; Milestone 5 is complete and tested. Milestone 5.1 is
-complete and tested.
+complete and tested. Milestone 6 is complete and tested.
 
 Summary:
 
@@ -31,7 +31,7 @@ Summary:
 - Add explicit Jido actions and a permission gate. Complete.
 - Add markdown memory v0. Complete.
 - Add deterministic personal preference heuristics. Complete.
-- Record traces and basic cost/diagnostic metadata.
+- Record traces and basic cost/diagnostic metadata. Complete.
 - Expose the same loop through CLI/REPL and Phoenix LiveView.
 
 Current operator loop:
@@ -50,8 +50,10 @@ Current operator loop:
 - Basic identity and preference statements, such as "my name is Sandeep" and
   "I prefer short updates", flow through the same markdown memory path with
   conservative heuristics.
+- When tracing is enabled, runtime turns write inspectable markdown traces under
+  the memory `traces` category and return the trace path in `response.trace_id`.
 - The `/agent` LiveView uses the same runtime boundary and displays the
-  response, status, and signal id.
+  response, status, signal id, and trace path when available.
 
 Exit signal: Allbert can remember something, recall recent memory, explain or
 select a safe action, and leave an inspectable trace from both CLI and web UI.

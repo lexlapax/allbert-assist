@@ -20,6 +20,7 @@ defmodule AllbertAssist.Runtime do
   require Logger
 
   alias AllbertAssist.Agents.IntentAgent
+  alias AllbertAssist.Trace
   alias Jido.Signal
 
   @input_received "allbert.input.received"
@@ -45,7 +46,8 @@ defmodule AllbertAssist.Runtime do
           trace_id: nil | String.t(),
           signal_id: String.t(),
           input_signal_id: String.t(),
-          actions: list()
+          actions: list(),
+          diagnostics: list()
         }
 
   @doc """
@@ -77,7 +79,12 @@ defmodule AllbertAssist.Runtime do
          {:ok, agent_response} <- agent_runner().(input_signal, request),
          {:ok, response_signal} <- new_response_signal(input_signal, request, agent_response),
          :ok <- log_signal(response_signal) do
-      {:ok, build_response(input_signal, response_signal, agent_response)}
+      response = build_response(input_signal, response_signal, agent_response)
+
+      {:ok,
+       response
+       |> record_trace(input_signal, response_signal, request)
+       |> maybe_log_trace_signal(request)}
     end
   end
 
@@ -188,8 +195,56 @@ defmodule AllbertAssist.Runtime do
       trace_id: nil,
       signal_id: response_signal.id,
       input_signal_id: input_signal.id,
-      actions: response_actions(agent_response)
+      actions: response_actions(agent_response),
+      diagnostics: []
     }
+  end
+
+  defp record_trace(response, input_signal, response_signal, request) do
+    case Trace.record_turn(%{
+           input_signal: input_signal,
+           response_signal: response_signal,
+           request: request,
+           response: response,
+           agent: IntentAgent
+         }) do
+      {:ok, trace} ->
+        %{response | trace_id: trace.path}
+
+      {:disabled, :tracing_disabled} ->
+        response
+
+      {:error, reason} ->
+        Logger.warning("allbert trace write failed: #{inspect(reason)}")
+        add_diagnostic(response, %{source: :trace, error: inspect(reason)})
+    end
+  end
+
+  defp maybe_log_trace_signal(%{trace_id: nil} = response, _request), do: response
+
+  defp maybe_log_trace_signal(%{trace_id: trace_id} = response, request) do
+    case Signal.new(
+           @trace_recorded,
+           %{
+             input_signal_id: response.input_signal_id,
+             response_signal_id: response.signal_id,
+             trace_id: trace_id
+           },
+           source: "/allbert/runtime",
+           subject: request.operator_id
+         ) do
+      {:ok, signal} ->
+        log_signal(signal)
+        response
+
+      {:error, reason} ->
+        Logger.warning("allbert trace signal failed: #{inspect(reason)}")
+        add_diagnostic(response, %{source: :trace_signal, error: inspect(reason)})
+    end
+  end
+
+  defp add_diagnostic(response, diagnostic) do
+    Map.update!(response, :diagnostics, &(&1 ++ [diagnostic]))
   end
 
   defp response_message(%{message: message}) when is_binary(message), do: message

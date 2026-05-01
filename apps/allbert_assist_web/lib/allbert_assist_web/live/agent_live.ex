@@ -18,7 +18,8 @@ defmodule AllbertAssistWeb.AgentLive do
         error: nil,
         asking?: false,
         status: nil,
-        signal_id: nil
+        signal_id: nil,
+        trace_id: nil
       )
 
     {:ok, socket}
@@ -34,7 +35,8 @@ defmodule AllbertAssistWeb.AgentLive do
         error: nil,
         asking?: true,
         status: nil,
-        signal_id: nil
+        signal_id: nil,
+        trace_id: nil
       )
       |> start_async(:ask, fn ->
         Runtime.submit_user_input(%{
@@ -54,7 +56,8 @@ defmodule AllbertAssistWeb.AgentLive do
        asking?: false,
        response: response.message,
        status: response.status,
-       signal_id: response.signal_id
+       signal_id: response.signal_id,
+       trace_id: Map.get(response, :trace_id)
      )}
   end
 
@@ -103,6 +106,9 @@ defmodule AllbertAssistWeb.AgentLive do
               </p>
               <p :if={@signal_id} id="agent-signal" class="text-xs text-base-content/60">
                 Signal: {@signal_id}
+              </p>
+              <p :if={@trace_id} id="agent-trace" class="text-xs text-base-content/60">
+                Trace: {@trace_id}
               </p>
             </div>
           </section>
