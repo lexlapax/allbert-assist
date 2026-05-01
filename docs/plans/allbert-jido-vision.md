@@ -132,6 +132,33 @@ Nightly distillation or small-model retraining can remain a future research
 track. First, Allbert needs trustworthy memory capture, retrieval, review, and
 pruning.
 
+### Allbert Home And Settings
+
+Allbert needs a canonical local home directory and a domain settings engine
+separate from Phoenix deployment config.
+
+`ALLBERT_HOME` should be the durable local root for settings, encrypted
+secrets, markdown memory, the local database, user skills, imported caches, and
+temporary runtime data. If it is not set, Allbert should default to
+`~/.allbert`; `ALLBERT_HOME_DIR` can be accepted as an alias. Eventually,
+backing up or moving this directory should be the simple mental model for
+moving Allbert's local life between machines.
+
+`config.exs` and environment variables should remain responsible for boot-time
+application configuration, infrastructure, Allbert Home overrides, and
+secret-store master-key bootstrap. User/operator settings and user-supplied
+provider credentials should live in an inspectable, validated, auditable
+Allbert settings subsystem that can be reached through CLI, LiveView, future
+channels, jobs, skills, and actions. API keys should be encrypted at rest and
+redacted everywhere they are surfaced.
+
+Settings should cover operator profile, provider profiles, model profiles,
+trace defaults, skill scan paths and trust decisions, permission policy,
+confirmation behavior, job defaults, channel preferences, and memory review
+policy. Settings should be layered so Allbert can explain whether a value came
+from built-in defaults, deployment config, operator settings, project settings,
+channel settings, or a request override.
+
 ### Channels And Jobs
 
 All input and output surfaces should become channel adapters around the same

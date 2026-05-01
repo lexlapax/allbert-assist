@@ -37,6 +37,8 @@ export OLLAMA_BASE_URL=http://localhost:11434/v1
 
 ## Setup
 
+For development conventions and agent onboarding, read `DEVELOPMENT.md`.
+
 ```sh
 mix setup
 ```
@@ -118,6 +120,7 @@ status, signal id, and trace path when tracing is enabled.
 
 ## Project Docs
 
+- Development guide: `DEVELOPMENT.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
 - Roadmap: `docs/plans/roadmap.md`
 - v0.01 plan: `docs/plans/v0.01-plan.md`
