@@ -41,4 +41,17 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert response.message =~ "I will not execute shell commands"
     assert [%{name: "plan_shell_command", execution: :not_available}] = response.actions
   end
+
+  test "default runtime requires confirmation for external network requests" do
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Fetch https://example.com from the internet",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :needs_confirmation
+    assert response.message =~ "external network access"
+    assert [%{name: "external_network_request", execution: :not_available}] = response.actions
+  end
 end

@@ -12,26 +12,31 @@ defmodule AllbertAssist.Actions.Intent.ListSkills do
     output_schema: [
       message: [type: :string, required: true],
       status: [type: :atom, required: true],
+      permission_decision: [type: :map, required: true],
       actions: [type: {:list, :map}, required: true],
       skills: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Skills
 
   @impl true
-  def run(_params, _context) do
+  def run(_params, context) do
     skills = Skills.list()
+    permission_decision = PermissionGate.authorize(:read_only, context)
 
     {:ok,
      %{
        message: message(skills),
-       status: :completed,
+       status: PermissionGate.response_status(permission_decision),
+       permission_decision: permission_decision,
        skills: skills,
        actions: [
          %{
            name: "list_skills",
            status: :completed,
-           permission: :read_only
+           permission: :read_only,
+           permission_decision: permission_decision
          }
        ]
      }}

@@ -50,6 +50,14 @@ defmodule AllbertAssist.Skills do
       description: "Draft a command plan or safety note without executing any shell command.",
       permission: :command_plan,
       status: :available
+    },
+    %{
+      name: "external_network_request",
+      title: "External Network Request",
+      description:
+        "Recognize external network requests and require confirmation without making a call.",
+      permission: :external_network,
+      status: :needs_confirmation
     }
   ]
 

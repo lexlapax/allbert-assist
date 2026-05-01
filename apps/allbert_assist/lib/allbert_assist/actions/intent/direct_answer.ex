@@ -14,20 +14,27 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     output_schema: [
       message: [type: :string, required: true],
       status: [type: :atom, required: true],
+      permission_decision: [type: :map, required: true],
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Security.PermissionGate
+
   @impl true
-  def run(%{text: text}, _context) do
+  def run(%{text: text}, context) do
+    permission_decision = PermissionGate.authorize(:read_only, context)
+
     {:ok,
      %{
        message: message(text),
-       status: :completed,
+       status: PermissionGate.response_status(permission_decision),
+       permission_decision: permission_decision,
        actions: [
          %{
            name: "direct_answer",
            status: :completed,
-           permission: :read_only
+           permission: :read_only,
+           permission_decision: permission_decision
          }
        ]
      }}

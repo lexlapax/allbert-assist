@@ -12,7 +12,8 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              "read_recent_memory",
              "list_skills",
              "read_skill",
-             "plan_shell_command"
+             "plan_shell_command",
+             "external_network_request"
            ]
   end
 
@@ -32,6 +33,19 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert [%{name: "list_skills"}] = response.actions
   end
 
+  test "routes skill inspection prompts to the read-only list action" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "List the skills you can inspect.",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "v0.01-safe capabilities"
+    assert [%{name: "list_skills", permission_decision: %{decision: :allowed}}] = response.actions
+  end
+
   test "answers plain prompts without selecting a side-effect action" do
     assert {:ok, response} =
              IntentAgent.respond(%{
@@ -42,7 +56,14 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
 
     assert response.status == :completed
     assert response.message =~ "side-effect-free"
-    assert [%{name: "direct_answer", permission: :read_only}] = response.actions
+
+    assert [
+             %{
+               name: "direct_answer",
+               permission: :read_only,
+               permission_decision: %{decision: :allowed}
+             }
+           ] = response.actions
   end
 
   test "selects append_memory for explicit memory requests without persistence" do
@@ -56,7 +77,15 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert response.status == :completed
     assert response.message =~ "Selected action: append_memory"
     assert response.message =~ "I prefer short implementation updates."
-    assert [%{name: "append_memory", status: :selected, durable: false}] = response.actions
+
+    assert [
+             %{
+               name: "append_memory",
+               status: :selected,
+               durable: false,
+               permission_decision: %{decision: :allowed}
+             }
+           ] = response.actions
   end
 
   test "refuses command execution while offering only the plan action" do
@@ -76,7 +105,29 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
                name: "plan_shell_command",
                status: :planned_not_executed,
                execution: :not_available,
-               destructive: true
+               destructive: true,
+               permission_decision: %{decision: :allowed},
+               requested_permission_decision: %{decision: :denied}
+             }
+           ] = response.actions
+  end
+
+  test "requires confirmation for external network requests" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "Fetch https://example.com from the internet",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :needs_confirmation
+    assert response.message =~ "external network access"
+
+    assert [
+             %{
+               name: "external_network_request",
+               execution: :not_available,
+               permission_decision: %{decision: :needs_confirmation}
              }
            ] = response.actions
   end

@@ -14,24 +14,30 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
     output_schema: [
       message: [type: :string, required: true],
       status: [type: :atom, required: true],
+      permission_decision: [type: :map, required: true],
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Skills
 
   @impl true
-  def run(%{name: name}, _context) do
+  def run(%{name: name}, context) do
+    permission_decision = PermissionGate.authorize(:read_only, context)
+
     case Skills.get(name) do
       {:ok, skill} ->
         {:ok,
          %{
            message: skill_message(skill),
-           status: :completed,
+           status: PermissionGate.response_status(permission_decision),
+           permission_decision: permission_decision,
            actions: [
              %{
                name: "read_skill",
                status: :completed,
                permission: :read_only,
+               permission_decision: permission_decision,
                input: %{name: name}
              }
            ]
@@ -41,12 +47,14 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
         {:ok,
          %{
            message: "I do not have a v0.01 skill declaration named #{inspect(name)}.",
-           status: :completed,
+           status: PermissionGate.response_status(permission_decision),
+           permission_decision: permission_decision,
            actions: [
              %{
                name: "read_skill",
                status: :not_found,
                permission: :read_only,
+               permission_decision: permission_decision,
                input: %{name: name}
              }
            ]

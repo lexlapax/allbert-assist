@@ -19,14 +19,15 @@ Plan: `docs/plans/v0.01-plan.md`
 Request flow: `docs/plans/v0.01-request-flow.md`
 
 Status: in progress. Milestones 1 and 2 are complete and tested; Milestone 3
-is complete, tested, and operator-verified.
+is complete, tested, and operator-verified; Milestone 4 is complete, tested,
+and operator-verified.
 
 Summary:
 
 - Clean the formatter/precommit baseline. Complete.
 - Introduce a signal-first runtime boundary. Complete.
 - Add the first primary intent agent. Complete.
-- Add explicit Jido actions and a permission gate.
+- Add explicit Jido actions and a permission gate. Complete.
 - Add markdown memory v0.
 - Record traces and basic cost/diagnostic metadata.
 - Expose the same loop through CLI/REPL and Phoenix LiveView.
@@ -38,6 +39,9 @@ Current operator loop:
 - The default runtime path uses `AllbertAssist.Agents.IntentAgent` with a
   deterministic v0.01 action surface for direct answers, memory intent
   selection, skill inspection, and inert shell-command planning.
+- `AllbertAssist.Security.PermissionGate` records explicit permission decisions
+  for read-only work, memory-write intent, command planning, blocked command
+  execution, and external network confirmation.
 - The `/agent` LiveView uses the same runtime boundary and displays the
   response, status, and signal id.
 

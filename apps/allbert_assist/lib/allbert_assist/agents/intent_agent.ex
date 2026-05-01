@@ -3,7 +3,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   Primary v0.01 Allbert intent agent.
 
   The module is a `Jido.AI.Agent` with explicit tool/action declarations, and
-  it also exposes a deterministic `respond/1` function for the M3 runtime path.
+  it also exposes a deterministic `respond/1` function for the v0.01 runtime path.
   That keeps the first operator loop fast, testable, and conservative while the
   supervised Jido agent substrate is in place for later milestones.
   """
@@ -21,7 +21,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
       AllbertAssist.Actions.Intent.ReadRecentMemory,
       AllbertAssist.Actions.Intent.ListSkills,
       AllbertAssist.Actions.Intent.ReadSkill,
-      AllbertAssist.Actions.Intent.PlanShellCommand
+      AllbertAssist.Actions.Intent.PlanShellCommand,
+      AllbertAssist.Actions.Intent.ExternalNetworkRequest
     ],
     system_prompt: """
     You are Allbert's primary v0.01 intent agent.
@@ -35,12 +36,14 @@ defmodule AllbertAssist.Agents.IntentAgent do
     - You may select memory append/read actions, but durable markdown memory is
       not implemented until M5.
     - You may plan shell commands, but you must not claim to execute them.
+    - You may recognize external-network requests, but you must not make them.
     - Sensitive or destructive work must be refused or marked for future
       confirmation.
     """
 
   alias AllbertAssist.Actions.Intent.AppendMemory
   alias AllbertAssist.Actions.Intent.DirectAnswer
+  alias AllbertAssist.Actions.Intent.ExternalNetworkRequest
   alias AllbertAssist.Actions.Intent.ListSkills
   alias AllbertAssist.Actions.Intent.PlanShellCommand
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
@@ -49,7 +52,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   @doc """
   Respond to one normalized runtime request.
 
-  M3 uses deterministic routing over the same named action surface that the
+  v0.01 currently uses deterministic routing over the same named action surface that the
   `Jido.AI.Agent` exposes as tools. Later milestones can move more of this
   selection into the supervised agent loop after permissions, memory, and
   traces are stronger.
@@ -75,7 +78,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
       ReadRecentMemory,
       ListSkills,
       ReadSkill,
-      PlanShellCommand
+      PlanShellCommand,
+      ExternalNetworkRequest
     ]
   end
 
@@ -85,6 +89,9 @@ defmodule AllbertAssist.Agents.IntentAgent do
     cond do
       command_request?(normalized) ->
         :plan_shell_command
+
+      external_network_request?(normalized) ->
+        :external_network_request
 
       memory_append_request?(normalized) ->
         :append_memory
@@ -105,6 +112,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp run_route(:plan_shell_command, text, context) do
     PlanShellCommand.run(%{command: requested_command(text), source_text: text}, context)
+  end
+
+  defp run_route(:external_network_request, text, context) do
+    ExternalNetworkRequest.run(%{request: network_request(text), source_text: text}, context)
   end
 
   defp run_route(:append_memory, text, context) do
@@ -134,6 +145,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
       Regex.match?(~r/\brm\s+-/, text)
   end
 
+  defp external_network_request?(text) do
+    Regex.match?(
+      ~r/\b(fetch|browse|download|call|post|get)\b.*\b(https?:\/\/|api|website|web|internet)\b/,
+      text
+    ) ||
+      String.contains?(text, "http://") ||
+      String.contains?(text, "https://") ||
+      String.contains?(text, "external network")
+  end
+
   defp memory_append_request?(text) do
     Regex.match?(~r/^\s*(please\s+)?remember\b/, text) ||
       Regex.match?(~r/^\s*(save|store|note)\s+(this|that)\b/, text)
@@ -156,6 +177,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
     String.contains?(text, "what can you do") ||
       String.contains?(text, "available skills") ||
       String.contains?(text, "list skills") ||
+      String.contains?(text, "skills you can inspect") ||
       String.contains?(text, "capabilities") ||
       String.contains?(text, "what actions")
   end
@@ -170,6 +192,12 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp requested_command(text) do
     text
     |> String.replace(~r/^\s*(please\s+)?(run|execute|exec)\s+/i, "")
+    |> String.trim()
+  end
+
+  defp network_request(text) do
+    text
+    |> String.replace(~r/^\s*(please\s+)?(fetch|browse|download|call|post|get)\s+/i, "")
     |> String.trim()
   end
 

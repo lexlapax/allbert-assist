@@ -15,20 +15,27 @@ defmodule AllbertAssist.Actions.Intent.ReadRecentMemory do
     output_schema: [
       message: [type: :string, required: true],
       status: [type: :atom, required: true],
+      permission_decision: [type: :map, required: true],
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Security.PermissionGate
+
   @impl true
-  def run(%{query: query}, _context) do
+  def run(%{query: query}, context) do
+    permission_decision = PermissionGate.authorize(:read_only, context)
+
     {:ok,
      %{
        message: message(),
-       status: :completed,
+       status: PermissionGate.response_status(permission_decision),
+       permission_decision: permission_decision,
        actions: [
          %{
            name: "read_recent_memory",
            status: :selected,
            permission: :read_only,
+           permission_decision: permission_decision,
            durable_source_ready: false,
            milestone: "v0.01 M5",
            input: %{query: query}
