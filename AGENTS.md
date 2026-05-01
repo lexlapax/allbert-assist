@@ -5,6 +5,13 @@ This is a web application written using the Phoenix web framework.
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues
 - Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
 
+### Project planning docs
+
+- Long-term project direction lives in `docs/plans/roadmap.md`
+- Implementation-ready milestone plans live in `docs/plans/`
+- Architectural decisions that constrain implementation should be recorded as ADRs in `docs/adr/`
+- For docs-only planning updates, run `git diff --check`; full `mix precommit` is required when code changes are included or when finishing a code milestone
+
 ### Phoenix v1.8 guidelines
 
 - **Always** begin your LiveView templates with `<Layouts.app flash={@flash} ...>` which wraps all inner content
