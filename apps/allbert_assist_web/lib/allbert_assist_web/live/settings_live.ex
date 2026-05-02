@@ -88,6 +88,48 @@ defmodule AllbertAssistWeb.SettingsLive do
     {:noreply, socket}
   end
 
+  def handle_event("approve_confirmation", %{"id" => id}, socket) do
+    socket =
+      case completed_action("approve_confirmation", %{id: id}) do
+        {:ok, response} ->
+          socket
+          |> put_flash(:info, "Confirmation #{response.confirmation["status"]}.")
+          |> assign(:diagnostics, "")
+          |> refresh(socket.assigns.selected_key)
+
+        {:error, reason} ->
+          socket
+          |> assign(:diagnostics, inspect(reason))
+          |> refresh(socket.assigns.selected_key)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
+        "deny_confirmation",
+        %{"confirmation" => %{"id" => id, "reason" => reason}},
+        socket
+      ) do
+    params = %{id: id} |> maybe_put(:reason, blank_to_nil(reason))
+
+    socket =
+      case completed_action("deny_confirmation", params) do
+        {:ok, response} ->
+          socket
+          |> put_flash(:info, "Confirmation #{response.confirmation["status"]}.")
+          |> assign(:diagnostics, "")
+          |> refresh(socket.assigns.selected_key)
+
+        {:error, reason} ->
+          socket
+          |> assign(:diagnostics, inspect(reason))
+          |> refresh(socket.assigns.selected_key)
+      end
+
+    {:noreply, socket}
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -246,6 +288,115 @@ defmodule AllbertAssistWeb.SettingsLive do
               </div>
             </section>
 
+            <section id="confirmation-requests" class="space-y-4">
+              <div class="flex items-center justify-between gap-3">
+                <h2 class="text-lg font-medium">Confirmation Requests</h2>
+                <span id="pending-confirmation-count" class="text-sm text-base-content/60">
+                  Pending: {length(@pending_confirmations)}
+                </span>
+              </div>
+
+              <div id="pending-confirmations" class="space-y-3">
+                <p
+                  :if={@pending_confirmations == []}
+                  id="no-pending-confirmations"
+                  class="rounded border border-base-300 p-3 text-sm text-base-content/60"
+                >
+                  No pending confirmations.
+                </p>
+
+                <div
+                  :for={confirmation <- @pending_confirmations}
+                  id={"confirmation-pending-#{confirmation["id"]}"}
+                  class="rounded border border-base-300 p-3 text-sm"
+                >
+                  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div class="min-w-0 space-y-1">
+                      <div class="font-medium">{target_name(confirmation)}</div>
+                      <div class="text-xs text-base-content/60">
+                        {confirmation["id"]} · {confirmation["status"]} · {confirmation[
+                          "target_permission"
+                        ]} · risk {risk_tier(confirmation)}
+                      </div>
+                      <div class="text-xs text-base-content/60">
+                        Origin: {origin_text(confirmation)} · Expires: {confirmation["expires_at"]}
+                      </div>
+                      <div
+                        :if={selected_skill_name(confirmation)}
+                        class="text-xs text-base-content/60"
+                      >
+                        Skill: {selected_skill_name(confirmation)}
+                      </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 sm:flex-row">
+                      <button
+                        id={"approve-confirmation-#{confirmation["id"]}"}
+                        type="button"
+                        phx-click="approve_confirmation"
+                        phx-value-id={confirmation["id"]}
+                        class="btn btn-primary btn-sm"
+                        disabled={!@liveview_confirmation_approval?}
+                      >
+                        Approve
+                      </button>
+
+                      <.form
+                        for={confirmation_form(confirmation)}
+                        id={"deny-confirmation-#{confirmation["id"]}-form"}
+                        phx-submit="deny_confirmation"
+                        class="flex gap-2"
+                      >
+                        <input type="hidden" name="confirmation[id]" value={confirmation["id"]} />
+                        <input
+                          id={"deny-confirmation-#{confirmation["id"]}-reason"}
+                          name="confirmation[reason]"
+                          type="text"
+                          class="input input-bordered input-sm w-36"
+                          placeholder="Reason"
+                        />
+                        <button
+                          id={"deny-confirmation-#{confirmation["id"]}"}
+                          type="submit"
+                          class="btn btn-secondary btn-sm"
+                        >
+                          Deny
+                        </button>
+                      </.form>
+                    </div>
+                  </div>
+
+                  <pre
+                    id={"confirmation-params-#{confirmation["id"]}"}
+                    class="mt-3 max-h-32 overflow-auto rounded bg-base-200 p-2 text-xs"
+                  ><%= params_summary(confirmation) %></pre>
+                </div>
+              </div>
+
+              <div id="resolved-confirmations" class="space-y-2">
+                <h3 class="text-sm font-medium">Recently Resolved</h3>
+                <p
+                  :if={@resolved_confirmations == []}
+                  id="no-resolved-confirmations"
+                  class="rounded border border-base-300 p-3 text-sm text-base-content/60"
+                >
+                  No resolved confirmations.
+                </p>
+                <div
+                  :for={confirmation <- @resolved_confirmations}
+                  id={"confirmation-resolved-#{confirmation["id"]}"}
+                  class="rounded border border-base-300 p-3 text-sm"
+                >
+                  <div class="font-medium">{target_name(confirmation)}</div>
+                  <div class="text-xs text-base-content/60">
+                    {confirmation["id"]} · status {confirmation["status"]} · resolver {resolver_text(
+                      confirmation
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <section id="provider-profiles" class="space-y-2">
               <h2 class="text-lg font-medium">Providers</h2>
               <div :for={provider <- @providers} class="rounded border border-base-300 p-3 text-sm">
@@ -290,6 +441,8 @@ defmodule AllbertAssistWeb.SettingsLive do
     {:ok, providers_response} = completed_action("list_provider_profiles", %{})
     {:ok, models_response} = completed_action("list_model_profiles", %{})
     {:ok, security_response} = completed_action("security_status", %{})
+    {:ok, pending_response} = completed_action("list_confirmations", %{status: "pending"})
+    {:ok, resolved_response} = completed_action("list_confirmations", %{status: "resolved"})
 
     settings = settings_response.settings
     providers = providers_response.providers
@@ -303,6 +456,12 @@ defmodule AllbertAssistWeb.SettingsLive do
     |> assign(:providers, providers)
     |> assign(:models, models)
     |> assign(:security_status, security_status)
+    |> assign(:pending_confirmations, pending_response.confirmations)
+    |> assign(:resolved_confirmations, recently_resolved(resolved_response.confirmations))
+    |> assign(
+      :liveview_confirmation_approval?,
+      setting_bool(settings, "confirmations.allow_liveview_approval", true)
+    )
     |> assign(:selected_key, setting.key)
     |> assign(:selected_value, setting.value)
     |> assign(:explanation, explanation(setting))
@@ -383,7 +542,10 @@ defmodule AllbertAssistWeb.SettingsLive do
 
   defp response_error(%{actions: actions, message: message}) when is_list(actions) do
     actions
-    |> Enum.find_value(&get_in(&1, [:settings_metadata, :error]))
+    |> Enum.find_value(fn action ->
+      get_in(action, [:settings_metadata, :error]) ||
+        get_in(action, [:confirmation_metadata, :error])
+    end)
     |> case do
       nil -> message
       error -> error
@@ -399,6 +561,67 @@ defmodule AllbertAssistWeb.SettingsLive do
   end
 
   defp context do
-    %{actor: "local", channel: :live_view}
+    %{actor: "local", channel: :live_view, surface: "/settings"}
   end
+
+  defp confirmation_form(confirmation) do
+    to_form(%{"id" => confirmation["id"], "reason" => ""}, as: :confirmation)
+  end
+
+  defp target_name(confirmation) do
+    get_in(confirmation, ["target_action", "name"]) || "unknown"
+  end
+
+  defp origin_text(confirmation) do
+    origin = Map.get(confirmation, "origin", %{})
+    "#{Map.get(origin, "actor", "local")}/#{Map.get(origin, "channel", "unknown")}"
+  end
+
+  defp resolver_text(confirmation) do
+    resolution = Map.get(confirmation, "operator_resolution", %{}) || %{}
+
+    "#{Map.get(resolution, "resolver_actor", "none")}/#{Map.get(resolution, "resolver_channel", "none")}"
+  end
+
+  defp risk_tier(confirmation) do
+    get_in(confirmation, ["security_decision", "risk", "tier"]) || "unknown"
+  end
+
+  defp selected_skill_name(confirmation) do
+    case get_in(confirmation, ["selected_skill", "name"]) do
+      value when is_binary(value) and value != "" -> value
+      _value -> nil
+    end
+  end
+
+  defp params_summary(confirmation) do
+    confirmation
+    |> Map.get("params_summary", %{})
+    |> inspect(pretty: true, limit: 20, printable_limit: 300)
+  end
+
+  defp recently_resolved(confirmations) do
+    confirmations
+    |> Enum.reverse()
+    |> Enum.take(5)
+  end
+
+  defp setting_bool(settings, key, default) do
+    settings
+    |> Enum.find(&(&1.key == key))
+    |> case do
+      %{value: value} when is_boolean(value) -> value
+      _setting -> default
+    end
+  end
+
+  defp maybe_put(params, _key, nil), do: params
+  defp maybe_put(params, key, value), do: Map.put(params, key, value)
+
+  defp blank_to_nil(value) when is_binary(value) do
+    value = String.trim(value)
+    if value == "", do: nil, else: value
+  end
+
+  defp blank_to_nil(value), do: value
 end
