@@ -22,8 +22,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
+  alias AllbertAssist.Actions.Trace.RecordTrace
 
-  @actions [
+  @agent_actions [
     DirectAnswer,
     AppendMemory,
     ReadRecentMemory,
@@ -41,9 +42,19 @@ defmodule AllbertAssist.Actions.Registry do
     SetProviderCredential
   ]
 
+  @internal_actions [
+    RecordTrace
+  ]
+
+  @actions @agent_actions ++ @internal_actions
+
   @doc "Return registered runtime action modules in stable display order."
   @spec modules() :: nonempty_list(module())
   def modules, do: @actions
+
+  @doc "Return action modules that can be exposed to the intent agent."
+  @spec agent_modules() :: nonempty_list(module())
+  def agent_modules, do: @agent_actions
 
   @doc "Return registered action names in stable display order."
   @spec names() :: [String.t()]

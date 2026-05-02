@@ -39,7 +39,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
   end
 
   test "defines the v0.01 action surface as Jido action modules" do
-    assert IntentAgent.action_modules() == Registry.modules()
+    assert IntentAgent.action_modules() == Registry.agent_modules()
 
     action_names = Enum.map(IntentAgent.action_modules(), & &1.name())
 

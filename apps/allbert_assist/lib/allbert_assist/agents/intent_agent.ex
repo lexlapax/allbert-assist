@@ -77,7 +77,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   @doc "Return the action modules that define the v0.01 intent surface."
   def action_modules do
-    Registry.modules()
+    Registry.agent_modules()
   end
 
   defp route(text) do

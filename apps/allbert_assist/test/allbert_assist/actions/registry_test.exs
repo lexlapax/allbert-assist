@@ -21,10 +21,19 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "explain_setting",
              "list_provider_profiles",
              "list_model_profiles",
-             "set_provider_credential"
+             "set_provider_credential",
+             "record_trace"
            ]
 
     assert Registry.duplicate_names() == []
+  end
+
+  test "returns the intent-agent action surface without internal actions" do
+    agent_action_names = Enum.map(Registry.agent_modules(), & &1.name())
+
+    assert "direct_answer" in agent_action_names
+    assert "set_provider_credential" in agent_action_names
+    refute "record_trace" in agent_action_names
   end
 
   test "resolves registered actions by name and module only" do

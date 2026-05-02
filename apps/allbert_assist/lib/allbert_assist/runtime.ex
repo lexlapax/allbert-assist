@@ -19,8 +19,8 @@ defmodule AllbertAssist.Runtime do
 
   require Logger
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Agents.IntentAgent
-  alias AllbertAssist.Trace
   alias Jido.Signal
 
   @input_received "allbert.input.received"
@@ -201,24 +201,53 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp record_trace(response, input_signal, response_signal, request) do
-    case Trace.record_turn(%{
-           input_signal: input_signal,
-           response_signal: response_signal,
-           request: request,
-           response: response,
-           agent: IntentAgent
-         }) do
-      {:ok, trace} ->
-        %{response | trace_id: trace.path}
+    turn = %{
+      input_signal: input_signal,
+      response_signal: response_signal,
+      request: request,
+      response: response,
+      agent: IntentAgent
+    }
 
-      {:disabled, :tracing_disabled} ->
+    case Runner.run("record_trace", %{turn: turn}, trace_context(input_signal, request)) do
+      {:ok, %{status: :completed, trace_id: trace_id}} when is_binary(trace_id) ->
+        %{response | trace_id: trace_id}
+
+      {:ok, %{status: :completed}} ->
         response
 
-      {:error, reason} ->
+      {:ok, trace_response} ->
+        reason = trace_error(trace_response)
         Logger.warning("allbert trace write failed: #{inspect(reason)}")
         add_diagnostic(response, %{source: :trace, error: inspect(reason)})
     end
   end
+
+  defp trace_context(input_signal, request) do
+    %{
+      request: %{
+        operator_id: request.operator_id,
+        channel: request.channel,
+        input_signal_id: input_signal.id
+      },
+      agent: __MODULE__,
+      selected_action: "record_trace",
+      internal?: true
+    }
+  end
+
+  defp trace_error(%{error: error}), do: error
+
+  defp trace_error(%{actions: actions, message: message}) when is_list(actions) do
+    actions
+    |> Enum.find_value(&get_in(&1, [:trace_metadata, :error]))
+    |> case do
+      nil -> message
+      error -> error
+    end
+  end
+
+  defp trace_error(%{message: message}), do: message
 
   defp maybe_log_trace_signal(%{trace_id: nil} = response, _request), do: response
 

@@ -70,6 +70,13 @@ defmodule AllbertAssist.Signals do
 
   @doc "Recursively redact values with sensitive key names."
   @spec redact(term()) :: term()
+  def redact(%_{} = struct) do
+    struct
+    |> Map.from_struct()
+    |> Map.put(:__struct__, module_name(struct.__struct__))
+    |> redact()
+  end
+
   def redact(%{} = map) do
     Map.new(map, fn {key, value} ->
       if sensitive_key?(key) do

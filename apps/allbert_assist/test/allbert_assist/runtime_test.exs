@@ -146,6 +146,8 @@ defmodule AllbertAssist.RuntimeTest do
         response
       end)
 
+    assert response =~ "allbert.action.requested"
+    assert response =~ "/allbert/actions/record_trace"
     assert response =~ "allbert.trace.recorded"
 
     trace = File.read!(Path.wildcard(Path.join([root, "traces", "*.md"])) |> hd())
