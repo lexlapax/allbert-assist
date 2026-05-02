@@ -122,6 +122,11 @@ defmodule AllbertAssist.SettingsTest do
 
     assert approval.value == false
 
+    assert {:ok, policy} =
+             Settings.put("permissions.confirmation_decide", "denied", %{audit?: false})
+
+    assert policy.value == "denied"
+
     assert {:error, {:invalid_setting, "confirmations.default_ttl_minutes", _reason}} =
              Settings.put("confirmations.default_ttl_minutes", 0, %{})
 

@@ -17,6 +17,7 @@ defmodule AllbertAssist.Security.PermissionGate do
           | :external_network
           | :settings_write
           | :skill_write
+          | :confirmation_decide
           | :settings_secret_write
           | :settings_secret_read
 

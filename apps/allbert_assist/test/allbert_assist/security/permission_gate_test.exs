@@ -3,7 +3,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
 
   alias AllbertAssist.Security.PermissionGate
 
-  test "documents the v0.01 permission classes" do
+  test "documents the runtime permission classes" do
     assert PermissionGate.permission_classes() == [
              :read_only,
              :memory_write,
@@ -12,6 +12,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :external_network,
              :settings_write,
              :skill_write,
+             :confirmation_decide,
              :settings_secret_write,
              :settings_secret_read
            ]
@@ -52,8 +53,13 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert_compatibility_fields(decision)
   end
 
-  test "allows safe settings writes, skill scaffolds, and explicit secret writes" do
-    for permission <- [:settings_write, :skill_write, :settings_secret_write] do
+  test "allows safe settings writes, skill scaffolds, confirmation decisions, and explicit secret writes" do
+    for permission <- [
+          :settings_write,
+          :skill_write,
+          :confirmation_decide,
+          :settings_secret_write
+        ] do
       decision = PermissionGate.authorize(permission, %{})
 
       assert decision.permission == permission
