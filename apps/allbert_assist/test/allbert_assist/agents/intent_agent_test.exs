@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Agents.IntentAgentTest do
   use ExUnit.Case, async: false
 
+  alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.Memory
   alias AllbertAssist.Settings
@@ -38,6 +39,8 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
   end
 
   test "defines the v0.01 action surface as Jido action modules" do
+    assert IntentAgent.action_modules() == Registry.modules()
+
     action_names = Enum.map(IntentAgent.action_modules(), & &1.name())
 
     assert action_names == [
@@ -188,12 +191,17 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
 
     assert response.status == :completed
     assert response.message =~ "side-effect-free"
+    assert response.runner_metadata.action_name == "direct_answer"
+    assert response.runner_metadata.action_module == AllbertAssist.Actions.Intent.DirectAnswer
+    assert is_binary(response.runner_metadata.requested_signal_id)
+    assert is_binary(response.runner_metadata.completed_signal_id)
 
     assert [
              %{
                name: "direct_answer",
                permission: :read_only,
-               permission_decision: %{decision: :allowed}
+               permission_decision: %{decision: :allowed},
+               runner_metadata: %{action_name: "direct_answer"}
              }
            ] = response.actions
   end

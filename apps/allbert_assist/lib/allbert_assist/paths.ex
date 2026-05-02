@@ -22,8 +22,10 @@ defmodule AllbertAssist.Paths do
   """
   @spec home() :: String.t()
   def home do
-    configured(:home) || env_path("ALLBERT_HOME") || env_path("ALLBERT_HOME_DIR") ||
+    first_path(
+      [configured(:home), env_path("ALLBERT_HOME"), env_path("ALLBERT_HOME_DIR")],
       Path.expand("~/.allbert")
+    )
   end
 
   @doc "Create the Allbert Home directory and standard child directories."
@@ -54,40 +56,58 @@ defmodule AllbertAssist.Paths do
   @doc "Return the Settings Central root."
   @spec settings_root() :: String.t()
   def settings_root do
-    app_root(AllbertAssist.Settings) || configured(:settings_root) ||
-      env_path("ALLBERT_SETTINGS_ROOT") || Path.join(home(), "settings")
+    first_path(
+      [
+        app_root(AllbertAssist.Settings),
+        configured(:settings_root),
+        env_path("ALLBERT_SETTINGS_ROOT")
+      ],
+      Path.join(home(), "settings")
+    )
   end
 
   @doc "Return the markdown memory root."
   @spec memory_root() :: String.t()
   def memory_root do
-    app_root(AllbertAssist.Memory) || configured(:memory_root) ||
-      env_path("ALLBERT_MEMORY_ROOT") || Path.join(home(), "memory")
+    first_path(
+      [
+        app_root(AllbertAssist.Memory),
+        configured(:memory_root),
+        env_path("ALLBERT_MEMORY_ROOT")
+      ],
+      Path.join(home(), "memory")
+    )
   end
 
   @doc "Return the local SQLite database path."
   @spec db_path() :: String.t()
   def db_path do
-    configured(:db_path) || env_path("DATABASE_PATH") ||
+    first_path(
+      [configured(:db_path), env_path("DATABASE_PATH")],
       Path.join([home(), "db", "allbert.sqlite3"])
+    )
   end
 
   @doc "Return the user-owned Agent Skills root."
   @spec skills_root() :: String.t()
   def skills_root do
-    configured(:skills_root) || Path.join(home(), "skills")
+    first_path([configured(:skills_root)], Path.join(home(), "skills"))
   end
 
   @doc "Return the Allbert cache root."
   @spec cache_root() :: String.t()
   def cache_root do
-    configured(:cache_root) || Path.join(home(), "cache")
+    first_path([configured(:cache_root)], Path.join(home(), "cache"))
   end
 
   @doc "Return the Allbert temporary runtime root."
   @spec tmp_root() :: String.t()
   def tmp_root do
-    configured(:tmp_root) || Path.join(home(), "tmp")
+    first_path([configured(:tmp_root)], Path.join(home(), "tmp"))
+  end
+
+  defp first_path(paths, default) do
+    Enum.find(paths, default, &is_binary/1)
   end
 
   defp configured(key) do
@@ -106,6 +126,7 @@ defmodule AllbertAssist.Paths do
 
   defp expand_if_present(nil), do: nil
   defp expand_if_present(path) when is_binary(path), do: Path.expand(path)
+  defp expand_if_present(_path), do: nil
 
   defp env_path(key) do
     key

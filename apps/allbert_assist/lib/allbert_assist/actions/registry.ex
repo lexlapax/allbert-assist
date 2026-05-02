@@ -40,7 +40,7 @@ defmodule AllbertAssist.Actions.Registry do
   ]
 
   @doc "Return registered runtime action modules in stable display order."
-  @spec modules() :: [module()]
+  @spec modules() :: nonempty_list(module())
   def modules, do: @actions
 
   @doc "Return registered action names in stable display order."

@@ -116,7 +116,6 @@ defmodule AllbertAssist.Skills.Registry do
   def get(_name, _context), do: {:error, :not_found}
 
   @doc "Read one skill declaration and parser diagnostics."
-  @spec read(String.t(), map()) :: {:ok, map()} | {:error, :not_found}
   def read(name, context \\ %{}) do
     with {:ok, skill} <- get(name, context) do
       {:ok, %{skill: skill, body: skill_body(skill), diagnostics: skill.diagnostics}}
@@ -124,7 +123,6 @@ defmodule AllbertAssist.Skills.Registry do
   end
 
   @doc "Activate one trusted skill for progressive disclosure."
-  @spec activate(String.t(), map()) :: {:ok, map()} | {:error, :not_found}
   def activate(name, context \\ %{}) do
     with {:ok, skill} <- get(name, context) do
       {:ok, activation(skill)}

@@ -463,23 +463,7 @@ defmodule AllbertAssist.Skills.Parser do
 
   defp sha256(contents), do: :crypto.hash(:sha256, contents)
 
-  defp yaml_error_message(%_{} = exception) do
-    if is_exception(exception) do
-      Exception.message(exception)
-    else
-      inspect(exception)
-    end
-  end
-
-  defp yaml_error_message(%{} = error) do
-    case Map.fetch(error, :message) do
-      {:ok, message} when is_binary(message) -> message
-      _other -> inspect(error)
-    end
-  end
-
-  defp yaml_error_message(message) when is_binary(message), do: message
-  defp yaml_error_message(reason), do: inspect(reason)
+  defp yaml_error_message(%{message: message}), do: message
 
   defp diagnostic(severity, code, message, opts \\ []) do
     opts

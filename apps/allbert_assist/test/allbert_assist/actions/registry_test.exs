@@ -1,9 +1,9 @@
 defmodule AllbertAssist.Actions.RegistryTest do
   use ExUnit.Case, async: true
 
+  alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Multiply
   alias AllbertAssist.Actions.Registry
-  alias AllbertAssist.Actions.Intent.DirectAnswer
 
   test "returns the canonical runtime action names in stable order" do
     assert Registry.names() == [

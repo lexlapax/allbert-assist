@@ -5,8 +5,9 @@ defmodule AllbertAssist.Actions.Runner do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Signals
+  alias Jido.Signal
 
-  @type result :: {:ok, map()} | {:error, term()}
+  @type result :: {:ok, map()}
 
   @doc """
   Run a registered action by module or action name.
@@ -184,18 +185,18 @@ defmodule AllbertAssist.Actions.Runner do
 
   defp permission_decision(_response), do: nil
 
-  defp log_signal({:ok, signal}) do
+  defp log_signal({:ok, %Signal{} = signal}) do
     :ok = Signals.log(signal)
     signal
   end
 
-  defp log_signal({:error, reason}), do: %{id: nil, error: reason}
+  defp log_signal({:error, reason}) do
+    raise ArgumentError, "could not create action lifecycle signal: #{inspect(reason)}"
+  end
 
-  defp signal_id(%{id: id}), do: id
-  defp signal_id(_signal), do: nil
+  defp signal_id(%Signal{id: id}), do: id
 
-  defp runner_action_id(%{id: id}) when is_binary(id), do: id
-  defp runner_action_id(_signal), do: "runner-#{System.unique_integer([:positive])}"
+  defp runner_action_id(%Signal{id: id}), do: id
 
   defp unknown_action_name(unknown) when is_binary(unknown), do: unknown
 

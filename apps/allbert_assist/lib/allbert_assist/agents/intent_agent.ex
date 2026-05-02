@@ -51,20 +51,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
       confirmation.
     """
 
-  alias AllbertAssist.Actions.Intent.ActivateSkill
-  alias AllbertAssist.Actions.Intent.AppendMemory
-  alias AllbertAssist.Actions.Intent.DirectAnswer
-  alias AllbertAssist.Actions.Intent.ExternalNetworkRequest
-  alias AllbertAssist.Actions.Intent.ListSkills
-  alias AllbertAssist.Actions.Intent.PlanShellCommand
-  alias AllbertAssist.Actions.Intent.ReadRecentMemory
-  alias AllbertAssist.Actions.Intent.ReadSkill
-  alias AllbertAssist.Actions.Settings.ExplainSetting
-  alias AllbertAssist.Actions.Settings.ListProviderProfiles
-  alias AllbertAssist.Actions.Settings.ListSettings
-  alias AllbertAssist.Actions.Settings.ReadSetting
-  alias AllbertAssist.Actions.Settings.SetProviderCredential
-  alias AllbertAssist.Actions.Settings.UpdateSetting
+  alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.Actions.Runner
 
   @doc """
   Respond to one normalized runtime request.
@@ -88,22 +76,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   @doc "Return the action modules that define the v0.01 intent surface."
   def action_modules do
-    [
-      DirectAnswer,
-      AppendMemory,
-      ReadRecentMemory,
-      ListSkills,
-      ReadSkill,
-      ActivateSkill,
-      PlanShellCommand,
-      ExternalNetworkRequest,
-      ListSettings,
-      ReadSetting,
-      UpdateSetting,
-      ExplainSetting,
-      ListProviderProfiles,
-      SetProviderCredential
-    ]
+    Registry.modules()
   end
 
   defp route(text) do
@@ -207,63 +180,84 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp run_route(:plan_shell_command, text, context) do
-    PlanShellCommand.run(%{command: requested_command(text), source_text: text}, context)
+    run_action(
+      "plan_shell_command",
+      %{command: requested_command(text), source_text: text},
+      text,
+      context
+    )
   end
 
   defp run_route(:external_network_request, text, context) do
-    ExternalNetworkRequest.run(%{request: network_request(text), source_text: text}, context)
+    run_action(
+      "external_network_request",
+      %{request: network_request(text), source_text: text},
+      text,
+      context
+    )
   end
 
   defp run_route(:append_memory, text, context) do
-    AppendMemory.run(%{memory: memory_text(text), source_text: text}, context)
+    run_action("append_memory", %{memory: memory_text(text), source_text: text}, text, context)
   end
 
   defp run_route({:append_personal_memory, memory}, text, context) do
-    AppendMemory.run(%{memory: memory, source_text: text}, context)
+    run_action("append_memory", %{memory: memory, source_text: text}, text, context)
   end
 
   defp run_route({:read_recent_memory, query}, _text, context) do
-    ReadRecentMemory.run(%{query: query}, context)
+    run_action("read_recent_memory", %{query: query}, query, context)
   end
 
-  defp run_route({:read_skill, name}, _text, context) do
-    ReadSkill.run(%{name: name}, context)
+  defp run_route({:read_skill, name}, text, context) do
+    run_action("read_skill", %{name: name}, text, context, selected_skill: name)
   end
 
-  defp run_route({:activate_skill, name}, _text, context) do
-    ActivateSkill.run(%{name: name}, context)
+  defp run_route({:activate_skill, name}, text, context) do
+    run_action("activate_skill", %{name: name}, text, context, selected_skill: name)
   end
 
-  defp run_route(:list_skills, _text, context) do
-    ListSkills.run(%{}, context)
+  defp run_route(:list_skills, text, context) do
+    run_action("list_skills", %{}, text, context)
   end
 
-  defp run_route(:list_settings, _text, context) do
-    ListSettings.run(%{}, context)
+  defp run_route(:list_settings, text, context) do
+    run_action("list_settings", %{}, text, context)
   end
 
-  defp run_route({:read_setting, key}, _text, context) do
-    ReadSetting.run(%{key: key}, context)
+  defp run_route({:read_setting, key}, text, context) do
+    run_action("read_setting", %{key: key}, text, context)
   end
 
-  defp run_route({:explain_setting, key}, _text, context) do
-    ExplainSetting.run(%{key: key}, context)
+  defp run_route({:explain_setting, key}, text, context) do
+    run_action("explain_setting", %{key: key}, text, context)
   end
 
-  defp run_route({:update_setting, key, value}, _text, context) do
-    UpdateSetting.run(%{key: key, value: value}, context)
+  defp run_route({:update_setting, key, value}, text, context) do
+    run_action("update_setting", %{key: key, value: value}, text, context)
   end
 
-  defp run_route(:list_provider_profiles, _text, context) do
-    ListProviderProfiles.run(%{}, context)
+  defp run_route(:list_provider_profiles, text, context) do
+    run_action("list_provider_profiles", %{}, text, context)
   end
 
-  defp run_route({:set_provider_credential, provider, mode}, _text, context) do
-    SetProviderCredential.run(%{provider: provider, mode: mode}, context)
+  defp run_route({:set_provider_credential, provider, mode}, text, context) do
+    run_action("set_provider_credential", %{provider: provider, mode: mode}, text, context)
   end
 
   defp run_route(:direct_answer, text, context) do
-    DirectAnswer.run(%{text: text}, context)
+    run_action("direct_answer", %{text: text}, text, context)
+  end
+
+  defp run_action(action_name, params, text, context, opts \\ []) do
+    runner_context =
+      context
+      |> Map.put(:selected_route, action_name)
+      |> Map.put(:selected_action, action_name)
+      |> Map.put(:source_text, text)
+      |> Map.merge(Map.new(opts))
+
+    Runner.run(action_name, params, runner_context)
   end
 
   defp command_request?(text) do

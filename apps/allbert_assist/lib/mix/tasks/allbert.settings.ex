@@ -127,7 +127,7 @@ defmodule Mix.Tasks.Allbert.Settings do
   defp read_provider_key(provider) do
     case IO.gets("") do
       :eof -> prompt_provider_key(provider)
-      nil -> prompt_provider_key(provider)
+      {:error, reason} -> {:error, reason}
       value -> normalize_provider_key(value)
     end
   end
