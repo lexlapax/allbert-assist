@@ -28,6 +28,17 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.settings_write",
     "permissions.skill_write",
     "permissions.confirmation_decide",
+    "execution.local.enabled",
+    "execution.local.allowed_roots",
+    "execution.local.allowed_commands",
+    "execution.local.command_profiles",
+    "execution.local.blocked_arg_patterns",
+    "execution.local.require_path_operands_in_allowed_roots",
+    "execution.local.default_timeout_ms",
+    "execution.local.max_timeout_ms",
+    "execution.local.max_output_bytes",
+    "execution.local.env_allowlist",
+    "execution.local.require_confirmation",
     "confirmations.default_ttl_minutes",
     "confirmations.auto_expire_on_startup",
     "confirmations.require_reason_for_denial",
@@ -186,6 +197,91 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       allowed_values: ["allowed", "denied"]
+    },
+    "execution.local.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.local.allowed_roots" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.local.allowed_commands" => %{
+      type: :string_list,
+      default: ["pwd", "ls", "find", "rg", "cat", "sed", "head", "tail", "wc"],
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.local.command_profiles" => %{
+      type: :command_profiles,
+      default: %{},
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.local.blocked_arg_patterns" => %{
+      type: :string_list,
+      default: [
+        "-i",
+        "--in-place",
+        "-delete",
+        "-exec",
+        "-execdir",
+        "-c",
+        "-e",
+        "--eval",
+        "&&",
+        "||",
+        ";",
+        "|",
+        ">",
+        ">>",
+        "<",
+        "$(",
+        "`",
+        "&"
+      ],
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.local.require_path_operands_in_allowed_roots" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.local.default_timeout_ms" => %{
+      type: :timeout_ms,
+      default: 5000,
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.local.max_timeout_ms" => %{
+      type: :timeout_ms,
+      default: 30_000,
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.local.max_output_bytes" => %{
+      type: :positive_integer,
+      default: 65_536,
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.local.env_allowlist" => %{
+      type: :string_list,
+      default: ["PATH", "LANG", "LC_ALL", "MIX_ENV"],
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.local.require_confirmation" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
     },
     "confirmations.default_ttl_minutes" => %{
       type: :positive_integer,
@@ -354,6 +450,40 @@ defmodule AllbertAssist.Settings.Schema do
       "settings_write" => "allowed_safe_keys",
       "skill_write" => "allowed",
       "confirmation_decide" => "allowed"
+    },
+    "execution" => %{
+      "local" => %{
+        "enabled" => false,
+        "allowed_roots" => [],
+        "allowed_commands" => ["pwd", "ls", "find", "rg", "cat", "sed", "head", "tail", "wc"],
+        "command_profiles" => %{},
+        "blocked_arg_patterns" => [
+          "-i",
+          "--in-place",
+          "-delete",
+          "-exec",
+          "-execdir",
+          "-c",
+          "-e",
+          "--eval",
+          "&&",
+          "||",
+          ";",
+          "|",
+          ">",
+          ">>",
+          "<",
+          "$(",
+          "`",
+          "&"
+        ],
+        "require_path_operands_in_allowed_roots" => true,
+        "default_timeout_ms" => 5000,
+        "max_timeout_ms" => 30_000,
+        "max_output_bytes" => 65_536,
+        "env_allowlist" => ["PATH", "LANG", "LC_ALL", "MIX_ENV"],
+        "require_confirmation" => true
+      }
     },
     "confirmations" => %{
       "default_ttl_minutes" => 1440,
@@ -601,6 +731,19 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_value(%{type: :string_list}, value, _key, _settings),
     do: {:error, {:expected_string_list, value}}
 
+  defp validate_value(%{type: :command_profiles}, value, _key, _settings)
+       when is_map(value) do
+    Enum.reduce_while(value, :ok, fn {name, profile}, :ok ->
+      case validate_command_profile(name, profile) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp validate_value(%{type: :command_profiles}, value, _key, _settings),
+    do: {:error, {:expected_command_profiles, value}}
+
   defp validate_value(%{type: :url_or_nil}, nil, _key, _settings), do: :ok
 
   defp validate_value(%{type: :url_or_nil}, value, _key, _settings) when is_binary(value) do
@@ -747,4 +890,104 @@ defmodule AllbertAssist.Settings.Schema do
   defp valid_name?(name), do: is_binary(name) and Regex.match?(~r/^[A-Za-z0-9_-]+$/, name)
 
   defp valid_string_list_item?(value), do: is_binary(value) and String.trim(value) != ""
+
+  defp validate_command_profile(name, profile) do
+    cond do
+      not valid_name?(name) ->
+        {:error, {:invalid_profile_name, name}}
+
+      not is_map(profile) ->
+        {:error, {:invalid_command_profile, name, :expected_map}}
+
+      true ->
+        validate_command_profile_attrs(name, profile)
+    end
+  end
+
+  defp validate_command_profile_attrs(name, profile) do
+    allowed_keys =
+      [
+        "command",
+        "args_prefix",
+        "command_class",
+        "description",
+        "allowed_roots",
+        "env_allowlist",
+        "timeout_ms",
+        "max_output_bytes",
+        "require_confirmation"
+      ]
+
+    profile
+    |> Map.keys()
+    |> Enum.reject(&(&1 in allowed_keys))
+    |> case do
+      [] -> validate_command_profile_values(name, profile)
+      [key | _rest] -> {:error, {:invalid_command_profile, name, {:unknown_key, key}}}
+    end
+  end
+
+  defp validate_command_profile_values(name, profile) do
+    with :ok <- validate_required_profile_command(name, profile),
+         :ok <- validate_optional_string_list(profile, "args_prefix"),
+         :ok <- validate_optional_string_list(profile, "allowed_roots"),
+         :ok <- validate_optional_string_list(profile, "env_allowlist"),
+         :ok <- validate_optional_timeout(profile, "timeout_ms"),
+         :ok <- validate_optional_positive_integer(profile, "max_output_bytes"),
+         :ok <- validate_optional_boolean(profile, "require_confirmation") do
+      validate_optional_command_class(name, profile)
+    end
+  end
+
+  defp validate_required_profile_command(name, profile) do
+    case Map.get(profile, "command") do
+      command when is_binary(command) ->
+        if String.trim(command) == "" do
+          {:error, {:invalid_command_profile, name, :empty_command}}
+        else
+          :ok
+        end
+
+      other ->
+        {:error, {:invalid_command_profile, name, {:expected_command, other}}}
+    end
+  end
+
+  defp validate_optional_command_class(name, profile) do
+    case Map.get(profile, "command_class", "developer") do
+      class when class in ["read_only", "developer", "mutating"] ->
+        :ok
+
+      other ->
+        {:error, {:invalid_command_profile, name, {:invalid_command_class, other}}}
+    end
+  end
+
+  defp validate_optional_string_list(profile, key) do
+    case Map.fetch(profile, key) do
+      :error -> :ok
+      {:ok, value} -> validate_value(%{type: :string_list}, value, key, %{})
+    end
+  end
+
+  defp validate_optional_timeout(profile, key) do
+    case Map.fetch(profile, key) do
+      :error -> :ok
+      {:ok, value} -> validate_value(%{type: :timeout_ms}, value, key, %{})
+    end
+  end
+
+  defp validate_optional_positive_integer(profile, key) do
+    case Map.fetch(profile, key) do
+      :error -> :ok
+      {:ok, value} -> validate_value(%{type: :positive_integer}, value, key, %{})
+    end
+  end
+
+  defp validate_optional_boolean(profile, key) do
+    case Map.fetch(profile, key) do
+      :error -> :ok
+      {:ok, value} -> validate_value(%{type: :boolean}, value, key, %{})
+    end
+  end
 end

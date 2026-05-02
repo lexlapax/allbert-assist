@@ -143,7 +143,7 @@ git diff --check
 ## Repository Map
 
 - `apps/allbert_assist/`: core OTP app, runtime, agents, actions, memory,
-  security, settings, and Mix tasks.
+  security, settings, execution policy/specs, and Mix tasks.
 - `apps/allbert_assist_web/`: Phoenix web app and LiveView operator surfaces.
 - `config/`: Phoenix, repo, release, and bootstrap configuration.
 - `docs/plans/`: roadmap and implementation-ready milestone plans.
