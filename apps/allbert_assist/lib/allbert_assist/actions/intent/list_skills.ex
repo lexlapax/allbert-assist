@@ -73,7 +73,21 @@ defmodule AllbertAssist.Actions.Intent.ListSkills do
       activation_mode: skill.activation_mode,
       aliases: skill.aliases,
       status: skill.status,
-      permission: skill.permission
+      permission: skill.permission,
+      capability_contract: contract_summary(skill)
+    }
+  end
+
+  defp contract_summary(skill) do
+    validation = skill.contract_validation || %{}
+
+    %{
+      status: Map.get(skill.capability_contract || %{}, :status, :none),
+      actions: Map.get(skill.capability_contract || %{}, :actions, []),
+      permissions: Map.get(skill.capability_contract || %{}, :permissions, []),
+      validation_status: Map.get(validation, :status, :none),
+      execution_eligible?: Map.get(validation, :execution_eligible?, false),
+      diagnostics: Map.get(validation, :diagnostics, [])
     }
   end
 end

@@ -64,7 +64,12 @@ defmodule AllbertAssist.Skills.CapabilityContract do
       status: :legacy,
       actions: [action_name],
       permissions: [to_string(permission)],
-      raw: %{"allbert.actions" => action_name, "allbert.permissions" => to_string(permission)}
+      confirmation: "not_required",
+      raw: %{
+        "allbert.actions" => action_name,
+        "allbert.permissions" => to_string(permission),
+        "allbert.confirmation" => "not_required"
+      }
     }
   end
 

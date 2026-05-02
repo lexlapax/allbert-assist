@@ -40,7 +40,9 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
     assert response.status == :completed
     assert response.message =~ "v0.01-safe capabilities"
     assert response.permission_decision.decision == :allowed
-    assert Enum.any?(response.skills, &(&1.name == "append-memory"))
+    assert append_memory = Enum.find(response.skills, &(&1.name == "append-memory"))
+    assert append_memory.capability_contract.validation_status == :valid
+    assert append_memory.capability_contract.execution_eligible?
   end
 
   test "read_skill returns one skill declaration" do
@@ -49,7 +51,12 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
     assert response.status == :completed
     assert response.message =~ "Plan Shell Command"
     assert response.message =~ "command_plan"
+    assert response.message =~ "Contract validation: valid"
+    assert response.message =~ "Execution eligible: true"
     assert response.permission_decision.decision == :allowed
+
+    assert [%{skill_metadata: %{capability_contract: %{validation_status: :valid}}}] =
+             response.actions
   end
 
   test "activate_skill returns wrapped instructions without executing resources" do
@@ -61,6 +68,8 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
     assert response.message =~ "## v0.03 Safety Boundary"
     assert response.permission_decision.decision == :allowed
     assert response.activation.capability_contract.actions == ["append_memory"]
+    assert response.activation.capability_contract.validation_status == :valid
+    assert response.activation.capability_contract.execution_eligible?
     assert response.activation.resource_inventory == []
 
     assert [

@@ -192,7 +192,7 @@ defmodule AllbertAssist.Skills.Registry do
     contract = CapabilityContract.from_metadata(spec.metadata)
     name = normalize_name(spec.name)
 
-    %Skill{
+    skill = %Skill{
       name: name,
       original_name: spec.name,
       title: titleize(name),
@@ -209,6 +209,8 @@ defmodule AllbertAssist.Skills.Registry do
       aliases: aliases(name, spec.name),
       diagnostics: Enum.map(spec.diagnostics, &tag_diagnostic(&1, discovery))
     }
+
+    %{skill | contract_validation: CapabilityContract.validate(contract, skill: skill)}
   end
 
   defp discoveries(context, settings) do
@@ -381,7 +383,7 @@ defmodule AllbertAssist.Skills.Registry do
   end
 
   defp legacy_skill(attrs) do
-    %Skill{
+    skill = %Skill{
       name: attrs.name,
       original_name: attrs.name,
       title: attrs.title,
@@ -406,6 +408,11 @@ defmodule AllbertAssist.Skills.Registry do
           source_path: "static://allbert/v0.01/#{attrs.name}"
         )
       ]
+    }
+
+    %{
+      skill
+      | contract_validation: CapabilityContract.validate(skill.capability_contract, skill: skill)
     }
   end
 
@@ -512,7 +519,7 @@ defmodule AllbertAssist.Skills.Registry do
 
   defp activation(skill) do
     resources = resource_inventory(skill)
-    contract = contract_summary(skill.capability_contract)
+    contract = contract_summary(skill.capability_contract, skill.contract_validation)
 
     %{
       name: skill.name,
@@ -541,6 +548,8 @@ defmodule AllbertAssist.Skills.Registry do
     Activation mode: #{skill.activation_mode}
     Capability actions: #{Enum.join(contract.actions, ", ")}
     Capability permissions: #{Enum.join(contract.permissions, ", ")}
+    Contract validation: #{contract.validation_status}
+    Execution eligible: #{contract.execution_eligible?}
 
     ## Instructions
 
@@ -587,16 +596,22 @@ defmodule AllbertAssist.Skills.Registry do
     |> Enum.join("\n")
   end
 
-  defp contract_summary(nil), do: %{status: :none, actions: [], permissions: []}
+  defp contract_summary(nil, _validation),
+    do: %{status: :none, actions: [], permissions: [], validation_status: :none}
 
-  defp contract_summary(contract) do
+  defp contract_summary(contract, validation) do
     %{
       status: contract.status,
       actions: contract.actions,
       permissions: contract.permissions,
       confirmation: contract.confirmation,
       memory_effects: contract.memory_effects,
-      trace_effects: contract.trace_effects
+      trace_effects: contract.trace_effects,
+      validation_status: Map.get(validation || %{}, :status, :none),
+      execution_eligible?: Map.get(validation || %{}, :execution_eligible?, false),
+      validated_actions: Map.get(validation || %{}, :actions, []),
+      validated_permissions: Map.get(validation || %{}, :permissions, []),
+      validation_diagnostics: Map.get(validation || %{}, :diagnostics, [])
     }
   end
 

@@ -155,6 +155,38 @@ defmodule AllbertAssist.Skills.RegistryTest do
            )
   end
 
+  test "invalid capability contracts stay inspectable but non-executable", context do
+    write_skill(
+      Path.join(context.home, "skills"),
+      "bad-capability",
+      "bad-capability",
+      """
+      metadata:
+        allbert.kind: capability
+        allbert.actions: missing_action
+        allbert.permissions: root_access
+        allbert.confirmation: auto_approve_everything
+      """
+    )
+
+    assert {:ok, [skill]} = Skills.list(registry_context(context))
+
+    assert skill.name == "bad-capability"
+    assert skill.kind == :capability_candidate
+    assert skill.contract_validation.status == :invalid
+    refute skill.contract_validation.execution_eligible?
+
+    diagnostic_codes = Enum.map(skill.contract_validation.diagnostics, & &1.code)
+
+    assert :unknown_action in diagnostic_codes
+    assert :unknown_permission in diagnostic_codes
+    assert :unknown_confirmation in diagnostic_codes
+
+    assert {:ok, activation} = Skills.activate("bad-capability", registry_context(context))
+    assert activation.capability_contract.validation_status == :invalid
+    refute activation.capability_contract.execution_eligible?
+  end
+
   test "legacy built-ins preserve operator skill discovery until the M4 skill pack", context do
     registry_context = registry_context(context, disable_legacy_built_ins: false)
 
@@ -189,7 +221,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
     )
   end
 
-  defp write_skill(root, directory, name) do
+  defp write_skill(root, directory, name, extra_frontmatter \\ "") do
     skill_root = Path.join(root, directory)
     File.mkdir_p!(skill_root)
 
@@ -197,6 +229,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
     ---
     name: #{name}
     description: #{name} test skill.
+    #{extra_frontmatter}
     ---
 
     ## Workflow

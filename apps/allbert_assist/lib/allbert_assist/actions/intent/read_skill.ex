@@ -75,6 +75,8 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
     Permission: #{skill.permission || :read_only}
     Capability actions: #{contract_actions(skill)}
     Capability permissions: #{contract_permissions(skill)}
+    Contract validation: #{contract_validation_status(skill)}
+    Execution eligible: #{contract_execution_eligible?(skill)}
 
     #{skill.description}
 
@@ -94,7 +96,8 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
       source_path: skill.source_path,
       trust_status: skill.trust_status,
       kind: skill.kind,
-      activation_mode: skill.activation_mode
+      activation_mode: skill.activation_mode,
+      capability_contract: contract_summary(skill)
     }
   end
 
@@ -108,4 +111,25 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
     do: Enum.join(permissions, ", ")
 
   defp contract_permissions(_skill), do: "none"
+
+  defp contract_validation_status(%{contract_validation: %{status: status}}), do: status
+  defp contract_validation_status(_skill), do: :none
+
+  defp contract_execution_eligible?(%{contract_validation: validation}) when is_map(validation),
+    do: Map.get(validation, :execution_eligible?, false)
+
+  defp contract_execution_eligible?(_skill), do: false
+
+  defp contract_summary(skill) do
+    validation = skill.contract_validation || %{}
+
+    %{
+      status: Map.get(skill.capability_contract || %{}, :status, :none),
+      actions: Map.get(skill.capability_contract || %{}, :actions, []),
+      permissions: Map.get(skill.capability_contract || %{}, :permissions, []),
+      validation_status: Map.get(validation, :status, :none),
+      execution_eligible?: Map.get(validation, :execution_eligible?, false),
+      diagnostics: Map.get(validation, :diagnostics, [])
+    }
+  end
 end
