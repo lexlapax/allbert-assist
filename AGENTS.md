@@ -35,7 +35,8 @@ security evaluation, permission policy, redaction, risk, trust, or audit
 behavior.
 
 For v0.06 skill-backed execution work, read `docs/plans/v0.06-plan.md`,
-`docs/plans/v0.03-plan.md`, `docs/plans/v0.03-request-flow.md`,
+`docs/plans/v0.06-request-flow.md`, `docs/plans/v0.03-plan.md`,
+`docs/plans/v0.03-request-flow.md`,
 `docs/adr/0003-skill-manifests-as-capability-contracts.md`, and
 `docs/adr/0006-security-central.md`, and
 `docs/adr/0007-jido-native-internal-runtime-boundaries.md`.
