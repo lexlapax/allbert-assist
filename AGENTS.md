@@ -2,8 +2,8 @@
 
 This repository is Allbert: an Elixir/OTP assistant runtime built with Phoenix
 and Jido. Phoenix LiveView is one operator/channel interface, not the center of
-the system. The center is a signal-driven runtime, Jido agents and actions, a
-permission gate, markdown-first memory, Settings Central, and Allbert Home.
+the system. The center is a signal-driven runtime, Jido agents and actions,
+Security Central, markdown-first memory, Settings Central, and Allbert Home.
 
 ## Start Here
 
@@ -19,8 +19,15 @@ For v0.03 work, the active implementation docs are
 `docs/plans/v0.03-plan.md`, `docs/plans/v0.03-request-flow.md`, and
 `docs/adr/0003-skill-manifests-as-capability-contracts.md`.
 
-For v0.04 work, read `docs/plans/v0.04-plan.md` before changing skill-backed
-execution.
+For v0.04 Security Central work, read `docs/plans/v0.04-plan.md`,
+`docs/plans/v0.04-request-flow.md`, and
+`docs/adr/0006-security-central.md` before changing security evaluation,
+permission policy, redaction, risk, trust, or audit behavior.
+
+For v0.05 skill-backed execution work, read `docs/plans/v0.05-plan.md`,
+`docs/plans/v0.03-plan.md`, `docs/plans/v0.03-request-flow.md`,
+`docs/adr/0003-skill-manifests-as-capability-contracts.md`, and
+`docs/adr/0006-security-central.md`.
 
 ## Non-Negotiables
 
@@ -39,11 +46,13 @@ execution.
   write to a real user's `~/.allbert`.
 - User-supplied secrets, including API keys, must be encrypted at rest and
   redacted in CLI output, LiveView, traces, audits, logs, and tests.
-- Permission checks belong at the action boundary. Skills, model output, and
-  YAML declarations never grant permission by themselves.
-- v0.03 skills are compatibility/importability context only. v0.04
+- Security decisions and permission checks belong at the action boundary.
+  Skills, model output, and YAML declarations never grant permission by
+  themselves.
+- v0.03 skills are compatibility/importability context only. v0.04 adds
+  Security Central but no new execution powers. v0.05
   action-backed skills must call registered Elixir/Jido actions through the
-  action runner and permission gate.
+  action runner and Security Central.
 - Do not auto-generate, compile, or load Elixir modules from arbitrary skill
   folders.
 - Do not execute skill scripts, shell commands, external installs, or network
@@ -59,4 +68,4 @@ execution.
 - Update request-flow docs as implementation changes.
 - Add or update ADRs when an implementation decision constrains future design.
 - Keep LiveViews thin: they call contexts/actions/runtime boundaries and do not
-  own agent logic, settings semantics, or permission policy.
+  own agent logic, settings semantics, or security policy.

@@ -10,18 +10,21 @@ here.
 
 ## Already Planned Elsewhere
 
-These are deferred from v0.03 or v0.04 but already have roadmap homes:
+These are deferred from v0.03 or earlier planning but already have roadmap
+homes:
 
-- Action-backed Allbert skills: v0.04.
-- Confirmation workflow: v0.05.
-- Local execution sandbox and shell adapter: v0.06.
-- Skill script runner: v0.07.
-- External services, package installs, and online skill import: v0.08.
-- Execution-aware intent contract: v0.09.
-- Scheduled jobs: v0.10.
-- Additional channels: v0.11.
-- Memory review and retrieval: v0.12.
-- Cross-surface intent enrichment: v0.13.
+- Security Central foundation: v0.04.
+- Action-backed Allbert skills: v0.05.
+- Confirmation workflow: v0.06.
+- Local execution sandbox and shell adapter: v0.07.
+- Skill script runner: v0.08.
+- External services, package installs, and online skill import: v0.09.
+- Execution-aware intent contract: v0.10.
+- Scheduled jobs: v0.11.
+- Additional channels: v0.12.
+- Memory review and retrieval: v0.13.
+- Cross-surface intent enrichment: v0.14.
+- Security hardening and evals: v0.15.
 
 Do not duplicate those here unless the future feature is broader than the
 existing plan.
@@ -30,10 +33,10 @@ existing plan.
 
 ### Autonomous Skill Creation
 
-Source: origin note, ADR 0003, v0.03 and v0.04 non-goals.
+Source: origin note, ADR 0003, v0.03 through v0.05 non-goals.
 
 Allbert should eventually help create new skills from traces, repeated tasks,
-corrections, or explicit user requests. v0.04 may add a developer-oriented
+corrections, or explicit user requests. v0.05 may add a developer-oriented
 skill creation/validation helper, but autonomous creation is larger.
 
 Needed before planning:
@@ -48,7 +51,7 @@ Needed before planning:
 
 ### Dynamic Elixir Code Generation Or Module Loading
 
-Source: v0.03/v0.04 execution-boundary clarification.
+Source: v0.03/v0.05 execution-boundary clarification.
 
 Allbert should not auto-generate, compile, or load Elixir modules from
 arbitrary skill folders. A future developer tool may scaffold ordinary Elixir
@@ -94,7 +97,7 @@ Needed before planning:
 
 ### Multi-User Authorization Model
 
-Source: v0.02, v0.05, and v0.10 non-goals.
+Source: v0.02, v0.06, and v0.11 non-goals.
 
 Allbert is currently a local single-operator assistant. A multi-user model may
 matter for shared workspaces, team channels, or hosted deployments.
@@ -125,10 +128,10 @@ Needed before planning:
 
 ### Browser/Search Capture
 
-Source: origin note and v0.11 candidate channels.
+Source: origin note and v0.12 candidate channels.
 
 The origin note describes capturing searches or browsing activity and turning
-useful context into memory. v0.11 gives browser/search capture a possible
+useful context into memory. v0.12 gives browser/search capture a possible
 channel-adapter home, but deeper extraction and memory promotion behavior may
 need a later focused milestone.
 
@@ -158,7 +161,7 @@ Needed before planning:
 
 ### Native UI Surface
 
-Source: origin note and v0.11 candidate channels.
+Source: origin note and v0.12 candidate channels.
 
 Native UI is listed as a possible channel but has no dedicated plan. It should
 not be planned before the channel adapter contract is stable.
@@ -174,7 +177,7 @@ Needed before planning:
 
 ### Scripting Engine Interface
 
-Source: origin note and v0.03/v0.04 non-goals.
+Source: origin note and v0.03 through v0.05 non-goals.
 
 The origin note leaves room for Lua, Python, JavaScript, or another scripting
 interface. Elixir remains the runtime substrate for now; no scripting engine is

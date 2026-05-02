@@ -19,12 +19,19 @@ Before implementation work:
 5. Read ADRs that constrain the task.
 6. Inspect the relevant code before editing.
 
-For active v0.04 skill-backed execution work, start with:
+For active v0.04 Security Central work, start with:
 
 - `docs/plans/v0.04-plan.md`
+- `docs/plans/v0.04-request-flow.md`
+- `docs/adr/0006-security-central.md`
+
+For active v0.05 skill-backed execution work, start with:
+
+- `docs/plans/v0.05-plan.md`
 - `docs/plans/v0.03-plan.md`
 - `docs/plans/v0.03-request-flow.md`
 - `docs/adr/0003-skill-manifests-as-capability-contracts.md`
+- `docs/adr/0006-security-central.md`
 
 ## Fresh Checkout
 
@@ -244,11 +251,14 @@ execution powers. Activation should go through a dedicated `activate_skill`
 action so Allbert can enforce trust, wrap instructions, list resources, and
 trace the selection.
 
-v0.04 action-backed skills bind trusted metadata only to registered Elixir/Jido
-actions and known permission classes. Do not auto-generate, compile, or load
-Elixir modules from arbitrary skill folders. If a new side effect is needed,
-add or scaffold ordinary Elixir action code, review it, test it, compile it,
-and register it before a skill can invoke it.
+v0.04 Security Central defines shared security decisions, risk, redaction,
+trust-boundary, and audit vocabulary without adding new execution powers.
+
+v0.05 action-backed skills bind trusted metadata only to registered Elixir/Jido
+actions and known permission classes through Security Central. Do not
+auto-generate, compile, or load Elixir modules from arbitrary skill folders. If
+a new side effect is needed, add or scaffold ordinary Elixir action code,
+review it, test it, compile it, and register it before a skill can invoke it.
 
 Skill scripts, external package installs, shell execution, and external network
 adapters remain inert until a milestone explicitly adds sandboxing,
