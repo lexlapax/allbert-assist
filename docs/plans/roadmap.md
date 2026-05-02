@@ -156,7 +156,9 @@ settings across subsystems.
 Plan: `docs/plans/v0.03-plan.md`
 Request flow: `docs/plans/v0.03-request-flow.md`
 
-Status: implementation-ready.
+Status: in progress. Milestone 1 is complete. Milestone 2, the Agent Skill
+parser and validator, is complete and tested. Milestone 3, discovery, trust,
+and registry, is next.
 
 Expected direction:
 
@@ -174,6 +176,18 @@ Expected direction:
   v0.03; they may be inspected, planned, and traced, but not run.
 - Parse Allbert-specific metadata as inert contract data, but do not yet use it
   to drive action execution.
+
+Current implementation:
+
+- `AllbertAssist.Skills.Parser` parses standard Agent Skill directories with
+  `SKILL.md` YAML frontmatter and markdown bodies.
+- `AllbertAssist.Skills.AgentSkillSpec` stores parsed manifests, optional
+  metadata, body text, external fields, diagnostics, and inert resource
+  inventory.
+- `AllbertAssist.Skills.Resource` inventories files under `scripts/`,
+  `references/`, and `assets/` without execution.
+- Parser tests cover valid standard skills, Allbert metadata, invalid YAML,
+  missing required fields, duplicate names, resources, and scripts.
 
 Exit signal: Allbert can discover standard Agent Skills, activate their
 instructions through progressive disclosure, show source/trust/diagnostics, and
