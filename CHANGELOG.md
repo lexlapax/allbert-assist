@@ -1,5 +1,73 @@
 # Changelog
 
+## v0.06 - Action-Backed Allbert Skills
+
+Status: released on 2026-05-02.
+
+### Added
+
+- Canonical action capability metadata through
+  `AllbertAssist.Actions.Capability` and `AllbertAssist.Actions.Registry`.
+- Executable contract validation in
+  `AllbertAssist.Skills.CapabilityContract.validate/2` for registered action
+  names, skill-backed eligibility, known permission classes, confirmation
+  policy, and single-action v0.06 execution shape.
+- Skill registry/list/read/activation output that reports contract validation
+  status, diagnostics, and execution eligibility while keeping invalid
+  contracts inspectable.
+- `AllbertAssist.Skills.ActionPlan` for validating selected built-in
+  skill/action pairs before invoking the shared action runner.
+- Runner, lifecycle signal, trace, and Security Central metadata for selected
+  skill, validated contract, selected action capability, permission decision,
+  risk, policy, and outcome.
+- Local skill helper actions `validate_skill` and `create_skill`, plus
+  `mix allbert.skills validate PATH` and `mix allbert.skills create ...`.
+- `:skill_write` permission with Settings Central key
+  `permissions.skill_write`, default `allowed`, safety floor `allowed`, and
+  medium risk tier.
+
+### Changed
+
+- Deterministic built-in routes now select the matching trusted built-in skill,
+  validate its contract, and then execute through
+  `AllbertAssist.Actions.Runner.run/3`.
+- `direct-answer`, `append-memory`, `read-recent-memory`, `list-skills`,
+  `read-skill`, `plan-shell-command`, and `external-network-request` are the
+  initial action-backed skill surface.
+- `activate_skill` remains progressive-disclosure-only and does not execute
+  the activated skill's declared action.
+- `validate_skill` and `create_skill` are registered helper actions but are
+  intentionally excluded from the intent-agent tool surface.
+- v0.07 planning now consumes v0.06 selected skill/action metadata and the
+  `:skill_write` policy surface for confirmation workflow design.
+
+### Safety
+
+- v0.06 adds no shell execution, skill script execution, package installation,
+  external network adapter calls, online import, module loading, autonomous
+  skill creation, or confirmation queue.
+- Skill metadata, YAML, markdown, `allowed-tools`, and bundled resources never
+  grant permission or execute by themselves.
+- Local skill scaffolding writes only standard `SKILL.md` wrappers for already
+  skill-backed registered actions with matching known permission classes.
+- Structurally valid local skills remain `execution_eligible?: false` until
+  trusted and enabled through registry policy.
+
+### Verification
+
+- Milestone focused suites passed for M1 through M6.
+- Closeout `rg` checks found no module loading, no direct intent action
+  `run/2` calls, no private Security Central or Settings Central calls from
+  operator surfaces, and only inert safety-text matches for execution-related
+  phrases.
+- Operator smoke passed in a disposable `ALLBERT_HOME`, covering skill list,
+  memory write/read, skill read/activation, denied shell planning,
+  external-network confirmation, local skill validation/scaffolding, security
+  status, and trace metadata.
+- `mix compile --warnings-as-errors`, `mix format --check-formatted`, `mix
+  credo --strict`, `mix dialyzer`, and `mix precommit` passed.
+- `mix precommit` passed with 152 core tests and 12 web tests.
+
 ## v0.05 - Security Central Foundation
 
 Status: released on 2026-05-02.
