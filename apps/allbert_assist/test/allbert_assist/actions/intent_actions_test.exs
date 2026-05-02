@@ -33,13 +33,13 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
     {:ok, root: root}
   end
 
-  test "list_skills returns static readable declarations" do
+  test "list_skills returns registry-backed readable declarations" do
     assert {:ok, response} = ListSkills.run(%{}, %{})
 
     assert response.status == :completed
     assert response.message =~ "v0.01-safe capabilities"
     assert response.permission_decision.decision == :allowed
-    assert Enum.any?(response.skills, &(&1.name == "append_memory"))
+    assert Enum.any?(response.skills, &(&1.name == "append-memory"))
   end
 
   test "read_skill returns one skill declaration" do

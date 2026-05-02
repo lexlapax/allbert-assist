@@ -88,6 +88,28 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("nope.value", "x", %{})
   end
 
+  test "skill registry settings are writable and validated", %{home: home} do
+    scan_path = Path.join(home, "extra-skills")
+
+    assert {:ok, resolved} =
+             Settings.put("skills.scan_paths", [scan_path], %{audit?: false})
+
+    assert resolved.value == [scan_path]
+    assert resolved.writable?
+    assert {:ok, [^scan_path]} = Settings.get("skills.scan_paths")
+
+    assert {:ok, policy} =
+             Settings.put("skills.imported_cache_policy", "enabled_manual_trust", %{audit?: false})
+
+    assert policy.value == "enabled_manual_trust"
+
+    assert {:error, {:invalid_setting, "skills.enabled", _reason}} =
+             Settings.put("skills.enabled", ["ok", 123], %{})
+
+    assert {:error, {:invalid_setting, "skills.imported_cache_policy", _reason}} =
+             Settings.put("skills.imported_cache_policy", "auto", %{})
+  end
+
   test "provider and model profiles resolve with redacted credential status" do
     assert {:ok, providers} = Settings.list_provider_profiles()
     assert Enum.any?(providers, &(&1.name == "openai" and &1.credential_status == :missing))

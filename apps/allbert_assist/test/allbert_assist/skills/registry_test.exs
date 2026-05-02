@@ -1,0 +1,221 @@
+defmodule AllbertAssist.Skills.RegistryTest do
+  use ExUnit.Case, async: false
+
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Skills
+
+  @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
+
+  setup do
+    original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+
+    Enum.each(@env_vars, &System.delete_env/1)
+    Application.delete_env(:allbert_assist, Paths)
+
+    root = temp_path("root")
+    home = Path.join(root, "home")
+    project_root = Path.join(root, "project")
+    built_in_root = Path.join(root, "built-in-skills")
+    user_interoperable_root = Path.join(root, "agent-skills")
+
+    System.put_env("ALLBERT_HOME", home)
+
+    on_exit(fn ->
+      File.rm_rf!(root)
+      restore_env(original_env)
+      restore_app_env(Paths, original_paths_config)
+    end)
+
+    {:ok,
+     root: root,
+     home: home,
+     project_root: project_root,
+     built_in_root: built_in_root,
+     user_interoperable_root: user_interoperable_root}
+  end
+
+  test "lists trusted built-in and user skill roots", context do
+    write_skill(context.built_in_root, "direct-answer", "direct-answer")
+    write_skill(Path.join(context.home, "skills"), "user-note", "user-note")
+
+    assert {:ok, skills} = Skills.list(registry_context(context))
+
+    assert Enum.map(skills, & &1.name) == ["direct-answer", "user-note"]
+    assert Enum.find(skills, &(&1.name == "direct-answer")).source_scope == :built_in
+    assert Enum.find(skills, &(&1.name == "user-note")).source_scope == :user_native
+  end
+
+  test "get accepts snake-case aliases", context do
+    write_skill(Path.join(context.home, "skills"), "user-note", "user-note")
+
+    assert {:ok, skill} = Skills.get("user_note", registry_context(context))
+    assert skill.name == "user-note"
+  end
+
+  test "project skills are pending until the project root is trusted", context do
+    project_skills_root = Path.join([context.project_root, ".allbert", "skills"])
+    write_skill(project_skills_root, "project-skill", "project-skill")
+
+    pending_context = registry_context(context)
+    assert {:ok, []} = Skills.list(pending_context)
+    assert {:ok, diagnostics} = Skills.diagnostics(pending_context)
+    assert Enum.any?(diagnostics, &(&1.code == :project_skill_pending))
+
+    trusted_context =
+      registry_context(context,
+        settings: settings(%{"trusted_project_roots" => [context.project_root]})
+      )
+
+    assert {:ok, [skill]} = Skills.list(trusted_context)
+    assert skill.name == "project-skill"
+    assert skill.trust_status == :trusted
+  end
+
+  test "disabled skills are hidden and reported", context do
+    write_skill(Path.join(context.home, "skills"), "user-note", "user-note")
+
+    registry_context =
+      registry_context(context, settings: settings(%{"disabled" => ["user-note"]}))
+
+    assert {:ok, []} = Skills.list(registry_context)
+    assert {:ok, diagnostics} = Skills.diagnostics(registry_context)
+    assert Enum.any?(diagnostics, &(&1.code == :disabled_skill and &1.name == "user-note"))
+  end
+
+  test "trusted project skills take duplicate precedence over user skills", context do
+    write_skill(
+      Path.join([context.project_root, ".allbert", "skills"]),
+      "shared-skill",
+      "shared-skill"
+    )
+
+    write_skill(Path.join(context.home, "skills"), "shared-skill", "shared-skill")
+
+    registry_context =
+      registry_context(context,
+        settings: settings(%{"trusted_project_roots" => [context.project_root]})
+      )
+
+    assert {:ok, [skill]} = Skills.list(registry_context)
+    assert skill.name == "shared-skill"
+    assert skill.source_scope == :project_native
+
+    assert {:ok, diagnostics} = Skills.diagnostics(registry_context)
+    assert Enum.any?(diagnostics, &(&1.code == :duplicate_skill_hidden))
+  end
+
+  test "built-in skill names are reserved", context do
+    write_skill(Path.join(context.home, "skills"), "append-memory", "append-memory")
+    registry_context = registry_context(context)
+
+    assert {:ok, []} = Skills.list(registry_context)
+    assert {:ok, diagnostics} = Skills.diagnostics(registry_context)
+    assert Enum.any?(diagnostics, &(&1.code == :built_in_name_reserved))
+  end
+
+  test "imported cache skills require manual trust policy and explicit enablement", context do
+    write_skill(Path.join([context.home, "cache", "skills"]), "imported-skill", "imported-skill")
+
+    disabled_context = registry_context(context)
+    assert {:ok, []} = Skills.list(disabled_context)
+    assert {:ok, diagnostics} = Skills.diagnostics(disabled_context)
+    assert Enum.any?(diagnostics, &(&1.code == :imported_skill_disabled))
+
+    enabled_context =
+      registry_context(context,
+        settings:
+          settings(%{
+            "imported_cache_policy" => "enabled_manual_trust",
+            "enabled" => ["imported-skill"]
+          })
+      )
+
+    assert {:ok, [skill]} = Skills.list(enabled_context)
+    assert skill.name == "imported-skill"
+    assert skill.source_scope == :imported_cache
+    assert skill.trust_status == :trusted
+  end
+
+  test "malformed declarations appear in diagnostics", context do
+    scan_root = Path.join(context.root, "configured")
+    invalid_root = Path.join(scan_root, "invalid")
+
+    File.mkdir_p!(invalid_root)
+    File.write!(Path.join(invalid_root, "SKILL.md"), "---\nname: invalid\ndescription: [\n---\n")
+
+    registry_context =
+      registry_context(context, settings: settings(%{"scan_paths" => [scan_root]}))
+
+    assert {:ok, diagnostics} = Skills.diagnostics(registry_context)
+
+    assert Enum.any?(
+             diagnostics,
+             &(&1.code == :invalid_yaml and &1.source_scope == :configured_scan_path)
+           )
+  end
+
+  test "legacy built-ins preserve operator skill discovery until the M4 skill pack", context do
+    registry_context = registry_context(context, disable_legacy_built_ins: false)
+
+    assert {:ok, skills} = Skills.list(registry_context)
+
+    assert Enum.any?(
+             skills,
+             &(&1.name == "append-memory" and &1.source_scope == :built_in_legacy)
+           )
+  end
+
+  defp registry_context(context, overrides \\ []) do
+    %{
+      built_in_root: context.built_in_root,
+      project_root: context.project_root,
+      user_interoperable_root: context.user_interoperable_root,
+      disable_legacy_built_ins: true
+    }
+    |> Map.merge(Map.new(overrides))
+  end
+
+  defp settings(overrides) do
+    Map.merge(
+      %{
+        "scan_paths" => [],
+        "trusted_project_roots" => [],
+        "enabled" => [],
+        "disabled" => [],
+        "imported_cache_policy" => "disabled"
+      },
+      Map.new(overrides)
+    )
+  end
+
+  defp write_skill(root, directory, name) do
+    skill_root = Path.join(root, directory)
+    File.mkdir_p!(skill_root)
+
+    File.write!(Path.join(skill_root, "SKILL.md"), """
+    ---
+    name: #{name}
+    description: #{name} test skill.
+    ---
+
+    ## Workflow
+
+    Inspect only.
+    """)
+  end
+
+  defp temp_path(name) do
+    Path.join(System.tmp_dir!(), "allbert-registry-#{name}-#{System.unique_integer([:positive])}")
+  end
+
+  defp restore_env(original_env) do
+    Enum.each(original_env, fn
+      {key, nil} -> System.delete_env(key)
+      {key, value} -> System.put_env(key, value)
+    end)
+  end
+
+  defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+end

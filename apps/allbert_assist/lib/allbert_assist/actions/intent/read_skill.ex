@@ -25,11 +25,11 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
   def run(%{name: name}, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
 
-    case Skills.get(name) do
-      {:ok, skill} ->
+    case Skills.read(name, context) do
+      {:ok, skill_read} ->
         {:ok,
          %{
-           message: skill_message(skill),
+           message: skill_message(skill_read),
            status: PermissionGate.response_status(permission_decision),
            permission_decision: permission_decision,
            actions: [
@@ -38,7 +38,8 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
                status: :completed,
                permission: :read_only,
                permission_decision: permission_decision,
-               input: %{name: name}
+               input: %{name: name},
+               skill_metadata: skill_metadata(skill_read.skill)
              }
            ]
          }}
@@ -46,7 +47,7 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
       {:error, :not_found} ->
         {:ok,
          %{
-           message: "I do not have a v0.01 skill declaration named #{inspect(name)}.",
+           message: "I do not have a trusted enabled skill declaration named #{inspect(name)}.",
            status: PermissionGate.response_status(permission_decision),
            permission_decision: permission_decision,
            actions: [
@@ -62,15 +63,39 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
     end
   end
 
-  defp skill_message(skill) do
+  defp skill_message(%{skill: skill, body: body, diagnostics: diagnostics}) do
     """
     Skill: #{skill.title}
     Name: #{skill.name}
-    Status: #{skill.status}
-    Permission: #{skill.permission}
+    Kind: #{skill.kind}
+    Source: #{skill.source_scope}
+    Trust: #{skill.trust_status}
+    Activation: #{skill.activation_mode}
+    Status: #{skill.status || :available}
+    Permission: #{skill.permission || :read_only}
 
     #{skill.description}
+
+    ## Instructions
+
+    #{body}
+
+    Diagnostics: #{diagnostics_summary(diagnostics)}
     """
     |> String.trim()
   end
+
+  defp skill_metadata(skill) do
+    %{
+      selected_skill: skill.name,
+      source_scope: skill.source_scope,
+      source_path: skill.source_path,
+      trust_status: skill.trust_status,
+      kind: skill.kind,
+      activation_mode: skill.activation_mode
+    }
+  end
+
+  defp diagnostics_summary([]), do: "none"
+  defp diagnostics_summary(diagnostics), do: inspect(diagnostics, pretty: true)
 end

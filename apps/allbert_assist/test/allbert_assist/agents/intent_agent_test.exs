@@ -128,9 +128,9 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              })
 
     assert response.status == :completed
-    assert response.message =~ "direct_answer"
-    assert response.message =~ "append_memory"
-    assert response.message =~ "plan_shell_command"
+    assert response.message =~ "direct-answer"
+    assert response.message =~ "append-memory"
+    assert response.message =~ "plan-shell-command"
     assert response.message =~ "I cannot execute shell commands"
     assert [%{name: "list_skills"}] = response.actions
   end
