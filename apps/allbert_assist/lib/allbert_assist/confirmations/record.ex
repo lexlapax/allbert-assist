@@ -144,9 +144,22 @@ defmodule AllbertAssist.Confirmations.Record do
       "decision_source" => stringify(value(attrs, :decision_source, "operator")),
       "resolved_at" => DateTime.to_iso8601(now)
     }
+    |> Map.merge(operator_target_resolution(attrs))
     |> drop_nil_values()
     |> Redactor.redact()
   end
+
+  defp operator_target_resolution(attrs) do
+    %{
+      "target_resumed?" => value(attrs, :target_resumed?),
+      "target_status" => stringify(value(attrs, :target_status)),
+      "target_result" => target_result(value(attrs, :target_result)),
+      "adapter_unavailable?" => value(attrs, :adapter_unavailable?)
+    }
+  end
+
+  defp target_result(value) when is_map(value), do: redacted_map(value)
+  defp target_result(_value), do: nil
 
   defp target_action(attrs) do
     attrs
@@ -181,6 +194,7 @@ defmodule AllbertAssist.Confirmations.Record do
   defp stringify_list_value(value) when is_map(value), do: stringify_keys(value)
   defp stringify_list_value(value), do: stringify_value(value)
 
+  defp stringify_value(nil), do: nil
   defp stringify_value(value) when is_atom(value), do: Atom.to_string(value)
   defp stringify_value(value), do: value
 

@@ -167,8 +167,10 @@ explain this as approved, recorded, and not executed because v0.07 has no
 adapter for that target; external network execution is planned for v0.10.
 
 Release/tag status: v0.07 was released and tagged as `v0.07` on 2026-05-02.
-v0.08 planning is implementation-ready and explicitly scopes shell execution
-to Level 1 local policy sandboxing, not container isolation.
+v0.08 implementation is in progress. Its first milestones have added the Level
+1 local policy sandbox, local runner, and confirmed `run_shell_command`
+approval resume path; operator CLI and `/settings` release surfaces are still
+planned before the v0.08 release tag.
 
 Inspect generated files:
 

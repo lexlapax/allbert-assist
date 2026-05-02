@@ -456,6 +456,8 @@ Milestones:
 - M2: Level 1 local process runner with explicit executable/argv, cwd, env
   allowlist, timeout, output cap, and redaction.
 - M3: Registered `run_shell_command` action and v0.07 confirmation resume.
+  Complete in implementation: shell approvals now resume only the shell target
+  after Security Central re-check and record target result metadata.
 - M4: CLI and `/settings` operator surfaces over the same action boundary.
 - M5: Trace, audit, release docs, version metadata, focused tests, and final
   warning gates.

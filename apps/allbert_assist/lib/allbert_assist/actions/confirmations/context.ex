@@ -1,7 +1,7 @@
 defmodule AllbertAssist.Actions.Confirmations.Context do
   @moduledoc false
 
-  def resolution_attrs(context, reason, record \\ nil) do
+  def resolution_attrs(context, reason, record \\ nil, metadata \\ %{}) do
     %{
       resolver_actor: actor(context),
       resolver_channel: channel(context),
@@ -11,6 +11,7 @@ defmodule AllbertAssist.Actions.Confirmations.Context do
       same_channel?: same_channel?(record, context),
       decision_source: "operator"
     }
+    |> Map.merge(metadata)
   end
 
   def action(record, action_name, status, permission_decision, metadata \\ %{}) do

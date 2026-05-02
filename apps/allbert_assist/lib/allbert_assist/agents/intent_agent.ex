@@ -23,6 +23,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       AllbertAssist.Actions.Intent.ReadSkill,
       AllbertAssist.Actions.Intent.ActivateSkill,
       AllbertAssist.Actions.Intent.PlanShellCommand,
+      AllbertAssist.Actions.Intent.RunShellCommand,
       AllbertAssist.Actions.Intent.ExternalNetworkRequest,
       AllbertAssist.Actions.Settings.ListSettings,
       AllbertAssist.Actions.Settings.ReadSetting,
@@ -46,7 +47,9 @@ defmodule AllbertAssist.Agents.IntentAgent do
     - You may append and read markdown-backed memory for low-risk personal
       identity and preference statements recognized by deterministic
       heuristics.
-    - You may plan shell commands, but you must not claim to execute them.
+    - You may plan shell commands from free-form prompts.
+    - You may only request local shell execution from structured command specs
+      that go through confirmation; do not claim execution before approval.
     - You may recognize external-network requests, but you must not make them.
     - Sensitive or destructive work must be refused or marked for future
       confirmation.

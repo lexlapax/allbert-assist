@@ -111,7 +111,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     command_policy = Policy.resolve(:command_execute)
     assert command_policy.configured == "allowed"
     assert command_policy.configured_decision == :allowed
-    assert command_policy.effective == :denied
+    assert command_policy.effective == :needs_confirmation
     assert command_policy.capped?
   end
 
