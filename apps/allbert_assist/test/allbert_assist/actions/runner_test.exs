@@ -46,6 +46,8 @@ defmodule AllbertAssist.Actions.RunnerTest do
         assert is_binary(response.runner_metadata.requested_signal_id)
         assert is_binary(response.runner_metadata.completed_signal_id)
         assert is_integer(response.runner_metadata.duration_ms)
+        assert response.runner_metadata.permission_decision.context.action.name == "direct_answer"
+        assert response.runner_metadata.permission_decision.context.action.registered?
 
         assert [%{runner_metadata: action_metadata}] = response.actions
         assert action_metadata.action_name == "direct_answer"

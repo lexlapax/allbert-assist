@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Runner do
   """
 
   alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Signals
   alias Jido.Signal
 
@@ -85,6 +86,8 @@ defmodule AllbertAssist.Actions.Runner do
   defp runner_context(context, action_module, requested_signal) do
     Map.merge(context, %{
       action_metadata: action_module.__action_metadata__(),
+      selected_action: action_module.name(),
+      selected_action_module: action_module,
       runner_requested_signal_id: signal_id(requested_signal)
     })
   end
@@ -177,10 +180,11 @@ defmodule AllbertAssist.Actions.Runner do
   defp response_status(%{status: status}) when is_atom(status), do: status
   defp response_status(_response), do: :completed
 
-  defp permission_decision(%{permission_decision: decision}), do: decision
+  defp permission_decision(%{permission_decision: decision}), do: Redactor.redact(decision)
 
   defp permission_decision(%{actions: actions}) when is_list(actions) do
     Enum.find_value(actions, &Map.get(&1, :permission_decision))
+    |> Redactor.redact()
   end
 
   defp permission_decision(_response), do: nil
