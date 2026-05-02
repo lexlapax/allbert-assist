@@ -38,6 +38,33 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "record_trace" in agent_action_names
   end
 
+  test "returns canonical capability metadata for every registered action" do
+    capabilities = Registry.capabilities()
+
+    assert Enum.map(capabilities, & &1.name) == Registry.names()
+    assert Enum.all?(capabilities, &(&1.module in Registry.modules()))
+    assert Enum.all?(capabilities, &is_atom(&1.permission))
+    assert Enum.all?(capabilities, &(&1.exposure in [:agent, :internal]))
+
+    assert Enum.map(Registry.agent_capabilities(), & &1.name) ==
+             Enum.map(Registry.agent_modules(), & &1.name())
+
+    assert Enum.map(Registry.internal_capabilities(), & &1.name) == [
+             "security_status",
+             "record_trace"
+           ]
+
+    assert {:ok, append_memory} = Registry.capability("append_memory")
+    assert append_memory.permission == :memory_write
+    assert append_memory.skill_backed?
+
+    assert {:ok, activate_skill} = Registry.capability("activate_skill")
+    refute activate_skill.skill_backed?
+    assert activate_skill.exposure == :agent
+
+    assert {:error, {:unknown_action, "missing_action"}} = Registry.capability("missing_action")
+  end
+
   test "resolves registered actions by name and module only" do
     assert {:ok, DirectAnswer} = Registry.resolve("direct_answer")
     assert {:ok, DirectAnswer} = Registry.resolve(:direct_answer)

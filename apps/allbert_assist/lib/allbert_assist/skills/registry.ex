@@ -8,6 +8,7 @@ defmodule AllbertAssist.Skills.Registry do
   """
 
   alias AllbertAssist.Paths
+  alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.CapabilityContract
   alias AllbertAssist.Skills.Parser
@@ -203,7 +204,7 @@ defmodule AllbertAssist.Skills.Registry do
       activation_mode: :progressive_disclosure,
       spec: spec,
       capability_contract: contract,
-      permission: :read_only,
+      permission: skill_permission(contract),
       status: :available,
       aliases: aliases(name, spec.name),
       diagnostics: Enum.map(spec.diagnostics, &tag_diagnostic(&1, discovery))
@@ -493,6 +494,13 @@ defmodule AllbertAssist.Skills.Registry do
   defp skill_kind(:imported_cache, _spec, _contract), do: :external_candidate
   defp skill_kind(_source_scope, %{resources: [_resource | _rest]}, _contract), do: :workflow
   defp skill_kind(_source_scope, _spec, _contract), do: :instruction
+
+  defp skill_permission(%CapabilityContract{permissions: [permission | _rest]}) do
+    Policy.permission_classes()
+    |> Enum.find(:read_only, &(to_string(&1) == permission))
+  end
+
+  defp skill_permission(_contract), do: :read_only
 
   defp skill_matches?(skill, normalized) do
     normalized in [skill.name | skill.aliases] or normalize_name(skill.title) == normalized

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Registry do
   invoking work.
   """
 
+  alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Intent.ActivateSkill
   alias AllbertAssist.Actions.Intent.AppendMemory
   alias AllbertAssist.Actions.Intent.DirectAnswer
@@ -50,6 +51,130 @@ defmodule AllbertAssist.Actions.Registry do
 
   @actions @agent_actions ++ @internal_actions
 
+  @capability_attrs %{
+    DirectAnswer => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :read_only,
+      skill_backed?: true,
+      confirmation: :not_required
+    },
+    AppendMemory => %{
+      permission: :memory_write,
+      exposure: :agent,
+      execution_mode: :memory_write,
+      skill_backed?: true,
+      confirmation: :not_required
+    },
+    ReadRecentMemory => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :read_only,
+      skill_backed?: true,
+      confirmation: :not_required
+    },
+    ListSkills => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :read_only,
+      skill_backed?: true,
+      confirmation: :not_required
+    },
+    ReadSkill => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :read_only,
+      skill_backed?: true,
+      confirmation: :not_required
+    },
+    ActivateSkill => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :read_only,
+      skill_backed?: false,
+      confirmation: :not_required,
+      notes: "Progressive disclosure only; does not run the activated skill."
+    },
+    PlanShellCommand => %{
+      permission: :command_plan,
+      exposure: :agent,
+      execution_mode: :command_plan_only,
+      skill_backed?: true,
+      confirmation: :not_required
+    },
+    ExternalNetworkRequest => %{
+      permission: :external_network,
+      exposure: :agent,
+      execution_mode: :external_network_unavailable,
+      skill_backed?: true,
+      confirmation: :future_confirmation_required,
+      notes: "Reports confirmation need only; no network adapter executes in v0.06."
+    },
+    ListSettings => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :settings_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ReadSetting => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :settings_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    UpdateSetting => %{
+      permission: :settings_write,
+      exposure: :agent,
+      execution_mode: :settings_write,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ExplainSetting => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :settings_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ListProviderProfiles => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :settings_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ListModelProfiles => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :settings_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    SetProviderCredential => %{
+      permission: :settings_secret_write,
+      exposure: :agent,
+      execution_mode: :secret_write,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    SecurityStatus => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :security_status,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    RecordTrace => %{
+      permission: :memory_write,
+      exposure: :internal,
+      execution_mode: :internal_trace,
+      skill_backed?: false,
+      confirmation: :not_required
+    }
+  }
+
   @doc "Return registered runtime action modules in stable display order."
   @spec modules() :: nonempty_list(module())
   def modules, do: @actions
@@ -61,6 +186,18 @@ defmodule AllbertAssist.Actions.Registry do
   @doc "Return registered action names in stable display order."
   @spec names() :: [String.t()]
   def names, do: Enum.map(@actions, & &1.name())
+
+  @doc "Return canonical capability metadata for all registered actions."
+  @spec capabilities() :: [Capability.t()]
+  def capabilities, do: Enum.map(@actions, &capability_for_module!/1)
+
+  @doc "Return canonical capability metadata for intent-agent actions."
+  @spec agent_capabilities() :: [Capability.t()]
+  def agent_capabilities, do: Enum.map(@agent_actions, &capability_for_module!/1)
+
+  @doc "Return canonical capability metadata for internal-only actions."
+  @spec internal_capabilities() :: [Capability.t()]
+  def internal_capabilities, do: Enum.map(@internal_actions, &capability_for_module!/1)
 
   @doc "Resolve a registered action by module, string name, or atom name."
   @spec resolve(module() | String.t() | atom()) ::
@@ -77,6 +214,15 @@ defmodule AllbertAssist.Actions.Registry do
   def resolve(action) when is_binary(action), do: resolve_name(action, action)
 
   def resolve(action), do: {:error, {:unknown_action, action}}
+
+  @doc "Resolve canonical capability metadata by registered action name or module."
+  @spec capability(module() | String.t() | atom()) ::
+          {:ok, Capability.t()} | {:error, {:unknown_action, term()}}
+  def capability(action) do
+    with {:ok, module} <- resolve(action) do
+      {:ok, capability_for_module!(module)}
+    end
+  end
 
   @doc "Return true when the module is registered for runtime invocation."
   @spec registered_module?(module()) :: boolean()
@@ -98,6 +244,11 @@ defmodule AllbertAssist.Actions.Registry do
       nil -> {:error, {:unknown_action, original}}
       module -> {:ok, module}
     end
+  end
+
+  defp capability_for_module!(module) do
+    attrs = Map.fetch!(@capability_attrs, module)
+    Capability.new(module, attrs)
   end
 
   defp normalize_name(name) do
