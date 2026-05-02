@@ -47,17 +47,20 @@ defmodule AllbertAssist.Security.Policy do
     configured = configured_policy(permission)
     floor = safety_floor(permission)
     effective = apply_safety_floor(configured.decision, floor)
+    context_denial = context_denial(permission, context)
+    final_effective = if context_denial, do: :denied, else: effective
 
     %{
       permission: permission,
       setting_key: Map.get(@permission_settings, permission),
       configured: configured.value,
       configured_decision: configured.decision,
-      effective: effective,
+      effective: final_effective,
       source: configured.source,
       safety_floor: floor,
-      capped?: effective != configured.decision,
-      reason: reason(permission, effective, configured, floor, context)
+      capped?: final_effective != configured.decision,
+      context_denial: context_denial,
+      reason: context_denial || reason(permission, final_effective, configured, floor, context)
     }
   end
 
@@ -114,6 +117,23 @@ defmodule AllbertAssist.Security.Policy do
   defp apply_safety_floor(_configured, :denied), do: :denied
   defp apply_safety_floor(:allowed, :needs_confirmation), do: :needs_confirmation
   defp apply_safety_floor(configured, _floor), do: configured
+
+  defp context_denial(_permission, %{action: %{name: name, registered?: false}})
+       when not is_nil(name) do
+    "Unknown or unregistered action boundary: #{inspect(name)}."
+  end
+
+  defp context_denial(permission, %{skill: %{lookup_status: :not_found, name: name}})
+       when not is_nil(name) and permission != :read_only do
+    "Selected skill is not trusted, enabled, or discoverable: #{inspect(name)}."
+  end
+
+  defp context_denial(permission, %{skill: %{trust_status: trust_status, name: name}})
+       when not is_nil(name) and permission != :read_only and trust_status not in [nil, :trusted] do
+    "Selected skill is not trusted for this permission: #{inspect(name)}."
+  end
+
+  defp context_denial(_permission, _context), do: nil
 
   defp reason(:read_only, :allowed, _configured, _floor, _context),
     do: "Read-only inspection is allowed locally."

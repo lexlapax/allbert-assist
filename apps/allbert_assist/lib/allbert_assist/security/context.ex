@@ -5,6 +5,7 @@ defmodule AllbertAssist.Security.Context do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Skills
 
   @doc "Normalize runtime context into the categories Security Central needs."
   @spec normalize(atom(), map()) :: map()
@@ -78,14 +79,80 @@ defmodule AllbertAssist.Security.Context do
     selected = Map.get(context, :selected_skill) || Map.get(context, "selected_skill")
     metadata = Map.get(context, :skill_metadata) || Map.get(context, "skill_metadata") || %{}
 
+    selected
+    |> registry_skill(context)
+    |> case do
+      {:ok, skill} ->
+        skill_context(skill)
+
+      {:error, :not_found} ->
+        metadata_skill_context(selected, metadata, :not_found)
+
+      :none ->
+        metadata_skill_context(selected, metadata, :not_selected)
+    end
+  end
+
+  defp registry_skill(nil, _context), do: :none
+
+  defp registry_skill(selected, context) when is_binary(selected) do
+    Skills.get(selected, context)
+  rescue
+    _exception -> {:error, :not_found}
+  end
+
+  defp registry_skill(_selected, _context), do: :none
+
+  defp skill_context(skill) do
+    %{
+      name: skill.name,
+      source_scope: skill.source_scope,
+      source_path: skill.source_path,
+      trust_status: skill.trust_status,
+      lookup_status: :found,
+      kind: skill.kind,
+      permission: skill.permission,
+      capability_contract: contract_summary(skill.capability_contract),
+      resources: resource_summary(skill)
+    }
+  end
+
+  defp metadata_skill_context(selected, metadata, lookup_status) do
     %{
       name: selected || map_value(metadata, :selected_skill) || map_value(metadata, :name),
       source_scope: map_value(metadata, :source_scope),
+      source_path: map_value(metadata, :source_path),
       trust_status: map_value(metadata, :trust_status),
+      lookup_status: lookup_status,
+      kind: map_value(metadata, :kind),
+      permission: map_value(metadata, :permission),
       capability_contract: map_value(metadata, :capability_contract),
       resources: map_value(metadata, :resources) || []
     }
   end
+
+  defp contract_summary(nil), do: nil
+
+  defp contract_summary(contract) do
+    %{
+      status: Map.get(contract, :status),
+      actions: Map.get(contract, :actions, []),
+      permissions: Map.get(contract, :permissions, []),
+      confirmation: Map.get(contract, :confirmation)
+    }
+  end
+
+  defp resource_summary(%{spec: %{resources: resources}}) when is_list(resources) do
+    Enum.map(resources, fn resource ->
+      %{
+        kind: Map.get(resource, :kind),
+        relative_path: Map.get(resource, :relative_path),
+        executable?: Map.get(resource, :executable?, false)
+      }
+    end)
+  end
+
+  defp resource_summary(_skill), do: []
 
   defp resource(context) do
     resource = Map.get(context, :resource) || Map.get(context, "resource") || %{}
