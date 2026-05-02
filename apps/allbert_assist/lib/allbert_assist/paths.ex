@@ -37,6 +37,10 @@ defmodule AllbertAssist.Paths do
       home,
       settings_root(),
       Path.join(settings_root(), "audit"),
+      confirmations_root(),
+      Path.join(confirmations_root(), "pending"),
+      Path.join(confirmations_root(), "resolved"),
+      Path.join(confirmations_root(), "audit"),
       memory_root(),
       Path.join(memory_root(), "notes"),
       Path.join(memory_root(), "preferences"),
@@ -76,6 +80,15 @@ defmodule AllbertAssist.Paths do
         env_path("ALLBERT_MEMORY_ROOT")
       ],
       Path.join(home(), "memory")
+    )
+  end
+
+  @doc "Return the durable confirmation request root."
+  @spec confirmations_root() :: String.t()
+  def confirmations_root do
+    first_path(
+      [app_root(AllbertAssist.Confirmations), configured(:confirmations_root)],
+      Path.join(home(), "confirmations")
     )
   end
 

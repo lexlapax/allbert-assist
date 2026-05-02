@@ -110,6 +110,25 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("skills.imported_cache_policy", "auto", %{})
   end
 
+  test "confirmation settings are writable and validated" do
+    assert {:ok, resolved} =
+             Settings.put("confirmations.default_ttl_minutes", 30, %{audit?: false})
+
+    assert resolved.value == 30
+    assert {:ok, 30} = Settings.get("confirmations.default_ttl_minutes")
+
+    assert {:ok, approval} =
+             Settings.put("confirmations.allow_cross_channel_approval", false, %{audit?: false})
+
+    assert approval.value == false
+
+    assert {:error, {:invalid_setting, "confirmations.default_ttl_minutes", _reason}} =
+             Settings.put("confirmations.default_ttl_minutes", 0, %{})
+
+    assert {:error, {:invalid_setting, "confirmations.allow_cli_approval", _reason}} =
+             Settings.put("confirmations.allow_cli_approval", "yes", %{})
+  end
+
   test "provider and model profiles resolve with redacted credential status" do
     assert {:ok, providers} = Settings.list_provider_profiles()
     assert Enum.any?(providers, &(&1.name == "openai" and &1.credential_status == :missing))
