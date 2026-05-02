@@ -64,8 +64,16 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
              )
 
     assert approve_response.status == :completed
-    assert approve_response.confirmation["status"] == "approved"
+    assert approve_response.confirmation["status"] == "adapter_unavailable"
     assert approve_response.confirmation["operator_resolution"]["resolver_channel"] == "cli"
+    assert approve_response.confirmation["operator_resolution"]["same_channel?"]
+
+    approval_action = hd(approve_response.actions)
+    assert approval_action.confirmation_metadata.adapter_unavailable?
+    assert approval_action.confirmation_metadata.target_resumed? == false
+
+    assert approval_action.confirmation_metadata.target_policy_decision.decision ==
+             :needs_confirmation
 
     assert {:ok, approve_again} =
              Runner.run("approve_confirmation", %{id: approval_candidate["id"]}, %{
@@ -75,6 +83,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
 
     assert approve_again.status == :completed
     assert approve_again.actions |> hd() |> get_in([:confirmation_metadata, :idempotent?])
+    assert approve_again.confirmation["status"] == "adapter_unavailable"
 
     assert {:ok, denial_candidate} = Confirmations.create(Map.put(base_attrs(), :id, "conf_deny"))
 
@@ -88,6 +97,47 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
     assert deny_response.status == :completed
     assert deny_response.confirmation["status"] == "denied"
     assert deny_response.confirmation["operator_resolution"]["resolver_channel"] == "liveview"
+    refute deny_response.confirmation["operator_resolution"]["same_channel?"]
+  end
+
+  test "approval respects target policy changes before resolution" do
+    assert {:ok, record} = Confirmations.create(Map.put(base_attrs(), :id, "conf_policy_change"))
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.external_network", "denied", %{audit?: false})
+
+    assert {:ok, response} =
+             Runner.run("approve_confirmation", %{id: record["id"]}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert response.status == :completed
+    assert response.confirmation["status"] == "denied"
+    assert response.actions |> hd() |> get_in([:confirmation_metadata, :blocked_by_policy?])
+    assert response.actions |> hd() |> get_in([:confirmation_metadata, :target_resumed?]) == false
+
+    assert {:ok, resolved} = Confirmations.read(record["id"])
+    assert resolved["status"] == "denied"
+  end
+
+  test "approval respects cross-channel approval settings" do
+    assert {:ok, _setting} =
+             Settings.put("confirmations.allow_cross_channel_approval", false, %{audit?: false})
+
+    assert {:ok, record} = Confirmations.create(Map.put(base_attrs(), :id, "conf_cross_channel"))
+
+    assert {:ok, response} =
+             Runner.run("approve_confirmation", %{id: record["id"]}, %{
+               actor: "local",
+               channel: :liveview,
+               surface: "/settings"
+             })
+
+    assert response.status == :denied
+    assert response.error == :cross_channel_approval_disabled
+    assert {:ok, pending} = Confirmations.read(record["id"])
+    assert pending["status"] == "pending"
   end
 
   test "deny requires a reason when configured" do

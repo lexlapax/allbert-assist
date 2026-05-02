@@ -1,14 +1,14 @@
 defmodule AllbertAssist.Actions.Confirmations.Context do
   @moduledoc false
 
-  def resolution_attrs(context, reason) do
+  def resolution_attrs(context, reason, record \\ nil) do
     %{
       resolver_actor: actor(context),
       resolver_channel: channel(context),
       resolver_surface: surface(context),
       resolver_session_id: session_id(context),
       resolution_reason: blank_to_nil(reason),
-      same_channel?: false,
+      same_channel?: same_channel?(record, context),
       decision_source: "operator"
     }
   end
@@ -79,4 +79,16 @@ defmodule AllbertAssist.Actions.Confirmations.Context do
   end
 
   defp blank_to_nil(value), do: value
+
+  defp same_channel?(%{"origin" => %{} = origin}, context) do
+    channel_key(Map.get(origin, "channel")) == channel_key(channel(context))
+  end
+
+  defp same_channel?(_record, _context), do: false
+
+  defp channel_key(:liveview), do: "live_view"
+  defp channel_key("liveview"), do: "live_view"
+  defp channel_key(value) when is_atom(value), do: Atom.to_string(value)
+  defp channel_key(value) when is_binary(value), do: value
+  defp channel_key(value), do: inspect(value)
 end

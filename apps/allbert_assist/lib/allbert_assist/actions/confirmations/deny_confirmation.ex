@@ -49,7 +49,22 @@ defmodule AllbertAssist.Actions.Confirmations.DenyConfirmation do
   end
 
   defp deny(id, reason, context, permission_decision) do
-    case Confirmations.resolve(id, :denied, Context.resolution_attrs(context, reason)) do
+    case Confirmations.read(id) do
+      {:ok, %{"status" => "pending"} = record} ->
+        resolve_denial(record, reason, context, permission_decision)
+
+      {:ok, record} ->
+        completed(record, permission_decision, idempotent?: true)
+
+      {:error, reason} ->
+        Context.denied("deny_confirmation", :confirmation_decide, permission_decision, reason)
+    end
+  end
+
+  defp resolve_denial(record, reason, context, permission_decision) do
+    id = Map.fetch!(record, "id")
+
+    case Confirmations.resolve(id, :denied, Context.resolution_attrs(context, reason, record)) do
       {:ok, record} ->
         completed(record, permission_decision, idempotent?: false)
 

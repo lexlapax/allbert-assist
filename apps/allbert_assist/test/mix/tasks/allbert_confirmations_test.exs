@@ -66,7 +66,7 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
         assert :ok = ConfirmationsTask.run(["approve", approval["id"], "--reason", "ok"])
       end)
 
-    assert approve_output =~ "conf_cli_approve status=approved"
+    assert approve_output =~ "conf_cli_approve status=adapter_unavailable"
 
     expire_output = capture_io(fn -> assert :ok = ConfirmationsTask.run(["expire"]) end)
     assert expire_output =~ "Expired: 0"
