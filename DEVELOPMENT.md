@@ -55,12 +55,14 @@ For v0.07 confirmation workflow regression work, start with:
 For active v0.08 local execution sandbox work, start with:
 
 - `docs/plans/v0.08-plan.md`
+- `docs/plans/v0.08-request-flow.md`
 - `docs/plans/v0.07-plan.md`
 - `docs/plans/v0.07-request-flow.md`
 - `docs/adr/0001-signal-first-jido-runtime.md`
 - `docs/adr/0006-security-central.md`
 - `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
 - `docs/adr/0008-durable-confirmation-requests.md`
+- `docs/adr/0009-local-execution-sandbox-levels.md`
 
 ## Fresh Checkout
 
@@ -181,6 +183,11 @@ Core rules:
   signal, agent, or action boundaries rather than owning domain semantics
   directly.
 - Permission checks happen at the action boundary.
+- Local command execution is Level 1 policy-bounded host execution in v0.08,
+  not OS isolation. Shell execution must enter only through registered actions,
+  Security Central, Settings Central execution policy, durable confirmation,
+  and trace/audit records. Container or remote isolation requires future
+  adapter work.
 - Runtime turns should be traceable when tracing is enabled.
 - Trace metadata should explain selected agent, selected skill, selected
   action, permission decision, settings source, memory effects, and

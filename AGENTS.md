@@ -51,13 +51,17 @@ confirmation queues, approval/denial behavior, action resumption, traces,
 audits, CLI, LiveView, or future execution boundaries.
 
 For active v0.08 local execution sandbox work, read `docs/plans/v0.08-plan.md`,
-`docs/plans/v0.07-plan.md`, `docs/plans/v0.07-request-flow.md`,
+`docs/plans/v0.08-request-flow.md`, `docs/plans/v0.07-plan.md`,
+`docs/plans/v0.07-request-flow.md`,
 `docs/adr/0001-signal-first-jido-runtime.md`,
 `docs/adr/0006-security-central.md`,
-`docs/adr/0007-jido-native-internal-runtime-boundaries.md`, and
-`docs/adr/0008-durable-confirmation-requests.md` before changing command
+`docs/adr/0007-jido-native-internal-runtime-boundaries.md`,
+`docs/adr/0008-durable-confirmation-requests.md`, and
+`docs/adr/0009-local-execution-sandbox-levels.md` before changing command
 planning, confirmed shell execution, sandbox policy, confirmation resume
-semantics, traces, audits, CLI, or LiveView behavior.
+semantics, traces, audits, CLI, or LiveView behavior. v0.08 implements Level 1
+local policy sandboxing only; container, remote, and microVM isolation are
+future adapter work.
 
 ## Non-Negotiables
 
@@ -101,6 +105,10 @@ semantics, traces, audits, CLI, or LiveView behavior.
 - Do not execute skill scripts, shell commands, external installs, or network
   adapters unless a plan explicitly adds the permission, confirmation, sandbox,
   and trace story.
+- Do not treat OTP supervision, BEAM processes, or local child processes as an
+  OS security boundary. v0.08 local execution must be policy-bounded host
+  execution through registered actions; deeper container or remote isolation
+  requires a later plan and ADR update.
 - Use `Req` for HTTP. Do not add `:httpoison`, `:tesla`, or `:httpc`.
 
 ## Workflow

@@ -2,9 +2,7 @@
 
 ## v0.07 - Confirmation Workflow
 
-Status: ready for user testing on 2026-05-02. Expected release tag: `v0.07`.
-Release tag pending operator acceptance; no v0.07 tag has been created or
-pushed yet.
+Status: released and tagged as `v0.07` on 2026-05-02.
 
 ### Added
 
@@ -53,6 +51,40 @@ pushed yet.
 - Operator smoke used a disposable `ALLBERT_HOME` to create an external-network
   pending confirmation, inspect it with CLI, approve it to
   `adapter_unavailable`, list resolved records, and verify traces/audits.
+
+## v0.08 - Local Execution Sandbox And Shell Adapter
+
+Status: implementation-ready planning after v0.07 release/tag on 2026-05-02.
+No v0.08 implementation code or release tag exists yet.
+
+### Planned
+
+- Level 1 local policy sandboxing for confirmed shell command execution.
+- `run_shell_command` as the only registered command execution action.
+- Settings Central `execution.local.*` policy for allowed roots, allowed
+  commands, operator command profiles, path operands, blocked args, env
+  allowlist, timeout, output caps, and confirmation.
+- Security Central `:command_execute` decisions that remain denied until the
+  action, local runner, confirmation resume, redaction, traces, and tests exist.
+- Durable v0.07 confirmation resume for approved command requests, with
+  `target_resumed?: true` only after policy re-check and local runner success.
+- CLI and `/settings` output over the same action/confirmation boundary.
+- Trace and audit metadata for sandbox level, executable/argv summary, cwd,
+  env policy, timeout, output size, exit status, denial reason, and output
+  preview.
+
+### Planned Safety
+
+- No autonomous shell execution.
+- No unconfirmed command execution.
+- No shell strings, PTY sessions, command chaining, redirection, inline
+  interpreter eval, background processes, or long-running daemon management.
+- No unprofiled mutating/destructive local commands and no out-of-root path
+  operand access.
+- No skill script execution; v0.09 owns that.
+- No external network execution or package installs; v0.10 owns those.
+- No Docker, Podman, Mac/Linux container, remote, or microVM backend in v0.08.
+  Future deeper sandboxing is tracked in `docs/plans/future-features.md`.
 
 ## v0.06 - Action-Backed Allbert Skills
 

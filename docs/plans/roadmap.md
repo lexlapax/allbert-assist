@@ -373,9 +373,7 @@ Plan: `docs/plans/v0.07-plan.md`
 Request flow: `docs/plans/v0.07-request-flow.md`
 ADR: `docs/adr/0008-durable-confirmation-requests.md`
 
-Status: implementation complete and ready for user testing on 2026-05-02.
-Expected release tag: `v0.07`. Release tag pending operator acceptance; no
-v0.07 tag has been created or pushed yet.
+Status: released and tagged as `v0.07` on 2026-05-02.
 
 Expected direction:
 
@@ -427,22 +425,45 @@ registered confirmed shell adapter with sandbox policy.
 ## v0.08: Local Execution Sandbox And Shell Adapter
 
 Plan: `docs/plans/v0.08-plan.md`
+Request flow: `docs/plans/v0.08-request-flow.md`
+ADR: `docs/adr/0009-local-execution-sandbox-levels.md`
 
-Status: next implementation plan.
+Status: implementation-ready after v0.07 release/tag on 2026-05-02.
 
 Expected direction:
 
-- Add the first real local execution boundary for confirmed shell commands.
+- Add the first real local execution boundary for confirmed shell commands:
+  Level 1 local policy sandboxing, not OS/container isolation.
 - Represent shell execution as registered Jido actions, not as skill metadata
   or arbitrary model authority.
-- Restrict working roots, environment access, timeout, output capture, and
-  destructive ambiguity through Security Central and Settings Central policy.
+- Restrict executable/argv, working roots, environment access, timeout, output
+  capture, and destructive ambiguity through Security Central and Settings
+  Central policy.
+- Cover local shell execution as a general command framework: conservative
+  default read-only commands plus explicitly operator-profiled local developer
+  commands, all still confirmed and policy checked.
 - Require the v0.07 confirmation flow for command execution and record redacted
   stdout/stderr, security decisions, and sandbox metadata in traces.
+- Add a local runner adapter boundary so later Docker, Podman, Mac/Linux
+  container, remote, or microVM backends can be introduced without changing the
+  action, confirmation, Security Central, Settings Central, trace, or audit
+  contracts.
+
+Milestones:
+
+- M1: Sandbox ADR, Settings Central execution policy, command spec, and
+  conservative classification.
+- M2: Level 1 local process runner with explicit executable/argv, cwd, env
+  allowlist, timeout, output cap, and redaction.
+- M3: Registered `run_shell_command` action and v0.07 confirmation resume.
+- M4: CLI and `/settings` operator surfaces over the same action boundary.
+- M5: Trace, audit, release docs, version metadata, focused tests, and final
+  warning gates.
 
 Exit signal: Allbert can execute an explicitly confirmed shell command through
-a registered action, inside a bounded local sandbox, with denial defaults,
-redacted output, and inspectable trace/audit records.
+a registered action, inside a bounded Level 1 local policy sandbox, with denial
+defaults, redacted output, and inspectable trace/audit records. It does not
+claim Docker/Podman/container/microVM isolation in this release.
 
 ## v0.09: Skill Script Runner
 
@@ -455,11 +476,14 @@ Expected direction:
 - Add a confirmed `run_skill_script` path for trusted, enabled, inventoried
   Agent Skill scripts.
 - Resolve script paths only from the selected skill's v0.03 resource inventory.
-- Run scripts through the v0.08 local execution sandbox and v0.07 confirmation
-  workflow.
+- Run scripts through the v0.08 Level 1 local execution sandbox and v0.07
+  confirmation workflow, adding skill provenance, resource digest, script path,
+  and capability-contract checks before execution.
 - Continue to forbid runtime module loading, package installs, network calls,
   and non-inventoried script execution unless a later registered action adds
   that capability.
+- Reassess whether any script profiles need Level 2 project/process sandboxing
+  before enabling broader script classes.
 
 Exit signal: Allbert can run a bundled skill script only when the skill is
 trusted, enabled, selected, inventoried, confirmed, sandboxed, and traced.
@@ -475,7 +499,9 @@ Expected direction:
 - Add confirmed `Req`-based external service actions with Settings Central
   credentials, allow/block policy, redaction, rate/cost visibility, and traces.
 - Add package-install actions with stricter confirmation and sandbox policy than
-  ordinary shell execution.
+  ordinary shell execution; reassess whether package installs require Level 2
+  execution profiles or Level 3 container isolation before enabling broad
+  install workflows.
 - Add skills.sh or remote-source search, detail, audit, and import support.
 - Write imported skills only under `<ALLBERT_HOME>/cache/skills`; keep them
   disabled and pending until parsed, validated, audited, enabled, and trusted.
