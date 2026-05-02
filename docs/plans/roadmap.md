@@ -156,11 +156,8 @@ settings across subsystems.
 Plan: `docs/plans/v0.03-plan.md`
 Request flow: `docs/plans/v0.03-request-flow.md`
 
-Status: in progress. Milestone 1 is complete. Milestone 2, the Agent Skill
-parser and validator, is complete and tested. Milestone 3, discovery, trust,
-and registry, is complete and tested. Milestone 4, the built-in Allbert skill
-pack, is complete and tested. Milestone 5, activation and progressive
-disclosure, is next.
+Status: in progress. Milestones 1 through 5 are complete and tested.
+Milestone 6, operator loop and documentation closeout, is next.
 
 Expected direction:
 
@@ -204,6 +201,12 @@ Current implementation:
   as standard `SKILL.md` declarations with inert Allbert metadata. The
   temporary `:built_in_legacy` bridge remains only as a defensive fallback when
   no built-in declarations are packaged.
+- `activate_skill` loads trusted skill instructions through progressive
+  disclosure, returns resource inventory metadata, preserves inert capability
+  contracts, and refuses missing or hidden skills with a structured not-found
+  response.
+- Traces now render selected skill metadata explicitly in the runtime turn
+  header and in a dedicated `## Skill Metadata` section.
 
 Exit signal: Allbert can discover standard Agent Skills, activate their
 instructions through progressive disclosure, show source/trust/diagnostics, and

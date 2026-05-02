@@ -215,6 +215,49 @@ defmodule AllbertAssist.RuntimeTest do
     refute trace =~ "command output"
   end
 
+  test "renders skill metadata explicitly when tracing is enabled", %{root: root} do
+    runner = fn _signal, _request ->
+      {:ok,
+       %{
+         message: "Activated append-memory.",
+         status: :completed,
+         actions: [
+           %{
+             name: "activate_skill",
+             permission_decision: %{decision: :allowed},
+             skill_metadata: %{
+               selected_skill: "append-memory",
+               source_scope: :built_in,
+               trust_status: :trusted,
+               kind: :native_action,
+               activation_mode: :progressive_disclosure,
+               resource_inventory: %{count: 0, paths: []}
+             }
+           }
+         ]
+       }}
+    end
+
+    Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
+    Application.put_env(:allbert_assist, Trace, enabled: true)
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Activate skill append-memory",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :completed
+    assert File.exists?(response.trace_id)
+
+    trace = File.read!(Path.wildcard(Path.join([root, "traces", "*.md"])) |> hd())
+    assert trace =~ "Skill metadata: append-memory (built_in, trusted)"
+    assert trace =~ "## Skill Metadata"
+    assert trace =~ "selected_skill: \"append-memory\""
+    assert trace =~ "resource_inventory"
+  end
+
   test "records traces when runtime.trace_default is enabled in settings", %{root: root} do
     assert {:ok, _resolved} =
              Settings.put("runtime.trace_default", "enabled", %{actor: "local", channel: :test})

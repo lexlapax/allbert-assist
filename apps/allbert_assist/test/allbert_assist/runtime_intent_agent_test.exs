@@ -75,6 +75,20 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert [%{name: "external_network_request", execution: :not_available}] = response.actions
   end
 
+  test "default runtime activates trusted skill instructions" do
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Activate skill append-memory",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "## Skill Context"
+    assert response.message =~ "append-memory"
+    assert [%{name: "activate_skill", selected_skill: "append-memory"}] = response.actions
+  end
+
   test "default runtime writes and reads markdown memory", %{root: root} do
     assert {:ok, write_response} =
              Runtime.submit_user_input(%{

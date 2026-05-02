@@ -21,6 +21,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       AllbertAssist.Actions.Intent.ReadRecentMemory,
       AllbertAssist.Actions.Intent.ListSkills,
       AllbertAssist.Actions.Intent.ReadSkill,
+      AllbertAssist.Actions.Intent.ActivateSkill,
       AllbertAssist.Actions.Intent.PlanShellCommand,
       AllbertAssist.Actions.Intent.ExternalNetworkRequest,
       AllbertAssist.Actions.Settings.ListSettings,
@@ -38,7 +39,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
     Current boundaries:
     - You may answer directly.
-    - You may list or read v0.01 skill declarations.
+    - You may list, read, or activate trusted skill declarations.
     - You may append and read markdown-backed memory for explicit memory
       requests.
     - You may append and read markdown-backed memory for low-risk personal
@@ -50,6 +51,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       confirmation.
     """
 
+  alias AllbertAssist.Actions.Intent.ActivateSkill
   alias AllbertAssist.Actions.Intent.AppendMemory
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Intent.ExternalNetworkRequest
@@ -92,6 +94,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       ReadRecentMemory,
       ListSkills,
       ReadSkill,
+      ActivateSkill,
       PlanShellCommand,
       ExternalNetworkRequest,
       ListSettings,
@@ -139,8 +142,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp skill_route(text, normalized) do
-    if read_skill_request?(normalized) do
-      {:read_skill, skill_name(text)}
+    cond do
+      activate_skill_request?(normalized) -> {:activate_skill, activate_skill_name(text)}
+      read_skill_request?(normalized) -> {:read_skill, skill_name(text)}
+      true -> nil
     end
   end
 
@@ -223,6 +228,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp run_route({:read_skill, name}, _text, context) do
     ReadSkill.run(%{name: name}, context)
+  end
+
+  defp run_route({:activate_skill, name}, _text, context) do
+    ActivateSkill.run(%{name: name}, context)
   end
 
   defp run_route(:list_skills, _text, context) do
@@ -363,6 +372,12 @@ defmodule AllbertAssist.Agents.IntentAgent do
       String.contains?(text, "describe skill")
   end
 
+  defp activate_skill_request?(text) do
+    String.contains?(text, "activate skill") ||
+      String.contains?(text, "use skill") ||
+      String.contains?(text, "load skill")
+  end
+
   defp capability_request?(text) do
     String.contains?(text, "what can you do") ||
       String.contains?(text, "available skills") ||
@@ -475,6 +490,13 @@ defmodule AllbertAssist.Agents.IntentAgent do
     case Regex.run(~r/(?:read|show|describe)\s+skill\s+(.+)$/i, text) do
       [_, name] -> String.trim(name)
       _match -> "list_skills"
+    end
+  end
+
+  defp activate_skill_name(text) do
+    case Regex.run(~r/(?:activate|use|load)\s+skill\s+(.+)$/i, text) do
+      [_, name] -> String.trim(name)
+      _match -> "list-skills"
     end
   end
 end

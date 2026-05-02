@@ -135,6 +135,7 @@ defmodule AllbertAssist.Trace do
     - Selected action: #{selected_action(response.actions)}
     - Permission decision: #{permission_decision(response.actions)}
     - Settings metadata: #{settings_metadata(response.actions)}
+    - Skill metadata: #{skill_metadata_summary(response.actions)}
     - Token estimate: #{token_estimate(request.text, response.message)}
     - Cost estimate: unavailable-local-model
 
@@ -151,6 +152,10 @@ defmodule AllbertAssist.Trace do
     ```elixir
     #{inspect(response.actions, pretty: true, limit: :infinity)}
     ```
+
+    ## Skill Metadata
+
+    #{skill_metadata_text(response.actions)}
 
     ## Diagnostics
 
@@ -192,6 +197,40 @@ defmodule AllbertAssist.Trace do
       %{settings_metadata: metadata} -> inspect(metadata, pretty: true)
       %{"settings_metadata" => metadata} -> inspect(metadata, pretty: true)
       _action -> "none"
+    end
+  end
+
+  defp skill_metadata_summary(actions) do
+    actions
+    |> skill_metadata()
+    |> case do
+      %{selected_skill: selected_skill, source_scope: source_scope, trust_status: trust_status} ->
+        "#{selected_skill} (#{source_scope}, #{trust_status})"
+
+      %{selected_skill: selected_skill, status: status} ->
+        "#{selected_skill} (#{status})"
+
+      _metadata ->
+        "none"
+    end
+  end
+
+  defp skill_metadata_text(actions) do
+    actions
+    |> skill_metadata()
+    |> case do
+      nil -> "none"
+      metadata -> inspect(metadata, pretty: true, limit: :infinity)
+    end
+  end
+
+  defp skill_metadata(actions) do
+    actions
+    |> List.first()
+    |> case do
+      %{skill_metadata: metadata} -> metadata
+      %{"skill_metadata" => metadata} -> metadata
+      _action -> nil
     end
   end
 

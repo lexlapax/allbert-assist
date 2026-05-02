@@ -46,6 +46,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              "read_recent_memory",
              "list_skills",
              "read_skill",
+             "activate_skill",
              "plan_shell_command",
              "external_network_request",
              "list_settings",
@@ -159,6 +160,22 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert response.status == :completed
     assert response.message =~ "append-memory"
     assert [%{name: "list_skills", permission_decision: %{decision: :allowed}}] = response.actions
+  end
+
+  test "routes activation prompts to the read-only activate action" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "Activate skill append-memory",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "## Skill Context"
+    assert response.message =~ "append-memory"
+
+    assert [%{name: "activate_skill", permission_decision: %{decision: :allowed}}] =
+             response.actions
   end
 
   test "answers plain prompts without selecting a side-effect action" do

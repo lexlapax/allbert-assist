@@ -41,6 +41,19 @@ defmodule AllbertAssist.Skills.BuiltInPackTest do
     assert "plan_shell_command" in skill.aliases
   end
 
+  test "built-in skills activate through progressive disclosure" do
+    assert {:ok, activation} = Skills.activate("append-memory")
+
+    assert activation.name == "append-memory"
+    assert activation.source_scope == :built_in
+    assert activation.trust_status == :trusted
+    assert activation.instructions =~ "## Skill Context"
+    assert activation.instructions =~ "## Resource Inventory"
+    assert activation.instructions =~ "execute scripts"
+    assert activation.capability_contract.actions == ["append_memory"]
+    assert activation.resource_inventory == []
+  end
+
   test "built-in pack has no registry diagnostics in isolated test config" do
     assert {:ok, diagnostics} = Skills.diagnostics()
 

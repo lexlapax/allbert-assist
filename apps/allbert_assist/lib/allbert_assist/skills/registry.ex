@@ -123,6 +123,14 @@ defmodule AllbertAssist.Skills.Registry do
     end
   end
 
+  @doc "Activate one trusted skill for progressive disclosure."
+  @spec activate(String.t(), map()) :: {:ok, map()} | {:error, :not_found}
+  def activate(name, context \\ %{}) do
+    with {:ok, skill} <- get(name, context) do
+      {:ok, activation(skill)}
+    end
+  end
+
   @doc "Return diagnostics for invalid, pending, disabled, duplicate, and hidden skills."
   @spec diagnostics(map()) :: {:ok, [map()]}
   def diagnostics(context \\ %{}) do
@@ -495,6 +503,96 @@ defmodule AllbertAssist.Skills.Registry do
   defp skill_body(%{spec: %{body: body}}), do: body
   defp skill_body(%{instructions: instructions}) when is_binary(instructions), do: instructions
   defp skill_body(skill), do: skill.description
+
+  defp activation(skill) do
+    resources = resource_inventory(skill)
+    contract = contract_summary(skill.capability_contract)
+
+    %{
+      name: skill.name,
+      title: skill.title,
+      kind: skill.kind,
+      source_scope: skill.source_scope,
+      source_path: skill.source_path,
+      trust_status: skill.trust_status,
+      activation_mode: skill.activation_mode,
+      instructions: wrapped_instructions(skill, resources, contract),
+      resource_inventory: resources,
+      capability_contract: contract,
+      diagnostics: skill.diagnostics
+    }
+  end
+
+  defp wrapped_instructions(skill, resources, contract) do
+    """
+    ## Skill Context
+
+    Name: #{skill.name}
+    Title: #{skill.title}
+    Kind: #{skill.kind}
+    Source scope: #{skill.source_scope}
+    Trust: #{skill.trust_status}
+    Activation mode: #{skill.activation_mode}
+    Capability actions: #{Enum.join(contract.actions, ", ")}
+    Capability permissions: #{Enum.join(contract.permissions, ", ")}
+
+    ## Instructions
+
+    #{skill_body(skill)}
+
+    ## Resource Inventory
+
+    #{resource_inventory_text(resources)}
+
+    ## v0.03 Safety Boundary
+
+    This activation loaded instructions and resource metadata only. It did not
+    execute scripts, shell commands, package installs, network calls, external
+    tools, or Jido actions described by skill metadata.
+    """
+    |> String.trim()
+  end
+
+  defp resource_inventory(skill) do
+    skill
+    |> skill_resources()
+    |> Enum.map(&resource_summary/1)
+  end
+
+  defp skill_resources(%{spec: %{resources: resources}}), do: resources
+  defp skill_resources(_skill), do: []
+
+  defp resource_summary(resource) do
+    %{
+      path: resource.path,
+      kind: resource.kind,
+      byte_size: resource.byte_size,
+      sha256: resource.sha256
+    }
+  end
+
+  defp resource_inventory_text([]), do: "No bundled resources."
+
+  defp resource_inventory_text(resources) do
+    resources
+    |> Enum.map(fn resource ->
+      "- #{resource.path} (#{resource.kind}, #{resource.byte_size} bytes, sha256 #{resource.sha256})"
+    end)
+    |> Enum.join("\n")
+  end
+
+  defp contract_summary(nil), do: %{status: :none, actions: [], permissions: []}
+
+  defp contract_summary(contract) do
+    %{
+      status: contract.status,
+      actions: contract.actions,
+      permissions: contract.permissions,
+      confirmation: contract.confirmation,
+      memory_effects: contract.memory_effects,
+      trace_effects: contract.trace_effects
+    }
+  end
 
   defp aliases(canonical_name, original_name) do
     [String.replace(canonical_name, "-", "_"), normalize_name(original_name)]

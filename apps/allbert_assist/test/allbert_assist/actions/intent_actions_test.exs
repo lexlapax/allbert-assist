@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Actions.IntentActionsTest do
   use ExUnit.Case, async: false
 
+  alias AllbertAssist.Actions.Intent.ActivateSkill
   alias AllbertAssist.Actions.Intent.AppendMemory
   alias AllbertAssist.Actions.Intent.ExternalNetworkRequest
   alias AllbertAssist.Actions.Intent.ListSkills
@@ -49,6 +50,36 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
     assert response.message =~ "Plan Shell Command"
     assert response.message =~ "command_plan"
     assert response.permission_decision.decision == :allowed
+  end
+
+  test "activate_skill returns wrapped instructions without executing resources" do
+    assert {:ok, response} = ActivateSkill.run(%{name: "append-memory"}, %{})
+
+    assert response.status == :completed
+    assert response.message =~ "## Skill Context"
+    assert response.message =~ "Name: append-memory"
+    assert response.message =~ "## v0.03 Safety Boundary"
+    assert response.permission_decision.decision == :allowed
+    assert response.activation.capability_contract.actions == ["append_memory"]
+    assert response.activation.resource_inventory == []
+
+    assert [
+             %{
+               name: "activate_skill",
+               status: :completed,
+               selected_skill: "append-memory",
+               skill_metadata: %{source_scope: :built_in, trust_status: :trusted}
+             }
+           ] = response.actions
+  end
+
+  test "activate_skill returns a structured not-found response" do
+    assert {:ok, response} = ActivateSkill.run(%{name: "a-missing-skill"}, %{})
+
+    assert response.status == :not_found
+    assert response.message =~ "trusted enabled skill"
+    assert response.permission_decision.decision == :allowed
+    assert [%{name: "activate_skill", status: :not_found}] = response.actions
   end
 
   test "append_memory writes durable markdown", %{root: root} do

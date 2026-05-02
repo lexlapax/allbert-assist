@@ -23,6 +23,6 @@ defmodule AllbertAssist.Skills do
   @doc "Normalize a public skill name to canonical kebab case."
   defdelegate normalize_name(name), to: Registry
 
-  @doc "Activation is introduced in v0.03 M5."
-  def activate(_name, _context \\ %{}), do: {:error, :activation_not_available}
+  @doc "Activate one trusted skill for progressive disclosure."
+  defdelegate activate(name, context \\ %{}), to: Registry
 end
