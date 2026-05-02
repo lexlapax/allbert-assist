@@ -36,6 +36,7 @@ For v0.05 Security Central regression or boundary work, start with:
 For active v0.06 skill-backed execution work, start with:
 
 - `docs/plans/v0.06-plan.md`
+- `docs/plans/v0.06-request-flow.md`
 - `docs/plans/v0.03-plan.md`
 - `docs/plans/v0.03-request-flow.md`
 - `docs/adr/0003-skill-manifests-as-capability-contracts.md`

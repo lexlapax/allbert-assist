@@ -303,14 +303,17 @@ itself.
 ## v0.06: Action-Backed Allbert Skills
 
 Plan: `docs/plans/v0.06-plan.md`
+Request flow: `docs/plans/v0.06-request-flow.md`
 
-Status: placeholder.
+Status: implementation-ready after v0.05 release planning sweep and v0.06
+architecture readiness sweep on 2026-05-02.
 
 Expected direction:
 
-- Translate Allbert metadata overlays into capability contracts.
-- Map capability skills only to known Jido actions and known permission
-  classes.
+- Promote trusted Allbert metadata overlays from inert capability contracts
+  into validated action bindings.
+- Map capability skills only to registered Jido actions and known Security
+  Central permission classes.
 - Treat built-in Allbert skills as standard `SKILL.md` wrappers around
   registered Elixir/Jido actions; do not auto-convert skill files or scripts
   into executable modules.
@@ -318,8 +321,14 @@ Expected direction:
   `allbert.action.requested` and `allbert.action.completed`.
 - Wire action-backed built-in skills through the current conservative intent
   routing while preserving v0.01 safety behavior.
+- Keep trusted non-built-in capability candidates validation-first unless an
+  explicit deterministic router binding exists for their action and parameter
+  shape.
+- Keep `activate_skill` as progressive-disclosure context loading; activation
+  does not execute the activated skill's declared action.
 - Add the first Allbert skill creation/validation workflow for standard
-  `SKILL.md` directories.
+  `SKILL.md` directories that reference only existing registered action names
+  and known permission classes.
 
 Exit signal: Allbert can explain, activate, and run action-backed built-in
 skills through registered Jido actions with Security Central decisions and
