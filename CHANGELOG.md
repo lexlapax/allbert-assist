@@ -54,20 +54,24 @@ Status: released and tagged as `v0.07` on 2026-05-02.
 
 ## v0.08 - Local Execution Sandbox And Shell Adapter
 
-Status: implementation-ready planning after v0.07 release/tag on 2026-05-02.
-No v0.08 implementation code or release tag exists yet.
+Status: implementation in progress after v0.07 release/tag on 2026-05-02.
+M1-M3 implementation commits exist; no v0.08 release tag exists yet.
 
-### Planned
+### Implemented So Far
 
 - Level 1 local policy sandboxing for confirmed shell command execution.
 - `run_shell_command` as the only registered command execution action.
 - Settings Central `execution.local.*` policy for allowed roots, allowed
   commands, operator command profiles, path operands, blocked args, env
   allowlist, timeout, output caps, and confirmation.
-- Security Central `:command_execute` decisions that remain denied until the
-  action, local runner, confirmation resume, redaction, traces, and tests exist.
+- Security Central `:command_execute` decisions remain denied by default but can
+  be capped to `:needs_confirmation` when the operator explicitly allows
+  command execution.
 - Durable v0.07 confirmation resume for approved command requests, with
   `target_resumed?: true` only after policy re-check and local runner success.
+
+### Still Planned Before Release
+
 - CLI and `/settings` output over the same action/confirmation boundary.
 - Trace and audit metadata for sandbox level, executable/argv summary, cwd,
   env policy, timeout, output size, exit status, denial reason, and output

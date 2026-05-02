@@ -14,6 +14,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "read_skill",
              "activate_skill",
              "plan_shell_command",
+             "run_shell_command",
              "external_network_request",
              "list_settings",
              "read_setting",
@@ -80,6 +81,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert create_skill.permission == :skill_write
     assert create_skill.exposure == :internal
     refute create_skill.skill_backed?
+
+    assert {:ok, run_shell_command} = Registry.capability("run_shell_command")
+    assert run_shell_command.permission == :command_execute
+    assert run_shell_command.exposure == :agent
+    assert run_shell_command.execution_mode == :local_process
+    assert run_shell_command.confirmation == :required
 
     assert {:ok, approve_confirmation} = Registry.capability("approve_confirmation")
     assert approve_confirmation.permission == :confirmation_decide

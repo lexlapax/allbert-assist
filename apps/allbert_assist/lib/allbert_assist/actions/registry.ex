@@ -21,6 +21,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.PlanShellCommand
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
   alias AllbertAssist.Actions.Intent.ReadSkill
+  alias AllbertAssist.Actions.Intent.RunShellCommand
   alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
   alias AllbertAssist.Actions.Settings.ExplainSetting
   alias AllbertAssist.Actions.Settings.ListModelProfiles
@@ -41,6 +42,7 @@ defmodule AllbertAssist.Actions.Registry do
     ReadSkill,
     ActivateSkill,
     PlanShellCommand,
+    RunShellCommand,
     ExternalNetworkRequest,
     ListSettings,
     ReadSetting,
@@ -115,6 +117,15 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :command_plan_only,
       skill_backed?: true,
       confirmation: :not_required
+    },
+    RunShellCommand => %{
+      permission: :command_execute,
+      exposure: :agent,
+      execution_mode: :local_process,
+      skill_backed?: false,
+      confirmation: :required,
+      notes:
+        "v0.08 Level 1 local process execution; creates a durable confirmation before running."
     },
     ExternalNetworkRequest => %{
       permission: :external_network,

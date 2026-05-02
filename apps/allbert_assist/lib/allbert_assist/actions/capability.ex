@@ -30,9 +30,13 @@ defmodule AllbertAssist.Actions.Capability do
           :read_only
           | :memory_write
           | :command_plan_only
+          | :local_process
           | :external_network_unavailable
           | :settings_read
           | :settings_write
+          | :confirmation_decision
+          | :confirmation_cleanup
+          | :confirmation_read
           | :skill_validation
           | :skill_write
           | :secret_write

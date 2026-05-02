@@ -17,6 +17,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     ]
 
   alias AllbertAssist.Actions.Confirmations.Context
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
@@ -84,17 +85,26 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   end
 
   defp resolve_after_recheck(record, reason, context, permission_decision, target_decision) do
-    resolve_status(record, :adapter_unavailable, reason, context, permission_decision, %{
-      target_policy_decision: target_decision,
-      target_resumed?: false,
-      adapter_unavailable?: true
-    })
+    case target_action_name(record) do
+      "run_shell_command" ->
+        resume_shell_command(record, reason, context, permission_decision, target_decision)
+
+      _other ->
+        resolve_status(record, :adapter_unavailable, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: false,
+          adapter_unavailable?: true
+        })
+    end
   end
 
   defp resolve_status(record, status, reason, context, permission_decision, metadata) do
     id = Map.fetch!(record, "id")
 
-    case Confirmations.resolve(id, status, Context.resolution_attrs(context, reason, record)) do
+    resolution_attrs =
+      Context.resolution_attrs(context, reason, record, resolution_metadata(metadata))
+
+    case Confirmations.resolve(id, status, resolution_attrs) do
       {:ok, record} ->
         completed(record, permission_decision, Map.put(metadata, :idempotent?, false))
 
@@ -133,6 +143,56 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
          )
        ]
      }}
+  end
+
+  defp resume_shell_command(record, reason, context, permission_decision, target_decision) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run(
+           "run_shell_command",
+           Map.get(record, "resume_params_ref", %{}),
+           target_context
+         ) do
+      {:ok, %{status: status} = response} when status in [:completed, :timed_out] ->
+        target_result = Map.get(response, :result, %{})
+
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: status,
+          target_result: target_result
+        })
+
+      {:ok, response} ->
+        target_result = Map.get(response, :result, %{status: Map.get(response, :status)})
+
+        resolve_status(
+          record,
+          :denied,
+          reason || "Shell command target did not run: #{inspect(Map.get(response, :status))}",
+          context,
+          permission_decision,
+          %{
+            target_policy_decision: target_decision,
+            target_resumed?: false,
+            target_status: Map.get(response, :status, :denied),
+            target_result: target_result,
+            blocked_by_policy?: Map.get(response, :status) == :denied
+          }
+        )
+    end
+  end
+
+  defp resolution_metadata(metadata) do
+    Map.take(metadata, [
+      :target_resumed?,
+      :target_status,
+      :target_result,
+      :adapter_unavailable?
+    ])
   end
 
   defp approval_surface_allowed(record, context) do
@@ -183,6 +243,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
   defp target_context(record, context) do
     target = Map.get(record, "target_action", %{})
+    selected_skill = selected_skill_name(record)
+    skill_metadata = if selected_skill, do: Map.get(record, "selected_skill", %{}), else: %{}
 
     Map.merge(context, %{
       selected_action: Map.get(target, "name"),
@@ -200,10 +262,19 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
         target_execution_mode: Map.get(record, "target_execution_mode")
       },
       action_capability: Map.get(record, "capability_contract", %{}),
-      selected_skill: get_in(record, ["selected_skill", "name"]),
-      skill_metadata: Map.get(record, "selected_skill", %{})
+      selected_skill: selected_skill,
+      skill_metadata: skill_metadata
     })
   end
+
+  defp selected_skill_name(record) do
+    record
+    |> get_in(["selected_skill", "name"])
+    |> nilish()
+  end
+
+  defp nilish(value) when value in [nil, "", "nil"], do: nil
+  defp nilish(value), do: value
 
   defp resolver_context(context) do
     %{
@@ -221,6 +292,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       Atom.to_string(permission) == target_permission
     end)
   end
+
+  defp target_action_name(record), do: get_in(record, ["target_action", "name"])
 
   defp policy_denied_reason(nil, target_decision) do
     "Security Central denied approval re-check: #{Map.get(target_decision, :reason)}"

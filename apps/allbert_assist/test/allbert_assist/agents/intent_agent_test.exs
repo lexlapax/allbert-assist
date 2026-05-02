@@ -56,6 +56,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              "read_skill",
              "activate_skill",
              "plan_shell_command",
+             "run_shell_command",
              "external_network_request",
              "list_settings",
              "read_setting",

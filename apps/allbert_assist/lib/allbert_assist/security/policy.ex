@@ -90,7 +90,7 @@ defmodule AllbertAssist.Security.Policy do
 
   @doc "Return the v0.05 safety floor for a permission."
   @spec safety_floor(atom()) :: :allowed | :needs_confirmation | :denied
-  def safety_floor(:command_execute), do: :denied
+  def safety_floor(:command_execute), do: :needs_confirmation
   def safety_floor(:external_network), do: :needs_confirmation
   def safety_floor(:settings_secret_read), do: :denied
   def safety_floor(permission) when permission in @known_permissions, do: :allowed
@@ -163,7 +163,7 @@ defmodule AllbertAssist.Security.Policy do
     do: "Planning shell work is allowed when no command executes."
 
   defp reason(:command_execute, :denied, _configured, _floor, _context),
-    do: "Command execution is denied until the v0.08 sandbox milestone."
+    do: "Command execution is denied until local execution is explicitly enabled and confirmed."
 
   defp reason(:external_network, :needs_confirmation, _configured, _floor, _context),
     do: "External network access requires confirmation and has no execution adapter in v0.05."
