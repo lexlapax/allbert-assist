@@ -54,6 +54,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Skills.ActionPlan
 
   @doc """
   Respond to one normalized runtime request.
@@ -181,7 +182,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp run_route(:plan_shell_command, text, context) do
-    run_action(
+    run_skill_action(
+      "plan-shell-command",
       "plan_shell_command",
       %{command: requested_command(text), source_text: text},
       text,
@@ -190,7 +192,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp run_route(:external_network_request, text, context) do
-    run_action(
+    run_skill_action(
+      "external-network-request",
       "external_network_request",
       %{request: network_request(text), source_text: text},
       text,
@@ -199,19 +202,31 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp run_route(:append_memory, text, context) do
-    run_action("append_memory", %{memory: memory_text(text), source_text: text}, text, context)
+    run_skill_action(
+      "append-memory",
+      "append_memory",
+      %{memory: memory_text(text), source_text: text},
+      text,
+      context
+    )
   end
 
   defp run_route({:append_personal_memory, memory}, text, context) do
-    run_action("append_memory", %{memory: memory, source_text: text}, text, context)
+    run_skill_action(
+      "append-memory",
+      "append_memory",
+      %{memory: memory, source_text: text},
+      text,
+      context
+    )
   end
 
   defp run_route({:read_recent_memory, query}, _text, context) do
-    run_action("read_recent_memory", %{query: query}, query, context)
+    run_skill_action("read-recent-memory", "read_recent_memory", %{query: query}, query, context)
   end
 
   defp run_route({:read_skill, name}, text, context) do
-    run_action("read_skill", %{name: name}, text, context, selected_skill: name)
+    run_skill_action("read-skill", "read_skill", %{name: name}, text, context)
   end
 
   defp run_route({:activate_skill, name}, text, context) do
@@ -219,7 +234,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp run_route(:list_skills, text, context) do
-    run_action("list_skills", %{}, text, context)
+    run_skill_action("list-skills", "list_skills", %{}, text, context)
   end
 
   defp run_route(:list_settings, text, context) do
@@ -247,7 +262,17 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp run_route(:direct_answer, text, context) do
-    run_action("direct_answer", %{text: text}, text, context)
+    run_skill_action("direct-answer", "direct_answer", %{text: text}, text, context)
+  end
+
+  defp run_skill_action(skill_name, action_name, params, text, context) do
+    case ActionPlan.build(skill_name, action_name, params, context) do
+      {:ok, plan} ->
+        run_action(plan.action_name, plan.params, text, context, ActionPlan.runner_context(plan))
+
+      {:error, error} ->
+        {:ok, skill_action_error_response(skill_name, action_name, error)}
+    end
   end
 
   defp run_action(action_name, params, text, context, opts \\ []) do
@@ -259,6 +284,23 @@ defmodule AllbertAssist.Agents.IntentAgent do
       |> Map.merge(Map.new(opts))
 
     Runner.run(action_name, params, runner_context)
+  end
+
+  defp skill_action_error_response(skill_name, action_name, error) do
+    %{
+      message:
+        "I could not use skill #{inspect(skill_name)} for action #{inspect(action_name)}: #{error.message}",
+      status: :denied,
+      error: error,
+      actions: [
+        %{
+          name: action_name,
+          status: :denied,
+          selected_skill: skill_name,
+          error: error
+        }
+      ]
+    }
   end
 
   defp command_request?(text) do

@@ -5,6 +5,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.Memory
   alias AllbertAssist.Settings
+  alias AllbertAssist.Skills.ActionPlan
 
   setup do
     original_config = Application.get_env(:allbert_assist, Memory)
@@ -138,6 +139,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert response.message =~ "plan-shell-command"
     assert response.message =~ "I cannot execute shell commands"
     assert [%{name: "list_skills"}] = response.actions
+    assert response.runner_metadata.selected_skill == "list-skills"
   end
 
   test "routes skill inspection prompts to the read-only list action" do
@@ -151,6 +153,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert response.status == :completed
     assert response.message =~ "v0.01-safe capabilities"
     assert [%{name: "list_skills", permission_decision: %{decision: :allowed}}] = response.actions
+    assert response.runner_metadata.selected_skill == "list-skills"
   end
 
   test "routes available-skills questions to the registry-backed list action" do
@@ -164,6 +167,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert response.status == :completed
     assert response.message =~ "append-memory"
     assert [%{name: "list_skills", permission_decision: %{decision: :allowed}}] = response.actions
+    assert response.runner_metadata.selected_skill == "list-skills"
   end
 
   test "routes activation prompts to the read-only activate action" do
@@ -194,6 +198,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert response.message =~ "side-effect-free"
     assert response.runner_metadata.action_name == "direct_answer"
     assert response.runner_metadata.action_module == AllbertAssist.Actions.Intent.DirectAnswer
+    assert response.runner_metadata.selected_skill == "direct-answer"
     assert is_binary(response.runner_metadata.requested_signal_id)
     assert is_binary(response.runner_metadata.completed_signal_id)
 
@@ -202,7 +207,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
                name: "direct_answer",
                permission: :read_only,
                permission_decision: %{decision: :allowed},
-               runner_metadata: %{action_name: "direct_answer"}
+               runner_metadata: %{action_name: "direct_answer", selected_skill: "direct-answer"}
              }
            ] = response.actions
   end
@@ -227,7 +232,8 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
                name: "append_memory",
                status: :completed,
                durable: true,
-               permission_decision: %{decision: :allowed}
+               permission_decision: %{decision: :allowed},
+               runner_metadata: %{selected_skill: "append-memory"}
              }
            ] = response.actions
   end
@@ -252,7 +258,14 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert response.status == :completed
     assert response.message =~ "markdown-backed memories"
     assert response.message =~ "planning docs should be implementation-ready"
-    assert [%{name: "read_recent_memory", memory_count: 1}] = response.actions
+
+    assert [
+             %{
+               name: "read_recent_memory",
+               memory_count: 1,
+               runner_metadata: %{selected_skill: "read-recent-memory"}
+             }
+           ] = response.actions
   end
 
   test "captures low-risk personal identity statements as preference memory", %{root: root} do
@@ -275,7 +288,8 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              %{
                name: "append_memory",
                memory_category: :preferences,
-               permission_decision: %{decision: :allowed}
+               permission_decision: %{decision: :allowed},
+               runner_metadata: %{selected_skill: "append-memory"}
              }
            ] = response.actions
   end
@@ -301,8 +315,14 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert response.message =~ "markdown-backed memories"
     assert response.message =~ "Preferred name: Sandeep"
 
-    assert [%{name: "read_recent_memory", memory_count: 1, input: %{query: query}}] =
-             response.actions
+    assert [
+             %{
+               name: "read_recent_memory",
+               memory_count: 1,
+               input: %{query: query},
+               runner_metadata: %{selected_skill: "read-recent-memory"}
+             }
+           ] = response.actions
 
     assert query =~ "preferred name"
   end
@@ -331,8 +351,14 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert read_response.status == :completed
     assert read_response.message =~ "short implementation updates"
 
-    assert [%{name: "read_recent_memory", memory_count: 1, input: %{query: query}}] =
-             read_response.actions
+    assert [
+             %{
+               name: "read_recent_memory",
+               memory_count: 1,
+               input: %{query: query},
+               runner_metadata: %{selected_skill: "read-recent-memory"}
+             }
+           ] = read_response.actions
 
     assert query =~ "preference communication update"
   end
@@ -351,6 +377,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert response.status == :completed
     assert response.message =~ "side-effect-free"
     assert [%{name: "direct_answer"}] = response.actions
+    assert response.runner_metadata.selected_skill == "direct-answer"
     assert [] = Path.wildcard(Path.join([root, "**", "*.md"]))
   end
 
@@ -373,7 +400,8 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
                execution: :not_available,
                destructive: true,
                permission_decision: %{decision: :allowed},
-               requested_permission_decision: %{decision: :denied}
+               requested_permission_decision: %{decision: :denied},
+               runner_metadata: %{selected_skill: "plan-shell-command"}
              }
            ] = response.actions
   end
@@ -393,8 +421,16 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              %{
                name: "external_network_request",
                execution: :not_available,
-               permission_decision: %{decision: :needs_confirmation}
+               permission_decision: %{decision: :needs_confirmation},
+               runner_metadata: %{selected_skill: "external-network-request"}
              }
            ] = response.actions
+  end
+
+  test "skill action plans reject action mismatches before runner invocation" do
+    assert {:error, error} = ActionPlan.build("append-memory", "read_recent_memory", %{})
+
+    assert error.code == :action_not_declared_by_skill
+    assert error.value == "read_recent_memory"
   end
 end
