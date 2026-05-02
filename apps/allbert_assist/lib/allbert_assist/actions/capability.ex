@@ -33,6 +33,8 @@ defmodule AllbertAssist.Actions.Capability do
           | :external_network_unavailable
           | :settings_read
           | :settings_write
+          | :skill_validation
+          | :skill_write
           | :secret_write
           | :security_status
           | :internal_trace

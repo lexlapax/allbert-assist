@@ -10,7 +10,8 @@ defmodule AllbertAssist.Security.Policy do
     command_plan: "permissions.command_plan",
     command_execute: "permissions.command_execute",
     external_network: "permissions.external_network",
-    settings_write: "permissions.settings_write"
+    settings_write: "permissions.settings_write",
+    skill_write: "permissions.skill_write"
   }
 
   @default_decisions %{
@@ -20,6 +21,7 @@ defmodule AllbertAssist.Security.Policy do
     command_execute: :denied,
     external_network: :needs_confirmation,
     settings_write: :allowed,
+    skill_write: :allowed,
     settings_secret_write: :allowed,
     settings_secret_read: :denied
   }
@@ -33,6 +35,7 @@ defmodule AllbertAssist.Security.Policy do
           | :command_execute
           | :external_network
           | :settings_write
+          | :skill_write
           | :settings_secret_write
           | :settings_secret_read
 
@@ -46,6 +49,7 @@ defmodule AllbertAssist.Security.Policy do
       :command_execute,
       :external_network,
       :settings_write,
+      :skill_write,
       :settings_secret_write,
       :settings_secret_read
     ]
@@ -162,6 +166,9 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:settings_write, :allowed, _configured, _floor, _context),
     do: "Safe Settings Central writes are allowed through registered settings actions."
+
+  defp reason(:skill_write, :allowed, _configured, _floor, _context),
+    do: "Local skill scaffold writes are allowed through registered skill actions."
 
   defp reason(:settings_secret_write, :allowed, _configured, _floor, _context),
     do: "Provider credentials may be configured through explicit credential flows."

@@ -83,6 +83,8 @@ mix allbert.ask "hello"
 mix allbert.ask --trace "remember that I prefer concise milestone handoffs"
 mix allbert.ask --trace "activate skill append-memory"
 mix allbert.security status
+mix allbert.skills validate apps/allbert_assist/priv/skills/append-memory
+mix allbert.skills create demo-memory append_memory memory_write "Save a short memory helper" --root "$ALLBERT_HOME/skills"
 ```
 
 ## Useful Commands

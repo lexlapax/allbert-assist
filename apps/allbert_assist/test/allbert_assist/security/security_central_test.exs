@@ -75,6 +75,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Risk.classify(:read_only).tier == :minimal
     assert Risk.classify(:memory_write).tier == :low
     assert Risk.classify(:settings_write).tier == :medium
+    assert Risk.classify(:skill_write).tier == :medium
     assert Risk.classify(:external_network).tier == :high
     assert Risk.classify(:settings_secret_read).tier == :critical
     assert Risk.classify(:unknown_permission).tier == :critical
@@ -86,6 +87,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Policy.resolve(:command_plan).effective == :allowed
     assert Policy.resolve(:command_execute).effective == :denied
     assert Policy.resolve(:external_network).effective == :needs_confirmation
+    assert Policy.resolve(:skill_write).effective == :allowed
     assert Policy.resolve(:settings_secret_read).effective == :denied
     assert Policy.resolve(:unknown_permission).effective == :denied
   end
@@ -173,6 +175,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     status = Security.status(%{request: %{operator_id: "local", channel: :test}})
 
     assert Enum.any?(status.permission_defaults, &(&1.permission == :command_execute))
+    assert Enum.any?(status.permission_defaults, &(&1.permission == :skill_write))
     assert Enum.any?(status.safety_floors, &(&1.permission == :unknown and &1.floor == :denied))
     assert status.secret_status.providers >= 1
     assert status.redaction_posture.secret_ref_display == "[SECRET_REF]"

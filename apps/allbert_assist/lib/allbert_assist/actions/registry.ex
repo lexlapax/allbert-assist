@@ -24,6 +24,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
+  alias AllbertAssist.Actions.Skills.CreateSkill
+  alias AllbertAssist.Actions.Skills.ValidateSkill
   alias AllbertAssist.Actions.Trace.RecordTrace
 
   @agent_actions [
@@ -45,6 +47,8 @@ defmodule AllbertAssist.Actions.Registry do
   ]
 
   @internal_actions [
+    ValidateSkill,
+    CreateSkill,
     SecurityStatus,
     RecordTrace
   ]
@@ -158,6 +162,22 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :secret_write,
       skill_backed?: false,
       confirmation: :not_required
+    },
+    ValidateSkill => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :skill_validation,
+      skill_backed?: false,
+      confirmation: :not_required,
+      notes: "Operator helper; validates local skill folders without trusting or executing them."
+    },
+    CreateSkill => %{
+      permission: :skill_write,
+      exposure: :internal,
+      execution_mode: :skill_write,
+      skill_backed?: false,
+      confirmation: :not_required,
+      notes: "Operator helper; writes standard SKILL.md scaffolds only."
     },
     SecurityStatus => %{
       permission: :read_only,

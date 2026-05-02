@@ -26,6 +26,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.command_execute",
     "permissions.external_network",
     "permissions.settings_write",
+    "permissions.skill_write",
     "channels.cli.response_style",
     "channels.live_view.response_style"
   ]
@@ -164,6 +165,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed_safe_keys", "needs_confirmation", "denied"]
     },
+    "permissions.skill_write" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
     "jobs.timezone" => %{
       type: :timezone,
       default: "America/Los_Angeles",
@@ -286,7 +294,8 @@ defmodule AllbertAssist.Settings.Schema do
       "command_plan" => "allowed",
       "command_execute" => "denied",
       "external_network" => "needs_confirmation",
-      "settings_write" => "allowed_safe_keys"
+      "settings_write" => "allowed_safe_keys",
+      "skill_write" => "allowed"
     },
     "channels" => %{
       "cli" => %{"enabled" => true, "response_style" => "concise"},

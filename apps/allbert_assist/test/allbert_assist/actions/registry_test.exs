@@ -22,6 +22,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "list_provider_profiles",
              "list_model_profiles",
              "set_provider_credential",
+             "validate_skill",
+             "create_skill",
              "security_status",
              "record_trace"
            ]
@@ -50,6 +52,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              Enum.map(Registry.agent_modules(), & &1.name())
 
     assert Enum.map(Registry.internal_capabilities(), & &1.name) == [
+             "validate_skill",
+             "create_skill",
              "security_status",
              "record_trace"
            ]
@@ -61,6 +65,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert {:ok, activate_skill} = Registry.capability("activate_skill")
     refute activate_skill.skill_backed?
     assert activate_skill.exposure == :agent
+
+    assert {:ok, create_skill} = Registry.capability("create_skill")
+    assert create_skill.permission == :skill_write
+    assert create_skill.exposure == :internal
+    refute create_skill.skill_backed?
 
     assert {:error, {:unknown_action, "missing_action"}} = Registry.capability("missing_action")
   end

@@ -78,6 +78,16 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert response.setting.key == "permissions.external_network"
     assert {:ok, "denied"} = Settings.get("permissions.external_network")
 
+    assert {:ok, skill_response} =
+             UpdateSetting.run(
+               %{key: "permissions.skill_write", value: "needs_confirmation"},
+               context
+             )
+
+    assert skill_response.status == :completed
+    assert skill_response.setting.key == "permissions.skill_write"
+    assert {:ok, "needs_confirmation"} = Settings.get("permissions.skill_write")
+
     assert {:ok, denied} =
              UpdateSetting.run(%{key: "permissions.external_network", value: "purple"}, context)
 

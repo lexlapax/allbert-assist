@@ -306,7 +306,7 @@ Plan: `docs/plans/v0.06-plan.md`
 Request flow: `docs/plans/v0.06-request-flow.md`
 
 Status: in implementation after v0.05 release planning sweep and v0.06
-architecture readiness sweep on 2026-05-02. Milestones 1 through 4 are
+architecture readiness sweep on 2026-05-02. Milestones 1 through 5 are
 complete and tested.
 
 Expected direction:
@@ -329,11 +329,37 @@ Expected direction:
   does not execute the activated skill's declared action.
 - Add the first Allbert skill creation/validation workflow for standard
   `SKILL.md` directories that reference only existing registered action names
-  and known permission classes.
+  and known permission classes. Complete for local operator helpers through
+  `mix allbert.skills`, registered helper actions, and the `:skill_write`
+  Settings Central/Security Central policy surface.
+
+Current implementation:
+
+- Action capability metadata and contract validation are implemented through
+  `AllbertAssist.Actions.Registry`, `AllbertAssist.Actions.Capability`, and
+  `AllbertAssist.Skills.CapabilityContract`.
+- Registry list/read/activation output surfaces contract validation and keeps
+  invalid contracts inspectable but non-executable.
+- Deterministic built-in routes validate selected skill/action contracts before
+  invoking `Actions.Runner.run/3`.
+- Runner, signal, trace, and Security Central metadata include selected skill,
+  contract validation, action capability, permission decision, risk, and
+  outcome context.
+- `validate_skill` and `create_skill` are registered operator helper actions;
+  they are intentionally excluded from the intent-agent tool surface.
+- Local skill scaffolds write only standard `SKILL.md` files and do not create
+  scripts, modules, package manifests, network adapters, online imports, or
+  trust escalation.
 
 Exit signal: Allbert can explain, activate, and run action-backed built-in
 skills through registered Jido actions with Security Central decisions and
 trace metadata, while still refusing or deferring unsafe execution.
+
+v0.07 handoff: confirmation workflow should consume the v0.06 action
+capability metadata, selected skill contract summaries, `:skill_write`
+permission policy, and existing external-network confirmation requirement
+without moving shell, script, package-install, network, or import execution
+forward prematurely.
 
 ## v0.07: Confirmation Workflow
 
