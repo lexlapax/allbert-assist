@@ -8,6 +8,11 @@ defmodule AllbertAssist.Actions.Registry do
   """
 
   alias AllbertAssist.Actions.Capability
+  alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
+  alias AllbertAssist.Actions.Confirmations.DenyConfirmation
+  alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
+  alias AllbertAssist.Actions.Confirmations.ListConfirmations
+  alias AllbertAssist.Actions.Confirmations.ShowConfirmation
   alias AllbertAssist.Actions.Intent.ActivateSkill
   alias AllbertAssist.Actions.Intent.AppendMemory
   alias AllbertAssist.Actions.Intent.DirectAnswer
@@ -50,6 +55,11 @@ defmodule AllbertAssist.Actions.Registry do
     ValidateSkill,
     CreateSkill,
     SecurityStatus,
+    ListConfirmations,
+    ShowConfirmation,
+    ApproveConfirmation,
+    DenyConfirmation,
+    ExpireConfirmations,
     RecordTrace
   ]
 
@@ -183,6 +193,42 @@ defmodule AllbertAssist.Actions.Registry do
       permission: :read_only,
       exposure: :internal,
       execution_mode: :security_status,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ListConfirmations => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :confirmation_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ShowConfirmation => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :confirmation_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ApproveConfirmation => %{
+      permission: :confirmation_decide,
+      exposure: :internal,
+      execution_mode: :confirmation_decision,
+      skill_backed?: false,
+      confirmation: :not_required,
+      notes: "Approves a pending request; target resumption remains version-scoped."
+    },
+    DenyConfirmation => %{
+      permission: :confirmation_decide,
+      exposure: :internal,
+      execution_mode: :confirmation_decision,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ExpireConfirmations => %{
+      permission: :confirmation_decide,
+      exposure: :internal,
+      execution_mode: :confirmation_cleanup,
       skill_backed?: false,
       confirmation: :not_required
     },

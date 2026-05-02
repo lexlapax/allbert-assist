@@ -25,6 +25,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "validate_skill",
              "create_skill",
              "security_status",
+             "list_confirmations",
+             "show_confirmation",
+             "approve_confirmation",
+             "deny_confirmation",
+             "expire_confirmations",
              "record_trace"
            ]
 
@@ -55,6 +60,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "validate_skill",
              "create_skill",
              "security_status",
+             "list_confirmations",
+             "show_confirmation",
+             "approve_confirmation",
+             "deny_confirmation",
+             "expire_confirmations",
              "record_trace"
            ]
 
@@ -70,6 +80,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert create_skill.permission == :skill_write
     assert create_skill.exposure == :internal
     refute create_skill.skill_backed?
+
+    assert {:ok, approve_confirmation} = Registry.capability("approve_confirmation")
+    assert approve_confirmation.permission == :confirmation_decide
+    assert approve_confirmation.exposure == :internal
 
     assert {:error, {:unknown_action, "missing_action"}} = Registry.capability("missing_action")
   end

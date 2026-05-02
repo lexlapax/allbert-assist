@@ -27,6 +27,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.external_network",
     "permissions.settings_write",
     "permissions.skill_write",
+    "permissions.confirmation_decide",
     "confirmations.default_ttl_minutes",
     "confirmations.auto_expire_on_startup",
     "confirmations.require_reason_for_denial",
@@ -178,6 +179,13 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.confirmation_decide" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "denied"]
     },
     "confirmations.default_ttl_minutes" => %{
       type: :positive_integer,
@@ -344,7 +352,8 @@ defmodule AllbertAssist.Settings.Schema do
       "command_execute" => "denied",
       "external_network" => "needs_confirmation",
       "settings_write" => "allowed_safe_keys",
-      "skill_write" => "allowed"
+      "skill_write" => "allowed",
+      "confirmation_decide" => "allowed"
     },
     "confirmations" => %{
       "default_ttl_minutes" => 1440,
