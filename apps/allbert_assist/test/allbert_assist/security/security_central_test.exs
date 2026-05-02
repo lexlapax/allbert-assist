@@ -25,7 +25,7 @@ defmodule AllbertAssist.SecurityCentralTest do
       File.rm_rf!(root)
     end)
 
-    :ok
+    {:ok, root: root}
   end
 
   test "normalizes sparse runtime context" do
@@ -48,6 +48,22 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert context.secret_status.raw_secret_present?
   end
 
+  test "loads selected skill trust and provenance from the registry", %{root: root} do
+    built_in_root = Path.join(root, "built-in-skills")
+    write_skill(built_in_root, "trusted-helper", "trusted-helper")
+
+    context =
+      Context.normalize(:read_only, %{
+        built_in_root: built_in_root,
+        selected_skill: "trusted-helper"
+      })
+
+    assert context.skill.name == "trusted-helper"
+    assert context.skill.source_scope == :built_in
+    assert context.skill.trust_status == :trusted
+    assert context.skill.lookup_status == :found
+  end
+
   test "classifies risk by permission" do
     assert Risk.classify(:read_only).tier == :minimal
     assert Risk.classify(:memory_write).tier == :low
@@ -65,6 +81,46 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Policy.resolve(:external_network).effective == :needs_confirmation
     assert Policy.resolve(:settings_secret_read).effective == :denied
     assert Policy.resolve(:unknown_permission).effective == :denied
+  end
+
+  test "settings can tighten policy but cannot bypass safety floors" do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "permissions" => %{
+                 "memory_write" => "denied",
+                 "command_execute" => "allowed"
+               }
+             })
+
+    memory_policy = Policy.resolve(:memory_write)
+    assert memory_policy.configured == "denied"
+    assert memory_policy.effective == :denied
+    assert memory_policy.source == :settings
+
+    command_policy = Policy.resolve(:command_execute)
+    assert command_policy.configured == "allowed"
+    assert command_policy.configured_decision == :allowed
+    assert command_policy.effective == :denied
+    assert command_policy.capped?
+  end
+
+  test "unknown actions and undiscoverable selected skills deny instead of gaining authority" do
+    unknown_action =
+      Security.authorize(:read_only, %{
+        selected_action: "not_registered"
+      })
+
+    assert unknown_action.decision == :denied
+    assert unknown_action.policy.context_denial =~ "Unknown or unregistered action"
+
+    missing_skill =
+      Security.authorize(:memory_write, %{
+        selected_skill: "missing-skill",
+        selected_action: "append_memory"
+      })
+
+    assert missing_skill.decision == :denied
+    assert missing_skill.policy.context_denial =~ "Selected skill is not trusted"
   end
 
   test "builds canonical decisions with compatibility and widened metadata" do
@@ -119,4 +175,20 @@ defmodule AllbertAssist.SecurityCentralTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp write_skill(root, directory, name) do
+    skill_root = Path.join(root, directory)
+    File.mkdir_p!(skill_root)
+
+    File.write!(Path.join(skill_root, "SKILL.md"), """
+    ---
+    name: #{name}
+    description: #{name} test skill.
+    ---
+
+    ## Workflow
+
+    Inspect only.
+    """)
+  end
 end
