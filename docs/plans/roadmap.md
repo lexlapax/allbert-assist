@@ -158,7 +158,8 @@ Request flow: `docs/plans/v0.03-request-flow.md`
 
 Status: in progress. Milestone 1 is complete. Milestone 2, the Agent Skill
 parser and validator, is complete and tested. Milestone 3, discovery, trust,
-and registry, is next.
+and registry, is complete and tested. Milestone 4, the built-in Allbert skill
+pack, is next.
 
 Expected direction:
 
@@ -188,6 +189,18 @@ Current implementation:
   `references/`, and `assets/` without execution.
 - Parser tests cover valid standard skills, Allbert metadata, invalid YAML,
   missing required fields, duplicate names, resources, and scripts.
+- `AllbertAssist.Skills.Registry` discovers bounded skill directories, applies
+  trust and enablement policy, resolves duplicates, reserves built-in names,
+  and reports skipped declarations through diagnostics.
+- `AllbertAssist.Skills.Skill` and
+  `AllbertAssist.Skills.CapabilityContract` represent normalized skill records
+  and inert Allbert metadata contracts.
+- Settings Central now validates and writes `skills.scan_paths`,
+  `skills.trusted_project_roots`, `skills.enabled`, `skills.disabled`, and
+  `skills.imported_cache_policy`.
+- `list_skills` and `read_skill` use the registry. A temporary
+  `:built_in_legacy` bridge keeps v0.01 capability prompts working until M4
+  replaces it with real built-in `SKILL.md` files.
 
 Exit signal: Allbert can discover standard Agent Skills, activate their
 instructions through progressive disclosure, show source/trust/diagnostics, and

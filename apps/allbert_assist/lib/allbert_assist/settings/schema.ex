@@ -16,6 +16,11 @@ defmodule AllbertAssist.Settings.Schema do
     "model_profiles.*.temperature",
     "model_profiles.*.max_tokens",
     "model_profiles.*.timeout_ms",
+    "skills.scan_paths",
+    "skills.trusted_project_roots",
+    "skills.enabled",
+    "skills.disabled",
+    "skills.imported_cache_policy",
     "channels.cli.response_style",
     "channels.live_view.response_style"
   ]
@@ -87,6 +92,37 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       allowed_values: ["concise", "balanced", "detailed"]
+    },
+    "skills.scan_paths" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.trusted_project_roots" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.enabled" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.disabled" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.imported_cache_policy" => %{
+      type: :enum,
+      default: "disabled",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["disabled", "enabled_manual_trust"]
     },
     "jobs.timezone" => %{
       type: :timezone,
@@ -438,6 +474,17 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_value(%{type: :boolean}, value, _key, _settings),
     do: {:error, {:expected_boolean, value}}
 
+  defp validate_value(%{type: :string_list}, value, _key, _settings) when is_list(value) do
+    if Enum.all?(value, &valid_string_list_item?/1) do
+      :ok
+    else
+      {:error, {:expected_string_list, value}}
+    end
+  end
+
+  defp validate_value(%{type: :string_list}, value, _key, _settings),
+    do: {:error, {:expected_string_list, value}}
+
   defp validate_value(%{type: :url_or_nil}, nil, _key, _settings), do: :ok
 
   defp validate_value(%{type: :url_or_nil}, value, _key, _settings) when is_binary(value) do
@@ -582,4 +629,6 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp valid_name?(name), do: is_binary(name) and Regex.match?(~r/^[A-Za-z0-9_-]+$/, name)
+
+  defp valid_string_list_item?(value), do: is_binary(value) and String.trim(value) != ""
 end

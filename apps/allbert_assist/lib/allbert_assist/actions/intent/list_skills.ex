@@ -22,41 +22,58 @@ defmodule AllbertAssist.Actions.Intent.ListSkills do
 
   @impl true
   def run(_params, context) do
-    skills = Skills.list()
     permission_decision = PermissionGate.authorize(:read_only, context)
 
-    {:ok,
-     %{
-       message: message(skills),
-       status: PermissionGate.response_status(permission_decision),
-       permission_decision: permission_decision,
-       skills: skills,
-       actions: [
-         %{
-           name: "list_skills",
-           status: :completed,
-           permission: :read_only,
-           permission_decision: permission_decision
-         }
-       ]
-     }}
+    with {:ok, skills} <- Skills.list(context) do
+      {:ok,
+       %{
+         message: message(skills),
+         status: PermissionGate.response_status(permission_decision),
+         permission_decision: permission_decision,
+         skills: Enum.map(skills, &skill_summary/1),
+         actions: [
+           %{
+             name: "list_skills",
+             status: :completed,
+             permission: :read_only,
+             permission_decision: permission_decision,
+             skill_metadata: %{count: length(skills), source: :registry}
+           }
+         ]
+       }}
+    end
   end
 
   defp message(skills) do
     skill_lines =
       skills
       |> Enum.map(fn skill ->
-        "- #{skill.name}: #{skill.description} (#{skill.status}, #{skill.permission})"
+        "- #{skill.name}: #{skill.description} (#{skill.kind}, #{skill.source_scope}, #{skill.trust_status})"
       end)
       |> Enum.join("\n")
 
     """
-    Right now I can use these v0.01-safe capabilities:
+    Right now I can inspect these registry-backed v0.03 skills and v0.01-safe capabilities:
 
     #{skill_lines}
 
-    I cannot execute shell commands or call external services. Durable markdown memory is available for explicit remember/recall requests.
+    Skill activation and action-backed execution stay separate. I cannot execute shell commands, scripts, package installs, or external services from a skill declaration.
     """
     |> String.trim()
+  end
+
+  defp skill_summary(skill) do
+    %{
+      name: skill.name,
+      title: skill.title,
+      description: skill.description,
+      kind: skill.kind,
+      source_scope: skill.source_scope,
+      trust_status: skill.trust_status,
+      activation_mode: skill.activation_mode,
+      aliases: skill.aliases,
+      status: skill.status,
+      permission: skill.permission
+    }
   end
 end
