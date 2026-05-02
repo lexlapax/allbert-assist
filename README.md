@@ -1,9 +1,10 @@
 # Allbert Assist
 
 Allbert Assist is a Phoenix umbrella app for a local, Jido-centered personal
-assistant runtime. v0.08 is ready for user testing as the local execution
-sandbox and shell adapter release: submit a prompt from CLI or LiveView; route
-it through Jido signals, the intent agent, validated skill contracts,
+assistant runtime. v0.08 is ready for release and tag as the local execution
+sandbox and shell adapter release after implementation and verification on
+2026-05-02: submit a prompt from CLI or LiveView; route it through Jido
+signals, the intent agent, validated skill contracts,
 registered actions, Security Central, and the shared action runner; pause
 confirmation-required work as durable Allbert Home records; approve or deny
 from CLI or `/settings`; execute confirmed Level 1 local shell commands through
@@ -190,9 +191,8 @@ it records the operator decision and still makes no network call. The CLI and
 external-network target has no adapter yet; external network execution is
 planned for v0.10.
 
-Release/tag status: v0.08 is ready for user testing as of 2026-05-02. Release
-tag is pending operator acceptance. Expected tag name: `v0.08`; no v0.08 tag
-has been created or pushed yet.
+Release/tag status: v0.08 is ready for release and tag as of 2026-05-02.
+Expected tag name: `v0.08`; no v0.08 tag has been created or pushed yet.
 
 Inspect generated files:
 

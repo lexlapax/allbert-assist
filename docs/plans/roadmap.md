@@ -465,15 +465,15 @@ Milestones:
 - M5: Trace, audit, release docs, version metadata, focused tests, and final
   warning gates.
   Complete in implementation: trace/audit metadata, version `0.8.0`, release
-  docs, and gates are ready for operator/user testing.
+  docs, and gates are ready for release/tag.
 
 Exit signal: Allbert can execute an explicitly confirmed shell command through
 a registered action, inside a bounded Level 1 local policy sandbox, with denial
 defaults, redacted output, and inspectable trace/audit records. It does not
 claim Docker/Podman/container/microVM isolation in this release.
 
-Status: v0.08 is ready for user testing; release tag `v0.08` is pending
-operator acceptance and has not been created or pushed yet.
+Status: v0.08 is ready for release/tag. Expected release tag is `v0.08`; no
+v0.08 tag has been created or pushed yet.
 
 ## v0.09: Skill Script Runner
 
@@ -520,7 +520,7 @@ Exit signal: Allbert can search, audit, and import online skills and call
 approved external services through confirmed registered actions without making
 imports or package manifests executable by themselves.
 
-## v0.11: Execution-Aware Intent Contract
+## v0.11: Execution-Aware Intent Contract And Approval Handoff
 
 Plan: `docs/plans/v0.11-plan.md`
 
@@ -530,17 +530,28 @@ Expected direction:
 
 - Introduce a structured intent decision contract with selected intent,
   confidence, candidate skills/actions, permission class, confirmation need,
-  risk summary, execution mode, alternatives, and diagnostics.
+  risk summary, execution mode, approval handoff, alternatives, and
+  diagnostics.
 - Cover shell, skill script, package install, external service, and online skill
   import flows first.
 - Validate every decision against known skills, registered actions, known
   permissions, confirmation state, Security Central, and Settings Central
   policy.
+- Define Approval Handoff as the plain-data bridge from a confirmation-needed
+  action to channel-native approval UX in CLI/REPL, web chat, jobs, and future
+  channel adapters.
+- Require existing CLI/REPL-style and web surfaces to render approve, deny, and
+  details affordances over `approve_confirmation` and `deny_confirmation`
+  without owning confirmation storage, security policy, or execution.
 - Keep execution behind the existing action runner and Security Central.
+- Leave Telegram/email/SMS-style adapters to v0.13, where they consume the
+  Approval Handoff contract instead of inventing channel-specific approval
+  semantics.
 
 Exit signal: Allbert can explain why it selected, confirmed, denied, or refused
-a risky local or external capability before jobs and channels consume those
-capabilities.
+a risky local or external capability and can render a confirmation-needed
+decision as channel-native approval UX before jobs and additional channels
+consume those capabilities.
 
 ## v0.12: Scheduled Jobs
 

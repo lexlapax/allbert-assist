@@ -54,9 +54,9 @@ Status: released and tagged as `v0.07` on 2026-05-02.
 
 ## v0.08 - Local Execution Sandbox And Shell Adapter
 
-Status: ready for user testing after implementation on 2026-05-02. Release
-tag is pending operator acceptance. Expected tag name: `v0.08`. No v0.08 tag
-has been created or pushed yet.
+Status: ready for release and tag after implementation and verification on
+2026-05-02. Expected tag name: `v0.08`. No v0.08 tag has been created or pushed
+yet.
 
 ### Implemented So Far
 
