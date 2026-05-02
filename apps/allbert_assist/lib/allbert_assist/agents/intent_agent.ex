@@ -366,6 +366,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp capability_request?(text) do
     String.contains?(text, "what can you do") ||
       String.contains?(text, "available skills") ||
+      String.contains?(text, "skills are available") ||
+      String.contains?(text, "what skills") ||
       String.contains?(text, "list skills") ||
       String.contains?(text, "skills you can inspect") ||
       String.contains?(text, "capabilities") ||
