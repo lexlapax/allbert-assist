@@ -1,27 +1,32 @@
 # Allbert Assist
 
 Allbert Assist is a Phoenix umbrella app for a local, Jido-centered personal
-assistant runtime. v0.03 adds the Agent Skills substrate on top of the local
-control plane: submit a prompt from CLI or LiveView; route it through Jido
-signals and a primary intent agent; run validated actions; persist markdown
-memory; write inspectable traces; manage typed settings, provider profiles, and
-encrypted local secrets through Settings Central; and discover, read, and
-activate standard `SKILL.md` skill folders without granting new execution
+assistant runtime. v0.05 adds Security Central on top of the local control
+plane: submit a prompt from CLI or LiveView; route it through Jido signals, the
+intent agent, registered actions, and the shared action runner; persist
+markdown memory; write inspectable traces; manage typed settings, provider
+profiles, and encrypted local secrets through Settings Central; discover, read,
+and activate standard `SKILL.md` skill folders; and evaluate permission, risk,
+trust, redaction, audit, and trace metadata without granting new execution
 authority.
 
 ## Current Capabilities
 
 - Signal-first runtime boundary: `AllbertAssist.Runtime.submit_user_input/1`
 - Primary intent agent: `AllbertAssist.Agents.IntentAgent`
+- Registered action boundary: `AllbertAssist.Actions.Registry` and
+  `AllbertAssist.Actions.Runner.run/3`
 - Explicit Jido actions for direct answers, memory, skill inspection, command
   planning, and external-network recognition
-- Permission gate for read-only work, memory writes, command planning, command
-  execution denial, external-network confirmation, settings writes, and
-  settings secret boundaries
+- Security Central for read-only work, memory writes, command planning,
+  command execution denial, external-network confirmation, settings writes,
+  settings secret boundaries, risk, redaction, audit, trace, and trust
+  metadata
 - Allbert Home path foundation under `ALLBERT_HOME`, alias
   `ALLBERT_HOME_DIR`, defaulting to `~/.allbert`
 - Settings Central under `<ALLBERT_HOME>/settings`, with typed YAML settings,
-  encrypted `secrets.yml.enc`, and append-only audit markdown
+  permission defaults, encrypted `secrets.yml.enc`, and append-only audit
+  markdown
 - Provider and model profiles with redacted credential status
 - Agent Skills-compatible parser, registry, trust policy, built-in skill pack,
   and progressive-disclosure `activate_skill` action
@@ -31,7 +36,8 @@ authority.
   "I prefer short updates"
 - Markdown traces under the memory `traces` category when tracing is enabled
 - CLI entrypoint with `mix allbert.ask`
-- Settings CLI with `mix allbert.settings`
+- Settings and security CLIs with `mix allbert.settings` and `mix
+  allbert.security status`
 - Phoenix LiveViews at `http://localhost:4000/agent` and
   `http://localhost:4000/settings`
 
@@ -78,7 +84,7 @@ ignores are reported.
 Use a disposable memory root:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v003-demo
+export ALLBERT_HOME=/tmp/allbert-v005-demo
 export ALLBERT_TRACE_ENABLED=true
 rm -rf "$ALLBERT_HOME"
 ```
@@ -119,6 +125,14 @@ printf 'test-key\n' | mix allbert.settings providers set-key openai
 mix allbert.settings providers list
 ```
 
+Inspect Security Central and safety floors:
+
+```sh
+mix allbert.security status
+mix allbert.settings set permissions.command_execute allowed
+mix allbert.security status
+```
+
 Inspect generated files:
 
 ```sh
@@ -130,7 +144,7 @@ find "$ALLBERT_HOME/memory" -maxdepth 2 -type f | sort
 Start Phoenix:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v003-demo
+export ALLBERT_HOME=/tmp/allbert-v005-demo
 export ALLBERT_TRACE_ENABLED=true
 mix phx.server
 ```
@@ -142,7 +156,9 @@ http://localhost:4000/agent
 http://localhost:4000/settings
 ```
 
-The LiveViews use the same runtime and settings boundaries as the CLI.
+The LiveViews use the same runtime, settings, and security boundaries as the
+CLI. `/settings` includes Security & Permissions controls backed by Settings
+Central actions and read-only effective Security Central status.
 
 ## Runtime Configuration
 
@@ -166,6 +182,10 @@ The LiveViews use the same runtime and settings boundaries as the CLI.
 - v0.03 plan: `docs/plans/v0.03-plan.md`
 - v0.03 request flow: `docs/plans/v0.03-request-flow.md`
 - v0.04 plan: `docs/plans/v0.04-plan.md`
+- v0.04 request flow: `docs/plans/v0.04-request-flow.md`
+- v0.05 plan: `docs/plans/v0.05-plan.md`
+- v0.05 request flow: `docs/plans/v0.05-request-flow.md`
+- v0.06 plan: `docs/plans/v0.06-plan.md`
 - ADRs: `docs/adr/`
 
 ## Safety Boundaries

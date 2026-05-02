@@ -264,7 +264,7 @@ Plan: `docs/plans/v0.05-plan.md`
 Request flow: `docs/plans/v0.05-request-flow.md`
 ADR: `docs/adr/0006-security-central.md`
 
-Status: implemented; ready for user testing.
+Status: released as v0.05.
 
 Implemented scope:
 

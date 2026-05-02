@@ -1,8 +1,57 @@
 # Changelog
 
+## v0.05 - Security Central Foundation
+
+Status: released on 2026-05-02.
+
+### Added
+
+- `AllbertAssist.Security` as the shared Security Central facade for
+  authorization and read-only operator status.
+- Security modules for normalized context, policy resolution, canonical
+  decisions, risk tiers, redaction, audit metadata, trust boundaries, and
+  status summaries.
+- Registered internal `security_status` action and `mix allbert.security
+  status` for operator inspection.
+- Settings Central permission keys for memory writes, command planning,
+  command execution, external network requests, and settings writes.
+- Security & Permissions section in `/settings`, with editable Settings
+  Central permission defaults and read-only effective Security Central status.
+- Compact `## Security Metadata` trace output for redacted decisions.
+
+### Changed
+
+- `AllbertAssist.Security.PermissionGate.authorize/2` now delegates to
+  Security Central while preserving compatibility fields and helper behavior.
+- `AllbertAssist.Actions.Runner.run/3` attaches selected action metadata and
+  redacted permission decisions to runner metadata.
+- Action lifecycle signals, trace rendering, and security status now use the
+  central security redactor.
+- v0.06 planning now consumes Security Central's decision shape, selected skill
+  trust/provenance, known permission classes, and safety-floor capped policy.
+
+### Safety
+
+- v0.05 adds no new execution powers.
+- Settings Central can tighten permission defaults, but built-in safety floors
+  still deny or cap shell execution, skill scripts, package installs, external
+  network execution, online skill imports, raw secret reads, unknown actions,
+  and unknown permissions.
+- Skill metadata, `allowed-tools`, and YAML declarations remain inert and never
+  grant permission by themselves.
+- Raw secrets are redacted from security status, traces, audits, runner
+  metadata, signals, CLI, LiveView, logs, and tests.
+
+### Verification
+
+- Focused v0.05 integration suite passed with 85 core tests and 7 web tests.
+- `mix compile --warnings-as-errors`, `mix format --check-formatted`, `mix
+  credo --strict`, `mix dialyzer`, and `git diff --check` passed.
+- `mix precommit` passed with 139 core tests and 12 web tests.
+
 ## v0.04 - Jido Runtime Convergence Refactor
 
-Status: release-ready for user testing on 2026-05-02.
+Status: released on 2026-05-02.
 
 ### Added
 
