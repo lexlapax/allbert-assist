@@ -57,6 +57,8 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
     assert trace_id == response.trace_id
 
     trace = File.read!(trace_id)
+    assert trace =~ "Skill metadata: direct-answer (built_in, trusted)"
+    assert trace =~ "validation_status: :valid"
     assert trace =~ "## Security Metadata"
     assert trace =~ "risk: %{"
     assert trace =~ "policy:"
@@ -113,6 +115,15 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
         actions: [
           %{
             name: "direct_answer",
+            skill_metadata: %{
+              selected_skill: "direct-answer",
+              source_scope: :built_in,
+              trust_status: :trusted,
+              capability_contract: %{
+                validation_status: :valid,
+                execution_eligible?: true
+              }
+            },
             permission_decision:
               PermissionGate.authorize(:read_only, %{
                 request: %{operator_id: "local", channel: :test, input_signal_id: input_signal.id},

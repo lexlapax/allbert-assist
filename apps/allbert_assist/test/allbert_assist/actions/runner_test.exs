@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory
   alias AllbertAssist.Settings
+  alias AllbertAssist.Skills.ActionPlan
 
   setup do
     original_memory_config = Application.get_env(:allbert_assist, Memory)
@@ -86,6 +87,27 @@ defmodule AllbertAssist.Actions.RunnerTest do
     assert [%{permission_decision: decision, runner_metadata: runner_metadata}] = response.actions
     assert decision == runner_metadata.permission_decision
     assert_permission_compatibility_fields(decision)
+  end
+
+  test "attaches selected skill contract metadata to runner and action metadata" do
+    assert {:ok, plan} = ActionPlan.build("direct-answer", "direct_answer", %{text: "hello"})
+
+    runner_context = Map.merge(context(), ActionPlan.runner_context(plan))
+
+    assert {:ok, response} = Runner.run(plan.action_name, plan.params, runner_context)
+
+    assert response.runner_metadata.selected_skill == "direct-answer"
+    assert response.runner_metadata.skill_metadata.capability_contract.validation_status == :valid
+    assert response.runner_metadata.skill_metadata.capability_contract.execution_eligible?
+    assert response.runner_metadata.action_capability.name == "direct_answer"
+
+    assert [
+             %{
+               skill_metadata: %{selected_skill: "direct-answer"},
+               action_capability: %{name: "direct_answer"},
+               runner_metadata: %{selected_skill: "direct-answer"}
+             }
+           ] = response.actions
   end
 
   test "unknown names and unregistered modules never execute" do

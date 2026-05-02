@@ -65,6 +65,8 @@ defmodule AllbertAssist.Actions.Runner do
       duration_ms: duration_ms,
       permission_decision: permission_decision(response),
       selected_skill: Map.get(context, :selected_skill),
+      skill_metadata: Redactor.redact(Map.get(context, :skill_metadata)),
+      action_capability: Redactor.redact(Map.get(context, :action_capability)),
       error: Map.get(response, :error)
     }
 
@@ -163,6 +165,8 @@ defmodule AllbertAssist.Actions.Runner do
       duration_ms: duration_ms,
       permission_decision: nil,
       selected_skill: Map.get(context, :selected_skill),
+      skill_metadata: Redactor.redact(Map.get(context, :skill_metadata)),
+      action_capability: Redactor.redact(Map.get(context, :action_capability)),
       error: {:unknown_action, unknown}
     }
 
@@ -173,9 +177,19 @@ defmodule AllbertAssist.Actions.Runner do
     response
     |> Map.put(:runner_metadata, metadata)
     |> Map.update(:actions, [], fn actions ->
-      Enum.map(actions, &Map.put(&1, :runner_metadata, metadata))
+      Enum.map(actions, &attach_action_metadata(&1, metadata))
     end)
   end
+
+  defp attach_action_metadata(action, metadata) do
+    action
+    |> Map.put(:runner_metadata, metadata)
+    |> put_if_absent(:skill_metadata, metadata.skill_metadata)
+    |> put_if_absent(:action_capability, metadata.action_capability)
+  end
+
+  defp put_if_absent(action, _key, nil), do: action
+  defp put_if_absent(action, key, value), do: Map.put_new(action, key, value)
 
   defp response_status(%{status: status}) when is_atom(status), do: status
   defp response_status(_response), do: :completed

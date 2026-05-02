@@ -33,7 +33,10 @@ defmodule AllbertAssist.Signals do
         source_signal_id: source_signal_id(context),
         channel: request_value(context, :channel),
         operator_id: request_value(context, :operator_id),
-        selected_skill: Map.get(context, :selected_skill)
+        selected_skill: Map.get(context, :selected_skill),
+        skill_metadata: Redactor.redact(Map.get(context, :skill_metadata)),
+        action_capability: Redactor.redact(Map.get(context, :action_capability)),
+        contract_status: contract_status(context)
       },
       source: "/allbert/actions/#{action_name}",
       subject: request_value(context, :operator_id)
@@ -52,6 +55,10 @@ defmodule AllbertAssist.Signals do
         status: status,
         duration_ms: duration_ms,
         permission_decision: permission_decision(response),
+        selected_skill: Map.get(context, :selected_skill),
+        skill_metadata: Redactor.redact(Map.get(context, :skill_metadata)),
+        action_capability: Redactor.redact(Map.get(context, :action_capability)),
+        contract_status: contract_status(context),
         response: response_summary(response),
         error: sanitized_error(response)
       },
@@ -97,6 +104,16 @@ defmodule AllbertAssist.Signals do
   defp source_signal_id(%{request: %{input_signal_id: id}}), do: id
   defp source_signal_id(%{input_signal_id: id}), do: id
   defp source_signal_id(_context), do: nil
+
+  defp contract_status(%{skill_metadata: %{capability_contract: %{validation_status: status}}}),
+    do: status
+
+  defp contract_status(%{
+         skill_metadata: %{"capability_contract" => %{"validation_status" => status}}
+       }),
+       do: status
+
+  defp contract_status(_context), do: nil
 
   defp module_name(nil), do: nil
   defp module_name(module) when is_atom(module), do: inspect(module)

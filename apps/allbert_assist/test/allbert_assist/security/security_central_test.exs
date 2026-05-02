@@ -8,6 +8,7 @@ defmodule AllbertAssist.SecurityCentralTest do
   alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Security.Risk
   alias AllbertAssist.Settings
+  alias AllbertAssist.Actions.Registry
 
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -29,10 +30,13 @@ defmodule AllbertAssist.SecurityCentralTest do
   end
 
   test "normalizes sparse runtime context" do
+    assert {:ok, capability} = Registry.capability("append_memory")
+
     context =
       Context.normalize(:read_only, %{
         request: %{operator_id: "local", channel: :cli, input_signal_id: "sig"},
-        selected_action: "direct_answer",
+        selected_action: "append_memory",
+        action_capability: Map.from_struct(capability),
         selected_skill: "append-memory",
         skill_metadata: %{source_scope: :built_in, trust_status: :trusted},
         api_key: "sk-test"
@@ -41,10 +45,13 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert context.actor.id == "local"
     assert context.channel == %{name: :cli, trust: :local}
     assert context.session.source_signal_id == "sig"
-    assert context.action.name == "direct_answer"
+    assert context.action.name == "append_memory"
     assert context.action.registered?
+    assert context.action.capability.name == "append_memory"
     assert context.skill.name == "append-memory"
     assert context.skill.trust_status == :trusted
+    assert context.skill.capability_contract.validation_status == :valid
+    assert context.skill.capability_contract.execution_eligible?
     assert context.secret_status.raw_secret_present?
   end
 

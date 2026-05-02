@@ -71,7 +71,8 @@ defmodule AllbertAssist.Security.Context do
       name: name,
       module: module,
       registered?: registered_action?(name, module),
-      internal?: internal_action?(name)
+      internal?: internal_action?(name),
+      capability: action_capability(context)
     }
   end
 
@@ -112,7 +113,7 @@ defmodule AllbertAssist.Security.Context do
       lookup_status: :found,
       kind: skill.kind,
       permission: skill.permission,
-      capability_contract: contract_summary(skill.capability_contract),
+      capability_contract: contract_summary(skill.capability_contract, skill.contract_validation),
       resources: resource_summary(skill)
     }
   end
@@ -131,15 +132,25 @@ defmodule AllbertAssist.Security.Context do
     }
   end
 
-  defp contract_summary(nil), do: nil
+  defp contract_summary(nil, _validation), do: nil
 
-  defp contract_summary(contract) do
+  defp contract_summary(contract, validation) do
     %{
       status: Map.get(contract, :status),
       actions: Map.get(contract, :actions, []),
       permissions: Map.get(contract, :permissions, []),
-      confirmation: Map.get(contract, :confirmation)
+      confirmation: Map.get(contract, :confirmation),
+      validation_status: map_value(validation, :status),
+      execution_eligible?: map_value(validation, :execution_eligible?),
+      validated_actions: map_value(validation, :actions) || [],
+      validated_permissions: map_value(validation, :permissions) || []
     }
+  end
+
+  defp action_capability(context) do
+    context
+    |> map_value(:action_capability)
+    |> Redactor.redact()
   end
 
   defp resource_summary(%{spec: %{resources: resources}}) when is_list(resources) do
