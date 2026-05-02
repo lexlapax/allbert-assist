@@ -73,6 +73,8 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
     Activation: #{skill.activation_mode}
     Status: #{skill.status || :available}
     Permission: #{skill.permission || :read_only}
+    Capability actions: #{contract_actions(skill)}
+    Capability permissions: #{contract_permissions(skill)}
 
     #{skill.description}
 
@@ -98,4 +100,12 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
 
   defp diagnostics_summary([]), do: "none"
   defp diagnostics_summary(diagnostics), do: inspect(diagnostics, pretty: true)
+
+  defp contract_actions(%{capability_contract: %{actions: actions}}), do: Enum.join(actions, ", ")
+  defp contract_actions(_skill), do: "none"
+
+  defp contract_permissions(%{capability_contract: %{permissions: permissions}}),
+    do: Enum.join(permissions, ", ")
+
+  defp contract_permissions(_skill), do: "none"
 end

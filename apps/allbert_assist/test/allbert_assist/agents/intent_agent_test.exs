@@ -148,6 +148,19 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert [%{name: "list_skills", permission_decision: %{decision: :allowed}}] = response.actions
   end
 
+  test "routes available-skills questions to the registry-backed list action" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "What skills are available?",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "append-memory"
+    assert [%{name: "list_skills", permission_decision: %{decision: :allowed}}] = response.actions
+  end
+
   test "answers plain prompts without selecting a side-effect action" do
     assert {:ok, response} =
              IntentAgent.respond(%{
