@@ -151,6 +151,26 @@ mix allbert.settings set permissions.command_execute allowed
 mix allbert.security status
 ```
 
+Prepare a disposable v0.08 local shell workspace:
+
+```sh
+WORKSPACE="$(mktemp -d /tmp/allbert-v08-shell.XXXXXX)"
+printf 'fixture\n' > "$WORKSPACE/README.md"
+mix allbert.settings set permissions.command_execute allowed
+mix allbert.settings set execution.local.enabled true
+mix allbert.settings set execution.local.allowed_roots "$WORKSPACE"
+mix allbert.exec --cwd "$WORKSPACE" -- ls -la
+mix allbert.confirmations list
+mix allbert.confirmations approve <confirmation-id> --reason "operator shell smoke"
+mix allbert.confirmations list --resolved
+```
+
+The same action boundary is used from prompt routing:
+
+```sh
+mix allbert.ask "run pwd"
+```
+
 Create and inspect an external-network confirmation request:
 
 ```sh
@@ -169,8 +189,8 @@ adapter for that target; external network execution is planned for v0.10.
 Release/tag status: v0.07 was released and tagged as `v0.07` on 2026-05-02.
 v0.08 implementation is in progress. Its first milestones have added the Level
 1 local policy sandbox, local runner, and confirmed `run_shell_command`
-approval resume path; operator CLI and `/settings` release surfaces are still
-planned before the v0.08 release tag.
+approval resume path plus operator CLI and `/settings` surfaces. Trace/audit
+release closeout is still planned before the v0.08 release tag.
 
 Inspect generated files:
 

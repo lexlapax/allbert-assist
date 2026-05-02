@@ -55,7 +55,7 @@ Status: released and tagged as `v0.07` on 2026-05-02.
 ## v0.08 - Local Execution Sandbox And Shell Adapter
 
 Status: implementation in progress after v0.07 release/tag on 2026-05-02.
-M1-M3 implementation commits exist; no v0.08 release tag exists yet.
+M1-M4 implementation commits exist; no v0.08 release tag exists yet.
 
 ### Implemented So Far
 
@@ -69,10 +69,12 @@ M1-M3 implementation commits exist; no v0.08 release tag exists yet.
   command execution.
 - Durable v0.07 confirmation resume for approved command requests, with
   `target_resumed?: true` only after policy re-check and local runner success.
+- CLI and `/settings` output over the same action/confirmation boundary.
+- `mix allbert.exec` for deterministic local command-spec testing.
+- `mix allbert.ask` prompt routing for command-shaped requests.
 
 ### Still Planned Before Release
 
-- CLI and `/settings` output over the same action/confirmation boundary.
 - Trace and audit metadata for sandbox level, executable/argv summary, cwd,
   env policy, timeout, output size, exit status, denial reason, and output
   preview.

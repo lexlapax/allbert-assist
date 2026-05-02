@@ -386,7 +386,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert [] = Path.wildcard(Path.join([root, "**", "*.md"]))
   end
 
-  test "refuses command execution while offering only the plan action" do
+  test "refuses command execution through the confirmed shell action by default" do
     assert {:ok, response} =
              IntentAgent.respond(%{
                text: "Run rm -rf /tmp/example",
@@ -395,18 +395,15 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              })
 
     assert response.status == :denied
-    assert response.message =~ "I will not execute shell commands"
-    assert response.message =~ "Selected action: plan_shell_command"
+    assert response.message =~ "Shell command execution was denied"
 
     assert [
              %{
-               name: "plan_shell_command",
-               status: :planned_not_executed,
-               execution: :not_available,
-               destructive: true,
-               permission_decision: %{decision: :allowed},
-               requested_permission_decision: %{decision: :denied},
-               runner_metadata: %{selected_skill: "plan-shell-command"}
+               name: "run_shell_command",
+               status: :denied,
+               execution: :not_started,
+               permission_decision: %{decision: :denied},
+               denial_reason: :local_execution_disabled
              }
            ] = response.actions
   end

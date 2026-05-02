@@ -3,14 +3,18 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Settings
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Ask
 
   setup do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_memory_config = Application.get_env(:allbert_assist, Memory)
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
     original_trace_enabled_env = System.get_env("ALLBERT_TRACE_ENABLED")
 
@@ -37,12 +41,16 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
     Application.put_env(:allbert_assist, Memory, root: root)
+    Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.delete_env(:allbert_assist, Trace)
     System.delete_env("ALLBERT_TRACE_ENABLED")
 
     on_exit(fn ->
       restore_env(Runtime, original_runtime_config)
       restore_env(Memory, original_memory_config)
+      restore_env(Confirmations, original_confirmations_config)
+      restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
       restore_system_env("ALLBERT_TRACE_ENABLED", original_trace_enabled_env)
       Mix.Task.reenable("allbert.ask")
@@ -120,6 +128,25 @@ defmodule Mix.Tasks.Allbert.AskTest do
     assert Enum.any?(trace_bodies, &String.contains?(&1, "selected_skill: \"append-memory\""))
   end
 
+  test "default CLI runtime routes command prompts to confirmed shell execution" do
+    Application.delete_env(:allbert_assist, Runtime)
+    put_execution_policy!(File.cwd!())
+
+    output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["run pwd"])
+      end)
+
+    assert output =~ "Status: needs_confirmation"
+    assert output =~ "- run_shell_command (needs_confirmation)"
+    assert output =~ "Confirmation: conf_"
+    assert output =~ "Command: pwd"
+
+    [pending] = Confirmations.list(status: :pending)
+    assert pending["target_action"]["name"] == "run_shell_command"
+    assert pending["target_permission"] == "command_execute"
+  end
+
   test "raises when prompt is missing" do
     assert_raise Mix.Error, ~r/Usage: mix allbert.ask/, fn ->
       Ask.run([])
@@ -130,4 +157,18 @@ defmodule Mix.Tasks.Allbert.AskTest do
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
   defp restore_system_env(key, nil), do: System.delete_env(key)
   defp restore_system_env(key, value), do: System.put_env(key, value)
+
+  defp put_execution_policy!(workspace) do
+    settings = %{
+      "permissions" => %{"command_execute" => "allowed"},
+      "execution" => %{
+        "local" => %{
+          "enabled" => true,
+          "allowed_roots" => [workspace]
+        }
+      }
+    }
+
+    assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
 end

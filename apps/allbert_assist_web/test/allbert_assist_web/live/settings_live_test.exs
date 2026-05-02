@@ -3,6 +3,7 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
 
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Settings
 
@@ -104,7 +105,7 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
 
     assert {:ok, "allowed"} = Settings.get("permissions.command_execute")
     assert html =~ "command_execute"
-    assert html =~ "Effective: denied"
+    assert html =~ "Effective: needs_confirmation"
     assert html =~ "Capped: true"
     refute html =~ "secret://"
   end
@@ -149,6 +150,43 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
     assert {:ok, resolved} = Confirmations.read(record["id"])
     assert resolved["status"] == "adapter_unavailable"
     assert resolved["operator_resolution"]["resolver_channel"] == "live_view"
+  end
+
+  test "renders and approves shell command confirmation metadata", %{conn: conn, root: root} do
+    workspace = Path.join(root, "workspace")
+    File.mkdir_p!(workspace)
+    File.write!(Path.join(workspace, "README.md"), "live shell fixture\n")
+    put_execution_policy!(workspace)
+
+    assert {:ok, pending_response} =
+             Runner.run(
+               "run_shell_command",
+               %{executable: "pwd", args: [], cwd: workspace},
+               %{actor: "local", channel: :live_view, surface: "/settings"}
+             )
+
+    {:ok, view, html} = live(conn, ~p"/settings")
+
+    assert html =~ "run_shell_command"
+    assert html =~ "Command: pwd"
+    assert html =~ "Cwd: #{workspace}"
+    assert has_element?(view, "#confirmation-shell-#{pending_response.confirmation_id}")
+
+    approved_html =
+      view
+      |> element("#approve-confirmation-#{pending_response.confirmation_id}")
+      |> render_click()
+
+    assert approved_html =~ "status approved"
+    assert approved_html =~ "Result: completed"
+    assert approved_html =~ "Output preview:"
+    assert approved_html =~ Path.basename(workspace)
+    assert has_element?(view, "#confirmation-shell-result-#{pending_response.confirmation_id}")
+
+    assert {:ok, resolved} = Confirmations.read(pending_response.confirmation_id)
+    assert resolved["status"] == "approved"
+    assert resolved["operator_resolution"]["target_resumed?"]
+    assert resolved["operator_resolution"]["target_status"] == "completed"
   end
 
   test "denies confirmations through LiveView and respects disabled approval setting", %{
@@ -197,6 +235,20 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
       },
       params_summary: params_summary
     }
+  end
+
+  defp put_execution_policy!(workspace) do
+    settings = %{
+      "permissions" => %{"command_execute" => "allowed"},
+      "execution" => %{
+        "local" => %{
+          "enabled" => true,
+          "allowed_roots" => [workspace]
+        }
+      }
+    }
+
+    assert {:ok, _settings} = Settings.write_user_settings(settings)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
