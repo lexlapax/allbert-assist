@@ -165,8 +165,8 @@ settings across subsystems.
 Plan: `docs/plans/v0.03-plan.md`
 Request flow: `docs/plans/v0.03-request-flow.md`
 
-Status: complete and ready for release tag `v0.03`. Milestones 1 through 6 are
-complete and tested. v0.04, Jido Runtime Convergence Refactor, is next.
+Status: released as v0.03. Milestones 1 through 6 are complete and tested.
+v0.04, Jido Runtime Convergence Refactor, has since been released.
 
 Expected direction:
 
@@ -231,7 +231,7 @@ Plan: `docs/plans/v0.04-plan.md`
 Request flow: `docs/plans/v0.04-request-flow.md`
 ADR: `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
 
-Status: complete and release-ready for user testing.
+Status: released as v0.04.
 
 Implemented direction:
 
@@ -252,7 +252,7 @@ Exit signal: Allbert's docs and implementation plan make the Jido boundary
 mandatory for runtime-facing domain behavior without wrapping pure helper
 modules in unnecessary agents.
 
-Closeout signal: v0.04 keeps user-visible behavior stable while routing
+Closeout signal: v0.04 kept user-visible behavior stable while routing
 intent actions, settings surfaces, provider credentials, and trace recording
 through registered actions and shared runner lifecycle metadata. v0.05
 Security Central can consume this boundary without reopening the v0.04
@@ -264,7 +264,7 @@ Plan: `docs/plans/v0.05-plan.md`
 Request flow: `docs/plans/v0.05-request-flow.md`
 ADR: `docs/adr/0006-security-central.md`
 
-Status: placeholder.
+Status: implementation-ready.
 
 Expected direction:
 
@@ -277,7 +277,17 @@ Expected direction:
   audit event shape, trust/provenance summary, and operator-visible security
   status.
 - Keep `AllbertAssist.Security.PermissionGate.authorize/2` as a compatibility
-  entrypoint.
+  entrypoint that delegates to Security Central while preserving current
+  fields and behavior.
+- Preserve v0.04's existing action runner and lifecycle signals; v0.05 widens
+  decision metadata rather than replacing the runner.
+- Add built-in safety floors so Settings Central can tighten policy but cannot
+  prematurely grant shell, script, package-install, network, online-import, raw
+  secret-read, unknown-action, or unknown-permission authority.
+- Add Security or Permissions status to `/settings`: permission settings remain
+  editable through Settings Central actions, while effective Security Central
+  decisions, safety floors, trust, secret status, and redaction posture are
+  displayed read-only.
 - Add no new execution powers.
 
 Exit signal: Allbert can make and explain structured security decisions with
@@ -298,8 +308,8 @@ Expected direction:
 - Treat built-in Allbert skills as standard `SKILL.md` wrappers around
   registered Elixir/Jido actions; do not auto-convert skill files or scripts
   into executable modules.
-- Add an action lifecycle runner that emits `allbert.action.requested` and
-  `allbert.action.completed`.
+- Use the existing v0.04 action lifecycle runner that emits
+  `allbert.action.requested` and `allbert.action.completed`.
 - Wire action-backed built-in skills through the current conservative intent
   routing while preserving v0.01 safety behavior.
 - Add the first Allbert skill creation/validation workflow for standard

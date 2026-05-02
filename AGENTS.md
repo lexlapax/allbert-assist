@@ -15,11 +15,12 @@ Before coding, read:
 4. The matching request-flow document, when one exists
 5. Relevant ADRs in `docs/adr/`
 
-For v0.03 work, the active implementation docs are
+For v0.03 skill substrate regression work, read
 `docs/plans/v0.03-plan.md`, `docs/plans/v0.03-request-flow.md`, and
 `docs/adr/0003-skill-manifests-as-capability-contracts.md`.
 
-For v0.04 runtime convergence work, read `docs/plans/v0.04-plan.md`,
+For v0.04 runtime convergence regression or boundary-adjacent work, read
+`docs/plans/v0.04-plan.md`,
 `docs/plans/v0.04-request-flow.md`,
 `docs/adr/0001-signal-first-jido-runtime.md`, and
 `docs/adr/0007-jido-native-internal-runtime-boundaries.md` before changing
@@ -28,8 +29,10 @@ trace, or future security boundaries.
 
 For v0.05 Security Central work, read `docs/plans/v0.05-plan.md`,
 `docs/plans/v0.05-request-flow.md`, and
-`docs/adr/0006-security-central.md` before changing security evaluation,
-permission policy, redaction, risk, trust, or audit behavior.
+`docs/adr/0006-security-central.md`, and
+`docs/adr/0007-jido-native-internal-runtime-boundaries.md` before changing
+security evaluation, permission policy, redaction, risk, trust, or audit
+behavior.
 
 For v0.06 skill-backed execution work, read `docs/plans/v0.06-plan.md`,
 `docs/plans/v0.03-plan.md`, `docs/plans/v0.03-request-flow.md`,

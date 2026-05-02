@@ -19,7 +19,7 @@ Before implementation work:
 5. Read ADRs that constrain the task.
 6. Inspect the relevant code before editing.
 
-For active v0.04 runtime convergence work, start with:
+For v0.04 runtime convergence regression or boundary-adjacent work, start with:
 
 - `docs/plans/v0.04-plan.md`
 - `docs/plans/v0.04-request-flow.md`
