@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.Actions.Settings.ExplainSetting
+  alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
   alias AllbertAssist.Actions.Settings.ListSettings
   alias AllbertAssist.Actions.Settings.ReadSetting
@@ -34,16 +35,19 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert list_response.message =~ "operator.timezone"
     assert list_response.message =~ "model_profiles.fast.max_tokens: 1024"
     assert list_response.message =~ "providers.openai.api_key_ref: \"[REDACTED]\""
+    assert Enum.any?(list_response.settings, &(&1.key == "operator.timezone"))
     assert [%{name: "list_settings", settings_metadata: %{count: count}}] = list_response.actions
     assert count > 0
 
     assert {:ok, read_response} = ReadSetting.run(%{key: "operator.timezone"}, %{})
     assert read_response.status == :completed
     assert read_response.message =~ "America/Los_Angeles"
+    assert read_response.setting.key == "operator.timezone"
 
     assert {:ok, explain_response} = ExplainSetting.run(%{key: "operator.timezone"}, %{})
     assert explain_response.status == :completed
     assert explain_response.message =~ "Layers:"
+    assert explain_response.setting.layers != []
   end
 
   test "update setting writes safe key and rejects read-only key" do
@@ -54,6 +58,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
     assert response.status == :completed
     assert response.message =~ "Updated operator.communication_style"
+    assert response.setting.key == "operator.communication_style"
     assert {:ok, "balanced"} = Settings.get("operator.communication_style")
 
     assert {:ok, denied} =
@@ -68,6 +73,16 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
     assert response.status == :completed
     assert response.message =~ "credential=missing"
+    assert Enum.any?(response.providers, &(&1.name == "openai"))
+    refute response.message =~ "api_key"
+  end
+
+  test "model profile action returns only redacted credential status" do
+    assert {:ok, response} = ListModelProfiles.run(%{}, %{})
+
+    assert response.status == :completed
+    assert response.message =~ "credential=missing"
+    assert Enum.any?(response.models, &(&1.name == "fast"))
     refute response.message =~ "api_key"
   end
 
@@ -87,6 +102,23 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
     assert denied_read.status == :denied
     assert denied_read.message =~ "cannot display raw provider secrets"
+  end
+
+  test "provider credential action stores explicit secret values without echoing them" do
+    context = %{actor: "local", channel: :test}
+
+    assert {:ok, response} =
+             SetProviderCredential.run(
+               %{provider: "openai", mode: :set_secret, api_key: "test-key"},
+               context
+             )
+
+    assert response.status == :completed
+    assert response.provider == "openai"
+    assert response.credential_status == :configured
+    assert response.message =~ "Provider credential saved"
+    refute inspect(response) =~ "test-key"
+    assert {:ok, "test-key"} = Settings.Secrets.get_secret("secret://providers/openai/api_key")
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

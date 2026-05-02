@@ -26,6 +26,7 @@ defmodule AllbertAssist.Actions.Settings.ExplainSetting do
          %{
            message: message(setting),
            status: PermissionGate.response_status(permission_decision),
+           setting: setting,
            actions: [action(setting, permission_decision)]
          }}
 

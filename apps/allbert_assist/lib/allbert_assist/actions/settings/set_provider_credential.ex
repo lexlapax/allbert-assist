@@ -8,7 +8,8 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
     tags: ["settings", "providers", "secrets"],
     schema: [
       provider: [type: :string, required: true],
-      mode: [type: :atom, required: false]
+      mode: [type: :atom, required: false],
+      api_key: [type: :string, required: false]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -17,6 +18,7 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
     ]
 
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Settings.Secrets
 
   @impl true
   def run(%{provider: provider} = params, context) do
@@ -29,9 +31,51 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
       :raw_secret_read ->
         deny_secret_read(provider, context)
 
+      :set_secret ->
+        store_secret(provider, Map.get(params, :api_key), context)
+
       _mode ->
         credential_guidance(provider, context)
     end
+  end
+
+  defp store_secret(provider, api_key, context) when is_binary(api_key) do
+    permission_decision = PermissionGate.authorize(:settings_secret_write, context)
+
+    with true <- PermissionGate.allowed?(permission_decision),
+         {:ok, result} <-
+           Secrets.put_secret(
+             secret_ref(provider),
+             api_key,
+             action_context(context, permission_decision)
+           ) do
+      {:ok,
+       %{
+         message: "Provider credential saved for #{provider}.",
+         status: :completed,
+         provider: provider,
+         credential_status: result.status,
+         diagnostics: Map.get(result, :diagnostics, []),
+         actions: [
+           action(
+             provider,
+             :completed,
+             :settings_secret_write,
+             permission_decision,
+             :credential_saved,
+             audit_path(result)
+           )
+         ]
+       }}
+    else
+      false -> denied(provider, permission_decision, :permission_denied)
+      {:error, reason} -> denied(provider, permission_decision, reason)
+    end
+  end
+
+  defp store_secret(provider, _api_key, context) do
+    permission_decision = PermissionGate.authorize(:settings_secret_write, context)
+    denied(provider, permission_decision, :empty_provider_key)
   end
 
   defp credential_guidance(provider, context) do
@@ -94,7 +138,21 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
      }}
   end
 
-  defp action(provider, status, permission, permission_decision, reason) do
+  defp denied(provider, permission_decision, reason) do
+    {:ok,
+     %{
+       message: "I could not save provider credential for #{provider}: #{inspect(reason)}",
+       status: :denied,
+       provider: provider,
+       credential_status: :missing,
+       diagnostics: [],
+       actions: [
+         action(provider, :denied, :settings_secret_write, permission_decision, reason)
+       ]
+     }}
+  end
+
+  defp action(provider, status, permission, permission_decision, reason, audit_path \\ nil) do
     %{
       name: "set_provider_credential",
       status: status,
@@ -103,8 +161,30 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
       settings_metadata: %{
         provider: provider,
         secret_status: :redacted,
-        reason: reason
+        reason: reason,
+        audit_path: audit_path
       }
     }
   end
+
+  defp action_context(context, permission_decision) do
+    request_context = Map.get(context, :request, context)
+
+    request_context
+    |> Map.take([:actor, :operator_id, :channel, :input_signal_id])
+    |> Map.new(fn
+      {:operator_id, value} -> {:actor, value}
+      {:input_signal_id, value} -> {:source_signal_id, value}
+      other -> other
+    end)
+    |> Map.put(:permission_decision, permission_decision)
+  end
+
+  defp audit_path(result) do
+    result
+    |> Map.get(:diagnostics, [])
+    |> Enum.find_value(&Map.get(&1, :audit_path))
+  end
+
+  defp secret_ref(provider), do: "secret://providers/#{provider}/api_key"
 end

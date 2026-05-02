@@ -1,11 +1,11 @@
-defmodule AllbertAssist.Actions.Settings.ListProviderProfiles do
+defmodule AllbertAssist.Actions.Settings.ListModelProfiles do
   @moduledoc false
 
   use Jido.Action,
-    name: "list_provider_profiles",
-    description: "List provider profiles with redacted credential status.",
+    name: "list_model_profiles",
+    description: "List model profiles with redacted credential status.",
     category: "settings",
-    tags: ["settings", "providers", "read_only"],
+    tags: ["settings", "models", "read_only"],
     schema: [],
     output_schema: [
       message: [type: :string, required: true],
@@ -19,33 +19,33 @@ defmodule AllbertAssist.Actions.Settings.ListProviderProfiles do
   @impl true
   def run(_params, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
-    {:ok, providers} = Settings.list_provider_profiles()
+    {:ok, models} = Settings.list_model_profiles()
 
     {:ok,
      %{
-       message: message(providers),
+       message: message(models),
        status: PermissionGate.response_status(permission_decision),
-       providers: providers,
+       models: models,
        actions: [
          %{
-           name: "list_provider_profiles",
+           name: "list_model_profiles",
            status: :completed,
            permission: :read_only,
            permission_decision: permission_decision,
-           settings_metadata: %{provider_count: length(providers)}
+           settings_metadata: %{model_count: length(models)}
          }
        ]
      }}
   end
 
-  defp message(providers) do
+  defp message(models) do
     rendered =
-      providers
+      models
       |> Enum.map(
-        &"- #{&1.name}: #{&1.type}, enabled=#{&1.enabled}, credential=#{&1.credential_status}"
+        &"- #{&1.name}: provider=#{&1.provider}, model=#{&1.model}, credential=#{&1.credential_status}"
       )
       |> Enum.join("\n")
 
-    "Provider profiles:\n\n#{rendered}"
+    "Model profiles:\n\n#{rendered}"
   end
 end

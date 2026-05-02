@@ -29,6 +29,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       AllbertAssist.Actions.Settings.UpdateSetting,
       AllbertAssist.Actions.Settings.ExplainSetting,
       AllbertAssist.Actions.Settings.ListProviderProfiles,
+      AllbertAssist.Actions.Settings.ListModelProfiles,
       AllbertAssist.Actions.Settings.SetProviderCredential
     ],
     system_prompt: """

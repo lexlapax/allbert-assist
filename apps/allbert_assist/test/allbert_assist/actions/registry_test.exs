@@ -20,6 +20,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "update_setting",
              "explain_setting",
              "list_provider_profiles",
+             "list_model_profiles",
              "set_provider_credential"
            ]
 
