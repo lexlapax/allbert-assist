@@ -28,6 +28,11 @@ permission checks, and record response/trace signals. Channels should translate
 between their external protocol and this signal-driven core rather than owning
 agent logic themselves.
 
+ADR 0007 refines this decision with the Boundary Actions rule: runtime-facing,
+effectful, security-relevant, or observable domain operations enter through
+signals, internal agents or runtime routers, and registered Jido actions, while
+pure helper modules remain plain Elixir behind those boundaries.
+
 ## Consequences
 
 - CLI, LiveView, and future channels can share one assistant loop.
@@ -37,4 +42,3 @@ agent logic themselves.
   across UI or channel code.
 - The first implementation needs a little more structure than direct agent
   calls, but that structure is the foundation for safe growth.
-

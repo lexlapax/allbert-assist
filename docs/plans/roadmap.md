@@ -100,20 +100,22 @@ Dependency order from here:
 1. Allbert Home plus Settings Central, secrets, provider/model profiles, and
    operator profile.
 2. Agent Skills-compatible parsing, discovery, trust, and activation.
-3. Security Central as the shared policy, risk, redaction, audit, and trust
+3. Jido Runtime Convergence so internal runtime/domain operations share
+   signals, agents, action boundaries, and lifecycle metadata.
+4. Security Central as the shared policy, risk, redaction, audit, and trust
    boundary evaluator.
-4. Action-backed Allbert skills and capability translation.
-5. Confirmation workflow for sensitive capabilities.
-6. Local execution sandbox and confirmed shell execution.
-7. Trusted skill script execution through the same sandbox.
-8. External service, package-install, and online skill import adapters.
-9. Execution-aware intent decisions over real risky capabilities.
-10. Scheduled jobs that emit signals into the same runtime.
-11. Additional channels that translate messages into the same runtime.
-12. Memory review, summarization, and retrieval improvements.
-13. Cross-surface intent enrichment over real skills, actions, permissions,
+5. Action-backed Allbert skills and capability translation.
+6. Confirmation workflow for sensitive capabilities.
+7. Local execution sandbox and confirmed shell execution.
+8. Trusted skill script execution through the same sandbox.
+9. External service, package-install, and online skill import adapters.
+10. Execution-aware intent decisions over real risky capabilities.
+11. Scheduled jobs that emit signals into the same runtime.
+12. Additional channels that translate messages into the same runtime.
+13. Memory review, summarization, and retrieval improvements.
+14. Cross-surface intent enrichment over real skills, actions, permissions,
     confirmations, jobs, channels, and memory behavior.
-14. Security hardening and evals after real execution, import, channel, job,
+15. Security hardening and evals after real execution, import, channel, job,
     memory, and intent behavior exists.
 
 `config.exs` remains deployment and boot configuration. It should not become
@@ -164,7 +166,7 @@ Plan: `docs/plans/v0.03-plan.md`
 Request flow: `docs/plans/v0.03-request-flow.md`
 
 Status: complete and ready for release tag `v0.03`. Milestones 1 through 6 are
-complete and tested. v0.04, Security Central Foundation, is next.
+complete and tested. v0.04, Jido Runtime Convergence Refactor, is next.
 
 Expected direction:
 
@@ -223,10 +225,38 @@ trace skill activation without granting any new unsafe capability.
 
 Exit status: complete.
 
-## v0.04: Security Central Foundation
+## v0.04: Jido Runtime Convergence Refactor
 
 Plan: `docs/plans/v0.04-plan.md`
 Request flow: `docs/plans/v0.04-request-flow.md`
+ADR: `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
+
+Status: placeholder.
+
+Expected direction:
+
+- Adopt Boundary Actions as the runtime rule: externally invoked, effectful,
+  security-relevant, or observable domain operations enter through signals,
+  internal agents or runtime routers, and registered Jido actions.
+- Keep pure parsing, schema, validation, formatting, and storage helpers as
+  plain Elixir behind action boundaries.
+- Add the shared action runner direction that emits consistent
+  `allbert.action.requested` and `allbert.action.completed` metadata.
+- Plan convergence for current direct-call debt in `IntentAgent`, Settings
+  LiveView, `mix allbert.settings`, trace recording, settings, skills, memory,
+  and future security work.
+- Add internal domain agents only where coordination is useful, such as
+  settings, skills, security, and memory/trace boundaries.
+- Add no new execution powers.
+
+Exit signal: Allbert's docs and implementation plan make the Jido boundary
+mandatory for runtime-facing domain behavior without wrapping pure helper
+modules in unnecessary agents.
+
+## v0.05: Security Central Foundation
+
+Plan: `docs/plans/v0.05-plan.md`
+Request flow: `docs/plans/v0.05-request-flow.md`
 ADR: `docs/adr/0006-security-central.md`
 
 Status: placeholder.
@@ -234,6 +264,8 @@ Status: placeholder.
 Expected direction:
 
 - Add Security Central as the shared security evaluation surface.
+- Consume the v0.04 action/runtime boundary instead of creating private
+  security policy paths in CLI, LiveView, jobs, or channels.
 - Keep Settings Central as policy and secret storage; Security Central reads
   settings, skill trust, secret status, and runtime context.
 - Define security context, decisions, policy resolution, risk tiers, redaction,
@@ -247,9 +279,9 @@ Exit signal: Allbert can make and explain structured security decisions with
 permission, risk, confirmation, redaction, audit, trace, actor/channel/session,
 selected skill/action, and trust boundary metadata.
 
-## v0.05: Action-Backed Allbert Skills
+## v0.06: Action-Backed Allbert Skills
 
-Plan: `docs/plans/v0.05-plan.md`
+Plan: `docs/plans/v0.06-plan.md`
 
 Status: placeholder.
 
@@ -272,9 +304,9 @@ Exit signal: Allbert can explain, activate, and run action-backed built-in
 skills through registered Jido actions with Security Central decisions and
 trace metadata, while still refusing or deferring unsafe execution.
 
-## v0.06: Confirmation Workflow
+## v0.07: Confirmation Workflow
 
-Plan: `docs/plans/v0.06-plan.md`
+Plan: `docs/plans/v0.07-plan.md`
 
 Status: placeholder.
 
@@ -289,9 +321,9 @@ Expected direction:
 - Keep command execution and external network adapters inert until this flow is
   tested end-to-end.
 
-## v0.07: Local Execution Sandbox And Shell Adapter
+## v0.08: Local Execution Sandbox And Shell Adapter
 
-Plan: `docs/plans/v0.07-plan.md`
+Plan: `docs/plans/v0.08-plan.md`
 
 Status: placeholder.
 
@@ -302,16 +334,16 @@ Expected direction:
   or arbitrary model authority.
 - Restrict working roots, environment access, timeout, output capture, and
   destructive ambiguity through Security Central and Settings Central policy.
-- Require the v0.06 confirmation flow for command execution and record redacted
+- Require the v0.07 confirmation flow for command execution and record redacted
   stdout/stderr, security decisions, and sandbox metadata in traces.
 
 Exit signal: Allbert can execute an explicitly confirmed shell command through
 a registered action, inside a bounded local sandbox, with denial defaults,
 redacted output, and inspectable trace/audit records.
 
-## v0.08: Skill Script Runner
+## v0.09: Skill Script Runner
 
-Plan: `docs/plans/v0.08-plan.md`
+Plan: `docs/plans/v0.09-plan.md`
 
 Status: placeholder.
 
@@ -320,7 +352,7 @@ Expected direction:
 - Add a confirmed `run_skill_script` path for trusted, enabled, inventoried
   Agent Skill scripts.
 - Resolve script paths only from the selected skill's v0.03 resource inventory.
-- Run scripts through the v0.07 local execution sandbox and v0.06 confirmation
+- Run scripts through the v0.08 local execution sandbox and v0.07 confirmation
   workflow.
 - Continue to forbid runtime module loading, package installs, network calls,
   and non-inventoried script execution unless a later registered action adds
@@ -329,9 +361,9 @@ Expected direction:
 Exit signal: Allbert can run a bundled skill script only when the skill is
 trusted, enabled, selected, inventoried, confirmed, sandboxed, and traced.
 
-## v0.09: External Services, Package Installs, And Online Skill Import
+## v0.10: External Services, Package Installs, And Online Skill Import
 
-Plan: `docs/plans/v0.09-plan.md`
+Plan: `docs/plans/v0.10-plan.md`
 
 Status: placeholder.
 
@@ -349,9 +381,9 @@ Exit signal: Allbert can search, audit, and import online skills and call
 approved external services through confirmed registered actions without making
 imports or package manifests executable by themselves.
 
-## v0.10: Execution-Aware Intent Contract
+## v0.11: Execution-Aware Intent Contract
 
-Plan: `docs/plans/v0.10-plan.md`
+Plan: `docs/plans/v0.11-plan.md`
 
 Status: placeholder.
 
@@ -371,9 +403,9 @@ Exit signal: Allbert can explain why it selected, confirmed, denied, or refused
 a risky local or external capability before jobs and channels consume those
 capabilities.
 
-## v0.11: Scheduled Jobs
+## v0.12: Scheduled Jobs
 
-Plan: `docs/plans/v0.11-plan.md`
+Plan: `docs/plans/v0.12-plan.md`
 
 Status: placeholder.
 
@@ -386,9 +418,9 @@ Expected direction:
 - Keep scheduled jobs observable through traces and registered skills/actions.
 - Pause risky job actions for confirmation instead of running invisibly.
 
-## v0.12: Additional Channels
+## v0.13: Additional Channels
 
-Plan: `docs/plans/v0.12-plan.md`
+Plan: `docs/plans/v0.13-plan.md`
 
 Status: placeholder.
 
@@ -400,11 +432,12 @@ Expected direction:
   capture, and native UI surfaces.
 - Channels translate external messages to signals and render responses; they do
   not own agent logic.
-- Channels read and update shared settings through the settings engine.
+- Channels read and update shared settings through the settings action/signal
+  boundary.
 
-## v0.13: Memory Review And Retrieval
+## v0.14: Memory Review And Retrieval
 
-Plan: `docs/plans/v0.13-plan.md`
+Plan: `docs/plans/v0.14-plan.md`
 
 Status: placeholder.
 
@@ -418,9 +451,9 @@ Expected direction:
 - Use settings for memory review cadence, sensitivity policy, and promotion
   preferences.
 
-## v0.14: Cross-Surface Intent Enrichment
+## v0.15: Cross-Surface Intent Enrichment
 
-Plan: `docs/plans/v0.14-plan.md`
+Plan: `docs/plans/v0.15-plan.md`
 
 Status: placeholder.
 
@@ -440,9 +473,9 @@ path or declined to select one, expose alternatives and confidence, and produce
 stable intent traces across real runtime surfaces without adding new side
 effects.
 
-## v0.15: Security Hardening And Evals
+## v0.16: Security Hardening And Evals
 
-Plan: `docs/plans/v0.15-plan.md`
+Plan: `docs/plans/v0.16-plan.md`
 
 Status: placeholder.
 
@@ -459,7 +492,7 @@ Expected direction:
 
 Exit signal: Security Central has been tested against real execution, import,
 channel, job, memory, and intent behavior, and the roadmap has a fresh risk
-assessment for v0.16+.
+assessment for v0.17+.
 
 ## Future: Distillation And Self-Improvement
 

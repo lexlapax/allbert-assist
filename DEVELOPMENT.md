@@ -19,19 +19,28 @@ Before implementation work:
 5. Read ADRs that constrain the task.
 6. Inspect the relevant code before editing.
 
-For active v0.04 Security Central work, start with:
+For active v0.04 runtime convergence work, start with:
 
 - `docs/plans/v0.04-plan.md`
 - `docs/plans/v0.04-request-flow.md`
-- `docs/adr/0006-security-central.md`
+- `docs/adr/0001-signal-first-jido-runtime.md`
+- `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
 
-For active v0.05 skill-backed execution work, start with:
+For active v0.05 Security Central work, start with:
 
 - `docs/plans/v0.05-plan.md`
+- `docs/plans/v0.05-request-flow.md`
+- `docs/adr/0006-security-central.md`
+- `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
+
+For active v0.06 skill-backed execution work, start with:
+
+- `docs/plans/v0.06-plan.md`
 - `docs/plans/v0.03-plan.md`
 - `docs/plans/v0.03-request-flow.md`
 - `docs/adr/0003-skill-manifests-as-capability-contracts.md`
 - `docs/adr/0006-security-central.md`
+- `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
 
 ## Fresh Checkout
 
@@ -132,6 +141,11 @@ Core rules:
 - Jido agents decide, route, or delegate.
 - Jido actions perform bounded work with schemas, explicit permissions, and
   structured results.
+- Externally invoked, effectful, security-relevant, or observable domain
+  operations enter through signals, internal agents or runtime routers, and
+  registered Jido actions.
+- Pure parsing, validation, schema, formatting, and storage helpers stay plain
+  Elixir behind action boundaries.
 - Permission checks happen at the action boundary.
 - Runtime turns should be traceable when tracing is enabled.
 - Trace metadata should explain selected agent, selected skill, selected
@@ -251,10 +265,15 @@ execution powers. Activation should go through a dedicated `activate_skill`
 action so Allbert can enforce trust, wrap instructions, list resources, and
 trace the selection.
 
-v0.04 Security Central defines shared security decisions, risk, redaction,
+v0.04 Runtime Convergence defines Boundary Actions for Allbert internals:
+settings, skills, security, memory, trace, jobs, and channels should expose
+runtime-facing behavior through signals, agents, and registered Jido actions
+while keeping pure helper modules plain Elixir.
+
+v0.05 Security Central defines shared security decisions, risk, redaction,
 trust-boundary, and audit vocabulary without adding new execution powers.
 
-v0.05 action-backed skills bind trusted metadata only to registered Elixir/Jido
+v0.06 action-backed skills bind trusted metadata only to registered Elixir/Jido
 actions and known permission classes through Security Central. Do not
 auto-generate, compile, or load Elixir modules from arbitrary skill folders. If
 a new side effect is needed, add or scaffold ordinary Elixir action code,

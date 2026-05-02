@@ -37,7 +37,8 @@ state, host/sandbox choice, strict inline-eval handling, and safe-bin rules:
 
 ## Decision
 
-Allbert will introduce Security Central in v0.04.
+Allbert will introduce Security Central in v0.05, after v0.04 establishes the
+Jido runtime/action boundary that Security Central consumes.
 
 Security Central is the policy evaluation boundary for runtime security. It is
 not a replacement for Settings Central. Settings Central remains the durable,
@@ -67,9 +68,10 @@ objects.
 
 ## Consequences
 
-- v0.04 becomes Security Central Foundation.
-- The previous v0.04 Action-Backed Allbert Skills plan moves to v0.05.
-- Confirmation workflow moves to v0.06.
+- v0.05 becomes Security Central Foundation.
+- v0.04 becomes Jido Runtime Convergence Refactor.
+- The action-backed Allbert skills plan moves to v0.06.
+- Confirmation workflow moves to v0.07.
 - Shell execution, skill scripts, external services/package installs/imports,
   execution-aware intent, jobs, channels, memory review, and cross-surface
   intent all move forward one version.
