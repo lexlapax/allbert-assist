@@ -1,9 +1,9 @@
 # Allbert Assist
 
 Allbert Assist is a Phoenix umbrella app for a local, Jido-centered personal
-assistant runtime. v0.08 is ready for release and tag as the local execution
-sandbox and shell adapter release after implementation and verification on
-2026-05-02: submit a prompt from CLI or LiveView; route it through Jido
+assistant runtime. v0.08 is released as the local execution sandbox and shell
+adapter release, and v0.09 is implementation-ready for trusted skill script
+execution planning: submit a prompt from CLI or LiveView; route it through Jido
 signals, the intent agent, validated skill contracts,
 registered actions, Security Central, and the shared action runner; pause
 confirmation-required work as durable Allbert Home records; approve or deny
@@ -191,8 +191,8 @@ it records the operator decision and still makes no network call. The CLI and
 external-network target has no adapter yet; external network execution is
 planned for v0.10.
 
-Release/tag status: v0.08 is ready for release and tag as of 2026-05-02.
-Expected tag name: `v0.08`; no v0.08 tag has been created or pushed yet.
+Release/tag status: v0.08 was released and tagged as `v0.08` on 2026-05-02.
+v0.09 is implementation-ready in `docs/plans/v0.09-plan.md`.
 
 Inspect generated files:
 
@@ -253,6 +253,8 @@ Security Central status.
 - v0.07 request flow: `docs/plans/v0.07-request-flow.md`
 - v0.08 plan: `docs/plans/v0.08-plan.md`
 - v0.08 request flow: `docs/plans/v0.08-request-flow.md`
+- v0.09 plan: `docs/plans/v0.09-plan.md`
+- v0.09 request flow: `docs/plans/v0.09-request-flow.md`
 - ADRs: `docs/adr/`
 
 ## Safety Boundaries
@@ -267,8 +269,9 @@ Allbert remains local and conservative:
 - It records external-network approval as `adapter_unavailable` until a future
   registered `Req` adapter is implemented and confirmed; this is intentional
   adapter scaffolding, not an execution error.
-- It does not execute bundled skill scripts, package installs, or code from
-  skill folders.
+- v0.09 plans trusted, resource-gated bundled skill script execution through a
+  registered action; current released capability still does not execute package
+  installs or arbitrary code from skill folders.
 - It does not claim Docker, Podman, Mac/Linux container, remote, or microVM
   isolation yet; that future work is parked in `docs/plans/future-features.md`.
 - Sensitive-looking personal data is not silently stored unless explicit memory

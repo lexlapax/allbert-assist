@@ -20,7 +20,7 @@ homes:
 - Local execution sandbox and shell adapter: v0.08.
 - Skill script runner: v0.09.
 - External services, package installs, and online skill import: v0.10.
-- Execution-aware intent contract: v0.11.
+- Execution-aware intent contract and Approval Handoff: v0.11.
 - Scheduled jobs: v0.12.
 - Additional channels: v0.13.
 - Memory review and retrieval: v0.14.
@@ -178,11 +178,13 @@ Needed before planning:
 
 ### Scripting Engine Interface
 
-Source: origin note and v0.03 through v0.06 non-goals.
+Source: origin note, v0.03 through v0.06 non-goals, and v0.09 boundaries.
 
 The origin note leaves room for Lua, Python, JavaScript, or another scripting
 interface. Elixir remains the runtime substrate for now; no scripting engine is
-currently planned.
+currently planned. v0.09 runs trusted, inventoried Agent Skill script
+resources through `run_skill_script`; that does not graduate a general
+scripting engine, dependency installer, or untrusted code runtime.
 
 Needed before planning:
 

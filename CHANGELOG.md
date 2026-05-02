@@ -54,9 +54,7 @@ Status: released and tagged as `v0.07` on 2026-05-02.
 
 ## v0.08 - Local Execution Sandbox And Shell Adapter
 
-Status: ready for release and tag after implementation and verification on
-2026-05-02. Expected tag name: `v0.08`. No v0.08 tag has been created or pushed
-yet.
+Status: released and tagged as `v0.08` on 2026-05-02.
 
 ### Implemented So Far
 
@@ -91,6 +89,14 @@ yet.
 - No external network execution or package installs; v0.10 owns those.
 - No Docker, Podman, Mac/Linux container, remote, or microVM backend in v0.08.
   Future deeper sandboxing is tracked in `docs/plans/future-features.md`.
+
+### v0.09 Handoff
+
+- v0.09 should add trusted, resource-gated skill script execution through
+  `run_skill_script`, not a generic scripting engine.
+- v0.09 must preserve the v0.08 Level 1 host execution caveat: trusted scripts
+  can run with policy controls, but this is not container, remote, microVM, or
+  network isolation.
 
 ## v0.06 - Action-Backed Allbert Skills
 

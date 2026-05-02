@@ -428,7 +428,7 @@ Plan: `docs/plans/v0.08-plan.md`
 Request flow: `docs/plans/v0.08-request-flow.md`
 ADR: `docs/adr/0009-local-execution-sandbox-levels.md`
 
-Status: implementation-ready after v0.07 release/tag on 2026-05-02.
+Status: released and tagged as `v0.08` on 2026-05-02.
 
 Expected direction:
 
@@ -472,31 +472,58 @@ a registered action, inside a bounded Level 1 local policy sandbox, with denial
 defaults, redacted output, and inspectable trace/audit records. It does not
 claim Docker/Podman/container/microVM isolation in this release.
 
-Status: v0.08 is ready for release/tag. Expected release tag is `v0.08`; no
-v0.08 tag has been created or pushed yet.
+Status: v0.08 is released and tagged as `v0.08`.
 
 ## v0.09: Skill Script Runner
 
 Plan: `docs/plans/v0.09-plan.md`
+Request flow: `docs/plans/v0.09-request-flow.md`
+ADR: `docs/adr/0010-resource-gated-skill-script-execution.md`
 
-Status: placeholder.
+Status: implementation-ready after v0.08 release/tag on 2026-05-02.
 
 Expected direction:
 
 - Add a confirmed `run_skill_script` path for trusted, enabled, inventoried
   Agent Skill scripts.
-- Resolve script paths only from the selected skill's v0.03 resource inventory.
-- Run scripts through the v0.08 Level 1 local execution sandbox and v0.07
-  confirmation workflow, adding skill provenance, resource digest, script path,
-  and capability-contract checks before execution.
-- Continue to forbid runtime module loading, package installs, network calls,
-  and non-inventoried script execution unless a later registered action adds
-  that capability.
-- Reassess whether any script profiles need Level 2 project/process sandboxing
-  before enabling broader script classes.
+- Add `:skill_script_execute` permission with a confirmation safety floor and
+  `execution.skill_scripts.*` Settings Central policy.
+- Resolve script paths only from the selected skill's v0.03 resource inventory,
+  and re-check the resource digest before pending creation and before approved
+  execution.
+- Run scripts through v0.08 Level 1 host-process controls and v0.07
+  confirmation workflow, adding skill provenance, script path, digest, cwd,
+  env, timeout, output, and capability-contract checks before execution.
+- Keep direct executable script resources as the first launch mode. Interpreter
+  profiles must be explicit Settings Central policy, not broad file-extension
+  authority.
+- Keep `run_skill_script` separate from `run_shell_command`; it owns
+  selected-skill, resource-inventory, digest, and script launch policy while
+  reusing lower-level v0.08 timeout/output/redaction/audit helpers where useful.
+- Continue to forbid runtime module loading, package installs, external service
+  calls, generic scripting engines, imported-skill auto-enable, and
+  non-inventoried script execution.
+- Preserve the sandbox caveat: Level 1 host execution is not network,
+  container, remote, or microVM isolation.
+
+Milestones:
+
+- M1: ADR, Security Central permission, Settings Central policy, capability
+  metadata, and active-doc onboarding updates.
+- M2: Resource-gated script spec with skill trust, exact inventory match,
+  path validation, digest re-check, cwd/env/limit validation, and redacted
+  summaries.
+- M3: Registered `run_skill_script` action with durable pending creation,
+  confirmation resume, policy re-check, digest re-check, and idempotent
+  resolution.
+- M4: Script runner, execution audit, CLI surface, `/settings` confirmation
+  metadata, trace metadata, and activation-stays-inert coverage.
+- M5: Docs, future milestone handoffs, pre-release smoke matrix, focused
+  tests, final gates, and release/tag readiness.
 
 Exit signal: Allbert can run a bundled skill script only when the skill is
-trusted, enabled, selected, inventoried, confirmed, sandboxed, and traced.
+trusted, enabled, selected, inventoried, digest-verified, confirmed, bounded
+by Level 1 host-process controls, audited, and traced.
 
 ## v0.10: External Services, Package Installs, And Online Skill Import
 

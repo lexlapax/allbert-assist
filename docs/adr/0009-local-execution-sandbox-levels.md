@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for v0.08 planning.
+Accepted.
 
 ## Context
 
@@ -100,8 +100,9 @@ Security Central, Settings Central, trace, or audit contracts.
   scattered through CLI tasks, LiveViews, skill metadata, or model prompts.
 - `run_shell_command` becomes the only shell execution entrypoint.
 - `plan_shell_command` remains inert.
-- v0.09 skill scripts may consume the Level 1 sandbox but must add skill
-  provenance and resource-inventory constraints.
+- v0.09 skill scripts may consume Level 1 runner primitives, but ADR 0010
+  requires selected-skill provenance, resource-inventory matching, digest
+  re-checks, confirmation, and script-specific trace/audit metadata.
 - v0.10 package installs and external adapters may consume Level 1/Level 2
   policy, but should reassess whether package installs require Level 3
   containers before they are enabled broadly.

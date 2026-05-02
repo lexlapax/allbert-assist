@@ -50,9 +50,9 @@ For v0.07 confirmation workflow regression work, read `docs/plans/v0.07-plan.md`
 confirmation queues, approval/denial behavior, action resumption, traces,
 audits, CLI, LiveView, or future execution boundaries.
 
-For active v0.08 local execution sandbox work, read `docs/plans/v0.08-plan.md`,
-`docs/plans/v0.08-request-flow.md`, `docs/plans/v0.07-plan.md`,
-`docs/plans/v0.07-request-flow.md`,
+For v0.08 local execution sandbox regression work, read
+`docs/plans/v0.08-plan.md`, `docs/plans/v0.08-request-flow.md`,
+`docs/plans/v0.07-plan.md`, `docs/plans/v0.07-request-flow.md`,
 `docs/adr/0001-signal-first-jido-runtime.md`,
 `docs/adr/0006-security-central.md`,
 `docs/adr/0007-jido-native-internal-runtime-boundaries.md`,
@@ -62,6 +62,21 @@ planning, confirmed shell execution, sandbox policy, confirmation resume
 semantics, traces, audits, CLI, or LiveView behavior. v0.08 implements Level 1
 local policy sandboxing only; container, remote, and microVM isolation are
 future adapter work.
+
+For active v0.09 skill script runner work, read `docs/plans/v0.09-plan.md`,
+`docs/plans/v0.09-request-flow.md`, `docs/plans/v0.03-plan.md`,
+`docs/plans/v0.03-request-flow.md`, `docs/plans/v0.06-plan.md`,
+`docs/plans/v0.06-request-flow.md`, `docs/plans/v0.08-plan.md`,
+`docs/plans/v0.08-request-flow.md`,
+`docs/adr/0003-skill-manifests-as-capability-contracts.md`,
+`docs/adr/0006-security-central.md`,
+`docs/adr/0007-jido-native-internal-runtime-boundaries.md`,
+`docs/adr/0008-durable-confirmation-requests.md`,
+`docs/adr/0009-local-execution-sandbox-levels.md`, and
+`docs/adr/0010-resource-gated-skill-script-execution.md` before changing
+skill script execution, skill resource inventory, skill trust, script
+permissions, script runner policy, confirmations, traces, audits, CLI, or
+LiveView behavior.
 
 ## Non-Negotiables
 
@@ -99,7 +114,11 @@ future adapter work.
   adds durable confirmation requests and approval/denial workflow, but approval
   is not a generic capability grant and must not bypass Security Central safety
   floors. Confirmation records should preserve origin and resolver channel
-  context rather than becoming CLI-only or LiveView-only prompts.
+  context rather than becoming CLI-only or LiveView-only prompts. v0.08 adds
+  confirmed shell execution through Level 1 host policy controls. v0.09 skill
+  scripts may run only as trusted, inventoried resources through
+  `run_skill_script`, Security Central, confirmation, digest re-check, and
+  trace/audit boundaries.
 - Do not auto-generate, compile, or load Elixir modules from arbitrary skill
   folders.
 - Do not execute skill scripts, shell commands, external installs, or network

@@ -52,7 +52,7 @@ For v0.07 confirmation workflow regression work, start with:
 - `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
 - `docs/adr/0008-durable-confirmation-requests.md`
 
-For active v0.08 local execution sandbox work, start with:
+For v0.08 local execution sandbox regression work, start with:
 
 - `docs/plans/v0.08-plan.md`
 - `docs/plans/v0.08-request-flow.md`
@@ -63,6 +63,23 @@ For active v0.08 local execution sandbox work, start with:
 - `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
 - `docs/adr/0008-durable-confirmation-requests.md`
 - `docs/adr/0009-local-execution-sandbox-levels.md`
+
+For active v0.09 skill script runner work, start with:
+
+- `docs/plans/v0.09-plan.md`
+- `docs/plans/v0.09-request-flow.md`
+- `docs/plans/v0.03-plan.md`
+- `docs/plans/v0.03-request-flow.md`
+- `docs/plans/v0.06-plan.md`
+- `docs/plans/v0.06-request-flow.md`
+- `docs/plans/v0.08-plan.md`
+- `docs/plans/v0.08-request-flow.md`
+- `docs/adr/0003-skill-manifests-as-capability-contracts.md`
+- `docs/adr/0006-security-central.md`
+- `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
+- `docs/adr/0008-durable-confirmation-requests.md`
+- `docs/adr/0009-local-execution-sandbox-levels.md`
+- `docs/adr/0010-resource-gated-skill-script-execution.md`
 
 ## Fresh Checkout
 

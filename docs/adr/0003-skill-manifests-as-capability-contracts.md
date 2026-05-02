@@ -85,5 +85,7 @@ matured.
   actions, not shell-script wrappers or module loading from arbitrary skill
   folders.
 - A direct YAML parser dependency is required for `SKILL.md` frontmatter.
-- Future scripting or autonomous skill creation will need a separate ADR and
-  sandbox design rather than piggybacking on the v0.03 registry.
+- v0.09 skill script execution is governed by ADR 0010 and remains
+  resource-gated through trusted inventory, confirmation, and sandbox policy
+  rather than piggybacking on the v0.03 registry. Broader scripting or
+  autonomous skill creation still needs separate planning.
