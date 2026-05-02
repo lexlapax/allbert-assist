@@ -305,9 +305,8 @@ itself.
 Plan: `docs/plans/v0.06-plan.md`
 Request flow: `docs/plans/v0.06-request-flow.md`
 
-Status: in implementation after v0.05 release planning sweep and v0.06
-architecture readiness sweep on 2026-05-02. Milestones 1 through 5 are
-complete and tested.
+Status: implementation complete and ready for user testing on 2026-05-02.
+Milestones 1 through 6 are complete and tested.
 
 Expected direction:
 
@@ -360,6 +359,11 @@ capability metadata, selected skill contract summaries, `:skill_write`
 permission policy, and existing external-network confirmation requirement
 without moving shell, script, package-install, network, or import execution
 forward prematurely.
+
+Closeout signal: v0.06 passed focused milestone tests, closeout `rg`
+architecture checks, operator smoke against a disposable Allbert home,
+`mix compile --warnings-as-errors`, `mix format --check-formatted`,
+`mix credo --strict`, `mix dialyzer`, and `mix precommit`.
 
 ## v0.07: Confirmation Workflow
 

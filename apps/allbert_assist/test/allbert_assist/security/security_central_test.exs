@@ -1,6 +1,7 @@
 defmodule AllbertAssist.SecurityCentralTest do
   use ExUnit.Case, async: false
 
+  alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Security
   alias AllbertAssist.Security.Context
   alias AllbertAssist.Security.Decision
@@ -8,7 +9,6 @@ defmodule AllbertAssist.SecurityCentralTest do
   alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Security.Risk
   alias AllbertAssist.Settings
-  alias AllbertAssist.Actions.Registry
 
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
