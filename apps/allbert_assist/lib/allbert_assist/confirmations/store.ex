@@ -2,6 +2,7 @@ defmodule AllbertAssist.Confirmations.Store do
   @moduledoc false
 
   alias AllbertAssist.Confirmations.Record
+  alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store, as: SettingsStore
@@ -189,8 +190,39 @@ defmodule AllbertAssist.Confirmations.Store do
     - resolution_reason: #{Map.get(resolution, "resolution_reason", "none")}
     - decision_source: #{Map.get(resolution, "decision_source", "none")}
     - source_trace_id: #{Map.get(record, "source_trace_id", "none")}
+    #{render_shell_audit(record)}
     - audit_version: 1
     """
+  end
+
+  defp render_shell_audit(record) do
+    record
+    |> ShellCommandMetadata.lines()
+    |> case do
+      [] ->
+        ""
+
+      lines ->
+        lines
+        |> Enum.map(fn line -> "- shell_#{line_key(line)}: #{line_value(line)}" end)
+        |> Enum.join("\n")
+    end
+  end
+
+  defp line_key(line) do
+    line
+    |> String.split(":", parts: 2)
+    |> List.first()
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/, "_")
+    |> String.trim("_")
+  end
+
+  defp line_value(line) do
+    case String.split(line, ":", parts: 2) do
+      [_key, value] -> String.trim(value)
+      [value] -> value
+    end
   end
 
   defp paths_for_status(:pending), do: [pending_root()]

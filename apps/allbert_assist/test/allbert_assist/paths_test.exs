@@ -125,6 +125,8 @@ defmodule AllbertAssist.PathsTest do
           Path.join([home, "confirmations", "pending"]),
           Path.join([home, "confirmations", "resolved"]),
           Path.join([home, "confirmations", "audit"]),
+          Path.join(home, "execution"),
+          Path.join([home, "execution", "audit"]),
           Path.join(home, "memory"),
           Path.join([home, "memory", "notes"]),
           Path.join([home, "memory", "preferences"]),

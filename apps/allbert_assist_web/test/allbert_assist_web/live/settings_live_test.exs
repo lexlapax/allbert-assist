@@ -5,10 +5,12 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Settings
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
+    original_audit_config = Application.get_env(:allbert_assist, Audit)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
@@ -17,10 +19,12 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
     settings_root = Path.join(root, "settings")
     confirmations_root = Path.join(root, "confirmations")
     Application.put_env(:allbert_assist, Confirmations, root: confirmations_root)
+    Application.put_env(:allbert_assist, Audit, root: Path.join(root, "execution"))
     Application.put_env(:allbert_assist, Settings, root: settings_root)
 
     on_exit(fn ->
       restore_env(Confirmations, original_confirmations_config)
+      restore_env(Audit, original_audit_config)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(root)
     end)

@@ -4,12 +4,14 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Memory
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
 
   setup do
     original_config = Application.get_env(:allbert_assist, Memory)
+    original_audit_config = Application.get_env(:allbert_assist, Audit)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
 
@@ -20,6 +22,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       )
 
     Application.put_env(:allbert_assist, Memory, root: root)
+    Application.put_env(:allbert_assist, Audit, root: Path.join(root, "execution"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
 
@@ -36,6 +39,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
         Application.delete_env(:allbert_assist, Settings)
       end
 
+      restore_env(Audit, original_audit_config)
       restore_env(Confirmations, original_confirmations_config)
       File.rm_rf!(root)
     end)

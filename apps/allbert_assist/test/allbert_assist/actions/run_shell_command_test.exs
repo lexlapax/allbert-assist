@@ -3,10 +3,12 @@ defmodule AllbertAssist.Actions.RunShellCommandTest do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Settings
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
+    original_audit_config = Application.get_env(:allbert_assist, Audit)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
@@ -21,9 +23,11 @@ defmodule AllbertAssist.Actions.RunShellCommandTest do
 
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    Application.put_env(:allbert_assist, Audit, root: Path.join(root, "execution"))
 
     on_exit(fn ->
       restore_env(Confirmations, original_confirmations_config)
+      restore_env(Audit, original_audit_config)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(root)
     end)
@@ -45,6 +49,10 @@ defmodule AllbertAssist.Actions.RunShellCommandTest do
     assert response.command.denial_reason == :network_command_not_allowed
     assert response.actions |> hd() |> Map.fetch!(:execution) == :not_started
     assert Confirmations.list(status: :pending) == []
+
+    audit = execution_audit()
+    assert audit =~ "event: denied"
+    assert audit =~ "network_command_not_allowed"
   end
 
   test "creates pending confirmation for an allowed local command", %{workspace: workspace} do
@@ -95,6 +103,13 @@ defmodule AllbertAssist.Actions.RunShellCommandTest do
     assert approval_action.confirmation_metadata.target_status == :completed
     assert approval_action.confirmation_metadata.target_result.status == :completed
     assert approval_action.confirmation_metadata.target_result.stdout_preview =~ workspace
+
+    audit = execution_audit()
+    assert audit =~ "event: requested"
+    assert audit =~ "event: approved"
+    assert audit =~ "event: succeeded"
+    assert audit =~ "executable: pwd"
+    assert audit =~ "output_preview:"
 
     assert {:ok, approve_again} =
              Runner.run("approve_confirmation", %{id: pending_response.confirmation_id}, %{
@@ -156,6 +171,11 @@ defmodule AllbertAssist.Actions.RunShellCommandTest do
     }
 
     assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
+
+  defp execution_audit do
+    [path] = Path.wildcard(Path.join([Audit.audit_root(), "*.md"]))
+    File.read!(path)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

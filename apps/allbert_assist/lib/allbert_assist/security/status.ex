@@ -8,8 +8,8 @@ defmodule AllbertAssist.Security.Status do
   alias AllbertAssist.Settings
 
   @future_boundaries [
-    %{name: :confirmation_queue, milestone: "v0.07", status: :planned},
-    %{name: :shell_sandbox, milestone: "v0.08", status: :planned},
+    %{name: :confirmation_queue, milestone: "v0.07", status: :implemented},
+    %{name: :shell_sandbox, milestone: "v0.08", status: :implemented},
     %{name: :skill_script_runner, milestone: "v0.09", status: :planned},
     %{name: :external_adapters_and_imports, milestone: "v0.10", status: :planned}
   ]

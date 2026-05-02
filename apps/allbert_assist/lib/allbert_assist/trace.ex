@@ -7,6 +7,7 @@ defmodule AllbertAssist.Trace do
   ordinary filesystem tools.
   """
 
+  alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Memory
   alias AllbertAssist.Security.Redactor
 
@@ -138,6 +139,7 @@ defmodule AllbertAssist.Trace do
     - Security metadata: #{security_metadata_summary(response.actions)}
     - Settings metadata: #{settings_metadata(response.actions)}
     - Confirmation metadata: #{confirmation_metadata_summary(response.actions)}
+    - Shell command metadata: #{shell_command_metadata_summary(response.actions)}
     - Skill metadata: #{skill_metadata_summary(response.actions)}
     - Token estimate: #{token_estimate(request.text, response.message)}
     - Cost estimate: unavailable-local-model
@@ -167,6 +169,10 @@ defmodule AllbertAssist.Trace do
     ## Confirmation Metadata
 
     #{confirmation_metadata_text(response.actions)}
+
+    ## Shell Command Metadata
+
+    #{shell_command_metadata_text(response.actions)}
 
     ## Diagnostics
 
@@ -330,6 +336,26 @@ defmodule AllbertAssist.Trace do
   defp confirmation_metadata(%{confirmation_id: id}) when not is_nil(id), do: %{id: id}
   defp confirmation_metadata(%{"confirmation_id" => id}) when not is_nil(id), do: %{"id" => id}
   defp confirmation_metadata(_action), do: nil
+
+  defp shell_command_metadata_summary(actions) do
+    actions
+    |> List.first()
+    |> ShellCommandMetadata.action_lines()
+    |> case do
+      [] -> "none"
+      [line | _rest] -> line
+    end
+  end
+
+  defp shell_command_metadata_text(actions) do
+    actions
+    |> List.first()
+    |> ShellCommandMetadata.action_lines()
+    |> case do
+      [] -> "none"
+      lines -> Enum.join(lines, "\n")
+    end
+  end
 
   defp skill_metadata_summary(actions) do
     actions

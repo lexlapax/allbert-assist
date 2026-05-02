@@ -29,6 +29,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Execution.CommandSpec
   alias AllbertAssist.Execution.LocalRunner
   alias AllbertAssist.Security.PermissionGate
@@ -90,6 +91,8 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
   end
 
   defp denied_response(spec, permission_decision, reason) do
+    _audit = Audit.append(:denied, spec, permission_decision, %{denial_reason: reason})
+
     {:ok,
      %{
        message: "Shell command execution was denied: #{inspect(reason)}.",
@@ -128,6 +131,11 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
 
     case Confirmations.create(attrs) do
       {:ok, confirmation} ->
+        _audit =
+          Audit.append(:requested, spec, permission_decision, %{
+            confirmation_id: confirmation_id(confirmation)
+          })
+
         {:ok,
          %{
            message: confirmation_message(spec, permission_decision, confirmation),
@@ -173,8 +181,21 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
     end
   end
 
-  defp execute_spec(spec, permission_decision, _context) do
+  defp execute_spec(spec, permission_decision, context) do
+    confirmation_id = get_in(context, [:confirmation, :id])
+
     with {:ok, result} <- LocalRunner.run(spec) do
+      _approved_audit =
+        Audit.append(:approved, spec, permission_decision, %{
+          confirmation_id: confirmation_id
+        })
+
+      _result_audit =
+        Audit.append(result_event(result), spec, permission_decision, %{
+          confirmation_id: confirmation_id,
+          result: result_summary(result)
+        })
+
       {:ok,
        %{
          message: execution_message(result),
@@ -242,6 +263,11 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
   defp result_status(%{status: :completed}), do: :completed
   defp result_status(%{status: :timed_out}), do: :timed_out
   defp result_status(%{status: :denied}), do: :denied
+
+  defp result_event(%{status: :timed_out}), do: :timed_out
+  defp result_event(%{status: :completed, exit_status: 0}), do: :succeeded
+  defp result_event(%{status: :completed}), do: :failed
+  defp result_event(%{status: :denied}), do: :denied
 
   defp result_summary(result) do
     %{

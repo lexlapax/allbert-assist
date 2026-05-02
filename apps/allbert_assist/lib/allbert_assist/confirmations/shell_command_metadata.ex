@@ -16,18 +16,7 @@ defmodule AllbertAssist.Confirmations.ShellCommandMetadata do
   @spec command_details(map()) :: [String.t()]
   def command_details(confirmation) when is_map(confirmation) do
     if shell_confirmation?(confirmation) do
-      summary = params_summary(confirmation)
-
-      [
-        {"Command", command_line(summary)},
-        {"Cwd", field(summary, "resolved_cwd") || field(summary, "cwd")},
-        {"Sandbox", sandbox_text(summary)},
-        {"Timeout", ms_text(field(summary, "timeout_ms"))},
-        {"Output cap", bytes_text(field(summary, "max_output_bytes"))},
-        {"Denial", denial_text(field(summary, "denial_reason"))}
-      ]
-      |> reject_blank_values()
-      |> Enum.map(fn {label, value} -> "#{label}: #{value}" end)
+      command_detail_lines(params_summary(confirmation))
     else
       []
     end
@@ -39,16 +28,7 @@ defmodule AllbertAssist.Confirmations.ShellCommandMetadata do
     result = target_result(confirmation)
 
     if shell_confirmation?(confirmation) and result != %{} do
-      [
-        {"Result", field(result, "status") || target_status(confirmation)},
-        {"Exit", field(result, "exit_status")},
-        {"Timed out", field(result, "timed_out?")},
-        {"Truncated", field(result, "truncated?")},
-        {"Output bytes", field(result, "output_bytes")},
-        {"Output preview", output_preview(result)}
-      ]
-      |> reject_blank_values()
-      |> Enum.map(fn {label, value} -> "#{label}: #{value}" end)
+      result_detail_lines(result, target_status(confirmation))
     else
       []
     end
@@ -59,6 +39,51 @@ defmodule AllbertAssist.Confirmations.ShellCommandMetadata do
   def lines(confirmation) when is_map(confirmation) do
     command_details(confirmation) ++ result_details(confirmation)
   end
+
+  @doc "Return shell command/result lines from a runtime action map."
+  @spec action_lines(map() | nil) :: [String.t()]
+  def action_lines(action) when is_map(action) do
+    if action_name(action) == "run_shell_command" do
+      command_detail_lines(field(action, "command") || %{}) ++
+        result_detail_lines(field(action, "result") || %{})
+    else
+      []
+    end
+  end
+
+  def action_lines(_action), do: []
+
+  defp command_detail_lines(summary) when is_map(summary) do
+    [
+      {"Command", command_line(summary)},
+      {"Cwd", field(summary, "resolved_cwd") || field(summary, "cwd")},
+      {"Sandbox", sandbox_text(summary)},
+      {"Timeout", ms_text(field(summary, "timeout_ms"))},
+      {"Output cap", bytes_text(field(summary, "max_output_bytes"))},
+      {"Denial", denial_text(field(summary, "denial_reason"))}
+    ]
+    |> reject_blank_values()
+    |> Enum.map(fn {label, value} -> "#{label}: #{value}" end)
+  end
+
+  defp command_detail_lines(_summary), do: []
+
+  defp result_detail_lines(result, fallback_status \\ nil)
+
+  defp result_detail_lines(result, fallback_status) when is_map(result) do
+    [
+      {"Result", field(result, "status") || fallback_status},
+      {"Exit", field(result, "exit_status")},
+      {"Timed out", field(result, "timed_out?")},
+      {"Truncated", field(result, "truncated?")},
+      {"Output bytes", field(result, "output_bytes")},
+      {"Output preview", output_preview(result)}
+    ]
+    |> reject_blank_values()
+    |> Enum.map(fn {label, value} -> "#{label}: #{value}" end)
+  end
+
+  defp result_detail_lines(_result, _fallback_status), do: []
 
   defp params_summary(confirmation), do: Map.get(confirmation, "params_summary", %{}) || %{}
 
@@ -120,5 +145,5 @@ defmodule AllbertAssist.Confirmations.ShellCommandMetadata do
     Map.get(map, key) || Map.get(map, String.to_atom(key))
   end
 
-  defp field(_map, _key), do: nil
+  defp action_name(action), do: field(action, "name")
 end

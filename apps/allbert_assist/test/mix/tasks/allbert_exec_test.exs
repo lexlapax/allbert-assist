@@ -4,12 +4,14 @@ defmodule Mix.Tasks.Allbert.ExecTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Settings
   alias Mix.Tasks.Allbert.Confirmations, as: ConfirmationsTask
   alias Mix.Tasks.Allbert.Exec, as: ExecTask
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
+    original_audit_config = Application.get_env(:allbert_assist, Audit)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
@@ -23,10 +25,12 @@ defmodule Mix.Tasks.Allbert.ExecTest do
     File.write!(Path.join(workspace, "README.md"), "exec fixture\n")
 
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    Application.put_env(:allbert_assist, Audit, root: Path.join(root, "execution"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
     on_exit(fn ->
       restore_env(Confirmations, original_confirmations_config)
+      restore_env(Audit, original_audit_config)
       restore_env(Settings, original_settings_config)
       Mix.Task.reenable("allbert.exec")
       Mix.Task.reenable("allbert.confirmations")

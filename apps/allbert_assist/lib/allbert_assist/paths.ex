@@ -41,6 +41,8 @@ defmodule AllbertAssist.Paths do
       Path.join(confirmations_root(), "pending"),
       Path.join(confirmations_root(), "resolved"),
       Path.join(confirmations_root(), "audit"),
+      execution_root(),
+      Path.join(execution_root(), "audit"),
       memory_root(),
       Path.join(memory_root(), "notes"),
       Path.join(memory_root(), "preferences"),
@@ -90,6 +92,12 @@ defmodule AllbertAssist.Paths do
       [app_root(AllbertAssist.Confirmations), configured(:confirmations_root)],
       Path.join(home(), "confirmations")
     )
+  end
+
+  @doc "Return the local execution runtime root."
+  @spec execution_root() :: String.t()
+  def execution_root do
+    first_path([app_root(AllbertAssist.Execution.Audit)], Path.join(home(), "execution"))
   end
 
   @doc "Return the local SQLite database path."

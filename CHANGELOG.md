@@ -54,8 +54,9 @@ Status: released and tagged as `v0.07` on 2026-05-02.
 
 ## v0.08 - Local Execution Sandbox And Shell Adapter
 
-Status: implementation in progress after v0.07 release/tag on 2026-05-02.
-M1-M4 implementation commits exist; no v0.08 release tag exists yet.
+Status: ready for user testing after implementation on 2026-05-02. Release
+tag is pending operator acceptance. Expected tag name: `v0.08`. No v0.08 tag
+has been created or pushed yet.
 
 ### Implemented So Far
 
@@ -72,14 +73,13 @@ M1-M4 implementation commits exist; no v0.08 release tag exists yet.
 - CLI and `/settings` output over the same action/confirmation boundary.
 - `mix allbert.exec` for deterministic local command-spec testing.
 - `mix allbert.ask` prompt routing for command-shaped requests.
-
-### Still Planned Before Release
-
 - Trace and audit metadata for sandbox level, executable/argv summary, cwd,
   env policy, timeout, output size, exit status, denial reason, and output
   preview.
+- Execution markdown audit under `<ALLBERT_HOME>/execution/audit`.
+- Version metadata bumped to `0.8.0`.
 
-### Planned Safety
+### Safety
 
 - No autonomous shell execution.
 - No unconfirmed command execution.

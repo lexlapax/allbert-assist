@@ -1,16 +1,17 @@
 # Allbert Assist
 
 Allbert Assist is a Phoenix umbrella app for a local, Jido-centered personal
-assistant runtime. v0.07 has been released and tagged. v0.08 is now planned as
-the local execution sandbox and shell adapter release: submit a prompt from CLI
-or LiveView; route
+assistant runtime. v0.08 is ready for user testing as the local execution
+sandbox and shell adapter release: submit a prompt from CLI or LiveView; route
 it through Jido signals, the intent agent, validated skill contracts,
 registered actions, Security Central, and the shared action runner; pause
 confirmation-required work as durable Allbert Home records; approve or deny
-from CLI or `/settings`; persist markdown memory; write inspectable traces;
-manage typed settings, provider profiles, and encrypted local secrets through
-Settings Central; discover, read, activate, validate, and scaffold standard
-`SKILL.md` skill folders without granting new execution authority.
+from CLI or `/settings`; execute confirmed Level 1 local shell commands through
+`run_shell_command`; persist markdown memory; write inspectable traces and
+execution audit records; manage typed settings, provider profiles, and
+encrypted local secrets through Settings Central; discover, read, activate,
+validate, and scaffold standard `SKILL.md` skill folders without granting
+unplanned execution authority.
 
 ## Current Capabilities
 
@@ -19,11 +20,11 @@ Settings Central; discover, read, activate, validate, and scaffold standard
 - Registered action boundary: `AllbertAssist.Actions.Registry` and
   `AllbertAssist.Actions.Runner.run/3`
 - Explicit Jido actions for direct answers, memory, skill inspection, command
-  planning, and external-network recognition
+  planning, confirmed local shell execution, and external-network recognition
 - Action-backed built-in skills for direct answers, markdown memory,
   skill list/read, command planning, and external-network recognition
 - Security Central for read-only work, memory writes, command planning,
-  command execution denial, external-network confirmation, settings writes,
+  confirmed command execution, external-network confirmation, settings writes,
   skill scaffold writes, settings secret boundaries, risk, redaction, audit,
   trace, and trust metadata
 - Allbert Home path foundation under `ALLBERT_HOME`, alias
@@ -34,8 +35,10 @@ Settings Central; discover, read, activate, validate, and scaffold standard
 - Provider and model profiles with redacted credential status
 - Durable confirmation queue under `<ALLBERT_HOME>/confirmations`, with
   pending/resolved YAML records and markdown audit entries
+- Level 1 local shell execution audit under `<ALLBERT_HOME>/execution/audit`
 - Registered confirmation actions and CLI: `mix allbert.confirmations list`,
   `show`, `approve`, `deny`, and `expire`
+- Deterministic shell request CLI: `mix allbert.exec --cwd "$WORKSPACE" -- ls -la`
 - Confirmation Requests section in `/settings` over the same action boundary
   as the CLI
 - Agent Skills-compatible parser, registry, trust policy, built-in skill pack,
@@ -186,11 +189,9 @@ operator decision and still makes no network call. The CLI and `/settings`
 explain this as approved, recorded, and not executed because v0.07 has no
 adapter for that target; external network execution is planned for v0.10.
 
-Release/tag status: v0.07 was released and tagged as `v0.07` on 2026-05-02.
-v0.08 implementation is in progress. Its first milestones have added the Level
-1 local policy sandbox, local runner, and confirmed `run_shell_command`
-approval resume path plus operator CLI and `/settings` surfaces. Trace/audit
-release closeout is still planned before the v0.08 release tag.
+Release/tag status: v0.08 is ready for user testing as of 2026-05-02. Release
+tag is pending operator acceptance. Expected tag name: `v0.08`; no v0.08 tag
+has been created or pushed yet.
 
 Inspect generated files:
 
@@ -257,10 +258,10 @@ Security Central status.
 
 Allbert remains local and conservative:
 
-- v0.07 does not execute shell commands. v0.08 is planned to add confirmed
-  local shell execution only through a registered Jido action and Level 1 local
-  policy sandboxing, with conservative default read-only commands and explicit
-  operator profiles for additional local developer commands.
+- v0.08 executes confirmed local shell commands only through registered Jido
+  action `run_shell_command` and Level 1 local policy sandboxing, with
+  conservative default read-only commands and explicit operator profiles for
+  additional local developer commands.
 - It does not make external network calls.
 - It records external-network approval as `adapter_unavailable` until a future
   registered `Req` adapter is implemented and confirmed; this is intentional

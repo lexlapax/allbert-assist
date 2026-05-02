@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
@@ -14,6 +15,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
+    original_audit_config = Application.get_env(:allbert_assist, Audit)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
     original_trace_enabled_env = System.get_env("ALLBERT_TRACE_ENABLED")
@@ -42,6 +44,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
     Application.put_env(:allbert_assist, Memory, root: root)
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    Application.put_env(:allbert_assist, Audit, root: Path.join(root, "execution"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.delete_env(:allbert_assist, Trace)
     System.delete_env("ALLBERT_TRACE_ENABLED")
@@ -50,6 +53,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Memory, original_memory_config)
       restore_env(Confirmations, original_confirmations_config)
+      restore_env(Audit, original_audit_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
       restore_system_env("ALLBERT_TRACE_ENABLED", original_trace_enabled_env)

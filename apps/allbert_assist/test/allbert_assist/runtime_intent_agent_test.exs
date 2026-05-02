@@ -2,6 +2,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
@@ -10,6 +11,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     original_config = Application.get_env(:allbert_assist, Runtime)
     original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
+    original_audit_config = Application.get_env(:allbert_assist, Audit)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
@@ -20,6 +22,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
     Application.delete_env(:allbert_assist, Runtime)
     Application.put_env(:allbert_assist, Memory, root: root)
+    Application.put_env(:allbert_assist, Audit, root: Path.join(root, "execution"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
 
@@ -37,6 +40,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
       end
 
       restore_env(Confirmations, original_confirmations_config)
+      restore_env(Audit, original_audit_config)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(root)
     end)
@@ -123,6 +127,28 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
              "#{confirmation_id} status=pending target=external_network_request origin=test"
   end
 
+  test "default runtime trace includes bounded shell command metadata", %{root: root} do
+    put_execution_policy!(File.cwd!())
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "run pwd",
+               channel: :test,
+               operator_id: "local",
+               metadata: %{trace: true}
+             })
+
+    assert response.status == :needs_confirmation
+    assert response.trace_id =~ Path.join(root, "traces")
+
+    trace = File.read!(response.trace_id)
+    assert trace =~ "Selected action: run_shell_command"
+    assert trace =~ "## Shell Command Metadata"
+    assert trace =~ "Command: pwd"
+    assert trace =~ "Sandbox: level 1"
+    refute trace =~ "stdout:"
+  end
+
   test "default runtime activates trusted skill instructions" do
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -195,4 +221,18 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp put_execution_policy!(workspace) do
+    settings = %{
+      "permissions" => %{"command_execute" => "allowed"},
+      "execution" => %{
+        "local" => %{
+          "enabled" => true,
+          "allowed_roots" => [workspace]
+        }
+      }
+    }
+
+    assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
 end

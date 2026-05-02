@@ -464,11 +464,16 @@ Milestones:
   metadata without bypassing actions.
 - M5: Trace, audit, release docs, version metadata, focused tests, and final
   warning gates.
+  Complete in implementation: trace/audit metadata, version `0.8.0`, release
+  docs, and gates are ready for operator/user testing.
 
 Exit signal: Allbert can execute an explicitly confirmed shell command through
 a registered action, inside a bounded Level 1 local policy sandbox, with denial
 defaults, redacted output, and inspectable trace/audit records. It does not
 claim Docker/Podman/container/microVM isolation in this release.
+
+Status: v0.08 is ready for user testing; release tag `v0.08` is pending
+operator acceptance and has not been created or pushed yet.
 
 ## v0.09: Skill Script Runner
 
