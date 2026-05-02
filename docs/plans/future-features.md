@@ -12,87 +12,21 @@ here.
 
 These are deferred from v0.03 or v0.04 but already have roadmap homes:
 
-- Confirmation workflow: v0.05.
-- Scheduled jobs: v0.06.
-- Additional channels: v0.07.
-- Memory review and retrieval: v0.08.
-- Intent engine enrichment: v0.09.
 - Action-backed Allbert skills: v0.04.
+- Confirmation workflow: v0.05.
+- Local execution sandbox and shell adapter: v0.06.
+- Skill script runner: v0.07.
+- External services, package installs, and online skill import: v0.08.
+- Execution-aware intent contract: v0.09.
+- Scheduled jobs: v0.10.
+- Additional channels: v0.11.
+- Memory review and retrieval: v0.12.
+- Cross-surface intent enrichment: v0.13.
 
 Do not duplicate those here unless the future feature is broader than the
 existing plan.
 
 ## Unassigned Future Features
-
-### Sandboxed Skill Script Execution
-
-Source: v0.03 and v0.04 non-goals.
-
-Agent Skills can include `scripts/`, but v0.03 only inventories them and v0.04
-still refuses script execution. A future milestone may add a sandboxed runner
-for selected skill scripts.
-
-Needed before planning:
-
-- confirmation workflow is stable
-- action lifecycle runner is stable
-- trace format records script source, args, outputs, permissions, and failures
-- sandbox policy is defined for filesystem, network, process, timeout, and
-  environment access
-- script execution is represented as a registered Allbert/Jido action, not as
-  ambient model authority
-
-### Shell Command Execution Adapter
-
-Source: v0.01 through v0.06 non-goals and roadmap dependency notes.
-
-Allbert can currently plan or refuse shell commands, but it cannot execute
-them. A future milestone may add explicit shell execution for trusted,
-confirmed, traceable commands.
-
-Needed before planning:
-
-- confirmation workflow
-- command permission classes and policy settings
-- sandbox or working-directory constraints
-- stdout/stderr capture and redaction rules
-- audit and trace records
-- denial behavior for destructive or ambiguous commands
-
-### External Network Execution Adapters
-
-Source: v0.01, v0.03, v0.04, v0.05, and v0.06 non-goals.
-
-Allbert currently recognizes network requests but does not make external calls
-on behalf of the user. Future adapters may support HTTP/API calls, browser
-capture, search, or provider-specific integrations.
-
-Needed before planning:
-
-- confirmation-aware network permission model
-- Settings Central provider credentials and redaction rules
-- request/response trace shape
-- rate limit and cost visibility policy
-- allowlist/blocklist policy
-- `Req`-based adapter guidelines
-
-### skills.sh Search, Audit, And Import Adapter
-
-Source: v0.03 skills.sh import policy.
-
-v0.03 should work from local skill directories and skills already installed by
-other tools. A future milestone may add skills.sh search, detail, audit, and
-import support.
-
-Needed before planning:
-
-- external network confirmation
-- imported skill cache policy
-- trust workflow for imported skills
-- audit-risk display in CLI and LiveView
-- install/update/rollback behavior
-- decision on whether to call skills.sh APIs directly with `Req`, delegate to
-  `npx skills`, or support both
 
 ### Autonomous Skill Creation
 
@@ -160,7 +94,7 @@ Needed before planning:
 
 ### Multi-User Authorization Model
 
-Source: v0.02, v0.05, and v0.06 non-goals.
+Source: v0.02, v0.05, and v0.10 non-goals.
 
 Allbert is currently a local single-operator assistant. A multi-user model may
 matter for shared workspaces, team channels, or hosted deployments.
@@ -191,10 +125,12 @@ Needed before planning:
 
 ### Browser/Search Capture
 
-Source: origin note and v0.01 non-goals.
+Source: origin note and v0.11 candidate channels.
 
 The origin note describes capturing searches or browsing activity and turning
-useful context into memory. This is not yet assigned to a milestone.
+useful context into memory. v0.11 gives browser/search capture a possible
+channel-adapter home, but deeper extraction and memory promotion behavior may
+need a later focused milestone.
 
 Needed before planning:
 
@@ -222,7 +158,7 @@ Needed before planning:
 
 ### Native UI Surface
 
-Source: origin note and v0.07 candidate channels.
+Source: origin note and v0.11 candidate channels.
 
 Native UI is listed as a possible channel but has no dedicated plan. It should
 not be planned before the channel adapter contract is stable.

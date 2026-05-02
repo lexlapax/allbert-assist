@@ -102,13 +102,15 @@ Dependency order from here:
 2. Agent Skills-compatible parsing, discovery, trust, and activation.
 3. Action-backed Allbert skills and capability translation.
 4. Confirmation workflow for sensitive capabilities.
-5. Scheduled jobs that emit signals into the same runtime.
-6. Additional channels that translate messages into the same runtime.
-7. Memory review, summarization, and retrieval improvements.
-8. Intent engine enrichment over real skills, actions, permissions, jobs,
-   channels, and memory behavior.
-9. Real external adapters, shell execution, scripting, and autonomous skill
-   creation after the permission and trace story is sturdy.
+5. Local execution sandbox and confirmed shell execution.
+6. Trusted skill script execution through the same sandbox.
+7. External service, package-install, and online skill import adapters.
+8. Execution-aware intent decisions over real risky capabilities.
+9. Scheduled jobs that emit signals into the same runtime.
+10. Additional channels that translate messages into the same runtime.
+11. Memory review, summarization, and retrieval improvements.
+12. Cross-surface intent enrichment over real skills, actions, permissions,
+    confirmations, jobs, channels, and memory behavior.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -118,8 +120,9 @@ engine that can be read and changed through CLI, LiveView, future channels, and
 traces. The current runtime dependency set is almost enough, but direct YAML
 parse/write dependencies are reasonable v0.02 dependencies if settings use
 YAML; v0.03 will need YAML parsing for Agent Skills frontmatter anyway. Jido
-remains the right substrate, `Req` remains the preferred HTTP client once
-network adapters arrive, and no scripting dependency should be added yet.
+remains the right substrate, `Req` remains the preferred HTTP client for
+external adapters, and scripting should enter only as confirmed action-backed
+execution, not as ambient authority from a skill declaration.
 
 ## v0.02: Allbert Home, Settings Central, Secrets, And Operator Profile
 
@@ -257,9 +260,90 @@ Expected direction:
 - Keep command execution and external network adapters inert until this flow is
   tested end-to-end.
 
-## v0.06: Scheduled Jobs
+## v0.06: Local Execution Sandbox And Shell Adapter
 
 Plan: `docs/plans/v0.06-plan.md`
+
+Status: placeholder.
+
+Expected direction:
+
+- Add the first real local execution boundary for confirmed shell commands.
+- Represent shell execution as registered Jido actions, not as skill metadata
+  or arbitrary model authority.
+- Restrict working roots, environment access, timeout, output capture, and
+  destructive ambiguity through Settings Central policy.
+- Require the v0.05 confirmation flow for command execution and record
+  redacted stdout/stderr, permission decisions, and sandbox metadata in traces.
+
+Exit signal: Allbert can execute an explicitly confirmed shell command through
+a registered action, inside a bounded local sandbox, with denial defaults,
+redacted output, and inspectable trace/audit records.
+
+## v0.07: Skill Script Runner
+
+Plan: `docs/plans/v0.07-plan.md`
+
+Status: placeholder.
+
+Expected direction:
+
+- Add a confirmed `run_skill_script` path for trusted, enabled, inventoried
+  Agent Skill scripts.
+- Resolve script paths only from the selected skill's v0.03 resource inventory.
+- Run scripts through the v0.06 local execution sandbox and v0.05 confirmation
+  workflow.
+- Continue to forbid runtime module loading, package installs, network calls,
+  and non-inventoried script execution unless a later registered action adds
+  that capability.
+
+Exit signal: Allbert can run a bundled skill script only when the skill is
+trusted, enabled, selected, inventoried, confirmed, sandboxed, and traced.
+
+## v0.08: External Services, Package Installs, And Online Skill Import
+
+Plan: `docs/plans/v0.08-plan.md`
+
+Status: placeholder.
+
+Expected direction:
+
+- Add confirmed `Req`-based external service actions with Settings Central
+  credentials, allow/block policy, redaction, rate/cost visibility, and traces.
+- Add package-install actions with stricter confirmation and sandbox policy than
+  ordinary shell execution.
+- Add skills.sh or remote-source search, detail, audit, and import support.
+- Write imported skills only under `<ALLBERT_HOME>/cache/skills`; keep them
+  disabled and pending until parsed, validated, audited, enabled, and trusted.
+
+Exit signal: Allbert can search, audit, and import online skills and call
+approved external services through confirmed registered actions without making
+imports or package manifests executable by themselves.
+
+## v0.09: Execution-Aware Intent Contract
+
+Plan: `docs/plans/v0.09-plan.md`
+
+Status: placeholder.
+
+Expected direction:
+
+- Introduce a structured intent decision contract with selected intent,
+  confidence, candidate skills/actions, permission class, confirmation need,
+  risk summary, execution mode, alternatives, and diagnostics.
+- Cover shell, skill script, package install, external service, and online skill
+  import flows first.
+- Validate every decision against known skills, registered actions, known
+  permissions, confirmation state, and Settings Central policy.
+- Keep execution behind the existing action runner and permission gate.
+
+Exit signal: Allbert can explain why it selected, confirmed, denied, or refused
+a risky local or external capability before jobs and channels consume those
+capabilities.
+
+## v0.10: Scheduled Jobs
+
+Plan: `docs/plans/v0.10-plan.md`
 
 Status: placeholder.
 
@@ -270,25 +354,27 @@ Expected direction:
   briefs.
 - Use settings for timezone, active/paused state, and schedule policy.
 - Keep scheduled jobs observable through traces and registered skills/actions.
+- Pause risky job actions for confirmation instead of running invisibly.
 
-## v0.07: Additional Channels
+## v0.11: Additional Channels
 
-Plan: `docs/plans/v0.07-plan.md`
+Plan: `docs/plans/v0.11-plan.md`
 
 Status: placeholder.
 
 Expected direction:
 
-- Add channel adapters after CLI and LiveView share the same runtime core.
+- Add channel adapters after CLI, LiveView, confirmations, execution, jobs, and
+  intent metadata share the same runtime core.
 - Candidate channels include email, SMS, Discord/Telegram-style chat, browser
   capture, and native UI surfaces.
 - Channels translate external messages to signals and render responses; they do
   not own agent logic.
 - Channels read and update shared settings through the settings engine.
 
-## v0.08: Memory Review And Retrieval
+## v0.12: Memory Review And Retrieval
 
-Plan: `docs/plans/v0.08-plan.md`
+Plan: `docs/plans/v0.12-plan.md`
 
 Status: placeholder.
 
@@ -297,28 +383,26 @@ Expected direction:
 - Add memory review, correction, promotion, and pruning workflows.
 - Add summaries and compiled runtime views over markdown memory.
 - Introduce embeddings or retrieval only after the markdown source of truth and
-  review path are stable across CLI, LiveView, scheduled jobs, and additional
-  channels.
+  review path are stable across CLI, LiveView, execution, imports, scheduled
+  jobs, and additional channels.
 - Use settings for memory review cadence, sensitivity policy, and promotion
   preferences.
 
-## v0.09: Intent Engine Enrichment
+## v0.13: Cross-Surface Intent Enrichment
 
-Plan: `docs/plans/v0.09-plan.md`
+Plan: `docs/plans/v0.13-plan.md`
 
 Status: placeholder.
 
 Expected direction:
 
-- Introduce a structured intent decision contract with selected intent,
-  confidence, candidate skills/actions, permission class, confirmation need,
-  and diagnostics.
 - Move beyond one-off route predicates into a hybrid deterministic and
   model-assisted intent engine that remains testable.
 - Use settings, skill registry, action-backed skill contracts, confirmation
-  history, jobs, channels, and memory review signals as routing inputs.
+  history, execution traces, jobs, channels, and memory review signals as
+  routing inputs.
 - Add intent traces and eval fixtures for activation, non-activation,
-  permission, channel, job, memory, and refusal cases.
+  permission, execution, channel, job, memory, and refusal cases.
 - Keep execution behind the existing action runner and permission gate.
 
 Exit signal: Allbert can explain why it selected a skill/action/job/channel
