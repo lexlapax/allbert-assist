@@ -8,10 +8,14 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
   alias AllbertAssist.Actions.Intent.PlanShellCommand
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
   alias AllbertAssist.Actions.Intent.ReadSkill
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
+  alias AllbertAssist.Settings
 
   setup do
     original_config = Application.get_env(:allbert_assist, Memory)
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
       Path.join(
@@ -20,6 +24,8 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
       )
 
     Application.put_env(:allbert_assist, Memory, root: root)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+    Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
 
     on_exit(fn ->
       if original_config do
@@ -28,6 +34,8 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
         Application.delete_env(:allbert_assist, Memory)
       end
 
+      restore_env(Confirmations, original_confirmations_config)
+      restore_env(Settings, original_settings_config)
       File.rm_rf!(root)
     end)
 
@@ -174,18 +182,32 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
 
   test "external_network_request requires confirmation and makes no call" do
     assert {:ok, response} =
-             ExternalNetworkRequest.run(%{request: "fetch https://example.com"}, %{})
+             ExternalNetworkRequest.run(%{request: "fetch https://example.com"}, %{
+               actor: "local",
+               channel: :test
+             })
 
     assert response.status == :needs_confirmation
     assert response.message =~ "I will not use external network access"
     assert response.permission_decision.decision == :needs_confirmation
+    assert response.confirmation_id =~ "conf_"
+    assert response.confirmation["origin"]["channel"] == "test"
 
     assert [
              %{
                execution: :not_available,
                permission: :external_network,
-               permission_decision: %{decision: :needs_confirmation}
+               permission_decision: %{decision: :needs_confirmation},
+               confirmation_id: confirmation_id
              }
            ] = response.actions
+
+    assert confirmation_id == response.confirmation_id
+    assert {:ok, pending} = Confirmations.read(confirmation_id)
+    assert pending["status"] == "pending"
+    assert pending["target_action"]["name"] == "external_network_request"
   end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end

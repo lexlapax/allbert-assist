@@ -1,12 +1,16 @@
 defmodule AllbertAssist.RuntimeIntentAgentTest do
   use ExUnit.Case, async: false
 
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Settings
 
   setup do
     original_config = Application.get_env(:allbert_assist, Runtime)
     original_memory_config = Application.get_env(:allbert_assist, Memory)
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
       Path.join(
@@ -16,6 +20,8 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
     Application.delete_env(:allbert_assist, Runtime)
     Application.put_env(:allbert_assist, Memory, root: root)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+    Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
 
     on_exit(fn ->
       if original_config do
@@ -30,6 +36,8 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
         Application.delete_env(:allbert_assist, Memory)
       end
 
+      restore_env(Confirmations, original_confirmations_config)
+      restore_env(Settings, original_settings_config)
       File.rm_rf!(root)
     end)
 
@@ -72,7 +80,43 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
     assert response.status == :needs_confirmation
     assert response.message =~ "external network access"
-    assert [%{name: "external_network_request", execution: :not_available}] = response.actions
+
+    assert [
+             %{
+               name: "external_network_request",
+               execution: :not_available,
+               confirmation_id: confirmation_id
+             }
+           ] = response.actions
+
+    assert {:ok, pending} = Confirmations.read(confirmation_id)
+    assert pending["origin"]["channel"] == "test"
+  end
+
+  test "default runtime trace includes confirmation metadata for external network requests", %{
+    root: root
+  } do
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Fetch https://example.com from the internet",
+               channel: :test,
+               operator_id: "local",
+               metadata: %{trace: true}
+             })
+
+    assert response.status == :needs_confirmation
+    assert response.trace_id =~ Path.join(root, "traces")
+
+    assert [
+             %{
+               name: "external_network_request",
+               confirmation_id: confirmation_id
+             }
+           ] = response.actions
+
+    trace = File.read!(response.trace_id)
+    assert trace =~ "confirmation_id: #{inspect(confirmation_id)}"
+    assert trace =~ "confirmation_metadata"
   end
 
   test "default runtime activates trusted skill instructions" do
@@ -144,4 +188,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert recall_response.message =~ "Preferred name: Sandeep"
     assert [%{name: "read_recent_memory", memory_count: 1}] = recall_response.actions
   end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end
