@@ -13,6 +13,7 @@ defmodule AllbertAssist.RuntimeTest do
     original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
+    original_trace_enabled_env = System.get_env("ALLBERT_TRACE_ENABLED")
     original_logger_level = Logger.level()
     parent = self()
 
@@ -42,6 +43,7 @@ defmodule AllbertAssist.RuntimeTest do
     Application.put_env(:allbert_assist, Memory, root: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.delete_env(:allbert_assist, Trace)
+    System.delete_env("ALLBERT_TRACE_ENABLED")
     Logger.configure(level: :info)
 
     on_exit(fn ->
@@ -71,6 +73,7 @@ defmodule AllbertAssist.RuntimeTest do
         Application.delete_env(:allbert_assist, Trace)
       end
 
+      restore_system_env("ALLBERT_TRACE_ENABLED", original_trace_enabled_env)
       File.rm_rf!(root)
     end)
 
@@ -314,4 +317,7 @@ defmodule AllbertAssist.RuntimeTest do
              trace_recorded: "allbert.trace.recorded"
            }
   end
+
+  defp restore_system_env(key, nil), do: System.delete_env(key)
+  defp restore_system_env(key, value), do: System.put_env(key, value)
 end

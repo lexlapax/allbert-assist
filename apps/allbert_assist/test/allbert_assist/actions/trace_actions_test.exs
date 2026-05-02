@@ -11,6 +11,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
     original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
+    original_trace_enabled_env = System.get_env("ALLBERT_TRACE_ENABLED")
 
     root =
       Path.join(
@@ -21,11 +22,13 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
     Application.put_env(:allbert_assist, Memory, root: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.delete_env(:allbert_assist, Trace)
+    System.delete_env("ALLBERT_TRACE_ENABLED")
 
     on_exit(fn ->
       restore_env(Memory, original_memory_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
+      restore_system_env("ALLBERT_TRACE_ENABLED", original_trace_enabled_env)
       File.rm_rf!(root)
     end)
 
@@ -114,4 +117,6 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+  defp restore_system_env(key, nil), do: System.delete_env(key)
+  defp restore_system_env(key, value), do: System.put_env(key, value)
 end
