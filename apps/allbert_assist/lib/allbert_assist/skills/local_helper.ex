@@ -12,8 +12,34 @@ defmodule AllbertAssist.Skills.LocalHelper do
   alias AllbertAssist.Skills.CapabilityContract
   alias AllbertAssist.Skills.Parser
 
+  @type contract_summary :: %{
+          status: :draft | :none,
+          actions: [String.t()],
+          permissions: [String.t()],
+          confirmation: nil | String.t(),
+          validation_status: :invalid | :none | :valid,
+          execution_eligible?: boolean(),
+          diagnostics: [map()]
+        }
+
+  @type validation_result :: %{
+          status: :invalid | :valid,
+          path: String.t(),
+          name: nil | String.t(),
+          description: nil | String.t(),
+          contract: contract_summary(),
+          diagnostics: [map()]
+        }
+
+  @type create_error ::
+          {:invalid_contract, map()}
+          | {:invalid_skill_name, String.t()}
+          | {:missing_required_attr, :action | :name | :permission}
+          | {:skill_exists, String.t()}
+          | {:write_failed, atom()}
+
   @doc "Validate a local skill directory without trusting or executing it."
-  @spec validate_dir(String.t()) :: map()
+  @spec validate_dir(binary()) :: validation_result()
   def validate_dir(path) when is_binary(path) do
     root_path = Path.expand(path)
 
@@ -48,7 +74,15 @@ defmodule AllbertAssist.Skills.LocalHelper do
   end
 
   @doc "Create a standard local `SKILL.md` wrapper for an existing registered action."
-  @spec create_skill(map()) :: {:ok, map()} | {:error, term()}
+  @spec create_skill(map()) ::
+          {:ok,
+           %{
+             status: :created,
+             path: String.t(),
+             skill_md_path: String.t(),
+             validation: validation_result()
+           }}
+          | {:error, create_error()}
   def create_skill(attrs) when is_map(attrs) do
     with {:ok, name} <- required_string(attrs, :name),
          {:ok, action} <- required_string(attrs, :action),
