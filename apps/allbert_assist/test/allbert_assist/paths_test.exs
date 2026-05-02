@@ -72,6 +72,7 @@ defmodule AllbertAssist.PathsTest do
     System.put_env("ALLBERT_HOME", home)
 
     assert Paths.settings_root() == Path.join(home, "settings")
+    assert Paths.confirmations_root() == Path.join(home, "confirmations")
     assert Paths.memory_root() == Path.join(home, "memory")
     assert Paths.db_path() == Path.join([home, "db", "allbert.sqlite3"])
     assert Paths.skills_root() == Path.join(home, "skills")
@@ -120,6 +121,10 @@ defmodule AllbertAssist.PathsTest do
           home,
           Path.join(home, "settings"),
           Path.join([home, "settings", "audit"]),
+          Path.join(home, "confirmations"),
+          Path.join([home, "confirmations", "pending"]),
+          Path.join([home, "confirmations", "resolved"]),
+          Path.join([home, "confirmations", "audit"]),
           Path.join(home, "memory"),
           Path.join([home, "memory", "notes"]),
           Path.join([home, "memory", "preferences"]),

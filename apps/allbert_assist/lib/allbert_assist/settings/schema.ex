@@ -27,6 +27,13 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.external_network",
     "permissions.settings_write",
     "permissions.skill_write",
+    "confirmations.default_ttl_minutes",
+    "confirmations.auto_expire_on_startup",
+    "confirmations.require_reason_for_denial",
+    "confirmations.show_redacted_params",
+    "confirmations.allow_cli_approval",
+    "confirmations.allow_liveview_approval",
+    "confirmations.allow_cross_channel_approval",
     "channels.cli.response_style",
     "channels.live_view.response_style"
   ]
@@ -172,6 +179,48 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "confirmations.default_ttl_minutes" => %{
+      type: :positive_integer,
+      default: 1440,
+      writable?: true,
+      sensitive?: false
+    },
+    "confirmations.auto_expire_on_startup" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "confirmations.require_reason_for_denial" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "confirmations.show_redacted_params" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "confirmations.allow_cli_approval" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "confirmations.allow_liveview_approval" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "confirmations.allow_cross_channel_approval" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
     "jobs.timezone" => %{
       type: :timezone,
       default: "America/Los_Angeles",
@@ -296,6 +345,15 @@ defmodule AllbertAssist.Settings.Schema do
       "external_network" => "needs_confirmation",
       "settings_write" => "allowed_safe_keys",
       "skill_write" => "allowed"
+    },
+    "confirmations" => %{
+      "default_ttl_minutes" => 1440,
+      "auto_expire_on_startup" => true,
+      "require_reason_for_denial" => false,
+      "show_redacted_params" => true,
+      "allow_cli_approval" => true,
+      "allow_liveview_approval" => true,
+      "allow_cross_channel_approval" => true
     },
     "channels" => %{
       "cli" => %{"enabled" => true, "response_style" => "concise"},
