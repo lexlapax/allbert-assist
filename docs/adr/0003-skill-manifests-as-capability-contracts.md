@@ -43,6 +43,12 @@ policy, and expected memory and trace effects. The registry translates standard
 skills into internal Allbert skill records and, when present, translates the
 Allbert overlay into a capability contract.
 
+The execution boundary is strict. Agent Skills are manifests, instructions, and
+resources. Allbert executable behavior lives in registered Elixir/Jido actions.
+The metadata overlay is a binding contract to known actions, not runtime code,
+not executable authority, and not a request to auto-generate, compile, or load
+Elixir modules from a skill folder.
+
 v0.03 implements the skill substrate: parse, validate, discover, trust, read,
 activate, and trace skills. Capability contracts remain inert in v0.03. A later
 milestone promotes validated contracts into action-backed skills.
@@ -55,6 +61,10 @@ Capability skills may reference only registered Allbert/Jido action names. They
 may not name an arbitrary Elixir module and cause it to execute. Bundled scripts
 and external package installation remain non-executable in v0.03; they may be
 listed, inspected, planned, and traced, but not run.
+
+A future skill-creation helper may scaffold both a standard `SKILL.md` wrapper
+and ordinary Elixir action code, but generated code must be reviewed, tested,
+compiled, and registered like any other app code before a skill can invoke it.
 
 Autonomous skill creation, scripting engines, and code-loading skills are
 deferred until the permission, confirmation, sandbox, and trace model has
@@ -71,6 +81,9 @@ matured.
   runs.
 - Adding entirely new executable capabilities will require adding or
   registering a Jido action in code first.
+- Allbert skill execution should be implemented through known Elixir/Jido
+  actions, not shell-script wrappers or module loading from arbitrary skill
+  folders.
 - A direct YAML parser dependency is required for `SKILL.md` frontmatter.
 - Future scripting or autonomous skill creation will need a separate ADR and
   sandbox design rather than piggybacking on the v0.03 registry.

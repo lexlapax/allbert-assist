@@ -234,6 +234,18 @@ Declarative agents should reference:
 Agent Skills should use the standard `SKILL.md` directory format. Allbert
 metadata should be a namespaced overlay, not a forked skill format.
 
+v0.03 skills are compatibility/importability context: parse, discover, trust,
+list, read, activate, and trace standard Agent Skills without granting new
+execution powers. Activation should go through a dedicated `activate_skill`
+action so Allbert can enforce trust, wrap instructions, list resources, and
+trace the selection.
+
+v0.04 action-backed skills bind trusted metadata only to registered Elixir/Jido
+actions and known permission classes. Do not auto-generate, compile, or load
+Elixir modules from arbitrary skill folders. If a new side effect is needed,
+add or scaffold ordinary Elixir action code, review it, test it, compile it,
+and register it before a skill can invoke it.
+
 Skill scripts, external package installs, shell execution, and external network
 adapters remain inert until a milestone explicitly adds sandboxing,
 permission, confirmation, and tracing.

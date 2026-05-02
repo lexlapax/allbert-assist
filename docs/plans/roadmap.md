@@ -2,7 +2,8 @@
 
 This roadmap is the running planning index for Allbert. The long-term vision is
 captured in `docs/plans/allbert-jido-vision.md`; implementation-ready milestone
-plans live alongside this file.
+plans live alongside this file. Identified but unassigned future work lives in
+`docs/plans/future-features.md`.
 
 ## Vision
 
@@ -153,8 +154,9 @@ settings across subsystems.
 ## v0.03: Agent Skills Substrate
 
 Plan: `docs/plans/v0.03-plan.md`
+Request flow: `docs/plans/v0.03-request-flow.md`
 
-Status: planned.
+Status: implementation-ready.
 
 Expected direction:
 
@@ -166,6 +168,8 @@ Expected direction:
   Agent-Skills-compatible directories.
 - Route list/read/activate skill behavior through the registry instead of the
   current static in-code list.
+- Use a dedicated `activate_skill` action/tool so Allbert can enforce trust,
+  wrap instructions, list resources, and trace activation.
 - Keep bundled scripts and external package installation non-executable in
   v0.03; they may be inspected, planned, and traced, but not run.
 - Parse Allbert-specific metadata as inert contract data, but do not yet use it
@@ -186,6 +190,9 @@ Expected direction:
 - Translate Allbert metadata overlays into capability contracts.
 - Map capability skills only to known Jido actions and known permission
   classes.
+- Treat built-in Allbert skills as standard `SKILL.md` wrappers around
+  registered Elixir/Jido actions; do not auto-convert skill files or scripts
+  into executable modules.
 - Add an action lifecycle runner that emits `allbert.action.requested` and
   `allbert.action.completed`.
 - Wire action-backed built-in skills through the current conservative intent
@@ -194,8 +201,8 @@ Expected direction:
   `SKILL.md` directories.
 
 Exit signal: Allbert can explain, activate, and run action-backed built-in
-skills through Jido actions with permission decisions and trace metadata, while
-still refusing or deferring unsafe execution.
+skills through registered Jido actions with permission decisions and trace
+metadata, while still refusing or deferring unsafe execution.
 
 ## v0.05: Confirmation Workflow
 
