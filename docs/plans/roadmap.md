@@ -100,17 +100,21 @@ Dependency order from here:
 1. Allbert Home plus Settings Central, secrets, provider/model profiles, and
    operator profile.
 2. Agent Skills-compatible parsing, discovery, trust, and activation.
-3. Action-backed Allbert skills and capability translation.
-4. Confirmation workflow for sensitive capabilities.
-5. Local execution sandbox and confirmed shell execution.
-6. Trusted skill script execution through the same sandbox.
-7. External service, package-install, and online skill import adapters.
-8. Execution-aware intent decisions over real risky capabilities.
-9. Scheduled jobs that emit signals into the same runtime.
-10. Additional channels that translate messages into the same runtime.
-11. Memory review, summarization, and retrieval improvements.
-12. Cross-surface intent enrichment over real skills, actions, permissions,
+3. Security Central as the shared policy, risk, redaction, audit, and trust
+   boundary evaluator.
+4. Action-backed Allbert skills and capability translation.
+5. Confirmation workflow for sensitive capabilities.
+6. Local execution sandbox and confirmed shell execution.
+7. Trusted skill script execution through the same sandbox.
+8. External service, package-install, and online skill import adapters.
+9. Execution-aware intent decisions over real risky capabilities.
+10. Scheduled jobs that emit signals into the same runtime.
+11. Additional channels that translate messages into the same runtime.
+12. Memory review, summarization, and retrieval improvements.
+13. Cross-surface intent enrichment over real skills, actions, permissions,
     confirmations, jobs, channels, and memory behavior.
+14. Security hardening and evals after real execution, import, channel, job,
+    memory, and intent behavior exists.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -160,7 +164,7 @@ Plan: `docs/plans/v0.03-plan.md`
 Request flow: `docs/plans/v0.03-request-flow.md`
 
 Status: complete and ready for release tag `v0.03`. Milestones 1 through 6 are
-complete and tested. v0.04, action-backed Allbert skills, is next.
+complete and tested. v0.04, Security Central Foundation, is next.
 
 Expected direction:
 
@@ -219,9 +223,33 @@ trace skill activation without granting any new unsafe capability.
 
 Exit status: complete.
 
-## v0.04: Action-Backed Allbert Skills
+## v0.04: Security Central Foundation
 
 Plan: `docs/plans/v0.04-plan.md`
+Request flow: `docs/plans/v0.04-request-flow.md`
+ADR: `docs/adr/0006-security-central.md`
+
+Status: placeholder.
+
+Expected direction:
+
+- Add Security Central as the shared security evaluation surface.
+- Keep Settings Central as policy and secret storage; Security Central reads
+  settings, skill trust, secret status, and runtime context.
+- Define security context, decisions, policy resolution, risk tiers, redaction,
+  audit event shape, trust/provenance summary, and operator-visible security
+  status.
+- Keep `AllbertAssist.Security.PermissionGate.authorize/2` as a compatibility
+  entrypoint.
+- Add no new execution powers.
+
+Exit signal: Allbert can make and explain structured security decisions with
+permission, risk, confirmation, redaction, audit, trace, actor/channel/session,
+selected skill/action, and trust boundary metadata.
+
+## v0.05: Action-Backed Allbert Skills
+
+Plan: `docs/plans/v0.05-plan.md`
 
 Status: placeholder.
 
@@ -241,12 +269,12 @@ Expected direction:
   `SKILL.md` directories.
 
 Exit signal: Allbert can explain, activate, and run action-backed built-in
-skills through registered Jido actions with permission decisions and trace
-metadata, while still refusing or deferring unsafe execution.
+skills through registered Jido actions with Security Central decisions and
+trace metadata, while still refusing or deferring unsafe execution.
 
-## v0.05: Confirmation Workflow
+## v0.06: Confirmation Workflow
 
-Plan: `docs/plans/v0.05-plan.md`
+Plan: `docs/plans/v0.06-plan.md`
 
 Status: placeholder.
 
@@ -255,14 +283,15 @@ Expected direction:
 - Add pending capability requests for actions that require confirmation.
 - Let CLI and LiveView approve or deny a pending request through the same
   runtime boundary.
-- Use settings-backed permission defaults and confirmation preferences.
+- Use Security Central and settings-backed permission defaults, risk display,
+  redaction, and confirmation preferences.
 - Persist confirmation decisions in traces and memory-friendly audit records.
 - Keep command execution and external network adapters inert until this flow is
   tested end-to-end.
 
-## v0.06: Local Execution Sandbox And Shell Adapter
+## v0.07: Local Execution Sandbox And Shell Adapter
 
-Plan: `docs/plans/v0.06-plan.md`
+Plan: `docs/plans/v0.07-plan.md`
 
 Status: placeholder.
 
@@ -272,17 +301,17 @@ Expected direction:
 - Represent shell execution as registered Jido actions, not as skill metadata
   or arbitrary model authority.
 - Restrict working roots, environment access, timeout, output capture, and
-  destructive ambiguity through Settings Central policy.
-- Require the v0.05 confirmation flow for command execution and record
-  redacted stdout/stderr, permission decisions, and sandbox metadata in traces.
+  destructive ambiguity through Security Central and Settings Central policy.
+- Require the v0.06 confirmation flow for command execution and record redacted
+  stdout/stderr, security decisions, and sandbox metadata in traces.
 
 Exit signal: Allbert can execute an explicitly confirmed shell command through
 a registered action, inside a bounded local sandbox, with denial defaults,
 redacted output, and inspectable trace/audit records.
 
-## v0.07: Skill Script Runner
+## v0.08: Skill Script Runner
 
-Plan: `docs/plans/v0.07-plan.md`
+Plan: `docs/plans/v0.08-plan.md`
 
 Status: placeholder.
 
@@ -291,7 +320,7 @@ Expected direction:
 - Add a confirmed `run_skill_script` path for trusted, enabled, inventoried
   Agent Skill scripts.
 - Resolve script paths only from the selected skill's v0.03 resource inventory.
-- Run scripts through the v0.06 local execution sandbox and v0.05 confirmation
+- Run scripts through the v0.07 local execution sandbox and v0.06 confirmation
   workflow.
 - Continue to forbid runtime module loading, package installs, network calls,
   and non-inventoried script execution unless a later registered action adds
@@ -300,9 +329,9 @@ Expected direction:
 Exit signal: Allbert can run a bundled skill script only when the skill is
 trusted, enabled, selected, inventoried, confirmed, sandboxed, and traced.
 
-## v0.08: External Services, Package Installs, And Online Skill Import
+## v0.09: External Services, Package Installs, And Online Skill Import
 
-Plan: `docs/plans/v0.08-plan.md`
+Plan: `docs/plans/v0.09-plan.md`
 
 Status: placeholder.
 
@@ -320,9 +349,9 @@ Exit signal: Allbert can search, audit, and import online skills and call
 approved external services through confirmed registered actions without making
 imports or package manifests executable by themselves.
 
-## v0.09: Execution-Aware Intent Contract
+## v0.10: Execution-Aware Intent Contract
 
-Plan: `docs/plans/v0.09-plan.md`
+Plan: `docs/plans/v0.10-plan.md`
 
 Status: placeholder.
 
@@ -334,16 +363,17 @@ Expected direction:
 - Cover shell, skill script, package install, external service, and online skill
   import flows first.
 - Validate every decision against known skills, registered actions, known
-  permissions, confirmation state, and Settings Central policy.
-- Keep execution behind the existing action runner and permission gate.
+  permissions, confirmation state, Security Central, and Settings Central
+  policy.
+- Keep execution behind the existing action runner and Security Central.
 
 Exit signal: Allbert can explain why it selected, confirmed, denied, or refused
 a risky local or external capability before jobs and channels consume those
 capabilities.
 
-## v0.10: Scheduled Jobs
+## v0.11: Scheduled Jobs
 
-Plan: `docs/plans/v0.10-plan.md`
+Plan: `docs/plans/v0.11-plan.md`
 
 Status: placeholder.
 
@@ -356,25 +386,25 @@ Expected direction:
 - Keep scheduled jobs observable through traces and registered skills/actions.
 - Pause risky job actions for confirmation instead of running invisibly.
 
-## v0.11: Additional Channels
+## v0.12: Additional Channels
 
-Plan: `docs/plans/v0.11-plan.md`
+Plan: `docs/plans/v0.12-plan.md`
 
 Status: placeholder.
 
 Expected direction:
 
-- Add channel adapters after CLI, LiveView, confirmations, execution, jobs, and
-  intent metadata share the same runtime core.
+- Add channel adapters after CLI, LiveView, Security Central, confirmations,
+  execution, jobs, and intent metadata share the same runtime core.
 - Candidate channels include email, SMS, Discord/Telegram-style chat, browser
   capture, and native UI surfaces.
 - Channels translate external messages to signals and render responses; they do
   not own agent logic.
 - Channels read and update shared settings through the settings engine.
 
-## v0.12: Memory Review And Retrieval
+## v0.13: Memory Review And Retrieval
 
-Plan: `docs/plans/v0.12-plan.md`
+Plan: `docs/plans/v0.13-plan.md`
 
 Status: placeholder.
 
@@ -388,9 +418,9 @@ Expected direction:
 - Use settings for memory review cadence, sensitivity policy, and promotion
   preferences.
 
-## v0.13: Cross-Surface Intent Enrichment
+## v0.14: Cross-Surface Intent Enrichment
 
-Plan: `docs/plans/v0.13-plan.md`
+Plan: `docs/plans/v0.14-plan.md`
 
 Status: placeholder.
 
@@ -399,16 +429,37 @@ Expected direction:
 - Move beyond one-off route predicates into a hybrid deterministic and
   model-assisted intent engine that remains testable.
 - Use settings, skill registry, action-backed skill contracts, confirmation
-  history, execution traces, jobs, channels, and memory review signals as
-  routing inputs.
+  history, Security Central decisions, execution traces, jobs, channels, and
+  memory review signals as routing inputs.
 - Add intent traces and eval fixtures for activation, non-activation,
   permission, execution, channel, job, memory, and refusal cases.
-- Keep execution behind the existing action runner and permission gate.
+- Keep execution behind the existing action runner and Security Central.
 
 Exit signal: Allbert can explain why it selected a skill/action/job/channel
 path or declined to select one, expose alternatives and confidence, and produce
 stable intent traces across real runtime surfaces without adding new side
 effects.
+
+## v0.15: Security Hardening And Evals
+
+Plan: `docs/plans/v0.15-plan.md`
+
+Status: placeholder.
+
+Expected direction:
+
+- Add security eval fixtures for prompt injection, tool argument injection,
+  untrusted skill activation, malicious imports, command approval bypass,
+  credential leakage, cross-session data access, channel spoofing, and unsafe
+  background execution.
+- Add operator-visible security review workflows for recent denials,
+  confirmations, imports, external calls, and redaction incidents.
+- Reassess sandbox, allowlist, safe-bin, external content, and supply-chain
+  policies against real traces.
+
+Exit signal: Security Central has been tested against real execution, import,
+channel, job, memory, and intent behavior, and the roadmap has a fresh risk
+assessment for v0.16+.
 
 ## Future: Distillation And Self-Improvement
 
