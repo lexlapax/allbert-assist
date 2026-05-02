@@ -33,7 +33,7 @@ For v0.05 Security Central regression or boundary work, start with:
 - `docs/adr/0006-security-central.md`
 - `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
 
-For active v0.06 skill-backed execution work, start with:
+For v0.06 skill-backed execution regression work, start with:
 
 - `docs/plans/v0.06-plan.md`
 - `docs/plans/v0.06-request-flow.md`
@@ -42,6 +42,15 @@ For active v0.06 skill-backed execution work, start with:
 - `docs/adr/0003-skill-manifests-as-capability-contracts.md`
 - `docs/adr/0006-security-central.md`
 - `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
+
+For active v0.07 confirmation workflow work, start with:
+
+- `docs/plans/v0.07-plan.md`
+- `docs/plans/v0.07-request-flow.md`
+- `docs/adr/0001-signal-first-jido-runtime.md`
+- `docs/adr/0006-security-central.md`
+- `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
+- `docs/adr/0008-durable-confirmation-requests.md`
 
 ## Fresh Checkout
 
@@ -199,6 +208,10 @@ Expected layout:
     secrets.yml.enc
     .settings_key
     audit/YYYY-MM.md
+  confirmations/
+    pending/
+    resolved/
+    audit/YYYY-MM.md
   memory/
     notes/
     preferences/
@@ -298,6 +311,16 @@ actions and known permission classes through Security Central. Do not
 auto-generate, compile, or load Elixir modules from arbitrary skill folders. If
 a new side effect is needed, add or scaffold ordinary Elixir action code,
 review it, test it, compile it, and register it before a skill can invoke it.
+
+v0.07 confirmation workflow stores durable pending action requests under
+Allbert Home and resolves them through registered Jido actions. Approval,
+denial, listing, expiration, and any target resumption should go through
+`Actions.Runner.run/3`; CLI and LiveView should not mutate confirmation files
+directly or own permission policy. Approval re-checks Security Central and does
+not grant denied or unimplemented capabilities. Confirmation records should
+store origin actor/channel/session separately from resolver
+actor/channel/session so CLI, LiveView, jobs, and future channels can share one
+queue without losing interaction context.
 
 Skill scripts, external package installs, shell execution, and external network
 adapters remain inert until a milestone explicitly adds sandboxing,
@@ -408,6 +431,9 @@ constraints, document the exact blocker and ask before deferring it.
 - No autonomous shell execution.
 - No external network calls unless a milestone explicitly adds the adapter and
   confirmation model.
+- No approval bypass: confirmation approval records an operator decision and
+  may resume only eligible registered actions after Security Central is
+  re-checked.
 - No arbitrary skill script execution.
 - No arbitrary Elixir module loading from YAML or skill files.
 - No raw secret display.

@@ -41,6 +41,15 @@ For v0.06 skill-backed execution work, read `docs/plans/v0.06-plan.md`,
 `docs/adr/0006-security-central.md`, and
 `docs/adr/0007-jido-native-internal-runtime-boundaries.md`.
 
+For v0.07 confirmation workflow work, read `docs/plans/v0.07-plan.md`,
+`docs/plans/v0.07-request-flow.md`,
+`docs/adr/0001-signal-first-jido-runtime.md`,
+`docs/adr/0006-security-central.md`,
+`docs/adr/0007-jido-native-internal-runtime-boundaries.md`, and
+`docs/adr/0008-durable-confirmation-requests.md` before changing
+confirmation queues, approval/denial behavior, action resumption, traces,
+audits, CLI, LiveView, or future execution boundaries.
+
 ## Non-Negotiables
 
 - Preserve user data. Do not delete or rewrite memory, traces, settings,
@@ -73,7 +82,11 @@ For v0.06 skill-backed execution work, read `docs/plans/v0.06-plan.md`,
 - v0.03 skills are compatibility/importability context only. v0.04 converges
   runtime boundaries without new execution powers. v0.05 adds Security Central
   but no new execution powers. v0.06 action-backed skills must call registered
-  Elixir/Jido actions through the action runner and Security Central.
+  Elixir/Jido actions through the action runner and Security Central. v0.07
+  adds durable confirmation requests and approval/denial workflow, but approval
+  is not a generic capability grant and must not bypass Security Central safety
+  floors. Confirmation records should preserve origin and resolver channel
+  context rather than becoming CLI-only or LiveView-only prompts.
 - Do not auto-generate, compile, or load Elixir modules from arbitrary skill
   folders.
 - Do not execute skill scripts, shell commands, external installs, or network

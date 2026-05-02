@@ -370,19 +370,48 @@ architecture checks, operator smoke against a disposable Allbert home,
 ## v0.07: Confirmation Workflow
 
 Plan: `docs/plans/v0.07-plan.md`
+Request flow: `docs/plans/v0.07-request-flow.md`
+ADR: `docs/adr/0008-durable-confirmation-requests.md`
 
-Status: placeholder.
+Status: implementation-ready after the v0.06 release and v0.07 planning sweep
+on 2026-05-02.
 
 Expected direction:
 
-- Add pending capability requests for actions that require confirmation.
-- Let CLI and LiveView approve or deny a pending request through the same
-  runtime boundary.
-- Use Security Central and settings-backed permission defaults, risk display,
-  redaction, and confirmation preferences.
-- Persist confirmation decisions in traces and memory-friendly audit records.
-- Keep command execution and external network adapters inert until this flow is
-  tested end-to-end.
+- Add durable pending capability requests for registered actions that receive a
+  Security Central `:needs_confirmation` decision.
+- Store confirmation records under Allbert Home with redacted params, selected
+  skill/action/capability metadata, Security Central decisions, runner/signal
+  context, origin channel, resolver channel, trace ids, and audit links.
+- Add Settings Central confirmation preferences for TTL, expiration, display,
+  and enabled approval surfaces.
+- Let CLI and LiveView list, show, approve, deny, and expire the same pending
+  requests through registered Jido actions and `Actions.Runner.run/3`.
+- Re-check Security Central on approval and resume only the original eligible
+  registered target action. Approval of unavailable adapters records
+  `adapter_unavailable` and performs no target side effect.
+- Treat CLI and LiveView as the first two channels in a channel-aware workflow:
+  requests remember where they originated, resolutions remember where they
+  happened, and future channels consume the same queue.
+- Persist requested, approved, denied, expired, and adapter-unavailable
+  outcomes in traces and human-inspectable audit records.
+- Keep command execution, skill scripts, package installs, online imports, and
+  real external network calls inert.
+
+Milestones:
+
+- M1: confirmation domain, Allbert Home paths, store, Settings Central keys,
+  and ADR alignment.
+- M2: registered confirmation actions and `mix allbert.confirmations` CLI.
+- M3: pending creation from confirmation-needed actions, starting with
+  `external_network_request`.
+- M4: approval resume semantics and adapter-unavailable behavior.
+- M5: LiveView confirmation surface over the same action boundary.
+- M6: trace, audit, cleanup, release docs, version metadata, and release gate.
+
+Exit signal: Allbert can pause sensitive registered actions as durable pending
+requests, let the operator approve or deny them from CLI or LiveView, record
+the result in traces/audit, and still avoid any new risky execution adapter.
 
 ## v0.08: Local Execution Sandbox And Shell Adapter
 
