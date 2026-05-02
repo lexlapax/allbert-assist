@@ -231,27 +231,32 @@ Plan: `docs/plans/v0.04-plan.md`
 Request flow: `docs/plans/v0.04-request-flow.md`
 ADR: `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
 
-Status: implementation-ready.
+Status: complete and release-ready for user testing.
 
-Expected direction:
+Implemented direction:
 
 - Adopt Boundary Actions as the runtime rule: externally invoked, effectful,
   security-relevant, or observable domain operations enter through signals,
   internal agents or runtime routers, and registered Jido actions.
 - Keep pure parsing, schema, validation, formatting, and storage helpers as
   plain Elixir behind action boundaries.
-- Add the shared action runner direction that emits consistent
+- Add the shared action runner that emits consistent
   `allbert.action.requested` and `allbert.action.completed` metadata.
-- Plan convergence for current direct-call debt in `IntentAgent`, Settings
-  LiveView, `mix allbert.settings`, trace recording, settings, skills, memory,
-  and future security work.
-- Add internal domain agents only where coordination is useful, such as
-  settings, skills, security, and memory/trace boundaries.
+- Remove direct-call debt in `IntentAgent`, Settings LiveView,
+  `mix allbert.settings`, and runtime trace recording.
+- Add action-backed settings/model/provider surfaces and an internal
+  `record_trace` action while keeping pure modules plain.
 - Add no new execution powers.
 
 Exit signal: Allbert's docs and implementation plan make the Jido boundary
 mandatory for runtime-facing domain behavior without wrapping pure helper
 modules in unnecessary agents.
+
+Closeout signal: v0.04 keeps user-visible behavior stable while routing
+intent actions, settings surfaces, provider credentials, and trace recording
+through registered actions and shared runner lifecycle metadata. v0.05
+Security Central can consume this boundary without reopening the v0.04
+architecture decision.
 
 ## v0.05: Security Central Foundation
 

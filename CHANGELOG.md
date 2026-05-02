@@ -1,5 +1,49 @@
 # Changelog
 
+## v0.04 - Jido Runtime Convergence Refactor
+
+Status: release-ready for user testing on 2026-05-02.
+
+### Added
+
+- `AllbertAssist.Actions.Registry` as the canonical registered action list.
+- `AllbertAssist.Actions.Runner.run/3` with action-requested/completed Jido
+  lifecycle signals and runner metadata.
+- `AllbertAssist.Signals` helpers with recursive redaction, including struct
+  redaction for trace-turn signal params.
+- Settings model-profile action `list_model_profiles`.
+- Internal trace action `record_trace` so runtime trace writes are observable
+  action work.
+
+### Changed
+
+- `IntentAgent` routes all selected actions through the shared runner.
+- `mix allbert.settings` uses settings actions through the runner for list,
+  get, explain, set, provider list, and provider key writes.
+- `/settings` uses settings actions through the runner for settings, provider,
+  model, and provider credential flows.
+- Runtime trace persistence uses the internal `record_trace` action instead of
+  calling `Trace.record_turn/1` directly.
+- Trace files now include runner metadata for representative user-facing
+  actions.
+
+### Safety
+
+- No shell, script, package install, external service, online import, or
+  action-backed skill execution capability was added.
+- Unknown action names and unregistered modules are denied by the runner.
+- Provider keys remain accepted only through explicit CLI/LiveView credential
+  flows and are redacted from output, action metadata, traces, logs, and tests.
+
+### Verification
+
+- Focused v0.04 gate passed with 62 core tests and 6 web tests.
+- `mix precommit` passed with 120 core tests and 11 web tests.
+- `mix dialyzer` passed.
+- Operator smoke passed in a disposable `ALLBERT_HOME`, covering traced direct
+  answer, skill listing, denied command planning, settings list/write, provider
+  listing, and trace metadata inspection.
+
 ## v0.03 - Agent Skills Substrate
 
 Status: released on 2026-05-02.
