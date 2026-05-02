@@ -192,6 +192,55 @@ Needed before planning:
 - trace and audit integration
 - install/update story for runtime dependencies
 
+### Container And Remote Execution Sandboxes
+
+Source: v0.08 planning and ADR 0009.
+
+v0.08 intentionally implements only Level 1 local policy sandboxing: confirmed
+host process execution through registered actions, Settings Central execution
+policy, Security Central decisions, output limits, redaction, and trace/audit.
+That is useful for a first local shell adapter, but it is not OS isolation and
+should not be described as protecting the host from hostile code.
+
+Future work should add deeper execution backends when Allbert needs to run
+untrusted scripts, package installs, broad coding workflows, online skill
+bootstrap, multi-user workloads, or network-heavy adapters.
+
+Candidate levels:
+
+- Level 2 trusted project/process sandbox: still host execution, but with
+  per-project execution profiles, stricter command/package-manager allowlists,
+  scoped temp/work roots, and skill/action-specific env passthrough.
+- Level 3 local container sandbox: Docker, Podman, Linux containers, Mac
+  containers, or another local container backend with explicit bind mounts,
+  non-root user policy, capability drops, resource limits, and network policy.
+- Level 4 remote or microVM isolation: remote builders, cloud sandboxes, or
+  microVM-backed execution for hostile code, untrusted imports, hosted
+  deployments, or multi-user isolation.
+
+Questions to resolve before graduation:
+
+- which workflows require stronger isolation than Level 1
+- whether the first container backend should be Docker, Podman, Mac containers,
+  a Linux-only container adapter, or a remote sandbox
+- how Allbert maps host paths to sandbox paths without over-mounting
+  user-owned data
+- whether workspace mounts are read-only, read-write, or copy-in/copy-out
+- default network posture and how external service policy composes with it
+- CPU, memory, process, disk, and wall-clock limits
+- UID/GID, rootless mode, capabilities, seccomp/AppArmor availability, and
+  macOS portability
+- image provenance, update, vulnerability, and cache policy
+- credential/env/file passthrough policy through Settings Central secrets
+- how traces/audits represent host path, sandbox path, mount, image, backend,
+  network, and resource-limit metadata
+- cleanup, persistence, rollback, and recovery when a container or remote
+  sandbox fails
+
+This should become a versioned roadmap item only after v0.08 Level 1 behavior
+has been tested with real operator usage and v0.09/v0.10 clarify which
+execution classes truly need deeper isolation.
+
 ## Review Cadence
 
 Review this file when:

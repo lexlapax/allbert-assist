@@ -1,8 +1,9 @@
 # Allbert Assist
 
 Allbert Assist is a Phoenix umbrella app for a local, Jido-centered personal
-assistant runtime. v0.07 adds durable confirmation workflow on top of the
-v0.06 action-backed skill surface: submit a prompt from CLI or LiveView; route
+assistant runtime. v0.07 has been released and tagged. v0.08 is now planned as
+the local execution sandbox and shell adapter release: submit a prompt from CLI
+or LiveView; route
 it through Jido signals, the intent agent, validated skill contracts,
 registered actions, Security Central, and the shared action runner; pause
 confirmation-required work as durable Allbert Home records; approve or deny
@@ -165,9 +166,9 @@ operator decision and still makes no network call. The CLI and `/settings`
 explain this as approved, recorded, and not executed because v0.07 has no
 adapter for that target; external network execution is planned for v0.10.
 
-Release/tag status: v0.07 is ready for user testing. Expected release tag is
-`v0.07`, pending operator acceptance; no v0.07 tag has been created or pushed
-yet.
+Release/tag status: v0.07 was released and tagged as `v0.07` on 2026-05-02.
+v0.08 planning is implementation-ready and explicitly scopes shell execution
+to Level 1 local policy sandboxing, not container isolation.
 
 Inspect generated files:
 
@@ -226,19 +227,26 @@ Security Central status.
 - v0.06 request flow: `docs/plans/v0.06-request-flow.md`
 - v0.07 plan: `docs/plans/v0.07-plan.md`
 - v0.07 request flow: `docs/plans/v0.07-request-flow.md`
+- v0.08 plan: `docs/plans/v0.08-plan.md`
+- v0.08 request flow: `docs/plans/v0.08-request-flow.md`
 - ADRs: `docs/adr/`
 
 ## Safety Boundaries
 
 Allbert remains local and conservative:
 
-- It does not execute shell commands.
+- v0.07 does not execute shell commands. v0.08 is planned to add confirmed
+  local shell execution only through a registered Jido action and Level 1 local
+  policy sandboxing, with conservative default read-only commands and explicit
+  operator profiles for additional local developer commands.
 - It does not make external network calls.
 - It records external-network approval as `adapter_unavailable` until a future
   registered `Req` adapter is implemented and confirmed; this is intentional
   adapter scaffolding, not an execution error.
 - It does not execute bundled skill scripts, package installs, or code from
   skill folders.
+- It does not claim Docker, Podman, Mac/Linux container, remote, or microVM
+  isolation yet; that future work is parked in `docs/plans/future-features.md`.
 - Sensitive-looking personal data is not silently stored unless explicit memory
   intent is present.
 - Raw provider credentials are never displayed and are stored only in the
