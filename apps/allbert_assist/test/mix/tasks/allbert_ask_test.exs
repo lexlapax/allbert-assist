@@ -76,6 +76,47 @@ defmodule Mix.Tasks.Allbert.AskTest do
     assert File.read!(trace_path) =~ "trace this cli prompt"
   end
 
+  test "default CLI runtime can list, read, and activate registry-backed skills", %{root: root} do
+    Application.delete_env(:allbert_assist, Runtime)
+
+    list_output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["--trace", "what skills are available?"])
+      end)
+
+    read_output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["--trace", "read skill append-memory"])
+      end)
+
+    alias_output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["--trace", "read skill append_memory"])
+      end)
+
+    activate_output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["--trace", "activate skill append-memory"])
+      end)
+
+    assert list_output =~ "append-memory"
+    assert list_output =~ "built_in"
+    assert read_output =~ "Skill: Append Memory"
+    assert read_output =~ "Capability actions: append_memory"
+    assert alias_output =~ "Name: append-memory"
+    assert activate_output =~ "## Skill Context"
+    assert activate_output =~ "## v0.03 Safety Boundary"
+
+    trace_bodies =
+      root
+      |> Path.join("traces/*.md")
+      |> Path.wildcard()
+      |> Enum.map(&File.read!/1)
+
+    assert Enum.any?(trace_bodies, &String.contains?(&1, "## Skill Metadata"))
+    assert Enum.any?(trace_bodies, &String.contains?(&1, "selected_skill: \"append-memory\""))
+  end
+
   test "raises when prompt is missing" do
     assert_raise Mix.Error, ~r/Usage: mix allbert.ask/, fn ->
       Ask.run([])

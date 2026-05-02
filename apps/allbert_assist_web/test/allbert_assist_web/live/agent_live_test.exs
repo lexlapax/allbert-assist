@@ -38,4 +38,21 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert html =~ "Status: completed"
     assert has_element?(view, "#agent-signal")
   end
+
+  test "default runtime can activate a skill through LiveView", %{conn: conn} do
+    Application.delete_env(:allbert_assist, Runtime)
+
+    {:ok, view, _html} = live(conn, ~p"/agent")
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "Activate skill append-memory"})
+
+    html = render_async(view)
+
+    assert has_element?(view, "#agent-response")
+    assert html =~ "## Skill Context"
+    assert html =~ "Name: append-memory"
+    assert html =~ "Status: completed"
+  end
 end

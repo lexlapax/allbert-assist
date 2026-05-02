@@ -156,8 +156,8 @@ settings across subsystems.
 Plan: `docs/plans/v0.03-plan.md`
 Request flow: `docs/plans/v0.03-request-flow.md`
 
-Status: in progress. Milestones 1 through 5 are complete and tested.
-Milestone 6, operator loop and documentation closeout, is next.
+Status: complete. Milestones 1 through 6 are complete and tested. v0.04,
+action-backed Allbert skills, is next.
 
 Expected direction:
 
@@ -207,10 +207,14 @@ Current implementation:
   response.
 - Traces now render selected skill metadata explicitly in the runtime turn
   header and in a dedicated `## Skill Metadata` section.
+- CLI and LiveView operator tests cover registry-backed skill list/read and
+  activation through the shared runtime boundary.
 
 Exit signal: Allbert can discover standard Agent Skills, activate their
 instructions through progressive disclosure, show source/trust/diagnostics, and
 trace skill activation without granting any new unsafe capability.
+
+Exit status: complete.
 
 ## v0.04: Action-Backed Allbert Skills
 
