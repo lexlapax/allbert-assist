@@ -25,6 +25,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
       refute decision.requires_confirmation
       assert PermissionGate.allowed?(decision)
       assert PermissionGate.response_status(decision) == :completed
+      assert_compatibility_fields(decision)
     end
   end
 
@@ -36,6 +37,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     refute decision.requires_confirmation
     refute PermissionGate.allowed?(decision)
     assert PermissionGate.response_status(decision) == :denied
+    assert_compatibility_fields(decision)
   end
 
   test "requires confirmation for external network access" do
@@ -46,6 +48,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert decision.requires_confirmation
     refute PermissionGate.allowed?(decision)
     assert PermissionGate.response_status(decision) == :needs_confirmation
+    assert_compatibility_fields(decision)
   end
 
   test "allows safe settings writes and explicit secret writes" do
@@ -55,6 +58,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
       assert decision.permission == permission
       assert decision.decision == :allowed
       assert PermissionGate.allowed?(decision)
+      assert_compatibility_fields(decision)
     end
   end
 
@@ -64,5 +68,28 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert decision.permission == :settings_secret_read
     assert decision.decision == :denied
     refute PermissionGate.allowed?(decision)
+    assert_compatibility_fields(decision)
+  end
+
+  test "denies unknown permission classes with compatibility fields" do
+    decision = PermissionGate.authorize(:unknown_future_permission, %{request: %{channel: :test}})
+
+    assert decision.permission == :unknown_future_permission
+    assert decision.decision == :denied
+    refute decision.requires_confirmation
+    refute PermissionGate.allowed?(decision)
+    assert PermissionGate.response_status(decision) == :denied
+    assert decision.reason =~ "Unknown permission class"
+    assert_compatibility_fields(decision)
+  end
+
+  defp assert_compatibility_fields(decision) do
+    for field <- [:permission, :decision, :reason, :requires_confirmation, :source] do
+      assert Map.has_key?(decision, field)
+    end
+
+    assert is_binary(decision.reason)
+    assert is_boolean(decision.requires_confirmation)
+    assert is_atom(decision.source)
   end
 end

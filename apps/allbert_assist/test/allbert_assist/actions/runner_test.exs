@@ -63,6 +63,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
     assert denied.status == :denied
     assert denied.runner_metadata.status == :denied
     assert denied.runner_metadata.permission_decision.decision == :denied
+    assert_permission_compatibility_fields(denied.runner_metadata.permission_decision)
 
     assert {:ok, confirmation} =
              Runner.run(
@@ -74,6 +75,15 @@ defmodule AllbertAssist.Actions.RunnerTest do
     assert confirmation.status == :needs_confirmation
     assert confirmation.runner_metadata.status == :needs_confirmation
     assert confirmation.runner_metadata.permission_decision.decision == :needs_confirmation
+    assert_permission_compatibility_fields(confirmation.runner_metadata.permission_decision)
+  end
+
+  test "preserves permission decision compatibility fields in action metadata" do
+    assert {:ok, response} = Runner.run("direct_answer", %{text: "hello"}, context())
+
+    assert [%{permission_decision: decision, runner_metadata: runner_metadata}] = response.actions
+    assert decision == runner_metadata.permission_decision
+    assert_permission_compatibility_fields(decision)
   end
 
   test "unknown names and unregistered modules never execute" do
@@ -115,4 +125,10 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp assert_permission_compatibility_fields(decision) do
+    for field <- [:permission, :decision, :reason, :requires_confirmation, :source] do
+      assert Map.has_key?(decision, field)
+    end
+  end
 end
