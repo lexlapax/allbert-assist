@@ -22,6 +22,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
+  alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
   alias AllbertAssist.Actions.Trace.RecordTrace
 
   @agent_actions [
@@ -43,6 +44,7 @@ defmodule AllbertAssist.Actions.Registry do
   ]
 
   @internal_actions [
+    SecurityStatus,
     RecordTrace
   ]
 

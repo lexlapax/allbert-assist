@@ -22,6 +22,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "list_provider_profiles",
              "list_model_profiles",
              "set_provider_credential",
+             "security_status",
              "record_trace"
            ]
 
@@ -33,6 +34,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert "direct_answer" in agent_action_names
     assert "set_provider_credential" in agent_action_names
+    refute "security_status" in agent_action_names
     refute "record_trace" in agent_action_names
   end
 

@@ -21,6 +21,11 @@ defmodule AllbertAssist.Settings.Schema do
     "skills.enabled",
     "skills.disabled",
     "skills.imported_cache_policy",
+    "permissions.memory_write",
+    "permissions.command_plan",
+    "permissions.command_execute",
+    "permissions.external_network",
+    "permissions.settings_write",
     "channels.cli.response_style",
     "channels.live_view.response_style"
   ]
@@ -123,6 +128,41 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       allowed_values: ["disabled", "enabled_manual_trust"]
+    },
+    "permissions.memory_write" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.command_plan" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.command_execute" => %{
+      type: :enum,
+      default: "denied",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.external_network" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.settings_write" => %{
+      type: :enum,
+      default: "allowed_safe_keys",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed_safe_keys", "needs_confirmation", "denied"]
     },
     "jobs.timezone" => %{
       type: :timezone,

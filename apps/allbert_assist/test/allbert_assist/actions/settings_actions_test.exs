@@ -68,6 +68,23 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert denied.message =~ "read_only_setting"
   end
 
+  test "update setting writes Settings Central permission keys" do
+    context = %{request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}}
+
+    assert {:ok, response} =
+             UpdateSetting.run(%{key: "permissions.external_network", value: "denied"}, context)
+
+    assert response.status == :completed
+    assert response.setting.key == "permissions.external_network"
+    assert {:ok, "denied"} = Settings.get("permissions.external_network")
+
+    assert {:ok, denied} =
+             UpdateSetting.run(%{key: "permissions.external_network", value: "purple"}, context)
+
+    assert denied.status == :denied
+    assert denied.message =~ "invalid_setting"
+  end
+
   test "provider profile action returns only redacted credential status" do
     assert {:ok, response} = ListProviderProfiles.run(%{}, %{})
 

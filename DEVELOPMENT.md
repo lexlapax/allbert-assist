@@ -81,6 +81,7 @@ Use the CLI runtime entrypoint:
 mix allbert.ask "hello"
 mix allbert.ask --trace "remember that I prefer concise milestone handoffs"
 mix allbert.ask --trace "activate skill append-memory"
+mix allbert.security status
 ```
 
 ## Useful Commands

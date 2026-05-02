@@ -39,6 +39,29 @@ defmodule AllbertAssistWeb.SettingsLive do
   end
 
   def handle_event(
+        "save_permission_setting",
+        %{"permission" => %{"key" => key, "value" => value}},
+        socket
+      ) do
+    socket =
+      case completed_action("update_setting", %{key: key, value: value}) do
+        {:ok, response} ->
+          socket
+          |> put_flash(:info, "Permission setting saved.")
+          |> assign(:diagnostics, "")
+          |> assign(:last_audit_path, action_audit_path(response))
+          |> refresh(key)
+
+        {:error, reason} ->
+          socket
+          |> assign(:diagnostics, inspect(reason))
+          |> refresh(socket.assigns.selected_key)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
         "save_provider_key",
         %{"provider" => %{"provider" => provider, "api_key" => api_key}},
         socket
@@ -115,6 +138,114 @@ defmodule AllbertAssistWeb.SettingsLive do
               </p>
             </section>
 
+            <section id="security-status" class="space-y-4">
+              <div>
+                <h2 class="text-lg font-medium">Security & Permissions</h2>
+                <p class="text-sm text-base-content/60">
+                  Settings Central stores editable permission policy. Security Central shows the effective decision after safety floors.
+                </p>
+              </div>
+
+              <div id="security-permission-defaults" class="space-y-3">
+                <div
+                  :for={policy <- @security_status.permission_defaults}
+                  id={"security-permission-#{permission_dom_id(policy.permission)}"}
+                  class="rounded border border-base-300 p-3 text-sm"
+                >
+                  <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div class="font-medium">{policy.permission}</div>
+                      <div class="text-xs text-base-content/60">
+                        Effective: {policy.effective} · Source: {policy.source} · Capped: {inspect(
+                          policy.capped?
+                        )}
+                      </div>
+                      <div class="text-xs text-base-content/60">{policy.reason}</div>
+                    </div>
+
+                    <.form
+                      :if={policy.setting_key}
+                      for={permission_form(policy)}
+                      id={"permission-#{permission_dom_id(policy.permission)}-form"}
+                      phx-submit="save_permission_setting"
+                      class="flex items-center gap-2"
+                    >
+                      <input type="hidden" name="permission[key]" value={policy.setting_key} />
+                      <select
+                        id={"permission-#{permission_dom_id(policy.permission)}-value"}
+                        name="permission[value]"
+                        class="select select-bordered select-sm"
+                      >
+                        <option
+                          :for={option <- permission_options(policy)}
+                          value={option}
+                          selected={option == permission_selected_value(policy)}
+                        >
+                          {option}
+                        </option>
+                      </select>
+                      <button
+                        id={"permission-#{permission_dom_id(policy.permission)}-save"}
+                        type="submit"
+                        class="btn btn-secondary btn-sm"
+                      >
+                        Save
+                      </button>
+                    </.form>
+
+                    <span :if={!policy.setting_key} class="text-xs text-base-content/60">
+                      Built-in
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="security-safety-floors" class="rounded border border-base-300 p-3 text-sm">
+                <h3 class="font-medium">Safety Floors</h3>
+                <div :for={floor <- @security_status.safety_floors}>
+                  {floor.permission}: {floor.floor}
+                </div>
+              </div>
+
+              <div
+                id="security-skill-trust-summary"
+                class="rounded border border-base-300 p-3 text-sm"
+              >
+                <h3 class="font-medium">Skill Trust</h3>
+                <div>Configured settings: {@security_status.skill_trust.configured_settings}</div>
+                <div>Enabled: {@security_status.skill_trust.enabled_count}</div>
+                <div>Disabled: {@security_status.skill_trust.disabled_count}</div>
+                <div>
+                  Trusted project roots: {@security_status.skill_trust.trusted_project_roots_count}
+                </div>
+              </div>
+
+              <div id="security-secret-status" class="rounded border border-base-300 p-3 text-sm">
+                <h3 class="font-medium">Secrets</h3>
+                <div>Providers: {@security_status.secret_status.providers}</div>
+                <div>Configured: {@security_status.secret_status.configured}</div>
+                <div>Missing: {@security_status.secret_status.missing}</div>
+              </div>
+
+              <div
+                id="security-redaction-posture"
+                class="rounded border border-base-300 p-3 text-sm"
+              >
+                <h3 class="font-medium">Redaction</h3>
+                <div>
+                  Secret refs display as {@security_status.redaction_posture.secret_ref_display}
+                </div>
+                <div>Surfaces: {Enum.join(@security_status.redaction_posture.surfaces, ", ")}</div>
+              </div>
+
+              <div id="security-future-boundaries" class="rounded border border-base-300 p-3 text-sm">
+                <h3 class="font-medium">Future Boundaries</h3>
+                <div :for={boundary <- @security_status.future_boundaries}>
+                  {boundary.name}: {boundary.milestone} {boundary.status}
+                </div>
+              </div>
+            </section>
+
             <section id="provider-profiles" class="space-y-2">
               <h2 class="text-lg font-medium">Providers</h2>
               <div :for={provider <- @providers} class="rounded border border-base-300 p-3 text-sm">
@@ -158,10 +289,12 @@ defmodule AllbertAssistWeb.SettingsLive do
     {:ok, settings_response} = completed_action("list_settings", %{})
     {:ok, providers_response} = completed_action("list_provider_profiles", %{})
     {:ok, models_response} = completed_action("list_model_profiles", %{})
+    {:ok, security_response} = completed_action("security_status", %{})
 
     settings = settings_response.settings
     providers = providers_response.providers
     models = models_response.models
+    security_status = security_response.security_status
 
     setting = Enum.find(settings, &(&1.key == selected_key)) || List.first(settings)
 
@@ -169,6 +302,7 @@ defmodule AllbertAssistWeb.SettingsLive do
     |> assign(:settings, settings)
     |> assign(:providers, providers)
     |> assign(:models, models)
+    |> assign(:security_status, security_status)
     |> assign(:selected_key, setting.key)
     |> assign(:selected_value, setting.value)
     |> assign(:explanation, explanation(setting))
@@ -203,6 +337,40 @@ defmodule AllbertAssistWeb.SettingsLive do
 
   defp form_value(value) when is_binary(value), do: value
   defp form_value(value), do: inspect(value)
+
+  defp permission_form(policy) do
+    to_form(
+      %{
+        "key" => policy.setting_key,
+        "value" => permission_selected_value(policy)
+      },
+      as: :permission
+    )
+  end
+
+  defp permission_selected_value(%{configured: configured}) when is_binary(configured),
+    do: configured
+
+  defp permission_selected_value(%{configured_decision: :allowed}), do: "allowed"
+
+  defp permission_selected_value(%{configured_decision: :needs_confirmation}),
+    do: "needs_confirmation"
+
+  defp permission_selected_value(%{configured_decision: :denied}), do: "denied"
+  defp permission_selected_value(_policy), do: "denied"
+
+  defp permission_options(%{permission: :settings_write}) do
+    ["allowed_safe_keys", "needs_confirmation", "denied"]
+  end
+
+  defp permission_options(%{setting_key: nil}), do: []
+  defp permission_options(_policy), do: ["allowed", "needs_confirmation", "denied"]
+
+  defp permission_dom_id(permission) do
+    permission
+    |> to_string()
+    |> String.replace("_", "-")
+  end
 
   defp completed_action(action_name, params) do
     case Runner.run(action_name, params, context()) do

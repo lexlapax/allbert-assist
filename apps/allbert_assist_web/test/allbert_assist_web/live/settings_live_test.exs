@@ -31,6 +31,13 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
     assert has_element?(view, "#settings-save")
     assert has_element?(view, "#settings-explanation")
     assert has_element?(view, "#settings-diagnostics")
+    assert has_element?(view, "#security-status")
+    assert has_element?(view, "#security-permission-defaults")
+    assert has_element?(view, "#security-safety-floors")
+    assert has_element?(view, "#security-skill-trust-summary")
+    assert has_element?(view, "#security-secret-status")
+    assert has_element?(view, "#security-redaction-posture")
+    assert has_element?(view, "#security-future-boundaries")
     assert has_element?(view, "#provider-profiles")
     assert has_element?(view, "#provider-key-form")
   end
@@ -73,6 +80,25 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
 
     assert html =~ "invalid_setting"
     assert has_element?(view, "#settings-diagnostics")
+  end
+
+  test "security section edits permission settings and shows effective safety floors", %{
+    conn: conn
+  } do
+    {:ok, view, _html} = live(conn, ~p"/settings")
+
+    html =
+      view
+      |> form("#permission-command-execute-form",
+        permission: %{"key" => "permissions.command_execute", "value" => "allowed"}
+      )
+      |> render_submit()
+
+    assert {:ok, "allowed"} = Settings.get("permissions.command_execute")
+    assert html =~ "command_execute"
+    assert html =~ "Effective: denied"
+    assert html =~ "Capped: true"
+    refute html =~ "secret://"
   end
 
   test "provider key form stores secret and clears raw value from html", %{conn: conn} do
