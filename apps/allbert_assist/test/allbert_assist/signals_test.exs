@@ -22,16 +22,33 @@ defmodule AllbertAssist.SignalsTest do
   end
 
   test "action lifecycle signals redact params and response summaries" do
+    skill_metadata = %{
+      selected_skill: "append-memory",
+      capability_contract: %{validation_status: :valid, api_key: "sk-skill"}
+    }
+
+    action_capability = %{name: "append_memory", permission: :memory_write}
+
     {:ok, requested} =
       Signals.action_requested(
         "set_provider_credential",
         AllbertAssist.Actions.Settings.SetProviderCredential,
         %{provider: "openai", api_key: "sk-test"},
-        %{request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}}
+        %{
+          request: %{operator_id: "local", channel: :test, input_signal_id: "sig"},
+          selected_skill: "append-memory",
+          skill_metadata: skill_metadata,
+          action_capability: action_capability
+        }
       )
 
     assert requested.data.params.api_key == "[REDACTED]"
+    assert requested.data.selected_skill == "append-memory"
+    assert requested.data.contract_status == :valid
+    assert requested.data.skill_metadata.capability_contract.api_key == "[REDACTED]"
+    assert requested.data.action_capability.name == "append_memory"
     refute inspect(requested.data) =~ "sk-test"
+    refute inspect(requested.data) =~ "sk-skill"
 
     {:ok, completed} =
       Signals.action_completed(
@@ -50,11 +67,20 @@ defmodule AllbertAssist.SignalsTest do
             }
           ]
         },
-        %{request: %{operator_id: "local", channel: :test}},
+        %{
+          request: %{operator_id: "local", channel: :test},
+          selected_skill: "append-memory",
+          skill_metadata: skill_metadata,
+          action_capability: action_capability
+        },
         12
       )
 
+    assert completed.data.selected_skill == "append-memory"
+    assert completed.data.contract_status == :valid
+    assert completed.data.skill_metadata.capability_contract.api_key == "[REDACTED]"
     assert [%{credential: "[REDACTED]"}] = completed.data.response.actions
     refute inspect(completed.data) =~ "sk-test"
+    refute inspect(completed.data) =~ "sk-skill"
   end
 end

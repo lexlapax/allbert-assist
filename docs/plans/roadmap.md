@@ -306,7 +306,7 @@ Plan: `docs/plans/v0.06-plan.md`
 Request flow: `docs/plans/v0.06-request-flow.md`
 
 Status: in implementation after v0.05 release planning sweep and v0.06
-architecture readiness sweep on 2026-05-02. Milestones 1 through 3 are
+architecture readiness sweep on 2026-05-02. Milestones 1 through 4 are
 complete and tested.
 
 Expected direction:
