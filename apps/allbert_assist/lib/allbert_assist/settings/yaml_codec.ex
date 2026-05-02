@@ -7,7 +7,7 @@ defmodule AllbertAssist.Settings.YamlCodec do
       {:ok, map} when is_map(map) -> {:ok, map}
       {:ok, other} -> {:error, {:settings_parse_failed, {:expected_map, other}}}
       {:error, %YamlElixir.FileNotFoundError{}} -> {:ok, %{}}
-      {:error, reason} -> {:error, {:settings_parse_failed, normalize_error(reason)}}
+      {:error, reason} -> {:error, {:settings_parse_failed, yaml_error_message(reason)}}
     end
   end
 
@@ -16,7 +16,7 @@ defmodule AllbertAssist.Settings.YamlCodec do
       {:ok, nil} -> {:ok, %{}}
       {:ok, map} when is_map(map) -> {:ok, map}
       {:ok, other} -> {:error, {:settings_parse_failed, {:expected_map, other}}}
-      {:error, reason} -> {:error, {:settings_parse_failed, normalize_error(reason)}}
+      {:error, reason} -> {:error, {:settings_parse_failed, yaml_error_message(reason)}}
     end
   end
 
@@ -24,6 +24,21 @@ defmodule AllbertAssist.Settings.YamlCodec do
     Ymlr.document!(map, sort_maps: true)
   end
 
-  defp normalize_error(%{message: message}), do: message
-  defp normalize_error(reason), do: reason
+  defp yaml_error_message(%_{} = exception) do
+    if is_exception(exception) do
+      Exception.message(exception)
+    else
+      inspect(exception)
+    end
+  end
+
+  defp yaml_error_message(%{} = error) do
+    case Map.fetch(error, :message) do
+      {:ok, message} when is_binary(message) -> message
+      _other -> inspect(error)
+    end
+  end
+
+  defp yaml_error_message(message) when is_binary(message), do: message
+  defp yaml_error_message(reason), do: inspect(reason)
 end

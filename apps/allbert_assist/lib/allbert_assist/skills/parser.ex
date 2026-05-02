@@ -172,7 +172,7 @@ defmodule AllbertAssist.Skills.Parser do
          [
            diagnostic(:error, :invalid_yaml, "SKILL.md frontmatter could not be parsed.",
              path: skill_file_path,
-             value: normalize_yaml_error(reason)
+             value: yaml_error_message(reason)
            )
          ]}
     end
@@ -463,8 +463,23 @@ defmodule AllbertAssist.Skills.Parser do
 
   defp sha256(contents), do: :crypto.hash(:sha256, contents)
 
-  defp normalize_yaml_error(%{message: message}), do: message
-  defp normalize_yaml_error(reason), do: inspect(reason)
+  defp yaml_error_message(%_{} = exception) do
+    if is_exception(exception) do
+      Exception.message(exception)
+    else
+      inspect(exception)
+    end
+  end
+
+  defp yaml_error_message(%{} = error) do
+    case Map.fetch(error, :message) do
+      {:ok, message} when is_binary(message) -> message
+      _other -> inspect(error)
+    end
+  end
+
+  defp yaml_error_message(message) when is_binary(message), do: message
+  defp yaml_error_message(reason), do: inspect(reason)
 
   defp diagnostic(severity, code, message, opts \\ []) do
     opts
