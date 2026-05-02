@@ -1,8 +1,86 @@
 # Changelog
 
+## v0.03 - Agent Skills Substrate
+
+Status: released on 2026-05-02.
+
+### Added
+
+- Standard Agent Skills `SKILL.md` parsing, validation, diagnostics, and
+  resource inventory for `scripts/`, `references/`, and `assets/`.
+- Registry-backed skill discovery across built-in, project, user,
+  interoperable, imported-cache, and configured scan scopes.
+- Trust, enablement, duplicate-name handling, source metadata, aliases, and
+  inert Allbert capability contracts for discovered skills.
+- Built-in Agent Skill wrappers for the current safe action surface:
+  `direct-answer`, `append-memory`, `read-recent-memory`, `list-skills`,
+  `read-skill`, `plan-shell-command`, and `external-network-request`.
+- Dedicated `activate_skill` action for progressive disclosure of trusted
+  skill instructions, diagnostics, resource inventory, and safety boundaries.
+- Runtime traces with selected skill metadata, source scope, trust state,
+  diagnostics, and resource inventory.
+- CLI and LiveView tests for registry-backed skill list, read, alias read, and
+  activation behavior.
+
+### Changed
+
+- `list_skills` and `read_skill` now use the registry instead of the old static
+  in-code declarations.
+- Settings Central can validate and write v0.03 skill trust and scan settings:
+  `skills.scan_paths`, `skills.trusted_project_roots`, `skills.enabled`,
+  `skills.disabled`, and `skills.imported_cache_policy`.
+- Documentation now treats v0.04 action-backed skills as the next milestone and
+  v0.03 as the completed compatibility/importability substrate.
+
+### Safety
+
+- Skill declarations, Allbert metadata, `allowed-tools`, bundled scripts,
+  package instructions, and external catalogs remain non-executable.
+- Activation is read-only context loading; it does not run scripts, shell
+  commands, network calls, package installs, or Jido actions.
+- Permission checks remain at the action boundary.
+
+### Verification
+
+- `mix precommit` passed with 119 tests, 0 failures, and Credo no issues.
+- CLI closeout covered list, read, activate, missing-skill activation, and trace
+  metadata in a disposable `ALLBERT_HOME`.
+- LiveView operator tests covered the same runtime activation path.
+
+## v0.02 - Allbert Home, Settings Central, Secrets, And Operator Profile
+
+Status: released on 2026-05-01.
+
+### Added
+
+- Canonical Allbert Home under `ALLBERT_HOME`, with `ALLBERT_HOME_DIR` as an
+  accepted alias and default root `~/.allbert`.
+- Settings Central with typed YAML settings, layered resolution, write
+  validation, and append-only audit markdown.
+- Encrypted local secret store for provider API keys, with redacted CLI,
+  LiveView, trace, audit, log, and test surfaces.
+- Provider and model profile settings, operator profile settings, trace
+  defaults, skill trust placeholders, and future channel/job/memory namespaces.
+- Runtime settings actions plus `mix allbert.settings` and the `/settings`
+  LiveView.
+
+### Changed
+
+- Durable memory now defaults under `<ALLBERT_HOME>/memory`, while
+  `ALLBERT_MEMORY_ROOT` remains available as a specific override.
+- Settings and secrets use one operator-facing control plane instead of
+  scattering mutable user configuration through application config.
+
+### Safety
+
+- Raw provider credentials are accepted only through stdin or an interactive
+  prompt and are never printed back.
+- Tests and operator smokes use temporary Allbert homes rather than writing to a
+  real user's `~/.allbert`.
+
 ## v0.01 - First Local Assistant Loop
 
-Status: complete.
+Status: released on 2026-05-01.
 
 ### Added
 

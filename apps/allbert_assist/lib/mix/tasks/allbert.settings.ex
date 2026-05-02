@@ -133,8 +133,8 @@ defmodule Mix.Tasks.Allbert.Settings do
   end
 
   defp prompt_provider_key(provider) do
-    provider
-    |> then(&Mix.shell().prompt("API key for #{&1}: "))
+    "API key for #{provider}: "
+    |> Mix.shell().prompt()
     |> normalize_provider_key()
   end
 

@@ -1,11 +1,13 @@
 # Allbert Assist
 
 Allbert Assist is a Phoenix umbrella app for a local, Jido-centered personal
-assistant runtime. v0.02 proves the first usable local control plane: submit a
-prompt from CLI or LiveView; route it through Jido signals and a primary intent
-agent; run validated actions; persist markdown memory; write inspectable
-traces; and manage typed settings, provider profiles, and encrypted local
-secrets through Settings Central.
+assistant runtime. v0.03 adds the Agent Skills substrate on top of the local
+control plane: submit a prompt from CLI or LiveView; route it through Jido
+signals and a primary intent agent; run validated actions; persist markdown
+memory; write inspectable traces; manage typed settings, provider profiles, and
+encrypted local secrets through Settings Central; and discover, read, and
+activate standard `SKILL.md` skill folders without granting new execution
+authority.
 
 ## Current Capabilities
 
@@ -21,6 +23,8 @@ secrets through Settings Central.
 - Settings Central under `<ALLBERT_HOME>/settings`, with typed YAML settings,
   encrypted `secrets.yml.enc`, and append-only audit markdown
 - Provider and model profiles with redacted credential status
+- Agent Skills-compatible parser, registry, trust policy, built-in skill pack,
+  and progressive-disclosure `activate_skill` action
 - Markdown memory under `<ALLBERT_HOME>/memory`, with `ALLBERT_MEMORY_ROOT` as
   a specific override
 - Low-risk personal preference heuristics, such as "my name is Sandeep" and
@@ -74,7 +78,7 @@ ignores are reported.
 Use a disposable memory root:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v001-demo
+export ALLBERT_HOME=/tmp/allbert-v003-demo
 export ALLBERT_TRACE_ENABLED=true
 rm -rf "$ALLBERT_HOME"
 ```
@@ -95,6 +99,14 @@ Confirm command execution is blocked:
 
 ```sh
 mix allbert.ask --trace "run a destructive shell command"
+```
+
+Inspect and activate registry-backed skills:
+
+```sh
+mix allbert.ask --trace "what skills are available?"
+mix allbert.ask --trace "read skill append-memory"
+mix allbert.ask --trace "activate skill append-memory"
 ```
 
 Inspect and update Settings Central:
@@ -118,7 +130,7 @@ find "$ALLBERT_HOME/memory" -maxdepth 2 -type f | sort
 Start Phoenix:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v001-demo
+export ALLBERT_HOME=/tmp/allbert-v003-demo
 export ALLBERT_TRACE_ENABLED=true
 mix phx.server
 ```
@@ -151,6 +163,9 @@ The LiveViews use the same runtime and settings boundaries as the CLI.
 - v0.01 request flow: `docs/plans/v0.01-request-flow.md`
 - v0.02 plan: `docs/plans/v0.02-plan.md`
 - v0.02 request flow: `docs/plans/v0.02-request-flow.md`
+- v0.03 plan: `docs/plans/v0.03-plan.md`
+- v0.03 request flow: `docs/plans/v0.03-request-flow.md`
+- v0.04 plan: `docs/plans/v0.04-plan.md`
 - ADRs: `docs/adr/`
 
 ## Safety Boundaries
@@ -159,6 +174,8 @@ Allbert remains local and conservative:
 
 - It does not execute shell commands.
 - It does not make external network calls.
+- It does not execute bundled skill scripts, package installs, or code from
+  skill folders.
 - Sensitive-looking personal data is not silently stored unless explicit memory
   intent is present.
 - Raw provider credentials are never displayed and are stored only in the

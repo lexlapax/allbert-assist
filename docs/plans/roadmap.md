@@ -156,8 +156,8 @@ settings across subsystems.
 Plan: `docs/plans/v0.03-plan.md`
 Request flow: `docs/plans/v0.03-request-flow.md`
 
-Status: complete. Milestones 1 through 6 are complete and tested. v0.04,
-action-backed Allbert skills, is next.
+Status: complete and ready for release tag `v0.03`. Milestones 1 through 6 are
+complete and tested. v0.04, action-backed Allbert skills, is next.
 
 Expected direction:
 

@@ -19,12 +19,12 @@ Before implementation work:
 5. Read ADRs that constrain the task.
 6. Inspect the relevant code before editing.
 
-For v0.02, start with:
+For active v0.04 skill-backed execution work, start with:
 
-- `docs/plans/v0.02-plan.md`
-- `docs/plans/v0.02-request-flow.md`
-- `docs/adr/0004-domain-settings-engine.md`
-- `docs/adr/0005-canonical-allbert-home.md`
+- `docs/plans/v0.04-plan.md`
+- `docs/plans/v0.03-plan.md`
+- `docs/plans/v0.03-request-flow.md`
+- `docs/adr/0003-skill-manifests-as-capability-contracts.md`
 
 ## Fresh Checkout
 
@@ -56,6 +56,7 @@ Open the current operator LiveView:
 
 ```text
 http://localhost:4000/agent
+http://localhost:4000/settings
 ```
 
 Use the CLI runtime entrypoint:
@@ -63,6 +64,7 @@ Use the CLI runtime entrypoint:
 ```sh
 mix allbert.ask "hello"
 mix allbert.ask --trace "remember that I prefer concise milestone handoffs"
+mix allbert.ask --trace "activate skill append-memory"
 ```
 
 ## Useful Commands
@@ -83,6 +85,8 @@ Focused examples:
 ```sh
 mix test apps/allbert_assist/test/allbert_assist/runtime_test.exs
 mix test apps/allbert_assist/test/allbert_assist/memory_test.exs
+mix test apps/allbert_assist/test/allbert_assist/skills/registry_test.exs
+mix test apps/allbert_assist/test/mix/tasks/allbert_ask_test.exs
 mix test apps/allbert_assist_web/test/allbert_assist_web/live/agent_live_test.exs
 ```
 
