@@ -5,7 +5,7 @@ Phoenix web surface for Allbert Assist.
 Start the web demo:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v005-demo
+export ALLBERT_HOME=/tmp/allbert-v006-demo
 export ALLBERT_TRACE_ENABLED=true
 mix phx.server
 ```
@@ -23,3 +23,6 @@ when tracing is enabled. The `/settings` LiveView uses Settings Central for
 operator settings, provider profile status, skill trust settings, and editable
 permission defaults. Its Security & Permissions section reads effective
 Security Central status through the registered `security_status` action.
+v0.06 action-backed skill behavior remains in the shared runtime/action
+boundary, so LiveView skill prompts use the same selected-skill, contract,
+Security Central, and trace metadata as the CLI.

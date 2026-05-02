@@ -305,8 +305,10 @@ itself.
 Plan: `docs/plans/v0.06-plan.md`
 Request flow: `docs/plans/v0.06-request-flow.md`
 
-Status: implementation complete and ready for user testing on 2026-05-02.
-Milestones 1 through 6 are complete and tested.
+Status: released as v0.06 on 2026-05-02. Milestones 1 through 6 are complete
+and tested.
+
+Release tag: `v0.06`.
 
 Expected direction:
 

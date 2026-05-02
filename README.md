@@ -1,14 +1,14 @@
 # Allbert Assist
 
 Allbert Assist is a Phoenix umbrella app for a local, Jido-centered personal
-assistant runtime. v0.05 adds Security Central on top of the local control
-plane: submit a prompt from CLI or LiveView; route it through Jido signals, the
-intent agent, registered actions, and the shared action runner; persist
-markdown memory; write inspectable traces; manage typed settings, provider
-profiles, and encrypted local secrets through Settings Central; discover, read,
-and activate standard `SKILL.md` skill folders; and evaluate permission, risk,
-trust, redaction, audit, and trace metadata without granting new execution
-authority.
+assistant runtime. v0.06 binds trusted Agent Skills metadata to registered
+Jido actions through Security Central: submit a prompt from CLI or LiveView;
+route it through Jido signals, the intent agent, validated skill contracts,
+registered actions, and the shared action runner; persist markdown memory;
+write inspectable traces; manage typed settings, provider profiles, and
+encrypted local secrets through Settings Central; discover, read, activate,
+validate, and scaffold standard `SKILL.md` skill folders without granting new
+execution authority.
 
 ## Current Capabilities
 
@@ -18,10 +18,12 @@ authority.
   `AllbertAssist.Actions.Runner.run/3`
 - Explicit Jido actions for direct answers, memory, skill inspection, command
   planning, and external-network recognition
+- Action-backed built-in skills for direct answers, markdown memory,
+  skill list/read, command planning, and external-network recognition
 - Security Central for read-only work, memory writes, command planning,
   command execution denial, external-network confirmation, settings writes,
-  settings secret boundaries, risk, redaction, audit, trace, and trust
-  metadata
+  skill scaffold writes, settings secret boundaries, risk, redaction, audit,
+  trace, and trust metadata
 - Allbert Home path foundation under `ALLBERT_HOME`, alias
   `ALLBERT_HOME_DIR`, defaulting to `~/.allbert`
 - Settings Central under `<ALLBERT_HOME>/settings`, with typed YAML settings,
@@ -29,15 +31,16 @@ authority.
   markdown
 - Provider and model profiles with redacted credential status
 - Agent Skills-compatible parser, registry, trust policy, built-in skill pack,
-  and progressive-disclosure `activate_skill` action
+  action-backed contract validation, local validation/scaffold helpers, and
+  progressive-disclosure `activate_skill` action
 - Markdown memory under `<ALLBERT_HOME>/memory`, with `ALLBERT_MEMORY_ROOT` as
   a specific override
 - Low-risk personal preference heuristics, such as "my name is Sandeep" and
   "I prefer short updates"
 - Markdown traces under the memory `traces` category when tracing is enabled
 - CLI entrypoint with `mix allbert.ask`
-- Settings and security CLIs with `mix allbert.settings` and `mix
-  allbert.security status`
+- Settings, security, and skill helper CLIs with `mix allbert.settings`, `mix
+  allbert.security status`, and `mix allbert.skills`
 - Phoenix LiveViews at `http://localhost:4000/agent` and
   `http://localhost:4000/settings`
 
@@ -84,7 +87,7 @@ ignores are reported.
 Use a disposable memory root:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v005-demo
+export ALLBERT_HOME=/tmp/allbert-v006-demo
 export ALLBERT_TRACE_ENABLED=true
 rm -rf "$ALLBERT_HOME"
 ```
@@ -113,6 +116,13 @@ Inspect and activate registry-backed skills:
 mix allbert.ask --trace "what skills are available?"
 mix allbert.ask --trace "read skill append-memory"
 mix allbert.ask --trace "activate skill append-memory"
+```
+
+Validate and scaffold local skill wrappers:
+
+```sh
+mix allbert.skills validate apps/allbert_assist/priv/skills/append-memory
+mix allbert.skills create demo-memory append_memory memory_write "Save a short memory helper" --root "$ALLBERT_HOME/skills"
 ```
 
 Inspect and update Settings Central:
@@ -144,7 +154,7 @@ find "$ALLBERT_HOME/memory" -maxdepth 2 -type f | sort
 Start Phoenix:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v005-demo
+export ALLBERT_HOME=/tmp/allbert-v006-demo
 export ALLBERT_TRACE_ENABLED=true
 mix phx.server
 ```
@@ -186,6 +196,8 @@ Central actions and read-only effective Security Central status.
 - v0.05 plan: `docs/plans/v0.05-plan.md`
 - v0.05 request flow: `docs/plans/v0.05-request-flow.md`
 - v0.06 plan: `docs/plans/v0.06-plan.md`
+- v0.06 request flow: `docs/plans/v0.06-request-flow.md`
+- v0.07 plan: `docs/plans/v0.07-plan.md`
 - ADRs: `docs/adr/`
 
 ## Safety Boundaries
