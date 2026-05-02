@@ -25,6 +25,7 @@ defmodule AllbertAssist.Actions.Settings.ListSettings do
        %{
          message: message(settings),
          status: PermissionGate.response_status(permission_decision),
+         settings: settings,
          actions: [action(settings, permission_decision)]
        }}
     end

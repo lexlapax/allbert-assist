@@ -5,7 +5,7 @@ defmodule AllbertAssistWeb.SettingsLive do
 
   use AllbertAssistWeb, :live_view
 
-  alias AllbertAssist.Settings
+  alias AllbertAssist.Actions.Runner
 
   @default_key "operator.communication_style"
 
@@ -21,12 +21,12 @@ defmodule AllbertAssistWeb.SettingsLive do
 
   def handle_event("save_setting", %{"setting" => %{"key" => key, "value" => value}}, socket) do
     socket =
-      case Settings.put(key, value, %{actor: "local", channel: :live_view}) do
-        {:ok, setting} ->
+      case completed_action("update_setting", %{key: key, value: value}) do
+        {:ok, response} ->
           socket
           |> put_flash(:info, "Setting saved.")
           |> assign(:diagnostics, "")
-          |> assign(:last_audit_path, audit_path(setting.diagnostics))
+          |> assign(:last_audit_path, action_audit_path(response))
           |> refresh(key)
 
         {:error, reason} ->
@@ -43,15 +43,17 @@ defmodule AllbertAssistWeb.SettingsLive do
         %{"provider" => %{"provider" => provider, "api_key" => api_key}},
         socket
       ) do
-    secret_ref = "secret://providers/#{provider}/api_key"
-
     socket =
-      case Settings.Secrets.put_secret(secret_ref, api_key, %{actor: "local", channel: :live_view}) do
-        {:ok, result} ->
+      case completed_action("set_provider_credential", %{
+             provider: provider,
+             mode: :set_secret,
+             api_key: api_key
+           }) do
+        {:ok, response} ->
           socket
           |> put_flash(:info, "Provider credential saved.")
           |> assign(:diagnostics, "")
-          |> assign(:last_audit_path, audit_path(Map.get(result, :diagnostics, [])))
+          |> assign(:last_audit_path, action_audit_path(response))
           |> refresh(socket.assigns.selected_key)
 
         {:error, reason} ->
@@ -153,9 +155,13 @@ defmodule AllbertAssistWeb.SettingsLive do
   end
 
   defp refresh(socket, selected_key) do
-    {:ok, settings} = Settings.list()
-    {:ok, providers} = Settings.list_provider_profiles()
-    {:ok, models} = Settings.list_model_profiles()
+    {:ok, settings_response} = completed_action("list_settings", %{})
+    {:ok, providers_response} = completed_action("list_provider_profiles", %{})
+    {:ok, models_response} = completed_action("list_model_profiles", %{})
+
+    settings = settings_response.settings
+    providers = providers_response.providers
+    models = models_response.models
 
     setting = Enum.find(settings, &(&1.key == selected_key)) || List.first(settings)
 
@@ -198,5 +204,33 @@ defmodule AllbertAssistWeb.SettingsLive do
   defp form_value(value) when is_binary(value), do: value
   defp form_value(value), do: inspect(value)
 
-  defp audit_path(diagnostics), do: Enum.find_value(diagnostics, &Map.get(&1, :audit_path))
+  defp completed_action(action_name, params) do
+    case Runner.run(action_name, params, context()) do
+      {:ok, %{status: :completed} = response} -> {:ok, response}
+      {:ok, response} -> {:error, response_error(response)}
+    end
+  end
+
+  defp response_error(%{error: error}), do: error
+
+  defp response_error(%{actions: actions, message: message}) when is_list(actions) do
+    actions
+    |> Enum.find_value(&get_in(&1, [:settings_metadata, :error]))
+    |> case do
+      nil -> message
+      error -> error
+    end
+  end
+
+  defp response_error(%{message: message}), do: message
+
+  defp action_audit_path(response) do
+    response
+    |> Map.get(:actions, [])
+    |> Enum.find_value(&get_in(&1, [:settings_metadata, :audit_path]))
+  end
+
+  defp context do
+    %{actor: "local", channel: :live_view}
+  end
 end

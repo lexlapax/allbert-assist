@@ -26,6 +26,7 @@ defmodule AllbertAssist.Actions.Settings.ReadSetting do
          %{
            message: "#{setting.key}: #{inspect(setting.value)}\nSource: #{setting.source}",
            status: PermissionGate.response_status(permission_decision),
+           setting: setting,
            actions: [action(setting, permission_decision)]
          }}
 

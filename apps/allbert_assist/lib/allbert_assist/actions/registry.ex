@@ -16,6 +16,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
   alias AllbertAssist.Actions.Intent.ReadSkill
   alias AllbertAssist.Actions.Settings.ExplainSetting
+  alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
   alias AllbertAssist.Actions.Settings.ListSettings
   alias AllbertAssist.Actions.Settings.ReadSetting
@@ -36,6 +37,7 @@ defmodule AllbertAssist.Actions.Registry do
     UpdateSetting,
     ExplainSetting,
     ListProviderProfiles,
+    ListModelProfiles,
     SetProviderCredential
   ]
 

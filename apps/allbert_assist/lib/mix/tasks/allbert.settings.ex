@@ -14,8 +14,7 @@ defmodule Mix.Tasks.Allbert.Settings do
 
   use Mix.Task
 
-  alias AllbertAssist.Settings
-  alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Actions.Runner
 
   @shortdoc "Inspect and update Allbert Settings Central"
 
@@ -28,38 +27,46 @@ defmodule Mix.Tasks.Allbert.Settings do
     |> print_result()
   end
 
-  defp dispatch(["list"]), do: Settings.list()
+  defp dispatch(["list"]) do
+    with {:ok, response} <- completed_action("list_settings", %{}) do
+      {:ok, response.settings}
+    end
+  end
 
   defp dispatch(["get", key]) do
-    with {:ok, setting} <- Settings.resolve(key) do
-      {:ok, {:setting, setting}}
+    with {:ok, response} <- completed_action("read_setting", %{key: key}) do
+      {:ok, {:setting, response.setting}}
     end
   end
 
   defp dispatch(["explain", key]) do
-    with {:ok, setting} <- Settings.explain(key) do
-      {:ok, {:explanation, setting}}
+    with {:ok, response} <- completed_action("explain_setting", %{key: key}) do
+      {:ok, {:explanation, response.setting}}
     end
   end
 
   defp dispatch(["set", key, value]) do
-    with {:ok, setting} <- Settings.put(key, parse_value(value), context()) do
-      {:ok, {:written, setting}}
+    with {:ok, response} <-
+           completed_action("update_setting", %{key: key, value: parse_value(value)}) do
+      {:ok, {:written, response.setting}}
     end
   end
 
   defp dispatch(["providers", "list"]) do
-    with {:ok, providers} <- Settings.list_provider_profiles() do
-      {:ok, {:providers, providers}}
+    with {:ok, response} <- completed_action("list_provider_profiles", %{}) do
+      {:ok, {:providers, response.providers}}
     end
   end
 
   defp dispatch(["providers", "set-key", provider]) do
-    secret_ref = "secret://providers/#{provider}/api_key"
-
     with {:ok, api_key} <- read_provider_key(provider),
-         {:ok, result} <- Secrets.put_secret(secret_ref, api_key, context()) do
-      {:ok, {:provider_key, provider, result}}
+         {:ok, response} <-
+           completed_action("set_provider_credential", %{
+             provider: provider,
+             mode: :set_secret,
+             api_key: api_key
+           }) do
+      {:ok, {:provider_key, response.provider, response}}
     end
   end
 
@@ -116,7 +123,7 @@ defmodule Mix.Tasks.Allbert.Settings do
   end
 
   defp print_result({:ok, {:provider_key, provider, result}}) do
-    Mix.shell().info("#{provider} credential=#{result.status}")
+    Mix.shell().info("#{provider} credential=#{result.credential_status}")
     print_diagnostics(Map.get(result, :diagnostics, []))
   end
 
@@ -142,6 +149,26 @@ defmodule Mix.Tasks.Allbert.Settings do
     value = String.trim(value)
     if value == "", do: {:error, :empty_provider_key}, else: {:ok, value}
   end
+
+  defp completed_action(action_name, params) do
+    case Runner.run(action_name, params, context()) do
+      {:ok, %{status: :completed} = response} -> {:ok, response}
+      {:ok, response} -> {:error, response_error(response)}
+    end
+  end
+
+  defp response_error(%{error: error}), do: error
+
+  defp response_error(%{actions: actions, message: message}) when is_list(actions) do
+    actions
+    |> Enum.find_value(&get_in(&1, [:settings_metadata, :error]))
+    |> case do
+      nil -> message
+      error -> error
+    end
+  end
+
+  defp response_error(%{message: message}), do: message
 
   defp parse_value("true"), do: true
   defp parse_value("false"), do: false
