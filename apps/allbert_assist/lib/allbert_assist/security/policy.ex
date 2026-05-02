@@ -26,8 +26,18 @@ defmodule AllbertAssist.Security.Policy do
 
   @known_permissions Map.keys(@default_decisions)
 
+  @type permission ::
+          :read_only
+          | :memory_write
+          | :command_plan
+          | :command_execute
+          | :external_network
+          | :settings_write
+          | :settings_secret_write
+          | :settings_secret_read
+
   @doc "Return known permission classes in stable order."
-  @spec permission_classes() :: [atom()]
+  @spec permission_classes() :: nonempty_list(permission())
   def permission_classes do
     [
       :read_only,

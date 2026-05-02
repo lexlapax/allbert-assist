@@ -26,7 +26,7 @@ For v0.04 runtime convergence regression or boundary-adjacent work, start with:
 - `docs/adr/0001-signal-first-jido-runtime.md`
 - `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
 
-For active v0.05 Security Central work, start with:
+For v0.05 Security Central regression or boundary work, start with:
 
 - `docs/plans/v0.05-plan.md`
 - `docs/plans/v0.05-request-flow.md`

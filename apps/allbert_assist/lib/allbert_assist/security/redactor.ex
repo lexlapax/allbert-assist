@@ -8,6 +8,13 @@ defmodule AllbertAssist.Security.Redactor do
   @sensitive_key_fragments ["api_key", "apikey", "secret", "token", "password", "credential"]
   @status_keys ["credential_status", "secret_status", "secret_ref_display"]
 
+  @type posture :: %{
+          sensitive_key_fragments: nonempty_list(String.t()),
+          secret_ref_display: String.t(),
+          redacted_value: String.t(),
+          surfaces: nonempty_list(atom())
+        }
+
   @doc "Recursively redact sensitive keys, secret refs, structs, maps, and lists."
   @spec redact(term()) :: term()
   def redact(%_{} = struct) do
@@ -34,7 +41,7 @@ defmodule AllbertAssist.Security.Redactor do
   def redact(value), do: value
 
   @doc "Return a short posture summary suitable for operator status."
-  @spec posture() :: map()
+  @spec posture() :: posture()
   def posture do
     %{
       sensitive_key_fragments: @sensitive_key_fragments,

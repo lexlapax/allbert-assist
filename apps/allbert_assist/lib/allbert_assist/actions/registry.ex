@@ -15,6 +15,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.PlanShellCommand
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
   alias AllbertAssist.Actions.Intent.ReadSkill
+  alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
   alias AllbertAssist.Actions.Settings.ExplainSetting
   alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
@@ -22,7 +23,6 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
-  alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
   alias AllbertAssist.Actions.Trace.RecordTrace
 
   @agent_actions [

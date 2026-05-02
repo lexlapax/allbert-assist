@@ -264,35 +264,41 @@ Plan: `docs/plans/v0.05-plan.md`
 Request flow: `docs/plans/v0.05-request-flow.md`
 ADR: `docs/adr/0006-security-central.md`
 
-Status: implementation-ready.
+Status: implemented; ready for user testing.
 
-Expected direction:
+Implemented scope:
 
-- Add Security Central as the shared security evaluation surface.
-- Consume the v0.04 action/runtime boundary instead of creating private
+- Added Security Central as the shared security evaluation surface.
+- Consumed the v0.04 action/runtime boundary instead of creating private
   security policy paths in CLI, LiveView, jobs, or channels.
-- Keep Settings Central as policy and secret storage; Security Central reads
+- Kept Settings Central as policy and secret storage; Security Central reads
   settings, skill trust, secret status, and runtime context.
-- Define security context, decisions, policy resolution, risk tiers, redaction,
+- Defined security context, decisions, policy resolution, risk tiers, redaction,
   audit event shape, trust/provenance summary, and operator-visible security
   status.
-- Keep `AllbertAssist.Security.PermissionGate.authorize/2` as a compatibility
+- Kept `AllbertAssist.Security.PermissionGate.authorize/2` as a compatibility
   entrypoint that delegates to Security Central while preserving current
   fields and behavior.
-- Preserve v0.04's existing action runner and lifecycle signals; v0.05 widens
+- Preserved v0.04's existing action runner and lifecycle signals; v0.05 widens
   decision metadata rather than replacing the runner.
-- Add built-in safety floors so Settings Central can tighten policy but cannot
+- Added built-in safety floors so Settings Central can tighten policy but cannot
   prematurely grant shell, script, package-install, network, online-import, raw
   secret-read, unknown-action, or unknown-permission authority.
-- Add Security or Permissions status to `/settings`: permission settings remain
+- Added Security & Permissions status to `/settings`: permission settings remain
   editable through Settings Central actions, while effective Security Central
   decisions, safety floors, trust, secret status, and redaction posture are
   displayed read-only.
-- Add no new execution powers.
+- Added no new execution powers.
 
 Exit signal: Allbert can make and explain structured security decisions with
 permission, risk, confirmation, redaction, audit, trace, actor/channel/session,
 selected skill/action, and trust boundary metadata.
+
+v0.06 handoff: action-backed skills should consume the implemented
+`AllbertAssist.Security` decision shape, selected skill trust/provenance
+context, registered action metadata, known permission classes, and safety-floor
+capped Settings Central policy. Skill metadata still never grants permission by
+itself.
 
 ## v0.06: Action-Backed Allbert Skills
 
