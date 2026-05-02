@@ -44,9 +44,14 @@ low-level implementation details.
 - Security Central moves to v0.05 and consumes the converged boundary.
 - The action runner becomes a required runtime boundary before action-backed
   skills, confirmations, execution adapters, jobs, and channels.
+- Runtime-facing action invocation resolves through the action registry and
+  shared runner so lifecycle signals, permission decisions, redaction,
+  metadata, and future Security Central evaluation remain consistent.
 - CLI, LiveView, jobs, and future channels should not own settings, skills,
   memory, trace, or security semantics.
 - Direct domain calls remain acceptable inside registered actions, pure
   modules, migrations, and focused unit tests.
 - Tests should cover both pure modules and action/runtime boundaries instead of
   pretending one style fits every layer.
+- Implementation milestones must stay warning-free across compiler checks,
+  formatter checks, Credo strict, Dialyzer, focused tests, and precommit.

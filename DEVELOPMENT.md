@@ -91,6 +91,8 @@ Umbrella root:
 mix setup
 mix compile --warnings-as-errors
 mix format --check-formatted
+mix credo --strict
+mix dialyzer
 mix test
 mix precommit
 MIX_ENV=test mix check
@@ -144,8 +146,16 @@ Core rules:
 - Externally invoked, effectful, security-relevant, or observable domain
   operations enter through signals, internal agents or runtime routers, and
   registered Jido actions.
+- Runtime-facing action invocation resolves through
+  `AllbertAssist.Actions.Registry` and runs through
+  `AllbertAssist.Actions.Runner.run/3`.
+- Action lifecycle events use the shared Allbert signal vocabulary, especially
+  `allbert.action.requested` and `allbert.action.completed`.
 - Pure parsing, validation, schema, formatting, and storage helpers stay plain
   Elixir behind action boundaries.
+- CLI tasks, LiveViews, jobs, and future channel adapters should call runtime,
+  signal, agent, or action boundaries rather than owning domain semantics
+  directly.
 - Permission checks happen at the action boundary.
 - Runtime turns should be traceable when tracing is enabled.
 - Trace metadata should explain selected agent, selected skill, selected
@@ -270,6 +280,12 @@ settings, skills, security, memory, trace, jobs, and channels should expose
 runtime-facing behavior through signals, agents, and registered Jido actions
 while keeping pure helper modules plain Elixir.
 
+The shared runtime action boundary is
+`AllbertAssist.Actions.Runner.run/3`. New runtime-facing capabilities should
+be registered in `AllbertAssist.Actions.Registry`, emit lifecycle metadata
+through the runner, and expose internal actions separately from the
+intent-agent tool surface when needed.
+
 v0.05 Security Central defines shared security decisions, risk, redaction,
 trust-boundary, and audit vocabulary without adding new execution powers.
 
@@ -370,11 +386,18 @@ For each milestone:
    operator-visible behavior.
 6. Add or update ADRs when an implementation decision affects future work.
 7. Run focused tests.
-8. Run `mix precommit` for code changes.
+8. Run the code warning gate for code changes:
+   `mix compile --warnings-as-errors`, `mix format --check-formatted`,
+   `mix credo --strict`, `mix dialyzer`, and `mix precommit`.
 9. Run `git diff --check` for docs-only changes.
 
 Each milestone should include operator/user verification steps, not only unit
 tests.
+
+Do not commit, tag, or hand off an implementation milestone with known compiler
+warnings, formatter drift, Credo findings, Dialyzer warnings, focused-test
+failures, or precommit failures. If a gate cannot run because of environment
+constraints, document the exact blocker and ask before deferring it.
 
 ## Current Safety Boundaries
 
