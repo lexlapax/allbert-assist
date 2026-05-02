@@ -5,7 +5,7 @@ defmodule AllbertAssistWeb.SettingsLive do
 
   use AllbertAssistWeb, :live_view
 
-  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.{Actions.Runner, Confirmations}
 
   @default_key "operator.communication_style"
 
@@ -93,7 +93,7 @@ defmodule AllbertAssistWeb.SettingsLive do
       case completed_action("approve_confirmation", %{id: id}) do
         {:ok, response} ->
           socket
-          |> put_flash(:info, "Confirmation #{response.confirmation["status"]}.")
+          |> put_flash(:info, Confirmations.status_message(response.confirmation))
           |> assign(:diagnostics, "")
           |> refresh(socket.assigns.selected_key)
 
@@ -393,6 +393,12 @@ defmodule AllbertAssistWeb.SettingsLive do
                       confirmation
                     )}
                   </div>
+                  <div
+                    :if={status_note(confirmation)}
+                    class="mt-1 text-xs text-base-content/70"
+                  >
+                    {status_note(confirmation)}
+                  </div>
                 </div>
               </div>
             </section>
@@ -582,6 +588,8 @@ defmodule AllbertAssistWeb.SettingsLive do
 
     "#{Map.get(resolution, "resolver_actor", "none")}/#{Map.get(resolution, "resolver_channel", "none")}"
   end
+
+  defp status_note(confirmation), do: Confirmations.status_note(confirmation)
 
   defp risk_tier(confirmation) do
     get_in(confirmation, ["security_decision", "risk", "tier"]) || "unknown"

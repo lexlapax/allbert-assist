@@ -119,7 +119,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   defp completed(record, permission_decision, metadata) do
     {:ok,
      %{
-       message: "Confirmation #{record["id"]} is #{record["status"]}.",
+       message: Confirmations.status_message(record),
        status: :completed,
        permission_decision: permission_decision,
        confirmation: record,

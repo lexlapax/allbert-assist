@@ -374,7 +374,8 @@ Request flow: `docs/plans/v0.07-request-flow.md`
 ADR: `docs/adr/0008-durable-confirmation-requests.md`
 
 Status: implementation complete and ready for user testing on 2026-05-02.
-Release tag pending operator acceptance.
+Expected release tag: `v0.07`. Release tag pending operator acceptance; no
+v0.07 tag has been created or pushed yet.
 
 Expected direction:
 
@@ -419,8 +420,9 @@ the result in traces/audit, and still avoid any new risky execution adapter.
 Closeout signal: v0.07 passed focused milestone tests, full warning gates,
 precommit, diff checks, and disposable-home operator smoke. The app versions
 are bumped to `0.7.0`. External-network approvals resolve as
-`adapter_unavailable`; v0.08 should replace that baseline only for a registered
-confirmed shell adapter with sandbox policy.
+`adapter_unavailable` with operator-facing output that explains the approval
+was recorded but no adapter ran; v0.08 should replace that baseline only for a
+registered confirmed shell adapter with sandbox policy.
 
 ## v0.08: Local Execution Sandbox And Shell Adapter
 

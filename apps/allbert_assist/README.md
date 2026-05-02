@@ -33,7 +33,9 @@ Confirmation records live under `<ALLBERT_HOME>/confirmations` with
 `pending/`, `resolved/`, and `audit/` children. Approval and denial are
 registered actions through `AllbertAssist.Actions.Runner.run/3`; approval
 re-checks Security Central and in v0.07 resolves external-network requests as
-`adapter_unavailable` without making a network call.
+`adapter_unavailable` without making a network call. Operator-facing output
+explains that status as approved, recorded, and not executed because the v0.07
+target has no adapter; external network execution is planned for v0.10.
 
 See the umbrella root `README.md`, `docs/plans/v0.07-plan.md`, and
 `docs/plans/v0.07-request-flow.md` for operator usage and current confirmation

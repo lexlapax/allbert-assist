@@ -2,8 +2,9 @@
 
 ## v0.07 - Confirmation Workflow
 
-Status: ready for user testing on 2026-05-02. Release tag pending operator
-acceptance.
+Status: ready for user testing on 2026-05-02. Expected release tag: `v0.07`.
+Release tag pending operator acceptance; no v0.07 tag has been created or
+pushed yet.
 
 ### Added
 
@@ -27,6 +28,9 @@ acceptance.
   and records resolver channel metadata.
 - Approved external-network requests resolve as `adapter_unavailable` in v0.07
   because no real network adapter exists yet.
+- Operator-facing CLI and LiveView output explains `adapter_unavailable` as
+  approved, recorded, and not executed because the v0.07 target has no adapter;
+  external network execution is planned for v0.10.
 - If target policy changes to denied before approval, the request resolves as
   `denied` and target work is not invoked.
 

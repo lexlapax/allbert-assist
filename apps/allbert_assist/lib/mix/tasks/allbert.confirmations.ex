@@ -15,6 +15,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Confirmations
 
   @shortdoc "Inspect and resolve Allbert confirmation requests"
 
@@ -77,6 +78,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   defp print_result({:ok, {:list, confirmations}}) do
     Enum.each(confirmations, fn confirmation ->
       Mix.shell().info(summary(confirmation))
+      print_status_note(confirmation)
     end)
   end
 
@@ -87,11 +89,13 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     Mix.shell().info("Origin: #{origin_text(confirmation)}")
     Mix.shell().info("Resolver: #{resolver_text(confirmation)}")
     Mix.shell().info("Trace: #{Map.get(confirmation, "source_trace_id", "none")}")
+    print_status_note(confirmation)
   end
 
   defp print_result({:ok, {:resolved, confirmation}}) do
     Mix.shell().info("#{confirmation["id"]} status=#{confirmation["status"]}")
     Mix.shell().info("Resolver: #{resolver_text(confirmation)}")
+    print_status_note(confirmation)
   end
 
   defp print_result({:ok, {:expired, confirmations}}) do
@@ -164,5 +168,12 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     resolution = Map.get(confirmation, "operator_resolution", %{}) || %{}
 
     "#{Map.get(resolution, "resolver_actor", "none")}/#{Map.get(resolution, "resolver_channel", "none")}"
+  end
+
+  defp print_status_note(confirmation) do
+    case Confirmations.status_note(confirmation) do
+      nil -> :ok
+      note -> Mix.shell().info("Note: #{note}")
+    end
   end
 end

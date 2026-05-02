@@ -142,6 +142,8 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
       |> render_click()
 
     assert html =~ "adapter_unavailable"
+    assert html =~ "Approved, but not executed"
+    assert html =~ "External network execution is planned for v0.10."
     assert has_element?(view, "#confirmation-resolved-#{record["id"]}")
 
     assert {:ok, resolved} = Confirmations.read(record["id"])

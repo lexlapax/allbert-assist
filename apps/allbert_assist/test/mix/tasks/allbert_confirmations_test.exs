@@ -67,6 +67,24 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
       end)
 
     assert approve_output =~ "conf_cli_approve status=adapter_unavailable"
+    assert approve_output =~ "Approved, but not executed"
+    assert approve_output =~ "External network execution is planned for v0.10."
+
+    show_output =
+      capture_io(fn ->
+        assert :ok = ConfirmationsTask.run(["show", approval["id"]])
+      end)
+
+    assert show_output =~ "status=adapter_unavailable"
+    assert show_output =~ "Approved, but not executed"
+
+    resolved_output =
+      capture_io(fn ->
+        assert :ok = ConfirmationsTask.run(["list", "--resolved"])
+      end)
+
+    assert resolved_output =~ "conf_cli_approve status=adapter_unavailable"
+    assert resolved_output =~ "Approved, but not executed"
 
     expire_output = capture_io(fn -> assert :ok = ConfirmationsTask.run(["expire"]) end)
     assert expire_output =~ "Expired: 0"

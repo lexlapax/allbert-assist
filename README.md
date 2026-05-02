@@ -161,7 +161,13 @@ mix allbert.confirmations list --resolved
 ```
 
 In v0.07 that approval resolves as `adapter_unavailable`; it records the
-operator decision and still makes no network call.
+operator decision and still makes no network call. The CLI and `/settings`
+explain this as approved, recorded, and not executed because v0.07 has no
+adapter for that target; external network execution is planned for v0.10.
+
+Release/tag status: v0.07 is ready for user testing. Expected release tag is
+`v0.07`, pending operator acceptance; no v0.07 tag has been created or pushed
+yet.
 
 Inspect generated files:
 
@@ -229,7 +235,8 @@ Allbert remains local and conservative:
 - It does not execute shell commands.
 - It does not make external network calls.
 - It records external-network approval as `adapter_unavailable` until a future
-  registered `Req` adapter is implemented and confirmed.
+  registered `Req` adapter is implemented and confirmed; this is intentional
+  adapter scaffolding, not an execution error.
 - It does not execute bundled skill scripts, package installs, or code from
   skill folders.
 - Sensitive-looking personal data is not silently stored unless explicit memory
