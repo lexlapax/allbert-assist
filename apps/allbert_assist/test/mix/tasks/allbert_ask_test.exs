@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
+    original_trace_enabled_env = System.get_env("ALLBERT_TRACE_ENABLED")
 
     root =
       Path.join(
@@ -37,11 +38,13 @@ defmodule Mix.Tasks.Allbert.AskTest do
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
     Application.put_env(:allbert_assist, Memory, root: root)
     Application.delete_env(:allbert_assist, Trace)
+    System.delete_env("ALLBERT_TRACE_ENABLED")
 
     on_exit(fn ->
       restore_env(Runtime, original_runtime_config)
       restore_env(Memory, original_memory_config)
       restore_env(Trace, original_trace_config)
+      restore_system_env("ALLBERT_TRACE_ENABLED", original_trace_enabled_env)
       Mix.Task.reenable("allbert.ask")
       File.rm_rf!(root)
     end)
@@ -125,4 +128,6 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+  defp restore_system_env(key, nil), do: System.delete_env(key)
+  defp restore_system_env(key, value), do: System.put_env(key, value)
 end
