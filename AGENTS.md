@@ -58,6 +58,11 @@ For v0.06 skill-backed execution work, read `docs/plans/v0.06-plan.md`,
   belongs behind signals, internal agents or runtime routers, and registered
   Jido actions. Pure parsing, validation, schema, formatting, and storage
   helpers may remain plain Elixir behind those boundaries.
+- Runtime-facing action invocation should resolve through
+  `AllbertAssist.Actions.Registry` and execute through
+  `AllbertAssist.Actions.Runner.run/3` so lifecycle signals, runner metadata,
+  permission decisions, redaction, and future Security Central behavior stay
+  consistent.
 - Security decisions and permission checks belong at the action boundary.
   Skills, model output, and YAML declarations never grant permission by
   themselves.
@@ -75,8 +80,13 @@ For v0.06 skill-backed execution work, read `docs/plans/v0.06-plan.md`,
 ## Workflow
 
 - For docs-only changes, run `git diff --check`.
-- For code changes, run focused tests first, then finish with `mix precommit`
-  unless the user explicitly scopes the work differently.
+- For code changes, run focused tests first, then finish with the milestone
+  warning gate: `mix compile --warnings-as-errors`, `mix credo --strict`,
+  `mix dialyzer`, and `mix precommit` unless the user explicitly scopes the
+  work differently.
+- Every implementation milestone must be warning-free before commit or handoff:
+  no compiler warnings, no formatter drift, no Credo findings, no Dialyzer
+  warnings, and no focused-test or precommit failures.
 - Update request-flow docs as implementation changes.
 - Add or update ADRs when an implementation decision constrains future design.
 - Keep LiveViews thin: they call contexts/actions/runtime boundaries and do not
