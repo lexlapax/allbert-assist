@@ -102,5 +102,34 @@ defmodule Mix.Tasks.Allbert.Ask do
     name = Map.get(action, :name) || Map.get(action, "name") || "unknown"
     status = Map.get(action, :status) || Map.get(action, "status") || "unknown"
     Mix.shell().info("- #{name} (#{status})")
+    print_action_field("  Execution", Map.get(action, :execution) || Map.get(action, "execution"))
+    print_action_field("  Confirmation", confirmation_id(action))
+
+    print_action_field(
+      "  Command",
+      command_line(Map.get(action, :command) || Map.get(action, "command"))
+    )
+
+    print_action_field(
+      "  Denial",
+      Map.get(action, :denial_reason) || Map.get(action, "denial_reason")
+    )
   end
+
+  defp print_action_field(_label, nil), do: :ok
+  defp print_action_field(_label, ""), do: :ok
+  defp print_action_field(label, value), do: Mix.shell().info("#{label}: #{value}")
+
+  defp confirmation_id(action) do
+    Map.get(action, :confirmation_id) || Map.get(action, "confirmation_id")
+  end
+
+  defp command_line(%{} = command) do
+    executable = Map.get(command, :executable) || Map.get(command, "executable")
+    args = Map.get(command, :args) || Map.get(command, "args") || []
+
+    if is_binary(executable), do: Enum.join([executable | args], " "), else: nil
+  end
+
+  defp command_line(_command), do: nil
 end

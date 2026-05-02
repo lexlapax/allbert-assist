@@ -100,7 +100,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
     |> Enum.find_value(:direct_answer, & &1.())
   end
 
-  defp command_route(text), do: if(command_request?(text), do: :plan_shell_command)
+  defp command_route(text), do: if(command_request?(text), do: :run_shell_command)
 
   defp external_network_route(text),
     do: if(external_network_request?(text), do: :external_network_request)
@@ -192,6 +192,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
       text,
       context
     )
+  end
+
+  defp run_route(:run_shell_command, text, context) do
+    case command_params_from_text(text) do
+      {:ok, params} ->
+        run_action("run_shell_command", Map.put(params, :source_text, text), text, context)
+
+      {:error, _reason} ->
+        run_route(:plan_shell_command, text, context)
+    end
   end
 
   defp run_route(:external_network_request, text, context) do
@@ -516,8 +526,24 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp requested_command(text) do
     text
-    |> String.replace(~r/^\s*(please\s+)?(run|execute|exec)\s+/i, "")
+    |> String.replace(~r/^\s*(please\s+)?(run|execute|exec|shell|terminal)\s+/i, "")
     |> String.trim()
+  end
+
+  defp command_params_from_text(text) do
+    text
+    |> requested_command()
+    |> split_command_text()
+    |> case do
+      [executable | args] -> {:ok, %{executable: executable, args: args, cwd: File.cwd!()}}
+      [] -> {:error, :empty_command}
+    end
+  end
+
+  defp split_command_text(command) do
+    OptionParser.split(command)
+  rescue
+    _exception -> []
   end
 
   defp network_request(text) do

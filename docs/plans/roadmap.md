@@ -459,6 +459,9 @@ Milestones:
   Complete in implementation: shell approvals now resume only the shell target
   after Security Central re-check and record target result metadata.
 - M4: CLI and `/settings` operator surfaces over the same action boundary.
+  Complete in implementation: `mix allbert.exec`, prompt routing,
+  confirmation display, and `/settings` now expose shell command/result
+  metadata without bypassing actions.
 - M5: Trace, audit, release docs, version metadata, focused tests, and final
   warning gates.
 

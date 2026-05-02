@@ -44,6 +44,17 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
     assert set_output =~ "Updated: operator.communication_style=\"balanced\""
     assert set_output =~ "Audit:"
     assert {:ok, "balanced"} = Settings.get("operator.communication_style")
+
+    list_set_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run(["set", "execution.local.allowed_roots", "/tmp,/private/tmp"])
+      end)
+
+    assert list_set_output =~
+             "Updated: execution.local.allowed_roots=[\"/tmp\", \"/private/tmp\"]"
+
+    assert {:ok, ["/tmp", "/private/tmp"]} = Settings.get("execution.local.allowed_roots")
   end
 
   test "provider list and set-key use stdin and redact raw key", %{root: root} do

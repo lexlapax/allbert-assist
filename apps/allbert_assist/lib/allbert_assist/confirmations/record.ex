@@ -195,6 +195,7 @@ defmodule AllbertAssist.Confirmations.Record do
   defp stringify_list_value(value), do: stringify_value(value)
 
   defp stringify_value(nil), do: nil
+  defp stringify_value(value) when is_boolean(value), do: value
   defp stringify_value(value) when is_atom(value), do: Atom.to_string(value)
   defp stringify_value(value), do: value
 

@@ -66,8 +66,8 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
              })
 
     assert response.status == :denied
-    assert response.message =~ "I will not execute shell commands"
-    assert [%{name: "plan_shell_command", execution: :not_available}] = response.actions
+    assert response.message =~ "Shell command execution was denied"
+    assert [%{name: "run_shell_command", execution: :not_started}] = response.actions
   end
 
   test "default runtime requires confirmation for external network requests" do

@@ -6,6 +6,7 @@ defmodule AllbertAssistWeb.SettingsLive do
   use AllbertAssistWeb, :live_view
 
   alias AllbertAssist.{Actions.Runner, Confirmations}
+  alias AllbertAssist.Confirmations.ShellCommandMetadata
 
   @default_key "operator.communication_style"
 
@@ -93,7 +94,7 @@ defmodule AllbertAssistWeb.SettingsLive do
       case completed_action("approve_confirmation", %{id: id}) do
         {:ok, response} ->
           socket
-          |> put_flash(:info, Confirmations.status_message(response.confirmation))
+          |> put_flash(:info, confirmation_flash_message(response.confirmation))
           |> assign(:diagnostics, "")
           |> refresh(socket.assigns.selected_key)
 
@@ -327,6 +328,13 @@ defmodule AllbertAssistWeb.SettingsLive do
                       >
                         Skill: {selected_skill_name(confirmation)}
                       </div>
+                      <div
+                        :if={shell_command_lines(confirmation) != []}
+                        id={"confirmation-shell-#{confirmation["id"]}"}
+                        class="text-xs text-base-content/70"
+                      >
+                        <div :for={line <- shell_command_lines(confirmation)}>{line}</div>
+                      </div>
                     </div>
 
                     <div class="flex flex-col gap-2 sm:flex-row">
@@ -398,6 +406,13 @@ defmodule AllbertAssistWeb.SettingsLive do
                     class="mt-1 text-xs text-base-content/70"
                   >
                     {status_note(confirmation)}
+                  </div>
+                  <div
+                    :if={shell_command_lines(confirmation) != []}
+                    id={"confirmation-shell-result-#{confirmation["id"]}"}
+                    class="mt-2 text-xs text-base-content/70"
+                  >
+                    <div :for={line <- shell_command_lines(confirmation)}>{line}</div>
                   </div>
                 </div>
               </div>
@@ -591,16 +606,25 @@ defmodule AllbertAssistWeb.SettingsLive do
 
   defp status_note(confirmation), do: Confirmations.status_note(confirmation)
 
+  defp confirmation_flash_message(confirmation) do
+    details = ShellCommandMetadata.result_details(confirmation)
+    message = Confirmations.status_message(confirmation)
+
+    if details == [], do: message, else: "#{message} #{Enum.join(details, " · ")}"
+  end
+
   defp risk_tier(confirmation) do
     get_in(confirmation, ["security_decision", "risk", "tier"]) || "unknown"
   end
 
   defp selected_skill_name(confirmation) do
     case get_in(confirmation, ["selected_skill", "name"]) do
-      value when is_binary(value) and value != "" -> value
+      value when is_binary(value) and value not in ["", "nil"] -> value
       _value -> nil
     end
   end
+
+  defp shell_command_lines(confirmation), do: ShellCommandMetadata.lines(confirmation)
 
   defp params_summary(confirmation) do
     confirmation

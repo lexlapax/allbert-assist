@@ -15,6 +15,7 @@ defmodule Mix.Tasks.Allbert.Settings do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Settings
 
   @shortdoc "Inspect and update Allbert Settings Central"
 
@@ -47,7 +48,7 @@ defmodule Mix.Tasks.Allbert.Settings do
 
   defp dispatch(["set", key, value]) do
     with {:ok, response} <-
-           completed_action("update_setting", %{key: key, value: parse_value(value)}) do
+           completed_action("update_setting", %{key: key, value: parse_value(key, value)}) do
       {:ok, {:written, response.setting}}
     end
   end
@@ -170,13 +171,35 @@ defmodule Mix.Tasks.Allbert.Settings do
 
   defp response_error(%{message: message}), do: message
 
-  defp parse_value("true"), do: true
-  defp parse_value("false"), do: false
+  defp parse_value(key, value) do
+    if string_list_setting?(key) do
+      parse_string_list(value)
+    else
+      parse_scalar_value(value)
+    end
+  end
 
-  defp parse_value(value) do
+  defp parse_string_list(value) do
+    value
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp parse_scalar_value("true"), do: true
+  defp parse_scalar_value("false"), do: false
+
+  defp parse_scalar_value(value) do
     case Integer.parse(value) do
       {integer, ""} -> integer
       _other -> parse_float_or_string(value)
+    end
+  end
+
+  defp string_list_setting?(key) do
+    case Map.get(Settings.schema(), key) do
+      %{type: :string_list} -> true
+      _schema -> false
     end
   end
 
