@@ -90,6 +90,11 @@ defmodule AllbertAssist.ConfirmationsTest do
     refute File.exists?(Path.join([home, "confirmations", "pending", "#{id}.yml"]))
     assert [_resolved] = Confirmations.list(status: :resolved)
     assert {:ok, ^resolved} = Confirmations.read(id)
+
+    audit = File.read!(Path.join([home, "confirmations", "audit", "2026-05.md"]))
+    assert audit =~ "resolver_surface: /settings"
+    assert audit =~ "same_channel: false"
+    assert audit =~ "resolution_reason: not needed"
   end
 
   test "expire resolves only records past their ttl" do
