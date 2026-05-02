@@ -231,7 +231,7 @@ Plan: `docs/plans/v0.04-plan.md`
 Request flow: `docs/plans/v0.04-request-flow.md`
 ADR: `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
 
-Status: placeholder.
+Status: implementation-ready.
 
 Expected direction:
 
