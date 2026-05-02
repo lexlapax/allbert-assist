@@ -83,6 +83,22 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert_compatibility_fields(decision)
   end
 
+  test "delegates to Security Central and preserves widened decision metadata" do
+    decision =
+      PermissionGate.authorize(:external_network, %{
+        request: %{operator_id: "local", channel: :test, input_signal_id: "sig"},
+        selected_action: "external_network_request"
+      })
+
+    assert decision.source == PermissionGate
+    assert decision.risk.tier == :high
+    assert decision.policy.effective == :needs_confirmation
+    assert decision.trace.risk_tier == :high
+    assert decision.audit.event == "security.decision"
+    assert decision.context.actor.id == "local"
+    assert decision.trust_boundary.action_registered?
+  end
+
   defp assert_compatibility_fields(decision) do
     for field <- [:permission, :decision, :reason, :requires_confirmation, :source] do
       assert Map.has_key?(decision, field)

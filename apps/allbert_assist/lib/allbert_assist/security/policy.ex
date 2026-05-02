@@ -140,7 +140,7 @@ defmodule AllbertAssist.Security.Policy do
     do: "Raw secret display is not available from user-facing settings surfaces."
 
   defp reason(permission, :denied, _configured, _floor, _context),
-    do: "Unknown or disabled permission class: #{inspect(permission)}."
+    do: "Unknown permission class: #{inspect(permission)}."
 
   defp reason(permission, :needs_confirmation, _configured, _floor, _context),
     do: "Permission requires confirmation before it can run: #{inspect(permission)}."
