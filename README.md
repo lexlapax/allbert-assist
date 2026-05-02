@@ -184,10 +184,11 @@ mix allbert.confirmations approve <confirmation-id> --reason "operator smoke"
 mix allbert.confirmations list --resolved
 ```
 
-In v0.07 that approval resolves as `adapter_unavailable`; it records the
-operator decision and still makes no network call. The CLI and `/settings`
-explain this as approved, recorded, and not executed because v0.07 has no
-adapter for that target; external network execution is planned for v0.10.
+In v0.08, external-network approval still resolves as `adapter_unavailable`;
+it records the operator decision and still makes no network call. The CLI and
+`/settings` explain this as approved, recorded, and not executed because the
+external-network target has no adapter yet; external network execution is
+planned for v0.10.
 
 Release/tag status: v0.08 is ready for user testing as of 2026-05-02. Release
 tag is pending operator acceptance. Expected tag name: `v0.08`; no v0.08 tag
