@@ -3,6 +3,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
 
   alias AllbertAssist.Actions.Trace.RecordTrace
   alias AllbertAssist.Memory
+  alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Trace
   alias Jido.Signal
@@ -54,6 +55,11 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
            ] = response.actions
 
     assert trace_id == response.trace_id
+
+    trace = File.read!(trace_id)
+    assert trace =~ "## Security Metadata"
+    assert trace =~ "risk: %{"
+    assert trace =~ "policy:"
   end
 
   test "skips trace recording when tracing is disabled" do
@@ -104,7 +110,16 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
       response: %{
         message: "Runtime response: #{text}",
         status: :completed,
-        actions: [%{name: "direct_answer", permission_decision: %{decision: :allowed}}],
+        actions: [
+          %{
+            name: "direct_answer",
+            permission_decision:
+              PermissionGate.authorize(:read_only, %{
+                request: %{operator_id: "local", channel: :test, input_signal_id: input_signal.id},
+                selected_action: "direct_answer"
+              })
+          }
+        ],
         diagnostics: []
       },
       agent: AllbertAssist.Agents.IntentAgent

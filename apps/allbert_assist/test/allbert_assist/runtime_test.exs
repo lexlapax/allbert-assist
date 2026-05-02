@@ -161,6 +161,7 @@ defmodule AllbertAssist.RuntimeTest do
     assert trace =~ "Model alias: local"
     assert trace =~ "Selected action: direct_answer"
     assert trace =~ "Permission decision:"
+    assert trace =~ "## Security Metadata"
     assert trace =~ "Trace this successful turn."
     assert trace =~ "Runtime response: Trace this successful turn."
   end

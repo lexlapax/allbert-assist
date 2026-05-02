@@ -8,12 +8,11 @@ defmodule AllbertAssist.Signals do
 
   require Logger
 
+  alias AllbertAssist.Security.Redactor
   alias Jido.Signal
 
   @action_requested "allbert.action.requested"
   @action_completed "allbert.action.completed"
-
-  @sensitive_key_fragments ["api_key", "apikey", "secret", "token", "password", "credential"]
 
   @doc "Return action lifecycle signal names."
   @spec action_signal_types() :: %{requested: String.t(), completed: String.t()}
@@ -30,7 +29,7 @@ defmodule AllbertAssist.Signals do
       %{
         action_name: action_name,
         action_module: module_name(action_module),
-        params: redact(params),
+        params: Redactor.redact(params),
         source_signal_id: source_signal_id(context),
         channel: request_value(context, :channel),
         operator_id: request_value(context, :operator_id),
@@ -70,39 +69,21 @@ defmodule AllbertAssist.Signals do
 
   @doc "Recursively redact values with sensitive key names."
   @spec redact(term()) :: term()
-  def redact(%_{} = struct) do
-    struct
-    |> Map.from_struct()
-    |> Map.put(:__struct__, module_name(struct.__struct__))
-    |> redact()
-  end
-
-  def redact(%{} = map) do
-    Map.new(map, fn {key, value} ->
-      if sensitive_key?(key) do
-        {key, "[REDACTED]"}
-      else
-        {key, redact(value)}
-      end
-    end)
-  end
-
-  def redact(list) when is_list(list), do: Enum.map(list, &redact/1)
-  def redact(value), do: value
+  defdelegate redact(value), to: Redactor
 
   defp response_summary(%{} = response) do
     response
     |> Map.take([:message, :status, :permission_decision, :actions])
-    |> redact()
+    |> Redactor.redact()
   end
 
-  defp response_summary(response), do: redact(response)
+  defp response_summary(response), do: Redactor.redact(response)
 
-  defp permission_decision(%{permission_decision: decision}), do: redact(decision)
+  defp permission_decision(%{permission_decision: decision}), do: Redactor.redact(decision)
 
   defp permission_decision(%{actions: actions}) when is_list(actions) do
     Enum.find_value(actions, &Map.get(&1, :permission_decision))
-    |> redact()
+    |> Redactor.redact()
   end
 
   defp permission_decision(_response), do: nil
@@ -119,13 +100,4 @@ defmodule AllbertAssist.Signals do
 
   defp module_name(nil), do: nil
   defp module_name(module) when is_atom(module), do: inspect(module)
-
-  defp sensitive_key?(key) do
-    normalized =
-      key
-      |> to_string()
-      |> String.downcase()
-
-    Enum.any?(@sensitive_key_fragments, &String.contains?(normalized, &1))
-  end
 end

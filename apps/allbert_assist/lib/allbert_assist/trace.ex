@@ -8,6 +8,7 @@ defmodule AllbertAssist.Trace do
   """
 
   alias AllbertAssist.Memory
+  alias AllbertAssist.Security.Redactor
 
   @model_alias :local
 
@@ -134,6 +135,7 @@ defmodule AllbertAssist.Trace do
     - Status: #{response.status}
     - Selected action: #{selected_action(response.actions)}
     - Permission decision: #{permission_decision(response.actions)}
+    - Security metadata: #{security_metadata_summary(response.actions)}
     - Settings metadata: #{settings_metadata(response.actions)}
     - Skill metadata: #{skill_metadata_summary(response.actions)}
     - Token estimate: #{token_estimate(request.text, response.message)}
@@ -156,6 +158,10 @@ defmodule AllbertAssist.Trace do
     ## Skill Metadata
 
     #{skill_metadata_text(response.actions)}
+
+    ## Security Metadata
+
+    #{security_metadata_text(response.actions)}
 
     ## Diagnostics
 
@@ -184,11 +190,86 @@ defmodule AllbertAssist.Trace do
     actions
     |> List.first()
     |> case do
-      %{permission_decision: decision} -> inspect(decision, pretty: true)
-      %{"permission_decision" => decision} -> inspect(decision, pretty: true)
+      %{permission_decision: decision} -> inspect(Redactor.redact(decision), pretty: true)
+      %{"permission_decision" => decision} -> inspect(Redactor.redact(decision), pretty: true)
       _action -> "none"
     end
   end
+
+  defp security_metadata_summary(actions) do
+    actions
+    |> security_decision()
+    |> case do
+      %{decision: decision, risk: %{tier: risk}, trace: %{policy_source: source}} ->
+        "#{decision} risk=#{risk} policy=#{source}"
+
+      %{decision: decision} ->
+        "#{decision}"
+
+      _decision ->
+        "none"
+    end
+  end
+
+  defp security_metadata_text(actions) do
+    actions
+    |> security_decision()
+    |> case do
+      nil ->
+        "none"
+
+      decision ->
+        decision
+        |> Map.take([
+          :permission,
+          :decision,
+          :requires_confirmation,
+          :reason,
+          :risk,
+          :policy,
+          :trace,
+          :trust_boundary,
+          :audit
+        ])
+        |> Redactor.redact()
+        |> inspect(pretty: true, limit: :infinity)
+    end
+  end
+
+  defp security_decision(actions) do
+    actions
+    |> List.first()
+    |> case do
+      %{permission_decision: %{risk: _risk} = decision} ->
+        decision
+
+      %{"permission_decision" => %{"risk" => _risk} = decision} ->
+        atomize_security_decision(decision)
+
+      _action ->
+        nil
+    end
+  end
+
+  defp atomize_security_decision(%{} = decision) do
+    Map.new(decision, fn {key, value} -> {atomize_key(key), atomize_nested(value)} end)
+  end
+
+  defp atomize_nested(%{} = map), do: atomize_security_decision(map)
+  defp atomize_nested(list) when is_list(list), do: Enum.map(list, &atomize_nested/1)
+  defp atomize_nested(value), do: value
+
+  defp atomize_key(key) when is_atom(key), do: key
+  defp atomize_key("requires_confirmation"), do: :requires_confirmation
+  defp atomize_key("trust_boundary"), do: :trust_boundary
+  defp atomize_key("permission"), do: :permission
+  defp atomize_key("decision"), do: :decision
+  defp atomize_key("reason"), do: :reason
+  defp atomize_key("risk"), do: :risk
+  defp atomize_key("policy"), do: :policy
+  defp atomize_key("trace"), do: :trace
+  defp atomize_key("audit"), do: :audit
+  defp atomize_key(key), do: key
 
   defp settings_metadata(actions) do
     actions
