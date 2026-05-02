@@ -137,6 +137,7 @@ defmodule AllbertAssist.Trace do
     - Permission decision: #{permission_decision(response.actions)}
     - Security metadata: #{security_metadata_summary(response.actions)}
     - Settings metadata: #{settings_metadata(response.actions)}
+    - Confirmation metadata: #{confirmation_metadata_summary(response.actions)}
     - Skill metadata: #{skill_metadata_summary(response.actions)}
     - Token estimate: #{token_estimate(request.text, response.message)}
     - Cost estimate: unavailable-local-model
@@ -162,6 +163,10 @@ defmodule AllbertAssist.Trace do
     ## Security Metadata
 
     #{security_metadata_text(response.actions)}
+
+    ## Confirmation Metadata
+
+    #{confirmation_metadata_text(response.actions)}
 
     ## Diagnostics
 
@@ -281,6 +286,51 @@ defmodule AllbertAssist.Trace do
     end
   end
 
+  defp confirmation_metadata_summary(actions) do
+    action = List.first(actions)
+
+    case confirmation_metadata(action) do
+      nil -> "none"
+      metadata -> confirmation_summary(action, metadata)
+    end
+  end
+
+  defp confirmation_summary(action, metadata) do
+    id = map_value(metadata, :id) || map_value(action, :confirmation_id)
+    status = map_value(metadata, :status) || map_value(metadata, :confirmation_status)
+    target = map_value(metadata, :target_action) || action_name(action)
+    origin = map_value(metadata, :origin) || %{}
+
+    "#{id} status=#{status || "unknown"} target=#{target || "unknown"} origin=#{map_value(origin, :channel) || "unknown"}"
+  end
+
+  defp confirmation_metadata_text(actions) do
+    action = List.first(actions)
+
+    case confirmation_metadata(action) do
+      nil ->
+        "none"
+
+      metadata ->
+        %{
+          confirmation_id: map_value(action, :confirmation_id),
+          confirmation_metadata: metadata
+        }
+        |> Redactor.redact()
+        |> inspect(pretty: true, limit: :infinity)
+    end
+  end
+
+  defp confirmation_metadata(%{confirmation_metadata: metadata}) when not is_nil(metadata),
+    do: metadata
+
+  defp confirmation_metadata(%{"confirmation_metadata" => metadata}) when not is_nil(metadata),
+    do: metadata
+
+  defp confirmation_metadata(%{confirmation_id: id}) when not is_nil(id), do: %{id: id}
+  defp confirmation_metadata(%{"confirmation_id" => id}) when not is_nil(id), do: %{"id" => id}
+  defp confirmation_metadata(_action), do: nil
+
   defp skill_metadata_summary(actions) do
     actions
     |> skill_metadata()
@@ -332,4 +382,10 @@ defmodule AllbertAssist.Trace do
   defp diagnostics_text(%{diagnostics: []}), do: "none"
   defp diagnostics_text(%{diagnostics: diagnostics}), do: inspect(diagnostics, pretty: true)
   defp diagnostics_text(_response), do: "none"
+
+  defp map_value(map, key) when is_map(map) do
+    Map.get(map, key) || Map.get(map, to_string(key))
+  end
+
+  defp map_value(_map, _key), do: nil
 end

@@ -1,14 +1,15 @@
 # Allbert Assist
 
 Allbert Assist is a Phoenix umbrella app for a local, Jido-centered personal
-assistant runtime. v0.06 binds trusted Agent Skills metadata to registered
-Jido actions through Security Central: submit a prompt from CLI or LiveView;
-route it through Jido signals, the intent agent, validated skill contracts,
-registered actions, and the shared action runner; persist markdown memory;
-write inspectable traces; manage typed settings, provider profiles, and
-encrypted local secrets through Settings Central; discover, read, activate,
-validate, and scaffold standard `SKILL.md` skill folders without granting new
-execution authority.
+assistant runtime. v0.07 adds durable confirmation workflow on top of the
+v0.06 action-backed skill surface: submit a prompt from CLI or LiveView; route
+it through Jido signals, the intent agent, validated skill contracts,
+registered actions, Security Central, and the shared action runner; pause
+confirmation-required work as durable Allbert Home records; approve or deny
+from CLI or `/settings`; persist markdown memory; write inspectable traces;
+manage typed settings, provider profiles, and encrypted local secrets through
+Settings Central; discover, read, activate, validate, and scaffold standard
+`SKILL.md` skill folders without granting new execution authority.
 
 ## Current Capabilities
 
@@ -30,6 +31,12 @@ execution authority.
   permission defaults, encrypted `secrets.yml.enc`, and append-only audit
   markdown
 - Provider and model profiles with redacted credential status
+- Durable confirmation queue under `<ALLBERT_HOME>/confirmations`, with
+  pending/resolved YAML records and markdown audit entries
+- Registered confirmation actions and CLI: `mix allbert.confirmations list`,
+  `show`, `approve`, `deny`, and `expire`
+- Confirmation Requests section in `/settings` over the same action boundary
+  as the CLI
 - Agent Skills-compatible parser, registry, trust policy, built-in skill pack,
   action-backed contract validation, local validation/scaffold helpers, and
   progressive-disclosure `activate_skill` action
@@ -87,7 +94,7 @@ ignores are reported.
 Use a disposable memory root:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v006-demo
+export ALLBERT_HOME=/tmp/allbert-v007-demo
 export ALLBERT_TRACE_ENABLED=true
 rm -rf "$ALLBERT_HOME"
 ```
@@ -143,6 +150,19 @@ mix allbert.settings set permissions.command_execute allowed
 mix allbert.security status
 ```
 
+Create and inspect an external-network confirmation request:
+
+```sh
+mix allbert.ask --trace "fetch https://example.com from the internet"
+mix allbert.confirmations list
+mix allbert.confirmations show <confirmation-id>
+mix allbert.confirmations approve <confirmation-id> --reason "operator smoke"
+mix allbert.confirmations list --resolved
+```
+
+In v0.07 that approval resolves as `adapter_unavailable`; it records the
+operator decision and still makes no network call.
+
 Inspect generated files:
 
 ```sh
@@ -154,7 +174,7 @@ find "$ALLBERT_HOME/memory" -maxdepth 2 -type f | sort
 Start Phoenix:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v006-demo
+export ALLBERT_HOME=/tmp/allbert-v007-demo
 export ALLBERT_TRACE_ENABLED=true
 mix phx.server
 ```
@@ -166,9 +186,10 @@ http://localhost:4000/agent
 http://localhost:4000/settings
 ```
 
-The LiveViews use the same runtime, settings, and security boundaries as the
-CLI. `/settings` includes Security & Permissions controls backed by Settings
-Central actions and read-only effective Security Central status.
+The LiveViews use the same runtime, settings, security, and confirmation
+boundaries as the CLI. `/settings` includes Security & Permissions controls
+and Confirmation Requests backed by registered actions and read-only effective
+Security Central status.
 
 ## Runtime Configuration
 
@@ -198,6 +219,7 @@ Central actions and read-only effective Security Central status.
 - v0.06 plan: `docs/plans/v0.06-plan.md`
 - v0.06 request flow: `docs/plans/v0.06-request-flow.md`
 - v0.07 plan: `docs/plans/v0.07-plan.md`
+- v0.07 request flow: `docs/plans/v0.07-request-flow.md`
 - ADRs: `docs/adr/`
 
 ## Safety Boundaries
@@ -206,6 +228,8 @@ Allbert remains local and conservative:
 
 - It does not execute shell commands.
 - It does not make external network calls.
+- It records external-network approval as `adapter_unavailable` until a future
+  registered `Req` adapter is implemented and confirmed.
 - It does not execute bundled skill scripts, package installs, or code from
   skill folders.
 - Sensitive-looking personal data is not silently stored unless explicit memory

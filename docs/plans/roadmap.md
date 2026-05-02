@@ -373,8 +373,8 @@ Plan: `docs/plans/v0.07-plan.md`
 Request flow: `docs/plans/v0.07-request-flow.md`
 ADR: `docs/adr/0008-durable-confirmation-requests.md`
 
-Status: implementation-ready after the v0.06 release and v0.07 planning sweep
-on 2026-05-02.
+Status: implementation complete and ready for user testing on 2026-05-02.
+Release tag pending operator acceptance.
 
 Expected direction:
 
@@ -400,24 +400,33 @@ Expected direction:
 
 Milestones:
 
-- M1: confirmation domain, Allbert Home paths, store, Settings Central keys,
-  and ADR alignment.
-- M2: registered confirmation actions and `mix allbert.confirmations` CLI.
-- M3: pending creation from confirmation-needed actions, starting with
-  `external_network_request`.
-- M4: approval resume semantics and adapter-unavailable behavior.
-- M5: LiveView confirmation surface over the same action boundary.
-- M6: trace, audit, cleanup, release docs, version metadata, and release gate.
+- M1: complete. Confirmation domain, Allbert Home paths, store, Settings
+  Central keys, and ADR alignment.
+- M2: complete. Registered confirmation actions and
+  `mix allbert.confirmations` CLI.
+- M3: complete. Pending creation from confirmation-needed actions, starting
+  with `external_network_request`.
+- M4: complete. Approval resume semantics, target policy re-check, and
+  adapter-unavailable behavior.
+- M5: complete. LiveView confirmation surface over the same action boundary.
+- M6: complete. Trace, audit, cleanup, release docs, version metadata, and
+  release gate.
 
 Exit signal: Allbert can pause sensitive registered actions as durable pending
 requests, let the operator approve or deny them from CLI or LiveView, record
 the result in traces/audit, and still avoid any new risky execution adapter.
 
+Closeout signal: v0.07 passed focused milestone tests, full warning gates,
+precommit, diff checks, and disposable-home operator smoke. The app versions
+are bumped to `0.7.0`. External-network approvals resolve as
+`adapter_unavailable`; v0.08 should replace that baseline only for a registered
+confirmed shell adapter with sandbox policy.
+
 ## v0.08: Local Execution Sandbox And Shell Adapter
 
 Plan: `docs/plans/v0.08-plan.md`
 
-Status: placeholder.
+Status: next implementation plan.
 
 Expected direction:
 

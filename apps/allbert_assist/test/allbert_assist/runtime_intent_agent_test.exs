@@ -117,6 +117,10 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     trace = File.read!(response.trace_id)
     assert trace =~ "confirmation_id: #{inspect(confirmation_id)}"
     assert trace =~ "confirmation_metadata"
+    assert trace =~ "## Confirmation Metadata"
+
+    assert trace =~
+             "#{confirmation_id} status=pending target=external_network_request origin=test"
   end
 
   test "default runtime activates trusted skill instructions" do

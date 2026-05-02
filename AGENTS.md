@@ -41,7 +41,7 @@ For v0.06 skill-backed execution work, read `docs/plans/v0.06-plan.md`,
 `docs/adr/0006-security-central.md`, and
 `docs/adr/0007-jido-native-internal-runtime-boundaries.md`.
 
-For v0.07 confirmation workflow work, read `docs/plans/v0.07-plan.md`,
+For v0.07 confirmation workflow regression work, read `docs/plans/v0.07-plan.md`,
 `docs/plans/v0.07-request-flow.md`,
 `docs/adr/0001-signal-first-jido-runtime.md`,
 `docs/adr/0006-security-central.md`,
@@ -49,6 +49,15 @@ For v0.07 confirmation workflow work, read `docs/plans/v0.07-plan.md`,
 `docs/adr/0008-durable-confirmation-requests.md` before changing
 confirmation queues, approval/denial behavior, action resumption, traces,
 audits, CLI, LiveView, or future execution boundaries.
+
+For active v0.08 local execution sandbox work, read `docs/plans/v0.08-plan.md`,
+`docs/plans/v0.07-plan.md`, `docs/plans/v0.07-request-flow.md`,
+`docs/adr/0001-signal-first-jido-runtime.md`,
+`docs/adr/0006-security-central.md`,
+`docs/adr/0007-jido-native-internal-runtime-boundaries.md`, and
+`docs/adr/0008-durable-confirmation-requests.md` before changing command
+planning, confirmed shell execution, sandbox policy, confirmation resume
+semantics, traces, audits, CLI, or LiveView behavior.
 
 ## Non-Negotiables
 

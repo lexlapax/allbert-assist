@@ -184,6 +184,10 @@ defmodule AllbertAssist.Confirmations.Store do
     - origin_channel: #{Map.get(origin, "channel", "unknown")}
     - resolver_actor: #{Map.get(resolution, "resolver_actor", "none")}
     - resolver_channel: #{Map.get(resolution, "resolver_channel", "none")}
+    - resolver_surface: #{Map.get(resolution, "resolver_surface", "none")}
+    - same_channel: #{Map.get(resolution, "same_channel?", "none")}
+    - resolution_reason: #{Map.get(resolution, "resolution_reason", "none")}
+    - decision_source: #{Map.get(resolution, "decision_source", "none")}
     - source_trace_id: #{Map.get(record, "source_trace_id", "none")}
     - audit_version: 1
     """

@@ -1,5 +1,55 @@
 # Changelog
 
+## v0.07 - Confirmation Workflow
+
+Status: ready for user testing on 2026-05-02. Release tag pending operator
+acceptance.
+
+### Added
+
+- Durable confirmation requests under `<ALLBERT_HOME>/confirmations`, with
+  pending, resolved, and markdown audit records.
+- Registered confirmation actions for list, show, approve, deny, and expire,
+  plus `mix allbert.confirmations`.
+- Settings Central confirmation policy for TTL, denial reasons, approval
+  surfaces, and cross-channel approval.
+- `external_network_request` pending confirmation creation when Security
+  Central returns `:needs_confirmation`.
+- `/settings` Confirmation Requests surface for the same shared queue used by
+  CLI.
+- First-class confirmation metadata in runtime traces and richer markdown audit
+  entries.
+
+### Changed
+
+- Approval now re-reads the pending record, enforces approval-surface and
+  cross-channel settings, re-checks Security Central with confirmation context,
+  and records resolver channel metadata.
+- Approved external-network requests resolve as `adapter_unavailable` in v0.07
+  because no real network adapter exists yet.
+- If target policy changes to denied before approval, the request resolves as
+  `denied` and target work is not invoked.
+
+### Safety
+
+- v0.07 adds no shell execution, skill script execution, package installation,
+  online import, or real external network calls.
+- Approval is an operator decision for one pending request, not a generic
+  permission grant, and it does not bypass Security Central safety floors.
+- CLI and LiveView share one durable, channel-aware queue; neither surface owns
+  storage, policy, or target resumption.
+
+### Verification
+
+- Focused milestone suites passed for M1 through M6.
+- Final gates passed: `mix compile --warnings-as-errors`, `mix format
+  --check-formatted`, `mix credo --strict`, `mix dialyzer`, `mix precommit`,
+  and `git diff --check`.
+- `mix precommit` passed with 169 core tests and 14 web tests.
+- Operator smoke used a disposable `ALLBERT_HOME` to create an external-network
+  pending confirmation, inspect it with CLI, approve it to
+  `adapter_unavailable`, list resolved records, and verify traces/audits.
+
 ## v0.06 - Action-Backed Allbert Skills
 
 Status: released on 2026-05-02.
