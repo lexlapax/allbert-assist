@@ -52,6 +52,7 @@ defmodule AllbertAssist.Confirmations.OnlineSkillMetadata do
   defp result_lines(result) when is_map(result) and result != %{} do
     [
       {"Result status", field(result, "status")},
+      {"Failure", reason_text(field(result, "failure_reason") || field(result, "denial_reason"))},
       {"Results", result_count(result)},
       {"Imported target", field(result, "target_root")},
       {"Manifest", field(result, "manifest_path")},
@@ -84,6 +85,21 @@ defmodule AllbertAssist.Confirmations.OnlineSkillMetadata do
       _other -> field(result, "status")
     end
   end
+
+  defp reason_text(nil), do: nil
+  defp reason_text(""), do: nil
+
+  defp reason_text(%{"code" => code, "detail" => detail}) do
+    "#{code}: #{detail}"
+  end
+
+  defp reason_text(%{code: code, detail: detail}) do
+    "#{code}: #{detail}"
+  end
+
+  defp reason_text(reason) when is_binary(reason), do: reason
+  defp reason_text(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp reason_text(reason), do: inspect(reason)
 
   defp reject_blank_values(items) do
     Enum.reject(items, fn {_label, value} -> value in [nil, ""] end)

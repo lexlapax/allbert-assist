@@ -39,7 +39,7 @@ defmodule AllbertAssist.Skills.Online.RegistryClientTest do
 
   test "searches skills.sh API shape and filters locally", %{source: source} do
     Req.Test.expect(__MODULE__, fn conn ->
-      assert conn.request_path == "/api/skills"
+      assert conn.request_path == "/api/search"
 
       conn
       |> Plug.Conn.put_resp_content_type("application/json")

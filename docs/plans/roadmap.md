@@ -596,7 +596,8 @@ Milestones:
 - M4 (Milestone 4): Implemented. Confirmed online skill search, detail, audit,
   and disabled imported-cache write through allowed source profiles, `Req`,
   source manifests, existing parser/registry validation, and CLI/confirmation
-  metadata.
+  metadata. Approved source failures resolve as `approved` confirmations with
+  `target_status=failed` and rendered failure reasons.
 - M5 (Milestone 5): Implemented. Release readiness, operator surfaces,
   trace/audit polish, docs, future milestone handoffs, focused tests, final
   gates, version metadata `0.10.0`, and release/tag readiness docs.
@@ -606,7 +607,8 @@ external services, and run the first confirmed npm package-manager profile
 through registered actions without making imports, package manifests, or
 package-manager metadata executable by themselves. CLI, `/settings`, traces,
 audits, and Security Central render the same v0.10 metadata and policy
-summaries.
+summaries, including the distinction between operator approval and target
+execution failure.
 
 ## v0.11: Execution-Aware Intent Contract And Approval Handoff
 

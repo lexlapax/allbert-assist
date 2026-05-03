@@ -60,7 +60,7 @@ defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
     assert pending_response.confirmation_id =~ "conf_"
 
     Req.Test.expect(__MODULE__, fn conn ->
-      assert conn.request_path == "/api/skills"
+      assert conn.request_path == "/api/search"
 
       conn
       |> Plug.Conn.put_resp_content_type("application/json")
@@ -79,6 +79,43 @@ defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
     result = approve_response.confirmation["operator_resolution"]["target_result"]
     assert [candidate] = result["results"]
     assert candidate["id"] == "vercel-labs/skills/find-skills"
+  end
+
+  test "search approval stays approved when the online source fails" do
+    assert {:ok, pending_response} =
+             Runner.run(
+               "search_online_skills",
+               %{query: "memory", source: "skills_sh"},
+               context()
+             )
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/api/search"
+
+      conn
+      |> Plug.Conn.put_resp_content_type("text/html")
+      |> Plug.Conn.send_resp(404, "<html>not found</html>")
+    end)
+
+    assert {:ok, approve_response} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending_response.confirmation_id, reason: "search smoke"},
+               %{actor: "local", channel: :cli, surface: "mix allbert.confirmations"}
+             )
+
+    assert approve_response.status == :completed
+    assert approve_response.confirmation["status"] == "approved"
+
+    resolution = approve_response.confirmation["operator_resolution"]
+    assert resolution["target_resumed?"]
+    assert resolution["target_status"] == "failed"
+
+    result = resolution["target_result"]
+    assert result["status"] == "failed"
+    assert result["failure_reason"]["code"] == "online_skill_source_http_error"
+    assert result["failure_reason"]["detail"] == "404"
+    assert result["source"]["id"] == "skills_sh"
   end
 
   test "audit creates confirmation and approval reports import eligibility" do

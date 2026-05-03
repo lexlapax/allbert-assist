@@ -10,7 +10,10 @@ defmodule AllbertAssist.Skills.Online.RegistryClient do
 
   def search(%Source{} = source, query) when is_binary(query) do
     with :ok <- Source.validate_enabled(source),
-         {:ok, body} <- request(source, search_url(source), params: %{"q" => query}) do
+         {:ok, body} <-
+           request(source, search_url(source),
+             params: %{"q" => query, "limit" => source.max_listing_results}
+           ) do
       results =
         body
         |> list_items()
@@ -71,7 +74,7 @@ defmodule AllbertAssist.Skills.Online.RegistryClient do
     end
   end
 
-  defp search_url(source), do: source.api_url <> "/skills"
+  defp search_url(source), do: source.api_url <> "/search"
 
   defp detail_api_url(source, id) do
     source.api_url <> "/skills/" <> URI.encode(id, &URI.char_unreserved?/1)

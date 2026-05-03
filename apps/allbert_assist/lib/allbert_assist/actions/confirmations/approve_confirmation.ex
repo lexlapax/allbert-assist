@@ -336,19 +336,20 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       |> put_in([:confirmation, :approved?], true)
 
     case Runner.run(action_name, Map.get(record, "resume_params_ref", %{}), target_context) do
-      {:ok, %{status: :completed} = response} ->
-        target_result = Map.get(response, :result, %{status: :completed})
+      {:ok, %{status: status} = response} when status in [:completed, :failed] ->
+        target_result = online_target_result(response)
+        target_status = target_result_status(target_result, status)
 
         resolve_status(record, :approved, reason, context, permission_decision, %{
           target_policy_decision: target_decision,
           target_resumed?: true,
-          target_status: :completed,
+          target_status: target_status,
           target_result: target_result
         })
 
       {:ok, response} ->
-        target_result = Map.get(response, :result, %{status: Map.get(response, :status)})
-        target_status = Map.get(target_result, :status, Map.get(response, :status, :denied))
+        target_result = online_target_result(response)
+        target_status = target_result_status(target_result, Map.get(response, :status, :denied))
 
         resolve_status(
           record,
@@ -366,6 +367,22 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
         )
     end
   end
+
+  defp online_target_result(response) do
+    Map.get(response, :result) ||
+      Map.get(response, :online_skill_search) ||
+      Map.get(response, :online_skill_detail) ||
+      Map.get(response, :online_skill_audit) ||
+      Map.get(response, :online_skill_import) ||
+      Map.get(response, :online_skill_import_request) ||
+      %{status: Map.get(response, :status)}
+  end
+
+  defp target_result_status(target_result, default) when is_map(target_result) do
+    Map.get(target_result, :status) || Map.get(target_result, "status") || default
+  end
+
+  defp target_result_status(_target_result, default), do: default
 
   defp resume_skill_script(record, reason, context, permission_decision, target_decision) do
     target_context =
