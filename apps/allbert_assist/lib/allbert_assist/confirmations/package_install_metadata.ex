@@ -40,6 +40,22 @@ defmodule AllbertAssist.Confirmations.PackageInstallMetadata do
     package_details(confirmation) ++ result_details(confirmation)
   end
 
+  def lines(_confirmation), do: []
+
+  @doc "Return package install/plan lines from a runtime action map."
+  @spec action_lines(map() | nil) :: [String.t()]
+  def action_lines(action) when is_map(action) do
+    if action_name(action) in ["plan_package_install", "run_package_install"] do
+      package_detail_lines(
+        field(action, "package_install") || field(action, "install_plan") || %{}
+      ) ++ result_detail_lines(field(action, "result") || %{})
+    else
+      []
+    end
+  end
+
+  def action_lines(_action), do: []
+
   defp package_detail_lines(summary) when is_map(summary) do
     [
       {"Manager", field(summary, "manager")},
@@ -58,6 +74,8 @@ defmodule AllbertAssist.Confirmations.PackageInstallMetadata do
   end
 
   defp package_detail_lines(_summary), do: []
+
+  defp result_detail_lines(result, fallback_status \\ nil)
 
   defp result_detail_lines(result, fallback_status) when is_map(result) do
     [
@@ -117,4 +135,6 @@ defmodule AllbertAssist.Confirmations.PackageInstallMetadata do
   defp field(map, key) when is_map(map) do
     Map.get(map, key) || Map.get(map, String.to_atom(key))
   end
+
+  defp action_name(action), do: field(action, "name")
 end

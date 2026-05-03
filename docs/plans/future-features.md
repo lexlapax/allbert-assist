@@ -255,6 +255,8 @@ v0.10 implementation clarifies the first split:
   pinned requirement, and target policy are implemented and tested
 - imported online skills must remain disabled and untrusted; untrusted imported
   code execution remains a deeper sandbox problem, not a v0.10 capability
+- CLI, `/settings`, traces, and audits now expose the v0.10 request/result
+  metadata needed to decide which workflows need deeper sandboxing later
 
 This should become a versioned roadmap item only after v0.10's actual external,
 package, and import traces show which workflows cannot be made acceptable with

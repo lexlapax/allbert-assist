@@ -6,6 +6,9 @@ defmodule AllbertAssistWeb.SettingsLive do
   use AllbertAssistWeb, :live_view
 
   alias AllbertAssist.{Actions.Runner, Confirmations}
+  alias AllbertAssist.Confirmations.ExternalRequestMetadata
+  alias AllbertAssist.Confirmations.OnlineSkillMetadata
+  alias AllbertAssist.Confirmations.PackageInstallMetadata
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
 
@@ -261,6 +264,25 @@ defmodule AllbertAssistWeb.SettingsLive do
                 <div>Disabled: {@security_status.skill_trust.disabled_count}</div>
                 <div>
                   Trusted project roots: {@security_status.skill_trust.trusted_project_roots_count}
+                </div>
+              </div>
+
+              <div id="security-v010-capabilities" class="rounded border border-base-300 p-3 text-sm">
+                <h3 class="font-medium">v0.10 Capabilities</h3>
+                <div>
+                  External services: {@security_status.capability_boundaries.external_services.enabled} · hosts {@security_status.capability_boundaries.external_services.allowed_hosts_count} · profiles {@security_status.capability_boundaries.external_services.profiles_count} · retry {@security_status.capability_boundaries.external_services.retry_policy}
+                </div>
+                <div>
+                  Package installs: {@security_status.capability_boundaries.package_installs.enabled} · managers {Enum.join(
+                    @security_status.capability_boundaries.package_installs.allowed_managers,
+                    ", "
+                  )} · roots {@security_status.capability_boundaries.package_installs.allowed_roots_count} · lifecycle scripts {@security_status.capability_boundaries.package_installs.lifecycle_scripts_allowed}
+                </div>
+                <div>
+                  Online skill import: {@security_status.capability_boundaries.online_skill_import.enabled} · sources {Enum.join(
+                    @security_status.capability_boundaries.online_skill_import.allowed_sources,
+                    ", "
+                  )} · trust after import {@security_status.capability_boundaries.online_skill_import.trust_after_import}
                 </div>
               </div>
 
@@ -609,7 +631,10 @@ defmodule AllbertAssistWeb.SettingsLive do
 
   defp confirmation_flash_message(confirmation) do
     details =
-      ShellCommandMetadata.result_details(confirmation) ++
+      ExternalRequestMetadata.result_details(confirmation) ++
+        ShellCommandMetadata.result_details(confirmation) ++
+        PackageInstallMetadata.result_details(confirmation) ++
+        OnlineSkillMetadata.lines(confirmation) ++
         SkillScriptMetadata.result_details(confirmation)
 
     message = Confirmations.status_message(confirmation)
@@ -629,7 +654,11 @@ defmodule AllbertAssistWeb.SettingsLive do
   end
 
   defp confirmation_detail_lines(confirmation) do
-    ShellCommandMetadata.lines(confirmation) ++ SkillScriptMetadata.lines(confirmation)
+    ExternalRequestMetadata.lines(confirmation) ++
+      ShellCommandMetadata.lines(confirmation) ++
+      PackageInstallMetadata.lines(confirmation) ++
+      OnlineSkillMetadata.lines(confirmation) ++
+      SkillScriptMetadata.lines(confirmation)
   end
 
   defp params_summary(confirmation) do

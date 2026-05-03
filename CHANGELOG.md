@@ -2,8 +2,9 @@
 
 ## v0.10 - External Capability Adapters
 
-Status: in progress. M1-M4 are implemented and focused-test verified. No
-release commit or release tag exists yet.
+Status: ready for operator/user testing after the v0.10 M5 release-readiness
+commit and push. Expected release tag is `v0.10`, pending operator acceptance;
+no v0.10 tag has been created or pushed yet.
 
 ### Added
 
@@ -21,6 +22,13 @@ release commit or release tag exists yet.
   `import_online_skill`, and `mix allbert.skills ...-online`.
 - Source manifests for imported online skills under
   `<ALLBERT_HOME>/cache/skills/_sources`.
+- `/settings`, `mix allbert.confirmations`, confirmation audits, and markdown
+  traces now render v0.10 external request, package install, and online skill
+  request/result metadata from the same durable records.
+- Security status marks the v0.10 external adapters and imports boundary
+  implemented and shows redacted policy summaries for external services,
+  package installs, and online skill import.
+- Version metadata bumped to `0.10.0`.
 
 ### Safety
 
@@ -34,6 +42,18 @@ release commit or release tag exists yet.
 - Online skill search/detail/audit are confirmed external reads. Import creates
   a confirmation before fetching or writing, stores only under Allbert cache,
   and leaves imported skills disabled, untrusted, and non-executable.
+
+### Verification
+
+- Focused M5 suites passed for `mix allbert.external`, `mix allbert.packages`,
+  `mix allbert.skills`, `mix allbert.confirmations`, `/settings`, runtime
+  external request tracing, trace action metadata, and Security Central status.
+- Final gates for v0.10 M5 passed: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- `mix precommit` passed with 248 core tests and 17 web tests.
+- Operator/user testing should use the disposable v0.10 smoke flow in
+  `README.md` or `docs/plans/v0.10-plan.md`.
 
 ## v0.09 - Skill Script Runner
 
