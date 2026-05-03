@@ -1,8 +1,12 @@
 defmodule AllbertAssist.Confirmations.Store do
   @moduledoc false
 
+  alias AllbertAssist.Confirmations.ExternalRequestMetadata
+  alias AllbertAssist.Confirmations.OnlineSkillMetadata
+  alias AllbertAssist.Confirmations.PackageInstallMetadata
   alias AllbertAssist.Confirmations.Record
   alias AllbertAssist.Confirmations.ShellCommandMetadata
+  alias AllbertAssist.Confirmations.SkillScriptMetadata
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store, as: SettingsStore
@@ -190,21 +194,27 @@ defmodule AllbertAssist.Confirmations.Store do
     - resolution_reason: #{Map.get(resolution, "resolution_reason", "none")}
     - decision_source: #{Map.get(resolution, "decision_source", "none")}
     - source_trace_id: #{Map.get(record, "source_trace_id", "none")}
-    #{render_shell_audit(record)}
+    #{render_metadata_audit(record)}
     - audit_version: 1
     """
   end
 
-  defp render_shell_audit(record) do
-    record
-    |> ShellCommandMetadata.lines()
+  defp render_metadata_audit(record) do
+    lines =
+      ExternalRequestMetadata.lines(record) ++
+        PackageInstallMetadata.lines(record) ++
+        OnlineSkillMetadata.lines(record) ++
+        ShellCommandMetadata.lines(record) ++
+        SkillScriptMetadata.lines(record)
+
+    lines
     |> case do
       [] ->
         ""
 
       lines ->
         lines
-        |> Enum.map(fn line -> "- shell_#{line_key(line)}: #{line_value(line)}" end)
+        |> Enum.map(fn line -> "- target_#{line_key(line)}: #{line_value(line)}" end)
         |> Enum.join("\n")
     end
   end

@@ -213,6 +213,15 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert status.secret_status.providers >= 1
     assert status.redaction_posture.secret_ref_display == "[SECRET_REF]"
     assert Enum.any?(status.future_boundaries, &(&1.name == :shell_sandbox))
+
+    assert Enum.any?(
+             status.future_boundaries,
+             &(&1.name == :external_adapters_and_imports and &1.status == :implemented)
+           )
+
+    assert status.capability_boundaries.external_services.enabled == false
+    assert status.capability_boundaries.package_installs.allowed_managers == ["npm"]
+    assert status.capability_boundaries.online_skill_import.allowed_sources == ["skills_sh"]
     refute inspect(status) =~ "secret://"
   end
 

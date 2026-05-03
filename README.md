@@ -1,18 +1,20 @@
 # Allbert Assist
 
 Allbert Assist is a Phoenix umbrella app for a local, Jido-centered personal
-assistant runtime. v0.09 is ready for operator/user testing as the trusted
-skill script runner release: submit a prompt from CLI or LiveView; route it
+assistant runtime. v0.10 is ready for operator/user testing as the external
+capability adapter release: submit a prompt from CLI or LiveView; route it
 through Jido signals, the intent agent, validated skill contracts, registered
 actions, Security Central, and the shared action runner; pause
 confirmation-required work as durable Allbert Home records; approve or deny
 from CLI or `/settings`; execute confirmed Level 1 local shell commands through
 `run_shell_command`; execute confirmed trusted Agent Skill script resources
-through `run_skill_script`; persist markdown memory; write inspectable traces
-and execution audit records; manage typed settings, provider profiles, and
-encrypted local secrets through Settings Central; discover, read, activate,
-validate, and scaffold standard `SKILL.md` skill folders without granting
-unplanned execution authority.
+through `run_skill_script`; run allowlisted `Req` external service requests,
+profile-gated npm package installs, and online skill search/detail/audit/import
+only through confirmed registered actions; persist markdown memory; write
+inspectable traces and execution audit records; manage typed settings,
+provider profiles, and encrypted local secrets through Settings Central; and
+discover, read, activate, validate, and scaffold standard `SKILL.md` skill
+folders without granting unplanned execution authority.
 
 ## Current Capabilities
 
@@ -22,13 +24,14 @@ unplanned execution authority.
   `AllbertAssist.Actions.Runner.run/3`
 - Explicit Jido actions for direct answers, memory, skill inspection, command
   planning, confirmed local shell execution, confirmed trusted skill script
-  execution, and external-network recognition
+  execution, confirmed external service requests, package install planning and
+  execution, and online skill search/detail/audit/import
 - Action-backed built-in skills for direct answers, markdown memory,
   skill list/read, command planning, and external-network recognition
 - Security Central for read-only work, memory writes, command planning,
-  confirmed command execution, external-network confirmation, settings writes,
-  skill scaffold writes, settings secret boundaries, risk, redaction, audit,
-  trace, and trust metadata
+  confirmed command execution, external-network confirmation, package installs,
+  online skill import, settings writes, skill scaffold writes, settings secret
+  boundaries, risk, redaction, audit, trace, and trust metadata
 - Allbert Home path foundation under `ALLBERT_HOME`, alias
   `ALLBERT_HOME_DIR`, defaulting to `~/.allbert`
 - Settings Central under `<ALLBERT_HOME>/settings`, with typed YAML settings,
@@ -41,6 +44,16 @@ unplanned execution authority.
 - Resource-gated trusted skill script execution through `run_skill_script`,
   with exact inventory matching, digest re-check, durable confirmation, bounded
   output, timeout, redaction, and execution audit metadata
+- Confirmed `Req` external service requests through `external_network_request`,
+  Settings Central `external_services.*` policy, SSRF-style allowlists,
+  redirect/retry policy, response caps, redaction, and audit metadata
+- Package install planning and confirmed npm execution through
+  `plan_package_install`, `run_package_install`, and `mix allbert.packages`;
+  pip remains preview-only in v0.10
+- Confirmed online skill search/detail/audit/import through
+  `search_online_skills`, `show_online_skill`, `audit_online_skill`,
+  `import_online_skill`, and `mix allbert.skills ...-online`; imports stay
+  disabled, untrusted, and cached under `<ALLBERT_HOME>/cache/skills`
 - Registered confirmation actions and CLI: `mix allbert.confirmations list`,
   `show`, `approve`, `deny`, and `expire`
 - Deterministic shell request CLI: `mix allbert.exec --cwd "$WORKSPACE" -- ls -la`
@@ -103,7 +116,7 @@ ignores are reported.
 Use a disposable memory root:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v007-demo
+export ALLBERT_HOME=/tmp/allbert-v10-demo
 export ALLBERT_TRACE_ENABLED=true
 rm -rf "$ALLBERT_HOME"
 ```
@@ -218,24 +231,44 @@ mix allbert.confirmations approve <confirmation-id> --reason "v0.09 smoke"
 mix allbert.confirmations list --resolved
 ```
 
-Create and inspect an external-network confirmation request:
+Prepare a disposable v0.10 external/package/online skill smoke:
 
 ```sh
-mix allbert.ask --trace "fetch https://example.com from the internet"
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v10-user.XXXXXX)"
+export WORKSPACE="$(mktemp -d /tmp/allbert-v10-work.XXXXXX)"
+mix allbert.settings set permissions.external_network allowed
+mix allbert.settings set external_services.enabled true
+mix allbert.settings set external_services.allowed_hosts example.com
+mix allbert.settings set external_services.allowed_paths /status
+mix allbert.external request --url https://example.com/status --method GET
 mix allbert.confirmations list
 mix allbert.confirmations show <confirmation-id>
 mix allbert.confirmations approve <confirmation-id> --reason "operator smoke"
 mix allbert.confirmations list --resolved
+
+mix allbert.settings set permissions.package_install allowed
+mix allbert.settings set package_installs.enabled true
+mix allbert.settings set package_installs.allowed_roots "$WORKSPACE"
+mix allbert.packages plan npm --cwd "$WORKSPACE" --package left-pad@1.3.0
+mix allbert.packages run npm --cwd "$WORKSPACE" --package left-pad@1.3.0
+mix allbert.confirmations list
+mix allbert.confirmations approve <confirmation-id> --reason "v0.10 package smoke"
+mix allbert.confirmations list --resolved
+
+mix allbert.settings set permissions.online_skill_import allowed
+mix allbert.settings set skills.online_import.enabled true
+mix allbert.settings set skills.online_import.sources.skills_sh.enabled true
+mix allbert.skills search-online memory
+mix allbert.confirmations list
+mix allbert.confirmations approve <confirmation-id> --reason "v0.10 online search smoke"
+mix allbert.skills import-online skills_sh/<source-skill-id>
+mix allbert.confirmations approve <confirmation-id> --reason "v0.10 online import smoke"
+mix allbert.confirmations list --resolved
 ```
 
-In v0.08, external-network approval still resolves as `adapter_unavailable`;
-it records the operator decision and still makes no network call. The CLI and
-`/settings` explain this as approved, recorded, and not executed because the
-external-network target has no adapter yet; external network execution is
-planned for v0.10.
-
-Release/tag status: v0.09 is accepted for operator/user testing. The release
-tag is `v0.09`.
+Release/tag status: v0.10 is ready for operator/user testing. The expected
+release tag is `v0.10`, pending operator acceptance; no v0.10 tag has been
+created or pushed yet.
 
 Inspect generated files:
 
@@ -248,7 +281,7 @@ find "$ALLBERT_HOME/memory" -maxdepth 2 -type f | sort
 Start Phoenix:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v007-demo
+export ALLBERT_HOME=/tmp/allbert-v10-demo
 export ALLBERT_TRACE_ENABLED=true
 mix phx.server
 ```

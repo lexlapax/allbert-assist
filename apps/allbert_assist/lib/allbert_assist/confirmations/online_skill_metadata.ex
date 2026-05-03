@@ -21,6 +21,18 @@ defmodule AllbertAssist.Confirmations.OnlineSkillMetadata do
 
   def lines(_confirmation), do: []
 
+  @doc "Return online skill request/result lines from a runtime action map."
+  @spec action_lines(map() | nil) :: [String.t()]
+  def action_lines(action) when is_map(action) do
+    if action_name(action) in @online_actions do
+      request_lines(action_online_summary(action)) ++ result_lines(action_online_result(action))
+    else
+      []
+    end
+  end
+
+  def action_lines(_action), do: []
+
   defp request_lines(summary) when is_map(summary) do
     source = field(summary, "source") || %{}
 
@@ -82,4 +94,24 @@ defmodule AllbertAssist.Confirmations.OnlineSkillMetadata do
   end
 
   defp field(_map, _key), do: nil
+
+  defp action_online_summary(action) do
+    field(action, "online_skill") ||
+      field(action, "online_skill_search") ||
+      field(action, "online_skill_detail") ||
+      field(action, "online_skill_audit") ||
+      field(action, "online_skill_import") ||
+      field(action, "online_skill_import_request") ||
+      %{}
+  end
+
+  defp action_online_result(action) do
+    field(action, "online_skill_search") ||
+      field(action, "online_skill_detail") ||
+      field(action, "online_skill_audit") ||
+      field(action, "online_skill_import") ||
+      %{}
+  end
+
+  defp action_name(action), do: field(action, "name")
 end

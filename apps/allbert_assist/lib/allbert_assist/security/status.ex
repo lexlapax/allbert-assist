@@ -11,7 +11,7 @@ defmodule AllbertAssist.Security.Status do
     %{name: :confirmation_queue, milestone: "v0.07", status: :implemented},
     %{name: :shell_sandbox, milestone: "v0.08", status: :implemented},
     %{name: :skill_script_runner, milestone: "v0.09", status: :implemented},
-    %{name: :external_adapters_and_imports, milestone: "v0.10", status: :planned}
+    %{name: :external_adapters_and_imports, milestone: "v0.10", status: :implemented}
   ]
 
   @doc "Return redacted read-only security status."
@@ -21,6 +21,7 @@ defmodule AllbertAssist.Security.Status do
       permission_defaults: permission_defaults(context),
       safety_floors: safety_floors(),
       skill_trust: skill_trust_summary(),
+      capability_boundaries: capability_boundaries_summary(),
       secret_status: secret_status_summary(),
       redaction_posture: Redactor.posture(),
       future_boundaries: @future_boundaries
@@ -78,6 +79,36 @@ defmodule AllbertAssist.Security.Status do
     end
   end
 
+  defp capability_boundaries_summary do
+    %{
+      external_services: %{
+        enabled: setting("external_services.enabled", false),
+        allowed_hosts_count: length(setting("external_services.allowed_hosts", [])),
+        allowed_methods: setting("external_services.allowed_methods", []),
+        profiles_count: map_size(setting("external_services.profiles", %{})),
+        allow_redirects: setting("external_services.allow_redirects", false),
+        retry_policy: setting("external_services.retry_policy", "none"),
+        max_response_bytes: setting("external_services.max_response_bytes", nil)
+      },
+      package_installs: %{
+        enabled: setting("package_installs.enabled", false),
+        allowed_roots_count: length(setting("package_installs.allowed_roots", [])),
+        allowed_managers: setting("package_installs.allowed_managers", []),
+        lifecycle_scripts_allowed: setting("package_installs.lifecycle_scripts_allowed", false),
+        git_dependencies_allowed: setting("package_installs.git_dependencies_allowed", false),
+        global_installs_allowed: setting("package_installs.global_installs_allowed", false),
+        max_output_bytes: setting("package_installs.max_output_bytes", nil)
+      },
+      online_skill_import: %{
+        enabled: setting("skills.online_import.enabled", false),
+        allowed_sources: setting("skills.online_import.allowed_sources", []),
+        max_listing_results: setting("skills.online_import.max_listing_results", nil),
+        max_download_bytes: setting("skills.online_import.max_download_bytes", nil),
+        trust_after_import: setting("skills.online_import.trust_after_import", false)
+      }
+    }
+  end
+
   defp count_setting(settings, key) do
     settings
     |> Enum.find(%{value: []}, &(&1.key == key))
@@ -85,6 +116,13 @@ defmodule AllbertAssist.Security.Status do
     |> case do
       values when is_list(values) -> length(values)
       _other -> 0
+    end
+  end
+
+  defp setting(key, default) do
+    case Settings.get(key) do
+      {:ok, value} -> value
+      _other -> default
     end
   end
 end

@@ -88,6 +88,42 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
              response.actions
   end
 
+  test "renders v0.10 capability metadata in traces" do
+    Application.put_env(:allbert_assist, Trace, enabled: true)
+
+    cases = [
+      {
+        external_action(),
+        ["## External Request Metadata", "Method: GET", "HTTP status: 200", "Body preview: ok"]
+      },
+      {
+        package_action(),
+        [
+          "## Package Install Metadata",
+          "Manager: npm",
+          "Packages: left-pad@1.3.0",
+          "Output preview: fake npm install"
+        ]
+      },
+      {
+        online_import_action(),
+        [
+          "## Online Skill Metadata",
+          "Imported target: /tmp/allbert-cache/skills/demo",
+          "Audit: passed"
+        ]
+      }
+    ]
+
+    Enum.each(cases, fn {action, expected_lines} ->
+      assert {:ok, response} =
+               RecordTrace.run(%{turn: turn_with_action(action)}, context())
+
+      trace = File.read!(response.trace_id)
+      Enum.each(expected_lines, &assert(trace =~ &1))
+    end)
+  end
+
   defp turn(text) do
     {:ok, input_signal} =
       Signal.new(
@@ -135,6 +171,82 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
       },
       agent: AllbertAssist.Agents.IntentAgent
     }
+  end
+
+  defp turn_with_action(action) do
+    turn("Trace v0.10 capability metadata.")
+    |> put_in([:response, :actions], [action])
+  end
+
+  defp external_action do
+    %{
+      name: "external_network_request",
+      status: :completed,
+      permission_decision: permission_decision(:external_network),
+      request: %{
+        method: "GET",
+        url: "https://example.com/status",
+        profile: "default",
+        host: "example.com",
+        path: "/status",
+        timeout_ms: 5000,
+        max_response_bytes: 1024,
+        allow_redirects?: false,
+        retry_policy: "none"
+      },
+      result: %{
+        status: :completed,
+        http_status: 200,
+        duration_ms: 8,
+        body_preview: "ok",
+        response_body_bytes: 2,
+        truncated?: false
+      }
+    }
+  end
+
+  defp package_action do
+    %{
+      name: "run_package_install",
+      status: :completed,
+      permission_decision: permission_decision(:package_install),
+      package_install: %{
+        manager: "npm",
+        packages: ["left-pad@1.3.0"],
+        resolved_target_root: "/tmp/allbert-package-target",
+        execution_argv_preview: ["npm", "install", "left-pad@1.3.0", "--ignore-scripts"],
+        execution_available?: true
+      },
+      result: %{
+        status: :completed,
+        exit_status: 0,
+        stdout_preview: "fake npm install",
+        output_bytes: 16,
+        truncated?: false
+      }
+    }
+  end
+
+  defp online_import_action do
+    %{
+      name: "import_online_skill",
+      status: :completed,
+      permission_decision: permission_decision(:online_skill_import),
+      online_skill_import: %{
+        status: :imported_disabled,
+        source: %{id: "skills_sh"},
+        target_root: "/tmp/allbert-cache/skills/demo",
+        manifest_path: "/tmp/allbert-cache/skills/_sources/demo.json",
+        audit: %{status: :passed}
+      }
+    }
+  end
+
+  defp permission_decision(permission) do
+    PermissionGate.authorize(permission, %{
+      request: %{operator_id: "local", channel: :test, input_signal_id: "sig-trace"},
+      selected_action: to_string(permission)
+    })
   end
 
   defp context do

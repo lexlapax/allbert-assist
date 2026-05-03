@@ -553,8 +553,10 @@ Plan: `docs/plans/v0.10-plan.md`
 Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 
-Status: M1-M4 implemented and focused-test verified. M5 remains in
-progress; no v0.10 release commit or release tag exists yet.
+Status: M1-M5 implemented and focused-test verified. v0.10 is ready for
+operator/user testing after the M5 release-readiness commit and push. Expected
+tag is `v0.10`, pending operator acceptance; no v0.10 tag has been created or
+pushed yet.
 
 Expected direction:
 
@@ -595,15 +597,16 @@ Milestones:
   and disabled imported-cache write through allowed source profiles, `Req`,
   source manifests, existing parser/registry validation, and CLI/confirmation
   metadata.
-- M5 (Milestone 5): Release readiness, operator surfaces, trace/audit polish,
-  docs, future milestone handoffs, focused tests, final gates, version
-  metadata, and release/tag readiness docs.
+- M5 (Milestone 5): Implemented. Release readiness, operator surfaces,
+  trace/audit polish, docs, future milestone handoffs, focused tests, final
+  gates, version metadata `0.10.0`, and release/tag readiness docs.
 
-Exit signal: Allbert can search, audit, and import online skills and call
-approved external services through confirmed registered actions without making
-imports, package manifests, or package-manager metadata executable by
-themselves. Package installs are profile-gated, confirmed, audited, and bounded
-to explicit target roots.
+Exit signal: Allbert can search, audit, and import online skills, call approved
+external services, and run the first confirmed npm package-manager profile
+through registered actions without making imports, package manifests, or
+package-manager metadata executable by themselves. CLI, `/settings`, traces,
+audits, and Security Central render the same v0.10 metadata and policy
+summaries.
 
 ## v0.11: Execution-Aware Intent Contract And Approval Handoff
 

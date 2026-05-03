@@ -36,6 +36,12 @@ defmodule AllbertAssist.Actions.SecurityActionsTest do
            )
 
     assert Enum.any?(response.security_status.safety_floors, &(&1.permission == :unknown))
+    assert response.security_status.capability_boundaries.external_services.enabled == false
+
+    assert response.security_status.capability_boundaries.package_installs.allowed_managers == [
+             "npm"
+           ]
+
     refute inspect(response) =~ "secret://"
   end
 
