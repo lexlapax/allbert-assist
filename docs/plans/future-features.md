@@ -185,6 +185,10 @@ interface. Elixir remains the runtime substrate for now; no scripting engine is
 currently planned. v0.09 runs trusted, inventoried Agent Skill script
 resources through `run_skill_script`; that does not graduate a general
 scripting engine, dependency installer, or untrusted code runtime.
+After v0.09, this boundary is tested capability rather than only planning:
+trusted inventoried scripts may run after confirmation, but arbitrary language
+runtime access, dependency bootstrap, and untrusted-code execution remain
+future work.
 
 Needed before planning:
 
@@ -240,8 +244,9 @@ Questions to resolve before graduation:
   sandbox fails
 
 This should become a versioned roadmap item only after v0.08 Level 1 behavior
-has been tested with real operator usage and v0.09/v0.10 clarify which
-execution classes truly need deeper isolation.
+and v0.09 trusted script behavior have been tested with real operator usage
+and v0.10 clarifies which package, network, or imported-code execution classes
+truly need deeper isolation.
 
 ## Review Cadence
 

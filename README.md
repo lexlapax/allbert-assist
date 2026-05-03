@@ -1,15 +1,15 @@
 # Allbert Assist
 
 Allbert Assist is a Phoenix umbrella app for a local, Jido-centered personal
-assistant runtime. v0.08 is released as the local execution sandbox and shell
-adapter release, and v0.09 is implementation-ready for trusted skill script
-execution planning: submit a prompt from CLI or LiveView; route it through Jido
-signals, the intent agent, validated skill contracts,
-registered actions, Security Central, and the shared action runner; pause
+assistant runtime. v0.09 is ready for operator/user testing as the trusted
+skill script runner release: submit a prompt from CLI or LiveView; route it
+through Jido signals, the intent agent, validated skill contracts, registered
+actions, Security Central, and the shared action runner; pause
 confirmation-required work as durable Allbert Home records; approve or deny
 from CLI or `/settings`; execute confirmed Level 1 local shell commands through
-`run_shell_command`; persist markdown memory; write inspectable traces and
-execution audit records; manage typed settings, provider profiles, and
+`run_shell_command`; execute confirmed trusted Agent Skill script resources
+through `run_skill_script`; persist markdown memory; write inspectable traces
+and execution audit records; manage typed settings, provider profiles, and
 encrypted local secrets through Settings Central; discover, read, activate,
 validate, and scaffold standard `SKILL.md` skill folders without granting
 unplanned execution authority.
@@ -21,7 +21,8 @@ unplanned execution authority.
 - Registered action boundary: `AllbertAssist.Actions.Registry` and
   `AllbertAssist.Actions.Runner.run/3`
 - Explicit Jido actions for direct answers, memory, skill inspection, command
-  planning, confirmed local shell execution, and external-network recognition
+  planning, confirmed local shell execution, confirmed trusted skill script
+  execution, and external-network recognition
 - Action-backed built-in skills for direct answers, markdown memory,
   skill list/read, command planning, and external-network recognition
 - Security Central for read-only work, memory writes, command planning,
@@ -37,6 +38,9 @@ unplanned execution authority.
 - Durable confirmation queue under `<ALLBERT_HOME>/confirmations`, with
   pending/resolved YAML records and markdown audit entries
 - Level 1 local shell execution audit under `<ALLBERT_HOME>/execution/audit`
+- Resource-gated trusted skill script execution through `run_skill_script`,
+  with exact inventory matching, digest re-check, durable confirmation, bounded
+  output, timeout, redaction, and execution audit metadata
 - Registered confirmation actions and CLI: `mix allbert.confirmations list`,
   `show`, `approve`, `deny`, and `expire`
 - Deterministic shell request CLI: `mix allbert.exec --cwd "$WORKSPACE" -- ls -la`
@@ -175,6 +179,45 @@ The same action boundary is used from prompt routing:
 mix allbert.ask "run pwd"
 ```
 
+Prepare a disposable v0.09 trusted skill script smoke:
+
+```sh
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v09-user.XXXXXX)"
+export WORKSPACE="$(mktemp -d /tmp/allbert-v09-work.XXXXXX)"
+export SKILL_ROOT="$ALLBERT_HOME/skills/demo-script"
+
+mkdir -p "$SKILL_ROOT/scripts" "$WORKSPACE"
+cat > "$SKILL_ROOT/SKILL.md" <<'SKILL'
+---
+name: demo-script
+description: Demo trusted script skill.
+metadata:
+  allbert.kind: capability
+  allbert.actions: run_skill_script
+  allbert.permissions: skill_script_execute
+  allbert.confirmation: required
+---
+
+Run the bundled demo script only through Allbert confirmation.
+SKILL
+
+cat > "$SKILL_ROOT/scripts/hello" <<'SCRIPT'
+#!/bin/sh
+printf 'hello from skill script\n'
+SCRIPT
+chmod +x "$SKILL_ROOT/scripts/hello"
+
+mix allbert.settings set permissions.skill_script_execute allowed
+mix allbert.settings set execution.skill_scripts.enabled true
+mix allbert.settings set execution.local.allowed_roots "$WORKSPACE"
+
+mix allbert.skills validate "$SKILL_ROOT"
+mix allbert.skills run demo-script scripts/hello --cwd "$WORKSPACE" --
+mix allbert.confirmations list
+mix allbert.confirmations approve <confirmation-id> --reason "v0.09 smoke"
+mix allbert.confirmations list --resolved
+```
+
 Create and inspect an external-network confirmation request:
 
 ```sh
@@ -191,8 +234,9 @@ it records the operator decision and still makes no network call. The CLI and
 external-network target has no adapter yet; external network execution is
 planned for v0.10.
 
-Release/tag status: v0.08 was released and tagged as `v0.08` on 2026-05-02.
-v0.09 is implementation-ready in `docs/plans/v0.09-plan.md`.
+Release/tag status: v0.09 is ready for operator/user testing. The expected
+release tag is `v0.09`, pending operator acceptance; no `v0.09` release tag has
+been created or pushed yet.
 
 Inspect generated files:
 
@@ -269,9 +313,11 @@ Allbert remains local and conservative:
 - It records external-network approval as `adapter_unavailable` until a future
   registered `Req` adapter is implemented and confirmed; this is intentional
   adapter scaffolding, not an execution error.
-- v0.09 plans trusted, resource-gated bundled skill script execution through a
-  registered action; current released capability still does not execute package
-  installs or arbitrary code from skill folders.
+- v0.09 executes only trusted, resource-gated bundled skill script resources
+  through registered action `run_skill_script`, durable confirmation, digest
+  re-check, and Level 1 host-process controls. It is not a generic scripting
+  engine and does not execute package installs or arbitrary code from skill
+  folders.
 - It does not claim Docker, Podman, Mac/Linux container, remote, or microVM
   isolation yet; that future work is parked in `docs/plans/future-features.md`.
 - Sensitive-looking personal data is not silently stored unless explicit memory

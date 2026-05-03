@@ -1,5 +1,72 @@
 # Changelog
 
+## v0.09 - Skill Script Runner
+
+Status: ready for operator/user testing. Release tag is pending operator
+acceptance; expected tag name is `v0.09`. No `v0.09` tag has been created or
+pushed yet.
+
+### Added
+
+- `run_skill_script` as the only registered action for trusted Agent Skill
+  script resources.
+- Security Central `:skill_script_execute` permission, high risk tier, and
+  confirmation safety floor.
+- Settings Central `execution.skill_scripts.*` policy and interpreter-profile
+  validation surface.
+- Resource-gated `SkillScriptSpec` resolver for trusted/enabled skills,
+  validated capability contracts, exact `AllbertAssist.Skills.Resource`
+  inventory matching, SHA-256 digest re-checks, direct executable launch mode,
+  cwd/path/env/timeout/output validation, and redacted summaries.
+- Durable pending/resolved confirmation flow for skill scripts, including
+  policy re-check and digest re-check on approval.
+- Bounded skill script runner with explicit executable plus argv, per-run cwd
+  handling, timeout, output caps, redacted output previews, and script audit
+  records under `<ALLBERT_HOME>/execution/audit`.
+- `mix allbert.skills run SKILL SCRIPT [--cwd PATH] [--timeout MS]
+  [--max-output-bytes BYTES] -- [ARGS...]`.
+- CLI and `/settings` rendering for pending/resolved skill script metadata:
+  skill, script path, digest, cwd, timeout, output cap, result, exit status,
+  timeout/truncation flags, and redacted output preview.
+- Version metadata bumped to `0.9.0`.
+
+### Changed
+
+- Confirmation approval now resumes `run_skill_script` targets through the
+  shared action runner, not direct store mutation or channel-owned execution.
+- Security status marks the v0.09 skill script runner boundary as implemented.
+- `activate_skill` remains progressive-disclosure-only; reading or activating a
+  skill still never runs bundled scripts.
+- v0.10 planning now consumes a real trusted script runner while retaining
+  package-install, external-network, online-import, and deeper sandbox work as
+  separate future capabilities.
+
+### Safety
+
+- v0.09 runs only trusted, enabled, inventoried skill script resources after
+  durable operator confirmation.
+- Script paths are resource identifiers, not arbitrary filesystem authority:
+  absolute paths, traversal, hidden paths, missing resources, non-script
+  resources, non-executable scripts, digest drift, out-of-root cwd/path-like
+  args, disallowed env keys, and limit violations are denied before execution.
+- v0.09 does not add package installs, external service calls, online skill
+  import auto-enable, generic scripting engines, runtime Elixir module loading,
+  persistent background scripts, or Docker/Podman/container/microVM isolation.
+- Level 1 host execution is still not a hostile-code sandbox and does not
+  claim network isolation.
+
+### Verification
+
+- Milestone focused suites passed for M1 through M5.
+- Release-readiness gates for M5 passed: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- `mix precommit` passed with 206 core tests and 16 web tests.
+- Operator/user testing should use the disposable `ALLBERT_HOME` and temporary
+  workspace smoke in `README.md` or `docs/plans/v0.09-plan.md`.
+- Disposable CLI smoke passed for validate, run, list, approve, and
+  list-resolved against a temporary trusted skill and workspace.
+
 ## v0.07 - Confirmation Workflow
 
 Status: released and tagged as `v0.07` on 2026-05-02.

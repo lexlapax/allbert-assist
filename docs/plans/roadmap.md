@@ -480,7 +480,9 @@ Plan: `docs/plans/v0.09-plan.md`
 Request flow: `docs/plans/v0.09-request-flow.md`
 ADR: `docs/adr/0010-resource-gated-skill-script-execution.md`
 
-Status: implementation-ready after v0.08 release/tag on 2026-05-02.
+Status: ready for operator/user testing. Release/tag handoff is pending
+operator acceptance; expected tag name is `v0.09`, and no `v0.09` tag has been
+created or pushed yet.
 
 Expected direction:
 
@@ -538,6 +540,10 @@ Milestones:
   redacted script output.
 - M5: Docs, future milestone handoffs, pre-release smoke matrix, focused
   tests, final gates, and release/tag readiness.
+  Complete in implementation: M5 updated release docs, bumped version metadata
+  to `0.9.0`, marked the Security status boundary implemented, preserved
+  v0.10/v0.11 handoffs, and documented exact user-testing commands and tag
+  readiness.
 
 Exit signal: Allbert can run a bundled skill script only when the skill is
 trusted, enabled, selected, inventoried, digest-verified, confirmed, bounded
