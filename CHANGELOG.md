@@ -2,7 +2,7 @@
 
 ## v0.10 - External Capability Adapters
 
-Status: implemented through M6 after the original v0.10 M5 release-readiness
+Status: implemented through M7 after the original v0.10 M5 release-readiness
 gate was reopened for online skill approval clarity/search fixes and Resource
 Access Security Posture planning. Release/tag readiness is pending the final
 reopened v0.10 milestone. Expected release tag remains `v0.10`; no v0.10 tag
@@ -35,6 +35,12 @@ has been created or pushed yet.
 - Security status marks the v0.10 external adapters and imports boundary
   implemented and shows redacted policy summaries for external services,
   package installs, and online skill import.
+- Shared resource reference metadata is emitted by shell command summaries,
+  trusted skill script summaries, external request summaries, package install
+  summaries, and online skill source actions. The metadata is plain data with
+  origin kind, canonical id, operation class, access mode, scope, limits,
+  downstream consumer, redaction, digest, and metadata fields; it does not
+  approve, grant, fetch, import, install, summarize, or execute by itself.
 - Version metadata bumped to `0.10.0`.
 
 ### Changed
@@ -49,10 +55,10 @@ has been created or pushed yet.
   testing plan. First-run operator guidance lives in
   `docs/operator/onboarding.md`; the v0.10 smoke matrix remains in
   `docs/plans/v0.10-request-flow.md`.
-- The reopened v0.10 plan now owns resource reference and remembered grant
-  contracts before release. v0.11 owns execution-aware Approval Handoff UX for
-  consumers such as `summarize_url`, `inspect_document`, `import_skill`, and
-  `import_local_skill`.
+- The reopened v0.10 plan has implemented the shared resource reference
+  contract and still owns remembered grant contracts before release. v0.11 owns
+  execution-aware Approval Handoff UX for consumers such as `summarize_url`,
+  `inspect_document`, `import_skill`, and `import_local_skill`.
 
 ### Safety
 
@@ -87,6 +93,15 @@ has been created or pushed yet.
 - Because v0.10 is reopened after M5, focused post-M5 online skill regressions
   and final gates must be rerun in the final reopened release-readiness
   milestone before tag acceptance.
+- M7 focused resource reference tests pass for shell cwd/path operands, skill
+  script resources, external request refs, online skill import refs, package
+  install refs, local-vs-remote skill import grant separation, closed operation
+  vocabulary, and resource metadata rendering.
+- M7 adjacent suites pass for online skill actions, execution/request/package
+  summary metadata, confirmation CLI rendering, trace rendering, and
+  `/settings` confirmation display. M7 cleanup gates pass:
+  `mix compile --warnings-as-errors`, `mix format --check-formatted`,
+  `mix credo --strict`, and `git diff --check`.
 - Operator/user testing should start with `docs/operator/onboarding.md` and
   use the disposable v0.10 smoke flow
   in `docs/plans/v0.10-request-flow.md` or `docs/plans/v0.10-plan.md`.

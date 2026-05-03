@@ -7,6 +7,7 @@ defmodule AllbertAssist.Execution.CommandSpec do
   """
 
   alias AllbertAssist.Execution.Policy
+  alias AllbertAssist.Resources.Ref
 
   defstruct executable: nil,
             resolved_executable: nil,
@@ -62,7 +63,7 @@ defmodule AllbertAssist.Execution.CommandSpec do
 
   @spec summary(t()) :: map()
   def summary(%__MODULE__{} = spec) do
-    %{
+    summary = %{
       executable: spec.executable,
       args: spec.args,
       cwd: spec.cwd,
@@ -77,6 +78,8 @@ defmodule AllbertAssist.Execution.CommandSpec do
       policy_decision: spec.policy_decision,
       denial_reason: spec.denial_reason
     }
+
+    Map.put(summary, :resource_refs, Ref.from_shell_command_summary(summary))
   end
 
   defp load_policy!(opts) do

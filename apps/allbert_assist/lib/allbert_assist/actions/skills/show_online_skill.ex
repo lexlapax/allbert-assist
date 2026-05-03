@@ -20,6 +20,7 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Skills.Online.RegistryClient
   alias AllbertAssist.Skills.Online.Source
@@ -53,7 +54,13 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
   defp execute_show(id, source, permission_decision) do
     case RegistryClient.show(source, id) do
       {:ok, detail} ->
-        summary = detail_summary(detail)
+        summary =
+          detail
+          |> detail_summary()
+          |> Map.put(
+            :resource_refs,
+            online_resource_refs(source, :online_skill_detail, %{id: id})
+          )
 
         {:ok,
          %{
@@ -87,7 +94,7 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
       target_permission: :external_network,
       target_execution_mode: :online_skill_detail,
       security_decision: permission_decision,
-      params_summary: %{source: Source.summary(source), id: id},
+      params_summary: request_summary(source, :online_skill_detail, %{id: id}),
       resume_params_ref: %{source: source.id, id: id}
     }
 
@@ -109,7 +116,7 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
                permission_decision: permission_decision,
                execution: :pending_confirmation,
                confirmation_id: confirmation["id"],
-               online_skill: %{source: Source.summary(source), id: id}
+               online_skill: request_summary(source, :online_skill_detail, %{id: id})
              }
            ]
          }}
@@ -123,6 +130,7 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
     result = %{
       source: Source.summary(source),
       id: id,
+      resource_refs: online_resource_refs(source, :online_skill_detail, %{id: id}),
       status: :denied,
       denial_reason: reason_summary(reason)
     }
@@ -152,6 +160,7 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
     result = %{
       source: Source.summary(source),
       id: id,
+      resource_refs: online_resource_refs(source, :online_skill_detail, %{id: id}),
       status: :failed,
       failure_reason: reason_summary(reason)
     }
@@ -182,6 +191,20 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
   defp reason_summary(reason) when is_atom(reason), do: Atom.to_string(reason)
   defp reason_summary(reason) when is_binary(reason), do: reason
   defp reason_summary(reason), do: inspect(reason)
+
+  defp request_summary(source, operation_class, metadata) do
+    source_summary = Source.summary(source)
+
+    metadata
+    |> Map.put(:source, source_summary)
+    |> Map.put(:resource_refs, Ref.online_skill_source(source_summary, operation_class, metadata))
+  end
+
+  defp online_resource_refs(source, operation_class, metadata) do
+    source
+    |> Source.summary()
+    |> Ref.online_skill_source(operation_class, metadata)
+  end
 
   defp detail_summary(detail) do
     %{

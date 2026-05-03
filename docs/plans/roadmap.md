@@ -556,12 +556,12 @@ Plan: `docs/plans/v0.10-plan.md`
 Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 
-Status: M1-M6 implemented and focused/documentation verified. v0.10 was
+Status: M1-M7 implemented and focused/documentation verified. v0.10 was
 reopened after M5 because post-M5 commits added online skill approval
 clarity/search fixes and Resource Access Security Posture planning. M6
-reconciles that history. Release/tag readiness is pending the final reopened
-v0.10 milestone. Expected tag remains `v0.10`; no v0.10 tag has been created
-or pushed yet.
+reconciles that history, and M7 implements shared resource reference metadata.
+Release/tag readiness is pending the final reopened v0.10 milestone. Expected
+tag remains `v0.10`; no v0.10 tag has been created or pushed yet.
 
 Expected direction:
 
@@ -619,10 +619,12 @@ Milestones:
   Security Posture rebaseline. Records the online approval clarity/search fix,
   README/operator onboarding cleanup, ADR 0012, and the decision to resume
   implementation at M7.
-- M7 (Milestone 7): Planned implementation. Shared resource reference contract
-  for local paths, local skill resources, Allbert Home resources, remote URLs,
-  remote sources, and package registries, including skills special cases such
-  as `import_local_skill`, `run_skill_script`, and `import_skill`.
+- M7 (Milestone 7): Implemented. Shared resource reference contract through
+  `AllbertAssist.Resources.Ref`, `Scope`, `OperationClass`, inert `Grant`
+  descriptors, and confirmation resource metadata rendering for local paths,
+  local skill resources, Allbert Home resources, remote URLs, remote sources,
+  and package registries, including skills special cases such as
+  `import_local_skill`, `run_skill_script`, and `import_skill`.
 - M8 (Milestone 8): Planned implementation. Resource-scoped remembered grants
   by exact resource, local directory, exact URL, URL hierarchy/prefix, operation
   class, access mode, and downstream consumer, with no cross-use between local

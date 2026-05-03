@@ -9,6 +9,7 @@ defmodule AllbertAssistWeb.SettingsLive do
   alias AllbertAssist.Confirmations.ExternalRequestMetadata
   alias AllbertAssist.Confirmations.OnlineSkillMetadata
   alias AllbertAssist.Confirmations.PackageInstallMetadata
+  alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
 
@@ -635,6 +636,7 @@ defmodule AllbertAssistWeb.SettingsLive do
         ShellCommandMetadata.result_details(confirmation) ++
         PackageInstallMetadata.result_details(confirmation) ++
         OnlineSkillMetadata.lines(confirmation) ++
+        ResourceMetadata.lines(confirmation) ++
         SkillScriptMetadata.result_details(confirmation)
 
     message = Confirmations.status_message(confirmation)
@@ -658,6 +660,7 @@ defmodule AllbertAssistWeb.SettingsLive do
       ShellCommandMetadata.lines(confirmation) ++
       PackageInstallMetadata.lines(confirmation) ++
       OnlineSkillMetadata.lines(confirmation) ++
+      ResourceMetadata.lines(confirmation) ++
       SkillScriptMetadata.lines(confirmation)
   end
 

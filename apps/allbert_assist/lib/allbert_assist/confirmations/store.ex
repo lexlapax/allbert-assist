@@ -5,6 +5,7 @@ defmodule AllbertAssist.Confirmations.Store do
   alias AllbertAssist.Confirmations.OnlineSkillMetadata
   alias AllbertAssist.Confirmations.PackageInstallMetadata
   alias AllbertAssist.Confirmations.Record
+  alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
   alias AllbertAssist.Paths
@@ -204,6 +205,7 @@ defmodule AllbertAssist.Confirmations.Store do
       ExternalRequestMetadata.lines(record) ++
         PackageInstallMetadata.lines(record) ++
         OnlineSkillMetadata.lines(record) ++
+        ResourceMetadata.lines(record) ++
         ShellCommandMetadata.lines(record) ++
         SkillScriptMetadata.lines(record)
 

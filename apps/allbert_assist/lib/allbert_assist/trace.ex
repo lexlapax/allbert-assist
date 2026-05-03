@@ -10,6 +10,7 @@ defmodule AllbertAssist.Trace do
   alias AllbertAssist.Confirmations.ExternalRequestMetadata
   alias AllbertAssist.Confirmations.OnlineSkillMetadata
   alias AllbertAssist.Confirmations.PackageInstallMetadata
+  alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Memory
   alias AllbertAssist.Security.Redactor
@@ -145,6 +146,7 @@ defmodule AllbertAssist.Trace do
     - External request metadata: #{external_request_metadata_summary(response.actions)}
     - Package install metadata: #{package_install_metadata_summary(response.actions)}
     - Online skill metadata: #{online_skill_metadata_summary(response.actions)}
+    - Resource metadata: #{resource_metadata_summary(response.actions)}
     - Shell command metadata: #{shell_command_metadata_summary(response.actions)}
     - Skill metadata: #{skill_metadata_summary(response.actions)}
     - Token estimate: #{token_estimate(request.text, response.message)}
@@ -187,6 +189,10 @@ defmodule AllbertAssist.Trace do
     ## Online Skill Metadata
 
     #{online_skill_metadata_text(response.actions)}
+
+    ## Resource Metadata
+
+    #{resource_metadata_text(response.actions)}
 
     ## Shell Command Metadata
 
@@ -408,6 +414,20 @@ defmodule AllbertAssist.Trace do
     actions
     |> List.first()
     |> ShellCommandMetadata.action_lines()
+    |> lines_or_none()
+  end
+
+  defp resource_metadata_summary(actions) do
+    actions
+    |> List.first()
+    |> ResourceMetadata.action_lines()
+    |> first_line_or_none()
+  end
+
+  defp resource_metadata_text(actions) do
+    actions
+    |> List.first()
+    |> ResourceMetadata.action_lines()
     |> lines_or_none()
   end
 

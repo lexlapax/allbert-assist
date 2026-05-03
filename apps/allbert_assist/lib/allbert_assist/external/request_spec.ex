@@ -4,6 +4,7 @@ defmodule AllbertAssist.External.RequestSpec do
   """
 
   alias AllbertAssist.External.HttpPolicy
+  alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Settings
 
   @methods ~w(GET HEAD POST PUT PATCH DELETE)
@@ -144,7 +145,7 @@ defmodule AllbertAssist.External.RequestSpec do
   end
 
   def summary(%__MODULE__{} = spec) do
-    %{
+    summary = %{
       method: spec.method,
       profile: spec.profile,
       url: redacted_url(spec),
@@ -161,6 +162,8 @@ defmodule AllbertAssist.External.RequestSpec do
       request_digest: digest(spec),
       denial_reason: spec.denial_reason
     }
+
+    Map.put(summary, :resource_refs, Ref.from_external_request_summary(summary))
   end
 
   @spec resume_params(t()) :: map()

@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted for v0.10 planning.
+Accepted for v0.10. The M7 shared resource reference contract is implemented;
+remembered resource grants remain M8 work.
 
 ## Context
 
@@ -48,7 +49,10 @@ Every local or remote resource-consuming workflow should be represented by a
 structured resource reference plus operation class before execution, import,
 summarization, install, trust, or persistence decisions.
 
-The resource reference is plain data, not execution authority. It should carry:
+The M7 resource reference is plain data, not execution authority. It is
+implemented by `AllbertAssist.Resources.Ref`,
+`AllbertAssist.Resources.Scope`, `AllbertAssist.Resources.OperationClass`,
+and the inert `AllbertAssist.Resources.Grant` descriptor. It carries:
 
 - origin kind: `local_path`, `local_skill_resource`, `allbert_home`,
   `remote_url`, `remote_source`, `package_registry`, or future equivalent
@@ -69,6 +73,10 @@ The resource reference is plain data, not execution authority. It should carry:
 - origin channel/surface, resolver channel, confirmation id, redaction, trace,
   audit, and remembered-grant metadata when applicable
 
+`AllbertAssist.Confirmations.ResourceMetadata` renders concise operator-facing
+resource summaries for confirmations, CLI output, `/settings`, audits, and
+traces. Rendering the metadata does not grant access.
+
 Operation class is part of the security boundary. A grant or confirmation for
 one operation class does not authorize another:
 
@@ -84,9 +92,9 @@ one operation class does not authorize another:
 - v0.08 and v0.09 docs may include retrospective framing that their completed
   implementations are local resource posture special cases, but they must not
   claim new generalized behavior.
-- v0.10 plan milestones own the new implementation-ready posture work:
-  resource reference contract, operation classes, local/remote consumers,
-  remembered grant scope, docs, and tests.
+- v0.10 M7 owns the implemented resource reference contract, operation-class
+  vocabulary, local/remote consumer metadata, docs, and tests. v0.10 M8 owns
+  remembered grant scope, storage, matching, revocation, docs, and tests.
 - ADR 0011 remains the external-adapter decision. ADR 0012 sits above it and
   names the shared local/remote resource access posture.
 - v0.11 consumes the posture for execution-aware intent and channel-native

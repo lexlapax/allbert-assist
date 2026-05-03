@@ -11,6 +11,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpec do
 
   alias AllbertAssist.Execution.Policy
   alias AllbertAssist.Paths
+  alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills
   alias AllbertAssist.Skills.Resource
@@ -109,7 +110,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpec do
 
   @spec summary(t()) :: map()
   def summary(%__MODULE__{} = spec) do
-    %{
+    summary = %{
       skill_name: spec.skill_name,
       skill_source_scope: spec.skill_source_scope,
       skill_trust_status: spec.skill_trust_status,
@@ -134,6 +135,8 @@ defmodule AllbertAssist.Execution.SkillScriptSpec do
       policy_decision: spec.policy_decision,
       denial_reason: spec.denial_reason
     }
+
+    Map.put(summary, :resource_refs, Ref.from_skill_script_summary(summary))
   end
 
   defp load_local_policy(context) do

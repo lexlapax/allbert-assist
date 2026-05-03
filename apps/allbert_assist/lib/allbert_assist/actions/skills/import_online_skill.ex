@@ -21,6 +21,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Skills.Online.Audit
   alias AllbertAssist.Skills.Online.Importer
@@ -57,6 +58,13 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
     with {:ok, detail} <- RegistryClient.show(source, id),
          audit <- Audit.run(detail),
          {:ok, import} <- Importer.import(detail, audit, Source.summary(source)) do
+      import =
+        Map.put(
+          import,
+          :resource_refs,
+          online_resource_refs(source, :online_skill_import, %{id: id})
+        )
+
       {:ok,
        %{
          message: "Online skill imported disabled and untrusted: #{import.target_root}.",
@@ -88,7 +96,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
       target_permission: :online_skill_import,
       target_execution_mode: :online_skill_import,
       security_decision: permission_decision,
-      params_summary: %{source: Source.summary(source), id: id},
+      params_summary: request_summary(source, :online_skill_import, %{id: id}),
       resume_params_ref: %{source: source.id, id: id}
     }
 
@@ -111,7 +119,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
                permission_decision: permission_decision,
                execution: :pending_confirmation,
                confirmation_id: confirmation["id"],
-               online_skill: %{source: Source.summary(source), id: id}
+               online_skill: request_summary(source, :online_skill_import, %{id: id})
              }
            ]
          }}
@@ -125,6 +133,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
     result = %{
       source: Source.summary(source),
       id: id,
+      resource_refs: online_resource_refs(source, :online_skill_import, %{id: id}),
       status: :denied,
       denial_reason: reason_summary(reason)
     }
@@ -154,6 +163,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
     result = %{
       source: Source.summary(source),
       id: id,
+      resource_refs: online_resource_refs(source, :online_skill_import, %{id: id}),
       status: :failed,
       failure_reason: reason_summary(reason)
     }
@@ -184,6 +194,20 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
   defp reason_summary(reason) when is_atom(reason), do: Atom.to_string(reason)
   defp reason_summary(reason) when is_binary(reason), do: reason
   defp reason_summary(reason), do: inspect(reason)
+
+  defp request_summary(source, operation_class, metadata) do
+    source_summary = Source.summary(source)
+
+    metadata
+    |> Map.put(:source, source_summary)
+    |> Map.put(:resource_refs, Ref.online_skill_source(source_summary, operation_class, metadata))
+  end
+
+  defp online_resource_refs(source, operation_class, metadata) do
+    source
+    |> Source.summary()
+    |> Ref.online_skill_source(operation_class, metadata)
+  end
 
   defp origin(context) do
     request = Map.get(context, :request, %{})

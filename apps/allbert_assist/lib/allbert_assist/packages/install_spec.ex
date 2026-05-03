@@ -12,6 +12,7 @@ defmodule AllbertAssist.Packages.InstallSpec do
   alias AllbertAssist.Packages.ManagerProfile
   alias AllbertAssist.Packages.Npm
   alias AllbertAssist.Packages.PipPreview
+  alias AllbertAssist.Resources.Ref
 
   defstruct manager: nil,
             packages: [],
@@ -64,7 +65,7 @@ defmodule AllbertAssist.Packages.InstallSpec do
     dry_run_argv = if spec.dry_run_args == [], do: [], else: argv(spec, spec.dry_run_args)
     install_argv = if spec.install_args == [], do: [], else: argv(spec, spec.install_args)
 
-    %{
+    summary = %{
       manager: manager_name(spec.manager),
       packages: Enum.map(spec.packages, & &1.spec),
       package_details: spec.packages,
@@ -83,6 +84,8 @@ defmodule AllbertAssist.Packages.InstallSpec do
       denial_reason: spec.denial_reason,
       warnings: spec.warnings
     }
+
+    Map.put(summary, :resource_refs, Ref.from_package_install_summary(summary))
   end
 
   @spec resume_params(t(), map()) :: map()

@@ -20,6 +20,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Skills.Online.RegistryClient
   alias AllbertAssist.Skills.Online.Source
@@ -53,6 +54,13 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
   defp execute_search(query, source, permission_decision) do
     case RegistryClient.search(source, query) do
       {:ok, result} ->
+        result =
+          Map.put(
+            result,
+            :resource_refs,
+            online_resource_refs(source, :online_skill_search, %{query: query})
+          )
+
         {:ok,
          %{
            message: "Online skill search completed with #{length(result.results)} result(s).",
@@ -84,10 +92,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
         "search_online_skills",
         :external_network,
         :online_skill_search,
-        %{
-          source: Source.summary(source),
-          query: query
-        },
+        request_summary(source, :online_skill_search, %{query: query}),
         %{query: query, source: source.id},
         context,
         permission_decision
@@ -110,7 +115,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
                permission_decision: permission_decision,
                execution: :pending_confirmation,
                confirmation_id: confirmation["id"],
-               online_skill: %{source: Source.summary(source), query: query}
+               online_skill: request_summary(source, :online_skill_search, %{query: query})
              }
            ]
          }}
@@ -124,6 +129,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
     result = %{
       source: Source.summary(source),
       query: query,
+      resource_refs: online_resource_refs(source, :online_skill_search, %{query: query}),
       status: :denied,
       denial_reason: reason_summary(reason)
     }
@@ -153,6 +159,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
     result = %{
       source: Source.summary(source),
       query: query,
+      resource_refs: online_resource_refs(source, :online_skill_search, %{query: query}),
       status: :failed,
       failure_reason: reason_summary(reason)
     }
@@ -183,6 +190,20 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
   defp reason_summary(reason) when is_atom(reason), do: Atom.to_string(reason)
   defp reason_summary(reason) when is_binary(reason), do: reason
   defp reason_summary(reason), do: inspect(reason)
+
+  defp request_summary(source, operation_class, metadata) do
+    source_summary = Source.summary(source)
+
+    metadata
+    |> Map.put(:source, source_summary)
+    |> Map.put(:resource_refs, Ref.online_skill_source(source_summary, operation_class, metadata))
+  end
+
+  defp online_resource_refs(source, operation_class, metadata) do
+    source
+    |> Source.summary()
+    |> Ref.online_skill_source(operation_class, metadata)
+  end
 
   defp confirmation_attrs(name, permission, execution_mode, summary, resume, context, decision) do
     %{

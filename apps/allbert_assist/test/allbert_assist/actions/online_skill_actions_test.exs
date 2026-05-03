@@ -59,6 +59,13 @@ defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
     assert pending_response.status == :needs_confirmation
     assert pending_response.confirmation_id =~ "conf_"
 
+    assert {:ok, pending} = Confirmations.read(pending_response.confirmation_id)
+    assert [ref] = pending["params_summary"]["resource_refs"]
+    assert ref["origin_kind"] == "remote_source"
+    assert ref["operation_class"] == "online_skill_search"
+    assert ref["access_mode"] == "fetch"
+    assert ref["scope"] == %{"kind" => "source_profile", "value" => "skills_sh"}
+
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.request_path == "/api/search"
 
@@ -118,6 +125,31 @@ defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
     assert result["source"]["id"] == "skills_sh"
   end
 
+  test "show creates detail confirmation with resource refs and approval fetches detail" do
+    assert {:ok, pending_response} =
+             Runner.run("show_online_skill", %{source: "skills_sh", id: source_id()}, context())
+
+    assert pending_response.status == :needs_confirmation
+    assert {:ok, pending} = Confirmations.read(pending_response.confirmation_id)
+    assert [ref] = pending["params_summary"]["resource_refs"]
+    assert ref["origin_kind"] == "remote_source"
+    assert ref["operation_class"] == "online_skill_detail"
+    assert ref["access_mode"] == "fetch"
+
+    Req.Test.expect(__MODULE__, &detail_response/1)
+
+    assert {:ok, approve_response} =
+             Runner.run("approve_confirmation", %{id: pending_response.confirmation_id}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    detail = approve_response.confirmation["operator_resolution"]["target_result"]
+    assert detail["id"] == source_id()
+    assert [result_ref] = detail["resource_refs"]
+    assert result_ref["operation_class"] == "online_skill_detail"
+  end
+
   test "audit creates confirmation and approval reports import eligibility" do
     assert {:ok, pending_response} =
              Runner.run("audit_online_skill", %{source: "skills_sh", id: source_id()}, context())
@@ -141,6 +173,11 @@ defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
              Runner.run("import_online_skill", %{source: "skills_sh", id: source_id()}, context())
 
     assert Confirmations.list(status: :pending) |> length() == 1
+    assert {:ok, pending} = Confirmations.read(pending_response.confirmation_id)
+    assert [ref] = pending["params_summary"]["resource_refs"]
+    assert ref["origin_kind"] == "remote_source"
+    assert ref["operation_class"] == "online_skill_import"
+    assert ref["access_mode"] == "import"
 
     Req.Test.expect(__MODULE__, &detail_response/1)
 

@@ -195,7 +195,12 @@ workflow must be denied or deferred to a later sandbox milestone.
 - v0.10 M6 reconciles the actual post-M5 history: the online approval
   clarity/search fix, README/operator onboarding cleanup, ADR 0012 Resource
   Access Security Posture, and historical v0.08/v0.09 reframing.
-- v0.10 M7-M9 resume implementation after that reconciliation: shared resource
-  reference contract, operation-scoped remembered approval requirements, and
-  final release readiness/user testing. v0.11 then consumes the resulting
-  posture for channel-native local and remote resource UX.
+- v0.10 M7 implemented the shared resource reference contract through
+  `AllbertAssist.Resources.Ref`, `Scope`, `OperationClass`, inert `Grant`
+  descriptors, and `AllbertAssist.Confirmations.ResourceMetadata`. Existing
+  shell, skill script, external request, package install, and online skill
+  source summaries can now emit `resource_refs` metadata without changing
+  permission behavior.
+- v0.10 M8-M9 resume after M7 with operation-scoped remembered approval
+  requirements and final release readiness/user testing. v0.11 then consumes
+  the resulting posture for channel-native local and remote resource UX.

@@ -10,7 +10,7 @@ not the architecture center.
 
 ## Current Status
 
-v0.10 is implemented through M6 after the original M5 release-readiness gate
+v0.10 is implemented through M7 after the original M5 release-readiness gate
 was reopened for online skill approval clarity/search fixes and Resource
 Access Security Posture planning. Release/tag readiness is pending the final
 reopened v0.10 milestone. Expected release tag after operator acceptance
@@ -37,8 +37,11 @@ Release details live in `CHANGELOG.md`.
 - Search, show, audit, and import online skills through confirmed registered
   actions. Imported skills remain disabled, untrusted, and cached under
   `<ALLBERT_HOME>/cache/skills`.
+- Emit shared resource reference metadata for local shell cwd/path operands,
+  trusted skill script resources, external requests, online skill sources, and
+  package-install targets without changing permission behavior.
 
-v0.10 also documents the first Resource Access Security Posture substrate.
+v0.10 also implements the first Resource Access Security Posture substrate.
 Until the remaining reopened milestones land, v0.10 does not yet implement
 arbitrary URL/document summarization, remembered resource grants, local skill
 directory import, direct skill URL import, a browser, or a crawler. v0.11 will
