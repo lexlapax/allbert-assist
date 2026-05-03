@@ -12,6 +12,7 @@ defmodule AllbertAssist.Security.Policy do
     external_network: "permissions.external_network",
     settings_write: "permissions.settings_write",
     skill_write: "permissions.skill_write",
+    skill_script_execute: "permissions.skill_script_execute",
     confirmation_decide: "permissions.confirmation_decide"
   }
 
@@ -23,6 +24,7 @@ defmodule AllbertAssist.Security.Policy do
     external_network: :needs_confirmation,
     settings_write: :allowed,
     skill_write: :allowed,
+    skill_script_execute: :denied,
     confirmation_decide: :allowed,
     settings_secret_write: :allowed,
     settings_secret_read: :denied
@@ -38,6 +40,7 @@ defmodule AllbertAssist.Security.Policy do
           | :external_network
           | :settings_write
           | :skill_write
+          | :skill_script_execute
           | :confirmation_decide
           | :settings_secret_write
           | :settings_secret_read
@@ -53,6 +56,7 @@ defmodule AllbertAssist.Security.Policy do
       :external_network,
       :settings_write,
       :skill_write,
+      :skill_script_execute,
       :confirmation_decide,
       :settings_secret_write,
       :settings_secret_read
@@ -92,6 +96,7 @@ defmodule AllbertAssist.Security.Policy do
   @spec safety_floor(atom()) :: :allowed | :needs_confirmation | :denied
   def safety_floor(:command_execute), do: :needs_confirmation
   def safety_floor(:external_network), do: :needs_confirmation
+  def safety_floor(:skill_script_execute), do: :needs_confirmation
   def safety_floor(:settings_secret_read), do: :denied
   def safety_floor(permission) when permission in @known_permissions, do: :allowed
   def safety_floor(_permission), do: :denied
@@ -173,6 +178,12 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:skill_write, :allowed, _configured, _floor, _context),
     do: "Local skill scaffold writes are allowed through registered skill actions."
+
+  defp reason(:skill_script_execute, :denied, _configured, _floor, _context),
+    do: "Skill script execution is denied until explicitly enabled and confirmed."
+
+  defp reason(:skill_script_execute, :needs_confirmation, _configured, _floor, _context),
+    do: "Trusted skill script execution requires confirmation and resource digest checks."
 
   defp reason(:confirmation_decide, :allowed, _configured, _floor, _context),
     do: "Confirmation approval and denial are allowed for the local operator."

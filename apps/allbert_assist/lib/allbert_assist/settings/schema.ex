@@ -27,6 +27,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.external_network",
     "permissions.settings_write",
     "permissions.skill_write",
+    "permissions.skill_script_execute",
     "permissions.confirmation_decide",
     "execution.local.enabled",
     "execution.local.allowed_roots",
@@ -39,6 +40,9 @@ defmodule AllbertAssist.Settings.Schema do
     "execution.local.max_output_bytes",
     "execution.local.env_allowlist",
     "execution.local.require_confirmation",
+    "execution.skill_scripts.enabled",
+    "execution.skill_scripts.require_confirmation",
+    "execution.skill_scripts.interpreter_profiles",
     "confirmations.default_ttl_minutes",
     "confirmations.auto_expire_on_startup",
     "confirmations.require_reason_for_denial",
@@ -191,6 +195,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.skill_script_execute" => %{
+      type: :enum,
+      default: "denied",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
     "permissions.confirmation_decide" => %{
       type: :enum,
       default: "allowed",
@@ -280,6 +291,24 @@ defmodule AllbertAssist.Settings.Schema do
     "execution.local.require_confirmation" => %{
       type: :boolean,
       default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.skill_scripts.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.skill_scripts.require_confirmation" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "execution.skill_scripts.interpreter_profiles" => %{
+      type: :interpreter_profiles,
+      default: %{},
       writable?: true,
       sensitive?: false
     },
@@ -449,6 +478,7 @@ defmodule AllbertAssist.Settings.Schema do
       "external_network" => "needs_confirmation",
       "settings_write" => "allowed_safe_keys",
       "skill_write" => "allowed",
+      "skill_script_execute" => "denied",
       "confirmation_decide" => "allowed"
     },
     "execution" => %{
@@ -483,6 +513,11 @@ defmodule AllbertAssist.Settings.Schema do
         "max_output_bytes" => 65_536,
         "env_allowlist" => ["PATH", "LANG", "LC_ALL", "MIX_ENV"],
         "require_confirmation" => true
+      },
+      "skill_scripts" => %{
+        "enabled" => false,
+        "require_confirmation" => true,
+        "interpreter_profiles" => %{}
       }
     },
     "confirmations" => %{
@@ -744,6 +779,19 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_value(%{type: :command_profiles}, value, _key, _settings),
     do: {:error, {:expected_command_profiles, value}}
 
+  defp validate_value(%{type: :interpreter_profiles}, value, _key, _settings)
+       when is_map(value) do
+    Enum.reduce_while(value, :ok, fn {name, profile}, :ok ->
+      case validate_interpreter_profile(name, profile) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp validate_value(%{type: :interpreter_profiles}, value, _key, _settings),
+    do: {:error, {:expected_interpreter_profiles, value}}
+
   defp validate_value(%{type: :url_or_nil}, nil, _key, _settings), do: :ok
 
   defp validate_value(%{type: :url_or_nil}, value, _key, _settings) when is_binary(value) do
@@ -990,4 +1038,96 @@ defmodule AllbertAssist.Settings.Schema do
       {:ok, value} -> validate_value(%{type: :boolean}, value, key, %{})
     end
   end
+
+  defp validate_interpreter_profile(name, profile) do
+    cond do
+      not valid_name?(name) ->
+        {:error, {:invalid_interpreter_profile_name, name}}
+
+      not is_map(profile) ->
+        {:error, {:invalid_interpreter_profile, name, :expected_map}}
+
+      true ->
+        validate_interpreter_profile_attrs(name, profile)
+    end
+  end
+
+  defp validate_interpreter_profile_attrs(name, profile) do
+    allowed_keys = [
+      "executable",
+      "allowed_extensions",
+      "args_prefix",
+      "command_class",
+      "description",
+      "timeout_ms",
+      "max_output_bytes",
+      "require_confirmation"
+    ]
+
+    profile
+    |> Map.keys()
+    |> Enum.reject(&(&1 in allowed_keys))
+    |> case do
+      [] -> validate_interpreter_profile_values(name, profile)
+      [key | _rest] -> {:error, {:invalid_interpreter_profile, name, {:unknown_key, key}}}
+    end
+  end
+
+  defp validate_interpreter_profile_values(name, profile) do
+    with :ok <- validate_required_profile_executable(name, profile),
+         :ok <- validate_required_allowed_extensions(name, profile),
+         :ok <- validate_optional_string_list(profile, "args_prefix"),
+         :ok <- validate_optional_timeout(profile, "timeout_ms"),
+         :ok <- validate_optional_positive_integer(profile, "max_output_bytes"),
+         :ok <- validate_optional_boolean(profile, "require_confirmation") do
+      validate_optional_interpreter_command_class(name, profile)
+    end
+  end
+
+  defp validate_required_profile_executable(name, profile) do
+    case Map.get(profile, "executable") do
+      executable when is_binary(executable) ->
+        if String.trim(executable) == "" do
+          {:error, {:invalid_interpreter_profile, name, :empty_executable}}
+        else
+          :ok
+        end
+
+      other ->
+        {:error, {:invalid_interpreter_profile, name, {:expected_executable, other}}}
+    end
+  end
+
+  defp validate_required_allowed_extensions(name, profile) do
+    case Map.get(profile, "allowed_extensions") do
+      extensions when is_list(extensions) ->
+        if Enum.all?(extensions, &valid_extension?/1) do
+          :ok
+        else
+          {:error, {:invalid_interpreter_profile, name, :invalid_allowed_extensions}}
+        end
+
+      other ->
+        {:error, {:invalid_interpreter_profile, name, {:expected_allowed_extensions, other}}}
+    end
+  end
+
+  defp validate_optional_interpreter_command_class(name, profile) do
+    case Map.get(profile, "command_class", "developer") do
+      class when class in ["read_only", "developer", "mutating"] ->
+        :ok
+
+      other ->
+        {:error, {:invalid_interpreter_profile, name, {:invalid_command_class, other}}}
+    end
+  end
+
+  defp valid_extension?("." <> rest), do: valid_extension_name?(rest)
+  defp valid_extension?(value), do: valid_extension_name?(value)
+
+  defp valid_extension_name?(value) when is_binary(value) do
+    Regex.match?(~r/^[A-Za-z0-9_+-]+$/, value)
+  end
+
+  defp valid_extension_name?(_value), do: false
 end

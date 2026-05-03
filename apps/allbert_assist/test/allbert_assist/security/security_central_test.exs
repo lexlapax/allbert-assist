@@ -77,6 +77,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Risk.classify(:settings_write).tier == :medium
     assert Risk.classify(:skill_write).tier == :medium
     assert Risk.classify(:confirmation_decide).tier == :medium
+    assert Risk.classify(:skill_script_execute).tier == :high
     assert Risk.classify(:external_network).tier == :high
     assert Risk.classify(:settings_secret_read).tier == :critical
     assert Risk.classify(:unknown_permission).tier == :critical
@@ -89,6 +90,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Policy.resolve(:command_execute).effective == :denied
     assert Policy.resolve(:external_network).effective == :needs_confirmation
     assert Policy.resolve(:skill_write).effective == :allowed
+    assert Policy.resolve(:skill_script_execute).effective == :denied
     assert Policy.resolve(:confirmation_decide).effective == :allowed
     assert Policy.resolve(:settings_secret_read).effective == :denied
     assert Policy.resolve(:unknown_permission).effective == :denied
@@ -99,7 +101,8 @@ defmodule AllbertAssist.SecurityCentralTest do
              Settings.write_user_settings(%{
                "permissions" => %{
                  "memory_write" => "denied",
-                 "command_execute" => "allowed"
+                 "command_execute" => "allowed",
+                 "skill_script_execute" => "allowed"
                }
              })
 
@@ -113,6 +116,12 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert command_policy.configured_decision == :allowed
     assert command_policy.effective == :needs_confirmation
     assert command_policy.capped?
+
+    script_policy = Policy.resolve(:skill_script_execute)
+    assert script_policy.configured == "allowed"
+    assert script_policy.configured_decision == :allowed
+    assert script_policy.effective == :needs_confirmation
+    assert script_policy.capped?
   end
 
   test "unknown actions and undiscoverable selected skills deny instead of gaining authority" do
@@ -178,6 +187,7 @@ defmodule AllbertAssist.SecurityCentralTest do
 
     assert Enum.any?(status.permission_defaults, &(&1.permission == :command_execute))
     assert Enum.any?(status.permission_defaults, &(&1.permission == :skill_write))
+    assert Enum.any?(status.permission_defaults, &(&1.permission == :skill_script_execute))
     assert Enum.any?(status.permission_defaults, &(&1.permission == :confirmation_decide))
     assert Enum.any?(status.safety_floors, &(&1.permission == :unknown and &1.floor == :denied))
     assert status.secret_status.providers >= 1

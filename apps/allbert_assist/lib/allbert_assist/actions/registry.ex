@@ -31,6 +31,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
   alias AllbertAssist.Actions.Skills.CreateSkill
+  alias AllbertAssist.Actions.Skills.RunSkillScript
   alias AllbertAssist.Actions.Skills.ValidateSkill
   alias AllbertAssist.Actions.Trace.RecordTrace
 
@@ -56,6 +57,7 @@ defmodule AllbertAssist.Actions.Registry do
   @internal_actions [
     ValidateSkill,
     CreateSkill,
+    RunSkillScript,
     SecurityStatus,
     ListConfirmations,
     ShowConfirmation,
@@ -199,6 +201,14 @@ defmodule AllbertAssist.Actions.Registry do
       skill_backed?: false,
       confirmation: :not_required,
       notes: "Operator helper; writes standard SKILL.md scaffolds only."
+    },
+    RunSkillScript => %{
+      permission: :skill_script_execute,
+      exposure: :internal,
+      execution_mode: :skill_script_process,
+      skill_backed?: true,
+      confirmation: :required,
+      notes: "v0.09 trusted resource-gated skill script execution; M1 registers policy only."
     },
     SecurityStatus => %{
       permission: :read_only,

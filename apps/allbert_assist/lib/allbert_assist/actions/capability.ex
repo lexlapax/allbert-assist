@@ -38,6 +38,7 @@ defmodule AllbertAssist.Actions.Capability do
           | :confirmation_cleanup
           | :confirmation_read
           | :skill_validation
+          | :skill_script_process
           | :skill_write
           | :secret_write
           | :security_status
