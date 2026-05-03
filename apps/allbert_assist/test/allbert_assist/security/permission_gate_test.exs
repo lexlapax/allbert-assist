@@ -12,6 +12,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :external_network,
              :settings_write,
              :skill_write,
+             :skill_script_execute,
              :confirmation_decide,
              :settings_secret_write,
              :settings_secret_read
@@ -50,6 +51,17 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert decision.requires_confirmation
     refute PermissionGate.allowed?(decision)
     assert PermissionGate.response_status(decision) == :needs_confirmation
+    assert_compatibility_fields(decision)
+  end
+
+  test "denies skill script execution until explicitly enabled" do
+    decision = PermissionGate.authorize(:skill_script_execute, %{})
+
+    assert decision.permission == :skill_script_execute
+    assert decision.decision == :denied
+    refute decision.requires_confirmation
+    refute PermissionGate.allowed?(decision)
+    assert PermissionGate.response_status(decision) == :denied
     assert_compatibility_fields(decision)
   end
 

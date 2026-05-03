@@ -25,6 +25,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "set_provider_credential",
              "validate_skill",
              "create_skill",
+             "run_skill_script",
              "security_status",
              "list_confirmations",
              "show_confirmation",
@@ -60,6 +61,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Enum.map(Registry.internal_capabilities(), & &1.name) == [
              "validate_skill",
              "create_skill",
+             "run_skill_script",
              "security_status",
              "list_confirmations",
              "show_confirmation",
@@ -81,6 +83,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert create_skill.permission == :skill_write
     assert create_skill.exposure == :internal
     refute create_skill.skill_backed?
+
+    assert {:ok, run_skill_script} = Registry.capability("run_skill_script")
+    assert run_skill_script.permission == :skill_script_execute
+    assert run_skill_script.exposure == :internal
+    assert run_skill_script.execution_mode == :skill_script_process
+    assert run_skill_script.skill_backed?
+    assert run_skill_script.confirmation == :required
 
     assert {:ok, run_shell_command} = Registry.capability("run_shell_command")
     assert run_shell_command.permission == :command_execute

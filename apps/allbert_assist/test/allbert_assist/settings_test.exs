@@ -134,6 +134,45 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("confirmations.allow_cli_approval", "yes", %{})
   end
 
+  test "skill script execution settings are writable and validated" do
+    assert {:ok, policy} =
+             Settings.put("permissions.skill_script_execute", "allowed", %{audit?: false})
+
+    assert policy.value == "allowed"
+
+    assert {:ok, enabled} =
+             Settings.put("execution.skill_scripts.enabled", true, %{audit?: false})
+
+    assert enabled.value == true
+
+    profile = %{
+      "sh" => %{
+        "executable" => "/bin/sh",
+        "allowed_extensions" => [".sh"],
+        "args_prefix" => [],
+        "command_class" => "developer",
+        "timeout_ms" => 5_000,
+        "max_output_bytes" => 4096,
+        "require_confirmation" => true
+      }
+    }
+
+    assert {:ok, profiles} =
+             Settings.put("execution.skill_scripts.interpreter_profiles", profile, %{
+               audit?: false
+             })
+
+    assert profiles.value == profile
+
+    assert {:error, {:invalid_setting, "permissions.skill_script_execute", _reason}} =
+             Settings.put("permissions.skill_script_execute", "auto", %{})
+
+    invalid_profile = %{"sh" => %{"executable" => "/bin/sh"}}
+
+    assert {:error, {:invalid_setting, "execution.skill_scripts.interpreter_profiles", _reason}} =
+             Settings.put("execution.skill_scripts.interpreter_profiles", invalid_profile, %{})
+  end
+
   test "provider and model profiles resolve with redacted credential status" do
     assert {:ok, providers} = Settings.list_provider_profiles()
     assert Enum.any?(providers, &(&1.name == "openai" and &1.credential_status == :missing))

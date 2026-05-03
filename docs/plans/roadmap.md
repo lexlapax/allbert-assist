@@ -510,6 +510,9 @@ Milestones:
 
 - M1: ADR, Security Central permission, Settings Central policy, capability
   metadata, and active-doc onboarding updates.
+  Complete in implementation: M1 added the `:skill_script_execute` policy
+  vocabulary, `execution.skill_scripts.*` settings, ADR 0010, and registered
+  non-executing `run_skill_script` capability metadata.
 - M2: Resource-gated script spec with skill trust, exact inventory match,
   path validation, digest re-check, cwd/env/limit validation, and redacted
   summaries.
