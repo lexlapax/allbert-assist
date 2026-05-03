@@ -208,7 +208,8 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :skill_script_process,
       skill_backed?: true,
       confirmation: :required,
-      notes: "v0.09 trusted resource-gated skill script execution; M1 registers policy only."
+      notes:
+        "v0.09 trusted resource-gated skill script execution; M2 resolves inert specs before M3 confirmations and M4 running."
     },
     SecurityStatus => %{
       permission: :read_only,

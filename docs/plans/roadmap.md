@@ -516,9 +516,15 @@ Milestones:
 - M2: Resource-gated script spec with skill trust, exact inventory match,
   path validation, digest re-check, cwd/env/limit validation, and redacted
   summaries.
+  Complete in implementation: M2 added `AllbertAssist.Execution.SkillScriptSpec`
+  and connected `run_skill_script` to the inert resolver, so valid trusted
+  script requests now produce auditable metadata while disabled, untrusted,
+  missing, non-script, hidden, path-escaping, digest-drifted, non-executable,
+  cwd/env/limit, and path-like-arg violations are denied before confirmation.
 - M3: Registered `run_skill_script` action with durable pending creation,
   confirmation resume, policy re-check, digest re-check, and idempotent
-  resolution.
+  resolution, consuming the M2 spec and stored expected digest instead of
+  trusting client-supplied paths or summaries.
 - M4: Script runner, execution audit, CLI surface, `/settings` confirmation
   metadata, trace metadata, and activation-stays-inert coverage.
 - M5: Docs, future milestone handoffs, pre-release smoke matrix, focused
