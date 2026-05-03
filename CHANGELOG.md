@@ -2,7 +2,7 @@
 
 ## v0.10 - External Capability Adapters
 
-Status: implemented through M7 after the original v0.10 M5 release-readiness
+Status: implemented through M8 after the original v0.10 M5 release-readiness
 gate was reopened for online skill approval clarity/search fixes and Resource
 Access Security Posture planning. Release/tag readiness is pending the final
 reopened v0.10 milestone. Expected release tag remains `v0.10`; no v0.10 tag
@@ -41,6 +41,12 @@ has been created or pushed yet.
   origin kind, canonical id, operation class, access mode, scope, limits,
   downstream consumer, redaction, digest, and metadata fields; it does not
   approve, grant, fetch, import, install, summarize, or execute by itself.
+- Remembered resource grants are stored under Settings Central key
+  `resource_grants.remembered`. Grants are generic resource approval memory:
+  origin kind, scope, canonical scope, operation class, access mode,
+  downstream consumer, channels, expiry, revocation, audit path, and reason.
+  `AllbertAssist.Resources.Grants.find_applicable/2` requires the caller to
+  pass the current action permission for Security Central policy re-check.
 - Version metadata bumped to `0.10.0`.
 
 ### Changed
@@ -56,7 +62,7 @@ has been created or pushed yet.
   `docs/operator/onboarding.md`; the v0.10 smoke matrix remains in
   `docs/plans/v0.10-request-flow.md`.
 - The reopened v0.10 plan has implemented the shared resource reference
-  contract and still owns remembered grant contracts before release. v0.11 owns
+  contract and remembered grant contract before release. v0.11 owns
   execution-aware Approval Handoff UX for consumers such as `summarize_url`,
   `inspect_document`, `import_skill`, and `import_local_skill`.
 
@@ -102,6 +108,14 @@ has been created or pushed yet.
   `/settings` confirmation display. M7 cleanup gates pass:
   `mix compile --warnings-as-errors`, `mix format --check-formatted`,
   `mix credo --strict`, and `git diff --check`.
+- M8 focused grant tests pass for exact local files, local directory subtrees,
+  symlink/traversal escape denial, exact URLs, URL prefixes, redirect escape
+  denial, source profiles, operation mismatch, local-vs-remote import
+  separation, expired/revoked grants, explicit permission policy drift, and
+  remember-option handoff data.
+- M8 cleanup gates pass: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, and
+  `git diff --check`.
 - Operator/user testing should start with `docs/operator/onboarding.md` and
   use the disposable v0.10 smoke flow
   in `docs/plans/v0.10-request-flow.md` or `docs/plans/v0.10-plan.md`.

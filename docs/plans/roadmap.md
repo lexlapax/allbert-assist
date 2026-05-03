@@ -556,10 +556,11 @@ Plan: `docs/plans/v0.10-plan.md`
 Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 
-Status: M1-M7 implemented and focused/documentation verified. v0.10 was
+Status: M1-M8 implemented and focused/documentation verified. v0.10 was
 reopened after M5 because post-M5 commits added online skill approval
 clarity/search fixes and Resource Access Security Posture planning. M6
 reconciles that history, and M7 implements shared resource reference metadata.
+M8 implements Settings-backed remembered resource grant storage and matching.
 Release/tag readiness is pending the final reopened v0.10 milestone. Expected
 tag remains `v0.10`; no v0.10 tag has been created or pushed yet.
 
@@ -625,11 +626,12 @@ Milestones:
   local skill resources, Allbert Home resources, remote URLs, remote sources,
   and package registries, including skills special cases such as
   `import_local_skill`, `run_skill_script`, and `import_skill`.
-- M8 (Milestone 8): Planned implementation. Resource-scoped remembered grants
-  by exact resource, local directory, exact URL, URL hierarchy/prefix, operation
-  class, access mode, and downstream consumer, with no cross-use between local
-  import, remote summary, skill import, package install, activation, or script
-  execution.
+- M8 (Milestone 8): Implemented. Resource-scoped remembered grants under
+  `resource_grants.remembered`, with generic local/remote scope matching,
+  explicit caller-supplied permission re-check, expiry/revocation, redirect
+  escape denial, traversal/symlink escape denial, and no cross-use between
+  local import, remote summary, skill import, package install, activation, or
+  script execution.
 - M9 (Milestone 9): Planned implementation. Release readiness and user testing
   refresh after M6-M8, including focused online skill regressions, resource
   reference/grant tests, full gates, docs, and tag-readiness wording.

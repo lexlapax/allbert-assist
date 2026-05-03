@@ -55,6 +55,14 @@ be validated and audited. CLI, LiveView, and future channels should all use the
 same settings actions rather than private subsystem-specific configuration
 mechanisms.
 
+v0.10 adds remembered resource grants to Settings Central under
+`resource_grants.remembered`. These records are generic resource approval
+memory for local and remote scopes. They store origin, canonical scope,
+operation class, access mode, downstream consumer, channels, timestamps,
+revocation, audit path, and reason. They do not grant skill trust, channel
+authority, execution authority, or network authority by themselves; callers
+must still re-check Security Central with the current action permission.
+
 ## Consequences
 
 - Skill trust, provider profiles, model profiles, permission policy, channel

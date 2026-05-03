@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted for v0.10. The M7 shared resource reference contract is implemented;
-remembered resource grants remain M8 work.
+Accepted for v0.10. The M7 shared resource reference contract and M8
+remembered resource grant contract are implemented.
 
 ## Context
 
@@ -77,6 +77,13 @@ and the inert `AllbertAssist.Resources.Grant` descriptor. It carries:
 resource summaries for confirmations, CLI output, `/settings`, audits, and
 traces. Rendering the metadata does not grant access.
 
+Remembered grants are stored in Settings Central at
+`resource_grants.remembered` and matched by `AllbertAssist.Resources.Grants`.
+They are generic resource approval memory, not skills/search/summarization
+policy. A caller must pass the current action permission when asking whether a
+grant applies, so Security Central can be re-checked without the grant store
+guessing workflow-specific permission routing.
+
 Operation class is part of the security boundary. A grant or confirmation for
 one operation class does not authorize another:
 
@@ -94,7 +101,8 @@ one operation class does not authorize another:
   claim new generalized behavior.
 - v0.10 M7 owns the implemented resource reference contract, operation-class
   vocabulary, local/remote consumer metadata, docs, and tests. v0.10 M8 owns
-  remembered grant scope, storage, matching, revocation, docs, and tests.
+  implemented remembered grant scope, storage, matching, revocation, docs, and
+  tests.
 - ADR 0011 remains the external-adapter decision. ADR 0012 sits above it and
   names the shared local/remote resource access posture.
 - v0.11 consumes the posture for execution-aware intent and channel-native

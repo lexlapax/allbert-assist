@@ -1,6 +1,9 @@
 defmodule AllbertAssist.Settings.Schema do
   @moduledoc false
 
+  alias AllbertAssist.Resources.OperationClass
+  alias AllbertAssist.Resources.Scope
+
   @safe_write_keys [
     "operator.display_name",
     "operator.timezone",
@@ -70,6 +73,7 @@ defmodule AllbertAssist.Settings.Schema do
     "package_installs.git_dependencies_allowed",
     "package_installs.global_installs_allowed",
     "package_installs.manager_profiles",
+    "resource_grants.remembered",
     "skills.online_import.enabled",
     "skills.online_import.require_confirmation",
     "skills.online_import.allowed_sources",
@@ -90,6 +94,36 @@ defmodule AllbertAssist.Settings.Schema do
     "channels.cli.response_style",
     "channels.live_view.response_style"
   ]
+
+  @resource_grant_required_keys ~w[
+    id
+    origin_kind
+    scope
+    canonical_scope
+    operation_class
+    access_mode
+    created_at
+  ]
+
+  @resource_grant_allowed_keys ~w[
+    id
+    origin_kind
+    scope
+    canonical_scope
+    operation_class
+    access_mode
+    downstream_consumer
+    origin_channel
+    resolver_channel
+    created_at
+    expires_at
+    revoked_at
+    audit_path
+    reason
+    metadata
+  ]
+
+  @resource_grant_atom_keys Map.new(@resource_grant_allowed_keys, &{&1, String.to_atom(&1)})
 
   @schema %{
     "operator.display_name" => %{
@@ -574,6 +608,12 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "resource_grants.remembered" => %{
+      type: :resource_grants,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
     "confirmations.default_ttl_minutes" => %{
       type: :positive_integer,
       default: 1440,
@@ -828,6 +868,9 @@ defmodule AllbertAssist.Settings.Schema do
       "git_dependencies_allowed" => false,
       "global_installs_allowed" => false,
       "manager_profiles" => %{}
+    },
+    "resource_grants" => %{
+      "remembered" => []
     },
     "confirmations" => %{
       "default_ttl_minutes" => 1440,
@@ -1140,6 +1183,18 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_value(%{type: :package_manager_profiles}, value, _key, _settings),
     do: {:error, {:expected_package_manager_profiles, value}}
 
+  defp validate_value(%{type: :resource_grants}, value, _key, _settings) when is_list(value) do
+    Enum.reduce_while(value, :ok, fn grant, :ok ->
+      case validate_resource_grant(grant) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp validate_value(%{type: :resource_grants}, value, _key, _settings),
+    do: {:error, {:expected_resource_grants, value}}
+
   defp validate_value(%{type: :url_or_nil}, nil, _key, _settings), do: :ok
 
   defp validate_value(%{type: :url_or_nil}, value, _key, _settings) when is_binary(value) do
@@ -1208,6 +1263,122 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_value(schema, value, _key, _settings),
     do: {:error, {:invalid_value, schema.type, value}}
+
+  defp validate_resource_grant(grant) when is_map(grant) do
+    with :ok <- validate_resource_grant_keys(grant),
+         :ok <- validate_resource_grant_identity(grant),
+         :ok <- validate_resource_grant_scope(grant),
+         :ok <- validate_resource_grant_times(grant),
+         :ok <- validate_optional_string_field(grant, "id"),
+         :ok <- validate_optional_string_field(grant, "canonical_scope"),
+         :ok <- validate_optional_string_field(grant, "downstream_consumer"),
+         :ok <- validate_optional_string_field(grant, "origin_channel"),
+         :ok <- validate_optional_string_field(grant, "resolver_channel"),
+         :ok <- validate_optional_string_field(grant, "audit_path"),
+         :ok <- validate_optional_string_field(grant, "reason") do
+      validate_resource_grant_metadata(grant)
+    end
+  end
+
+  defp validate_resource_grant(grant), do: {:error, {:invalid_resource_grant, grant}}
+
+  defp validate_resource_grant_keys(grant) do
+    keys = Map.keys(grant) |> Enum.map(&to_string/1)
+
+    cond do
+      missing = Enum.find(@resource_grant_required_keys, &(&1 not in keys)) ->
+        {:error, {:resource_grant_missing_key, missing}}
+
+      unknown = Enum.find(keys, &(&1 not in @resource_grant_allowed_keys)) ->
+        {:error, {:resource_grant_unknown_key, unknown}}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_resource_grant_identity(grant) do
+    with {:ok, _origin_kind} <-
+           OperationClass.origin_kind(resource_grant_field(grant, "origin_kind")),
+         {:ok, _operation_class} <-
+           OperationClass.operation_class(resource_grant_field(grant, "operation_class")),
+         {:ok, _access_mode} <-
+           OperationClass.access_mode(resource_grant_field(grant, "access_mode")) do
+      :ok
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_resource_grant_scope(grant) do
+    scope = resource_grant_field(grant, "scope")
+
+    with true <- is_map(scope) || {:error, {:resource_grant_invalid_scope, scope}},
+         {:ok, _scope} <-
+           Scope.new(
+             resource_grant_scope_field(scope, "kind"),
+             resource_grant_scope_field(scope, "value")
+           ) do
+      :ok
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_resource_grant_times(grant) do
+    with :ok <-
+           validate_required_datetime(resource_grant_field(grant, "created_at"), "created_at"),
+         :ok <-
+           validate_optional_datetime(resource_grant_field(grant, "expires_at"), "expires_at") do
+      validate_optional_datetime(resource_grant_field(grant, "revoked_at"), "revoked_at")
+    end
+  end
+
+  defp validate_required_datetime(value, key) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, _datetime, _offset} -> :ok
+      {:error, reason} -> {:error, {:resource_grant_invalid_datetime, key, reason}}
+    end
+  end
+
+  defp validate_required_datetime(value, key),
+    do: {:error, {:resource_grant_invalid_datetime, key, value}}
+
+  defp validate_optional_datetime(value, _key) when value in [nil, ""], do: :ok
+  defp validate_optional_datetime(value, key), do: validate_required_datetime(value, key)
+
+  defp validate_optional_string_field(grant, key) do
+    case resource_grant_field(grant, key) do
+      nil -> :ok
+      value when is_binary(value) -> validate_non_empty_resource_grant_string(value, key)
+      value -> {:error, {:resource_grant_expected_string, key, value}}
+    end
+  end
+
+  defp validate_non_empty_resource_grant_string(value, key) do
+    if String.trim(value) == "" do
+      {:error, {:resource_grant_empty_string, key}}
+    else
+      :ok
+    end
+  end
+
+  defp validate_resource_grant_metadata(grant) do
+    case resource_grant_field(grant, "metadata", %{}) do
+      metadata when is_map(metadata) -> :ok
+      metadata -> {:error, {:resource_grant_expected_metadata_map, metadata}}
+    end
+  end
+
+  defp resource_grant_field(map, key, default \\ nil) when is_map(map) do
+    Map.get(map, key, Map.get(map, Map.fetch!(@resource_grant_atom_keys, key), default))
+  end
+
+  defp resource_grant_scope_field(map, key) when is_map(map) do
+    Map.get(map, key, Map.get(map, String.to_existing_atom(key)))
+  rescue
+    ArgumentError -> nil
+  end
 
   defp validate_timezone_name("UTC"), do: :ok
 

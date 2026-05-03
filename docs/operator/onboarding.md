@@ -83,7 +83,11 @@ show `target_status=failed` with a visible failure reason.
   not OS isolation.
 - Treat v0.10 network access as approved resource acquisition, not a browser,
   crawler, or arbitrary document summarizer.
-- Use operation-scoped approvals for future local path access, URL summaries,
+- Treat remembered resource grants as Settings Central approval memory, not
+  trust or execution authority. Grants are scoped by resource, operation,
+  access mode, and downstream consumer, and still require Security Central
+  policy re-check with the current action permission.
+- Use operation-scoped approvals for local path access, URL summaries,
   document inspection, local skill directory import, and direct skill URL
   import work.
 
