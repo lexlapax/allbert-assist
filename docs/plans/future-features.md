@@ -19,8 +19,10 @@ homes:
 - Confirmation workflow: v0.07.
 - Local execution sandbox and shell adapter: v0.08.
 - Skill script runner: v0.09.
-- External services, package installs, and online skill import: v0.10.
-- Execution-aware intent contract and Approval Handoff: v0.11.
+- External services, package installs, online skill import, and the first
+  remote network content security posture substrate: v0.10.
+- Execution-aware intent contract, Approval Handoff, and remote network
+  content posture consumers: v0.11.
 - Scheduled jobs: v0.12.
 - Additional channels: v0.13.
 - Memory review and retrieval: v0.14.
@@ -132,9 +134,12 @@ Needed before planning:
 Source: origin note and v0.13 candidate channels.
 
 The origin note describes capturing searches or browsing activity and turning
-useful context into memory. v0.13 gives browser/search capture a possible
-channel-adapter home, but deeper extraction and memory promotion behavior may
-need a later focused milestone.
+useful context into memory. v0.11 owns the remote network content security
+posture for approved URL/document consumers, and v0.13 gives browser/search
+capture a possible channel-adapter home. Browser capture is still broader than
+approved URL fetches: it may involve page state, user sessions, cookies,
+interactive navigation, screenshots, or memory promotion, so it remains parked
+until channel adapters and security hardening are ready.
 
 Needed before planning:
 
@@ -143,6 +148,28 @@ Needed before planning:
 - memory review workflow
 - sensitive-data detection and confirmation
 - traceable extraction path
+
+### Deep Remote Document Extraction
+
+Source: v0.11 remote network content posture planning.
+
+v0.11 should let the system represent and approve requests like "check this
+URL and summarize it" through remote network content posture. That does not
+mean every document type is deeply parsed in the same release. Broad document
+handling may need a later focused milestone once the first approved
+fetch/extract/summarizer handoff is boring.
+
+Needed before planning:
+
+- stable remote network content reference and approval scope records
+- bounded content cache/digest policy
+- extractor contracts for HTML, markdown, plain text, PDF, office documents,
+  archives, and unknown binary content
+- prompt-injection and data-exfiltration posture for fetched content sent to
+  summarizers
+- unsupported-format and partial-extraction UX
+- tests for size caps, content-type mismatches, malformed files, redirects,
+  private-network targets, and redacted traces
 
 ### Small-Model Memory Or Personality Distillation
 
@@ -257,6 +284,9 @@ v0.10 implementation clarifies the first split:
   code execution remains a deeper sandbox problem, not a v0.10 capability
 - CLI, `/settings`, traces, and audits now expose the v0.10 request/result
   metadata needed to decide which workflows need deeper sandboxing later
+- v0.11 remote network content posture should decide whether a URL is being
+  summarized, inspected, imported as a skill, or used for package metadata
+  before any downstream consumer acts
 
 This should become a versioned roadmap item only after v0.10's actual external,
 package, and import traces show which workflows cannot be made acceptable with

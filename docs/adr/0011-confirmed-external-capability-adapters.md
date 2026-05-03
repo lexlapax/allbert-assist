@@ -30,6 +30,11 @@ Skill candidate. Each of those capabilities crosses a different trust boundary:
 - Online skill import can introduce untrusted instructions, bundled scripts,
   package manifests, external links, and social proof that may look safer than
   it is.
+- Remote network content is broader than online skills. A URL may point to API
+  JSON, a web page, a PDF, markdown, text, a direct `SKILL.md`, an archive, or
+  package metadata. Higher-level requests such as "check this URL and
+  summarize it" still begin as network content acquisition and need the same
+  source, approval, bounds, redaction, trace, and downstream-consumer posture.
 
 Current research reinforces that the boundary must be explicit:
 
@@ -48,6 +53,10 @@ Current research reinforces that the boundary must be explicit:
 - skills.sh documents `npx skills add` and anonymous telemetry, but also tells
   users to review skills because ecosystem quality and security are not
   guaranteed. Allbert should not delegate trust or install behavior to that CLI.
+- OpenClaw and Hermes both treat skills as lifecycle-managed remote sources,
+  and Anthropic's skills repository models skills as one plugin payload in a
+  broader marketplace manifest. That supports treating skills.sh as one source
+  profile, not the Allbert trust model.
 
 ## Decision
 
@@ -75,6 +84,25 @@ All HTTP/service calls must:
 - use `Req.Test` or equivalent stubs in automated tests instead of live network
   calls
 
+Remote network content gets an explicit security posture. Any workflow that
+fetches URL content for later summarization, inspection, import, package
+metadata use, or another consumer must carry a remote network content
+reference with:
+
+- canonical URL and method
+- source/profile label
+- operation class, such as `external_service_request`, `summarize_url`,
+  `inspect_document`, or `import_skill`
+- expected content kind and accepted content types
+- byte cap, redirect/retry posture, and cache/digest expectation
+- origin channel/surface and response target when available
+- confirmation id and downstream consumer
+
+Operation class is part of the security boundary. A remembered approval for
+`summarize_url` must not authorize `import_skill`; an `inspect_document`
+approval must not authorize package installation; an import approval must not
+authorize activation, trust, script execution, or package install.
+
 Package installs get distinct policy, not a reused shell permission. v0.10
 adds `:package_install` as a high-risk permission with a confirmation safety
 floor. Package-install actions may reuse v0.08 local runner primitives, but
@@ -95,6 +123,12 @@ parser/registry validation, and leaves imported skills disabled and untrusted.
 Import does not enable, trust, activate, run scripts, install dependencies, or
 load Elixir modules.
 
+skills.sh is one source profile and search convenience. Direct skill URL
+import should be modeled as remote network content acquisition with operation
+class `import_skill`, followed by the same parser/registry validation and
+disabled/untrusted cache write. It should not require a marketplace-specific
+search result.
+
 v0.10 does not add container, remote, or microVM isolation. If a package,
 online import, or untrusted-code workflow needs that level of isolation, the
 workflow must be denied or deferred to a later sandbox milestone.
@@ -114,15 +148,21 @@ workflow must be denied or deferred to a later sandbox milestone.
 - Package managers are not shell strings. They are package-manager profiles
   with explicit argv, previews, and audit records.
 - skills.sh and other registries are sources of candidates, not trust roots.
+- Remote network content posture becomes the shared substrate for later URL
+  summarization, document inspection, direct skill URL import, and
+  source-profile consumers.
 - Imported skills remain non-executable until existing local trust, enablement,
   capability, digest, and confirmation rules allow later actions.
 - v0.11 can consume these real risky capabilities in the execution-aware intent
-  contract and Approval Handoff without adding new execution powers.
+  contract and Approval Handoff without adding a new network primitive. Its
+  consumer UX may orchestrate URL summarization or direct skill URL import over
+  the v0.10 adapter, but channels and summarizers do not gain direct fetch
+  authority.
 - v0.12 jobs and v0.13 channels may create or render confirmation requests for
   these capabilities, but must not run them invisibly.
 - v0.16 security hardening should add evals for SSRF, redirect, retry,
-  package-manager, supply-chain, import, credential redaction, and approval
-  bypass cases.
+  package-manager, supply-chain, import, remote network content posture,
+  summarizer handoff, credential redaction, and approval bypass cases.
 
 ## Implementation Notes
 
@@ -138,3 +178,10 @@ workflow must be denied or deferred to a later sandbox milestone.
   configured API base and keeps page fallback for detail fetches.
 - v0.10 M5 made CLI, `/settings`, markdown traces, confirmation audits, and
   Security Central status render the same v0.10 request/result metadata.
+- v0.10 M6 is a documentation cleanup milestone that keeps README as the
+  project overview and moves operator testing guidance to explicit onboarding
+  and request-flow docs.
+- v0.10 M7-M9 are documentation handoff milestones that do not reopen the
+  v0.10 implementation gate. They record remote network content posture,
+  operation-scoped remembered approval requirements, and the v0.11 UX handoff
+  for URL summarization, document inspection, and direct skill URL import.

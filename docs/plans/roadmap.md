@@ -108,8 +108,10 @@ Dependency order from here:
 6. Confirmation workflow for sensitive capabilities.
 7. Local execution sandbox and confirmed shell execution.
 8. Trusted skill script execution through the same sandbox.
-9. External service, package-install, and online skill import adapters.
-10. Execution-aware intent decisions over real risky capabilities.
+9. External service, package-install, online skill import adapters, and the
+   first remote network content security posture substrate.
+10. Execution-aware intent decisions, Approval Handoff, and remote network
+    content consumers over real risky capabilities.
 11. Scheduled jobs that emit signals into the same runtime.
 12. Additional channels that translate messages into the same runtime.
 13. Memory review, summarization, and retrieval improvements.
@@ -547,16 +549,17 @@ Exit signal: Allbert can run a bundled skill script only when the skill is
 trusted, enabled, selected, inventoried, digest-verified, confirmed, bounded
 by Level 1 host-process controls, audited, and traced.
 
-## v0.10: External Services, Package Installs, And Online Skill Import
+## v0.10: External Services, Package Installs, Online Skill Import, And Network Content Posture
 
 Plan: `docs/plans/v0.10-plan.md`
 Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 
 Status: M1-M5 implemented and focused-test verified. v0.10 is ready for
-operator/user testing after the M5 release-readiness commit and push. Expected
-tag is `v0.10`, pending operator acceptance; no v0.10 tag has been created or
-pushed yet.
+operator/user testing after the M5 release-readiness gate, the post-M5
+README/operator onboarding refresh, and the remote network content posture
+documentation clarification. Expected tag is `v0.10`, pending operator
+acceptance; no v0.10 tag has been created or pushed yet.
 
 Expected direction:
 
@@ -575,6 +578,14 @@ Expected direction:
 - Add skills.sh or remote-source search, detail, audit, and import support
   through `Req`, source profiles, bounded downloads, source manifests, and the
   existing Agent Skills parser/registry.
+- Treat `skills.sh` as one source profile and search convenience, not the
+  platform model. v0.10's durable primitive is approved remote network content
+  acquisition with source/profile, canonical URL, operation class, limits,
+  confirmation, audit, and trace metadata.
+- Document future operation classes such as `summarize_url`,
+  `inspect_document`, and `import_skill` so URL summarization, document
+  inspection, and direct skill URL import can consume the same posture without
+  sharing unsafe approval authority.
 - Write imported skills only under `<ALLBERT_HOME>/cache/skills`; keep them
   disabled, untrusted, and non-executable until parsed, validated, audited,
   enabled, trusted, and separately confirmed for any script execution.
@@ -601,6 +612,20 @@ Milestones:
 - M5 (Milestone 5): Implemented. Release readiness, operator surfaces,
   trace/audit polish, docs, future milestone handoffs, focused tests, final
   gates, version metadata `0.10.0`, and release/tag readiness docs.
+- M6 (Milestone 6): Documented cleanup. README and operator onboarding
+  documentation now keep the root README as a project overview while routing
+  release smoke detail to `docs/operator/onboarding.md` and the active
+  request-flow document.
+- M7 (Milestone 7): Documented handoff. Remote network content reference model
+  for future URL summaries, document inspection, direct skill URL import, and
+  source-profile consumers.
+- M8 (Milestone 8): Documented handoff. Remembered remote network content
+  approval scopes by exact URL or URL hierarchy/prefix and operation class,
+  with no cross-use between summary, document inspection, skill import,
+  package install, activation, or script execution.
+- M9 (Milestone 9): Documented handoff. Release docs refreshed to keep v0.10
+  as the approved network substrate while assigning channel-native consumer UX
+  to v0.11.
 
 Exit signal: Allbert can search, audit, and import online skills, call approved
 external services, and run the first confirmed npm package-manager profile
@@ -608,9 +633,12 @@ through registered actions without making imports, package manifests, or
 package-manager metadata executable by themselves. CLI, `/settings`, traces,
 audits, and Security Central render the same v0.10 metadata and policy
 summaries, including the distinction between operator approval and target
-execution failure.
+execution failure. The docs also identify remote network content posture as
+the common substrate for future URL/document consumers without claiming that
+v0.10 implements arbitrary URL summarization, remembered URL grants, a
+browser, or a crawler.
 
-## v0.11: Execution-Aware Intent Contract And Approval Handoff
+## v0.11: Execution-Aware Intent, Approval Handoff, And Network Content Posture
 
 Plan: `docs/plans/v0.11-plan.md`
 
@@ -624,12 +652,22 @@ Expected direction:
   diagnostics.
 - Cover shell, skill script, package install, external service, and online skill
   import flows first.
+- Add remote network content posture data to decisions that would fetch URL
+  content: canonical URL, method, source/profile, operation class, expected
+  content kind, byte cap, destination consumer, summarizer requirement,
+  origin channel, response target, and allowed approval scopes.
+- Treat "check this URL and summarize it", "inspect this document URL", and
+  "import this skill URL" as consumer workflows over the same posture, not as
+  separate skills-only or channel-owned behavior.
 - Validate every decision against known skills, registered actions, known
   permissions, confirmation state, Security Central, and Settings Central
   policy.
 - Define Approval Handoff as the plain-data bridge from a confirmation-needed
   action to channel-native approval UX in CLI/REPL, web chat, jobs, and future
   channel adapters.
+- Include remembered approval options that are exact-URL or URL-prefix scoped
+  and operation-scoped; a `summarize_url` grant cannot authorize
+  `import_skill`, package install, activation, or script execution.
 - Require existing CLI/REPL-style and web surfaces to render approve, deny, and
   details affordances over `approve_confirmation` and `deny_confirmation`
   without owning confirmation storage, security policy, or execution.
@@ -639,9 +677,11 @@ Expected direction:
   semantics.
 
 Exit signal: Allbert can explain why it selected, confirmed, denied, or refused
-a risky local or external capability and can render a confirmation-needed
-decision as channel-native approval UX before jobs and additional channels
-consume those capabilities.
+a risky local, external, or remote network content capability and can render a
+confirmation-needed decision as channel-native approval UX. URL summarization,
+document inspection, and direct skill URL import are represented as posture
+consumers with clear unavailable states for missing summarizers or unsupported
+extractors before jobs and additional channels consume those capabilities.
 
 ## v0.12: Scheduled Jobs
 
@@ -657,6 +697,9 @@ Expected direction:
 - Use settings for timezone, active/paused state, and schedule policy.
 - Keep scheduled jobs observable through traces and registered skills/actions.
 - Pause risky job actions for confirmation instead of running invisibly.
+- When jobs request remote network content, they must emit the same posture and
+  Approval Handoff metadata as CLI/web requests instead of fetching in the
+  background without approval.
 
 ## v0.13: Additional Channels
 
@@ -672,6 +715,10 @@ Expected direction:
   capture, and native UI surfaces.
 - Channels translate external messages to signals and render responses; they do
   not own agent logic.
+- Channels consume Approval Handoff and remote network content posture for URL
+  summaries, document inspection, direct skill URL import, and other risky
+  content consumers instead of creating channel-specific fetch or approval
+  rules.
 - Channels read and update shared settings through the settings action/signal
   boundary.
 
@@ -727,8 +774,9 @@ Expected direction:
   background execution.
 - Add operator-visible security review workflows for recent denials,
   confirmations, imports, external calls, and redaction incidents.
-- Reassess sandbox, allowlist, safe-bin, external content, and supply-chain
-  policies against real traces.
+- Reassess sandbox, allowlist, safe-bin, remote network content posture,
+  document extraction, summarizer handoff, and supply-chain policies against
+  real traces.
 
 Exit signal: Security Central has been tested against real execution, import,
 channel, job, memory, and intent behavior, and the roadmap has a fresh risk

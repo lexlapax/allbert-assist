@@ -3,8 +3,9 @@
 ## v0.10 - External Capability Adapters
 
 Status: ready for operator/user testing after the v0.10 M5 release-readiness
-commit and push. Expected release tag is `v0.10`, pending operator acceptance;
-no v0.10 tag has been created or pushed yet.
+gate, the post-M5 README/operator onboarding refresh, and the remote network
+content posture documentation clarification. Expected release tag is `v0.10`,
+pending operator acceptance; no v0.10 tag has been created or pushed yet.
 
 ### Added
 
@@ -35,6 +36,21 @@ no v0.10 tag has been created or pushed yet.
   package installs, and online skill import.
 - Version metadata bumped to `0.10.0`.
 
+### Changed
+
+- Planning docs now frame v0.10 as the first remote network content security
+  posture substrate, not a skills-only release. Online skill search/import is
+  one consumer of approved network content; future URL summarization, document
+  inspection, and direct skill URL import must use the same operation-scoped
+  approval, trace, and audit posture.
+- README now reads as a project overview and documentation index rather than a
+  testing plan. First-run operator guidance lives in
+  `docs/operator/onboarding.md`; the v0.10 smoke matrix remains in
+  `docs/plans/v0.10-request-flow.md`.
+- v0.11 planning now owns execution-aware Approval Handoff UX for consumers
+  such as `summarize_url`, `inspect_document`, and `import_skill`, including
+  remembered exact-URL or URL-prefix grants scoped by operation class.
+
 ### Safety
 
 - npm package installs require exact package specs, an allowed target root,
@@ -50,6 +66,9 @@ no v0.10 tag has been created or pushed yet.
 - Operator approval is recorded separately from target execution success:
   source HTTP/transport failures after approval are failed target outcomes, not
   Security Central or operator denials.
+- v0.10 does not implement arbitrary URL/document summarization, remembered URL
+  grants, direct skill URL import, a browser, or a crawler. Those consumers
+  need the v0.11 intent and Approval Handoff contract over the v0.10 adapter.
 
 ### Verification
 
@@ -60,8 +79,9 @@ no v0.10 tag has been created or pushed yet.
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
 - `mix precommit` passed with 248 core tests and 17 web tests.
-- Operator/user testing should use the disposable v0.10 smoke flow in
-  `README.md` or `docs/plans/v0.10-plan.md`.
+- Operator/user testing should start with `docs/operator/onboarding.md` and
+  use the disposable v0.10 smoke flow
+  in `docs/plans/v0.10-request-flow.md` or `docs/plans/v0.10-plan.md`.
 
 ## v0.09 - Skill Script Runner
 
@@ -124,7 +144,7 @@ Status: accepted for operator/user testing. Release tag is `v0.09`.
   `mix precommit`, and `git diff --check`.
 - `mix precommit` passed with 206 core tests and 16 web tests.
 - Operator/user testing should use the disposable `ALLBERT_HOME` and temporary
-  workspace smoke in `README.md` or `docs/plans/v0.09-plan.md`.
+  workspace smoke in `docs/operator/onboarding.md` or `docs/plans/v0.09-plan.md`.
 - Disposable CLI smoke passed for validate, run, list, approve, and
   list-resolved against a temporary trusted skill and workspace.
 
