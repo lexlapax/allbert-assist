@@ -87,11 +87,13 @@ controls are implemented and tested.
 
 Online skill import also gets distinct policy. v0.10 adds
 `:online_skill_import` as a high-risk permission with a confirmation safety
-floor. Search/detail/audit/import actions use `Req` source profiles. Import
-writes only to `<ALLBERT_HOME>/cache/skills`, writes source manifests, runs the
-existing skill parser/registry validation, and leaves imported skills disabled
-and untrusted. Import does not enable, trust, activate, run scripts, install
-dependencies, or load Elixir modules.
+floor. Search/detail use `:external_network` and `Req` source profiles because
+they fetch remote metadata without importing. Audit inspects cached fetched
+metadata as `:read_only`. Import uses `:online_skill_import`, writes only to
+`<ALLBERT_HOME>/cache/skills`, writes source manifests, runs the existing skill
+parser/registry validation, and leaves imported skills disabled and untrusted.
+Import does not enable, trust, activate, run scripts, install dependencies, or
+load Elixir modules.
 
 v0.10 does not add container, remote, or microVM isolation. If a package,
 online import, or untrusted-code workflow needs that level of isolation, the

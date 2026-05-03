@@ -74,6 +74,10 @@ defmodule AllbertAssist.PathsTest do
     assert Paths.settings_root() == Path.join(home, "settings")
     assert Paths.confirmations_root() == Path.join(home, "confirmations")
     assert Paths.memory_root() == Path.join(home, "memory")
+    assert Paths.external_root() == Path.join(home, "external")
+    assert Paths.external_cache_root() == Path.join([home, "cache", "external-services"])
+    assert Paths.package_installs_root() == Path.join([home, "execution", "package-installs"])
+    assert Paths.online_skill_sources_root() == Path.join([home, "cache", "skills", "_sources"])
     assert Paths.db_path() == Path.join([home, "db", "allbert.sqlite3"])
     assert Paths.skills_root() == Path.join(home, "skills")
     assert Paths.cache_root() == Path.join(home, "cache")
@@ -127,6 +131,11 @@ defmodule AllbertAssist.PathsTest do
           Path.join([home, "confirmations", "audit"]),
           Path.join(home, "execution"),
           Path.join([home, "execution", "audit"]),
+          Path.join([home, "execution", "package-installs"]),
+          Path.join([home, "execution", "package-installs", "audit"]),
+          Path.join([home, "execution", "package-installs", "runs"]),
+          Path.join(home, "external"),
+          Path.join([home, "external", "audit"]),
           Path.join(home, "memory"),
           Path.join([home, "memory", "notes"]),
           Path.join([home, "memory", "preferences"]),
@@ -136,6 +145,8 @@ defmodule AllbertAssist.PathsTest do
           Path.join(home, "skills"),
           Path.join(home, "cache"),
           Path.join([home, "cache", "skills"]),
+          Path.join([home, "cache", "skills", "_sources"]),
+          Path.join([home, "cache", "external-services"]),
           Path.join(home, "tmp")
         ] do
       assert File.dir?(path)

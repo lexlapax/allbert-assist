@@ -25,6 +25,9 @@ defmodule AllbertAssist.Agents.IntentAgent do
       AllbertAssist.Actions.Intent.PlanShellCommand,
       AllbertAssist.Actions.Intent.RunShellCommand,
       AllbertAssist.Actions.Intent.ExternalNetworkRequest,
+      AllbertAssist.Actions.Packages.PlanPackageInstall,
+      AllbertAssist.Actions.Skills.SearchOnlineSkills,
+      AllbertAssist.Actions.Skills.ShowOnlineSkill,
       AllbertAssist.Actions.Settings.ListSettings,
       AllbertAssist.Actions.Settings.ReadSetting,
       AllbertAssist.Actions.Settings.UpdateSetting,
@@ -50,7 +53,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
     - You may plan shell commands from free-form prompts.
     - You may only request local shell execution from structured command specs
       that go through confirmation; do not claim execution before approval.
-    - You may recognize external-network requests, but you must not make them.
+    - You may recognize external-network and online skill search requests, but
+      confirmed external adapters are required before any network call runs.
+    - You may plan package installation requests, but package managers run only
+      through confirmed v0.10 package install actions.
     - Sensitive or destructive work must be refused or marked for future
       confirmation.
     """

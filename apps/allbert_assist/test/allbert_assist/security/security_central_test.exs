@@ -79,6 +79,8 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Risk.classify(:confirmation_decide).tier == :medium
     assert Risk.classify(:skill_script_execute).tier == :high
     assert Risk.classify(:external_network).tier == :high
+    assert Risk.classify(:package_install).tier == :high
+    assert Risk.classify(:online_skill_import).tier == :high
     assert Risk.classify(:settings_secret_read).tier == :critical
     assert Risk.classify(:unknown_permission).tier == :critical
   end
@@ -89,6 +91,8 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Policy.resolve(:command_plan).effective == :allowed
     assert Policy.resolve(:command_execute).effective == :denied
     assert Policy.resolve(:external_network).effective == :needs_confirmation
+    assert Policy.resolve(:package_install).effective == :denied
+    assert Policy.resolve(:online_skill_import).effective == :denied
     assert Policy.resolve(:skill_write).effective == :allowed
     assert Policy.resolve(:skill_script_execute).effective == :denied
     assert Policy.resolve(:confirmation_decide).effective == :allowed
@@ -102,7 +106,9 @@ defmodule AllbertAssist.SecurityCentralTest do
                "permissions" => %{
                  "memory_write" => "denied",
                  "command_execute" => "allowed",
-                 "skill_script_execute" => "allowed"
+                 "skill_script_execute" => "allowed",
+                 "package_install" => "allowed",
+                 "online_skill_import" => "allowed"
                }
              })
 
@@ -122,6 +128,18 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert script_policy.configured_decision == :allowed
     assert script_policy.effective == :needs_confirmation
     assert script_policy.capped?
+
+    package_policy = Policy.resolve(:package_install)
+    assert package_policy.configured == "allowed"
+    assert package_policy.configured_decision == :allowed
+    assert package_policy.effective == :needs_confirmation
+    assert package_policy.capped?
+
+    import_policy = Policy.resolve(:online_skill_import)
+    assert import_policy.configured == "allowed"
+    assert import_policy.configured_decision == :allowed
+    assert import_policy.effective == :needs_confirmation
+    assert import_policy.capped?
   end
 
   test "unknown actions and undiscoverable selected skills deny instead of gaining authority" do
@@ -186,6 +204,8 @@ defmodule AllbertAssist.SecurityCentralTest do
     status = Security.status(%{request: %{operator_id: "local", channel: :test}})
 
     assert Enum.any?(status.permission_defaults, &(&1.permission == :command_execute))
+    assert Enum.any?(status.permission_defaults, &(&1.permission == :package_install))
+    assert Enum.any?(status.permission_defaults, &(&1.permission == :online_skill_import))
     assert Enum.any?(status.permission_defaults, &(&1.permission == :skill_write))
     assert Enum.any?(status.permission_defaults, &(&1.permission == :skill_script_execute))
     assert Enum.any?(status.permission_defaults, &(&1.permission == :confirmation_decide))

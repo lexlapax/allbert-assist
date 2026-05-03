@@ -553,8 +553,8 @@ Plan: `docs/plans/v0.10-plan.md`
 Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 
-Status: implementation-ready planning complete. No implementation, release
-commit, or release tag exists yet.
+Status: M1 implemented and focused-test verified. M2-M5 remain in progress;
+no v0.10 release commit or release tag exists yet.
 
 Expected direction:
 
@@ -581,7 +581,8 @@ Expected direction:
 
 Milestones:
 
-- M1 (Milestone 1): Policy, ADR, Settings Central schema, Allbert Home paths,
+- M1 (Milestone 1): Implemented. Policy, ADR, Settings Central schema,
+  Allbert Home paths,
   and registered capability contracts for external, package, and online import
   actions.
 - M2 (Milestone 2): Confirmed `Req` external service adapter,

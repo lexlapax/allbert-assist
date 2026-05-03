@@ -10,6 +10,8 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :command_plan,
              :command_execute,
              :external_network,
+             :package_install,
+             :online_skill_import,
              :settings_write,
              :skill_write,
              :skill_script_execute,
@@ -63,6 +65,19 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     refute PermissionGate.allowed?(decision)
     assert PermissionGate.response_status(decision) == :denied
     assert_compatibility_fields(decision)
+  end
+
+  test "denies new v0.10 high-risk boundaries until explicitly enabled" do
+    for permission <- [:package_install, :online_skill_import] do
+      decision = PermissionGate.authorize(permission, %{})
+
+      assert decision.permission == permission
+      assert decision.decision == :denied
+      refute decision.requires_confirmation
+      refute PermissionGate.allowed?(decision)
+      assert PermissionGate.response_status(decision) == :denied
+      assert_compatibility_fields(decision)
+    end
   end
 
   test "allows safe settings writes, skill scaffolds, confirmation decisions, and explicit secret writes" do

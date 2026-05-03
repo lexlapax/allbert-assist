@@ -173,6 +173,79 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("execution.skill_scripts.interpreter_profiles", invalid_profile, %{})
   end
 
+  test "v0.10 external, package, and online skill settings are writable and validated", %{
+    home: home
+  } do
+    assert {:ok, package_policy} =
+             Settings.put("permissions.package_install", "needs_confirmation", %{audit?: false})
+
+    assert package_policy.value == "needs_confirmation"
+
+    assert {:ok, import_policy} =
+             Settings.put("permissions.online_skill_import", "denied", %{audit?: false})
+
+    assert import_policy.value == "denied"
+
+    assert {:ok, enabled} =
+             Settings.put("external_services.enabled", true, %{audit?: false})
+
+    assert enabled.value == true
+
+    assert {:ok, hosts} =
+             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+
+    assert hosts.value == ["example.com"]
+
+    assert {:ok, methods} =
+             Settings.put("external_services.allowed_methods", ["GET", "HEAD"], %{audit?: false})
+
+    assert methods.value == ["GET", "HEAD"]
+
+    manager_profile = %{
+      "npm" => %{
+        "executable" => "npm",
+        "install_args" => ["install"],
+        "allowed_roots" => [home],
+        "timeout_ms" => 30_000,
+        "max_output_bytes" => 65_536,
+        "require_confirmation" => true,
+        "lifecycle_scripts_allowed" => false,
+        "git_dependencies_allowed" => false,
+        "global_installs_allowed" => false
+      }
+    }
+
+    assert {:ok, profiles} =
+             Settings.put("package_installs.manager_profiles", manager_profile, %{audit?: false})
+
+    assert profiles.value == manager_profile
+
+    assert {:ok, source_enabled} =
+             Settings.put("skills.online_import.sources.skills_sh.enabled", true, %{
+               audit?: false
+             })
+
+    assert source_enabled.value == true
+
+    assert {:ok, max_download} =
+             Settings.put("skills.online_import.max_download_bytes", 1_048_576, %{audit?: false})
+
+    assert max_download.value == 1_048_576
+
+    assert {:error, {:invalid_setting, "external_services.allowed_methods", _reason}} =
+             Settings.put("external_services.allowed_methods", ["TRACE"], %{})
+
+    assert {:error, {:invalid_setting, "package_installs.manager_profiles", _reason}} =
+             Settings.put(
+               "package_installs.manager_profiles",
+               %{"npm" => %{"install_args" => []}},
+               %{}
+             )
+
+    assert {:error, {:invalid_setting, "skills.online_import.trust_after_import", _reason}} =
+             Settings.put("skills.online_import.trust_after_import", "yes", %{})
+  end
+
   test "provider and model profiles resolve with redacted credential status" do
     assert {:ok, providers} = Settings.list_provider_profiles()
     assert Enum.any?(providers, &(&1.name == "openai" and &1.credential_status == :missing))

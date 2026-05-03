@@ -27,6 +27,8 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:skill_script_execute), do: :high
   def tier(:settings_secret_write), do: :high
   def tier(:external_network), do: :high
+  def tier(:package_install), do: :high
+  def tier(:online_skill_import), do: :high
   def tier(:command_execute), do: :high
   def tier(:settings_secret_read), do: :critical
   def tier(_permission), do: :critical
@@ -39,8 +41,10 @@ defmodule AllbertAssist.Security.Risk do
   defp reasons(:confirmation_decide, _tier, _context), do: ["operator confirmation decision"]
   defp reasons(:skill_script_execute, _tier, _context), do: ["trusted skill script execution"]
   defp reasons(:settings_secret_write, _tier, _context), do: ["encrypted credential write"]
-  defp reasons(:external_network, _tier, _context), do: ["future external network boundary"]
-  defp reasons(:command_execute, _tier, _context), do: ["future shell/process execution boundary"]
+  defp reasons(:external_network, _tier, _context), do: ["confirmed external network boundary"]
+  defp reasons(:package_install, _tier, _context), do: ["package manager process boundary"]
+  defp reasons(:online_skill_import, _tier, _context), do: ["remote skill import boundary"]
+  defp reasons(:command_execute, _tier, _context), do: ["shell/process execution boundary"]
   defp reasons(:settings_secret_read, _tier, _context), do: ["raw secret read attempt"]
   defp reasons(_permission, _tier, _context), do: ["unknown permission class"]
 end

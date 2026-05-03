@@ -25,6 +25,8 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.command_plan",
     "permissions.command_execute",
     "permissions.external_network",
+    "permissions.package_install",
+    "permissions.online_skill_import",
     "permissions.settings_write",
     "permissions.skill_write",
     "permissions.skill_script_execute",
@@ -43,6 +45,39 @@ defmodule AllbertAssist.Settings.Schema do
     "execution.skill_scripts.enabled",
     "execution.skill_scripts.require_confirmation",
     "execution.skill_scripts.interpreter_profiles",
+    "external_services.enabled",
+    "external_services.allowed_hosts",
+    "external_services.blocked_hosts",
+    "external_services.allowed_methods",
+    "external_services.default_timeout_ms",
+    "external_services.max_timeout_ms",
+    "external_services.max_response_bytes",
+    "external_services.allow_redirects",
+    "external_services.max_redirects",
+    "external_services.retry_policy",
+    "external_services.redact_request_headers",
+    "external_services.redact_response_headers",
+    "package_installs.enabled",
+    "package_installs.require_confirmation",
+    "package_installs.allowed_roots",
+    "package_installs.allowed_managers",
+    "package_installs.default_timeout_ms",
+    "package_installs.max_timeout_ms",
+    "package_installs.max_output_bytes",
+    "package_installs.lifecycle_scripts_allowed",
+    "package_installs.git_dependencies_allowed",
+    "package_installs.global_installs_allowed",
+    "package_installs.manager_profiles",
+    "skills.online_import.enabled",
+    "skills.online_import.require_confirmation",
+    "skills.online_import.allowed_sources",
+    "skills.online_import.max_listing_results",
+    "skills.online_import.max_download_bytes",
+    "skills.online_import.trust_after_import",
+    "skills.online_import.sources.skills_sh.enabled",
+    "skills.online_import.sources.skills_sh.base_url",
+    "skills.online_import.sources.skills_sh.api_url",
+    "skills.online_import.sources.skills_sh.cache_ttl_seconds",
     "confirmations.default_ttl_minutes",
     "confirmations.auto_expire_on_startup",
     "confirmations.require_reason_for_denial",
@@ -153,6 +188,66 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["disabled", "enabled_manual_trust"]
     },
+    "skills.online_import.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.online_import.require_confirmation" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.online_import.allowed_sources" => %{
+      type: :string_list,
+      default: ["skills_sh"],
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.online_import.max_listing_results" => %{
+      type: :positive_integer,
+      default: 25,
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.online_import.max_download_bytes" => %{
+      type: :positive_integer,
+      default: 1_048_576,
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.online_import.trust_after_import" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.online_import.sources.skills_sh.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.online_import.sources.skills_sh.base_url" => %{
+      type: :url_or_nil,
+      default: "https://skills.sh",
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.online_import.sources.skills_sh.api_url" => %{
+      type: :url_or_nil,
+      default: "https://skills.sh/api",
+      writable?: true,
+      sensitive?: false
+    },
+    "skills.online_import.sources.skills_sh.cache_ttl_seconds" => %{
+      type: :positive_integer,
+      default: 3600,
+      writable?: true,
+      sensitive?: false
+    },
     "permissions.memory_write" => %{
       type: :enum,
       default: "allowed",
@@ -177,6 +272,20 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.external_network" => %{
       type: :enum,
       default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.package_install" => %{
+      type: :enum,
+      default: "denied",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.online_skill_import" => %{
+      type: :enum,
+      default: "denied",
       writable?: true,
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
@@ -308,6 +417,145 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "execution.skill_scripts.interpreter_profiles" => %{
       type: :interpreter_profiles,
+      default: %{},
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.allowed_hosts" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.blocked_hosts" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.allowed_methods" => %{
+      type: :http_methods,
+      default: ["GET", "HEAD"],
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.default_timeout_ms" => %{
+      type: :timeout_ms,
+      default: 5000,
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.max_timeout_ms" => %{
+      type: :timeout_ms,
+      default: 30_000,
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.max_response_bytes" => %{
+      type: :positive_integer,
+      default: 1_048_576,
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.allow_redirects" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.max_redirects" => %{
+      type: :non_negative_integer,
+      default: 0,
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.retry_policy" => %{
+      type: :enum,
+      default: "none",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["none", "safe_idempotent"]
+    },
+    "external_services.redact_request_headers" => %{
+      type: :string_list,
+      default: ["authorization", "cookie", "x-api-key"],
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.redact_response_headers" => %{
+      type: :string_list,
+      default: ["set-cookie", "authorization"],
+      writable?: true,
+      sensitive?: false
+    },
+    "package_installs.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "package_installs.require_confirmation" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "package_installs.allowed_roots" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "package_installs.allowed_managers" => %{
+      type: :string_list,
+      default: ["npm"],
+      writable?: true,
+      sensitive?: false
+    },
+    "package_installs.default_timeout_ms" => %{
+      type: :timeout_ms,
+      default: 30_000,
+      writable?: true,
+      sensitive?: false
+    },
+    "package_installs.max_timeout_ms" => %{
+      type: :timeout_ms,
+      default: 120_000,
+      writable?: true,
+      sensitive?: false
+    },
+    "package_installs.max_output_bytes" => %{
+      type: :positive_integer,
+      default: 262_144,
+      writable?: true,
+      sensitive?: false
+    },
+    "package_installs.lifecycle_scripts_allowed" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "package_installs.git_dependencies_allowed" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "package_installs.global_installs_allowed" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "package_installs.manager_profiles" => %{
+      type: :package_manager_profiles,
       default: %{},
       writable?: true,
       sensitive?: false
@@ -469,13 +717,31 @@ defmodule AllbertAssist.Settings.Schema do
       "trusted_project_roots" => [],
       "enabled" => [],
       "disabled" => [],
-      "imported_cache_policy" => "disabled"
+      "imported_cache_policy" => "disabled",
+      "online_import" => %{
+        "enabled" => false,
+        "require_confirmation" => true,
+        "allowed_sources" => ["skills_sh"],
+        "max_listing_results" => 25,
+        "max_download_bytes" => 1_048_576,
+        "trust_after_import" => false,
+        "sources" => %{
+          "skills_sh" => %{
+            "enabled" => false,
+            "base_url" => "https://skills.sh",
+            "api_url" => "https://skills.sh/api",
+            "cache_ttl_seconds" => 3600
+          }
+        }
+      }
     },
     "permissions" => %{
       "memory_write" => "allowed",
       "command_plan" => "allowed",
       "command_execute" => "denied",
       "external_network" => "needs_confirmation",
+      "package_install" => "denied",
+      "online_skill_import" => "denied",
       "settings_write" => "allowed_safe_keys",
       "skill_write" => "allowed",
       "skill_script_execute" => "denied",
@@ -519,6 +785,33 @@ defmodule AllbertAssist.Settings.Schema do
         "require_confirmation" => true,
         "interpreter_profiles" => %{}
       }
+    },
+    "external_services" => %{
+      "enabled" => false,
+      "allowed_hosts" => [],
+      "blocked_hosts" => [],
+      "allowed_methods" => ["GET", "HEAD"],
+      "default_timeout_ms" => 5000,
+      "max_timeout_ms" => 30_000,
+      "max_response_bytes" => 1_048_576,
+      "allow_redirects" => false,
+      "max_redirects" => 0,
+      "retry_policy" => "none",
+      "redact_request_headers" => ["authorization", "cookie", "x-api-key"],
+      "redact_response_headers" => ["set-cookie", "authorization"]
+    },
+    "package_installs" => %{
+      "enabled" => false,
+      "require_confirmation" => true,
+      "allowed_roots" => [],
+      "allowed_managers" => ["npm"],
+      "default_timeout_ms" => 30_000,
+      "max_timeout_ms" => 120_000,
+      "max_output_bytes" => 262_144,
+      "lifecycle_scripts_allowed" => false,
+      "git_dependencies_allowed" => false,
+      "global_installs_allowed" => false,
+      "manager_profiles" => %{}
     },
     "confirmations" => %{
       "default_ttl_minutes" => 1440,
@@ -766,6 +1059,19 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_value(%{type: :string_list}, value, _key, _settings),
     do: {:error, {:expected_string_list, value}}
 
+  defp validate_value(%{type: :http_methods}, value, _key, _settings) when is_list(value) do
+    allowed = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
+
+    if value != [] and Enum.all?(value, &(&1 in allowed)) do
+      :ok
+    else
+      {:error, {:expected_http_methods, allowed}}
+    end
+  end
+
+  defp validate_value(%{type: :http_methods}, value, _key, _settings),
+    do: {:error, {:expected_http_methods, value}}
+
   defp validate_value(%{type: :command_profiles}, value, _key, _settings)
        when is_map(value) do
     Enum.reduce_while(value, :ok, fn {name, profile}, :ok ->
@@ -791,6 +1097,19 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_value(%{type: :interpreter_profiles}, value, _key, _settings),
     do: {:error, {:expected_interpreter_profiles, value}}
+
+  defp validate_value(%{type: :package_manager_profiles}, value, _key, _settings)
+       when is_map(value) do
+    Enum.reduce_while(value, :ok, fn {name, profile}, :ok ->
+      case validate_package_manager_profile(name, profile) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp validate_value(%{type: :package_manager_profiles}, value, _key, _settings),
+    do: {:error, {:expected_package_manager_profiles, value}}
 
   defp validate_value(%{type: :url_or_nil}, nil, _key, _settings), do: :ok
 
@@ -846,7 +1165,12 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_value(%{type: :positive_integer}, value, _key, _settings)
        when is_integer(value) do
-    if value >= 1 and value <= 200_000, do: :ok, else: {:error, :out_of_range}
+    if value >= 1 and value <= 100_000_000, do: :ok, else: {:error, :out_of_range}
+  end
+
+  defp validate_value(%{type: :non_negative_integer}, value, _key, _settings)
+       when is_integer(value) do
+    if value >= 0 and value <= 200_000, do: :ok, else: {:error, :out_of_range}
   end
 
   defp validate_value(%{type: :timeout_ms}, value, _key, _settings) when is_integer(value) do
@@ -1011,6 +1335,59 @@ defmodule AllbertAssist.Settings.Schema do
     end
   end
 
+  defp validate_package_manager_profile(name, profile) do
+    cond do
+      not valid_name?(name) ->
+        {:error, {:invalid_package_manager_profile_name, name}}
+
+      not is_map(profile) ->
+        {:error, {:invalid_package_manager_profile, name, :expected_map}}
+
+      true ->
+        validate_package_manager_profile_attrs(name, profile)
+    end
+  end
+
+  defp validate_package_manager_profile_attrs(name, profile) do
+    allowed_keys = [
+      "executable",
+      "args_prefix",
+      "plan_args",
+      "install_args",
+      "description",
+      "allowed_roots",
+      "timeout_ms",
+      "max_output_bytes",
+      "require_confirmation",
+      "lifecycle_scripts_allowed",
+      "git_dependencies_allowed",
+      "global_installs_allowed"
+    ]
+
+    profile
+    |> Map.keys()
+    |> Enum.reject(&(&1 in allowed_keys))
+    |> case do
+      [] -> validate_package_manager_profile_values(name, profile)
+      [key | _rest] -> {:error, {:invalid_package_manager_profile, name, {:unknown_key, key}}}
+    end
+  end
+
+  defp validate_package_manager_profile_values(name, profile) do
+    with :ok <- validate_required_package_manager_executable(name, profile),
+         :ok <- validate_optional_string_list(profile, "args_prefix"),
+         :ok <- validate_optional_string_list(profile, "plan_args"),
+         :ok <- validate_optional_string_list(profile, "install_args"),
+         :ok <- validate_optional_string_list(profile, "allowed_roots"),
+         :ok <- validate_optional_timeout(profile, "timeout_ms"),
+         :ok <- validate_optional_positive_integer(profile, "max_output_bytes"),
+         :ok <- validate_optional_boolean(profile, "require_confirmation"),
+         :ok <- validate_optional_boolean(profile, "lifecycle_scripts_allowed"),
+         :ok <- validate_optional_boolean(profile, "git_dependencies_allowed") do
+      validate_optional_boolean(profile, "global_installs_allowed")
+    end
+  end
+
   defp validate_optional_string_list(profile, key) do
     case Map.fetch(profile, key) do
       :error -> :ok
@@ -1095,6 +1472,20 @@ defmodule AllbertAssist.Settings.Schema do
 
       other ->
         {:error, {:invalid_interpreter_profile, name, {:expected_executable, other}}}
+    end
+  end
+
+  defp validate_required_package_manager_executable(name, profile) do
+    case Map.get(profile, "executable") do
+      executable when is_binary(executable) ->
+        if String.trim(executable) == "" do
+          {:error, {:invalid_package_manager_profile, name, :empty_executable}}
+        else
+          :ok
+        end
+
+      other ->
+        {:error, {:invalid_package_manager_profile, name, {:expected_executable, other}}}
     end
   end
 

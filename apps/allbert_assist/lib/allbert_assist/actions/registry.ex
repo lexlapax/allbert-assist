@@ -22,6 +22,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
   alias AllbertAssist.Actions.Intent.ReadSkill
   alias AllbertAssist.Actions.Intent.RunShellCommand
+  alias AllbertAssist.Actions.Packages.PlanPackageInstall
+  alias AllbertAssist.Actions.Packages.RunPackageInstall
   alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
   alias AllbertAssist.Actions.Settings.ExplainSetting
   alias AllbertAssist.Actions.Settings.ListModelProfiles
@@ -30,8 +32,12 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
+  alias AllbertAssist.Actions.Skills.AuditOnlineSkill
   alias AllbertAssist.Actions.Skills.CreateSkill
+  alias AllbertAssist.Actions.Skills.ImportOnlineSkill
   alias AllbertAssist.Actions.Skills.RunSkillScript
+  alias AllbertAssist.Actions.Skills.SearchOnlineSkills
+  alias AllbertAssist.Actions.Skills.ShowOnlineSkill
   alias AllbertAssist.Actions.Skills.ValidateSkill
   alias AllbertAssist.Actions.Trace.RecordTrace
 
@@ -45,6 +51,9 @@ defmodule AllbertAssist.Actions.Registry do
     PlanShellCommand,
     RunShellCommand,
     ExternalNetworkRequest,
+    PlanPackageInstall,
+    SearchOnlineSkills,
+    ShowOnlineSkill,
     ListSettings,
     ReadSetting,
     UpdateSetting,
@@ -58,6 +67,9 @@ defmodule AllbertAssist.Actions.Registry do
     ValidateSkill,
     CreateSkill,
     RunSkillScript,
+    RunPackageInstall,
+    AuditOnlineSkill,
+    ImportOnlineSkill,
     SecurityStatus,
     ListConfirmations,
     ShowConfirmation,
@@ -135,7 +147,31 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :external_network_unavailable,
       skill_backed?: true,
       confirmation: :future_confirmation_required,
-      notes: "Reports confirmation need only; no network adapter executes in v0.06."
+      notes: "M1 contract only; M2 wires confirmed Req HTTP execution."
+    },
+    PlanPackageInstall => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :package_install_plan,
+      skill_backed?: true,
+      confirmation: :not_required,
+      notes: "Plans package work only; package managers must run through run_package_install."
+    },
+    SearchOnlineSkills => %{
+      permission: :external_network,
+      exposure: :agent,
+      execution_mode: :online_skill_search,
+      skill_backed?: true,
+      confirmation: :future_confirmation_required,
+      notes: "M1 contract only; M4 routes search through the confirmed external adapter."
+    },
+    ShowOnlineSkill => %{
+      permission: :external_network,
+      exposure: :agent,
+      execution_mode: :online_skill_detail,
+      skill_backed?: true,
+      confirmation: :future_confirmation_required,
+      notes: "M1 contract only; M4 routes detail fetch through the confirmed external adapter."
     },
     ListSettings => %{
       permission: :read_only,
@@ -210,6 +246,30 @@ defmodule AllbertAssist.Actions.Registry do
       confirmation: :required,
       notes:
         "v0.09 trusted resource-gated skill script execution; M2 resolves inert specs before M3 confirmations and M4 running."
+    },
+    RunPackageInstall => %{
+      permission: :package_install,
+      exposure: :internal,
+      execution_mode: :package_manager_process,
+      skill_backed?: true,
+      confirmation: :required,
+      notes: "M1 contract only; M3 wires confirmed npm process execution."
+    },
+    AuditOnlineSkill => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :online_skill_audit,
+      skill_backed?: false,
+      confirmation: :not_required,
+      notes: "Audits cached online skill metadata before any disabled-by-default import."
+    },
+    ImportOnlineSkill => %{
+      permission: :online_skill_import,
+      exposure: :internal,
+      execution_mode: :online_skill_import,
+      skill_backed?: false,
+      confirmation: :required,
+      notes: "M1 contract only; import remains disabled by default."
     },
     SecurityStatus => %{
       permission: :read_only,

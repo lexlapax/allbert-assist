@@ -32,6 +32,13 @@ defmodule AllbertAssist.Actions.Capability do
           | :command_plan_only
           | :local_process
           | :external_network_unavailable
+          | :req_http
+          | :package_install_plan
+          | :package_manager_process
+          | :online_skill_search
+          | :online_skill_detail
+          | :online_skill_audit
+          | :online_skill_import
           | :settings_read
           | :settings_write
           | :confirmation_decision

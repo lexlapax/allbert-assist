@@ -16,6 +16,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "plan_shell_command",
              "run_shell_command",
              "external_network_request",
+             "plan_package_install",
+             "search_online_skills",
+             "show_online_skill",
              "list_settings",
              "read_setting",
              "update_setting",
@@ -26,6 +29,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "validate_skill",
              "create_skill",
              "run_skill_script",
+             "run_package_install",
+             "audit_online_skill",
+             "import_online_skill",
              "security_status",
              "list_confirmations",
              "show_confirmation",
@@ -62,6 +68,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "validate_skill",
              "create_skill",
              "run_skill_script",
+             "run_package_install",
+             "audit_online_skill",
+             "import_online_skill",
              "security_status",
              "list_confirmations",
              "show_confirmation",
@@ -96,6 +105,25 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert run_shell_command.exposure == :agent
     assert run_shell_command.execution_mode == :local_process
     assert run_shell_command.confirmation == :required
+
+    assert {:ok, plan_package_install} = Registry.capability("plan_package_install")
+    assert plan_package_install.permission == :read_only
+    assert plan_package_install.execution_mode == :package_install_plan
+    assert plan_package_install.exposure == :agent
+
+    assert {:ok, run_package_install} = Registry.capability("run_package_install")
+    assert run_package_install.permission == :package_install
+    assert run_package_install.execution_mode == :package_manager_process
+    assert run_package_install.exposure == :internal
+    assert run_package_install.confirmation == :required
+
+    assert {:ok, search_online_skills} = Registry.capability("search_online_skills")
+    assert search_online_skills.permission == :external_network
+    assert search_online_skills.execution_mode == :online_skill_search
+
+    assert {:ok, import_online_skill} = Registry.capability("import_online_skill")
+    assert import_online_skill.permission == :online_skill_import
+    assert import_online_skill.confirmation == :required
 
     assert {:ok, approve_confirmation} = Registry.capability("approve_confirmation")
     assert approve_confirmation.permission == :confirmation_decide

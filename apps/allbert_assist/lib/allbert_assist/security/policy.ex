@@ -10,6 +10,8 @@ defmodule AllbertAssist.Security.Policy do
     command_plan: "permissions.command_plan",
     command_execute: "permissions.command_execute",
     external_network: "permissions.external_network",
+    package_install: "permissions.package_install",
+    online_skill_import: "permissions.online_skill_import",
     settings_write: "permissions.settings_write",
     skill_write: "permissions.skill_write",
     skill_script_execute: "permissions.skill_script_execute",
@@ -22,6 +24,8 @@ defmodule AllbertAssist.Security.Policy do
     command_plan: :allowed,
     command_execute: :denied,
     external_network: :needs_confirmation,
+    package_install: :denied,
+    online_skill_import: :denied,
     settings_write: :allowed,
     skill_write: :allowed,
     skill_script_execute: :denied,
@@ -38,6 +42,8 @@ defmodule AllbertAssist.Security.Policy do
           | :command_plan
           | :command_execute
           | :external_network
+          | :package_install
+          | :online_skill_import
           | :settings_write
           | :skill_write
           | :skill_script_execute
@@ -54,6 +60,8 @@ defmodule AllbertAssist.Security.Policy do
       :command_plan,
       :command_execute,
       :external_network,
+      :package_install,
+      :online_skill_import,
       :settings_write,
       :skill_write,
       :skill_script_execute,
@@ -96,6 +104,8 @@ defmodule AllbertAssist.Security.Policy do
   @spec safety_floor(atom()) :: :allowed | :needs_confirmation | :denied
   def safety_floor(:command_execute), do: :needs_confirmation
   def safety_floor(:external_network), do: :needs_confirmation
+  def safety_floor(:package_install), do: :needs_confirmation
+  def safety_floor(:online_skill_import), do: :needs_confirmation
   def safety_floor(:skill_script_execute), do: :needs_confirmation
   def safety_floor(:settings_secret_read), do: :denied
   def safety_floor(permission) when permission in @known_permissions, do: :allowed
@@ -171,7 +181,20 @@ defmodule AllbertAssist.Security.Policy do
     do: "Command execution is denied until local execution is explicitly enabled and confirmed."
 
   defp reason(:external_network, :needs_confirmation, _configured, _floor, _context),
-    do: "External network access requires confirmation and has no execution adapter in v0.05."
+    do: "External network access requires confirmation and a configured v0.10 adapter."
+
+  defp reason(:package_install, :denied, _configured, _floor, _context),
+    do: "Package installation is denied until an operator explicitly enables confirmed installs."
+
+  defp reason(:package_install, :needs_confirmation, _configured, _floor, _context),
+    do:
+      "Package installation requires confirmation, sandbox settings, and package manager policy."
+
+  defp reason(:online_skill_import, :denied, _configured, _floor, _context),
+    do: "Online skill import is denied until an operator explicitly enables the import boundary."
+
+  defp reason(:online_skill_import, :needs_confirmation, _configured, _floor, _context),
+    do: "Online skill import requires confirmation, source audit, and disabled-by-default trust."
 
   defp reason(:settings_write, :allowed, _configured, _floor, _context),
     do: "Safe Settings Central writes are allowed through registered settings actions."

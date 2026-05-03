@@ -44,6 +44,12 @@ defmodule AllbertAssist.Paths do
       execution_root(),
       Path.join(execution_root(), "audit"),
       Path.join([execution_root(), "skill-scripts", "runs"]),
+      package_installs_root(),
+      Path.join(package_installs_root(), "audit"),
+      Path.join(package_installs_root(), "runs"),
+      external_root(),
+      Path.join(external_root(), "audit"),
+      external_cache_root(),
       memory_root(),
       Path.join(memory_root(), "notes"),
       Path.join(memory_root(), "preferences"),
@@ -53,6 +59,7 @@ defmodule AllbertAssist.Paths do
       skills_root(),
       cache_root(),
       Path.join(cache_root(), "skills"),
+      online_skill_sources_root(),
       tmp_root()
     ]
     |> Enum.each(&File.mkdir_p!/1)
@@ -101,6 +108,27 @@ defmodule AllbertAssist.Paths do
     first_path([app_root(AllbertAssist.Execution.Audit)], Path.join(home(), "execution"))
   end
 
+  @doc "Return the package installation execution root."
+  @spec package_installs_root() :: String.t()
+  def package_installs_root do
+    first_path(
+      [configured(:package_installs_root)],
+      Path.join(execution_root(), "package-installs")
+    )
+  end
+
+  @doc "Return the external service adapter root."
+  @spec external_root() :: String.t()
+  def external_root do
+    first_path([configured(:external_root)], Path.join(home(), "external"))
+  end
+
+  @doc "Return the external service response/cache root."
+  @spec external_cache_root() :: String.t()
+  def external_cache_root do
+    first_path([configured(:external_cache_root)], Path.join(cache_root(), "external-services"))
+  end
+
   @doc "Return the local SQLite database path."
   @spec db_path() :: String.t()
   def db_path do
@@ -120,6 +148,15 @@ defmodule AllbertAssist.Paths do
   @spec cache_root() :: String.t()
   def cache_root do
     first_path([configured(:cache_root)], Path.join(home(), "cache"))
+  end
+
+  @doc "Return the disabled imported-skill source cache root."
+  @spec online_skill_sources_root() :: String.t()
+  def online_skill_sources_root do
+    first_path(
+      [configured(:online_skill_sources_root)],
+      Path.join([cache_root(), "skills", "_sources"])
+    )
   end
 
   @doc "Return the Allbert temporary runtime root."
