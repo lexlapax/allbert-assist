@@ -54,7 +54,9 @@ defmodule AllbertAssist.Confirmations.ResourceMetadata do
 
     case field(scope, "kind") do
       kind when kind in ["exact_url", "url_prefix", :exact_url, :url_prefix] ->
-        field(metadata, "display_url") || field(metadata, :display_url) || field(scope, "value")
+        field(ref, "display_uri") || field(metadata, "display_url") ||
+          field(metadata, :display_url) ||
+          field(scope, "value")
 
       _other ->
         field(scope, "value")

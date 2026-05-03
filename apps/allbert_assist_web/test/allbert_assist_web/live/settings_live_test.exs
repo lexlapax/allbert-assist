@@ -8,6 +8,7 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Paths
   alias AllbertAssist.Resources.Grants
+  alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Settings
 
@@ -516,6 +517,7 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
 
   defp external_ref(url) do
     %{
+      resource_uri: ResourceURI.url!(url),
       origin_kind: :remote_url,
       canonical_id: url,
       operation_class: :external_service_request,

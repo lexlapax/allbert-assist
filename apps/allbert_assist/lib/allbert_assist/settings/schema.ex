@@ -2,6 +2,7 @@ defmodule AllbertAssist.Settings.Schema do
   @moduledoc false
 
   alias AllbertAssist.Resources.OperationClass
+  alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
 
   @safe_write_keys [
@@ -97,9 +98,9 @@ defmodule AllbertAssist.Settings.Schema do
 
   @resource_grant_required_keys ~w[
     id
+    resource_uri
     origin_kind
     scope
-    canonical_scope
     operation_class
     access_mode
     created_at
@@ -107,9 +108,9 @@ defmodule AllbertAssist.Settings.Schema do
 
   @resource_grant_allowed_keys ~w[
     id
+    resource_uri
     origin_kind
     scope
-    canonical_scope
     operation_class
     access_mode
     downstream_consumer
@@ -1271,7 +1272,6 @@ defmodule AllbertAssist.Settings.Schema do
          :ok <- validate_resource_grant_scope(grant),
          :ok <- validate_resource_grant_times(grant),
          :ok <- validate_optional_string_field(grant, "id"),
-         :ok <- validate_optional_string_field(grant, "canonical_scope"),
          :ok <- validate_optional_string_field(grant, "downstream_consumer"),
          :ok <- validate_optional_string_field(grant, "action_permission"),
          :ok <- validate_optional_string_field(grant, "origin_channel"),
@@ -1300,12 +1300,18 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp validate_resource_grant_identity(grant) do
-    with {:ok, _origin_kind} <-
+    with {:ok, resource_uri} <-
+           ResourceURI.normalize(resource_grant_field(grant, "resource_uri")),
+         {:ok, derived} <- ResourceURI.derived_fields(resource_uri),
+         {:ok, origin_kind} <-
            OperationClass.origin_kind(resource_grant_field(grant, "origin_kind")),
          {:ok, _operation_class} <-
            OperationClass.operation_class(resource_grant_field(grant, "operation_class")),
          {:ok, _access_mode} <-
-           OperationClass.access_mode(resource_grant_field(grant, "access_mode")) do
+           OperationClass.access_mode(resource_grant_field(grant, "access_mode")),
+         true <-
+           origin_kind == derived.origin_kind ||
+             {:error, {:resource_uri_origin_kind_mismatch, origin_kind, derived.origin_kind}} do
       :ok
     else
       {:error, reason} -> {:error, reason}

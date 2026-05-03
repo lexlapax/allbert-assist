@@ -557,7 +557,7 @@ Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 Identity ADR: `docs/adr/0013-uri-first-resource-identity.md`
 
-Status: M1-M11 implemented and focused verified. v0.10 was reopened
+Status: M1-M12 implemented and focused verified. v0.10 was reopened
 after M5 because post-M5 commits added online skill approval clarity/search
 fixes and Resource Access Security Posture planning. M6 reconciles that
 history, M7 implements shared resource reference metadata, M8 implements
@@ -566,8 +566,10 @@ the first release-readiness/user-testing refresh. A later zoom-out release
 audit reopened v0.10 for M10-M14 closeout before operator acceptance. M10
 finished canonical resource identity hardening, and M11 added
 remembered-grant operator UX plus application to existing v0.10 flows.
-M12-M14 remain for URI-first resource identity refactor, direct/local skill
-import consumers, and final v0.11 handoff readiness. Expected tag remains
+M12 added URI-first resource identity through
+`AllbertAssist.Resources.ResourceURI` and required `resource_uri` grant
+authority. M13-M14 remain for direct/local skill import consumers and final
+v0.11 handoff readiness. Expected tag remains
 `v0.10`; no v0.10 tag has been created or
 pushed yet.
 
@@ -590,12 +592,13 @@ Expected direction:
   existing Agent Skills parser/registry.
 - Treat `skills.sh` as one source profile and search convenience, not the
   platform model. v0.10's durable primitive is approved resource access with
-  canonical URI/resource URI, compatibility origin kind, source/profile,
+  canonical `resource_uri`, derived origin kind/source/profile metadata,
   operation class, access mode, scope, limits, confirmation, audit, and trace
   metadata.
-- Refactor resource identity to URI-first matching before adding more
-  consumers. Existing refs and grants remain compatible, but future authority
-  is `resource_uri + operation_class + access_mode + downstream_consumer` plus
+- Resource identity is URI-first before adding more consumers. Remembered
+  grants require `resource_uri`; pre-M12 `canonical_scope` grant records are
+  not matched through a legacy compatibility layer. Authority is
+  `resource_uri + operation_class + access_mode + downstream_consumer` plus
   current Security Central permission.
 - Document future local and remote operation classes such as
   `import_local_skill`, `summarize_url`, `inspect_document`, and `import_skill`
@@ -658,9 +661,10 @@ Milestones:
   thin `/settings` list/revoke/approve-with-remember controls, and grant
   lookup before creating confirmations for external request, online skill
   source, and package install consumers.
-- M12 (Milestone 12): Planned implementation. URI-first resource identity
-  refactor through a `ResourceURI` helper, compatibility fields, grant
-  migration/matching, and inert future URI scheme representation for
+- M12 (Milestone 12): Implemented. URI-first resource identity refactor through
+  `AllbertAssist.Resources.ResourceURI`, required `resource_uri` grant
+  authority, removal of the temporary `canonical_scope` grant shape, and inert
+  future URI scheme representation for
   `mcp://`, `agent://`, and `agent+https://`.
 - M13 (Milestone 13): Planned implementation. Direct skill URL import and
   local skill directory import as concrete resource consumers that import only
@@ -679,9 +683,10 @@ audits, and Security Central render the same v0.10 metadata and policy
 summaries, including the distinction between operator approval and target
 execution failure. The docs and code also identify Resource Access Security
 Posture as the common substrate for future local and remote consumers. The
-reopened M6-M9 sequence, M10 hardening, and M11 remembered-grant
-operator/application work are complete, but the later M12-M14 closeout must
-finish before release/tag acceptance.
+reopened M6-M9 sequence, M10 hardening, M11 remembered-grant
+operator/application work, and M12 URI-first resource identity refactor are
+complete, but the later M13-M14 closeout must finish before release/tag
+acceptance.
 
 ## v0.11: Execution-Aware Intent, URI-Based Resource Access, And Approval Handoff
 
@@ -701,7 +706,7 @@ Expected direction:
   first.
 - Add URI-backed resource access posture data to decisions that would read,
   write, run, fetch, inspect, import, or install from local or remote resources:
-  canonical URI/resource URI, compatibility origin
+  canonical URI/resource URI, derived origin
   kind, canonical path or URL, source/profile, operation class, access mode,
   scope, expected content kind, byte/output cap, destination consumer,
   summarizer/parser requirement, origin channel, response target, and allowed

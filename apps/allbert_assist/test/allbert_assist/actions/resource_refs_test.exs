@@ -5,6 +5,7 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
   alias AllbertAssist.Resources.Grant
   alias AllbertAssist.Resources.OperationClass
   alias AllbertAssist.Resources.Ref
+  alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
 
   @digest String.duplicate("a", 64)
@@ -25,12 +26,14 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
       })
 
     cwd_ref = find_ref!(refs, :local_path, :run_shell_command)
+    assert cwd_ref.resource_uri == ResourceURI.file!(cwd)
     assert cwd_ref.access_mode == :execute
     assert cwd_ref.scope == %{kind: :directory_subtree, value: cwd}
     assert cwd_ref.downstream_consumer == :shell_runner
     assert cwd_ref.limits == %{timeout_ms: 1_000, max_output_bytes: 4_096}
 
     operand_ref = find_ref!(refs, :local_path, :read_local_path)
+    assert operand_ref.resource_uri == ResourceURI.file!(readme)
     assert operand_ref.access_mode == :read
     assert operand_ref.scope == %{kind: :exact_file, value: readme}
     assert operand_ref.metadata == %{original: "README.md", allowed?: true}
@@ -52,12 +55,14 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
       })
 
     script_ref = find_ref!(refs, :local_skill_resource, :run_skill_script)
+    assert script_ref.resource_uri == "skill://demo-script/scripts/hello"
     assert script_ref.access_mode == :execute
     assert script_ref.scope == %{kind: :skill_resource_id, value: "demo-script:scripts/hello"}
     assert script_ref.digest == @digest
     assert script_ref.downstream_consumer == :skill_script_runner
 
     cwd_ref = find_ref!(refs, :local_path, :run_skill_script)
+    assert cwd_ref.resource_uri == ResourceURI.file!("/tmp/allbert/runs/run-1/cwd")
     assert cwd_ref.access_mode == :execute
     assert cwd_ref.scope == %{kind: :directory_subtree, value: "/tmp/allbert/runs/run-1/cwd"}
   end
@@ -82,6 +87,7 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
       })
 
     assert ref.origin_kind == :remote_url
+    assert ref.resource_uri == "https://example.com/status?token=secret"
     assert ref.operation_class == :external_service_request
     assert ref.access_mode == :fetch
     assert ref.method == "GET"
@@ -90,6 +96,7 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
     assert ref.scope == %{kind: :exact_url, value: "https://example.com/status?token=secret"}
     assert ref.limits == %{timeout_ms: 5_000, max_response_bytes: 16_384}
     assert ref.metadata.display_url == "https://example.com/status?[REDACTED]"
+    assert ref.display_uri == "https://example.com/status?[REDACTED]"
     assert ref.metadata.host == "example.com"
     assert ref.metadata.path == "/status"
     assert ref.redaction.query?
@@ -110,6 +117,7 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
       )
 
     assert ref.origin_kind == :remote_source
+    assert ref.resource_uri == "allbert://sources/online_skill/skills_sh"
     assert ref.operation_class == :online_skill_import
     assert ref.access_mode == :import
     assert ref.scope == %{kind: :source_profile, value: "skills_sh"}
@@ -132,12 +140,14 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
 
     package_ref = find_ref!(refs, :package_registry, :package_install)
     assert package_ref.access_mode == :install
+    assert package_ref.resource_uri == "pkg:npm/left-pad@1.3.0"
     assert package_ref.canonical_id == "npm:left-pad@1.3.0"
     assert package_ref.scope == %{kind: :source_profile, value: "npm"}
     assert package_ref.metadata == %{package: "left-pad@1.3.0", save_mode: :dev}
 
     target_ref = find_ref!(refs, :local_path, :package_install)
     assert target_ref.access_mode == :write
+    assert target_ref.resource_uri == ResourceURI.file!("/tmp/allbert-project")
     assert target_ref.scope == %{kind: :package_target_root, value: "/tmp/allbert-project"}
   end
 
@@ -149,10 +159,12 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
     remote_grant = Grant.from_ref(remote_ref)
 
     assert local_ref.origin_kind == :local_path
+    assert local_ref.resource_uri == ResourceURI.file!("/tmp/allbert/skills/local-demo")
     assert local_ref.operation_class == :import_local_skill
     assert local_ref.scope.kind == :directory_subtree
 
     assert remote_ref.origin_kind == :remote_url
+    assert remote_ref.resource_uri == "https://example.com/skills/demo/SKILL.md"
     assert remote_ref.operation_class == :import_skill
     assert remote_ref.scope.kind == :exact_url
 
@@ -165,12 +177,38 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
 
     assert_raise ArgumentError, ~r/unknown_operation_class/, fn ->
       Ref.new!(%{
+        resource_uri: "https://example.com/item",
         origin_kind: :remote_url,
         canonical_id: "https://example.com/item",
         operation_class: :invented_operation,
         scope: Scope.exact_url("https://example.com/item")
       })
     end
+  end
+
+  test "unsupported future URI schemes are representable but inert" do
+    mcp_ref =
+      Ref.new!(%{
+        resource_uri: "mcp://local-server/resources/doc",
+        operation_class: :inspect_document,
+        access_mode: :read,
+        scope: Scope.source_profile("mcp-local"),
+        downstream_consumer: :mcp_resource_reader
+      })
+
+    agent_ref =
+      Ref.new!(%{
+        resource_uri: "agent+https://agent.example/tasks/review",
+        operation_class: :inspect_document,
+        access_mode: :read,
+        scope: Scope.exact_url("agent+https://agent.example/tasks/review"),
+        downstream_consumer: :agent_delegate
+      })
+
+    assert mcp_ref.origin_kind == :mcp_resource
+    assert mcp_ref.unsupported?
+    assert agent_ref.origin_kind == :agent_endpoint
+    assert agent_ref.unsupported?
   end
 
   test "resource metadata renderer summarizes refs without raw payloads" do

@@ -13,6 +13,8 @@ defmodule AllbertAssist.Resources.OperationClass do
     remote_url
     remote_source
     package_registry
+    mcp_resource
+    agent_endpoint
   ]a
 
   @operation_classes ~w[
@@ -77,6 +79,8 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :remote_url
           | :remote_source
           | :package_registry
+          | :mcp_resource
+          | :agent_endpoint
 
   @type operation_class ::
           :read_local_path

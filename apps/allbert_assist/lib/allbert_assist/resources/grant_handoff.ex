@@ -96,9 +96,9 @@ defmodule AllbertAssist.Resources.GrantHandoff do
     |> stringify_record()
     |> Map.take([
       "id",
+      "resource_uri",
       "origin_kind",
       "scope",
-      "canonical_scope",
       "operation_class",
       "access_mode",
       "downstream_consumer",

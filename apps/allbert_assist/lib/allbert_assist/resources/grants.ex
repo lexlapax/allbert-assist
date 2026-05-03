@@ -8,13 +8,12 @@ defmodule AllbertAssist.Resources.Grants do
   """
 
   alias AllbertAssist.Resources.Ref
-  alias AllbertAssist.Resources.Scope
+  alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
 
   @setting_key "resource_grants.remembered"
 
-  @path_scopes [:exact_file, :directory_subtree, :package_target_root]
   @url_scopes [:exact_url, :url_prefix]
   @source_fingerprint_keys [:base_url, :api_url, :url]
 
@@ -103,14 +102,14 @@ defmodule AllbertAssist.Resources.Grants do
   defp build_record(resource_ref, attrs) do
     with {:ok, ref} <- normalize_ref(resource_ref) do
       now = datetime_text(field(attrs, :created_at) || DateTime.utc_now())
-      scope = %{"kind" => Atom.to_string(ref.scope_kind), "value" => ref.canonical_scope}
+      scope = %{"kind" => Atom.to_string(ref.scope_kind), "value" => ref.resource_uri}
 
       {:ok,
        %{
          "id" => to_string(field(attrs, :id) || grant_id()),
+         "resource_uri" => ref.resource_uri,
          "origin_kind" => Atom.to_string(ref.origin_kind),
          "scope" => scope,
-         "canonical_scope" => ref.canonical_scope,
          "operation_class" => Atom.to_string(ref.operation_class),
          "access_mode" => Atom.to_string(ref.access_mode),
          "created_at" => now,
@@ -131,14 +130,20 @@ defmodule AllbertAssist.Resources.Grants do
 
   defp normalize_ref(resource_ref) when is_map(resource_ref) do
     with {:ok, ref} <- Ref.new(resource_ref),
-         {:ok, canonical_scope} <- canonicalize_scope(ref.origin_kind, ref.scope) do
+         {:ok, resource_uri} <-
+           ResourceURI.scope_uri(
+             ref.origin_kind,
+             ref.scope.kind,
+             ref.scope.value,
+             ref.resource_uri
+           ) do
       {:ok,
        %{
+         resource_uri: resource_uri,
          origin_kind: ref.origin_kind,
          operation_class: ref.operation_class,
          access_mode: ref.access_mode,
          scope_kind: ref.scope.kind,
-         canonical_scope: canonical_scope,
          downstream_consumer: normalize_optional_string(ref.downstream_consumer),
          metadata: ref.metadata
        }}
@@ -146,109 +151,6 @@ defmodule AllbertAssist.Resources.Grants do
   end
 
   defp normalize_ref(resource_ref), do: {:error, {:invalid_resource_ref, resource_ref}}
-
-  defp canonicalize_scope(origin_kind, %Scope{kind: kind, value: value})
-       when kind in @path_scopes or origin_kind in [:local_path, :allbert_home] do
-    {:ok, canonical_path(value)}
-  end
-
-  defp canonicalize_scope(_origin_kind, %Scope{kind: :exact_url, value: value}) do
-    canonical_url(value, :exact)
-  end
-
-  defp canonicalize_scope(_origin_kind, %Scope{kind: :url_prefix, value: value}) do
-    canonical_url(value, :prefix)
-  end
-
-  defp canonicalize_scope(_origin_kind, %Scope{kind: kind, value: value})
-       when kind in [:source_profile, :skill_resource_id] do
-    {:ok, String.trim(to_string(value))}
-  end
-
-  defp canonicalize_scope(_origin_kind, scope), do: {:error, {:unsupported_scope, scope}}
-
-  defp canonical_path(value) do
-    value
-    |> to_string()
-    |> Path.expand()
-    |> realpath_or_expanded()
-  end
-
-  defp realpath_or_expanded(path) do
-    resolve_symlink_path(path, 0)
-  end
-
-  defp resolve_symlink_path(path, depth) when depth > 40, do: Path.expand(path)
-
-  defp resolve_symlink_path(path, depth) do
-    case Path.split(path) do
-      ["/" | parts] -> resolve_symlink_parts(parts, "/", depth)
-      parts -> resolve_symlink_parts(parts, Path.expand("."), depth)
-    end
-  end
-
-  defp resolve_symlink_parts([], path, _depth), do: path
-
-  defp resolve_symlink_parts([part | rest], base, depth) do
-    candidate = Path.join(base, part)
-
-    case File.read_link(candidate) do
-      {:ok, target} ->
-        target
-        |> expand_symlink_target(base)
-        |> append_path_parts(rest)
-        |> resolve_symlink_path(depth + 1)
-
-      {:error, :enoent} ->
-        append_path_parts(candidate, rest)
-
-      {:error, _reason} ->
-        resolve_symlink_parts(rest, candidate, depth)
-    end
-  end
-
-  defp expand_symlink_target(target, base) do
-    if Path.type(target) == :absolute do
-      Path.expand(target)
-    else
-      Path.expand(target, base)
-    end
-  end
-
-  defp append_path_parts(path, parts) do
-    Enum.reduce(parts, path, fn part, acc -> Path.join(acc, part) end)
-  end
-
-  defp canonical_url(value, mode) do
-    uri = URI.parse(to_string(value))
-
-    if uri.scheme in ["http", "https"] and is_binary(uri.host) and uri.host != "" do
-      path = if uri.path in [nil, ""], do: "/", else: uri.path
-      query = if mode == :exact, do: uri.query, else: nil
-
-      {:ok,
-       [
-         String.downcase(uri.scheme),
-         "://",
-         String.downcase(uri.host),
-         port_text(uri),
-         path,
-         query_text(query)
-       ]
-       |> Enum.join("")}
-    else
-      {:error, {:invalid_url_scope, value}}
-    end
-  end
-
-  defp port_text(%URI{scheme: "http", port: port}) when port in [nil, 80], do: ""
-  defp port_text(%URI{scheme: "https", port: port}) when port in [nil, 443], do: ""
-  defp port_text(%URI{port: nil}), do: ""
-  defp port_text(%URI{port: port}), do: ":#{port}"
-
-  defp query_text(nil), do: ""
-  defp query_text(""), do: ""
-  defp query_text(query), do: "?#{query}"
 
   defp policy_allows?(_ref, opts) do
     case field(opts, :permission) do
@@ -310,34 +212,38 @@ defmodule AllbertAssist.Resources.Grants do
   end
 
   defp same_boundary?(grant, ref) do
-    grant["origin_kind"] == Atom.to_string(ref.origin_kind) and
-      grant["operation_class"] == Atom.to_string(ref.operation_class) and
+    grant["operation_class"] == Atom.to_string(ref.operation_class) and
       grant["access_mode"] == Atom.to_string(ref.access_mode) and
       Map.get(grant, "downstream_consumer") == ref.downstream_consumer
   end
 
   defp scope_matches?(%{"scope" => %{"kind" => "exact_file"}} = grant, ref) do
-    ref.scope_kind == :exact_file and ref.canonical_scope == grant["canonical_scope"]
+    ref.scope_kind == :exact_file and ref.resource_uri == grant["resource_uri"]
   end
 
   defp scope_matches?(%{"scope" => %{"kind" => kind}} = grant, ref)
        when kind in ["directory_subtree", "package_target_root"] do
-    ref.scope_kind in [:exact_file, :directory_subtree, :package_target_root] and
-      path_within?(ref.canonical_scope, grant["canonical_scope"])
+    with true <- ref.scope_kind in [:exact_file, :directory_subtree, :package_target_root],
+         {:ok, ref_path} <- ResourceURI.path_from_file_uri(ref.resource_uri),
+         {:ok, grant_path} <- ResourceURI.path_from_file_uri(grant["resource_uri"]) do
+      path_within?(ref_path, grant_path)
+    else
+      _other -> false
+    end
   end
 
   defp scope_matches?(%{"scope" => %{"kind" => "exact_url"}} = grant, ref) do
-    ref.scope_kind == :exact_url and ref.canonical_scope == grant["canonical_scope"]
+    ref.scope_kind == :exact_url and ref.resource_uri == grant["resource_uri"]
   end
 
   defp scope_matches?(%{"scope" => %{"kind" => "url_prefix"}} = grant, ref) do
     ref.scope_kind in @url_scopes and
-      url_prefix_match?(grant["canonical_scope"], ref.canonical_scope)
+      url_prefix_match?(grant["resource_uri"], ref.resource_uri)
   end
 
   defp scope_matches?(%{"scope" => %{"kind" => kind}} = grant, ref)
        when kind in ["source_profile", "skill_resource_id"] do
-    Atom.to_string(ref.scope_kind) == kind and ref.canonical_scope == grant["canonical_scope"]
+    Atom.to_string(ref.scope_kind) == kind and ref.resource_uri == grant["resource_uri"]
   end
 
   defp scope_matches?(_grant, _ref), do: false
@@ -414,15 +320,15 @@ defmodule AllbertAssist.Resources.Grants do
   defp url_scope?(_grant), do: false
 
   defp redirect_matches_scope?(%{"scope" => %{"kind" => "exact_url"}} = grant, redirect) do
-    case canonical_url(redirect, :exact) do
-      {:ok, canonical} -> canonical == grant["canonical_scope"]
+    case ResourceURI.url(redirect, :exact) do
+      {:ok, canonical} -> canonical == grant["resource_uri"]
       {:error, _reason} -> false
     end
   end
 
   defp redirect_matches_scope?(%{"scope" => %{"kind" => "url_prefix"}} = grant, redirect) do
-    case canonical_url(redirect, :exact) do
-      {:ok, canonical} -> url_prefix_match?(grant["canonical_scope"], canonical)
+    case ResourceURI.url(redirect, :exact) do
+      {:ok, canonical} -> url_prefix_match?(grant["resource_uri"], canonical)
       {:error, _reason} -> false
     end
   end
@@ -439,19 +345,28 @@ defmodule AllbertAssist.Resources.Grants do
   end
 
   defp option_scopes(ref) do
-    exact_scope = %{"kind" => Atom.to_string(ref.scope_kind), "value" => ref.canonical_scope}
+    exact_scope = %{"kind" => Atom.to_string(ref.scope_kind), "value" => ref.resource_uri}
 
     [exact_scope]
     |> maybe_add_parent_scope(ref)
     |> Enum.uniq()
   end
 
-  defp maybe_add_parent_scope(scopes, %{scope_kind: :exact_file, canonical_scope: path}) do
-    [%{"kind" => "directory_subtree", "value" => Path.dirname(path)} | scopes]
+  defp maybe_add_parent_scope(scopes, %{scope_kind: :exact_file, resource_uri: resource_uri}) do
+    case ResourceURI.path_from_file_uri(resource_uri) do
+      {:ok, path} ->
+        [
+          %{"kind" => "directory_subtree", "value" => ResourceURI.file!(Path.dirname(path))}
+          | scopes
+        ]
+
+      {:error, _reason} ->
+        scopes
+    end
   end
 
-  defp maybe_add_parent_scope(scopes, %{scope_kind: :exact_url, canonical_scope: url}) do
-    case canonical_url(url, :prefix) do
+  defp maybe_add_parent_scope(scopes, %{scope_kind: :exact_url, resource_uri: url}) do
+    case ResourceURI.url(url, :prefix) do
       {:ok, prefix} -> [%{"kind" => "url_prefix", "value" => prefix} | scopes]
       {:error, _reason} -> scopes
     end

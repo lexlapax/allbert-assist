@@ -9,12 +9,12 @@ defmodule AllbertAssist.Resources.Grant do
 
   alias AllbertAssist.Resources.Ref
 
-  @enforce_keys [:origin_kind, :scope_kind, :canonical_scope, :operation_class, :access_mode]
+  @enforce_keys [:resource_uri, :origin_kind, :scope_kind, :operation_class, :access_mode]
   defstruct [
     :id,
+    :resource_uri,
     :origin_kind,
     :scope_kind,
-    :canonical_scope,
     :operation_class,
     :access_mode,
     :downstream_consumer,
@@ -37,9 +37,9 @@ defmodule AllbertAssist.Resources.Grant do
 
     %__MODULE__{
       id: field(attrs, :id),
+      resource_uri: field(ref, :resource_uri),
       origin_kind: field(ref, :origin_kind),
       scope_kind: field(scope, :kind),
-      canonical_scope: field(scope, :value),
       operation_class: field(ref, :operation_class),
       access_mode: field(ref, :access_mode),
       downstream_consumer: field(ref, :downstream_consumer),
@@ -69,9 +69,8 @@ defmodule AllbertAssist.Resources.Grant do
 
   defp authority_fields do
     [
-      :origin_kind,
       :scope_kind,
-      :canonical_scope,
+      :resource_uri,
       :operation_class,
       :access_mode,
       :downstream_consumer

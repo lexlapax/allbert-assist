@@ -92,11 +92,13 @@ coordinate. Operator renderers may use redacted display fields such as
 `display_url`, but those redacted strings are never remembered as canonical
 grant authority.
 
-ADR 0013 makes the next identity step explicit: future refs should carry a
-canonical `resource_uri` or `uri` first. `origin_kind`, `canonical_id`, and
-legacy scope fields remain compatibility and derived metadata. Matching
-authority becomes canonical URI plus operation class, access mode, downstream
-consumer, and the current Security Central permission decision.
+ADR 0013 makes the identity step explicit: refs carry canonical `resource_uri`
+first. `origin_kind`, `canonical_id`, and scope fields are
+derived/descriptive metadata. Matching authority is canonical URI plus
+operation class, access mode, downstream consumer, and the current Security
+Central permission decision. M12 requires remembered grants to include
+`resource_uri`; pre-M12 records without it are not matched through a legacy
+compatibility layer.
 
 Remembered grants are stored in Settings Central at
 `resource_grants.remembered` and matched by `AllbertAssist.Resources.Grants`.

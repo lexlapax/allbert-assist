@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.ResourceGrantActionsTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Resources.Grants
+  alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Settings
 
@@ -100,6 +101,7 @@ defmodule AllbertAssist.Actions.ResourceGrantActionsTest do
 
   defp external_ref(url) do
     %{
+      resource_uri: ResourceURI.url!(url),
       origin_kind: :remote_url,
       canonical_id: url,
       operation_class: :external_service_request,
