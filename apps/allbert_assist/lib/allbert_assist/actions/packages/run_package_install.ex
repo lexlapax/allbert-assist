@@ -35,6 +35,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
   alias AllbertAssist.Execution.LocalRunner
   alias AllbertAssist.Packages.Audit
   alias AllbertAssist.Packages.InstallSpec
+  alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -70,6 +71,10 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
 
       approval_resume?(context) ->
         execute_spec(spec, permission_decision, context)
+
+      grant_context =
+          grant_execution_context(InstallSpec.summary(spec), :package_install, context) ->
+        execute_spec(spec, permission_decision, grant_context)
 
       true ->
         create_confirmation(spec, params, context, permission_decision)
@@ -197,11 +202,17 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
 
     with {:ok, result} <- LocalRunner.run(command_spec) do
       _approved_audit =
-        Audit.append(:approved, spec, permission_decision, %{confirmation_id: confirmation_id})
+        Audit.append(
+          :approved,
+          spec,
+          permission_decision,
+          Map.merge(%{confirmation_id: confirmation_id}, audit_grant_attrs(context))
+        )
 
       _result_audit =
         Audit.append(result_event(result), spec, permission_decision, %{
           confirmation_id: confirmation_id,
+          grant_ids: grant_ids(context),
           result: result_summary(result)
         })
 
@@ -219,12 +230,20 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
              permission: :package_install,
              permission_decision: permission_decision,
              execution: :package_manager_process,
-             target_resumed?: true,
              package_install: InstallSpec.summary(spec),
              result: result_summary(result)
            }
+           |> Map.put(:target_resumed?, GrantHandoff.target_resumed?(context))
+           |> Map.merge(GrantHandoff.action_metadata(context))
          ]
        }}
+    end
+  end
+
+  defp grant_execution_context(summary, permission, context) do
+    case GrantHandoff.find_applicable(Map.get(summary, :resource_refs, []), permission, context) do
+      {:ok, grants} -> GrantHandoff.put_applied(context, grants)
+      _other -> nil
     end
   end
 
@@ -317,6 +336,20 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
       diagnostics: result.diagnostics,
       command: result.command
     }
+  end
+
+  defp audit_grant_attrs(context) do
+    case grant_ids(context) do
+      [] -> %{}
+      grant_ids -> %{grant_ids: grant_ids}
+    end
+  end
+
+  defp grant_ids(context) do
+    context
+    |> GrantHandoff.action_metadata()
+    |> get_in([:resource_grants, :grant_ids])
+    |> List.wrap()
   end
 
   defp preview(output) when is_binary(output) do

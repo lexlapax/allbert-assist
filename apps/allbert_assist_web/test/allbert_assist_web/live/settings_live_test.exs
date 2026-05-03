@@ -7,6 +7,8 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Paths
+  alias AllbertAssist.Resources.Grants
+  alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Settings
 
   setup do
@@ -62,6 +64,7 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
     assert has_element?(view, "#confirmation-requests")
     assert has_element?(view, "#pending-confirmations")
     assert has_element?(view, "#resolved-confirmations")
+    assert has_element?(view, "#remembered-resource-grants")
     assert has_element?(view, "#provider-profiles")
     assert has_element?(view, "#provider-key-form")
   end
@@ -247,6 +250,32 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
     assert resolved["status"] == "approved"
     assert resolved["operator_resolution"]["target_resumed?"]
     assert resolved["operator_resolution"]["target_status"] == "completed"
+  end
+
+  test "lists and revokes remembered resource grants through the action boundary", %{conn: conn} do
+    assert {:ok, grant} =
+             Grants.remember(external_ref("https://example.com/status"),
+               id: "grant_live_resource",
+               reason: "live smoke",
+               audit?: false
+             )
+
+    {:ok, view, html} = live(conn, ~p"/settings")
+
+    assert html =~ "Remembered Resource Grants"
+    assert has_element?(view, "#resource-grant-#{grant["id"]}")
+    assert html =~ "external_service_request"
+    assert html =~ "exact_url:https://example.com/status"
+
+    revoked_html =
+      view
+      |> element("#revoke-resource-grant-#{grant["id"]}")
+      |> render_click()
+
+    assert revoked_html =~ "revoked"
+    assert has_element?(view, "#revoke-resource-grant-#{grant["id"]}[disabled]")
+    assert {:ok, revoked} = Grants.get(grant["id"])
+    assert revoked["revoked_at"]
   end
 
   test "renders v0.10 external package and online confirmation metadata", %{
@@ -483,6 +512,17 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
 
   defp base_security(permission) do
     %{permission: permission, decision: :needs_confirmation, risk: %{tier: :high}}
+  end
+
+  defp external_ref(url) do
+    %{
+      origin_kind: :remote_url,
+      canonical_id: url,
+      operation_class: :external_service_request,
+      access_mode: :fetch,
+      scope: Scope.exact_url(url),
+      downstream_consumer: :req_http
+    }
   end
 
   defp resolution_attrs(extra) do

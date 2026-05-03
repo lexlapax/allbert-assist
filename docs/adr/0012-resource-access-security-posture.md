@@ -120,7 +120,10 @@ one operation class does not authorize another:
   future milestone handoffs over the implemented M7/M8 contracts. v0.10 M10
   owns canonical-vs-display URL separation, intermediate symlink hardening,
   source-profile drift rejection, and registry-driven resumable-action
-  metadata for confirmation approval.
+  metadata for confirmation approval. v0.10 M11 owns registered
+  remembered-grant operator actions, CLI and thin `/settings` controls,
+  approval-time remembered-grant inputs, and application of matching grants to
+  existing v0.10 resource consumers before new confirmations are created.
 - ADR 0011 remains the external-adapter decision. ADR 0012 sits above it and
   names the shared local/remote resource access posture.
 - v0.11 consumes the posture for execution-aware intent and channel-native

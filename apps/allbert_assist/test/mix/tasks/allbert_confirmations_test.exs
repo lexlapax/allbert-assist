@@ -141,13 +141,19 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
                    "approve",
                    pending_response.confirmation_id,
                    "--reason",
-                   "ok"
+                   "ok",
+                   "--remember",
+                   "exact"
                  ])
       end)
 
     assert approve_output =~ "status=approved"
     assert approve_output =~ "Result: completed"
     assert approve_output =~ "Output preview: hello from demo-script"
+    assert approve_output =~ "Remembered grant:"
+
+    assert {:ok, [grant]} = Settings.get("resource_grants.remembered")
+    assert grant["operation_class"] == "run_skill_script"
   end
 
   defp base_attrs do

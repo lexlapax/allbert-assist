@@ -113,6 +113,33 @@ defmodule AllbertAssistWeb.SettingsLive do
   end
 
   def handle_event(
+        "approve_confirmation_remember",
+        %{"id" => id, "scope" => scope} = params,
+        socket
+      ) do
+    approve_params =
+      %{id: id, remember_scope: scope}
+      |> maybe_put(:resource_index, parse_non_negative_integer(Map.get(params, "resource-index")))
+      |> maybe_put(:remember_all, truthy?(Map.get(params, "remember-all")))
+
+    socket =
+      case completed_action("approve_confirmation", approve_params) do
+        {:ok, response} ->
+          socket
+          |> put_flash(:info, confirmation_flash_message(response.confirmation))
+          |> assign(:diagnostics, "")
+          |> refresh(socket.assigns.selected_key)
+
+        {:error, reason} ->
+          socket
+          |> assign(:diagnostics, inspect(reason))
+          |> refresh(socket.assigns.selected_key)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
         "deny_confirmation",
         %{"confirmation" => %{"id" => id, "reason" => reason}},
         socket
@@ -124,6 +151,27 @@ defmodule AllbertAssistWeb.SettingsLive do
         {:ok, response} ->
           socket
           |> put_flash(:info, "Confirmation #{response.confirmation["status"]}.")
+          |> assign(:diagnostics, "")
+          |> refresh(socket.assigns.selected_key)
+
+        {:error, reason} ->
+          socket
+          |> assign(:diagnostics, inspect(reason))
+          |> refresh(socket.assigns.selected_key)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("revoke_resource_grant", %{"id" => id}, socket) do
+    socket =
+      case completed_action("revoke_resource_grant", %{
+             id: id,
+             reason: "Revoked from /settings"
+           }) do
+        {:ok, _response} ->
+          socket
+          |> put_flash(:info, "Resource grant revoked.")
           |> assign(:diagnostics, "")
           |> refresh(socket.assigns.selected_key)
 
@@ -373,6 +421,34 @@ defmodule AllbertAssistWeb.SettingsLive do
                         Approve
                       </button>
 
+                      <button
+                        :if={resource_ref_count(confirmation) > 0}
+                        id={"approve-confirmation-#{confirmation["id"]}-remember-exact"}
+                        type="button"
+                        phx-click="approve_confirmation_remember"
+                        phx-value-id={confirmation["id"]}
+                        phx-value-scope="exact"
+                        phx-value-resource-index="0"
+                        class="btn btn-secondary btn-sm"
+                        disabled={!@liveview_confirmation_approval?}
+                      >
+                        Approve + remember
+                      </button>
+
+                      <button
+                        :if={resource_ref_count(confirmation) > 1}
+                        id={"approve-confirmation-#{confirmation["id"]}-remember-all"}
+                        type="button"
+                        phx-click="approve_confirmation_remember"
+                        phx-value-id={confirmation["id"]}
+                        phx-value-scope="exact"
+                        phx-value-remember-all="true"
+                        class="btn btn-secondary btn-sm"
+                        disabled={!@liveview_confirmation_approval?}
+                      >
+                        Approve + remember all
+                      </button>
+
                       <.form
                         for={confirmation_form(confirmation)}
                         id={"deny-confirmation-#{confirmation["id"]}-form"}
@@ -442,6 +518,65 @@ defmodule AllbertAssistWeb.SettingsLive do
               </div>
             </section>
 
+            <section id="remembered-resource-grants" class="space-y-4">
+              <div class="flex items-center justify-between gap-3">
+                <h2 class="text-lg font-medium">Remembered Resource Grants</h2>
+                <span id="resource-grant-count" class="text-sm text-base-content/60">
+                  Active: {active_resource_grant_count(@resource_grants)} · Total: {length(
+                    @resource_grants
+                  )}
+                </span>
+              </div>
+
+              <p
+                :if={@resource_grants == []}
+                id="no-resource-grants"
+                class="rounded border border-base-300 p-3 text-sm text-base-content/60"
+              >
+                No remembered resource grants.
+              </p>
+
+              <div
+                :for={grant <- @resource_grants}
+                id={"resource-grant-#{grant["id"]}"}
+                class="rounded border border-base-300 p-3 text-sm"
+              >
+                <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div class="min-w-0 space-y-1">
+                    <div class="font-medium">{grant["operation_class"]}</div>
+                    <div class="text-xs text-base-content/60">
+                      {grant["id"]} · {grant_status(grant)} · {grant["access_mode"]} · {Map.get(
+                        grant,
+                        "downstream_consumer",
+                        "none"
+                      )}
+                    </div>
+                    <div class="text-xs text-base-content/70">
+                      {resource_grant_scope_text(grant)}
+                    </div>
+                    <div class="text-xs text-base-content/60">
+                      Created: {grant["created_at"]} · Expires: {Map.get(
+                        grant,
+                        "expires_at",
+                        "none"
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    id={"revoke-resource-grant-#{grant["id"]}"}
+                    type="button"
+                    phx-click="revoke_resource_grant"
+                    phx-value-id={grant["id"]}
+                    class="btn btn-secondary btn-sm"
+                    disabled={grant_status(grant) == "revoked"}
+                  >
+                    Revoke
+                  </button>
+                </div>
+              </div>
+            </section>
+
             <section id="provider-profiles" class="space-y-2">
               <h2 class="text-lg font-medium">Providers</h2>
               <div :for={provider <- @providers} class="rounded border border-base-300 p-3 text-sm">
@@ -488,6 +623,7 @@ defmodule AllbertAssistWeb.SettingsLive do
     {:ok, security_response} = completed_action("security_status", %{})
     {:ok, pending_response} = completed_action("list_confirmations", %{status: "pending"})
     {:ok, resolved_response} = completed_action("list_confirmations", %{status: "resolved"})
+    {:ok, resource_grants_response} = completed_action("list_resource_grants", %{})
 
     settings = settings_response.settings
     providers = providers_response.providers
@@ -503,6 +639,7 @@ defmodule AllbertAssistWeb.SettingsLive do
     |> assign(:security_status, security_status)
     |> assign(:pending_confirmations, pending_response.confirmations)
     |> assign(:resolved_confirmations, recently_resolved(resolved_response.confirmations))
+    |> assign(:resource_grants, resource_grants_response.grants)
     |> assign(
       :liveview_confirmation_approval?,
       setting_bool(settings, "confirmations.allow_liveview_approval", true)
@@ -637,6 +774,7 @@ defmodule AllbertAssistWeb.SettingsLive do
         PackageInstallMetadata.result_details(confirmation) ++
         OnlineSkillMetadata.lines(confirmation) ++
         ResourceMetadata.lines(confirmation) ++
+        remembered_grant_lines(confirmation) ++
         SkillScriptMetadata.result_details(confirmation)
 
     message = Confirmations.status_message(confirmation)
@@ -661,6 +799,7 @@ defmodule AllbertAssistWeb.SettingsLive do
       PackageInstallMetadata.lines(confirmation) ++
       OnlineSkillMetadata.lines(confirmation) ++
       ResourceMetadata.lines(confirmation) ++
+      remembered_grant_lines(confirmation) ++
       SkillScriptMetadata.lines(confirmation)
   end
 
@@ -686,6 +825,7 @@ defmodule AllbertAssistWeb.SettingsLive do
   end
 
   defp maybe_put(params, _key, nil), do: params
+  defp maybe_put(params, _key, false), do: params
   defp maybe_put(params, key, value), do: Map.put(params, key, value)
 
   defp blank_to_nil(value) when is_binary(value) do
@@ -694,4 +834,47 @@ defmodule AllbertAssistWeb.SettingsLive do
   end
 
   defp blank_to_nil(value), do: value
+
+  defp resource_ref_count(confirmation) do
+    confirmation
+    |> get_in(["params_summary", "resource_refs"])
+    |> List.wrap()
+    |> Enum.reject(&(&1 in [nil, "", %{}, []]))
+    |> length()
+  end
+
+  defp remembered_grant_lines(confirmation) do
+    confirmation
+    |> get_in(["operator_resolution", "remembered_grants"])
+    |> List.wrap()
+    |> Enum.reject(&(&1 in [nil, "", %{}, []]))
+    |> Enum.map(fn grant ->
+      "Remembered grant: #{grant["id"]} #{grant["operation_class"]} #{grant["access_mode"]} #{resource_grant_scope_text(grant)}"
+    end)
+  end
+
+  defp active_resource_grant_count(grants) do
+    Enum.count(grants, &(grant_status(&1) == "active"))
+  end
+
+  defp grant_status(%{"revoked_at" => revoked_at}) when revoked_at not in [nil, ""],
+    do: "revoked"
+
+  defp grant_status(_grant), do: "active"
+
+  defp resource_grant_scope_text(grant) do
+    scope = Map.get(grant, "scope", %{}) || %{}
+    "#{scope["kind"]}:#{scope["value"]}"
+  end
+
+  defp parse_non_negative_integer(nil), do: nil
+
+  defp parse_non_negative_integer(value) do
+    case Integer.parse(to_string(value)) do
+      {integer, ""} when integer >= 0 -> integer
+      _other -> nil
+    end
+  end
+
+  defp truthy?(value), do: value in [true, "true", "1", 1, "yes"]
 end

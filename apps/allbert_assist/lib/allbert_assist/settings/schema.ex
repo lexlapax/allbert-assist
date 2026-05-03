@@ -113,6 +113,7 @@ defmodule AllbertAssist.Settings.Schema do
     operation_class
     access_mode
     downstream_consumer
+    action_permission
     origin_channel
     resolver_channel
     created_at
@@ -1272,6 +1273,7 @@ defmodule AllbertAssist.Settings.Schema do
          :ok <- validate_optional_string_field(grant, "id"),
          :ok <- validate_optional_string_field(grant, "canonical_scope"),
          :ok <- validate_optional_string_field(grant, "downstream_consumer"),
+         :ok <- validate_optional_string_field(grant, "action_permission"),
          :ok <- validate_optional_string_field(grant, "origin_channel"),
          :ok <- validate_optional_string_field(grant, "resolver_channel"),
          :ok <- validate_optional_string_field(grant, "audit_path"),

@@ -116,6 +116,55 @@ defmodule AllbertAssist.Actions.ExternalNetworkRequestTest do
     assert approved.confirmation["operator_resolution"]["target_result"]["http_status"] == 200
   end
 
+  test "approval can remember an exact URL grant and later skip confirmation" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      Plug.Conn.send_resp(conn, 200, "first")
+    end)
+
+    assert {:ok, response} =
+             Runner.run("external_network_request", %{url: "https://example.com/status"}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{
+                 id: response.confirmation_id,
+                 reason: "remember exact URL",
+                 remember_scope: "exact"
+               },
+               %{
+                 actor: "local",
+                 channel: :cli,
+                 external: %{req_plug: {Req.Test, __MODULE__}}
+               }
+             )
+
+    assert approved.confirmation["status"] == "approved"
+    assert [remembered] = approved.confirmation["operator_resolution"]["remembered_grants"]
+    assert remembered["operation_class"] == "external_service_request"
+    assert remembered["scope"]["kind"] == "exact_url"
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      Plug.Conn.send_resp(conn, 200, "second")
+    end)
+
+    assert {:ok, reused} =
+             Runner.run("external_network_request", %{url: "https://example.com/status"}, %{
+               actor: "local",
+               channel: :cli,
+               external: %{req_plug: {Req.Test, __MODULE__}}
+             })
+
+    assert reused.status == :completed
+    assert reused.result.body_preview == "second"
+    assert reused.actions |> hd() |> get_in([:resource_grants, :applied?])
+    assert reused.actions |> hd() |> get_in([:target_resumed?]) == false
+    assert Confirmations.list(status: :pending) == []
+  end
+
   test "approval re-check denies policy drift before HTTP execution" do
     assert {:ok, response} =
              Runner.run("external_network_request", %{url: "https://example.com/status"}, %{

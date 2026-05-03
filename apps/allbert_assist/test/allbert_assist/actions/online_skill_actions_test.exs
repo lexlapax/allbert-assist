@@ -88,6 +88,62 @@ defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
     assert candidate["id"] == "vercel-labs/skills/find-skills"
   end
 
+  test "remembered source-profile grant lets later search run without confirmation" do
+    assert {:ok, pending_response} =
+             Runner.run(
+               "search_online_skills",
+               %{query: "find skills", source: "skills_sh"},
+               context()
+             )
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/api/search"
+
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.send_resp(200, Jason.encode!(%{"skills" => [skill_json()]}))
+    end)
+
+    assert {:ok, approve_response} =
+             Runner.run(
+               "approve_confirmation",
+               %{
+                 id: pending_response.confirmation_id,
+                 reason: "remember online search source",
+                 remember_scope: "exact"
+               },
+               %{actor: "local", channel: :cli, surface: "mix allbert.confirmations"}
+             )
+
+    assert approve_response.confirmation["status"] == "approved"
+
+    assert [remembered] =
+             approve_response.confirmation["operator_resolution"]["remembered_grants"]
+
+    assert remembered["operation_class"] == "online_skill_search"
+    assert remembered["scope"]["kind"] == "source_profile"
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/api/search"
+
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.send_resp(200, Jason.encode!(%{"skills" => [skill_json()]}))
+    end)
+
+    assert {:ok, reused_response} =
+             Runner.run(
+               "search_online_skills",
+               %{query: "memory", source: "skills_sh"},
+               context()
+             )
+
+    assert reused_response.status == :completed
+    assert reused_response.actions |> hd() |> get_in([:resource_grants, :applied?])
+    assert reused_response.actions |> hd() |> get_in([:target_resumed?]) == false
+    assert Confirmations.list(status: :pending) == []
+  end
+
   test "search approval stays approved when the online source fails" do
     assert {:ok, pending_response} =
              Runner.run(
@@ -204,6 +260,43 @@ defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
 
     assert {:ok, enabled} = Settings.get("skills.enabled")
     assert enabled == []
+  end
+
+  test "remembered import grant lets later online import run without confirmation" do
+    assert {:ok, pending_response} =
+             Runner.run("import_online_skill", %{source: "skills_sh", id: source_id()}, context())
+
+    Req.Test.expect(__MODULE__, &detail_response/1)
+
+    assert {:ok, approve_response} =
+             Runner.run(
+               "approve_confirmation",
+               %{
+                 id: pending_response.confirmation_id,
+                 reason: "remember online import",
+                 remember_scope: "exact"
+               },
+               %{actor: "local", channel: :cli}
+             )
+
+    assert approve_response.confirmation["status"] == "approved"
+
+    assert [remembered] =
+             approve_response.confirmation["operator_resolution"]["remembered_grants"]
+
+    assert remembered["operation_class"] == "online_skill_import"
+    assert remembered["scope"]["kind"] == "source_profile"
+
+    Req.Test.expect(__MODULE__, &detail_response/1)
+
+    assert {:ok, reused_response} =
+             Runner.run("import_online_skill", %{source: "skills_sh", id: source_id()}, context())
+
+    assert reused_response.status == :completed
+    assert reused_response.online_skill_import.status == :imported_disabled
+    assert reused_response.actions |> hd() |> get_in([:resource_grants, :applied?])
+    assert reused_response.actions |> hd() |> get_in([:target_resumed?]) == false
+    assert Confirmations.list(status: :pending) == []
   end
 
   test "online import disabled denies without creating confirmation" do

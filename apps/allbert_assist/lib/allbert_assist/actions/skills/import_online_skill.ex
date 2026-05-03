@@ -21,6 +21,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Skills.Online.Audit
@@ -41,7 +42,15 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
           denied_response(id, source, permission_decision, :permission_denied)
 
         approval_resume?(context) ->
-          execute_import(id, source, permission_decision)
+          execute_import(id, source, permission_decision, context)
+
+        grant_context =
+            grant_execution_context(
+              request_summary(source, :online_skill_import, %{id: id}),
+              :online_skill_import,
+              context
+            ) ->
+          execute_import(id, source, permission_decision, grant_context)
 
         true ->
           create_confirmation(id, source, context, permission_decision)
@@ -54,7 +63,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
 
   defp param(params, key), do: Map.get(params, key) || Map.get(params, Atom.to_string(key))
 
-  defp execute_import(id, source, permission_decision) do
+  defp execute_import(id, source, permission_decision, context) do
     with {:ok, detail} <- RegistryClient.show(source, id),
          audit <- Audit.run(detail),
          {:ok, import} <- Importer.import(detail, audit, Source.summary(source)) do
@@ -79,13 +88,14 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
              permission: :online_skill_import,
              permission_decision: permission_decision,
              execution: :online_skill_import,
-             target_resumed?: true,
              online_skill_import: import
            }
+           |> Map.put(:target_resumed?, GrantHandoff.target_resumed?(context))
+           |> Map.merge(GrantHandoff.action_metadata(context))
          ]
        }}
     else
-      {:error, reason} -> failed_response(id, source, permission_decision, reason)
+      {:error, reason} -> failed_response(id, source, permission_decision, reason, context)
     end
   end
 
@@ -159,7 +169,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
      }}
   end
 
-  defp failed_response(id, source, permission_decision, reason) do
+  defp failed_response(id, source, permission_decision, reason, context) do
     result = %{
       source: Source.summary(source),
       id: id,
@@ -182,10 +192,11 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
            permission: :online_skill_import,
            permission_decision: permission_decision,
            execution: :online_skill_import,
-           target_resumed?: true,
            online_skill_import_request: result,
            failure_reason: reason
          }
+         |> Map.put(:target_resumed?, GrantHandoff.target_resumed?(context))
+         |> Map.merge(GrantHandoff.action_metadata(context))
        ]
      }}
   end
@@ -207,6 +218,13 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
     source
     |> Source.summary()
     |> Ref.online_skill_source(operation_class, metadata)
+  end
+
+  defp grant_execution_context(summary, permission, context) do
+    case GrantHandoff.find_applicable(Map.get(summary, :resource_refs, []), permission, context) do
+      {:ok, grants} -> GrantHandoff.put_applied(context, grants)
+      _other -> nil
+    end
   end
 
   defp origin(context) do

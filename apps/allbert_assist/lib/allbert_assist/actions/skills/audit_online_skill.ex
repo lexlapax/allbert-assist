@@ -20,6 +20,7 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Skills.Online.Audit
@@ -39,7 +40,15 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
           denied_response(id, source, permission_decision, :permission_denied)
 
         approval_resume?(context) ->
-          execute_audit(id, source, permission_decision)
+          execute_audit(id, source, permission_decision, context)
+
+        grant_context =
+            grant_execution_context(
+              request_summary(source, :online_skill_audit, %{id: id}),
+              :external_network,
+              context
+            ) ->
+          execute_audit(id, source, permission_decision, grant_context)
 
         true ->
           create_confirmation(id, source, context, permission_decision)
@@ -52,7 +61,7 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
 
   defp param(params, key), do: Map.get(params, key) || Map.get(params, Atom.to_string(key))
 
-  defp execute_audit(id, source, permission_decision) do
+  defp execute_audit(id, source, permission_decision, context) do
     with {:ok, detail} <- RegistryClient.show(source, id) do
       audit =
         detail
@@ -74,13 +83,14 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
              requested_permission: :online_skill_import,
              permission_decision: permission_decision,
              execution: :online_skill_audit,
-             target_resumed?: true,
              online_skill_audit: audit
            }
+           |> Map.put(:target_resumed?, GrantHandoff.target_resumed?(context))
+           |> Map.merge(GrantHandoff.action_metadata(context))
          ]
        }}
     else
-      {:error, reason} -> failed_response(id, source, permission_decision, reason)
+      {:error, reason} -> failed_response(id, source, permission_decision, reason, context)
     end
   end
 
@@ -154,7 +164,7 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
      }}
   end
 
-  defp failed_response(id, source, permission_decision, reason) do
+  defp failed_response(id, source, permission_decision, reason, context) do
     result = %{
       source: Source.summary(source),
       id: id,
@@ -178,10 +188,11 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
            requested_permission: :online_skill_import,
            permission_decision: permission_decision,
            execution: :online_skill_audit,
-           target_resumed?: true,
            online_skill_audit: result,
            failure_reason: reason
          }
+         |> Map.put(:target_resumed?, GrantHandoff.target_resumed?(context))
+         |> Map.merge(GrantHandoff.action_metadata(context))
        ]
      }}
   end
@@ -203,6 +214,13 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
     source
     |> Source.summary()
     |> Ref.online_skill_source(operation_class, metadata)
+  end
+
+  defp grant_execution_context(summary, permission, context) do
+    case GrantHandoff.find_applicable(Map.get(summary, :resource_refs, []), permission, context) do
+      {:ok, grants} -> GrantHandoff.put_applied(context, grants)
+      _other -> nil
+    end
   end
 
   defp origin(context) do

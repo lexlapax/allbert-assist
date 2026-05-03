@@ -5,6 +5,7 @@ defmodule AllbertAssist.Actions.PackageInstallActionsTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Packages.Audit
   alias AllbertAssist.Paths
+  alias AllbertAssist.Resources.Grants
   alias AllbertAssist.Settings
 
   setup do
@@ -105,6 +106,80 @@ defmodule AllbertAssist.Actions.PackageInstallActionsTest do
     assert audit =~ "event: approved"
     assert audit =~ "event: succeeded"
     assert audit =~ "left-pad@1.3.0"
+  end
+
+  test "approval can remember all package-install refs and later skip confirmation", %{
+    workspace: workspace
+  } do
+    assert {:ok, pending_response} =
+             Runner.run(
+               "run_package_install",
+               %{manager: "npm", package: "left-pad@1.3.0", project_root: workspace},
+               context()
+             )
+
+    assert {:ok, approve_response} =
+             Runner.run(
+               "approve_confirmation",
+               %{
+                 id: pending_response.confirmation_id,
+                 reason: "remember package refs",
+                 remember_scope: "exact",
+                 remember_all: true
+               },
+               %{actor: "local", channel: :cli, surface: "mix allbert.confirmations"}
+             )
+
+    assert approve_response.confirmation["status"] == "approved"
+    assert remembered = approve_response.confirmation["operator_resolution"]["remembered_grants"]
+    assert length(remembered) == 2
+    assert Enum.any?(remembered, &(&1["origin_kind"] == "package_registry"))
+    assert Enum.any?(remembered, &(&1["origin_kind"] == "local_path"))
+
+    assert {:ok, reused_response} =
+             Runner.run(
+               "run_package_install",
+               %{manager: "npm", package: "left-pad@1.3.0", project_root: workspace},
+               context()
+             )
+
+    assert reused_response.status == :completed
+    assert reused_response.result.stdout_preview =~ "fake npm install left-pad@1.3.0"
+    assert reused_response.actions |> hd() |> get_in([:resource_grants, :applied?])
+    assert reused_response.actions |> hd() |> get_in([:target_resumed?]) == false
+    assert Confirmations.list(status: :pending) == []
+  end
+
+  test "target-root grant alone does not authorize package registry drift", %{
+    workspace: workspace
+  } do
+    assert {:ok, pending_response} =
+             Runner.run(
+               "run_package_install",
+               %{manager: "npm", package: "left-pad@1.3.0", project_root: workspace},
+               context()
+             )
+
+    assert {:ok, pending} = Confirmations.read(pending_response.confirmation_id)
+
+    [target_root_ref] =
+      Enum.filter(
+        pending["params_summary"]["resource_refs"],
+        &(&1["origin_kind"] == "local_path")
+      )
+
+    assert {:ok, _grant} = Grants.remember(target_root_ref, audit?: false)
+
+    assert {:ok, later_response} =
+             Runner.run(
+               "run_package_install",
+               %{manager: "npm", package: "left-pad@1.3.0", project_root: workspace},
+               context()
+             )
+
+    assert later_response.status == :needs_confirmation
+    assert later_response.confirmation_id != pending_response.confirmation_id
+    assert length(Confirmations.list(status: :pending)) == 2
   end
 
   test "denies pip execution as preview-only", %{workspace: workspace} do

@@ -8,7 +8,11 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     tags: ["confirmations", "approval"],
     schema: [
       id: [type: :string, required: true],
-      reason: [type: :string, required: false]
+      reason: [type: :string, required: false],
+      remember_scope: [type: :string, required: false],
+      resource_index: [type: :integer, required: false],
+      remember_all: [type: :boolean, required: false],
+      expires_at: [type: :string, required: false]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -20,6 +24,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
 
@@ -33,6 +38,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   @impl true
   def run(%{id: id} = params, context) do
     permission_decision = PermissionGate.authorize(:confirmation_decide, context)
+    context = Map.put(context, :approval_params, params)
 
     if PermissionGate.allowed?(permission_decision) do
       approve(id, Map.get(params, :reason), context, permission_decision)
@@ -224,16 +230,37 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   defp resolve_status(record, status, reason, context, permission_decision, metadata) do
     id = Map.fetch!(record, "id")
 
-    resolution_attrs =
-      Context.resolution_attrs(context, reason, record, resolution_metadata(metadata))
+    with {:ok, remembered_grants} <- maybe_remember_grants(record, status, context) do
+      metadata =
+        if remembered_grants == [] do
+          metadata
+        else
+          Map.put(
+            metadata,
+            :remembered_grants,
+            Enum.map(remembered_grants, &GrantHandoff.summary/1)
+          )
+        end
 
-    case Confirmations.resolve(id, status, resolution_attrs) do
-      {:ok, record} ->
-        completed(record, permission_decision, Map.put(metadata, :idempotent?, false))
+      resolution_attrs =
+        Context.resolution_attrs(context, reason, record, resolution_metadata(metadata))
 
-      {:error, {:confirmation_not_pending, ^id}} ->
-        idempotent(id, permission_decision)
+      case Confirmations.resolve(id, status, resolution_attrs) do
+        {:ok, record} ->
+          completed(record, permission_decision, Map.put(metadata, :idempotent?, false))
 
+        {:error, {:confirmation_not_pending, ^id}} ->
+          idempotent(id, permission_decision)
+
+        {:error, reason} ->
+          Context.denied(
+            "approve_confirmation",
+            :confirmation_decide,
+            permission_decision,
+            reason
+          )
+      end
+    else
       {:error, reason} ->
         Context.denied("approve_confirmation", :confirmation_decide, permission_decision, reason)
     end
@@ -460,8 +487,16 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       :target_resumed?,
       :target_status,
       :target_result,
+      :remembered_grants,
       :adapter_unavailable?
     ])
+  end
+
+  defp maybe_remember_grants(_record, status, _context) when status != :approved, do: {:ok, []}
+
+  defp maybe_remember_grants(record, :approved, context) do
+    params = Map.get(context, :approval_params, %{})
+    GrantHandoff.remember_from_confirmation(record, params, context)
   end
 
   defp approval_surface_allowed(record, context) do

@@ -75,9 +75,23 @@ execution are distinct. If a source HTTP/transport failure happens after
 approval, the operator decision remains `approved` and the target result should
 show `target_status=failed` with a visible failure reason.
 
-v0.10 is implemented through M10 after the reopened M6-M9 sequence, but the
-release remains open for M11-M13 closeout before operator acceptance. Expected
+v0.10 is implemented through M11 after the reopened M6-M9 sequence, but the
+release remains open for M12-M13 closeout before operator acceptance. Expected
 tag after acceptance is `v0.10`; no v0.10 tag has been created or pushed yet.
+
+Remembered grant testing should use disposable confirmations and resources:
+
+```sh
+mix allbert.confirmations approve <confirmation-id> --reason "remember exact" --remember exact
+mix allbert.resources grants list
+mix allbert.resources grants show <grant-id>
+mix allbert.resources grants revoke <grant-id> --reason "done testing"
+```
+
+For package installs or other multi-resource actions, approve with
+`--remember exact --remember-all` only when every exact resource in the
+request should be remembered for that operation. A target directory grant
+alone does not authorize package registry/package-spec access.
 
 ## Safety Defaults
 

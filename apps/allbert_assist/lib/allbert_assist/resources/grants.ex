@@ -31,6 +31,16 @@ defmodule AllbertAssist.Resources.Grants do
     end
   end
 
+  @spec get(String.t()) :: {:ok, map()} | {:error, term()}
+  def get(id) when is_binary(id) do
+    with {:ok, grants} <- list() do
+      case Enum.find(grants, &(Map.get(&1, "id") == id)) do
+        nil -> {:error, {:grant_not_found, id}}
+        grant -> {:ok, grant}
+      end
+    end
+  end
+
   @spec remember(map() | Ref.t(), map() | keyword()) :: {:ok, map()} | {:error, term()}
   def remember(resource_ref, attrs \\ %{}) do
     attrs = attrs_map(attrs)
@@ -107,6 +117,7 @@ defmodule AllbertAssist.Resources.Grants do
          "metadata" => grant_metadata(ref, field(attrs, :metadata, %{}))
        }
        |> maybe_put_string("downstream_consumer", ref.downstream_consumer)
+       |> maybe_put_string("action_permission", field(attrs, :action_permission))
        |> maybe_put_string("origin_channel", field(attrs, :origin_channel))
        |> maybe_put_string("resolver_channel", field(attrs, :resolver_channel))
        |> maybe_put_datetime("expires_at", field(attrs, :expires_at))

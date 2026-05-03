@@ -154,12 +154,18 @@ defmodule AllbertAssist.Confirmations.Record do
       "target_resumed?" => value(attrs, :target_resumed?),
       "target_status" => stringify(value(attrs, :target_status)),
       "target_result" => target_result(value(attrs, :target_result)),
+      "remembered_grants" => redacted_value(value(attrs, :remembered_grants)),
       "adapter_unavailable?" => value(attrs, :adapter_unavailable?)
     }
   end
 
   defp target_result(value) when is_map(value), do: redacted_map(value)
   defp target_result(_value), do: nil
+
+  defp redacted_value(value) when is_map(value), do: redacted_map(value)
+  defp redacted_value(value) when is_list(value), do: Enum.map(value, &redacted_value/1)
+  defp redacted_value(nil), do: nil
+  defp redacted_value(value), do: value
 
   defp target_action(attrs) do
     attrs

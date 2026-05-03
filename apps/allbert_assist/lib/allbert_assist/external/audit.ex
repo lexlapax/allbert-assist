@@ -47,6 +47,7 @@ defmodule AllbertAssist.External.Audit do
     - permission: external_network
     - decision: #{Map.get(permission_decision, :decision, "unknown")}
     - confirmation_id: #{Map.get(attrs, :confirmation_id, "none")}
+    - grant_ids: #{inspect(Map.get(attrs, :grant_ids, []))}
     - profile: #{Map.get(summary, :profile)}
     - method: #{Map.get(summary, :method)}
     - url: #{Map.get(summary, :url)}

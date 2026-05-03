@@ -10,15 +10,16 @@ not the architecture center.
 
 ## Current Status
 
-v0.10 is implemented through M10 after the reopened M6-M9 sequence.
+v0.10 is implemented through M11 after the reopened M6-M9 sequence.
 The original M5 release-readiness gate was reopened for online skill approval
 clarity/search fixes and Resource Access Security Posture planning; M9 has now
 closed that line with refreshed docs, smoke steps, and final gate results.
 M10 has now hardened resource identity and scope matching so canonical
-resource authority stays separate from redacted display metadata. The
-remaining planned closeout milestones are M11-M13 for remembered-grant
-operator UX/application, direct/local skill import consumers, and final v0.11
-handoff.
+resource authority stays separate from redacted display metadata. M11 has now
+added operator-visible remembered grant list/show/revoke behavior,
+approve-with-remember options, and grant reuse for existing v0.10 actions. The
+remaining planned closeout milestones are M12-M13 for direct/local skill
+import consumers and final v0.11 handoff.
 Expected release tag after operator acceptance remains `v0.10`; no v0.10 tag
 has been created or pushed yet.
 
@@ -49,14 +50,20 @@ Release details live in `CHANGELOG.md`.
 - Store and match operation-scoped remembered resource grants in Settings
   Central as generic local/remote resource approval memory. The matcher
   requires the caller to pass the current action permission before use.
+- List, inspect, and revoke remembered resource grants through registered
+  actions, `mix allbert.resources grants ...`, and the thin `/settings`
+  operator surface.
+- Approve existing confirmations with remembered exact-resource choices and
+  reuse grants for external requests, online skill source reads/imports, and
+  package installs when every current resource ref still matches.
 - Keep canonical resource identity separate from rendered display metadata for
   external URLs, local paths, source profiles, and confirmation resume
   decisions.
 
 v0.10 also implements the first Resource Access Security Posture substrate.
 It does not implement arbitrary URL/document summarization, channel-native
-remembered-grant UX, local skill directory import, direct skill URL import, a
-browser, or a crawler. M11-M13 finish the v0.10 closeout before v0.11 consumes
+Approval Handoff UX, local skill directory import, direct skill URL import, a
+browser, or a crawler. M12-M13 finish the v0.10 closeout before v0.11 consumes
 the final posture through execution-aware intent and channel-native Approval
 Handoff UX.
 

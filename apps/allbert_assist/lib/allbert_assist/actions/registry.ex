@@ -24,6 +24,10 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.RunShellCommand
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
+  alias AllbertAssist.Actions.Resources.ListResourceGrants
+  alias AllbertAssist.Actions.Resources.RememberResourceGrant
+  alias AllbertAssist.Actions.Resources.RevokeResourceGrant
+  alias AllbertAssist.Actions.Resources.ShowResourceGrant
   alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
   alias AllbertAssist.Actions.Settings.ExplainSetting
   alias AllbertAssist.Actions.Settings.ListModelProfiles
@@ -76,6 +80,10 @@ defmodule AllbertAssist.Actions.Registry do
     ApproveConfirmation,
     DenyConfirmation,
     ExpireConfirmations,
+    ListResourceGrants,
+    ShowResourceGrant,
+    RevokeResourceGrant,
+    RememberResourceGrant,
     RecordTrace
   ]
 
@@ -319,6 +327,34 @@ defmodule AllbertAssist.Actions.Registry do
       permission: :confirmation_decide,
       exposure: :internal,
       execution_mode: :confirmation_cleanup,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ListResourceGrants => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :resource_grant_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ShowResourceGrant => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :resource_grant_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    RevokeResourceGrant => %{
+      permission: :confirmation_decide,
+      exposure: :internal,
+      execution_mode: :resource_grant_revoke,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    RememberResourceGrant => %{
+      permission: :confirmation_decide,
+      exposure: :internal,
+      execution_mode: :resource_grant_remember,
       skill_backed?: false,
       confirmation: :not_required
     },

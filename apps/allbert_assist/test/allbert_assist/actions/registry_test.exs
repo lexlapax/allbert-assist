@@ -38,6 +38,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "approve_confirmation",
              "deny_confirmation",
              "expire_confirmations",
+             "list_resource_grants",
+             "show_resource_grant",
+             "revoke_resource_grant",
+             "remember_resource_grant",
              "record_trace"
            ]
 
@@ -77,6 +81,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "approve_confirmation",
              "deny_confirmation",
              "expire_confirmations",
+             "list_resource_grants",
+             "show_resource_grant",
+             "revoke_resource_grant",
+             "remember_resource_grant",
              "record_trace"
            ]
 
@@ -140,6 +148,15 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert approve_confirmation.permission == :confirmation_decide
     assert approve_confirmation.exposure == :internal
     refute approve_confirmation.resumable?
+
+    assert {:ok, list_resource_grants} = Registry.capability("list_resource_grants")
+    assert list_resource_grants.permission == :read_only
+    assert list_resource_grants.execution_mode == :resource_grant_read
+    refute list_resource_grants.resumable?
+
+    assert {:ok, revoke_resource_grant} = Registry.capability("revoke_resource_grant")
+    assert revoke_resource_grant.permission == :confirmation_decide
+    assert revoke_resource_grant.execution_mode == :resource_grant_revoke
 
     assert {:error, {:unknown_action, "missing_action"}} = Registry.capability("missing_action")
   end

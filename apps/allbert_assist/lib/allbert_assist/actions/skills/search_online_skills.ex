@@ -20,6 +20,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Skills.Online.RegistryClient
@@ -38,7 +39,15 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
           denied_response(query, source, permission_decision, :permission_denied)
 
         approval_resume?(context) ->
-          execute_search(query, source, permission_decision)
+          execute_search(query, source, permission_decision, context)
+
+        grant_context =
+            grant_execution_context(
+              request_summary(source, :online_skill_search, %{query: query}),
+              :external_network,
+              context
+            ) ->
+          execute_search(query, source, permission_decision, grant_context)
 
         true ->
           create_confirmation(query, source, context, permission_decision)
@@ -51,7 +60,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
 
   defp param(params, key), do: Map.get(params, key) || Map.get(params, Atom.to_string(key))
 
-  defp execute_search(query, source, permission_decision) do
+  defp execute_search(query, source, permission_decision, context) do
     case RegistryClient.search(source, query) do
       {:ok, result} ->
         result =
@@ -75,14 +84,15 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
                permission: :external_network,
                permission_decision: permission_decision,
                execution: :online_skill_search,
-               target_resumed?: true,
                online_skill_search: result
              }
+             |> Map.put(:target_resumed?, GrantHandoff.target_resumed?(context))
+             |> Map.merge(GrantHandoff.action_metadata(context))
            ]
          }}
 
       {:error, reason} ->
-        failed_response(query, source, permission_decision, reason)
+        failed_response(query, source, permission_decision, reason, context)
     end
   end
 
@@ -155,7 +165,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
      }}
   end
 
-  defp failed_response(query, source, permission_decision, reason) do
+  defp failed_response(query, source, permission_decision, reason, context) do
     result = %{
       source: Source.summary(source),
       query: query,
@@ -178,10 +188,11 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
            permission: :external_network,
            permission_decision: permission_decision,
            execution: :online_skill_search,
-           target_resumed?: true,
            online_skill_search: result,
            failure_reason: reason
          }
+         |> Map.put(:target_resumed?, GrantHandoff.target_resumed?(context))
+         |> Map.merge(GrantHandoff.action_metadata(context))
        ]
      }}
   end
@@ -197,6 +208,13 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
     metadata
     |> Map.put(:source, source_summary)
     |> Map.put(:resource_refs, Ref.online_skill_source(source_summary, operation_class, metadata))
+  end
+
+  defp grant_execution_context(summary, permission, context) do
+    case GrantHandoff.find_applicable(Map.get(summary, :resource_refs, []), permission, context) do
+      {:ok, grants} -> GrantHandoff.put_applied(context, grants)
+      _other -> nil
+    end
   end
 
   defp online_resource_refs(source, operation_class, metadata) do

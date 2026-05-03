@@ -2,14 +2,15 @@
 
 ## v0.10 - External Capability Adapters
 
-Status: implemented through M10 after the reopened v0.10 M6-M9 sequence. The
+Status: implemented through M11 after the reopened v0.10 M6-M9 sequence. The
 original M5 release-readiness gate was reopened for online skill approval
 clarity/search fixes and Resource Access Security Posture planning; M9 closed
 the release-readiness refresh. A later zoom-out release audit reopened v0.10
-for M10-M13 closeout milestones before operator acceptance. M10 has now
-landed resource identity hardening; M11-M13 remain for remembered-grant
-operator UX/application, direct/local skill import consumers, and final v0.11
-handoff. Expected release tag remains `v0.10`; no v0.10 tag has been created
+for M10-M13 closeout milestones before operator acceptance. M10 landed
+resource identity hardening; M11 has landed remembered-grant operator
+UX/application for existing v0.10 actions. M12-M13 remain for direct/local
+skill import consumers and final v0.11 handoff. Expected release tag remains
+`v0.10`; no v0.10 tag has been created
 or pushed yet.
 
 ### Added
@@ -58,6 +59,21 @@ or pushed yet.
 - Resource grant matching resolves existing intermediate local symlink
   components before subtree comparison and rejects source-profile grants when
   same-id source endpoint fingerprints drift.
+- Registered resource grant actions now list, show, revoke, and remember
+  grants through `list_resource_grants`, `show_resource_grant`,
+  `revoke_resource_grant`, and `remember_resource_grant`.
+- `mix allbert.resources grants list/show/revoke` provides operator CLI
+  controls for remembered resource grants.
+- `mix allbert.confirmations approve` supports explicit remembered-grant
+  options: `--remember`, `--resource-index`, `--remember-all`, and
+  `--grant-expires-at`.
+- `/settings` now lists active/revoked remembered resource grants, revokes
+  them through the registered action boundary, and exposes
+  approve-with-remember controls for pending resource-backed confirmations.
+- Existing v0.10 actions apply matching remembered grants before creating new
+  confirmations for `external_network_request`, online skill
+  search/detail/audit/import, and `run_package_install`. Grant reuse is
+  operation-scoped and requires all current action resource refs to match.
 - Registered action capability metadata now marks which confirmation targets
   are resumable, and `approve_confirmation` checks that metadata before
   attempting target execution.
@@ -87,11 +103,11 @@ or pushed yet.
   data, local path scope matching handles intermediate symlink escape, source
   profile drift invalidates grants, and confirmation resume eligibility lives
   in registered action capability metadata.
-- Planned M11-M13 closeout work now captures the remaining release-audit debt:
-  remembered grants need operator-visible list/revoke/use behavior for
-  existing v0.10 actions, direct skill URL import and local skill directory
-  import need concrete disabled/untrusted consumers, and v0.11 needs a cleaner
-  handoff for channel-native approval UX and URL/document review.
+- M11 turns remembered grants from tested substrate into operator behavior:
+  list/show/revoke, approve-with-remember, `/settings` controls, and reuse for
+  existing v0.10 network/source/package flows. Direct skill URL import and
+  local skill directory import remain M12, and M13 still owns final unsupported
+  URL/document messaging and v0.11 handoff readiness.
 
 ### Safety
 
@@ -148,7 +164,12 @@ or pushed yet.
   authority denial, intermediate symlink directory escape denial,
   source-profile drift rejection, registry-driven resumable action metadata,
   and historical `adapter_unavailable` behavior.
-- Operator/user testing should wait for the remaining M11-M13 closeout
+- M11 focused tests pass for registered grant actions, confirmation
+  approve-with-remember, CLI grant controls, `/settings` grant list/revoke,
+  existing external request/online skill/package-install grant reuse, and the
+  package all-refs rule that prevents target-root grants from authorizing
+  package registry drift.
+- Operator/user testing should wait for the remaining M12-M13 closeout
   sequence, then
   start with `docs/operator/onboarding.md` and use the disposable v0.10 smoke
   flow in `docs/plans/v0.10-request-flow.md` or

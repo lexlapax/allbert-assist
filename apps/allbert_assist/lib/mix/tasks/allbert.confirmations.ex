@@ -7,7 +7,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
       mix allbert.confirmations list
       mix allbert.confirmations list --resolved
       mix allbert.confirmations show CONFIRMATION_ID
-      mix allbert.confirmations approve CONFIRMATION_ID [--reason REASON...]
+      mix allbert.confirmations approve CONFIRMATION_ID [--reason REASON...] [--remember SCOPE] [--resource-index N|--remember-all] [--grant-expires-at ISO8601]
       mix allbert.confirmations deny CONFIRMATION_ID [--reason REASON...]
       mix allbert.confirmations expire
   """
@@ -47,7 +47,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   end
 
   defp dispatch(["approve", id | rest]) do
-    params = %{id: id} |> maybe_put(:reason, parse_reason(rest))
+    params = parse_approve_options(rest, %{id: id})
 
     with {:ok, response} <- completed_action("approve_confirmation", params) do
       {:ok, {:resolved, response.confirmation}}
@@ -73,7 +73,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     Usage:
       mix allbert.confirmations list [--resolved|--all]
       mix allbert.confirmations show CONFIRMATION_ID
-      mix allbert.confirmations approve CONFIRMATION_ID [--reason REASON...]
+      mix allbert.confirmations approve CONFIRMATION_ID [--reason REASON...] [--remember SCOPE] [--resource-index N|--remember-all] [--grant-expires-at ISO8601]
       mix allbert.confirmations deny CONFIRMATION_ID [--reason REASON...]
       mix allbert.confirmations expire
     """)
@@ -88,6 +88,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
       print_online_skill_metadata(confirmation)
       print_package_install_metadata(confirmation)
       print_resource_metadata(confirmation)
+      print_remembered_grants(confirmation)
       print_shell_metadata(confirmation)
       print_skill_script_metadata(confirmation)
       print_status_note(confirmation)
@@ -105,6 +106,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     print_online_skill_metadata(confirmation)
     print_package_install_metadata(confirmation)
     print_resource_metadata(confirmation)
+    print_remembered_grants(confirmation)
     print_shell_metadata(confirmation)
     print_skill_script_metadata(confirmation)
     print_status_note(confirmation)
@@ -117,6 +119,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     print_online_skill_metadata(confirmation)
     print_package_install_metadata(confirmation)
     print_resource_metadata(confirmation)
+    print_remembered_grants(confirmation)
     print_shell_metadata(confirmation)
     print_skill_script_metadata(confirmation)
     print_status_note(confirmation)
@@ -172,6 +175,45 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   defp parse_reason([]), do: nil
   defp parse_reason(_rest), do: nil
 
+  defp parse_approve_options([], params), do: params
+
+  defp parse_approve_options(["--reason" | rest], params) do
+    {reason_parts, rest} = Enum.split_while(rest, &(not String.starts_with?(&1, "--")))
+
+    reason_parts
+    |> Enum.join(" ")
+    |> blank_to_nil()
+    |> then(&maybe_put(params, :reason, &1))
+    |> then(&parse_approve_options(rest, &1))
+  end
+
+  defp parse_approve_options(["--remember", scope | rest], params) do
+    parse_approve_options(rest, maybe_put(params, :remember_scope, blank_to_nil(scope)))
+  end
+
+  defp parse_approve_options(["--resource-index", index | rest], params) do
+    parse_approve_options(
+      rest,
+      Map.put(params, :resource_index, parse_non_negative_integer!(index, "--resource-index"))
+    )
+  end
+
+  defp parse_approve_options(["--remember-all" | rest], params) do
+    parse_approve_options(rest, Map.put(params, :remember_all, true))
+  end
+
+  defp parse_approve_options(["--grant-expires-at", expires_at | rest], params) do
+    parse_approve_options(rest, maybe_put(params, :expires_at, blank_to_nil(expires_at)))
+  end
+
+  defp parse_approve_options([unknown | _rest] = rest, params) do
+    if String.starts_with?(unknown, "--") do
+      Mix.raise("Unknown approve option: #{unknown}")
+    else
+      maybe_put(params, :reason, rest |> Enum.join(" ") |> blank_to_nil())
+    end
+  end
+
   defp maybe_put(params, _key, nil), do: params
   defp maybe_put(params, key, value), do: Map.put(params, key, value)
 
@@ -225,6 +267,19 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     |> Enum.each(fn line -> Mix.shell().info(line) end)
   end
 
+  defp print_remembered_grants(confirmation) do
+    confirmation
+    |> get_in(["operator_resolution", "remembered_grants"])
+    |> List.wrap()
+    |> Enum.each(fn grant ->
+      scope = Map.get(grant, "scope", %{}) || %{}
+
+      Mix.shell().info(
+        "Remembered grant: #{grant["id"]} #{grant["operation_class"]} #{grant["access_mode"]} #{scope["kind"]}:#{scope["value"]}"
+      )
+    end)
+  end
+
   defp print_online_skill_metadata(confirmation) do
     confirmation
     |> OnlineSkillMetadata.lines()
@@ -235,5 +290,19 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     confirmation
     |> SkillScriptMetadata.lines()
     |> Enum.each(fn line -> Mix.shell().info(line) end)
+  end
+
+  defp blank_to_nil(value) when is_binary(value) do
+    value = String.trim(value)
+    if value == "", do: nil, else: value
+  end
+
+  defp blank_to_nil(value), do: value
+
+  defp parse_non_negative_integer!(value, option) do
+    case Integer.parse(to_string(value)) do
+      {integer, ""} when integer >= 0 -> integer
+      _other -> Mix.raise("#{option} must be a non-negative integer")
+    end
   end
 end

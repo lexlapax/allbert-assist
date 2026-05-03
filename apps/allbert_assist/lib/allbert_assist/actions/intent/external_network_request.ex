@@ -37,6 +37,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   alias AllbertAssist.External.Audit
   alias AllbertAssist.External.HttpClient
   alias AllbertAssist.External.RequestSpec
+  alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -82,6 +83,10 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
 
       approval_resume?(context) ->
         execute_spec(spec, permission_decision, context)
+
+      grant_context =
+          grant_execution_context(RequestSpec.summary(spec), :external_network, context) ->
+        execute_spec(spec, permission_decision, grant_context)
 
       true ->
         create_confirmation(spec, context, permission_decision)
@@ -194,13 +199,17 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
 
     with {:ok, result} <- HttpClient.request(spec, req_opts(context)) do
       _approved_audit =
-        Audit.append(:approved, spec, permission_decision, %{
-          confirmation_id: confirmation_id
-        })
+        Audit.append(
+          :approved,
+          spec,
+          permission_decision,
+          Map.merge(%{confirmation_id: confirmation_id}, audit_grant_attrs(context))
+        )
 
       _result_audit =
         Audit.append(result_event(result), spec, permission_decision, %{
           confirmation_id: confirmation_id,
+          grant_ids: grant_ids(context),
           result: result
         })
 
@@ -218,12 +227,20 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
              permission: :external_network,
              permission_decision: permission_decision,
              execution: :req_http,
-             target_resumed?: true,
              request: RequestSpec.summary(spec),
              result: result
            }
+           |> Map.put(:target_resumed?, GrantHandoff.target_resumed?(context))
+           |> Map.merge(GrantHandoff.action_metadata(context))
          ]
        }}
+    end
+  end
+
+  defp grant_execution_context(summary, permission, context) do
+    case GrantHandoff.find_applicable(Map.get(summary, :resource_refs, []), permission, context) do
+      {:ok, grants} -> GrantHandoff.put_applied(context, grants)
+      _other -> nil
     end
   end
 
@@ -278,6 +295,20 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
       get_in(context, ["external", "req_plug"]) ||
       Application.get_env(:allbert_assist, AllbertAssist.External.HttpClient, [])
       |> Keyword.get(:req_plug)
+  end
+
+  defp audit_grant_attrs(context) do
+    case grant_ids(context) do
+      [] -> %{}
+      grant_ids -> %{grant_ids: grant_ids}
+    end
+  end
+
+  defp grant_ids(context) do
+    context
+    |> GrantHandoff.action_metadata()
+    |> get_in([:resource_grants, :grant_ids])
+    |> List.wrap()
   end
 
   defp confirmation_id(%{"id" => id}), do: id

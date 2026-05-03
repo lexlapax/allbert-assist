@@ -556,17 +556,18 @@ Plan: `docs/plans/v0.10-plan.md`
 Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 
-Status: M1-M9 implemented and focused/final-gate verified. v0.10 was reopened
+Status: M1-M11 implemented and focused verified. v0.10 was reopened
 after M5 because post-M5 commits added online skill approval clarity/search
 fixes and Resource Access Security Posture planning. M6 reconciles that
 history, M7 implements shared resource reference metadata, M8 implements
 Settings-backed remembered resource grant storage and matching, and M9 closes
 the first release-readiness/user-testing refresh. A later zoom-out release
-audit reopened v0.10 for M10-M13 closeout before operator acceptance:
-canonical resource identity hardening, remembered-grant operator UX and
-application to existing v0.10 flows, direct/local skill import consumers, and
-final v0.11 handoff readiness. Expected tag remains `v0.10`; no v0.10 tag has
-been created or pushed yet.
+audit reopened v0.10 for M10-M13 closeout before operator acceptance. M10
+finished canonical resource identity hardening, and M11 added
+remembered-grant operator UX plus application to existing v0.10 flows.
+M12-M13 remain for direct/local skill import consumers and final v0.11 handoff
+readiness. Expected tag remains `v0.10`; no v0.10 tag has been created or
+pushed yet.
 
 Expected direction:
 
@@ -644,10 +645,12 @@ Milestones:
   redacted-display separation for URL refs, intermediate local symlink escape
   denial, source profile drift checks, and registry-driven resumable-action
   metadata.
-- M11 (Milestone 11): Planned implementation. Remembered grant operator UX and
-  application for existing v0.10 actions: list/show/revoke, approve-with-
-  remember, and grant lookup before creating confirmations for external
-  request, online skill source, package install, and skill import consumers.
+- M11 (Milestone 11): Implemented. Remembered grant operator UX and
+  application for existing v0.10 actions: registered list/show/revoke/remember
+  actions, `mix allbert.resources grants ...`, approval-time remember options,
+  thin `/settings` list/revoke/approve-with-remember controls, and grant
+  lookup before creating confirmations for external request, online skill
+  source, and package install consumers.
 - M12 (Milestone 12): Planned implementation. Direct skill URL import and
   local skill directory import as concrete resource consumers that import only
   disabled/untrusted skill candidates and never trust, enable, execute, or
@@ -664,8 +667,9 @@ audits, and Security Central render the same v0.10 metadata and policy
 summaries, including the distinction between operator approval and target
 execution failure. The docs and code also identify Resource Access Security
 Posture as the common substrate for future local and remote consumers. The
-reopened M6-M9 sequence and M10 hardening are complete, but the later M11-M13
-closeout must finish before release/tag acceptance.
+reopened M6-M9 sequence, M10 hardening, and M11 remembered-grant
+operator/application work are complete, but the later M12-M13 closeout must
+finish before release/tag acceptance.
 
 ## v0.11: Execution-Aware Intent, Approval Handoff, And Resource Access Posture
 

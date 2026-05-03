@@ -49,6 +49,7 @@ defmodule AllbertAssist.Packages.Audit do
     - permission: package_install
     - decision: #{Map.get(permission_decision, :decision, "unknown")}
     - confirmation_id: #{Map.get(attrs, :confirmation_id, "none")}
+    - grant_ids: #{inspect(Map.get(attrs, :grant_ids, []))}
     - manager: #{Map.get(summary, :manager)}
     - target_root: #{Map.get(summary, :resolved_target_root)}
     - packages: #{inspect(Map.get(summary, :packages, []))}
