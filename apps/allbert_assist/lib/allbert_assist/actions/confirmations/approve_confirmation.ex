@@ -89,6 +89,9 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       "run_shell_command" ->
         resume_shell_command(record, reason, context, permission_decision, target_decision)
 
+      "run_skill_script" ->
+        resume_skill_script(record, reason, context, permission_decision, target_decision)
+
       _other ->
         resolve_status(record, :adapter_unavailable, reason, context, permission_decision, %{
           target_policy_decision: target_decision,
@@ -179,6 +182,48 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
             target_policy_decision: target_decision,
             target_resumed?: false,
             target_status: Map.get(response, :status, :denied),
+            target_result: target_result,
+            blocked_by_policy?: Map.get(response, :status) == :denied
+          }
+        )
+    end
+  end
+
+  defp resume_skill_script(record, reason, context, permission_decision, target_decision) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run(
+           "run_skill_script",
+           Map.get(record, "resume_params_ref", %{}),
+           target_context
+         ) do
+      {:ok, %{status: :ready_to_execute} = response} ->
+        target_result = Map.get(response, :result, %{status: :ready_to_execute})
+
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: :ready_to_execute,
+          target_result: target_result
+        })
+
+      {:ok, response} ->
+        target_result = Map.get(response, :result, %{status: Map.get(response, :status)})
+        target_status = Map.get(target_result, :status, Map.get(response, :status, :denied))
+
+        resolve_status(
+          record,
+          :denied,
+          reason || "Skill script target did not run: #{inspect(target_status)}",
+          context,
+          permission_decision,
+          %{
+            target_policy_decision: target_decision,
+            target_resumed?: false,
+            target_status: target_status,
             target_result: target_result,
             blocked_by_policy?: Map.get(response, :status) == :denied
           }

@@ -1,7 +1,9 @@
 defmodule AllbertAssist.Execution.SkillScriptSpecTest do
   use ExUnit.Case, async: false
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Actions.Skills.RunSkillScript
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Execution.SkillScriptSpec
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
@@ -10,6 +12,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
 
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
@@ -26,6 +29,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
     project_root = Path.join(root, "project")
 
     System.put_env("ALLBERT_HOME", home)
+    Application.put_env(:allbert_assist, Confirmations, root: Path.join(home, "confirmations"))
     Application.delete_env(:allbert_assist, Paths)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     File.mkdir_p!(workspace)
@@ -36,6 +40,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
 
     on_exit(fn ->
       restore_env(original_env)
+      restore_app_env(Confirmations, original_confirmations_config)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Settings, original_settings_config)
       File.rm_rf!(root)
@@ -213,37 +218,122 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
     assert timeout_denied.denial_reason == {:timeout_exceeds_policy, 6000, 5000}
   end
 
-  test "run_skill_script action returns resolved inert spec without creating confirmation",
+  test "run_skill_script action creates pending confirmation with redacted script metadata",
        context do
     assert {:ok, response} =
-             RunSkillScript.run(valid_params(context), %{disable_legacy_built_ins: true})
+             RunSkillScript.run(valid_params(context), action_context())
 
     assert response.status == :needs_confirmation
-    assert response.message =~ "Skill script spec is valid and ready for operator approval"
+    assert response.message =~ "Skill script is ready for operator approval"
     assert response.message =~ "Nothing has executed yet"
+    assert response.confirmation_id =~ "conf_"
     assert response.script.skill_name == "demo-script"
+
+    assert {:ok, pending} = Confirmations.read(response.confirmation_id)
+    assert pending["status"] == "pending"
+    assert pending["target_action"]["name"] == "run_skill_script"
+    assert pending["target_permission"] == "skill_script_execute"
+    assert pending["target_execution_mode"] == "skill_script_process"
+    assert pending["selected_skill"]["name"] == "demo-script"
+    assert pending["params_summary"]["script_path"] == "scripts/hello"
+    assert pending["params_summary"]["policy_decision"] == "allowed"
+    assert pending["resume_params_ref"]["expected_sha256"] == response.script.script_sha256
+    assert "ALLBERT_SKILL_NAME" in pending["resume_params_ref"]["env_summary"]
 
     assert response.actions == [
              %{
                name: "run_skill_script",
-               status: :spec_resolved,
+               status: :needs_confirmation,
                permission: :skill_script_execute,
                permission_decision: response.permission_decision,
-               execution: :pending_confirmation_not_created,
+               execution: :pending_confirmation,
                script: response.script,
-               input: %{
-                 skill_name: "demo-script",
-                 script_path: "scripts/hello",
-                 args: [],
-                 cwd: context.workspace,
-                 env_keys: [],
-                 timeout_ms: nil,
-                 max_output_bytes: nil,
-                 expected_sha256: nil
-               },
-               diagnostics: [:v0_09_confirmation_lands_in_m3, :v0_09_runner_lands_in_m4]
+               confirmation_id: response.confirmation_id,
+               confirmation_metadata:
+                 response.actions |> hd() |> Map.fetch!(:confirmation_metadata)
              }
            ]
+  end
+
+  test "approval resumes run_skill_script after policy and digest re-check", context do
+    assert {:ok, pending_response} =
+             Runner.run("run_skill_script", valid_params(context), action_context())
+
+    assert {:ok, approve_response} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending_response.confirmation_id, reason: "approved for v0.09 m3"},
+               %{actor: "local", channel: :cli, surface: "mix allbert.confirmations"}
+             )
+
+    assert approve_response.status == :completed
+    assert approve_response.confirmation["status"] == "approved"
+    assert approve_response.confirmation["operator_resolution"]["target_resumed?"]
+
+    assert approve_response.confirmation["operator_resolution"]["target_status"] ==
+             "ready_to_execute"
+
+    assert approve_response.confirmation["operator_resolution"]["target_result"]["status"] ==
+             "runner_pending"
+
+    approval_action = hd(approve_response.actions)
+    assert approval_action.confirmation_metadata.target_resumed?
+    assert approval_action.confirmation_metadata.target_status == :ready_to_execute
+    assert approval_action.confirmation_metadata.target_result.status == :runner_pending
+
+    assert {:ok, approve_again} =
+             Runner.run("approve_confirmation", %{id: pending_response.confirmation_id}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert approve_again.status == :completed
+    assert approve_again.confirmation["status"] == "approved"
+    assert approve_again.actions |> hd() |> get_in([:confirmation_metadata, :idempotent?])
+  end
+
+  test "approval denies policy changes and digest drift before runner handoff", context do
+    assert {:ok, pending_response} =
+             Runner.run("run_skill_script", valid_params(context), action_context())
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.skill_script_execute", "denied", %{audit?: false})
+
+    assert {:ok, policy_denied} =
+             Runner.run("approve_confirmation", %{id: pending_response.confirmation_id}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert policy_denied.confirmation["status"] == "denied"
+    assert policy_denied.actions |> hd() |> get_in([:confirmation_metadata, :blocked_by_policy?])
+
+    assert policy_denied.actions |> hd() |> get_in([:confirmation_metadata, :target_resumed?]) ==
+             false
+
+    put_script_policy!(context.workspace)
+
+    assert {:ok, drift_pending} =
+             Runner.run("run_skill_script", valid_params(context), action_context())
+
+    File.write!(context.script_path, "#!/usr/bin/env sh\nprintf drifted\\n")
+
+    assert {:ok, drift_denied} =
+             Runner.run("approve_confirmation", %{id: drift_pending.confirmation_id}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert drift_denied.confirmation["status"] == "denied"
+    assert drift_denied.confirmation["operator_resolution"]["target_resumed?"] == false
+
+    assert drift_denied.confirmation["operator_resolution"]["target_result"]["status"] ==
+             "digest_mismatch"
+
+    assert drift_denied.actions
+           |> hd()
+           |> get_in([:confirmation_metadata, :target_result, :status]) ==
+             :digest_mismatch
   end
 
   defp valid_params(context) do
@@ -252,6 +342,16 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
       script_path: "scripts/hello",
       args: [],
       cwd: context.workspace
+    }
+  end
+
+  defp action_context do
+    %{
+      actor: "local",
+      channel: :cli,
+      surface: "mix allbert.skills",
+      disable_legacy_built_ins: true,
+      request: %{operator_id: "local", channel: :cli, input_signal_id: "sig-skill-script"}
     }
   end
 
