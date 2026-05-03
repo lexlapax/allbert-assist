@@ -16,7 +16,7 @@ Read these first:
 - `docs/plans/v0.10-plan.md` and `docs/plans/v0.10-request-flow.md` for the
   current release scope and smoke matrix.
 - `docs/plans/v0.11-plan.md` for the next execution-aware Approval Handoff and
-  remote network content security posture work.
+  Resource Access Security Posture work.
 
 ## First Local Run
 
@@ -81,10 +81,11 @@ show `target_status=failed` with a visible failure reason.
 - Keep imported skills disabled and untrusted until reviewed separately.
 - Treat Level 1 shell/script execution as host execution with policy controls,
   not OS isolation.
-- Treat v0.10 network access as approved remote network content acquisition,
-  not a browser, crawler, or arbitrary document summarizer.
-- Use operation-scoped approvals for future URL summaries, document
-  inspection, and direct skill URL import work.
+- Treat v0.10 network access as approved resource acquisition, not a browser,
+  crawler, or arbitrary document summarizer.
+- Use operation-scoped approvals for future local path access, URL summaries,
+  document inspection, local skill directory import, and direct skill URL
+  import work.
 
 ## Release Acceptance
 

@@ -17,6 +17,9 @@ Those foundations now exist:
 - ADR 0009 defines Level 1 local execution as policy-bounded host process
   execution, not OS isolation.
 - ADR 0010 defines resource-gated trusted skill script execution.
+- ADR 0012 names the broader Resource Access Security Posture that connects
+  local paths, local skill resources, Allbert Home resources, remote URLs,
+  remote sources, and package registries without rewriting v0.08 or v0.09.
 
 v0.10 is the first point where a confirmed request may leave the local machine
 for an HTTP/service call, invoke a package manager, or fetch an online Agent
@@ -30,11 +33,14 @@ Skill candidate. Each of those capabilities crosses a different trust boundary:
 - Online skill import can introduce untrusted instructions, bundled scripts,
   package manifests, external links, and social proof that may look safer than
   it is.
-- Remote network content is broader than online skills. A URL may point to API
-  JSON, a web page, a PDF, markdown, text, a direct `SKILL.md`, an archive, or
-  package metadata. Higher-level requests such as "check this URL and
-  summarize it" still begin as network content acquisition and need the same
-  source, approval, bounds, redaction, trace, and downstream-consumer posture.
+- Remote network content is broader than online skills, and ADR 0012 broadens
+  the language again to resource access. A URL may point to API JSON, a web
+  page, a PDF, markdown, text, a direct `SKILL.md`, an archive, or package
+  metadata. A local path may point to a document, a skill directory, or a
+  trusted skill script resource. Higher-level requests such as "check this URL
+  and summarize it" or "import this local skill directory" still begin as
+  resource acquisition and need the same source, approval, bounds, redaction,
+  trace, and downstream-consumer posture.
 
 Current research reinforces that the boundary must be explicit:
 
@@ -84,15 +90,19 @@ All HTTP/service calls must:
 - use `Req.Test` or equivalent stubs in automated tests instead of live network
   calls
 
-Remote network content gets an explicit security posture. Any workflow that
-fetches URL content for later summarization, inspection, import, package
-metadata use, or another consumer must carry a remote network content
-reference with:
+Remote network content gets an explicit security posture in this ADR, and ADR
+0012 generalizes the same posture to local and remote resource access. Any
+workflow that fetches URL content for later summarization, inspection, import,
+package metadata use, or another consumer must carry resource access metadata
+with:
 
-- canonical URL and method
+- origin kind and canonical URL or path
+- method when applicable
 - source/profile label
 - operation class, such as `external_service_request`, `summarize_url`,
-  `inspect_document`, or `import_skill`
+  `inspect_document`, `import_skill`, `import_local_skill`, or
+  `run_skill_script`
+- access mode and scope
 - expected content kind and accepted content types
 - byte cap, redirect/retry posture, and cache/digest expectation
 - origin channel/surface and response target when available
@@ -100,8 +110,9 @@ reference with:
 
 Operation class is part of the security boundary. A remembered approval for
 `summarize_url` must not authorize `import_skill`; an `inspect_document`
-approval must not authorize package installation; an import approval must not
-authorize activation, trust, script execution, or package install.
+approval must not authorize package installation; `import_local_skill` must not
+authorize `run_skill_script`; an import approval must not authorize activation,
+trust, dependency installation, script execution, or package install.
 
 Package installs get distinct policy, not a reused shell permission. v0.10
 adds `:package_install` as a high-risk permission with a confirmation safety
@@ -124,10 +135,11 @@ Import does not enable, trust, activate, run scripts, install dependencies, or
 load Elixir modules.
 
 skills.sh is one source profile and search convenience. Direct skill URL
-import should be modeled as remote network content acquisition with operation
-class `import_skill`, followed by the same parser/registry validation and
-disabled/untrusted cache write. It should not require a marketplace-specific
-search result.
+import should be modeled as `remote_url + import_skill`, followed by the same
+parser/registry validation and disabled/untrusted cache write. Local skill
+directory import should be modeled as `local_path + import_local_skill`, also
+followed by parser/registry validation and disabled/untrusted import state. No
+import path should require a marketplace-specific search result.
 
 v0.10 does not add container, remote, or microVM isolation. If a package,
 online import, or untrusted-code workflow needs that level of isolation, the
@@ -148,9 +160,10 @@ workflow must be denied or deferred to a later sandbox milestone.
 - Package managers are not shell strings. They are package-manager profiles
   with explicit argv, previews, and audit records.
 - skills.sh and other registries are sources of candidates, not trust roots.
-- Remote network content posture becomes the shared substrate for later URL
-  summarization, document inspection, direct skill URL import, and
-  source-profile consumers.
+- Resource Access Security Posture becomes the shared substrate for later URL
+  summarization, document inspection, local skill directory import, direct
+  skill URL import, trusted skill script execution UX, and source-profile
+  consumers.
 - Imported skills remain non-executable until existing local trust, enablement,
   capability, digest, and confirmation rules allow later actions.
 - v0.11 can consume these real risky capabilities in the execution-aware intent
@@ -161,8 +174,9 @@ workflow must be denied or deferred to a later sandbox milestone.
 - v0.12 jobs and v0.13 channels may create or render confirmation requests for
   these capabilities, but must not run them invisibly.
 - v0.16 security hardening should add evals for SSRF, redirect, retry,
-  package-manager, supply-chain, import, remote network content posture,
-  summarizer handoff, credential redaction, and approval bypass cases.
+  package-manager, supply-chain, import, resource access posture, summarizer
+  handoff, credential redaction, path traversal, symlink escape, operation
+  scope bypass, and approval bypass cases.
 
 ## Implementation Notes
 
@@ -181,7 +195,9 @@ workflow must be denied or deferred to a later sandbox milestone.
 - v0.10 M6 is a documentation cleanup milestone that keeps README as the
   project overview and moves operator testing guidance to explicit onboarding
   and request-flow docs.
-- v0.10 M7-M9 are documentation handoff milestones that do not reopen the
-  v0.10 implementation gate. They record remote network content posture,
-  operation-scoped remembered approval requirements, and the v0.11 UX handoff
-  for URL summarization, document inspection, and direct skill URL import.
+- v0.10 M7-M10 are documentation and planned-handoff milestones that do not
+  rewrite the already implemented M1-M5 work. They record ADR 0012 Resource
+  Access Security Posture, historical v0.08/v0.09 reframing, the planned
+  shared resource reference contract, operation-scoped remembered approval
+  requirements, and the v0.11 UX handoff for local and remote resource
+  consumers including direct skill URL import and local skill directory import.

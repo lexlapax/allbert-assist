@@ -11,9 +11,9 @@ not the architecture center.
 ## Current Status
 
 v0.10 is ready for operator/user testing after the M5 release-readiness gate
-and the post-M5 remote network content security posture documentation
-clarification. Expected release tag after operator acceptance: `v0.10`. No
-v0.10 tag has been created or pushed yet.
+and the post-M5 Resource Access Security Posture documentation clarification.
+Expected release tag after operator acceptance: `v0.10`. No v0.10 tag has
+been created or pushed yet.
 
 Release details live in `CHANGELOG.md`.
 
@@ -37,11 +37,12 @@ Release details live in `CHANGELOG.md`.
   actions. Imported skills remain disabled, untrusted, and cached under
   `<ALLBERT_HOME>/cache/skills`.
 
-v0.10 also documents the first remote network content security posture
-substrate. Future URL summaries, document inspection, and direct skill URL
-imports should consume that posture through operation-scoped approval in
-v0.11; v0.10 does not implement arbitrary URL/document summarization,
-remembered URL grants, a browser, or a crawler.
+v0.10 also documents the first Resource Access Security Posture substrate.
+Future URL summaries, document inspection, direct skill URL imports, local
+skill directory imports, and other local/remote resource consumers should
+consume that posture through operation-scoped approval in v0.11; v0.10 does
+not implement arbitrary URL/document summarization, remembered resource grants,
+local skill directory import, direct skill URL import, a browser, or a crawler.
 
 ## Start Here
 

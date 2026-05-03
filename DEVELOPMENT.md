@@ -108,11 +108,14 @@ content posture work, start with:
 - `docs/adr/0009-local-execution-sandbox-levels.md`
 - `docs/adr/0010-resource-gated-skill-script-execution.md`
 - `docs/adr/0011-confirmed-external-capability-adapters.md`
+- `docs/adr/0012-resource-access-security-posture.md`
 
 For v0.11, remember that URL summarization, document inspection, direct skill
-URL import, and online source consumers are all remote network content
-operation classes. Channels and summarizers do not fetch directly; they render
-or consume Approval Handoff data and registered action results.
+URL import, local skill directory import, local path access, trusted skill
+script execution, and online source consumers are all resource access operation
+classes. Channels and summarizers do not fetch, read, import, or execute
+directly; they render or consume Approval Handoff data and registered action
+results.
 
 ## Fresh Checkout
 

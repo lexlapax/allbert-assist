@@ -38,18 +38,20 @@ pending operator acceptance; no v0.10 tag has been created or pushed yet.
 
 ### Changed
 
-- Planning docs now frame v0.10 as the first remote network content security
-  posture substrate, not a skills-only release. Online skill search/import is
-  one consumer of approved network content; future URL summarization, document
-  inspection, and direct skill URL import must use the same operation-scoped
-  approval, trace, and audit posture.
+- Planning docs now frame v0.10 as the first Resource Access Security Posture
+  substrate, not a skills-only or network-only release. Online skill
+  search/import is one remote-source consumer; future URL summarization,
+  document inspection, direct skill URL import, local skill directory import,
+  and other local/remote consumers must use the same operation-scoped approval,
+  trace, and audit posture.
 - README now reads as a project overview and documentation index rather than a
   testing plan. First-run operator guidance lives in
   `docs/operator/onboarding.md`; the v0.10 smoke matrix remains in
   `docs/plans/v0.10-request-flow.md`.
 - v0.11 planning now owns execution-aware Approval Handoff UX for consumers
-  such as `summarize_url`, `inspect_document`, and `import_skill`, including
-  remembered exact-URL or URL-prefix grants scoped by operation class.
+  such as `summarize_url`, `inspect_document`, `import_skill`, and
+  `import_local_skill`, including remembered exact-resource, local-directory,
+  exact-URL, or URL-prefix grants scoped by operation class.
 
 ### Safety
 

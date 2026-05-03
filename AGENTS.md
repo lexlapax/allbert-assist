@@ -86,25 +86,28 @@ For active v0.10 external capability adapter work, read
 `docs/adr/0008-durable-confirmation-requests.md`,
 `docs/adr/0009-local-execution-sandbox-levels.md`,
 `docs/adr/0010-resource-gated-skill-script-execution.md`, and
-`docs/adr/0011-confirmed-external-capability-adapters.md` before changing
-external HTTP/service calls, package installs, online skill search/audit/import,
-Req policy, source profiles, package-manager profiles, confirmation resume
-semantics, traces, audits, CLI, or LiveView behavior.
+`docs/adr/0011-confirmed-external-capability-adapters.md`, and
+`docs/adr/0012-resource-access-security-posture.md` before changing external
+HTTP/service calls, package installs, online skill search/audit/import, Req
+policy, source profiles, package-manager profiles, resource references,
+remembered grants, confirmation resume semantics, traces, audits, CLI, or
+LiveView behavior.
 
-For active v0.11 execution-aware intent, Approval Handoff, or remote network
-content posture work, read `docs/plans/v0.11-plan.md`,
+For active v0.11 execution-aware intent, Approval Handoff, or Resource Access
+Security Posture work, read `docs/plans/v0.11-plan.md`,
 `docs/plans/v0.10-plan.md`, `docs/plans/v0.10-request-flow.md`,
 `docs/plans/v0.07-request-flow.md`, `docs/plans/v0.08-request-flow.md`,
 `docs/plans/v0.09-request-flow.md`,
 `docs/adr/0006-security-central.md`,
 `docs/adr/0008-durable-confirmation-requests.md`,
 `docs/adr/0009-local-execution-sandbox-levels.md`,
-`docs/adr/0010-resource-gated-skill-script-execution.md`, and
-`docs/adr/0011-confirmed-external-capability-adapters.md` before changing
-intent decisions, approval handoff data, channel-native approval UX, remote
-network content operation classes, remembered URL grants, URL summarization,
-document inspection, direct skill URL import, traces, audits, CLI, or LiveView
-behavior.
+`docs/adr/0010-resource-gated-skill-script-execution.md`,
+`docs/adr/0011-confirmed-external-capability-adapters.md`, and
+`docs/adr/0012-resource-access-security-posture.md` before changing intent
+decisions, approval handoff data, channel-native approval UX, resource access
+operation classes, remembered resource grants, URL summarization, document
+inspection, direct skill URL import, local skill directory import, traces,
+audits, CLI, or LiveView behavior.
 
 ## Non-Negotiables
 
@@ -150,9 +153,11 @@ behavior.
   skill imports may run only through registered actions, `Req`, Settings
   Central policy and secrets, Security Central, durable confirmation,
   target-specific re-checks, redaction, and trace/audit records. v0.11
-  remote network content posture must keep URL summaries, document inspection,
-  direct skill URL import, and online source consumers behind operation-scoped
-  approval; a grant for one operation class must not authorize another.
+  Resource Access Security Posture must keep URL summaries, document
+  inspection, direct skill URL import, local skill directory import, local path
+  access, trusted skill script execution, and online source consumers behind
+  operation-scoped approval; a grant for one operation class must not authorize
+  another.
 - Do not auto-generate, compile, or load Elixir modules from arbitrary skill
   folders.
 - Do not execute skill scripts, shell commands, external installs, or network
