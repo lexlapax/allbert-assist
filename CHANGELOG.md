@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.10 - External Capability Adapters
+
+Status: in progress. M1-M3 are implemented and focused-test verified. No
+release commit or release tag exists yet.
+
+### Added
+
+- Security Central and Settings Central scaffolding for external services,
+  package installs, and online skill import.
+- Confirmed `Req` external service adapter for allowlisted
+  `external_network_request` approvals.
+- Package install planning and confirmed npm execution through
+  `plan_package_install`, `run_package_install`, `approve_confirmation`, and
+  `mix allbert.packages`.
+- Package install audit records under
+  `<ALLBERT_HOME>/execution/package-installs/audit`.
+
+### Safety
+
+- npm package installs require exact package specs, an allowed target root,
+  durable confirmation, explicit argv, disabled lifecycle scripts,
+  `--allow-git=none`, timeout/output caps, and package audit.
+- URL, tarball, git, file/path, global, shell-metacharacter, and unpinned
+  package specs are denied by default.
+- pip remains preview-only and cannot execute in v0.10 without future strict
+  hash, binary, pinned requirement, and target policy.
+
 ## v0.09 - Skill Script Runner
 
 Status: accepted for operator/user testing. Release tag is `v0.09`.

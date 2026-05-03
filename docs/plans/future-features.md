@@ -243,12 +243,14 @@ Questions to resolve before graduation:
 - cleanup, persistence, rollback, and recovery when a container or remote
   sandbox fails
 
-v0.10 planning clarifies the first split:
+v0.10 implementation clarifies the first split:
 
 - bounded HTTP/service calls can proceed through `Req`, SSRF-style policy,
   confirmation, redaction, and audit without claiming OS isolation
-- npm package installs can proceed only through explicit package-manager
-  profiles, target roots, disabled lifecycle scripts, confirmation, and audit
+- npm package installs can proceed only through registered package-manager
+  actions, explicit argv, exact package specs, package-manager profiles, target
+  roots, disabled lifecycle scripts, `--allow-git=none`, confirmation, and
+  audit
 - pip execution should remain preview/audit-only until strict hash, binary,
   pinned requirement, and target policy are implemented and tested
 - imported online skills must remain disabled and untrusted; untrusted imported

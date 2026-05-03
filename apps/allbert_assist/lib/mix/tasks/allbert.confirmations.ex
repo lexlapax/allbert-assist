@@ -16,6 +16,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.PackageInstallMetadata
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
 
@@ -80,6 +81,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   defp print_result({:ok, {:list, confirmations}}) do
     Enum.each(confirmations, fn confirmation ->
       Mix.shell().info(summary(confirmation))
+      print_package_install_metadata(confirmation)
       print_shell_metadata(confirmation)
       print_skill_script_metadata(confirmation)
       print_status_note(confirmation)
@@ -93,6 +95,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     Mix.shell().info("Origin: #{origin_text(confirmation)}")
     Mix.shell().info("Resolver: #{resolver_text(confirmation)}")
     Mix.shell().info("Trace: #{Map.get(confirmation, "source_trace_id", "none")}")
+    print_package_install_metadata(confirmation)
     print_shell_metadata(confirmation)
     print_skill_script_metadata(confirmation)
     print_status_note(confirmation)
@@ -101,6 +104,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   defp print_result({:ok, {:resolved, confirmation}}) do
     Mix.shell().info("#{confirmation["id"]} status=#{confirmation["status"]}")
     Mix.shell().info("Resolver: #{resolver_text(confirmation)}")
+    print_package_install_metadata(confirmation)
     print_shell_metadata(confirmation)
     print_skill_script_metadata(confirmation)
     print_status_note(confirmation)
@@ -188,6 +192,12 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   defp print_shell_metadata(confirmation) do
     confirmation
     |> ShellCommandMetadata.lines()
+    |> Enum.each(fn line -> Mix.shell().info(line) end)
+  end
+
+  defp print_package_install_metadata(confirmation) do
+    confirmation
+    |> PackageInstallMetadata.lines()
     |> Enum.each(fn line -> Mix.shell().info(line) end)
   end
 

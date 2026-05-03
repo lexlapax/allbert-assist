@@ -10,9 +10,12 @@ defmodule AllbertAssist.Actions.Packages.PlanPackageInstall do
     tags: ["packages", "package_install", "plan", "safe"],
     schema: [
       manager: [type: :string, required: true, doc: "Package manager name, such as npm."],
-      package: [type: :string, required: true, doc: "Package name requested by the operator."],
-      version: [type: :string, required: false, doc: "Optional package version or range."],
+      package: [type: :string, required: false, doc: "Package requested by the operator."],
+      packages: [type: {:list, :string}, required: false, doc: "Package specs requested."],
+      version: [type: :string, required: false, doc: "Optional package version."],
       project_root: [type: :string, required: false, doc: "Optional target project root."],
+      cwd: [type: :string, required: false, doc: "Optional target project root alias."],
+      save_mode: [type: :string, required: false, doc: "prod, dev, optional, peer, or no-save."],
       source_text: [type: :string, required: false, doc: "The original user prompt."]
     ],
     output_schema: [
@@ -22,12 +25,30 @@ defmodule AllbertAssist.Actions.Packages.PlanPackageInstall do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Packages.InstallSpec
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
-  def run(%{manager: manager, package: package} = params, context) do
+  def run(params, context) when is_map(params) do
     permission_decision = PermissionGate.authorize(:read_only, context)
-    plan = plan(manager, package, params)
+
+    case InstallSpec.normalize(params, context: context) do
+      {:ok, spec} ->
+        planned_response(spec, permission_decision)
+
+      {:error, spec} ->
+        denied_response(spec, permission_decision)
+    end
+  end
+
+  def run(_params, context) do
+    permission_decision = PermissionGate.authorize(:read_only, context)
+    spec = %InstallSpec{policy_decision: :denied, denial_reason: :invalid_params}
+    denied_response(spec, permission_decision)
+  end
+
+  defp planned_response(spec, permission_decision) do
+    plan = InstallSpec.summary(spec)
 
     {:ok,
      %{
@@ -42,48 +63,49 @@ defmodule AllbertAssist.Actions.Packages.PlanPackageInstall do
            permission: :read_only,
            requested_permission: :package_install,
            permission_decision: permission_decision,
-           execution: :not_available,
+           execution: :not_started,
            install_plan: plan
          }
        ]
      }}
   end
 
-  defp plan(manager, package, params) do
-    %{
-      manager: String.trim(manager),
-      package: String.trim(package),
-      version: trim_optional(Map.get(params, :version)),
-      project_root: trim_optional(Map.get(params, :project_root)),
-      source_text: Map.get(params, :source_text),
-      next_action: "run_package_install"
-    }
+  defp denied_response(spec, permission_decision) do
+    plan = InstallSpec.summary(spec)
+
+    {:ok,
+     %{
+       message: "Package install plan was denied: #{inspect(spec.denial_reason)}.",
+       status: :denied,
+       permission_decision: permission_decision,
+       install_plan: plan,
+       actions: [
+         %{
+           name: "plan_package_install",
+           status: :denied,
+           permission: :read_only,
+           requested_permission: :package_install,
+           permission_decision: permission_decision,
+           execution: :not_started,
+           install_plan: plan,
+           denial_reason: spec.denial_reason
+         }
+       ]
+     }}
   end
 
   defp message(plan) do
-    target =
-      [plan.package, plan.version]
-      |> Enum.reject(&is_nil/1)
-      |> Enum.join("@")
-
     """
     Package install planned, not executed.
 
-    Target: #{target}
     Manager: #{plan.manager}
-    Project root: #{plan.project_root || "not specified"}
+    Packages: #{Enum.join(plan.packages, ", ")}
+    Project root: #{plan.resolved_target_root}
+    Dry-run argv: #{Enum.join(plan.dry_run_argv, " ")}
+    Execution available: #{plan.execution_available?}
 
     A confirmed package install must go through run_package_install, Security Central, and the v0.10 package sandbox settings.
     """
     |> String.trim()
   end
-
-  defp trim_optional(value) when is_binary(value) do
-    case String.trim(value) do
-      "" -> nil
-      trimmed -> trimmed
-    end
-  end
-
-  defp trim_optional(_value), do: nil
 end

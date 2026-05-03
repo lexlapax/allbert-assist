@@ -314,6 +314,11 @@ Allbert remains local and conservative:
   `external_network_request` approvals when `external_services.*` policy is
   enabled and allowlisted. Historical `adapter_unavailable` records remain
   readable as pre-adapter audit history.
+- v0.10 M3 adds package install planning and confirmed npm execution through
+  registered actions `plan_package_install` and `run_package_install`,
+  Settings Central `package_installs.*` policy, durable confirmation, and
+  package audit. npm uses explicit argv only; URL/git/tarball/path/global and
+  unpinned installs are denied by default. pip remains preview-only.
 - v0.09 executes only trusted, resource-gated bundled skill script resources
   through registered action `run_skill_script`, durable confirmation, digest
   re-check, and Level 1 host-process controls. It is not a generic scripting
