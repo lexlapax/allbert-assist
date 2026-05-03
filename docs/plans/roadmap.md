@@ -843,6 +843,33 @@ Exit signal: Security Central has been tested against real execution, import,
 channel, job, memory, and intent behavior, and the roadmap has a fresh risk
 assessment for v0.17+.
 
+## v0.17: Agentic Workspace Surface And Ephemeral UI Substrate
+
+Plan: `docs/plans/v0.17-plan.md`
+
+Status: placeholder.
+
+Expected direction:
+
+- Replace the rudimentary `/agent` concept with a signal-driven operator
+  workspace design that keeps LiveView thin.
+- Define an Allbert-native declarative surface contract for canvas artifacts,
+  approval handoffs, traces, memory review, jobs, channel context, and
+  task-scoped ephemeral UI.
+- Use Phoenix LiveView, PubSub, streams, async work, and JS hooks as rendering
+  and interaction primitives over runtime state.
+- Validate generated UI against known component catalogs, fallback text,
+  provenance, redaction, registered actions, known permissions, and Security
+  Central decisions.
+- Leave heavier external interoperability, such as A2UI renderer
+  compatibility, AG-UI event bridges, and MCP Apps sandboxed third-party UI,
+  to v0.20+ after the local substrate is proven.
+
+Exit signal: Allbert has a safe, signal-driven replacement design for `/agent`
+with declarative surface contracts, LiveView rendering boundaries, and a crisp
+path from text-only turns to canvas and ephemeral UI without arbitrary
+model-generated code.
+
 ## Future: Distillation And Self-Improvement
 
 Status: research.

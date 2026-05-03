@@ -28,6 +28,7 @@ homes:
 - Memory review and retrieval: v0.14.
 - Cross-surface intent enrichment: v0.15.
 - Security hardening and evals: v0.16.
+- Agentic workspace surface and local ephemeral UI substrate: v0.17.
 
 Do not duplicate those here unless the future feature is broader than the
 existing plan.
@@ -128,6 +129,31 @@ Needed before planning:
 - grouping, search, validation, and audit navigation design
 - secret entry UX
 - accessibility and mobile behavior
+
+### Agentic Workspace Surface, Ephemeral UI, And Canvas
+
+Source: operator UI discussion, v0.13 channel planning, v0.14 memory review,
+v0.15 intent enrichment, v0.16 security hardening, and research into A2UI,
+AG-UI, MCP Apps, ChatGPT Canvas, Claude Artifacts, Google Gemini generative UI,
+BISCUIT, and Athena.
+
+v0.17 owns the first Allbert-native substrate: a signal-driven LiveView
+workspace, declarative surface contracts, and a persistent canvas for
+artifacts, traces, approvals, memory review, and active tasks. The broader
+future feature remains protocol interoperability and richer generated
+interfaces after the local substrate is boring and safe.
+
+Needed before broader v0.20+ planning:
+
+- v0.17 local workspace and surface contracts accepted through user testing
+- allowed component catalog, schema validation, provenance, fallback text, and
+  accessibility rules
+- security evals proving generated surfaces cannot invent actions,
+  permissions, resources, scripts, URLs, or secret-bearing output
+- persistence and cleanup policy for canvas artifacts and ephemeral surfaces
+- A2UI renderer compatibility assessment
+- AG-UI bridge assessment for agent/frontend event streams
+- MCP Apps sandboxing and third-party UI trust policy
 
 ### Browser/Search Capture
 

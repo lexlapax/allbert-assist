@@ -173,16 +173,35 @@ Scheduled work should follow the same pattern. Cron-like jobs, recurring
 summaries, memory maintenance, health checks, and daily briefings should emit
 signals into the bus. They should not become a second private runtime.
 
+### Agentic Workspace Surface
+
+The Phoenix surface should evolve from a prompt box plus settings page into a
+signal-driven operator workspace. LiveView should render runtime state,
+approval handoffs, traces, memory review, jobs, and channel context without
+owning agent logic, security policy, execution, or memory semantics.
+
+Canvas is the persistent work surface for artifacts, traces, approvals, memory
+review, and active tasks. Ephemeral UI is the task-scoped surface Allbert can
+open when text is too thin: a validated, declarative interface generated from
+runtime state and discarded when it is no longer useful.
+
+The boundary is important. Allbert should prefer declarative surface data,
+known component catalogs, provenance, redaction, fallback text, and registered
+action bindings over arbitrary model-generated UI code.
+
 ## Product Shape
 
 The user's experience should feel natural:
 
 - Ask Allbert to do something.
+- When text is too thin, Allbert can open the right workspace surface.
 - Allbert understands the intent and picks a skill or capability.
 - If the action is sensitive, Allbert explains the permission and asks.
 - Allbert runs the work through validated actions.
 - The result, cost, trace, and memory impact are recorded.
 - If something fails, tracing can be turned on and used for diagnosis.
+- The user can inspect and steer work through declarative, validated surfaces
+  instead of trusting opaque generated code.
 
 That loop should work the same whether the user is in the terminal, the web UI,
 or a future messaging channel.
@@ -213,6 +232,8 @@ Allbert should become a compact, personal, inspectable assistant runtime:
 - Compiled runtime views for speed.
 - Traceable cost, behavior, and failure.
 - Channels that feel natural instead of programmable.
+- Canvas and ephemeral UI surfaces that make agent work inspectable,
+  steerable, and safe.
 
 The system should grow by adding skills, agents, memory, and channels around a
 stable core. The user should feel that Allbert is becoming more personal and
