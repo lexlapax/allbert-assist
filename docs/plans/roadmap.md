@@ -525,6 +525,11 @@ Milestones:
   confirmation resume, policy re-check, digest re-check, and idempotent
   resolution, consuming the M2 spec and stored expected digest instead of
   trusting client-supplied paths or summaries.
+  Complete in implementation: M3 creates pending confirmations, resumes through
+  `approve_confirmation` and the shared action runner, re-checks Security
+  Central and script digests, denies policy/digest drift before execution, and
+  records `runner_pending` target results until M4 adds the actual process
+  runner.
 - M4: Script runner, execution audit, CLI surface, `/settings` confirmation
   metadata, trace metadata, and activation-stays-inert coverage.
 - M5: Docs, future milestone handoffs, pre-release smoke matrix, focused
