@@ -2,11 +2,14 @@
 
 ## v0.10 - External Capability Adapters
 
-Status: ready for operator/user testing after the reopened v0.10 M6-M9
-sequence. The original M5 release-readiness gate was reopened for online skill
-approval clarity/search fixes and Resource Access Security Posture planning;
-M9 closed the release-readiness refresh. Expected release tag remains `v0.10`;
-no v0.10 tag has been created or pushed yet.
+Status: implemented through M9 after the reopened v0.10 M6-M9 sequence. The
+original M5 release-readiness gate was reopened for online skill approval
+clarity/search fixes and Resource Access Security Posture planning; M9 closed
+the release-readiness refresh. A later zoom-out release audit reopened v0.10
+for M10-M13 closeout milestones before operator acceptance: resource identity
+hardening, remembered-grant operator UX/application, direct/local skill import
+consumers, and final v0.11 handoff. Expected release tag remains `v0.10`; no
+v0.10 tag has been created or pushed yet.
 
 ### Added
 
@@ -68,6 +71,13 @@ no v0.10 tag has been created or pushed yet.
 - M9 refreshed release docs, roadmap/future handoffs, operator onboarding
   pointers, and the v0.10 smoke matrix so operators can test the final M6-M8
   resource posture without treating skills.sh as the platform model.
+- Planned M10-M13 closeout work now captures the release-audit debt discovered
+  after M9: canonical resource identity must be separated from redacted display
+  data, local path scope matching needs full symlink/realpath hardening,
+  remembered grants need operator-visible list/revoke/use behavior for
+  existing v0.10 actions, direct skill URL import and local skill directory
+  import need concrete disabled/untrusted consumers, and v0.11 needs a cleaner
+  handoff for channel-native approval UX and URL/document review.
 
 ### Safety
 
@@ -120,10 +130,10 @@ no v0.10 tag has been created or pushed yet.
 - M8 cleanup gates pass: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, and
   `git diff --check`.
-- Operator/user testing should start with `docs/operator/onboarding.md` and
-  use the disposable v0.10 smoke flow in
-  `docs/plans/v0.10-request-flow.md` or `docs/plans/v0.10-plan.md` before
-  accepting and tagging `v0.10`.
+- Operator/user testing should wait for the M10-M13 closeout sequence, then
+  start with `docs/operator/onboarding.md` and use the disposable v0.10 smoke
+  flow in `docs/plans/v0.10-request-flow.md` or
+  `docs/plans/v0.10-plan.md` before accepting and tagging `v0.10`.
 
 ## v0.09 - Skill Script Runner
 

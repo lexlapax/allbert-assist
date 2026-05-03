@@ -75,9 +75,9 @@ execution are distinct. If a source HTTP/transport failure happens after
 approval, the operator decision remains `approved` and the target result should
 show `target_status=failed` with a visible failure reason.
 
-v0.10 is ready for operator/user testing after the reopened M6-M9 sequence.
-Expected tag after acceptance is `v0.10`; no v0.10 tag has been created or
-pushed yet.
+v0.10 is implemented through M9 after the reopened M6-M9 sequence, but the
+release remains open for M10-M13 closeout before operator acceptance. Expected
+tag after acceptance is `v0.10`; no v0.10 tag has been created or pushed yet.
 
 ## Safety Defaults
 
