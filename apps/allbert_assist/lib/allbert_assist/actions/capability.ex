@@ -22,7 +22,8 @@ defmodule AllbertAssist.Actions.Capability do
     :execution_mode,
     :skill_backed?,
     confirmation: nil,
-    notes: nil
+    notes: nil,
+    resumable?: false
   ]
 
   @type exposure :: :agent | :internal
@@ -59,7 +60,8 @@ defmodule AllbertAssist.Actions.Capability do
           execution_mode: execution_mode(),
           skill_backed?: boolean(),
           confirmation: nil | atom(),
-          notes: nil | String.t()
+          notes: nil | String.t(),
+          resumable?: boolean()
         }
 
   @doc "Build capability metadata from a registered Jido action module."
@@ -73,7 +75,8 @@ defmodule AllbertAssist.Actions.Capability do
       execution_mode: Map.fetch!(attrs, :execution_mode),
       skill_backed?: Map.fetch!(attrs, :skill_backed?),
       confirmation: Map.get(attrs, :confirmation),
-      notes: Map.get(attrs, :notes)
+      notes: Map.get(attrs, :notes),
+      resumable?: Map.get(attrs, :resumable?, false)
     }
   end
 
@@ -88,7 +91,8 @@ defmodule AllbertAssist.Actions.Capability do
       exposure: capability.exposure,
       execution_mode: capability.execution_mode,
       skill_backed?: capability.skill_backed?,
-      confirmation: capability.confirmation
+      confirmation: capability.confirmation,
+      resumable?: capability.resumable?
     }
   end
 end

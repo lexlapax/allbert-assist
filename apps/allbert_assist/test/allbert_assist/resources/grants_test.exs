@@ -60,7 +60,9 @@ defmodule AllbertAssist.Resources.GrantsTest do
                audit?: false
              )
 
-    assert grant["scope"] == %{"kind" => "exact_file", "value" => Path.expand(file)}
+    assert grant["scope"]["kind"] == "exact_file"
+    assert Path.type(grant["scope"]["value"]) == :absolute
+    assert String.ends_with?(grant["scope"]["value"], "/workspace/docs/a.txt")
     assert {:ok, ^grant} = find(read_file_ref(file), :read_only)
     assert {:error, :no_matching_grant} = find(read_file_ref(sibling), :read_only)
   end
@@ -71,12 +73,15 @@ defmodule AllbertAssist.Resources.GrantsTest do
     inside_file = Path.join(allowed, "notes.txt")
     outside_file = Path.join(outside, "secret.txt")
     symlink = Path.join(allowed, "link-to-secret.txt")
+    symlink_dir = Path.join(allowed, "link-to-outside")
+    symlink_child = Path.join(symlink_dir, "secret.txt")
 
     File.mkdir_p!(allowed)
     File.mkdir_p!(outside)
     File.write!(inside_file, "inside")
     File.write!(outside_file, "outside")
     assert :ok = File.ln_s(outside_file, symlink)
+    assert :ok = File.ln_s(outside, symlink_dir)
 
     assert {:ok, grant} =
              Grants.remember(
@@ -96,6 +101,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
     traversal = Path.join([allowed, "..", "outside", "secret.txt"])
     assert {:error, :no_matching_grant} = find(read_file_ref(traversal), :read_only)
     assert {:error, :no_matching_grant} = find(read_file_ref(symlink), :read_only)
+    assert {:error, :no_matching_grant} = find(read_file_ref(symlink_child), :read_only)
   end
 
   test "exact URL grants do not expand to host" do
@@ -111,6 +117,17 @@ defmodule AllbertAssist.Resources.GrantsTest do
 
     assert {:ok, ^grant} = find(exact, :external_network)
     assert {:error, :no_matching_grant} = find(other_path, :external_network)
+  end
+
+  test "redacted URL strings are not remembered as exact URL authority" do
+    canonical = external_ref("https://example.com/docs/a?token=secret")
+    redacted = external_ref("https://example.com/docs/a?[REDACTED]")
+
+    assert {:ok, grant} = Grants.remember(canonical, audit?: false)
+    assert grant["canonical_scope"] == "https://example.com/docs/a?token=secret"
+
+    assert {:ok, ^grant} = find(canonical, :external_network)
+    assert {:error, :no_matching_grant} = find(redacted, :external_network)
   end
 
   test "URL prefix grants cannot cross scheme host or redirect target" do
@@ -153,8 +170,28 @@ defmodule AllbertAssist.Resources.GrantsTest do
       |> List.first()
 
     assert {:ok, grant} = Grants.remember(source_ref, audit?: false)
+
+    assert grant["metadata"]["source_fingerprint"] == %{
+             "api_url" => "https://skills.sh/api",
+             "base_url" => "https://skills.sh"
+           }
+
     assert {:ok, ^grant} = find(source_ref, :external_network)
     assert {:error, :no_matching_grant} = find(other_source_ref, :external_network)
+
+    drifted_source_ref =
+      %{
+        id: "skills_sh",
+        base_url: "https://mirror.example",
+        api_url: "https://mirror.example/api"
+      }
+      |> Ref.online_skill_source(:online_skill_search, %{query: "memory"})
+      |> List.first()
+
+    assert {:error, {:source_profile_drift, grant_id}} =
+             find(drifted_source_ref, :external_network)
+
+    assert grant_id == grant["id"]
   end
 
   test "operation mismatch keeps URL summary grants from authorizing imports" do

@@ -3,6 +3,7 @@ defmodule AllbertAssist.Actions.ExternalNetworkRequestTest do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
 
@@ -56,6 +57,34 @@ defmodule AllbertAssist.Actions.ExternalNetworkRequestTest do
 
     assert {:ok, pending} = Confirmations.read(confirmation_id)
     assert pending["status"] == "pending"
+  end
+
+  test "resource refs keep canonical URL separate from redacted display URL" do
+    assert {:ok, response} =
+             Runner.run(
+               "external_network_request",
+               %{url: "https://example.com/status?token=secret"},
+               %{actor: "local", channel: :test}
+             )
+
+    summary = response.confirmation["params_summary"]
+    assert summary["canonical_url"] == "https://example.com/status?token=secret"
+    assert summary["display_url"] == "https://example.com/status?[REDACTED]"
+    assert summary["url"] == "https://example.com/status?[REDACTED]"
+
+    assert [ref] = summary["resource_refs"]
+    assert ref["canonical_id"] == "https://example.com/status?token=secret"
+
+    assert ref["scope"] == %{
+             "kind" => "exact_url",
+             "value" => "https://example.com/status?token=secret"
+           }
+
+    assert ref["metadata"]["display_url"] == "https://example.com/status?[REDACTED]"
+
+    assert ResourceMetadata.lines(response.confirmation) == [
+             "Resource remote_url external_service_request fetch exact_url:https://example.com/status?[REDACTED] consumer=req_http"
+           ]
   end
 
   test "approval resumes the confirmed Req adapter" do

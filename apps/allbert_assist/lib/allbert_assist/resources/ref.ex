@@ -214,17 +214,18 @@ defmodule AllbertAssist.Resources.Ref do
 
   @spec from_external_request_summary(map()) :: [map()]
   def from_external_request_summary(summary) when is_map(summary) do
-    url = field(summary, :url)
+    canonical_url = field(summary, :canonical_url) || field(summary, :url)
+    display_url = field(summary, :display_url) || field(summary, :url) || canonical_url
 
-    if blank?(url) do
+    if blank?(canonical_url) do
       []
     else
       [
         new!(%{
           origin_kind: :remote_url,
-          canonical_id: url,
+          canonical_id: canonical_url,
           operation_class: :external_service_request,
-          scope: Scope.exact_url(url),
+          scope: Scope.exact_url(canonical_url),
           source_profile: field(summary, :profile),
           method: field(summary, :method),
           downstream_consumer: :req_http,
@@ -236,6 +237,7 @@ defmodule AllbertAssist.Resources.Ref do
             body: :summarized
           },
           metadata: %{
+            display_url: display_url,
             host: field(summary, :host),
             path: field(summary, :path),
             allow_redirects?: field(summary, :allow_redirects?),
