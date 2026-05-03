@@ -53,7 +53,11 @@ folders without granting unplanned execution authority.
 - Confirmed online skill search/detail/audit/import through
   `search_online_skills`, `show_online_skill`, `audit_online_skill`,
   `import_online_skill`, and `mix allbert.skills ...-online`; imports stay
-  disabled, untrusted, and cached under `<ALLBERT_HOME>/cache/skills`
+  disabled, untrusted, and cached under `<ALLBERT_HOME>/cache/skills`. If an
+  operator approves an online request but the source fetch fails, the
+  confirmation resolves as `approved` with `target_status=failed` and a visible
+  failure reason. The default skills.sh source searches
+  `https://skills.sh/api/search` from the configured API base.
 - Registered confirmation actions and CLI: `mix allbert.confirmations list`,
   `show`, `approve`, `deny`, and `expire`
 - Deterministic shell request CLI: `mix allbert.exec --cwd "$WORKSPACE" -- ls -la`
@@ -261,10 +265,15 @@ mix allbert.settings set skills.online_import.sources.skills_sh.enabled true
 mix allbert.skills search-online memory
 mix allbert.confirmations list
 mix allbert.confirmations approve <confirmation-id> --reason "v0.10 online search smoke"
+mix allbert.confirmations list --resolved
 mix allbert.skills import-online skills_sh/<source-skill-id>
 mix allbert.confirmations approve <confirmation-id> --reason "v0.10 online import smoke"
 mix allbert.confirmations list --resolved
 ```
+
+Approved online skill requests that hit a source HTTP/transport failure still
+record the operator decision as `approved`; inspect `target_status` and the
+rendered `Failure:` line to see whether the resumed fetch/import completed.
 
 Release/tag status: v0.10 is ready for operator/user testing. The expected
 release tag is `v0.10`, pending operator acceptance; no v0.10 tag has been
@@ -356,6 +365,9 @@ Allbert remains local and conservative:
   registered actions and `mix allbert.skills search-online|show-online|audit-online|import-online`.
   Imported skills are written only under `<ALLBERT_HOME>/cache/skills`, remain
   disabled and untrusted, and are never activated or executed by import.
+  Approved online requests that fail against the source record
+  `target_status=failed` with a rendered failure reason instead of changing the
+  operator approval into a denial.
 - v0.09 executes only trusted, resource-gated bundled skill script resources
   through registered action `run_skill_script`, durable confirmation, digest
   re-check, and Level 1 host-process controls. It is not a generic scripting

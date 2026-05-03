@@ -74,7 +74,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
          }}
 
       {:error, reason} ->
-        denied_response(query, source, permission_decision, reason)
+        failed_response(query, source, permission_decision, reason)
     end
   end
 
@@ -121,12 +121,20 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
   end
 
   defp denied_response(query, source, permission_decision, reason) do
+    result = %{
+      source: Source.summary(source),
+      query: query,
+      status: :denied,
+      denial_reason: reason_summary(reason)
+    }
+
     {:ok,
      %{
        message: "Online skill search was denied: #{inspect(reason)}.",
        status: :denied,
        permission_decision: permission_decision,
-       online_skill_search: %{source: Source.summary(source), query: query, denial_reason: reason},
+       online_skill_search: result,
+       result: result,
        actions: [
          %{
            name: "search_online_skills",
@@ -134,11 +142,47 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
            permission: :external_network,
            permission_decision: permission_decision,
            execution: :not_started,
+           online_skill_search: result,
            denial_reason: reason
          }
        ]
      }}
   end
+
+  defp failed_response(query, source, permission_decision, reason) do
+    result = %{
+      source: Source.summary(source),
+      query: query,
+      status: :failed,
+      failure_reason: reason_summary(reason)
+    }
+
+    {:ok,
+     %{
+       message: "Online skill search failed after approval: #{inspect(reason)}.",
+       status: :failed,
+       permission_decision: permission_decision,
+       online_skill_search: result,
+       result: result,
+       actions: [
+         %{
+           name: "search_online_skills",
+           status: :failed,
+           permission: :external_network,
+           permission_decision: permission_decision,
+           execution: :online_skill_search,
+           target_resumed?: true,
+           online_skill_search: result,
+           failure_reason: reason
+         }
+       ]
+     }}
+  end
+
+  defp reason_summary({code, detail}), do: %{code: code, detail: inspect(detail)}
+  defp reason_summary(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp reason_summary(reason) when is_binary(reason), do: reason
+  defp reason_summary(reason), do: inspect(reason)
 
   defp confirmation_attrs(name, permission, execution_mode, summary, resume, context, decision) do
     %{

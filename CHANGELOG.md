@@ -20,11 +20,16 @@ no v0.10 tag has been created or pushed yet.
 - Confirmed online skill search, detail, audit, and disabled import through
   `search_online_skills`, `show_online_skill`, `audit_online_skill`,
   `import_online_skill`, and `mix allbert.skills ...-online`.
+- Online skill search uses the current skills.sh JSON search endpoint
+  `https://skills.sh/api/search` from the configured source API base.
 - Source manifests for imported online skills under
   `<ALLBERT_HOME>/cache/skills/_sources`.
 - `/settings`, `mix allbert.confirmations`, confirmation audits, and markdown
   traces now render v0.10 external request, package install, and online skill
   request/result metadata from the same durable records.
+- Approved online skill source failures resolve as confirmation `approved`
+  with `target_status=failed` and a rendered failure reason, rather than
+  looking like the operator denied the request.
 - Security status marks the v0.10 external adapters and imports boundary
   implemented and shows redacted policy summaries for external services,
   package installs, and online skill import.
@@ -42,6 +47,9 @@ no v0.10 tag has been created or pushed yet.
 - Online skill search/detail/audit are confirmed external reads. Import creates
   a confirmation before fetching or writing, stores only under Allbert cache,
   and leaves imported skills disabled, untrusted, and non-executable.
+- Operator approval is recorded separately from target execution success:
+  source HTTP/transport failures after approval are failed target outcomes, not
+  Security Central or operator denials.
 
 ### Verification
 

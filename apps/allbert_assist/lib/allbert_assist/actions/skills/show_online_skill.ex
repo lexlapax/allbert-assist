@@ -76,7 +76,7 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
          }}
 
       {:error, reason} ->
-        denied_response(id, source, permission_decision, reason)
+        failed_response(id, source, permission_decision, reason)
     end
   end
 
@@ -120,12 +120,20 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
   end
 
   defp denied_response(id, source, permission_decision, reason) do
+    result = %{
+      source: Source.summary(source),
+      id: id,
+      status: :denied,
+      denial_reason: reason_summary(reason)
+    }
+
     {:ok,
      %{
        message: "Online skill detail was denied: #{inspect(reason)}.",
        status: :denied,
        permission_decision: permission_decision,
-       online_skill_detail: %{source: Source.summary(source), id: id, denial_reason: reason},
+       online_skill_detail: result,
+       result: result,
        actions: [
          %{
            name: "show_online_skill",
@@ -133,11 +141,47 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
            permission: :external_network,
            permission_decision: permission_decision,
            execution: :not_started,
+           online_skill_detail: result,
            denial_reason: reason
          }
        ]
      }}
   end
+
+  defp failed_response(id, source, permission_decision, reason) do
+    result = %{
+      source: Source.summary(source),
+      id: id,
+      status: :failed,
+      failure_reason: reason_summary(reason)
+    }
+
+    {:ok,
+     %{
+       message: "Online skill detail failed after approval: #{inspect(reason)}.",
+       status: :failed,
+       permission_decision: permission_decision,
+       online_skill_detail: result,
+       result: result,
+       actions: [
+         %{
+           name: "show_online_skill",
+           status: :failed,
+           permission: :external_network,
+           permission_decision: permission_decision,
+           execution: :online_skill_detail,
+           target_resumed?: true,
+           online_skill_detail: result,
+           failure_reason: reason
+         }
+       ]
+     }}
+  end
+
+  defp reason_summary({code, detail}), do: %{code: code, detail: inspect(detail)}
+  defp reason_summary(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp reason_summary(reason) when is_binary(reason), do: reason
+  defp reason_summary(reason), do: inspect(reason)
 
   defp detail_summary(detail) do
     %{

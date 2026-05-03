@@ -149,6 +149,45 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
     assert approve_output =~ "Manifest:"
   end
 
+  test "online search approval output explains source failures" do
+    put_online_policy!()
+
+    search_output =
+      capture_io(fn ->
+        assert :ok = SkillsTask.run(["search-online", "memory"])
+      end)
+
+    assert search_output =~ "Status: needs_confirmation"
+
+    [pending] = Confirmations.list(status: :pending)
+    assert pending["target_action"]["name"] == "search_online_skills"
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/api/search"
+
+      conn
+      |> Plug.Conn.put_resp_content_type("text/html")
+      |> Plug.Conn.send_resp(404, "<html>not found</html>")
+    end)
+
+    approve_output =
+      capture_io(fn ->
+        assert :ok = ConfirmationsTask.run(["approve", pending["id"], "--reason", "search smoke"])
+      end)
+
+    assert approve_output =~ "#{pending["id"]} status=approved"
+    assert approve_output =~ "Result status: failed"
+    assert approve_output =~ "Failure: online_skill_source_http_error: 404"
+
+    resolved_output =
+      capture_io(fn ->
+        assert :ok = ConfirmationsTask.run(["list", "--resolved"])
+      end)
+
+    assert resolved_output =~ "#{pending["id"]} status=approved"
+    assert resolved_output =~ "Failure: online_skill_source_http_error: 404"
+  end
+
   defp fixture(name), do: Path.join(@fixtures, name)
 
   defp write_script_skill!(home, name) do

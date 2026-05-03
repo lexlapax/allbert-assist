@@ -131,6 +131,10 @@ workflow must be denied or deferred to a later sandbox milestone.
 - v0.10 M3 implemented package install planning and confirmed npm execution
   through package-manager profiles; pip remains preview-only.
 - v0.10 M4 implemented confirmed online skill search/detail/audit/import with
-  disabled, untrusted cache writes and source manifests.
+  disabled, untrusted cache writes and source manifests. Online source failures
+  after approval are target execution failures (`target_status=failed`) on an
+  `approved` confirmation, not operator or policy denials. The default
+  skills.sh source searches the current `/api/search` endpoint from its
+  configured API base and keeps page fallback for detail fetches.
 - v0.10 M5 made CLI, `/settings`, markdown traces, confirmation audits, and
   Security Central status render the same v0.10 request/result metadata.
