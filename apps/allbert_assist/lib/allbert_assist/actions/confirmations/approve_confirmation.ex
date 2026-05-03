@@ -17,6 +17,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     ]
 
   alias AllbertAssist.Actions.Confirmations.Context
+  alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Security.PermissionGate
@@ -92,7 +93,35 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   end
 
   defp resolve_after_recheck(record, reason, context, permission_decision, target_decision) do
-    case target_action_name(record) do
+    action_name = target_action_name(record)
+
+    if Registry.resumable?(action_name) do
+      resume_registered_action(
+        record,
+        reason,
+        context,
+        permission_decision,
+        target_decision,
+        action_name
+      )
+    else
+      resolve_status(record, :adapter_unavailable, reason, context, permission_decision, %{
+        target_policy_decision: target_decision,
+        target_resumed?: false,
+        adapter_unavailable?: true
+      })
+    end
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         action_name
+       ) do
+    case action_name do
       "external_network_request" ->
         resume_external_network_request(
           record,

@@ -148,6 +148,8 @@ defmodule AllbertAssist.External.RequestSpec do
     summary = %{
       method: spec.method,
       profile: spec.profile,
+      canonical_url: spec.url,
+      display_url: redacted_url(spec),
       url: redacted_url(spec),
       host: spec.host,
       path: spec.path,

@@ -138,6 +138,7 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :local_process,
       skill_backed?: false,
       confirmation: :required,
+      resumable?: true,
       notes:
         "v0.08 Level 1 local process execution; creates a durable confirmation before running."
     },
@@ -147,6 +148,7 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :req_http,
       skill_backed?: true,
       confirmation: :required,
+      resumable?: true,
       notes: "v0.10 confirmed Req HTTP execution; creates a durable confirmation before running."
     },
     PlanPackageInstall => %{
@@ -163,6 +165,7 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :online_skill_search,
       skill_backed?: true,
       confirmation: :required,
+      resumable?: true,
       notes: "Searches online skill source profiles only after external-network confirmation."
     },
     ShowOnlineSkill => %{
@@ -171,6 +174,7 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :online_skill_detail,
       skill_backed?: true,
       confirmation: :required,
+      resumable?: true,
       notes: "Fetches online skill details only after external-network confirmation."
     },
     ListSettings => %{
@@ -244,6 +248,7 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :skill_script_process,
       skill_backed?: true,
       confirmation: :required,
+      resumable?: true,
       notes:
         "v0.09 trusted resource-gated skill script execution; M2 resolves inert specs before M3 confirmations and M4 running."
     },
@@ -253,6 +258,7 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :package_manager_process,
       skill_backed?: true,
       confirmation: :required,
+      resumable?: true,
       notes: "Runs confirmed npm package-manager process execution; pip remains preview-only."
     },
     AuditOnlineSkill => %{
@@ -261,6 +267,7 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :online_skill_audit,
       skill_backed?: false,
       confirmation: :required,
+      resumable?: true,
       notes: "Fetches and audits online skill metadata only after external-network confirmation."
     },
     ImportOnlineSkill => %{
@@ -269,6 +276,7 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :online_skill_import,
       skill_backed?: false,
       confirmation: :required,
+      resumable?: true,
       notes: "Imports online skill files into the disabled, untrusted cache after confirmation."
     },
     SecurityStatus => %{
@@ -369,6 +377,15 @@ defmodule AllbertAssist.Actions.Registry do
   def capability(action) do
     with {:ok, module} <- resolve(action) do
       {:ok, capability_for_module!(module)}
+    end
+  end
+
+  @doc "Return true when a registered action may be resumed from a durable confirmation."
+  @spec resumable?(module() | String.t() | atom()) :: boolean()
+  def resumable?(action) do
+    case capability(action) do
+      {:ok, capability} -> capability.resumable?
+      {:error, _reason} -> false
     end
   end
 

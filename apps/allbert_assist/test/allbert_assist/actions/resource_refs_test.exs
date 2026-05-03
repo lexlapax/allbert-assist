@@ -67,6 +67,8 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
       Ref.from_external_request_summary(%{
         method: "GET",
         profile: "docs",
+        canonical_url: "https://example.com/status?token=secret",
+        display_url: "https://example.com/status?[REDACTED]",
         url: "https://example.com/status?[REDACTED]",
         host: "example.com",
         path: "/status",
@@ -84,8 +86,10 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
     assert ref.access_mode == :fetch
     assert ref.method == "GET"
     assert ref.source_profile == "docs"
-    assert ref.scope == %{kind: :exact_url, value: "https://example.com/status?[REDACTED]"}
+    assert ref.canonical_id == "https://example.com/status?token=secret"
+    assert ref.scope == %{kind: :exact_url, value: "https://example.com/status?token=secret"}
     assert ref.limits == %{timeout_ms: 5_000, max_response_bytes: 16_384}
+    assert ref.metadata.display_url == "https://example.com/status?[REDACTED]"
     assert ref.metadata.host == "example.com"
     assert ref.metadata.path == "/status"
     assert ref.redaction.query?
@@ -181,6 +185,20 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
 
     assert lines == [
              "Resource remote_source online_skill_search fetch source_profile:skills_sh consumer=online_skill_registry"
+           ]
+  end
+
+  test "resource metadata renderer uses display URL for URL refs" do
+    refs =
+      Ref.from_external_request_summary(%{
+        method: "GET",
+        profile: "docs",
+        canonical_url: "https://example.com/status?token=secret",
+        display_url: "https://example.com/status?[REDACTED]"
+      })
+
+    assert ResourceMetadata.resource_lines(%{resource_refs: refs}) == [
+             "Resource remote_url external_service_request fetch exact_url:https://example.com/status?[REDACTED] consumer=req_http"
            ]
   end
 

@@ -33,13 +33,14 @@ defmodule AllbertAssist.Confirmations.ResourceMetadata do
 
   defp resource_line(ref) when is_map(ref) do
     scope = field(ref, "scope", %{}) || %{}
+    scope_value = display_scope_value(ref, scope)
 
     [
       "Resource",
       field(ref, "origin_kind"),
       field(ref, "operation_class"),
       field(ref, "access_mode"),
-      "#{field(scope, "kind")}:#{field(scope, "value")}",
+      "#{field(scope, "kind")}:#{scope_value}",
       consumer_text(field(ref, "downstream_consumer"))
     ]
     |> Enum.reject(&blank?/1)
@@ -47,6 +48,18 @@ defmodule AllbertAssist.Confirmations.ResourceMetadata do
   end
 
   defp resource_line(_ref), do: nil
+
+  defp display_scope_value(ref, %{} = scope) do
+    metadata = field(ref, "metadata", %{}) || %{}
+
+    case field(scope, "kind") do
+      kind when kind in ["exact_url", "url_prefix", :exact_url, :url_prefix] ->
+        field(metadata, "display_url") || field(metadata, :display_url) || field(scope, "value")
+
+      _other ->
+        field(scope, "value")
+    end
+  end
 
   defp params_summary(confirmation), do: Map.get(confirmation, "params_summary", %{}) || %{}
 

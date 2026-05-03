@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
   use ExUnit.Case, async: false
 
+  alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Settings
@@ -53,6 +54,8 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
   end
 
   test "approve and deny resolve pending records idempotently" do
+    assert Registry.resumable?("external_network_request")
+
     assert {:ok, approval_candidate} =
              Confirmations.create(Map.put(base_attrs(), :id, "conf_approve"))
 
@@ -105,6 +108,30 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
     assert deny_response.confirmation["status"] == "denied"
     assert deny_response.confirmation["operator_resolution"]["resolver_channel"] == "liveview"
     refute deny_response.confirmation["operator_resolution"]["same_channel?"]
+  end
+
+  test "approval only resumes actions marked resumable by registry metadata" do
+    refute Registry.resumable?("direct_answer")
+
+    attrs =
+      base_attrs()
+      |> Map.put(:id, "conf_registered_not_resumable")
+      |> Map.put(:target_action, %{name: "direct_answer"})
+      |> Map.put(:target_permission, :read_only)
+      |> Map.put(:target_execution_mode, :read_only)
+      |> Map.put(:security_decision, %{permission: :read_only, decision: :allowed})
+
+    assert {:ok, record} = Confirmations.create(attrs)
+
+    assert {:ok, response} =
+             Runner.run("approve_confirmation", %{id: record["id"]}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert response.status == :completed
+    assert response.confirmation["status"] == "adapter_unavailable"
+    assert response.confirmation["operator_resolution"]["target_resumed?"] == false
   end
 
   test "approval respects target policy changes before resolution" do

@@ -3,7 +3,8 @@
 ## Status
 
 Accepted for v0.10. The M7 shared resource reference contract, M8 remembered
-resource grant contract, and M9 release-readiness handoff are implemented.
+resource grant contract, M9 release-readiness handoff, and M10 resource
+identity/scope hardening are implemented.
 
 ## Context
 
@@ -77,12 +78,25 @@ and the inert `AllbertAssist.Resources.Grant` descriptor. It carries:
 resource summaries for confirmations, CLI output, `/settings`, audits, and
 traces. Rendering the metadata does not grant access.
 
+Resource identity and display metadata are separate. Enforcement, remembered
+grant matching, drift checks, and audit authority use canonical resource
+fields such as canonical path, canonical URL, source profile id, or package
+coordinate. Operator renderers may use redacted display fields such as
+`display_url`, but those redacted strings are never remembered as canonical
+grant authority.
+
 Remembered grants are stored in Settings Central at
 `resource_grants.remembered` and matched by `AllbertAssist.Resources.Grants`.
 They are generic resource approval memory, not skills/search/summarization
 policy. A caller must pass the current action permission when asking whether a
 grant applies, so Security Central can be re-checked without the grant store
 guessing workflow-specific permission routing.
+
+Local path scopes are canonicalized before matching, including intermediate
+symlink components that already exist. A directory-subtree grant cannot be
+used by entering an allowed directory and then escaping through a symlinked
+child directory. Source-profile grants record enough endpoint fingerprint
+metadata to reject same-id grants when base/API URLs drift.
 
 Operation class is part of the security boundary. A grant or confirmation for
 one operation class does not authorize another:
@@ -103,7 +117,10 @@ one operation class does not authorize another:
   vocabulary, local/remote consumer metadata, docs, and tests. v0.10 M8 owns
   implemented remembered grant scope, storage, matching, revocation, docs, and
   tests. v0.10 M9 owns release-readiness docs, user-testing instructions, and
-  future milestone handoffs over the implemented M7/M8 contracts.
+  future milestone handoffs over the implemented M7/M8 contracts. v0.10 M10
+  owns canonical-vs-display URL separation, intermediate symlink hardening,
+  source-profile drift rejection, and registry-driven resumable-action
+  metadata for confirmation approval.
 - ADR 0011 remains the external-adapter decision. ADR 0012 sits above it and
   names the shared local/remote resource access posture.
 - v0.11 consumes the posture for execution-aware intent and channel-native

@@ -75,8 +75,8 @@ execution are distinct. If a source HTTP/transport failure happens after
 approval, the operator decision remains `approved` and the target result should
 show `target_status=failed` with a visible failure reason.
 
-v0.10 is implemented through M9 after the reopened M6-M9 sequence, but the
-release remains open for M10-M13 closeout before operator acceptance. Expected
+v0.10 is implemented through M10 after the reopened M6-M9 sequence, but the
+release remains open for M11-M13 closeout before operator acceptance. Expected
 tag after acceptance is `v0.10`; no v0.10 tag has been created or pushed yet.
 
 ## Safety Defaults
@@ -91,6 +91,9 @@ tag after acceptance is `v0.10`; no v0.10 tag has been created or pushed yet.
   trust or execution authority. Grants are scoped by resource, operation,
   access mode, and downstream consumer, and still require Security Central
   policy re-check with the current action permission.
+- Treat canonical resource fields as the authority for matching. Redacted
+  display URLs and rendered resource lines help operators inspect requests,
+  but they are not remembered grant scopes.
 - Use operation-scoped approvals for local path access, URL summaries,
   document inspection, local skill directory import, and direct skill URL
   import work.

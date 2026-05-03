@@ -639,10 +639,11 @@ Milestones:
 - M9 (Milestone 9): Implemented. Release readiness and user testing refresh
   after M6-M8, including focused online skill regressions, resource
   reference/grant tests, full gates, docs, and tag-readiness wording.
-- M10 (Milestone 10): Planned implementation. Resource identity and scope
-  hardening before grants become user-facing: canonical-resource versus
-  redacted-display separation, full local symlink/realpath handling, source
-  profile drift checks, and registry-driven resumable-action metadata.
+- M10 (Milestone 10): Implemented. Resource identity and scope hardening
+  before grants become user-facing: canonical-resource versus
+  redacted-display separation for URL refs, intermediate local symlink escape
+  denial, source profile drift checks, and registry-driven resumable-action
+  metadata.
 - M11 (Milestone 11): Planned implementation. Remembered grant operator UX and
   application for existing v0.10 actions: list/show/revoke, approve-with-
   remember, and grant lookup before creating confirmations for external
@@ -663,8 +664,8 @@ audits, and Security Central render the same v0.10 metadata and policy
 summaries, including the distinction between operator approval and target
 execution failure. The docs and code also identify Resource Access Security
 Posture as the common substrate for future local and remote consumers. The
-reopened M6-M9 sequence is complete, but the later M10-M13 closeout must
-finish before release/tag acceptance.
+reopened M6-M9 sequence and M10 hardening are complete, but the later M11-M13
+closeout must finish before release/tag acceptance.
 
 ## v0.11: Execution-Aware Intent, Approval Handoff, And Resource Access Posture
 

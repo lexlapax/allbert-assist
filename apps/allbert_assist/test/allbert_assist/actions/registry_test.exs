@@ -105,36 +105,56 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert run_shell_command.exposure == :agent
     assert run_shell_command.execution_mode == :local_process
     assert run_shell_command.confirmation == :required
+    assert run_shell_command.resumable?
 
     assert {:ok, external_network_request} = Registry.capability("external_network_request")
     assert external_network_request.permission == :external_network
     assert external_network_request.execution_mode == :req_http
     assert external_network_request.confirmation == :required
+    assert external_network_request.resumable?
 
     assert {:ok, plan_package_install} = Registry.capability("plan_package_install")
     assert plan_package_install.permission == :read_only
     assert plan_package_install.execution_mode == :package_install_plan
     assert plan_package_install.exposure == :agent
+    refute plan_package_install.resumable?
 
     assert {:ok, run_package_install} = Registry.capability("run_package_install")
     assert run_package_install.permission == :package_install
     assert run_package_install.execution_mode == :package_manager_process
     assert run_package_install.exposure == :internal
     assert run_package_install.confirmation == :required
+    assert run_package_install.resumable?
 
     assert {:ok, search_online_skills} = Registry.capability("search_online_skills")
     assert search_online_skills.permission == :external_network
     assert search_online_skills.execution_mode == :online_skill_search
+    assert search_online_skills.resumable?
 
     assert {:ok, import_online_skill} = Registry.capability("import_online_skill")
     assert import_online_skill.permission == :online_skill_import
     assert import_online_skill.confirmation == :required
+    assert import_online_skill.resumable?
 
     assert {:ok, approve_confirmation} = Registry.capability("approve_confirmation")
     assert approve_confirmation.permission == :confirmation_decide
     assert approve_confirmation.exposure == :internal
+    refute approve_confirmation.resumable?
 
     assert {:error, {:unknown_action, "missing_action"}} = Registry.capability("missing_action")
+  end
+
+  test "reports resumable targets from capability metadata" do
+    assert Registry.resumable?("external_network_request")
+    assert Registry.resumable?(:run_shell_command)
+    assert Registry.resumable?("run_package_install")
+    assert Registry.resumable?("search_online_skills")
+    assert Registry.resumable?("import_online_skill")
+    assert Registry.resumable?("run_skill_script")
+
+    refute Registry.resumable?("direct_answer")
+    refute Registry.resumable?("plan_package_install")
+    refute Registry.resumable?("missing_action")
   end
 
   test "resolves registered actions by name and module only" do

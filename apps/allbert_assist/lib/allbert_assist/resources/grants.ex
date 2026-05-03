@@ -16,6 +16,7 @@ defmodule AllbertAssist.Resources.Grants do
 
   @path_scopes [:exact_file, :directory_subtree, :package_target_root]
   @url_scopes [:exact_url, :url_prefix]
+  @source_fingerprint_keys [:base_url, :api_url, :url]
 
   @doc "Settings Central key that stores remembered resource grants."
   @spec setting_key() :: String.t()
@@ -103,7 +104,7 @@ defmodule AllbertAssist.Resources.Grants do
          "operation_class" => Atom.to_string(ref.operation_class),
          "access_mode" => Atom.to_string(ref.access_mode),
          "created_at" => now,
-         "metadata" => stringify_metadata(field(attrs, :metadata, %{}))
+         "metadata" => grant_metadata(ref, field(attrs, :metadata, %{}))
        }
        |> maybe_put_string("downstream_consumer", ref.downstream_consumer)
        |> maybe_put_string("origin_channel", field(attrs, :origin_channel))
@@ -163,28 +164,48 @@ defmodule AllbertAssist.Resources.Grants do
   end
 
   defp realpath_or_expanded(path) do
-    case File.lstat(path) do
-      {:ok, %File.Stat{type: :symlink}} -> resolve_symlink(path)
-      _other -> path
+    resolve_symlink_path(path, 0)
+  end
+
+  defp resolve_symlink_path(path, depth) when depth > 40, do: Path.expand(path)
+
+  defp resolve_symlink_path(path, depth) do
+    case Path.split(path) do
+      ["/" | parts] -> resolve_symlink_parts(parts, "/", depth)
+      parts -> resolve_symlink_parts(parts, Path.expand("."), depth)
     end
   end
 
-  defp resolve_symlink(path) do
-    with {:ok, target} <- File.read_link(path) do
-      target
-      |> expand_symlink_target(path)
-      |> realpath_or_expanded()
-    else
-      {:error, _reason} -> path
+  defp resolve_symlink_parts([], path, _depth), do: path
+
+  defp resolve_symlink_parts([part | rest], base, depth) do
+    candidate = Path.join(base, part)
+
+    case File.read_link(candidate) do
+      {:ok, target} ->
+        target
+        |> expand_symlink_target(base)
+        |> append_path_parts(rest)
+        |> resolve_symlink_path(depth + 1)
+
+      {:error, :enoent} ->
+        append_path_parts(candidate, rest)
+
+      {:error, _reason} ->
+        resolve_symlink_parts(rest, candidate, depth)
     end
   end
 
-  defp expand_symlink_target(target, path) do
+  defp expand_symlink_target(target, base) do
     if Path.type(target) == :absolute do
       Path.expand(target)
     else
-      path |> Path.dirname() |> Path.join(target) |> Path.expand()
+      Path.expand(target, base)
     end
+  end
+
+  defp append_path_parts(path, parts) do
+    Enum.reduce(parts, path, fn part, acc -> Path.join(acc, part) end)
   end
 
   defp canonical_url(value, mode) do
@@ -266,6 +287,9 @@ defmodule AllbertAssist.Resources.Grants do
       expired?(grant, opts) ->
         {:reject, {:grant_expired, grant["id"]}}
 
+      source_profile_drifted?(grant, ref) ->
+        {:reject, {:source_profile_drift, grant["id"]}}
+
       redirect_outside?(grant, opts) ->
         {:reject, {:redirect_outside_scope, redirect_url(ref, opts)}}
 
@@ -306,6 +330,23 @@ defmodule AllbertAssist.Resources.Grants do
   end
 
   defp scope_matches?(_grant, _ref), do: false
+
+  defp source_profile_drifted?(%{"scope" => %{"kind" => "source_profile"}} = grant, ref) do
+    grant_fingerprint = get_in(grant, ["metadata", "source_fingerprint"])
+
+    cond do
+      grant_fingerprint in [nil, %{}] ->
+        false
+
+      ref_fingerprint = source_fingerprint(ref.metadata) ->
+        stringify_record(ref_fingerprint) != grant_fingerprint
+
+      true ->
+        true
+    end
+  end
+
+  defp source_profile_drifted?(_grant, _ref), do: false
 
   defp path_within?(path, root) do
     path == root or String.starts_with?(path, ensure_trailing_slash(root))
@@ -455,6 +496,43 @@ defmodule AllbertAssist.Resources.Grants do
 
   defp maybe_put_datetime(map, _key, nil), do: map
   defp maybe_put_datetime(map, key, value), do: Map.put(map, key, datetime_text(value))
+
+  defp grant_metadata(ref, metadata) do
+    metadata
+    |> stringify_metadata()
+    |> maybe_put_source_fingerprint(ref)
+  end
+
+  defp maybe_put_source_fingerprint(metadata, %{scope_kind: :source_profile} = ref) do
+    case source_fingerprint(ref.metadata) do
+      nil -> metadata
+      fingerprint -> Map.put(metadata, "source_fingerprint", stringify_record(fingerprint))
+    end
+  end
+
+  defp maybe_put_source_fingerprint(metadata, _ref), do: metadata
+
+  defp source_fingerprint(metadata) when is_map(metadata) do
+    @source_fingerprint_keys
+    |> Enum.reduce(%{}, fn key, acc ->
+      value = field(metadata, key)
+      value = normalize_fingerprint_value(value)
+
+      if value in [nil, ""] do
+        acc
+      else
+        Map.put(acc, key |> to_string() |> String.trim(), value)
+      end
+    end)
+    |> case do
+      empty when empty == %{} -> nil
+      fingerprint -> fingerprint
+    end
+  end
+
+  defp normalize_fingerprint_value(value) when is_binary(value), do: String.trim(value)
+  defp normalize_fingerprint_value(nil), do: nil
+  defp normalize_fingerprint_value(value), do: value |> to_string() |> String.trim()
 
   defp stringify_record(record) when is_map(record) do
     record

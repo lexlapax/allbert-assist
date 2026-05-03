@@ -2,14 +2,15 @@
 
 ## v0.10 - External Capability Adapters
 
-Status: implemented through M9 after the reopened v0.10 M6-M9 sequence. The
+Status: implemented through M10 after the reopened v0.10 M6-M9 sequence. The
 original M5 release-readiness gate was reopened for online skill approval
 clarity/search fixes and Resource Access Security Posture planning; M9 closed
 the release-readiness refresh. A later zoom-out release audit reopened v0.10
-for M10-M13 closeout milestones before operator acceptance: resource identity
-hardening, remembered-grant operator UX/application, direct/local skill import
-consumers, and final v0.11 handoff. Expected release tag remains `v0.10`; no
-v0.10 tag has been created or pushed yet.
+for M10-M13 closeout milestones before operator acceptance. M10 has now
+landed resource identity hardening; M11-M13 remain for remembered-grant
+operator UX/application, direct/local skill import consumers, and final v0.11
+handoff. Expected release tag remains `v0.10`; no v0.10 tag has been created
+or pushed yet.
 
 ### Added
 
@@ -50,6 +51,16 @@ v0.10 tag has been created or pushed yet.
   downstream consumer, channels, expiry, revocation, audit path, and reason.
   `AllbertAssist.Resources.Grants.find_applicable/2` requires the caller to
   pass the current action permission for Security Central policy re-check.
+- External request summaries now separate canonical URL authority from
+  redacted display URL output. Remembered grant matching uses canonical URL
+  scope; operator-facing resource metadata renders the redacted display URL
+  when available.
+- Resource grant matching resolves existing intermediate local symlink
+  components before subtree comparison and rejects source-profile grants when
+  same-id source endpoint fingerprints drift.
+- Registered action capability metadata now marks which confirmation targets
+  are resumable, and `approve_confirmation` checks that metadata before
+  attempting target execution.
 - Version metadata bumped to `0.10.0`.
 
 ### Changed
@@ -71,9 +82,12 @@ v0.10 tag has been created or pushed yet.
 - M9 refreshed release docs, roadmap/future handoffs, operator onboarding
   pointers, and the v0.10 smoke matrix so operators can test the final M6-M8
   resource posture without treating skills.sh as the platform model.
-- Planned M10-M13 closeout work now captures the release-audit debt discovered
-  after M9: canonical resource identity must be separated from redacted display
-  data, local path scope matching needs full symlink/realpath hardening,
+- M10 resolved the resource identity and resume hardening debt discovered
+  after M9: canonical resource identity is separated from redacted display
+  data, local path scope matching handles intermediate symlink escape, source
+  profile drift invalidates grants, and confirmation resume eligibility lives
+  in registered action capability metadata.
+- Planned M11-M13 closeout work now captures the remaining release-audit debt:
   remembered grants need operator-visible list/revoke/use behavior for
   existing v0.10 actions, direct skill URL import and local skill directory
   import need concrete disabled/untrusted consumers, and v0.11 needs a cleaner
@@ -130,7 +144,12 @@ v0.10 tag has been created or pushed yet.
 - M8 cleanup gates pass: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, and
   `git diff --check`.
-- Operator/user testing should wait for the M10-M13 closeout sequence, then
+- M10 focused tests pass for canonical-vs-display URL refs, redacted URL grant
+  authority denial, intermediate symlink directory escape denial,
+  source-profile drift rejection, registry-driven resumable action metadata,
+  and historical `adapter_unavailable` behavior.
+- Operator/user testing should wait for the remaining M11-M13 closeout
+  sequence, then
   start with `docs/operator/onboarding.md` and use the disposable v0.10 smoke
   flow in `docs/plans/v0.10-request-flow.md` or
   `docs/plans/v0.10-plan.md` before accepting and tagging `v0.10`.
