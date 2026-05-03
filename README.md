@@ -234,9 +234,8 @@ it records the operator decision and still makes no network call. The CLI and
 external-network target has no adapter yet; external network execution is
 planned for v0.10.
 
-Release/tag status: v0.09 is ready for operator/user testing. The expected
-release tag is `v0.09`, pending operator acceptance; no `v0.09` release tag has
-been created or pushed yet.
+Release/tag status: v0.09 is accepted for operator/user testing. The release
+tag is `v0.09`.
 
 Inspect generated files:
 

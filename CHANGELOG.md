@@ -2,9 +2,7 @@
 
 ## v0.09 - Skill Script Runner
 
-Status: ready for operator/user testing. Release tag is pending operator
-acceptance; expected tag name is `v0.09`. No `v0.09` tag has been created or
-pushed yet.
+Status: accepted for operator/user testing. Release tag is `v0.09`.
 
 ### Added
 

@@ -480,9 +480,7 @@ Plan: `docs/plans/v0.09-plan.md`
 Request flow: `docs/plans/v0.09-request-flow.md`
 ADR: `docs/adr/0010-resource-gated-skill-script-execution.md`
 
-Status: ready for operator/user testing. Release/tag handoff is pending
-operator acceptance; expected tag name is `v0.09`, and no `v0.09` tag has been
-created or pushed yet.
+Status: accepted for operator/user testing. Release tag is `v0.09`.
 
 Expected direction:
 
