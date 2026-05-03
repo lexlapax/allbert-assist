@@ -201,6 +201,7 @@ workflow must be denied or deferred to a later sandbox milestone.
   shell, skill script, external request, package install, and online skill
   source summaries can now emit `resource_refs` metadata without changing
   permission behavior.
-- v0.10 M8-M9 resume after M7 with operation-scoped remembered approval
-  requirements and final release readiness/user testing. v0.11 then consumes
-  the resulting posture for channel-native local and remote resource UX.
+- v0.10 M8 implemented operation-scoped remembered resource grants and M9
+  restored release-readiness/user-testing docs after final gates. v0.11 then
+  consumes the resulting posture for channel-native local and remote resource
+  UX.

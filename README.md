@@ -10,11 +10,12 @@ not the architecture center.
 
 ## Current Status
 
-v0.10 is implemented through M8 after the original M5 release-readiness gate
-was reopened for online skill approval clarity/search fixes and Resource
-Access Security Posture planning. Release/tag readiness is pending the final
-reopened v0.10 milestone. Expected release tag after operator acceptance
-remains `v0.10`; no v0.10 tag has been created or pushed yet.
+v0.10 is ready for operator/user testing after the reopened M6-M9 sequence.
+The original M5 release-readiness gate was reopened for online skill approval
+clarity/search fixes and Resource Access Security Posture planning; M9 has now
+closed that line with refreshed docs, smoke steps, and final gate results.
+Expected release tag after operator acceptance remains `v0.10`; no v0.10 tag
+has been created or pushed yet.
 
 Release details live in `CHANGELOG.md`.
 
@@ -45,11 +46,10 @@ Release details live in `CHANGELOG.md`.
   requires the caller to pass the current action permission before use.
 
 v0.10 also implements the first Resource Access Security Posture substrate.
-Until the remaining reopened milestones land, v0.10 does not yet implement
-arbitrary URL/document summarization, channel-native remembered-grant UX,
-local skill directory import, direct skill URL import, a browser, or a crawler.
-v0.11 will consume the final v0.10 posture through channel-native Approval
-Handoff UX.
+It does not implement arbitrary URL/document summarization, channel-native
+remembered-grant UX, local skill directory import, direct skill URL import, a
+browser, or a crawler. v0.11 consumes the final v0.10 posture through
+execution-aware intent and channel-native Approval Handoff UX.
 
 ## Start Here
 

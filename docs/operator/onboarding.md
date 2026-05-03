@@ -14,7 +14,7 @@ Read these first:
   expected tag.
 - `docs/plans/roadmap.md` for version sequencing.
 - `docs/plans/v0.10-plan.md` and `docs/plans/v0.10-request-flow.md` for the
-  current release scope and smoke matrix.
+  current v0.10 release scope and smoke matrix.
 - `docs/plans/v0.11-plan.md` for the next execution-aware Approval Handoff and
   Resource Access Security Posture work.
 
@@ -74,6 +74,10 @@ v0.10 external-network testing should confirm that approval and target
 execution are distinct. If a source HTTP/transport failure happens after
 approval, the operator decision remains `approved` and the target result should
 show `target_status=failed` with a visible failure reason.
+
+v0.10 is ready for operator/user testing after the reopened M6-M9 sequence.
+Expected tag after acceptance is `v0.10`; no v0.10 tag has been created or
+pushed yet.
 
 ## Safety Defaults
 

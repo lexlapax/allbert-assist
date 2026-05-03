@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted for v0.10. The M7 shared resource reference contract and M8
-remembered resource grant contract are implemented.
+Accepted for v0.10. The M7 shared resource reference contract, M8 remembered
+resource grant contract, and M9 release-readiness handoff are implemented.
 
 ## Context
 
@@ -102,7 +102,8 @@ one operation class does not authorize another:
 - v0.10 M7 owns the implemented resource reference contract, operation-class
   vocabulary, local/remote consumer metadata, docs, and tests. v0.10 M8 owns
   implemented remembered grant scope, storage, matching, revocation, docs, and
-  tests.
+  tests. v0.10 M9 owns release-readiness docs, user-testing instructions, and
+  future milestone handoffs over the implemented M7/M8 contracts.
 - ADR 0011 remains the external-adapter decision. ADR 0012 sits above it and
   names the shared local/remote resource access posture.
 - v0.11 consumes the posture for execution-aware intent and channel-native
