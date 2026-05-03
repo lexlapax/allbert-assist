@@ -561,9 +561,12 @@ after M5 because post-M5 commits added online skill approval clarity/search
 fixes and Resource Access Security Posture planning. M6 reconciles that
 history, M7 implements shared resource reference metadata, M8 implements
 Settings-backed remembered resource grant storage and matching, and M9 closes
-the release-readiness/user-testing refresh. v0.10 is ready for operator/user
-testing. Expected tag remains `v0.10`; no v0.10 tag has been created or
-pushed yet.
+the first release-readiness/user-testing refresh. A later zoom-out release
+audit reopened v0.10 for M10-M13 closeout before operator acceptance:
+canonical resource identity hardening, remembered-grant operator UX and
+application to existing v0.10 flows, direct/local skill import consumers, and
+final v0.11 handoff readiness. Expected tag remains `v0.10`; no v0.10 tag has
+been created or pushed yet.
 
 Expected direction:
 
@@ -636,6 +639,21 @@ Milestones:
 - M9 (Milestone 9): Implemented. Release readiness and user testing refresh
   after M6-M8, including focused online skill regressions, resource
   reference/grant tests, full gates, docs, and tag-readiness wording.
+- M10 (Milestone 10): Planned implementation. Resource identity and scope
+  hardening before grants become user-facing: canonical-resource versus
+  redacted-display separation, full local symlink/realpath handling, source
+  profile drift checks, and registry-driven resumable-action metadata.
+- M11 (Milestone 11): Planned implementation. Remembered grant operator UX and
+  application for existing v0.10 actions: list/show/revoke, approve-with-
+  remember, and grant lookup before creating confirmations for external
+  request, online skill source, package install, and skill import consumers.
+- M12 (Milestone 12): Planned implementation. Direct skill URL import and
+  local skill directory import as concrete resource consumers that import only
+  disabled/untrusted skill candidates and never trust, enable, execute, or
+  install dependencies.
+- M13 (Milestone 13): Planned implementation. Final closeout and v0.11 handoff
+  readiness: explicit no-op/unsupported UX for URL summarization and document
+  inspection in v0.10, refreshed tests, docs, and release/tag readiness.
 
 Exit signal: Allbert can search, audit, and import online skills, call approved
 external services, and run the first confirmed npm package-manager profile
@@ -645,8 +663,8 @@ audits, and Security Central render the same v0.10 metadata and policy
 summaries, including the distinction between operator approval and target
 execution failure. The docs and code also identify Resource Access Security
 Posture as the common substrate for future local and remote consumers. The
-reopened M6-M9 sequence is complete; release/tag acceptance is now an operator
-decision after user testing.
+reopened M6-M9 sequence is complete, but the later M10-M13 closeout must
+finish before release/tag acceptance.
 
 ## v0.11: Execution-Aware Intent, Approval Handoff, And Resource Access Posture
 

@@ -10,10 +10,13 @@ not the architecture center.
 
 ## Current Status
 
-v0.10 is ready for operator/user testing after the reopened M6-M9 sequence.
+v0.10 is implemented through M9 after the reopened M6-M9 sequence.
 The original M5 release-readiness gate was reopened for online skill approval
 clarity/search fixes and Resource Access Security Posture planning; M9 has now
 closed that line with refreshed docs, smoke steps, and final gate results.
+After a zoom-out release audit, v0.10 now has additional planned closeout
+milestones M10-M13 for resource identity hardening, remembered-grant operator
+UX/application, direct/local skill import consumers, and final v0.11 handoff.
 Expected release tag after operator acceptance remains `v0.10`; no v0.10 tag
 has been created or pushed yet.
 
