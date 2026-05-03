@@ -553,7 +553,7 @@ Plan: `docs/plans/v0.10-plan.md`
 Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 
-Status: M1-M3 implemented and focused-test verified. M4-M5 remain in
+Status: M1-M4 implemented and focused-test verified. M5 remains in
 progress; no v0.10 release commit or release tag exists yet.
 
 Expected direction:
@@ -591,9 +591,10 @@ Milestones:
 - M3 (Milestone 3): Implemented. Package install preview, confirmed npm adapter
   through package-manager profiles, exact package spec validation, package
   confirmation metadata, `mix allbert.packages`, and pip preview-only denial.
-- M4 (Milestone 4): Online skill search, detail, audit, and disabled
-  imported-cache write through allowed source profiles and existing registry
-  validation.
+- M4 (Milestone 4): Implemented. Confirmed online skill search, detail, audit,
+  and disabled imported-cache write through allowed source profiles, `Req`,
+  source manifests, existing parser/registry validation, and CLI/confirmation
+  metadata.
 - M5 (Milestone 5): Release readiness, operator surfaces, trace/audit polish,
   docs, future milestone handoffs, focused tests, final gates, version
   metadata, and release/tag readiness docs.

@@ -6,11 +6,16 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.Skills.Online.RegistryClient
+  alias Mix.Tasks.Allbert.Confirmations, as: ConfirmationsTask
   alias Mix.Tasks.Allbert.Skills, as: SkillsTask
 
   @fixtures Path.expand("../../support/fixtures/skills", __DIR__)
 
+  setup {Req.Test, :verify_on_exit!}
+
   setup do
+    original_client_config = Application.get_env(:allbert_assist, RegistryClient)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -28,11 +33,17 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(home, "confirmations"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
+    Application.put_env(:allbert_assist, RegistryClient,
+      req_options: [plug: {Req.Test, __MODULE__}]
+    )
+
     on_exit(fn ->
+      restore_env(RegistryClient, original_client_config)
       restore_env(Confirmations, original_confirmations_config)
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       Mix.Task.reenable("allbert.skills")
+      Mix.Task.reenable("allbert.confirmations")
       File.rm_rf!(root)
     end)
 
@@ -112,6 +123,32 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
     assert pending["params_summary"]["script_path"] == "scripts/hello"
   end
 
+  test "online import task creates confirmation and approval imports disabled skill" do
+    put_online_policy!()
+
+    output =
+      capture_io(fn ->
+        assert :ok = SkillsTask.run(["import-online", "skills_sh/vercel-labs/skills/find-skills"])
+      end)
+
+    assert output =~ "Status: needs_confirmation"
+    assert output =~ "Confirmation:"
+
+    [pending] = Confirmations.list(status: :pending)
+    assert pending["target_action"]["name"] == "import_online_skill"
+
+    Req.Test.expect(__MODULE__, &detail_response/1)
+
+    approve_output =
+      capture_io(fn ->
+        assert :ok = ConfirmationsTask.run(["approve", pending["id"], "--reason", "import smoke"])
+      end)
+
+    assert approve_output =~ "#{pending["id"]} status=approved"
+    assert approve_output =~ "Imported target:"
+    assert approve_output =~ "Manifest:"
+  end
+
   defp fixture(name), do: Path.join(@fixtures, name)
 
   defp write_script_skill!(home, name) do
@@ -150,6 +187,51 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
     }
 
     assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
+
+  defp put_online_policy! do
+    settings = %{
+      "permissions" => %{
+        "online_skill_import" => "allowed",
+        "external_network" => "allowed"
+      },
+      "skills" => %{
+        "online_import" => %{
+          "enabled" => true,
+          "allowed_sources" => ["skills_sh"],
+          "sources" => %{"skills_sh" => %{"enabled" => true}}
+        }
+      }
+    }
+
+    assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
+
+  defp detail_response(conn) do
+    conn
+    |> Plug.Conn.put_resp_content_type("application/json")
+    |> Plug.Conn.send_resp(
+      200,
+      Jason.encode!(%{
+        "id" => "vercel-labs/skills/find-skills",
+        "name" => "find-skills",
+        "owner" => "vercel-labs",
+        "repository" => "skills",
+        "description" => "Find skills.",
+        "files" => %{"SKILL.md" => online_skill_md()}
+      })
+    )
+  end
+
+  defp online_skill_md do
+    """
+    ---
+    name: find-skills
+    description: Find skills.
+    ---
+
+    Search the registry.
+    """
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

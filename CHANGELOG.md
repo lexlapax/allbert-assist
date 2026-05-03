@@ -2,7 +2,7 @@
 
 ## v0.10 - External Capability Adapters
 
-Status: in progress. M1-M3 are implemented and focused-test verified. No
+Status: in progress. M1-M4 are implemented and focused-test verified. No
 release commit or release tag exists yet.
 
 ### Added
@@ -16,6 +16,11 @@ release commit or release tag exists yet.
   `mix allbert.packages`.
 - Package install audit records under
   `<ALLBERT_HOME>/execution/package-installs/audit`.
+- Confirmed online skill search, detail, audit, and disabled import through
+  `search_online_skills`, `show_online_skill`, `audit_online_skill`,
+  `import_online_skill`, and `mix allbert.skills ...-online`.
+- Source manifests for imported online skills under
+  `<ALLBERT_HOME>/cache/skills/_sources`.
 
 ### Safety
 
@@ -26,6 +31,9 @@ release commit or release tag exists yet.
   package specs are denied by default.
 - pip remains preview-only and cannot execute in v0.10 without future strict
   hash, binary, pinned requirement, and target policy.
+- Online skill search/detail/audit are confirmed external reads. Import creates
+  a confirmation before fetching or writing, stores only under Allbert cache,
+  and leaves imported skills disabled, untrusted, and non-executable.
 
 ## v0.09 - Skill Script Runner
 

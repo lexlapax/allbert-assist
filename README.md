@@ -319,6 +319,10 @@ Allbert remains local and conservative:
   Settings Central `package_installs.*` policy, durable confirmation, and
   package audit. npm uses explicit argv only; URL/git/tarball/path/global and
   unpinned installs are denied by default. pip remains preview-only.
+- v0.10 M4 adds confirmed online skill search/detail/audit/import through
+  registered actions and `mix allbert.skills search-online|show-online|audit-online|import-online`.
+  Imported skills are written only under `<ALLBERT_HOME>/cache/skills`, remain
+  disabled and untrusted, and are never activated or executed by import.
 - v0.09 executes only trusted, resource-gated bundled skill script resources
   through registered action `run_skill_script`, durable confirmation, digest
   re-check, and Level 1 host-process controls. It is not a generic scripting

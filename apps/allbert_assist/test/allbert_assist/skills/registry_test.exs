@@ -137,6 +137,20 @@ defmodule AllbertAssist.Skills.RegistryTest do
     assert skill.trust_status == :trusted
   end
 
+  test "imported cache discovery supports source-scoped nested imports", context do
+    write_skill(
+      Path.join([context.home, "cache", "skills", "skills_sh", "vercel-labs-skills"]),
+      "find-skills",
+      "find-skills"
+    )
+
+    registry_context = registry_context(context)
+
+    assert {:ok, []} = Skills.list(registry_context)
+    assert {:ok, diagnostics} = Skills.diagnostics(registry_context)
+    assert Enum.any?(diagnostics, &(&1.code == :imported_skill_disabled))
+  end
+
   test "malformed declarations appear in diagnostics", context do
     scan_root = Path.join(context.root, "configured")
     invalid_root = Path.join(scan_root, "invalid")

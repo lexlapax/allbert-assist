@@ -162,16 +162,16 @@ defmodule AllbertAssist.Actions.Registry do
       exposure: :agent,
       execution_mode: :online_skill_search,
       skill_backed?: true,
-      confirmation: :future_confirmation_required,
-      notes: "M1 contract only; M4 routes search through the confirmed external adapter."
+      confirmation: :required,
+      notes: "Searches online skill source profiles only after external-network confirmation."
     },
     ShowOnlineSkill => %{
       permission: :external_network,
       exposure: :agent,
       execution_mode: :online_skill_detail,
       skill_backed?: true,
-      confirmation: :future_confirmation_required,
-      notes: "M1 contract only; M4 routes detail fetch through the confirmed external adapter."
+      confirmation: :required,
+      notes: "Fetches online skill details only after external-network confirmation."
     },
     ListSettings => %{
       permission: :read_only,
@@ -253,15 +253,15 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :package_manager_process,
       skill_backed?: true,
       confirmation: :required,
-      notes: "M1 contract only; M3 wires confirmed npm process execution."
+      notes: "Runs confirmed npm package-manager process execution; pip remains preview-only."
     },
     AuditOnlineSkill => %{
-      permission: :read_only,
+      permission: :external_network,
       exposure: :internal,
       execution_mode: :online_skill_audit,
       skill_backed?: false,
-      confirmation: :not_required,
-      notes: "Audits cached online skill metadata before any disabled-by-default import."
+      confirmation: :required,
+      notes: "Fetches and audits online skill metadata only after external-network confirmation."
     },
     ImportOnlineSkill => %{
       permission: :online_skill_import,
@@ -269,7 +269,7 @@ defmodule AllbertAssist.Actions.Registry do
       execution_mode: :online_skill_import,
       skill_backed?: false,
       confirmation: :required,
-      notes: "M1 contract only; import remains disabled by default."
+      notes: "Imports online skill files into the disabled, untrusted cache after confirmation."
     },
     SecurityStatus => %{
       permission: :read_only,

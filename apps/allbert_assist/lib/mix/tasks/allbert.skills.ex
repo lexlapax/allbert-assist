@@ -7,11 +7,16 @@ defmodule Mix.Tasks.Allbert.Skills do
       mix allbert.skills validate PATH
       mix allbert.skills create NAME ACTION PERMISSION DESCRIPTION... [--root ROOT] [--overwrite]
       mix allbert.skills run SKILL SCRIPT [--cwd PATH] [--timeout MS] [--max-output-bytes BYTES] -- [ARGS...]
+      mix allbert.skills search-online QUERY...
+      mix allbert.skills show-online SOURCE/ID
+      mix allbert.skills audit-online SOURCE/ID
+      mix allbert.skills import-online SOURCE/ID
   """
 
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Confirmations.OnlineSkillMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
 
   @shortdoc "Validate and scaffold local Allbert Agent Skills"
@@ -67,12 +72,42 @@ defmodule Mix.Tasks.Allbert.Skills do
     end
   end
 
+  defp dispatch(["search-online" | query_parts]) when query_parts != [] do
+    params = %{query: Enum.join(query_parts, " ")}
+
+    with {:ok, response} <- runnable_action("search_online_skills", params) do
+      {:ok, {:online, response}}
+    end
+  end
+
+  defp dispatch(["show-online", ref]) do
+    with {:ok, response} <- runnable_action("show_online_skill", online_ref(ref)) do
+      {:ok, {:online, response}}
+    end
+  end
+
+  defp dispatch(["audit-online", ref]) do
+    with {:ok, response} <- runnable_action("audit_online_skill", online_ref(ref)) do
+      {:ok, {:online, response}}
+    end
+  end
+
+  defp dispatch(["import-online", ref]) do
+    with {:ok, response} <- runnable_action("import_online_skill", online_ref(ref)) do
+      {:ok, {:online, response}}
+    end
+  end
+
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
       mix allbert.skills validate PATH
       mix allbert.skills create NAME ACTION PERMISSION DESCRIPTION... [--root ROOT] [--overwrite]
       mix allbert.skills run SKILL SCRIPT [--cwd PATH] [--timeout MS] [--max-output-bytes BYTES] -- [ARGS...]
+      mix allbert.skills search-online QUERY...
+      mix allbert.skills show-online SOURCE/ID
+      mix allbert.skills audit-online SOURCE/ID
+      mix allbert.skills import-online SOURCE/ID
     """)
   end
 
@@ -105,6 +140,19 @@ defmodule Mix.Tasks.Allbert.Skills do
     end
   end
 
+  defp print_result({:ok, {:online, response}}) do
+    Mix.shell().info("Status: #{response.status}")
+    Mix.shell().info(response.message)
+
+    response
+    |> online_lines()
+    |> Enum.each(fn line -> Mix.shell().info(line) end)
+
+    if Map.get(response, :confirmation_id) do
+      Mix.shell().info("Confirmation: #{response.confirmation_id}")
+    end
+  end
+
   defp print_result({:error, reason}) do
     Mix.raise("Skills command failed: #{inspect(reason)}")
   end
@@ -128,6 +176,71 @@ defmodule Mix.Tasks.Allbert.Skills do
       {:ok, response} ->
         {:error, response_error(response)}
     end
+  end
+
+  defp online_ref(ref) do
+    case String.split(ref, "/", parts: 2) do
+      [source, id] -> %{source: source, id: id}
+      [id] -> %{source: "skills_sh", id: id}
+    end
+  end
+
+  defp online_lines(response) do
+    cond do
+      is_map(Map.get(response, :online_skill_search)) ->
+        search_lines(response.online_skill_search)
+
+      is_map(Map.get(response, :online_skill_detail)) ->
+        detail_lines(response.online_skill_detail)
+
+      is_map(Map.get(response, :online_skill_audit)) ->
+        audit_lines(response.online_skill_audit)
+
+      is_map(Map.get(response, :online_skill_import)) ->
+        import_lines(response.online_skill_import)
+
+      true ->
+        response
+        |> Map.get(:confirmation)
+        |> OnlineSkillMetadata.lines()
+    end
+  end
+
+  defp search_lines(search) do
+    [
+      "Source: #{get_in(search, [:source, :id])}",
+      "Results: #{length(Map.get(search, :results, []))}"
+    ] ++
+      Enum.map(Map.get(search, :results, []), fn result ->
+        "- #{result.id}: #{result.description || result.title}"
+      end)
+  end
+
+  defp detail_lines(detail) do
+    [
+      "Skill id: #{detail.id}",
+      "Source URL: #{detail.source_url}",
+      "Files: #{Enum.join(Map.get(detail, :files, []), ", ")}",
+      "SKILL.md present: #{detail.skill_md_present?}"
+    ]
+  end
+
+  defp audit_lines(audit) do
+    [
+      "Audit: #{audit.status}",
+      "Skill: #{audit.skill_name || "unknown"}",
+      "Import eligible: #{audit.import_eligible?}",
+      "Warnings: #{Enum.join(Enum.map(audit.warnings, &to_string/1), ", ")}"
+    ]
+  end
+
+  defp import_lines(import) do
+    [
+      "Imported target: #{import.target_root}",
+      "Manifest: #{import.manifest_path}",
+      "Enabled: #{import.enabled?}",
+      "Trusted: #{import.trusted?}"
+    ]
   end
 
   defp parse_create_options(args) do

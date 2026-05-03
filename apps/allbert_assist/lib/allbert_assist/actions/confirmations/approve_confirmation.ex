@@ -22,6 +22,13 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
 
+  @online_action_names ~w[
+    search_online_skills
+    show_online_skill
+    audit_online_skill
+    import_online_skill
+  ]
+
   @impl true
   def run(%{id: id} = params, context) do
     permission_decision = PermissionGate.authorize(:confirmation_decide, context)
@@ -100,6 +107,16 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
       "run_package_install" ->
         resume_package_install(record, reason, context, permission_decision, target_decision)
+
+      action_name when action_name in @online_action_names ->
+        resume_online_action(
+          record,
+          reason,
+          context,
+          permission_decision,
+          target_decision,
+          action_name
+        )
 
       "run_skill_script" ->
         resume_skill_script(record, reason, context, permission_decision, target_decision)
@@ -292,6 +309,51 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
           record,
           :denied,
           reason || "Package install target did not run: #{inspect(target_status)}",
+          context,
+          permission_decision,
+          %{
+            target_policy_decision: target_decision,
+            target_resumed?: false,
+            target_status: target_status,
+            target_result: target_result,
+            blocked_by_policy?: Map.get(response, :status) == :denied
+          }
+        )
+    end
+  end
+
+  defp resume_online_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         action_name
+       ) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run(action_name, Map.get(record, "resume_params_ref", %{}), target_context) do
+      {:ok, %{status: :completed} = response} ->
+        target_result = Map.get(response, :result, %{status: :completed})
+
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: :completed,
+          target_result: target_result
+        })
+
+      {:ok, response} ->
+        target_result = Map.get(response, :result, %{status: Map.get(response, :status)})
+        target_status = Map.get(target_result, :status, Map.get(response, :status, :denied))
+
+        resolve_status(
+          record,
+          :denied,
+          reason || "#{action_name} target did not run: #{inspect(target_status)}",
           context,
           permission_decision,
           %{

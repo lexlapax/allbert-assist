@@ -279,11 +279,33 @@ defmodule AllbertAssist.Skills.Registry do
     root_spec(:imported_cache, Path.join(Paths.cache_root(), "skills"), trust_status, false, 100)
   end
 
+  defp skill_dirs(%{source_scope: :imported_cache, root_path: root_path} = source) do
+    root_path
+    |> recursive_skill_dirs(3)
+    |> Enum.map(&Map.put(source, :path, &1))
+  end
+
   defp skill_dirs(%{root_path: root_path} = source) do
     root_path
     |> child_dirs()
     |> Enum.filter(&File.regular?(Path.join(&1, "SKILL.md")))
     |> Enum.map(&Map.put(source, :path, &1))
+  end
+
+  defp recursive_skill_dirs(root_path, depth) when depth <= 0 do
+    if File.regular?(Path.join(root_path, "SKILL.md")), do: [root_path], else: []
+  end
+
+  defp recursive_skill_dirs(root_path, depth) do
+    own = if File.regular?(Path.join(root_path, "SKILL.md")), do: [root_path], else: []
+
+    children =
+      root_path
+      |> child_dirs()
+      |> Enum.reject(&(Path.basename(&1) == "_sources"))
+      |> Enum.flat_map(&recursive_skill_dirs(&1, depth - 1))
+
+    own ++ children
   end
 
   defp child_dirs(root_path) do
