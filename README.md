@@ -10,10 +10,11 @@ not the architecture center.
 
 ## Current Status
 
-v0.10 is ready for operator/user testing after the M5 release-readiness gate
-and the post-M5 Resource Access Security Posture documentation clarification.
-Expected release tag after operator acceptance: `v0.10`. No v0.10 tag has
-been created or pushed yet.
+v0.10 is implemented through M6 after the original M5 release-readiness gate
+was reopened for online skill approval clarity/search fixes and Resource
+Access Security Posture planning. Release/tag readiness is pending the final
+reopened v0.10 milestone. Expected release tag after operator acceptance
+remains `v0.10`; no v0.10 tag has been created or pushed yet.
 
 Release details live in `CHANGELOG.md`.
 
@@ -38,11 +39,10 @@ Release details live in `CHANGELOG.md`.
   `<ALLBERT_HOME>/cache/skills`.
 
 v0.10 also documents the first Resource Access Security Posture substrate.
-Future URL summaries, document inspection, direct skill URL imports, local
-skill directory imports, and other local/remote resource consumers should
-consume that posture through operation-scoped approval in v0.11; v0.10 does
-not implement arbitrary URL/document summarization, remembered resource grants,
-local skill directory import, direct skill URL import, a browser, or a crawler.
+Until the remaining reopened milestones land, v0.10 does not yet implement
+arbitrary URL/document summarization, remembered resource grants, local skill
+directory import, direct skill URL import, a browser, or a crawler. v0.11 will
+consume the final v0.10 posture through channel-native Approval Handoff UX.
 
 ## Start Here
 

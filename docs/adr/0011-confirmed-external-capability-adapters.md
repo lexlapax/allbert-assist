@@ -192,12 +192,10 @@ workflow must be denied or deferred to a later sandbox milestone.
   configured API base and keeps page fallback for detail fetches.
 - v0.10 M5 made CLI, `/settings`, markdown traces, confirmation audits, and
   Security Central status render the same v0.10 request/result metadata.
-- v0.10 M6 is a documentation cleanup milestone that keeps README as the
-  project overview and moves operator testing guidance to explicit onboarding
-  and request-flow docs.
-- v0.10 M7-M10 are documentation and planned-handoff milestones that do not
-  rewrite the already implemented M1-M5 work. They record ADR 0012 Resource
-  Access Security Posture, historical v0.08/v0.09 reframing, the planned
-  shared resource reference contract, operation-scoped remembered approval
-  requirements, and the v0.11 UX handoff for local and remote resource
-  consumers including direct skill URL import and local skill directory import.
+- v0.10 M6 reconciles the actual post-M5 history: the online approval
+  clarity/search fix, README/operator onboarding cleanup, ADR 0012 Resource
+  Access Security Posture, and historical v0.08/v0.09 reframing.
+- v0.10 M7-M9 resume implementation after that reconciliation: shared resource
+  reference contract, operation-scoped remembered approval requirements, and
+  final release readiness/user testing. v0.11 then consumes the resulting
+  posture for channel-native local and remote resource UX.

@@ -2,10 +2,11 @@
 
 ## v0.10 - External Capability Adapters
 
-Status: ready for operator/user testing after the v0.10 M5 release-readiness
-gate, the post-M5 README/operator onboarding refresh, and the remote network
-content posture documentation clarification. Expected release tag is `v0.10`,
-pending operator acceptance; no v0.10 tag has been created or pushed yet.
+Status: implemented through M6 after the original v0.10 M5 release-readiness
+gate was reopened for online skill approval clarity/search fixes and Resource
+Access Security Posture planning. Release/tag readiness is pending the final
+reopened v0.10 milestone. Expected release tag remains `v0.10`; no v0.10 tag
+has been created or pushed yet.
 
 ### Added
 
@@ -48,10 +49,10 @@ pending operator acceptance; no v0.10 tag has been created or pushed yet.
   testing plan. First-run operator guidance lives in
   `docs/operator/onboarding.md`; the v0.10 smoke matrix remains in
   `docs/plans/v0.10-request-flow.md`.
-- v0.11 planning now owns execution-aware Approval Handoff UX for consumers
-  such as `summarize_url`, `inspect_document`, `import_skill`, and
-  `import_local_skill`, including remembered exact-resource, local-directory,
-  exact-URL, or URL-prefix grants scoped by operation class.
+- The reopened v0.10 plan now owns resource reference and remembered grant
+  contracts before release. v0.11 owns execution-aware Approval Handoff UX for
+  consumers such as `summarize_url`, `inspect_document`, `import_skill`, and
+  `import_local_skill`.
 
 ### Safety
 
@@ -68,9 +69,11 @@ pending operator acceptance; no v0.10 tag has been created or pushed yet.
 - Operator approval is recorded separately from target execution success:
   source HTTP/transport failures after approval are failed target outcomes, not
   Security Central or operator denials.
-- v0.10 does not implement arbitrary URL/document summarization, remembered URL
-  grants, direct skill URL import, a browser, or a crawler. Those consumers
-  need the v0.11 intent and Approval Handoff contract over the v0.10 adapter.
+- v0.10 does not implement arbitrary URL/document summarization, direct skill
+  URL import, local skill directory import, a browser, or a crawler unless an
+  explicit reopened v0.10 milestone lands that behavior. Those consumer UX
+  flows still need the v0.11 intent and Approval Handoff contract over the
+  v0.10 resource posture.
 
 ### Verification
 
@@ -81,6 +84,9 @@ pending operator acceptance; no v0.10 tag has been created or pushed yet.
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
 - `mix precommit` passed with 248 core tests and 17 web tests.
+- Because v0.10 is reopened after M5, focused post-M5 online skill regressions
+  and final gates must be rerun in the final reopened release-readiness
+  milestone before tag acceptance.
 - Operator/user testing should start with `docs/operator/onboarding.md` and
   use the disposable v0.10 smoke flow
   in `docs/plans/v0.10-request-flow.md` or `docs/plans/v0.10-plan.md`.
