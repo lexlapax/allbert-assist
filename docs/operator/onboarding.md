@@ -75,11 +75,12 @@ execution are distinct. If a source HTTP/transport failure happens after
 approval, the operator decision remains `approved` and the target result should
 show `target_status=failed` with a visible failure reason.
 
-v0.10 is implemented through M11 after the reopened M6-M9 sequence, but the
-release remains open for M12-M14 closeout before operator acceptance. M12 is
-planned as the URI-first resource identity refactor, M13 as direct/local skill
-import, and M14 as final handoff and release readiness. Expected tag after
-acceptance is `v0.10`; no v0.10 tag has been created or pushed yet.
+v0.10 is implemented through M12 after the reopened M6-M9 sequence, but the
+release remains open for M13-M14 closeout before operator acceptance. M12
+landed the URI-first `resource_uri` resource/grant authority. M13 is
+direct/local skill import, and M14 is final handoff and release readiness.
+Expected tag after acceptance is `v0.10`; no v0.10 tag has been created or
+pushed yet.
 
 Remembered grant testing should use disposable confirmations and resources:
 
@@ -107,11 +108,12 @@ alone does not authorize package registry/package-spec access.
   trust or execution authority. Grants are scoped by resource, operation,
   access mode, and downstream consumer, and still require Security Central
   policy re-check with the current action permission.
-- Treat canonical resource fields as the authority for matching. Redacted
+- Treat canonical `resource_uri` fields as the authority for matching. Redacted
   display URLs and rendered resource lines help operators inspect requests,
   but they are not remembered grant scopes.
-- Expect the remaining v0.10 URI-first refactor to make `resource_uri` the
-  future authority while keeping existing grants and confirmations compatible.
+- Pre-M12 remembered grants without `resource_uri` are not matched by the
+  current pre-1.0 schema; re-create any still-needed grants through approval or
+  `mix allbert.resources` flows.
 - Use operation-scoped approvals for local path access, URL summaries,
   document inspection, local skill directory import, and direct skill URL
   import work.

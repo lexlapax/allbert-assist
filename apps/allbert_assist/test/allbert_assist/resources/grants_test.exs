@@ -3,6 +3,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
 
   alias AllbertAssist.Resources.Grants
   alias AllbertAssist.Resources.Ref
+  alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Settings
 
@@ -36,9 +37,9 @@ defmodule AllbertAssist.Resources.GrantsTest do
                [
                  %{
                    "id" => "grant_bad",
+                   "resource_uri" => "https://example.com/a",
                    "origin_kind" => "remote_url",
                    "scope" => %{"kind" => "exact_url", "value" => "https://example.com/a"},
-                   "canonical_scope" => "https://example.com/a",
                    "operation_class" => "do_anything",
                    "access_mode" => "fetch",
                    "created_at" => DateTime.utc_now() |> DateTime.to_iso8601()
@@ -61,8 +62,8 @@ defmodule AllbertAssist.Resources.GrantsTest do
              )
 
     assert grant["scope"]["kind"] == "exact_file"
-    assert Path.type(grant["scope"]["value"]) == :absolute
-    assert String.ends_with?(grant["scope"]["value"], "/workspace/docs/a.txt")
+    assert grant["resource_uri"] == ResourceURI.file!(file)
+    assert grant["scope"]["value"] == grant["resource_uri"]
     assert {:ok, ^grant} = find(read_file_ref(file), :read_only)
     assert {:error, :no_matching_grant} = find(read_file_ref(sibling), :read_only)
   end
@@ -86,6 +87,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
     assert {:ok, grant} =
              Grants.remember(
                %{
+                 resource_uri: ResourceURI.file!(allowed),
                  origin_kind: :local_path,
                  canonical_id: allowed,
                  operation_class: :read_local_path,
@@ -115,6 +117,8 @@ defmodule AllbertAssist.Resources.GrantsTest do
              "value" => "https://example.com/docs/a?x=1"
            }
 
+    assert grant["resource_uri"] == "https://example.com/docs/a?x=1"
+
     assert {:ok, ^grant} = find(exact, :external_network)
     assert {:error, :no_matching_grant} = find(other_path, :external_network)
   end
@@ -124,7 +128,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
     redacted = external_ref("https://example.com/docs/a?[REDACTED]")
 
     assert {:ok, grant} = Grants.remember(canonical, audit?: false)
-    assert grant["canonical_scope"] == "https://example.com/docs/a?token=secret"
+    assert grant["resource_uri"] == "https://example.com/docs/a?token=secret"
 
     assert {:ok, ^grant} = find(canonical, :external_network)
     assert {:error, :no_matching_grant} = find(redacted, :external_network)
@@ -136,6 +140,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
     assert {:ok, grant} =
              Grants.remember(
                %{
+                 resource_uri: "https://example.com/docs/",
                  origin_kind: :remote_url,
                  canonical_id: "https://example.com/docs/",
                  operation_class: :summarize_url,
@@ -263,6 +268,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
     path = Path.expand(path)
 
     %{
+      resource_uri: ResourceURI.file!(path),
       origin_kind: :local_path,
       canonical_id: path,
       operation_class: :read_local_path,
@@ -274,6 +280,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
 
   defp external_ref(url) do
     %{
+      resource_uri: ResourceURI.url!(url),
       origin_kind: :remote_url,
       canonical_id: url,
       operation_class: :external_service_request,
@@ -285,6 +292,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
 
   defp summarize_ref(url) do
     %{
+      resource_uri: ResourceURI.url!(url),
       origin_kind: :remote_url,
       canonical_id: url,
       operation_class: :summarize_url,

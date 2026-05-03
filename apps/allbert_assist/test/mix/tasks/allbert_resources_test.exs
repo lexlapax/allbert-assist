@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Allbert.ResourcesTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Resources.Grants
+  alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Settings
   alias Mix.Tasks.Allbert.Resources, as: ResourcesTask
@@ -36,6 +37,7 @@ defmodule Mix.Tasks.Allbert.ResourcesTest do
     list_output = capture_io(fn -> assert :ok = ResourcesTask.run(["grants", "list"]) end)
     assert list_output =~ "grant_mix_resource status=active"
     assert list_output =~ "external_service_request"
+    assert list_output =~ "resource_uri=https://example.com/status"
     assert list_output =~ "exact_url:https://example.com/status"
 
     show_output =
@@ -64,6 +66,7 @@ defmodule Mix.Tasks.Allbert.ResourcesTest do
 
   defp external_ref(url) do
     %{
+      resource_uri: ResourceURI.url!(url),
       origin_kind: :remote_url,
       canonical_id: url,
       operation_class: :external_service_request,

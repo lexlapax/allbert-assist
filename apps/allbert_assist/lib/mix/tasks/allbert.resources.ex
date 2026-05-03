@@ -81,7 +81,7 @@ defmodule Mix.Tasks.Allbert.Resources do
     scope = Map.get(grant, "scope", %{}) || %{}
 
     Mix.shell().info(
-      "#{grant["id"]} status=#{grant_status(grant)} operation=#{grant["operation_class"]} access=#{grant["access_mode"]} scope=#{scope["kind"]}:#{scope["value"]} consumer=#{Map.get(grant, "downstream_consumer", "none")}"
+      "#{grant["id"]} status=#{grant_status(grant)} operation=#{grant["operation_class"]} access=#{grant["access_mode"]} resource_uri=#{grant["resource_uri"]} scope=#{scope["kind"]}:#{scope["value"]} consumer=#{Map.get(grant, "downstream_consumer", "none")}"
     )
   end
 

@@ -53,11 +53,10 @@ Current research points to a URI-first substrate:
 
 Allbert resource identity will become URI-first.
 
-Future resource references should carry a canonical `uri` or `resource_uri` as
-the durable identity field. Existing fields such as `origin_kind`,
-`canonical_id`, and legacy scope values become compatibility and derived
-metadata. They may remain in records, renderers, traces, and tests while
-existing grants and confirmations are migrated.
+Resource references carry canonical `resource_uri` as the durable identity
+field. Fields such as `origin_kind`, `canonical_id`, and scope values are
+derived/descriptive metadata for renderers, traces, audits, and workflow
+context. They are not the remembered-grant authority.
 
 Permission matching authority is:
 
@@ -87,16 +86,17 @@ approval explanation, trace, or future handoff, but it is denied for execution
 until a later plan adds an action, policy, confirmation shape, adapter,
 redaction, trace, audit, and tests.
 
-The remaining v0.10 implementation work should add a URI normalization module,
-tentatively `AllbertAssist.Resources.URI` or
-`AllbertAssist.Resources.ResourceURI`. That module should own scheme-specific
-normalization, redaction/display rendering, scope derivation, compatibility
-field derivation, and matching support. `AllbertAssist.Resources.Ref` should
-delegate to it instead of embedding URI/path/source/package rules directly.
+The v0.10 M12 implementation adds `AllbertAssist.Resources.ResourceURI`. That
+module owns scheme-specific normalization, redaction/display rendering, scope
+URI derivation, descriptive field derivation, and matching support.
+`AllbertAssist.Resources.Ref` delegates to it instead of embedding
+URI/path/source/package rules directly.
 
-`AllbertAssist.Resources.Grants` should store and use `resource_uri` when
-present and derive it from legacy fields when reading older grants. Existing
-M11 grant behavior must keep working through the refactor.
+`AllbertAssist.Resources.Grants` stores and uses `resource_uri`. Because
+Allbert is pre-1.0, M12 removes the temporary `canonical_scope` grant authority
+shape instead of maintaining a legacy grant matcher. Existing grant records
+without `resource_uri` are invalid under the M12 schema and should be
+re-created through the current approval/resource-grant UX.
 
 ## Consequences
 
@@ -111,8 +111,10 @@ M11 grant behavior must keep working through the refactor.
 - Skills, packages, MCP resources, future agents, source profiles, local
   files, and network URLs become typed resource consumers over the same URI
   substrate.
-- Existing confirmation records and remembered grants remain compatibility
-  inputs. No release may silently invalidate operator audit history.
+- Existing confirmation/audit records remain historical evidence, but
+  remembered grants without `resource_uri` are not compatibility inputs for
+  matching after M12. No user data is deleted; operators may re-create grants
+  under the current schema.
 - Future hardening should add evals for URI normalization mismatch, redacted
   URI authority leaks, cross-scheme grant reuse, operation-scope bypass,
   source-profile drift, local symlink escape, SSRF, MCP resource confusion,

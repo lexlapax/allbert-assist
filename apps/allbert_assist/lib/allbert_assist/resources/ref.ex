@@ -8,10 +8,19 @@ defmodule AllbertAssist.Resources.Ref do
   """
 
   alias AllbertAssist.Resources.OperationClass
+  alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
 
-  @enforce_keys [:origin_kind, :canonical_id, :operation_class, :access_mode, :scope]
+  @enforce_keys [
+    :resource_uri,
+    :origin_kind,
+    :canonical_id,
+    :operation_class,
+    :access_mode,
+    :scope
+  ]
   defstruct [
+    :resource_uri,
     :origin_kind,
     :canonical_id,
     :operation_class,
@@ -21,12 +30,15 @@ defmodule AllbertAssist.Resources.Ref do
     :source_profile,
     :method,
     :digest,
+    :display_uri,
+    unsupported?: false,
     limits: %{},
     redaction: %{},
     metadata: %{}
   ]
 
   @type t :: %__MODULE__{
+          resource_uri: String.t(),
           origin_kind: atom(),
           canonical_id: String.t(),
           operation_class: atom(),
@@ -36,6 +48,8 @@ defmodule AllbertAssist.Resources.Ref do
           source_profile: String.t() | nil,
           method: String.t() | nil,
           digest: String.t() | nil,
+          display_uri: String.t() | nil,
+          unsupported?: boolean(),
           limits: map(),
           redaction: map(),
           metadata: map()
@@ -45,13 +59,17 @@ defmodule AllbertAssist.Resources.Ref do
   def new(attrs) when is_map(attrs) do
     operation_class = field(attrs, :operation_class)
 
-    with {:ok, origin_kind} <- OperationClass.origin_kind(field(attrs, :origin_kind)),
+    with {:ok, resource_uri} <-
+           ResourceURI.normalize(field(attrs, :resource_uri) || field(attrs, :uri)),
+         {:ok, derived} <- ResourceURI.derived_fields(resource_uri),
+         {:ok, origin_kind} <- origin_kind(attrs, derived.origin_kind),
          {:ok, operation_class} <- OperationClass.operation_class(operation_class),
          {:ok, access_mode} <- access_mode(attrs, operation_class),
-         {:ok, canonical_id} <- normalize_id(field(attrs, :canonical_id)),
+         {:ok, canonical_id} <- canonical_id(attrs, derived.canonical_id),
          {:ok, scope} <- normalize_scope(field(attrs, :scope)) do
       {:ok,
        %__MODULE__{
+         resource_uri: resource_uri,
          origin_kind: origin_kind,
          canonical_id: canonical_id,
          operation_class: operation_class,
@@ -61,6 +79,8 @@ defmodule AllbertAssist.Resources.Ref do
          source_profile: normalize_optional_string(field(attrs, :source_profile)),
          method: normalize_optional_string(field(attrs, :method)),
          digest: normalize_optional_string(field(attrs, :digest)),
+         display_uri: normalize_optional_string(field(attrs, :display_uri)),
+         unsupported?: derived.unsupported?,
          limits: normalize_map(field(attrs, :limits)),
          redaction: normalize_map(field(attrs, :redaction)),
          metadata: normalize_map(field(attrs, :metadata))
@@ -79,6 +99,7 @@ defmodule AllbertAssist.Resources.Ref do
   @spec to_map(t()) :: map()
   def to_map(%__MODULE__{} = ref) do
     %{
+      resource_uri: ref.resource_uri,
       origin_kind: ref.origin_kind,
       canonical_id: ref.canonical_id,
       operation_class: ref.operation_class,
@@ -88,6 +109,8 @@ defmodule AllbertAssist.Resources.Ref do
       source_profile: ref.source_profile,
       method: ref.method,
       digest: ref.digest,
+      display_uri: ref.display_uri,
+      unsupported?: ref.unsupported?,
       limits: ref.limits,
       redaction: ref.redaction,
       metadata: ref.metadata
@@ -115,6 +138,7 @@ defmodule AllbertAssist.Resources.Ref do
         cwd ->
           [
             new!(%{
+              resource_uri: ResourceURI.file!(cwd),
               origin_kind: :local_path,
               canonical_id: cwd,
               operation_class: :run_shell_command,
@@ -138,6 +162,7 @@ defmodule AllbertAssist.Resources.Ref do
         resolved = field(operand, :resolved)
 
         new!(%{
+          resource_uri: ResourceURI.file!(resolved),
           origin_kind: :local_path,
           canonical_id: resolved,
           operation_class: :read_local_path,
@@ -168,6 +193,7 @@ defmodule AllbertAssist.Resources.Ref do
       else
         [
           new!(%{
+            resource_uri: ResourceURI.skill_resource!(script_id),
             origin_kind: :local_skill_resource,
             canonical_id: script_id,
             operation_class: :run_skill_script,
@@ -196,6 +222,7 @@ defmodule AllbertAssist.Resources.Ref do
         cwd ->
           [
             new!(%{
+              resource_uri: ResourceURI.file!(cwd),
               origin_kind: :local_path,
               canonical_id: cwd,
               operation_class: :run_skill_script,
@@ -222,6 +249,7 @@ defmodule AllbertAssist.Resources.Ref do
     else
       [
         new!(%{
+          resource_uri: ResourceURI.url!(canonical_url),
           origin_kind: :remote_url,
           canonical_id: canonical_url,
           operation_class: :external_service_request,
@@ -230,6 +258,7 @@ defmodule AllbertAssist.Resources.Ref do
           method: field(summary, :method),
           downstream_consumer: :req_http,
           digest: field(summary, :request_digest),
+          display_uri: display_url,
           limits: limits(summary, [:timeout_ms, :max_response_bytes]),
           redaction: %{
             query?: field(summary, :query?),
@@ -263,6 +292,7 @@ defmodule AllbertAssist.Resources.Ref do
         package_id = "#{manager}:#{package}"
 
         new!(%{
+          resource_uri: ResourceURI.package!(manager, package),
           origin_kind: :package_registry,
           canonical_id: package_id,
           operation_class: :package_install,
@@ -284,6 +314,7 @@ defmodule AllbertAssist.Resources.Ref do
         target_root ->
           [
             new!(%{
+              resource_uri: ResourceURI.file!(target_root),
               origin_kind: :local_path,
               canonical_id: target_root,
               operation_class: :package_install,
@@ -313,6 +344,7 @@ defmodule AllbertAssist.Resources.Ref do
     else
       [
         new!(%{
+          resource_uri: ResourceURI.source_profile!(:online_skill, source_id),
           origin_kind: :remote_source,
           canonical_id: source_id,
           operation_class: operation_class,
@@ -341,6 +373,7 @@ defmodule AllbertAssist.Resources.Ref do
     canonical = Path.expand(to_string(path))
 
     new!(%{
+      resource_uri: ResourceURI.file!(canonical),
       origin_kind: :local_path,
       canonical_id: canonical,
       operation_class: :import_local_skill,
@@ -356,6 +389,7 @@ defmodule AllbertAssist.Resources.Ref do
     url = to_string(url)
 
     new!(%{
+      resource_uri: ResourceURI.url!(url),
       origin_kind: :remote_url,
       canonical_id: url,
       operation_class: :import_skill,
@@ -375,20 +409,28 @@ defmodule AllbertAssist.Resources.Ref do
     end
   end
 
+  defp origin_kind(attrs, derived_origin_kind) do
+    case field(attrs, :origin_kind) do
+      nil -> {:ok, derived_origin_kind}
+      value -> value |> OperationClass.origin_kind() |> validate_origin_kind(derived_origin_kind)
+    end
+  end
+
+  defp validate_origin_kind({:ok, origin_kind}, origin_kind), do: {:ok, origin_kind}
+
+  defp validate_origin_kind({:ok, origin_kind}, derived_origin_kind),
+    do: {:error, {:resource_uri_origin_kind_mismatch, origin_kind, derived_origin_kind}}
+
+  defp validate_origin_kind({:error, reason}, _derived_origin_kind), do: {:error, reason}
+
+  defp canonical_id(_attrs, derived_canonical_id), do: {:ok, derived_canonical_id}
+
   defp normalize_scope(%Scope{} = scope), do: {:ok, scope}
 
   defp normalize_scope(%{kind: kind, value: value}), do: Scope.new(kind, value)
   defp normalize_scope(%{"kind" => kind, "value" => value}), do: Scope.new(kind, value)
   defp normalize_scope(nil), do: {:error, :missing_scope}
   defp normalize_scope(value), do: {:error, {:invalid_scope, value}}
-
-  defp normalize_id(value) when is_binary(value) do
-    value = String.trim(value)
-    if value == "", do: {:error, :empty_canonical_id}, else: {:ok, value}
-  end
-
-  defp normalize_id(nil), do: {:error, :missing_canonical_id}
-  defp normalize_id(value), do: normalize_id(to_string(value))
 
   defp normalize_optional_string(nil), do: nil
 
