@@ -1,311 +1,95 @@
 # Allbert Assist
 
-Allbert Assist is a Phoenix umbrella app for a local, Jido-centered personal
-assistant runtime. v0.10 is ready for operator/user testing as the external
-capability adapter release: submit a prompt from CLI or LiveView; route it
-through Jido signals, the intent agent, validated skill contracts, registered
-actions, Security Central, and the shared action runner; pause
-confirmation-required work as durable Allbert Home records; approve or deny
-from CLI or `/settings`; execute confirmed Level 1 local shell commands through
-`run_shell_command`; execute confirmed trusted Agent Skill script resources
-through `run_skill_script`; run allowlisted `Req` external service requests,
-profile-gated npm package installs, and online skill search/detail/audit/import
-only through confirmed registered actions; persist markdown memory; write
-inspectable traces and execution audit records; manage typed settings,
-provider profiles, and encrypted local secrets through Settings Central; and
-discover, read, activate, validate, and scaffold standard `SKILL.md` skill
-folders without granting unplanned execution authority.
+Allbert Assist is a local, Jido-centered personal assistant runtime built as a
+Phoenix umbrella app. It is designed around supervised Elixir/OTP processes,
+signals, registered Jido actions, Security Central, durable confirmations,
+Settings Central, Allbert Home, markdown memory, and inspectable traces.
 
-## Current Capabilities
+Phoenix LiveView and Mix tasks are operator surfaces over the runtime. They are
+not the architecture center.
 
-- Signal-first runtime boundary: `AllbertAssist.Runtime.submit_user_input/1`
-- Primary intent agent: `AllbertAssist.Agents.IntentAgent`
-- Registered action boundary: `AllbertAssist.Actions.Registry` and
-  `AllbertAssist.Actions.Runner.run/3`
-- Explicit Jido actions for direct answers, memory, skill inspection, command
-  planning, confirmed local shell execution, confirmed trusted skill script
-  execution, confirmed external service requests, package install planning and
-  execution, and online skill search/detail/audit/import
-- Action-backed built-in skills for direct answers, markdown memory,
-  skill list/read, command planning, and external-network recognition
-- Security Central for read-only work, memory writes, command planning,
-  confirmed command execution, external-network confirmation, package installs,
-  online skill import, settings writes, skill scaffold writes, settings secret
-  boundaries, risk, redaction, audit, trace, and trust metadata
-- Allbert Home path foundation under `ALLBERT_HOME`, alias
-  `ALLBERT_HOME_DIR`, defaulting to `~/.allbert`
-- Settings Central under `<ALLBERT_HOME>/settings`, with typed YAML settings,
-  permission defaults, encrypted `secrets.yml.enc`, and append-only audit
-  markdown
-- Provider and model profiles with redacted credential status
-- Durable confirmation queue under `<ALLBERT_HOME>/confirmations`, with
-  pending/resolved YAML records and markdown audit entries
-- Level 1 local shell execution audit under `<ALLBERT_HOME>/execution/audit`
-- Resource-gated trusted skill script execution through `run_skill_script`,
-  with exact inventory matching, digest re-check, durable confirmation, bounded
-  output, timeout, redaction, and execution audit metadata
-- Confirmed `Req` external service requests through `external_network_request`,
-  Settings Central `external_services.*` policy, SSRF-style allowlists,
-  redirect/retry policy, response caps, redaction, and audit metadata
-- Package install planning and confirmed npm execution through
-  `plan_package_install`, `run_package_install`, and `mix allbert.packages`;
-  pip remains preview-only in v0.10
-- Confirmed online skill search/detail/audit/import through
-  `search_online_skills`, `show_online_skill`, `audit_online_skill`,
-  `import_online_skill`, and `mix allbert.skills ...-online`; imports stay
-  disabled, untrusted, and cached under `<ALLBERT_HOME>/cache/skills`. If an
-  operator approves an online request but the source fetch fails, the
-  confirmation resolves as `approved` with `target_status=failed` and a visible
-  failure reason. The default skills.sh source searches
-  `https://skills.sh/api/search` from the configured API base.
-- Registered confirmation actions and CLI: `mix allbert.confirmations list`,
-  `show`, `approve`, `deny`, and `expire`
-- Deterministic shell request CLI: `mix allbert.exec --cwd "$WORKSPACE" -- ls -la`
-- Confirmation Requests section in `/settings` over the same action boundary
-  as the CLI
-- Agent Skills-compatible parser, registry, trust policy, built-in skill pack,
-  action-backed contract validation, local validation/scaffold helpers, and
-  progressive-disclosure `activate_skill` action
-- Markdown memory under `<ALLBERT_HOME>/memory`, with `ALLBERT_MEMORY_ROOT` as
-  a specific override
-- Low-risk personal preference heuristics, such as "my name is Sandeep" and
-  "I prefer short updates"
-- Markdown traces under the memory `traces` category when tracing is enabled
-- CLI entrypoint with `mix allbert.ask`
-- Settings, security, and skill helper CLIs with `mix allbert.settings`, `mix
-  allbert.security status`, and `mix allbert.skills`
-- Phoenix LiveViews at `http://localhost:4000/agent` and
-  `http://localhost:4000/settings`
+## Current Status
 
-## Requirements
+v0.10 is ready for operator/user testing after the M5 release-readiness gate
+and the post-M5 remote network content security posture documentation
+clarification. Expected release tag after operator acceptance: `v0.10`. No
+v0.10 tag has been created or pushed yet.
 
-- Elixir/Erlang matching the project toolchain
-- SQLite
-- Optional local Ollama server for future LLM-backed use of the `:local` model
-  alias. The deterministic v0.01 runtime path does not require a live model.
+Release details live in `CHANGELOG.md`.
 
-The `:local` model alias is configured as `gemma4:26b` through the
-OpenAI-compatible Ollama endpoint. Override the endpoint with:
+## What Allbert Can Do Today
 
-```sh
-export OLLAMA_BASE_URL=http://localhost:11434/v1
-```
+- Accept user input through CLI and Phoenix LiveView.
+- Route runtime work through `AllbertAssist.Runtime.submit_user_input/1`,
+  Jido agents, registered actions, and `AllbertAssist.Actions.Runner.run/3`.
+- Store operator settings, provider profiles, encrypted local secrets, memory,
+  confirmations, cache files, and audit artifacts under Allbert Home.
+- Persist explicit markdown memory and optional markdown traces.
+- Parse, list, read, activate, validate, and scaffold standard `SKILL.md`
+  Agent Skills without granting unplanned execution authority.
+- Run confirmed local shell commands through Level 1 host policy controls.
+- Run confirmed trusted skill script resources through `run_skill_script`.
+- Run confirmed `Req` external service requests through
+  `external_network_request`.
+- Plan and run confirmed npm package installs through package-manager
+  profiles; pip remains preview-only in v0.10.
+- Search, show, audit, and import online skills through confirmed registered
+  actions. Imported skills remain disabled, untrusted, and cached under
+  `<ALLBERT_HOME>/cache/skills`.
 
-## Setup
+v0.10 also documents the first remote network content security posture
+substrate. Future URL summaries, document inspection, and direct skill URL
+imports should consume that posture through operation-scoped approval in
+v0.11; v0.10 does not implement arbitrary URL/document summarization,
+remembered URL grants, a browser, or a crawler.
 
-For development conventions and agent onboarding, read `DEVELOPMENT.md`.
+## Start Here
+
+- Operator onboarding: `docs/operator/onboarding.md`
+- Changelog and release notes: `CHANGELOG.md`
+- Development guide: `DEVELOPMENT.md`
+- Roadmap: `docs/plans/roadmap.md`
+- Vision: `docs/plans/allbert-jido-vision.md`
+- Active v0.10 plan: `docs/plans/v0.10-plan.md`
+- Active v0.10 request flow: `docs/plans/v0.10-request-flow.md`
+- v0.11 implementation plan: `docs/plans/v0.11-plan.md`
+- Architecture decisions: `docs/adr/`
+
+## Local Development
+
+Install dependencies and set up the umbrella app:
 
 ```sh
 mix setup
 ```
 
-Run the full project gate:
+Run the project gate:
 
 ```sh
 mix precommit
 ```
 
-Run static checks including Dialyzer:
-
-```sh
-MIX_ENV=test mix check
-```
-
-Dialyzer has a narrow `.dialyzer_ignore.exs` for known `Jido.AI.Agent`
-macro-generated warnings. `list_unused_filters: true` is enabled so stale
-ignores are reported.
-
-## CLI Demo
-
-Use a disposable memory root:
-
-```sh
-export ALLBERT_HOME=/tmp/allbert-v10-demo
-export ALLBERT_TRACE_ENABLED=true
-rm -rf "$ALLBERT_HOME"
-```
-
-Ask Allbert to remember something:
-
-```sh
-mix allbert.ask --trace "remember that I like concise milestone handoffs"
-```
-
-Recall it:
-
-```sh
-mix allbert.ask --trace "what do you remember about milestone handoffs?"
-```
-
-Confirm command execution is blocked:
-
-```sh
-mix allbert.ask --trace "run a destructive shell command"
-```
-
-Inspect and activate registry-backed skills:
-
-```sh
-mix allbert.ask --trace "what skills are available?"
-mix allbert.ask --trace "read skill append-memory"
-mix allbert.ask --trace "activate skill append-memory"
-```
-
-Validate and scaffold local skill wrappers:
-
-```sh
-mix allbert.skills validate apps/allbert_assist/priv/skills/append-memory
-mix allbert.skills create demo-memory append_memory memory_write "Save a short memory helper" --root "$ALLBERT_HOME/skills"
-```
-
-Inspect and update Settings Central:
-
-```sh
-mix allbert.settings list
-mix allbert.settings set operator.communication_style concise
-mix allbert.settings explain operator.communication_style
-printf 'test-key\n' | mix allbert.settings providers set-key openai
-mix allbert.settings providers list
-```
-
-Inspect Security Central and safety floors:
-
-```sh
-mix allbert.security status
-mix allbert.settings set permissions.command_execute allowed
-mix allbert.security status
-```
-
-Prepare a disposable v0.08 local shell workspace:
-
-```sh
-WORKSPACE="$(mktemp -d /tmp/allbert-v08-shell.XXXXXX)"
-printf 'fixture\n' > "$WORKSPACE/README.md"
-mix allbert.settings set permissions.command_execute allowed
-mix allbert.settings set execution.local.enabled true
-mix allbert.settings set execution.local.allowed_roots "$WORKSPACE"
-mix allbert.exec --cwd "$WORKSPACE" -- ls -la
-mix allbert.confirmations list
-mix allbert.confirmations approve <confirmation-id> --reason "operator shell smoke"
-mix allbert.confirmations list --resolved
-```
-
-The same action boundary is used from prompt routing:
-
-```sh
-mix allbert.ask "run pwd"
-```
-
-Prepare a disposable v0.09 trusted skill script smoke:
-
-```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v09-user.XXXXXX)"
-export WORKSPACE="$(mktemp -d /tmp/allbert-v09-work.XXXXXX)"
-export SKILL_ROOT="$ALLBERT_HOME/skills/demo-script"
-
-mkdir -p "$SKILL_ROOT/scripts" "$WORKSPACE"
-cat > "$SKILL_ROOT/SKILL.md" <<'SKILL'
----
-name: demo-script
-description: Demo trusted script skill.
-metadata:
-  allbert.kind: capability
-  allbert.actions: run_skill_script
-  allbert.permissions: skill_script_execute
-  allbert.confirmation: required
----
-
-Run the bundled demo script only through Allbert confirmation.
-SKILL
-
-cat > "$SKILL_ROOT/scripts/hello" <<'SCRIPT'
-#!/bin/sh
-printf 'hello from skill script\n'
-SCRIPT
-chmod +x "$SKILL_ROOT/scripts/hello"
-
-mix allbert.settings set permissions.skill_script_execute allowed
-mix allbert.settings set execution.skill_scripts.enabled true
-mix allbert.settings set execution.local.allowed_roots "$WORKSPACE"
-
-mix allbert.skills validate "$SKILL_ROOT"
-mix allbert.skills run demo-script scripts/hello --cwd "$WORKSPACE" --
-mix allbert.confirmations list
-mix allbert.confirmations approve <confirmation-id> --reason "v0.09 smoke"
-mix allbert.confirmations list --resolved
-```
-
-Prepare a disposable v0.10 external/package/online skill smoke:
-
-```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v10-user.XXXXXX)"
-export WORKSPACE="$(mktemp -d /tmp/allbert-v10-work.XXXXXX)"
-mix allbert.settings set permissions.external_network allowed
-mix allbert.settings set external_services.enabled true
-mix allbert.settings set external_services.allowed_hosts example.com
-mix allbert.settings set external_services.allowed_paths /status
-mix allbert.external request --url https://example.com/status --method GET
-mix allbert.confirmations list
-mix allbert.confirmations show <confirmation-id>
-mix allbert.confirmations approve <confirmation-id> --reason "operator smoke"
-mix allbert.confirmations list --resolved
-
-mix allbert.settings set permissions.package_install allowed
-mix allbert.settings set package_installs.enabled true
-mix allbert.settings set package_installs.allowed_roots "$WORKSPACE"
-mix allbert.packages plan npm --cwd "$WORKSPACE" --package left-pad@1.3.0
-mix allbert.packages run npm --cwd "$WORKSPACE" --package left-pad@1.3.0
-mix allbert.confirmations list
-mix allbert.confirmations approve <confirmation-id> --reason "v0.10 package smoke"
-mix allbert.confirmations list --resolved
-
-mix allbert.settings set permissions.online_skill_import allowed
-mix allbert.settings set skills.online_import.enabled true
-mix allbert.settings set skills.online_import.sources.skills_sh.enabled true
-mix allbert.skills search-online memory
-mix allbert.confirmations list
-mix allbert.confirmations approve <confirmation-id> --reason "v0.10 online search smoke"
-mix allbert.confirmations list --resolved
-mix allbert.skills import-online skills_sh/<source-skill-id>
-mix allbert.confirmations approve <confirmation-id> --reason "v0.10 online import smoke"
-mix allbert.confirmations list --resolved
-```
-
-Approved online skill requests that hit a source HTTP/transport failure still
-record the operator decision as `approved`; inspect `target_status` and the
-rendered `Failure:` line to see whether the resumed fetch/import completed.
-
-Release/tag status: v0.10 is ready for operator/user testing. The expected
-release tag is `v0.10`, pending operator acceptance; no v0.10 tag has been
-created or pushed yet.
-
-Inspect generated files:
-
-```sh
-find "$ALLBERT_HOME/memory" -maxdepth 2 -type f | sort
-```
-
-## Browser Demo
-
 Start Phoenix:
 
 ```sh
-export ALLBERT_HOME=/tmp/allbert-v10-demo
-export ALLBERT_TRACE_ENABLED=true
 mix phx.server
 ```
 
-Open:
+Operator surfaces:
 
 ```text
 http://localhost:4000/agent
 http://localhost:4000/settings
 ```
 
-The LiveViews use the same runtime, settings, security, and confirmation
-boundaries as the CLI. `/settings` includes Security & Permissions controls
-and Confirmation Requests backed by registered actions and read-only effective
-Security Central status.
+CLI entrypoints:
+
+```sh
+mix allbert.ask "hello"
+mix allbert.security status
+mix allbert.confirmations list
+mix allbert.skills validate apps/allbert_assist/priv/skills/append-memory
+```
 
 ## Runtime Configuration
 
@@ -317,67 +101,39 @@ Security Central status.
 - `ALLBERT_TRACE_ENABLED=true`: enable trace recording
 - `OLLAMA_BASE_URL`: OpenAI-compatible Ollama base URL
 
-## Project Docs
+The optional `:local` model alias is configured for an OpenAI-compatible
+Ollama endpoint. Override the endpoint with:
 
-- Development guide: `DEVELOPMENT.md`
-- Vision: `docs/plans/allbert-jido-vision.md`
-- Roadmap: `docs/plans/roadmap.md`
-- v0.01 plan: `docs/plans/v0.01-plan.md`
-- v0.01 request flow: `docs/plans/v0.01-request-flow.md`
-- v0.02 plan: `docs/plans/v0.02-plan.md`
-- v0.02 request flow: `docs/plans/v0.02-request-flow.md`
-- v0.03 plan: `docs/plans/v0.03-plan.md`
-- v0.03 request flow: `docs/plans/v0.03-request-flow.md`
-- v0.04 plan: `docs/plans/v0.04-plan.md`
-- v0.04 request flow: `docs/plans/v0.04-request-flow.md`
-- v0.05 plan: `docs/plans/v0.05-plan.md`
-- v0.05 request flow: `docs/plans/v0.05-request-flow.md`
-- v0.06 plan: `docs/plans/v0.06-plan.md`
-- v0.06 request flow: `docs/plans/v0.06-request-flow.md`
-- v0.07 plan: `docs/plans/v0.07-plan.md`
-- v0.07 request flow: `docs/plans/v0.07-request-flow.md`
-- v0.08 plan: `docs/plans/v0.08-plan.md`
-- v0.08 request flow: `docs/plans/v0.08-request-flow.md`
-- v0.09 plan: `docs/plans/v0.09-plan.md`
-- v0.09 request flow: `docs/plans/v0.09-request-flow.md`
-- v0.10 plan: `docs/plans/v0.10-plan.md`
-- v0.10 request flow: `docs/plans/v0.10-request-flow.md`
-- ADRs: `docs/adr/`
+```sh
+export OLLAMA_BASE_URL=http://localhost:11434/v1
+```
 
 ## Safety Boundaries
 
 Allbert remains local and conservative:
 
-- v0.08 executes confirmed local shell commands only through registered Jido
-  action `run_shell_command` and Level 1 local policy sandboxing, with
-  conservative default read-only commands and explicit operator profiles for
-  additional local developer commands.
-- v0.10 M2 adds a confirmed `Req` external adapter for new
-  `external_network_request` approvals when `external_services.*` policy is
-  enabled and allowlisted. Historical `adapter_unavailable` records remain
-  readable as pre-adapter audit history.
-- v0.10 M3 adds package install planning and confirmed npm execution through
-  registered actions `plan_package_install` and `run_package_install`,
-  Settings Central `package_installs.*` policy, durable confirmation, and
-  package audit. npm uses explicit argv only; URL/git/tarball/path/global and
-  unpinned installs are denied by default. pip remains preview-only.
-- v0.10 M4 adds confirmed online skill search/detail/audit/import through
-  registered actions and `mix allbert.skills search-online|show-online|audit-online|import-online`.
-  Imported skills are written only under `<ALLBERT_HOME>/cache/skills`, remain
-  disabled and untrusted, and are never activated or executed by import.
-  Approved online requests that fail against the source record
-  `target_status=failed` with a rendered failure reason instead of changing the
-  operator approval into a denial.
-- v0.09 executes only trusted, resource-gated bundled skill script resources
-  through registered action `run_skill_script`, durable confirmation, digest
-  re-check, and Level 1 host-process controls. It is not a generic scripting
-  engine and does not execute package installs or arbitrary code from skill
-  folders.
-- It does not claim Docker, Podman, Mac/Linux container, remote, or microVM
-  isolation yet; that future work is parked in `docs/plans/future-features.md`.
-- Sensitive-looking personal data is not silently stored unless explicit memory
-  intent is present.
-- Raw provider credentials are never displayed and are stored only in the
-  encrypted Settings Central secret store.
-- Side effects go through named actions with permission decisions and optional
-  trace records.
+- Runtime-facing side effects go through registered Jido actions, the shared
+  action runner, Security Central, Settings Central policy, durable
+  confirmation when required, redaction, trace, and audit records.
+- v0.08 shell execution is Level 1 host policy control, not OS isolation.
+- v0.09 skill scripts run only when trusted, enabled, inventoried,
+  digest-verified, confirmed, bounded, audited, and traced.
+- v0.10 external services, package installs, and online skill import run only
+  through confirmed registered actions and target-specific policy re-checks.
+- Imported skills are not trusted, enabled, activated, or executed by import.
+- Remote network content consumers must be operation-scoped. A future approval
+  for URL summarization must not authorize skill import, package install,
+  activation, or script execution.
+- All user-supplied secrets belong in Settings Central secrets and must be
+  redacted in output, traces, audits, logs, and tests.
+- All tests and smoke flows should use temporary Allbert homes, never a real
+  user's `~/.allbert`.
+
+## Verification Pointers
+
+README is intentionally not the testing plan. Use:
+
+- `docs/operator/onboarding.md` for first-run operator guidance.
+- `docs/plans/v0.10-request-flow.md` for the v0.10 smoke matrix.
+- `docs/plans/v0.10-plan.md` for milestone-specific verification.
+- `CHANGELOG.md` for release status, verification summary, and tag readiness.
