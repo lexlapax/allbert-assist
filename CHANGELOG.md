@@ -2,11 +2,11 @@
 
 ## v0.10 - External Capability Adapters
 
-Status: implemented through M8 after the original v0.10 M5 release-readiness
-gate was reopened for online skill approval clarity/search fixes and Resource
-Access Security Posture planning. Release/tag readiness is pending the final
-reopened v0.10 milestone. Expected release tag remains `v0.10`; no v0.10 tag
-has been created or pushed yet.
+Status: ready for operator/user testing after the reopened v0.10 M6-M9
+sequence. The original M5 release-readiness gate was reopened for online skill
+approval clarity/search fixes and Resource Access Security Posture planning;
+M9 closed the release-readiness refresh. Expected release tag remains `v0.10`;
+no v0.10 tag has been created or pushed yet.
 
 ### Added
 
@@ -65,6 +65,9 @@ has been created or pushed yet.
   contract and remembered grant contract before release. v0.11 owns
   execution-aware Approval Handoff UX for consumers such as `summarize_url`,
   `inspect_document`, `import_skill`, and `import_local_skill`.
+- M9 refreshed release docs, roadmap/future handoffs, operator onboarding
+  pointers, and the v0.10 smoke matrix so operators can test the final M6-M8
+  resource posture without treating skills.sh as the platform model.
 
 ### Safety
 
@@ -96,9 +99,10 @@ has been created or pushed yet.
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
 - `mix precommit` passed with 248 core tests and 17 web tests.
-- Because v0.10 is reopened after M5, focused post-M5 online skill regressions
-  and final gates must be rerun in the final reopened release-readiness
-  milestone before tag acceptance.
+- M9 reran the focused post-M5 online skill regressions, M7 resource reference
+  tests, M8 remembered grant tests, and final release gates before restoring
+  tag-readiness wording.
+- M9 `mix precommit` passed with 270 core tests and 17 web tests.
 - M7 focused resource reference tests pass for shell cwd/path operands, skill
   script resources, external request refs, online skill import refs, package
   install refs, local-vs-remote skill import grant separation, closed operation
@@ -117,8 +121,9 @@ has been created or pushed yet.
   `mix format --check-formatted`, `mix credo --strict`, and
   `git diff --check`.
 - Operator/user testing should start with `docs/operator/onboarding.md` and
-  use the disposable v0.10 smoke flow
-  in `docs/plans/v0.10-request-flow.md` or `docs/plans/v0.10-plan.md`.
+  use the disposable v0.10 smoke flow in
+  `docs/plans/v0.10-request-flow.md` or `docs/plans/v0.10-plan.md` before
+  accepting and tagging `v0.10`.
 
 ## v0.09 - Skill Script Runner
 

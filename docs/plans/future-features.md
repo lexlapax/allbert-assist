@@ -145,6 +145,8 @@ Needed before planning:
 
 - channel adapter foundation
 - external network/browser permission policy
+- v0.10 resource reference and remembered grant smoke coverage as the baseline
+  for URL/document consumers
 - memory review workflow
 - sensitive-data detection and confirmation
 - traceable extraction path
@@ -162,6 +164,8 @@ read/fetch/extract/summarizer handoff is boring.
 Needed before planning:
 
 - stable resource access reference and approval scope records
+- v0.10 M7/M8 resource references and remembered grants accepted through the
+  M9 release-readiness baseline
 - bounded content cache/digest policy
 - extractor contracts for HTML, markdown, plain text, PDF, office documents,
   archives, and unknown binary content
@@ -288,6 +292,9 @@ v0.10 implementation clarifies the first split:
   remote resource is being summarized, inspected, imported as a skill, used for
   package metadata, or executed as a trusted skill script before any downstream
   consumer acts
+- v0.10 M9 preserves the current operator smoke baseline for deciding when a
+  future workflow needs deeper sandboxing instead of only registered actions,
+  policy, confirmation, redaction, and audit
 
 This should become a versioned roadmap item only after v0.10's actual external,
 package, and import traces show which workflows cannot be made acceptable with

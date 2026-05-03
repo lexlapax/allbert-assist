@@ -484,8 +484,6 @@ defmodule AllbertAssist.Resources.Grants do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
 
-  defp field(_map, _key, default), do: default
-
   defp drop_nil_values(map) do
     Map.reject(map, fn {_key, value} -> value in [nil, ""] end)
   end

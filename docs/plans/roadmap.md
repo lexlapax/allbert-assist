@@ -556,13 +556,14 @@ Plan: `docs/plans/v0.10-plan.md`
 Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 
-Status: M1-M8 implemented and focused/documentation verified. v0.10 was
-reopened after M5 because post-M5 commits added online skill approval
-clarity/search fixes and Resource Access Security Posture planning. M6
-reconciles that history, and M7 implements shared resource reference metadata.
-M8 implements Settings-backed remembered resource grant storage and matching.
-Release/tag readiness is pending the final reopened v0.10 milestone. Expected
-tag remains `v0.10`; no v0.10 tag has been created or pushed yet.
+Status: M1-M9 implemented and focused/final-gate verified. v0.10 was reopened
+after M5 because post-M5 commits added online skill approval clarity/search
+fixes and Resource Access Security Posture planning. M6 reconciles that
+history, M7 implements shared resource reference metadata, M8 implements
+Settings-backed remembered resource grant storage and matching, and M9 closes
+the release-readiness/user-testing refresh. v0.10 is ready for operator/user
+testing. Expected tag remains `v0.10`; no v0.10 tag has been created or
+pushed yet.
 
 Expected direction:
 
@@ -632,8 +633,8 @@ Milestones:
   escape denial, traversal/symlink escape denial, and no cross-use between
   local import, remote summary, skill import, package install, activation, or
   script execution.
-- M9 (Milestone 9): Planned implementation. Release readiness and user testing
-  refresh after M6-M8, including focused online skill regressions, resource
+- M9 (Milestone 9): Implemented. Release readiness and user testing refresh
+  after M6-M8, including focused online skill regressions, resource
   reference/grant tests, full gates, docs, and tag-readiness wording.
 
 Exit signal: Allbert can search, audit, and import online skills, call approved
@@ -643,9 +644,9 @@ package-manager metadata executable by themselves. CLI, `/settings`, traces,
 audits, and Security Central render the same v0.10 metadata and policy
 summaries, including the distinction between operator approval and target
 execution failure. The docs and code also identify Resource Access Security
-Posture as the common substrate for future local and remote consumers. Final
-exit requires the reopened M6-M9 sequence to finish and pass gates before
-release/tag acceptance.
+Posture as the common substrate for future local and remote consumers. The
+reopened M6-M9 sequence is complete; release/tag acceptance is now an operator
+decision after user testing.
 
 ## v0.11: Execution-Aware Intent, Approval Handoff, And Resource Access Posture
 
