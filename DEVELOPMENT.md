@@ -93,6 +93,8 @@ For active v0.10 external capability adapter work, start with:
 - `docs/adr/0009-local-execution-sandbox-levels.md`
 - `docs/adr/0010-resource-gated-skill-script-execution.md`
 - `docs/adr/0011-confirmed-external-capability-adapters.md`
+- `docs/adr/0012-resource-access-security-posture.md`
+- `docs/adr/0013-uri-first-resource-identity.md`
 
 For active v0.11 execution-aware intent, Approval Handoff, or remote network
 content posture work, start with:
@@ -109,13 +111,15 @@ content posture work, start with:
 - `docs/adr/0010-resource-gated-skill-script-execution.md`
 - `docs/adr/0011-confirmed-external-capability-adapters.md`
 - `docs/adr/0012-resource-access-security-posture.md`
+- `docs/adr/0013-uri-first-resource-identity.md`
 
-For v0.11, remember that URL summarization, document inspection, direct skill
-URL import, local skill directory import, local path access, trusted skill
-script execution, and online source consumers are all resource access operation
-classes. Channels and summarizers do not fetch, read, import, or execute
-directly; they render or consume Approval Handoff data and registered action
-results.
+For v0.10 closeout and v0.11, remember that URL summarization, document
+inspection, direct skill URL import, local skill directory import, local path
+access, trusted skill script execution, package installs, online source
+consumers, future MCP resources, and future agent endpoints are all URI-backed
+resource access operation classes. Channels and summarizers do not fetch, read,
+import, or execute directly; they render or consume Approval Handoff data and
+registered action results.
 
 ## Fresh Checkout
 

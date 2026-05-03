@@ -3,8 +3,10 @@
 ## Status
 
 Accepted for v0.10. The M7 shared resource reference contract, M8 remembered
-resource grant contract, M9 release-readiness handoff, and M10 resource
-identity/scope hardening are implemented.
+resource grant contract, M9 release-readiness handoff, M10 resource
+identity/scope hardening, and M11 remembered-grant operator UX are
+implemented. ADR 0013 refines this posture with URI-first resource identity
+and permission matching for the remaining v0.10 closeout.
 
 ## Context
 
@@ -41,6 +43,11 @@ Current security guidance supports a unified posture:
 - OWASP AI agent and prompt-injection guidance emphasizes least privilege,
   treating external documents/API responses as untrusted data, and using
   human-in-the-loop controls for high-risk actions.
+- RFC 3986, MCP resources, Package URL / PURL, and current agent harness
+  permission models reinforce that files, URLs, package coordinates, skill
+  resources, MCP resources, and future agent endpoints should be identified by
+  URI-shaped resource identities before workflow-specific consumers act on
+  them. ADR 0013 records this URI-first refinement.
 
 ## Decision
 
@@ -85,6 +92,12 @@ coordinate. Operator renderers may use redacted display fields such as
 `display_url`, but those redacted strings are never remembered as canonical
 grant authority.
 
+ADR 0013 makes the next identity step explicit: future refs should carry a
+canonical `resource_uri` or `uri` first. `origin_kind`, `canonical_id`, and
+legacy scope fields remain compatibility and derived metadata. Matching
+authority becomes canonical URI plus operation class, access mode, downstream
+consumer, and the current Security Central permission decision.
+
 Remembered grants are stored in Settings Central at
 `resource_grants.remembered` and matched by `AllbertAssist.Resources.Grants`.
 They are generic resource approval memory, not skills/search/summarization
@@ -124,8 +137,10 @@ one operation class does not authorize another:
   remembered-grant operator actions, CLI and thin `/settings` controls,
   approval-time remembered-grant inputs, and application of matching grants to
   existing v0.10 resource consumers before new confirmations are created.
+  v0.10 M12 owns the URI-first identity refactor described by ADR 0013.
 - ADR 0011 remains the external-adapter decision. ADR 0012 sits above it and
-  names the shared local/remote resource access posture.
+  names the shared local/remote resource access posture. ADR 0013 refines the
+  durable identity and matching layer underneath the posture.
 - v0.11 consumes the posture for execution-aware intent and channel-native
   Approval Handoff. Channels render resource approvals; they do not fetch,
   read, import, execute, summarize, remember grants, or mutate confirmation

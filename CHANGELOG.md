@@ -6,12 +6,12 @@ Status: implemented through M11 after the reopened v0.10 M6-M9 sequence. The
 original M5 release-readiness gate was reopened for online skill approval
 clarity/search fixes and Resource Access Security Posture planning; M9 closed
 the release-readiness refresh. A later zoom-out release audit reopened v0.10
-for M10-M13 closeout milestones before operator acceptance. M10 landed
+for M10-M14 closeout milestones before operator acceptance. M10 landed
 resource identity hardening; M11 has landed remembered-grant operator
-UX/application for existing v0.10 actions. M12-M13 remain for direct/local
-skill import consumers and final v0.11 handoff. Expected release tag remains
-`v0.10`; no v0.10 tag has been created
-or pushed yet.
+UX/application for existing v0.10 actions. M12-M14 remain for URI-first
+resource identity refactor, direct/local skill import consumers, and final
+v0.11 handoff. Expected release tag remains `v0.10`; no v0.10 tag has been
+created or pushed yet.
 
 ### Added
 
@@ -77,6 +77,10 @@ or pushed yet.
 - Registered action capability metadata now marks which confirmation targets
   are resumable, and `approve_confirmation` checks that metadata before
   attempting target execution.
+- ADR 0013 now plans URI-first resource identity and permission matching for
+  the remaining v0.10 closeout. Future refs should carry canonical
+  `resource_uri`/`uri` authority while keeping `origin_kind`, `canonical_id`,
+  and legacy scopes as compatibility metadata.
 - Version metadata bumped to `0.10.0`.
 
 ### Changed
@@ -105,9 +109,10 @@ or pushed yet.
   in registered action capability metadata.
 - M11 turns remembered grants from tested substrate into operator behavior:
   list/show/revoke, approve-with-remember, `/settings` controls, and reuse for
-  existing v0.10 network/source/package flows. Direct skill URL import and
-  local skill directory import remain M12, and M13 still owns final unsupported
-  URL/document messaging and v0.11 handoff readiness.
+  existing v0.10 network/source/package flows. M12 now owns the URI-first
+  resource identity refactor, M13 owns direct skill URL import and local skill
+  directory import on that substrate, and M14 owns final unsupported
+  URL/document/MCP/agent messaging and v0.11 handoff readiness.
 
 ### Safety
 
@@ -125,10 +130,11 @@ or pushed yet.
   source HTTP/transport failures after approval are failed target outcomes, not
   Security Central or operator denials.
 - v0.10 does not implement arbitrary URL/document summarization, direct skill
-  URL import, local skill directory import, a browser, or a crawler unless an
-  explicit reopened v0.10 milestone lands that behavior. Those consumer UX
-  flows still need the v0.11 intent and Approval Handoff contract over the
-  v0.10 resource posture.
+  URL import, local skill directory import, MCP execution, `agent://`
+  delegation, a browser, or a crawler until explicit remaining closeout
+  milestones land that behavior. Direct/local skill import is M13; the other
+  consumer UX flows still need the v0.11 intent and Approval Handoff contract
+  over the v0.10 URI resource posture.
 
 ### Verification
 
@@ -169,7 +175,7 @@ or pushed yet.
   existing external request/online skill/package-install grant reuse, and the
   package all-refs rule that prevents target-root grants from authorizing
   package registry drift.
-- Operator/user testing should wait for the remaining M12-M13 closeout
+- Operator/user testing should wait for the remaining M12-M14 closeout
   sequence, then
   start with `docs/operator/onboarding.md` and use the disposable v0.10 smoke
   flow in `docs/plans/v0.10-request-flow.md` or

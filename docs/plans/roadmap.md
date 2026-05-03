@@ -550,11 +550,12 @@ Exit signal: Allbert can run a bundled skill script only when the skill is
 trusted, enabled, selected, inventoried, digest-verified, confirmed, bounded
 by Level 1 host-process controls, audited, and traced.
 
-## v0.10: External Services, Package Installs, Online Skill Import, And Resource Access Posture
+## v0.10: External Services, Package Installs, Online Skill Import, And URI-First Resource Access Posture
 
 Plan: `docs/plans/v0.10-plan.md`
 Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
+Identity ADR: `docs/adr/0013-uri-first-resource-identity.md`
 
 Status: M1-M11 implemented and focused verified. v0.10 was reopened
 after M5 because post-M5 commits added online skill approval clarity/search
@@ -562,11 +563,12 @@ fixes and Resource Access Security Posture planning. M6 reconciles that
 history, M7 implements shared resource reference metadata, M8 implements
 Settings-backed remembered resource grant storage and matching, and M9 closes
 the first release-readiness/user-testing refresh. A later zoom-out release
-audit reopened v0.10 for M10-M13 closeout before operator acceptance. M10
+audit reopened v0.10 for M10-M14 closeout before operator acceptance. M10
 finished canonical resource identity hardening, and M11 added
 remembered-grant operator UX plus application to existing v0.10 flows.
-M12-M13 remain for direct/local skill import consumers and final v0.11 handoff
-readiness. Expected tag remains `v0.10`; no v0.10 tag has been created or
+M12-M14 remain for URI-first resource identity refactor, direct/local skill
+import consumers, and final v0.11 handoff readiness. Expected tag remains
+`v0.10`; no v0.10 tag has been created or
 pushed yet.
 
 Expected direction:
@@ -588,8 +590,13 @@ Expected direction:
   existing Agent Skills parser/registry.
 - Treat `skills.sh` as one source profile and search convenience, not the
   platform model. v0.10's durable primitive is approved resource access with
-  origin kind, source/profile, canonical path or URL, operation class, access
-  mode, scope, limits, confirmation, audit, and trace metadata.
+  canonical URI/resource URI, compatibility origin kind, source/profile,
+  operation class, access mode, scope, limits, confirmation, audit, and trace
+  metadata.
+- Refactor resource identity to URI-first matching before adding more
+  consumers. Existing refs and grants remain compatible, but future authority
+  is `resource_uri + operation_class + access_mode + downstream_consumer` plus
+  current Security Central permission.
 - Document future local and remote operation classes such as
   `import_local_skill`, `summarize_url`, `inspect_document`, and `import_skill`
   so local skill imports, URL summarization, document inspection, and direct
@@ -651,13 +658,18 @@ Milestones:
   thin `/settings` list/revoke/approve-with-remember controls, and grant
   lookup before creating confirmations for external request, online skill
   source, and package install consumers.
-- M12 (Milestone 12): Planned implementation. Direct skill URL import and
+- M12 (Milestone 12): Planned implementation. URI-first resource identity
+  refactor through a `ResourceURI` helper, compatibility fields, grant
+  migration/matching, and inert future URI scheme representation for
+  `mcp://`, `agent://`, and `agent+https://`.
+- M13 (Milestone 13): Planned implementation. Direct skill URL import and
   local skill directory import as concrete resource consumers that import only
   disabled/untrusted skill candidates and never trust, enable, execute, or
   install dependencies.
-- M13 (Milestone 13): Planned implementation. Final closeout and v0.11 handoff
+- M14 (Milestone 14): Planned implementation. Final closeout and v0.11 handoff
   readiness: explicit no-op/unsupported UX for URL summarization and document
-  inspection in v0.10, refreshed tests, docs, and release/tag readiness.
+  inspection, MCP resource/tool calls, and `agent://` delegation in v0.10,
+  refreshed tests, docs, and release/tag readiness.
 
 Exit signal: Allbert can search, audit, and import online skills, call approved
 external services, and run the first confirmed npm package-manager profile
@@ -668,10 +680,10 @@ summaries, including the distinction between operator approval and target
 execution failure. The docs and code also identify Resource Access Security
 Posture as the common substrate for future local and remote consumers. The
 reopened M6-M9 sequence, M10 hardening, and M11 remembered-grant
-operator/application work are complete, but the later M12-M13 closeout must
+operator/application work are complete, but the later M12-M14 closeout must
 finish before release/tag acceptance.
 
-## v0.11: Execution-Aware Intent, Approval Handoff, And Resource Access Posture
+## v0.11: Execution-Aware Intent, URI-Based Resource Access, And Approval Handoff
 
 Plan: `docs/plans/v0.11-plan.md`
 
@@ -685,9 +697,11 @@ Expected direction:
   diagnostics.
 - Cover shell, local path, trusted skill script, local skill directory import,
   package install, external service, online skill source, direct skill URL
-  import, URL summary, and document inspection flows first.
-- Add resource access posture data to decisions that would read, write, run,
-  fetch, inspect, import, or install from local or remote resources: origin
+  import, URL summary, document inspection, and unsupported MCP/agent URI flows
+  first.
+- Add URI-backed resource access posture data to decisions that would read,
+  write, run, fetch, inspect, import, or install from local or remote resources:
+  canonical URI/resource URI, compatibility origin
   kind, canonical path or URL, source/profile, operation class, access mode,
   scope, expected content kind, byte/output cap, destination consumer,
   summarizer/parser requirement, origin channel, response target, and allowed

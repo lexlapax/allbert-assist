@@ -164,8 +164,8 @@ read/fetch/extract/summarizer handoff is boring.
 Needed before planning:
 
 - stable resource access reference and approval scope records
-- v0.10 M7/M8 resource references and remembered grants accepted through the
-  M9 release-readiness baseline
+- v0.10 URI-first resource identity, resource references, and remembered
+  grants accepted through the final v0.10 closeout baseline
 - bounded content cache/digest policy
 - extractor contracts for HTML, markdown, plain text, PDF, office documents,
   archives, and unknown binary content
@@ -174,6 +174,29 @@ Needed before planning:
 - unsupported-format and partial-extraction UX
 - tests for size caps, content-type mismatches, malformed files, redirects,
   private-network targets, and redacted traces
+
+### MCP And Agent URI Resource Access
+
+Source: v0.10 URI-first resource identity planning and v0.11 Approval Handoff
+planning.
+
+MCP resources and future agent endpoints should be modeled as URI-addressed
+resources before they gain execution authority. `mcp://`, `agent://`, and
+`agent+https://` can be represented as inert planning/approval metadata after
+the v0.10 URI substrate exists, but calling them requires later explicit
+actions, Security Central policy, Settings Central configuration, channel
+handoff, adapter implementation, redaction, trace, audit, and tests.
+
+Needed before planning:
+
+- v0.10 M12 URI-first resource identity refactor
+- operation-scoped grant matching over `resource_uri`
+- MCP server configuration and permission model
+- agent endpoint discovery, authentication, and trust model
+- unsupported-scheme UX from v0.10 M14
+- v0.11 channel-native Approval Handoff consumption
+- evals for cross-scheme grant reuse, tool/resource confusion, prompt
+  injection through MCP resources, and remote agent impersonation
 
 ### Small-Model Memory Or Personality Distillation
 

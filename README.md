@@ -18,8 +18,8 @@ M10 has now hardened resource identity and scope matching so canonical
 resource authority stays separate from redacted display metadata. M11 has now
 added operator-visible remembered grant list/show/revoke behavior,
 approve-with-remember options, and grant reuse for existing v0.10 actions. The
-remaining planned closeout milestones are M12-M13 for direct/local skill
-import consumers and final v0.11 handoff.
+remaining planned closeout milestones are M12-M14 for URI-first resource
+identity, direct/local skill import consumers, and final v0.11 handoff.
 Expected release tag after operator acceptance remains `v0.10`; no v0.10 tag
 has been created or pushed yet.
 
@@ -59,13 +59,16 @@ Release details live in `CHANGELOG.md`.
 - Keep canonical resource identity separate from rendered display metadata for
   external URLs, local paths, source profiles, and confirmation resume
   decisions.
+- Treat future resource identity as URI-first. v0.10 M12 is planned to add a
+  canonical `resource_uri` substrate while keeping existing refs and grants
+  compatible.
 
 v0.10 also implements the first Resource Access Security Posture substrate.
 It does not implement arbitrary URL/document summarization, channel-native
 Approval Handoff UX, local skill directory import, direct skill URL import, a
-browser, or a crawler. M12-M13 finish the v0.10 closeout before v0.11 consumes
-the final posture through execution-aware intent and channel-native Approval
-Handoff UX.
+browser, crawler, MCP execution path, or `agent://` delegation. M12-M14 finish
+the v0.10 closeout before v0.11 consumes the final URI-based posture through
+execution-aware intent and channel-native Approval Handoff UX.
 
 ## Start Here
 
@@ -148,6 +151,9 @@ Allbert remains local and conservative:
 - Remote network content consumers must be operation-scoped. A future approval
   for URL summarization must not authorize skill import, package install,
   activation, or script execution.
+- Future URI schemes such as `mcp://`, `agent://`, and `agent+https://` may be
+  represented only as inert metadata until a later release adds explicit
+  action, policy, confirmation, adapter, trace, audit, and tests.
 - All user-supplied secrets belong in Settings Central secrets and must be
   redacted in output, traces, audits, logs, and tests.
 - All tests and smoke flows should use temporary Allbert homes, never a real

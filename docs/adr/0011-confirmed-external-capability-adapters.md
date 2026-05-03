@@ -20,6 +20,9 @@ Those foundations now exist:
 - ADR 0012 names the broader Resource Access Security Posture that connects
   local paths, local skill resources, Allbert Home resources, remote URLs,
   remote sources, and package registries without rewriting v0.08 or v0.09.
+- ADR 0013 refines that posture with URI-first resource identity and
+  permission matching so external adapters remain one resource consumer, not
+  the root resource model.
 
 v0.10 is the first point where a confirmed request may leave the local machine
 for an HTTP/service call, invoke a package manager, or fetch an online Agent
@@ -108,6 +111,13 @@ with:
 - origin channel/surface and response target when available
 - confirmation id and downstream consumer
 
+ADR 0013 further requires future resource refs to carry a canonical URI or
+`resource_uri` as durable identity. External URLs keep their native
+`https://` or explicitly allowed `http://` URI. Source-profile requests become
+source convenience flows over URI-backed refs such as
+`allbert://sources/<kind>/<id>`. Display/redacted URLs never become grant
+authority.
+
 Operation class is part of the security boundary. A remembered approval for
 `summarize_url` must not authorize `import_skill`; an `inspect_document`
 approval must not authorize package installation; `import_local_skill` must not
@@ -162,8 +172,8 @@ workflow must be denied or deferred to a later sandbox milestone.
 - skills.sh and other registries are sources of candidates, not trust roots.
 - Resource Access Security Posture becomes the shared substrate for later URL
   summarization, document inspection, local skill directory import, direct
-  skill URL import, trusted skill script execution UX, and source-profile
-  consumers.
+  skill URL import, trusted skill script execution UX, source-profile
+  consumers, future MCP resources, and future agent endpoints.
 - Imported skills remain non-executable until existing local trust, enablement,
   capability, digest, and confirmation rules allow later actions.
 - v0.11 can consume these real risky capabilities in the execution-aware intent
@@ -205,3 +215,6 @@ workflow must be denied or deferred to a later sandbox milestone.
   restored release-readiness/user-testing docs after final gates. v0.11 then
   consumes the resulting posture for channel-native local and remote resource
   UX.
+- v0.10 M12 is now expected to refactor resource identity to the URI-first
+  model from ADR 0013 before direct skill URL import and local skill directory
+  import are implemented.
