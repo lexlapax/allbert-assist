@@ -550,24 +550,58 @@ by Level 1 host-process controls, audited, and traced.
 ## v0.10: External Services, Package Installs, And Online Skill Import
 
 Plan: `docs/plans/v0.10-plan.md`
+Request flow: `docs/plans/v0.10-request-flow.md`
+ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 
-Status: placeholder.
+Status: implementation-ready planning complete. No implementation, release
+commit, or release tag exists yet.
 
 Expected direction:
 
-- Add confirmed `Req`-based external service actions with Settings Central
-  credentials, allow/block policy, redaction, rate/cost visibility, and traces.
-- Add package-install actions with stricter confirmation and sandbox policy than
-  ordinary shell execution; reassess whether package installs require Level 2
-  execution profiles or Level 3 container isolation before enabling broad
-  install workflows.
-- Add skills.sh or remote-source search, detail, audit, and import support.
+- Replace new v0.10 `external_network_request` approvals with a real confirmed
+  `Req` adapter instead of `adapter_unavailable`, while preserving historical
+  pre-v0.10 records.
+- Add external service policy under Settings Central: enabled flag, service
+  profiles, allowed hosts/methods/paths, timeout, response cap, redirect/retry
+  policy, redaction, and credential refs.
+- Add `:package_install` and `:online_skill_import` permission classes with
+  high-risk classification and confirmation safety floors.
+- Add package install planning and confirmed package-manager execution through
+  profiles, not shell strings. npm is the first executable profile; pip remains
+  preview/audit-only unless strict hash, binary, pinned requirement, and target
+  policy are implemented and tested.
+- Add skills.sh or remote-source search, detail, audit, and import support
+  through `Req`, source profiles, bounded downloads, source manifests, and the
+  existing Agent Skills parser/registry.
 - Write imported skills only under `<ALLBERT_HOME>/cache/skills`; keep them
-  disabled and pending until parsed, validated, audited, enabled, and trusted.
+  disabled, untrusted, and non-executable until parsed, validated, audited,
+  enabled, trusted, and separately confirmed for any script execution.
+- Keep Docker, Podman, Mac/Linux containers, remote sandboxes, and microVMs out
+  of v0.10. Deny or defer workflows that need deeper isolation.
+
+Milestones:
+
+- M1 (Milestone 1): Policy, ADR, Settings Central schema, Allbert Home paths,
+  and registered capability contracts for external, package, and online import
+  actions.
+- M2 (Milestone 2): Confirmed `Req` external service adapter,
+  SSRF/redirect/retry policy, confirmation resume, redacted trace/audit, and
+  Req.Test coverage.
+- M3 (Milestone 3): Package install preview and confirmed npm adapter through
+  package-manager profiles, with pip preview/audit-only unless strict
+  secure-install policy is completed.
+- M4 (Milestone 4): Online skill search, detail, audit, and disabled
+  imported-cache write through allowed source profiles and existing registry
+  validation.
+- M5 (Milestone 5): Release readiness, operator surfaces, trace/audit polish,
+  docs, future milestone handoffs, focused tests, final gates, version
+  metadata, and release/tag readiness docs.
 
 Exit signal: Allbert can search, audit, and import online skills and call
 approved external services through confirmed registered actions without making
-imports or package manifests executable by themselves.
+imports, package manifests, or package-manager metadata executable by
+themselves. Package installs are profile-gated, confirmed, audited, and bounded
+to explicit target roots.
 
 ## v0.11: Execution-Aware Intent Contract And Approval Handoff
 

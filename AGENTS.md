@@ -78,6 +78,19 @@ skill script execution, skill resource inventory, skill trust, script
 permissions, script runner policy, confirmations, traces, audits, CLI, or
 LiveView behavior.
 
+For active v0.10 external capability adapter work, read
+`docs/plans/v0.10-plan.md`, `docs/plans/v0.10-request-flow.md`,
+`docs/plans/v0.07-request-flow.md`, `docs/plans/v0.08-request-flow.md`,
+`docs/plans/v0.09-request-flow.md`,
+`docs/adr/0006-security-central.md`,
+`docs/adr/0008-durable-confirmation-requests.md`,
+`docs/adr/0009-local-execution-sandbox-levels.md`,
+`docs/adr/0010-resource-gated-skill-script-execution.md`, and
+`docs/adr/0011-confirmed-external-capability-adapters.md` before changing
+external HTTP/service calls, package installs, online skill search/audit/import,
+Req policy, source profiles, package-manager profiles, confirmation resume
+semantics, traces, audits, CLI, or LiveView behavior.
+
 ## Non-Negotiables
 
 - Preserve user data. Do not delete or rewrite memory, traces, settings,
@@ -118,12 +131,19 @@ LiveView behavior.
   confirmed shell execution through Level 1 host policy controls. v0.09 skill
   scripts may run only as trusted, inventoried resources through
   `run_skill_script`, Security Central, confirmation, digest re-check, and
-  trace/audit boundaries.
+  trace/audit boundaries. v0.10 external services, package installs, and online
+  skill imports may run only through registered actions, `Req`, Settings
+  Central policy and secrets, Security Central, durable confirmation,
+  target-specific re-checks, redaction, and trace/audit records.
 - Do not auto-generate, compile, or load Elixir modules from arbitrary skill
   folders.
 - Do not execute skill scripts, shell commands, external installs, or network
   adapters unless a plan explicitly adds the permission, confirmation, sandbox,
   and trace story.
+- Do not call `npx skills add`, `git clone`, package managers, or external
+  installer CLIs from skill activation, online skill search, imported skill
+  metadata, or model output. v0.10 online import must leave imported skills
+  disabled and untrusted under `<ALLBERT_HOME>/cache/skills`.
 - Do not treat OTP supervision, BEAM processes, or local child processes as an
   OS security boundary. v0.08 local execution must be policy-bounded host
   execution through registered actions; deeper container or remote isolation

@@ -243,10 +243,21 @@ Questions to resolve before graduation:
 - cleanup, persistence, rollback, and recovery when a container or remote
   sandbox fails
 
-This should become a versioned roadmap item only after v0.08 Level 1 behavior
-and v0.09 trusted script behavior have been tested with real operator usage
-and v0.10 clarifies which package, network, or imported-code execution classes
-truly need deeper isolation.
+v0.10 planning clarifies the first split:
+
+- bounded HTTP/service calls can proceed through `Req`, SSRF-style policy,
+  confirmation, redaction, and audit without claiming OS isolation
+- npm package installs can proceed only through explicit package-manager
+  profiles, target roots, disabled lifecycle scripts, confirmation, and audit
+- pip execution should remain preview/audit-only until strict hash, binary,
+  pinned requirement, and target policy are implemented and tested
+- imported online skills must remain disabled and untrusted; untrusted imported
+  code execution remains a deeper sandbox problem, not a v0.10 capability
+
+This should become a versioned roadmap item only after v0.10's actual external,
+package, and import traces show which workflows cannot be made acceptable with
+registered actions, Settings Central policy, Security Central, confirmation,
+Level 1/Level 2 host controls, redaction, and audit alone.
 
 ## Review Cadence
 

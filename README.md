@@ -298,6 +298,8 @@ Security Central status.
 - v0.08 request flow: `docs/plans/v0.08-request-flow.md`
 - v0.09 plan: `docs/plans/v0.09-plan.md`
 - v0.09 request flow: `docs/plans/v0.09-request-flow.md`
+- v0.10 plan: `docs/plans/v0.10-plan.md`
+- v0.10 request flow: `docs/plans/v0.10-request-flow.md`
 - ADRs: `docs/adr/`
 
 ## Safety Boundaries
@@ -308,9 +310,11 @@ Allbert remains local and conservative:
   action `run_shell_command` and Level 1 local policy sandboxing, with
   conservative default read-only commands and explicit operator profiles for
   additional local developer commands.
-- It does not make external network calls.
-- It records external-network approval as `adapter_unavailable` until a future
-  registered `Req` adapter is implemented and confirmed; this is intentional
+- Current released code does not make external network calls. The v0.10 plan is
+  implementation-ready for confirmed `Req` external adapters, package install
+  profiles, and disabled online skill import.
+- Until v0.10 implementation changes the target adapter, current
+  external-network approval records `adapter_unavailable`; this is intentional
   adapter scaffolding, not an execution error.
 - v0.09 executes only trusted, resource-gated bundled skill script resources
   through registered action `run_skill_script`, durable confirmation, digest

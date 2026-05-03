@@ -64,6 +64,9 @@ and performs no target side effect.
   client-supplied params.
 - Future execution adapters can consume confirmation context without inventing
   a separate approval mechanism.
+- ADR 0011 defines the v0.10 case where new external-network, package-install,
+  and online-import confirmations may resume real registered adapters after
+  Security Central re-check instead of resolving as `adapter_unavailable`.
 - Safety floors remain authoritative: shell execution, skill scripts, package
   installs, online imports, real external network calls, and module loading
   still require their own later adapter, sandbox, and trace stories.

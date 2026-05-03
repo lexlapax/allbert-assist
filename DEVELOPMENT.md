@@ -81,6 +81,19 @@ For active v0.09 skill script runner work, start with:
 - `docs/adr/0009-local-execution-sandbox-levels.md`
 - `docs/adr/0010-resource-gated-skill-script-execution.md`
 
+For active v0.10 external capability adapter work, start with:
+
+- `docs/plans/v0.10-plan.md`
+- `docs/plans/v0.10-request-flow.md`
+- `docs/plans/v0.07-request-flow.md`
+- `docs/plans/v0.08-request-flow.md`
+- `docs/plans/v0.09-request-flow.md`
+- `docs/adr/0006-security-central.md`
+- `docs/adr/0008-durable-confirmation-requests.md`
+- `docs/adr/0009-local-execution-sandbox-levels.md`
+- `docs/adr/0010-resource-gated-skill-script-execution.md`
+- `docs/adr/0011-confirmed-external-capability-adapters.md`
+
 ## Fresh Checkout
 
 Install dependencies and set up child apps from the umbrella root:

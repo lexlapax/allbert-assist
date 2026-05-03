@@ -64,6 +64,8 @@ skill may load instructions and resource metadata, but never runs scripts.
   enablement, validation, and confirmation.
 - v0.09 may reuse Level 1 local runner primitives, but documentation must not
   claim container, remote, microVM, or network isolation.
-- v0.10 owns package installs, external services, and online skill import.
+- v0.10 owns package installs, external services, and online skill import under
+  ADR 0011. Imported skills remain disabled and untrusted after import; v0.10
+  must not make imported skill scripts executable by import alone.
 - Future untrusted-code execution should graduate to Level 2, Level 3, or
   Level 4 sandbox planning instead of widening v0.09 semantics.

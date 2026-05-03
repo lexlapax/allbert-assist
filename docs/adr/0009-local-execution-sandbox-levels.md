@@ -104,7 +104,8 @@ Security Central, Settings Central, trace, or audit contracts.
   requires selected-skill provenance, resource-inventory matching, digest
   re-checks, confirmation, and script-specific trace/audit metadata.
 - v0.10 package installs and external adapters may consume Level 1/Level 2
-  policy, but should reassess whether package installs require Level 3
-  containers before they are enabled broadly.
+  policy only through ADR 0011's registered actions, package-manager profiles,
+  confirmation, redaction, and audit. Workflows that require untrusted-code
+  isolation should be denied or deferred to Level 3 or Level 4 sandbox work.
 - Future container and remote sandbox work is tracked in
   `docs/plans/future-features.md`, not smuggled into v0.08.
