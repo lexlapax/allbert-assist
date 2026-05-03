@@ -196,10 +196,38 @@ defmodule AllbertAssist.SettingsTest do
 
     assert hosts.value == ["example.com"]
 
+    assert {:ok, paths} =
+             Settings.put("external_services.allowed_paths", ["/status"], %{audit?: false})
+
+    assert paths.value == ["/status"]
+
     assert {:ok, methods} =
              Settings.put("external_services.allowed_methods", ["GET", "HEAD"], %{audit?: false})
 
     assert methods.value == ["GET", "HEAD"]
+
+    external_profile = %{
+      "test_echo" => %{
+        "enabled" => true,
+        "base_url" => "https://example.com",
+        "allowed_hosts" => ["example.com"],
+        "allowed_paths" => ["/status"],
+        "allowed_methods" => ["GET"],
+        "default_timeout_ms" => 5_000,
+        "max_timeout_ms" => 30_000,
+        "max_response_bytes" => 4096,
+        "allow_redirects" => false,
+        "max_redirects" => 0,
+        "retry_policy" => "none",
+        "redact_request_headers" => ["authorization"],
+        "redact_response_headers" => ["set-cookie"]
+      }
+    }
+
+    assert {:ok, external_profiles} =
+             Settings.put("external_services.profiles", external_profile, %{audit?: false})
+
+    assert external_profiles.value == external_profile
 
     manager_profile = %{
       "npm" => %{
@@ -234,6 +262,13 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:error, {:invalid_setting, "external_services.allowed_methods", _reason}} =
              Settings.put("external_services.allowed_methods", ["TRACE"], %{})
+
+    assert {:error, {:invalid_setting, "external_services.profiles", _reason}} =
+             Settings.put(
+               "external_services.profiles",
+               %{"bad" => %{"base_url" => "file:///tmp"}},
+               %{}
+             )
 
     assert {:error, {:invalid_setting, "package_installs.manager_profiles", _reason}} =
              Settings.put(

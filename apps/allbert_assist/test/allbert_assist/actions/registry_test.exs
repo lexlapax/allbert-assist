@@ -106,6 +106,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert run_shell_command.execution_mode == :local_process
     assert run_shell_command.confirmation == :required
 
+    assert {:ok, external_network_request} = Registry.capability("external_network_request")
+    assert external_network_request.permission == :external_network
+    assert external_network_request.execution_mode == :req_http
+    assert external_network_request.confirmation == :required
+
     assert {:ok, plan_package_install} = Registry.capability("plan_package_install")
     assert plan_package_install.permission == :read_only
     assert plan_package_install.execution_mode == :package_install_plan

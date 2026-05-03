@@ -66,9 +66,11 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
     assert approve_response.status == :completed
 
     assert approve_response.message =~
-             "Approved, but not executed: this target has no v0.07 adapter."
+             "Approved, but not executed: this historical target had no adapter"
 
-    assert approve_response.message =~ "External network execution is planned for v0.10."
+    assert approve_response.message =~
+             "New v0.10 external-network requests use the confirmed Req adapter."
+
     assert approve_response.confirmation["status"] == "adapter_unavailable"
     assert approve_response.confirmation["operator_resolution"]["resolver_channel"] == "cli"
     assert approve_response.confirmation["operator_resolution"]["same_channel?"]

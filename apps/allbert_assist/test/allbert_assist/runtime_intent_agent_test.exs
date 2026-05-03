@@ -4,11 +4,13 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Memory
+  alias AllbertAssist.Paths
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
 
   setup do
     original_config = Application.get_env(:allbert_assist, Runtime)
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_audit_config = Application.get_env(:allbert_assist, Audit)
@@ -21,10 +23,12 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
       )
 
     Application.delete_env(:allbert_assist, Runtime)
+    Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Memory, root: root)
     Application.put_env(:allbert_assist, Audit, root: Path.join(root, "execution"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    configure_external()
 
     on_exit(fn ->
       if original_config do
@@ -40,6 +44,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
       end
 
       restore_env(Confirmations, original_confirmations_config)
+      restore_env(Paths, original_paths_config)
       restore_env(Audit, original_audit_config)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(root)
@@ -83,18 +88,19 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
              })
 
     assert response.status == :needs_confirmation
-    assert response.message =~ "external network access"
+    assert response.message =~ "External network request is ready"
 
     assert [
              %{
                name: "external_network_request",
-               execution: :not_available,
+               execution: :pending_confirmation,
                confirmation_id: confirmation_id
              }
            ] = response.actions
 
     assert {:ok, pending} = Confirmations.read(confirmation_id)
     assert pending["origin"]["channel"] == "test"
+    assert pending["target_execution_mode"] == "req_http"
   end
 
   test "default runtime trace includes confirmation metadata for external network requests", %{
@@ -221,6 +227,16 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp configure_external do
+    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+  end
 
   defp put_execution_policy!(workspace) do
     settings = %{

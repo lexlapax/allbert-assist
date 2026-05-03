@@ -6,11 +6,13 @@ defmodule AllbertAssist.Actions.RunnerTest do
   alias AllbertAssist.Actions.Multiply
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
 
   setup do
     original_memory_config = Application.get_env(:allbert_assist, Memory)
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_logger_level = Logger.level()
 
@@ -20,13 +22,16 @@ defmodule AllbertAssist.Actions.RunnerTest do
         "allbert-runner-test-#{System.unique_integer([:positive])}"
       )
 
+    Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+    configure_external()
     Logger.configure(level: :info)
 
     on_exit(fn ->
       Logger.configure(level: original_logger_level)
       restore_env(Memory, original_memory_config)
+      restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(root)
     end)
@@ -149,6 +154,16 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp configure_external do
+    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+  end
 
   defp assert_permission_compatibility_fields(decision) do
     for field <- [:permission, :decision, :reason, :requires_confirmation, :source] do

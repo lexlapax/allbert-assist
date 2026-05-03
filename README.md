@@ -310,14 +310,10 @@ Allbert remains local and conservative:
   action `run_shell_command` and Level 1 local policy sandboxing, with
   conservative default read-only commands and explicit operator profiles for
   additional local developer commands.
-- Current released code does not make external network calls. v0.10 M1 adds the
-  Security Central permissions, Settings Central policy, Allbert Home roots, and
-  registered action contracts for confirmed `Req` external adapters, package
-  install profiles, and disabled online skill import; later v0.10 milestones
-  wire the executable adapters.
-- Until the v0.10 external adapter milestone changes the target adapter,
-  external-network approval records may still resolve `adapter_unavailable`;
-  this is intentional adapter scaffolding, not an execution error.
+- v0.10 M2 adds a confirmed `Req` external adapter for new
+  `external_network_request` approvals when `external_services.*` policy is
+  enabled and allowlisted. Historical `adapter_unavailable` records remain
+  readable as pre-adapter audit history.
 - v0.09 executes only trusted, resource-gated bundled skill script resources
   through registered action `run_skill_script`, durable confirmation, digest
   re-check, and Level 1 host-process controls. It is not a generic scripting

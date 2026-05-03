@@ -48,6 +48,7 @@ defmodule AllbertAssist.Settings.Schema do
     "external_services.enabled",
     "external_services.allowed_hosts",
     "external_services.blocked_hosts",
+    "external_services.allowed_paths",
     "external_services.allowed_methods",
     "external_services.default_timeout_ms",
     "external_services.max_timeout_ms",
@@ -57,6 +58,7 @@ defmodule AllbertAssist.Settings.Schema do
     "external_services.retry_policy",
     "external_services.redact_request_headers",
     "external_services.redact_response_headers",
+    "external_services.profiles",
     "package_installs.enabled",
     "package_installs.require_confirmation",
     "package_installs.allowed_roots",
@@ -439,6 +441,12 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "external_services.allowed_paths" => %{
+      type: :string_list,
+      default: ["/"],
+      writable?: true,
+      sensitive?: false
+    },
     "external_services.allowed_methods" => %{
       type: :http_methods,
       default: ["GET", "HEAD"],
@@ -491,6 +499,12 @@ defmodule AllbertAssist.Settings.Schema do
     "external_services.redact_response_headers" => %{
       type: :string_list,
       default: ["set-cookie", "authorization"],
+      writable?: true,
+      sensitive?: false
+    },
+    "external_services.profiles" => %{
+      type: :external_service_profiles,
+      default: %{},
       writable?: true,
       sensitive?: false
     },
@@ -790,6 +804,7 @@ defmodule AllbertAssist.Settings.Schema do
       "enabled" => false,
       "allowed_hosts" => [],
       "blocked_hosts" => [],
+      "allowed_paths" => ["/"],
       "allowed_methods" => ["GET", "HEAD"],
       "default_timeout_ms" => 5000,
       "max_timeout_ms" => 30_000,
@@ -798,7 +813,8 @@ defmodule AllbertAssist.Settings.Schema do
       "max_redirects" => 0,
       "retry_policy" => "none",
       "redact_request_headers" => ["authorization", "cookie", "x-api-key"],
-      "redact_response_headers" => ["set-cookie", "authorization"]
+      "redact_response_headers" => ["set-cookie", "authorization"],
+      "profiles" => %{}
     },
     "package_installs" => %{
       "enabled" => false,
@@ -1072,6 +1088,19 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_value(%{type: :http_methods}, value, _key, _settings),
     do: {:error, {:expected_http_methods, value}}
 
+  defp validate_value(%{type: :external_service_profiles}, value, _key, _settings)
+       when is_map(value) do
+    Enum.reduce_while(value, :ok, fn {name, profile}, :ok ->
+      case validate_external_service_profile(name, profile) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp validate_value(%{type: :external_service_profiles}, value, _key, _settings),
+    do: {:error, {:expected_external_service_profiles, value}}
+
   defp validate_value(%{type: :command_profiles}, value, _key, _settings)
        when is_map(value) do
     Enum.reduce_while(value, :ok, fn {name, profile}, :ok ->
@@ -1335,6 +1364,65 @@ defmodule AllbertAssist.Settings.Schema do
     end
   end
 
+  defp validate_external_service_profile(name, profile) do
+    cond do
+      not valid_name?(name) ->
+        {:error, {:invalid_external_service_profile_name, name}}
+
+      not is_map(profile) ->
+        {:error, {:invalid_external_service_profile, name, :expected_map}}
+
+      true ->
+        validate_external_service_profile_attrs(name, profile)
+    end
+  end
+
+  defp validate_external_service_profile_attrs(name, profile) do
+    allowed_keys = [
+      "enabled",
+      "base_url",
+      "allowed_hosts",
+      "blocked_hosts",
+      "allowed_paths",
+      "allowed_methods",
+      "default_timeout_ms",
+      "max_timeout_ms",
+      "max_response_bytes",
+      "allow_redirects",
+      "max_redirects",
+      "retry_policy",
+      "redact_request_headers",
+      "redact_response_headers",
+      "description"
+    ]
+
+    profile
+    |> Map.keys()
+    |> Enum.reject(&(&1 in allowed_keys))
+    |> case do
+      [] -> validate_external_service_profile_values(name, profile)
+      [key | _rest] -> {:error, {:invalid_external_service_profile, name, {:unknown_key, key}}}
+    end
+  end
+
+  defp validate_external_service_profile_values(_name, profile) do
+    with :ok <- validate_optional_boolean(profile, "enabled"),
+         :ok <- validate_optional_url_or_nil(profile, "base_url"),
+         :ok <- validate_optional_string_list(profile, "allowed_hosts"),
+         :ok <- validate_optional_string_list(profile, "blocked_hosts"),
+         :ok <- validate_optional_string_list(profile, "allowed_paths"),
+         :ok <- validate_optional_http_methods(profile, "allowed_methods"),
+         :ok <- validate_optional_timeout(profile, "default_timeout_ms"),
+         :ok <- validate_optional_timeout(profile, "max_timeout_ms"),
+         :ok <- validate_optional_positive_integer(profile, "max_response_bytes"),
+         :ok <- validate_optional_boolean(profile, "allow_redirects"),
+         :ok <- validate_optional_non_negative_integer(profile, "max_redirects"),
+         :ok <- validate_optional_retry_policy(profile, "retry_policy"),
+         :ok <- validate_optional_string_list(profile, "redact_request_headers") do
+      validate_optional_string_list(profile, "redact_response_headers")
+    end
+  end
+
   defp validate_package_manager_profile(name, profile) do
     cond do
       not valid_name?(name) ->
@@ -1395,6 +1483,20 @@ defmodule AllbertAssist.Settings.Schema do
     end
   end
 
+  defp validate_optional_http_methods(profile, key) do
+    case Map.fetch(profile, key) do
+      :error -> :ok
+      {:ok, value} -> validate_value(%{type: :http_methods}, value, key, %{})
+    end
+  end
+
+  defp validate_optional_url_or_nil(profile, key) do
+    case Map.fetch(profile, key) do
+      :error -> :ok
+      {:ok, value} -> validate_value(%{type: :url_or_nil}, value, key, %{})
+    end
+  end
+
   defp validate_optional_timeout(profile, key) do
     case Map.fetch(profile, key) do
       :error -> :ok
@@ -1409,10 +1511,32 @@ defmodule AllbertAssist.Settings.Schema do
     end
   end
 
+  defp validate_optional_non_negative_integer(profile, key) do
+    case Map.fetch(profile, key) do
+      :error -> :ok
+      {:ok, value} -> validate_value(%{type: :non_negative_integer}, value, key, %{})
+    end
+  end
+
   defp validate_optional_boolean(profile, key) do
     case Map.fetch(profile, key) do
       :error -> :ok
       {:ok, value} -> validate_value(%{type: :boolean}, value, key, %{})
+    end
+  end
+
+  defp validate_optional_retry_policy(profile, key) do
+    case Map.fetch(profile, key) do
+      :error ->
+        :ok
+
+      {:ok, value} ->
+        validate_value(
+          %{type: :enum, allowed_values: ["none", "safe_idempotent"]},
+          value,
+          key,
+          %{}
+        )
     end
   end
 

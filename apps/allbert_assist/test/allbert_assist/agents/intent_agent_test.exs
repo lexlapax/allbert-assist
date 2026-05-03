@@ -6,11 +6,13 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Memory
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
 
   setup do
     original_config = Application.get_env(:allbert_assist, Memory)
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_audit_config = Application.get_env(:allbert_assist, Audit)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
@@ -21,10 +23,12 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
         "allbert-intent-memory-test-#{System.unique_integer([:positive])}"
       )
 
+    Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Memory, root: root)
     Application.put_env(:allbert_assist, Audit, root: Path.join(root, "execution"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    configure_external()
 
     on_exit(fn ->
       if original_config do
@@ -40,6 +44,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       end
 
       restore_env(Audit, original_audit_config)
+      restore_env(Paths, original_paths_config)
       restore_env(Confirmations, original_confirmations_config)
       File.rm_rf!(root)
     end)
@@ -424,12 +429,12 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              })
 
     assert response.status == :needs_confirmation
-    assert response.message =~ "external network access"
+    assert response.message =~ "External network request is ready"
 
     assert [
              %{
                name: "external_network_request",
-               execution: :not_available,
+               execution: :pending_confirmation,
                permission_decision: %{decision: :needs_confirmation},
                confirmation_id: confirmation_id,
                runner_metadata: %{selected_skill: "external-network-request"}
@@ -439,6 +444,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert {:ok, pending} = Confirmations.read(confirmation_id)
     assert pending["origin"]["channel"] == "test"
     assert pending["selected_skill"]["name"] == "external-network-request"
+    assert pending["target_execution_mode"] == "req_http"
   end
 
   test "skill action plans reject action mismatches before runner invocation" do
@@ -450,4 +456,14 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp configure_external do
+    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+  end
 end

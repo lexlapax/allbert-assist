@@ -10,10 +10,12 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
   alias AllbertAssist.Actions.Intent.ReadSkill
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings
 
   setup do
     original_config = Application.get_env(:allbert_assist, Memory)
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
@@ -23,9 +25,11 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
         "allbert-action-memory-test-#{System.unique_integer([:positive])}"
       )
 
+    Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Memory, root: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    configure_external()
 
     on_exit(fn ->
       if original_config do
@@ -34,6 +38,7 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
         Application.delete_env(:allbert_assist, Memory)
       end
 
+      restore_env(Paths, original_paths_config)
       restore_env(Confirmations, original_confirmations_config)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(root)
@@ -188,14 +193,14 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
              })
 
     assert response.status == :needs_confirmation
-    assert response.message =~ "I will not use external network access"
+    assert response.message =~ "External network request is ready"
     assert response.permission_decision.decision == :needs_confirmation
     assert response.confirmation_id =~ "conf_"
     assert response.confirmation["origin"]["channel"] == "test"
 
     assert [
              %{
-               execution: :not_available,
+               execution: :pending_confirmation,
                permission: :external_network,
                permission_decision: %{decision: :needs_confirmation},
                confirmation_id: confirmation_id
@@ -206,6 +211,17 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
     assert {:ok, pending} = Confirmations.read(confirmation_id)
     assert pending["status"] == "pending"
     assert pending["target_action"]["name"] == "external_network_request"
+    assert pending["target_execution_mode"] == "req_http"
+  end
+
+  defp configure_external do
+    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

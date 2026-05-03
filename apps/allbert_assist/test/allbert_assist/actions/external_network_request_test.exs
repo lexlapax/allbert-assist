@@ -1,0 +1,124 @@
+defmodule AllbertAssist.Actions.ExternalNetworkRequestTest do
+  use ExUnit.Case, async: false
+
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Confirmations
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
+
+  setup {Req.Test, :verify_on_exit!}
+
+  setup do
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-external-action-#{System.unique_integer([:positive])}"
+      )
+
+    Application.put_env(:allbert_assist, Paths, home: root)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+    Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    configure_external()
+
+    on_exit(fn ->
+      restore_env(Paths, original_paths_config)
+      restore_env(Confirmations, original_confirmations_config)
+      restore_env(Settings, original_settings_config)
+      File.rm_rf!(root)
+    end)
+
+    {:ok, root: root}
+  end
+
+  test "creates a pending confirmation before any HTTP call" do
+    assert {:ok, response} =
+             Runner.run("external_network_request", %{url: "https://example.com/status"}, %{
+               actor: "local",
+               channel: :test
+             })
+
+    assert response.status == :needs_confirmation
+    assert response.message =~ "Nothing has executed yet"
+    assert response.confirmation["target_execution_mode"] == "req_http"
+    assert response.confirmation["params_summary"]["url"] == "https://example.com/status"
+
+    assert [
+             %{
+               execution: :pending_confirmation,
+               permission_decision: %{decision: :needs_confirmation},
+               confirmation_id: confirmation_id
+             }
+           ] = response.actions
+
+    assert {:ok, pending} = Confirmations.read(confirmation_id)
+    assert pending["status"] == "pending"
+  end
+
+  test "approval resumes the confirmed Req adapter" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      Plug.Conn.send_resp(conn, 200, "ok")
+    end)
+
+    assert {:ok, response} =
+             Runner.run("external_network_request", %{url: "https://example.com/status"}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: response.confirmation_id, reason: "M2 smoke"},
+               %{
+                 actor: "local",
+                 channel: :cli,
+                 external: %{req_plug: {Req.Test, __MODULE__}}
+               }
+             )
+
+    assert approved.status == :completed
+    assert approved.confirmation["status"] == "approved"
+    assert approved.confirmation["operator_resolution"]["target_resumed?"]
+    assert approved.confirmation["operator_resolution"]["target_status"] == "completed"
+    assert approved.confirmation["operator_resolution"]["target_result"]["http_status"] == 200
+  end
+
+  test "approval re-check denies policy drift before HTTP execution" do
+    assert {:ok, response} =
+             Runner.run("external_network_request", %{url: "https://example.com/status"}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert {:ok, _setting} = Settings.put("external_services.enabled", false, %{audit?: false})
+
+    assert {:ok, denied} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: response.confirmation_id, reason: "changed policy"},
+               %{actor: "local", channel: :cli, external: %{req_plug: {Req.Test, __MODULE__}}}
+             )
+
+    assert denied.status == :completed
+    assert denied.confirmation["status"] == "denied"
+    assert denied.confirmation["operator_resolution"]["target_resumed?"] == false
+    assert denied.confirmation["operator_resolution"]["target_result"]["status"] == "denied"
+  end
+
+  defp configure_external do
+    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_paths", ["/status"], %{audit?: false})
+  end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+end

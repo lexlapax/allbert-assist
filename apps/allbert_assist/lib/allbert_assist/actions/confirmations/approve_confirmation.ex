@@ -86,6 +86,15 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
   defp resolve_after_recheck(record, reason, context, permission_decision, target_decision) do
     case target_action_name(record) do
+      "external_network_request" ->
+        resume_external_network_request(
+          record,
+          reason,
+          context,
+          permission_decision,
+          target_decision
+        )
+
       "run_shell_command" ->
         resume_shell_command(record, reason, context, permission_decision, target_decision)
 
@@ -99,6 +108,68 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
           adapter_unavailable?: true
         })
     end
+  end
+
+  defp resume_external_network_request(
+         %{"target_execution_mode" => "req_http"} = record,
+         reason,
+         context,
+         permission_decision,
+         target_decision
+       ) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run(
+           "external_network_request",
+           Map.get(record, "resume_params_ref", %{}),
+           target_context
+         ) do
+      {:ok, %{status: status} = response} when status in [:completed, :failed] ->
+        target_result = Map.get(response, :result, %{status: status})
+
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: status,
+          target_result: target_result
+        })
+
+      {:ok, response} ->
+        target_result = Map.get(response, :result, %{status: Map.get(response, :status)})
+        target_status = Map.get(target_result, :status, Map.get(response, :status, :denied))
+
+        resolve_status(
+          record,
+          :denied,
+          reason || "External network target did not run: #{inspect(target_status)}",
+          context,
+          permission_decision,
+          %{
+            target_policy_decision: target_decision,
+            target_resumed?: false,
+            target_status: target_status,
+            target_result: target_result,
+            blocked_by_policy?: Map.get(response, :status) == :denied
+          }
+        )
+    end
+  end
+
+  defp resume_external_network_request(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision
+       ) do
+    resolve_status(record, :adapter_unavailable, reason, context, permission_decision, %{
+      target_policy_decision: target_decision,
+      target_resumed?: false,
+      adapter_unavailable?: true
+    })
   end
 
   defp resolve_status(record, status, reason, context, permission_decision, metadata) do

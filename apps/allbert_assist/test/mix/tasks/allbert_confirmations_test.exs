@@ -79,7 +79,7 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
 
     assert approve_output =~ "conf_cli_approve status=adapter_unavailable"
     assert approve_output =~ "Approved, but not executed"
-    assert approve_output =~ "External network execution is planned for v0.10."
+    assert approve_output =~ "New v0.10 external-network requests use the confirmed Req adapter."
 
     show_output =
       capture_io(fn ->

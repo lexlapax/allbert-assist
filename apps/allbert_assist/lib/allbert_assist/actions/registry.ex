@@ -144,10 +144,10 @@ defmodule AllbertAssist.Actions.Registry do
     ExternalNetworkRequest => %{
       permission: :external_network,
       exposure: :agent,
-      execution_mode: :external_network_unavailable,
+      execution_mode: :req_http,
       skill_backed?: true,
-      confirmation: :future_confirmation_required,
-      notes: "M1 contract only; M2 wires confirmed Req HTTP execution."
+      confirmation: :required,
+      notes: "v0.10 confirmed Req HTTP execution; creates a durable confirmation before running."
     },
     PlanPackageInstall => %{
       permission: :read_only,

@@ -8,7 +8,7 @@ defmodule AllbertAssist.Confirmations do
 
   alias AllbertAssist.Confirmations.Store
 
-  @adapter_unavailable_note "Approved, but not executed: this target has no v0.07 adapter. External network execution is planned for v0.10."
+  @adapter_unavailable_note "Approved, but not executed: this historical target had no adapter when it was created. New v0.10 external-network requests use the confirmed Req adapter."
 
   defdelegate root(), to: Store
   defdelegate ensure_root!(), to: Store

@@ -1,19 +1,29 @@
 defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   @moduledoc """
-  Handles external-network-shaped requests without making network calls.
+  Handles confirmed external HTTP/service requests through the v0.10 Req adapter.
 
-  M4 introduces the permission class and explicit decision; it does not add a
-  network adapter or confirmation UI.
+  Request creation validates and records a durable confirmation without making
+  a network call. The target request runs only when approve_confirmation resumes
+  this action with an approved confirmation context.
   """
 
   use Jido.Action,
     name: "external_network_request",
-    description:
-      "Mark an external network request as requiring confirmation without calling out.",
+    description: "Create or resume a confirmed external HTTP/service request.",
     category: "intent",
-    tags: ["intent", "network", "external_network", "safe"],
+    tags: ["intent", "network", "external_network", "confirmation_required"],
     schema: [
-      request: [type: :string, required: true, doc: "The requested network task or URL."],
+      request: [type: :string, required: false, doc: "The requested network task or URL."],
+      url: [type: :string, required: false, doc: "Absolute HTTP(S) URL."],
+      profile: [type: :string, required: false, doc: "External service profile name."],
+      method: [type: :string, required: false, doc: "HTTP method, default GET."],
+      path: [type: :string, required: false, doc: "Profile-relative path."],
+      query: [type: :map, required: false, doc: "Optional query parameters."],
+      headers: [type: :map, required: false, doc: "Optional request headers."],
+      body: [type: :string, required: false, doc: "Optional raw request body."],
+      json: [type: :map, required: false, doc: "Optional JSON request body."],
+      timeout_ms: [type: :integer, required: false, doc: "Requested timeout."],
+      max_response_bytes: [type: :integer, required: false, doc: "Requested response cap."],
       source_text: [type: :string, required: false, doc: "The original user prompt."]
     ],
     output_schema: [
@@ -24,101 +34,250 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.External.Audit
+  alias AllbertAssist.External.HttpClient
+  alias AllbertAssist.External.RequestSpec
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
-  def run(%{request: request} = params, context) do
-    request = String.trim(request)
-    permission_decision = PermissionGate.authorize(:external_network, context)
+  def run(params, context) when is_map(params) do
+    case RequestSpec.normalize(params, context: context) do
+      {:ok, spec} ->
+        run_spec(spec, context)
 
-    with {:ok, confirmation} <-
-           maybe_create_confirmation(request, params, context, permission_decision) do
-      {:ok,
-       %{
-         message: message(request, permission_decision, confirmation),
-         status: PermissionGate.response_status(permission_decision),
-         permission_decision: permission_decision,
-         confirmation: confirmation,
-         confirmation_id: confirmation_id(confirmation),
-         actions: [
-           %{
-             name: "external_network_request",
-             status: :not_executed,
-             permission: :external_network,
-             permission_decision: permission_decision,
-             execution: :not_available,
-             confirmation_id: confirmation_id(confirmation),
-             confirmation_metadata: confirmation_metadata(confirmation),
-             input: %{request: request, source_text: Map.get(params, :source_text)}
-           }
-         ]
-       }}
-    else
-      {:error, reason} -> confirmation_error(request, permission_decision, reason)
+      {:error, spec} ->
+        denied_response(spec, spec_denial_decision(spec.denial_reason), spec.denial_reason)
     end
   end
 
-  defp maybe_create_confirmation(
-         request,
-         params,
-         context,
-         %{decision: :needs_confirmation} = decision
-       ) do
-    Confirmations.create(%{
+  def run(_params, context) do
+    permission_decision = PermissionGate.authorize(:external_network, context)
+
+    {:ok,
+     %{
+       message: "External network request was denied: invalid request parameters.",
+       status: :denied,
+       permission_decision: permission_decision,
+       request: nil,
+       actions: [
+         %{
+           name: "external_network_request",
+           status: :denied,
+           permission: :external_network,
+           permission_decision: permission_decision,
+           execution: :not_started,
+           denial_reason: :invalid_params
+         }
+       ]
+     }}
+  end
+
+  defp run_spec(spec, context) do
+    permission_decision =
+      PermissionGate.authorize(:external_network, request_context(spec, context))
+
+    cond do
+      permission_decision.decision == :denied ->
+        denied_response(spec, permission_decision, spec.denial_reason || :permission_denied)
+
+      approval_resume?(context) ->
+        execute_spec(spec, permission_decision, context)
+
+      true ->
+        create_confirmation(spec, context, permission_decision)
+    end
+  end
+
+  defp denied_response(spec, permission_decision, reason) do
+    _audit = Audit.append(:denied, spec, permission_decision, %{denial_reason: reason})
+
+    {:ok,
+     %{
+       message: "External network request was denied: #{inspect(reason)}.",
+       status: :denied,
+       permission_decision: permission_decision,
+       request: RequestSpec.summary(spec),
+       actions: [
+         %{
+           name: "external_network_request",
+           status: :denied,
+           permission: :external_network,
+           permission_decision: permission_decision,
+           execution: :not_started,
+           request: RequestSpec.summary(spec),
+           denial_reason: reason
+         }
+       ]
+     }}
+  end
+
+  defp spec_denial_decision(reason) do
+    %{
+      permission: :external_network,
+      decision: :denied,
+      reason: "External request policy denied before confirmation: #{inspect(reason)}",
+      requires_confirmation: false,
+      source: PermissionGate
+    }
+  end
+
+  defp create_confirmation(spec, context, permission_decision) do
+    attrs = %{
       origin: origin(context),
       target_action: %{name: "external_network_request", module: inspect(__MODULE__)},
       target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
+      target_execution_mode: :req_http,
       selected_skill: selected_skill(context),
       capability_contract: capability_contract(context),
-      security_decision: decision,
+      security_decision: permission_decision,
       source_signal_id: source_signal_id(context),
       source_trace_id: source_trace_id(context),
       runner_metadata: runner_metadata(context),
-      params_summary: %{request: request, source_text: Map.get(params, :source_text)},
-      resume_params_ref: %{
-        action: "external_network_request",
-        request: request,
-        source_text: Map.get(params, :source_text)
+      params_summary: RequestSpec.summary(spec),
+      resume_params_ref: RequestSpec.resume_params(spec)
+    }
+
+    case Confirmations.create(attrs) do
+      {:ok, confirmation} ->
+        _audit =
+          Audit.append(:requested, spec, permission_decision, %{
+            confirmation_id: confirmation_id(confirmation)
+          })
+
+        {:ok,
+         %{
+           message: confirmation_message(spec, permission_decision, confirmation),
+           status: :needs_confirmation,
+           permission_decision: permission_decision,
+           request: RequestSpec.summary(spec),
+           confirmation: confirmation,
+           confirmation_id: confirmation_id(confirmation),
+           actions: [
+             %{
+               name: "external_network_request",
+               status: :needs_confirmation,
+               permission: :external_network,
+               permission_decision: permission_decision,
+               execution: :pending_confirmation,
+               request: RequestSpec.summary(spec),
+               confirmation_id: confirmation_id(confirmation),
+               confirmation_metadata: confirmation_metadata(confirmation)
+             }
+           ]
+         }}
+
+      {:error, reason} ->
+        {:ok,
+         %{
+           message: "Could not create confirmation request for external network request.",
+           status: :error,
+           error: reason,
+           permission_decision: permission_decision,
+           request: RequestSpec.summary(spec),
+           actions: [
+             %{
+               name: "external_network_request",
+               status: :error,
+               permission: :external_network,
+               permission_decision: permission_decision,
+               execution: :not_started,
+               request: RequestSpec.summary(spec),
+               error: reason
+             }
+           ]
+         }}
+    end
+  end
+
+  defp execute_spec(spec, permission_decision, context) do
+    confirmation_id = get_in(context, [:confirmation, :id])
+
+    with {:ok, result} <- HttpClient.request(spec, req_opts(context)) do
+      _approved_audit =
+        Audit.append(:approved, spec, permission_decision, %{
+          confirmation_id: confirmation_id
+        })
+
+      _result_audit =
+        Audit.append(result_event(result), spec, permission_decision, %{
+          confirmation_id: confirmation_id,
+          result: result
+        })
+
+      {:ok,
+       %{
+         message: execution_message(result),
+         status: result.status,
+         permission_decision: permission_decision,
+         request: RequestSpec.summary(spec),
+         result: result,
+         actions: [
+           %{
+             name: "external_network_request",
+             status: result.status,
+             permission: :external_network,
+             permission_decision: permission_decision,
+             execution: :req_http,
+             target_resumed?: true,
+             request: RequestSpec.summary(spec),
+             result: result
+           }
+         ]
+       }}
+    end
+  end
+
+  defp request_context(spec, context) do
+    Map.merge(context, %{
+      resource: %{
+        kind: :external_http,
+        host: spec.host,
+        path: spec.path,
+        request: RequestSpec.summary(spec)
       }
     })
   end
 
-  defp maybe_create_confirmation(_request, _params, _context, _decision), do: {:ok, nil}
+  defp approval_resume?(context) do
+    get_in(context, [:confirmation, :approved?]) == true ||
+      get_in(context, ["confirmation", "approved?"]) == true
+  end
 
-  defp message(request, permission_decision, confirmation) do
+  defp confirmation_message(spec, permission_decision, confirmation) do
     """
-    I will not use external network access from this milestone.
+    External network request is ready for operator approval.
 
-    Requested network task:
-    #{request}
-
+    Request: #{spec.method} #{RequestSpec.redacted_url(spec)}
+    Profile: #{spec.profile}
     Permission gate decision: #{permission_decision.decision} for external_network.
     Confirmation request: #{confirmation_id(confirmation) || "not created"}.
-    A future adapter milestone must exist before approval can make a request.
+    Nothing has executed yet.
     """
     |> String.trim()
   end
 
-  defp confirmation_error(request, permission_decision, reason) do
-    {:ok,
-     %{
-       message:
-         "Could not create confirmation request for external network task #{inspect(request)}.",
-       status: :error,
-       error: reason,
-       permission_decision: permission_decision,
-       actions: [
-         %{
-           name: "external_network_request",
-           status: :error,
-           permission: :external_network,
-           permission_decision: permission_decision,
-           execution: :not_available,
-           error: reason
-         }
-       ]
-     }}
+  defp execution_message(%{status: :completed, http_status: status}) do
+    "External network request completed with HTTP status #{status}."
+  end
+
+  defp execution_message(%{status: :failed, http_status: nil, transport_error: error}) do
+    "External network request ran but failed before an HTTP response: #{error}."
+  end
+
+  defp execution_message(%{status: :failed, http_status: status}) do
+    "External network request ran and returned HTTP status #{status}."
+  end
+
+  defp result_event(%{status: :completed}), do: :succeeded
+  defp result_event(_result), do: :failed
+
+  defp req_opts(context), do: [plug: req_plug(context)] |> Enum.reject(&is_nil(elem(&1, 1)))
+
+  defp req_plug(context) do
+    get_in(context, [:external, :req_plug]) ||
+      get_in(context, ["external", "req_plug"]) ||
+      Application.get_env(:allbert_assist, AllbertAssist.External.HttpClient, [])
+      |> Keyword.get(:req_plug)
   end
 
   defp confirmation_id(%{"id" => id}), do: id
