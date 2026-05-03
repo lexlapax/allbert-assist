@@ -367,7 +367,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpec do
         case env_keys_outside_allowlist(requested_env, policy) do
           [] ->
             metadata_env = metadata_env(spec)
-            allowed_env = Map.take(requested_env, policy.env_allowlist)
+            allowed_env = Policy.env_for(policy, requested_env)
             env = Map.merge(allowed_env, metadata_env)
 
             {:ok,

@@ -2,9 +2,9 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
   @moduledoc """
   v0.09 skill script execution boundary.
 
-  M3 resolves trusted skill script requests into durable confirmations and
-  resumes approved requests through the same resource-gated spec. M4 adds the
-  bounded process runner behind this action name.
+  M4 resolves trusted skill script requests into durable confirmations and runs
+  approved requests through the bounded skill script runner behind this action
+  name.
   """
 
   use Jido.Action,
@@ -39,6 +39,8 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Execution.SkillScriptAudit
+  alias AllbertAssist.Execution.SkillScriptRunner
   alias AllbertAssist.Execution.SkillScriptSpec
   alias AllbertAssist.Security.PermissionGate
 
@@ -101,6 +103,12 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
   defp denied_response(spec, permission_decision, reason) do
     result = no_run_result(spec, reason)
 
+    _audit =
+      SkillScriptAudit.append(denial_event(reason), spec, permission_decision, %{
+        result: result,
+        denial_reason: reason
+      })
+
     {:ok,
      %{
        message: "Skill script execution was denied: #{inspect(reason)}.",
@@ -141,6 +149,11 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
 
     case Confirmations.create(attrs) do
       {:ok, confirmation} ->
+        _audit =
+          SkillScriptAudit.append(:requested, spec, permission_decision, %{
+            confirmation_id: confirmation_id(confirmation)
+          })
+
         {:ok,
          %{
            message: confirmation_message(spec, permission_decision, confirmation),
@@ -187,29 +200,43 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
   end
 
   defp resume_approved_spec(spec, permission_decision, context) do
-    result = runner_pending_result(spec, context)
+    confirmation_id = get_in(context, [:confirmation, :id])
 
-    {:ok,
-     %{
-       message:
-         "Skill script approval resumed and passed policy/digest re-check. Runner execution lands in v0.09 M4; no script process started.",
-       status: :ready_to_execute,
-       permission_decision: permission_decision,
-       script: SkillScriptSpec.summary(spec),
-       result: result,
-       actions: [
-         %{
-           name: "run_skill_script",
-           status: :ready_to_execute,
-           permission: :skill_script_execute,
-           permission_decision: permission_decision,
-           execution: :runner_pending_m4,
-           target_resumed?: true,
-           script: SkillScriptSpec.summary(spec),
-           result: result
-         }
-       ]
-     }}
+    _approved_audit =
+      SkillScriptAudit.append(:approved, spec, permission_decision, %{
+        confirmation_id: confirmation_id
+      })
+
+    with {:ok, result} <- SkillScriptRunner.run(spec) do
+      result_summary = result_summary(result, spec, confirmation_id)
+
+      _result_audit =
+        SkillScriptAudit.append(result_event(result), spec, permission_decision, %{
+          confirmation_id: confirmation_id,
+          result: result_summary
+        })
+
+      {:ok,
+       %{
+         message: execution_message(result),
+         status: result.status,
+         permission_decision: permission_decision,
+         script: SkillScriptSpec.summary(spec),
+         result: result_summary,
+         actions: [
+           %{
+             name: "run_skill_script",
+             status: result.status,
+             permission: :skill_script_execute,
+             permission_decision: permission_decision,
+             execution: :skill_script_process,
+             target_resumed?: result.status != :denied,
+             script: SkillScriptSpec.summary(spec),
+             result: result_summary
+           }
+         ]
+       }}
+    end
   end
 
   defp confirmation_message(spec, permission_decision, confirmation) do
@@ -277,22 +304,6 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
   defp operator_cwd(%{cwd_source: :operator, cwd: cwd}), do: cwd
   defp operator_cwd(_spec), do: nil
 
-  defp runner_pending_result(spec, context) do
-    %{
-      status: :runner_pending,
-      exit_status: nil,
-      timed_out?: false,
-      truncated?: false,
-      output_bytes: 0,
-      stdout_preview: "",
-      stderr_preview: "",
-      digest_recheck: :matched,
-      runner_backend: :pending_m4,
-      confirmation_id: get_in(context, [:confirmation, :id]),
-      script: SkillScriptSpec.summary(spec)
-    }
-  end
-
   defp no_run_result(spec, reason) do
     %{
       status: no_run_status(reason),
@@ -309,11 +320,73 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
     }
   end
 
+  defp result_summary(result, spec, confirmation_id) do
+    %{
+      status: result.status,
+      exit_status: result.exit_status,
+      timed_out?: result.timed_out?,
+      truncated?: result.truncated?,
+      stdout_preview: preview(result.stdout),
+      stderr_preview: preview(result.stderr),
+      stderr_merged?: result.stderr_merged?,
+      output_bytes: result.output_bytes,
+      diagnostics: result.diagnostics,
+      digest_recheck: :matched,
+      runner_backend: :skill_script_process,
+      confirmation_id: confirmation_id,
+      script: SkillScriptSpec.summary(spec)
+    }
+  end
+
+  defp execution_message(%{status: :completed, exit_status: exit_status}) do
+    "Skill script executed with exit status #{exit_status}."
+  end
+
+  defp execution_message(%{status: :failed, exit_status: exit_status}) do
+    "Skill script executed and failed with exit status #{exit_status}."
+  end
+
+  defp execution_message(%{status: :timed_out} = result) do
+    "Skill script timed out after #{get_in(result, [:script, :timeout_ms])}ms."
+  end
+
+  defp execution_message(%{status: :denied}) do
+    "Skill script execution was denied before the runner started."
+  end
+
+  defp result_event(%{status: :completed}), do: :succeeded
+  defp result_event(%{status: :failed}), do: :failed
+  defp result_event(%{status: :timed_out}), do: :timed_out
+  defp result_event(%{status: :denied}), do: :denied
+
   defp no_run_status(:digest_mismatch), do: :digest_mismatch
   defp no_run_status(_reason), do: :denied
 
   defp digest_recheck(:digest_mismatch), do: :mismatch
   defp digest_recheck(_reason), do: :not_checked
+
+  defp denial_event(:digest_mismatch), do: :digest_mismatch
+  defp denial_event(:skill_not_found_or_untrusted), do: :stale
+  defp denial_event(:script_resource_not_found), do: :stale
+  defp denial_event({:script_read_failed, _reason}), do: :stale
+  defp denial_event(_reason), do: :denied
+
+  defp preview(output) when is_binary(output) do
+    output
+    |> then(fn output ->
+      if byte_size(output) > 2000, do: binary_part(output, 0, 2000), else: output
+    end)
+    |> redact_text()
+  end
+
+  defp redact_text(value) do
+    value
+    |> to_string()
+    |> String.replace(
+      ~r/(sk-[A-Za-z0-9_-]+|api[_-]?key\s*[:=]\s*\S+|token\s*[:=]\s*\S+|password\s*[:=]\s*\S+|secret\s*[:=]\s*\S+)/i,
+      "[REDACTED]"
+    )
+  end
 
   defp confirmation_id(%{"id" => id}), do: id
   defp confirmation_id(_confirmation), do: nil

@@ -4,6 +4,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Actions.Skills.RunSkillScript
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Execution.SkillScriptAudit
   alias AllbertAssist.Execution.SkillScriptSpec
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
@@ -255,7 +256,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
            ]
   end
 
-  test "approval resumes run_skill_script after policy and digest re-check", context do
+  test "approval runs skill script after policy and digest re-check", context do
     assert {:ok, pending_response} =
              Runner.run("run_skill_script", valid_params(context), action_context())
 
@@ -270,16 +271,27 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
     assert approve_response.confirmation["status"] == "approved"
     assert approve_response.confirmation["operator_resolution"]["target_resumed?"]
 
-    assert approve_response.confirmation["operator_resolution"]["target_status"] ==
-             "ready_to_execute"
+    assert approve_response.confirmation["operator_resolution"]["target_status"] == "completed"
 
     assert approve_response.confirmation["operator_resolution"]["target_result"]["status"] ==
-             "runner_pending"
+             "completed"
+
+    assert approve_response.confirmation["operator_resolution"]["target_result"]["stdout_preview"] =~
+             "hello from demo-script"
 
     approval_action = hd(approve_response.actions)
     assert approval_action.confirmation_metadata.target_resumed?
-    assert approval_action.confirmation_metadata.target_status == :ready_to_execute
-    assert approval_action.confirmation_metadata.target_result.status == :runner_pending
+    assert approval_action.confirmation_metadata.target_status == :completed
+    assert approval_action.confirmation_metadata.target_result.status == :completed
+
+    assert approval_action.confirmation_metadata.target_result.stdout_preview =~
+             "hello from demo-script"
+
+    audit = skill_script_audit()
+    assert audit =~ "event: requested"
+    assert audit =~ "event: approved"
+    assert audit =~ "event: succeeded"
+    assert audit =~ "script_path: scripts/hello"
 
     assert {:ok, approve_again} =
              Runner.run("approve_confirmation", %{id: pending_response.confirmation_id}, %{
@@ -290,6 +302,66 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
     assert approve_again.status == :completed
     assert approve_again.confirmation["status"] == "approved"
     assert approve_again.actions |> hd() |> get_in([:confirmation_metadata, :idempotent?])
+  end
+
+  test "runner surfaces failed timeout truncated and redacted output", context do
+    write_script_resource!(
+      context.home,
+      "demo-script",
+      "scripts/fail",
+      "#!/bin/sh\nprintf 'failing script\\n'\nexit 7\n"
+    )
+
+    assert {:ok, failed} =
+             request_and_approve(%{valid_params(context) | script_path: "scripts/fail"})
+
+    assert failed.confirmation["operator_resolution"]["target_status"] == "failed"
+    assert failed.confirmation["operator_resolution"]["target_result"]["exit_status"] == 7
+
+    write_script_resource!(
+      context.home,
+      "demo-script",
+      "scripts/secret",
+      "#!/bin/sh\nprintf 'token=sk-scriptsecret\\n'\n"
+    )
+
+    assert {:ok, redacted} =
+             request_and_approve(%{valid_params(context) | script_path: "scripts/secret"})
+
+    preview = redacted.confirmation["operator_resolution"]["target_result"]["stdout_preview"]
+    assert preview =~ "[REDACTED]"
+    refute preview =~ "sk-scriptsecret"
+
+    write_script_resource!(
+      context.home,
+      "demo-script",
+      "scripts/big",
+      "#!/bin/sh\nprintf '#{String.duplicate("x", 128)}'\n"
+    )
+
+    assert {:ok, truncated} =
+             request_and_approve(
+               %{valid_params(context) | script_path: "scripts/big"}
+               |> Map.put(:max_output_bytes, 32)
+             )
+
+    assert truncated.confirmation["operator_resolution"]["target_result"]["truncated?"]
+
+    write_script_resource!(
+      context.home,
+      "demo-script",
+      "scripts/sleepy",
+      "#!/bin/sh\nsleep 2\n"
+    )
+
+    assert {:ok, timed_out} =
+             request_and_approve(
+               %{valid_params(context) | script_path: "scripts/sleepy"}
+               |> Map.put(:timeout_ms, 1000)
+             )
+
+    assert timed_out.confirmation["operator_resolution"]["target_status"] == "timed_out"
+    assert timed_out.confirmation["operator_resolution"]["target_result"]["timed_out?"]
   end
 
   test "approval denies policy changes and digest drift before runner handoff", context do
@@ -355,6 +427,16 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
     }
   end
 
+  defp request_and_approve(params) do
+    with {:ok, pending_response} <- Runner.run("run_skill_script", params, action_context()) do
+      Runner.run("approve_confirmation", %{id: pending_response.confirmation_id}, %{
+        actor: "local",
+        channel: :cli,
+        surface: "mix allbert.confirmations"
+      })
+    end
+  end
+
   defp assert_denial(context, script_path, reason) do
     assert {:error, spec} =
              SkillScriptSpec.normalize(
@@ -402,6 +484,16 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
     script_path
   end
 
+  defp write_script_resource!(home, skill_name, relative_path, contents) do
+    script_path = Path.join([home, "skills", skill_name, relative_path])
+
+    File.mkdir_p!(Path.dirname(script_path))
+    File.write!(script_path, contents)
+    File.chmod!(script_path, 0o755)
+
+    script_path
+  end
+
   defp write_project_script_skill!(project_root, name) do
     skill_root = Path.join([project_root, ".allbert", "skills", name])
     script_path = Path.join([skill_root, "scripts", "hello"])
@@ -439,4 +531,9 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  defp skill_script_audit do
+    [path] = Path.wildcard(Path.join([SkillScriptAudit.audit_root(), "*.md"]))
+    File.read!(path)
+  end
 end

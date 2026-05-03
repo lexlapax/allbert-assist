@@ -3,12 +3,15 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias Mix.Tasks.Allbert.Confirmations, as: ConfirmationsTask
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
@@ -17,17 +20,25 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
         "allbert-confirmations-task-#{System.unique_integer([:positive])}"
       )
 
-    Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    home = Path.join(root, "home")
+
+    Application.put_env(:allbert_assist, Paths,
+      home: home,
+      skills_root: Path.join(home, "skills")
+    )
+
+    Application.put_env(:allbert_assist, Confirmations, root: Path.join(home, "confirmations"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
     on_exit(fn ->
       restore_env(Confirmations, original_confirmations_config)
+      restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       Mix.Task.reenable("allbert.confirmations")
       File.rm_rf!(root)
     end)
 
-    {:ok, root: root}
+    {:ok, root: root, home: home}
   end
 
   test "lists, shows, denies, and lists resolved confirmations" do
@@ -96,6 +107,49 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
     end
   end
 
+  test "shows and approves skill script confirmation metadata", %{root: root, home: home} do
+    workspace = Path.join(root, "workspace")
+    File.mkdir_p!(workspace)
+    write_script_skill!(home, "demo-script")
+    put_script_policy!(workspace)
+
+    assert {:ok, pending_response} =
+             Runner.run(
+               "run_skill_script",
+               %{
+                 skill_name: "demo-script",
+                 script_path: "scripts/hello",
+                 args: [],
+                 cwd: workspace
+               },
+               %{actor: "local", channel: :cli, surface: "mix allbert.skills"}
+             )
+
+    show_output =
+      capture_io(fn ->
+        assert :ok = ConfirmationsTask.run(["show", pending_response.confirmation_id])
+      end)
+
+    assert show_output =~ "target=run_skill_script"
+    assert show_output =~ "Skill: demo-script"
+    assert show_output =~ "Script: scripts/hello"
+
+    approve_output =
+      capture_io(fn ->
+        assert :ok =
+                 ConfirmationsTask.run([
+                   "approve",
+                   pending_response.confirmation_id,
+                   "--reason",
+                   "ok"
+                 ])
+      end)
+
+    assert approve_output =~ "status=approved"
+    assert approve_output =~ "Result: completed"
+    assert approve_output =~ "Output preview: hello from demo-script"
+  end
+
   defp base_attrs do
     %{
       origin: %{actor: "local", channel: :cli, surface: "mix allbert.ask"},
@@ -105,6 +159,44 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
       security_decision: %{permission: :external_network, decision: :needs_confirmation},
       params_summary: %{url: "https://example.com"}
     }
+  end
+
+  defp write_script_skill!(home, name) do
+    skill_root = Path.join([home, "skills", name])
+    script_path = Path.join([skill_root, "scripts", "hello"])
+
+    File.mkdir_p!(Path.dirname(script_path))
+    File.write!(Path.join(skill_root, "SKILL.md"), skill_markdown(name))
+    File.write!(script_path, "#!/bin/sh\nprintf 'hello from #{name}\\n'\n")
+    File.chmod!(script_path, 0o755)
+  end
+
+  defp skill_markdown(name) do
+    """
+    ---
+    name: #{name}
+    description: #{name} test script skill.
+    metadata:
+      allbert.kind: capability
+      allbert.actions: run_skill_script
+      allbert.permissions: skill_script_execute
+      allbert.confirmation: required
+    ---
+
+    Run only through Allbert.
+    """
+  end
+
+  defp put_script_policy!(workspace) do
+    settings = %{
+      "permissions" => %{"skill_script_execute" => "allowed"},
+      "execution" => %{
+        "local" => %{"allowed_roots" => [workspace]},
+        "skill_scripts" => %{"enabled" => true}
+      }
+    }
+
+    assert {:ok, _settings} = Settings.write_user_settings(settings)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

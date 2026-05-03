@@ -528,10 +528,14 @@ Milestones:
   Complete in implementation: M3 creates pending confirmations, resumes through
   `approve_confirmation` and the shared action runner, re-checks Security
   Central and script digests, denies policy/digest drift before execution, and
-  records `runner_pending` target results until M4 adds the actual process
-  runner.
+  established the resume contract that M4 now uses for actual process running.
 - M4: Script runner, execution audit, CLI surface, `/settings` confirmation
   metadata, trace metadata, and activation-stays-inert coverage.
+  Complete in implementation: M4 replaced the temporary `runner_pending`
+  handoff with the bounded skill script runner, shared output buffering,
+  script audit events, CLI request/show/approve rendering, and `/settings`
+  pending/resolved metadata for completed, failed, timed-out, truncated, and
+  redacted script output.
 - M5: Docs, future milestone handoffs, pre-release smoke matrix, focused
   tests, final gates, and release/tag readiness.
 

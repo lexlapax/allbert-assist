@@ -200,13 +200,13 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
            Map.get(record, "resume_params_ref", %{}),
            target_context
          ) do
-      {:ok, %{status: :ready_to_execute} = response} ->
-        target_result = Map.get(response, :result, %{status: :ready_to_execute})
+      {:ok, %{status: status} = response} when status in [:completed, :failed, :timed_out] ->
+        target_result = Map.get(response, :result, %{status: status})
 
         resolve_status(record, :approved, reason, context, permission_decision, %{
           target_policy_decision: target_decision,
           target_resumed?: true,
-          target_status: :ready_to_execute,
+          target_status: status,
           target_result: target_result
         })
 

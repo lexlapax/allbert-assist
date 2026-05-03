@@ -43,6 +43,7 @@ defmodule AllbertAssist.Paths do
       Path.join(confirmations_root(), "audit"),
       execution_root(),
       Path.join(execution_root(), "audit"),
+      Path.join([execution_root(), "skill-scripts", "runs"]),
       memory_root(),
       Path.join(memory_root(), "notes"),
       Path.join(memory_root(), "preferences"),

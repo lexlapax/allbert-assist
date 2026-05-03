@@ -17,6 +17,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.ShellCommandMetadata
+  alias AllbertAssist.Confirmations.SkillScriptMetadata
 
   @shortdoc "Inspect and resolve Allbert confirmation requests"
 
@@ -80,6 +81,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     Enum.each(confirmations, fn confirmation ->
       Mix.shell().info(summary(confirmation))
       print_shell_metadata(confirmation)
+      print_skill_script_metadata(confirmation)
       print_status_note(confirmation)
     end)
   end
@@ -92,6 +94,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     Mix.shell().info("Resolver: #{resolver_text(confirmation)}")
     Mix.shell().info("Trace: #{Map.get(confirmation, "source_trace_id", "none")}")
     print_shell_metadata(confirmation)
+    print_skill_script_metadata(confirmation)
     print_status_note(confirmation)
   end
 
@@ -99,6 +102,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     Mix.shell().info("#{confirmation["id"]} status=#{confirmation["status"]}")
     Mix.shell().info("Resolver: #{resolver_text(confirmation)}")
     print_shell_metadata(confirmation)
+    print_skill_script_metadata(confirmation)
     print_status_note(confirmation)
   end
 
@@ -184,6 +188,12 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   defp print_shell_metadata(confirmation) do
     confirmation
     |> ShellCommandMetadata.lines()
+    |> Enum.each(fn line -> Mix.shell().info(line) end)
+  end
+
+  defp print_skill_script_metadata(confirmation) do
+    confirmation
+    |> SkillScriptMetadata.lines()
     |> Enum.each(fn line -> Mix.shell().info(line) end)
   end
 end

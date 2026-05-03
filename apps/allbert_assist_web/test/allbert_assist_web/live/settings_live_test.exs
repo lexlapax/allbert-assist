@@ -6,18 +6,27 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Execution.Audit
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_audit_config = Application.get_env(:allbert_assist, Audit)
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
       Path.join(System.tmp_dir!(), "allbert-settings-live-#{System.unique_integer([:positive])}")
 
     settings_root = Path.join(root, "settings")
+    home = Path.join(root, "home")
     confirmations_root = Path.join(root, "confirmations")
+
+    Application.put_env(:allbert_assist, Paths,
+      home: home,
+      skills_root: Path.join(home, "skills")
+    )
+
     Application.put_env(:allbert_assist, Confirmations, root: confirmations_root)
     Application.put_env(:allbert_assist, Audit, root: Path.join(root, "execution"))
     Application.put_env(:allbert_assist, Settings, root: settings_root)
@@ -25,11 +34,12 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
     on_exit(fn ->
       restore_env(Confirmations, original_confirmations_config)
       restore_env(Audit, original_audit_config)
+      restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(root)
     end)
 
-    {:ok, root: root, settings_root: settings_root}
+    {:ok, root: root, home: home, settings_root: settings_root}
   end
 
   test "renders settings and provider profiles", %{conn: conn} do
@@ -174,7 +184,7 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
     assert html =~ "run_shell_command"
     assert html =~ "Command: pwd"
     assert html =~ "Cwd: #{workspace}"
-    assert has_element?(view, "#confirmation-shell-#{pending_response.confirmation_id}")
+    assert has_element?(view, "#confirmation-details-#{pending_response.confirmation_id}")
 
     approved_html =
       view
@@ -185,7 +195,52 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
     assert approved_html =~ "Result: completed"
     assert approved_html =~ "Output preview:"
     assert approved_html =~ Path.basename(workspace)
-    assert has_element?(view, "#confirmation-shell-result-#{pending_response.confirmation_id}")
+    assert has_element?(view, "#confirmation-result-#{pending_response.confirmation_id}")
+
+    assert {:ok, resolved} = Confirmations.read(pending_response.confirmation_id)
+    assert resolved["status"] == "approved"
+    assert resolved["operator_resolution"]["target_resumed?"]
+    assert resolved["operator_resolution"]["target_status"] == "completed"
+  end
+
+  test "renders and approves skill script confirmation metadata", %{
+    conn: conn,
+    root: root,
+    home: home
+  } do
+    workspace = Path.join(root, "workspace")
+    File.mkdir_p!(workspace)
+    write_script_skill!(home, "demo-script")
+    put_script_policy!(workspace)
+
+    assert {:ok, pending_response} =
+             Runner.run(
+               "run_skill_script",
+               %{
+                 skill_name: "demo-script",
+                 script_path: "scripts/hello",
+                 args: [],
+                 cwd: workspace
+               },
+               %{actor: "local", channel: :live_view, surface: "/settings"}
+             )
+
+    {:ok, view, html} = live(conn, ~p"/settings")
+
+    assert html =~ "run_skill_script"
+    assert html =~ "Skill: demo-script"
+    assert html =~ "Script: scripts/hello"
+    assert has_element?(view, "#confirmation-details-#{pending_response.confirmation_id}")
+
+    approved_html =
+      view
+      |> element("#approve-confirmation-#{pending_response.confirmation_id}")
+      |> render_click()
+
+    assert approved_html =~ "status approved"
+    assert approved_html =~ "Result: completed"
+    assert approved_html =~ "Output preview: hello from demo-script"
+    assert has_element?(view, "#confirmation-result-#{pending_response.confirmation_id}")
 
     assert {:ok, resolved} = Confirmations.read(pending_response.confirmation_id)
     assert resolved["status"] == "approved"
@@ -253,6 +308,44 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
     }
 
     assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
+
+  defp put_script_policy!(workspace) do
+    settings = %{
+      "permissions" => %{"skill_script_execute" => "allowed"},
+      "execution" => %{
+        "local" => %{"allowed_roots" => [workspace]},
+        "skill_scripts" => %{"enabled" => true}
+      }
+    }
+
+    assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
+
+  defp write_script_skill!(home, name) do
+    skill_root = Path.join([home, "skills", name])
+    script_path = Path.join([skill_root, "scripts", "hello"])
+
+    File.mkdir_p!(Path.dirname(script_path))
+    File.write!(Path.join(skill_root, "SKILL.md"), skill_markdown(name))
+    File.write!(script_path, "#!/bin/sh\nprintf 'hello from #{name}\\n'\n")
+    File.chmod!(script_path, 0o755)
+  end
+
+  defp skill_markdown(name) do
+    """
+    ---
+    name: #{name}
+    description: #{name} test script skill.
+    metadata:
+      allbert.kind: capability
+      allbert.actions: run_skill_script
+      allbert.permissions: skill_script_execute
+      allbert.confirmation: required
+    ---
+
+    Run only through Allbert.
+    """
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

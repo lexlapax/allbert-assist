@@ -6,11 +6,13 @@ defmodule Mix.Tasks.Allbert.Skills do
 
       mix allbert.skills validate PATH
       mix allbert.skills create NAME ACTION PERMISSION DESCRIPTION... [--root ROOT] [--overwrite]
+      mix allbert.skills run SKILL SCRIPT [--cwd PATH] [--timeout MS] [--max-output-bytes BYTES] -- [ARGS...]
   """
 
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Confirmations.SkillScriptMetadata
 
   @shortdoc "Validate and scaffold local Allbert Agent Skills"
 
@@ -47,11 +49,30 @@ defmodule Mix.Tasks.Allbert.Skills do
     end
   end
 
+  defp dispatch(["run", skill_name, script_path | rest]) do
+    {opts, script_args} = parse_run_options(rest)
+
+    params =
+      %{
+        skill_name: skill_name,
+        script_path: script_path,
+        args: script_args
+      }
+      |> maybe_put(:cwd, Map.get(opts, :cwd))
+      |> maybe_put(:timeout_ms, Map.get(opts, :timeout_ms))
+      |> maybe_put(:max_output_bytes, Map.get(opts, :max_output_bytes))
+
+    with {:ok, response} <- runnable_action("run_skill_script", params) do
+      {:ok, {:run, response}}
+    end
+  end
+
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
       mix allbert.skills validate PATH
       mix allbert.skills create NAME ACTION PERMISSION DESCRIPTION... [--root ROOT] [--overwrite]
+      mix allbert.skills run SKILL SCRIPT [--cwd PATH] [--timeout MS] [--max-output-bytes BYTES] -- [ARGS...]
     """)
   end
 
@@ -69,6 +90,21 @@ defmodule Mix.Tasks.Allbert.Skills do
     print_result({:ok, {:validation, skill.validation}})
   end
 
+  defp print_result({:ok, {:run, response}}) do
+    Mix.shell().info("Status: #{response.status}")
+    Mix.shell().info(response.message)
+
+    response
+    |> Map.get(:actions, [])
+    |> List.first()
+    |> SkillScriptMetadata.action_lines()
+    |> Enum.each(fn line -> Mix.shell().info(line) end)
+
+    if Map.get(response, :confirmation_id) do
+      Mix.shell().info("Confirmation: #{response.confirmation_id}")
+    end
+  end
+
   defp print_result({:error, reason}) do
     Mix.raise("Skills command failed: #{inspect(reason)}")
   end
@@ -82,6 +118,17 @@ defmodule Mix.Tasks.Allbert.Skills do
 
   defp response_error(%{error: error}), do: error
   defp response_error(%{message: message}), do: message
+
+  defp runnable_action(action_name, params) do
+    case Runner.run(action_name, params, context()) do
+      {:ok, %{status: status} = response}
+      when status in [:needs_confirmation, :denied, :completed, :failed, :timed_out] ->
+        {:ok, response}
+
+      {:ok, response} ->
+        {:error, response_error(response)}
+    end
+  end
 
   defp parse_create_options(args) do
     parse_create_options(args, [], %{})
@@ -101,11 +148,52 @@ defmodule Mix.Tasks.Allbert.Skills do
 
   defp parse_create_options([], description, opts), do: {Enum.reverse(description), opts}
 
+  defp parse_run_options(args) do
+    {option_args, script_args} =
+      case Enum.split_while(args, &(&1 != "--")) do
+        {option_args, ["--" | script_args]} -> {option_args, script_args}
+        {option_args, []} -> {option_args, []}
+      end
+
+    {parse_run_option_args(option_args, %{}), script_args}
+  end
+
+  defp parse_run_option_args(["--cwd", cwd | rest], opts) do
+    parse_run_option_args(rest, Map.put(opts, :cwd, cwd))
+  end
+
+  defp parse_run_option_args(["--timeout", value | rest], opts) do
+    parse_run_option_args(
+      rest,
+      Map.put(opts, :timeout_ms, parse_positive_integer!("--timeout", value))
+    )
+  end
+
+  defp parse_run_option_args(["--max-output-bytes", value | rest], opts) do
+    parse_run_option_args(
+      rest,
+      Map.put(opts, :max_output_bytes, parse_positive_integer!("--max-output-bytes", value))
+    )
+  end
+
+  defp parse_run_option_args([unknown | _rest], _opts) do
+    Mix.raise("Unknown allbert.skills run option: #{unknown}")
+  end
+
+  defp parse_run_option_args([], opts), do: opts
+
+  defp parse_positive_integer!(flag, value) do
+    case Integer.parse(value) do
+      {integer, ""} when integer > 0 -> integer
+      _other -> Mix.raise("#{flag} must be a positive integer")
+    end
+  end
+
   defp maybe_put(params, _key, nil), do: params
   defp maybe_put(params, key, value), do: Map.put(params, key, value)
 
   defp context do
-    %{actor: "local", channel: :cli, selected_skill: nil}
+    %{actor: "local", channel: :cli, surface: "mix allbert.skills", selected_skill: nil}
   end
 
   defp print_diagnostics([]), do: Mix.shell().info("Diagnostics: none")

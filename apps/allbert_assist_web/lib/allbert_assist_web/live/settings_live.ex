@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.SettingsLive do
 
   alias AllbertAssist.{Actions.Runner, Confirmations}
   alias AllbertAssist.Confirmations.ShellCommandMetadata
+  alias AllbertAssist.Confirmations.SkillScriptMetadata
 
   @default_key "operator.communication_style"
 
@@ -329,11 +330,11 @@ defmodule AllbertAssistWeb.SettingsLive do
                         Skill: {selected_skill_name(confirmation)}
                       </div>
                       <div
-                        :if={shell_command_lines(confirmation) != []}
-                        id={"confirmation-shell-#{confirmation["id"]}"}
+                        :if={confirmation_detail_lines(confirmation) != []}
+                        id={"confirmation-details-#{confirmation["id"]}"}
                         class="text-xs text-base-content/70"
                       >
-                        <div :for={line <- shell_command_lines(confirmation)}>{line}</div>
+                        <div :for={line <- confirmation_detail_lines(confirmation)}>{line}</div>
                       </div>
                     </div>
 
@@ -408,11 +409,11 @@ defmodule AllbertAssistWeb.SettingsLive do
                     {status_note(confirmation)}
                   </div>
                   <div
-                    :if={shell_command_lines(confirmation) != []}
-                    id={"confirmation-shell-result-#{confirmation["id"]}"}
+                    :if={confirmation_detail_lines(confirmation) != []}
+                    id={"confirmation-result-#{confirmation["id"]}"}
                     class="mt-2 text-xs text-base-content/70"
                   >
-                    <div :for={line <- shell_command_lines(confirmation)}>{line}</div>
+                    <div :for={line <- confirmation_detail_lines(confirmation)}>{line}</div>
                   </div>
                 </div>
               </div>
@@ -607,7 +608,10 @@ defmodule AllbertAssistWeb.SettingsLive do
   defp status_note(confirmation), do: Confirmations.status_note(confirmation)
 
   defp confirmation_flash_message(confirmation) do
-    details = ShellCommandMetadata.result_details(confirmation)
+    details =
+      ShellCommandMetadata.result_details(confirmation) ++
+        SkillScriptMetadata.result_details(confirmation)
+
     message = Confirmations.status_message(confirmation)
 
     if details == [], do: message, else: "#{message} #{Enum.join(details, " · ")}"
@@ -624,7 +628,9 @@ defmodule AllbertAssistWeb.SettingsLive do
     end
   end
 
-  defp shell_command_lines(confirmation), do: ShellCommandMetadata.lines(confirmation)
+  defp confirmation_detail_lines(confirmation) do
+    ShellCommandMetadata.lines(confirmation) ++ SkillScriptMetadata.lines(confirmation)
+  end
 
   defp params_summary(confirmation) do
     confirmation
