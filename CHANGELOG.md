@@ -2,7 +2,7 @@
 
 ## v0.10 - External Capability Adapters
 
-Status: implemented through M13 after the reopened v0.10 M6-M9 sequence. The
+Status: implemented through M14 after the reopened v0.10 M6-M9 sequence. The
 original M5 release-readiness gate was reopened for online skill approval
 clarity/search fixes and Resource Access Security Posture planning; M9 closed
 the release-readiness refresh. A later zoom-out release audit reopened v0.10
@@ -11,9 +11,10 @@ resource identity hardening; M11 has landed remembered-grant operator
 UX/application for existing v0.10 actions. M12 has landed URI-first
 `resource_uri` resource/grant authority through
 `AllbertAssist.Resources.ResourceURI`. M13 has landed direct/local skill
-import consumers on that URI substrate. M14 remains for final unsupported UX
-and v0.11 handoff readiness. Expected release tag remains `v0.10`; no v0.10
-tag has been created or pushed yet.
+import consumers on that URI substrate. M14 has landed final unsupported UX
+and v0.11 handoff readiness. v0.10 is ready for operator/user testing.
+Expected release tag remains `v0.10`; no v0.10 tag has been created or pushed
+yet.
 
 ### Added
 
@@ -96,6 +97,12 @@ tag has been created or pushed yet.
   reading imported content, uses `file://... + import_local_skill` resource
   refs, denies unsafe paths/symlinks during import, and writes only
   disabled/untrusted imported candidates under `<ALLBERT_HOME>/cache/skills`.
+- Unsupported v0.11-owned resource workflows now route to the inert
+  `unsupported_resource_workflow` action. CLI, LiveView, and the runtime give
+  the same no-fetch/no-read/no-execute explanation for URL summarization,
+  document inspection/extraction, MCP resource/tool calls, `agent://` or
+  `agent+https://` delegation, broad browsing/crawling/research, and future
+  channel-native approval handoff.
 - Version metadata bumped to `0.10.0`.
 
 ### Changed
@@ -134,6 +141,10 @@ tag has been created or pushed yet.
   URI-first substrate. These are skill-import consumers of the generic resource
   posture, not a marketplace-only path. M14 owns final unsupported
   URL/document/MCP/agent messaging and v0.11 handoff readiness.
+- M14 closes v0.10 by routing v0.11-owned resource workflows to explicit
+  unsupported/deferred UX rather than creating partial `external_network`
+  confirmations. v0.11 consumes this as the baseline for execution-aware
+  intent and channel-native Approval Handoff.
 
 ### Safety
 
@@ -156,8 +167,9 @@ tag has been created or pushed yet.
   Security Central or operator denials.
 - v0.10 does not implement arbitrary URL/document summarization, MCP
   execution, `agent://` delegation, a browser, or a crawler. Those consumer UX
-  flows still need the v0.11 intent and Approval Handoff contract over the
-  v0.10 URI resource posture.
+  flows now return explicit unsupported/deferred responses and still need the
+  v0.11 intent and Approval Handoff contract over the v0.10 URI resource
+  posture.
 
 ### Verification
 
@@ -202,9 +214,13 @@ tag has been created or pushed yet.
   denied-no-fetch behavior, operation-scoped grant separation, local directory
   import confirmation/approval, symlink escape denial, existing online skill
   regressions, Mix task output, resource grants, and registry metadata.
-- Operator/user testing should wait for the remaining M14 closeout, then
-  start with `docs/operator/onboarding.md` and use the disposable v0.10 smoke
-  flow in `docs/plans/v0.10-request-flow.md` or
+- M14 focused tests pass for unsupported URL summarization, document/MCP/agent
+  handoff routing, CLI ask output, LiveView rendering, registry metadata, plus
+  the existing external request, online skill, package install, direct/local
+  skill import, confirmations, resource refs, resource grants, resource CLI,
+  skill CLI, and `/settings` suites.
+- Operator/user testing should start with `docs/operator/onboarding.md` and
+  use the disposable v0.10 smoke flow in `docs/plans/v0.10-request-flow.md` or
   `docs/plans/v0.10-plan.md` before accepting and tagging `v0.10`.
 
 ## v0.09 - Skill Script Runner

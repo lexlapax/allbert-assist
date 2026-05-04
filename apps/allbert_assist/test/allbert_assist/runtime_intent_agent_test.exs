@@ -103,6 +103,29 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert pending["target_execution_mode"] == "req_http"
   end
 
+  test "default runtime explains URL summarization is unsupported without confirmation" do
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Please check https://example.com/report and summarize it",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :unsupported
+    assert response.message =~ "URL summarization is deferred to v0.11"
+    assert response.message =~ "v0.10 has not run anything"
+
+    assert [
+             %{
+               name: "unsupported_resource_workflow",
+               execution: :not_started,
+               workflow: :summarize_url
+             }
+           ] = response.actions
+
+    assert Confirmations.list(status: :pending) == []
+  end
+
   test "default runtime trace includes confirmation metadata for external network requests", %{
     root: root
   } do

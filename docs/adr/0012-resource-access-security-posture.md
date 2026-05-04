@@ -131,6 +131,12 @@ import_local_skill` with `:skill_write` plus the action's mandatory
 confirmation/grant path before reading imported content. Both write only
 disabled, untrusted, inactive, non-executable candidates under Allbert cache.
 
+v0.10 M14 adds the user-facing complement: unsupported v0.11-owned resource
+workflows route to an inert `unsupported_resource_workflow` action. That
+prevents URL summarization, document inspection/extraction, MCP/agent calls,
+broad crawling/research, or future channel-native approval handoff requests
+from looking like successful v0.10 fetch/read/execution work.
+
 ## Consequences
 
 - v0.08 and v0.09 docs may include retrospective framing that their completed

@@ -151,6 +151,20 @@ defmodule Mix.Tasks.Allbert.AskTest do
     assert pending["target_permission"] == "command_execute"
   end
 
+  test "default CLI runtime explains unsupported URL summarization without confirmation" do
+    Application.delete_env(:allbert_assist, Runtime)
+
+    output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["check https://example.com/report and summarize it"])
+      end)
+
+    assert output =~ "Status: unsupported"
+    assert output =~ "URL summarization is deferred to v0.11"
+    assert output =~ "- unsupported_resource_workflow (unsupported)"
+    assert Confirmations.list(status: :pending) == []
+  end
+
   test "raises when prompt is missing" do
     assert_raise Mix.Error, ~r/Usage: mix allbert.ask/, fn ->
       Ask.run([])

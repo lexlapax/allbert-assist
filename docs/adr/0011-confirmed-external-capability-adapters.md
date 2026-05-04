@@ -181,6 +181,10 @@ workflow must be denied or deferred to a later sandbox milestone.
   consumer UX may orchestrate URL summarization and channel-native rendering
   for direct/local skill import over the v0.10 adapter, but channels and
   summarizers do not gain direct fetch authority.
+- v0.10 M14 routes URL/document summarization, document extraction,
+  MCP/agent calls, broad crawling/research, and future channel-native approval
+  handoff prompts to explicit unsupported/deferred UX instead of creating
+  partial external-network confirmations.
 - v0.12 jobs and v0.13 channels may create or render confirmation requests for
   these capabilities, but must not run them invisibly.
 - v0.16 security hardening should add evals for SSRF, redirect, retry,
@@ -217,4 +221,5 @@ workflow must be denied or deferred to a later sandbox milestone.
   UX.
 - v0.10 M12 refactors resource identity to the URI-first model from ADR 0013;
   v0.10 M13 implements direct skill URL import and local skill directory import
-  on that substrate.
+  on that substrate; v0.10 M14 adds explicit unsupported/deferred UX for
+  v0.11-owned workflows.

@@ -21,6 +21,7 @@ defmodule AllbertAssist.Skills.Registry do
     "list-skills",
     "read-skill",
     "plan-shell-command",
+    "unsupported-resource-workflow",
     "external-network-request"
   ]
 
@@ -81,6 +82,15 @@ defmodule AllbertAssist.Skills.Registry do
       description: "Draft a command plan or safety note without executing any shell command.",
       permission: :command_plan,
       status: :available
+    },
+    %{
+      name: "unsupported-resource-workflow",
+      action_name: "unsupported_resource_workflow",
+      title: "Unsupported Resource Workflow",
+      description:
+        "Explain URL/document/MCP/agent/channel workflows that v0.10 defers to v0.11+.",
+      permission: :read_only,
+      status: :unsupported
     },
     %{
       name: "external-network-request",

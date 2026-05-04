@@ -66,6 +66,23 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert html =~ "Status: completed"
   end
 
+  test "default runtime renders unsupported URL summarization through LiveView", %{conn: conn} do
+    Application.delete_env(:allbert_assist, Runtime)
+
+    {:ok, view, _html} = live(conn, ~p"/agent")
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "check https://example.com/report and summarize it"})
+
+    html = render_async(view, 1_000)
+
+    assert has_element?(view, "#agent-response")
+    assert html =~ "URL summarization is deferred to v0.11"
+    assert html =~ "Status: unsupported"
+    assert Confirmations.list(status: :pending) == []
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end

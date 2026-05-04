@@ -66,6 +66,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              "activate_skill",
              "plan_shell_command",
              "run_shell_command",
+             "unsupported_resource_workflow",
              "external_network_request",
              "plan_package_install",
              "search_online_skills",
@@ -445,6 +446,56 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert pending["origin"]["channel"] == "test"
     assert pending["selected_skill"]["name"] == "external-network-request"
     assert pending["target_execution_mode"] == "req_http"
+  end
+
+  test "routes URL summarization to unsupported resource workflow instead of fetching" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "Check https://example.com/report and summarize it for me",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :unsupported
+    assert response.message =~ "URL summarization is deferred to v0.11"
+    assert response.message =~ "v0.10 has not run anything"
+
+    assert [
+             %{
+               name: "unsupported_resource_workflow",
+               status: :unsupported,
+               execution: :not_started,
+               workflow: :summarize_url,
+               resource: "https://example.com/report",
+               runner_metadata: %{selected_skill: "unsupported-resource-workflow"}
+             }
+           ] = response.actions
+
+    assert Confirmations.list(status: :pending) == []
+  end
+
+  test "routes MCP and agent URI requests to unsupported resource workflow" do
+    assert {:ok, mcp_response} =
+             IntentAgent.respond(%{
+               text: "Call mcp://local-server/resources/doc",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert mcp_response.status == :unsupported
+    assert mcp_response.message =~ "MCP resources and future agent endpoints"
+    assert [%{workflow: :unsupported_uri_scheme}] = mcp_response.actions
+
+    assert {:ok, agent_response} =
+             IntentAgent.respond(%{
+               text: "Delegate this to agent+https://agent.example/tasks/review",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert agent_response.status == :unsupported
+    assert agent_response.message =~ "does not call MCP tools or delegate"
+    assert [%{workflow: :unsupported_uri_scheme}] = agent_response.actions
   end
 
   test "skill action plans reject action mismatches before runner invocation" do

@@ -24,6 +24,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       AllbertAssist.Actions.Intent.ActivateSkill,
       AllbertAssist.Actions.Intent.PlanShellCommand,
       AllbertAssist.Actions.Intent.RunShellCommand,
+      AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow,
       AllbertAssist.Actions.Intent.ExternalNetworkRequest,
       AllbertAssist.Actions.Packages.PlanPackageInstall,
       AllbertAssist.Actions.Skills.SearchOnlineSkills,
@@ -53,6 +54,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
     - You may plan shell commands from free-form prompts.
     - You may only request local shell execution from structured command specs
       that go through confirmation; do not claim execution before approval.
+    - You may explain unsupported v0.11-owned resource workflows without
+      fetching, reading, summarizing, crawling, importing, or delegating.
     - You may recognize external-network and online skill search requests, but
       confirmed external adapters are required before any network call runs.
     - You may plan package installation requests, but package managers run only
@@ -95,6 +98,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
     [
       fn -> settings_route(text, normalized) end,
+      fn -> unsupported_resource_workflow_route(text, normalized) end,
       fn -> command_route(normalized) end,
       fn -> external_network_route(normalized) end,
       fn -> explicit_memory_route(normalized) end,
@@ -220,6 +224,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
     )
   end
 
+  defp run_route({:unsupported_resource_workflow, workflow, resource}, text, context) do
+    run_skill_action(
+      "unsupported-resource-workflow",
+      "unsupported_resource_workflow",
+      %{workflow: workflow, source_text: text, resource: resource},
+      text,
+      context
+    )
+  end
+
   defp run_route(:append_memory, text, context) do
     run_skill_action(
       "append-memory",
@@ -329,6 +343,31 @@ defmodule AllbertAssist.Agents.IntentAgent do
       Regex.match?(~r/\brm\s+-/, text)
   end
 
+  defp unsupported_resource_workflow_route(text, normalized) do
+    cond do
+      unsupported_uri_scheme_request?(normalized) ->
+        {:unsupported_resource_workflow, :unsupported_uri_scheme, resource_hint(text)}
+
+      url_summary_request?(normalized) ->
+        {:unsupported_resource_workflow, :summarize_url, resource_hint(text)}
+
+      document_extraction_request?(normalized) ->
+        {:unsupported_resource_workflow, :document_extraction, resource_hint(text)}
+
+      document_inspection_request?(normalized) ->
+        {:unsupported_resource_workflow, :inspect_document, resource_hint(text)}
+
+      broad_web_request?(normalized) ->
+        {:unsupported_resource_workflow, :web_browsing, resource_hint(text)}
+
+      channel_approval_handoff_request?(normalized) ->
+        {:unsupported_resource_workflow, :channel_approval_handoff, resource_hint(text)}
+
+      true ->
+        nil
+    end
+  end
+
   defp external_network_request?(text) do
     Regex.match?(
       ~r/\b(fetch|browse|download|call|post|get)\b.*\b(https?:\/\/|api|website|web|internet)\b/,
@@ -337,6 +376,57 @@ defmodule AllbertAssist.Agents.IntentAgent do
       String.contains?(text, "http://") ||
       String.contains?(text, "https://") ||
       String.contains?(text, "external network")
+  end
+
+  defp unsupported_uri_scheme_request?(text) do
+    String.contains?(text, "mcp://") ||
+      String.contains?(text, "agent://") ||
+      String.contains?(text, "agent+https://") ||
+      Regex.match?(~r/\bmcp\s+(resource|tool|call)\b/, text) ||
+      Regex.match?(~r/\bdelegate\s+.+\bagent\b/, text)
+  end
+
+  defp url_summary_request?(text) do
+    String.contains?(text, "http") &&
+      Regex.match?(~r/\b(summarize|summary|summarise|summarisation)\b/, text)
+  end
+
+  defp document_extraction_request?(text) do
+    Regex.match?(~r/\b(extract|parse)\b.*\b(document|pdf|docx|xlsx|pptx|file)\b/, text) ||
+      Regex.match?(~r/\b(document|pdf|docx|xlsx|pptx|file)\b.*\b(extract|parse)\b/, text)
+  end
+
+  defp document_inspection_request?(text) do
+    Regex.match?(~r/\b(inspect|review|read|check)\b.*\b(document|pdf|docx|xlsx|pptx)\b/, text) ||
+      Regex.match?(~r/\b(document|pdf|docx|xlsx|pptx)\b.*\b(inspect|review|read|check)\b/, text)
+  end
+
+  defp broad_web_request?(text) do
+    String.contains?(text, "crawl ") ||
+      String.contains?(text, "crawler") ||
+      String.contains?(text, "browse the web") ||
+      String.contains?(text, "browse internet") ||
+      String.contains?(text, "research online") ||
+      String.contains?(text, "research the internet") ||
+      String.contains?(text, "search the internet")
+  end
+
+  defp channel_approval_handoff_request?(text) do
+    Regex.match?(~r/\b(telegram|email|sms)\b.*\b(approval|approve|handoff)\b/, text) ||
+      Regex.match?(~r/\b(channel-native|channel native)\b.*\bapproval/, text)
+  end
+
+  defp resource_hint(text) do
+    cond do
+      match = Regex.run(~r/(agent\+https:\/\/[^\s<>"']+)/i, text) ->
+        List.first(match)
+
+      match = Regex.run(~r/((?:https?|mcp|agent):\/\/[^\s<>"']+)/i, text) ->
+        List.first(match)
+
+      true ->
+        nil
+    end
   end
 
   defp memory_append_request?(text) do

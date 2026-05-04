@@ -22,6 +22,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
   alias AllbertAssist.Actions.Intent.ReadSkill
   alias AllbertAssist.Actions.Intent.RunShellCommand
+  alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
   alias AllbertAssist.Actions.Resources.ListResourceGrants
@@ -56,6 +57,7 @@ defmodule AllbertAssist.Actions.Registry do
     ActivateSkill,
     PlanShellCommand,
     RunShellCommand,
+    UnsupportedResourceWorkflow,
     ExternalNetworkRequest,
     PlanPackageInstall,
     SearchOnlineSkills,
@@ -153,6 +155,15 @@ defmodule AllbertAssist.Actions.Registry do
       resumable?: true,
       notes:
         "v0.08 Level 1 local process execution; creates a durable confirmation before running."
+    },
+    UnsupportedResourceWorkflow => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :unsupported_resource_workflow,
+      skill_backed?: true,
+      confirmation: :not_required,
+      notes:
+        "Inert v0.10 explanation for URL/document/MCP/agent/channel workflows owned by v0.11+."
     },
     ExternalNetworkRequest => %{
       permission: :external_network,

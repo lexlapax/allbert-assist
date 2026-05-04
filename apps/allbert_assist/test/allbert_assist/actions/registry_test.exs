@@ -15,6 +15,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "activate_skill",
              "plan_shell_command",
              "run_shell_command",
+             "unsupported_resource_workflow",
              "external_network_request",
              "plan_package_install",
              "search_online_skills",
@@ -124,6 +125,14 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert external_network_request.execution_mode == :req_http
     assert external_network_request.confirmation == :required
     assert external_network_request.resumable?
+
+    assert {:ok, unsupported_resource_workflow} =
+             Registry.capability("unsupported_resource_workflow")
+
+    assert unsupported_resource_workflow.permission == :read_only
+    assert unsupported_resource_workflow.execution_mode == :unsupported_resource_workflow
+    assert unsupported_resource_workflow.confirmation == :not_required
+    assert unsupported_resource_workflow.skill_backed?
 
     assert {:ok, plan_package_install} = Registry.capability("plan_package_install")
     assert plan_package_install.permission == :read_only

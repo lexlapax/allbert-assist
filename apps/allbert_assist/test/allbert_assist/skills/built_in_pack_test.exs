@@ -11,7 +11,8 @@ defmodule AllbertAssist.Skills.BuiltInPackTest do
     "list-skills",
     "plan-shell-command",
     "read-recent-memory",
-    "read-skill"
+    "read-skill",
+    "unsupported-resource-workflow"
   ]
 
   test "built-in skill pack is loaded from priv skills" do
