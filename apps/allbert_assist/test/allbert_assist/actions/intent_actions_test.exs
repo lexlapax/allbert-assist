@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
   alias AllbertAssist.Actions.Intent.PlanShellCommand
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
   alias AllbertAssist.Actions.Intent.ReadSkill
+  alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
@@ -212,6 +213,35 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
     assert pending["status"] == "pending"
     assert pending["target_action"]["name"] == "external_network_request"
     assert pending["target_execution_mode"] == "req_http"
+  end
+
+  test "unsupported_resource_workflow explains deferred v0.11 resource workflows" do
+    assert {:ok, response} =
+             UnsupportedResourceWorkflow.run(
+               %{
+                 workflow: "summarize_url",
+                 resource: "https://example.com/report.pdf",
+                 source_text: "check this URL and summarize it"
+               },
+               %{actor: "local", channel: :test}
+             )
+
+    assert response.status == :unsupported
+    assert response.message =~ "URL summarization is deferred to v0.11"
+    assert response.message =~ "no fetch, read, extraction, summarization"
+    assert response.message =~ "external_network_request"
+    assert response.message =~ "Resource: https://example.com/report.pdf"
+    assert response.permission_decision.decision == :allowed
+
+    assert [
+             %{
+               name: "unsupported_resource_workflow",
+               status: :unsupported,
+               execution: :not_started,
+               workflow: :summarize_url,
+               v0_10_supported?: false
+             }
+           ] = response.actions
   end
 
   defp configure_external do

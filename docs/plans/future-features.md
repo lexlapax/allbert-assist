@@ -219,7 +219,8 @@ Needed before planning:
 - operation-scoped grant matching over `resource_uri`
 - MCP server configuration and permission model
 - agent endpoint discovery, authentication, and trust model
-- unsupported-scheme UX from v0.10 M14
+- unsupported-scheme UX from v0.10 M14 through
+  `unsupported_resource_workflow`
 - v0.11 channel-native Approval Handoff consumption
 - evals for cross-scheme grant reuse, tool/resource confusion, prompt
   injection through MCP resources, and remote agent impersonation

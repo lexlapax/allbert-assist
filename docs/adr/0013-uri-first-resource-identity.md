@@ -105,7 +105,8 @@ re-created through the current approval/resource-grant UX.
   matching.
 - v0.10 M12 becomes a real URI-first resource identity refactor milestone.
   v0.10 M13 builds on that substrate with direct skill URL import and local
-  skill directory import.
+  skill directory import. v0.10 M14 adds explicit unsupported/deferred UX for
+  URI-backed workflows whose execution/orchestration remains v0.11+.
 - v0.11 consumes URI-backed `resource_access` and Approval Handoff metadata.
   It does not redefine storage, permission policy, grant matching, or
   execution authority.

@@ -557,7 +557,7 @@ Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 Identity ADR: `docs/adr/0013-uri-first-resource-identity.md`
 
-Status: M1-M13 implemented and focused verified. v0.10 was reopened
+Status: M1-M14 implemented and focused verified. v0.10 was reopened
 after M5 because post-M5 commits added online skill approval clarity/search
 fixes and Resource Access Security Posture planning. M6 reconciles that
 history, M7 implements shared resource reference metadata, M8 implements
@@ -568,10 +568,11 @@ finished canonical resource identity hardening, and M11 added
 remembered-grant operator UX plus application to existing v0.10 flows.
 M12 added URI-first resource identity through
 `AllbertAssist.Resources.ResourceURI` and required `resource_uri` grant
-authority. M13 has added direct/local skill import consumers. M14 remains for
-final v0.11 handoff readiness. Expected tag remains
-`v0.10`; no v0.10 tag has been created or
-pushed yet.
+authority. M13 has added direct/local skill import consumers. M14 has added
+explicit unsupported/deferred UX for v0.11-owned URL/document, MCP/agent,
+broad browsing/crawling, and future channel-native approval workflows. v0.10
+is ready for operator/user testing. Expected tag remains `v0.10`; no v0.10 tag
+has been created or pushed yet.
 
 Expected direction:
 
@@ -600,11 +601,10 @@ Expected direction:
   not matched through a legacy compatibility layer. Authority is
   `resource_uri + operation_class + access_mode + downstream_consumer` plus
   current Security Central permission.
-- Document future local and remote operation classes such as
-  `import_local_skill`, `summarize_url`, `inspect_document`, and `import_skill`
-  so local skill imports, URL summarization, document inspection, and direct
-  skill URL import can consume the same posture without sharing unsafe approval
-  authority.
+- Implement direct/local skill import as `import_skill` and
+  `import_local_skill` consumers, and keep future URL summarization and
+  document inspection on `summarize_url`/`inspect_document` without sharing
+  unsafe approval authority.
 - Write imported skills only under `<ALLBERT_HOME>/cache/skills`; keep them
   disabled, untrusted, and non-executable until parsed, validated, audited,
   enabled, trusted, and separately confirmed for any script execution.
@@ -670,7 +670,7 @@ Milestones:
   directory import as concrete URI-backed resource consumers that import only
   disabled/untrusted skill candidates and never trust, enable, execute, or
   install dependencies.
-- M14 (Milestone 14): Planned implementation. Final closeout and v0.11 handoff
+- M14 (Milestone 14): Implemented. Final closeout and v0.11 handoff
   readiness: explicit no-op/unsupported UX for URL summarization and document
   inspection, MCP resource/tool calls, and `agent://` delegation in v0.10,
   refreshed tests, docs, and release/tag readiness.
@@ -684,9 +684,10 @@ summaries, including the distinction between operator approval and target
 execution failure. The docs and code also identify Resource Access Security
 Posture as the common substrate for future local and remote consumers. The
 reopened M6-M9 sequence, M10 hardening, M11 remembered-grant
-operator/application work, M12 URI-first resource identity refactor, and M13
-direct/local skill import consumers are complete, but the later M14 closeout
-must finish before release/tag acceptance.
+operator/application work, M12 URI-first resource identity refactor, M13
+direct/local skill import consumers, and M14 unsupported workflow handoff are
+complete. v0.10 is ready for operator/user testing before release/tag
+acceptance.
 
 ## v0.11: Execution-Aware Intent, URI-Based Resource Access, And Approval Handoff
 

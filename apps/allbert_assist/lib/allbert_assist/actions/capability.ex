@@ -32,6 +32,7 @@ defmodule AllbertAssist.Actions.Capability do
           | :memory_write
           | :command_plan_only
           | :local_process
+          | :unsupported_resource_workflow
           | :external_network_unavailable
           | :req_http
           | :package_install_plan

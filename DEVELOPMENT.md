@@ -113,13 +113,14 @@ content posture work, start with:
 - `docs/adr/0012-resource-access-security-posture.md`
 - `docs/adr/0013-uri-first-resource-identity.md`
 
-For v0.10 closeout and v0.11, remember that URL summarization, document
-inspection, direct skill URL import, local skill directory import, local path
-access, trusted skill script execution, package installs, online source
-consumers, future MCP resources, and future agent endpoints are all URI-backed
-resource access operation classes. Channels and summarizers do not fetch, read,
-import, or execute directly; they render or consume Approval Handoff data and
-registered action results.
+After v0.10 closeout, remember that URL summarization, document inspection,
+direct skill URL import, local skill directory import, local path access,
+trusted skill script execution, package installs, online source consumers,
+future MCP resources, and future agent endpoints are all URI-backed resource
+access operation classes. v0.10 implements direct/local skill import and
+explicit unsupported/deferred UX for v0.11-owned workflows. Channels and
+summarizers do not fetch, read, import, or execute directly; they render or
+consume Approval Handoff data and registered action results.
 
 ## Fresh Checkout
 
