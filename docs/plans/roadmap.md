@@ -563,7 +563,7 @@ fixes and Resource Access Security Posture planning. M6 reconciles that
 history, M7 implements shared resource reference metadata, M8 implements
 Settings-backed remembered resource grant storage and matching, and M9 closes
 the first release-readiness/user-testing refresh. A later zoom-out release
-audit reopened v0.10 for M10-M14 closeout before operator acceptance. M10
+audit reopened v0.10 for M10-M14 closeout before release. M10
 finished canonical resource identity hardening, and M11 added
 remembered-grant operator UX plus application to existing v0.10 flows.
 M12 added URI-first resource identity through
@@ -571,8 +571,7 @@ M12 added URI-first resource identity through
 authority. M13 has added direct/local skill import consumers. M14 has added
 explicit unsupported/deferred UX for v0.11-owned URL/document, MCP/agent,
 broad browsing/crawling, and future channel-native approval workflows. v0.10
-is ready for operator/user testing. Expected tag remains `v0.10`; no v0.10 tag
-has been created or pushed yet.
+was released and tagged as `v0.10` on 2026-05-04.
 
 Expected direction:
 
@@ -686,8 +685,7 @@ Posture as the common substrate for future local and remote consumers. The
 reopened M6-M9 sequence, M10 hardening, M11 remembered-grant
 operator/application work, M12 URI-first resource identity refactor, M13
 direct/local skill import consumers, and M14 unsupported workflow handoff are
-complete. v0.10 is ready for operator/user testing before release/tag
-acceptance.
+complete. v0.10 was released and tagged as `v0.10` on 2026-05-04.
 
 ## v0.11: Execution-Aware Intent, URI-Based Resource Access, And Approval Handoff
 

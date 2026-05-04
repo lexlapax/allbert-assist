@@ -24,8 +24,7 @@ M12 URI-first resource identity refactor is now implemented through
 local skill directory import as disabled/untrusted URI-backed consumers. M14
 has added explicit unsupported/deferred UX for v0.11-owned URL/document,
 MCP/agent, broad browsing/crawling, and future channel-native approval flows.
-v0.10 is ready for operator/user testing. Expected release tag after operator
-acceptance remains `v0.10`; no v0.10 tag has been created or pushed yet.
+v0.10 was released and tagged as `v0.10` on 2026-05-04.
 
 Release details live in `CHANGELOG.md`.
 

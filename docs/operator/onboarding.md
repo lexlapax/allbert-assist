@@ -75,16 +75,15 @@ execution are distinct. If a source HTTP/transport failure happens after
 approval, the operator decision remains `approved` and the target result should
 show `target_status=failed` with a visible failure reason.
 
-v0.10 is implemented through M14 after the reopened M6-M9 sequence and is
-ready for operator/user testing before operator acceptance. M12 landed the
-URI-first `resource_uri` resource/grant authority. M13 added
+v0.10 is implemented through M14 after the reopened M6-M9 sequence and was
+released and tagged as `v0.10` on 2026-05-04. M12 landed the URI-first
+`resource_uri` resource/grant authority. M13 added
 `mix allbert.skills import-url` for direct HTTPS skill URLs and
 `mix allbert.skills import-local` for local skill directories. Both import
 disabled, untrusted, inactive, non-executable candidates under Allbert cache.
 M14 added explicit unsupported/deferred UX for URL/document summarization,
 document extraction, MCP/agent resource calls, broad web browsing/crawling,
-and future channel-native approval handoff. Expected tag after acceptance is
-`v0.10`; no v0.10 tag has been created or pushed yet.
+and future channel-native approval handoff.
 
 Remembered grant testing should use disposable confirmations and resources:
 
