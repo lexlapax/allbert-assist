@@ -75,12 +75,14 @@ execution are distinct. If a source HTTP/transport failure happens after
 approval, the operator decision remains `approved` and the target result should
 show `target_status=failed` with a visible failure reason.
 
-v0.10 is implemented through M12 after the reopened M6-M9 sequence, but the
-release remains open for M13-M14 closeout before operator acceptance. M12
-landed the URI-first `resource_uri` resource/grant authority. M13 is
-direct/local skill import, and M14 is final handoff and release readiness.
-Expected tag after acceptance is `v0.10`; no v0.10 tag has been created or
-pushed yet.
+v0.10 is implemented through M13 after the reopened M6-M9 sequence, but the
+release remains open for M14 closeout before operator acceptance. M12 landed
+the URI-first `resource_uri` resource/grant authority. M13 added
+`mix allbert.skills import-url` for direct HTTPS skill URLs and
+`mix allbert.skills import-local` for local skill directories. Both import
+disabled, untrusted, inactive, non-executable candidates under Allbert cache.
+M14 is final handoff and release readiness. Expected tag after acceptance is
+`v0.10`; no v0.10 tag has been created or pushed yet.
 
 Remembered grant testing should use disposable confirmations and resources:
 

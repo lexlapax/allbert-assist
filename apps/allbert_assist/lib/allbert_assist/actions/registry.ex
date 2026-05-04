@@ -38,7 +38,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.UpdateSetting
   alias AllbertAssist.Actions.Skills.AuditOnlineSkill
   alias AllbertAssist.Actions.Skills.CreateSkill
+  alias AllbertAssist.Actions.Skills.ImportLocalSkill
   alias AllbertAssist.Actions.Skills.ImportOnlineSkill
+  alias AllbertAssist.Actions.Skills.ImportRemoteSkill
   alias AllbertAssist.Actions.Skills.RunSkillScript
   alias AllbertAssist.Actions.Skills.SearchOnlineSkills
   alias AllbertAssist.Actions.Skills.ShowOnlineSkill
@@ -74,6 +76,8 @@ defmodule AllbertAssist.Actions.Registry do
     RunPackageInstall,
     AuditOnlineSkill,
     ImportOnlineSkill,
+    ImportRemoteSkill,
+    ImportLocalSkill,
     SecurityStatus,
     ListConfirmations,
     ShowConfirmation,
@@ -286,6 +290,26 @@ defmodule AllbertAssist.Actions.Registry do
       confirmation: :required,
       resumable?: true,
       notes: "Imports online skill files into the disabled, untrusted cache after confirmation."
+    },
+    ImportRemoteSkill => %{
+      permission: :online_skill_import,
+      exposure: :internal,
+      execution_mode: :direct_skill_import,
+      skill_backed?: false,
+      confirmation: :required,
+      resumable?: true,
+      notes:
+        "Imports a direct HTTPS skill URL into the disabled, untrusted cache after confirmation."
+    },
+    ImportLocalSkill => %{
+      permission: :skill_write,
+      exposure: :internal,
+      execution_mode: :local_skill_import,
+      skill_backed?: false,
+      confirmation: :required,
+      resumable?: true,
+      notes:
+        "Imports a local skill directory into the disabled, untrusted cache after confirmation."
     },
     SecurityStatus => %{
       permission: :read_only,

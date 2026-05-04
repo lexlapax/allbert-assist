@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.Skills.DirectImport
   alias AllbertAssist.Skills.Online.RegistryClient
   alias Mix.Tasks.Allbert.Confirmations, as: ConfirmationsTask
   alias Mix.Tasks.Allbert.Skills, as: SkillsTask
@@ -17,6 +18,7 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
   setup do
     original_client_config = Application.get_env(:allbert_assist, RegistryClient)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
+    original_direct_import_config = Application.get_env(:allbert_assist, DirectImport)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
@@ -37,9 +39,14 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
       req_options: [plug: {Req.Test, __MODULE__}]
     )
 
+    Application.put_env(:allbert_assist, DirectImport,
+      req_options: [plug: {Req.Test, __MODULE__}]
+    )
+
     on_exit(fn ->
       restore_env(RegistryClient, original_client_config)
       restore_env(Confirmations, original_confirmations_config)
+      restore_env(DirectImport, original_direct_import_config)
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       Mix.Task.reenable("allbert.skills")
@@ -188,6 +195,65 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
     assert resolved_output =~ "Failure: online_skill_source_http_error: 404"
   end
 
+  test "direct remote import task creates confirmation and approval imports disabled skill" do
+    put_direct_import_policy!()
+
+    output =
+      capture_io(fn ->
+        assert :ok = SkillsTask.run(["import-url", "https://example.com/skills/demo/SKILL.md"])
+      end)
+
+    assert output =~ "Status: needs_confirmation"
+    assert output =~ "URL: https://example.com/skills/demo/SKILL.md"
+    assert output =~ "Confirmation:"
+
+    [pending] = Confirmations.list(status: :pending)
+    assert pending["target_action"]["name"] == "import_remote_skill"
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/skills/demo/SKILL.md"
+
+      conn
+      |> Plug.Conn.put_resp_content_type("text/markdown")
+      |> Plug.Conn.send_resp(200, online_skill_md())
+    end)
+
+    approve_output =
+      capture_io(fn ->
+        assert :ok =
+                 ConfirmationsTask.run(["approve", pending["id"], "--reason", "direct import"])
+      end)
+
+    assert approve_output =~ "#{pending["id"]} status=approved"
+    assert approve_output =~ "Imported target:"
+    assert approve_output =~ "Manifest:"
+  end
+
+  test "local import task creates confirmation and approval imports disabled skill", %{root: root} do
+    skill_root = write_import_skill!(root, "local-import")
+
+    output =
+      capture_io(fn ->
+        assert :ok = SkillsTask.run(["import-local", skill_root])
+      end)
+
+    assert output =~ "Status: needs_confirmation"
+    assert output =~ "Path: #{Path.expand(skill_root)}"
+    assert output =~ "Confirmation:"
+
+    [pending] = Confirmations.list(status: :pending)
+    assert pending["target_action"]["name"] == "import_local_skill"
+
+    approve_output =
+      capture_io(fn ->
+        assert :ok = ConfirmationsTask.run(["approve", pending["id"], "--reason", "local import"])
+      end)
+
+    assert approve_output =~ "#{pending["id"]} status=approved"
+    assert approve_output =~ "Imported target:"
+    assert approve_output =~ "Manifest:"
+  end
+
   defp fixture(name), do: Path.join(@fixtures, name)
 
   defp write_script_skill!(home, name) do
@@ -244,6 +310,32 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
     }
 
     assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
+
+  defp put_direct_import_policy! do
+    settings = %{
+      "permissions" => %{
+        "online_skill_import" => "allowed",
+        "external_network" => "allowed"
+      },
+      "external_services" => %{
+        "enabled" => true,
+        "allowed_hosts" => ["example.com"],
+        "allowed_paths" => ["/skills/"],
+        "allowed_methods" => ["GET"],
+        "max_response_bytes" => 262_144
+      }
+    }
+
+    assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
+
+  defp write_import_skill!(root, name) do
+    skill_root = Path.join([root, "imports", name])
+    File.mkdir_p!(Path.join(skill_root, "references"))
+    File.write!(Path.join(skill_root, "SKILL.md"), online_skill_md())
+    File.write!(Path.join(skill_root, "references/notes.md"), "local notes")
+    skill_root
   end
 
   defp detail_response(conn) do

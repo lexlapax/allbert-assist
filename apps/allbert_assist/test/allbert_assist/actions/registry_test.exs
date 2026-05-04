@@ -32,6 +32,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "run_package_install",
              "audit_online_skill",
              "import_online_skill",
+             "import_remote_skill",
+             "import_local_skill",
              "security_status",
              "list_confirmations",
              "show_confirmation",
@@ -75,6 +77,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "run_package_install",
              "audit_online_skill",
              "import_online_skill",
+             "import_remote_skill",
+             "import_local_skill",
              "security_status",
              "list_confirmations",
              "show_confirmation",
@@ -144,6 +148,18 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert import_online_skill.confirmation == :required
     assert import_online_skill.resumable?
 
+    assert {:ok, import_remote_skill} = Registry.capability("import_remote_skill")
+    assert import_remote_skill.permission == :online_skill_import
+    assert import_remote_skill.execution_mode == :direct_skill_import
+    assert import_remote_skill.confirmation == :required
+    assert import_remote_skill.resumable?
+
+    assert {:ok, import_local_skill} = Registry.capability("import_local_skill")
+    assert import_local_skill.permission == :skill_write
+    assert import_local_skill.execution_mode == :local_skill_import
+    assert import_local_skill.confirmation == :required
+    assert import_local_skill.resumable?
+
     assert {:ok, approve_confirmation} = Registry.capability("approve_confirmation")
     assert approve_confirmation.permission == :confirmation_decide
     assert approve_confirmation.exposure == :internal
@@ -167,6 +183,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("run_package_install")
     assert Registry.resumable?("search_online_skills")
     assert Registry.resumable?("import_online_skill")
+    assert Registry.resumable?("import_remote_skill")
+    assert Registry.resumable?("import_local_skill")
     assert Registry.resumable?("run_skill_script")
 
     refute Registry.resumable?("direct_answer")

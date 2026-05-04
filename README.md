@@ -10,7 +10,7 @@ not the architecture center.
 
 ## Current Status
 
-v0.10 is implemented through M12 after the reopened M6-M9 sequence.
+v0.10 is implemented through M13 after the reopened M6-M9 sequence.
 The original M5 release-readiness gate was reopened for online skill approval
 clarity/search fixes and Resource Access Security Posture planning; M9 has now
 closed that line with refreshed docs, smoke steps, and final gate results.
@@ -20,8 +20,10 @@ added operator-visible remembered grant list/show/revoke behavior,
 approve-with-remember options, and grant reuse for existing v0.10 actions. The
 M12 URI-first resource identity refactor is now implemented through
 `AllbertAssist.Resources.ResourceURI`; remembered grants require
-`resource_uri` authority. The remaining planned closeout milestones are
-M13-M14 for direct/local skill import consumers and final v0.11 handoff.
+`resource_uri` authority. M13 has added direct HTTPS skill URL import and
+local skill directory import as disabled/untrusted URI-backed consumers. The
+remaining planned closeout milestone is M14 for final unsupported UX and
+v0.11 handoff.
 Expected release tag after operator acceptance remains `v0.10`; no v0.10 tag
 has been created or pushed yet.
 
@@ -46,6 +48,9 @@ Release details live in `CHANGELOG.md`.
 - Search, show, audit, and import online skills through confirmed registered
   actions. Imported skills remain disabled, untrusted, and cached under
   `<ALLBERT_HOME>/cache/skills`.
+- Import direct HTTPS skill URLs and local skill directories through confirmed
+  registered actions and `mix allbert.skills import-url/import-local`.
+  Imported candidates remain disabled, untrusted, inactive, and non-executable.
 - Emit shared resource reference metadata for local shell cwd/path operands,
   trusted skill script resources, external requests, online skill sources, and
   package-install targets without changing permission behavior.
@@ -68,10 +73,10 @@ Release details live in `CHANGELOG.md`.
 
 v0.10 also implements the first Resource Access Security Posture substrate.
 It does not implement arbitrary URL/document summarization, channel-native
-Approval Handoff UX, local skill directory import, direct skill URL import, a
-browser, crawler, MCP execution path, or `agent://` delegation. M13-M14 finish
-the v0.10 closeout before v0.11 consumes the final URI-based posture through
-execution-aware intent and channel-native Approval Handoff UX.
+Approval Handoff UX, a browser, crawler, MCP execution path, or `agent://`
+delegation. M14 finishes the v0.10 closeout before v0.11 consumes the final
+URI-based posture through execution-aware intent and channel-native Approval
+Handoff UX.
 
 ## Start Here
 

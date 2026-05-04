@@ -2,7 +2,7 @@
 
 ## v0.10 - External Capability Adapters
 
-Status: implemented through M12 after the reopened v0.10 M6-M9 sequence. The
+Status: implemented through M13 after the reopened v0.10 M6-M9 sequence. The
 original M5 release-readiness gate was reopened for online skill approval
 clarity/search fixes and Resource Access Security Posture planning; M9 closed
 the release-readiness refresh. A later zoom-out release audit reopened v0.10
@@ -10,9 +10,10 @@ for M10-M14 closeout milestones before operator acceptance. M10 landed
 resource identity hardening; M11 has landed remembered-grant operator
 UX/application for existing v0.10 actions. M12 has landed URI-first
 `resource_uri` resource/grant authority through
-`AllbertAssist.Resources.ResourceURI`. M13-M14 remain for direct/local skill
-import consumers and final v0.11 handoff. Expected release tag remains `v0.10`; no v0.10 tag has been
-created or pushed yet.
+`AllbertAssist.Resources.ResourceURI`. M13 has landed direct/local skill
+import consumers on that URI substrate. M14 remains for final unsupported UX
+and v0.11 handoff readiness. Expected release tag remains `v0.10`; no v0.10
+tag has been created or pushed yet.
 
 ### Added
 
@@ -49,8 +50,9 @@ created or pushed yet.
   approve, grant, fetch, import, install, summarize, or execute by itself.
 - Remembered resource grants are stored under Settings Central key
   `resource_grants.remembered`. Grants are generic resource approval memory:
-  origin kind, scope, canonical scope, operation class, access mode,
-  downstream consumer, channels, expiry, revocation, audit path, and reason.
+  canonical `resource_uri`, origin/scope metadata, operation class, access
+  mode, downstream consumer, channels, expiry, revocation, audit path, and
+  reason.
   `AllbertAssist.Resources.Grants.find_applicable/2` requires the caller to
   pass the current action permission for Security Central policy re-check.
 - External request summaries now separate canonical URL authority from
@@ -83,16 +85,27 @@ created or pushed yet.
   `origin_kind`, `canonical_id`, and scopes remain derived/descriptive
   metadata. Pre-M12 grant records without `resource_uri` are not matched
   through a legacy compatibility layer.
+- Direct skill URL import is available through `import_remote_skill` and
+  `mix allbert.skills import-url URL`. It creates confirmation before fetch,
+  uses `https://... + import_skill` resource refs, requires
+  `:online_skill_import` plus external service policy, supports remembered
+  grants for the same operation boundary, and writes only disabled/untrusted
+  imported candidates under `<ALLBERT_HOME>/cache/skills`.
+- Local skill directory import is available through `import_local_skill` and
+  `mix allbert.skills import-local PATH`. It creates confirmation before
+  reading imported content, uses `file://... + import_local_skill` resource
+  refs, denies unsafe paths/symlinks during import, and writes only
+  disabled/untrusted imported candidates under `<ALLBERT_HOME>/cache/skills`.
 - Version metadata bumped to `0.10.0`.
 
 ### Changed
 
 - Planning docs now frame v0.10 as the first Resource Access Security Posture
   substrate, not a skills-only or network-only release. Online skill
-  search/import is one remote-source consumer; future URL summarization,
-  document inspection, direct skill URL import, local skill directory import,
-  and other local/remote consumers must use the same operation-scoped approval,
-  trace, and audit posture.
+  search/import is one remote-source consumer; M13 direct/local skill import
+  is another. Future URL summarization, document inspection, and other
+  local/remote consumers must use the same operation-scoped approval, trace,
+  and audit posture.
 - README now reads as a project overview and documentation index rather than a
   testing plan. First-run operator guidance lives in
   `docs/operator/onboarding.md`; the v0.10 smoke matrix remains in
@@ -116,10 +129,11 @@ created or pushed yet.
   `resource_uri`, `Resources.Grants` stores and matches on `resource_uri`
   authority, Settings Central validates the required field, `mix
   allbert.resources` prints it, and inert `mcp://`, `agent://`, and
-  `agent+https://` refs are representable without execution authority. M13
-  owns direct skill URL import and local skill directory import on that
-  substrate, and M14 owns final unsupported URL/document/MCP/agent messaging
-  and v0.11 handoff readiness.
+  `agent+https://` refs are representable without execution authority.
+- M13 adds direct skill URL import and local skill directory import on the
+  URI-first substrate. These are skill-import consumers of the generic resource
+  posture, not a marketplace-only path. M14 owns final unsupported
+  URL/document/MCP/agent messaging and v0.11 handoff readiness.
 
 ### Safety
 
@@ -133,15 +147,17 @@ created or pushed yet.
 - Online skill search/detail/audit are confirmed external reads. Import creates
   a confirmation before fetching or writing, stores only under Allbert cache,
   and leaves imported skills disabled, untrusted, and non-executable.
+- Direct HTTPS skill URL import and local skill directory import follow the
+  same disabled/untrusted import state. Neither path trusts, enables,
+  activates, runs scripts, installs dependencies, loads Elixir modules, or
+  executes package managers.
 - Operator approval is recorded separately from target execution success:
   source HTTP/transport failures after approval are failed target outcomes, not
   Security Central or operator denials.
-- v0.10 does not implement arbitrary URL/document summarization, direct skill
-  URL import, local skill directory import, MCP execution, `agent://`
-  delegation, a browser, or a crawler until explicit remaining closeout
-  milestones land that behavior. Direct/local skill import is M13; the other
-  consumer UX flows still need the v0.11 intent and Approval Handoff contract
-  over the v0.10 URI resource posture.
+- v0.10 does not implement arbitrary URL/document summarization, MCP
+  execution, `agent://` delegation, a browser, or a crawler. Those consumer UX
+  flows still need the v0.11 intent and Approval Handoff contract over the
+  v0.10 URI resource posture.
 
 ### Verification
 
@@ -182,8 +198,11 @@ created or pushed yet.
   existing external request/online skill/package-install grant reuse, and the
   package all-refs rule that prevents target-root grants from authorizing
   package registry drift.
-- Operator/user testing should wait for the remaining M13-M14 closeout
-  sequence, then
+- M13 focused tests pass for direct remote URL import confirmation/approval,
+  denied-no-fetch behavior, operation-scoped grant separation, local directory
+  import confirmation/approval, symlink escape denial, existing online skill
+  regressions, Mix task output, resource grants, and registry metadata.
+- Operator/user testing should wait for the remaining M14 closeout, then
   start with `docs/operator/onboarding.md` and use the disposable v0.10 smoke
   flow in `docs/plans/v0.10-request-flow.md` or
   `docs/plans/v0.10-plan.md` before accepting and tagging `v0.10`.

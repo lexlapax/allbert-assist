@@ -144,12 +144,12 @@ parser/registry validation, and leaves imported skills disabled and untrusted.
 Import does not enable, trust, activate, run scripts, install dependencies, or
 load Elixir modules.
 
-skills.sh is one source profile and search convenience. Direct skill URL
-import should be modeled as `remote_url + import_skill`, followed by the same
-parser/registry validation and disabled/untrusted cache write. Local skill
-directory import should be modeled as `local_path + import_local_skill`, also
-followed by parser/registry validation and disabled/untrusted import state. No
-import path should require a marketplace-specific search result.
+skills.sh is one source profile and search convenience. v0.10 M13 implements
+direct skill URL import as `remote_url + import_skill`, followed by the same
+parser/registry validation and disabled/untrusted cache write. It also
+implements local skill directory import as `local_path + import_local_skill`,
+again followed by parser/registry validation and disabled/untrusted import
+state. No import path requires a marketplace-specific search result.
 
 v0.10 does not add container, remote, or microVM isolation. If a package,
 online import, or untrusted-code workflow needs that level of isolation, the
@@ -170,7 +170,7 @@ workflow must be denied or deferred to a later sandbox milestone.
 - Package managers are not shell strings. They are package-manager profiles
   with explicit argv, previews, and audit records.
 - skills.sh and other registries are sources of candidates, not trust roots.
-- Resource Access Security Posture becomes the shared substrate for later URL
+- Resource Access Security Posture becomes the shared substrate for URL
   summarization, document inspection, local skill directory import, direct
   skill URL import, trusted skill script execution UX, source-profile
   consumers, future MCP resources, and future agent endpoints.
@@ -178,9 +178,9 @@ workflow must be denied or deferred to a later sandbox milestone.
   capability, digest, and confirmation rules allow later actions.
 - v0.11 can consume these real risky capabilities in the execution-aware intent
   contract and Approval Handoff without adding a new network primitive. Its
-  consumer UX may orchestrate URL summarization or direct skill URL import over
-  the v0.10 adapter, but channels and summarizers do not gain direct fetch
-  authority.
+  consumer UX may orchestrate URL summarization and channel-native rendering
+  for direct/local skill import over the v0.10 adapter, but channels and
+  summarizers do not gain direct fetch authority.
 - v0.12 jobs and v0.13 channels may create or render confirmation requests for
   these capabilities, but must not run them invisibly.
 - v0.16 security hardening should add evals for SSRF, redirect, retry,
@@ -215,6 +215,6 @@ workflow must be denied or deferred to a later sandbox milestone.
   restored release-readiness/user-testing docs after final gates. v0.11 then
   consumes the resulting posture for channel-native local and remote resource
   UX.
-- v0.10 M12 is now expected to refactor resource identity to the URI-first
-  model from ADR 0013 before direct skill URL import and local skill directory
-  import are implemented.
+- v0.10 M12 refactors resource identity to the URI-first model from ADR 0013;
+  v0.10 M13 implements direct skill URL import and local skill directory import
+  on that substrate.
