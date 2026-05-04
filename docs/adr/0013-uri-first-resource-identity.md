@@ -13,9 +13,10 @@ first implementation pass deliberately started with practical fields:
 downstream consumer metadata. That was enough for v0.10 M7-M11, but it is not
 the right long-term identity substrate.
 
-Allbert is about to add more resource consumers: direct skill URL import, local
-skill directory import, URL/file summary UX, document inspection, future MCP
-resources and tools, future agent endpoints, and package/source provenance.
+Allbert is adding more resource consumers. v0.10 M13 adds direct skill URL
+import and local skill directory import; later releases add URL/file summary
+UX, document inspection, future MCP resources and tools, future agent
+endpoints, and package/source provenance.
 If each consumer extends `origin_kind` and scope matching separately, the
 resource layer will keep drifting toward workflow-specific branches.
 
@@ -103,8 +104,8 @@ re-created through the current approval/resource-grant UX.
 - ADR 0012 remains the shared posture ADR. ADR 0013 narrows in on identity and
   matching.
 - v0.10 M12 becomes a real URI-first resource identity refactor milestone.
-  Direct skill URL import and local skill directory import move after that
-  refactor so they build on the final substrate.
+  v0.10 M13 builds on that substrate with direct skill URL import and local
+  skill directory import.
 - v0.11 consumes URI-backed `resource_access` and Approval Handoff metadata.
   It does not redefine storage, permission policy, grant matching, or
   execution authority.

@@ -3,7 +3,14 @@ defmodule AllbertAssist.Confirmations.OnlineSkillMetadata do
   Operator-facing online-skill metadata extracted from confirmation records.
   """
 
-  @online_actions ~w[search_online_skills show_online_skill audit_online_skill import_online_skill]
+  @online_actions ~w[
+    search_online_skills
+    show_online_skill
+    audit_online_skill
+    import_online_skill
+    import_remote_skill
+    import_local_skill
+  ]
 
   @spec online_confirmation?(map()) :: boolean()
   def online_confirmation?(confirmation) when is_map(confirmation) do
@@ -38,7 +45,10 @@ defmodule AllbertAssist.Confirmations.OnlineSkillMetadata do
 
     [
       {"Source", field(source, "id")},
+      {"Operation", field(summary, "operation")},
       {"Query", field(summary, "query")},
+      {"URL", field(summary, "url")},
+      {"Path", field(summary, "path")},
       {"Skill id", field(summary, "id")},
       {"Base URL", field(source, "base_url")},
       {"API URL", field(source, "api_url")}
@@ -118,6 +128,8 @@ defmodule AllbertAssist.Confirmations.OnlineSkillMetadata do
       field(action, "online_skill_audit") ||
       field(action, "online_skill_import") ||
       field(action, "online_skill_import_request") ||
+      field(action, "skill_import") ||
+      field(action, "skill_import_request") ||
       %{}
   end
 
@@ -126,6 +138,8 @@ defmodule AllbertAssist.Confirmations.OnlineSkillMetadata do
       field(action, "online_skill_detail") ||
       field(action, "online_skill_audit") ||
       field(action, "online_skill_import") ||
+      field(action, "skill_import") ||
+      field(action, "result") ||
       %{}
   end
 

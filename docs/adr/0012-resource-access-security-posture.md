@@ -123,6 +123,14 @@ one operation class does not authorize another:
   or script execution
 - package metadata inspection does not authorize package install
 
+v0.10 M13 implements direct HTTPS skill URL import and local skill directory
+import as consumers of this posture. Remote skill URL import uses
+`remote_url + import_skill` with the existing `:online_skill_import`
+permission. Local skill directory import uses `local_path +
+import_local_skill` with `:skill_write` plus the action's mandatory
+confirmation/grant path before reading imported content. Both write only
+disabled, untrusted, inactive, non-executable candidates under Allbert cache.
+
 ## Consequences
 
 - v0.08 and v0.09 docs may include retrospective framing that their completed

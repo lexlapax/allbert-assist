@@ -557,7 +557,7 @@ Request flow: `docs/plans/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 Identity ADR: `docs/adr/0013-uri-first-resource-identity.md`
 
-Status: M1-M12 implemented and focused verified. v0.10 was reopened
+Status: M1-M13 implemented and focused verified. v0.10 was reopened
 after M5 because post-M5 commits added online skill approval clarity/search
 fixes and Resource Access Security Posture planning. M6 reconciles that
 history, M7 implements shared resource reference metadata, M8 implements
@@ -568,8 +568,8 @@ finished canonical resource identity hardening, and M11 added
 remembered-grant operator UX plus application to existing v0.10 flows.
 M12 added URI-first resource identity through
 `AllbertAssist.Resources.ResourceURI` and required `resource_uri` grant
-authority. M13-M14 remain for direct/local skill import consumers and final
-v0.11 handoff readiness. Expected tag remains
+authority. M13 has added direct/local skill import consumers. M14 remains for
+final v0.11 handoff readiness. Expected tag remains
 `v0.10`; no v0.10 tag has been created or
 pushed yet.
 
@@ -666,8 +666,8 @@ Milestones:
   authority, removal of the temporary `canonical_scope` grant shape, and inert
   future URI scheme representation for
   `mcp://`, `agent://`, and `agent+https://`.
-- M13 (Milestone 13): Planned implementation. Direct skill URL import and
-  local skill directory import as concrete resource consumers that import only
+- M13 (Milestone 13): Implemented. Direct skill URL import and local skill
+  directory import as concrete URI-backed resource consumers that import only
   disabled/untrusted skill candidates and never trust, enable, execute, or
   install dependencies.
 - M14 (Milestone 14): Planned implementation. Final closeout and v0.11 handoff
@@ -684,9 +684,9 @@ summaries, including the distinction between operator approval and target
 execution failure. The docs and code also identify Resource Access Security
 Posture as the common substrate for future local and remote consumers. The
 reopened M6-M9 sequence, M10 hardening, M11 remembered-grant
-operator/application work, and M12 URI-first resource identity refactor are
-complete, but the later M13-M14 closeout must finish before release/tag
-acceptance.
+operator/application work, M12 URI-first resource identity refactor, and M13
+direct/local skill import consumers are complete, but the later M14 closeout
+must finish before release/tag acceptance.
 
 ## v0.11: Execution-Aware Intent, URI-Based Resource Access, And Approval Handoff
 

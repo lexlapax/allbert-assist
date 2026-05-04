@@ -40,6 +40,8 @@ defmodule AllbertAssist.Actions.Capability do
           | :online_skill_detail
           | :online_skill_audit
           | :online_skill_import
+          | :direct_skill_import
+          | :local_skill_import
           | :settings_read
           | :settings_write
           | :confirmation_decision

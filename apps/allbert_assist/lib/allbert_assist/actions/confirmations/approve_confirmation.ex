@@ -33,6 +33,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     show_online_skill
     audit_online_skill
     import_online_skill
+    import_remote_skill
+    import_local_skill
   ]
 
   @impl true

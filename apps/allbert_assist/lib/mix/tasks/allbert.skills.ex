@@ -11,6 +11,8 @@ defmodule Mix.Tasks.Allbert.Skills do
       mix allbert.skills show-online SOURCE/ID
       mix allbert.skills audit-online SOURCE/ID
       mix allbert.skills import-online SOURCE/ID
+      mix allbert.skills import-url URL
+      mix allbert.skills import-local PATH
   """
 
   use Mix.Task
@@ -98,6 +100,18 @@ defmodule Mix.Tasks.Allbert.Skills do
     end
   end
 
+  defp dispatch(["import-url", url]) do
+    with {:ok, response} <- runnable_action("import_remote_skill", %{url: url}) do
+      {:ok, {:online, response}}
+    end
+  end
+
+  defp dispatch(["import-local", path]) do
+    with {:ok, response} <- runnable_action("import_local_skill", %{path: path}) do
+      {:ok, {:online, response}}
+    end
+  end
+
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
@@ -108,6 +122,8 @@ defmodule Mix.Tasks.Allbert.Skills do
       mix allbert.skills show-online SOURCE/ID
       mix allbert.skills audit-online SOURCE/ID
       mix allbert.skills import-online SOURCE/ID
+      mix allbert.skills import-url URL
+      mix allbert.skills import-local PATH
     """)
   end
 
@@ -198,6 +214,12 @@ defmodule Mix.Tasks.Allbert.Skills do
 
       is_map(Map.get(response, :online_skill_import)) ->
         import_lines(response.online_skill_import)
+
+      is_map(Map.get(response, :skill_import)) ->
+        import_lines(response.skill_import)
+
+      is_map(Map.get(response, :result)) and Map.get(response.result, :target_root) ->
+        import_lines(response.result)
 
       true ->
         response
