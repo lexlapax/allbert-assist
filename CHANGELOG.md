@@ -6,15 +6,14 @@ Status: implemented through M14 after the reopened v0.10 M6-M9 sequence. The
 original M5 release-readiness gate was reopened for online skill approval
 clarity/search fixes and Resource Access Security Posture planning; M9 closed
 the release-readiness refresh. A later zoom-out release audit reopened v0.10
-for M10-M14 closeout milestones before operator acceptance. M10 landed
+for M10-M14 closeout milestones before release. M10 landed
 resource identity hardening; M11 has landed remembered-grant operator
 UX/application for existing v0.10 actions. M12 has landed URI-first
 `resource_uri` resource/grant authority through
 `AllbertAssist.Resources.ResourceURI`. M13 has landed direct/local skill
 import consumers on that URI substrate. M14 has landed final unsupported UX
-and v0.11 handoff readiness. v0.10 is ready for operator/user testing.
-Expected release tag remains `v0.10`; no v0.10 tag has been created or pushed
-yet.
+and v0.11 handoff readiness. v0.10 was released and tagged as `v0.10` on
+2026-05-04.
 
 ### Added
 
