@@ -109,6 +109,27 @@ operation classes, remembered resource grants, URL summarization, document
 inspection, direct skill URL import, local skill directory import, traces,
 audits, CLI, or LiveView behavior.
 
+For D-track workspace identity work (M-D1a, M-D1b), read
+`docs/plans/aiworkspace-plan.md` (the full D-track spec) and
+`docs/adr/0014-local-workspace-identity.md` before changing runtime request
+maps, conversation history schemas, ETS session scratchpad, `user_id` or
+`thread_id` propagation, traces, or identity aliasing between `operator_id`
+and `user_id`.
+
+For D-track app contract work (M-AppContract-Lite, M-AppContract-Full), read
+`docs/plans/aiworkspace-plan.md` and `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
+before changing `AllbertAssist.App`, `AllbertAssist.App.Registry`,
+`AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, action or skill
+registration at the app level, workspace navigation, or canvas component
+catalogs.
+
+For StockSage umbrella work (M-D2a, M-D2b, M-D2c, M-D3a, M-D3b), read
+`docs/plans/aiworkspace-plan.md` for the full StockSage domain spec,
+`docs/adr/0014-local-workspace-identity.md` for identity context, and
+`docs/adr/0015-allbert-app-contract-and-surface-dsl.md` for the app contract
+before changing StockSage agents, actions, domain records, the Python bridge,
+StockSage LiveViews, or the StockSage skill pack.
+
 ## Non-Negotiables
 
 - Preserve user data. Do not delete or rewrite memory, traces, settings,

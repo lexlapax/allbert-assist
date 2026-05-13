@@ -870,12 +870,13 @@ Expected direction:
 
 - Replace the rudimentary `/agent` concept with a signal-driven operator
   workspace design that keeps LiveView thin.
-- Depend on M-AppContract-Full for app registry, `AllbertAssist.Surface`, and
-  `AllbertAssist.App.SurfaceProvider`; v0.17 does not invent a separate app
-  discovery or surface node format.
-- Define an Allbert-native declarative surface contract for canvas artifacts,
-  approval handoffs, traces, memory review, jobs, channel context, and
-  task-scoped ephemeral UI.
+- Depend on M-AppContract-Full for app registry, `AllbertAssist.Surface`
+  component DSL, and `AllbertAssist.App.SurfaceProvider`; v0.17 does not
+  invent its own app discovery or surface node catalog.
+- Implement the workspace shell lifecycle: canvas persistence semantics,
+  ephemeral surface scoping and cleanup, signal-to-render pipeline, shell
+  layout (timeline, canvas, task surfaces, approval inspector, trace inspector,
+  memory review, job state, channel context, security posture).
 - Use Phoenix LiveView, PubSub, streams, async work, and JS hooks as rendering
   and interaction primitives over runtime state.
 - Validate generated UI against known component catalogs, fallback text,
@@ -892,15 +893,14 @@ model-generated code.
 
 ## Parallel Track: StockSage / Workspace Apps
 
-Plan: `docs/plans/aiworkspace-plan.md`
+Vision: `docs/plans/aiworkspace-plan.md`
 
 Status: planning.
 
 The AI workspace D-track runs alongside the core v0.11-v0.17 roadmap. It
 brings StockSage into the Allbert umbrella as the first domain app while
-preserving the local-first Allbert runtime. The full D-track spec remains in
-`docs/plans/aiworkspace-plan.md`; this roadmap records sequencing and coupling
-only.
+preserving the local-first Allbert runtime. The full D-track spec is in
+`docs/plans/aiworkspace-plan.md`; individual plan files are listed below.
 
 Milestone sequence:
 
@@ -909,20 +909,40 @@ M-D1a -> M-D1b -> M-AppContract-Lite -> M-D2a -> M-D2b -> M-D2c
        -> M-AppContract-Full -> M-D3a -> M-D3b -> M-Canvas
 ```
 
+Plan files:
+
+- `docs/plans/m-d1-plan.md` — M-D1a + M-D1b (implementation-ready)
+- `docs/plans/m-appcontract-lite-plan.md` — M-AppContract-Lite (implementation-ready)
+- `docs/plans/m-d2-plan.md` — M-D2a + M-D2b + M-D2c (planning stub)
+- `docs/plans/m-appcontract-full-plan.md` — M-AppContract-Full (planning stub)
+- `docs/plans/m-d3-plan.md` — M-D3a + M-D3b (planning stub)
+- `docs/plans/m-canvas-plan.md` — M-Canvas (research stub)
+
 Coupling map:
 
 - M-D1a adds string `user_id`, `thread_id`, and SQLite conversation history;
-  v0.11 reserves the intent decision fields it needs.
+  v0.11 reserves the intent decision fields it needs. M-D1a can start
+  concurrently with v0.11 work.
 - M-D1b adds ETS session scratchpad context, including `active_app`, which
-  v0.15 later consumes for app-scoped routing.
+  v0.15 later consumes for app-scoped routing. M-D1b can start concurrently
+  with v0.12 work.
 - M-AppContract-Lite lands before StockSage scaffolding so apps can register
   actions, skills, and navigation through Allbert rather than private hooks.
+  It targets the v0.12-v0.13 timeframe.
 - M-D2a through M-D2c add StockSage domain storage, skill packs, the Python
-  bridge, and native Jido trading agents inside the same umbrella.
+  bridge, and native Jido trading agents inside the same umbrella. These run
+  parallel to v0.12-v0.15.
 - M-AppContract-Full lands before v0.17 canvas work and is recorded by ADR
-  0015.
+  0015. This is the one hard sequencing dependency: v0.17 cannot start canvas
+  implementation until M-AppContract-Full is complete.
 - M-D3a and M-D3b add plain StockSage LiveViews before any canvas integration.
+  These run parallel to v0.15-v0.16.
 - M-Canvas happens only after the allbert core v0.17 canvas substrate ships.
+
+The core track does not block on D-track milestones. v0.11 through v0.16 may
+proceed regardless of D-track progress. The single exception is v0.17: its
+canvas work has a hard prerequisite on M-AppContract-Full completing first.
+D-track milestones may slip without blocking the core track.
 
 ## v0.18: Allbert App Generator
 
