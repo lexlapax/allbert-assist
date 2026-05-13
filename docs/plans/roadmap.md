@@ -699,6 +699,9 @@ Expected direction:
   confidence, candidate skills/actions, permission class, confirmation need,
   risk summary, execution mode, approval handoff, alternatives, and
   diagnostics.
+- Reserve M-D1a identity and context fields in the decision contract:
+  `user_id`, `thread_id`, `session_id`, and `active_app`. Conversation history
+  wiring remains D-track work.
 - Cover shell, local path, trusted skill script, local skill directory import,
   package install, external service, online skill source, direct skill URL
   import, URL summary, document inspection, and unsupported MCP/agent URI flows
@@ -755,6 +758,9 @@ Expected direction:
   briefs.
 - Use settings for timezone, active/paused state, and schedule policy.
 - Keep scheduled jobs observable through traces and registered skills/actions.
+- Carry string `user_id` from the originating request, defaulting to `"local"`,
+  plus optional `thread_id` and `app_id` context. This is not a hosted
+  accounts model.
 - Pause risky job actions for confirmation instead of running invisibly.
 - When jobs request local or remote resource access, they must emit the same
   posture and Approval Handoff metadata as CLI/web requests instead of reading,
@@ -775,6 +781,9 @@ Expected direction:
   capture, and native UI surfaces.
 - Channels translate external messages to signals and render responses; they do
   not own agent logic.
+- Channels map external identity, such as email address, SMS number, or chat
+  user id, to a local string `user_id` through explicit Settings Central
+  configuration and trace both identities.
 - Channels consume Approval Handoff and Resource Access Security Posture for
   URL summaries, document inspection, direct skill URL import, local skill
   directory import, and other risky local or remote consumers instead of
@@ -792,6 +801,9 @@ Expected direction:
 
 - Add memory review, correction, promotion, and pruning workflows.
 - Add summaries and compiled runtime views over markdown memory.
+- Treat SQLite conversation history from M-D1a as distinct from markdown
+  long-term memory. Review and promotion rules differ, and thread turns are not
+  automatically promoted into markdown memory.
 - Introduce embeddings or retrieval only after the markdown source of truth and
   review path are stable across CLI, LiveView, execution, imports, scheduled
   jobs, and additional channels.
@@ -811,6 +823,9 @@ Expected direction:
 - Use settings, skill registry, action-backed skill contracts, confirmation
   history, Security Central decisions, execution traces, jobs, channels, and
   memory review signals as routing inputs.
+- Use app-scoped action routing and `active_app` session context from
+  M-AppContract-Lite as routing inputs. Registered app skill paths participate
+  in candidate ranking only through the app contract.
 - Add intent traces and eval fixtures for activation, non-activation,
   permission, execution, channel, job, memory, and refusal cases.
 - Keep execution behind the existing action runner and Security Central.
@@ -832,6 +847,9 @@ Expected direction:
   untrusted skill activation, malicious imports, command approval bypass,
   credential leakage, cross-session data access, channel spoofing, and unsafe
   background execution.
+- Add D-track security evals for cross-user/thread leakage, app-scoped action
+  routing, the StockSage Python bridge boundary when present, and financial
+  workflows that call external market-data APIs.
 - Add operator-visible security review workflows for recent denials,
   confirmations, imports, external calls, and redaction incidents.
 - Reassess sandbox, allowlist, safe-bin, Resource Access Security Posture,
@@ -852,6 +870,9 @@ Expected direction:
 
 - Replace the rudimentary `/agent` concept with a signal-driven operator
   workspace design that keeps LiveView thin.
+- Depend on M-AppContract-Full for app registry, `AllbertAssist.Surface`, and
+  `AllbertAssist.App.SurfaceProvider`; v0.17 does not invent a separate app
+  discovery or surface node format.
 - Define an Allbert-native declarative surface contract for canvas artifacts,
   approval handoffs, traces, memory review, jobs, channel context, and
   task-scoped ephemeral UI.
@@ -868,6 +889,56 @@ Exit signal: Allbert has a safe, signal-driven replacement design for `/agent`
 with declarative surface contracts, LiveView rendering boundaries, and a crisp
 path from text-only turns to canvas and ephemeral UI without arbitrary
 model-generated code.
+
+## Parallel Track: StockSage / Workspace Apps
+
+Plan: `docs/plans/aiworkspace-plan.md`
+
+Status: planning.
+
+The AI workspace D-track runs alongside the core v0.11-v0.17 roadmap. It
+brings StockSage into the Allbert umbrella as the first domain app while
+preserving the local-first Allbert runtime. The full D-track spec remains in
+`docs/plans/aiworkspace-plan.md`; this roadmap records sequencing and coupling
+only.
+
+Milestone sequence:
+
+```text
+M-D1a -> M-D1b -> M-AppContract-Lite -> M-D2a -> M-D2b -> M-D2c
+       -> M-AppContract-Full -> M-D3a -> M-D3b -> M-Canvas
+```
+
+Coupling map:
+
+- M-D1a adds string `user_id`, `thread_id`, and SQLite conversation history;
+  v0.11 reserves the intent decision fields it needs.
+- M-D1b adds ETS session scratchpad context, including `active_app`, which
+  v0.15 later consumes for app-scoped routing.
+- M-AppContract-Lite lands before StockSage scaffolding so apps can register
+  actions, skills, and navigation through Allbert rather than private hooks.
+- M-D2a through M-D2c add StockSage domain storage, skill packs, the Python
+  bridge, and native Jido trading agents inside the same umbrella.
+- M-AppContract-Full lands before v0.17 canvas work and is recorded by ADR
+  0015.
+- M-D3a and M-D3b add plain StockSage LiveViews before any canvas integration.
+- M-Canvas happens only after the allbert core v0.17 canvas substrate ships.
+
+## v0.18: Allbert App Generator
+
+Status: research (unstarted).
+
+Prerequisite: StockSage proves the full M-AppContract-Full contract end to end
+after M-D3b, and allbert core v0.17 canvas ships.
+
+Expected direction:
+
+- `mix allbert.gen.app MyApp` scaffolds all five app contract layers.
+- Generated output includes an app module, sample Jido action, sample
+  `SKILL.md`, sample surface, and Ecto domain stub.
+- `mix allbert.validate_app MyApp` passes on first run.
+- Optionally add `mix allbert.publish_skills` for publishing app `SKILL.md`
+  files to agentskills.io after the local app contract is proven.
 
 ## Future: Distillation And Self-Improvement
 
