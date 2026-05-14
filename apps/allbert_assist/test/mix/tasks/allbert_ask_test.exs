@@ -1,9 +1,10 @@
 defmodule Mix.Tasks.Allbert.AskTest do
-  use ExUnit.Case, async: false
+  use AllbertAssist.DataCase, async: false
 
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime
@@ -74,8 +75,49 @@ defmodule Mix.Tasks.Allbert.AskTest do
     assert output =~ "CLI response: hello from cli"
     assert output =~ "Signal: "
     assert output =~ "Trace: none"
+    assert output =~ "User: local"
+    assert output =~ "Thread: thr_"
     assert output =~ "Actions:"
     assert output =~ "- direct_answer (completed)"
+  end
+
+  test "passes user and new thread options through the runtime" do
+    output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["--user", "alice", "--new-thread", "hello from alice"])
+      end)
+
+    assert output =~ "User: alice"
+    assert output =~ "Thread: thr_"
+    assert [%{user_id: "alice"} = thread] = Conversations.list_threads("alice")
+
+    assert {:ok, %{messages: [user_message, assistant_message]}} =
+             Conversations.show_thread("alice", thread.id)
+
+    assert user_message.content == "hello from alice"
+    assert assistant_message.content == "CLI response: hello from alice"
+  end
+
+  test "continues an explicit user-owned thread" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Existing")
+
+    output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["--user", "alice", "--thread", thread.id, "continue this"])
+      end)
+
+    assert output =~ "User: alice"
+    assert output =~ "Thread: #{thread.id}"
+  end
+
+  test "rejects conflicting user/operator and thread options" do
+    assert_raise Mix.Error, ~r/--user and --operator must match/, fn ->
+      Ask.run(["--user", "alice", "--operator", "bob", "hello"])
+    end
+
+    assert_raise Mix.Error, ~r/--thread and --new-thread cannot be used together/, fn ->
+      Ask.run(["--thread", "thr_existing", "--new-thread", "hello"])
+    end
   end
 
   test "can enable trace recording for a CLI turn", %{root: root} do
