@@ -2,6 +2,7 @@ defmodule AllbertAssist.JobsTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Run
@@ -388,6 +389,54 @@ defmodule AllbertAssist.JobsTest do
       assert blocked_job.blocked_confirmation_id == "cnf_job_1"
       assert blocked_job.next_due_at == nil
     end
+
+    test "registered action confirmations preserve job origin and block duplicate scheduling" do
+      configure_external_request_settings()
+      now = ~U[2026-05-14 08:00:00Z]
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "network job",
+                 target_type: "registered_action",
+                 target: %{
+                   action_name: "external_network_request",
+                   params: %{"request" => "fetch https://example.com/"}
+                 },
+                 schedule: %{kind: "daily", at: "08:00"},
+                 timezone: "UTC",
+                 status: "active",
+                 user_id: "alice",
+                 app_id: "allbert"
+               })
+
+      assert {:ok, due_job} =
+               job
+               |> Job.changeset(%{next_due_at: DateTime.add(now, -60, :second)})
+               |> Repo.update()
+
+      assert {:ok, %{job: blocked_job, run: run}} = Runner.run_now(due_job)
+
+      assert run.status == "needs_confirmation"
+      assert is_binary(run.confirmation_id)
+      assert blocked_job.status == "blocked"
+      assert blocked_job.blocked_confirmation_id == run.confirmation_id
+
+      assert {:ok, confirmation} = Confirmations.read(run.confirmation_id)
+      origin = confirmation["origin"]
+      assert origin["channel"] == "job"
+      assert origin["user_id"] == "alice"
+      assert origin["operator_id"] == "alice"
+      assert origin["job_id"] == due_job.id
+      assert origin["run_id"] == run.id
+      assert origin["app_id"] == "allbert"
+
+      scheduler = start_test_scheduler(cleanup_on_start?: false)
+
+      assert {:ok, %{claimed: 0, completed: 0, needs_confirmation: 0}} =
+               Scheduler.run_once(scheduler, now)
+
+      assert [%Run{}] = Jobs.list_runs(blocked_job)
+    end
   end
 
   describe "scheduler" do
@@ -561,5 +610,15 @@ defmodule AllbertAssist.JobsTest do
     ]
 
     start_supervised!({Scheduler, Keyword.merge(defaults, opts)})
+  end
+
+  defp configure_external_request_settings do
+    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
   end
 end
