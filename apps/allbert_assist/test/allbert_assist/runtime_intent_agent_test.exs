@@ -89,6 +89,13 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
     assert response.status == :needs_confirmation
     assert response.message =~ "External network request is ready"
+    assert response.decision.selected_action == "external_network_request"
+    assert response.decision.confirmation == :pending
+    assert response.decision.permission == :external_network
+    assert response.decision.user_id == "local"
+
+    assert [%{operation_class: :external_service_request, access_mode: :fetch}] =
+             response.resource_access
 
     assert [
              %{
@@ -148,6 +155,9 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
            ] = response.actions
 
     trace = File.read!(response.trace_id)
+    assert trace =~ "## Intent Decision"
+    assert trace =~ "Intent decision: external_network_request"
+    assert trace =~ "resource_access_count: 1"
     assert trace =~ "confirmation_id: #{inspect(confirmation_id)}"
     assert trace =~ "confirmation_metadata"
     assert trace =~ "## Confirmation Metadata"

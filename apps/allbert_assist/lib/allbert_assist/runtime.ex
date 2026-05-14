@@ -21,6 +21,9 @@ defmodule AllbertAssist.Runtime do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Agents.IntentAgent
+  alias AllbertAssist.Intent.ApprovalHandoff
+  alias AllbertAssist.Intent.Decision
+  alias AllbertAssist.Intent.ResourceAccess
   alias Jido.Signal
 
   @input_received "allbert.input.received"
@@ -47,6 +50,9 @@ defmodule AllbertAssist.Runtime do
           signal_id: String.t(),
           input_signal_id: String.t(),
           actions: list(),
+          decision: map() | nil,
+          resource_access: list(),
+          approval_handoff: map() | nil,
           diagnostics: list()
         }
 
@@ -150,7 +156,11 @@ defmodule AllbertAssist.Runtime do
         input_signal_id: input_signal.id,
         message: response_message(agent_response),
         status: response_status(agent_response),
-        actions: response_actions(agent_response)
+        actions: response_actions(agent_response),
+        decision: response_decision(agent_response),
+        resource_access: response_resource_access(agent_response),
+        approval_handoff: response_approval_handoff(agent_response),
+        diagnostics: response_diagnostics(agent_response)
       },
       source: "/allbert/runtime",
       subject: request.operator_id
@@ -196,7 +206,10 @@ defmodule AllbertAssist.Runtime do
       signal_id: response_signal.id,
       input_signal_id: input_signal.id,
       actions: response_actions(agent_response),
-      diagnostics: []
+      decision: response_decision(agent_response),
+      resource_access: response_resource_access(agent_response),
+      approval_handoff: response_approval_handoff(agent_response),
+      diagnostics: response_diagnostics(agent_response)
     }
   end
 
@@ -287,4 +300,55 @@ defmodule AllbertAssist.Runtime do
   defp response_actions(%{actions: actions}) when is_list(actions), do: actions
   defp response_actions(%{"actions" => actions}) when is_list(actions), do: actions
   defp response_actions(_other), do: []
+
+  defp response_decision(%{decision: %Decision{} = decision}), do: Decision.to_map(decision)
+
+  defp response_decision(%{decision: decision}) when is_map(decision),
+    do: Decision.to_map(decision)
+
+  defp response_decision(%{"decision" => decision}) when is_map(decision),
+    do: Decision.to_map(decision)
+
+  defp response_decision(_other), do: nil
+
+  defp response_resource_access(%{resource_access: entries}) when is_list(entries),
+    do: ResourceAccess.to_maps(entries)
+
+  defp response_resource_access(%{"resource_access" => entries}) when is_list(entries),
+    do: ResourceAccess.to_maps(entries)
+
+  defp response_resource_access(%{decision: %Decision{} = decision}),
+    do: ResourceAccess.to_maps(decision.resource_access)
+
+  defp response_resource_access(%{decision: decision}) when is_map(decision) do
+    decision
+    |> Decision.to_map()
+    |> Map.get(:resource_access, [])
+    |> ResourceAccess.to_maps()
+  end
+
+  defp response_resource_access(_other), do: []
+
+  defp response_approval_handoff(%{approval_handoff: %ApprovalHandoff{} = handoff}),
+    do: ApprovalHandoff.to_map(handoff)
+
+  defp response_approval_handoff(%{approval_handoff: handoff}) when is_map(handoff),
+    do: ApprovalHandoff.to_map(handoff)
+
+  defp response_approval_handoff(%{"approval_handoff" => handoff}) when is_map(handoff),
+    do: ApprovalHandoff.to_map(handoff)
+
+  defp response_approval_handoff(%{decision: %Decision{} = decision}),
+    do: ApprovalHandoff.to_map(decision.approval_handoff)
+
+  defp response_approval_handoff(_other), do: nil
+
+  defp response_diagnostics(%{diagnostics: diagnostics}) when is_list(diagnostics),
+    do: diagnostics
+
+  defp response_diagnostics(%{"diagnostics" => diagnostics}) when is_list(diagnostics),
+    do: diagnostics
+
+  defp response_diagnostics(%{decision: %Decision{} = decision}), do: decision.diagnostics
+  defp response_diagnostics(_other), do: []
 end

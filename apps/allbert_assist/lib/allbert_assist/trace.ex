@@ -139,6 +139,7 @@ defmodule AllbertAssist.Trace do
     - Model alias: #{model_alias()}
     - Status: #{response.status}
     - Selected action: #{selected_action(response.actions)}
+    - Intent decision: #{intent_decision_summary(response)}
     - Permission decision: #{permission_decision(response.actions)}
     - Security metadata: #{security_metadata_summary(response.actions)}
     - Settings metadata: #{settings_metadata(response.actions)}
@@ -165,6 +166,14 @@ defmodule AllbertAssist.Trace do
     ```elixir
     #{inspect(response.actions, pretty: true, limit: :infinity)}
     ```
+
+    ## Intent Decision
+
+    #{intent_decision_text(response)}
+
+    ## Resource Access
+
+    #{intent_resource_access_text(response)}
 
     ## Skill Metadata
 
@@ -497,6 +506,49 @@ defmodule AllbertAssist.Trace do
   defp diagnostics_text(%{diagnostics: []}), do: "none"
   defp diagnostics_text(%{diagnostics: diagnostics}), do: inspect(diagnostics, pretty: true)
   defp diagnostics_text(_response), do: "none"
+
+  defp intent_decision_summary(response) do
+    case map_value(response, :decision) do
+      nil ->
+        "none"
+
+      decision ->
+        selected_action = map_value(decision, :selected_action) || "none"
+        confirmation = map_value(decision, :confirmation) || "unknown"
+        permission = map_value(decision, :permission) || "unknown"
+        "#{selected_action} permission=#{permission} confirmation=#{confirmation}"
+    end
+  end
+
+  defp intent_decision_text(response) do
+    case map_value(response, :decision) do
+      nil ->
+        "none"
+
+      decision ->
+        decision
+        |> Redactor.redact()
+        |> inspect(pretty: true, limit: :infinity)
+    end
+  end
+
+  defp intent_resource_access_text(response) do
+    access =
+      map_value(response, :resource_access) ||
+        response
+        |> map_value(:decision)
+        |> map_value(:resource_access)
+
+    case access do
+      entries when is_list(entries) and entries != [] ->
+        entries
+        |> Redactor.redact()
+        |> inspect(pretty: true, limit: :infinity)
+
+      _entries ->
+        "none"
+    end
+  end
 
   defp map_value(map, key) when is_map(map) do
     Map.get(map, key) || Map.get(map, to_string(key))

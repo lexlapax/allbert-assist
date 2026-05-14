@@ -1,0 +1,74 @@
+defmodule AllbertAssist.Intent.DecisionTest do
+  use ExUnit.Case, async: true
+
+  alias AllbertAssist.Intent.Decision
+  alias AllbertAssist.Resources.ResourceURI
+  alias AllbertAssist.Resources.Scope
+
+  test "copies action capability and security posture from registered boundaries" do
+    assert {:ok, decision} =
+             Decision.new(%{
+               intent: :external_network_request,
+               selected_action: "external_network_request",
+               resource_access: [
+                 %{
+                   resource_uri: ResourceURI.url!("https://example.com/report"),
+                   operation_class: :external_service_request,
+                   access_mode: :fetch,
+                   scope: Scope.exact_url("https://example.com/report"),
+                   downstream_consumer: :req_http
+                 }
+               ],
+               context: %{request: %{operator_id: "alice", channel: :test}}
+             })
+
+    assert decision.selected_action == "external_network_request"
+    assert decision.permission == :external_network
+    assert decision.execution_mode == :req_http
+    assert decision.confirmation == :required
+    assert decision.user_id == "alice"
+    assert [%{name: "external_network_request", registered?: true}] = decision.candidate_actions
+
+    assert [%{operation_class: :external_service_request}] =
+             Decision.to_map(decision).resource_access
+
+    assert decision.trace_metadata.security_decision.decision == :needs_confirmation
+  end
+
+  test "keeps operator_id as the user_id fallback" do
+    assert {:ok, decision} =
+             Decision.new(%{
+               intent: :direct_answer,
+               selected_action: "direct_answer",
+               context: %{request: %{operator_id: "legacy-operator", channel: :test}}
+             })
+
+    assert decision.user_id == "legacy-operator"
+  end
+
+  test "rejects unknown actions before they can be invoked" do
+    assert {:error, {:unknown_action, "invented_action"}} =
+             Decision.new(%{
+               intent: :invented,
+               selected_action: "invented_action",
+               context: %{request: %{operator_id: "local"}}
+             })
+  end
+
+  test "rejects invalid resource operation classes" do
+    assert {:error, {:invalid_resource_access, {:unknown_operation_class, :crawl_everything}}} =
+             Decision.new(%{
+               intent: :bad_resource,
+               selected_action: "direct_answer",
+               resource_access: [
+                 %{
+                   resource_uri: ResourceURI.url!("https://example.com"),
+                   operation_class: :crawl_everything,
+                   access_mode: :fetch,
+                   scope: Scope.exact_url("https://example.com")
+                 }
+               ],
+               context: %{request: %{operator_id: "local"}}
+             })
+  end
+end

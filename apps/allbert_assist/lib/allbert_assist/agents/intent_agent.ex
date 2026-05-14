@@ -66,6 +66,11 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Intent.Decision
+  alias AllbertAssist.Intent.ResourceAccess
+  alias AllbertAssist.Resources.Ref
+  alias AllbertAssist.Resources.ResourceURI
+  alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Skills.ActionPlan
 
   @doc """
@@ -80,10 +85,21 @@ defmodule AllbertAssist.Agents.IntentAgent do
   def respond(%{text: text} = request) when is_binary(text) do
     text = String.trim(text)
     context = %{request: request, agent: __MODULE__}
+    route = text |> route() |> execution_route(text)
 
-    text
-    |> route()
-    |> run_route(text, context)
+    case decision_for_route(route, text, context) do
+      {:ok, decision} ->
+        if Decision.refused?(decision) do
+          {:ok, decision_refusal_response(decision)}
+        else
+          route
+          |> run_route(text, context)
+          |> attach_decision(decision, context)
+        end
+
+      {:error, reason} ->
+        {:ok, invalid_decision_response(reason, text, context)}
+    end
   end
 
   def respond(_request), do: {:error, :missing_text}
@@ -98,6 +114,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
     [
       fn -> settings_route(text, normalized) end,
+      fn -> skill_import_route(text, normalized) end,
+      fn -> skill_script_route(text, normalized) end,
+      fn -> package_route(text, normalized) end,
+      fn -> online_skill_route(text, normalized) end,
       fn -> unsupported_resource_workflow_route(text, normalized) end,
       fn -> command_route(normalized) end,
       fn -> external_network_route(normalized) end,
@@ -194,6 +214,240 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
+  defp execution_route(:run_shell_command, text) do
+    case command_params_from_text(text) do
+      {:ok, _params} -> :run_shell_command
+      {:error, _reason} -> :plan_shell_command
+    end
+  end
+
+  defp execution_route(route, _text), do: route
+
+  defp decision_for_route(route, text, context) do
+    route
+    |> decision_attrs(text, context)
+    |> Decision.new()
+  end
+
+  defp decision_attrs(:plan_shell_command, text, context) do
+    %{
+      intent: :plan_shell_command,
+      reason: "The prompt asks for shell command planning without execution.",
+      selected_skill: "plan-shell-command",
+      selected_action: "plan_shell_command",
+      resource_access: command_resource_access(text, "plan_shell_command", :prospective),
+      alternatives: ["Review the planned command before asking Allbert to run it."],
+      context: context
+    }
+  end
+
+  defp decision_attrs(:run_shell_command, text, context) do
+    %{
+      intent: :run_shell_command,
+      reason: "The prompt asks to run a local shell command.",
+      selected_action: "run_shell_command",
+      resource_access: command_resource_access(text, "run_shell_command", :execution),
+      alternatives: ["Ask for a command plan instead of execution."],
+      context: context
+    }
+  end
+
+  defp decision_attrs(:external_network_request, text, context) do
+    %{
+      intent: :external_network_request,
+      reason: "The prompt asks for an external HTTP or service request.",
+      selected_skill: "external-network-request",
+      selected_action: "external_network_request",
+      resource_access:
+        url_resource_access(text, :external_service_request, "external_network_request"),
+      alternatives: ["Ask for a plan or provide local content instead of fetching."],
+      context: context
+    }
+  end
+
+  defp decision_attrs({:unsupported_resource_workflow, workflow, resource}, text, context) do
+    %{
+      intent: workflow,
+      reason:
+        "The prompt asks for a URI resource workflow that is represented but not executable by this route.",
+      selected_skill: "unsupported-resource-workflow",
+      selected_action: "unsupported_resource_workflow",
+      confirmation: :unsupported,
+      resource_access: workflow_resource_access(workflow, resource || resource_hint(text), text),
+      alternatives: unsupported_alternatives(workflow),
+      context: context
+    }
+  end
+
+  defp decision_attrs(:append_memory, text, context) do
+    skill_decision_attrs(:append_memory, "append-memory", "append_memory", text, context)
+  end
+
+  defp decision_attrs({:append_personal_memory, _memory}, text, context) do
+    skill_decision_attrs(:append_personal_memory, "append-memory", "append_memory", text, context)
+  end
+
+  defp decision_attrs({:read_recent_memory, _query}, text, context) do
+    skill_decision_attrs(
+      :read_recent_memory,
+      "read-recent-memory",
+      "read_recent_memory",
+      text,
+      context
+    )
+  end
+
+  defp decision_attrs({:read_skill, _name}, text, context) do
+    skill_decision_attrs(:read_skill, "read-skill", "read_skill", text, context)
+  end
+
+  defp decision_attrs({:activate_skill, name}, _text, context) do
+    %{
+      intent: :activate_skill,
+      reason:
+        "The prompt asks to activate trusted skill instructions for progressive disclosure.",
+      selected_skill: name,
+      selected_action: "activate_skill",
+      alternatives: ["List available skills before activating one."],
+      context: context
+    }
+  end
+
+  defp decision_attrs(:list_skills, text, context) do
+    skill_decision_attrs(:list_skills, "list-skills", "list_skills", text, context)
+  end
+
+  defp decision_attrs(:list_settings, _text, context) do
+    action_decision_attrs(:list_settings, "list_settings", context)
+  end
+
+  defp decision_attrs({:read_setting, _key}, _text, context) do
+    action_decision_attrs(:read_setting, "read_setting", context)
+  end
+
+  defp decision_attrs({:explain_setting, _key}, _text, context) do
+    action_decision_attrs(:explain_setting, "explain_setting", context)
+  end
+
+  defp decision_attrs({:update_setting, _key, _value}, _text, context) do
+    action_decision_attrs(:update_setting, "update_setting", context)
+  end
+
+  defp decision_attrs(:list_provider_profiles, _text, context) do
+    action_decision_attrs(:list_provider_profiles, "list_provider_profiles", context)
+  end
+
+  defp decision_attrs({:set_provider_credential, _provider, _mode}, _text, context) do
+    action_decision_attrs(:set_provider_credential, "set_provider_credential", context)
+  end
+
+  defp decision_attrs({:plan_package_install, params}, text, context) do
+    %{
+      intent: :plan_package_install,
+      reason:
+        "The prompt asks for a package installation plan without running a package manager.",
+      selected_action: "plan_package_install",
+      resource_access: package_resource_access(params, "plan_package_install"),
+      alternatives: ["Review the package plan before asking for a confirmed install."],
+      trace_metadata: %{package_params: params, source_text: text},
+      context: context
+    }
+  end
+
+  defp decision_attrs({:run_package_install, params}, text, context) do
+    %{
+      intent: :run_package_install,
+      reason: "The prompt asks to run a package manager install.",
+      selected_action: "run_package_install",
+      resource_access: package_resource_access(params, "run_package_install"),
+      alternatives: ["Ask for a package install plan instead of execution."],
+      trace_metadata: %{package_params: params, source_text: text},
+      context: context
+    }
+  end
+
+  defp decision_attrs({:search_online_skills, params}, _text, context) do
+    %{
+      intent: :search_online_skills,
+      reason: "The prompt asks to search a configured online skill source.",
+      selected_action: "search_online_skills",
+      resource_access:
+        online_skill_resource_access(params, :online_skill_search, "search_online_skills"),
+      alternatives: ["List local trusted skills instead."],
+      context: context
+    }
+  end
+
+  defp decision_attrs({:show_online_skill, params}, _text, context) do
+    %{
+      intent: :show_online_skill,
+      reason: "The prompt asks to inspect one configured online skill source result.",
+      selected_action: "show_online_skill",
+      resource_access:
+        online_skill_resource_access(params, :online_skill_detail, "show_online_skill"),
+      alternatives: ["Search online skills first or inspect local trusted skills."],
+      context: context
+    }
+  end
+
+  defp decision_attrs({:import_remote_skill, url}, _text, context) do
+    %{
+      intent: :import_skill,
+      reason: "The prompt asks to import a direct remote skill URL disabled and untrusted.",
+      selected_action: "import_remote_skill",
+      resource_access: remote_skill_import_resource_access(url, "import_remote_skill"),
+      alternatives: ["Show or audit the skill before importing it."],
+      context: context
+    }
+  end
+
+  defp decision_attrs({:import_local_skill, path}, _text, context) do
+    %{
+      intent: :import_local_skill,
+      reason: "The prompt asks to import a local skill directory disabled and untrusted.",
+      selected_action: "import_local_skill",
+      resource_access: local_skill_import_resource_access(path, "import_local_skill"),
+      alternatives: ["Validate the local skill directory before importing it."],
+      context: context
+    }
+  end
+
+  defp decision_attrs({:run_skill_script, params}, text, context) do
+    %{
+      intent: :run_skill_script,
+      reason: "The prompt asks to run an inventoried trusted skill script.",
+      selected_action: "run_skill_script",
+      resource_access: skill_script_resource_access(params, "run_skill_script"),
+      alternatives: ["Activate or inspect the skill before running a script."],
+      trace_metadata: %{script_params: params, source_text: text},
+      context: context
+    }
+  end
+
+  defp decision_attrs(:direct_answer, text, context) do
+    skill_decision_attrs(:direct_answer, "direct-answer", "direct_answer", text, context)
+  end
+
+  defp skill_decision_attrs(intent, skill_name, action_name, text, context) do
+    %{
+      intent: intent,
+      reason: "The prompt is handled by the trusted #{skill_name} skill/action path.",
+      selected_skill: skill_name,
+      selected_action: action_name,
+      trace_metadata: %{source_text: text},
+      context: context
+    }
+  end
+
+  defp action_decision_attrs(intent, action_name, context) do
+    %{
+      intent: intent,
+      reason: "The prompt is handled by a registered #{action_name} action.",
+      selected_action: action_name,
+      context: context
+    }
+  end
+
   defp run_route(:plan_shell_command, text, context) do
     run_skill_action(
       "plan-shell-command",
@@ -222,6 +476,34 @@ defmodule AllbertAssist.Agents.IntentAgent do
       text,
       context
     )
+  end
+
+  defp run_route({:plan_package_install, params}, text, context) do
+    run_action("plan_package_install", Map.put(params, :source_text, text), text, context)
+  end
+
+  defp run_route({:run_package_install, params}, text, context) do
+    run_action("run_package_install", Map.put(params, :source_text, text), text, context)
+  end
+
+  defp run_route({:search_online_skills, params}, text, context) do
+    run_action("search_online_skills", params, text, context)
+  end
+
+  defp run_route({:show_online_skill, params}, text, context) do
+    run_action("show_online_skill", params, text, context)
+  end
+
+  defp run_route({:import_remote_skill, url}, text, context) do
+    run_action("import_remote_skill", %{url: url}, text, context)
+  end
+
+  defp run_route({:import_local_skill, path}, text, context) do
+    run_action("import_local_skill", %{path: path}, text, context)
+  end
+
+  defp run_route({:run_skill_script, params}, text, context) do
+    run_action("run_skill_script", Map.put(params, :source_text, text), text, context)
   end
 
   defp run_route({:unsupported_resource_workflow, workflow, resource}, text, context) do
@@ -319,6 +601,102 @@ defmodule AllbertAssist.Agents.IntentAgent do
     Runner.run(action_name, params, runner_context)
   end
 
+  defp attach_decision({:ok, response}, %Decision{} = decision, _context) do
+    decision = sync_decision_after_response(decision, response)
+
+    response =
+      response
+      |> Map.put(:decision, decision)
+      |> Map.put(:resource_access, ResourceAccess.to_maps(decision.resource_access))
+      |> Map.put(:approval_handoff, decision.approval_handoff)
+      |> Map.update(:diagnostics, decision.diagnostics, &(decision.diagnostics ++ &1))
+
+    {:ok, response}
+  end
+
+  defp attach_decision(error, _decision, _context), do: error
+
+  defp sync_decision_after_response(%Decision{} = decision, response) do
+    confirmation =
+      case Map.get(response, :status) do
+        :needs_confirmation -> :pending
+        :unsupported -> :unsupported
+        :denied -> decision.confirmation
+        _status -> decision.confirmation
+      end
+
+    trace_metadata =
+      decision.trace_metadata
+      |> Map.put(:confirmation, confirmation)
+      |> put_if_present(:confirmation_id, Map.get(response, :confirmation_id))
+      |> put_if_present(:response_status, Map.get(response, :status))
+
+    %{decision | confirmation: confirmation, trace_metadata: trace_metadata}
+  end
+
+  defp decision_refusal_response(%Decision{} = decision) do
+    permission_decision = Decision.authorization_decision(decision)
+
+    reason =
+      permission_reason(permission_decision) || decision.risk_summary || "permission denied"
+
+    denial_reason = refusal_reason(decision, permission_decision)
+
+    %{
+      message: refusal_message(decision, reason),
+      status: :denied,
+      decision: decision,
+      resource_access: ResourceAccess.to_maps(decision.resource_access),
+      approval_handoff: nil,
+      diagnostics: decision.diagnostics,
+      actions: [
+        %{
+          name: decision.selected_action || "none",
+          status: :denied,
+          permission: decision.permission,
+          permission_decision: permission_decision,
+          execution: :not_started,
+          denial_reason: denial_reason,
+          resource_access: ResourceAccess.to_maps(decision.resource_access),
+          decision: Decision.to_map(decision)
+        }
+      ]
+    }
+  end
+
+  defp invalid_decision_response(reason, text, context) do
+    {:ok, decision} =
+      Decision.new(%{
+        intent: :invalid_intent_decision,
+        confidence: 0.0,
+        reason: "The intent route could not be validated.",
+        selected_action: "direct_answer",
+        selected_skill: "direct-answer",
+        alternatives: ["Try a narrower prompt with an explicit action."],
+        diagnostics: [%{source: :intent_decision, error: inspect(reason)}],
+        trace_metadata: %{source_text: text},
+        context: context
+      })
+
+    %{
+      message: "I could not validate that intent decision: #{inspect(reason)}.",
+      status: :denied,
+      decision: decision,
+      resource_access: [],
+      approval_handoff: nil,
+      diagnostics: decision.diagnostics,
+      actions: [
+        %{
+          name: "direct_answer",
+          status: :denied,
+          permission: :read_only,
+          execution: :not_started,
+          decision: Decision.to_map(decision)
+        }
+      ]
+    }
+  end
+
   defp skill_action_error_response(skill_name, action_name, error) do
     %{
       message:
@@ -335,6 +713,341 @@ defmodule AllbertAssist.Agents.IntentAgent do
       ]
     }
   end
+
+  defp skill_import_route(text, normalized) do
+    url = first_url(text)
+    path = local_path_after_import(text)
+
+    cond do
+      String.contains?(normalized, "skill") &&
+        Regex.match?(~r/\b(import|install|add)\b/, normalized) &&
+          is_binary(url) ->
+        {:import_remote_skill, url}
+
+      String.contains?(normalized, "skill") &&
+        Regex.match?(~r/\b(import|install|add)\b/, normalized) &&
+          is_binary(path) ->
+        {:import_local_skill, path}
+
+      true ->
+        nil
+    end
+  end
+
+  defp skill_script_route(text, normalized) do
+    if Regex.match?(~r/\b(run|execute)\b.*\bskill\s+script\b/, normalized) do
+      {:run_skill_script, skill_script_params(text)}
+    end
+  end
+
+  defp package_route(text, normalized) do
+    cond do
+      Regex.match?(~r/^\s*(run|execute)\s+package\s+install\b/i, text) ->
+        {:run_package_install, package_params(text)}
+
+      Regex.match?(~r/^\s*(npm|pnpm|yarn|pip)\s+install\b/i, text) ->
+        {:plan_package_install, package_params(text)}
+
+      Regex.match?(
+        ~r/\b(plan|install|add)\b.*\b(package|dependency|npm package|pip package)\b/i,
+        text
+      ) ->
+        {:plan_package_install, package_params(text)}
+
+      String.contains?(normalized, "package install") ->
+        {:plan_package_install, package_params(text)}
+
+      true ->
+        nil
+    end
+  end
+
+  defp online_skill_route(text, normalized) do
+    cond do
+      Regex.match?(~r/\b(search|find)\b.*\bonline\s+skills?\b/i, text) ->
+        {:search_online_skills, %{query: online_skill_query(text), source: "skills_sh"}}
+
+      Regex.match?(~r/\b(show|inspect|read)\b.*\bonline\s+skill\b/i, text) ->
+        {:show_online_skill, online_skill_detail_params(text)}
+
+      String.contains?(normalized, "skills.sh") && Regex.match?(~r/\bsearch|find\b/i, text) ->
+        {:search_online_skills, %{query: online_skill_query(text), source: "skills_sh"}}
+
+      true ->
+        nil
+    end
+  end
+
+  defp command_resource_access(text, target_action, mode) do
+    with {:ok, params} <- command_params_from_text(text) do
+      cwd = Map.get(params, :cwd, File.cwd!())
+
+      [
+        %{
+          resource_uri: ResourceURI.file!(cwd),
+          origin_kind: :local_path,
+          canonical_id: cwd,
+          operation_class: :run_shell_command,
+          access_mode: if(mode == :prospective, do: :read, else: :execute),
+          scope: Scope.directory_subtree(cwd),
+          downstream_consumer: :shell_runner,
+          target_action: target_action,
+          output_cap: 65_536,
+          allowed_approval_scopes: [:once, :exact_resource, :local_directory],
+          metadata: %{
+            executable: Map.get(params, :executable),
+            args: Map.get(params, :args, []),
+            posture: mode
+          }
+        }
+      ]
+    else
+      {:error, reason} ->
+        [
+          %{
+            resource_uri: ResourceURI.file!(File.cwd!()),
+            operation_class: :run_shell_command,
+            access_mode: :read,
+            scope: Scope.directory_subtree(File.cwd!()),
+            downstream_consumer: :shell_runner,
+            target_action: target_action,
+            diagnostics: [%{source: :command_parser, error: inspect(reason)}],
+            metadata: %{posture: mode}
+          }
+        ]
+    end
+  end
+
+  defp url_resource_access(text, operation_class, target_action) do
+    case first_url(text) do
+      nil ->
+        []
+
+      url ->
+        [
+          %{
+            resource_uri: ResourceURI.url!(url),
+            operation_class: operation_class,
+            access_mode: access_mode_for_operation(operation_class),
+            scope: Scope.exact_url(url),
+            display_uri: url,
+            downstream_consumer: downstream_consumer_for_operation(operation_class),
+            target_action: target_action,
+            expected_content_kind: expected_content_kind(operation_class),
+            byte_cap: 1_048_576,
+            redirect_policy: :no_redirects,
+            retry_policy: :none,
+            allowed_approval_scopes: [:once, :exact_resource, :url_prefix]
+          }
+        ]
+    end
+  end
+
+  defp workflow_resource_access(:summarize_url, resource, _text) when is_binary(resource) do
+    url_resource_access(resource, :summarize_url, "unsupported_resource_workflow")
+  end
+
+  defp workflow_resource_access(:inspect_document, resource, _text) when is_binary(resource) do
+    url_resource_access(resource, :inspect_document, "unsupported_resource_workflow")
+  end
+
+  defp workflow_resource_access(:document_extraction, resource, _text) when is_binary(resource) do
+    url_resource_access(resource, :inspect_document, "unsupported_resource_workflow")
+  end
+
+  defp workflow_resource_access(:unsupported_uri_scheme, resource, _text)
+       when is_binary(resource) do
+    [
+      %{
+        resource_uri: ResourceURI.normalize!(resource),
+        operation_class: :external_service_request,
+        access_mode: :fetch,
+        scope: Scope.exact_url(resource),
+        display_uri: resource,
+        downstream_consumer: :unsupported_resource_workflow,
+        target_action: "unsupported_resource_workflow",
+        unsupported?: true,
+        diagnostics: [%{source: :intent_agent, reason: :unsupported_uri_scheme}]
+      }
+    ]
+  end
+
+  defp workflow_resource_access(_workflow, resource, text) do
+    case resource || first_url(text) do
+      nil -> []
+      url -> url_resource_access(url, :external_service_request, "unsupported_resource_workflow")
+    end
+  end
+
+  defp package_resource_access(params, target_action) do
+    manager = Map.get(params, :manager, "npm")
+    packages = Map.get(params, :packages, [])
+    project_root = Map.get(params, :project_root) || Map.get(params, :cwd) || File.cwd!()
+
+    package_refs =
+      Enum.map(packages, fn package ->
+        %{
+          resource_uri: ResourceURI.package!(manager, package),
+          operation_class: :package_install,
+          access_mode: :install,
+          scope: Scope.source_profile(manager),
+          source: manager,
+          downstream_consumer: :package_manager,
+          target_action: target_action,
+          output_cap: 65_536,
+          allowed_approval_scopes: [:once, :exact_resource],
+          metadata: %{package: package, save_mode: Map.get(params, :save_mode)}
+        }
+      end)
+
+    target_ref = %{
+      resource_uri: ResourceURI.file!(project_root),
+      operation_class: :package_install,
+      access_mode: :write,
+      scope: Scope.package_target_root(project_root),
+      source: manager,
+      downstream_consumer: :package_manager,
+      target_action: target_action,
+      allowed_approval_scopes: [:once, :local_directory],
+      metadata: %{target_root: project_root}
+    }
+
+    package_refs ++ [target_ref]
+  end
+
+  defp online_skill_resource_access(params, operation_class, target_action) do
+    source = Map.get(params, :source, "skills_sh")
+
+    Ref.online_skill_source(
+      %{id: source, max_listing_results: 20, max_download_bytes: 1_048_576},
+      operation_class,
+      Map.drop(params, [:source])
+    )
+    |> Enum.map(
+      &Map.merge(&1, %{
+        target_action: target_action,
+        allowed_approval_scopes: [:once, :exact_resource]
+      })
+    )
+  end
+
+  defp remote_skill_import_resource_access(url, target_action) do
+    [
+      %{
+        resource_uri: ResourceURI.url!(url),
+        operation_class: :import_skill,
+        access_mode: :import,
+        scope: Scope.exact_url(url),
+        display_uri: url,
+        downstream_consumer: :skill_importer,
+        target_action: target_action,
+        expected_content_kind: :agent_skill,
+        parser: :agent_skill_parser,
+        byte_cap: 1_048_576,
+        allowed_approval_scopes: [:once, :exact_resource, :url_prefix],
+        metadata: %{trust_after_import: :disabled_untrusted}
+      }
+    ]
+  end
+
+  defp local_skill_import_resource_access(path, target_action) do
+    canonical = Path.expand(path)
+
+    [
+      %{
+        resource_uri: ResourceURI.file!(canonical),
+        operation_class: :import_local_skill,
+        access_mode: :import,
+        scope: Scope.directory_subtree(canonical),
+        downstream_consumer: :skill_importer,
+        target_action: target_action,
+        expected_content_kind: :agent_skill_directory,
+        parser: :agent_skill_parser,
+        allowed_approval_scopes: [:once, :exact_resource, :local_directory],
+        metadata: %{trust_after_import: :disabled_untrusted}
+      }
+    ]
+  end
+
+  defp skill_script_resource_access(params, target_action) do
+    skill_name = Map.get(params, :skill_name)
+    script_path = Map.get(params, :script_path)
+    script_id = Enum.join(Enum.reject([skill_name, script_path], &blank?/1), ":")
+    cwd = Map.get(params, :cwd, File.cwd!())
+
+    [
+      %{
+        resource_uri: ResourceURI.skill_resource!(script_id),
+        operation_class: :run_skill_script,
+        access_mode: :execute,
+        scope: Scope.skill_resource_id(script_id),
+        downstream_consumer: :skill_script_runner,
+        target_action: target_action,
+        output_cap: 65_536,
+        digest: Map.get(params, :expected_sha256),
+        allowed_approval_scopes: [:once, :exact_resource],
+        metadata: %{skill_name: skill_name, script_path: script_path}
+      },
+      %{
+        resource_uri: ResourceURI.file!(cwd),
+        operation_class: :run_skill_script,
+        access_mode: :execute,
+        scope: Scope.directory_subtree(cwd),
+        downstream_consumer: :skill_script_runner,
+        target_action: target_action,
+        allowed_approval_scopes: [:once, :local_directory]
+      }
+    ]
+  end
+
+  defp unsupported_alternatives(:summarize_url),
+    do: ["Fetch approval and summarization require the v0.11 URI consumer flow."]
+
+  defp unsupported_alternatives(:inspect_document),
+    do: ["Provide extracted text directly or wait for a registered document extractor."]
+
+  defp unsupported_alternatives(:unsupported_uri_scheme),
+    do: ["Use a supported registered action or wait for a future MCP/agent adapter."]
+
+  defp unsupported_alternatives(_workflow),
+    do: ["Use an already registered v0.08-v0.10 capability or a narrower prompt."]
+
+  defp access_mode_for_operation(:summarize_url), do: :summarize
+  defp access_mode_for_operation(:inspect_document), do: :read
+  defp access_mode_for_operation(:import_skill), do: :import
+  defp access_mode_for_operation(_operation_class), do: :fetch
+
+  defp downstream_consumer_for_operation(:summarize_url), do: :url_summarizer
+  defp downstream_consumer_for_operation(:inspect_document), do: :document_extractor
+  defp downstream_consumer_for_operation(:import_skill), do: :skill_importer
+  defp downstream_consumer_for_operation(_operation_class), do: :req_http
+
+  defp expected_content_kind(:summarize_url), do: :html_or_text
+  defp expected_content_kind(:inspect_document), do: :document
+  defp expected_content_kind(_operation_class), do: nil
+
+  defp put_if_present(map, _key, nil), do: map
+  defp put_if_present(map, key, value), do: Map.put(map, key, value)
+
+  defp permission_reason(%{reason: reason}), do: reason
+  defp permission_reason(%{"reason" => reason}), do: reason
+  defp permission_reason(_decision), do: nil
+
+  defp refusal_message(%Decision{selected_action: "run_shell_command"}, reason) do
+    "Shell command execution was denied before action execution: #{reason}."
+  end
+
+  defp refusal_message(%Decision{selected_action: action}, reason) do
+    "Intent decision refused #{action || "the selected action"}: #{reason}."
+  end
+
+  defp refusal_reason(%Decision{permission: :command_execute}, _permission_decision),
+    do: :local_execution_disabled
+
+  defp refusal_reason(%Decision{permission: permission}, %{reason: reason}),
+    do: reason || permission
+
+  defp refusal_reason(%Decision{permission: permission}, _permission_decision), do: permission
 
   defp command_request?(text) do
     Regex.match?(~r/^\s*(run|execute|exec|shell|terminal)\b/, text) ||
@@ -648,6 +1361,122 @@ defmodule AllbertAssist.Agents.IntentAgent do
     |> String.trim()
   end
 
+  defp first_url(text) do
+    case Regex.run(~r/(https?:\/\/[^\s<>"']+)/i, text) do
+      [url | _rest] -> String.trim_trailing(url, ".,)")
+      _match -> nil
+    end
+  end
+
+  defp local_path_after_import(text) do
+    case Regex.run(~r/\b(?:from|directory|dir|folder|path)\s+([~\/.][^\n\r]*)$/i, text) do
+      [_, path] -> path |> String.trim() |> String.trim("\"'")
+      _match -> nil
+    end
+  end
+
+  defp skill_script_params(text) do
+    match =
+      Regex.run(
+        ~r/skill\s+script\s+([a-z0-9_.-]+)(?::|\s+)([^\s]+)(?:\s+(.+))?/i,
+        text
+      )
+
+    case match do
+      [_, skill_name, script_path, args] ->
+        %{
+          skill_name: skill_name,
+          script_path: script_path,
+          args: split_args(args),
+          cwd: File.cwd!()
+        }
+
+      [_, skill_name, script_path] ->
+        %{skill_name: skill_name, script_path: script_path, args: [], cwd: File.cwd!()}
+
+      _match ->
+        %{skill_name: "unknown", script_path: "unknown", args: [], cwd: File.cwd!()}
+    end
+  end
+
+  defp package_params(text) do
+    manager = package_manager(text)
+    packages = package_specs(text, manager)
+
+    %{
+      manager: manager,
+      packages: packages,
+      project_root: File.cwd!(),
+      save_mode: package_save_mode(text)
+    }
+    |> Enum.reject(fn {_key, value} -> value in [nil, [], ""] end)
+    |> Map.new()
+  end
+
+  defp package_manager(text) do
+    normalized = String.downcase(text)
+
+    cond do
+      Regex.match?(~r/\bpnpm\b/, normalized) -> "pnpm"
+      Regex.match?(~r/\byarn\b/, normalized) -> "yarn"
+      Regex.match?(~r/\bpip\b/, normalized) -> "pip"
+      true -> "npm"
+    end
+  end
+
+  defp package_specs(text, manager) do
+    text
+    |> String.replace(~r/^\s*(run|execute)\s+package\s+install\s+/i, "")
+    |> String.replace(~r/^\s*(npm|pnpm|yarn|pip)\s+install\s+/i, "")
+    |> String.replace(
+      ~r/^\s*(please\s+)?(plan|install|add)\s+(an?\s+)?(#{manager}\s+)?(package|dependency|npm package|pip package)?\s*/i,
+      ""
+    )
+    |> String.replace(~r/\s+to\s+this\s+project.*$/i, "")
+    |> String.trim()
+    |> split_args()
+    |> Enum.reject(&String.starts_with?(&1, "-"))
+  end
+
+  defp package_save_mode(text) do
+    cond do
+      Regex.match?(~r/\b(--save-dev|dev dependency|development dependency)\b/i, text) -> "dev"
+      Regex.match?(~r/\b--no-save\b/i, text) -> "no-save"
+      true -> nil
+    end
+  end
+
+  defp online_skill_query(text) do
+    text
+    |> String.replace(~r/^.*\b(?:search|find)\b\s*/i, "")
+    |> String.replace(~r/\bonline\s+skills?\s*(for|about)?\s*/i, "")
+    |> String.replace(~r/\bskills\.sh\b/i, "")
+    |> String.trim()
+    |> case do
+      "" -> "allbert"
+      query -> query
+    end
+  end
+
+  defp online_skill_detail_params(text) do
+    id =
+      case Regex.run(~r/\bonline\s+skill\s+([a-z0-9_.\/:-]+)/i, text) do
+        [_, id] -> id
+        _match -> "unknown"
+      end
+
+    %{source: "skills_sh", id: id}
+  end
+
+  defp split_args(nil), do: []
+  defp split_args(""), do: []
+
+  defp split_args(text) do
+    OptionParser.split(text)
+  rescue
+    _exception -> []
+  end
+
   defp skill_name(text) do
     case Regex.run(~r/(?:read|show|describe)\s+skill\s+(.+)$/i, text) do
       [_, name] -> String.trim(name)
@@ -661,4 +1490,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
       _match -> "list-skills"
     end
   end
+
+  defp blank?(value), do: value in [nil, ""]
 end
