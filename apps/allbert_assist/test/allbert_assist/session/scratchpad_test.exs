@@ -78,6 +78,43 @@ defmodule AllbertAssist.Session.ScratchpadTest do
     assert Session.summary(entry).working_memory_key_count == 1
   end
 
+  test "put creates and updates selected entry fields", %{opts: opts} do
+    assert {:ok, entry} =
+             Session.put(
+               "alice",
+               "sess-1",
+               %{
+                 active_app: "stocksage",
+                 working_memory: %{pane: "left"},
+                 metadata: %{source: "test"}
+               },
+               opts
+             )
+
+    assert entry.active_app == :stocksage
+    assert entry.working_memory == %{pane: "left"}
+    assert entry.metadata == %{source: "test"}
+
+    assert {:ok, updated} =
+             Session.put("alice", "sess-1", %{"metadata" => %{"origin" => "cli"}}, opts)
+
+    assert updated.active_app == :stocksage
+    assert updated.working_memory == %{pane: "left"}
+    assert updated.metadata == %{"origin" => "cli"}
+  end
+
+  test "put rejects invalid metadata maps", %{opts: opts} do
+    for key <- [:secret, :token, :password, :credential, :api_key] do
+      assert {:error, :sensitive_metadata_key} =
+               Session.put("alice", "sess-#{key}", %{metadata: %{key => "nope"}}, opts)
+    end
+
+    large_payload = %{large: String.duplicate("x", 20_000)}
+
+    assert {:error, :metadata_too_large} =
+             Session.put("alice", "sess-large", %{metadata: large_payload}, opts)
+  end
+
   test "merge_working_memory is shallow and rejects reserved or oversized payloads", %{opts: opts} do
     assert {:ok, entry} =
              Session.merge_working_memory("alice", "sess-1", %{pane: "left"}, opts)
@@ -95,8 +132,10 @@ defmodule AllbertAssist.Session.ScratchpadTest do
     assert {:error, :reserved_key} =
              Session.merge_working_memory("alice", "sess-1", %{"canvas_tiles" => []}, opts)
 
-    assert {:error, :sensitive_working_memory_key} =
-             Session.merge_working_memory("alice", "sess-1", %{api_key: "nope"}, opts)
+    for key <- [:secret, :token, :password, :credential, :api_key] do
+      assert {:error, :sensitive_working_memory_key} =
+               Session.merge_working_memory("alice", "sess-#{key}", %{key => "nope"}, opts)
+    end
 
     large_payload = %{large: String.duplicate("x", 70_000)}
 
@@ -125,6 +164,21 @@ defmodule AllbertAssist.Session.ScratchpadTest do
     Process.sleep(90)
     assert {:ok, 1} = Session.sweep_expired(opts)
     assert {:ok, []} = Session.list("alice", opts)
+  end
+
+  test "clear_active_app on an expired entry returns not_found" do
+    name = :"scratchpad_clear_expired_#{System.unique_integer([:positive])}"
+    table = :"scratchpad_clear_expired_table_#{System.unique_integer([:positive])}"
+
+    start_scratchpad!(name, table_name: table, ttl_ms: 30, sweep_interval_ms: 0)
+
+    opts = [server: name]
+    assert {:ok, _entry} = Session.set_active_app("alice", "expired", :stocksage, opts)
+
+    Process.sleep(40)
+
+    assert {:error, :not_found} = Session.clear_active_app("alice", "expired", opts)
+    assert {:error, :not_found} = Session.get("alice", "expired", opts)
   end
 
   test "restart starts with an empty table" do
