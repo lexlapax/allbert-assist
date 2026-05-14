@@ -31,6 +31,42 @@ The Jido versions in this foundation are:
 That is enough to treat Jido as the first real substrate rather than as an
 experiment bolted onto the side.
 
+## Workspace Direction
+
+Allbert is becoming a personal AI workspace, not just a single assistant
+surface. The workspace is the operating environment: Allbert owns identity,
+memory, settings, security, signals, agents, actions, app registration, and
+operator surfaces. Domain apps plug into that environment through public
+contracts rather than private hooks.
+
+StockSage is the first proving app. It enters the umbrella as normal OTP
+applications, registers actions and skill paths through Allbert, stores
+local-first domain records, and eventually contributes LiveViews and canvas
+components through the app/surface contract.
+
+The workspace path carries several grounding decisions:
+
+- SQLite remains the default local data store for Allbert and StockSage.
+  PostgreSQL, hosted auth, and role/account models are deferred until there is
+  a real hosted deployment need.
+- Background work should prefer OTP/Jido supervisors, SQLite-backed queues,
+  and supervised workers before adding Oban or another scheduler dependency to
+  the local path.
+- `user_id` is a stable local string, defaulting to `"local"`, not a foreign
+  key to an accounts table. Existing `operator_id` is a compatibility alias.
+- Conversation history is SQLite-backed `Thread` and `Message` data; markdown
+  memory remains the durable, operator-edited source of truth.
+- Session scratchpad state is volatile ETS data keyed by `{user_id,
+  session_id}`. It may carry `active_app`, but it is not durable memory and not
+  a security boundary.
+- Python StockSage and TradingAgents remain the behavioral baseline at first.
+  A supervised bridge gets useful analysis into Allbert early; native Jido
+  trading agents become default only after parity tests prove they are close
+  enough.
+- The older Rust Allbert experiment is prior art for identity, sessions,
+  daemon jobs, memory, and retrieval. It is not an active sibling runtime for
+  this roadmap.
+
 ## Design Posture
 
 Allbert should think in the Elixir way:
@@ -112,6 +148,25 @@ runs commands, spends money, contacts outside services, or sends messages,
 Allbert should know which skill requested it, which agent selected it, which
 permission applies, and what trace will be recorded.
 
+### Workspace Apps
+
+Apps are first-class workspace participants. An app should be able to declare
+identity, validation, child supervision, registered actions, skill paths,
+signals, settings, navigation surfaces, and eventually canvas components
+without reaching around Allbert's public boundaries.
+
+The minimal app contract registers identity, actions, skills, child specs, and
+navigation. The full contract adds signal subscriptions, settings/schema
+validation, memory namespaces, `AllbertAssist.App.SurfaceProvider`, and the
+native `AllbertAssist.Surface` DSL. App registration never grants permission:
+registered actions still run through the action runner, Security Central,
+confirmation workflow, traces, and audits.
+
+`active_app` is session context, not magic global routing. When the user is in
+StockSage, `active_app: :stocksage` lets intent ranking prioritize StockSage
+actions and skill paths. Neutral Allbert context should not route into app
+actions without explicit session evidence.
+
 ### Memory
 
 Memory should be markdown-first and runtime-compiled.
@@ -131,6 +186,13 @@ files.
 Nightly distillation or small-model retraining can remain a future research
 track. First, Allbert needs trustworthy memory capture, retrieval, review, and
 pruning.
+
+Allbert also needs structured conversation history, but it is a different
+artifact. SQLite `Thread` and `Message` rows preserve ordered turns,
+pagination, app/thread context, user isolation, and trace links. They are not
+markdown memory entries, and they are not automatically promoted into durable
+memory. Selective promotion, such as extracting a useful lesson from a thread,
+should be an explicit confirmed action.
 
 ### Allbert Home And Settings
 
@@ -189,6 +251,44 @@ The boundary is important. Allbert should prefer declarative surface data,
 known component catalogs, provenance, redaction, fallback text, and registered
 action bindings over arbitrary model-generated UI code.
 
+The app/surface contract exists so the workspace shell does not invent app
+discovery or arbitrary node shapes. `AllbertAssist.App.Registry` provides app
+navigation and lookup. `AllbertAssist.Surface` defines validated component
+nodes. `AllbertAssist.App.SurfaceProvider` lets apps produce task surfaces as
+signals or registered action results. AG-UI, A2UI, MCP Apps, and similar
+protocols are research references and future adapters, not hard dependencies
+for the first local LiveView substrate.
+
+StockSage LiveViews start as standard app surfaces. After the core canvas
+substrate exists, StockSage can register chart and analysis-card components
+with the catalog so an analysis result can produce canvas operations without
+changing the StockSage domain model.
+
+### StockSage
+
+StockSage proves Allbert's app model with a concrete financial-analysis
+workflow:
+
+- Domain storage: analyses, analysis details, outcomes, queue entries, queue
+  runs, and memory entries with string `user_id` and optional thread/request
+  context.
+- Skill pack: local `SKILL.md` files for running analysis, fetching trends,
+  and queueing analysis through registered Jido actions.
+- Python bridge: a supervised Port or equivalent JSON boundary around the
+  existing TradingAgents baseline.
+- Native agents: a later Jido analysis topology that matches the Python
+  baseline within documented variance before becoming default.
+- Web surfaces: workspace, analysis, queue, and trends LiveViews mounted
+  through the app contract, setting `active_app: :stocksage` when the user is
+  in StockSage context.
+- Canvas integration: chart and analysis tiles only after the Allbert canvas
+  substrate and full app contract are proven.
+
+Financial workflows are security-sensitive. Market-data API calls must flow
+through Resource Access Security Posture and confirmations; a remembered grant
+for a general external service must not automatically authorize financial
+analysis calls.
+
 ## Product Shape
 
 The user's experience should feel natural:
@@ -205,6 +305,35 @@ The user's experience should feel natural:
 
 That loop should work the same whether the user is in the terminal, the web UI,
 or a future messaging channel.
+
+## Unified Release Sequence
+
+The post-v0.10 roadmap uses one v0.xx stream. The older D-track labels are
+historical aliases only and remain in old reference notes for continuity.
+
+- v0.11: execution-aware intent, Approval Handoff, and Resource Access
+  Security Posture consumers.
+- v0.12: local workspace identity and SQLite conversation history.
+- v0.13: scheduled jobs.
+- v0.14: ETS session scratchpad and `active_app` context.
+- v0.15: minimal app registration contract.
+- v0.16: additional channels.
+- v0.17: StockSage umbrella app and SQLite-first domain.
+- v0.18: markdown memory review and retrieval, distinct from conversation
+  history.
+- v0.19: StockSage Python bridge.
+- v0.20: cross-surface intent enrichment using jobs, channels, memory,
+  scratchpad, and app registry context.
+- v0.21: native Jido trading agents.
+- v0.22: StockSage LiveViews.
+- v0.23: security hardening and evals, including cross-user/thread leakage,
+  app-scoped routing, bridge safety, and financial authorization.
+- v0.24: full app contract and `AllbertAssist.Surface` DSL.
+- v0.25: StockSage polish, outcomes, and trends.
+- v0.26: agentic workspace surface and ephemeral UI substrate. This cannot
+  start until v0.23 and v0.24 are complete.
+- v0.27: StockSage canvas integration.
+- v0.28: Allbert app generator.
 
 ## Deferred Until The Foundation Settles
 

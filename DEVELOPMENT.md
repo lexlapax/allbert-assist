@@ -100,6 +100,7 @@ For active v0.11 execution-aware intent, Approval Handoff, or remote network
 content posture work, start with:
 
 - `docs/plans/v0.11-plan.md`
+- `docs/plans/v0.11-request-flow.md`
 - `docs/plans/v0.10-plan.md`
 - `docs/plans/v0.10-request-flow.md`
 - `docs/plans/v0.07-request-flow.md`
@@ -112,6 +113,31 @@ content posture work, start with:
 - `docs/adr/0011-confirmed-external-capability-adapters.md`
 - `docs/adr/0012-resource-access-security-posture.md`
 - `docs/adr/0013-uri-first-resource-identity.md`
+
+For v0.12 local workspace identity and conversation history work, start with:
+
+- `docs/plans/v0.12-plan.md`
+- `docs/plans/v0.12-request-flow.md`
+- `docs/plans/allbert-jido-vision.md`
+- `docs/adr/0014-local-workspace-identity.md`
+
+For v0.14 session scratchpad work, start with:
+
+- `docs/plans/v0.14-plan.md`
+- `docs/plans/allbert-jido-vision.md`
+- `docs/adr/0014-local-workspace-identity.md`
+
+For v0.15 or v0.24 app contract and surface DSL work, start with the active
+plan plus:
+
+- `docs/plans/v0.15-plan.md`
+- `docs/plans/v0.24-plan.md`
+- `docs/plans/allbert-jido-vision.md`
+- `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
+
+For StockSage workspace app milestones, start with the active milestone plan,
+`docs/plans/allbert-jido-vision.md`, ADR 0014, and ADR 0015. The canonical
+plans are `v0.17`, `v0.19`, `v0.21`, `v0.22`, `v0.25`, and `v0.27`.
 
 After v0.10 closeout, remember that URL summarization, document inspection,
 direct skill URL import, local skill directory import, local path access,

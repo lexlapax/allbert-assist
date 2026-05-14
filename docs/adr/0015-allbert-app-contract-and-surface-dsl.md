@@ -17,7 +17,7 @@ discovery, Phoenix PubSub, and the Jido signal bus. What it lacks is a public
 contract for another umbrella app to participate as a first-class Allbert
 workspace app.
 
-v0.17 also plans an agentic workspace surface and declarative UI substrate.
+v0.26 also plans an agentic workspace surface and declarative UI substrate.
 That canvas should consume a stable Allbert-native app and surface contract
 rather than inventing app discovery, component catalogs, or node shapes inside
 the LiveView implementation.
@@ -32,7 +32,7 @@ adapter after the local contract is proven.
 Allbert will define an app contract centered on `AllbertAssist.App` and
 managed by `AllbertAssist.App.Registry`.
 
-The minimal contract for M-AppContract-Lite includes:
+The minimal contract for v0.15, formerly M-AppContract-Lite, includes:
 
 - app identity: `app_id`, display name, and version
 - startup validation and child supervision
@@ -40,7 +40,8 @@ The minimal contract for M-AppContract-Lite includes:
 - app skill paths added to the global skill registry
 - navigation surfaces for the Allbert shell
 
-The full contract for M-AppContract-Full expands this into five layers:
+The full contract for v0.24, formerly M-AppContract-Full, expands this into
+five layers:
 
 - Identity and OTP lifecycle: validation, child specs, and workspace config
   injection.
@@ -65,7 +66,7 @@ registered actions. LiveView renders and collects operator input; it does not
 own app domain logic, approval storage, security policy, or resource grants.
 
 Allbert will define `AllbertAssist.Surface` as the native declarative surface
-DSL for v0.17 canvas artifacts and task-scoped ephemeral UI. Surface nodes are
+DSL for v0.26 canvas artifacts and task-scoped ephemeral UI. Surface nodes are
 Elixir data validated against a known component catalog. Model output cannot
 invent arbitrary HTML, JavaScript, LiveView components, actions, permissions,
 resource identities, scripts, URLs, or secret-bearing fields.
@@ -77,8 +78,8 @@ the same validation, provenance, fallback text, redaction, and action-binding
 rules.
 
 StockSage is the first proving app for this contract. It starts with the lite
-contract before M-D2a, then implements the full contract before v0.17 canvas
-work consumes app surfaces.
+contract before v0.17, formerly M-D2a, then implements the full contract
+before v0.26 canvas work consumes app surfaces.
 
 ## Consequences
 
@@ -86,7 +87,7 @@ work consumes app surfaces.
   security, or skill-registration shortcuts.
 - Intent routing can use `active_app` from session context to prioritize
   app-scoped actions while keeping cross-app routing explicit.
-- v0.17 has a concrete app registry and surface DSL to consume for workspace
+- v0.26 has a concrete app registry and surface DSL to consume for workspace
   shell navigation and canvas component validation.
 - Future Allbert apps get a stable contract before generator work begins.
 - The app contract does not add new execution authority. Permission decisions
@@ -95,7 +96,7 @@ work consumes app surfaces.
 ## Deferred
 
 - `mix allbert.gen.app` scaffolding, until StockSage proves the contract and
-  v0.17 ships.
+  v0.26 ships.
 - AG-UI streaming endpoints, A2UI renderer compatibility, MCP Apps, and
   third-party remote UI execution.
 - Dynamic runtime mounting of arbitrary routes or LiveView components from

@@ -23,12 +23,23 @@ homes:
   Resource Access Security Posture substrate: v0.10.
 - Execution-aware intent contract, Approval Handoff, and resource access
   posture consumers: v0.11.
-- Scheduled jobs: v0.12.
-- Additional channels: v0.13.
-- Memory review and retrieval: v0.14.
-- Cross-surface intent enrichment: v0.15.
-- Security hardening and evals: v0.16.
-- Agentic workspace surface and local ephemeral UI substrate: v0.17.
+- Local workspace identity and conversation history: v0.12.
+- Scheduled jobs: v0.13.
+- Session scratchpad and active app context: v0.14.
+- Minimal app registration contract: v0.15.
+- Additional channels: v0.16.
+- StockSage umbrella app and domain: v0.17.
+- Memory review and retrieval: v0.18.
+- StockSage Python bridge: v0.19.
+- Cross-surface intent enrichment: v0.20.
+- Native Jido trading agents: v0.21.
+- StockSage LiveViews: v0.22.
+- Security hardening and evals: v0.23.
+- Full app contract and Surface DSL: v0.24.
+- StockSage polish, outcomes, and trends: v0.25.
+- Agentic workspace surface and local ephemeral UI substrate: v0.26.
+- StockSage canvas integration: v0.27.
+- Allbert app generator: v0.28.
 
 Do not duplicate those here unless the future feature is broader than the
 existing plan.
@@ -132,20 +143,20 @@ Needed before planning:
 
 ### Agentic Workspace Surface, Ephemeral UI, And Canvas
 
-Source: operator UI discussion, v0.13 channel planning, v0.14 memory review,
-v0.15 intent enrichment, v0.16 security hardening, and research into A2UI,
+Source: operator UI discussion, v0.16 channel planning, v0.18 memory review,
+v0.20 intent enrichment, v0.23 security hardening, and research into A2UI,
 AG-UI, MCP Apps, ChatGPT Canvas, Claude Artifacts, Google Gemini generative UI,
 BISCUIT, and Athena.
 
-v0.17 owns the first Allbert-native substrate: a signal-driven LiveView
+v0.26 owns the first Allbert-native substrate: a signal-driven LiveView
 workspace, declarative surface contracts, and a persistent canvas for
 artifacts, traces, approvals, memory review, and active tasks. The broader
 future feature remains protocol interoperability and richer generated
 interfaces after the local substrate is boring and safe.
 
-Needed before broader v0.20+ planning:
+Needed before broader post-v0.28 planning:
 
-- v0.17 local workspace and surface contracts accepted through user testing
+- v0.26 local workspace and surface contracts accepted through user testing
 - allowed component catalog, schema validation, provenance, fallback text, and
   accessibility rules
 - security evals proving generated surfaces cannot invent actions,
@@ -157,11 +168,11 @@ Needed before broader v0.20+ planning:
 
 ### Browser/Search Capture
 
-Source: origin note and v0.13 candidate channels.
+Source: origin note and v0.16 candidate channels.
 
 The origin note describes capturing searches or browsing activity and turning
 useful context into memory. v0.11 owns the Resource Access Security Posture for
-approved URL/document consumers, and v0.13 gives browser/search capture a
+approved URL/document consumers, and v0.16 gives browser/search capture a
 possible channel-adapter home. Browser capture is still broader than approved
 URL fetches: it may involve page state, user sessions, cookies, interactive
 navigation, screenshots, or memory promotion, so it remains parked until
@@ -243,7 +254,7 @@ Needed before planning:
 
 ### Native UI Surface
 
-Source: origin note and v0.13 candidate channels.
+Source: origin note and v0.16 candidate channels.
 
 Native UI is listed as a possible channel but has no dedicated plan. It should
 not be planned before the channel adapter contract is stable.

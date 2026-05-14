@@ -5,6 +5,11 @@ captured in `docs/plans/allbert-jido-vision.md`; implementation-ready milestone
 plans live alongside this file. Identified but unassigned future work lives in
 `docs/plans/future-features.md`.
 
+`docs/plans/post-v0.10-implementation-tasks.md` and
+`docs/plans/aiworkspace-plan.md` are superseded reference files retained only
+for verification before deletion. This roadmap and the v0.xx plan files are
+the canonical implementation sources.
+
 ## Vision
 
 Allbert is a personal assistant runtime that grows with its user. The core
@@ -113,13 +118,18 @@ Dependency order from here:
    resources.
 10. Execution-aware intent decisions, Approval Handoff, and resource access
     consumers over real risky capabilities.
-11. Scheduled jobs that emit signals into the same runtime.
-12. Additional channels that translate messages into the same runtime.
-13. Memory review, summarization, and retrieval improvements.
-14. Cross-surface intent enrichment over real skills, actions, permissions,
-    confirmations, jobs, channels, and memory behavior.
-15. Security hardening and evals after real execution, import, channel, job,
-    memory, and intent behavior exists.
+11. Local workspace identity and SQLite conversation history.
+12. Scheduled jobs that emit signals into the same runtime.
+13. Session scratchpad and minimal app registration.
+14. Additional channels that translate messages into the same runtime.
+15. StockSage as the first workspace app, proving the app contract.
+16. Memory review, summarization, and retrieval improvements.
+17. Cross-surface intent enrichment over real skills, actions, permissions,
+    confirmations, jobs, channels, memory, and app context.
+18. Security hardening and evals after real execution, import, channel, job,
+    memory, intent, app, and financial-analysis behavior exists.
+19. Full app/surface contract, workspace canvas, and app generator work only
+    after the local runtime and security substrate are proven.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -690,266 +700,297 @@ complete. v0.10 was released and tagged as `v0.10` on 2026-05-04.
 ## v0.11: Execution-Aware Intent, URI-Based Resource Access, And Approval Handoff
 
 Plan: `docs/plans/v0.11-plan.md`
+Request flow: `docs/plans/v0.11-request-flow.md`
 
-Status: placeholder.
+Status: planned.
 
 Expected direction:
 
-- Introduce a structured intent decision contract with selected intent,
-  confidence, candidate skills/actions, permission class, confirmation need,
-  risk summary, execution mode, approval handoff, alternatives, and
-  diagnostics.
-- Reserve M-D1a identity and context fields in the decision contract:
-  `user_id`, `thread_id`, `session_id`, and `active_app`. Conversation history
-  wiring remains D-track work.
-- Cover shell, local path, trusted skill script, local skill directory import,
-  package install, external service, online skill source, direct skill URL
-  import, URL summary, document inspection, and unsupported MCP/agent URI flows
-  first.
-- Add URI-backed resource access posture data to decisions that would read,
-  write, run, fetch, inspect, import, or install from local or remote resources:
-  canonical URI/resource URI, derived origin
-  kind, canonical path or URL, source/profile, operation class, access mode,
-  scope, expected content kind, byte/output cap, destination consumer,
-  summarizer/parser requirement, origin channel, response target, and allowed
-  approval scopes.
-- Treat "check this URL and summarize it", "inspect this document URL",
-  "import this skill URL", and "import this local skill directory" as consumer
-  workflows over the same posture, not as separate skills-only,
-  network-only, or channel-owned behavior.
+- Introduce the inert `AllbertAssist.Intent.Decision` contract with selected
+  intent, candidate skills/actions, permission, risk, confirmation, execution
+  mode, resource access posture, Approval Handoff, alternatives, diagnostics,
+  trace metadata, and reserved `user_id`, `thread_id`, `session_id`, and
+  `active_app` fields.
 - Validate every decision against known skills, registered actions, known
-  permissions, confirmation state, Security Central, and Settings Central
-  policy.
-- Define Approval Handoff as the plain-data bridge from a confirmation-needed
-  action to channel-native approval UX in CLI/REPL, web chat, jobs, and future
-  channel adapters.
-- Include remembered approval options that are exact-resource, local-directory,
-  exact-URL, or URL-prefix scoped and operation-scoped; a `summarize_url`
-  grant cannot authorize `import_skill`, and an `import_local_skill` grant
-  cannot authorize `run_skill_script`, package install, activation, or
-  dependency install.
-- Require existing CLI/REPL-style and web surfaces to render approve, deny, and
-  details affordances over `approve_confirmation` and `deny_confirmation`
-  without owning confirmation storage, security policy, or execution.
-- Keep execution behind the existing action runner and Security Central.
-- Leave Telegram/email/SMS-style adapters to v0.13, where they consume the
-  Approval Handoff contract instead of inventing channel-specific approval
-  semantics.
+  permissions, Security Central, Settings Central, and confirmation state.
+- Represent URL summaries, document inspection, direct skill URL import, local
+  skill directory import, shell execution, skill scripts, package installs,
+  external services, online skill sources, and unsupported MCP/agent URI flows
+  as resource-access consumers over the v0.08-v0.10 substrates.
+- Produce Approval Handoff data for CLI and web approval UX without giving
+  channels authority to approve, deny, fetch, import, execute, or grant.
+- Keep conversation history out of v0.11; v0.12 plugs into the reserved
+  identity/thread fields.
 
-Exit signal: Allbert can explain why it selected, confirmed, denied, or refused
-a risky local, external, or remote resource capability and can render a
-confirmation-needed decision as channel-native approval UX. URL summarization,
-document inspection, direct skill URL import, local skill directory import,
-shell command execution, and trusted skill script execution are represented as
-posture consumers with clear unavailable states for missing summarizers,
-unsupported extractors, failed validation, or disallowed execution before jobs
-and additional channels consume those capabilities.
+Exit signal: risky URL/document/import prompts produce inspectable decisions,
+operation-scoped resource posture, and approval handoff without hidden
+execution or new file/browser/crawler primitives.
 
-## v0.12: Scheduled Jobs
+## v0.12: Local Workspace Identity And Conversation History
 
 Plan: `docs/plans/v0.12-plan.md`
+Request flow: `docs/plans/v0.12-request-flow.md`
+ADR: `docs/adr/0014-local-workspace-identity.md`
 
-Status: placeholder.
+Status: planned. Formerly M-D1a.
+
+Expected direction:
+
+- Add canonical string `user_id`, preserving `operator_id` as a compatibility
+  alias and defaulting omitted identity to `"local"`.
+- Add SQLite `Thread` and `Message` conversation history with user isolation,
+  explicit `thread_id`, recent-thread selection, and `--new-thread` creation.
+- Persist user messages before the agent runs and assistant messages after
+  response and trace metadata are known.
+- Pass bounded recent thread context to the intent agent, initially the last
+  12 messages.
+- Add `--user`, preserve `--operator`, fail fast if both differ, and add
+  `mix allbert.threads`.
+- Keep acceptance on CLI/runtime/signals/traces/tests. No AgentLive thread
+  sidebar, no semantic retrieval, and no markdown-memory promotion.
+
+Exit signal: `mix allbert.ask --user alice --new-thread ...`, follow-up calls,
+`mix allbert.threads`, default `"local"` behavior, and alice/bob isolation
+prove durable thread context without hosted accounts.
+
+## v0.13: Scheduled Jobs
+
+Plan: `docs/plans/v0.13-plan.md`
+
+Status: planned. Formerly v0.12.
 
 Expected direction:
 
 - Add cron-like jobs that emit signals into the same runtime.
-- Start with registry health checks, trace summaries, and low-risk daily
-  briefs.
-- Use settings for timezone, active/paused state, and schedule policy.
-- Keep scheduled jobs observable through traces and registered skills/actions.
-- Carry string `user_id` from the originating request, defaulting to `"local"`,
-  plus optional `thread_id` and `app_id` context. This is not a hosted
-  accounts model.
-- Pause risky job actions for confirmation instead of running invisibly.
-- When jobs request local or remote resource access, they must emit the same
-  posture and Approval Handoff metadata as CLI/web requests instead of reading,
-  fetching, importing, installing, or running in the background without
-  approval.
+- Preserve originating `user_id`, `thread_id`, and `app_id` when available so
+  traces and audits carry local ownership context without accounts tables.
+- Pause risky job actions for durable confirmation and render the same
+  resource posture/Approval Handoff metadata as CLI and web.
+- Keep jobs observable through traces, registered skills/actions, and Settings
+  Central schedule policy.
 
-## v0.13: Additional Channels
-
-Plan: `docs/plans/v0.13-plan.md`
-
-Status: placeholder.
-
-Expected direction:
-
-- Add channel adapters after CLI, LiveView, Security Central, confirmations,
-  execution, jobs, and intent metadata share the same runtime core.
-- Candidate channels include email, SMS, Discord/Telegram-style chat, browser
-  capture, and native UI surfaces.
-- Channels translate external messages to signals and render responses; they do
-  not own agent logic.
-- Channels map external identity, such as email address, SMS number, or chat
-  user id, to a local string `user_id` through explicit Settings Central
-  configuration and trace both identities.
-- Channels consume Approval Handoff and Resource Access Security Posture for
-  URL summaries, document inspection, direct skill URL import, local skill
-  directory import, and other risky local or remote consumers instead of
-  creating channel-specific resource or approval rules.
-- Channels read and update shared settings through the settings action/signal
-  boundary.
-
-## v0.14: Memory Review And Retrieval
+## v0.14: Session Scratchpad And Active App Context
 
 Plan: `docs/plans/v0.14-plan.md`
+ADR: `docs/adr/0014-local-workspace-identity.md`
 
-Status: placeholder.
+Status: planned. Formerly M-D1b.
 
 Expected direction:
 
-- Add memory review, correction, promotion, and pruning workflows.
-- Add summaries and compiled runtime views over markdown memory.
-- Treat SQLite conversation history from M-D1a as distinct from markdown
-  long-term memory. Review and promotion rules differ, and thread turns are not
-  automatically promoted into markdown memory.
-- Introduce embeddings or retrieval only after the markdown source of truth and
-  review path are stable across CLI, LiveView, execution, imports, scheduled
-  jobs, and additional channels.
-- Use settings for memory review cadence, sensitivity policy, and promotion
-  preferences.
+- Add volatile ETS scratchpad state keyed by `{user_id, session_id}` with TTL
+  expiry and no restart persistence.
+- Store `active_app` and transient working memory for runtime/session use.
+- Treat scratchpad state as context only, not durable memory and not a
+  security boundary.
 
-## v0.15: Cross-Surface Intent Enrichment
+## v0.15: Minimal App Registration Contract
 
 Plan: `docs/plans/v0.15-plan.md`
+ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
-Status: placeholder.
+Status: planned. Formerly M-AppContract-Lite.
 
 Expected direction:
 
-- Move beyond one-off route predicates into a hybrid deterministic and
-  model-assisted intent engine that remains testable.
-- Use settings, skill registry, action-backed skill contracts, confirmation
-  history, Security Central decisions, execution traces, jobs, channels, and
-  memory review signals as routing inputs.
-- Use app-scoped action routing and `active_app` session context from
-  M-AppContract-Lite as routing inputs. Registered app skill paths participate
-  in candidate ranking only through the app contract.
-- Add intent traces and eval fixtures for activation, non-activation,
-  permission, execution, channel, job, memory, and refusal cases.
-- Keep execution behind the existing action runner and Security Central.
+- Add the lite `AllbertAssist.App` behaviour and registry for app identity,
+  validation, child supervision, registered actions, skill paths, and nav
+  surfaces.
+- Tag registered actions with optional `app_id`.
+- Keep permission, confirmation, security, traces, and execution authority at
+  existing Allbert action boundaries.
+- Do not add `AllbertAssist.Surface` or canvas work yet.
 
-Exit signal: Allbert can explain why it selected a skill/action/job/channel
-path or declined to select one, expose alternatives and confidence, and produce
-stable intent traces across real runtime surfaces without adding new side
-effects.
-
-## v0.16: Security Hardening And Evals
+## v0.16: Additional Channels
 
 Plan: `docs/plans/v0.16-plan.md`
 
-Status: placeholder.
+Status: planned. Formerly v0.13.
 
 Expected direction:
 
-- Add security eval fixtures for prompt injection, tool argument injection,
-  untrusted skill activation, malicious imports, command approval bypass,
-  credential leakage, cross-session data access, channel spoofing, and unsafe
-  background execution.
-- Add D-track security evals for cross-user/thread leakage, app-scoped action
-  routing, the StockSage Python bridge boundary when present, and financial
-  workflows that call external market-data APIs.
-- Add operator-visible security review workflows for recent denials,
-  confirmations, imports, external calls, and redaction incidents.
-- Reassess sandbox, allowlist, safe-bin, Resource Access Security Posture,
-  document extraction, summarizer handoff, and supply-chain policies against
-  real traces.
+- Add one additional channel adapter that translates external messages into
+  Allbert signals and renders responses without owning agent logic.
+- Map external identities to local string `user_id` values through explicit
+  Settings Central configuration; traces include both identities.
+- Consume Approval Handoff and Resource Access Security Posture natively
+  without channel-specific resource or approval rules.
 
-Exit signal: Security Central has been tested against real execution, import,
-channel, job, memory, and intent behavior, and the roadmap has a fresh risk
-assessment for v0.17+.
-
-## v0.17: Agentic Workspace Surface And Ephemeral UI Substrate
+## v0.17: StockSage Umbrella App And Domain
 
 Plan: `docs/plans/v0.17-plan.md`
 
-Status: placeholder.
+Status: planned. Formerly M-D2a.
+
+Expected direction:
+
+- Add `stocksage` and `stocksage_web` umbrella apps.
+- Implement `StockSage.App` using the v0.15 app contract.
+- Add SQLite-first StockSage domain records with string `user_id` and optional
+  thread/request context.
+- Add local StockSage skill pack paths and an import task for the frozen Python
+  `stocksage.db` baseline.
+- Keep PostgreSQL, Oban-as-hard-dependency, LiveViews, bridge execution, and
+  native trading agents out of this slice.
+
+## v0.18: Memory Review And Retrieval
+
+Plan: `docs/plans/v0.18-plan.md`
+
+Status: planned. Formerly v0.14.
+
+Expected direction:
+
+- Add operator review, correction, promotion, and pruning over markdown
+  long-term memory.
+- Generate summaries and compiled runtime views from markdown sources.
+- Keep SQLite conversation history from v0.12 distinct from markdown memory;
+  no automatic promotion of thread turns.
+- Add retrieval only after review and source-of-truth semantics are stable.
+
+## v0.19: StockSage Python Bridge
+
+Plan: `docs/plans/v0.19-plan.md`
+
+Status: planned. Formerly M-D2b.
+
+Expected direction:
+
+- Add a supervised bridge, likely JSON-over-stdio Port, around Python
+  StockSage/TradingAgents.
+- Add `StockSage.Actions.RunAnalysis` and a Mix smoke command that persists a
+  real analysis.
+- Route natural language analysis prompts through StockSage skill/action
+  boundaries when app context and permission posture allow it.
+
+## v0.20: Cross-Surface Intent Enrichment
+
+Plan: `docs/plans/v0.20-plan.md`
+
+Status: planned. Formerly v0.15.
+
+Expected direction:
+
+- Move from route predicates toward hybrid deterministic and model-assisted
+  intent ranking over real runtime signals.
+- Use settings, skills, actions, Security Central, confirmations, traces,
+  jobs, channels, memory review, session scratchpad, and app registry context
+  as routing inputs.
+- Prioritize app-registered actions and skill paths only when `active_app`
+  gives explicit session evidence.
+
+## v0.21: Native Jido Trading Agents
+
+Plan: `docs/plans/v0.21-plan.md`
+
+Status: planned. Formerly M-D2c.
+
+Expected direction:
+
+- Implement the native Jido trading-agent topology behind StockSage actions.
+- Keep the Python bridge selectable until golden fixtures and batch smoke tests
+  prove native parity within documented variance.
+- Make native analysis default only after acceptance passes.
+
+## v0.22: StockSage LiveViews
+
+Plan: `docs/plans/v0.22-plan.md`
+
+Status: planned. Formerly M-D3a.
+
+Expected direction:
+
+- Add StockSage workspace, analysis, queue, and trends LiveViews as standard
+  app surfaces.
+- Use PubSub/streams for live progress and set `active_app: :stocksage` when
+  the user is in StockSage context.
+- Leave canvas registration out of this slice.
+
+## v0.23: Security Hardening And Evals
+
+Plan: `docs/plans/v0.23-plan.md`
+
+Status: planned. Formerly v0.16.
+
+Expected direction:
+
+- Add evals for prompt/tool injection, SSRF, unsafe redirects, untrusted skill
+  activation, malicious imports, package abuse, command bypass, resource-scope
+  bypass, path traversal, credential leakage, channel spoofing, and unsafe
+  background execution.
+- Add cross-user/thread leakage, app-scoped action routing, Python bridge
+  protocol/path/crash safety, and financial workflow authorization coverage.
+- Require StockSage external market-data calls to flow through Resource Access
+  Security Posture and confirmations.
+
+## v0.24: Full App Contract And Surface DSL
+
+Plan: `docs/plans/v0.24-plan.md`
+ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
+
+Status: planned. Formerly M-AppContract-Full.
+
+Expected direction:
+
+- Expand the app contract into identity/OTP, agents/actions/signals, skills,
+  UI surface, and data/settings layers.
+- Add `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, validation
+  tooling, and optional future encoders.
+- Keep AG-UI/A2UI as future adapters, not local hard dependencies.
+- Prove the contract with StockSage before v0.26 consumes it.
+
+## v0.25: StockSage Polish, Outcomes, And Trends
+
+Plan: `docs/plans/v0.25-plan.md`
+
+Status: planned. Formerly M-D3b.
+
+Expected direction:
+
+- Add outcome resolver, trend metrics, rating calibration, reruns, empty/error
+  states, and responsive polish.
+- Replicate Python StockSage 0.0.2 user-facing behavior in Elixir, with Python
+  remaining only as explicit fallback until native parity closes.
+
+## v0.26: Agentic Workspace Surface And Ephemeral UI Substrate
+
+Plan: `docs/plans/v0.26-plan.md`
+
+Status: planned. Formerly v0.17.
+
+Prerequisite: v0.23 and v0.24 are complete.
 
 Expected direction:
 
 - Replace the rudimentary `/agent` concept with a signal-driven operator
-  workspace design that keeps LiveView thin.
-- Depend on M-AppContract-Full for app registry, `AllbertAssist.Surface`
-  component DSL, and `AllbertAssist.App.SurfaceProvider`; v0.17 does not
-  invent its own app discovery or surface node catalog.
-- Implement the workspace shell lifecycle: canvas persistence semantics,
-  ephemeral surface scoping and cleanup, signal-to-render pipeline, shell
-  layout (timeline, canvas, task surfaces, approval inspector, trace inspector,
-  memory review, job state, channel context, security posture).
-- Use Phoenix LiveView, PubSub, streams, async work, and JS hooks as rendering
-  and interaction primitives over runtime state.
-- Validate generated UI against known component catalogs, fallback text,
-  provenance, redaction, registered actions, known permissions, and Security
-  Central decisions.
-- Leave heavier external interoperability, such as A2UI renderer
-  compatibility, AG-UI event bridges, and MCP Apps sandboxed third-party UI,
-  to v0.20+ after the local substrate is proven.
+  workspace while keeping LiveView thin.
+- Use `AllbertAssist.App.Registry` for app navigation and
+  `AllbertAssist.Surface` for canvas/task component validation.
+- Define canvas persistence, ephemeral surface lifecycle, provenance,
+  fallback text, redaction, and action-binding constraints.
+- Leave AG-UI/A2UI/MCP Apps interoperability to later adapter work.
 
-Exit signal: Allbert has a safe, signal-driven replacement design for `/agent`
-with declarative surface contracts, LiveView rendering boundaries, and a crisp
-path from text-only turns to canvas and ephemeral UI without arbitrary
-model-generated code.
+## v0.27: StockSage Canvas Integration
 
-## Parallel Track: StockSage / Workspace Apps
+Plan: `docs/plans/v0.27-plan.md`
 
-Vision: `docs/plans/aiworkspace-plan.md`
+Status: planned. Formerly M-Canvas.
 
-Status: planning.
+Expected direction:
 
-The AI workspace D-track runs alongside the core v0.11-v0.17 roadmap. It
-brings StockSage into the Allbert umbrella as the first domain app while
-preserving the local-first Allbert runtime. The full D-track spec is in
-`docs/plans/aiworkspace-plan.md`; individual plan files are listed below.
+- Register StockSage chart and analysis-card components with the v0.26 canvas
+  catalog.
+- Let StockSage analysis responses emit canvas operations for durable tiles.
+- Add no new StockSage domain model or analysis behavior.
 
-Milestone sequence:
+## v0.28: Allbert App Generator
 
-```text
-M-D1a -> M-D1b -> M-AppContract-Lite -> M-D2a -> M-D2b -> M-D2c
-       -> M-AppContract-Full -> M-D3a -> M-D3b -> M-Canvas
-```
-
-Plan files:
-
-- `docs/plans/m-d1-plan.md` — M-D1a + M-D1b (implementation-ready)
-- `docs/plans/m-appcontract-lite-plan.md` — M-AppContract-Lite (implementation-ready)
-- `docs/plans/m-d2-plan.md` — M-D2a + M-D2b + M-D2c (planning stub)
-- `docs/plans/m-appcontract-full-plan.md` — M-AppContract-Full (planning stub)
-- `docs/plans/m-d3-plan.md` — M-D3a + M-D3b (planning stub)
-- `docs/plans/m-canvas-plan.md` — M-Canvas (research stub)
-
-Coupling map:
-
-- M-D1a adds string `user_id`, `thread_id`, and SQLite conversation history;
-  v0.11 reserves the intent decision fields it needs. M-D1a can start
-  concurrently with v0.11 work.
-- M-D1b adds ETS session scratchpad context, including `active_app`, which
-  v0.15 later consumes for app-scoped routing. M-D1b can start concurrently
-  with v0.12 work.
-- M-AppContract-Lite lands before StockSage scaffolding so apps can register
-  actions, skills, and navigation through Allbert rather than private hooks.
-  It targets the v0.12-v0.13 timeframe.
-- M-D2a through M-D2c add StockSage domain storage, skill packs, the Python
-  bridge, and native Jido trading agents inside the same umbrella. These run
-  parallel to v0.12-v0.15.
-- M-AppContract-Full lands before v0.17 canvas work and is recorded by ADR
-  0015. This is the one hard sequencing dependency: v0.17 cannot start canvas
-  implementation until M-AppContract-Full is complete.
-- M-D3a and M-D3b add plain StockSage LiveViews before any canvas integration.
-  These run parallel to v0.15-v0.16.
-- M-Canvas happens only after the allbert core v0.17 canvas substrate ships.
-
-The core track does not block on D-track milestones. v0.11 through v0.16 may
-proceed regardless of D-track progress. The single exception is v0.17: its
-canvas work has a hard prerequisite on M-AppContract-Full completing first.
-D-track milestones may slip without blocking the core track.
-
-## v0.18: Allbert App Generator
+Plan: `docs/plans/v0.28-plan.md`
 
 Status: research (unstarted).
 
-Prerequisite: StockSage proves the full M-AppContract-Full contract end to end
-after M-D3b, and allbert core v0.17 canvas ships.
+Prerequisite: StockSage proves the full v0.24 contract end to end after v0.25,
+and v0.26 canvas ships.
 
 Expected direction:
 

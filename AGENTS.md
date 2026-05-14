@@ -95,6 +95,7 @@ LiveView behavior.
 
 For active v0.11 execution-aware intent, Approval Handoff, or Resource Access
 Security Posture work, read `docs/plans/v0.11-plan.md`,
+`docs/plans/v0.11-request-flow.md`,
 `docs/plans/v0.10-plan.md`, `docs/plans/v0.10-request-flow.md`,
 `docs/plans/v0.07-request-flow.md`, `docs/plans/v0.08-request-flow.md`,
 `docs/plans/v0.09-request-flow.md`,
@@ -102,33 +103,44 @@ Security Posture work, read `docs/plans/v0.11-plan.md`,
 `docs/adr/0008-durable-confirmation-requests.md`,
 `docs/adr/0009-local-execution-sandbox-levels.md`,
 `docs/adr/0010-resource-gated-skill-script-execution.md`,
-`docs/adr/0011-confirmed-external-capability-adapters.md`, and
-`docs/adr/0012-resource-access-security-posture.md` before changing intent
+`docs/adr/0011-confirmed-external-capability-adapters.md`,
+`docs/adr/0012-resource-access-security-posture.md`, and
+`docs/adr/0013-uri-first-resource-identity.md` before changing intent
 decisions, approval handoff data, channel-native approval UX, resource access
 operation classes, remembered resource grants, URL summarization, document
 inspection, direct skill URL import, local skill directory import, traces,
 audits, CLI, or LiveView behavior.
 
-For D-track workspace identity work (M-D1a, M-D1b), read
-`docs/plans/aiworkspace-plan.md` (the full D-track spec) and
+For v0.12 local workspace identity and conversation history work, read
+`docs/plans/v0.12-plan.md`, `docs/plans/v0.12-request-flow.md`,
+`docs/plans/allbert-jido-vision.md`, and
 `docs/adr/0014-local-workspace-identity.md` before changing runtime request
-maps, conversation history schemas, ETS session scratchpad, `user_id` or
-`thread_id` propagation, traces, or identity aliasing between `operator_id`
-and `user_id`.
+maps, conversation history schemas, `user_id` or `thread_id` propagation,
+traces, CLI thread tasks, or identity aliasing between `operator_id` and
+`user_id`.
 
-For D-track app contract work (M-AppContract-Lite, M-AppContract-Full), read
-`docs/plans/aiworkspace-plan.md` and `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
-before changing `AllbertAssist.App`, `AllbertAssist.App.Registry`,
-`AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, action or skill
-registration at the app level, workspace navigation, or canvas component
-catalogs.
+For v0.14 session scratchpad work, read `docs/plans/v0.14-plan.md`,
+`docs/plans/allbert-jido-vision.md`, and
+`docs/adr/0014-local-workspace-identity.md` before changing ETS session state,
+`session_id` handling, `active_app`, TTL behavior, traces, or scratchpad
+supervision.
 
-For StockSage umbrella work (M-D2a, M-D2b, M-D2c, M-D3a, M-D3b), read
-`docs/plans/aiworkspace-plan.md` for the full StockSage domain spec,
-`docs/adr/0014-local-workspace-identity.md` for identity context, and
-`docs/adr/0015-allbert-app-contract-and-surface-dsl.md` for the app contract
-before changing StockSage agents, actions, domain records, the Python bridge,
-StockSage LiveViews, or the StockSage skill pack.
+For v0.15 or v0.24 app contract work, read `docs/plans/v0.15-plan.md` or
+`docs/plans/v0.24-plan.md`, `docs/plans/allbert-jido-vision.md`, and
+`docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
+`AllbertAssist.App`, `AllbertAssist.App.Registry`,
+`AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, app-level action
+or skill registration, workspace navigation, or canvas component catalogs.
+
+For StockSage workspace app work, read the active StockSage milestone plan
+(`docs/plans/v0.17-plan.md`, `docs/plans/v0.19-plan.md`,
+`docs/plans/v0.21-plan.md`, `docs/plans/v0.22-plan.md`,
+`docs/plans/v0.25-plan.md`, or `docs/plans/v0.27-plan.md`),
+`docs/plans/allbert-jido-vision.md`,
+`docs/adr/0014-local-workspace-identity.md`, and
+`docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
+StockSage agents, actions, domain records, the Python bridge, StockSage
+LiveViews, canvas components, or the StockSage skill pack.
 
 ## Non-Negotiables
 

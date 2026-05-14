@@ -1,8 +1,16 @@
-# Allbert — Elixir/OTP Workspace Rethink Plan
+# Superseded Reference: Allbert Elixir/OTP Workspace Rethink Plan
+
+Status: superseded by `docs/plans/allbert-jido-vision.md`,
+`docs/plans/roadmap.md`, and the unified v0.xx plan files.
+
+This file is retained temporarily as reference history and for verification of
+the amalgamation. Do not use it as the implementation source. The old D-track
+labels in this file are historical aliases only; canonical future milestones
+are v0.11 through v0.28 in `docs/plans/roadmap.md`.
 
 **Author:** Sandeep Puri  
 **Date:** 2026-05-13  
-**Status:** Draft — rebaselined after convergence critique and storage/runtime decisions
+**Original status:** Draft — rebaselined after convergence critique and storage/runtime decisions
 **Scope:** Three-deliverable plan for rethinking StockSage inside the Allbert personal AI workspace built on Elixir/OTP, Jido, Phoenix LiveView, and SQLite-first local storage
 
 ---
