@@ -25,6 +25,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.ResourceAccess
+  alias AllbertAssist.Security.Redactor
   alias Jido.Signal
 
   @input_received "allbert.input.received"
@@ -43,6 +44,7 @@ defmodule AllbertAssist.Runtime do
           operator_id: String.t(),
           thread_id: String.t(),
           session_id: nil | String.t(),
+          thread_context: map(),
           metadata: map(),
           timeout_ms: pos_integer()
         }
@@ -92,6 +94,8 @@ defmodule AllbertAssist.Runtime do
     with {:ok, request} <- normalize_request(attrs),
          {:ok, input_signal} <- new_input_signal(request),
          :ok <- log_signal(input_signal),
+         {:ok, user_message} <- persist_user_message(request, input_signal),
+         request <- put_thread_context(request, user_message),
          {:ok, agent_response} <- agent_runner().(input_signal, request),
          {:ok, response_signal} <- new_response_signal(input_signal, request, agent_response),
          :ok <- log_signal(response_signal) do
@@ -100,6 +104,7 @@ defmodule AllbertAssist.Runtime do
       {:ok,
        response
        |> record_trace(input_signal, response_signal, request)
+       |> persist_assistant_message(request, response_signal)
        |> maybe_log_trace_signal(request)}
     end
   end
@@ -123,6 +128,8 @@ defmodule AllbertAssist.Runtime do
          operator_id: identity.operator_id,
          thread_id: thread.id,
          session_id: optional_string(fetch_value(attrs, :session_id)),
+         thread_context: empty_thread_context(identity.user_id, thread.id),
+         conversation_thread: thread,
          metadata: fetch_value(attrs, :metadata) || %{},
          timeout_ms: fetch_value(attrs, :timeout_ms) || @default_timeout_ms
        }}
@@ -231,6 +238,7 @@ defmodule AllbertAssist.Runtime do
       operator_id: request.operator_id,
       thread_id: request.thread_id,
       session_id: request.session_id,
+      thread_context: request.thread_context,
       metadata: request.metadata,
       timeout_ms: request.timeout_ms,
       input_signal_id: signal.id,
@@ -260,6 +268,83 @@ defmodule AllbertAssist.Runtime do
       approval_handoff: response_approval_handoff(agent_response),
       diagnostics: response_diagnostics(agent_response)
     }
+  end
+
+  defp persist_user_message(request, input_signal) do
+    Conversations.append_user_message(request.conversation_thread, request.text, %{
+      input_signal_id: input_signal.id,
+      metadata: %{
+        channel: request.channel,
+        session_id: request.session_id
+      }
+    })
+  end
+
+  defp put_thread_context(request, user_message) do
+    messages =
+      Conversations.recent_context(request.conversation_thread,
+        limit: 12,
+        exclude_message_id: user_message.id
+      )
+
+    %{
+      request
+      | thread_context: %{
+          thread_id: request.thread_id,
+          user_id: request.user_id,
+          limit: 12,
+          messages: messages
+        }
+    }
+  end
+
+  defp empty_thread_context(user_id, thread_id) do
+    %{
+      thread_id: thread_id,
+      user_id: user_id,
+      limit: 12,
+      messages: []
+    }
+  end
+
+  defp persist_assistant_message(response, request, response_signal) do
+    case Conversations.get_thread(request.user_id, request.thread_id) do
+      {:ok, thread} ->
+        attrs = %{
+          action_log: assistant_action_log(response),
+          trace_id: response.trace_id,
+          response_signal_id: response_signal.id,
+          metadata: %{
+            channel: request.channel,
+            session_id: request.session_id
+          }
+        }
+
+        case Conversations.append_assistant_message(thread, response.message, attrs) do
+          {:ok, _message} ->
+            response
+
+          {:error, reason} ->
+            add_diagnostic(response, %{source: :conversation_history, error: inspect(reason)})
+        end
+
+      {:error, reason} ->
+        add_diagnostic(response, %{source: :conversation_history, error: inspect(reason)})
+    end
+  end
+
+  defp assistant_action_log(response) do
+    %{
+      status: response.status,
+      actions: response.actions,
+      decision: response.decision,
+      resource_access: response.resource_access,
+      approval_handoff: response.approval_handoff,
+      diagnostics: response.diagnostics,
+      input_signal_id: response.input_signal_id,
+      response_signal_id: response.signal_id
+    }
+    |> Redactor.redact()
   end
 
   defp record_trace(response, input_signal, response_signal, request) do
