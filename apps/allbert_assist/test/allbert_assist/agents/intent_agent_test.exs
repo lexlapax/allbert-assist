@@ -538,6 +538,96 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert Confirmations.list(status: :pending) == []
   end
 
+  test "routes direct remote skill URLs as import_skill posture" do
+    put_import_policy!()
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "Import skill https://example.com/skills/demo/SKILL.md",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :needs_confirmation
+    assert response.message =~ "Nothing has fetched or written yet"
+    assert response.decision.intent == :import_skill
+    assert response.decision.selected_action == "import_remote_skill"
+
+    assert [
+             %{
+               operation_class: :import_skill,
+               access_mode: :import,
+               downstream_consumer: :skill_importer,
+               target_action: "import_remote_skill"
+             }
+           ] = response.resource_access
+
+    assert [%{name: "import_remote_skill", execution: :pending_confirmation}] = response.actions
+    assert {:ok, pending} = Confirmations.read(response.confirmation_id)
+
+    assert pending["params_summary"]["resource_refs"] |> hd() |> Map.get("operation_class") ==
+             "import_skill"
+  end
+
+  test "routes local skill directory imports as import_local_skill posture", %{root: root} do
+    put_import_policy!()
+    skill_root = Path.join([root, "local-source", "demo-skill"])
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "Import skill from #{skill_root}",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :needs_confirmation
+    assert response.message =~ "Nothing has read or written yet"
+    assert response.decision.intent == :import_local_skill
+
+    assert [
+             %{
+               operation_class: :import_local_skill,
+               access_mode: :import,
+               downstream_consumer: :skill_importer,
+               target_action: "import_local_skill"
+             }
+           ] = response.resource_access
+
+    assert [%{name: "import_local_skill", execution: :pending_confirmation}] = response.actions
+    refute Enum.any?(response.actions, &(&1.name == "run_skill_script"))
+  end
+
+  test "routes package install prompts as package resources instead of shell authority", %{
+    root: root
+  } do
+    put_package_policy!(root)
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "npm install left-pad@1.3.0",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :completed
+    assert response.decision.intent == :plan_package_install
+    assert response.decision.selected_action == "plan_package_install"
+
+    assert Enum.any?(response.resource_access, fn access ->
+             access.origin_kind == :package_registry &&
+               access.resource_uri == "pkg:npm/left-pad@1.3.0" &&
+               access.operation_class == :package_install
+           end)
+
+    assert Enum.any?(response.resource_access, fn access ->
+             access.origin_kind == :local_path &&
+               access.operation_class == :package_install &&
+               access.downstream_consumer == :package_manager
+           end)
+
+    refute Enum.any?(response.actions, &(&1.name == "run_shell_command"))
+  end
+
   test "routes MCP and agent URI requests to unsupported resource workflow" do
     assert {:ok, mcp_response} =
              IntentAgent.respond(%{
@@ -580,5 +670,30 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
 
     assert {:ok, _setting} =
              Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+  end
+
+  defp put_import_policy! do
+    assert {:ok, _setting} =
+             Settings.put("permissions.online_skill_import", "allowed", %{audit?: false})
+
+    assert {:ok, _setting} = Settings.put("permissions.skill_write", "allowed", %{audit?: false})
+  end
+
+  defp put_package_policy!(root) do
+    fake_npm = Path.join(root, "fake-npm")
+    File.write!(fake_npm, "#!/bin/sh\nprintf 'fake npm %s\\n' \"$*\"\n")
+    File.chmod!(fake_npm, 0o755)
+
+    settings = %{
+      "permissions" => %{"package_install" => "allowed"},
+      "package_installs" => %{
+        "enabled" => true,
+        "allowed_roots" => [File.cwd!()],
+        "allowed_managers" => ["npm"],
+        "manager_profiles" => %{"npm" => %{"executable" => fake_npm}}
+      }
+    }
+
+    assert {:ok, _settings} = Settings.write_user_settings(settings)
   end
 end
