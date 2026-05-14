@@ -1,8 +1,8 @@
 defmodule AllbertAssist.JobsTest do
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertAssist.Conversations
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Run

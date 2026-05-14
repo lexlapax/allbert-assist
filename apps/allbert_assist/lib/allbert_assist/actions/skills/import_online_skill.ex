@@ -21,6 +21,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Security.PermissionGate
@@ -228,7 +229,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
   end
 
   defp origin(context) do
-    AllbertAssist.Confirmations.Origin.from_context(context, "import_online_skill")
+    Origin.from_context(context, "import_online_skill")
   end
 
   defp approval_resume?(context) do

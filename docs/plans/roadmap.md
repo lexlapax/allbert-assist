@@ -765,7 +765,7 @@ prove durable thread context without hosted accounts.
 Plan: `docs/plans/v0.13-plan.md`
 Request flow: `docs/plans/v0.13-request-flow.md`
 
-Status: planned. Formerly v0.12.
+Status: released and tagged as `v0.13` on 2026-05-14. Formerly v0.12.
 
 Expected direction:
 

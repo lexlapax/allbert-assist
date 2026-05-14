@@ -146,19 +146,27 @@ defmodule AllbertAssist.Jobs.Schedule do
     candidate = next_minute(local_now)
 
     Enum.reduce_while(1..@max_cron_scan_minutes, candidate, fn _minute, datetime ->
-      if cron_match?(datetime, fields) do
-        case shift_to_utc(datetime) do
-          {:ok, due} -> {:halt, {:ok, due}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      else
-        {:cont, DateTime.add(datetime, 60, :second, @timezone_database)}
-      end
+      cron_scan_step(datetime, fields)
     end)
     |> case do
       {:ok, due} -> {:ok, due}
       {:error, reason} -> {:error, reason}
       %DateTime{} -> {:error, {:cron_next_due_not_found, timezone}}
+    end
+  end
+
+  defp cron_scan_step(datetime, fields) do
+    if cron_match?(datetime, fields) do
+      halt_with_utc(datetime)
+    else
+      {:cont, DateTime.add(datetime, 60, :second, @timezone_database)}
+    end
+  end
+
+  defp halt_with_utc(datetime) do
+    case shift_to_utc(datetime) do
+      {:ok, due} -> {:halt, {:ok, due}}
+      {:error, reason} -> {:halt, {:error, reason}}
     end
   end
 
@@ -204,15 +212,23 @@ defmodule AllbertAssist.Jobs.Schedule do
         {:error, :invalid_cron_field}
 
       tokens ->
-        Enum.reduce_while(tokens, {:ok, MapSet.new()}, fn token, {:ok, acc} ->
-          case parse_cron_token(token, min, max, opts) do
-            {:ok, values} -> {:cont, {:ok, MapSet.union(acc, values)}}
-            {:error, reason} -> {:halt, {:error, reason}}
-          end
-        end)
+        parse_cron_tokens(tokens, min, max, opts)
     end
   rescue
     _error -> {:error, :invalid_cron_field}
+  end
+
+  defp parse_cron_tokens(tokens, min, max, opts) do
+    Enum.reduce_while(tokens, {:ok, MapSet.new()}, fn token, {:ok, acc} ->
+      parse_cron_token_step(token, acc, min, max, opts)
+    end)
+  end
+
+  defp parse_cron_token_step(token, acc, min, max, opts) do
+    case parse_cron_token(token, min, max, opts) do
+      {:ok, values} -> {:cont, {:ok, MapSet.union(acc, values)}}
+      {:error, reason} -> {:halt, {:error, reason}}
+    end
   end
 
   defp parse_cron_token("*", min, max, opts), do: {:ok, cron_range(min, max, opts)}

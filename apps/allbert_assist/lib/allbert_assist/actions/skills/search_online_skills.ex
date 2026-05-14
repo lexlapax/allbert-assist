@@ -20,6 +20,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Security.PermissionGate
@@ -251,7 +252,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
   end
 
   defp origin(context) do
-    AllbertAssist.Confirmations.Origin.from_context(context, "search_online_skills")
+    Origin.from_context(context, "search_online_skills")
   end
 
   defp approval_resume?(context) do

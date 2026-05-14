@@ -19,6 +19,7 @@ defmodule AllbertAssist.Actions.Skills.ImportRemoteSkill do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.External.RequestSpec
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Ref
@@ -242,7 +243,7 @@ defmodule AllbertAssist.Actions.Skills.ImportRemoteSkill do
   end
 
   defp origin(context) do
-    AllbertAssist.Confirmations.Origin.from_context(context, @action_name)
+    Origin.from_context(context, @action_name)
   end
 
   defp approval_resume?(context) do
