@@ -140,6 +140,20 @@ For v0.15 app contract work, read `docs/plans/v0.15-plan.md`,
 `AllbertAssist.App`, `AllbertAssist.App.Registry`, app-level action or skill
 registration, or workspace navigation metadata.
 
+For v0.16 additional channel work, read `docs/plans/v0.16-plan.md`,
+`docs/plans/v0.16-request-flow.md`, `docs/plans/allbert-jido-vision.md`,
+`docs/adr/0004-domain-settings-engine.md`,
+`docs/adr/0007-jido-native-internal-runtime-boundaries.md`,
+`docs/adr/0008-durable-confirmation-requests.md`,
+`docs/adr/0012-resource-access-security-posture.md`,
+`docs/adr/0014-local-workspace-identity.md`, and
+`docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md` before
+changing channel adapters, external identity mapping, channel settings or
+secrets, Telegram transport, channel events, callback approvals, channel
+rendering, or runtime channel metadata. v0.16 channels are delivery adapters
+around the runtime and registered actions; they must not own intent,
+confirmation storage, resource access policy, memory, or execution.
+
 For v0.24 app contract and surface DSL work, read `docs/plans/v0.24-plan.md`,
 `docs/plans/v0.15-plan.md`, `docs/plans/v0.15-request-flow.md`,
 `docs/plans/allbert-jido-vision.md`, and
