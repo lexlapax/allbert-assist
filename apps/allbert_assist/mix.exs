@@ -42,6 +42,7 @@ defmodule AllbertAssist.MixProject do
       {:ecto_sqlite3, ">= 0.0.0"},
       {:jason, "~> 1.2"},
       {:swoosh, "~> 1.16"},
+      {:gen_smtp, "~> 1.0"},
       {:req, "~> 0.5"},
       {:tzdata, "~> 1.1"},
       {:yaml_elixir, "~> 2.12"},
