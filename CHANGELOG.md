@@ -1,5 +1,60 @@
 # Changelog
 
+## v0.14 - Session Scratchpad And Active App Context
+
+Status: released and tagged as `v0.14` on 2026-05-14. Version metadata is
+`0.14.0`; the operator manual verification matrix is ready for acceptance
+checks.
+
+### Added
+
+- Supervised `AllbertAssist.Session.Scratchpad` GenServer owning a protected
+  ETS table keyed by `{user_id, session_id}`.
+- `AllbertAssist.Session` facade for normalized `get`, `put`,
+  `set_active_app`, `clear_active_app`, `merge_working_memory`, `clear`,
+  `list`, `touch`, and `sweep_expired` operations.
+- Settings Central key `sessions.scratchpad_ttl_minutes` with default `30`
+  and validation range `[1, 1440]`.
+- Static v0.14 `AllbertAssist.Session.AppId` allowlist for nil/general,
+  `:allbert`, and `:stocksage` active-app context.
+- Registered actions `set_active_app`, `clear_active_app`, and
+  `show_session_scratchpad` through the shared action runner.
+- `mix allbert.sessions` list/show/set-active-app/clear-active-app/clear/sweep
+  commands.
+- `mix allbert.ask --session SESSION_ID`.
+
+### Changed
+
+- Runtime requests with a `session_id` read scratchpad context once per turn,
+  touch live entries, and propagate `active_app` to input signals,
+  intent-agent request maps, response signals, response maps, traces,
+  assistant/user message metadata, and assistant action logs.
+- `AllbertAssist.Intent.Decision` validates `active_app` through the v0.14
+  allowlist and rejects unknown model/agent active-app output.
+- Scheduled runtime-prompt job run logs now preserve inherited response
+  `active_app` context.
+
+### Safety
+
+- Scratchpad state is volatile ETS context only. It is not durable memory,
+  auth, hosted sessions, app registration, app routing, or a security boundary.
+- Raw `working_memory` values stay out of CLI output, registered action
+  results, signals, traces, logs, response payloads, and persisted action logs.
+- v0.14 adds no workspace UI, canvas state, browser/crawler behavior,
+  semantic/vector retrieval, hosted accounts, new permission classes, new
+  confirmation semantics, or new execution primitives.
+
+### Verification
+
+- Milestone focused suites passed for scratchpad API/TTL/restart behavior,
+  Settings validation, AppId normalization, registered actions, sessions CLI,
+  runtime propagation, Decision validation, ask CLI, job inheritance, and
+  observability redaction.
+- Final v0.14 closeout gates passed: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- Manual verification steps live in `docs/plans/v0.14-request-flow.md`.
+
 ## v0.13 - Scheduled Jobs
 
 Status: released and tagged as `v0.13` on 2026-05-14. Version metadata is
