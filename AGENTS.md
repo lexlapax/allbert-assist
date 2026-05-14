@@ -134,12 +134,19 @@ For v0.14 session scratchpad work, read `docs/plans/v0.14-plan.md`,
 `session_id` handling, `active_app`, TTL behavior, traces, or scratchpad
 supervision.
 
-For v0.15 or v0.24 app contract work, read `docs/plans/v0.15-plan.md` or
-`docs/plans/v0.24-plan.md`, `docs/plans/allbert-jido-vision.md`, and
+For v0.15 app contract work, read `docs/plans/v0.15-plan.md`,
+`docs/plans/v0.15-request-flow.md`, `docs/plans/allbert-jido-vision.md`, and
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
-`AllbertAssist.App`, `AllbertAssist.App.Registry`,
-`AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, app-level action
-or skill registration, workspace navigation, or canvas component catalogs.
+`AllbertAssist.App`, `AllbertAssist.App.Registry`, app-level action or skill
+registration, or workspace navigation metadata.
+
+For v0.24 app contract and surface DSL work, read `docs/plans/v0.24-plan.md`,
+`docs/plans/v0.15-plan.md`, `docs/plans/v0.15-request-flow.md`,
+`docs/plans/allbert-jido-vision.md`, and
+`docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
+`AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, full app
+callbacks, surface validation, workspace navigation, or canvas component
+catalogs.
 
 For v0.26 agentic workspace surface and ephemeral UI work, read
 `docs/plans/v0.26-plan.md`, `docs/plans/v0.23-plan.md`,

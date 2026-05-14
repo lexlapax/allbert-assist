@@ -143,6 +143,7 @@ For v0.15 or v0.24 app contract and surface DSL work, start with the active
 plan plus:
 
 - `docs/plans/v0.15-plan.md`
+- `docs/plans/v0.15-request-flow.md`
 - `docs/plans/v0.24-plan.md`
 - `docs/plans/allbert-jido-vision.md`
 - `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
