@@ -6,12 +6,17 @@ defmodule Mix.Tasks.Allbert.Ask do
 
       mix allbert.ask "remember that I like concise milestone handoffs"
       mix allbert.ask --trace "what do you remember about milestone handoffs?"
+      mix allbert.ask --user alice --new-thread "hello"
+      mix allbert.ask --user alice --thread THREAD_ID "continue"
 
   ## Options
 
     * `--trace` - enable markdown trace recording for this turn
     * `--channel` - channel label to send to the runtime, defaults to `cli`
-    * `--operator` - local operator id, defaults to `local`
+    * `--user` - canonical local user id, defaults to `local`
+    * `--operator` - legacy local operator id alias
+    * `--thread` - continue an existing user-owned thread
+    * `--new-thread` - create a fresh general thread
   """
 
   use Mix.Task
@@ -24,12 +29,17 @@ defmodule Mix.Tasks.Allbert.Ask do
   @switches [
     channel: :string,
     operator: :string,
+    user: :string,
+    thread: :string,
+    new_thread: :boolean,
     trace: :boolean
   ]
 
   @aliases [
     c: :channel,
-    o: :operator
+    o: :operator,
+    u: :user,
+    t: :thread
   ]
 
   @impl true
@@ -46,8 +56,13 @@ defmodule Mix.Tasks.Allbert.Ask do
     prompt = prompt_parts |> Enum.join(" ") |> String.trim()
 
     if prompt == "" do
-      Mix.raise("Usage: mix allbert.ask [--trace] [--channel cli] [--operator local] \"prompt\"")
+      Mix.raise(
+        "Usage: mix allbert.ask [--trace] [--channel cli] [--user local|--operator local] [--thread THREAD_ID|--new-thread] \"prompt\""
+      )
     end
+
+    validate_identity!(opts)
+    validate_thread_options!(opts)
 
     if opts[:trace] do
       enable_trace_for_turn()
@@ -68,11 +83,15 @@ defmodule Mix.Tasks.Allbert.Ask do
   end
 
   defp submit(prompt, opts) do
-    Runtime.submit_user_input(%{
+    %{
       text: prompt,
-      channel: opts[:channel] || :cli,
-      operator_id: opts[:operator] || "local"
-    })
+      channel: opts[:channel] || :cli
+    }
+    |> maybe_put(:user_id, blank_to_nil(opts[:user]))
+    |> maybe_put(:operator_id, blank_to_nil(opts[:operator]))
+    |> maybe_put(:thread_id, blank_to_nil(opts[:thread]))
+    |> maybe_put(:new_thread, opts[:new_thread])
+    |> Runtime.submit_user_input()
   end
 
   defp print_result({:ok, response}) do
@@ -82,6 +101,8 @@ defmodule Mix.Tasks.Allbert.Ask do
     Mix.shell().info("")
     Mix.shell().info("Signal: #{response.signal_id}")
     Mix.shell().info("Trace: #{response.trace_id || "none"}")
+    Mix.shell().info("User: #{response.user_id}")
+    Mix.shell().info("Thread: #{response.thread_id}")
     print_approval_handoff(Map.get(response, :approval_handoff))
 
     if response.diagnostics != [] do
@@ -156,4 +177,35 @@ defmodule Mix.Tasks.Allbert.Ask do
   end
 
   defp command_line(_command), do: nil
+
+  defp validate_identity!(opts) do
+    user = blank_to_nil(opts[:user])
+    operator = blank_to_nil(opts[:operator])
+
+    if user && operator && user != operator do
+      Mix.raise("--user and --operator must match when both are provided")
+    end
+  end
+
+  defp validate_thread_options!(opts) do
+    if blank_to_nil(opts[:thread]) && opts[:new_thread] do
+      Mix.raise("--thread and --new-thread cannot be used together")
+    end
+  end
+
+  defp maybe_put(params, _key, nil), do: params
+  defp maybe_put(params, _key, false), do: params
+  defp maybe_put(params, key, value), do: Map.put(params, key, value)
+
+  defp blank_to_nil(nil), do: nil
+
+  defp blank_to_nil(value) do
+    value
+    |> to_string()
+    |> String.trim()
+    |> case do
+      "" -> nil
+      value -> value
+    end
+  end
 end

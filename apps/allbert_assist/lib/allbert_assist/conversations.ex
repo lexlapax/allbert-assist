@@ -138,6 +138,16 @@ defmodule AllbertAssist.Conversations do
     end
   end
 
+  @doc "Count messages in a user-owned thread."
+  @spec message_count(Thread.t()) :: non_neg_integer()
+  def message_count(%Thread{} = thread) do
+    query =
+      from message in Message,
+        where: message.thread_id == ^thread.id and message.user_id == ^thread.user_id
+
+    Repo.aggregate(query, :count, :id)
+  end
+
   @doc "Append a user-authored message to a thread."
   @spec append_user_message(Thread.t(), String.t(), map() | keyword()) ::
           {:ok, Message.t()} | {:error, term()}
