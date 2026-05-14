@@ -810,6 +810,7 @@ Expected direction:
 ## v0.15: Minimal App Registration Contract
 
 Plan: `docs/plans/v0.15-plan.md`
+Request flow: `docs/plans/v0.15-request-flow.md`
 ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
 Status: planned. Formerly M-AppContract-Lite.
@@ -819,10 +820,15 @@ Expected direction:
 - Add the lite `AllbertAssist.App` behaviour and registry for app identity,
   validation, child supervision, registered actions, skill paths, and nav
   surfaces.
+- Register built-in `CoreApp` and transitional `StockSageStub` so v0.14
+  `active_app` acceptance continues until real StockSage lands in v0.17.
 - Tag registered actions with optional `app_id`.
+- Normalize app ids through the registry without dynamic atom creation from
+  operator/channel/model input.
 - Keep permission, confirmation, security, traces, and execution authority at
   existing Allbert action boundaries.
-- Do not add `AllbertAssist.Surface` or canvas work yet.
+- Do not add `AllbertAssist.Surface`, dynamic route loading, workspace shell,
+  or canvas work yet.
 
 ## v0.16: Additional Channels
 
