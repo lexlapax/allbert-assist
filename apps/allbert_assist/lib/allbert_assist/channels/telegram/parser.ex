@@ -12,6 +12,7 @@ defmodule AllbertAssist.Channels.Telegram.Parser do
          external_user_id: from_id,
          external_chat_id: chat_id,
          external_message_id: message_id,
+         chat_type: get_in(message, ["chat", "type"]),
          text: text,
          raw_summary: "telegram text message #{message_id}"
        }}

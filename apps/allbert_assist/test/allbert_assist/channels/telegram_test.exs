@@ -5,20 +5,28 @@ defmodule AllbertAssist.Channels.TelegramTest do
   alias AllbertAssist.Channels.Telegram.Adapter
   alias AllbertAssist.Channels.Telegram.Client
   alias AllbertAssist.Channels.Telegram.Parser
+  alias AllbertAssist.Channels.Telegram.Renderer
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Paths
+  alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Trace
 
   setup {Req.Test, :verify_on_exit!}
 
   setup do
     original_env = Map.new(["ALLBERT_HOME", "ALLBERT_HOME_DIR"], &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_trace_config = Application.get_env(:allbert_assist, Trace)
 
     Enum.each(Map.keys(original_env), &System.delete_env/1)
     Application.delete_env(:allbert_assist, Paths)
+    Application.delete_env(:allbert_assist, Runtime)
     Application.delete_env(:allbert_assist, Settings)
+    Application.delete_env(:allbert_assist, Trace)
 
     home =
       Path.join(System.tmp_dir!(), "allbert-telegram-test-#{System.unique_integer([:positive])}")
@@ -29,7 +37,9 @@ defmodule AllbertAssist.Channels.TelegramTest do
       File.rm_rf!(home)
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
+      restore_app_env(Runtime, original_runtime_config)
       restore_app_env(Settings, original_settings_config)
+      restore_app_env(Trace, original_trace_config)
     end)
 
     :ok
@@ -105,6 +115,27 @@ defmodule AllbertAssist.Channels.TelegramTest do
     end
   end
 
+  describe "renderer" do
+    test "chunks normal responses and renders approval handoff buttons" do
+      assert {:ok, ["abc", "def"], nil} =
+               Renderer.render_response(%{message: "abcdef"}, max_text_bytes: 3)
+
+      handoff = %{
+        confirmation_id: "conf_123",
+        status: :pending,
+        target_action: %{action: %{name: "run_skill_script"}}
+      }
+
+      assert {:ok, [text], %{"inline_keyboard" => buttons}} =
+               Renderer.render_response(%{approval_handoff: handoff})
+
+      assert text =~ "conf_123"
+
+      assert List.flatten(buttons)
+             |> Enum.any?(&(&1["callback_data"] == "allbert:v1:approve:conf_123"))
+    end
+  end
+
   describe "adapter" do
     test "starts idle when disabled" do
       server = :"telegram-disabled-#{System.unique_integer([:positive])}"
@@ -113,7 +144,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
       assert Adapter.poll_once(server) == {:error, :disabled}
     end
 
-    test "poll_once inserts received events and advances offset" do
+    test "poll_once inserts events, rejects unmapped text, and advances offset" do
       configure_telegram!()
 
       Req.Test.expect(__MODULE__, fn conn ->
@@ -127,10 +158,10 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
       start_telegram_server!(server)
 
-      assert {:ok, %{processed: 2, duplicates: 0, rejected: 0, failed: 0}} =
+      assert {:ok, %{processed: 1, duplicates: 0, rejected: 1, failed: 0}} =
                Adapter.poll_once(server)
 
-      assert Channels.get_event_by_external_id("telegram", "200").direction == "inbound"
+      assert Channels.get_event_by_external_id("telegram", "200").status == "rejected"
       assert Channels.get_event_by_external_id("telegram", "201").direction == "callback"
     end
 
@@ -142,7 +173,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
       start_telegram_server!(server)
 
-      assert {:ok, %{processed: 1}} = Adapter.poll_once(server)
+      assert {:ok, %{rejected: 1}} = Adapter.poll_once(server)
 
       Req.Test.expect(__MODULE__, fn conn ->
         assert conn.request_path == "/bottoken/getUpdates"
@@ -150,6 +181,47 @@ defmodule AllbertAssist.Channels.TelegramTest do
       end)
 
       assert {:ok, %{processed: 0, duplicates: 1}} = Adapter.poll_once(server)
+    end
+
+    test "mapped text submits through runtime, sends response, and updates event metadata" do
+      configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
+      configure_runtime!()
+
+      Req.Test.stub(__MODULE__, fn
+        %{request_path: "/bottoken/getUpdates"} = conn ->
+          json(conn, %{"ok" => true, "result" => [text_update(210, "/new hello from tg")]})
+
+        %{request_path: "/bottoken/sendMessage"} = conn ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          decoded = Jason.decode!(body)
+          assert decoded["chat_id"] == "456"
+          assert decoded["text"] =~ "Runtime response: hello from tg"
+          json(conn, %{"ok" => true, "result" => %{"message_id" => 99}})
+      end)
+
+      server = :"telegram-runtime-#{System.unique_integer([:positive])}"
+      start_telegram_server!(server)
+
+      assert {:ok, %{processed: 1, rejected: 0, failed: 0}} = Adapter.poll_once(server)
+
+      event = Channels.get_event_by_external_id("telegram", "210")
+      assert event.status == "processed"
+      assert event.user_id == "alice"
+      assert String.starts_with?(event.session_id, "ch_tg_")
+      assert String.starts_with?(event.thread_id, "thr_")
+      assert is_binary(event.input_signal_id)
+      assert is_binary(event.trace_id)
+
+      assert {:ok, %{messages: messages}} = Conversations.show_thread("alice", event.thread_id)
+
+      assert Enum.map(messages, & &1.content) == [
+               "hello from tg",
+               "Runtime response: hello from tg"
+             ]
+
+      assert_received {:runtime_request, %{channel: "telegram", user_id: "alice"} = request}
+      assert request.metadata.external_event_id == "210"
+      assert request.metadata.external_chat_id == "456"
     end
 
     test "derives restart offset from stored channel events" do
@@ -190,11 +262,29 @@ defmodule AllbertAssist.Channels.TelegramTest do
     end
   end
 
-  defp configure_telegram! do
+  defp configure_telegram!(opts \\ []) do
     assert {:ok, _secret} =
              Secrets.put_secret("secret://channels/telegram/bot_token", "token", %{audit?: false})
 
     assert {:ok, _setting} = Settings.put("channels.telegram.enabled", true, %{audit?: false})
+
+    identity_map = Keyword.get(opts, :identity_map, [])
+
+    assert {:ok, _setting} =
+             Settings.put("channels.telegram.identity_map", identity_map, %{audit?: false})
+  end
+
+  defp configure_runtime! do
+    parent = self()
+
+    Application.put_env(:allbert_assist, Trace, enabled: true)
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(parent, {:runtime_request, request})
+        {:ok, %{message: "Runtime response: #{request.text}", status: :completed}}
+      end
+    )
   end
 
   defp insert_update_response(update_id) do
@@ -214,14 +304,14 @@ defmodule AllbertAssist.Channels.TelegramTest do
     pid
   end
 
-  defp text_update(update_id) do
+  defp text_update(update_id, text \\ "hello") do
     %{
       "update_id" => update_id,
       "message" => %{
         "message_id" => 10,
         "from" => %{"id" => 123},
-        "chat" => %{"id" => 456},
-        "text" => "hello"
+        "chat" => %{"id" => 456, "type" => "private"},
+        "text" => text
       }
     }
   end
