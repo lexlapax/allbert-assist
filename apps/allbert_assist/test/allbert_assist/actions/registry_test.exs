@@ -45,6 +45,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_resource_grant",
              "revoke_resource_grant",
              "remember_resource_grant",
+             "set_active_app",
+             "clear_active_app",
+             "show_session_scratchpad",
              "record_trace",
              "registry_health",
              "trace_summary"
@@ -92,6 +95,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_resource_grant",
              "revoke_resource_grant",
              "remember_resource_grant",
+             "set_active_app",
+             "clear_active_app",
+             "show_session_scratchpad",
              "record_trace",
              "registry_health",
              "trace_summary"
@@ -198,6 +204,20 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert {:ok, revoke_resource_grant} = Registry.capability("revoke_resource_grant")
     assert revoke_resource_grant.permission == :confirmation_decide
     assert revoke_resource_grant.execution_mode == :resource_grant_revoke
+
+    assert {:ok, set_active_app} = Registry.capability("set_active_app")
+    assert set_active_app.permission == :settings_write
+    assert set_active_app.execution_mode == :settings_write
+    assert set_active_app.exposure == :internal
+    assert set_active_app.confirmation == :not_required
+
+    assert {:ok, clear_active_app} = Registry.capability("clear_active_app")
+    assert clear_active_app.permission == :settings_write
+    assert clear_active_app.execution_mode == :settings_write
+
+    assert {:ok, show_session_scratchpad} = Registry.capability("show_session_scratchpad")
+    assert show_session_scratchpad.permission == :read_only
+    assert show_session_scratchpad.execution_mode == :settings_read
 
     assert {:error, {:unknown_action, "missing_action"}} = Registry.capability("missing_action")
   end

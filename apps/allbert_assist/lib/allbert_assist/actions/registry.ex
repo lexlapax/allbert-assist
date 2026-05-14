@@ -32,6 +32,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Resources.RevokeResourceGrant
   alias AllbertAssist.Actions.Resources.ShowResourceGrant
   alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
+  alias AllbertAssist.Actions.Session.ClearActiveApp
+  alias AllbertAssist.Actions.Session.SetActiveApp
+  alias AllbertAssist.Actions.Session.ShowSessionScratchpad
   alias AllbertAssist.Actions.Settings.ExplainSetting
   alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
@@ -92,6 +95,9 @@ defmodule AllbertAssist.Actions.Registry do
     ShowResourceGrant,
     RevokeResourceGrant,
     RememberResourceGrant,
+    SetActiveApp,
+    ClearActiveApp,
+    ShowSessionScratchpad,
     RecordTrace,
     RegistryHealth,
     TraceSummary
@@ -394,6 +400,27 @@ defmodule AllbertAssist.Actions.Registry do
       permission: :confirmation_decide,
       exposure: :internal,
       execution_mode: :resource_grant_remember,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    SetActiveApp => %{
+      permission: :settings_write,
+      exposure: :internal,
+      execution_mode: :settings_write,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ClearActiveApp => %{
+      permission: :settings_write,
+      exposure: :internal,
+      execution_mode: :settings_write,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ShowSessionScratchpad => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :settings_read,
       skill_backed?: false,
       confirmation: :not_required
     },
