@@ -123,6 +123,9 @@ defmodule AllbertAssist.RuntimeTest do
                        active_app: nil
                      }}
 
+    assert_received {:agent_signal_data, input_signal_data}
+    refute Map.has_key?(input_signal_data, :active_app)
+
     assert {:ok, thread} = Conversations.get_thread("local", thread_id)
     assert thread.kind == "general"
 
@@ -177,6 +180,30 @@ defmodule AllbertAssist.RuntimeTest do
                      }}
 
     assert {:ok, _thread} = Conversations.get_thread("alice", thread_id)
+  end
+
+  test "rejects invalid session ids before creating a thread or invoking the agent" do
+    user = "runtime-invalid-session-#{System.unique_integer([:positive])}"
+    too_long = String.duplicate("s", Session.max_session_id_length() + 1)
+
+    assert {:error, :invalid_session_id} =
+             Runtime.submit_user_input(%{
+               text: "blank session should fail",
+               channel: :test,
+               user_id: user,
+               session_id: " "
+             })
+
+    assert {:error, :session_id_too_long} =
+             Runtime.submit_user_input(%{
+               text: "oversize session should fail",
+               channel: :test,
+               user_id: user,
+               session_id: too_long
+             })
+
+    assert [] = Conversations.list_threads(user)
+    refute_received {:agent_request, _request}
   end
 
   test "reads active app from scratchpad and propagates it through runtime context" do

@@ -36,6 +36,7 @@ defmodule AllbertAssist.Actions.Session.ClearActiveApp do
        }}
     else
       false -> denied(user_id, session_id, permission_decision, :permission_denied)
+      {:error, :not_found} -> not_found(user_id, session_id, permission_decision)
       {:error, reason} -> denied(user_id, session_id, permission_decision, reason)
     end
   end
@@ -52,6 +53,18 @@ defmodule AllbertAssist.Actions.Session.ClearActiveApp do
        status: :denied,
        error: reason,
        actions: [action(:denied, permission_decision, error_summary(user_id, session_id, reason))]
+     }}
+  end
+
+  defp not_found(user_id, session_id, permission_decision) do
+    {:ok,
+     %{
+       message: "Session #{user_id}/#{session_id} was not found.",
+       status: :not_found,
+       error: :not_found,
+       actions: [
+         action(:not_found, permission_decision, error_summary(user_id, session_id, :not_found))
+       ]
      }}
   end
 
