@@ -134,6 +134,22 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("confirmations.allow_cli_approval", "yes", %{})
   end
 
+  test "session scratchpad ttl setting is writable and bounded" do
+    assert {:ok, 30} = Settings.get("sessions.scratchpad_ttl_minutes")
+
+    assert {:ok, resolved} =
+             Settings.put("sessions.scratchpad_ttl_minutes", 60, %{audit?: false})
+
+    assert resolved.value == 60
+    assert {:ok, 60} = Settings.get("sessions.scratchpad_ttl_minutes")
+
+    assert {:error, {:invalid_setting, "sessions.scratchpad_ttl_minutes", _reason}} =
+             Settings.put("sessions.scratchpad_ttl_minutes", 0, %{})
+
+    assert {:error, {:invalid_setting, "sessions.scratchpad_ttl_minutes", _reason}} =
+             Settings.put("sessions.scratchpad_ttl_minutes", 1441, %{})
+  end
+
   test "skill script execution settings are writable and validated" do
     assert {:ok, policy} =
              Settings.put("permissions.skill_script_execute", "allowed", %{audit?: false})
