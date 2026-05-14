@@ -6,6 +6,7 @@ defmodule AllbertAssist.JobsTest do
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Runner
+  alias AllbertAssist.Jobs.Scheduler
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime
@@ -389,6 +390,152 @@ defmodule AllbertAssist.JobsTest do
     end
   end
 
+  describe "scheduler" do
+    test "run_once claims due jobs, executes them, and advances next due time" do
+      Application.put_env(:allbert_assist, Runtime,
+        agent_runner: fn _signal, request ->
+          {:ok,
+           %{
+             message: "Scheduled response: #{request.text}",
+             status: :completed,
+             actions: [%{name: "direct_answer", status: :completed}]
+           }}
+        end
+      )
+
+      now = ~U[2026-05-14 08:00:00Z]
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "due job",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Run when due."},
+                 schedule: %{kind: "daily", at: "08:00"},
+                 timezone: "UTC",
+                 status: "active",
+                 user_id: "alice"
+               })
+
+      assert {:ok, due_job} =
+               job
+               |> Job.changeset(%{next_due_at: DateTime.add(now, -60, :second)})
+               |> Repo.update()
+
+      scheduler = start_test_scheduler(cleanup_on_start?: false)
+
+      assert {:ok,
+              %{
+                policy: "operator_approved",
+                claimed: 1,
+                completed: 1,
+                needs_confirmation: 0,
+                failed: 0,
+                skipped: 0
+              }} = Scheduler.run_once(scheduler, now)
+
+      assert [%Run{status: "completed", trigger: "scheduler"}] = Jobs.list_runs(due_job)
+
+      reloaded = Repo.reload!(due_job)
+      assert reloaded.last_run_at
+      assert DateTime.compare(reloaded.next_due_at, now) == :gt
+    end
+
+    test "paused schedule policy prevents due job claims" do
+      assert {:ok, _policy} = Settings.put("jobs.schedule_policy", "paused", %{audit?: false})
+
+      now = ~U[2026-05-14 08:00:00Z]
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "paused due job",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Should not run."},
+                 schedule: %{kind: "daily", at: "08:00"},
+                 timezone: "UTC",
+                 status: "active",
+                 user_id: "alice"
+               })
+
+      assert {:ok, due_job} =
+               job
+               |> Job.changeset(%{next_due_at: DateTime.add(now, -60, :second)})
+               |> Repo.update()
+
+      scheduler = start_test_scheduler(cleanup_on_start?: false)
+
+      assert {:ok, %{policy: "paused", claimed: 0}} = Scheduler.run_once(scheduler, now)
+      assert [] = Jobs.list_runs(due_job)
+    end
+
+    test "open runs cause due jobs to be skipped without duplicate claims" do
+      now = ~U[2026-05-14 08:00:00Z]
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "open run job",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Already running."},
+                 schedule: %{kind: "daily", at: "08:00"},
+                 timezone: "UTC",
+                 status: "active",
+                 user_id: "alice"
+               })
+
+      assert {:ok, due_job} =
+               job
+               |> Job.changeset(%{next_due_at: DateTime.add(now, -60, :second)})
+               |> Repo.update()
+
+      assert {:ok, _open_run} =
+               Jobs.create_run(due_job, %{
+                 trigger: "scheduler",
+                 status: "running",
+                 started_at: DateTime.add(now, -30, :second)
+               })
+
+      scheduler = start_test_scheduler(cleanup_on_start?: false)
+
+      assert {:ok, %{claimed: 0, skipped: 1}} = Scheduler.run_once(scheduler, now)
+      assert [%Run{status: "running"}] = Jobs.list_runs(due_job)
+    end
+
+    test "startup cleanup fails stale running runs after scheduler restart" do
+      now = ~U[2026-05-14 08:00:00Z]
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "stale run job",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Stale."},
+                 schedule: %{kind: "manual"},
+                 user_id: "alice"
+               })
+
+      assert {:ok, run} =
+               Jobs.create_run(job, %{
+                 trigger: "scheduler",
+                 status: "running",
+                 started_at: DateTime.add(now, -600, :second)
+               })
+
+      _scheduler =
+        start_test_scheduler(
+          enabled?: false,
+          cleanup_on_start?: true,
+          stale_run_ms: 5 * 60 * 1_000
+        )
+
+      reloaded = Repo.reload!(run)
+      assert reloaded.status == "failed"
+      assert reloaded.finished_at
+
+      assert reloaded.error in [
+               %{kind: "scheduler_restarted"},
+               %{"kind" => "scheduler_restarted"}
+             ]
+    end
+  end
+
   defp restore_env(original_env) do
     Enum.each(original_env, fn
       {key, nil} -> System.delete_env(key)
@@ -400,5 +547,19 @@ defmodule AllbertAssist.JobsTest do
 
   defp restore_app_env(module, config) do
     Application.put_env(:allbert_assist, module, config)
+  end
+
+  defp start_test_scheduler(opts) do
+    name = :"allbert_jobs_scheduler_#{System.unique_integer([:positive])}"
+
+    defaults = [
+      name: name,
+      enabled?: true,
+      poll_on_start?: false,
+      cleanup_on_start?: false,
+      interval_ms: 60_000
+    ]
+
+    start_supervised!({Scheduler, Keyword.merge(defaults, opts)})
   end
 end

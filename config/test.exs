@@ -23,6 +23,8 @@ config :logger, level: :warning
 # In test we don't send emails
 config :allbert_assist, AllbertAssist.Mailer, adapter: Swoosh.Adapters.Test
 
+config :allbert_assist, AllbertAssist.Jobs.Scheduler, enabled?: false
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 

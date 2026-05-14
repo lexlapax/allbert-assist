@@ -225,6 +225,98 @@ defmodule AllbertAssist.Jobs do
     |> Repo.all()
   end
 
+  @doc "List active jobs that are due at or before `now`."
+  @spec due_jobs(DateTime.t(), pos_integer()) :: [Job.t()]
+  def due_jobs(now \\ utc_now(), limit \\ @default_list_limit)
+
+  def due_jobs(%DateTime{} = now, limit) do
+    limit = normalize_limit(limit)
+
+    Job
+    |> where([job], job.status == "active")
+    |> where([job], not is_nil(job.next_due_at) and job.next_due_at <= ^now)
+    |> order_by([job], asc: job.next_due_at, asc: job.id)
+    |> limit(^limit)
+    |> Repo.all()
+  end
+
+  @doc "Claim one scheduler run for a due job unless it already has an open run."
+  @spec claim_due_job(Job.t(), DateTime.t()) :: run_result()
+  def claim_due_job(%Job{} = job, now \\ utc_now()) do
+    Repo.transaction(fn ->
+      case Repo.get(Job, job.id) do
+        %Job{} = current_job ->
+          claim_current_due_job(current_job, now)
+
+        nil ->
+          Repo.rollback({:job_not_found, job.id})
+      end
+    end)
+  end
+
+  @doc "Advance an active job to its next due time after a scheduler run."
+  @spec advance_next_due(Job.t()) :: job_result()
+  def advance_next_due(%Job{status: "active"} = job) do
+    with {:ok, next_due_at} <- Schedule.next_due(job.schedule, job.timezone) do
+      job
+      |> Job.changeset(%{next_due_at: next_due_at})
+      |> Repo.update()
+    end
+  end
+
+  def advance_next_due(%Job{} = job), do: {:ok, job}
+
+  @doc "Fail stale running runs left behind by a crashed scheduler process."
+  @spec fail_stale_running_runs(DateTime.t()) :: {:ok, non_neg_integer()}
+  def fail_stale_running_runs(%DateTime{} = stale_before) do
+    now = utc_now()
+
+    query =
+      from run in Run,
+        where:
+          run.status == "running" and not is_nil(run.started_at) and
+            run.started_at < ^stale_before
+
+    {count, _rows} =
+      Repo.update_all(query,
+        set: [
+          status: "failed",
+          finished_at: now,
+          error: %{kind: "scheduler_restarted"},
+          updated_at: now
+        ]
+      )
+
+    {:ok, count}
+  end
+
+  defp claim_current_due_job(%Job{} = job, now) do
+    cond do
+      job.status != "active" ->
+        Repo.rollback(:not_active)
+
+      is_nil(job.next_due_at) or DateTime.compare(job.next_due_at, now) == :gt ->
+        Repo.rollback(:not_due)
+
+      open_run_exists?(job.id) ->
+        Repo.rollback(:open_run)
+
+      true ->
+        case create_run(job, %{trigger: "scheduler", due_at: job.next_due_at}) do
+          {:ok, run} -> run
+          {:error, reason} -> Repo.rollback(reason)
+        end
+    end
+  end
+
+  defp open_run_exists?(job_id) do
+    Run
+    |> where([run], run.job_id == ^job_id and run.status in ["running", "needs_confirmation"])
+    |> select([run], count(run.id))
+    |> Repo.one()
+    |> Kernel.>(0)
+  end
+
   defp normalize_job_attrs(attrs, mode) do
     attrs = atomize_known_keys(attrs, @known_job_keys)
 
@@ -434,4 +526,6 @@ defmodule AllbertAssist.Jobs do
   defp normalize_limit(_value), do: @default_list_limit
 
   defp present?(value), do: value not in [nil, ""]
+
+  defp utc_now, do: DateTime.utc_now() |> DateTime.truncate(:microsecond)
 end
