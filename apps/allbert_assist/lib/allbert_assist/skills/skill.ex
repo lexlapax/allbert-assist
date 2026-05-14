@@ -42,6 +42,7 @@ defmodule AllbertAssist.Skills.Skill do
           | :built_in_legacy
           | :project_native
           | :project_interoperable
+          | :app
           | :user_native
           | :user_interoperable
           | :configured_scan_path
