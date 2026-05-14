@@ -1,20 +1,75 @@
 # ADR 0016: Channel Adapter Boundary And Identity Mapping
 
-Status: Proposed
+Status: Accepted
 
 Date: 2026-05-14
 
 ## Context
 
 Allbert began with CLI and LiveView as local operator surfaces. v0.16 adds the
-first remote channel, Telegram, while preserving the signal-first Jido runtime,
-Security Central, durable confirmations, Resource Access Security Posture,
-local workspace identity, and app registration decisions made in earlier ADRs.
+first two remote channels, Telegram and email, while preserving the signal-first
+Jido runtime, Security Central, durable confirmations, Resource Access Security
+Posture, local workspace identity, and app registration decisions made in earlier
+ADRs.
 
 External channels bring external identities, provider APIs, callbacks, delivery
 failures, and duplicate inbound events. Without a clear boundary, a channel
 adapter could accidentally become a second runtime, a second security policy,
 or an implicit account system.
+
+Several design questions arose in planning v0.16:
+
+**Why long polling instead of webhooks (Telegram)?** Long polling requires no
+public inbound HTTP endpoint, no TLS certificate management, and no
+port-forwarding. It works locally with zero infrastructure. Webhooks are a
+future option but require a public URL and are deferred.
+
+**Why IMAP polling instead of IMAP IDLE or email API (email)?** IMAP PUSH/IDLE
+requires a persistent connection and connection re-issue handling that adds
+complexity for a first adapter. Email provider APIs (Mailgun/SendGrid inbound,
+Gmail API) require OAuth or webhook infrastructure. Plain IMAP polling with
+bounded poll intervals works with any IMAP server and zero public URL
+requirements. IMAP IDLE and provider API are left as documented placeholders
+for a future release.
+
+**Why a separate `channel_events` table instead of annotating conversation
+history?** `Thread`/`Message` rows (v0.12) own ordered conversation content
+and are the source of truth for what was said. `channel_events` own the
+provider-level transport metadata: which provider update id or Message-ID
+arrived, what its delivery status was, which external identity sent it, whether
+it was a duplicate, and what channel-level errors occurred. Mixing these concerns
+into `Thread`/`Message` would couple the conversation model to provider-specific
+fields and make dedup logic depend on conversation semantics.
+
+**Why derive Telegram polling offset from `channel_events` instead of a
+separate state row?** The maximum `external_event_id` among processed inbound
+and callback events is already the correct resume offset. A separate state row
+would need to be kept in sync with `channel_events` insertions and would be an
+additional failure surface. Deriving it from `channel_events` at startup is
+idempotent and requires no extra write path.
+
+**Why use RFC Message-ID as the email dedup key instead of an offset?** Email
+does not have a monotonic server-assigned update id like Telegram. Message-ID is
+globally unique per RFC 2822 and is stable across IMAP session restarts. The
+IMAP `\Seen` flag provides a second dedup guard: if the adapter crashes before
+marking `\Seen`, it will re-fetch the message, but the `channel_events` unique
+index prevents double-processing.
+
+**Why a SHA-256 hash for `session_id`?** External user identifiers from Telegram
+(integer user ids) and email (from-addresses) are provider-specific strings that
+could collide with operator-created session ids or become atoms if stored
+carelessly. A bounded, non-reversible hash is safe to store in ETS, in
+`channel_events`, and in runtime request metadata without creating atoms or
+leaking external identifiers. Telegram session ids include the chat id in the
+hash input so a single Telegram user in two different group chats gets different
+sessions; email session ids use only the sender address since email has no chat
+concept.
+
+**Why SMTP via gen_smtp instead of a provider API?** gen_smtp is OTP-native,
+mature, and works with any SMTP server without external account setup. Provider
+APIs (Mailgun, SendGrid) add OAuth or API key management that is a separate
+secret surface. gen_smtp is the right first delivery adapter; provider API is a
+documented placeholder for a future release.
 
 ## Decision
 
@@ -39,9 +94,21 @@ provider identities map to local `user_id` values only through explicit
 Settings Central configuration. No external identity may implicitly claim
 `"local"` or any other existing local user.
 
-For v0.16, Telegram is the first proving adapter. Telegram user IDs map to local
-users through `channels.telegram.identity_map`. The bot token is stored through
-Settings Secrets and referenced by `channels.telegram.bot_token_ref`.
+For v0.16, Telegram and email are the first two proving adapters.
+
+Telegram: user IDs map to local users through `channels.telegram.identity_map`.
+The bot token is stored through Settings Secrets and referenced by
+`channels.telegram.bot_token_ref`. Inbound updates arrive via long polling
+(`getUpdates`). Approval Handoff is rendered as inline keyboard buttons when
+callback data fits the compact format, or as typed commands when it does not.
+
+Email: sender addresses (from-address) map to local users through
+`channels.email.identity_map`. IMAP credentials are stored through Settings
+Secrets. Inbound messages are fetched by polling UNSEEN messages. Approval
+Handoff is rendered as plain-text typed commands (`ALLBERT:APPROVE:<id>`,
+`ALLBERT:DENY:<id>`, `ALLBERT:SHOW:<id>`) that the user sends back in a reply.
+Outbound replies use SMTP via gen_smtp. IMAP IDLE and SMTP provider APIs are
+explicitly deferred with documented placeholders.
 
 Channel adapters may use a bounded provider client for receive/send operations
 against the configured provider API. This provider transport is not a general
@@ -54,28 +121,62 @@ for dedupe, status, and traceability. Conversation text remains in v0.12
 SQLite `Thread`/`Message` history after runtime acceptance. Channel events keep
 redacted/truncated summaries rather than full raw provider payload dumps.
 
-Provider callback actions, such as Telegram approve/deny buttons, resolve
-existing durable confirmations through registered confirmation actions and
-`AllbertAssist.Actions.Runner`. Callback data must be compact and must not
-embed resource targets, shell commands, URLs, prompt text, credentials, or
-remembered grant powers.
+Email attachments are never downloaded, extracted, parsed, rendered, forwarded
+to the runtime, or used as memory.
+
+Provider callback actions, such as Telegram approve/deny buttons and email
+approve/deny typed commands, resolve existing durable confirmations through
+registered confirmation actions and `AllbertAssist.Actions.Runner`. Callback
+data and typed command patterns must not embed resource targets, shell commands,
+URLs, prompt text, credentials, or remembered grant powers.
+
+The two adapters are supervised independently under `:one_for_one` in
+`AllbertAssist.Channels.Supervisor`. A crash or misconfiguration in one adapter
+does not restart or disable the other.
 
 ## Consequences
 
-- v0.16 can add Telegram without creating hosted accounts or role-based auth.
+- v0.16 can add Telegram and email without creating hosted accounts or
+  role-based auth.
 - Tests can prove channel behavior using simulated updates and a test provider
-  client without depending on live network access.
-- Future channels can reuse the channel context, event dedupe model, identity
-  mapping posture, and response rendering pattern.
+  client (`Req.Test` for Telegram; simulated IMAP/SMTP message injection for
+  email) without depending on live network access, real bot tokens, or real
+  mail servers.
+- The channel substrate (`AllbertAssist.Channels`), event dedupe model
+  (`channel_events`), identity mapping posture
+  (`AllbertAssist.Channels.Identity`), session_id derivation, and response
+  rendering pattern are provider-neutral. Adding a new provider requires a new
+  Adapter/Client(s)/Renderer/Parser triple; the rest of the substrate is
+  reused.
+- Telegram polling offset is resilient: adapter restarts derive the correct
+  offset from `channel_events` without a separate state table, and the partial
+  unique index provides a second dedup guard.
+- Email dedup is resilient: the IMAP `\Seen` flag prevents re-fetch on normal
+  restarts; the `channel_events` unique index on Message-ID prevents
+  double-runtime submission even if `\Seen` is not set before a crash.
+- `session_id` values for Telegram sessions are stable, bounded, and safe to
+  store as strings in ETS, SQLite, and runtime metadata. Telegram includes
+  chat id in the hash so group and private chats get separate sessions. Email
+  session ids use only the sender address since email has no chat concept.
 - v0.23 security evals have concrete cross-channel surfaces to test:
-  identity spoofing, callback replay, resource-scope leakage, provider payload
-  injection, cross-user thread leakage, and secret redaction.
+  identity spoofing, callback replay, command injection in email reply bodies,
+  resource-scope leakage, provider payload injection, cross-user thread leakage,
+  secret redaction in provider error responses, and attachment bypass attempts.
+- IMAP IDLE, SMTP provider API, webhooks, media downloads, and arbitrary
+  provider method exposure require a new ADR or a future v0.16+ plan revision;
+  this ADR intentionally excludes them with documented placeholders.
 
 ## Deferred
 
 - Hosted accounts, OAuth, roles, and remote multi-user administration.
 - Telegram webhooks and public inbound HTTP routing.
-- Email, SMS, Discord, Slack, native app, browser, and MCP channels.
+- IMAP IDLE for push-based email delivery (placeholder in v0.16 adapter code).
+- SMTP provider API (Mailgun, SendGrid) for transactional sending (placeholder
+  in v0.16 adapter code).
+- Email attachment download, extraction, and content forwarding.
+- HTML email parsing or rich email rendering.
+- Email, SMS, Discord, Slack, native app, browser, and MCP channels beyond the
+  v0.16 Telegram and email proving adapters.
 - Media/document download and deep remote document extraction.
 - Proactive broadcast and scheduled outbound messaging.
 - UI protocol interop and workspace-native channel surfaces.

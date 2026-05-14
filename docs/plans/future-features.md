@@ -27,7 +27,7 @@ homes:
 - Scheduled jobs: v0.13.
 - Session scratchpad and active app context: v0.14.
 - Minimal app registration contract: v0.15.
-- Telegram channel adapter and reusable channel foundation: v0.16.
+- Telegram channel adapter, email channel adapter, and reusable channel foundation: v0.16.
 - StockSage umbrella app and domain: v0.17.
 - Memory review and retrieval: v0.18.
 - StockSage Python bridge: v0.19.
@@ -87,21 +87,20 @@ Needed before planning:
 
 ### Additional Remote Channel Adapters
 
-Source: origin note, allbert-jido vision, and v0.16 Telegram channel planning.
+Source: origin note, allbert-jido vision, and v0.16 dual-channel planning.
 
-v0.16 proves the channel adapter boundary with Telegram only. The remaining
-remote channels named in the vision, including Discord, WhatsApp-style chat,
-email, SMS, and Slack-style team chat, are still parked here until promoted to
-their own implementation-ready milestone. They should reuse the v0.16 channel
-context, identity mapping posture, durable event dedupe, runtime submission
-flow, Approval Handoff rendering, confirmation callback pattern, and redaction
-rules instead of inventing provider-specific runtimes.
+v0.16 proves the channel adapter boundary with Telegram (Bot API long polling,
+inline buttons) and email (IMAP polling, SMTP replies, typed-command approvals).
+The remaining remote channels named in the vision, including Discord,
+WhatsApp-style chat, SMS, and Slack-style team chat, are still parked here until
+promoted to their own implementation-ready milestone. They should reuse the v0.16
+channel context, identity mapping posture, durable event dedupe, runtime
+submission flow, Approval Handoff rendering, confirmation callback/command
+pattern, and redaction rules instead of inventing provider-specific runtimes.
 
-Each provider still needs a focused design pass because the security and UX
-surfaces differ:
+Each remaining provider still needs a focused design pass because the security
+and UX surfaces differ:
 
-- Email needs sender authentication, threading semantics, attachment policy,
-  spam/replay handling, and safe reply rendering.
 - SMS needs phone-number mapping, short-message truncation, cost/rate limits,
   and provider delivery failure handling.
 - Discord, WhatsApp-style chat, and Slack-style team chat need workspace/server
@@ -110,12 +109,12 @@ surfaces differ:
 
 Needed before planning:
 
-- v0.16 Telegram adapter accepted through user testing
+- v0.16 Telegram and email adapters accepted through user testing
 - v0.16 channel event and identity-map contracts stable
 - provider-specific Settings Central schema and secret policy
 - provider-specific delivery, retry, dedupe, and callback model
 - v0.23 security evals for cross-channel spoofing, replay, group leakage,
-  attachment handling, and resource approval scope leakage
+  command injection in reply bodies, and resource approval scope leakage
 - operator UX for mapping, disabling, and inspecting external identities
 - clear decision on whether a provider starts as inbound-only, response-only,
   or full request/response with confirmation callbacks

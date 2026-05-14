@@ -843,23 +843,29 @@ Status: planned. Formerly v0.13.
 
 Expected direction:
 
-- Add the channel adapter boundary and prove it with Telegram as the first
-  additional provider.
+- Add the channel adapter boundary and prove it with two providers: Telegram
+  (Bot API long polling, inline keyboard buttons) and email (IMAP polling,
+  SMTP replies, typed-command confirmations).
 - Translate external messages into `AllbertAssist.Runtime.submit_user_input/1`
   requests and render responses without owning agent logic, security policy,
   confirmations, memory, or execution.
 - Map external identities to local string `user_id` values through explicit
   Settings Central configuration; traces and channel events include both
   external identity and resolved local `user_id`.
-- Add durable channel event records for inbound/callback dedupe, provider
-  status, response delivery, trace ids, and thread ids.
-- Store Telegram bot tokens through Settings Secrets and keep provider payloads
-  redacted and bounded at CLI/log/trace boundaries.
-- Consume Approval Handoff and Resource Access Security Posture natively
-  without channel-specific resource or approval rules. Telegram approve/deny
-  callbacks resolve existing durable confirmations through registered actions.
-- Keep email, SMS, media downloads, webhooks, arbitrary provider method calls,
-  remote document extraction, and proactive broadcast out of v0.16.
+- Add durable `channel_events` SQLite records for inbound/callback dedupe,
+  provider status, response delivery, trace ids, and thread ids; shared by
+  both providers.
+- Store Telegram bot tokens and email credentials through Settings Secrets and
+  keep provider payloads redacted and bounded at CLI/log/trace boundaries.
+- Consume Approval Handoff and Resource Access Security Posture natively without
+  channel-specific resource or approval rules. Telegram uses inline buttons;
+  email uses typed-command replies (`ALLBERT:APPROVE/DENY/SHOW:<id>`); both
+  resolve existing durable confirmations through registered actions.
+- Supervise Telegram and email adapters independently under `:one_for_one` so a
+  crash or misconfiguration in one adapter does not affect the other.
+- Keep SMS, Discord, Slack, media downloads, webhooks, IMAP IDLE, SMTP provider
+  APIs, arbitrary provider method calls, email attachments, remote document
+  extraction, and proactive broadcast out of v0.16.
 
 ## v0.17: StockSage Umbrella App And Domain
 
