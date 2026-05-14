@@ -15,6 +15,10 @@ defmodule AllbertAssist.App.Validator do
 
   @app_id_regex ~r/^[a-z][a-z0-9_]*$/
   @reserved_nil_aliases [:none, :general]
+  @reserved_app_owners %{
+    allbert: [AllbertAssist.App.CoreApp],
+    stocksage: [AllbertAssist.App.StockSageStub, StockSage.App]
+  }
 
   @type result :: {:ok, map()} | {:error, {atom(), term()}, [map()]}
 
@@ -80,8 +84,18 @@ defmodule AllbertAssist.App.Validator do
       not Regex.match?(@app_id_regex, string) ->
         {:error, {:invalid_app_id, app_id}}
 
+      reserved_for_other_module?(app_id, module) ->
+        {:error, {:reserved_app_id, app_id}}
+
       true ->
         {:ok, app_id}
+    end
+  end
+
+  defp reserved_for_other_module?(app_id, module) do
+    case Map.get(@reserved_app_owners, app_id) do
+      nil -> false
+      owners -> module not in owners
     end
   end
 
@@ -230,7 +244,7 @@ defmodule AllbertAssist.App.Validator do
     }
   end
 
-  defp validate_surface_id(id) when is_atom(id), do: :ok
+  defp validate_surface_id(id) when is_atom(id) and not is_nil(id), do: :ok
   defp validate_surface_id(_id), do: {:error, {:invalid_surface, :id}}
 
   defp validate_surface_label(label) when is_binary(label) and byte_size(label) in 1..64,

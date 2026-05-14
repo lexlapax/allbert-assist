@@ -58,7 +58,7 @@ defmodule AllbertAssist.Actions.Apps.ShowApp do
       display_name: entry.display_name,
       version: entry.version,
       module: entry.module,
-      action_names: Enum.map(entry.actions, & &1.name()),
+      action_names: entry.actions |> Enum.map(& &1.name()) |> Enum.sort(),
       skill_paths: entry.skill_paths,
       surfaces: entry.surfaces,
       diagnostics: diagnostics(entry.app_id)
