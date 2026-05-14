@@ -17,6 +17,7 @@ defmodule AllbertAssist.Application do
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
         AllbertAssist.Jido
       ]
+      |> maybe_add_app_supervisor()
       |> maybe_add_session_scratchpad()
       |> maybe_add_scheduler()
 
@@ -26,6 +27,16 @@ defmodule AllbertAssist.Application do
   defp maybe_add_session_scratchpad(children) do
     opts = Application.get_env(:allbert_assist, AllbertAssist.Session.Scratchpad, [])
     children ++ [{AllbertAssist.Session.Scratchpad, opts}]
+  end
+
+  defp maybe_add_app_supervisor(children) do
+    opts = Application.get_env(:allbert_assist, AllbertAssist.App.Registry, [])
+
+    if Keyword.get(opts, :enabled?, true) do
+      children ++ [{AllbertAssist.App.Supervisor, opts}]
+    else
+      children ++ [{AllbertAssist.App.Supervisor, Keyword.put(opts, :enabled?, false)}]
+    end
   end
 
   defp maybe_add_scheduler(children) do
