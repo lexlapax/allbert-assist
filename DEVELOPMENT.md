@@ -139,14 +139,16 @@ For StockSage workspace app milestones, start with the active milestone plan,
 `docs/plans/allbert-jido-vision.md`, ADR 0014, and ADR 0015. The canonical
 plans are `v0.17`, `v0.19`, `v0.21`, `v0.22`, `v0.25`, and `v0.27`.
 
-After v0.10 closeout, remember that URL summarization, document inspection,
+After v0.11 closeout, remember that URL summarization, document inspection,
 direct skill URL import, local skill directory import, local path access,
 trusted skill script execution, package installs, online source consumers,
 future MCP resources, and future agent endpoints are all URI-backed resource
-access operation classes. v0.10 implements direct/local skill import and
-explicit unsupported/deferred UX for v0.11-owned workflows. Channels and
-summarizers do not fetch, read, import, or execute directly; they render or
-consume Approval Handoff data and registered action results.
+access operation classes. v0.11 implements execution-aware decisions, Approval
+Handoff, URL/document fetch approvals over the v0.10 Req substrate, and explicit
+unavailable states for missing summarizers, extractors, and generic local file
+readers. Channels and summarizers do not fetch, read, import, or execute
+directly; they render or consume Approval Handoff data and registered action
+results.
 
 ## Fresh Checkout
 

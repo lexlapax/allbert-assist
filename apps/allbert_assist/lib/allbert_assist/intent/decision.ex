@@ -402,8 +402,6 @@ defmodule AllbertAssist.Intent.Decision do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
 
-  defp field(_map, _key, default), do: default
-
   defp context_value(%{request: request} = context, key) when is_map(request),
     do: field(request, key) || context |> Map.delete(:request) |> context_value(key)
 

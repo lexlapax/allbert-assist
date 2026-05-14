@@ -220,8 +220,6 @@ defmodule AllbertAssist.Intent.ResourceAccess do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
 
-  defp field(_map, _key, default), do: default
-
   defp normalize_list(nil), do: []
   defp normalize_list(list) when is_list(list), do: list
   defp normalize_list(value), do: [value]

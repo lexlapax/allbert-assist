@@ -1,5 +1,77 @@
 # Changelog
 
+## v0.11 - Execution-Aware Intent, Resource Access, And Approval Handoff
+
+Status: implemented through M6 and ready for operator manual verification.
+Version metadata is `0.11.0`; expected release tag is `v0.11` after operator
+acceptance.
+
+### Added
+
+- `AllbertAssist.Intent.Decision`, `AllbertAssist.Intent.ResourceAccess`, and
+  `AllbertAssist.Intent.ApprovalHandoff` as inert contracts for selected
+  intent, skills/actions, permission, confirmation, execution mode, URI-backed
+  resource posture, alternatives, diagnostics, traces, and reserved
+  `user_id`/`thread_id`/`session_id`/`active_app` context.
+- Runtime responses, signals, and markdown traces now carry decision,
+  resource-access, diagnostics, and Approval Handoff metadata.
+- CLI and LiveView approval surfaces render the shared Approval Handoff for
+  pending confirmations, including confirmation id, target action, operation
+  class, scope, limits, downstream consumer, remember-scope choices, and
+  approve/deny/details controls.
+- URL summary prompts now create pending `external_network_request`
+  confirmations with `summarize_url` resource refs before any fetch. Approved
+  fetches report `summarizer_unavailable` until a summarizer action exists.
+- Remote document inspection prompts now create pending
+  `external_network_request` confirmations with `inspect_document` resource refs
+  before any fetch. Approved fetches report `extractor_unavailable` until a
+  registered extractor exists.
+- Generic local file inspection prompts now return inert `file://...`
+  `read_local_path` posture and an explicit no-shell-fallback unavailable state.
+- Direct skill URL import, local skill directory import, package planning,
+  shell execution, trusted skill scripts, online skill sources, and unsupported
+  MCP/agent schemes are covered as operation-scoped URI consumers in the
+  decision/handoff path.
+
+### Changed
+
+- The v0.10 URI-first resource substrate is now consumed by execution-aware
+  intent instead of only by individual actions.
+- Approval Handoff is shared channel metadata; CLI and web surfaces still resolve
+  through `approve_confirmation` and `deny_confirmation` rather than mutating
+  confirmation records or invoking adapters directly.
+- URL/document consumer approvals are operation-scoped. `summarize_url` and
+  `inspect_document` grants do not authorize `import_skill`,
+  `external_service_request`, package install, activation, or script execution.
+- README, roadmap, v0.11 plan, v0.11 request flow, and v0.12/v0.13/v0.16
+  handoff docs now describe v0.11 as the current implemented base for the next
+  milestones.
+
+### Safety
+
+- v0.11 adds no new browser, crawler, MCP, agent, package, shell, skill script,
+  generic local file, or network primitive.
+- Intent decisions are descriptive and validated before dispatch; they do not
+  execute or authorize work by themselves.
+- Approved URL/document fetches still run only through the v0.10 confirmed Req
+  adapter, Settings Central policy, Security Central, confirmation re-check,
+  redaction, trace, and audit boundaries.
+- Missing summarizer, extractor, or bounded local reader capabilities are shown
+  as unavailable instead of falling back to shell commands, ad hoc file reads,
+  browser automation, or model-generated scripts.
+
+### Verification
+
+- Milestone focused suites passed for intent decision validation, Approval
+  Handoff data, CLI and LiveView rendering, URL summary/document/local-file
+  consumers, external request operation-scoped grants, direct/local skill import,
+  package resource posture, resource refs, remembered grants, and unsupported
+  MCP/agent flows.
+- Final v0.11 closeout gates passed: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- Manual verification steps live in `docs/plans/v0.11-request-flow.md`.
+
 ## v0.10 - External Capability Adapters
 
 Status: implemented through M14 after the reopened v0.10 M6-M9 sequence. The

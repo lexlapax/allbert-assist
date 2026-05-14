@@ -410,8 +410,6 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
     end
   end
 
-  defp postprocess_result(_result, _params), do: nil
-
   defp confirmation_message(spec, params, permission_decision, confirmation) do
     """
     External network request is ready for operator approval.
@@ -453,8 +451,6 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   defp field(map, key, default) when is_map(map) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
-
-  defp field(_map, _key, default), do: default
 
   defp result_event(%{status: :completed}), do: :succeeded
   defp result_event(_result), do: :failed
