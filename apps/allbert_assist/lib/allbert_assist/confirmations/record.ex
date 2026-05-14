@@ -142,6 +142,7 @@ defmodule AllbertAssist.Confirmations.Record do
       "resolution_reason" => stringify(value(attrs, :resolution_reason)),
       "same_channel?" => value(attrs, :same_channel?, false),
       "decision_source" => stringify(value(attrs, :decision_source, "operator")),
+      "resolver_metadata" => redacted_value(value(attrs, :resolver_metadata)),
       "resolved_at" => DateTime.to_iso8601(now)
     }
     |> Map.merge(operator_target_resolution(attrs))

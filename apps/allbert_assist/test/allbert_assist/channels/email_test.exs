@@ -6,6 +6,7 @@ defmodule AllbertAssist.Channels.EmailTest do
   alias AllbertAssist.Channels.Email.Parser
   alias AllbertAssist.Channels.Email.Renderer
   alias AllbertAssist.Channels.Email.SmtpClient
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime
@@ -52,12 +53,14 @@ defmodule AllbertAssist.Channels.EmailTest do
 
   setup do
     original_env = Map.new(["ALLBERT_HOME", "ALLBERT_HOME_DIR"], &{&1, System.get_env(&1)})
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
 
     Enum.each(Map.keys(original_env), &System.delete_env/1)
+    Application.delete_env(:allbert_assist, Confirmations)
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Runtime)
     Application.delete_env(:allbert_assist, Settings)
@@ -71,6 +74,7 @@ defmodule AllbertAssist.Channels.EmailTest do
     on_exit(fn ->
       File.rm_rf!(home)
       restore_env(original_env)
+      restore_app_env(Confirmations, original_confirmations_config)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Runtime, original_runtime_config)
       restore_app_env(Settings, original_settings_config)
@@ -234,6 +238,62 @@ defmodule AllbertAssist.Channels.EmailTest do
       assert event.reason == ":oversized"
     end
 
+    test "typed confirmation commands resolve through registered actions" do
+      configure_email!()
+      assert {:ok, confirmation} = create_confirmation!("conf_email_deny", "email")
+
+      fake =
+        start_fake_imap!(%{
+          "1" => command_email("cmd-1@example.com", "ALLBERT:DENY:#{confirmation["id"]}")
+        })
+
+      server = :"email-command-#{System.unique_integer([:positive])}"
+      start_email_server!(server, fake)
+
+      assert {:ok, %{processed: 1, rejected: 0}} = Adapter.poll_once(server)
+
+      assert {:ok, resolved} = Confirmations.read(confirmation["id"])
+      assert resolved["status"] == "denied"
+      assert resolved["operator_resolution"]["resolver_actor"] == "alice"
+      assert resolved["operator_resolution"]["resolver_channel"] == "email"
+      assert resolved["operator_resolution"]["resolver_metadata"]["external_message_id"] == "1"
+
+      event = Channels.get_event_by_external_id("email", "cmd-1@example.com")
+      assert event.direction == "callback"
+      assert event.status == "processed"
+      assert event.user_id == "alice"
+      assert String.starts_with?(event.session_id, "ch_em_")
+      assert is_binary(event.input_signal_id)
+
+      assert_received {:smtp_sent, "allbert@example.com", "alice@example.com", "Re: Confirm",
+                       body, opts}
+
+      assert body =~ "denied"
+      assert opts[:in_reply_to] == "cmd-1@example.com"
+    end
+
+    test "typed approve command uses the same confirmation action boundary" do
+      configure_email!()
+      assert {:ok, confirmation} = create_confirmation!("conf_email_approve", "email")
+
+      fake =
+        start_fake_imap!(%{
+          "1" => command_email("cmd-approve@example.com", "ALLBERT:APPROVE:#{confirmation["id"]}")
+        })
+
+      server = :"email-approve-command-#{System.unique_integer([:positive])}"
+      start_email_server!(server, fake)
+
+      assert {:ok, %{processed: 1}} = Adapter.poll_once(server)
+      assert {:ok, resolved} = Confirmations.read(confirmation["id"])
+      assert resolved["status"] == "adapter_unavailable"
+
+      assert_received {:smtp_sent, "allbert@example.com", "alice@example.com", "Re: Confirm",
+                       body, _opts}
+
+      assert body =~ "Approved, but not executed"
+    end
+
     test "backs off on IMAP connection errors" do
       configure_email!()
       server = :"email-error-#{System.unique_integer([:positive])}"
@@ -302,7 +362,7 @@ defmodule AllbertAssist.Channels.EmailTest do
 
   defp start_fake_imap!(messages) do
     name = :"fake-imap-#{System.unique_integer([:positive])}"
-    {:ok, _pid} = Agent.start_link(fn -> %{messages: messages, seen: []} end, name: name)
+    {:ok, _pid} = Agent.start(fn -> %{messages: messages, seen: []} end, name: name)
     on_exit(fn -> if Process.whereis(name), do: Agent.stop(name) end)
     name
   end
@@ -348,6 +408,30 @@ defmodule AllbertAssist.Channels.EmailTest do
     <p>HTML hello</p>
     --abc--
     """
+  end
+
+  defp command_email(message_id, command) do
+    """
+    From: Alice <alice@example.com>
+    To: allbert@example.com
+    Subject: Confirm
+    Message-ID: <#{message_id}>
+    Content-Type: text/plain; charset=utf-8
+
+    #{command}
+    """
+  end
+
+  defp create_confirmation!(id, channel) do
+    Confirmations.create(%{
+      id: id,
+      origin: %{actor: "alice", channel: channel, surface: "channel-test"},
+      target_action: %{name: "external_network_request"},
+      target_permission: :external_network,
+      target_execution_mode: :external_network_unavailable,
+      security_decision: %{permission: :external_network, decision: :needs_confirmation},
+      params_summary: %{url: "https://example.com"}
+    })
   end
 
   defp restore_env(original_env) do
