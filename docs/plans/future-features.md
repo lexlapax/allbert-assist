@@ -48,36 +48,42 @@ existing plan.
 
 ### Autonomous Skill Creation
 
-Source: origin note, ADR 0003, v0.03 through v0.06 non-goals.
+Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, and v0.28
+generator planning.
 
 Allbert should eventually help create new skills from traces, repeated tasks,
-corrections, or explicit user requests. v0.06 may add a developer-oriented
-skill creation/validation helper, but autonomous creation is larger.
+corrections, or explicit user requests. v0.28 covers manual app scaffolding
+only: it may generate ordinary app files, sample actions, sample skills, and
+validation docs, but it does not autonomously infer, trust, enable, publish, or
+activate new capabilities from traces.
 
 Needed before planning:
 
-- stable skill registry and validator
-- skill eval fixtures
+- v0.28 manual app generator accepted through user testing
 - review and trust workflow
 - trace-to-skill draft workflow
 - explicit operator approval before enabling
-- policy for generated code versus instruction-only skill drafts
+- evals for generated skill quality and unsafe capability requests
+- policy for instruction-only drafts versus generated app/action code
 
 
 ### Dynamic Elixir Code Generation Or Module Loading
 
-Source: v0.03/v0.06 execution-boundary clarification.
+Source: v0.03/v0.06 execution-boundary clarification and v0.28 generator
+planning.
 
 Allbert should not auto-generate, compile, or load Elixir modules from
-arbitrary skill folders. A future developer tool may scaffold ordinary Elixir
-action code, but runtime module loading from user skills is not planned.
+arbitrary skill folders. v0.28 may scaffold ordinary source files into the
+project for review, compile, and validation, but runtime module loading from
+untrusted app or skill folders remains unplanned.
 
 Needed before planning:
 
 - separate ADR for code-generation boundaries
-- review/compile/test workflow
-- explicit distinction between scaffolding code and enabling capability
+- v0.28 scaffold/review/compile/test workflow proven
+- explicit distinction between generating source and enabling capability
 - rollback and migration story
+- policy for generated migrations, dependency additions, and operator review
 
 ### Remote Secrets Manager
 
@@ -94,6 +100,7 @@ Needed before planning:
 - migration/export policy
 - offline behavior
 - redaction and audit consistency across backends
+- v0.23 security evals covering secret redaction regressions
 
 ### Remote Sync And Profile Export/Import
 
@@ -106,21 +113,25 @@ Needed before planning:
 
 - stable Allbert Home layout
 - schema/version metadata for settings, memory, skills, cache, and database
+- SQLite conversation and app data export policy after v0.12/v0.17
 - encrypted secret migration policy
 - conflict resolution policy
 - operator-visible dry run and rollback
 
-### Multi-User Authorization Model
+### Hosted Multi-User Authorization Model
 
 Source: v0.02, v0.07, and v0.12 non-goals.
 
-Allbert is currently a local single-operator assistant. A multi-user model may
-matter for shared workspaces, team channels, or hosted deployments.
+Allbert's near-term identity model is local string `user_id`. Hosted accounts,
+roles, teams, auth sessions, API keys, and cross-user authorization remain
+future work for shared workspaces, team channels, or hosted deployments.
 
 Needed before planning:
 
-- identity model
-- operator/user roles
+- v0.12 string identity and thread isolation accepted
+- v0.23 cross-user/thread leakage evals accepted
+- hosted deployment posture and threat model
+- operator/user/admin role model
 - per-user Settings Central scope
 - per-user memory and channel policy
 - audit and confirmation ownership
@@ -137,34 +148,33 @@ Needed before planning:
 
 - stable settings schema
 - operator workflows from real usage
+- v0.24 app settings schema declarations, if app-scoped settings have landed
 - grouping, search, validation, and audit navigation design
 - secret entry UX
 - accessibility and mobile behavior
 
-### Agentic Workspace Surface, Ephemeral UI, And Canvas
+### Post-v0.28 UI Protocol Interop
 
 Source: operator UI discussion, v0.16 channel planning, v0.18 memory review,
 v0.20 intent enrichment, v0.23 security hardening, and research into A2UI,
 AG-UI, MCP Apps, ChatGPT Canvas, Claude Artifacts, Google Gemini generative UI,
 BISCUIT, and Athena.
 
-v0.26 owns the first Allbert-native substrate: a signal-driven LiveView
-workspace, declarative surface contracts, and a persistent canvas for
-artifacts, traces, approvals, memory review, and active tasks. The broader
-future feature remains protocol interoperability and richer generated
+v0.24, v0.26, and v0.27 own the local Allbert-native app contract, surface DSL,
+workspace, ephemeral UI, canvas, and StockSage canvas proof. The remaining
+unassigned work is external protocol interoperability and richer generated UI
 interfaces after the local substrate is boring and safe.
 
 Needed before broader post-v0.28 planning:
 
 - v0.26 local workspace and surface contracts accepted through user testing
-- allowed component catalog, schema validation, provenance, fallback text, and
-  accessibility rules
-- security evals proving generated surfaces cannot invent actions,
+- v0.27 app canvas integration accepted through StockSage user testing
+- v0.23/v0.26 security evals proving generated surfaces cannot invent actions,
   permissions, resources, scripts, URLs, or secret-bearing output
-- persistence and cleanup policy for canvas artifacts and ephemeral surfaces
 - A2UI renderer compatibility assessment
 - AG-UI bridge assessment for agent/frontend event streams
 - MCP Apps sandboxing and third-party UI trust policy
+- cross-client fallback, redaction, provenance, and accessibility rules
 
 ### Browser/Search Capture
 
@@ -176,15 +186,15 @@ approved URL/document consumers, and v0.16 gives browser/search capture a
 possible channel-adapter home. Browser capture is still broader than approved
 URL fetches: it may involve page state, user sessions, cookies, interactive
 navigation, screenshots, or memory promotion, so it remains parked until
-channel adapters and security hardening are ready.
+channel adapters, memory review, and security hardening are ready.
 
 Needed before planning:
 
-- channel adapter foundation
+- v0.16 channel adapter foundation
 - external network/browser permission policy
-- v0.10 resource reference and remembered grant smoke coverage as the baseline
-  for URL/document consumers
-- memory review workflow
+- v0.11 URL/document resource posture and Approval Handoff accepted
+- v0.18 memory review workflow
+- v0.23 browser/search security eval posture
 - sensitive-data detection and confirmation
 - traceable extraction path
 
@@ -201,8 +211,8 @@ read/fetch/extract/summarizer handoff is boring.
 Needed before planning:
 
 - stable resource access reference and approval scope records
-- v0.10 URI-first resource identity, resource references, and remembered
-  grants accepted through the final v0.10 closeout baseline
+- v0.11 URL/document approval handoff accepted through user testing
+- v0.23 prompt-injection and data-exfiltration evals for fetched content
 - bounded content cache/digest policy
 - extractor contracts for HTML, markdown, plain text, PDF, office documents,
   archives, and unknown binary content
@@ -226,15 +236,13 @@ handoff, adapter implementation, redaction, trace, audit, and tests.
 
 Needed before planning:
 
-- v0.10 M12 URI-first resource identity refactor
-- operation-scoped grant matching over `resource_uri`
+- v0.11 unsupported MCP/agent URI posture accepted
+- v0.23 evals for cross-scheme grant reuse, tool/resource confusion, prompt
+  injection through MCP resources, and remote agent impersonation
+- v0.24/v0.26 surface contract stability if MCP Apps UI is in scope
 - MCP server configuration and permission model
 - agent endpoint discovery, authentication, and trust model
-- unsupported-scheme UX from v0.10 M14 through
-  `unsupported_resource_workflow`
-- v0.11 channel-native Approval Handoff consumption
-- evals for cross-scheme grant reuse, tool/resource confusion, prompt
-  injection through MCP resources, and remote agent impersonation
+- channel-native Approval Handoff consumption from v0.16
 
 ### Small-Model Memory Or Personality Distillation
 
@@ -246,7 +254,7 @@ retrieval are stable.
 
 Needed before planning:
 
-- reviewed markdown memory corpus
+- v0.18 reviewed markdown memory corpus
 - rebuildable derived artifacts
 - evals for personality and recall quality
 - privacy and deletion policy
@@ -257,11 +265,13 @@ Needed before planning:
 Source: origin note and v0.16 candidate channels.
 
 Native UI is listed as a possible channel but has no dedicated plan. It should
-not be planned before the channel adapter contract is stable.
+not be planned before the channel adapter contract and local workspace surface
+contract are stable.
 
 Needed before planning:
 
-- channel adapter contract
+- v0.16 channel adapter contract
+- v0.26 workspace/surface contract
 - Settings Central channel preferences
 - authentication or local operator identity policy
 - confirmation handoff behavior
@@ -289,6 +299,7 @@ Needed before planning:
 - permission and confirmation integration
 - trace and audit integration
 - install/update story for runtime dependencies
+- v0.23 eval coverage for script/package/resource bypasses
 
 ### Container And Remote Execution Sandboxes
 
@@ -335,32 +346,13 @@ Questions to resolve before graduation:
 - cleanup, persistence, rollback, and recovery when a container or remote
   sandbox fails
 
-v0.10 implementation clarifies the first split:
+v0.08 through v0.11 establish the local host-process and resource-access
+baseline. v0.23 should show which real workflows cannot be made acceptable
+with registered actions, Settings Central policy, Security Central,
+confirmation, Level 1/Level 2 host controls, redaction, and audit alone.
 
-- bounded HTTP/service calls can proceed through `Req`, SSRF-style policy,
-  confirmation, redaction, and audit without claiming OS isolation
-- npm package installs can proceed only through registered package-manager
-  actions, explicit argv, exact package specs, package-manager profiles, target
-  roots, disabled lifecycle scripts, `--allow-git=none`, confirmation, and
-  audit
-- pip execution should remain preview/audit-only until strict hash, binary,
-  pinned requirement, and target policy are implemented and tested
-- imported online skills must remain disabled and untrusted; untrusted imported
-  code execution remains a deeper sandbox problem, not a v0.10 capability
-- CLI, `/settings`, traces, and audits now expose the v0.10 request/result
-  metadata needed to decide which workflows need deeper sandboxing later
-- v0.11 Resource Access Security Posture should decide whether a local or
-  remote resource is being summarized, inspected, imported as a skill, used for
-  package metadata, or executed as a trusted skill script before any downstream
-  consumer acts
-- v0.10 M9 preserves the current operator smoke baseline for deciding when a
-  future workflow needs deeper sandboxing instead of only registered actions,
-  policy, confirmation, redaction, and audit
-
-This should become a versioned roadmap item only after v0.10's actual external,
-package, and import traces show which workflows cannot be made acceptable with
-registered actions, Settings Central policy, Security Central, confirmation,
-Level 1/Level 2 host controls, redaction, and audit alone.
+This should become a versioned roadmap item only after security evals and real
+operator traces identify a concrete workflow that needs deeper isolation.
 
 ## Review Cadence
 

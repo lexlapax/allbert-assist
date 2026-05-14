@@ -990,16 +990,22 @@ Plan: `docs/plans/v0.28-plan.md`
 Status: research (unstarted).
 
 Prerequisite: StockSage proves the full v0.24 contract end to end after v0.25,
-and v0.26 canvas ships.
+v0.26 canvas ships, and v0.27 proves the app/canvas path.
 
 Expected direction:
 
 - `mix allbert.gen.app MyApp` scaffolds all five app contract layers.
-- Generated output includes an app module, sample Jido action, sample
-  `SKILL.md`, sample surface, and Ecto domain stub.
+- Generated output includes an app module, app supervision wiring, sample Jido
+  action, sample `SKILL.md`, sample surface provider or surface node, sample
+  Ecto domain stub, and validation docs.
 - `mix allbert.validate_app MyApp` passes on first run.
+- Generated code is inert by default: no automatic trust, skill enablement,
+  publishing, permission grants, or execution authority.
 - Optionally add `mix allbert.publish_skills` for publishing app `SKILL.md`
   files to agentskills.io after the local app contract is proven.
+
+Post-v0.28 candidates remain in `docs/plans/future-features.md` until
+promoted.
 
 ## Future: Distillation And Self-Improvement
 

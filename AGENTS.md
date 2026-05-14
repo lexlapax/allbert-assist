@@ -132,6 +132,15 @@ For v0.15 or v0.24 app contract work, read `docs/plans/v0.15-plan.md` or
 `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, app-level action
 or skill registration, workspace navigation, or canvas component catalogs.
 
+For v0.26 agentic workspace surface and ephemeral UI work, read
+`docs/plans/v0.26-plan.md`, `docs/plans/v0.23-plan.md`,
+`docs/plans/v0.24-plan.md`, `docs/plans/allbert-jido-vision.md`, and
+`docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing the
+workspace shell lifecycle, canvas persistence, ephemeral surface scoping and
+discard, surface validation at render time, signal-to-render pipeline, or
+workspace navigation behavior. v0.26 cannot start until v0.23 and v0.24 are
+complete.
+
 For StockSage workspace app work, read the active StockSage milestone plan
 (`docs/plans/v0.17-plan.md`, `docs/plans/v0.19-plan.md`,
 `docs/plans/v0.21-plan.md`, `docs/plans/v0.22-plan.md`,
@@ -141,6 +150,15 @@ For StockSage workspace app work, read the active StockSage milestone plan
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
 StockSage agents, actions, domain records, the Python bridge, StockSage
 LiveViews, canvas components, or the StockSage skill pack.
+
+For v0.28 app generator work, read `docs/plans/v0.28-plan.md`,
+`docs/plans/v0.24-plan.md`, `docs/plans/v0.25-plan.md`,
+`docs/plans/v0.26-plan.md`, `docs/plans/v0.27-plan.md`, and
+`docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
+`mix allbert.gen.app`, generated app structure, generated skill or action
+inertness, or `mix allbert.publish_skills`. The generator must not grant
+automatic trust, enable generated skills, load runtime modules from arbitrary
+folders, or publish externally without explicit operator action.
 
 ## Non-Negotiables
 
