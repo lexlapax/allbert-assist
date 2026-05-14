@@ -71,7 +71,7 @@ defmodule AllbertAssist.Channels.Event do
     |> validate_length(:session_id, max: 128)
     |> validate_length(:thread_id, max: 128)
     |> validate_length(:input_signal_id, max: 128)
-    |> validate_length(:trace_id, max: 128)
+    |> validate_length(:trace_id, max: 500)
     |> validate_length(:reason, max: 500)
     |> validate_length(:payload_summary, max: 500)
     |> validate_length(:error, max: 500)
