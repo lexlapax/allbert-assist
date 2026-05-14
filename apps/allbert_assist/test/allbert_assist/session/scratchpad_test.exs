@@ -2,6 +2,7 @@ defmodule AllbertAssist.Session.ScratchpadTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.Session
+  alias AllbertAssist.Session.AppId
   alias AllbertAssist.Session.Scratchpad
 
   setup do
@@ -11,6 +12,22 @@ defmodule AllbertAssist.Session.ScratchpadTest do
     start_scratchpad!(name, table_name: table, ttl_ms: 120_000, sweep_interval_ms: 0)
 
     {:ok, opts: [server: name]}
+  end
+
+  test "AppId allowlist normalizes known apps and never creates unknown atoms" do
+    assert {:ok, :allbert} = AppId.normalize(:allbert)
+    assert {:ok, :stocksage} = AppId.normalize("stocksage")
+    assert {:ok, nil} = AppId.normalize("")
+    assert {:ok, nil} = AppId.normalize("none")
+    assert {:ok, nil} = AppId.normalize("general")
+    assert {:error, :unknown_app} = AppId.normalize(:unknown_app)
+
+    unknown = "__allbert_unknown_app_#{System.unique_integer([:positive])}__"
+    assert {:error, :unknown_app} = AppId.normalize(unknown)
+
+    assert_raise ArgumentError, fn ->
+      String.to_existing_atom(unknown)
+    end
   end
 
   test "creates, gets, lists, and clears entries without crossing users", %{opts: opts} do

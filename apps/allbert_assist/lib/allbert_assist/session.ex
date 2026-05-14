@@ -7,6 +7,7 @@ defmodule AllbertAssist.Session do
   rather than touching ETS or the scratchpad GenServer directly.
   """
 
+  alias AllbertAssist.Session.AppId
   alias AllbertAssist.Session.Scratchpad
 
   @max_session_id_length 128
@@ -50,8 +51,7 @@ defmodule AllbertAssist.Session do
   def put(_user_id, _session_id, _attrs, _opts), do: {:error, :invalid_entry_attrs}
 
   @doc "Create or update the active app for a session."
-  @spec set_active_app(term(), term(), atom() | nil, keyword()) ::
-          {:ok, entry()} | {:error, term()}
+  @spec set_active_app(term(), term(), term(), keyword()) :: {:ok, entry()} | {:error, term()}
   def set_active_app(user_id, session_id, active_app, opts \\ []) do
     with {:ok, key} <- key(user_id, session_id),
          {:ok, active_app} <- normalize_active_app(active_app) do
@@ -123,8 +123,7 @@ defmodule AllbertAssist.Session do
 
   @doc "Return a stable string label for an active app."
   @spec active_app_label(atom() | nil) :: String.t()
-  def active_app_label(nil), do: "none"
-  def active_app_label(active_app) when is_atom(active_app), do: Atom.to_string(active_app)
+  def active_app_label(active_app), do: AppId.label(active_app)
 
   @doc "Return sorted working-memory keys without values."
   @spec working_memory_keys(entry()) :: [String.t()]
@@ -208,9 +207,7 @@ defmodule AllbertAssist.Session do
     end
   end
 
-  defp normalize_active_app(nil), do: {:ok, nil}
-  defp normalize_active_app(active_app) when is_atom(active_app), do: {:ok, active_app}
-  defp normalize_active_app(_active_app), do: {:error, :invalid_active_app}
+  defp normalize_active_app(active_app), do: AppId.normalize(active_app)
 
   defp normalize_optional_map(attrs, key, kind) do
     if has_key?(attrs, key) do
