@@ -9,7 +9,7 @@ defmodule AllbertAssist.Actions.Session.SetActiveApp do
     schema: [
       user_id: [type: :string, required: true],
       session_id: [type: :string, required: true],
-      app_id: [type: :string, required: true]
+      app_id: [type: :string, required: false]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -21,7 +21,8 @@ defmodule AllbertAssist.Actions.Session.SetActiveApp do
   alias AllbertAssist.Session
 
   @impl true
-  def run(%{user_id: user_id, session_id: session_id, app_id: app_id}, context) do
+  def run(%{user_id: user_id, session_id: session_id} = params, context) do
+    app_id = Map.get(params, :app_id)
     permission_decision = PermissionGate.authorize(:settings_write, context)
 
     with true <- PermissionGate.allowed?(permission_decision),
