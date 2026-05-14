@@ -16,6 +16,7 @@ defmodule AllbertAssist.Actions.SessionActionsTest do
       Logger.configure(level: original_logger_level)
       Session.clear(user, "sess-1")
       Session.clear(user, "sess-keys")
+      Session.clear(user, "sess-none")
     end)
 
     {:ok, user: user}
@@ -85,6 +86,21 @@ defmodule AllbertAssist.Actions.SessionActionsTest do
     assert invalid_response.error == :invalid_user_id
   end
 
+  test "set action accepts omitted app id as general context", %{user: user} do
+    assert {:ok, response} =
+             Runner.run(
+               "set_active_app",
+               %{user_id: user, session_id: "sess-none"},
+               context(user)
+             )
+
+    assert response.status == :completed
+    assert response.session.active_app == nil
+
+    assert {:ok, entry} = Session.get(user, "sess-none")
+    assert entry.active_app == nil
+  end
+
   test "show action returns working memory keys without raw values", %{user: user} do
     assert {:ok, _entry} = Session.merge_working_memory(user, "sess-keys", %{pane: "secret-ish"})
 
@@ -100,7 +116,7 @@ defmodule AllbertAssist.Actions.SessionActionsTest do
     refute inspect(response) =~ "secret-ish"
   end
 
-  test "clear and show report missing entries as structured denials", %{user: user} do
+  test "clear and show report missing entries as not found", %{user: user} do
     assert {:ok, clear_response} =
              Runner.run(
                "clear_active_app",
@@ -108,7 +124,7 @@ defmodule AllbertAssist.Actions.SessionActionsTest do
                context(user)
              )
 
-    assert clear_response.status == :denied
+    assert clear_response.status == :not_found
     assert clear_response.error == :not_found
 
     assert {:ok, show_response} =
@@ -118,7 +134,7 @@ defmodule AllbertAssist.Actions.SessionActionsTest do
                context(user)
              )
 
-    assert show_response.status == :denied
+    assert show_response.status == :not_found
     assert show_response.error == :not_found
   end
 

@@ -123,8 +123,8 @@ defmodule AllbertAssist.Runtime do
 
     with {:ok, text} <- text,
          {:ok, identity} <- identity(attrs),
+         {:ok, session_id} <- normalize_session_id(attrs),
          {:ok, thread} <- resolve_thread(attrs, identity.user_id, text) do
-      session_id = optional_string(fetch_value(attrs, :session_id))
       session_context = session_context(identity.user_id, session_id)
 
       {:ok,
@@ -218,9 +218,9 @@ defmodule AllbertAssist.Runtime do
         operator_id: request.operator_id,
         thread_id: request.thread_id,
         session_id: request.session_id,
-        active_app: request.active_app,
         metadata: request.metadata
-      },
+      }
+      |> maybe_put(:active_app, request.active_app),
       source: channel_source(request.channel),
       subject: request.user_id
     )
@@ -237,13 +237,13 @@ defmodule AllbertAssist.Runtime do
         operator_id: request.operator_id,
         thread_id: request.thread_id,
         session_id: request.session_id,
-        active_app: request.active_app,
         actions: response_actions(agent_response),
         decision: response_decision(agent_response),
         resource_access: response_resource_access(agent_response),
         approval_handoff: response_approval_handoff(agent_response),
         diagnostics: request.diagnostics ++ response_diagnostics(agent_response)
-      },
+      }
+      |> maybe_put(:active_app, request.active_app),
       source: "/allbert/runtime",
       subject: request.user_id
     )
@@ -460,9 +460,9 @@ defmodule AllbertAssist.Runtime do
              response_signal_id: response.signal_id,
              trace_id: trace_id,
              user_id: request.user_id,
-             thread_id: request.thread_id,
-             active_app: request.active_app
-           },
+             thread_id: request.thread_id
+           }
+           |> maybe_put(:active_app, request.active_app),
            source: "/allbert/runtime",
            subject: request.user_id
          ) do
@@ -542,6 +542,13 @@ defmodule AllbertAssist.Runtime do
 
   defp response_diagnostics(%{decision: %Decision{} = decision}), do: decision.diagnostics
   defp response_diagnostics(_other), do: []
+
+  defp normalize_session_id(attrs) do
+    case fetch_value(attrs, :session_id) do
+      nil -> {:ok, nil}
+      session_id -> Session.normalize_session_id(session_id)
+    end
+  end
 
   defp optional_string(nil), do: nil
 

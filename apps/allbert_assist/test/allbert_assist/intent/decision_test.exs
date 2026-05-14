@@ -44,6 +44,7 @@ defmodule AllbertAssist.Intent.DecisionTest do
              })
 
     assert decision.user_id == "legacy-operator"
+    refute Map.has_key?(decision.trace_metadata, :active_app)
   end
 
   test "preserves context active app and rejects unknown active app output" do

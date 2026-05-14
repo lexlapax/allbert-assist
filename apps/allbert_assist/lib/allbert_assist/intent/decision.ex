@@ -307,9 +307,9 @@ defmodule AllbertAssist.Intent.Decision do
         resource_access_count: length(decision.resource_access),
         user_id: decision.user_id,
         thread_id: decision.thread_id,
-        session_id: decision.session_id,
-        active_app: decision.active_app
+        session_id: decision.session_id
       })
+      |> put_if_present(:active_app, decision.active_app)
 
     %{decision | trace_metadata: trace_metadata}
   end
@@ -411,6 +411,9 @@ defmodule AllbertAssist.Intent.Decision do
   defp field(map, key, default) when is_map(map) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
+
+  defp put_if_present(map, _key, nil), do: map
+  defp put_if_present(map, key, value), do: Map.put(map, key, value)
 
   defp context_value(%{request: request} = context, key) when is_map(request),
     do: field(request, key) || context |> Map.delete(:request) |> context_value(key)
