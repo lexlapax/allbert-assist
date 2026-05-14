@@ -43,3 +43,8 @@ erl_crash.dump
 # Coverage reports
 /cover/
 /excoveralls/
+
+# Local Claude Code workspace (worktrees, local settings, agent scratch).
+# Keep the entire `.claude/` directory local to each machine; selectively
+# allow specific shared files if needed.
+/.claude/
