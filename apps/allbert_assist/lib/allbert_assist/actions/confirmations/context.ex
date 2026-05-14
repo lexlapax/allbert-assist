@@ -9,7 +9,8 @@ defmodule AllbertAssist.Actions.Confirmations.Context do
       resolver_session_id: session_id(context),
       resolution_reason: blank_to_nil(reason),
       same_channel?: same_channel?(record, context),
-      decision_source: "operator"
+      decision_source: "operator",
+      resolver_metadata: resolver_metadata(context)
     }
     |> Map.merge(metadata)
   end
@@ -73,6 +74,10 @@ defmodule AllbertAssist.Actions.Confirmations.Context do
   defp session_id(%{request: %{session_id: session_id}}), do: session_id
   defp session_id(%{request: %{"session_id" => session_id}}), do: session_id
   defp session_id(_context), do: nil
+
+  defp resolver_metadata(%{resolver_metadata: metadata}) when is_map(metadata), do: metadata
+  defp resolver_metadata(%{"resolver_metadata" => metadata}) when is_map(metadata), do: metadata
+  defp resolver_metadata(_context), do: nil
 
   defp blank_to_nil(value) when is_binary(value) do
     value = String.trim(value)

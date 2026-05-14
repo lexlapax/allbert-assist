@@ -6,6 +6,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
   alias AllbertAssist.Channels.Telegram.Client
   alias AllbertAssist.Channels.Telegram.Parser
   alias AllbertAssist.Channels.Telegram.Renderer
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime
@@ -17,12 +18,14 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
   setup do
     original_env = Map.new(["ALLBERT_HOME", "ALLBERT_HOME_DIR"], &{&1, System.get_env(&1)})
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
 
     Enum.each(Map.keys(original_env), &System.delete_env/1)
+    Application.delete_env(:allbert_assist, Confirmations)
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Runtime)
     Application.delete_env(:allbert_assist, Settings)
@@ -36,6 +39,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
     on_exit(fn ->
       File.rm_rf!(home)
       restore_env(original_env)
+      restore_app_env(Confirmations, original_confirmations_config)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Runtime, original_runtime_config)
       restore_app_env(Settings, original_settings_config)
@@ -154,11 +158,16 @@ defmodule AllbertAssist.Channels.TelegramTest do
         json(conn, %{"ok" => true, "result" => [text_update(200), callback_update(201)]})
       end)
 
+      Req.Test.expect(__MODULE__, fn conn ->
+        assert conn.request_path == "/bottoken/answerCallbackQuery"
+        json(conn, %{"ok" => true, "result" => true})
+      end)
+
       server = :"telegram-poll-#{System.unique_integer([:positive])}"
 
       start_telegram_server!(server)
 
-      assert {:ok, %{processed: 1, duplicates: 0, rejected: 1, failed: 0}} =
+      assert {:ok, %{processed: 0, duplicates: 0, rejected: 2, failed: 0}} =
                Adapter.poll_once(server)
 
       assert Channels.get_event_by_external_id("telegram", "200").status == "rejected"
@@ -222,6 +231,101 @@ defmodule AllbertAssist.Channels.TelegramTest do
       assert_received {:runtime_request, %{channel: "telegram", user_id: "alice"} = request}
       assert request.metadata.external_event_id == "210"
       assert request.metadata.external_chat_id == "456"
+    end
+
+    test "confirmation callbacks resolve through registered actions with resolver metadata" do
+      configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
+      assert {:ok, confirmation} = create_confirmation!("conf_tg_deny", "telegram")
+
+      Req.Test.stub(__MODULE__, fn
+        %{request_path: "/bottoken/getUpdates"} = conn ->
+          json(conn, %{
+            "ok" => true,
+            "result" => [callback_update(220, "allbert:v1:deny:#{confirmation["id"]}")]
+          })
+
+        %{request_path: "/bottoken/sendMessage"} = conn ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          decoded = Jason.decode!(body)
+          assert decoded["chat_id"] == "456"
+          assert decoded["text"] =~ "denied"
+          json(conn, %{"ok" => true, "result" => %{"message_id" => 100}})
+
+        %{request_path: "/bottoken/answerCallbackQuery"} = conn ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          assert Jason.decode!(body)["callback_query_id"] == "callback-1"
+          json(conn, %{"ok" => true, "result" => true})
+      end)
+
+      server = :"telegram-callback-#{System.unique_integer([:positive])}"
+      start_telegram_server!(server)
+
+      assert {:ok, %{processed: 1, rejected: 0}} = Adapter.poll_once(server)
+
+      assert {:ok, resolved} = Confirmations.read(confirmation["id"])
+      assert resolved["status"] == "denied"
+      assert resolved["operator_resolution"]["resolver_actor"] == "alice"
+      assert resolved["operator_resolution"]["resolver_channel"] == "telegram"
+
+      assert resolved["operator_resolution"]["resolver_metadata"]["callback_query_id"] ==
+               "callback-1"
+
+      event = Channels.get_event_by_external_id("telegram", "220")
+      assert event.direction == "callback"
+      assert event.status == "processed"
+      assert event.user_id == "alice"
+      assert String.starts_with?(event.session_id, "ch_tg_")
+      assert is_binary(event.input_signal_id)
+    end
+
+    test "malformed confirmation callbacks are rejected and acknowledged" do
+      configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
+
+      Req.Test.stub(__MODULE__, fn
+        %{request_path: "/bottoken/getUpdates"} = conn ->
+          json(conn, %{"ok" => true, "result" => [callback_update(221, "bad-callback")]})
+
+        %{request_path: "/bottoken/answerCallbackQuery"} = conn ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          assert Jason.decode!(body)["text"] == "Unsupported confirmation button."
+          json(conn, %{"ok" => true, "result" => true})
+      end)
+
+      server = :"telegram-bad-callback-#{System.unique_integer([:positive])}"
+      start_telegram_server!(server)
+
+      assert {:ok, %{rejected: 1}} = Adapter.poll_once(server)
+      event = Channels.get_event_by_external_id("telegram", "221")
+      assert event.status == "rejected"
+      assert event.reason == ":malformed_callback_data"
+    end
+
+    test "show confirmation callback renders current state without resolving it" do
+      configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
+      assert {:ok, confirmation} = create_confirmation!("conf_tg_show", "telegram")
+
+      Req.Test.stub(__MODULE__, fn
+        %{request_path: "/bottoken/getUpdates"} = conn ->
+          json(conn, %{
+            "ok" => true,
+            "result" => [callback_update(222, "allbert:v1:show:#{confirmation["id"]}")]
+          })
+
+        %{request_path: "/bottoken/sendMessage"} = conn ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          assert Jason.decode!(body)["text"] =~ "pending"
+          json(conn, %{"ok" => true, "result" => %{"message_id" => 101}})
+
+        %{request_path: "/bottoken/answerCallbackQuery"} = conn ->
+          json(conn, %{"ok" => true, "result" => true})
+      end)
+
+      server = :"telegram-show-callback-#{System.unique_integer([:positive])}"
+      start_telegram_server!(server)
+
+      assert {:ok, %{processed: 1}} = Adapter.poll_once(server)
+      assert {:ok, pending} = Confirmations.read(confirmation["id"])
+      assert pending["status"] == "pending"
     end
 
     test "derives restart offset from stored channel events" do
@@ -316,16 +420,28 @@ defmodule AllbertAssist.Channels.TelegramTest do
     }
   end
 
-  defp callback_update(update_id) do
+  defp callback_update(update_id, data \\ "allbert:v1:show:conf_1") do
     %{
       "update_id" => update_id,
       "callback_query" => %{
         "id" => "callback-1",
         "from" => %{"id" => 123},
         "message" => %{"chat" => %{"id" => 456}},
-        "data" => "allbert:v1:show:conf_1"
+        "data" => data
       }
     }
+  end
+
+  defp create_confirmation!(id, channel) do
+    Confirmations.create(%{
+      id: id,
+      origin: %{actor: "alice", channel: channel, surface: "channel-test"},
+      target_action: %{name: "external_network_request"},
+      target_permission: :external_network,
+      target_execution_mode: :external_network_unavailable,
+      security_decision: %{permission: :external_network, decision: :needs_confirmation},
+      params_summary: %{url: "https://example.com"}
+    })
   end
 
   defp json(conn, body) do
