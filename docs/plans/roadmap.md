@@ -799,6 +799,9 @@ Expected direction:
   use while keeping raw working-memory values out of traces/logs by default.
 - Add a CLI sessions surface and `mix allbert.ask --session` so Phase 1
   acceptance can prove active-app propagation without adding workspace UI.
+- Expose active-app session inspection/mutation through registered actions
+  that reuse existing `:settings_write`/`:read_only` permissions and do not
+  add new Security Central permission classes.
 - Propagate `active_app` through runtime requests, signals, intent-agent
   context, decisions, traces, responses, and assistant message metadata.
 - Treat scratchpad state as context only, not durable memory, app routing,
