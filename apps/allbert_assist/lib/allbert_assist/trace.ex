@@ -102,7 +102,7 @@ defmodule AllbertAssist.Trace do
       summary: trace_summary(response, input_signal),
       body: trace_body(turn),
       source_signal_id: input_signal.id,
-      actor: Map.get(request, :operator_id, "local"),
+      actor: Map.get(request, :user_id, Map.get(request, :operator_id, "local")),
       agent: inspect(Map.get(turn, :agent, AllbertAssist.Agents.IntentAgent)),
       channel: Map.get(request, :channel, "unknown"),
       response_signal_id: response_signal.id
@@ -134,7 +134,10 @@ defmodule AllbertAssist.Trace do
     - Response signal: #{response_signal.id}
     - Response signal type: #{response_signal.type}
     - Channel: #{request.channel}
+    - User: #{Map.get(request, :user_id, request.operator_id)}
     - Operator: #{request.operator_id}
+    - Thread: #{Map.get(request, :thread_id, "none")}
+    - Session: #{Map.get(request, :session_id, "none") || "none"}
     - Agent: #{inspect(Map.get(turn, :agent, AllbertAssist.Agents.IntentAgent))}
     - Model alias: #{model_alias()}
     - Status: #{response.status}

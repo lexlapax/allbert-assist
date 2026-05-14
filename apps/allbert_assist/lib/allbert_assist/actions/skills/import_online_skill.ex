@@ -232,6 +232,8 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
 
     %{
       actor: Map.get(request, :operator_id, Map.get(context, :actor, "local")),
+      user_id: Map.get(request, :user_id, Map.get(context, :user_id)),
+      thread_id: Map.get(request, :thread_id, Map.get(context, :thread_id)),
       channel: Map.get(request, :channel, Map.get(context, :channel, :unknown)),
       surface: Map.get(context, :surface, "import_online_skill"),
       session_id: Map.get(request, :session_id, Map.get(context, :session_id)),

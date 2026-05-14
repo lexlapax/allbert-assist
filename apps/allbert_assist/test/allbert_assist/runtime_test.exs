@@ -323,6 +323,8 @@ defmodule AllbertAssist.RuntimeTest do
     assert trace =~ "Trace format: v0.01-m6"
     assert trace =~ "Input signal: "
     assert trace =~ "Response signal: "
+    assert trace =~ "User: local"
+    assert trace =~ "Thread: thr_"
     assert trace =~ "Agent: AllbertAssist.Agents.IntentAgent"
     assert trace =~ "Model alias: local"
     assert trace =~ "Selected action: direct_answer"
@@ -330,6 +332,21 @@ defmodule AllbertAssist.RuntimeTest do
     assert trace =~ "## Security Metadata"
     assert trace =~ "Trace this successful turn."
     assert trace =~ "Runtime response: Trace this successful turn."
+  end
+
+  test "ordinary conversation turns do not write markdown memory when tracing is disabled", %{
+    root: root
+  } do
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Plain direct answer.",
+               channel: :test,
+               user_id: "alice",
+               new_thread: true
+             })
+
+    assert response.status == :completed
+    assert Path.wildcard(Path.join(root, "**/*.md")) == []
   end
 
   test "trace write failures do not crash the runtime response" do

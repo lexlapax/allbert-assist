@@ -2,6 +2,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
@@ -93,6 +94,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert response.decision.confirmation == :pending
     assert response.decision.permission == :external_network
     assert response.decision.user_id == "local"
+    assert response.decision.thread_id == response.thread_id
 
     assert [%{operation_class: :external_service_request, access_mode: :fetch}] =
              response.resource_access
@@ -120,7 +122,20 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
     assert {:ok, pending} = Confirmations.read(confirmation_id)
     assert pending["origin"]["channel"] == "test"
+    assert pending["origin"]["user_id"] == "local"
+    assert pending["origin"]["thread_id"] == response.thread_id
     assert pending["target_execution_mode"] == "req_http"
+
+    assert {:ok, %{messages: [_user_message, assistant_message]}} =
+             Conversations.show_thread("local", response.thread_id)
+
+    assert action_log_value(assistant_message.action_log, "status") in [
+             :needs_confirmation,
+             "needs_confirmation"
+           ]
+
+    assert action_log_value(assistant_message.action_log, "approval_handoff")
+    assert action_log_value(assistant_message.action_log, "resource_access")
   end
 
   test "default runtime creates URL summarization confirmation before fetching" do
@@ -307,5 +322,9 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     }
 
     assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
+
+  defp action_log_value(action_log, key) do
+    Map.get(action_log, key) || Map.get(action_log, String.to_atom(key))
   end
 end
