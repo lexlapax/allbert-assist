@@ -64,13 +64,27 @@ defmodule AllbertAssist.Intent.DecisionTest do
     assert decision.active_app == :stocksage
     assert decision.trace_metadata.active_app == :stocksage
 
-    assert {:error, :unknown_app} =
+    assert {:ok, fallback_decision} =
              Decision.new(%{
                intent: :direct_answer,
                selected_action: "direct_answer",
                active_app: :invented_app,
                context: %{request: %{user_id: "alice", active_app: :stocksage}}
              })
+
+    assert fallback_decision.active_app == :stocksage
+    assert [%{kind: :unknown_active_app}] = fallback_decision.diagnostics
+
+    assert {:ok, nil_decision} =
+             Decision.new(%{
+               intent: :direct_answer,
+               selected_action: "direct_answer",
+               active_app: :invented_app,
+               context: %{request: %{user_id: "alice"}}
+             })
+
+    assert nil_decision.active_app == nil
+    assert [%{kind: :unknown_active_app}] = nil_decision.diagnostics
   end
 
   test "rejects unknown actions before they can be invoked" do

@@ -69,47 +69,46 @@ defmodule AllbertAssist.Intent.Decision do
   @spec new(map()) :: {:ok, t()} | {:error, term()}
   def new(attrs) when is_map(attrs) do
     context = field(attrs, :context, %{}) || %{}
+    {active_app, active_app_diagnostics} = active_app(attrs, context)
 
-    with {:ok, active_app} <- active_app(attrs, context) do
-      decision =
-        %__MODULE__{
-          intent: field(attrs, :intent),
-          confidence: normalize_confidence(field(attrs, :confidence, 1.0)),
-          reason: field(attrs, :reason),
-          risk_summary: field(attrs, :risk_summary),
-          selected_skill: normalize_optional_string(field(attrs, :selected_skill)),
-          candidate_skills: normalize_list(field(attrs, :candidate_skills)),
-          selected_action: normalize_optional_string(field(attrs, :selected_action)),
-          candidate_actions: normalize_list(field(attrs, :candidate_actions)),
-          permission: field(attrs, :permission),
-          confirmation: field(attrs, :confirmation, :not_required),
-          execution_mode: field(attrs, :execution_mode),
-          resource_access: normalize_list(field(attrs, :resource_access)),
-          foreground_or_background: field(attrs, :foreground_or_background, :foreground),
-          user_id: user_id(attrs, context),
-          thread_id:
-            normalize_optional_string(
-              field(attrs, :thread_id) || context_value(context, :thread_id)
-            ),
-          session_id:
-            normalize_optional_string(
-              field(attrs, :session_id) || context_value(context, :session_id)
-            ),
-          active_app: active_app,
-          approval_handoff: field(attrs, :approval_handoff),
-          alternatives: normalize_list(field(attrs, :alternatives)),
-          diagnostics: normalize_list(field(attrs, :diagnostics)),
-          trace_metadata: field(attrs, :trace_metadata, %{}) || %{}
-        }
+    decision =
+      %__MODULE__{
+        intent: field(attrs, :intent),
+        confidence: normalize_confidence(field(attrs, :confidence, 1.0)),
+        reason: field(attrs, :reason),
+        risk_summary: field(attrs, :risk_summary),
+        selected_skill: normalize_optional_string(field(attrs, :selected_skill)),
+        candidate_skills: normalize_list(field(attrs, :candidate_skills)),
+        selected_action: normalize_optional_string(field(attrs, :selected_action)),
+        candidate_actions: normalize_list(field(attrs, :candidate_actions)),
+        permission: field(attrs, :permission),
+        confirmation: field(attrs, :confirmation, :not_required),
+        execution_mode: field(attrs, :execution_mode),
+        resource_access: normalize_list(field(attrs, :resource_access)),
+        foreground_or_background: field(attrs, :foreground_or_background, :foreground),
+        user_id: user_id(attrs, context),
+        thread_id:
+          normalize_optional_string(
+            field(attrs, :thread_id) || context_value(context, :thread_id)
+          ),
+        session_id:
+          normalize_optional_string(
+            field(attrs, :session_id) || context_value(context, :session_id)
+          ),
+        active_app: active_app,
+        approval_handoff: field(attrs, :approval_handoff),
+        alternatives: normalize_list(field(attrs, :alternatives)),
+        diagnostics: normalize_list(field(attrs, :diagnostics)) ++ active_app_diagnostics,
+        trace_metadata: field(attrs, :trace_metadata, %{}) || %{}
+      }
 
-      with {:ok, decision} <- validate_foreground_or_background(decision),
-           {:ok, decision} <- validate_action(decision),
-           {:ok, decision} <- validate_skill(decision, context),
-           {:ok, decision} <- validate_resources(decision),
-           {:ok, decision} <- validate_confirmation(decision),
-           {:ok, decision} <- authorize(decision, context) do
-        {:ok, put_trace_metadata(decision)}
-      end
+    with {:ok, decision} <- validate_foreground_or_background(decision),
+         {:ok, decision} <- validate_action(decision),
+         {:ok, decision} <- validate_skill(decision, context),
+         {:ok, decision} <- validate_resources(decision),
+         {:ok, decision} <- validate_confirmation(decision),
+         {:ok, decision} <- authorize(decision, context) do
+      {:ok, put_trace_metadata(decision)}
     end
   end
 
@@ -310,6 +309,7 @@ defmodule AllbertAssist.Intent.Decision do
         session_id: decision.session_id
       })
       |> put_if_present(:active_app, decision.active_app)
+      |> put_if_present(:app_id, selected_action_app_id(decision))
 
     %{decision | trace_metadata: trace_metadata}
   end
@@ -320,6 +320,13 @@ defmodule AllbertAssist.Intent.Decision do
     case Registry.capability(action) do
       {:ok, capability} -> Capability.summary(capability)
       {:error, _reason} -> nil
+    end
+  end
+
+  defp selected_action_app_id(decision) do
+    case selected_capability(decision) do
+      %{app_id: app_id} -> app_id
+      _summary -> nil
     end
   end
 
@@ -377,10 +384,37 @@ defmodule AllbertAssist.Intent.Decision do
   end
 
   defp active_app(attrs, context) do
-    attrs
-    |> field(:active_app)
-    |> Kernel.||(context_value(context, :active_app))
-    |> AppId.normalize()
+    context_active_app = context_value(context, :active_app)
+
+    if has_field?(attrs, :active_app) do
+      candidate = field(attrs, :active_app)
+
+      case AppId.normalize(candidate) do
+        {:ok, app_id} ->
+          {app_id, []}
+
+        {:error, reason} ->
+          {fallback, fallback_diagnostics} = normalize_context_active_app(context_active_app)
+          {fallback, [active_app_diagnostic(candidate, reason) | fallback_diagnostics]}
+      end
+    else
+      normalize_context_active_app(context_active_app)
+    end
+  end
+
+  defp normalize_context_active_app(active_app) do
+    case AppId.normalize(active_app) do
+      {:ok, app_id} -> {app_id, []}
+      {:error, reason} -> {nil, [active_app_diagnostic(active_app, reason)]}
+    end
+  end
+
+  defp active_app_diagnostic(active_app, reason) do
+    %{
+      kind: :unknown_active_app,
+      message: "Unknown active app was ignored.",
+      detail: %{active_app: inspect(active_app), reason: reason}
+    }
   end
 
   defp normalize_confidence(value) when is_integer(value), do: normalize_confidence(value / 1)
@@ -410,6 +444,10 @@ defmodule AllbertAssist.Intent.Decision do
 
   defp field(map, key, default) when is_map(map) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+  end
+
+  defp has_field?(map, key) when is_map(map) do
+    Map.has_key?(map, key) or Map.has_key?(map, Atom.to_string(key))
   end
 
   defp put_if_present(map, _key, nil), do: map
