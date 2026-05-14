@@ -25,8 +25,18 @@ defmodule AllbertAssist.Session do
           expires_at_ms: integer()
         }
 
+  @type summary :: %{
+          user_id: String.t(),
+          session_id: String.t(),
+          active_app: atom() | nil,
+          remaining_ttl_ms: non_neg_integer(),
+          metadata_keys: [String.t()],
+          working_memory_keys: [String.t()],
+          working_memory_key_count: non_neg_integer()
+        }
+
   @doc "Return the maximum accepted `session_id` length."
-  @spec max_session_id_length() :: pos_integer()
+  @spec max_session_id_length() :: 128
   def max_session_id_length, do: @max_session_id_length
 
   @doc "Fetch one unexpired session entry."
@@ -108,7 +118,7 @@ defmodule AllbertAssist.Session do
   end
 
   @doc "Return a trace-safe summary of an entry."
-  @spec summary(entry()) :: map()
+  @spec summary(entry()) :: summary()
   def summary(%{} = entry) do
     %{
       user_id: entry.user_id,
@@ -148,7 +158,8 @@ defmodule AllbertAssist.Session do
   @doc "Return remaining TTL from monotonic time."
   @spec remaining_ttl_ms(entry()) :: non_neg_integer()
   def remaining_ttl_ms(%{} = entry) do
-    max(entry.expires_at_ms - monotonic_ms(), 0)
+    remaining = trunc(entry.expires_at_ms) - monotonic_ms()
+    if remaining > 0, do: remaining, else: 0
   end
 
   @doc false
