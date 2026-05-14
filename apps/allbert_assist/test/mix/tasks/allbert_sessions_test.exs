@@ -103,6 +103,15 @@ defmodule Mix.Tasks.Allbert.SessionsTest do
     end
   end
 
+  test "list shows an empty-state message when no sessions exist", %{user: user} do
+    output =
+      capture_io(fn ->
+        assert :ok = SessionsTask.run(["list", "--user", user])
+      end)
+
+    assert output =~ "No sessions."
+  end
+
   test "rejects invalid app ids and invalid session flags before mutation", %{user: user} do
     assert_raise Mix.Error, ~r/unknown_app/, fn ->
       capture_io(fn ->
