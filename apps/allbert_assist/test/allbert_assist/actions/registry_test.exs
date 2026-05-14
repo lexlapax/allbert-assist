@@ -46,6 +46,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "list_provider_profiles",
              "list_model_profiles",
              "set_provider_credential",
+             "list_apps",
+             "show_app",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -80,6 +82,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert "direct_answer" in agent_action_names
     assert "set_provider_credential" in agent_action_names
+    assert "list_apps" in agent_action_names
+    assert "show_app" in agent_action_names
     refute "security_status" in agent_action_names
     refute "record_trace" in agent_action_names
   end
@@ -209,6 +213,17 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert trace_summary.execution_mode == :read_only
     assert trace_summary.exposure == :internal
     assert trace_summary.confirmation == :not_required
+
+    assert {:ok, list_apps} = Registry.capability("list_apps")
+    assert list_apps.permission == :read_only
+    assert list_apps.execution_mode == :settings_read
+    assert list_apps.exposure == :agent
+    refute list_apps.skill_backed?
+
+    assert {:ok, show_app} = Registry.capability("show_app")
+    assert show_app.permission == :read_only
+    assert show_app.execution_mode == :settings_read
+    assert show_app.exposure == :agent
 
     assert {:ok, approve_confirmation} = Registry.capability("approve_confirmation")
     assert approve_confirmation.permission == :confirmation_decide

@@ -8,6 +8,8 @@ defmodule AllbertAssist.Actions.Registry do
   """
 
   alias AllbertAssist.Actions.Capability
+  alias AllbertAssist.Actions.Apps.ListApps
+  alias AllbertAssist.Actions.Apps.ShowApp
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
   alias AllbertAssist.Actions.Confirmations.DenyConfirmation
@@ -74,7 +76,9 @@ defmodule AllbertAssist.Actions.Registry do
     ExplainSetting,
     ListProviderProfiles,
     ListModelProfiles,
-    SetProviderCredential
+    SetProviderCredential,
+    ListApps,
+    ShowApp
   ]
 
   @internal_actions [
@@ -257,6 +261,20 @@ defmodule AllbertAssist.Actions.Registry do
       permission: :settings_secret_write,
       exposure: :agent,
       execution_mode: :secret_write,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ListApps => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :settings_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ShowApp => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :settings_read,
       skill_backed?: false,
       confirmation: :not_required
     },

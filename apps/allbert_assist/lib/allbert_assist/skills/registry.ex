@@ -8,6 +8,7 @@ defmodule AllbertAssist.Skills.Registry do
   """
 
   alias AllbertAssist.Paths
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.CapabilityContract
@@ -248,10 +249,13 @@ defmodule AllbertAssist.Skills.Registry do
         project_trust(trusted_project?),
         true,
         2
-      ),
-      root_spec(:user_native, Paths.skills_root(), :trusted, true, 3),
-      root_spec(:user_interoperable, user_interoperable_root(context), :trusted, true, 4)
-    ] ++ configured_roots(settings, project_root) ++ [imported_root(settings)]
+      )
+    ] ++
+      app_roots() ++
+      [
+        root_spec(:user_native, Paths.skills_root(), :trusted, true, 4),
+        root_spec(:user_interoperable, user_interoperable_root(context), :trusted, true, 5)
+      ] ++ configured_roots(settings, project_root) ++ [imported_root(settings)]
   end
 
   defp root_spec(source_scope, root_path, trust_status, default_enabled?, precedence) do
@@ -264,9 +268,18 @@ defmodule AllbertAssist.Skills.Registry do
     }
   end
 
+  defp app_roots do
+    AppRegistry.registered_skill_paths()
+    |> Enum.map(fn %{app_id: app_id, path: path} ->
+      :app
+      |> root_spec(path, :trusted, true, 3)
+      |> Map.put(:app_id, app_id)
+    end)
+  end
+
   defp configured_roots(settings, project_root) do
     settings["scan_paths"]
-    |> Enum.with_index(5)
+    |> Enum.with_index(6)
     |> Enum.map(fn {path, precedence} ->
       root_spec(
         :configured_scan_path,
@@ -663,6 +676,7 @@ defmodule AllbertAssist.Skills.Registry do
     diagnostic
     |> Map.put(:source_scope, discovery.source_scope)
     |> Map.put(:source_path, Map.get(diagnostic, :path, discovery.path))
+    |> maybe_put_app_id(discovery)
   end
 
   defp disabled_diagnostic(skill) do
@@ -712,6 +726,9 @@ defmodule AllbertAssist.Skills.Registry do
     )
   end
 
+  defp maybe_put_app_id(diagnostic, %{app_id: app_id}), do: Map.put(diagnostic, :app_id, app_id)
+  defp maybe_put_app_id(diagnostic, _discovery), do: diagnostic
+
   defp legacy_instructions(attrs) do
     """
     #{attrs.description}
@@ -735,9 +752,10 @@ defmodule AllbertAssist.Skills.Registry do
   defp scope_precedence(:built_in_legacy), do: 0
   defp scope_precedence(:project_native), do: 1
   defp scope_precedence(:project_interoperable), do: 2
-  defp scope_precedence(:user_native), do: 3
-  defp scope_precedence(:user_interoperable), do: 4
-  defp scope_precedence(:configured_scan_path), do: 5
+  defp scope_precedence(:app), do: 3
+  defp scope_precedence(:user_native), do: 4
+  defp scope_precedence(:user_interoperable), do: 5
+  defp scope_precedence(:configured_scan_path), do: 6
   defp scope_precedence(:imported_cache), do: 100
 
   defp diagnostic(severity, code, message, opts) do
