@@ -227,10 +227,13 @@ All input and output surfaces should become channel adapters around the same
 signal-driven core.
 
 The first channels are CLI/REPL and Phoenix LiveView. v0.16 proves the first
-additional remote channel with Telegram. Later channels can include Discord,
-WhatsApp-style chat, email, SMS, browser/search capture, and native UI
-surfaces. Each channel should translate external input into signals and render
-agent output back into the medium without owning the agent logic.
+additional remote channels with Telegram (Bot API long polling, inline buttons)
+and email (IMAP polling, SMTP replies, typed-command confirmations). Both
+adapters share the same channel substrate, identity mapping posture, durable
+event dedupe model, and Approval Handoff rendering contract. Later channels can
+include Discord, WhatsApp-style chat, SMS, browser/search capture, and native
+UI surfaces. Each channel should translate external input into signals and
+render agent output back into the medium without owning the agent logic.
 
 Scheduled work should follow the same pattern. Cron-like jobs, recurring
 summaries, memory maintenance, health checks, and daily briefings should emit
