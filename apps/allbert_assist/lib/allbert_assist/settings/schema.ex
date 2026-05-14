@@ -95,6 +95,7 @@ defmodule AllbertAssist.Settings.Schema do
     "jobs.timezone",
     "jobs.default_state",
     "jobs.schedule_policy",
+    "sessions.scratchpad_ttl_minutes",
     "channels.cli.response_style",
     "channels.live_view.response_style"
   ]
@@ -681,6 +682,14 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["operator_approved", "paused"]
     },
+    "sessions.scratchpad_ttl_minutes" => %{
+      type: :bounded_integer,
+      default: 30,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1440
+    },
     "memory.review_cadence" => %{
       type: :enum,
       default: "manual",
@@ -894,6 +903,9 @@ defmodule AllbertAssist.Settings.Schema do
       "timezone" => "America/Los_Angeles",
       "default_state" => "paused",
       "schedule_policy" => "operator_approved"
+    },
+    "sessions" => %{
+      "scratchpad_ttl_minutes" => 30
     },
     "memory" => %{
       "review_cadence" => "manual",
@@ -1255,6 +1267,11 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_value(%{type: :positive_integer}, value, _key, _settings)
        when is_integer(value) do
     if value >= 1 and value <= 100_000_000, do: :ok, else: {:error, :out_of_range}
+  end
+
+  defp validate_value(%{type: :bounded_integer, min: min, max: max}, value, _key, _settings)
+       when is_integer(value) do
+    if value >= min and value <= max, do: :ok, else: {:error, {:out_of_range, min, max}}
   end
 
   defp validate_value(%{type: :non_negative_integer}, value, _key, _settings)

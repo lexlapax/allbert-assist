@@ -17,9 +17,15 @@ defmodule AllbertAssist.Application do
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
         AllbertAssist.Jido
       ]
+      |> maybe_add_session_scratchpad()
       |> maybe_add_scheduler()
 
     Supervisor.start_link(children, strategy: :one_for_one, name: AllbertAssist.Supervisor)
+  end
+
+  defp maybe_add_session_scratchpad(children) do
+    opts = Application.get_env(:allbert_assist, AllbertAssist.Session.Scratchpad, [])
+    children ++ [{AllbertAssist.Session.Scratchpad, opts}]
   end
 
   defp maybe_add_scheduler(children) do
