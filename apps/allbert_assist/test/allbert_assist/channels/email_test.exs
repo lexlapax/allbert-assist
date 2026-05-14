@@ -4,10 +4,14 @@ defmodule AllbertAssist.Channels.EmailTest do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Email.Adapter
   alias AllbertAssist.Channels.Email.Parser
+  alias AllbertAssist.Channels.Email.Renderer
   alias AllbertAssist.Channels.Email.SmtpClient
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Paths
+  alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Trace
 
   defmodule FakeImapClient do
     def connect(_host, _port, opts), do: {:ok, %{fake_name: Keyword.fetch!(opts, :fake_name)}}
@@ -39,14 +43,25 @@ defmodule AllbertAssist.Channels.EmailTest do
     def connect(_host, _port, _opts), do: {:error, :timeout}
   end
 
+  defmodule FakeSmtpClient do
+    def send(from, to, subject, body, opts) do
+      Kernel.send(Keyword.fetch!(opts, :test_pid), {:smtp_sent, from, to, subject, body, opts})
+      :ok
+    end
+  end
+
   setup do
     original_env = Map.new(["ALLBERT_HOME", "ALLBERT_HOME_DIR"], &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_trace_config = Application.get_env(:allbert_assist, Trace)
 
     Enum.each(Map.keys(original_env), &System.delete_env/1)
     Application.delete_env(:allbert_assist, Paths)
+    Application.delete_env(:allbert_assist, Runtime)
     Application.delete_env(:allbert_assist, Settings)
+    Application.delete_env(:allbert_assist, Trace)
 
     home =
       Path.join(System.tmp_dir!(), "allbert-email-test-#{System.unique_integer([:positive])}")
@@ -57,7 +72,9 @@ defmodule AllbertAssist.Channels.EmailTest do
       File.rm_rf!(home)
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
+      restore_app_env(Runtime, original_runtime_config)
       restore_app_env(Settings, original_settings_config)
+      restore_app_env(Trace, original_trace_config)
     end)
 
     :ok
@@ -110,6 +127,28 @@ defmodule AllbertAssist.Channels.EmailTest do
     end
   end
 
+  describe "renderer" do
+    test "renders normal replies and approval handoff commands" do
+      assert {:ok, "Re: Hi", body, nil} =
+               Renderer.render_response(%{message: "abcdef"}, subject: "Hi", max_body_bytes: 3)
+
+      assert body =~ "abc"
+      assert body =~ "Truncated locally"
+
+      handoff = %{
+        confirmation_id: "conf_123",
+        status: :pending,
+        target_action: %{action: %{name: "run_skill_script"}}
+      }
+
+      assert {:ok, "Re: Approval", handoff_body, nil} =
+               Renderer.render_response(%{approval_handoff: handoff}, subject: "Approval")
+
+      assert handoff_body =~ "ALLBERT:APPROVE:conf_123"
+      assert handoff_body =~ "ALLBERT:DENY:conf_123"
+    end
+  end
+
   describe "adapter" do
     test "starts idle when disabled" do
       server = :"email-disabled-#{System.unique_integer([:positive])}"
@@ -120,6 +159,7 @@ defmodule AllbertAssist.Channels.EmailTest do
 
     test "poll_once inserts received events and marks messages seen" do
       configure_email!()
+      configure_runtime!()
 
       fake =
         start_fake_imap!(%{"1" => plain_email(), "2" => multipart_email("msg-2@example.com")})
@@ -137,10 +177,28 @@ defmodule AllbertAssist.Channels.EmailTest do
                "alice@example.com"
 
       assert Agent.get(fake, &Enum.sort(&1.seen)) == ["1", "2"]
+
+      event = Channels.get_event_by_external_id("email", "msg-1@example.com")
+      assert event.status == "processed"
+      assert event.user_id == "alice"
+      assert String.starts_with?(event.session_id, "ch_em_")
+      assert String.starts_with?(event.thread_id, "thr_")
+      assert is_binary(event.input_signal_id)
+      assert is_binary(event.trace_id)
+
+      assert {:ok, %{messages: messages}} = Conversations.show_thread("alice", event.thread_id)
+      assert Enum.any?(messages, &(&1.content == "Hi Allbert"))
+
+      assert_received {:smtp_sent, "allbert@example.com", "alice@example.com", "Re: Hello", body,
+                       opts}
+
+      assert body =~ "Runtime response: Hi Allbert"
+      assert opts[:in_reply_to] == "msg-1@example.com"
     end
 
     test "dedupes replayed Message-ID values and still marks seen" do
       configure_email!()
+      configure_runtime!()
       fake = start_fake_imap!(%{"1" => plain_email()})
       server = :"email-duplicate-#{System.unique_integer([:positive])}"
       start_email_server!(server, fake)
@@ -148,6 +206,32 @@ defmodule AllbertAssist.Channels.EmailTest do
       assert {:ok, %{processed: 1}} = Adapter.poll_once(server)
       assert {:ok, %{duplicates: 1}} = Adapter.poll_once(server)
       assert Agent.get(fake, &length(&1.seen)) == 2
+    end
+
+    test "unmapped senders and oversized bodies are rejected before runtime" do
+      configure_email!(identity_map: [])
+      configure_runtime!()
+      fake = start_fake_imap!(%{"1" => plain_email()})
+      server = :"email-unmapped-#{System.unique_integer([:positive])}"
+      start_email_server!(server, fake)
+
+      assert {:ok, %{rejected: 1}} = Adapter.poll_once(server)
+      assert Channels.get_event_by_external_id("email", "msg-1@example.com").status == "rejected"
+      refute_received {:runtime_request, _request}
+      stop_supervised(Adapter)
+
+      configure_email!(identity_map: [%{external_user_id: "alice@example.com", user_id: "alice"}])
+
+      assert {:ok, _setting} =
+               Settings.put("channels.email.max_body_bytes", 4, %{audit?: false})
+
+      fake = start_fake_imap!(%{"2" => plain_email("msg-oversized@example.com")})
+      server = :"email-oversized-#{System.unique_integer([:positive])}"
+      start_email_server!(server, fake)
+
+      assert {:ok, %{rejected: 1}} = Adapter.poll_once(server)
+      event = Channels.get_event_by_external_id("email", "msg-oversized@example.com")
+      assert event.reason == ":oversized"
     end
 
     test "backs off on IMAP connection errors" do
@@ -166,7 +250,7 @@ defmodule AllbertAssist.Channels.EmailTest do
     end
   end
 
-  defp configure_email! do
+  defp configure_email!(opts \\ []) do
     assert {:ok, _secret} =
              Secrets.put_secret("secret://channels/email/imap_password", "imap-pass", %{
                audit?: false
@@ -193,6 +277,27 @@ defmodule AllbertAssist.Channels.EmailTest do
              Settings.put("channels.email.from_address", "allbert@example.com", %{audit?: false})
 
     assert {:ok, _setting} = Settings.put("channels.email.enabled", true, %{audit?: false})
+
+    identity_map =
+      Keyword.get(opts, :identity_map, [
+        %{external_user_id: "alice@example.com", user_id: "alice"}
+      ])
+
+    assert {:ok, _setting} =
+             Settings.put("channels.email.identity_map", identity_map, %{audit?: false})
+  end
+
+  defp configure_runtime! do
+    parent = self()
+
+    Application.put_env(:allbert_assist, Trace, enabled: true)
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        Kernel.send(parent, {:runtime_request, request})
+        {:ok, %{message: "Runtime response: #{request.text}", status: :completed}}
+      end
+    )
   end
 
   defp start_fake_imap!(messages) do
@@ -208,7 +313,8 @@ defmodule AllbertAssist.Channels.EmailTest do
        name: server,
        auto_poll?: false,
        imap_client: FakeImapClient,
-       client_opts: [fake_name: fake_name]}
+       smtp_client: FakeSmtpClient,
+       client_opts: [fake_name: fake_name, test_pid: self()]}
     )
   end
 
