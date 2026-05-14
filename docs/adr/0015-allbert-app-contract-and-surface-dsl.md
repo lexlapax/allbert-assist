@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed.
+Accepted.
 
 ## Context
 
@@ -38,7 +38,14 @@ The minimal contract for v0.15, formerly M-AppContract-Lite, includes:
 - startup validation and child supervision
 - registered Jido actions tagged with `app_id`
 - app skill paths added to the global skill registry
-- navigation surfaces for the Allbert shell
+- navigation surface descriptors for the future Allbert shell
+
+The v0.15 registry is volatile and supervised as one unit: registry ETS
+state, app child supervision, and bootstrap registration restart together.
+String app ids are normalized through the registry without creating atoms from
+operator, model, channel, or job input. v0.15 navigation surface descriptors
+are display data only; they do not mount routes, load LiveViews, or define
+canvas nodes.
 
 The full contract for v0.24, formerly M-AppContract-Full, expands this into
 five layers:
@@ -54,11 +61,13 @@ five layers:
 - Data and settings: settings schema declarations and memory namespaces the
   app may write through existing Allbert boundaries.
 
-`AllbertAssist.App.Registry` is the runtime app discovery point. Registered
-apps provide shell navigation, action and skill registration, signal
-subscriptions, and app lookup for intent routing. App registration does not
-grant permission by itself; actions still run through the action runner,
-Security Central, confirmations, traces, and audits.
+`AllbertAssist.App.Registry` is the runtime app discovery point. In v0.15,
+registered apps provide identity, child supervision, action tags, skill paths,
+navigation descriptors, and app lookup for active-app validation. In v0.24,
+the same public contract expands to declared signals, settings schemas, memory
+namespaces, and interactive surface providers. App registration does not grant
+permission by itself; actions still run through the action runner, Security
+Central, confirmations, traces, and audits.
 
 Allbert will define `AllbertAssist.App.SurfaceProvider` for apps with
 interactive surfaces. Surface events must return Jido signals or route through
