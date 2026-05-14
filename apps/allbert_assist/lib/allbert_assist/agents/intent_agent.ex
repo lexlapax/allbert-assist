@@ -66,6 +66,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.ResourceAccess
   alias AllbertAssist.Resources.Ref
@@ -601,14 +602,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
     Runner.run(action_name, params, runner_context)
   end
 
-  defp attach_decision({:ok, response}, %Decision{} = decision, _context) do
-    decision = sync_decision_after_response(decision, response)
+  defp attach_decision({:ok, response}, %Decision{} = decision, context) do
+    decision = sync_decision_after_response(decision, response, context)
+    approval_handoff = ApprovalHandoff.to_map(decision.approval_handoff)
 
     response =
       response
       |> Map.put(:decision, decision)
       |> Map.put(:resource_access, ResourceAccess.to_maps(decision.resource_access))
-      |> Map.put(:approval_handoff, decision.approval_handoff)
+      |> Map.put(:approval_handoff, approval_handoff)
+      |> Map.update(:actions, [], &attach_approval_handoff(&1, approval_handoff))
       |> Map.update(:diagnostics, decision.diagnostics, &(decision.diagnostics ++ &1))
 
     {:ok, response}
@@ -616,7 +619,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp attach_decision(error, _decision, _context), do: error
 
-  defp sync_decision_after_response(%Decision{} = decision, response) do
+  defp sync_decision_after_response(%Decision{} = decision, response, context) do
     confirmation =
       case Map.get(response, :status) do
         :needs_confirmation -> :pending
@@ -631,7 +634,29 @@ defmodule AllbertAssist.Agents.IntentAgent do
       |> put_if_present(:confirmation_id, Map.get(response, :confirmation_id))
       |> put_if_present(:response_status, Map.get(response, :status))
 
-    %{decision | confirmation: confirmation, trace_metadata: trace_metadata}
+    approval_handoff = maybe_approval_handoff(confirmation, decision, response, context)
+
+    %{
+      decision
+      | confirmation: confirmation,
+        approval_handoff: approval_handoff,
+        trace_metadata: trace_metadata
+    }
+  end
+
+  defp maybe_approval_handoff(:pending, decision, response, context) do
+    decision
+    |> ApprovalHandoff.pending(response, context)
+    |> ApprovalHandoff.to_map()
+  end
+
+  defp maybe_approval_handoff(_confirmation, _decision, _response, _context), do: nil
+
+  defp attach_approval_handoff(actions, nil), do: actions
+  defp attach_approval_handoff([], _handoff), do: []
+
+  defp attach_approval_handoff([action | rest], handoff) do
+    [Map.put(action, :approval_handoff, handoff) | rest]
   end
 
   defp decision_refusal_response(%Decision{} = decision) do

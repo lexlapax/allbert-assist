@@ -101,9 +101,22 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
              %{
                name: "external_network_request",
                execution: :pending_confirmation,
-               confirmation_id: confirmation_id
+               confirmation_id: confirmation_id,
+               approval_handoff: action_handoff
              }
            ] = response.actions
+
+    assert response.approval_handoff.confirmation_id == confirmation_id
+    assert response.approval_handoff.status == :pending
+    assert response.approval_handoff == action_handoff
+
+    assert get_in(response.approval_handoff, [:target_action, :action, "name"]) ==
+             "external_network_request"
+
+    assert :approve in response.approval_handoff.allowed_actions
+    assert :deny in response.approval_handoff.allowed_actions
+    assert :details in response.approval_handoff.allowed_actions
+    assert %{remember: :exact_resource} in response.approval_handoff.allowed_actions
 
     assert {:ok, pending} = Confirmations.read(confirmation_id)
     assert pending["origin"]["channel"] == "test"
@@ -158,6 +171,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert trace =~ "## Intent Decision"
     assert trace =~ "Intent decision: external_network_request"
     assert trace =~ "resource_access_count: 1"
+    assert trace =~ "approval_handoff"
     assert trace =~ "confirmation_id: #{inspect(confirmation_id)}"
     assert trace =~ "confirmation_metadata"
     assert trace =~ "## Confirmation Metadata"
