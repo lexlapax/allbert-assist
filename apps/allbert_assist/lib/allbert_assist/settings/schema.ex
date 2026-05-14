@@ -92,6 +92,9 @@ defmodule AllbertAssist.Settings.Schema do
     "confirmations.allow_cli_approval",
     "confirmations.allow_liveview_approval",
     "confirmations.allow_cross_channel_approval",
+    "jobs.timezone",
+    "jobs.default_state",
+    "jobs.schedule_policy",
     "channels.cli.response_style",
     "channels.live_view.response_style"
   ]
@@ -661,20 +664,20 @@ defmodule AllbertAssist.Settings.Schema do
     "jobs.timezone" => %{
       type: :timezone,
       default: "America/Los_Angeles",
-      writable?: false,
+      writable?: true,
       sensitive?: false
     },
     "jobs.default_state" => %{
       type: :enum,
       default: "paused",
-      writable?: false,
+      writable?: true,
       sensitive?: false,
       allowed_values: ["paused", "active"]
     },
     "jobs.schedule_policy" => %{
       type: :enum,
       default: "operator_approved",
-      writable?: false,
+      writable?: true,
       sensitive?: false,
       allowed_values: ["operator_approved", "paused"]
     },
