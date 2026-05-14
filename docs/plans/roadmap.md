@@ -702,9 +702,10 @@ complete. v0.10 was released and tagged as `v0.10` on 2026-05-04.
 Plan: `docs/plans/v0.11-plan.md`
 Request flow: `docs/plans/v0.11-request-flow.md`
 
-Status: planned.
+Status: implemented through M6. Ready for operator manual verification; expected
+release tag is `v0.11` after acceptance.
 
-Expected direction:
+Implemented direction:
 
 - Introduce the inert `AllbertAssist.Intent.Decision` contract with selected
   intent, candidate skills/actions, permission, risk, confirmation, execution
@@ -725,6 +726,11 @@ Expected direction:
 Exit signal: risky URL/document/import prompts produce inspectable decisions,
 operation-scoped resource posture, and approval handoff without hidden
 execution or new file/browser/crawler primitives.
+
+Release handoff: v0.11 request-flow docs now carry the manual verification
+matrix for CLI URL summary approval, LiveView approval/denial, approved fetch
+with missing summarizer/extractor, direct/local skill import, unsupported
+MCP/agent URI behavior, and operation-scoped grant negative checks.
 
 ## v0.12: Local Workspace Identity And Conversation History
 

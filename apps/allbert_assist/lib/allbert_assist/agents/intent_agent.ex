@@ -710,8 +710,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
     {:ok, response}
   end
 
-  defp attach_decision(error, _decision, _context), do: error
-
   defp sync_decision_after_response(%Decision{} = decision, response, context) do
     confirmation =
       case Map.get(response, :status) do
@@ -1182,12 +1180,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp access_mode_for_operation(:summarize_url), do: :summarize
   defp access_mode_for_operation(:inspect_document), do: :read
-  defp access_mode_for_operation(:import_skill), do: :import
   defp access_mode_for_operation(_operation_class), do: :fetch
 
   defp downstream_consumer_for_operation(:summarize_url), do: :url_summarizer
   defp downstream_consumer_for_operation(:inspect_document), do: :document_extractor
-  defp downstream_consumer_for_operation(:import_skill), do: :skill_importer
   defp downstream_consumer_for_operation(_operation_class), do: :req_http
 
   defp expected_content_kind(:summarize_url), do: :html_or_text
@@ -1677,7 +1673,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
     %{source: "skills_sh", id: id}
   end
 
-  defp split_args(nil), do: []
   defp split_args(""), do: []
 
   defp split_args(text) do

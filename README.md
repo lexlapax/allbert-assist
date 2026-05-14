@@ -10,21 +10,18 @@ not the architecture center.
 
 ## Current Status
 
-v0.10 is implemented through M14 after the reopened M6-M9 sequence.
-The original M5 release-readiness gate was reopened for online skill approval
-clarity/search fixes and Resource Access Security Posture planning; M9 has now
-closed that line with refreshed docs, smoke steps, and final gate results.
-M10 has now hardened resource identity and scope matching so canonical
-resource authority stays separate from redacted display metadata. M11 has now
-added operator-visible remembered grant list/show/revoke behavior,
-approve-with-remember options, and grant reuse for existing v0.10 actions. The
-M12 URI-first resource identity refactor is now implemented through
-`AllbertAssist.Resources.ResourceURI`; remembered grants require
-`resource_uri` authority. M13 has added direct HTTPS skill URL import and
-local skill directory import as disabled/untrusted URI-backed consumers. M14
-has added explicit unsupported/deferred UX for v0.11-owned URL/document,
-MCP/agent, broad browsing/crawling, and future channel-native approval flows.
-v0.10 was released and tagged as `v0.10` on 2026-05-04.
+v0.11 is implemented through its M6 closeout and is ready for operator manual
+verification. It adds execution-aware intent decisions, operation-scoped
+Resource Access posture, shared Approval Handoff data, CLI and LiveView approval
+rendering, URL/document consumer routing over the existing confirmed Req
+substrate, and explicit unavailable states for missing summarizer/extractor or
+generic local file readers. Version metadata is now `0.11.0`; the expected
+release tag is `v0.11` after operator acceptance.
+
+v0.10 was released and tagged as `v0.10` on 2026-05-04. It remains the
+substrate for confirmed shell, skill script, external service, package, online
+skill, direct skill URL, and local skill directory actions that v0.11 now wraps
+with intent decisions and handoff metadata.
 
 Release details live in `CHANGELOG.md`.
 
@@ -50,11 +47,20 @@ Release details live in `CHANGELOG.md`.
 - Import direct HTTPS skill URLs and local skill directories through confirmed
   registered actions and `mix allbert.skills import-url/import-local`.
   Imported candidates remain disabled, untrusted, inactive, and non-executable.
-- Explain unsupported v0.11-owned resource workflows through the inert
-  `unsupported_resource_workflow` action. URL/document summarization, document
-  extraction, MCP/agent resource calls, broad crawling/research, and future
-  channel-native approval handoff do not create fetch/read/execute requests in
-  v0.10.
+- Attach an inert `AllbertAssist.Intent.Decision` to runtime turns, including
+  selected action, permission, confirmation, resource posture, reserved
+  `user_id`/`thread_id` context, and trace metadata.
+- Render Approval Handoff data in CLI and LiveView for pending confirmations
+  without giving channels direct approval or execution authority.
+- Route URL summary and remote document inspection prompts to pending
+  `external_network_request` confirmations with `summarize_url` or
+  `inspect_document` operation classes. Approved fetches report the missing
+  summarizer or extractor clearly rather than inventing a downstream consumer.
+- Represent generic local file inspection as inert `file://...` posture with an
+  explicit no-shell-fallback unavailable state.
+- Keep MCP/agent resource calls, broad crawling/research, and future
+  channel-native approval handoff as explicit unsupported workflows until later
+  adapter plans add security and approval semantics.
 - Emit shared resource reference metadata for local shell cwd/path operands,
   trusted skill script resources, external requests, online skill sources, and
   package-install targets without changing permission behavior.
@@ -75,13 +81,10 @@ Release details live in `CHANGELOG.md`.
   `resource_uri` should be re-created through the current approval/resource
   grant UX.
 
-v0.10 also implements the first Resource Access Security Posture substrate.
-It does not implement arbitrary URL/document summarization, channel-native
-Approval Handoff UX, a browser, crawler, MCP execution path, or `agent://`
-delegation. Those prompts receive an explicit unsupported/deferred response
-instead of a partial fetch or execution path. v0.11 consumes the final
-URI-based posture through execution-aware intent and channel-native Approval
-Handoff UX.
+v0.11 does not add a browser, crawler, MCP execution path, `agent://`
+delegation, conversation history, app contract, or generic local file reader.
+Every effect still flows through registered actions, Security Central, Settings
+Central policy, durable confirmations, redaction, traces, and audits.
 
 ## Start Here
 
@@ -90,9 +93,9 @@ Handoff UX.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- Active v0.10 plan: `docs/plans/v0.10-plan.md`
-- Active v0.10 request flow: `docs/plans/v0.10-request-flow.md`
 - v0.11 implementation plan: `docs/plans/v0.11-plan.md`
+- v0.11 request flow and manual verification: `docs/plans/v0.11-request-flow.md`
+- Next milestone plan: `docs/plans/v0.12-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development
@@ -160,9 +163,12 @@ Allbert remains local and conservative:
   digest-verified, confirmed, bounded, audited, and traced.
 - v0.10 external services, package installs, and online skill import run only
   through confirmed registered actions and target-specific policy re-checks.
+- v0.11 intent decisions and Approval Handoff are descriptive metadata, not
+  authorization. Approval still resumes only the stored target action through
+  `approve_confirmation`.
 - Imported skills are not trusted, enabled, activated, or executed by import.
-- Remote network content consumers must be operation-scoped. A future approval
-  for URL summarization must not authorize skill import, package install,
+- Remote network content consumers are operation-scoped. A `summarize_url` or
+  `inspect_document` approval must not authorize skill import, package install,
   activation, or script execution.
 - Future URI schemes such as `mcp://`, `agent://`, and `agent+https://` may be
   represented only as inert metadata until a later release adds explicit
@@ -177,6 +183,6 @@ Allbert remains local and conservative:
 README is intentionally not the testing plan. Use:
 
 - `docs/operator/onboarding.md` for first-run operator guidance.
-- `docs/plans/v0.10-request-flow.md` for the v0.10 smoke matrix.
-- `docs/plans/v0.10-plan.md` for milestone-specific verification.
+- `docs/plans/v0.11-request-flow.md` for the v0.11 manual verification matrix.
+- `docs/plans/v0.11-plan.md` for milestone-specific verification.
 - `CHANGELOG.md` for release status, verification summary, and tag readiness.
