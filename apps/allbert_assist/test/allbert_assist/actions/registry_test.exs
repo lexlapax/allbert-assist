@@ -1,9 +1,28 @@
 defmodule AllbertAssist.Actions.RegistryTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Multiply
   alias AllbertAssist.Actions.Registry
+
+  defmodule ActionTaggingApp do
+    use AllbertAssist.App
+
+    @impl true
+    def app_id, do: :action_tagging_app
+
+    @impl true
+    def display_name, do: "Action Tagging App"
+
+    @impl true
+    def version, do: "0.15.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def actions, do: [DirectAnswer]
+  end
 
   test "returns the canonical runtime action names in stable order" do
     assert Registry.names() == [
@@ -245,5 +264,25 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert {:error, {:unknown_action, "missing_action"}} = Registry.resolve("missing_action")
     assert {:error, {:unknown_action, Multiply}} = Registry.resolve(Multiply)
     refute Registry.registered_module?(Multiply)
+  end
+
+  test "stamps app ids onto capabilities for registered app actions" do
+    on_exit(fn -> AllbertAssist.App.Registry.unregister(:action_tagging_app) end)
+
+    assert {:ok, :action_tagging_app} = AllbertAssist.App.Registry.register(ActionTaggingApp)
+
+    assert {:ok, direct_answer} = Registry.capability("direct_answer")
+    assert direct_answer.app_id == :action_tagging_app
+
+    assert %{app_id: :action_tagging_app} =
+             AllbertAssist.Actions.Capability.summary(direct_answer)
+
+    assert [%{name: "direct_answer", app_id: :action_tagging_app}] =
+             Enum.map(
+               Registry.capabilities_for_app(:action_tagging_app),
+               &AllbertAssist.Actions.Capability.summary/1
+             )
+
+    assert Registry.capabilities_for_app(:missing_app) == []
   end
 end
