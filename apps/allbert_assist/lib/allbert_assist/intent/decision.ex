@@ -12,6 +12,7 @@ defmodule AllbertAssist.Intent.Decision do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Intent.ResourceAccess
   alias AllbertAssist.Security
+  alias AllbertAssist.Session.AppId
   alias AllbertAssist.Skills
 
   @confirmation_states ~w[not_required required pending unsupported refused]a
@@ -69,44 +70,46 @@ defmodule AllbertAssist.Intent.Decision do
   def new(attrs) when is_map(attrs) do
     context = field(attrs, :context, %{}) || %{}
 
-    decision =
-      %__MODULE__{
-        intent: field(attrs, :intent),
-        confidence: normalize_confidence(field(attrs, :confidence, 1.0)),
-        reason: field(attrs, :reason),
-        risk_summary: field(attrs, :risk_summary),
-        selected_skill: normalize_optional_string(field(attrs, :selected_skill)),
-        candidate_skills: normalize_list(field(attrs, :candidate_skills)),
-        selected_action: normalize_optional_string(field(attrs, :selected_action)),
-        candidate_actions: normalize_list(field(attrs, :candidate_actions)),
-        permission: field(attrs, :permission),
-        confirmation: field(attrs, :confirmation, :not_required),
-        execution_mode: field(attrs, :execution_mode),
-        resource_access: normalize_list(field(attrs, :resource_access)),
-        foreground_or_background: field(attrs, :foreground_or_background, :foreground),
-        user_id: user_id(attrs, context),
-        thread_id:
-          normalize_optional_string(
-            field(attrs, :thread_id) || context_value(context, :thread_id)
-          ),
-        session_id:
-          normalize_optional_string(
-            field(attrs, :session_id) || context_value(context, :session_id)
-          ),
-        active_app: field(attrs, :active_app) || context_value(context, :active_app),
-        approval_handoff: field(attrs, :approval_handoff),
-        alternatives: normalize_list(field(attrs, :alternatives)),
-        diagnostics: normalize_list(field(attrs, :diagnostics)),
-        trace_metadata: field(attrs, :trace_metadata, %{}) || %{}
-      }
+    with {:ok, active_app} <- active_app(attrs, context) do
+      decision =
+        %__MODULE__{
+          intent: field(attrs, :intent),
+          confidence: normalize_confidence(field(attrs, :confidence, 1.0)),
+          reason: field(attrs, :reason),
+          risk_summary: field(attrs, :risk_summary),
+          selected_skill: normalize_optional_string(field(attrs, :selected_skill)),
+          candidate_skills: normalize_list(field(attrs, :candidate_skills)),
+          selected_action: normalize_optional_string(field(attrs, :selected_action)),
+          candidate_actions: normalize_list(field(attrs, :candidate_actions)),
+          permission: field(attrs, :permission),
+          confirmation: field(attrs, :confirmation, :not_required),
+          execution_mode: field(attrs, :execution_mode),
+          resource_access: normalize_list(field(attrs, :resource_access)),
+          foreground_or_background: field(attrs, :foreground_or_background, :foreground),
+          user_id: user_id(attrs, context),
+          thread_id:
+            normalize_optional_string(
+              field(attrs, :thread_id) || context_value(context, :thread_id)
+            ),
+          session_id:
+            normalize_optional_string(
+              field(attrs, :session_id) || context_value(context, :session_id)
+            ),
+          active_app: active_app,
+          approval_handoff: field(attrs, :approval_handoff),
+          alternatives: normalize_list(field(attrs, :alternatives)),
+          diagnostics: normalize_list(field(attrs, :diagnostics)),
+          trace_metadata: field(attrs, :trace_metadata, %{}) || %{}
+        }
 
-    with {:ok, decision} <- validate_foreground_or_background(decision),
-         {:ok, decision} <- validate_action(decision),
-         {:ok, decision} <- validate_skill(decision, context),
-         {:ok, decision} <- validate_resources(decision),
-         {:ok, decision} <- validate_confirmation(decision),
-         {:ok, decision} <- authorize(decision, context) do
-      {:ok, put_trace_metadata(decision)}
+      with {:ok, decision} <- validate_foreground_or_background(decision),
+           {:ok, decision} <- validate_action(decision),
+           {:ok, decision} <- validate_skill(decision, context),
+           {:ok, decision} <- validate_resources(decision),
+           {:ok, decision} <- validate_confirmation(decision),
+           {:ok, decision} <- authorize(decision, context) do
+        {:ok, put_trace_metadata(decision)}
+      end
     end
   end
 
@@ -371,6 +374,13 @@ defmodule AllbertAssist.Intent.Decision do
     |> Kernel.||(context_value(context, :operator_id))
     |> Kernel.||("local")
     |> to_string()
+  end
+
+  defp active_app(attrs, context) do
+    attrs
+    |> field(:active_app)
+    |> Kernel.||(context_value(context, :active_app))
+    |> AppId.normalize()
   end
 
   defp normalize_confidence(value) when is_integer(value), do: normalize_confidence(value / 1)
