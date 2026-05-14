@@ -24,6 +24,13 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
       json: [type: :map, required: false, doc: "Optional JSON request body."],
       timeout_ms: [type: :integer, required: false, doc: "Requested timeout."],
       max_response_bytes: [type: :integer, required: false, doc: "Requested response cap."],
+      operation_class: [type: :string, required: false, doc: "Resource operation class."],
+      downstream_consumer: [
+        type: :string,
+        required: false,
+        doc: "Resource consumer after the approved fetch."
+      ],
+      postprocess: [type: :string, required: false, doc: "Post-fetch consumer workflow."],
       source_text: [type: :string, required: false, doc: "The original user prompt."]
     ],
     output_schema: [
@@ -38,16 +45,25 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   alias AllbertAssist.External.HttpClient
   alias AllbertAssist.External.RequestSpec
   alias AllbertAssist.Resources.GrantHandoff
+  alias AllbertAssist.Resources.OperationClass
+  alias AllbertAssist.Resources.Ref
+  alias AllbertAssist.Resources.ResourceURI
+  alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
   def run(params, context) when is_map(params) do
     case RequestSpec.normalize(params, context: context) do
       {:ok, spec} ->
-        run_spec(spec, context)
+        run_spec(spec, params, context)
 
       {:error, spec} ->
-        denied_response(spec, spec_denial_decision(spec.denial_reason), spec.denial_reason)
+        denied_response(
+          spec,
+          params,
+          spec_denial_decision(spec.denial_reason),
+          spec.denial_reason
+        )
     end
   end
 
@@ -73,27 +89,34 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
      }}
   end
 
-  defp run_spec(spec, context) do
+  defp run_spec(spec, params, context) do
+    summary = request_summary(spec, params)
+
     permission_decision =
       PermissionGate.authorize(:external_network, request_context(spec, context))
 
     cond do
       permission_decision.decision == :denied ->
-        denied_response(spec, permission_decision, spec.denial_reason || :permission_denied)
+        denied_response(
+          spec,
+          params,
+          permission_decision,
+          spec.denial_reason || :permission_denied
+        )
 
       approval_resume?(context) ->
-        execute_spec(spec, permission_decision, context)
+        execute_spec(spec, params, permission_decision, context)
 
-      grant_context =
-          grant_execution_context(RequestSpec.summary(spec), :external_network, context) ->
-        execute_spec(spec, permission_decision, grant_context)
+      grant_context = grant_execution_context(summary, :external_network, context) ->
+        execute_spec(spec, params, permission_decision, grant_context)
 
       true ->
-        create_confirmation(spec, context, permission_decision)
+        create_confirmation(spec, params, context, permission_decision)
     end
   end
 
-  defp denied_response(spec, permission_decision, reason) do
+  defp denied_response(spec, params, permission_decision, reason) do
+    summary = request_summary(spec, params)
     _audit = Audit.append(:denied, spec, permission_decision, %{denial_reason: reason})
 
     {:ok,
@@ -101,7 +124,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
        message: "External network request was denied: #{inspect(reason)}.",
        status: :denied,
        permission_decision: permission_decision,
-       request: RequestSpec.summary(spec),
+       request: summary,
        actions: [
          %{
            name: "external_network_request",
@@ -109,7 +132,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
            permission: :external_network,
            permission_decision: permission_decision,
            execution: :not_started,
-           request: RequestSpec.summary(spec),
+           request: summary,
            denial_reason: reason
          }
        ]
@@ -126,7 +149,9 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
     }
   end
 
-  defp create_confirmation(spec, context, permission_decision) do
+  defp create_confirmation(spec, params, context, permission_decision) do
+    summary = request_summary(spec, params)
+
     attrs = %{
       origin: origin(context),
       target_action: %{name: "external_network_request", module: inspect(__MODULE__)},
@@ -138,8 +163,8 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
       source_signal_id: source_signal_id(context),
       source_trace_id: source_trace_id(context),
       runner_metadata: runner_metadata(context),
-      params_summary: RequestSpec.summary(spec),
-      resume_params_ref: RequestSpec.resume_params(spec)
+      params_summary: summary,
+      resume_params_ref: Map.merge(RequestSpec.resume_params(spec), consumer_params(params))
     }
 
     case Confirmations.create(attrs) do
@@ -151,10 +176,10 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
 
         {:ok,
          %{
-           message: confirmation_message(spec, permission_decision, confirmation),
+           message: confirmation_message(spec, params, permission_decision, confirmation),
            status: :needs_confirmation,
            permission_decision: permission_decision,
-           request: RequestSpec.summary(spec),
+           request: summary,
            confirmation: confirmation,
            confirmation_id: confirmation_id(confirmation),
            actions: [
@@ -164,7 +189,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
                permission: :external_network,
                permission_decision: permission_decision,
                execution: :pending_confirmation,
-               request: RequestSpec.summary(spec),
+               request: summary,
                confirmation_id: confirmation_id(confirmation),
                confirmation_metadata: confirmation_metadata(confirmation)
              }
@@ -178,7 +203,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
            status: :error,
            error: reason,
            permission_decision: permission_decision,
-           request: RequestSpec.summary(spec),
+           request: summary,
            actions: [
              %{
                name: "external_network_request",
@@ -186,7 +211,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
                permission: :external_network,
                permission_decision: permission_decision,
                execution: :not_started,
-               request: RequestSpec.summary(spec),
+               request: summary,
                error: reason
              }
            ]
@@ -194,10 +219,16 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
     end
   end
 
-  defp execute_spec(spec, permission_decision, context) do
+  defp execute_spec(spec, params, permission_decision, context) do
     confirmation_id = get_in(context, [:confirmation, :id])
+    summary = request_summary(spec, params)
 
     with {:ok, result} <- HttpClient.request(spec, req_opts(context)) do
+      result =
+        result
+        |> Map.put(:request, summary)
+        |> Map.put(:postprocess, postprocess_result(result, params))
+
       _approved_audit =
         Audit.append(
           :approved,
@@ -215,10 +246,10 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
 
       {:ok,
        %{
-         message: execution_message(result),
+         message: execution_message(result, params),
          status: result.status,
          permission_decision: permission_decision,
-         request: RequestSpec.summary(spec),
+         request: summary,
          result: result,
          actions: [
            %{
@@ -227,7 +258,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
              permission: :external_network,
              permission_decision: permission_decision,
              execution: :req_http,
-             request: RequestSpec.summary(spec),
+             request: summary,
              result: result
            }
            |> Map.put(:target_resumed?, GrantHandoff.target_resumed?(context))
@@ -260,11 +291,134 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
       get_in(context, ["confirmation", "approved?"]) == true
   end
 
-  defp confirmation_message(spec, permission_decision, confirmation) do
+  defp request_summary(spec, params) do
+    summary = RequestSpec.summary(spec)
+    operation_class = operation_class(params)
+
+    if operation_class == :external_service_request do
+      summary
+    else
+      resource_ref = consumer_resource_ref(summary, operation_class, params)
+
+      summary
+      |> Map.put(:operation_class, operation_class)
+      |> Map.put(:downstream_consumer, downstream_consumer(operation_class, params))
+      |> Map.put(:postprocess, postprocess(params) || Atom.to_string(operation_class))
+      |> Map.put(:resource_refs, [resource_ref])
+    end
+  end
+
+  defp consumer_resource_ref(summary, operation_class, params) do
+    canonical_url = Map.fetch!(summary, :canonical_url)
+    display_url = Map.get(summary, :display_url) || canonical_url
+
+    Ref.new!(%{
+      resource_uri: ResourceURI.url!(canonical_url),
+      operation_class: operation_class,
+      access_mode: OperationClass.default_access_mode(operation_class),
+      scope: Scope.exact_url(canonical_url),
+      source_profile: Map.get(summary, :profile),
+      method: Map.get(summary, :method),
+      downstream_consumer: downstream_consumer(operation_class, params),
+      display_uri: display_url,
+      digest: Map.get(summary, :request_digest),
+      limits: Map.take(summary, [:timeout_ms, :max_response_bytes]),
+      redaction: %{
+        query?: Map.get(summary, :query?),
+        request_headers: :redacted_by_policy,
+        body: :summarized
+      },
+      metadata: %{
+        display_url: display_url,
+        host: Map.get(summary, :host),
+        path: Map.get(summary, :path),
+        allow_redirects?: Map.get(summary, :allow_redirects?),
+        max_redirects: Map.get(summary, :max_redirects),
+        retry_policy: Map.get(summary, :retry_policy),
+        postprocess: postprocess(params) || Atom.to_string(operation_class)
+      }
+    })
+    |> Ref.to_map()
+  end
+
+  defp consumer_params(params) do
+    %{}
+    |> put_consumer_param(:operation_class, operation_class_param(params))
+    |> put_consumer_param(:downstream_consumer, downstream_consumer_param(params))
+    |> put_consumer_param(:postprocess, postprocess(params))
+  end
+
+  defp put_consumer_param(map, _key, value) when value in [nil, ""], do: map
+  defp put_consumer_param(map, key, value), do: Map.put(map, key, value)
+
+  defp operation_class(params) do
+    case OperationClass.operation_class(operation_class_param(params)) do
+      {:ok, operation_class}
+      when operation_class in [:summarize_url, :inspect_document, :external_service_request] ->
+        operation_class
+
+      _other ->
+        :external_service_request
+    end
+  end
+
+  defp operation_class_param(params), do: field(params, :operation_class)
+
+  defp downstream_consumer(:summarize_url, params),
+    do: downstream_consumer_param(params) || "url_summarizer"
+
+  defp downstream_consumer(:inspect_document, params),
+    do: downstream_consumer_param(params) || "document_extractor"
+
+  defp downstream_consumer(_operation_class, params),
+    do: downstream_consumer_param(params) || "req_http"
+
+  defp downstream_consumer_param(params), do: field(params, :downstream_consumer)
+
+  defp postprocess(params), do: field(params, :postprocess)
+
+  defp postprocess_result(%{status: :completed, http_status: status}, params) do
+    case operation_class(params) do
+      :summarize_url ->
+        %{
+          operation_class: :summarize_url,
+          status: :unavailable,
+          reason: :summarizer_unavailable,
+          http_status: status
+        }
+
+      :inspect_document ->
+        %{
+          operation_class: :inspect_document,
+          status: :unavailable,
+          reason: :extractor_unavailable,
+          http_status: status
+        }
+
+      _operation_class ->
+        nil
+    end
+  end
+
+  defp postprocess_result(%{status: :failed}, params) do
+    case operation_class(params) do
+      operation_class when operation_class in [:summarize_url, :inspect_document] ->
+        %{operation_class: operation_class, status: :not_started, reason: :fetch_failed}
+
+      _operation_class ->
+        nil
+    end
+  end
+
+  defp postprocess_result(_result, _params), do: nil
+
+  defp confirmation_message(spec, params, permission_decision, confirmation) do
     """
     External network request is ready for operator approval.
 
     Request: #{spec.method} #{RequestSpec.redacted_url(spec)}
+    Operation: #{operation_class(params)}
+    Consumer: #{downstream_consumer(operation_class(params), params)}
     Profile: #{spec.profile}
     Permission gate decision: #{permission_decision.decision} for external_network.
     Confirmation request: #{confirmation_id(confirmation) || "not created"}.
@@ -273,17 +427,34 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
     |> String.trim()
   end
 
-  defp execution_message(%{status: :completed, http_status: status}) do
-    "External network request completed with HTTP status #{status}."
+  defp execution_message(%{status: :completed, http_status: status}, params) do
+    case operation_class(params) do
+      :summarize_url ->
+        "URL fetched with HTTP status #{status}. Summarization is unavailable because no summarizer action is registered."
+
+      :inspect_document ->
+        "Document URL fetched with HTTP status #{status}. Document extraction is unavailable because no extractor action is registered."
+
+      _operation_class ->
+        "External network request completed with HTTP status #{status}."
+    end
   end
 
-  defp execution_message(%{status: :failed, http_status: nil, transport_error: error}) do
+  defp execution_message(%{status: :failed, http_status: nil, transport_error: error}, _params) do
     "External network request ran but failed before an HTTP response: #{error}."
   end
 
-  defp execution_message(%{status: :failed, http_status: status}) do
+  defp execution_message(%{status: :failed, http_status: status}, _params) do
     "External network request ran and returned HTTP status #{status}."
   end
+
+  defp field(map, key, default \\ nil)
+
+  defp field(map, key, default) when is_map(map) do
+    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+  end
+
+  defp field(_map, _key, default), do: default
 
   defp result_event(%{status: :completed}), do: :succeeded
   defp result_event(_result), do: :failed

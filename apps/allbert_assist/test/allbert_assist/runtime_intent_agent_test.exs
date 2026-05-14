@@ -123,7 +123,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert pending["target_execution_mode"] == "req_http"
   end
 
-  test "default runtime explains URL summarization is unsupported without confirmation" do
+  test "default runtime creates URL summarization confirmation before fetching" do
     assert {:ok, response} =
              Runtime.submit_user_input(%{
                text: "Please check https://example.com/report and summarize it",
@@ -131,19 +131,29 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
                operator_id: "local"
              })
 
-    assert response.status == :unsupported
-    assert response.message =~ "URL summarization is deferred to v0.11"
-    assert response.message =~ "v0.10 has not run anything"
+    assert response.status == :needs_confirmation
+    assert response.message =~ "External network request is ready"
+    assert response.message =~ "Operation: summarize_url"
+    assert response.decision.intent == :summarize_url
+    assert response.decision.selected_action == "external_network_request"
+    assert response.decision.confirmation == :pending
 
     assert [
              %{
-               name: "unsupported_resource_workflow",
-               execution: :not_started,
-               workflow: :summarize_url
+               name: "external_network_request",
+               execution: :pending_confirmation,
+               confirmation_id: confirmation_id
              }
            ] = response.actions
 
-    assert Confirmations.list(status: :pending) == []
+    assert [%{operation_class: :summarize_url, access_mode: :summarize}] =
+             response.resource_access
+
+    assert {:ok, pending} = Confirmations.read(confirmation_id)
+    assert pending["params_summary"]["operation_class"] == "summarize_url"
+    assert [ref] = pending["params_summary"]["resource_refs"]
+    assert ref["operation_class"] == "summarize_url"
+    assert ref["downstream_consumer"] == "url_summarizer"
   end
 
   test "default runtime trace includes confirmation metadata for external network requests", %{

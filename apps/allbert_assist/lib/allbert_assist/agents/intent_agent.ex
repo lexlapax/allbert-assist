@@ -119,6 +119,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       fn -> skill_script_route(text, normalized) end,
       fn -> package_route(text, normalized) end,
       fn -> online_skill_route(text, normalized) end,
+      fn -> uri_consumer_route(text, normalized) end,
       fn -> unsupported_resource_workflow_route(text, normalized) end,
       fn -> command_route(normalized) end,
       fn -> external_network_route(normalized) end,
@@ -266,6 +267,36 @@ defmodule AllbertAssist.Agents.IntentAgent do
     }
   end
 
+  defp decision_attrs({:url_summary, url}, text, context) do
+    %{
+      intent: :summarize_url,
+      reason:
+        "The prompt asks to fetch a URL through the confirmed network substrate before summarization.",
+      selected_skill: "external-network-request",
+      selected_action: "external_network_request",
+      resource_access: url_resource_access(url, :summarize_url, "external_network_request"),
+      alternatives: ["Provide the page text directly or approve a bounded URL fetch first."],
+      trace_metadata: %{source_text: text, url: url, postprocess: :summarize_url},
+      context: context
+    }
+  end
+
+  defp decision_attrs({:document_url_inspection, url}, text, context) do
+    %{
+      intent: :inspect_document,
+      reason:
+        "The prompt asks to fetch a remote document URL through the confirmed network substrate before extraction.",
+      selected_skill: "external-network-request",
+      selected_action: "external_network_request",
+      resource_access: url_resource_access(url, :inspect_document, "external_network_request"),
+      alternatives: [
+        "Provide already-extracted document text or approve a bounded document URL fetch."
+      ],
+      trace_metadata: %{source_text: text, url: url, postprocess: :inspect_document},
+      context: context
+    }
+  end
+
   defp decision_attrs({:unsupported_resource_workflow, workflow, resource}, text, context) do
     %{
       intent: workflow,
@@ -276,6 +307,24 @@ defmodule AllbertAssist.Agents.IntentAgent do
       confirmation: :unsupported,
       resource_access: workflow_resource_access(workflow, resource || resource_hint(text), text),
       alternatives: unsupported_alternatives(workflow),
+      context: context
+    }
+  end
+
+  defp decision_attrs({:local_file_inspection, path}, text, context) do
+    %{
+      intent: :read_local_path,
+      reason:
+        "The prompt asks to inspect a generic local file, but v0.11 has no registered bounded reader.",
+      selected_skill: "unsupported-resource-workflow",
+      selected_action: "unsupported_resource_workflow",
+      confirmation: :unsupported,
+      resource_access: local_file_resource_access(path, "unsupported_resource_workflow"),
+      alternatives: [
+        "Paste the relevant text directly.",
+        "Add a later bounded local read action with confirmation and caps."
+      ],
+      trace_metadata: %{source_text: text, local_path: path},
       context: context
     }
   end
@@ -479,6 +528,40 @@ defmodule AllbertAssist.Agents.IntentAgent do
     )
   end
 
+  defp run_route({:url_summary, url}, text, context) do
+    run_skill_action(
+      "external-network-request",
+      "external_network_request",
+      %{
+        url: url,
+        method: "GET",
+        operation_class: "summarize_url",
+        downstream_consumer: "url_summarizer",
+        postprocess: "summarize_url",
+        source_text: text
+      },
+      text,
+      context
+    )
+  end
+
+  defp run_route({:document_url_inspection, url}, text, context) do
+    run_skill_action(
+      "external-network-request",
+      "external_network_request",
+      %{
+        url: url,
+        method: "GET",
+        operation_class: "inspect_document",
+        downstream_consumer: "document_extractor",
+        postprocess: "inspect_document",
+        source_text: text
+      },
+      text,
+      context
+    )
+  end
+
   defp run_route({:plan_package_install, params}, text, context) do
     run_action("plan_package_install", Map.put(params, :source_text, text), text, context)
   end
@@ -512,6 +595,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
       "unsupported-resource-workflow",
       "unsupported_resource_workflow",
       %{workflow: workflow, source_text: text, resource: resource},
+      text,
+      context
+    )
+  end
+
+  defp run_route({:local_file_inspection, path}, text, context) do
+    run_skill_action(
+      "unsupported-resource-workflow",
+      "unsupported_resource_workflow",
+      %{workflow: :read_local_path, source_text: text, resource: path},
       text,
       context
     )
@@ -803,6 +896,25 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
+  defp uri_consumer_route(text, normalized) do
+    url = first_url(text)
+    local_path = local_file_path(text)
+
+    cond do
+      is_binary(url) && url_summary_request?(normalized) ->
+        {:url_summary, url}
+
+      is_binary(url) && remote_document_request?(normalized) ->
+        {:document_url_inspection, url}
+
+      is_binary(local_path) && local_file_inspection_request?(normalized) ->
+        {:local_file_inspection, local_path}
+
+      true ->
+        nil
+    end
+  end
+
   defp command_resource_access(text, target_action, mode) do
     with {:ok, params} <- command_params_from_text(text) do
       cwd = Map.get(params, :cwd, File.cwd!())
@@ -880,6 +992,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
     url_resource_access(resource, :inspect_document, "unsupported_resource_workflow")
   end
 
+  defp workflow_resource_access(:read_local_path, resource, _text) when is_binary(resource) do
+    local_file_resource_access(resource, "unsupported_resource_workflow")
+  end
+
   defp workflow_resource_access(:unsupported_uri_scheme, resource, _text)
        when is_binary(resource) do
     [
@@ -938,6 +1054,30 @@ defmodule AllbertAssist.Agents.IntentAgent do
     }
 
     package_refs ++ [target_ref]
+  end
+
+  defp local_file_resource_access(path, target_action) do
+    canonical = Path.expand(path)
+
+    [
+      %{
+        resource_uri: ResourceURI.file!(canonical),
+        origin_kind: :local_path,
+        canonical_id: canonical,
+        operation_class: :read_local_path,
+        access_mode: :read,
+        scope: Scope.exact_file(canonical),
+        display_uri: "file://#{canonical}",
+        downstream_consumer: :bounded_file_reader,
+        target_action: target_action,
+        expected_content_kind: :local_file,
+        byte_cap: 262_144,
+        output_cap: 65_536,
+        allowed_approval_scopes: [:once, :exact_resource, :local_directory],
+        diagnostics: [%{source: :intent_agent, reason: :bounded_file_reader_unavailable}],
+        metadata: %{posture: :unavailable, shell_fallback?: false}
+      }
+    ]
   end
 
   defp online_skill_resource_access(params, operation_class, target_action) do
@@ -1030,6 +1170,9 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp unsupported_alternatives(:inspect_document),
     do: ["Provide extracted text directly or wait for a registered document extractor."]
+
+  defp unsupported_alternatives(:read_local_path),
+    do: ["Paste the relevant text directly; v0.11 has no generic local file reader."]
 
   defp unsupported_alternatives(:unsupported_uri_scheme),
     do: ["Use a supported registered action or wait for a future MCP/agent adapter."]
@@ -1139,6 +1282,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
       Regex.match?(~r/\b(document|pdf|docx|xlsx|pptx)\b.*\b(inspect|review|read|check)\b/, text)
   end
 
+  defp remote_document_request?(text) do
+    document_extraction_request?(text) || document_inspection_request?(text)
+  end
+
+  defp local_file_inspection_request?(text) do
+    (String.contains?(text, "file://") ||
+       Regex.match?(~r/\b(local\s+file|file|path)\b/, text)) &&
+      Regex.match?(~r/\b(read|inspect|review|check|summarize|summarise)\b/, text)
+  end
+
   defp broad_web_request?(text) do
     String.contains?(text, "crawl ") ||
       String.contains?(text, "crawler") ||
@@ -1164,6 +1317,37 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
       true ->
         nil
+    end
+  end
+
+  defp local_file_path(text) do
+    cond do
+      match = Regex.run(~r/(file:\/\/[^\s<>"']+)/i, text) ->
+        match
+        |> List.first()
+        |> String.trim_trailing(".,)")
+        |> path_from_file_uri()
+
+      match =
+          Regex.run(
+            ~r/\b(?:file|path|document)\s+(?:at\s+|from\s+|is\s+)?["']?([~\/.][^"'\s,;]+)["']?/i,
+            text
+          ) ->
+        match |> Enum.at(1) |> String.trim_trailing(".,)")
+
+      match =
+          Regex.run(~r/([~\/.][^\s,;]+\.(?:txt|md|pdf|docx|xlsx|pptx|csv|json|exs?|heex))/i, text) ->
+        match |> Enum.at(1) |> String.trim_trailing(".,)")
+
+      true ->
+        nil
+    end
+  end
+
+  defp path_from_file_uri(uri) do
+    case ResourceURI.path_from_file_uri(uri) do
+      {:ok, path} -> path
+      {:error, _reason} -> uri
     end
   end
 

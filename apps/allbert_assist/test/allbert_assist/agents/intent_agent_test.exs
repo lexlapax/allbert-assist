@@ -448,7 +448,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert pending["target_execution_mode"] == "req_http"
   end
 
-  test "routes URL summarization to unsupported resource workflow instead of fetching" do
+  test "routes URL summarization to confirmed fetch before summarizer handoff" do
     assert {:ok, response} =
              IntentAgent.respond(%{
                text: "Check https://example.com/report and summarize it for me",
@@ -456,20 +456,84 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
                operator_id: "local"
              })
 
+    assert response.status == :needs_confirmation
+    assert response.message =~ "External network request is ready"
+    assert response.message =~ "Operation: summarize_url"
+    assert response.decision.intent == :summarize_url
+    assert response.decision.selected_skill == "external-network-request"
+
+    assert [
+             %{
+               name: "external_network_request",
+               status: :needs_confirmation,
+               execution: :pending_confirmation,
+               confirmation_id: confirmation_id,
+               runner_metadata: %{selected_skill: "external-network-request"}
+             }
+           ] = response.actions
+
+    assert [%{operation_class: :summarize_url, downstream_consumer: :url_summarizer}] =
+             response.resource_access
+
+    assert {:ok, pending} = Confirmations.read(confirmation_id)
+    assert pending["params_summary"]["operation_class"] == "summarize_url"
+    assert [ref] = pending["params_summary"]["resource_refs"]
+    assert ref["operation_class"] == "summarize_url"
+    assert ref["downstream_consumer"] == "url_summarizer"
+  end
+
+  test "routes remote document inspection to confirmed fetch before extractor handoff" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "Inspect document https://example.com/report.pdf",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :needs_confirmation
+    assert response.message =~ "Operation: inspect_document"
+    assert response.decision.intent == :inspect_document
+
+    assert [%{operation_class: :inspect_document, downstream_consumer: :document_extractor}] =
+             response.resource_access
+
+    assert [%{confirmation_id: confirmation_id}] = response.actions
+    assert {:ok, pending} = Confirmations.read(confirmation_id)
+    assert pending["params_summary"]["operation_class"] == "inspect_document"
+    assert [ref] = pending["params_summary"]["resource_refs"]
+    assert ref["operation_class"] == "inspect_document"
+    assert ref["downstream_consumer"] == "document_extractor"
+  end
+
+  test "routes generic local file inspection to unavailable file posture without shell fallback" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "Read local file ./mix.exs",
+               channel: :test,
+               operator_id: "local"
+             })
+
     assert response.status == :unsupported
-    assert response.message =~ "URL summarization is deferred to v0.11"
-    assert response.message =~ "v0.10 has not run anything"
+    assert response.message =~ "Generic local file inspection is unavailable"
+    assert response.message =~ "no shell-command fallback"
 
     assert [
              %{
                name: "unsupported_resource_workflow",
                status: :unsupported,
                execution: :not_started,
-               workflow: :summarize_url,
-               resource: "https://example.com/report",
-               runner_metadata: %{selected_skill: "unsupported-resource-workflow"}
+               workflow: :read_local_path
              }
            ] = response.actions
+
+    assert [
+             %{
+               operation_class: :read_local_path,
+               access_mode: :read,
+               downstream_consumer: :bounded_file_reader,
+               target_action: "unsupported_resource_workflow"
+             }
+           ] = response.resource_access
 
     assert Confirmations.list(status: :pending) == []
   end

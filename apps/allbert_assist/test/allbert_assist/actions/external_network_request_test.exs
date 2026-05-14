@@ -116,6 +116,53 @@ defmodule AllbertAssist.Actions.ExternalNetworkRequestTest do
     assert approved.confirmation["operator_resolution"]["target_result"]["http_status"] == 200
   end
 
+  test "approved summarize_url fetch reports missing summarizer without changing operation scope" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      Plug.Conn.send_resp(conn, 200, "report body")
+    end)
+
+    params = %{
+      url: "https://example.com/status",
+      operation_class: "summarize_url",
+      downstream_consumer: "url_summarizer",
+      postprocess: "summarize_url"
+    }
+
+    assert {:ok, response} =
+             Runner.run("external_network_request", params, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert response.status == :needs_confirmation
+    assert response.message =~ "Operation: summarize_url"
+    assert response.confirmation["params_summary"]["operation_class"] == "summarize_url"
+
+    assert [ref] = response.confirmation["params_summary"]["resource_refs"]
+    assert ref["operation_class"] == "summarize_url"
+    assert ref["access_mode"] == "summarize"
+    assert ref["downstream_consumer"] == "url_summarizer"
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: response.confirmation_id, reason: "M4 summary smoke"},
+               %{
+                 actor: "local",
+                 channel: :cli,
+                 external: %{req_plug: {Req.Test, __MODULE__}}
+               }
+             )
+
+    target_result = approved.confirmation["operator_resolution"]["target_result"]
+
+    assert approved.confirmation["operator_resolution"]["target_status"] == "completed"
+    assert target_result["http_status"] == 200
+    assert target_result["request"]["operation_class"] == "summarize_url"
+    assert target_result["postprocess"]["status"] == "unavailable"
+    assert target_result["postprocess"]["reason"] == "summarizer_unavailable"
+  end
+
   test "approval can remember an exact URL grant and later skip confirmation" do
     Req.Test.expect(__MODULE__, fn conn ->
       Plug.Conn.send_resp(conn, 200, "first")
@@ -163,6 +210,55 @@ defmodule AllbertAssist.Actions.ExternalNetworkRequestTest do
     assert reused.actions |> hd() |> get_in([:resource_grants, :applied?])
     assert reused.actions |> hd() |> get_in([:target_resumed?]) == false
     assert Confirmations.list(status: :pending) == []
+  end
+
+  test "summarize_url grant does not authorize generic external service request" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      Plug.Conn.send_resp(conn, 200, "summary grant")
+    end)
+
+    assert {:ok, response} =
+             Runner.run(
+               "external_network_request",
+               %{url: "https://example.com/status", operation_class: "summarize_url"},
+               %{actor: "local", channel: :cli}
+             )
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{
+                 id: response.confirmation_id,
+                 reason: "remember summary only",
+                 remember_scope: "exact"
+               },
+               %{
+                 actor: "local",
+                 channel: :cli,
+                 external: %{req_plug: {Req.Test, __MODULE__}}
+               }
+             )
+
+    assert [remembered] = approved.confirmation["operator_resolution"]["remembered_grants"]
+    assert remembered["operation_class"] == "summarize_url"
+
+    assert {:ok, generic} =
+             Runner.run(
+               "external_network_request",
+               %{url: "https://example.com/status"},
+               %{
+                 actor: "local",
+                 channel: :cli,
+                 external: %{req_plug: {Req.Test, __MODULE__}}
+               }
+             )
+
+    assert generic.status == :needs_confirmation
+
+    assert generic.confirmation["params_summary"]["resource_refs"]
+           |> hd()
+           |> Map.get("operation_class") ==
+             "external_service_request"
   end
 
   test "approval re-check denies policy drift before HTTP execution" do

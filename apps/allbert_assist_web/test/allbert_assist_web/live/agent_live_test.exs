@@ -66,8 +66,9 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert html =~ "Status: completed"
   end
 
-  test "default runtime renders unsupported URL summarization through LiveView", %{conn: conn} do
+  test "default runtime renders URL summarization approval through LiveView", %{conn: conn} do
     Application.delete_env(:allbert_assist, Runtime)
+    configure_external()
 
     {:ok, view, _html} = live(conn, ~p"/agent")
 
@@ -78,9 +79,12 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     html = render_async(view, 1_000)
 
     assert has_element?(view, "#agent-response")
-    assert html =~ "URL summarization is deferred to v0.11"
-    assert html =~ "Status: unsupported"
-    assert Confirmations.list(status: :pending) == []
+    assert html =~ "External network request is ready"
+    assert html =~ "Status: needs_confirmation"
+    assert html =~ "Resource remote_url summarize_url summarize"
+    assert html =~ "consumer=url_summarizer"
+    assert has_element?(view, "#approval-handoff")
+    assert [_pending] = Confirmations.list(status: :pending)
   end
 
   test "default runtime renders approval handoff and resolves denial through actions", %{

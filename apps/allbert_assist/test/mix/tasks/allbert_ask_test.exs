@@ -157,18 +157,22 @@ defmodule Mix.Tasks.Allbert.AskTest do
     assert pending["target_permission"] == "command_execute"
   end
 
-  test "default CLI runtime explains unsupported URL summarization without confirmation" do
+  test "default CLI runtime renders URL summarization approval before fetching" do
     Application.delete_env(:allbert_assist, Runtime)
+    configure_external()
 
     output =
       capture_io(fn ->
         assert :ok = Ask.run(["check https://example.com/report and summarize it"])
       end)
 
-    assert output =~ "Status: unsupported"
-    assert output =~ "URL summarization is deferred to v0.11"
-    assert output =~ "- unsupported_resource_workflow (unsupported)"
-    assert Confirmations.list(status: :pending) == []
+    assert output =~ "Status: needs_confirmation"
+    assert output =~ "Operation: summarize_url"
+    assert output =~ "- external_network_request (needs_confirmation)"
+    assert output =~ "Approval Handoff:"
+    assert output =~ "Resource remote_url summarize_url summarize"
+    assert output =~ "consumer=url_summarizer"
+    assert [_pending] = Confirmations.list(status: :pending)
   end
 
   test "raises when prompt is missing" do
@@ -194,5 +198,15 @@ defmodule Mix.Tasks.Allbert.AskTest do
     }
 
     assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
+
+  defp configure_external do
+    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
   end
 end

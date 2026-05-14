@@ -1,15 +1,15 @@
 defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
   @moduledoc """
-  User-facing deferred response for resource workflows that v0.10 must not run.
+   User-facing deferred response for resource workflows that v0.11 must not run.
 
-  The action is intentionally inert. It gives every current channel the same
-  explanation when a request belongs to v0.11+ orchestration instead of turning
-  the request into a partial v0.10 fetch, import, or execution path.
+   The action is intentionally inert. It gives every current channel the same
+   explanation when a request needs a later adapter instead of turning the
+   request into a partial fetch, import, file read, or execution path.
   """
 
   use Jido.Action,
     name: "unsupported_resource_workflow",
-    description: "Explain v0.11+ resource workflows that v0.10 does not execute.",
+    description: "Explain resource workflows that v0.11 does not execute.",
     category: "intent",
     tags: ["intent", "resource", "unsupported", "read_only"],
     schema: [
@@ -26,6 +26,17 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
 
   alias AllbertAssist.Security.PermissionGate
 
+  @workflow_aliases %{
+    "summarize_url" => :summarize_url,
+    "inspect_document" => :inspect_document,
+    "read_local_path" => :read_local_path,
+    "inspect_local_file" => :read_local_path,
+    "unsupported_uri_scheme" => :unsupported_uri_scheme,
+    "web_browsing" => :web_browsing,
+    "channel_approval_handoff" => :channel_approval_handoff,
+    "document_extraction" => :document_extraction
+  }
+
   @impl true
   def run(params, context) when is_map(params) do
     permission_decision = PermissionGate.authorize(:read_only, context)
@@ -41,6 +52,7 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
          workflow: workflow,
          resource: resource,
          v0_10_supported?: false,
+         v0_11_supported?: false,
          v0_11_owner: :execution_aware_intent_and_approval_handoff
        },
        actions: [
@@ -52,7 +64,8 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
            execution: :not_started,
            workflow: workflow,
            resource: resource,
-           v0_10_supported?: false
+           v0_10_supported?: false,
+           v0_11_supported?: false
          }
        ]
      }}
@@ -68,19 +81,13 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
   defp normalize_workflow(""), do: :resource_workflow
 
   defp normalize_workflow(value) do
-    value
-    |> String.downcase()
-    |> String.replace(~r/[^a-z0-9]+/, "_")
-    |> String.trim("_")
-    |> case do
-      "summarize_url" -> :summarize_url
-      "inspect_document" -> :inspect_document
-      "unsupported_uri_scheme" -> :unsupported_uri_scheme
-      "web_browsing" -> :web_browsing
-      "channel_approval_handoff" -> :channel_approval_handoff
-      "document_extraction" -> :document_extraction
-      _other -> :resource_workflow
-    end
+    normalized =
+      value
+      |> String.downcase()
+      |> String.replace(~r/[^a-z0-9]+/, "_")
+      |> String.trim("_")
+
+    Map.get(@workflow_aliases, normalized, :resource_workflow)
   end
 
   defp status(%{decision: :denied}), do: :denied
@@ -90,11 +97,11 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
     """
     #{workflow_intro(workflow)}
 
-    v0.10 has not run anything for this request: no fetch, read, extraction, summarization, crawl, MCP call, agent delegation, import, or execution has started.
+     v0.11 has not run anything for this request: no fetch, read, extraction, summarization, crawl, MCP call, agent delegation, import, or execution has started.
 
-    What v0.10 can do today is narrower: it can use approved registered resource consumers such as `external_network_request`, online skill source actions, direct skill URL import, local skill directory import, package install actions, shell execution, and trusted skill script execution. Each one has its own Security Central policy, confirmation, resource refs, traces, and audits.
+     What v0.11 can do today is narrower: it can use approved registered resource consumers such as `external_network_request`, online skill source actions, direct skill URL import, local skill directory import, package install actions, shell execution, and trusted skill script execution. Each one has its own Security Central policy, confirmation, resource refs, traces, and audits.
 
-    v0.11 owns this workflow through execution-aware intent, Security-aware Approval Handoff, URI-based resource access UX, URL/document orchestration, extraction, and clear summarizer-unavailable behavior.
+     A later milestone must add any missing bounded reader, parser, browser, MCP, or agent adapter with its own security, confirmation, trace, and test story.
     #{resource_line(resource)}
     """
     |> String.trim()
@@ -109,23 +116,27 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
   end
 
   defp workflow_intro(:document_extraction) do
-    "Document extraction and summarizer handoff are deferred to v0.11. v0.10 does not parse arbitrary remote or local document formats."
+    "Document extraction is unavailable until a registered extractor/parser exists. v0.11 does not parse arbitrary remote or local document formats."
+  end
+
+  defp workflow_intro(:read_local_path) do
+    "Generic local file inspection is unavailable in v0.11 unless a registered bounded reader exists. There is no shell-command fallback for local reads."
   end
 
   defp workflow_intro(:unsupported_uri_scheme) do
-    "This URI/resource scheme is inert in v0.10. MCP resources and future agent endpoints can be represented for planning, but v0.10 does not call MCP tools or delegate to agent endpoints."
+    "This URI/resource scheme is inert in v0.11. MCP resources and future agent endpoints can be represented for planning, but v0.11 does not call MCP tools or delegate to agent endpoints."
   end
 
   defp workflow_intro(:web_browsing) do
-    "Broad web browsing, crawling, and open internet research are deferred to a later release. v0.10 is not a browser or crawler."
+    "Broad web browsing, crawling, and open internet research are deferred to a later release. v0.11 is not a browser or crawler."
   end
 
   defp workflow_intro(:channel_approval_handoff) do
-    "Channel-native Approval Handoff for future Telegram/email/SMS-style channels is deferred to v0.11+. v0.10 channels do not own approval storage, policy, grants, or execution."
+    "Channel-native Approval Handoff for future Telegram/email/SMS-style channels is deferred to v0.16+. v0.11 channels do not own approval storage, policy, grants, or execution."
   end
 
   defp workflow_intro(_workflow) do
-    "This resource workflow is deferred beyond v0.10."
+    "This resource workflow is deferred beyond v0.11."
   end
 
   defp resource_line(nil), do: ""
