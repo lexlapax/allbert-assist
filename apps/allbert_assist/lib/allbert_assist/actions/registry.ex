@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Registry do
   """
 
   alias AllbertAssist.Actions.Capability
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
   alias AllbertAssist.Actions.Confirmations.DenyConfirmation
   alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
@@ -471,6 +472,16 @@ defmodule AllbertAssist.Actions.Registry do
   @spec internal_capabilities() :: [Capability.t()]
   def internal_capabilities, do: Enum.map(@internal_actions, &capability_for_module!/1)
 
+  @doc "Return action capabilities contributed by one registered app."
+  @spec capabilities_for_app(atom()) :: [Capability.t()]
+  def capabilities_for_app(app_id) when is_atom(app_id) do
+    app_id
+    |> AppRegistry.actions_for()
+    |> Enum.map(&capability_for_module!/1)
+  end
+
+  def capabilities_for_app(_app_id), do: []
+
   @doc "Resolve a registered action by module, string name, or atom name."
   @spec resolve(module() | String.t() | atom()) ::
           {:ok, module()} | {:error, {:unknown_action, term()}}
@@ -529,8 +540,15 @@ defmodule AllbertAssist.Actions.Registry do
 
   defp capability_for_module!(module) do
     attrs = Map.fetch!(@capability_attrs, module)
-    Capability.new(module, attrs)
+    app_id = AppRegistry.app_id_for_action(module)
+
+    module
+    |> Capability.new(attrs)
+    |> maybe_put_app_id(app_id)
   end
+
+  defp maybe_put_app_id(capability, nil), do: capability
+  defp maybe_put_app_id(capability, app_id), do: %{capability | app_id: app_id}
 
   defp normalize_name(name) do
     name

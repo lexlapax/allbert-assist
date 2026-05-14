@@ -14,7 +14,7 @@ defmodule AllbertAssist.Session.ScratchpadTest do
     {:ok, opts: [server: name]}
   end
 
-  test "AppId allowlist normalizes known apps and never creates unknown atoms" do
+  test "AppId registry normalizes known apps and never creates unknown atoms" do
     assert {:ok, :allbert} = AppId.normalize(:allbert)
     assert {:ok, :stocksage} = AppId.normalize("stocksage")
     assert {:ok, nil} = AppId.normalize("")

@@ -21,6 +21,7 @@ defmodule AllbertAssist.Actions.Capability do
     :exposure,
     :execution_mode,
     :skill_backed?,
+    :app_id,
     confirmation: nil,
     notes: nil,
     resumable?: false
@@ -62,6 +63,7 @@ defmodule AllbertAssist.Actions.Capability do
           exposure: exposure(),
           execution_mode: execution_mode(),
           skill_backed?: boolean(),
+          app_id: atom() | nil,
           confirmation: nil | atom(),
           notes: nil | String.t(),
           resumable?: boolean()
@@ -77,6 +79,7 @@ defmodule AllbertAssist.Actions.Capability do
       exposure: Map.fetch!(attrs, :exposure),
       execution_mode: Map.fetch!(attrs, :execution_mode),
       skill_backed?: Map.fetch!(attrs, :skill_backed?),
+      app_id: Map.get(attrs, :app_id),
       confirmation: Map.get(attrs, :confirmation),
       notes: Map.get(attrs, :notes),
       resumable?: Map.get(attrs, :resumable?, false)
@@ -97,5 +100,9 @@ defmodule AllbertAssist.Actions.Capability do
       confirmation: capability.confirmation,
       resumable?: capability.resumable?
     }
+    |> put_if_present(:app_id, capability.app_id)
   end
+
+  defp put_if_present(map, _key, nil), do: map
+  defp put_if_present(map, key, value), do: Map.put(map, key, value)
 end
