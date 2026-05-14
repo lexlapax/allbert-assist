@@ -20,6 +20,7 @@ defmodule AllbertAssist.Application do
       |> maybe_add_app_supervisor()
       |> maybe_add_session_scratchpad()
       |> maybe_add_scheduler()
+      |> maybe_add_channels_supervisor()
 
     Supervisor.start_link(children, strategy: :one_for_one, name: AllbertAssist.Supervisor)
   end
@@ -47,6 +48,11 @@ defmodule AllbertAssist.Application do
     else
       children
     end
+  end
+
+  defp maybe_add_channels_supervisor(children) do
+    opts = Application.get_env(:allbert_assist, AllbertAssist.Channels.Supervisor, [])
+    children ++ [{AllbertAssist.Channels.Supervisor, opts}]
   end
 
   defp skip_migrations?() do

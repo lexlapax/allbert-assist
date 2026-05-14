@@ -150,6 +150,77 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("sessions.scratchpad_ttl_minutes", 1441, %{})
   end
 
+  test "v0.16 channel settings are writable and validated" do
+    assert {:ok, false} = Settings.get("channels.telegram.enabled")
+    assert {:ok, false} = Settings.get("channels.email.enabled")
+
+    assert Settings.defaults()
+           |> get_in(["channels", "telegram", "bot_token_ref"]) ==
+             "secret://channels/telegram/bot_token"
+
+    assert {:ok, redacted_ref} = Settings.get("channels.telegram.bot_token_ref")
+    assert redacted_ref == "[REDACTED]"
+
+    telegram_map = [
+      %{
+        "external_user_id" => "123",
+        "user_id" => "alice",
+        "display_name" => "Alice",
+        "enabled" => true
+      }
+    ]
+
+    assert {:ok, resolved} =
+             Settings.put("channels.telegram.identity_map", telegram_map, %{audit?: false})
+
+    assert resolved.value == telegram_map
+
+    assert {:ok, _enabled} =
+             Settings.put("channels.telegram.enabled", true, %{audit?: false})
+
+    assert {:ok, _chats} =
+             Settings.put("channels.telegram.allowed_chat_ids", ["456"], %{audit?: false})
+
+    assert {:ok, _interval} =
+             Settings.put("channels.telegram.poll_interval_ms", 5000, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "channels.telegram.identity_map", _reason}} =
+             Settings.put(
+               "channels.telegram.identity_map",
+               [
+                 %{"external_user_id" => "123", "user_id" => "alice"},
+                 %{"external_user_id" => "123", "user_id" => "bob"}
+               ],
+               %{}
+             )
+
+    assert {:error, {:invalid_setting, "channels.telegram.poll_timeout_seconds", _reason}} =
+             Settings.put("channels.telegram.poll_timeout_seconds", 0, %{})
+
+    assert {:ok, _imap_host} =
+             Settings.put("channels.email.imap_host", "imap.example.com", %{audit?: false})
+
+    assert {:ok, _smtp_host} =
+             Settings.put("channels.email.smtp_host", "smtp.example.com", %{audit?: false})
+
+    assert {:ok, _imap_user} =
+             Settings.put("channels.email.imap_username", "alice", %{audit?: false})
+
+    assert {:ok, _smtp_user} =
+             Settings.put("channels.email.smtp_username", "alice", %{audit?: false})
+
+    assert {:ok, _from} =
+             Settings.put("channels.email.from_address", "allbert@example.com", %{audit?: false})
+
+    assert {:ok, _enabled} = Settings.put("channels.email.enabled", true, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "channels.email.from_address", _reason}} =
+             Settings.put("channels.email.from_address", "not-email", %{})
+
+    assert {:error, {:invalid_setting, "channels.email.imap_ssl", _reason}} =
+             Settings.put("channels.email.imap_ssl", false, %{})
+  end
+
   test "skill script execution settings are writable and validated" do
     assert {:ok, policy} =
              Settings.put("permissions.skill_script_execute", "allowed", %{audit?: false})
@@ -332,6 +403,20 @@ defmodule AllbertAssist.SettingsTest do
     assert audit =~ "old: missing"
     assert audit =~ "new: configured"
     refute audit =~ "test-key"
+  end
+
+  test "channel secret writes encrypt values without provider settings side effects" do
+    assert {:ok, %{status: :configured}} =
+             Secrets.put_secret("secret://channels/telegram/bot_token", "bot-token", %{
+               actor: "local",
+               channel: :test
+             })
+
+    assert {:ok, "bot-token"} = Secrets.get_secret("secret://channels/telegram/bot_token")
+    assert Secrets.status("secret://channels/telegram/bot_token") == :configured
+
+    assert {:ok, statuses} = Secrets.list_secret_status("secret://channels")
+    assert [%{secret_ref: "secret://channels/telegram/bot_token", status: :configured}] = statuses
   end
 
   test "audit write failure is returned as a diagnostic" do
