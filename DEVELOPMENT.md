@@ -135,6 +135,7 @@ For v0.13 scheduled jobs work, start with:
 For v0.14 session scratchpad work, start with:
 
 - `docs/plans/v0.14-plan.md`
+- `docs/plans/v0.14-request-flow.md`
 - `docs/plans/allbert-jido-vision.md`
 - `docs/adr/0014-local-workspace-identity.md`
 
