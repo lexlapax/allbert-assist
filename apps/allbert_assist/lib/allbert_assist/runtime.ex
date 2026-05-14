@@ -148,7 +148,9 @@ defmodule AllbertAssist.Runtime do
   defp session_context(_user_id, nil), do: %{active_app: nil, diagnostics: []}
 
   defp session_context(user_id, session_id) do
-    case Session.get(user_id, session_id, touch?: true) do
+    opts = Keyword.put(session_opts(), :touch?, true)
+
+    case Session.get(user_id, session_id, opts) do
       {:ok, entry} ->
         %{active_app: entry.active_app, diagnostics: []}
 
@@ -258,6 +260,12 @@ defmodule AllbertAssist.Runtime do
     :allbert_assist
     |> Application.get_env(__MODULE__, [])
     |> Keyword.get(:agent_runner, &run_intent_agent/2)
+  end
+
+  defp session_opts do
+    :allbert_assist
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:session_opts, [])
   end
 
   @spec run_intent_agent(Signal.t(), request()) :: {:ok, map()} | {:error, term()}

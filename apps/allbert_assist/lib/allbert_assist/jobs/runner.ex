@@ -258,6 +258,7 @@ defmodule AllbertAssist.Jobs.Runner do
     %{
       status: response_field(response, :status),
       message: response_field(response, :message),
+      active_app: response_field(response, :active_app),
       actions: response_field(response, :actions),
       runner_metadata: response_field(response, :runner_metadata)
     }
