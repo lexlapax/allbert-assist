@@ -6,6 +6,7 @@ defmodule AllbertAssist.RuntimeTest do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Session
   alias AllbertAssist.Settings
   alias AllbertAssist.Trace
 
@@ -101,6 +102,7 @@ defmodule AllbertAssist.RuntimeTest do
         assert response.operator_id == "local"
         assert String.starts_with?(response.thread_id, "thr_")
         assert response.session_id == nil
+        assert response.active_app == nil
         assert is_binary(response.input_signal_id)
         assert is_binary(response.signal_id)
         response
@@ -113,7 +115,12 @@ defmodule AllbertAssist.RuntimeTest do
                      "Say hello from the runtime boundary.", :test}
 
     assert_received {:agent_request,
-                     %{user_id: "local", operator_id: "local", thread_id: thread_id}}
+                     %{
+                       user_id: "local",
+                       operator_id: "local",
+                       thread_id: thread_id,
+                       active_app: nil
+                     }}
 
     assert {:ok, thread} = Conversations.get_thread("local", thread_id)
     assert thread.kind == "general"
@@ -156,6 +163,7 @@ defmodule AllbertAssist.RuntimeTest do
     assert response.user_id == "alice"
     assert response.operator_id == "alice"
     assert response.session_id == "session-1"
+    assert response.active_app == nil
     assert String.starts_with?(response.thread_id, "thr_")
 
     assert_received {:agent_request,
@@ -163,10 +171,65 @@ defmodule AllbertAssist.RuntimeTest do
                        user_id: "alice",
                        operator_id: "alice",
                        thread_id: thread_id,
-                       session_id: "session-1"
+                       session_id: "session-1",
+                       active_app: nil
                      }}
 
     assert {:ok, _thread} = Conversations.get_thread("alice", thread_id)
+  end
+
+  test "reads active app from scratchpad and propagates it through runtime context" do
+    user = "runtime-session-#{System.unique_integer([:positive])}"
+    session_id = "sess-1"
+
+    on_exit(fn -> Session.clear(user, session_id) end)
+
+    assert {:ok, _entry} = Session.set_active_app(user, session_id, "stocksage")
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "hello from a StockSage session",
+               channel: :test,
+               user_id: user,
+               session_id: session_id,
+               metadata: %{trace: true}
+             })
+
+    assert response.session_id == session_id
+    assert response.active_app == :stocksage
+    assert response.diagnostics == []
+
+    assert_received {:agent_signal_data, %{active_app: :stocksage, session_id: ^session_id}}
+
+    assert_received {:agent_request,
+                     %{
+                       user_id: ^user,
+                       session_id: ^session_id,
+                       active_app: :stocksage
+                     }}
+
+    assert {:ok, %{messages: [user_message, assistant_message]}} =
+             Conversations.show_thread(user, response.thread_id)
+
+    assert message_metadata_value(user_message.metadata, "active_app") in [
+             :stocksage,
+             "stocksage"
+           ]
+
+    assert message_metadata_value(assistant_message.metadata, "active_app") in [
+             :stocksage,
+             "stocksage"
+           ]
+
+    assert action_log_value(assistant_message.action_log, "active_app") in [
+             :stocksage,
+             "stocksage"
+           ]
+
+    assert response.trace_id
+    trace = File.read!(response.trace_id)
+    assert trace =~ "Active app: stocksage"
+    refute trace =~ "working_memory"
   end
 
   test "passes bounded prior thread context to the agent after persisting current input" do
@@ -504,4 +567,12 @@ defmodule AllbertAssist.RuntimeTest do
 
   defp restore_system_env(key, nil), do: System.delete_env(key)
   defp restore_system_env(key, value), do: System.put_env(key, value)
+
+  defp message_metadata_value(metadata, key) do
+    Map.get(metadata, key) || Map.get(metadata, String.to_atom(key))
+  end
+
+  defp action_log_value(action_log, key) do
+    Map.get(action_log, key) || Map.get(action_log, String.to_atom(key))
+  end
 end

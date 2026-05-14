@@ -26,6 +26,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.ResourceAccess
   alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Session
   alias Jido.Signal
 
   @input_received "allbert.input.received"
@@ -44,8 +45,10 @@ defmodule AllbertAssist.Runtime do
           operator_id: String.t(),
           thread_id: String.t(),
           session_id: nil | String.t(),
+          active_app: atom() | nil,
           thread_context: map(),
           metadata: map(),
+          diagnostics: list(),
           timeout_ms: pos_integer()
         }
 
@@ -59,6 +62,7 @@ defmodule AllbertAssist.Runtime do
           operator_id: String.t(),
           thread_id: String.t(),
           session_id: nil | String.t(),
+          active_app: atom() | nil,
           actions: list(),
           decision: map() | nil,
           resource_access: list(),
@@ -120,6 +124,9 @@ defmodule AllbertAssist.Runtime do
     with {:ok, text} <- text,
          {:ok, identity} <- identity(attrs),
          {:ok, thread} <- resolve_thread(attrs, identity.user_id, text) do
+      session_id = optional_string(fetch_value(attrs, :session_id))
+      session_context = session_context(identity.user_id, session_id)
+
       {:ok,
        %{
          text: text,
@@ -127,12 +134,34 @@ defmodule AllbertAssist.Runtime do
          user_id: identity.user_id,
          operator_id: identity.operator_id,
          thread_id: thread.id,
-         session_id: optional_string(fetch_value(attrs, :session_id)),
+         session_id: session_id,
+         active_app: session_context.active_app,
          thread_context: empty_thread_context(identity.user_id, thread.id),
          conversation_thread: thread,
          metadata: fetch_value(attrs, :metadata) || %{},
+         diagnostics: session_context.diagnostics,
          timeout_ms: fetch_value(attrs, :timeout_ms) || @default_timeout_ms
        }}
+    end
+  end
+
+  defp session_context(_user_id, nil), do: %{active_app: nil, diagnostics: []}
+
+  defp session_context(user_id, session_id) do
+    case Session.get(user_id, session_id, touch?: true) do
+      {:ok, entry} ->
+        %{active_app: entry.active_app, diagnostics: []}
+
+      {:error, :not_found} ->
+        %{active_app: nil, diagnostics: []}
+
+      {:error, reason} ->
+        %{
+          active_app: nil,
+          diagnostics: [
+            %{source: :session_scratchpad, error: inspect(Redactor.redact(reason))}
+          ]
+        }
     end
   end
 
@@ -187,6 +216,7 @@ defmodule AllbertAssist.Runtime do
         operator_id: request.operator_id,
         thread_id: request.thread_id,
         session_id: request.session_id,
+        active_app: request.active_app,
         metadata: request.metadata
       },
       source: channel_source(request.channel),
@@ -205,11 +235,12 @@ defmodule AllbertAssist.Runtime do
         operator_id: request.operator_id,
         thread_id: request.thread_id,
         session_id: request.session_id,
+        active_app: request.active_app,
         actions: response_actions(agent_response),
         decision: response_decision(agent_response),
         resource_access: response_resource_access(agent_response),
         approval_handoff: response_approval_handoff(agent_response),
-        diagnostics: response_diagnostics(agent_response)
+        diagnostics: request.diagnostics ++ response_diagnostics(agent_response)
       },
       source: "/allbert/runtime",
       subject: request.user_id
@@ -238,6 +269,7 @@ defmodule AllbertAssist.Runtime do
       operator_id: request.operator_id,
       thread_id: request.thread_id,
       session_id: request.session_id,
+      active_app: request.active_app,
       thread_context: request.thread_context,
       metadata: request.metadata,
       timeout_ms: request.timeout_ms,
@@ -262,21 +294,26 @@ defmodule AllbertAssist.Runtime do
       operator_id: request.operator_id,
       thread_id: request.thread_id,
       session_id: request.session_id,
+      active_app: request.active_app,
       actions: response_actions(agent_response),
       decision: response_decision(agent_response),
       resource_access: response_resource_access(agent_response),
       approval_handoff: response_approval_handoff(agent_response),
-      diagnostics: response_diagnostics(agent_response)
+      diagnostics: request.diagnostics ++ response_diagnostics(agent_response)
     }
   end
 
   defp persist_user_message(request, input_signal) do
-    Conversations.append_user_message(request.conversation_thread, request.text, %{
-      input_signal_id: input_signal.id,
-      metadata: %{
+    metadata =
+      %{
         channel: request.channel,
         session_id: request.session_id
       }
+      |> maybe_put(:active_app, request.active_app)
+
+    Conversations.append_user_message(request.conversation_thread, request.text, %{
+      input_signal_id: input_signal.id,
+      metadata: metadata
     })
   end
 
@@ -310,14 +347,18 @@ defmodule AllbertAssist.Runtime do
   defp persist_assistant_message(response, request, response_signal) do
     case Conversations.get_thread(request.user_id, request.thread_id) do
       {:ok, thread} ->
+        metadata =
+          %{
+            channel: request.channel,
+            session_id: request.session_id
+          }
+          |> maybe_put(:active_app, request.active_app)
+
         attrs = %{
           action_log: assistant_action_log(response),
           trace_id: response.trace_id,
           response_signal_id: response_signal.id,
-          metadata: %{
-            channel: request.channel,
-            session_id: request.session_id
-          }
+          metadata: metadata
         }
 
         case Conversations.append_assistant_message(thread, response.message, attrs) do
@@ -344,6 +385,7 @@ defmodule AllbertAssist.Runtime do
       input_signal_id: response.input_signal_id,
       response_signal_id: response.signal_id
     }
+    |> maybe_put(:active_app, response.active_app)
     |> Redactor.redact()
   end
 
@@ -377,6 +419,7 @@ defmodule AllbertAssist.Runtime do
         operator_id: request.operator_id,
         thread_id: request.thread_id,
         session_id: request.session_id,
+        active_app: request.active_app,
         channel: request.channel,
         input_signal_id: input_signal.id
       },
@@ -409,7 +452,8 @@ defmodule AllbertAssist.Runtime do
              response_signal_id: response.signal_id,
              trace_id: trace_id,
              user_id: request.user_id,
-             thread_id: request.thread_id
+             thread_id: request.thread_id,
+             active_app: request.active_app
            },
            source: "/allbert/runtime",
            subject: request.user_id
@@ -504,4 +548,7 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp present?(value), do: value not in [nil, ""]
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 end

@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Allbert.Ask do
       mix allbert.ask --trace "what do you remember about milestone handoffs?"
       mix allbert.ask --user alice --new-thread "hello"
       mix allbert.ask --user alice --thread THREAD_ID "continue"
+      mix allbert.ask --user alice --session SESSION_ID "hello"
 
   ## Options
 
@@ -17,18 +18,21 @@ defmodule Mix.Tasks.Allbert.Ask do
     * `--operator` - legacy local operator id alias
     * `--thread` - continue an existing user-owned thread
     * `--new-thread` - create a fresh general thread
+    * `--session` - volatile local session id for scratchpad lookup
   """
 
   use Mix.Task
 
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Session
   alias AllbertAssist.Trace
 
   @shortdoc "Send one prompt through the Allbert runtime"
   @switches [
     channel: :string,
     operator: :string,
+    session: :string,
     user: :string,
     thread: :string,
     new_thread: :boolean,
@@ -38,6 +42,7 @@ defmodule Mix.Tasks.Allbert.Ask do
   @aliases [
     c: :channel,
     o: :operator,
+    s: :session,
     u: :user,
     t: :thread
   ]
@@ -57,12 +62,13 @@ defmodule Mix.Tasks.Allbert.Ask do
 
     if prompt == "" do
       Mix.raise(
-        "Usage: mix allbert.ask [--trace] [--channel cli] [--user local|--operator local] [--thread THREAD_ID|--new-thread] \"prompt\""
+        "Usage: mix allbert.ask [--trace] [--channel cli] [--user local|--operator local] [--thread THREAD_ID|--new-thread] [--session SESSION_ID] \"prompt\""
       )
     end
 
     validate_identity!(opts)
     validate_thread_options!(opts)
+    validate_session!(opts)
 
     if opts[:trace] do
       enable_trace_for_turn()
@@ -90,6 +96,7 @@ defmodule Mix.Tasks.Allbert.Ask do
     |> maybe_put(:user_id, blank_to_nil(opts[:user]))
     |> maybe_put(:operator_id, blank_to_nil(opts[:operator]))
     |> maybe_put(:thread_id, blank_to_nil(opts[:thread]))
+    |> maybe_put(:session_id, blank_to_nil(opts[:session]))
     |> maybe_put(:new_thread, opts[:new_thread])
     |> Runtime.submit_user_input()
   end
@@ -103,6 +110,7 @@ defmodule Mix.Tasks.Allbert.Ask do
     Mix.shell().info("Trace: #{response.trace_id || "none"}")
     Mix.shell().info("User: #{response.user_id}")
     Mix.shell().info("Thread: #{response.thread_id}")
+    print_session(response)
     print_approval_handoff(Map.get(response, :approval_handoff))
 
     if response.diagnostics != [] do
@@ -191,6 +199,27 @@ defmodule Mix.Tasks.Allbert.Ask do
     if blank_to_nil(opts[:thread]) && opts[:new_thread] do
       Mix.raise("--thread and --new-thread cannot be used together")
     end
+  end
+
+  defp validate_session!(opts) do
+    case Keyword.fetch(opts, :session) do
+      :error ->
+        :ok
+
+      {:ok, session_id} ->
+        case Session.normalize_session_id(session_id) do
+          {:ok, _session_id} -> :ok
+          {:error, reason} -> Mix.raise("--session is invalid: #{inspect(reason)}")
+        end
+    end
+  end
+
+  defp print_session(response) do
+    if response.session_id do
+      Mix.shell().info("Session: #{response.session_id}")
+    end
+
+    Mix.shell().info("Active app: #{Session.active_app_label(Map.get(response, :active_app))}")
   end
 
   defp maybe_put(params, _key, nil), do: params

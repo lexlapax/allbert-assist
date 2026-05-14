@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Session
   alias AllbertAssist.Settings
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Ask
@@ -20,6 +21,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
     original_trace_enabled_env = System.get_env("ALLBERT_TRACE_ENABLED")
+    parent = self()
 
     root =
       Path.join(
@@ -28,6 +30,8 @@ defmodule Mix.Tasks.Allbert.AskTest do
       )
 
     runner = fn _signal, request ->
+      send(parent, {:agent_request, request})
+
       {:ok,
        %{
          message: "CLI response: #{request.text}",
@@ -98,6 +102,38 @@ defmodule Mix.Tasks.Allbert.AskTest do
     assert assistant_message.content == "CLI response: hello from alice"
   end
 
+  test "passes session option through runtime and prints active app" do
+    user = "ask-session-#{System.unique_integer([:positive])}"
+    session_id = "sess-1"
+
+    on_exit(fn -> Session.clear(user, session_id) end)
+
+    assert {:ok, _entry} = Session.set_active_app(user, session_id, :stocksage)
+
+    output =
+      capture_io(fn ->
+        assert :ok =
+                 Ask.run([
+                   "--user",
+                   user,
+                   "--session",
+                   session_id,
+                   "hello from session"
+                 ])
+      end)
+
+    assert output =~ "User: #{user}"
+    assert output =~ "Session: #{session_id}"
+    assert output =~ "Active app: stocksage"
+
+    assert_received {:agent_request,
+                     %{
+                       user_id: ^user,
+                       session_id: ^session_id,
+                       active_app: :stocksage
+                     }}
+  end
+
   test "continues an explicit user-owned thread" do
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Existing")
 
@@ -117,6 +153,10 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
     assert_raise Mix.Error, ~r/--thread and --new-thread cannot be used together/, fn ->
       Ask.run(["--thread", "thr_existing", "--new-thread", "hello"])
+    end
+
+    assert_raise Mix.Error, ~r/--session is invalid: :invalid_session_id/, fn ->
+      Ask.run(["--session", "", "hello"])
     end
   end
 
