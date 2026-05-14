@@ -6,8 +6,11 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   require Logger
 
   alias AllbertAssist.Channels
+  alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.Telegram.Client
   alias AllbertAssist.Channels.Telegram.Parser
+  alias AllbertAssist.Channels.Telegram.Renderer
+  alias AllbertAssist.Runtime
   alias AllbertAssist.Settings.Secrets
 
   @provider "telegram_bot_api"
@@ -95,7 +98,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
            state.req_options
          ) do
       {:ok, updates} when is_list(updates) ->
-        {summary, offset} = process_updates(updates, state.offset)
+        {summary, offset} = process_updates(updates, state, state.offset)
         {{:ok, summary}, %{state | offset: offset, backoff_ms: 0}}
 
       {:error, reason} ->
@@ -104,14 +107,14 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     end
   end
 
-  defp process_updates(updates, offset) do
+  defp process_updates(updates, state, offset) do
     Enum.reduce(
       updates,
       {%{processed: 0, duplicates: 0, rejected: 0, failed: 0}, offset},
       fn update, {summary, offset} ->
         next_offset = max(offset, update_id(update) + 1)
 
-        case process_update(update) do
+        case process_update(update, state) do
           {:ok, :processed} -> {Map.update!(summary, :processed, &(&1 + 1)), next_offset}
           {:ok, :duplicate} -> {Map.update!(summary, :duplicates, &(&1 + 1)), next_offset}
           {:ok, :rejected} -> {Map.update!(summary, :rejected, &(&1 + 1)), next_offset}
@@ -121,13 +124,26 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     )
   end
 
-  defp process_update(update) do
+  defp process_update(update, state) do
     case Parser.parse_update(update) do
       {:text_message, fields} ->
-        insert_received_event(fields, "inbound")
+        case insert_received_event(fields, "inbound") do
+          {:ok, %AllbertAssist.Channels.Event{} = event} ->
+            handle_text_message(event, fields, state)
+
+          {:ok, :duplicate} ->
+            {:ok, :duplicate}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
 
       {:callback_query, fields} ->
-        insert_received_event(fields, "callback")
+        case insert_received_event(fields, "callback") do
+          {:ok, %AllbertAssist.Channels.Event{}} -> {:ok, :processed}
+          {:ok, :duplicate} -> {:ok, :duplicate}
+          {:error, reason} -> {:error, reason}
+        end
 
       {:unsupported, %{external_event_id: external_event_id, type: type}} ->
         insert_rejected_event(external_event_id, type)
@@ -167,8 +183,135 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     |> event_result(:rejected)
   end
 
+  defp handle_text_message(event, fields, state) do
+    with :ok <- validate_chat(fields, state),
+         :ok <- validate_text_size(fields, state),
+         {:ok, user_id} <- resolve_identity(fields, state),
+         session_id <-
+           Channels.derive_session_id(
+             "telegram",
+             fields.external_user_id,
+             fields.external_chat_id
+           ),
+         {text, new_thread?} <- prompt_text(fields.text),
+         {:ok, response} <- submit_runtime(text, user_id, session_id, fields, new_thread?),
+         {:ok, chunks, keyboard} <- render_response(response, state),
+         :ok <- deliver_chunks(fields.external_chat_id, chunks, keyboard, state),
+         {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
+      {:ok, :processed}
+    else
+      {:error, reason} ->
+        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, :rejected}
+    end
+  end
+
+  defp validate_chat(fields, state) do
+    group? = Map.get(fields, :chat_type) in ["group", "supergroup"]
+    allowed_chat_ids = Map.get(state.settings, "allowed_chat_ids", [])
+
+    cond do
+      not group? ->
+        :ok
+
+      Map.get(state.settings, "allow_group_chats", false) and
+          fields.external_chat_id in allowed_chat_ids ->
+        :ok
+
+      true ->
+        {:error, :group_chat_not_allowed}
+    end
+  end
+
+  defp validate_text_size(fields, state) do
+    max_text_bytes = Map.get(state.settings, "max_text_bytes", 4096)
+
+    if byte_size(fields.text) <= max_text_bytes do
+      :ok
+    else
+      {:error, :oversized}
+    end
+  end
+
+  defp resolve_identity(fields, state) do
+    Identity.resolve(
+      "telegram",
+      fields.external_user_id,
+      Map.get(state.settings, "identity_map", [])
+    )
+  end
+
+  defp prompt_text("/new " <> text), do: {String.trim(text), true}
+  defp prompt_text(text), do: {text, false}
+
+  defp submit_runtime(text, user_id, session_id, fields, new_thread?) do
+    Runtime.submit_user_input(%{
+      text: text,
+      channel: "telegram",
+      user_id: user_id,
+      operator_id: user_id,
+      session_id: session_id,
+      new_thread: new_thread?,
+      metadata: %{
+        channel: "telegram",
+        provider: @provider,
+        external_event_id: fields.external_event_id,
+        external_user_id: fields.external_user_id,
+        external_chat_id: fields.external_chat_id,
+        external_message_id: fields.external_message_id
+      }
+    })
+  end
+
+  defp render_response(response, state) do
+    Renderer.render_response(response,
+      max_text_bytes: Map.get(state.settings, "max_text_bytes", 4096),
+      render_buttons: Map.get(state.settings, "render_approval_buttons", true)
+    )
+  end
+
+  defp deliver_chunks(_chat_id, [], _keyboard, _state), do: :ok
+
+  defp deliver_chunks(chat_id, [chunk], keyboard, state) do
+    case Client.send_message(
+           state.token,
+           chat_id,
+           chunk,
+           Keyword.merge(state.req_options, reply_markup: keyboard)
+         ) do
+      {:ok, _result} -> :ok
+      {:error, reason} -> {:error, {:delivery_failed, reason}}
+    end
+  end
+
+  defp deliver_chunks(chat_id, [chunk | rest], keyboard, state) do
+    with :ok <- deliver_chunks(chat_id, [chunk], keyboard, state) do
+      deliver_chunks(chat_id, rest, nil, state)
+    end
+  end
+
+  defp mark_processed(event, response, user_id, session_id) do
+    Channels.update_event(event, %{
+      status: "processed",
+      user_id: user_id,
+      session_id: session_id,
+      thread_id: response_value(response, :thread_id),
+      input_signal_id: response_value(response, :input_signal_id),
+      trace_id: response_value(response, :trace_id)
+    })
+  end
+
+  defp mark_rejected_or_failed(event, {:delivery_failed, reason}) do
+    Channels.update_event(event, %{status: "failed", error: inspect(redact(reason))})
+  end
+
+  defp mark_rejected_or_failed(event, reason) do
+    Channels.update_event(event, %{status: "rejected", reason: inspect(reason)})
+  end
+
   defp event_result(result, inserted_status \\ :processed)
 
+  defp event_result({:ok, event}, :processed), do: {:ok, event}
   defp event_result({:ok, _event}, inserted_status), do: {:ok, inserted_status}
 
   defp event_result({:error, %Ecto.Changeset{} = changeset}, _inserted_status) do
@@ -179,6 +322,10 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     Enum.any?(changeset.errors, fn {_field, {_message, opts}} ->
       opts[:constraint] == :unique
     end)
+  end
+
+  defp response_value(response, key) when is_map(response) do
+    Map.get(response, key) || Map.get(response, Atom.to_string(key))
   end
 
   defp update_id(%{"update_id" => update_id}) when is_integer(update_id), do: update_id
