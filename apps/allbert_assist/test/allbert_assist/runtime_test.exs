@@ -7,6 +7,7 @@ defmodule AllbertAssist.RuntimeTest do
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
+  alias AllbertAssist.Session.Scratchpad
   alias AllbertAssist.Settings
   alias AllbertAssist.Trace
 
@@ -185,6 +186,7 @@ defmodule AllbertAssist.RuntimeTest do
     on_exit(fn -> Session.clear(user, session_id) end)
 
     assert {:ok, _entry} = Session.set_active_app(user, session_id, "stocksage")
+    assert {:ok, _entry} = Session.merge_working_memory(user, session_id, %{pane: "raw-value"})
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -226,10 +228,65 @@ defmodule AllbertAssist.RuntimeTest do
              "stocksage"
            ]
 
+    refute inspect(assistant_message.action_log) =~ "raw-value"
+
     assert response.trace_id
     trace = File.read!(response.trace_id)
     assert trace =~ "Active app: stocksage"
-    refute trace =~ "working_memory"
+    refute trace =~ "raw-value"
+  end
+
+  test "expired session entries and scratchpad lookup failures keep runtime turns alive" do
+    user = "runtime-expired-#{System.unique_integer([:positive])}"
+    session_id = "sess-1"
+    name = :"runtime_expired_scratchpad_#{System.unique_integer([:positive])}"
+    table = :"runtime_expired_scratchpad_table_#{System.unique_integer([:positive])}"
+
+    child =
+      Supervisor.child_spec(
+        {Scratchpad, name: name, table_name: table, ttl_ms: 20, sweep_interval_ms: 0},
+        id: name
+      )
+
+    start_supervised!(child)
+    runtime_config = Application.get_env(:allbert_assist, Runtime, [])
+
+    Application.put_env(
+      :allbert_assist,
+      Runtime,
+      Keyword.put(runtime_config, :session_opts, server: name)
+    )
+
+    assert {:ok, _entry} = Session.set_active_app(user, session_id, :stocksage, server: name)
+    Process.sleep(30)
+
+    assert {:ok, expired_response} =
+             Runtime.submit_user_input(%{
+               text: "expired session still works",
+               channel: :test,
+               user_id: user,
+               session_id: session_id
+             })
+
+    assert expired_response.active_app == nil
+    assert expired_response.diagnostics == []
+
+    Application.put_env(
+      :allbert_assist,
+      Runtime,
+      Keyword.put(runtime_config, :session_opts, server: :missing_scratchpad)
+    )
+
+    assert {:ok, unavailable_response} =
+             Runtime.submit_user_input(%{
+               text: "missing scratchpad still works",
+               channel: :test,
+               user_id: user,
+               session_id: "missing-server"
+             })
+
+    assert unavailable_response.active_app == nil
+    assert [%{source: :session_scratchpad}] = unavailable_response.diagnostics
   end
 
   test "passes bounded prior thread context to the agent after persisting current input" do
