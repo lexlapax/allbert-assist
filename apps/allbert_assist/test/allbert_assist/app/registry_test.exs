@@ -119,6 +119,25 @@ defmodule AllbertAssist.App.RegistryTest do
     end
   end
 
+  defmodule BrokenChildApp do
+    use AllbertAssist.App
+
+    @impl true
+    def app_id, do: :broken_child_app
+
+    @impl true
+    def display_name, do: "Broken Child App"
+
+    @impl true
+    def version, do: "0.15.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def child_spec(_opts), do: raise("child boom")
+  end
+
   setup do
     registry = :"app_registry_#{System.unique_integer([:positive])}"
     dynamic_supervisor = :"app_dynamic_supervisor_#{System.unique_integer([:positive])}"
@@ -218,6 +237,16 @@ defmodule AllbertAssist.App.RegistryTest do
 
     assert :ok = Registry.unregister(:child_app, opts)
     assert DynamicSupervisor.which_children(dynamic_supervisor) == []
+  end
+
+  test "child-spec failures are diagnostics only and leave other apps readable", %{opts: opts} do
+    assert {:ok, :empty_app} = Registry.register(EmptyApp, opts)
+    assert {:error, {:child_spec_failed, "child boom"}} = Registry.register(BrokenChildApp, opts)
+
+    assert {:ok, %{app_id: :empty_app}} = Registry.lookup(:empty_app, opts)
+    assert {:error, :not_found} = Registry.lookup(:broken_child_app, opts)
+
+    assert %{broken_child_app: [%{kind: :child_spec_failed}]} = Registry.diagnostics(opts)
   end
 
   test "normalizes only known app ids and never creates unknown atoms", %{opts: opts} do
