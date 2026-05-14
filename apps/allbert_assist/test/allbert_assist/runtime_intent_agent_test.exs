@@ -1,5 +1,5 @@
 defmodule AllbertAssist.RuntimeIntentAgentTest do
-  use ExUnit.Case, async: false
+  use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Execution.Audit

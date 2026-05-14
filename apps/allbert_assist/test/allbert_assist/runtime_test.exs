@@ -1,8 +1,9 @@
 defmodule AllbertAssist.RuntimeTest do
-  use ExUnit.Case, async: false
+  use AllbertAssist.DataCase, async: false
 
   import ExUnit.CaptureLog
 
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
@@ -19,6 +20,8 @@ defmodule AllbertAssist.RuntimeTest do
 
     runner = fn signal, request ->
       send(parent, {:agent_runner_called, signal.type, request.text, request.channel})
+      send(parent, {:agent_request, request})
+      send(parent, {:agent_signal_data, signal.data})
 
       {:ok,
        %{
@@ -94,6 +97,10 @@ defmodule AllbertAssist.RuntimeTest do
         assert response.status == :completed
         assert response.trace_id == nil
         assert response.diagnostics == []
+        assert response.user_id == "local"
+        assert response.operator_id == "local"
+        assert String.starts_with?(response.thread_id, "thr_")
+        assert response.session_id == nil
         assert is_binary(response.input_signal_id)
         assert is_binary(response.signal_id)
         response
@@ -104,9 +111,15 @@ defmodule AllbertAssist.RuntimeTest do
 
     assert_received {:agent_runner_called, "allbert.input.received",
                      "Say hello from the runtime boundary.", :test}
+
+    assert_received {:agent_request,
+                     %{user_id: "local", operator_id: "local", thread_id: thread_id}}
+
+    assert {:ok, thread} = Conversations.get_thread("local", thread_id)
+    assert thread.kind == "general"
   end
 
-  test "accepts string keys and default operator identity" do
+  test "accepts string keys and default local identity" do
     assert {:ok, response} =
              Runtime.submit_user_input(%{
                "text" => "Hello with string keys.",
@@ -114,9 +127,101 @@ defmodule AllbertAssist.RuntimeTest do
              })
 
     assert response.message == "Runtime response: Hello with string keys."
+    assert response.user_id == "local"
+    assert response.operator_id == "local"
+    assert String.starts_with?(response.thread_id, "thr_")
 
     assert_received {:agent_runner_called, "allbert.input.received", "Hello with string keys.",
                      "test"}
+  end
+
+  test "normalizes user_id as canonical identity and operator compatibility alias" do
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Hello as Alice.",
+               channel: :test,
+               user_id: "alice",
+               session_id: "session-1"
+             })
+
+    assert response.user_id == "alice"
+    assert response.operator_id == "alice"
+    assert response.session_id == "session-1"
+    assert String.starts_with?(response.thread_id, "thr_")
+
+    assert_received {:agent_request,
+                     %{
+                       user_id: "alice",
+                       operator_id: "alice",
+                       thread_id: thread_id,
+                       session_id: "session-1"
+                     }}
+
+    assert {:ok, _thread} = Conversations.get_thread("alice", thread_id)
+  end
+
+  test "rejects conflicting user and operator identity before calling the runner" do
+    assert {:error, {:identity_conflict, "alice", "bob"}} =
+             Runtime.submit_user_input(%{
+               text: "conflict",
+               channel: :test,
+               user_id: "alice",
+               operator_id: "bob"
+             })
+
+    refute_received {:agent_runner_called, _, _, _}
+    assert [] = Conversations.list_threads("alice")
+    assert [] = Conversations.list_threads("bob")
+  end
+
+  test "selects explicit user-scoped threads and rejects cross-user thread access" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Existing")
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "continue existing",
+               channel: :test,
+               user_id: "alice",
+               thread_id: thread.id
+             })
+
+    assert response.thread_id == thread.id
+
+    assert {:error, {:thread_not_found, _}} =
+             Runtime.submit_user_input(%{
+               text: "try cross-user",
+               channel: :test,
+               user_id: "bob",
+               thread_id: thread.id
+             })
+  end
+
+  test "new_thread creates a fresh thread and conflicts with explicit thread_id" do
+    assert {:ok, first} =
+             Runtime.submit_user_input(%{
+               text: "first",
+               channel: :test,
+               user_id: "alice"
+             })
+
+    assert {:ok, second} =
+             Runtime.submit_user_input(%{
+               text: "second",
+               channel: :test,
+               user_id: "alice",
+               new_thread: true
+             })
+
+    assert first.thread_id != second.thread_id
+
+    assert {:error, :thread_conflict} =
+             Runtime.submit_user_input(%{
+               text: "conflict",
+               channel: :test,
+               user_id: "alice",
+               thread_id: first.thread_id,
+               new_thread: true
+             })
   end
 
   test "rejects empty text before calling the runner" do

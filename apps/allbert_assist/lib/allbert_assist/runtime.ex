@@ -21,6 +21,7 @@ defmodule AllbertAssist.Runtime do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Agents.IntentAgent
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.ResourceAccess
@@ -38,7 +39,10 @@ defmodule AllbertAssist.Runtime do
   @type request :: %{
           text: String.t(),
           channel: atom() | String.t(),
+          user_id: String.t(),
           operator_id: String.t(),
+          thread_id: String.t(),
+          session_id: nil | String.t(),
           metadata: map(),
           timeout_ms: pos_integer()
         }
@@ -49,6 +53,10 @@ defmodule AllbertAssist.Runtime do
           trace_id: nil | String.t(),
           signal_id: String.t(),
           input_signal_id: String.t(),
+          user_id: String.t(),
+          operator_id: String.t(),
+          thread_id: String.t(),
+          session_id: nil | String.t(),
           actions: list(),
           decision: map() | nil,
           resource_access: list(),
@@ -75,7 +83,9 @@ defmodule AllbertAssist.Runtime do
   Submit user input through the signal-first Allbert runtime.
 
   Accepts atom or string keys. Required input is `:text`; `:channel` defaults to
-  `:unknown`, and `:operator_id` falls back to `:user_id` or `"local"`.
+  `:unknown`, and `:user_id`/`:operator_id` normalize to the same local string
+  identity. When no `:thread_id` is provided, the runtime selects or creates
+  the user's recent general conversation thread.
   """
   @spec submit_user_input(map()) :: {:ok, response()} | {:error, term()}
   def submit_user_input(attrs) when is_map(attrs) do
@@ -85,7 +95,7 @@ defmodule AllbertAssist.Runtime do
          {:ok, agent_response} <- agent_runner().(input_signal, request),
          {:ok, response_signal} <- new_response_signal(input_signal, request, agent_response),
          :ok <- log_signal(response_signal) do
-      response = build_response(input_signal, response_signal, agent_response)
+      response = build_response(input_signal, response_signal, agent_response, request)
 
       {:ok,
        response
@@ -102,12 +112,17 @@ defmodule AllbertAssist.Runtime do
       |> fetch_value(:text)
       |> normalize_text()
 
-    with {:ok, text} <- text do
+    with {:ok, text} <- text,
+         {:ok, identity} <- identity(attrs),
+         {:ok, thread} <- resolve_thread(attrs, identity.user_id, text) do
       {:ok,
        %{
          text: text,
          channel: fetch_value(attrs, :channel) || :unknown,
-         operator_id: operator_id(attrs),
+         user_id: identity.user_id,
+         operator_id: identity.operator_id,
+         thread_id: thread.id,
+         session_id: optional_string(fetch_value(attrs, :session_id)),
          metadata: fetch_value(attrs, :metadata) || %{},
          timeout_ms: fetch_value(attrs, :timeout_ms) || @default_timeout_ms
        }}
@@ -123,12 +138,32 @@ defmodule AllbertAssist.Runtime do
 
   defp normalize_text(_value), do: {:error, :missing_text}
 
-  defp operator_id(attrs) do
-    attrs
-    |> fetch_value(:operator_id)
-    |> Kernel.||(fetch_value(attrs, :user_id))
-    |> Kernel.||("local")
-    |> to_string()
+  defp identity(attrs) do
+    user_id = optional_string(fetch_value(attrs, :user_id))
+    operator_id = optional_string(fetch_value(attrs, :operator_id))
+
+    cond do
+      present?(user_id) and present?(operator_id) and user_id != operator_id ->
+        {:error, {:identity_conflict, user_id, operator_id}}
+
+      present?(user_id) ->
+        {:ok, %{user_id: user_id, operator_id: user_id}}
+
+      present?(operator_id) ->
+        {:ok, %{user_id: operator_id, operator_id: operator_id}}
+
+      true ->
+        {:ok, %{user_id: "local", operator_id: "local"}}
+    end
+  end
+
+  defp resolve_thread(attrs, user_id, text) do
+    Conversations.resolve_thread(%{
+      user_id: user_id,
+      text: text,
+      thread_id: fetch_value(attrs, :thread_id),
+      new_thread: fetch_value(attrs, :new_thread)
+    })
   end
 
   defp fetch_value(attrs, key) do
@@ -141,11 +176,14 @@ defmodule AllbertAssist.Runtime do
       %{
         text: request.text,
         channel: request.channel,
+        user_id: request.user_id,
         operator_id: request.operator_id,
+        thread_id: request.thread_id,
+        session_id: request.session_id,
         metadata: request.metadata
       },
       source: channel_source(request.channel),
-      subject: request.operator_id
+      subject: request.user_id
     )
   end
 
@@ -156,6 +194,10 @@ defmodule AllbertAssist.Runtime do
         input_signal_id: input_signal.id,
         message: response_message(agent_response),
         status: response_status(agent_response),
+        user_id: request.user_id,
+        operator_id: request.operator_id,
+        thread_id: request.thread_id,
+        session_id: request.session_id,
         actions: response_actions(agent_response),
         decision: response_decision(agent_response),
         resource_access: response_resource_access(agent_response),
@@ -163,7 +205,7 @@ defmodule AllbertAssist.Runtime do
         diagnostics: response_diagnostics(agent_response)
       },
       source: "/allbert/runtime",
-      subject: request.operator_id
+      subject: request.user_id
     )
   end
 
@@ -185,7 +227,10 @@ defmodule AllbertAssist.Runtime do
     IntentAgent.respond(%{
       text: request.text,
       channel: request.channel,
+      user_id: request.user_id,
       operator_id: request.operator_id,
+      thread_id: request.thread_id,
+      session_id: request.session_id,
       metadata: request.metadata,
       timeout_ms: request.timeout_ms,
       input_signal_id: signal.id,
@@ -198,13 +243,17 @@ defmodule AllbertAssist.Runtime do
   defp format_agent_result(message) when is_binary(message), do: message
   defp format_agent_result(other), do: inspect(other, pretty: true)
 
-  defp build_response(input_signal, response_signal, agent_response) do
+  defp build_response(input_signal, response_signal, agent_response, request) do
     %{
       message: response_message(agent_response),
       status: response_status(agent_response),
       trace_id: nil,
       signal_id: response_signal.id,
       input_signal_id: input_signal.id,
+      user_id: request.user_id,
+      operator_id: request.operator_id,
+      thread_id: request.thread_id,
+      session_id: request.session_id,
       actions: response_actions(agent_response),
       decision: response_decision(agent_response),
       resource_access: response_resource_access(agent_response),
@@ -239,7 +288,10 @@ defmodule AllbertAssist.Runtime do
   defp trace_context(input_signal, request) do
     %{
       request: %{
+        user_id: request.user_id,
         operator_id: request.operator_id,
+        thread_id: request.thread_id,
+        session_id: request.session_id,
         channel: request.channel,
         input_signal_id: input_signal.id
       },
@@ -270,10 +322,12 @@ defmodule AllbertAssist.Runtime do
            %{
              input_signal_id: response.input_signal_id,
              response_signal_id: response.signal_id,
-             trace_id: trace_id
+             trace_id: trace_id,
+             user_id: request.user_id,
+             thread_id: request.thread_id
            },
            source: "/allbert/runtime",
-           subject: request.operator_id
+           subject: request.user_id
          ) do
       {:ok, signal} ->
         log_signal(signal)
@@ -351,4 +405,18 @@ defmodule AllbertAssist.Runtime do
 
   defp response_diagnostics(%{decision: %Decision{} = decision}), do: decision.diagnostics
   defp response_diagnostics(_other), do: []
+
+  defp optional_string(nil), do: nil
+
+  defp optional_string(value) do
+    value
+    |> to_string()
+    |> String.trim()
+    |> case do
+      "" -> nil
+      value -> value
+    end
+  end
+
+  defp present?(value), do: value not in [nil, ""]
 end
