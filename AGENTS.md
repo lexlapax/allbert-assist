@@ -129,7 +129,7 @@ scheduler supervision, job CLI/LiveView surfaces, job-origin confirmation
 metadata, schedule settings, or background runtime/action execution.
 
 For v0.14 session scratchpad work, read `docs/plans/v0.14-plan.md`,
-`docs/plans/allbert-jido-vision.md`, and
+`docs/plans/v0.14-request-flow.md`, `docs/plans/allbert-jido-vision.md`, and
 `docs/adr/0014-local-workspace-identity.md` before changing ETS session state,
 `session_id` handling, `active_app`, TTL behavior, traces, or scratchpad
 supervision.

@@ -122,6 +122,7 @@ redaction, traces, and audits.
 - v0.13 implementation plan: `docs/plans/v0.13-plan.md`
 - v0.13 request flow and manual verification: `docs/plans/v0.13-request-flow.md`
 - Next milestone plan: `docs/plans/v0.14-plan.md`
+- Next milestone request flow: `docs/plans/v0.14-request-flow.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development

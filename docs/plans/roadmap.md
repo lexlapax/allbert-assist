@@ -786,17 +786,23 @@ Expected direction:
 ## v0.14: Session Scratchpad And Active App Context
 
 Plan: `docs/plans/v0.14-plan.md`
+Request flow: `docs/plans/v0.14-request-flow.md`
 ADR: `docs/adr/0014-local-workspace-identity.md`
 
 Status: planned. Formerly M-D1b.
 
 Expected direction:
 
-- Add volatile ETS scratchpad state keyed by `{user_id, session_id}` with TTL
-  expiry and no restart persistence.
-- Store `active_app` and transient working memory for runtime/session use.
-- Treat scratchpad state as context only, not durable memory and not a
-  security boundary.
+- Add supervised volatile ETS scratchpad state keyed by `{user_id, session_id}`
+  with TTL expiry, periodic sweep, and no restart persistence.
+- Store `active_app` and bounded transient working memory for runtime/session
+  use while keeping raw working-memory values out of traces/logs by default.
+- Add a CLI sessions surface and `mix allbert.ask --session` so Phase 1
+  acceptance can prove active-app propagation without adding workspace UI.
+- Propagate `active_app` through runtime requests, signals, intent-agent
+  context, decisions, traces, responses, and assistant message metadata.
+- Treat scratchpad state as context only, not durable memory, app routing,
+  authorization, or a security boundary.
 
 ## v0.15: Minimal App Registration Contract
 
