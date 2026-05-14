@@ -5,6 +5,7 @@ defmodule AllbertAssist.Channels.Email.Adapter do
 
   require Logger
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.Email.Parser
@@ -146,7 +147,7 @@ defmodule AllbertAssist.Channels.Email.Adapter do
     status =
       case Parser.parse_email(raw_email) do
         {:ok, fields} ->
-          case insert_received_event(fields, uid) do
+          case insert_received_event(fields, uid, event_direction(fields)) do
             {:ok, %AllbertAssist.Channels.Event{} = event} ->
               process_parsed_email(state, event, fields, uid)
 
@@ -178,9 +179,8 @@ defmodule AllbertAssist.Channels.Email.Adapter do
          {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
       :processed
     else
-      {:command, _action, _confirmation_id} ->
-        {:ok, _event} = mark_rejected_or_failed(event, :confirmation_command_not_implemented)
-        :rejected
+      {:command, action, confirmation_id} ->
+        handle_email_command(state, event, fields, uid, action, confirmation_id)
 
       {:error, reason} ->
         {:ok, _event} = mark_rejected_or_failed(event, reason)
@@ -188,11 +188,11 @@ defmodule AllbertAssist.Channels.Email.Adapter do
     end
   end
 
-  defp insert_received_event(fields, uid) do
+  defp insert_received_event(fields, uid, direction) do
     %{
       channel: "email",
       provider: @provider,
-      direction: "inbound",
+      direction: direction,
       external_event_id: fields.message_id,
       external_user_id: fields.from_address,
       external_chat_id: nil,
@@ -202,6 +202,13 @@ defmodule AllbertAssist.Channels.Email.Adapter do
     }
     |> Channels.create_event()
     |> event_result()
+  end
+
+  defp event_direction(fields) do
+    case command_from_fields(fields) do
+      {:command, _action, _confirmation_id} -> "callback"
+      :regular_text -> "inbound"
+    end
   end
 
   defp email_text_body(fields, state) do
@@ -225,7 +232,7 @@ defmodule AllbertAssist.Channels.Email.Adapter do
         {:error, reason}
 
       body ->
-        case Parser.detect_command(body) do
+        case command_from_text(body) do
           {:command, action, confirmation_id} -> {:command, action, confirmation_id}
           :regular_text -> {:regular_text, String.trim(body)}
         end
@@ -244,6 +251,56 @@ defmodule AllbertAssist.Channels.Email.Adapter do
 
   defp resolve_identity(fields, state) do
     Identity.resolve("email", fields.from_address, Map.get(state.settings, "identity_map", []))
+  end
+
+  defp handle_email_command(state, event, fields, uid, action, confirmation_id) do
+    with {:ok, user_id} <- resolve_identity(fields, state),
+         session_id <- Channels.derive_session_id("email", fields.from_address, nil),
+         {:ok, response} <-
+           run_confirmation_action(action, confirmation_id, user_id, session_id, fields, uid),
+         {:ok, subject, body, _html_body} <- render_confirmation_response(response, fields, state),
+         :ok <- deliver_reply(fields, subject, body, state),
+         {:ok, _event} <- mark_callback_processed(event, response, user_id, session_id) do
+      :processed
+    else
+      {:error, reason} ->
+        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        rejected_or_failed(reason)
+    end
+  end
+
+  defp run_confirmation_action(action, confirmation_id, user_id, session_id, fields, uid) do
+    Runner.run(confirmation_action_name(action), %{id: confirmation_id}, %{
+      actor: user_id,
+      channel: "email",
+      surface: "email_command",
+      session_id: session_id,
+      request: %{
+        user_id: user_id,
+        operator_id: user_id,
+        channel: "email",
+        session_id: session_id
+      },
+      resolver_metadata: %{
+        provider: @provider,
+        external_event_id: fields.message_id,
+        external_user_id: fields.from_address,
+        external_chat_id: nil,
+        external_message_id: to_string(uid),
+        in_reply_to: fields.in_reply_to
+      }
+    })
+  end
+
+  defp confirmation_action_name("approve"), do: "approve_confirmation"
+  defp confirmation_action_name("deny"), do: "deny_confirmation"
+  defp confirmation_action_name("show"), do: "show_confirmation"
+
+  defp render_confirmation_response(response, fields, state) do
+    Renderer.render_response(%{message: confirmation_reply(response)},
+      subject: fields.subject,
+      max_body_bytes: Map.get(state.settings, "max_body_bytes", 65_536)
+    )
   end
 
   defp prompt_text(_subject, "/new " <> text), do: {String.trim(text), true}
@@ -338,8 +395,49 @@ defmodule AllbertAssist.Channels.Email.Adapter do
     Channels.update_event(event, %{status: "rejected", reason: inspect(reason)})
   end
 
+  defp mark_callback_processed(event, response, user_id, session_id) do
+    runner_metadata = response_value(response, :runner_metadata) || %{}
+
+    Channels.update_event(event, %{
+      status: "processed",
+      user_id: user_id,
+      session_id: session_id,
+      input_signal_id: response_value(runner_metadata, :requested_signal_id)
+    })
+  end
+
   defp rejected_or_failed({:delivery_failed, _reason}), do: :failed
   defp rejected_or_failed(_reason), do: :rejected
+
+  defp command_from_fields(fields) do
+    fields
+    |> body_for_command_detection()
+    |> command_from_text()
+  end
+
+  defp body_for_command_detection(%{text_body: text_body}) when is_binary(text_body),
+    do: text_body
+
+  defp body_for_command_detection(%{html_body: html_body}) when is_binary(html_body),
+    do: html_body
+
+  defp body_for_command_detection(_fields), do: nil
+
+  defp command_from_text(text) when is_binary(text), do: Parser.detect_command(text)
+  defp command_from_text(_text), do: :regular_text
+
+  defp confirmation_reply(%{message: message}) when is_binary(message), do: message
+  defp confirmation_reply(%{"message" => message}) when is_binary(message), do: message
+
+  defp confirmation_reply(%{confirmation: %{"id" => id, "status" => status}}) do
+    "Confirmation #{id}: #{status}."
+  end
+
+  defp confirmation_reply(%{"confirmation" => %{"id" => id, "status" => status}}) do
+    "Confirmation #{id}: #{status}."
+  end
+
+  defp confirmation_reply(response), do: inspect(response, pretty: true)
 
   defp payload_summary(fields) do
     [
