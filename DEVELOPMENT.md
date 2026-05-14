@@ -121,6 +121,17 @@ For v0.12 local workspace identity and conversation history work, start with:
 - `docs/plans/allbert-jido-vision.md`
 - `docs/adr/0014-local-workspace-identity.md`
 
+For v0.13 scheduled jobs work, start with:
+
+- `docs/plans/v0.13-plan.md`
+- `docs/plans/v0.13-request-flow.md`
+- `docs/plans/v0.11-request-flow.md`
+- `docs/plans/v0.12-request-flow.md`
+- `docs/plans/allbert-jido-vision.md`
+- `docs/adr/0008-durable-confirmation-requests.md`
+- `docs/adr/0012-resource-access-security-posture.md`
+- `docs/adr/0014-local-workspace-identity.md`
+
 For v0.14 session scratchpad work, start with:
 
 - `docs/plans/v0.14-plan.md`
@@ -145,6 +156,12 @@ Runtime requests and responses carry canonical `user_id`, legacy
 `operator_id`, `thread_id`, and optional `session_id`; new runtime-facing work
 should preserve those fields in signals, traces, confirmations, and job/channel
 metadata without adding accounts or roles.
+
+For v0.13, scheduled jobs are a local supervised runtime channel, not a second
+automation runtime. Job definitions and run records belong in SQLite, due work
+enters through `AllbertAssist.Runtime.submit_user_input/1` or
+`AllbertAssist.Actions.Runner.run/3`, and risky work must stop at the existing
+confirmation/Approval Handoff boundary.
 
 After v0.11 closeout, remember that URL summarization, document inspection,
 direct skill URL import, local skill directory import, local path access,

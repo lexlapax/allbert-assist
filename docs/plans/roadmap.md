@@ -763,18 +763,23 @@ prove durable thread context without hosted accounts.
 ## v0.13: Scheduled Jobs
 
 Plan: `docs/plans/v0.13-plan.md`
+Request flow: `docs/plans/v0.13-request-flow.md`
 
 Status: planned. Formerly v0.12.
 
 Expected direction:
 
-- Add cron-like jobs that emit signals into the same runtime.
+- Add local SQLite-backed scheduled jobs that emit signals into the same
+  runtime or run registered actions through the action runner.
 - Preserve originating `user_id`, `thread_id`, and `app_id` when available so
   traces and audits carry local ownership context without accounts tables.
 - Pause risky job actions for durable confirmation and render the same
   resource posture/Approval Handoff metadata as CLI and web.
-- Keep jobs observable through traces, registered skills/actions, and Settings
-  Central schedule policy.
+- Keep jobs observable through durable run records, lifecycle signals, traces
+  when enabled, registered skills/actions, and Settings Central schedule
+  policy.
+- Keep the scheduler local and supervised; no distributed scheduler, remote
+  workers, or new execution primitives.
 
 ## v0.14: Session Scratchpad And Active App Context
 

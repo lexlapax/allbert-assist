@@ -119,6 +119,15 @@ maps, conversation history schemas, `user_id` or `thread_id` propagation,
 traces, CLI thread tasks, or identity aliasing between `operator_id` and
 `user_id`.
 
+For v0.13 scheduled jobs work, read `docs/plans/v0.13-plan.md`,
+`docs/plans/v0.13-request-flow.md`, `docs/plans/v0.11-request-flow.md`,
+`docs/plans/v0.12-request-flow.md`, `docs/plans/allbert-jido-vision.md`,
+`docs/adr/0008-durable-confirmation-requests.md`,
+`docs/adr/0012-resource-access-security-posture.md`, and
+`docs/adr/0014-local-workspace-identity.md` before changing job storage,
+scheduler supervision, job CLI/LiveView surfaces, job-origin confirmation
+metadata, schedule settings, or background runtime/action execution.
+
 For v0.14 session scratchpad work, read `docs/plans/v0.14-plan.md`,
 `docs/plans/allbert-jido-vision.md`, and
 `docs/adr/0014-local-workspace-identity.md` before changing ETS session state,
