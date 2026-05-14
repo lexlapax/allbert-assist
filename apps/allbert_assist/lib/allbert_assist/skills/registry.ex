@@ -7,8 +7,8 @@ defmodule AllbertAssist.Skills.Registry do
   skills while keeping skipped declarations visible through diagnostics.
   """
 
-  alias AllbertAssist.Paths
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Paths
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.CapabilityContract

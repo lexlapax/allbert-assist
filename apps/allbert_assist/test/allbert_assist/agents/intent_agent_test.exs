@@ -52,7 +52,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     {:ok, root: root}
   end
 
-  test "defines the v0.01 action surface as Jido action modules" do
+  test "defines the agent action surface as Jido action modules" do
     assert IntentAgent.action_modules() == Registry.agent_modules()
 
     action_names = Enum.map(IntentAgent.action_modules(), & &1.name())
@@ -77,7 +77,9 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              "explain_setting",
              "list_provider_profiles",
              "list_model_profiles",
-             "set_provider_credential"
+             "set_provider_credential",
+             "list_apps",
+             "show_app"
            ]
   end
 

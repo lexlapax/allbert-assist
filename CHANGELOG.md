@@ -1,5 +1,62 @@
 # Changelog
 
+## v0.15 - Minimal App Registration Contract
+
+Status: released and tagged as `v0.15` on 2026-05-14. Version metadata is
+`0.15.0`; the operator manual verification matrix is ready for acceptance
+checks.
+
+### Added
+
+- `AllbertAssist.App` lite behaviour for local workspace app identity,
+  validation, optional child supervision, registered actions, skill paths, and
+  static navigation surface entries.
+- Supervised volatile `AllbertAssist.App.Registry`,
+  `AllbertAssist.App.DynamicSupervisor`, and `AllbertAssist.App.Bootstrap`
+  under `AllbertAssist.App.Supervisor`.
+- Built-in `AllbertAssist.App.CoreApp` (`app_id: :allbert`) and transitional
+  `AllbertAssist.App.StockSageStub` (`app_id: :stocksage`).
+- Optional `app_id` on `AllbertAssist.Actions.Capability`, registry-backed
+  stamping for app-registered actions, and
+  `AllbertAssist.Actions.Registry.capabilities_for_app/1`.
+- Read-only registered actions `list_apps` and `show_app`.
+- `mix allbert.apps list`, `mix allbert.apps show APP_ID`, and
+  `mix allbert.apps validate MODULE`.
+- App-contributed skill paths in `AllbertAssist.Skills.Registry` at
+  precedence 3, after project roots and before user roots.
+
+### Changed
+
+- `AllbertAssist.Session.AppId` now validates active app ids through
+  `AllbertAssist.App.Registry.normalize_app_id/1` instead of the v0.14 static
+  allowlist.
+- `AllbertAssist.Intent.Decision` treats unknown candidate `active_app` values
+  as diagnostics-only fallbacks while preserving known session context.
+- App id normalization avoids dynamic atom creation from operator, channel, or
+  model input.
+
+### Safety
+
+- App registration is contract data, not authority. App ids, skill paths,
+  navigation surfaces, and capability tags do not grant permissions.
+- Registered app actions still execute only through
+  `AllbertAssist.Actions.Runner.run/3`, Security Central, confirmation
+  workflow, redaction, traces, and audits.
+- v0.15 adds no `AllbertAssist.Surface` DSL, dynamic route loading, workspace
+  shell, canvas state, app-scoped jobs, app-scoped permission grants, hosted
+  accounts, external UI protocol adapters, or app generator.
+
+### Verification
+
+- Milestone focused suites passed for app behaviour/validation, registry
+  supervision, capability tagging, decision validation, active-app session
+  continuity, app actions, `mix allbert.apps`, app skill-path discovery, child
+  failure diagnostics, and restart recovery.
+- Final v0.15 closeout gates passed: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- Manual verification steps live in `docs/plans/v0.15-request-flow.md`.
+
 ## v0.14 - Session Scratchpad And Active App Context
 
 Status: released and tagged as `v0.14` on 2026-05-14. Version metadata is

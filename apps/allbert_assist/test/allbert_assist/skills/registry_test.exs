@@ -1,8 +1,8 @@
 defmodule AllbertAssist.Skills.RegistryTest do
   use ExUnit.Case, async: false
 
-  alias AllbertAssist.Paths
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Paths
   alias AllbertAssist.Skills
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
