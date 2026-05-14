@@ -258,19 +258,20 @@ defmodule AllbertAssist.Jobs.Runner do
     }
     |> drop_nil_values()
     |> Redactor.redact()
+    |> json_safe()
   end
 
   defp resource_access_payload(nil), do: %{}
 
   defp resource_access_payload(entries) when is_list(entries),
-    do: %{entries: Redactor.redact(entries)}
+    do: %{entries: Redactor.redact(entries)} |> json_safe()
 
-  defp resource_access_payload(%{} = entries), do: Redactor.redact(entries)
-  defp resource_access_payload(other), do: %{value: Redactor.redact(other)}
+  defp resource_access_payload(%{} = entries), do: entries |> Redactor.redact() |> json_safe()
+  defp resource_access_payload(other), do: %{value: Redactor.redact(other)} |> json_safe()
 
   defp redacted_map(nil), do: %{}
-  defp redacted_map(%{} = map), do: Redactor.redact(map)
-  defp redacted_map(other), do: %{value: Redactor.redact(other)}
+  defp redacted_map(%{} = map), do: map |> Redactor.redact() |> json_safe()
+  defp redacted_map(other), do: %{value: Redactor.redact(other)} |> json_safe()
 
   defp update_job_after_run(job, run) do
     attrs =
@@ -323,6 +324,26 @@ defmodule AllbertAssist.Jobs.Runner do
   defp to_map(_opts), do: %{}
 
   defp drop_nil_values(map), do: Map.reject(map, fn {_key, value} -> is_nil(value) end)
+
+  defp json_safe(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
+  defp json_safe(%NaiveDateTime{} = datetime), do: NaiveDateTime.to_iso8601(datetime)
+
+  defp json_safe(%{} = map) do
+    Map.new(map, fn {key, value} -> {json_safe_key(key), json_safe(value)} end)
+  end
+
+  defp json_safe(list) when is_list(list), do: Enum.map(list, &json_safe/1)
+  defp json_safe(tuple) when is_tuple(tuple), do: inspect(tuple)
+  defp json_safe(atom) when is_atom(atom), do: Atom.to_string(atom)
+
+  defp json_safe(value)
+       when is_binary(value) or is_number(value) or is_boolean(value) or is_nil(value),
+       do: value
+
+  defp json_safe(value), do: inspect(value)
+
+  defp json_safe_key(key) when is_atom(key), do: Atom.to_string(key)
+  defp json_safe_key(key), do: to_string(key)
 
   defp utc_now, do: DateTime.utc_now() |> DateTime.truncate(:microsecond)
 end

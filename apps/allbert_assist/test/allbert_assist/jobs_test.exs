@@ -289,9 +289,9 @@ defmodule AllbertAssist.JobsTest do
       assert String.starts_with?(run.thread_id, "thr_")
       assert is_binary(run.input_signal_id)
       assert is_binary(run.response_signal_id)
-      assert run.decision == %{selected_action: "direct_answer"}
-      assert run.resource_access == %{entries: [%{operation_class: "read_only"}]}
-      assert run.action_log.status == :completed
+      assert run.decision == %{"selected_action" => "direct_answer"}
+      assert run.resource_access == %{"entries" => [%{"operation_class" => "read_only"}]}
+      assert run.action_log["status"] == "completed"
       assert response.message == "Job runtime response: Run from job."
       assert updated_job.last_run_at == run.finished_at
 
@@ -330,7 +330,7 @@ defmodule AllbertAssist.JobsTest do
       assert run.thread_id == "thr_origin"
       assert is_binary(run.input_signal_id)
       assert is_binary(run.response_signal_id)
-      assert run.action_log.runner_metadata.action_name == "direct_answer"
+      assert get_in(run.action_log, ["runner_metadata", "action_name"]) == "direct_answer"
       assert response.runner_metadata.action_name == "direct_answer"
     end
 

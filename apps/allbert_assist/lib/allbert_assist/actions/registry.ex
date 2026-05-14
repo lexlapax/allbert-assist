@@ -23,6 +23,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.ReadSkill
   alias AllbertAssist.Actions.Intent.RunShellCommand
   alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
+  alias AllbertAssist.Actions.Jobs.RegistryHealth
+  alias AllbertAssist.Actions.Jobs.TraceSummary
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
   alias AllbertAssist.Actions.Resources.ListResourceGrants
@@ -90,7 +92,9 @@ defmodule AllbertAssist.Actions.Registry do
     ShowResourceGrant,
     RevokeResourceGrant,
     RememberResourceGrant,
-    RecordTrace
+    RecordTrace,
+    RegistryHealth,
+    TraceSummary
   ]
 
   @actions @agent_actions ++ @internal_actions
@@ -397,6 +401,20 @@ defmodule AllbertAssist.Actions.Registry do
       permission: :memory_write,
       exposure: :internal,
       execution_mode: :internal_trace,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    RegistryHealth => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :read_only,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    TraceSummary => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :read_only,
       skill_backed?: false,
       confirmation: :not_required
     }
