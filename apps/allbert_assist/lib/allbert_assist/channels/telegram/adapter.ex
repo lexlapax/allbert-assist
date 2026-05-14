@@ -5,6 +5,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
   require Logger
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.Telegram.Client
@@ -15,6 +16,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
   @provider "telegram_bot_api"
   @max_backoff_ms 60_000
+  @callback_data_re ~r/\Aallbert:v1:(approve|deny|show):([A-Za-z0-9_-]+)\z/
 
   def start_link(opts) do
     name = Keyword.get(opts, :name, __MODULE__)
@@ -140,7 +142,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
       {:callback_query, fields} ->
         case insert_received_event(fields, "callback") do
-          {:ok, %AllbertAssist.Channels.Event{}} -> {:ok, :processed}
+          {:ok, %AllbertAssist.Channels.Event{} = event} -> handle_callback(event, fields, state)
           {:ok, :duplicate} -> {:ok, :duplicate}
           {:error, reason} -> {:error, reason}
         end
@@ -308,6 +310,128 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   defp mark_rejected_or_failed(event, reason) do
     Channels.update_event(event, %{status: "rejected", reason: inspect(reason)})
   end
+
+  defp handle_callback(event, fields, state) do
+    with :ok <- callbacks_enabled(state),
+         {:ok, action, confirmation_id} <- parse_callback_data(fields.callback_data),
+         {:ok, user_id} <- resolve_identity(fields, state),
+         session_id <-
+           Channels.derive_session_id(
+             "telegram",
+             fields.external_user_id,
+             fields.external_chat_id
+           ),
+         {:ok, response} <-
+           run_confirmation_action(action, confirmation_id, user_id, session_id, fields),
+         {:ok, chunks, _keyboard} <- render_confirmation_response(response, state),
+         :ok <- deliver_callback_result(fields.external_chat_id, chunks, state),
+         {:ok, _event} <- mark_callback_processed(event, response, user_id, session_id) do
+      _ack_result = answer_callback(fields.callback_query_id, confirmation_reply(response), state)
+      {:ok, :processed}
+    else
+      {:error, reason} ->
+        _ack_result =
+          answer_callback(fields.callback_query_id, callback_error_text(reason), state)
+
+        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, :rejected}
+    end
+  end
+
+  defp callbacks_enabled(state) do
+    if Map.get(state.settings, "allow_confirmation_callbacks", true) do
+      :ok
+    else
+      {:error, :confirmation_callbacks_disabled}
+    end
+  end
+
+  defp parse_callback_data(data) when is_binary(data) and byte_size(data) <= 64 do
+    case Regex.run(@callback_data_re, data) do
+      [_, action, confirmation_id] -> {:ok, action, confirmation_id}
+      _match -> {:error, :malformed_callback_data}
+    end
+  end
+
+  defp parse_callback_data(data) when is_binary(data), do: {:error, :callback_data_too_long}
+  defp parse_callback_data(_data), do: {:error, :malformed_callback_data}
+
+  defp run_confirmation_action(action, confirmation_id, user_id, session_id, fields) do
+    Runner.run(confirmation_action_name(action), %{id: confirmation_id}, %{
+      actor: user_id,
+      channel: "telegram",
+      surface: "telegram_callback",
+      session_id: session_id,
+      request: %{
+        user_id: user_id,
+        operator_id: user_id,
+        channel: "telegram",
+        session_id: session_id
+      },
+      resolver_metadata: %{
+        provider: @provider,
+        external_event_id: fields.external_event_id,
+        external_user_id: fields.external_user_id,
+        external_chat_id: fields.external_chat_id,
+        callback_query_id: fields.callback_query_id
+      }
+    })
+  end
+
+  defp confirmation_action_name("approve"), do: "approve_confirmation"
+  defp confirmation_action_name("deny"), do: "deny_confirmation"
+  defp confirmation_action_name("show"), do: "show_confirmation"
+
+  defp render_confirmation_response(response, state) do
+    Renderer.render_response(%{message: confirmation_reply(response)},
+      max_text_bytes: Map.get(state.settings, "max_text_bytes", 4096),
+      render_buttons: false
+    )
+  end
+
+  defp deliver_callback_result(nil, _chunks, _state), do: :ok
+
+  defp deliver_callback_result(chat_id, chunks, state),
+    do: deliver_chunks(chat_id, chunks, nil, state)
+
+  defp answer_callback(nil, _message, _state), do: :ok
+
+  defp answer_callback(callback_query_id, message, state) do
+    case Client.answer_callback_query(state.token, callback_query_id, message, state.req_options) do
+      {:ok, true} -> :ok
+      {:ok, _result} -> :ok
+      {:error, reason} -> {:error, {:callback_ack_failed, reason}}
+    end
+  end
+
+  defp mark_callback_processed(event, response, user_id, session_id) do
+    runner_metadata = response_value(response, :runner_metadata) || %{}
+
+    Channels.update_event(event, %{
+      status: "processed",
+      user_id: user_id,
+      session_id: session_id,
+      input_signal_id: response_value(runner_metadata, :requested_signal_id)
+    })
+  end
+
+  defp confirmation_reply(%{message: message}) when is_binary(message), do: message
+  defp confirmation_reply(%{"message" => message}) when is_binary(message), do: message
+
+  defp confirmation_reply(%{confirmation: %{"id" => id, "status" => status}}) do
+    "Confirmation #{id}: #{status}."
+  end
+
+  defp confirmation_reply(%{"confirmation" => %{"id" => id, "status" => status}}) do
+    "Confirmation #{id}: #{status}."
+  end
+
+  defp confirmation_reply(response), do: inspect(response, pretty: true)
+
+  defp callback_error_text(:not_mapped), do: "This Telegram account is not connected."
+  defp callback_error_text(:disabled), do: "This Telegram account is disabled."
+  defp callback_error_text(:malformed_callback_data), do: "Unsupported confirmation button."
+  defp callback_error_text(_reason), do: "Could not resolve confirmation."
 
   defp event_result(result, inserted_status \\ :processed)
 
