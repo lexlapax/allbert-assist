@@ -780,6 +780,8 @@ Expected direction:
   policy.
 - Keep the scheduler local and supervised; no distributed scheduler, remote
   workers, or new execution primitives.
+- Instantiate initial low-risk job templates through explicit CLI commands,
+  not seeded database rows or autonomous job creation.
 
 ## v0.14: Session Scratchpad And Active App Context
 
