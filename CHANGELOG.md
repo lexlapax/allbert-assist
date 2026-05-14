@@ -47,6 +47,18 @@ checks.
   archive/delete workflow, app-specific routing, session scratchpad semantics,
   or automatic markdown-memory promotion.
 
+### Post-Validation Fixes
+
+- Blocked jobs can no longer be resumed while their referenced confirmation is
+  still pending. Once the confirmation is resolved, resume clears
+  `blocked_confirmation_id`, reactivates the job, and recomputes `next_due_at`.
+- Manual job runs now reject blocked jobs before creating a run record, with
+  CLI and `/jobs` LiveView output pointing to `mix allbert.confirmations show`.
+- The scheduled job unique constraint name now matches the migration index.
+- Added regression coverage for blocked resume/run behavior, CLI and LiveView
+  blocked-state handoff, `new_thread_per_run`, deleted origin-thread runtime
+  failures, and cross-midnight cron schedules.
+
 ### Verification
 
 - Milestone focused suites passed for job schema/context behavior, schedule

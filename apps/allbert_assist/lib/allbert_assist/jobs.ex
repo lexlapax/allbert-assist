@@ -8,6 +8,7 @@ defmodule AllbertAssist.Jobs do
 
   import Ecto.Query
 
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Run
@@ -149,17 +150,43 @@ defmodule AllbertAssist.Jobs do
 
   @doc "Resume a job and recompute its next due time."
   @spec resume_job(Job.t() | String.t()) :: job_result()
-  def resume_job(%Job{} = job) do
+  def resume_job(%Job{id: id}) when is_binary(id) do
+    with {:ok, job} <- get_job(id), do: resume_loaded_job(job)
+  end
+
+  def resume_job(id) when is_binary(id) do
+    with {:ok, job} <- get_job(id), do: resume_loaded_job(job)
+  end
+
+  defp resume_loaded_job(%Job{status: "blocked", blocked_confirmation_id: confirmation_id} = job)
+       when is_binary(confirmation_id) and confirmation_id != "" do
+    with {:ok, confirmation} <- Confirmations.read(confirmation_id),
+         :ok <- confirmation_resolved?(confirmation) do
+      activate_job(job, blocked_confirmation_id: nil)
+    end
+  end
+
+  defp resume_loaded_job(%Job{status: "blocked"}), do: {:error, :missing_blocked_confirmation}
+
+  defp resume_loaded_job(%Job{} = job) do
+    activate_job(job, [])
+  end
+
+  defp activate_job(%Job{} = job, extra_attrs) do
     with {:ok, next_due_at} <- Schedule.next_due(job.schedule, job.timezone) do
       job
-      |> Job.changeset(%{status: "active", next_due_at: next_due_at})
+      |> Job.changeset(
+        Map.merge(%{status: "active", next_due_at: next_due_at}, Map.new(extra_attrs))
+      )
       |> Repo.update()
     end
   end
 
-  def resume_job(id) when is_binary(id) do
-    with {:ok, job} <- get_job(id), do: resume_job(job)
-  end
+  defp confirmation_resolved?(%{"status" => "pending", "id" => id}),
+    do: {:error, {:blocked_by_confirmation, id}}
+
+  defp confirmation_resolved?(%{"status" => status}) when is_binary(status), do: :ok
+  defp confirmation_resolved?(_confirmation), do: {:error, :invalid_blocked_confirmation}
 
   @doc "Create a run record for a job. Execution is handled by later milestones."
   @spec create_run(Job.t(), map()) :: run_result()

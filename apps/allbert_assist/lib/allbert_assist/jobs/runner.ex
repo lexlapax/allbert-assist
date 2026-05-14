@@ -30,6 +30,7 @@ defmodule AllbertAssist.Jobs.Runner do
     opts = to_map(opts)
 
     with {:ok, job} <- resolve_job(job_or_id),
+         :ok <- reject_blocked_job(job),
          {:ok, run} <- Jobs.create_run(job, %{trigger: "manual", due_at: Map.get(opts, :due_at)}) do
       execute_run(job, run, opts)
     end
@@ -54,9 +55,14 @@ defmodule AllbertAssist.Jobs.Runner do
 
   def execute_run(_job, _run, _opts), do: {:error, :invalid_run}
 
-  defp resolve_job(%Job{} = job), do: {:ok, job}
+  defp resolve_job(%Job{id: id}) when is_binary(id), do: Jobs.get_job(id)
   defp resolve_job(id) when is_binary(id), do: Jobs.get_job(id)
   defp resolve_job(_job), do: {:error, :invalid_job}
+
+  defp reject_blocked_job(%Job{status: "blocked", blocked_confirmation_id: confirmation_id}),
+    do: {:error, {:blocked_by_confirmation, confirmation_id}}
+
+  defp reject_blocked_job(%Job{}), do: :ok
 
   defp execute_target(%Job{target_type: "runtime_prompt"} = job, run, opts) do
     with :ok <- validate_runtime_thread(job),

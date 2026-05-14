@@ -120,7 +120,7 @@ defmodule AllbertAssistWeb.JobsLive do
                     Run
                   </button>
                   <button
-                    :if={job.status != "paused"}
+                    :if={job.status == "active"}
                     id={"pause-#{job.id}"}
                     type="button"
                     phx-click="pause"
@@ -130,7 +130,7 @@ defmodule AllbertAssistWeb.JobsLive do
                     Pause
                   </button>
                   <button
-                    :if={job.status == "paused"}
+                    :if={job.status in ["paused", "blocked"]}
                     id={"resume-#{job.id}"}
                     type="button"
                     phx-click="resume"
@@ -176,8 +176,14 @@ defmodule AllbertAssistWeb.JobsLive do
   end
 
   defp handle_result(socket, {:error, reason}) do
-    assign(socket, :notice, "Error: #{inspect(reason)}")
+    assign(socket, :notice, error_notice(reason))
   end
+
+  defp error_notice({:blocked_by_confirmation, confirmation_id}) do
+    "Job is blocked by pending confirmation #{confirmation_id}. Inspect it with mix allbert.confirmations show #{confirmation_id}."
+  end
+
+  defp error_notice(reason), do: "Error: #{inspect(reason)}"
 
   defp load_jobs(socket) do
     jobs = Jobs.list_jobs(socket.assigns.user_id)

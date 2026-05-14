@@ -249,6 +249,51 @@ defmodule AllbertAssist.JobsTest do
       assert [%Run{id: run_id}] = Jobs.list_runs(resumed)
       assert run_id == run.id
     end
+
+    test "blocked jobs only resume after their confirmation is resolved" do
+      assert {:ok, confirmation} = create_pending_confirmation("conf_resume_job")
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "blocked brief",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Brief me."},
+                 schedule: %{kind: "daily", at: "08:00"},
+                 timezone: "UTC",
+                 status: "active",
+                 user_id: "alice"
+               })
+
+      assert {:ok, blocked_job} =
+               job
+               |> Job.changeset(%{
+                 status: "blocked",
+                 blocked_confirmation_id: confirmation["id"],
+                 next_due_at: nil
+               })
+               |> Repo.update()
+
+      assert {:error, {:blocked_by_confirmation, "conf_resume_job"}} =
+               Jobs.resume_job(blocked_job)
+
+      assert Repo.reload!(blocked_job).status == "blocked"
+
+      assert {:ok, _resolved} =
+               Confirmations.resolve(
+                 "conf_resume_job",
+                 :denied,
+                 %{
+                   resolver_actor: "alice",
+                   resolver_channel: :cli,
+                   resolution_reason: "not needed"
+                 }
+               )
+
+      assert {:ok, resumed} = Jobs.resume_job(blocked_job)
+      assert resumed.status == "active"
+      assert resumed.blocked_confirmation_id == nil
+      assert %DateTime{} = resumed.next_due_at
+    end
   end
 
   describe "runner" do
@@ -309,6 +354,64 @@ defmodule AllbertAssist.JobsTest do
 
       assert {:ok, %{messages: messages}} = Conversations.show_thread("alice", run.thread_id)
       assert Enum.map(messages, & &1.role) == ["user", "assistant"]
+    end
+
+    test "new_thread_per_run creates a fresh conversation thread for each run" do
+      Application.put_env(:allbert_assist, Runtime,
+        agent_runner: fn _signal, request ->
+          {:ok,
+           %{
+             message: "New thread response: #{request.text}",
+             status: :completed,
+             actions: [%{name: "direct_answer", status: :completed}]
+           }}
+        end
+      )
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "fresh thread",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Start fresh."},
+                 schedule: %{kind: "manual"},
+                 user_id: "alice",
+                 thread_mode: "new_thread_per_run"
+               })
+
+      assert {:ok, %{run: first_run}} = Runner.run_now(job)
+      assert {:ok, %{run: second_run}} = Runner.run_now(job)
+
+      assert first_run.thread_id != second_run.thread_id
+      assert [_first, _second] = Conversations.list_threads("alice")
+
+      assert {:ok, %{messages: first_messages}} =
+               Conversations.show_thread("alice", first_run.thread_id)
+
+      assert {:ok, %{messages: second_messages}} =
+               Conversations.show_thread("alice", second_run.thread_id)
+
+      assert Enum.map(first_messages, & &1.role) == ["user", "assistant"]
+      assert Enum.map(second_messages, & &1.role) == ["user", "assistant"]
+    end
+
+    test "origin-thread jobs fail their run if the thread was deleted after creation" do
+      assert {:ok, thread} = Conversations.create_general_thread("alice", "Temporary topic")
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "deleted thread",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Follow up."},
+                 schedule: %{kind: "manual"},
+                 user_id: "alice",
+                 thread_id: thread.id
+               })
+
+      assert {:ok, _deleted_thread} = Repo.delete(thread)
+
+      assert {:ok, %{run: run, response: nil}} = Runner.run_now(job)
+      assert run.status == "failed"
+      assert run.error.reason =~ "{:thread_not_found, \"#{thread.id}\"}"
     end
 
     test "runs registered action jobs through the action runner" do
@@ -388,6 +491,33 @@ defmodule AllbertAssist.JobsTest do
       assert blocked_job.status == "blocked"
       assert blocked_job.blocked_confirmation_id == "cnf_job_1"
       assert blocked_job.next_due_at == nil
+    end
+
+    test "rejects manual runs for blocked jobs without creating duplicate runs" do
+      assert {:ok, confirmation} = create_pending_confirmation("conf_run_now_blocked")
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "blocked manual run",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Fetch https://example.com"},
+                 schedule: %{kind: "manual"},
+                 user_id: "alice"
+               })
+
+      assert {:ok, blocked_job} =
+               job
+               |> Job.changeset(%{
+                 status: "blocked",
+                 blocked_confirmation_id: confirmation["id"],
+                 next_due_at: nil
+               })
+               |> Repo.update()
+
+      assert {:error, {:blocked_by_confirmation, "conf_run_now_blocked"}} =
+               Runner.run_now(blocked_job)
+
+      assert [] = Jobs.list_runs(blocked_job)
     end
 
     test "registered action confirmations preserve job origin and block duplicate scheduling" do
@@ -620,5 +750,22 @@ defmodule AllbertAssist.JobsTest do
 
     assert {:ok, _setting} =
              Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+  end
+
+  defp create_pending_confirmation(id) do
+    Confirmations.create(%{
+      id: id,
+      origin: %{
+        actor: "alice",
+        channel: :job,
+        surface: "scheduled_job"
+      },
+      target_action: %{name: "external_network_request"},
+      target_permission: :external_network,
+      target_execution_mode: :external_network_unavailable,
+      security_decision: %{permission: :external_network, decision: :needs_confirmation},
+      params_summary: %{url: "https://example.com"},
+      resume_params_ref: %{url: "https://example.com"}
+    })
   end
 end

@@ -26,7 +26,9 @@ defmodule AllbertAssist.Repo.Migrations.CreateScheduledJobs do
       timestamps(type: :utc_datetime_usec)
     end
 
-    create unique_index(:scheduled_jobs, [:user_id, :name], name: :scheduled_jobs_user_name_idx)
+    create unique_index(:scheduled_jobs, [:user_id, :name],
+             name: :scheduled_jobs_user_id_name_index
+           )
 
     create index(:scheduled_jobs, [:status, :next_due_at], name: :scheduled_jobs_due_idx)
     create index(:scheduled_jobs, [:user_id, :status], name: :scheduled_jobs_user_status_idx)

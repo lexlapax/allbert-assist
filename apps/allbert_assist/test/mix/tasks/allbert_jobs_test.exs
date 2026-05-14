@@ -3,9 +3,12 @@ defmodule Mix.Tasks.Allbert.JobsTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Jobs
+  alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
+  alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Trace
@@ -197,6 +200,53 @@ defmodule Mix.Tasks.Allbert.JobsTest do
     end
   end
 
+  test "surfaces blocked confirmation ids for resume and manual run commands" do
+    assert {:ok, confirmation} = create_pending_confirmation("conf_cli_blocked_job")
+
+    assert {:ok, job} =
+             Jobs.create_job(%{
+               name: "blocked cli job",
+               target_type: "runtime_prompt",
+               target: %{text: "Fetch https://example.com"},
+               schedule: %{kind: "manual"},
+               user_id: "alice"
+             })
+
+    assert {:ok, blocked_job} =
+             job
+             |> Job.changeset(%{
+               status: "blocked",
+               blocked_confirmation_id: confirmation["id"],
+               next_due_at: nil
+             })
+             |> Repo.update()
+
+    assert_raise Mix.Error, ~r/mix allbert.confirmations show conf_cli_blocked_job/, fn ->
+      capture_io(fn -> JobsTask.run(["resume", blocked_job.id]) end)
+    end
+
+    assert_raise Mix.Error, ~r/mix allbert.confirmations show conf_cli_blocked_job/, fn ->
+      capture_io(fn -> JobsTask.run(["run", blocked_job.id]) end)
+    end
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp create_pending_confirmation(id) do
+    Confirmations.create(%{
+      id: id,
+      origin: %{
+        actor: "alice",
+        channel: :job,
+        surface: "mix allbert.jobs"
+      },
+      target_action: %{name: "external_network_request"},
+      target_permission: :external_network,
+      target_execution_mode: :external_network_unavailable,
+      security_decision: %{permission: :external_network, decision: :needs_confirmation},
+      params_summary: %{url: "https://example.com"},
+      resume_params_ref: %{url: "https://example.com"}
+    })
+  end
 end

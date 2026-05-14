@@ -77,6 +77,15 @@ defmodule AllbertAssist.Jobs.ScheduleTest do
                )
     end
 
+    test "cron schedules can cross midnight" do
+      assert {:ok, ~U[2026-05-15 00:00:00Z]} =
+               Schedule.next_due(
+                 %{"kind" => "cron", "expression" => "0 0 * * *"},
+                 "UTC",
+                 ~U[2026-05-14 23:59:00Z]
+               )
+    end
+
     test "named IANA time zones are accepted" do
       assert {:ok, due} =
                Schedule.next_due(

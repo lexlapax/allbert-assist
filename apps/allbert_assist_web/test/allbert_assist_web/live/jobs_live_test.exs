@@ -3,7 +3,9 @@ defmodule AllbertAssistWeb.JobsLiveTest do
 
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Jobs
+  alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
@@ -88,6 +90,63 @@ defmodule AllbertAssistWeb.JobsLiveTest do
     assert render(view) =~ "Paused live brief"
   end
 
+  test "blocked jobs keep run and resume actions behind the confirmation", %{conn: conn} do
+    assert {:ok, confirmation} = create_pending_confirmation("conf_live_blocked_job")
+
+    assert {:ok, job} =
+             Jobs.create_job(%{
+               name: "blocked live",
+               target_type: "runtime_prompt",
+               target: %{text: "Fetch https://example.com"},
+               schedule: %{kind: "manual"},
+               user_id: "local"
+             })
+
+    assert {:ok, blocked_job} =
+             job
+             |> Job.changeset(%{
+               status: "blocked",
+               blocked_confirmation_id: confirmation["id"],
+               next_due_at: nil
+             })
+             |> Repo.update()
+
+    {:ok, view, html} = live(conn, ~p"/jobs")
+    assert html =~ "blocked live"
+    assert html =~ "confirmation conf_live_blocked_job"
+
+    view
+    |> element("#resume-#{blocked_job.id}")
+    |> render_click()
+
+    assert render(view) =~ "mix allbert.confirmations show conf_live_blocked_job"
+    assert Repo.reload!(blocked_job).status == "blocked"
+
+    view
+    |> element("#run-#{blocked_job.id}")
+    |> render_click()
+
+    assert render(view) =~ "mix allbert.confirmations show conf_live_blocked_job"
+    assert [] = Jobs.list_runs(blocked_job)
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp create_pending_confirmation(id) do
+    Confirmations.create(%{
+      id: id,
+      origin: %{
+        actor: "local",
+        channel: :job,
+        surface: "/jobs"
+      },
+      target_action: %{name: "external_network_request"},
+      target_permission: :external_network,
+      target_execution_mode: :external_network_unavailable,
+      security_decision: %{permission: :external_network, decision: :needs_confirmation},
+      params_summary: %{url: "https://example.com"},
+      resume_params_ref: %{url: "https://example.com"}
+    })
+  end
 end

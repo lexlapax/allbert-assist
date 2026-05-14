@@ -231,6 +231,12 @@ defmodule Mix.Tasks.Allbert.Jobs do
     end)
   end
 
+  defp print_result({:error, {:blocked_by_confirmation, confirmation_id}}) do
+    Mix.raise(
+      "Job is blocked by pending confirmation #{confirmation_id}. Inspect it with: mix allbert.confirmations show #{confirmation_id}"
+    )
+  end
+
   defp print_result({:error, reason}) do
     Mix.raise("Jobs command failed: #{inspect(reason)}")
   end
