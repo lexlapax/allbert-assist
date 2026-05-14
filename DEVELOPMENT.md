@@ -172,6 +172,18 @@ and execution still belong at the registered action/runtime boundary. Do not
 load modules dynamically, create routes from app metadata, or treat `app_id` as
 authorization.
 
+For v0.16, additional channels are supervised delivery adapters around
+`AllbertAssist.Runtime.submit_user_input/1` and registered confirmation
+actions. Telegram is the first proving adapter. External provider identities
+must map to local string `user_id` values through Settings Central; there is no
+implicit `"local"` fallback and no hosted accounts model. Channel events belong
+in SQLite for dedupe and traceability, while conversation history remains
+`AllbertAssist.Conversations` data. Channel transports may receive updates and
+send responses through a bounded provider client only; they must not fetch
+arbitrary URLs, download media/documents, import skills, execute provider
+methods, mutate confirmations privately, or bypass Resource Access Security
+Posture.
+
 After v0.11 closeout, remember that URL summarization, document inspection,
 direct skill URL import, local skill directory import, local path access,
 trusted skill script execution, package installs, online source consumers,

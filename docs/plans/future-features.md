@@ -27,7 +27,7 @@ homes:
 - Scheduled jobs: v0.13.
 - Session scratchpad and active app context: v0.14.
 - Minimal app registration contract: v0.15.
-- Additional channels: v0.16.
+- Telegram channel adapter and reusable channel foundation: v0.16.
 - StockSage umbrella app and domain: v0.17.
 - Memory review and retrieval: v0.18.
 - StockSage Python bridge: v0.19.
@@ -84,6 +84,41 @@ Needed before planning:
 - explicit distinction between generating source and enabling capability
 - rollback and migration story
 - policy for generated migrations, dependency additions, and operator review
+
+### Additional Remote Channel Adapters
+
+Source: origin note, allbert-jido vision, and v0.16 Telegram channel planning.
+
+v0.16 proves the channel adapter boundary with Telegram only. The remaining
+remote channels named in the vision, including Discord, WhatsApp-style chat,
+email, SMS, and Slack-style team chat, are still parked here until promoted to
+their own implementation-ready milestone. They should reuse the v0.16 channel
+context, identity mapping posture, durable event dedupe, runtime submission
+flow, Approval Handoff rendering, confirmation callback pattern, and redaction
+rules instead of inventing provider-specific runtimes.
+
+Each provider still needs a focused design pass because the security and UX
+surfaces differ:
+
+- Email needs sender authentication, threading semantics, attachment policy,
+  spam/replay handling, and safe reply rendering.
+- SMS needs phone-number mapping, short-message truncation, cost/rate limits,
+  and provider delivery failure handling.
+- Discord, WhatsApp-style chat, and Slack-style team chat need workspace/server
+  identity mapping, group/channel authorization, mention handling, threaded
+  replies, callback affordances, and team-channel privacy rules.
+
+Needed before planning:
+
+- v0.16 Telegram adapter accepted through user testing
+- v0.16 channel event and identity-map contracts stable
+- provider-specific Settings Central schema and secret policy
+- provider-specific delivery, retry, dedupe, and callback model
+- v0.23 security evals for cross-channel spoofing, replay, group leakage,
+  attachment handling, and resource approval scope leakage
+- operator UX for mapping, disabling, and inspecting external identities
+- clear decision on whether a provider starts as inbound-only, response-only,
+  or full request/response with confirmation callbacks
 
 ### Remote Secrets Manager
 
@@ -178,12 +213,12 @@ Needed before broader post-v0.28 planning:
 
 ### Browser/Search Capture
 
-Source: origin note and v0.16 candidate channels.
+Source: origin note and v0.16 channel adapter foundation.
 
 The origin note describes capturing searches or browsing activity and turning
 useful context into memory. v0.11 owns the Resource Access Security Posture for
-approved URL/document consumers, and v0.16 gives browser/search capture a
-possible channel-adapter home. Browser capture is still broader than approved
+approved URL/document consumers, and v0.16 proves the channel adapter boundary
+with Telegram. Browser capture is still broader than approved
 URL fetches: it may involve page state, user sessions, cookies, interactive
 navigation, screenshots, or memory promotion, so it remains parked until
 channel adapters, memory review, and security hardening are ready.
@@ -262,11 +297,11 @@ Needed before planning:
 
 ### Native UI Surface
 
-Source: origin note and v0.16 candidate channels.
+Source: origin note and v0.16 channel adapter foundation.
 
 Native UI is listed as a possible channel but has no dedicated plan. It should
-not be planned before the channel adapter contract and local workspace surface
-contract are stable.
+not be planned before the Telegram-proven channel adapter contract and local
+workspace surface contract are stable.
 
 Needed before planning:
 
