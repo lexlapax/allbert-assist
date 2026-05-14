@@ -2,13 +2,36 @@ defmodule AllbertAssist.Skills.RegistryTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.Paths
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Skills
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
 
+  defmodule AppSkillApp do
+    use AllbertAssist.App
+
+    @impl true
+    def app_id, do: :skill_registry_app
+
+    @impl true
+    def display_name, do: "Skill Registry App"
+
+    @impl true
+    def version, do: "0.15.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def skill_paths do
+      Application.get_env(:allbert_assist, __MODULE__, [])
+    end
+  end
+
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_app_config = Application.get_env(:allbert_assist, AppSkillApp)
 
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, Paths)
@@ -23,8 +46,10 @@ defmodule AllbertAssist.Skills.RegistryTest do
 
     on_exit(fn ->
       File.rm_rf!(root)
+      AppRegistry.unregister(:skill_registry_app)
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
+      restore_app_env(AppSkillApp, original_app_config)
     end)
 
     {:ok,
@@ -103,6 +128,29 @@ defmodule AllbertAssist.Skills.RegistryTest do
 
     assert {:ok, diagnostics} = Skills.diagnostics(registry_context)
     assert Enum.any?(diagnostics, &(&1.code == :duplicate_skill_hidden))
+  end
+
+  test "registered app skill paths are trusted between project and user roots", context do
+    app_root = Path.join(context.root, "app-skills")
+    write_skill(app_root, "shared-skill", "shared-skill")
+    write_skill(Path.join(context.home, "skills"), "shared-skill", "shared-skill")
+
+    Application.put_env(:allbert_assist, AppSkillApp, [app_root])
+    assert {:ok, :skill_registry_app} = AppRegistry.register(AppSkillApp)
+
+    assert {:ok, [skill]} = Skills.list(registry_context(context))
+    assert skill.name == "shared-skill"
+    assert skill.source_scope == :app
+    assert skill.trust_status == :trusted
+
+    assert {:ok, diagnostics} = Skills.diagnostics(registry_context(context))
+
+    assert Enum.any?(
+             diagnostics,
+             &(&1.code == :duplicate_skill_hidden and
+                 &1.winning_source_scope == :app and
+                 &1.source_scope == :user_native)
+           )
   end
 
   test "built-in skill names are reserved", context do
