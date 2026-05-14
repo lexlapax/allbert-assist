@@ -702,8 +702,8 @@ complete. v0.10 was released and tagged as `v0.10` on 2026-05-04.
 Plan: `docs/plans/v0.11-plan.md`
 Request flow: `docs/plans/v0.11-request-flow.md`
 
-Status: implemented through M6. Ready for operator manual verification; expected
-release tag is `v0.11` after acceptance.
+Status: released and tagged as `v0.11` on 2026-05-13. Ready for operator manual
+verification with the v0.11 request-flow matrix.
 
 Implemented direction:
 

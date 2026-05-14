@@ -10,13 +10,13 @@ not the architecture center.
 
 ## Current Status
 
-v0.11 is implemented through its M6 closeout and is ready for operator manual
-verification. It adds execution-aware intent decisions, operation-scoped
+v0.11 is implemented through its M6 closeout and tagged as `v0.11` on
+2026-05-13 for operator manual verification. It adds execution-aware intent
+decisions, operation-scoped
 Resource Access posture, shared Approval Handoff data, CLI and LiveView approval
 rendering, URL/document consumer routing over the existing confirmed Req
 substrate, and explicit unavailable states for missing summarizer/extractor or
-generic local file readers. Version metadata is now `0.11.0`; the expected
-release tag is `v0.11` after operator acceptance.
+generic local file readers. Version metadata is now `0.11.0`.
 
 v0.10 was released and tagged as `v0.10` on 2026-05-04. It remains the
 substrate for confirmed shell, skill script, external service, package, online

@@ -2,9 +2,9 @@
 
 ## v0.11 - Execution-Aware Intent, Resource Access, And Approval Handoff
 
-Status: implemented through M6 and ready for operator manual verification.
-Version metadata is `0.11.0`; expected release tag is `v0.11` after operator
-acceptance.
+Status: released and tagged as `v0.11` on 2026-05-13. Version metadata is
+`0.11.0`; the operator manual verification matrix is ready for acceptance
+checks.
 
 ### Added
 
