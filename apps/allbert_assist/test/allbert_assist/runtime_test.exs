@@ -117,6 +117,15 @@ defmodule AllbertAssist.RuntimeTest do
 
     assert {:ok, thread} = Conversations.get_thread("local", thread_id)
     assert thread.kind == "general"
+
+    assert {:ok, %{messages: messages}} = Conversations.show_thread("local", thread_id)
+
+    assert Enum.map(messages, & &1.role) == ["user", "assistant"]
+
+    assert Enum.map(messages, & &1.content) == [
+             "Say hello from the runtime boundary.",
+             "Runtime response: Say hello from the runtime boundary."
+           ]
   end
 
   test "accepts string keys and default local identity" do
@@ -158,6 +167,58 @@ defmodule AllbertAssist.RuntimeTest do
                      }}
 
     assert {:ok, _thread} = Conversations.get_thread("alice", thread_id)
+  end
+
+  test "passes bounded prior thread context to the agent after persisting current input" do
+    assert {:ok, first} =
+             Runtime.submit_user_input(%{
+               text: "first turn",
+               channel: :test,
+               user_id: "alice",
+               new_thread: true
+             })
+
+    assert_received {:agent_request, %{thread_context: %{messages: []}}}
+
+    assert {:ok, second} =
+             Runtime.submit_user_input(%{
+               text: "second turn",
+               channel: :test,
+               user_id: "alice"
+             })
+
+    assert second.thread_id == first.thread_id
+
+    assert_received {:agent_request,
+                     %{
+                       thread_id: thread_id,
+                       thread_context: %{messages: context_messages, limit: 12}
+                     }}
+
+    assert thread_id == first.thread_id
+
+    assert Enum.map(context_messages, & &1.content) == [
+             "first turn",
+             "Runtime response: first turn"
+           ]
+  end
+
+  test "keeps user message but writes no assistant message when agent fails before response" do
+    runner = fn _signal, _request -> {:error, :boom} end
+    Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
+
+    assert {:error, :boom} =
+             Runtime.submit_user_input(%{
+               text: "this will fail",
+               channel: :test,
+               user_id: "alice",
+               new_thread: true
+             })
+
+    assert [thread] = Conversations.list_threads("alice")
+    assert {:ok, %{messages: [message]}} = Conversations.show_thread("alice", thread.id)
+    assert message.role == "user"
+    assert message.content == "this will fail"
   end
 
   test "rejects conflicting user and operator identity before calling the runner" do
