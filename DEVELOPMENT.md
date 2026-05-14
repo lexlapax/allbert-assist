@@ -139,6 +139,13 @@ For StockSage workspace app milestones, start with the active milestone plan,
 `docs/plans/allbert-jido-vision.md`, ADR 0014, and ADR 0015. The canonical
 plans are `v0.17`, `v0.19`, `v0.21`, `v0.22`, `v0.25`, and `v0.27`.
 
+After v0.12 closeout, remember that local conversation history is SQLite-backed
+`AllbertAssist.Conversations` data, not markdown memory and not hosted auth.
+Runtime requests and responses carry canonical `user_id`, legacy
+`operator_id`, `thread_id`, and optional `session_id`; new runtime-facing work
+should preserve those fields in signals, traces, confirmations, and job/channel
+metadata without adding accounts or roles.
+
 After v0.11 closeout, remember that URL summarization, document inspection,
 direct skill URL import, local skill directory import, local path access,
 trusted skill script execution, package installs, online source consumers,

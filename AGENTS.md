@@ -208,7 +208,10 @@ folders, or publish externally without explicit operator action.
   inspection, direct skill URL import, local skill directory import, local path
   access, trusted skill script execution, and online source consumers behind
   operation-scoped approval; a grant for one operation class must not authorize
-  another.
+  another. v0.12 conversation history is SQLite local workspace context, not
+  markdown memory and not hosted authentication; preserve `user_id`,
+  `operator_id`, `thread_id`, and optional `session_id` across runtime-facing
+  metadata, and do not auto-promote conversation turns into markdown memory.
 - Do not auto-generate, compile, or load Elixir modules from arbitrary skill
   folders.
 - Do not execute skill scripts, shell commands, external installs, or network

@@ -80,9 +80,6 @@ defmodule Mix.Tasks.Allbert.Threads do
 
       {:error, {:thread_not_found, _id}} ->
         Mix.raise("Thread not found")
-
-      {:error, reason} ->
-        Mix.raise("Threads command failed: #{inspect(reason)}")
     end
   end
 

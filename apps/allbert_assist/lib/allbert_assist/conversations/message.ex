@@ -31,6 +31,8 @@ defmodule AllbertAssist.Conversations.Message do
     timestamps(type: :utc_datetime_usec, updated_at: false)
   end
 
+  @type t :: %__MODULE__{}
+
   @doc false
   def changeset(message, attrs) do
     message

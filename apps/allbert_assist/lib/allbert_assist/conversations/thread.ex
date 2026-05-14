@@ -23,6 +23,8 @@ defmodule AllbertAssist.Conversations.Thread do
     timestamps(type: :utc_datetime_usec)
   end
 
+  @type t :: %__MODULE__{}
+
   @doc false
   def changeset(thread, attrs) do
     thread

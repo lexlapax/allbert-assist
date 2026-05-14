@@ -738,9 +738,10 @@ Plan: `docs/plans/v0.12-plan.md`
 Request flow: `docs/plans/v0.12-request-flow.md`
 ADR: `docs/adr/0014-local-workspace-identity.md`
 
-Status: planned. Formerly M-D1a.
+Status: released and tagged as `v0.12` on 2026-05-13. Ready for operator manual
+verification with the v0.12 request-flow matrix. Formerly M-D1a.
 
-Expected direction:
+Implemented direction:
 
 - Add canonical string `user_id`, preserving `operator_id` as a compatibility
   alias and defaulting omitted identity to `"local"`.

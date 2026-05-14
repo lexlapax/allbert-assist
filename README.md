@@ -10,13 +10,16 @@ not the architecture center.
 
 ## Current Status
 
-v0.11 is implemented through its M6 closeout and tagged as `v0.11` on
-2026-05-13 for operator manual verification. It adds execution-aware intent
-decisions, operation-scoped
-Resource Access posture, shared Approval Handoff data, CLI and LiveView approval
-rendering, URL/document consumer routing over the existing confirmed Req
-substrate, and explicit unavailable states for missing summarizer/extractor or
-generic local file readers. Version metadata is now `0.11.0`.
+v0.12 is implemented through its M6 closeout and tagged as `v0.12` on
+2026-05-13 for operator manual verification. It adds canonical local string
+`user_id`, preserves `operator_id` as a compatibility alias, persists SQLite
+conversation threads/messages, passes bounded recent thread context to the
+intent agent, and exposes CLI thread inspection through `mix allbert.threads`.
+Version metadata is now `0.12.0`.
+
+v0.11 was released and tagged as `v0.11` on 2026-05-13. It remains the
+execution-aware intent, operation-scoped Resource Access, and Approval Handoff
+substrate that v0.12 now records in thread history.
 
 v0.10 was released and tagged as `v0.10` on 2026-05-04. It remains the
 substrate for confirmed shell, skill script, external service, package, online
@@ -30,6 +33,15 @@ Release details live in `CHANGELOG.md`.
 - Accept user input through CLI and Phoenix LiveView.
 - Route runtime work through `AllbertAssist.Runtime.submit_user_input/1`,
   Jido agents, registered actions, and `AllbertAssist.Actions.Runner.run/3`.
+- Persist local SQLite conversation threads and ordered user/assistant
+  messages with string `user_id` and `thread_id`.
+- Continue the user's recent general thread by default, create a fresh thread
+  with `mix allbert.ask --new-thread`, and inspect history with
+  `mix allbert.threads`.
+- Preserve Alice/Bob style local user isolation for thread continuation and
+  thread inspection without adding hosted accounts or roles.
+- Pass bounded recent thread context to the intent agent as structured
+  `thread_context`.
 - Store operator settings, provider profiles, encrypted local secrets, memory,
   confirmations, cache files, and audit artifacts under Allbert Home.
 - Persist explicit markdown memory and optional markdown traces.
@@ -81,8 +93,9 @@ Release details live in `CHANGELOG.md`.
   `resource_uri` should be re-created through the current approval/resource
   grant UX.
 
-v0.11 does not add a browser, crawler, MCP execution path, `agent://`
-delegation, conversation history, app contract, or generic local file reader.
+v0.12 does not add hosted auth, roles, a LiveView thread sidebar, session
+scratchpad, app routing, semantic retrieval, vector search, browser/crawler
+behavior, MCP execution, `agent://` delegation, or generic local file reading.
 Every effect still flows through registered actions, Security Central, Settings
 Central policy, durable confirmations, redaction, traces, and audits.
 
@@ -93,9 +106,9 @@ Central policy, durable confirmations, redaction, traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.11 implementation plan: `docs/plans/v0.11-plan.md`
-- v0.11 request flow and manual verification: `docs/plans/v0.11-request-flow.md`
-- Next milestone plan: `docs/plans/v0.12-plan.md`
+- v0.12 implementation plan: `docs/plans/v0.12-plan.md`
+- v0.12 request flow and manual verification: `docs/plans/v0.12-request-flow.md`
+- Next milestone plan: `docs/plans/v0.13-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development
@@ -129,6 +142,8 @@ CLI entrypoints:
 
 ```sh
 mix allbert.ask "hello"
+mix allbert.ask --user alice --new-thread "hello"
+mix allbert.threads --user alice
 mix allbert.security status
 mix allbert.confirmations list
 mix allbert.skills validate apps/allbert_assist/priv/skills/append-memory
@@ -166,6 +181,9 @@ Allbert remains local and conservative:
 - v0.11 intent decisions and Approval Handoff are descriptive metadata, not
   authorization. Approval still resumes only the stored target action through
   `approve_confirmation`.
+- v0.12 conversation history is local SQLite context, not an auth boundary.
+  `user_id` scopes local thread UX but does not replace Security Central or
+  hosted authorization.
 - Imported skills are not trusted, enabled, activated, or executed by import.
 - Remote network content consumers are operation-scoped. A `summarize_url` or
   `inspect_document` approval must not authorize skill import, package install,
@@ -183,6 +201,6 @@ Allbert remains local and conservative:
 README is intentionally not the testing plan. Use:
 
 - `docs/operator/onboarding.md` for first-run operator guidance.
-- `docs/plans/v0.11-request-flow.md` for the v0.11 manual verification matrix.
-- `docs/plans/v0.11-plan.md` for milestone-specific verification.
+- `docs/plans/v0.12-request-flow.md` for the v0.12 manual verification matrix.
+- `docs/plans/v0.12-plan.md` for milestone-specific verification.
 - `CHANGELOG.md` for release status, verification summary, and tag readiness.

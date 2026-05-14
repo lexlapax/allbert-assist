@@ -1,5 +1,65 @@
 # Changelog
 
+## v0.12 - Local Workspace Identity And Conversation History
+
+Status: released and tagged as `v0.12` on 2026-05-13. Version metadata is
+`0.12.0`; the operator manual verification matrix is ready for acceptance
+checks.
+
+### Added
+
+- SQLite conversation history through `AllbertAssist.Conversations`,
+  `conversation_threads`, and `conversation_messages`, with opaque `thr_...`
+  and `msg_...` ids.
+- Canonical local string `user_id`, preserving `operator_id` as a compatibility
+  alias and defaulting omitted identity to `"local"`.
+- Runtime thread selection for explicit `thread_id`, recent general thread,
+  and `new_thread` requests.
+- User messages are persisted before the agent runs; assistant messages are
+  persisted after response and trace metadata are known.
+- Bounded recent thread context, initially the last 12 prior messages, is
+  passed to the intent agent as structured `thread_context`.
+- `mix allbert.ask` now accepts `--user`, `--thread`, and `--new-thread`, while
+  preserving `--operator`.
+- `mix allbert.threads` lists user-scoped threads and shows ordered messages.
+
+### Changed
+
+- Runtime responses, input/response signals, traces, v0.11 intent decisions,
+  confirmation origins, and persisted assistant action logs carry `user_id`
+  and `thread_id`.
+- CLI ask output renders `User:` and `Thread:` alongside status, message,
+  signal, trace, Approval Handoff, diagnostics, and actions.
+- v0.11 confirmation-required turns now persist pending assistant history with
+  decision, resource access, Approval Handoff, diagnostics, and confirmation
+  metadata.
+
+### Safety
+
+- v0.12 adds no hosted accounts, auth, roles, teams, app routing, session
+  scratchpad, semantic retrieval, vector search, LiveView thread sidebar, or
+  markdown-memory promotion.
+- User isolation is local context and UX scoping, not hosted authorization.
+- Conversation history is SQLite-only and distinct from markdown long-term
+  memory. Ordinary conversation turns do not create markdown memory entries;
+  explicit memory actions and explicit trace recording keep their existing
+  behavior.
+- v0.11 operation-scoped approvals, remembered grant matching, Security
+  Central, Settings Central, confirmation resolution, shell/package/network
+  policy, redaction, traces, and audits remain authoritative.
+
+### Verification
+
+- Milestone focused suites passed for conversation schema/context behavior,
+  runtime identity normalization, thread selection, message persistence,
+  bounded thread context, CLI ask/thread surfaces, cross-user isolation,
+  trace/signal metadata, confirmation-origin metadata, and v0.11 Approval
+  Handoff persistence.
+- Final v0.12 closeout gates passed: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- Manual verification steps live in `docs/plans/v0.12-request-flow.md`.
+
 ## v0.11 - Execution-Aware Intent, Resource Access, And Approval Handoff
 
 Status: released and tagged as `v0.11` on 2026-05-13. Version metadata is

@@ -11,7 +11,6 @@ defmodule AllbertAssist.Conversations do
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.Thread
   alias AllbertAssist.Repo
-  alias Ecto.Multi
 
   @default_kind "general"
   @default_list_limit 20
@@ -185,14 +184,9 @@ defmodule AllbertAssist.Conversations do
       |> Map.put_new(:action_log, %{})
       |> Map.put_new(:metadata, %{})
 
-    multi =
-      Multi.new()
-      |> Multi.insert(:message, Message.changeset(%Message{}, attrs))
-      |> Multi.update(:thread, Thread.last_message_changeset(thread, now))
-
-    case Repo.transaction(multi) do
-      {:ok, %{message: message}} -> {:ok, message}
-      {:error, _name, reason, _changes} -> {:error, reason}
+    case Repo.transaction(fn -> insert_message_and_touch_thread(thread, attrs, now) end) do
+      {:ok, message} -> {:ok, message}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -249,6 +243,15 @@ defmodule AllbertAssist.Conversations do
     case recent_general_thread(user_id) do
       {:ok, %Thread{} = thread} -> {:ok, thread}
       {:ok, nil} -> create_general_thread(user_id, text)
+    end
+  end
+
+  defp insert_message_and_touch_thread(thread, attrs, timestamp) do
+    with {:ok, message} <- Repo.insert(Message.changeset(%Message{}, attrs)),
+         {:ok, _thread} <- Repo.update(Thread.last_message_changeset(thread, timestamp)) do
+      message
+    else
+      {:error, reason} -> Repo.rollback(reason)
     end
   end
 
