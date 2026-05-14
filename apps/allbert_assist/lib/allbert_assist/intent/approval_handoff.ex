@@ -103,6 +103,22 @@ defmodule AllbertAssist.Intent.ApprovalHandoff do
 
   def to_map(handoff) when is_map(handoff), do: handoff
 
+  @spec lines(t() | map() | nil) :: [String.t()]
+  def lines(nil), do: []
+
+  def lines(handoff) do
+    handoff = to_map(handoff)
+
+    [
+      summary_line(handoff),
+      resource_lines(handoff),
+      allowed_actions_line(handoff),
+      result_return_line(handoff)
+    ]
+    |> List.flatten()
+    |> Enum.reject(&blank?/1)
+  end
+
   defp target_action(decision, action_result, confirmation) do
     action =
       field(confirmation, :target_action) ||
@@ -196,6 +212,67 @@ defmodule AllbertAssist.Intent.ApprovalHandoff do
   defp action_result_summary(%{online_skill_import: import}) when is_map(import), do: import
   defp action_result_summary(_action_result), do: %{}
 
+  defp summary_line(handoff) do
+    target = render_label(handoff) || target_name(field(handoff, :target_action, %{}))
+
+    "Approval: #{field(handoff, :confirmation_id)} status=#{field(handoff, :status)} target=#{target}"
+  end
+
+  defp resource_lines(handoff) do
+    handoff
+    |> field(:resource_access, [])
+    |> Enum.map(fn resource ->
+      scope = field(resource, :scope, %{}) || %{}
+      consumer = field(resource, :downstream_consumer)
+
+      [
+        "Resource",
+        field(resource, :origin_kind),
+        field(resource, :operation_class),
+        field(resource, :access_mode),
+        "#{field(scope, :kind)}:#{field(scope, :value)}",
+        if(consumer, do: "consumer=#{consumer}", else: nil)
+      ]
+      |> Enum.reject(&blank?/1)
+      |> Enum.join(" ")
+    end)
+  end
+
+  defp allowed_actions_line(handoff) do
+    actions =
+      handoff
+      |> field(:allowed_actions, [])
+      |> Enum.map(&allowed_action_text/1)
+      |> Enum.reject(&blank?/1)
+      |> Enum.join(", ")
+
+    if actions == "", do: nil, else: "Allowed: #{actions}"
+  end
+
+  defp result_return_line(handoff) do
+    result_return = field(handoff, :result_return, %{}) || %{}
+    channel = field(result_return, :channel)
+    same_channel? = field(result_return, :same_channel?)
+
+    if channel do
+      "Result return: same_channel=#{same_channel?} channel=#{channel}"
+    end
+  end
+
+  defp allowed_action_text(%{remember: scope}), do: "remember #{scope}"
+  defp allowed_action_text(%{"remember" => scope}), do: "remember #{scope}"
+  defp allowed_action_text(action), do: to_string(action)
+
+  defp render_label(handoff) do
+    handoff
+    |> field(:render_hints, %{})
+    |> field(:target_label)
+  end
+
+  defp target_name(%{action: action}), do: field(action, :name)
+  defp target_name(%{"action" => action}), do: field(action, :name)
+  defp target_name(target), do: field(target, :name)
+
   defp decision_map(%Decision{} = decision), do: Decision.to_map(decision)
   defp decision_map(decision) when is_map(decision), do: decision
   defp decision_map(_decision), do: %{}
@@ -218,6 +295,8 @@ defmodule AllbertAssist.Intent.ApprovalHandoff do
   defp normalize_list(nil), do: []
   defp normalize_list(list) when is_list(list), do: list
   defp normalize_list(value), do: [value]
+
+  defp blank?(value), do: value in [nil, ""]
 
   defp drop_empty_values(map) do
     Map.reject(map, fn

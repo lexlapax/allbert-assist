@@ -145,6 +145,12 @@ defmodule Mix.Tasks.Allbert.AskTest do
     assert output =~ "- run_shell_command (needs_confirmation)"
     assert output =~ "Confirmation: conf_"
     assert output =~ "Command: pwd"
+    assert output =~ "Approval Handoff:"
+    assert output =~ "Approval: conf_"
+    assert output =~ "Resource local_path run_shell_command execute"
+    assert output =~ "Allowed: approve, deny, details"
+    assert output =~ "Approve: mix allbert.confirmations approve conf_"
+    assert output =~ "Deny: mix allbert.confirmations deny conf_"
 
     [pending] = Confirmations.list(status: :pending)
     assert pending["target_action"]["name"] == "run_shell_command"

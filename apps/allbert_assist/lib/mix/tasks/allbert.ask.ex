@@ -16,6 +16,7 @@ defmodule Mix.Tasks.Allbert.Ask do
 
   use Mix.Task
 
+  alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
   alias AllbertAssist.Trace
 
@@ -81,6 +82,7 @@ defmodule Mix.Tasks.Allbert.Ask do
     Mix.shell().info("")
     Mix.shell().info("Signal: #{response.signal_id}")
     Mix.shell().info("Trace: #{response.trace_id || "none"}")
+    print_approval_handoff(Map.get(response, :approval_handoff))
 
     if response.diagnostics != [] do
       Mix.shell().info("Diagnostics: #{inspect(response.diagnostics, pretty: true)}")
@@ -114,6 +116,28 @@ defmodule Mix.Tasks.Allbert.Ask do
       "  Denial",
       Map.get(action, :denial_reason) || Map.get(action, "denial_reason")
     )
+  end
+
+  defp print_approval_handoff(nil), do: :ok
+
+  defp print_approval_handoff(handoff) do
+    lines = ApprovalHandoff.lines(handoff)
+    confirmation_id = Map.get(handoff, :confirmation_id) || Map.get(handoff, "confirmation_id")
+
+    if lines != [] do
+      Mix.shell().info("")
+      Mix.shell().info("Approval Handoff:")
+      Enum.each(lines, &Mix.shell().info("  #{&1}"))
+      print_approval_commands(confirmation_id)
+    end
+  end
+
+  defp print_approval_commands(nil), do: :ok
+
+  defp print_approval_commands(confirmation_id) do
+    Mix.shell().info("  Details: mix allbert.confirmations show #{confirmation_id}")
+    Mix.shell().info("  Approve: mix allbert.confirmations approve #{confirmation_id}")
+    Mix.shell().info("  Deny: mix allbert.confirmations deny #{confirmation_id}")
   end
 
   defp print_action_field(_label, nil), do: :ok

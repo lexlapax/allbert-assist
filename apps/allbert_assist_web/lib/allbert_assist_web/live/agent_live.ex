@@ -7,6 +7,8 @@ defmodule AllbertAssistWeb.AgentLive do
   """
   use AllbertAssistWeb, :live_view
 
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
 
   @impl true
@@ -19,7 +21,11 @@ defmodule AllbertAssistWeb.AgentLive do
         asking?: false,
         status: nil,
         signal_id: nil,
-        trace_id: nil
+        trace_id: nil,
+        approval_handoff: nil,
+        approval_lines: [],
+        approval_result: nil,
+        show_approval_details?: false
       )
 
     {:ok, socket}
@@ -36,7 +42,11 @@ defmodule AllbertAssistWeb.AgentLive do
         asking?: true,
         status: nil,
         signal_id: nil,
-        trace_id: nil
+        trace_id: nil,
+        approval_handoff: nil,
+        approval_lines: [],
+        approval_result: nil,
+        show_approval_details?: false
       )
       |> start_async(:ask, fn ->
         Runtime.submit_user_input(%{
@@ -49,6 +59,22 @@ defmodule AllbertAssistWeb.AgentLive do
     {:noreply, socket}
   end
 
+  def handle_event("toggle_approval_details", _params, socket) do
+    {:noreply, update(socket, :show_approval_details?, &(!&1))}
+  end
+
+  def handle_event("approve_confirmation", %{"id" => id}, socket) do
+    {:noreply, resolve_confirmation(socket, "approve_confirmation", %{id: id})}
+  end
+
+  def handle_event("deny_confirmation", %{"id" => id}, socket) do
+    {:noreply,
+     resolve_confirmation(socket, "deny_confirmation", %{
+       id: id,
+       reason: "Denied from LiveView approval handoff."
+     })}
+  end
+
   @impl true
   def handle_async(:ask, {:ok, {:ok, response}}, socket) do
     {:noreply,
@@ -57,7 +83,9 @@ defmodule AllbertAssistWeb.AgentLive do
        response: response.message,
        status: response.status,
        signal_id: response.signal_id,
-       trace_id: Map.get(response, :trace_id)
+       trace_id: Map.get(response, :trace_id),
+       approval_handoff: Map.get(response, :approval_handoff),
+       approval_lines: ApprovalHandoff.lines(Map.get(response, :approval_handoff))
      )}
   end
 
@@ -114,6 +142,62 @@ defmodule AllbertAssistWeb.AgentLive do
           </section>
         <% end %>
 
+        <%= if @approval_handoff do %>
+          <section id="approval-handoff" class="border border-base-300 bg-base-100 p-4 space-y-3">
+            <div>
+              <h2 class="font-semibold">Approval Required</h2>
+              <p id="approval-confirmation" class="text-xs text-base-content/60">
+                Confirmation: {approval_confirmation_id(@approval_handoff)}
+              </p>
+            </div>
+
+            <ul class="text-sm space-y-1">
+              <li :for={line <- @approval_lines}>{line}</li>
+            </ul>
+
+            <div class="flex flex-wrap gap-2">
+              <button
+                id="approval-details"
+                type="button"
+                phx-click="toggle_approval_details"
+                class="btn btn-sm"
+              >
+                Details
+              </button>
+              <button
+                id="approval-deny"
+                type="button"
+                phx-click="deny_confirmation"
+                phx-value-id={approval_confirmation_id(@approval_handoff)}
+                class="btn btn-sm btn-error"
+              >
+                Deny
+              </button>
+              <button
+                id="approval-approve"
+                type="button"
+                phx-click="approve_confirmation"
+                phx-value-id={approval_confirmation_id(@approval_handoff)}
+                class="btn btn-sm btn-primary"
+              >
+                Approve
+              </button>
+            </div>
+
+            <pre
+              :if={@show_approval_details?}
+              id="approval-details-data"
+              class="whitespace-pre-wrap text-xs bg-base-200 p-3"
+            ><%= inspect(@approval_handoff, pretty: true) %></pre>
+          </section>
+        <% end %>
+
+        <%= if @approval_result do %>
+          <section id="approval-result" class="alert alert-info">
+            <span>{@approval_result}</span>
+          </section>
+        <% end %>
+
         <%= if @error do %>
           <section id="agent-error" class="alert alert-error">
             <span>{@error}</span>
@@ -123,4 +207,43 @@ defmodule AllbertAssistWeb.AgentLive do
     </Layouts.app>
     """
   end
+
+  defp resolve_confirmation(socket, action_name, params) do
+    case Runner.run(action_name, params, approval_context(socket)) do
+      {:ok, %{status: :completed, confirmation: confirmation} = response} ->
+        assign(socket,
+          approval_result: response.message,
+          approval_handoff: update_handoff_status(socket.assigns.approval_handoff, confirmation),
+          approval_lines:
+            socket.assigns.approval_handoff
+            |> update_handoff_status(confirmation)
+            |> ApprovalHandoff.lines()
+        )
+
+      {:ok, response} ->
+        assign(socket, approval_result: Map.get(response, :message, inspect(response)))
+    end
+  end
+
+  defp update_handoff_status(nil, _confirmation), do: nil
+
+  defp update_handoff_status(handoff, confirmation) do
+    status = Map.get(confirmation, "status") || Map.get(confirmation, :status)
+    Map.put(handoff, :status, status || Map.get(handoff, :status))
+  end
+
+  defp approval_context(socket) do
+    %{
+      actor: "local",
+      channel: :live_view,
+      surface: "AllbertAssistWeb.AgentLive",
+      response_target: socket.id
+    }
+  end
+
+  defp approval_confirmation_id(handoff) when is_map(handoff) do
+    Map.get(handoff, :confirmation_id) || Map.get(handoff, "confirmation_id")
+  end
+
+  defp approval_confirmation_id(_handoff), do: nil
 end

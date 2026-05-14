@@ -48,10 +48,14 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
     assert list_output =~ record["id"]
     assert list_output =~ "status=pending"
     assert list_output =~ "origin=local/cli"
+    assert list_output =~ "Approve: mix allbert.confirmations approve #{record["id"]}"
+    assert list_output =~ "Deny: mix allbert.confirmations deny #{record["id"]}"
 
     show_output = capture_io(fn -> assert :ok = ConfirmationsTask.run(["show", record["id"]]) end)
     assert show_output =~ "Requested:"
     assert show_output =~ "Resolver: none/none"
+    assert show_output =~ "Details: mix allbert.confirmations show #{record["id"]}"
+    assert show_output =~ "Remember scopes: exact, directory, prefix, source, package"
 
     deny_output =
       capture_io(fn ->

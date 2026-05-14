@@ -91,6 +91,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
       print_remembered_grants(confirmation)
       print_shell_metadata(confirmation)
       print_skill_script_metadata(confirmation)
+      print_approval_commands(confirmation)
       print_status_note(confirmation)
     end)
   end
@@ -109,6 +110,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     print_remembered_grants(confirmation)
     print_shell_metadata(confirmation)
     print_skill_script_metadata(confirmation)
+    print_approval_commands(confirmation)
     print_status_note(confirmation)
   end
 
@@ -122,6 +124,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     print_remembered_grants(confirmation)
     print_shell_metadata(confirmation)
     print_skill_script_metadata(confirmation)
+    print_approval_commands(confirmation)
     print_status_note(confirmation)
   end
 
@@ -291,6 +294,15 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     |> SkillScriptMetadata.lines()
     |> Enum.each(fn line -> Mix.shell().info(line) end)
   end
+
+  defp print_approval_commands(%{"status" => "pending", "id" => id}) do
+    Mix.shell().info("Details: mix allbert.confirmations show #{id}")
+    Mix.shell().info("Approve: mix allbert.confirmations approve #{id}")
+    Mix.shell().info("Deny: mix allbert.confirmations deny #{id}")
+    Mix.shell().info("Remember scopes: exact, directory, prefix, source, package")
+  end
+
+  defp print_approval_commands(_confirmation), do: :ok
 
   defp blank_to_nil(value) when is_binary(value) do
     value = String.trim(value)

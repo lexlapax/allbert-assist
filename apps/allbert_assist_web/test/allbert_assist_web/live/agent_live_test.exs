@@ -83,6 +83,51 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert Confirmations.list(status: :pending) == []
   end
 
+  test "default runtime renders approval handoff and resolves denial through actions", %{
+    conn: conn
+  } do
+    Application.delete_env(:allbert_assist, Runtime)
+    configure_external()
+
+    {:ok, view, _html} = live(conn, ~p"/agent")
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "Fetch https://example.com from the internet"})
+
+    html = render_async(view, 1_000)
+
+    assert has_element?(view, "#approval-handoff")
+    assert html =~ "Approval Required"
+    assert html =~ "external_network_request"
+    assert html =~ "Resource remote_url external_service_request fetch"
+    assert has_element?(view, "#approval-approve")
+    assert has_element?(view, "#approval-deny")
+    assert has_element?(view, "#approval-details")
+
+    [pending] = Confirmations.list(status: :pending)
+    assert pending["target_action"]["name"] == "external_network_request"
+
+    deny_html =
+      view
+      |> element("#approval-deny")
+      |> render_click()
+
+    assert deny_html =~ "Confirmation #{pending["id"]} is denied."
+    assert {:ok, denied} = Confirmations.read(pending["id"])
+    assert denied["status"] == "denied"
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp configure_external do
+    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+  end
 end
