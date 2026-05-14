@@ -3,7 +3,29 @@ defmodule AllbertAssist.Actions.AppActionsTest do
 
   import ExUnit.CaptureLog
 
+  alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Actions.Session.SetActiveApp
+  alias AllbertAssist.App.Registry, as: AppRegistry
+
+  defmodule UnsortedActionsApp do
+    use AllbertAssist.App
+
+    @impl true
+    def app_id, do: :unsorted_actions_app
+
+    @impl true
+    def display_name, do: "Unsorted Actions App"
+
+    @impl true
+    def version, do: "0.15.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def actions, do: [SetActiveApp, DirectAnswer]
+  end
 
   test "list_apps exposes redacted summaries through the action runner" do
     original_logger_level = Logger.level()
@@ -39,10 +61,21 @@ defmodule AllbertAssist.Actions.AppActionsTest do
     assert response.status == :completed
     assert response.app.app_id == :allbert
     assert response.app.display_name == "Allbert"
+    assert response.app.module == AllbertAssist.App.CoreApp
     assert response.app.action_names == []
     assert response.app.skill_paths == []
     assert response.app.surfaces == []
     refute inspect(response.app) =~ "child_pid"
+  end
+
+  test "show_app sorts action names for deterministic app inspection" do
+    on_exit(fn -> AppRegistry.unregister(:unsorted_actions_app) end)
+
+    assert {:ok, :unsorted_actions_app} = AppRegistry.register(UnsortedActionsApp)
+    assert {:ok, response} = Runner.run("show_app", %{app_id: "unsorted_actions_app"}, context())
+
+    assert response.status == :completed
+    assert response.app.action_names == ["direct_answer", "set_active_app"]
   end
 
   test "show_app reports unknown apps without creating atoms" do

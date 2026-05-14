@@ -119,6 +119,34 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
              Registry.diagnostics(server: registry)
   end
 
+  test "bootstrap can be disabled for tests without registering default apps" do
+    Application.put_env(:allbert_assist, :apps_bootstrap, false)
+
+    registry = :"disabled_bootstrap_registry_#{System.unique_integer([:positive])}"
+
+    dynamic_supervisor =
+      :"disabled_bootstrap_dynamic_supervisor_#{System.unique_integer([:positive])}"
+
+    bootstrap = :"disabled_bootstrap_bootstrap_#{System.unique_integer([:positive])}"
+    supervisor = :"disabled_bootstrap_supervisor_#{System.unique_integer([:positive])}"
+    table = :"disabled_bootstrap_table_#{System.unique_integer([:positive])}"
+
+    start_supervised!(
+      Supervisor.child_spec(
+        {AllbertAssist.App.Supervisor,
+         name: supervisor,
+         registry: registry,
+         dynamic_supervisor: dynamic_supervisor,
+         bootstrap: bootstrap,
+         table_name: table},
+        id: supervisor
+      )
+    )
+
+    assert Registry.registered_apps(server: registry) == []
+    assert Registry.diagnostics(server: registry) == %{}
+  end
+
   test "default registry restart preserves app validation and creates no durable rows" do
     user = "registry-restart-#{System.unique_integer([:positive])}"
 

@@ -58,6 +58,34 @@ defmodule AllbertAssist.App.RegistryTest do
     def validate(_opts), do: :ok
   end
 
+  defmodule DuplicateSurfaceApp do
+    use AllbertAssist.App
+
+    @impl true
+    def app_id, do: :duplicate_surface_app
+
+    @impl true
+    def display_name, do: "Duplicate Surface App"
+
+    @impl true
+    def version, do: "0.15.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def surfaces do
+      [
+        %{
+          id: :home,
+          label: "Duplicate",
+          path: "/duplicate",
+          app_id: :duplicate_surface_app
+        }
+      ]
+    end
+  end
+
   defmodule BrokenValidationApp do
     use AllbertAssist.App
 
@@ -218,6 +246,23 @@ defmodule AllbertAssist.App.RegistryTest do
              Registry.register(UnknownActionApp, opts)
 
     assert {:error, :not_found} = Registry.lookup(:unknown_action_app, opts)
+  end
+
+  test "records cross-app surface id duplicates without rejecting registration", %{opts: opts} do
+    assert {:ok, :fixture_app} = Registry.register(FixtureApp, opts)
+    assert {:ok, :duplicate_surface_app} = Registry.register(DuplicateSurfaceApp, opts)
+
+    assert {:ok, %{app_id: :duplicate_surface_app}} =
+             Registry.lookup(:duplicate_surface_app, opts)
+
+    assert %{
+             duplicate_surface_app: [
+               %{
+                 kind: :duplicate_surface_id,
+                 detail: %{surface_id: :home, app_id: :duplicate_surface_app}
+               }
+             ]
+           } = Registry.diagnostics(opts)
   end
 
   test "starts and terminates app children by stable child id", %{
