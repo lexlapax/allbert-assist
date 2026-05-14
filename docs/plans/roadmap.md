@@ -789,7 +789,7 @@ Plan: `docs/plans/v0.14-plan.md`
 Request flow: `docs/plans/v0.14-request-flow.md`
 ADR: `docs/adr/0014-local-workspace-identity.md`
 
-Status: planned. Formerly M-D1b.
+Status: released and tagged as `v0.14` on 2026-05-14. Formerly M-D1b.
 
 Expected direction:
 
