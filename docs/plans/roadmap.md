@@ -813,7 +813,8 @@ Plan: `docs/plans/v0.15-plan.md`
 Request flow: `docs/plans/v0.15-request-flow.md`
 ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
-Status: planned. Formerly M-AppContract-Lite.
+Status: released and tagged as `v0.15` on 2026-05-14. Formerly
+M-AppContract-Lite.
 
 Expected direction:
 

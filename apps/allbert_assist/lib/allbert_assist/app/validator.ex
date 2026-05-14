@@ -118,47 +118,57 @@ defmodule AllbertAssist.App.Validator do
   defp validate_actions(module) do
     case module.actions() do
       actions when is_list(actions) ->
-        actions
-        |> Enum.reduce_while({:ok, []}, fn action, {:ok, acc} ->
-          with true <- is_atom(action),
-               {:ok, resolved} <- ActionsRegistry.resolve(action),
-               true <- resolved == action do
-            {:cont, {:ok, [action | acc]}}
-          else
-            _error -> {:halt, {:error, {:unknown_action_module, action}}}
-          end
-        end)
-        |> case do
-          {:ok, actions} -> {:ok, Enum.reverse(actions)}
-          {:error, reason} -> {:error, reason}
-        end
+        validate_action_modules(actions, [])
 
       _other ->
         {:error, {:invalid_actions, module}}
     end
   end
 
+  defp validate_action_modules([], acc), do: {:ok, Enum.reverse(acc)}
+
+  defp validate_action_modules([action | rest], acc) do
+    with :ok <- validate_action_module(action) do
+      validate_action_modules(rest, [action | acc])
+    end
+  end
+
+  defp validate_action_module(action) when is_atom(action) do
+    case ActionsRegistry.resolve(action) do
+      {:ok, ^action} -> :ok
+      _error -> {:error, {:unknown_action_module, action}}
+    end
+  end
+
+  defp validate_action_module(action), do: {:error, {:unknown_action_module, action}}
+
   defp validate_skill_paths(module) do
     case module.skill_paths() do
       paths when is_list(paths) ->
-        paths
-        |> Enum.reduce_while({:ok, []}, fn path, {:ok, acc} ->
-          cond do
-            not is_binary(path) -> {:halt, {:error, {:invalid_skill_path, path}}}
-            byte_size(path) > 256 -> {:halt, {:error, {:invalid_skill_path, path}}}
-            Path.type(path) != :absolute -> {:halt, {:error, {:invalid_skill_path, path}}}
-            true -> {:cont, {:ok, [Path.expand(path) | acc]}}
-          end
-        end)
-        |> case do
-          {:ok, paths} -> {:ok, Enum.reverse(paths)}
-          {:error, reason} -> {:error, reason}
-        end
+        validate_skill_paths(paths, [])
 
       _other ->
         {:error, {:invalid_skill_paths, module}}
     end
   end
+
+  defp validate_skill_paths([], acc), do: {:ok, Enum.reverse(acc)}
+
+  defp validate_skill_paths([path | rest], acc) do
+    with :ok <- validate_skill_path(path) do
+      validate_skill_paths(rest, [Path.expand(path) | acc])
+    end
+  end
+
+  defp validate_skill_path(path) when is_binary(path) do
+    cond do
+      byte_size(path) > 256 -> {:error, {:invalid_skill_path, path}}
+      Path.type(path) != :absolute -> {:error, {:invalid_skill_path, path}}
+      true -> :ok
+    end
+  end
+
+  defp validate_skill_path(path), do: {:error, {:invalid_skill_path, path}}
 
   defp validate_surfaces(module, app_id) do
     surfaces = if function_exported?(module, :surfaces, 0), do: module.surfaces(), else: []
@@ -187,39 +197,62 @@ defmodule AllbertAssist.App.Validator do
   end
 
   defp normalize_surface(%{} = surface, app_id) do
-    id = field(surface, :id)
-    label = normalize_string(field(surface, :label))
-    path = normalize_string(field(surface, :path))
-    surface_app_id = field(surface, :app_id)
-    icon = normalize_optional_string(field(surface, :icon))
-    description = normalize_optional_string(field(surface, :description))
+    attrs = surface_attrs(surface)
 
-    cond do
-      not is_atom(id) ->
-        {:error, {:invalid_surface, :id}}
-
-      not is_binary(label) or byte_size(label) == 0 or byte_size(label) > 64 ->
-        {:error, {:invalid_surface, :label}}
-
-      not valid_surface_path?(path) ->
-        {:error, {:invalid_surface, :path}}
-
-      surface_app_id != app_id ->
-        {:error, {:invalid_surface, :app_id}}
-
-      not optional_string?(icon, 64) ->
-        {:error, {:invalid_surface, :icon}}
-
-      not optional_string?(description, 256) ->
-        {:error, {:invalid_surface, :description}}
-
-      true ->
-        {:ok,
-         %{id: id, label: label, path: path, app_id: app_id, icon: icon, description: description}}
+    with :ok <- validate_surface_id(attrs.id),
+         :ok <- validate_surface_label(attrs.label),
+         :ok <- validate_surface_path(attrs.path),
+         :ok <- validate_surface_app_id(attrs.surface_app_id, app_id),
+         :ok <- validate_surface_optional(attrs.icon, :icon, 64),
+         :ok <- validate_surface_optional(attrs.description, :description, 256) do
+      {:ok,
+       %{
+         id: attrs.id,
+         label: attrs.label,
+         path: attrs.path,
+         app_id: app_id,
+         icon: attrs.icon,
+         description: attrs.description
+       }}
     end
   end
 
   defp normalize_surface(_surface, _app_id), do: {:error, {:invalid_surface, :shape}}
+
+  defp surface_attrs(surface) do
+    %{
+      id: field(surface, :id),
+      label: normalize_string(field(surface, :label)),
+      path: normalize_string(field(surface, :path)),
+      surface_app_id: field(surface, :app_id),
+      icon: normalize_optional_string(field(surface, :icon)),
+      description: normalize_optional_string(field(surface, :description))
+    }
+  end
+
+  defp validate_surface_id(id) when is_atom(id), do: :ok
+  defp validate_surface_id(_id), do: {:error, {:invalid_surface, :id}}
+
+  defp validate_surface_label(label) when is_binary(label) and byte_size(label) in 1..64,
+    do: :ok
+
+  defp validate_surface_label(_label), do: {:error, {:invalid_surface, :label}}
+
+  defp validate_surface_path(path) do
+    if valid_surface_path?(path), do: :ok, else: {:error, {:invalid_surface, :path}}
+  end
+
+  defp validate_surface_app_id(app_id, app_id), do: :ok
+
+  defp validate_surface_app_id(_surface_app_id, _app_id),
+    do: {:error, {:invalid_surface, :app_id}}
+
+  defp validate_surface_optional(value, _kind, max)
+       when is_binary(value) and byte_size(value) <= max,
+       do: :ok
+
+  defp validate_surface_optional(nil, _kind, _max), do: :ok
+  defp validate_surface_optional(_value, kind, _max), do: {:error, {:invalid_surface, kind}}
 
   defp validate_unique_surface_ids(surfaces) do
     duplicates =
@@ -244,9 +277,6 @@ defmodule AllbertAssist.App.Validator do
   defp normalize_optional_string(nil), do: nil
   defp normalize_optional_string(value) when is_binary(value), do: String.trim(value)
   defp normalize_optional_string(_value), do: nil
-
-  defp optional_string?(nil, _max), do: true
-  defp optional_string?(value, max), do: is_binary(value) and byte_size(value) <= max
 
   defp normalize_diagnostics(diagnostics), do: Enum.map(diagnostics, &normalize_diagnostic/1)
 

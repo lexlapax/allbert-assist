@@ -165,6 +165,13 @@ enters through `AllbertAssist.Runtime.submit_user_input/1` or
 `AllbertAssist.Actions.Runner.run/3`, and risky work must stop at the existing
 confirmation/Approval Handoff boundary.
 
+For v0.15, app registration is a supervised local contract, not authority.
+`AllbertAssist.App.Registry` may expose app identity, actions, skill paths, and
+navigation metadata, but permissions, confirmations, resource access, traces,
+and execution still belong at the registered action/runtime boundary. Do not
+load modules dynamically, create routes from app metadata, or treat `app_id` as
+authorization.
+
 After v0.11 closeout, remember that URL summarization, document inspection,
 direct skill URL import, local skill directory import, local path access,
 trusted skill script execution, package installs, online source consumers,

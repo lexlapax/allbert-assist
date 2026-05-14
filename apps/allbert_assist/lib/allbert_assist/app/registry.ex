@@ -363,10 +363,6 @@ defmodule AllbertAssist.App.Registry do
     |> Keyword.get(key, default)
   end
 
-  defp diagnostic(reason),
-    do: %{kind: reason_kind(reason), message: inspect(reason), detail: %{reason: inspect(reason)}}
-
-  defp reason_kind({kind, _detail}) when is_atom(kind), do: kind
-  defp reason_kind(kind) when is_atom(kind), do: kind
-  defp reason_kind(_reason), do: :app_registration_failed
+  defp diagnostic({kind, _detail} = reason) when is_atom(kind),
+    do: %{kind: kind, message: inspect(reason), detail: %{reason: inspect(reason)}}
 end

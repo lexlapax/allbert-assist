@@ -44,9 +44,6 @@ defmodule AllbertAssist.Actions.Apps.ShowApp do
 
       {:error, :not_found} ->
         not_found(raw_app_id, permission_decision)
-
-      {:error, reason} ->
-        denied(raw_app_id, permission_decision, reason)
     end
   end
 
