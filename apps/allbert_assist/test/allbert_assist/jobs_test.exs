@@ -5,28 +5,43 @@ defmodule AllbertAssist.JobsTest do
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Run
+  alias AllbertAssist.Jobs.Runner
+  alias AllbertAssist.Memory
   alias AllbertAssist.Paths
+  alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias AllbertAssist.Trace
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
 
   setup do
+    original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_trace_config = Application.get_env(:allbert_assist, Trace)
 
     Enum.each(@env_vars, &System.delete_env/1)
+    Application.delete_env(:allbert_assist, Memory)
     Application.delete_env(:allbert_assist, Paths)
+    Application.delete_env(:allbert_assist, Runtime)
     Application.delete_env(:allbert_assist, Settings)
+    Application.delete_env(:allbert_assist, Trace)
 
     home = Path.join(System.tmp_dir!(), "allbert-jobs-test-#{System.unique_integer([:positive])}")
     System.put_env("ALLBERT_HOME", home)
+    Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
 
     on_exit(fn ->
       File.rm_rf!(home)
       restore_env(original_env)
+      restore_app_env(Memory, original_memory_config)
       restore_app_env(Paths, original_paths_config)
+      restore_app_env(Runtime, original_runtime_config)
       restore_app_env(Settings, original_settings_config)
+      restore_app_env(Trace, original_trace_config)
     end)
 
     :ok
@@ -231,6 +246,146 @@ defmodule AllbertAssist.JobsTest do
 
       assert [%Run{id: run_id}] = Jobs.list_runs(resumed)
       assert run_id == run.id
+    end
+  end
+
+  describe "runner" do
+    test "runs runtime prompt jobs through the runtime boundary" do
+      parent = self()
+
+      Application.put_env(:allbert_assist, Runtime,
+        agent_runner: fn _signal, request ->
+          send(parent, {:runtime_request, request})
+
+          {:ok,
+           %{
+             message: "Job runtime response: #{request.text}",
+             status: :completed,
+             actions: [%{name: "direct_answer", status: :completed}],
+             decision: %{selected_action: "direct_answer"},
+             resource_access: [%{operation_class: "read_only"}]
+           }}
+        end
+      )
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "runtime run",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Run from job."},
+                 schedule: %{kind: "manual"},
+                 user_id: "alice",
+                 session_id: "sess_job",
+                 app_id: "allbert"
+               })
+
+      assert {:ok, %{job: updated_job, run: run, response: response}} = Runner.run_now(job)
+
+      assert run.status == "completed"
+      assert run.user_id == "alice"
+      assert run.session_id == "sess_job"
+      assert run.app_id == "allbert"
+      assert String.starts_with?(run.thread_id, "thr_")
+      assert is_binary(run.input_signal_id)
+      assert is_binary(run.response_signal_id)
+      assert run.decision == %{selected_action: "direct_answer"}
+      assert run.resource_access == %{entries: [%{operation_class: "read_only"}]}
+      assert run.action_log.status == :completed
+      assert response.message == "Job runtime response: Run from job."
+      assert updated_job.last_run_at == run.finished_at
+
+      assert_received {:runtime_request,
+                       %{
+                         channel: :job,
+                         user_id: "alice",
+                         operator_id: "alice",
+                         session_id: "sess_job",
+                         metadata: %{job_id: job_id}
+                       }}
+
+      assert job_id == job.id
+
+      assert {:ok, %{messages: messages}} = Conversations.show_thread("alice", run.thread_id)
+      assert Enum.map(messages, & &1.role) == ["user", "assistant"]
+    end
+
+    test "runs registered action jobs through the action runner" do
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "direct action",
+                 target_type: "registered_action",
+                 target: %{
+                   action_name: "direct_answer",
+                   params: %{"text" => "Hello from action job."}
+                 },
+                 schedule: %{kind: "manual"},
+                 user_id: "alice",
+                 thread_id: "thr_origin"
+               })
+
+      assert {:ok, %{run: run, response: response}} = Runner.run_now(job)
+
+      assert run.status == "completed"
+      assert run.thread_id == "thr_origin"
+      assert is_binary(run.input_signal_id)
+      assert is_binary(run.response_signal_id)
+      assert run.action_log.runner_metadata.action_name == "direct_answer"
+      assert response.runner_metadata.action_name == "direct_answer"
+    end
+
+    test "persists failed runtime runs without losing the run record" do
+      Application.put_env(:allbert_assist, Runtime,
+        agent_runner: fn _signal, _request -> {:error, :boom} end
+      )
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "runtime failure",
+                 target_type: "runtime_prompt",
+                 target: %{text: "This will fail."},
+                 schedule: %{kind: "manual"},
+                 user_id: "alice"
+               })
+
+      assert {:ok, %{run: run, response: nil}} = Runner.run_now(job)
+
+      assert run.status == "failed"
+      assert run.error.reason =~ ":boom"
+      assert %DateTime{} = run.finished_at
+      assert is_integer(run.duration_ms)
+    end
+
+    test "blocks jobs when a run needs confirmation" do
+      Application.put_env(:allbert_assist, Runtime,
+        agent_runner: fn _signal, _request ->
+          {:ok,
+           %{
+             message: "Approval required.",
+             status: :needs_confirmation,
+             actions: [%{name: "external_network_request", status: :needs_confirmation}],
+             approval_handoff: %{confirmation_id: "cnf_job_1", status: :pending}
+           }}
+        end
+      )
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "confirmation job",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Fetch https://example.com"},
+                 schedule: %{kind: "daily", at: "08:00"},
+                 timezone: "UTC",
+                 status: "active",
+                 user_id: "alice"
+               })
+
+      assert {:ok, %{job: blocked_job, run: run}} = Runner.run_now(job)
+
+      assert run.status == "needs_confirmation"
+      assert run.confirmation_id == "cnf_job_1"
+      assert blocked_job.status == "blocked"
+      assert blocked_job.blocked_confirmation_id == "cnf_job_1"
+      assert blocked_job.next_due_at == nil
     end
   end
 

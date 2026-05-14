@@ -192,6 +192,27 @@ defmodule AllbertAssist.Jobs do
 
   def create_run(_job, _attrs), do: {:error, :invalid_run_attrs}
 
+  @doc "Fetch a run by opaque id."
+  @spec get_run(String.t()) :: run_result()
+  def get_run(id) do
+    case Repo.get(Run, normalize_optional_string(id)) do
+      %Run{} = run -> {:ok, run}
+      nil -> {:error, {:run_not_found, id}}
+    end
+  end
+
+  @doc "Update a run record with normalized known fields."
+  @spec update_run(Run.t(), map()) :: run_result()
+  def update_run(%Run{} = run, attrs) when is_map(attrs) do
+    attrs = atomize_known_keys(attrs, @known_run_keys)
+
+    run
+    |> Run.changeset(attrs)
+    |> Repo.update()
+  end
+
+  def update_run(_run, _attrs), do: {:error, :invalid_run_attrs}
+
   @doc "List runs for a job, newest first."
   @spec list_runs(Job.t(), keyword()) :: [Run.t()]
   def list_runs(%Job{} = job, opts \\ []) do
