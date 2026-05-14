@@ -226,10 +226,11 @@ channel settings, or a request override.
 All input and output surfaces should become channel adapters around the same
 signal-driven core.
 
-The first channels are CLI/REPL and Phoenix LiveView. Later channels can include
-Discord, Telegram, WhatsApp-style chat, email, SMS, browser/search capture, and
-native UI surfaces. Each channel should translate external input into signals
-and render agent output back into the medium without owning the agent logic.
+The first channels are CLI/REPL and Phoenix LiveView. v0.16 proves the first
+additional remote channel with Telegram. Later channels can include Discord,
+WhatsApp-style chat, email, SMS, browser/search capture, and native UI
+surfaces. Each channel should translate external input into signals and render
+agent output back into the medium without owning the agent logic.
 
 Scheduled work should follow the same pattern. Cron-like jobs, recurring
 summaries, memory maintenance, health checks, and daily briefings should emit
@@ -317,7 +318,7 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.13: scheduled jobs.
 - v0.14: ETS session scratchpad and `active_app` context.
 - v0.15: minimal app registration contract.
-- v0.16: additional channels.
+- v0.16: Telegram channel adapter and channel foundation.
 - v0.17: StockSage umbrella app and SQLite-first domain.
 - v0.18: markdown memory review and retrieval, distinct from conversation
   history.

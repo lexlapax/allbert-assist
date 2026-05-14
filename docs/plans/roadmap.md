@@ -835,16 +835,31 @@ Expected direction:
 
 Plan: `docs/plans/v0.16-plan.md`
 
+Request flow: `docs/plans/v0.16-request-flow.md`
+
+ADR: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
+
 Status: planned. Formerly v0.13.
 
 Expected direction:
 
-- Add one additional channel adapter that translates external messages into
-  Allbert signals and renders responses without owning agent logic.
+- Add the channel adapter boundary and prove it with Telegram as the first
+  additional provider.
+- Translate external messages into `AllbertAssist.Runtime.submit_user_input/1`
+  requests and render responses without owning agent logic, security policy,
+  confirmations, memory, or execution.
 - Map external identities to local string `user_id` values through explicit
-  Settings Central configuration; traces include both identities.
+  Settings Central configuration; traces and channel events include both
+  external identity and resolved local `user_id`.
+- Add durable channel event records for inbound/callback dedupe, provider
+  status, response delivery, trace ids, and thread ids.
+- Store Telegram bot tokens through Settings Secrets and keep provider payloads
+  redacted and bounded at CLI/log/trace boundaries.
 - Consume Approval Handoff and Resource Access Security Posture natively
-  without channel-specific resource or approval rules.
+  without channel-specific resource or approval rules. Telegram approve/deny
+  callbacks resolve existing durable confirmations through registered actions.
+- Keep email, SMS, media downloads, webhooks, arbitrary provider method calls,
+  remote document extraction, and proactive broadcast out of v0.16.
 
 ## v0.17: StockSage Umbrella App And Domain
 
