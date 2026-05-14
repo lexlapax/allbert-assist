@@ -97,7 +97,37 @@ defmodule AllbertAssist.Settings.Schema do
     "jobs.schedule_policy",
     "sessions.scratchpad_ttl_minutes",
     "channels.cli.response_style",
-    "channels.live_view.response_style"
+    "channels.live_view.response_style",
+    "channels.telegram.enabled",
+    "channels.telegram.response_style",
+    "channels.telegram.bot_token_ref",
+    "channels.telegram.identity_map",
+    "channels.telegram.allowed_chat_ids",
+    "channels.telegram.allow_group_chats",
+    "channels.telegram.poll_interval_ms",
+    "channels.telegram.poll_timeout_seconds",
+    "channels.telegram.max_text_bytes",
+    "channels.telegram.render_approval_buttons",
+    "channels.telegram.allow_confirmation_callbacks",
+    "channels.email.enabled",
+    "channels.email.response_style",
+    "channels.email.imap_host",
+    "channels.email.imap_port",
+    "channels.email.imap_ssl",
+    "channels.email.imap_username",
+    "channels.email.imap_password_ref",
+    "channels.email.imap_mailbox",
+    "channels.email.imap_poll_interval_ms",
+    "channels.email.smtp_host",
+    "channels.email.smtp_port",
+    "channels.email.smtp_tls",
+    "channels.email.smtp_username",
+    "channels.email.smtp_password_ref",
+    "channels.email.from_address",
+    "channels.email.from_name",
+    "channels.email.identity_map",
+    "channels.email.max_body_bytes",
+    "channels.email.allow_html_replies"
   ]
 
   @resource_grant_required_keys ~w[
@@ -198,6 +228,202 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       allowed_values: ["concise", "balanced", "detailed"]
+    },
+    "channels.telegram.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.telegram.response_style" => %{
+      type: :enum,
+      default: "concise",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["concise", "balanced", "detailed"]
+    },
+    "channels.telegram.bot_token_ref" => %{
+      type: :channel_secret_ref,
+      default: "secret://channels/telegram/bot_token",
+      writable?: true,
+      sensitive?: true
+    },
+    "channels.telegram.identity_map" => %{
+      type: :channel_identity_map,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.telegram.allowed_chat_ids" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.telegram.allow_group_chats" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.telegram.poll_interval_ms" => %{
+      type: :bounded_integer,
+      default: 2000,
+      writable?: true,
+      sensitive?: false,
+      min: 250,
+      max: 60_000
+    },
+    "channels.telegram.poll_timeout_seconds" => %{
+      type: :bounded_integer,
+      default: 25,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 50
+    },
+    "channels.telegram.max_text_bytes" => %{
+      type: :bounded_integer,
+      default: 4096,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 65_536
+    },
+    "channels.telegram.render_approval_buttons" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.telegram.allow_confirmation_callbacks" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.response_style" => %{
+      type: :enum,
+      default: "standard",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["standard", "concise", "detailed"]
+    },
+    "channels.email.imap_host" => %{
+      type: :string_or_empty,
+      default: "",
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.imap_port" => %{
+      type: :bounded_integer,
+      default: 993,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 65_535
+    },
+    "channels.email.imap_ssl" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.imap_username" => %{
+      type: :string_or_empty,
+      default: "",
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.imap_password_ref" => %{
+      type: :channel_secret_ref,
+      default: "secret://channels/email/imap_password",
+      writable?: true,
+      sensitive?: true
+    },
+    "channels.email.imap_mailbox" => %{
+      type: :string,
+      default: "INBOX",
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.imap_poll_interval_ms" => %{
+      type: :bounded_integer,
+      default: 60_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1000,
+      max: 3_600_000
+    },
+    "channels.email.smtp_host" => %{
+      type: :string_or_empty,
+      default: "",
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.smtp_port" => %{
+      type: :bounded_integer,
+      default: 587,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 65_535
+    },
+    "channels.email.smtp_tls" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.smtp_username" => %{
+      type: :string_or_empty,
+      default: "",
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.smtp_password_ref" => %{
+      type: :channel_secret_ref,
+      default: "secret://channels/email/smtp_password",
+      writable?: true,
+      sensitive?: true
+    },
+    "channels.email.from_address" => %{
+      type: :email_or_empty,
+      default: "",
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.from_name" => %{
+      type: :string,
+      default: "Allbert",
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.identity_map" => %{
+      type: :channel_identity_map,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.email.max_body_bytes" => %{
+      type: :bounded_integer,
+      default: 65_536,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1_048_576
+    },
+    "channels.email.allow_html_replies" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
     },
     "skills.scan_paths" => %{
       type: :string_list,
@@ -897,7 +1123,41 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "channels" => %{
       "cli" => %{"enabled" => true, "response_style" => "concise"},
-      "live_view" => %{"enabled" => true, "response_style" => "concise"}
+      "live_view" => %{"enabled" => true, "response_style" => "concise"},
+      "telegram" => %{
+        "enabled" => false,
+        "response_style" => "concise",
+        "bot_token_ref" => "secret://channels/telegram/bot_token",
+        "identity_map" => [],
+        "allowed_chat_ids" => [],
+        "allow_group_chats" => false,
+        "poll_interval_ms" => 2000,
+        "poll_timeout_seconds" => 25,
+        "max_text_bytes" => 4096,
+        "render_approval_buttons" => true,
+        "allow_confirmation_callbacks" => true
+      },
+      "email" => %{
+        "enabled" => false,
+        "response_style" => "standard",
+        "imap_host" => "",
+        "imap_port" => 993,
+        "imap_ssl" => true,
+        "imap_username" => "",
+        "imap_password_ref" => "secret://channels/email/imap_password",
+        "imap_mailbox" => "INBOX",
+        "imap_poll_interval_ms" => 60_000,
+        "smtp_host" => "",
+        "smtp_port" => 587,
+        "smtp_tls" => true,
+        "smtp_username" => "",
+        "smtp_password_ref" => "secret://channels/email/smtp_password",
+        "from_address" => "",
+        "from_name" => "Allbert",
+        "identity_map" => [],
+        "max_body_bytes" => 65_536,
+        "allow_html_replies" => false
+      }
     },
     "jobs" => %{
       "timezone" => "America/Los_Angeles",
@@ -944,7 +1204,8 @@ defmodule AllbertAssist.Settings.Schema do
          :ok <- validate_static_keys(settings),
          :ok <- validate_providers(settings),
          :ok <- validate_model_profiles(settings),
-         :ok <- validate_runtime_refs(settings) do
+         :ok <- validate_runtime_refs(settings),
+         :ok <- validate_channels(settings) do
       :ok
     end
   end
@@ -1104,6 +1365,24 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_value(%{type: :string}, value, _key, _settings),
     do: {:error, {:expected_string, value}}
 
+  defp validate_value(%{type: :string_or_empty}, value, _key, _settings)
+       when is_binary(value) do
+    if String.length(value) <= 200, do: :ok, else: {:error, :invalid_string}
+  end
+
+  defp validate_value(%{type: :string_or_empty}, value, _key, _settings),
+    do: {:error, {:expected_string, value}}
+
+  defp validate_value(%{type: :email_or_empty}, "", _key, _settings), do: :ok
+
+  defp validate_value(%{type: :email_or_empty}, value, _key, _settings)
+       when is_binary(value) do
+    if valid_email?(value), do: :ok, else: {:error, :invalid_email}
+  end
+
+  defp validate_value(%{type: :email_or_empty}, value, _key, _settings),
+    do: {:error, {:expected_email, value}}
+
   defp validate_value(%{type: :timezone}, value, _key, _settings) when is_binary(value) do
     case DateTime.now(value) do
       {:ok, _datetime} -> :ok
@@ -1241,6 +1520,26 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_value(%{type: :secret_ref_or_nil}, value, _key, _settings),
     do: {:error, {:expected_secret_ref, value}}
 
+  defp validate_value(%{type: :channel_secret_ref}, value, _key, _settings)
+       when is_binary(value) do
+    if Regex.match?(~r/^secret:\/\/channels\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/, value) do
+      :ok
+    else
+      {:error, :invalid_secret_ref}
+    end
+  end
+
+  defp validate_value(%{type: :channel_secret_ref}, value, _key, _settings),
+    do: {:error, {:expected_secret_ref, value}}
+
+  defp validate_value(%{type: :channel_identity_map}, value, _key, _settings)
+       when is_list(value) do
+    validate_channel_identity_map(value)
+  end
+
+  defp validate_value(%{type: :channel_identity_map}, value, _key, _settings),
+    do: {:error, {:expected_channel_identity_map, value}}
+
   defp validate_value(%{type: :provider_ref}, value, _key, settings) when is_binary(value) do
     if is_map(settings["providers"]) && Map.has_key?(settings["providers"], value) do
       :ok
@@ -1285,6 +1584,125 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_value(schema, value, _key, _settings),
     do: {:error, {:invalid_value, schema.type, value}}
+
+  defp validate_channels(settings) do
+    with :ok <- validate_enabled_telegram(settings),
+         :ok <- validate_enabled_email(settings) do
+      :ok
+    end
+  end
+
+  defp validate_enabled_telegram(settings) do
+    if get_dotted(settings, "channels.telegram.enabled") do
+      case get_dotted(settings, "channels.telegram.bot_token_ref") do
+        value when is_binary(value) and value != "" ->
+          :ok
+
+        value ->
+          {:error, {:invalid_setting, "channels.telegram.bot_token_ref", {:required, value}}}
+      end
+    else
+      :ok
+    end
+  end
+
+  defp validate_enabled_email(settings) do
+    if get_dotted(settings, "channels.email.enabled") do
+      with :ok <- require_non_empty_setting(settings, "channels.email.imap_host"),
+           :ok <- require_non_empty_setting(settings, "channels.email.smtp_host"),
+           :ok <- require_non_empty_setting(settings, "channels.email.imap_username"),
+           :ok <- require_non_empty_setting(settings, "channels.email.smtp_username"),
+           :ok <- require_non_empty_setting(settings, "channels.email.imap_password_ref"),
+           :ok <- require_non_empty_setting(settings, "channels.email.smtp_password_ref"),
+           :ok <- require_non_empty_setting(settings, "channels.email.from_address"),
+           true <-
+             get_dotted(settings, "channels.email.imap_ssl") ||
+               {:error, {:invalid_setting, "channels.email.imap_ssl", :required}},
+           true <-
+             get_dotted(settings, "channels.email.smtp_tls") ||
+               {:error, {:invalid_setting, "channels.email.smtp_tls", :required}} do
+        :ok
+      else
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      :ok
+    end
+  end
+
+  defp require_non_empty_setting(settings, key) do
+    case get_dotted(settings, key) do
+      value when is_binary(value) and value != "" -> :ok
+      value -> {:error, {:invalid_setting, key, {:required, value}}}
+    end
+  end
+
+  defp validate_channel_identity_map(entries) do
+    Enum.reduce_while(entries, MapSet.new(), fn entry, seen ->
+      with :ok <- validate_channel_identity_entry(entry),
+           external_user_id <- identity_field(entry, "external_user_id"),
+           false <- MapSet.member?(seen, external_user_id) do
+        {:cont, MapSet.put(seen, external_user_id)}
+      else
+        true ->
+          {:halt,
+           {:error, {:duplicate_external_user_id, identity_field(entry, "external_user_id")}}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      %MapSet{} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_channel_identity_entry(entry) when is_map(entry) do
+    allowed = ~w[external_user_id user_id display_name enabled]
+    keys = Map.keys(entry) |> Enum.map(&to_string/1)
+
+    with nil <- Enum.find(keys, &(&1 not in allowed)),
+         :ok <- validate_identity_string(entry, "external_user_id"),
+         :ok <- validate_identity_string(entry, "user_id"),
+         :ok <- validate_optional_identity_string(entry, "display_name"),
+         :ok <- validate_optional_identity_boolean(entry, "enabled") do
+      :ok
+    else
+      key when is_binary(key) -> {:error, {:channel_identity_unknown_key, key}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_channel_identity_entry(entry), do: {:error, {:invalid_channel_identity, entry}}
+
+  defp validate_identity_string(entry, key) do
+    value = identity_field(entry, key)
+
+    if is_binary(value) and String.trim(value) != "" and String.length(value) <= 200 do
+      :ok
+    else
+      {:error, {:channel_identity_invalid_string, key}}
+    end
+  end
+
+  defp validate_optional_identity_string(entry, key) do
+    case identity_field(entry, key) do
+      nil -> :ok
+      value when is_binary(value) and byte_size(value) <= 200 -> :ok
+      _value -> {:error, {:channel_identity_invalid_string, key}}
+    end
+  end
+
+  defp validate_optional_identity_boolean(entry, key) do
+    case identity_field(entry, key) do
+      nil -> :ok
+      value when is_boolean(value) -> :ok
+      _value -> {:error, {:channel_identity_invalid_boolean, key}}
+    end
+  end
+
+  defp identity_field(entry, key), do: Map.get(entry, key, Map.get(entry, String.to_atom(key)))
 
   defp validate_resource_grant(grant) when is_map(grant) do
     with :ok <- validate_resource_grant_keys(grant),
@@ -1490,6 +1908,11 @@ defmodule AllbertAssist.Settings.Schema do
   defp valid_name?(name), do: is_binary(name) and Regex.match?(~r/^[A-Za-z0-9_-]+$/, name)
 
   defp valid_string_list_item?(value), do: is_binary(value) and String.trim(value) != ""
+
+  defp valid_email?(value) when is_binary(value) do
+    String.length(value) <= 254 and
+      Regex.match?(~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/, value)
+  end
 
   defp validate_command_profile(name, profile) do
     cond do

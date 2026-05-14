@@ -26,13 +26,7 @@ defmodule AllbertAssist.Settings.Secrets do
          {:ok, plaintext} <- read_plaintext(key),
          updated_plaintext <- put_plaintext_secret(plaintext, secret_ref, value, context),
          :ok <- write_plaintext(key, updated_plaintext),
-         {:ok, provider} <- provider_from_ref(secret_ref),
-         {:ok, _resolved} <-
-           AllbertAssist.Settings.put(
-             "providers.#{provider}.api_key_ref",
-             secret_ref,
-             Map.put(context, :audit?, false)
-           ) do
+         :ok <- maybe_write_setting_ref(secret_ref, context) do
       diagnostics = audit_secret(secret_ref, old_status, :configured, context)
       {:ok, %{secret_ref: secret_ref, status: :configured, diagnostics: diagnostics}}
     end
@@ -105,7 +99,7 @@ defmodule AllbertAssist.Settings.Secrets do
   end
 
   def validate_secret_ref(secret_ref) when is_binary(secret_ref) do
-    if Regex.match?(~r/^secret:\/\/providers\/[A-Za-z0-9_-]+\/api_key$/, secret_ref) do
+    if provider_ref?(secret_ref) or channel_ref?(secret_ref) do
       :ok
     else
       {:error, {:invalid_secret_ref, secret_ref}}
@@ -260,7 +254,7 @@ defmodule AllbertAssist.Settings.Secrets do
   end
 
   defp put_plaintext_secret(plaintext, secret_ref, value, context) do
-    {:ok, provider} = provider_from_ref(secret_ref)
+    {:ok, path} = plaintext_secret_path(secret_ref)
     now = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
 
     entry = %{
@@ -272,12 +266,12 @@ defmodule AllbertAssist.Settings.Secrets do
 
     plaintext
     |> ensure_plaintext_shape()
-    |> put_in_secret_path(["providers", provider, "api_key"], entry)
+    |> put_in_secret_path(path, entry)
   end
 
   defp get_plaintext_secret(plaintext, secret_ref) do
-    with {:ok, provider} <- provider_from_ref(secret_ref),
-         %{"value" => value} <- get_in(plaintext, ["secrets", "providers", provider, "api_key"]) do
+    with {:ok, path} <- plaintext_secret_path(secret_ref),
+         %{"value" => value} <- get_in(plaintext, ["secrets" | path]) do
       {:ok, value}
     else
       _other -> {:error, {:secret_not_found, secret_ref}}
@@ -285,24 +279,31 @@ defmodule AllbertAssist.Settings.Secrets do
   end
 
   defp delete_plaintext_secret(plaintext, secret_ref) do
-    {:ok, provider} = provider_from_ref(secret_ref)
-    put_in_secret_path(ensure_plaintext_shape(plaintext), ["providers", provider, "api_key"], nil)
+    {:ok, path} = plaintext_secret_path(secret_ref)
+    put_in_secret_path(ensure_plaintext_shape(plaintext), path, nil)
   end
 
   defp statuses_from_plaintext(plaintext, namespace) do
-    plaintext
-    |> get_in(["secrets", "providers"])
-    |> case do
-      providers when is_map(providers) ->
-        providers
-        |> Enum.flat_map(&provider_secret_status/1)
-        |> Enum.filter(fn %{secret_ref: ref} ->
-          is_nil(namespace) or String.starts_with?(ref, namespace)
-        end)
+    provider_statuses =
+      plaintext
+      |> get_in(["secrets", "providers"])
+      |> case do
+        providers when is_map(providers) -> Enum.flat_map(providers, &provider_secret_status/1)
+        _other -> []
+      end
 
-      _other ->
-        []
-    end
+    channel_statuses =
+      plaintext
+      |> get_in(["secrets", "channels"])
+      |> case do
+        channels when is_map(channels) -> Enum.flat_map(channels, &channel_secret_status/1)
+        _other -> []
+      end
+
+    (provider_statuses ++ channel_statuses)
+    |> Enum.filter(fn %{secret_ref: ref} ->
+      is_nil(namespace) or String.starts_with?(ref, namespace)
+    end)
   end
 
   defp provider_secret_status({provider, attrs}) do
@@ -312,6 +313,16 @@ defmodule AllbertAssist.Settings.Secrets do
       []
     end
   end
+
+  defp channel_secret_status({channel, attrs}) when is_map(attrs) do
+    attrs
+    |> Enum.filter(fn {_name, entry} -> is_map(entry) end)
+    |> Enum.map(fn {name, _entry} ->
+      %{secret_ref: "secret://channels/#{channel}/#{name}", status: :configured}
+    end)
+  end
+
+  defp channel_secret_status(_entry), do: []
 
   defp ensure_plaintext_shape(%{"version" => 1, "secrets" => secrets}) when is_map(secrets) do
     %{"version" => 1, "secrets" => secrets}
@@ -347,6 +358,56 @@ defmodule AllbertAssist.Settings.Secrets do
       _match -> {:error, {:invalid_secret_ref, secret_ref}}
     end
   end
+
+  defp channel_from_ref(secret_ref) do
+    case Regex.run(~r/^secret:\/\/channels\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/, secret_ref) do
+      [_, channel, name] -> {:ok, channel, name}
+      _match -> {:error, {:invalid_secret_ref, secret_ref}}
+    end
+  end
+
+  defp plaintext_secret_path(secret_ref) do
+    cond do
+      provider_ref?(secret_ref) ->
+        with {:ok, provider} <- provider_from_ref(secret_ref) do
+          {:ok, ["providers", provider, "api_key"]}
+        end
+
+      channel_ref?(secret_ref) ->
+        with {:ok, channel, name} <- channel_from_ref(secret_ref) do
+          {:ok, ["channels", channel, name]}
+        end
+
+      true ->
+        {:error, {:invalid_secret_ref, secret_ref}}
+    end
+  end
+
+  defp maybe_write_setting_ref(secret_ref, context) do
+    if provider_ref?(secret_ref) do
+      with {:ok, provider} <- provider_from_ref(secret_ref),
+           {:ok, _resolved} <-
+             AllbertAssist.Settings.put(
+               "providers.#{provider}.api_key_ref",
+               secret_ref,
+               Map.put(context, :audit?, false)
+             ) do
+        :ok
+      end
+    else
+      :ok
+    end
+  end
+
+  defp provider_ref?(secret_ref) when is_binary(secret_ref),
+    do: Regex.match?(~r/^secret:\/\/providers\/[A-Za-z0-9_-]+\/api_key$/, secret_ref)
+
+  defp provider_ref?(_secret_ref), do: false
+
+  defp channel_ref?(secret_ref) when is_binary(secret_ref),
+    do: Regex.match?(~r/^secret:\/\/channels\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/, secret_ref)
+
+  defp channel_ref?(_secret_ref), do: false
 
   defp namespace(opts) when is_list(opts), do: Keyword.get(opts, :namespace)
   defp namespace(namespace) when is_binary(namespace), do: namespace
