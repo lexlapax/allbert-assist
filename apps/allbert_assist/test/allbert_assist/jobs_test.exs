@@ -11,6 +11,7 @@ defmodule AllbertAssist.JobsTest do
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Session
   alias AllbertAssist.Settings
   alias AllbertAssist.Trace
 
@@ -354,6 +355,33 @@ defmodule AllbertAssist.JobsTest do
 
       assert {:ok, %{messages: messages}} = Conversations.show_thread("alice", run.thread_id)
       assert Enum.map(messages, & &1.role) == ["user", "assistant"]
+    end
+
+    test "runtime prompt jobs inherit active app context from session scratchpad" do
+      user = "job-session-#{System.unique_integer([:positive])}"
+      session_id = "sess-1"
+
+      on_exit(fn -> Session.clear(user, session_id) end)
+
+      assert {:ok, _entry} = Session.set_active_app(user, session_id, :stocksage)
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "session runtime job",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Hello from session context."},
+                 schedule: %{kind: "manual"},
+                 user_id: user,
+                 session_id: session_id
+               })
+
+      assert {:ok, %{run: run, response: response}} = Runner.run_now(job)
+
+      assert response.active_app == :stocksage
+      assert run.action_log["active_app"] == "stocksage"
+
+      assert {:ok, entry} = Session.get(user, session_id)
+      assert entry.active_app == :stocksage
     end
 
     test "new_thread_per_run creates a fresh conversation thread for each run" do
