@@ -228,17 +228,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
   end
 
   defp origin(context) do
-    request = Map.get(context, :request, %{})
-
-    %{
-      actor: Map.get(request, :operator_id, Map.get(context, :actor, "local")),
-      user_id: Map.get(request, :user_id, Map.get(context, :user_id)),
-      thread_id: Map.get(request, :thread_id, Map.get(context, :thread_id)),
-      channel: Map.get(request, :channel, Map.get(context, :channel, :unknown)),
-      surface: Map.get(context, :surface, "import_online_skill"),
-      session_id: Map.get(request, :session_id, Map.get(context, :session_id)),
-      response_target: Map.get(context, :response_target)
-    }
+    AllbertAssist.Confirmations.Origin.from_context(context, "import_online_skill")
   end
 
   defp approval_resume?(context) do
