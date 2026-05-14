@@ -29,6 +29,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Execution.CommandSpec
   alias AllbertAssist.Execution.LocalRunner
@@ -322,7 +323,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
   end
 
   defp origin(context) do
-    AllbertAssist.Confirmations.Origin.from_context(context, "run_shell_command")
+    Origin.from_context(context, "run_shell_command")
   end
 
   defp selected_skill(context) do

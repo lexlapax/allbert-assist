@@ -31,6 +31,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Execution.CommandSpec
   alias AllbertAssist.Execution.LocalRunner
   alias AllbertAssist.Packages.Audit
@@ -372,7 +373,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
   end
 
   defp origin(context) do
-    AllbertAssist.Confirmations.Origin.from_context(context, "run_package_install")
+    Origin.from_context(context, "run_package_install")
   end
 
   defp selected_skill(context) do

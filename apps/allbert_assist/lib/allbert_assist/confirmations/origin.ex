@@ -13,16 +13,16 @@ defmodule AllbertAssist.Confirmations.Origin do
     request = field(context, :request, %{}) || %{}
 
     %{
-      actor: field(request, :operator_id) || field(context, :actor, "local"),
-      user_id: field(request, :user_id) || field(context, :user_id),
-      operator_id: field(request, :operator_id) || field(context, :operator_id),
-      thread_id: field(request, :thread_id) || field(context, :thread_id),
-      channel: field(request, :channel) || field(context, :channel, :unknown),
+      actor: first_present([field(request, :operator_id), field(context, :actor)], "local"),
+      user_id: first_present([field(request, :user_id), field(context, :user_id)]),
+      operator_id: first_present([field(request, :operator_id), field(context, :operator_id)]),
+      thread_id: first_present([field(request, :thread_id), field(context, :thread_id)]),
+      channel: first_present([field(request, :channel), field(context, :channel)], :unknown),
       surface: field(context, :surface, default_surface),
-      session_id: field(request, :session_id) || field(context, :session_id),
-      app_id: field(request, :app_id) || field(context, :app_id),
-      job_id: field(request, :job_id) || field(context, :job_id),
-      run_id: field(request, :run_id) || field(context, :run_id),
+      session_id: first_present([field(request, :session_id), field(context, :session_id)]),
+      app_id: first_present([field(request, :app_id), field(context, :app_id)]),
+      job_id: first_present([field(request, :job_id), field(context, :job_id)]),
+      run_id: first_present([field(request, :run_id), field(context, :run_id)]),
       response_target: field(context, :response_target)
     }
     |> drop_empty()
@@ -38,6 +38,10 @@ defmodule AllbertAssist.Confirmations.Origin do
   end
 
   defp field(_map, _key, default), do: default
+
+  defp first_present(values, default \\ nil) do
+    Enum.find(values, default, &(&1 not in [nil, ""]))
+  end
 
   defp drop_empty(map) do
     Map.reject(map, fn {_key, value} -> value in [nil, ""] end)

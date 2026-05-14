@@ -39,6 +39,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Execution.SkillScriptAudit
   alias AllbertAssist.Execution.SkillScriptRunner
   alias AllbertAssist.Execution.SkillScriptSpec
@@ -404,7 +405,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
   end
 
   defp origin(context) do
-    AllbertAssist.Confirmations.Origin.from_context(context, "run_skill_script")
+    Origin.from_context(context, "run_skill_script")
   end
 
   defp source_signal_id(context) do

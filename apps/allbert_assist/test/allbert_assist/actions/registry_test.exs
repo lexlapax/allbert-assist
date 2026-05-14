@@ -45,7 +45,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_resource_grant",
              "revoke_resource_grant",
              "remember_resource_grant",
-             "record_trace"
+             "record_trace",
+             "registry_health",
+             "trace_summary"
            ]
 
     assert Registry.duplicate_names() == []
@@ -90,7 +92,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_resource_grant",
              "revoke_resource_grant",
              "remember_resource_grant",
-             "record_trace"
+             "record_trace",
+             "registry_health",
+             "trace_summary"
            ]
 
     assert {:ok, append_memory} = Registry.capability("append_memory")
@@ -168,6 +172,18 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert import_local_skill.execution_mode == :local_skill_import
     assert import_local_skill.confirmation == :required
     assert import_local_skill.resumable?
+
+    assert {:ok, registry_health} = Registry.capability("registry_health")
+    assert registry_health.permission == :read_only
+    assert registry_health.execution_mode == :read_only
+    assert registry_health.exposure == :internal
+    assert registry_health.confirmation == :not_required
+
+    assert {:ok, trace_summary} = Registry.capability("trace_summary")
+    assert trace_summary.permission == :read_only
+    assert trace_summary.execution_mode == :read_only
+    assert trace_summary.exposure == :internal
+    assert trace_summary.confirmation == :not_required
 
     assert {:ok, approve_confirmation} = Registry.capability("approve_confirmation")
     assert approve_confirmation.permission == :confirmation_decide

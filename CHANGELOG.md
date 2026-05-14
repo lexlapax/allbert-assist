@@ -1,5 +1,63 @@
 # Changelog
 
+## v0.13 - Scheduled Jobs
+
+Status: released and tagged as `v0.13` on 2026-05-14. Version metadata is
+`0.13.0`; the operator manual verification matrix is ready for acceptance
+checks.
+
+### Added
+
+- SQLite scheduled jobs and run records through `AllbertAssist.Jobs`,
+  `scheduled_jobs`, and `scheduled_job_runs`, with opaque `job_...` and
+  `run_...` ids.
+- Schedule normalization and next-due calculation for manual, daily, weekly,
+  and supported five-field cron-like schedules.
+- Supervised local `AllbertAssist.Jobs.Scheduler` with durable due-job polling,
+  schedule-policy pause support, job lifecycle signals, and stale running-run
+  cleanup using `scheduler_restarted`.
+- `AllbertAssist.Jobs.Runner` for manual and scheduler runs through existing
+  runtime/action boundaries.
+- `mix allbert.jobs` for list/show/runs/create/pause/resume/run plus explicit
+  CLI templates.
+- Built-in templates `daily-brief`, `registry-health`, and `trace-summary`;
+  templates instantiate ordinary job rows and are not seeded.
+- Read-only registered actions `registry_health` and `trace_summary`.
+- Thin `/jobs` LiveView inspection for jobs, recent runs, confirmation ids,
+  and pause/resume/manual-run controls.
+
+### Changed
+
+- `jobs.timezone`, `jobs.default_state`, and `jobs.schedule_policy` are now
+  writable Settings Central keys.
+- Confirmation origins now preserve scheduled-job `job_id`, `run_id`,
+  `user_id`, `operator_id`, `thread_id`, `session_id`, and `app_id` when
+  confirmation-producing actions run from jobs.
+- Job run summaries are redacted and JSON-safe before persistence.
+
+### Safety
+
+- Jobs do not add new execution primitives. Runtime prompt jobs call
+  `AllbertAssist.Runtime.submit_user_input/1`; registered action jobs call
+  `AllbertAssist.Actions.Runner.run/3`.
+- Confirmation-required job work stops at the existing durable confirmation
+  workflow and blocks automatic reruns without creating a job-specific approval
+  queue.
+- v0.13 adds no hosted accounts, roles, distributed scheduling, remote workers,
+  archive/delete workflow, app-specific routing, session scratchpad semantics,
+  or automatic markdown-memory promotion.
+
+### Verification
+
+- Milestone focused suites passed for job schema/context behavior, schedule
+  parsing, manual runner behavior, supervised scheduler due polling, restart
+  cleanup, CLI commands/templates, confirmation origin metadata, and LiveView
+  inspection.
+- Final v0.13 closeout gates passed: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- Manual verification steps live in `docs/plans/v0.13-request-flow.md`.
+
 ## v0.12 - Local Workspace Identity And Conversation History
 
 Status: released and tagged as `v0.12` on 2026-05-13. Version metadata is

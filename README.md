@@ -10,12 +10,16 @@ not the architecture center.
 
 ## Current Status
 
-v0.12 is implemented through its M6 closeout and tagged as `v0.12` on
-2026-05-13 for operator manual verification. It adds canonical local string
-`user_id`, preserves `operator_id` as a compatibility alias, persists SQLite
-conversation threads/messages, passes bounded recent thread context to the
-intent agent, and exposes CLI thread inspection through `mix allbert.threads`.
-Version metadata is now `0.12.0`.
+v0.13 is implemented through its M6 closeout and tagged as `v0.13` on
+2026-05-14 for operator manual verification. It adds local SQLite-backed
+scheduled jobs, supervised due polling, durable run records, job lifecycle
+signals, CLI job management through `mix allbert.jobs`, explicit low-risk job
+templates, and thin `/jobs` LiveView inspection. Version metadata is now
+`0.13.0`.
+
+v0.12 was released and tagged as `v0.12` on 2026-05-13. It remains the local
+workspace identity and conversation-history substrate for scheduled job
+ownership context.
 
 v0.11 was released and tagged as `v0.11` on 2026-05-13. It remains the
 execution-aware intent, operation-scoped Resource Access, and Approval Handoff
@@ -42,6 +46,14 @@ Release details live in `CHANGELOG.md`.
   thread inspection without adding hosted accounts or roles.
 - Pass bounded recent thread context to the intent agent as structured
   `thread_context`.
+- Create, list, pause, resume, manually run, and inspect local scheduled jobs
+  through `mix allbert.jobs`.
+- Run due active jobs through a supervised local scheduler that reuses the
+  runtime and registered action runner boundaries.
+- Instantiate low-risk scheduled job templates explicitly with
+  `mix allbert.jobs create template ...`; templates are normal job rows after
+  creation.
+- Inspect scheduled jobs and recent runs in the thin `/jobs` LiveView surface.
 - Store operator settings, provider profiles, encrypted local secrets, memory,
   confirmations, cache files, and audit artifacts under Allbert Home.
 - Persist explicit markdown memory and optional markdown traces.
@@ -93,11 +105,12 @@ Release details live in `CHANGELOG.md`.
   `resource_uri` should be re-created through the current approval/resource
   grant UX.
 
-v0.12 does not add hosted auth, roles, a LiveView thread sidebar, session
-scratchpad, app routing, semantic retrieval, vector search, browser/crawler
-behavior, MCP execution, `agent://` delegation, or generic local file reading.
-Every effect still flows through registered actions, Security Central, Settings
-Central policy, durable confirmations, redaction, traces, and audits.
+v0.13 does not add hosted auth, roles, distributed scheduling, remote workers,
+archive/delete workflow, session scratchpad, app routing, semantic retrieval,
+vector search, browser/crawler behavior, MCP execution, `agent://` delegation,
+or generic local file reading. Every effect still flows through registered
+actions, Security Central, Settings Central policy, durable confirmations,
+redaction, traces, and audits.
 
 ## Start Here
 
@@ -106,9 +119,9 @@ Central policy, durable confirmations, redaction, traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.12 implementation plan: `docs/plans/v0.12-plan.md`
-- v0.12 request flow and manual verification: `docs/plans/v0.12-request-flow.md`
-- Next milestone plan: `docs/plans/v0.13-plan.md`
+- v0.13 implementation plan: `docs/plans/v0.13-plan.md`
+- v0.13 request flow and manual verification: `docs/plans/v0.13-request-flow.md`
+- Next milestone plan: `docs/plans/v0.14-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development
@@ -135,6 +148,7 @@ Operator surfaces:
 
 ```text
 http://localhost:4000/agent
+http://localhost:4000/jobs
 http://localhost:4000/settings
 ```
 
@@ -144,6 +158,7 @@ CLI entrypoints:
 mix allbert.ask "hello"
 mix allbert.ask --user alice --new-thread "hello"
 mix allbert.threads --user alice
+mix allbert.jobs list --user alice
 mix allbert.security status
 mix allbert.confirmations list
 mix allbert.skills validate apps/allbert_assist/priv/skills/append-memory
@@ -184,6 +199,9 @@ Allbert remains local and conservative:
 - v0.12 conversation history is local SQLite context, not an auth boundary.
   `user_id` scopes local thread UX but does not replace Security Central or
   hosted authorization.
+- v0.13 scheduled jobs are local automation records, not a new authority
+  layer. Risky job work stops at the same durable confirmation workflow and
+  cannot bypass operation-scoped resource posture.
 - Imported skills are not trusted, enabled, activated, or executed by import.
 - Remote network content consumers are operation-scoped. A `summarize_url` or
   `inspect_document` approval must not authorize skill import, package install,
@@ -201,6 +219,6 @@ Allbert remains local and conservative:
 README is intentionally not the testing plan. Use:
 
 - `docs/operator/onboarding.md` for first-run operator guidance.
-- `docs/plans/v0.12-request-flow.md` for the v0.12 manual verification matrix.
-- `docs/plans/v0.12-plan.md` for milestone-specific verification.
+- `docs/plans/v0.13-request-flow.md` for the v0.13 manual verification matrix.
+- `docs/plans/v0.13-plan.md` for milestone-specific verification.
 - `CHANGELOG.md` for release status, verification summary, and tag readiness.

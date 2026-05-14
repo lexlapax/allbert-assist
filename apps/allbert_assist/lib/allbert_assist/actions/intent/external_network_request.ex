@@ -41,6 +41,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.External.Audit
   alias AllbertAssist.External.HttpClient
   alias AllbertAssist.External.RequestSpec
@@ -494,7 +495,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   end
 
   defp origin(context) do
-    AllbertAssist.Confirmations.Origin.from_context(context, "external_network_request")
+    Origin.from_context(context, "external_network_request")
   end
 
   defp selected_skill(context) do

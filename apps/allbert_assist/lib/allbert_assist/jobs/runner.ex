@@ -206,20 +206,19 @@ defmodule AllbertAssist.Jobs.Runner do
   end
 
   defp run_status(response) do
-    case response_field(response, :status) do
-      :needs_confirmation -> "needs_confirmation"
+    case normalized_status(response_field(response, :status)) do
       "needs_confirmation" -> "needs_confirmation"
-      :completed -> "completed"
       "completed" -> "completed"
-      :ok -> "completed"
       "ok" -> "completed"
-      :denied -> "failed"
       "denied" -> "failed"
-      :error -> "failed"
       "error" -> "failed"
       _other -> "completed"
     end
   end
+
+  defp normalized_status(status) when is_atom(status), do: Atom.to_string(status)
+  defp normalized_status(status) when is_binary(status), do: status
+  defp normalized_status(status), do: to_string(status)
 
   defp input_signal_id(response) do
     response_field(response, :input_signal_id) ||
@@ -297,8 +296,6 @@ defmodule AllbertAssist.Jobs.Runner do
   defp response_field(map, key) when is_map(map) do
     Map.get(map, key) || Map.get(map, Atom.to_string(key))
   end
-
-  defp response_field(_map, _key), do: nil
 
   defp atomize_existing_keys(%{} = map) do
     Map.new(map, fn {key, value} -> {existing_atom_key(key), atomize_existing_keys(value)} end)
