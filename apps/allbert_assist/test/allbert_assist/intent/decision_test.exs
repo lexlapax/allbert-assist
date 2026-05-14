@@ -46,6 +46,32 @@ defmodule AllbertAssist.Intent.DecisionTest do
     assert decision.user_id == "legacy-operator"
   end
 
+  test "preserves context active app and rejects unknown active app output" do
+    assert {:ok, decision} =
+             Decision.new(%{
+               intent: :direct_answer,
+               selected_action: "direct_answer",
+               context: %{
+                 request: %{
+                   user_id: "alice",
+                   session_id: "sess-1",
+                   active_app: :stocksage
+                 }
+               }
+             })
+
+    assert decision.active_app == :stocksage
+    assert decision.trace_metadata.active_app == :stocksage
+
+    assert {:error, :unknown_app} =
+             Decision.new(%{
+               intent: :direct_answer,
+               selected_action: "direct_answer",
+               active_app: :invented_app,
+               context: %{request: %{user_id: "alice", active_app: :stocksage}}
+             })
+  end
+
   test "rejects unknown actions before they can be invoked" do
     assert {:error, {:unknown_action, "invented_action"}} =
              Decision.new(%{

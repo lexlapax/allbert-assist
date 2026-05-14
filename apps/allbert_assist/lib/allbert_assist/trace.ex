@@ -138,7 +138,7 @@ defmodule AllbertAssist.Trace do
     - Operator: #{request.operator_id}
     - Thread: #{Map.get(request, :thread_id, "none")}
     - Session: #{Map.get(request, :session_id, "none") || "none"}
-    - Agent: #{inspect(Map.get(turn, :agent, AllbertAssist.Agents.IntentAgent))}
+    #{active_app_trace_line(request)}    - Agent: #{inspect(Map.get(turn, :agent, AllbertAssist.Agents.IntentAgent))}
     - Model alias: #{model_alias()}
     - Status: #{response.status}
     - Selected action: #{selected_action(response.actions)}
@@ -228,6 +228,12 @@ defmodule AllbertAssist.Trace do
     |> List.first()
     |> action_name()
   end
+
+  defp active_app_trace_line(%{active_app: active_app}) when not is_nil(active_app) do
+    "    - Active app: #{active_app}\n"
+  end
+
+  defp active_app_trace_line(_request), do: ""
 
   defp action_name(%{name: name}) when is_binary(name), do: name
   defp action_name(%{"name" => name}) when is_binary(name), do: name
