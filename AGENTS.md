@@ -228,6 +228,10 @@ folders, or publish externally without explicit operator action.
   markdown memory and not hosted authentication; preserve `user_id`,
   `operator_id`, `thread_id`, and optional `session_id` across runtime-facing
   metadata, and do not auto-promote conversation turns into markdown memory.
+  v0.15 app registration is local contract metadata only; app ids, app skill
+  paths, surfaces, and action capability tags must not grant permissions,
+  create dynamic routes, load code from arbitrary folders, or bypass Security
+  Central.
 - Do not auto-generate, compile, or load Elixir modules from arbitrary skill
   folders.
 - Do not execute skill scripts, shell commands, external installs, or network

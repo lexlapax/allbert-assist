@@ -10,11 +10,14 @@ not the architecture center.
 
 ## Current Status
 
-v0.14 is implemented through its M5 closeout and tagged as `v0.14` on
-2026-05-14 for operator manual verification. It adds volatile supervised
-session scratchpad state, active-app context, registered session actions,
-`mix allbert.sessions`, and `mix allbert.ask --session`. Version metadata is
-now `0.14.0`.
+v0.15 is implemented through its M5 closeout and tagged as `v0.15` on
+2026-05-14 for operator manual verification. It adds the minimal
+`AllbertAssist.App` contract, supervised app registry, built-in `CoreApp`,
+transitional `StockSageStub`, app capability tagging, app-contributed skill
+paths, and `mix allbert.apps`. Version metadata is now `0.15.0`.
+
+v0.14 was released and tagged as `v0.14` on 2026-05-14. It remains the
+volatile supervised session scratchpad and active-app context substrate.
 
 v0.13 was released and tagged as `v0.13` on 2026-05-14. It remains the local
 SQLite-backed scheduled-jobs substrate for runtime prompt jobs, registered
@@ -65,6 +68,16 @@ Release details live in `CHANGELOG.md`.
 - Carry `active_app` through runtime signals, intent-agent request context,
   decisions, traces, responses, assistant message metadata, and scheduled
   runtime prompt job logs without treating it as authorization.
+- Register local workspace apps through `AllbertAssist.App` and a supervised
+  volatile `AllbertAssist.App.Registry`.
+- Inspect registered apps through `mix allbert.apps list/show/validate` and
+  the read-only registered `list_apps`/`show_app` actions.
+- Keep `allbert` and `stocksage` app ids valid through built-in `CoreApp` and
+  transitional `StockSageStub` until the real StockSage app lands.
+- Tag registered action capabilities with optional `app_id` when an app claims
+  the action, without granting permissions from that tag.
+- Include app-contributed skill paths in skill discovery after project roots
+  and before user roots.
 - Store operator settings, provider profiles, encrypted local secrets, memory,
   confirmations, cache files, and audit artifacts under Allbert Home.
 - Persist explicit markdown memory and optional markdown traces.
@@ -116,9 +129,10 @@ Release details live in `CHANGELOG.md`.
   `resource_uri` should be re-created through the current approval/resource
   grant UX.
 
-v0.14 does not add hosted auth, roles, distributed scheduling, remote workers,
-archive/delete workflow, durable session persistence, app registration,
-app-scoped routing, workspace UI, canvas state, semantic retrieval, vector
+v0.15 does not add hosted auth, roles, distributed scheduling, remote workers,
+archive/delete workflow, durable app-registry persistence, app-scoped
+permissions, app-owned jobs, app-scoped intent routing, `AllbertAssist.Surface`,
+dynamic route loading, workspace UI, canvas state, semantic retrieval, vector
 search, browser/crawler behavior, MCP execution, `agent://` delegation, or
 generic local file reading. Every effect still flows through registered
 actions, Security Central, Settings Central policy, durable confirmations,
@@ -131,10 +145,9 @@ redaction, traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.14 implementation plan: `docs/plans/v0.14-plan.md`
-- v0.14 request flow and manual verification: `docs/plans/v0.14-request-flow.md`
-- Next milestone plan: `docs/plans/v0.15-plan.md`
-- Next milestone request flow: `docs/plans/v0.15-request-flow.md`
+- v0.15 implementation plan: `docs/plans/v0.15-plan.md`
+- v0.15 request flow and manual verification: `docs/plans/v0.15-request-flow.md`
+- Next milestone plan: `docs/plans/v0.16-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development
@@ -171,6 +184,9 @@ CLI entrypoints:
 mix allbert.ask "hello"
 mix allbert.ask --user alice --session sess-1 "hello"
 mix allbert.sessions set-active-app --user alice --session sess-1 stocksage
+mix allbert.apps list
+mix allbert.apps show stocksage
+mix allbert.apps validate AllbertAssist.App.CoreApp
 mix allbert.ask --user alice --new-thread "hello"
 mix allbert.threads --user alice
 mix allbert.jobs list --user alice
@@ -221,6 +237,9 @@ Allbert remains local and conservative:
   authorization, app registration, or app routing. Raw working-memory values
   must not appear in CLI output, traces, signals, logs, responses, or persisted
   action logs.
+- v0.15 app registration is contract data, not authority. `app_id` tags,
+  registered surfaces, and app skill paths do not grant permissions, create
+  routes, load code dynamically, or bypass Security Central.
 - Imported skills are not trusted, enabled, activated, or executed by import.
 - Remote network content consumers are operation-scoped. A `summarize_url` or
   `inspect_document` approval must not authorize skill import, package install,
@@ -238,6 +257,6 @@ Allbert remains local and conservative:
 README is intentionally not the testing plan. Use:
 
 - `docs/operator/onboarding.md` for first-run operator guidance.
-- `docs/plans/v0.14-request-flow.md` for the v0.14 manual verification matrix.
-- `docs/plans/v0.14-plan.md` for milestone-specific verification.
+- `docs/plans/v0.15-request-flow.md` for the v0.15 manual verification matrix.
+- `docs/plans/v0.15-plan.md` for milestone-specific verification.
 - `CHANGELOG.md` for release status, verification summary, and tag readiness.

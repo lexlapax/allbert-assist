@@ -7,10 +7,9 @@ defmodule AllbertAssist.Actions.Registry do
   invoking work.
   """
 
-  alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Apps.ListApps
   alias AllbertAssist.Actions.Apps.ShowApp
-  alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
   alias AllbertAssist.Actions.Confirmations.DenyConfirmation
   alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
@@ -55,6 +54,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Skills.ShowOnlineSkill
   alias AllbertAssist.Actions.Skills.ValidateSkill
   alias AllbertAssist.Actions.Trace.RecordTrace
+  alias AllbertAssist.App.Registry, as: AppRegistry
 
   @agent_actions [
     DirectAnswer,
