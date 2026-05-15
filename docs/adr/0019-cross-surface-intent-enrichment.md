@@ -2,7 +2,8 @@
 
 ## Status
 
-Proposed. v0.19 implementation will confirm or revise.
+Accepted. v0.19 M1 confirmed the candidate contract and engine skeleton follow
+these invariants.
 
 ## Context
 
