@@ -896,7 +896,8 @@ Request flow: `docs/plans/v0.17-request-flow.md`
 
 ADR: `docs/adr/0017-allbert-plugin-contract.md`
 
-Status: planned.
+Status: implemented through M6 closeout on 2026-05-14. Ready for operator
+manual verification.
 
 Expected direction:
 

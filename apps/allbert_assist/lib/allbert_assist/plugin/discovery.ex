@@ -161,15 +161,13 @@ defmodule AllbertAssist.Plugin.Discovery do
       trust_status: trust_status(source, settings, folder)
     ]
 
-    cond do
-      source in [:project, :home] and plugin_id not in enabled ->
-        [{:diagnostic, plugin_id || folder, [disabled_diagnostic(plugin_id || folder)]}]
-
-      true ->
-        case Validator.normalize_manifest(manifest, opts) do
-          {:ok, entry} -> [{:entry, entry}]
-          {:error, _reason, diagnostics} -> [{:diagnostic, plugin_id || folder, diagnostics}]
-        end
+    if source in [:project, :home] and plugin_id not in enabled do
+      [{:diagnostic, plugin_id || folder, [disabled_diagnostic(plugin_id || folder)]}]
+    else
+      case Validator.normalize_manifest(manifest, opts) do
+        {:ok, entry} -> [{:entry, entry}]
+        {:error, _reason, diagnostics} -> [{:diagnostic, plugin_id || folder, diagnostics}]
+      end
     end
   end
 

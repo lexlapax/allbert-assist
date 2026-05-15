@@ -74,10 +74,14 @@ defmodule AllbertAssist.Plugin.Bootstrap do
           :ok
 
         {:error, {:already_started, _pid}} ->
-          Registry.put_diagnostics(plugin_id, [duplicate_child_diagnostic(child_spec)], server: registry)
+          Registry.put_diagnostics(plugin_id, [duplicate_child_diagnostic(child_spec)],
+            server: registry
+          )
 
         {:error, {:already_present, _pid}} ->
-          Registry.put_diagnostics(plugin_id, [duplicate_child_diagnostic(child_spec)], server: registry)
+          Registry.put_diagnostics(plugin_id, [duplicate_child_diagnostic(child_spec)],
+            server: registry
+          )
 
         {:error, reason} ->
           Registry.put_diagnostics(plugin_id, [child_start_diagnostic(reason)], server: registry)
