@@ -89,7 +89,10 @@ defmodule Mix.Tasks.Stocksage.ImportSqlite do
   defp format_reason({:invalid_options, invalid}), do: "invalid options #{inspect(invalid)}"
   defp format_reason({:not_found, path}), do: "source path not found: #{path}"
   defp format_reason({:remote_uri_not_allowed, uri}), do: "remote URI not allowed: #{uri}"
-  defp format_reason({:user_operator_mismatch, user, operator}), do: "--user #{user} differs from --operator #{operator}"
+
+  defp format_reason({:user_operator_mismatch, user, operator}),
+    do: "--user #{user} differs from --operator #{operator}"
+
   defp format_reason(:missing_path), do: "path is required"
   defp format_reason(:too_many_paths), do: "exactly one path is required"
   defp format_reason(reason), do: inspect(reason)

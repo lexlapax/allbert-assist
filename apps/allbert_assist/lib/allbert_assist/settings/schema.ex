@@ -2154,8 +2154,14 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp valid_plugin_setting_key?(key) when is_binary(key) do
-    byte_size(key) <= 160 and Regex.match?(~r/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, key) and
-      key |> split_key() |> List.first() |> reserved_plugin_settings_namespace?() |> Kernel.not()
+    byte_size(key) <= 160 and
+      Regex.match?(~r/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, key) and
+      (String.starts_with?(key, "plugins.") or
+         key
+         |> split_key()
+         |> List.first()
+         |> reserved_plugin_settings_namespace?()
+         |> Kernel.not())
   end
 
   defp valid_plugin_setting_key?(_key), do: false
@@ -2175,7 +2181,6 @@ defmodule AllbertAssist.Settings.Schema do
       "operator",
       "package_installs",
       "permissions",
-      "plugins",
       "providers",
       "resource_grants",
       "runtime",
