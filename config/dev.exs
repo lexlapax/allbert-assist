@@ -1,8 +1,14 @@
 import Config
 
+database_path =
+  case System.get_env("DATABASE_PATH") || System.get_env("ALLBERT_HOME") do
+    nil -> Path.expand("../allbert_assist_dev.db", __DIR__)
+    home -> Path.join(home, "allbert_assist_dev.db")
+  end
+
 # Configure your database
 config :allbert_assist, AllbertAssist.Repo,
-  database: Path.expand("../allbert_assist_dev.db", __DIR__),
+  database: database_path,
   pool_size: 5,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true

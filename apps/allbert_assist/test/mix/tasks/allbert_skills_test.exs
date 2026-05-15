@@ -5,6 +5,7 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.DirectImport
   alias AllbertAssist.Skills.Online.RegistryClient
@@ -43,6 +44,8 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
       req_options: [plug: {Req.Test, __MODULE__}]
     )
 
+    PluginRegistry.register_module(StockSage.Plugin)
+
     on_exit(fn ->
       restore_env(RegistryClient, original_client_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -67,6 +70,18 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
     assert output =~ "Name: allbert-capability"
     assert output =~ "Contract: valid"
     assert output =~ "Execution eligible: false"
+  end
+
+  test "list prints discovered plugin skills" do
+    output =
+      capture_io(fn ->
+        assert :ok = SkillsTask.run(["list"])
+      end)
+
+    assert output =~ "Skills:"
+    assert output =~ "list-analyses"
+    assert output =~ "queue-analysis"
+    assert output =~ "plugin=stocksage"
   end
 
   test "create writes a local skill through the registered action boundary", %{root: root} do

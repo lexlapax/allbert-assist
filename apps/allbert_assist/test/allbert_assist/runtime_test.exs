@@ -3,6 +3,7 @@ defmodule AllbertAssist.RuntimeTest do
 
   import ExUnit.CaptureLog
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Conversations
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime
@@ -50,6 +51,7 @@ defmodule AllbertAssist.RuntimeTest do
     Application.delete_env(:allbert_assist, Trace)
     System.delete_env("ALLBERT_TRACE_ENABLED")
     Logger.configure(level: :info)
+    ensure_stocksage_app!()
 
     on_exit(fn ->
       Logger.configure(level: original_logger_level)
@@ -685,6 +687,17 @@ defmodule AllbertAssist.RuntimeTest do
 
   defp restore_system_env(key, nil), do: System.delete_env(key)
   defp restore_system_env(key, value), do: System.put_env(key, value)
+
+  defp ensure_stocksage_app! do
+    case AppRegistry.lookup(:stocksage) do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, :not_found} ->
+        assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+        on_exit(fn -> AppRegistry.unregister(:stocksage) end)
+    end
+  end
 
   defp message_metadata_value(metadata, key) do
     Map.get(metadata, key) || Map.get(metadata, String.to_atom(key))

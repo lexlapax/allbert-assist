@@ -9,6 +9,7 @@ defmodule Mix.Tasks.Allbert.Ask do
       mix allbert.ask --user alice --new-thread "hello"
       mix allbert.ask --user alice --thread THREAD_ID "continue"
       mix allbert.ask --user alice --session SESSION_ID "hello"
+      mix allbert.ask --user alice --active-app stocksage "list my analyses"
 
   ## Options
 
@@ -19,6 +20,7 @@ defmodule Mix.Tasks.Allbert.Ask do
     * `--thread` - continue an existing user-owned thread
     * `--new-thread` - create a fresh general thread
     * `--session` - volatile local session id for scratchpad lookup
+    * `--active-app` - app context for this one CLI turn
   """
 
   use Mix.Task
@@ -36,6 +38,7 @@ defmodule Mix.Tasks.Allbert.Ask do
     user: :string,
     thread: :string,
     new_thread: :boolean,
+    active_app: :string,
     trace: :boolean
   ]
 
@@ -62,7 +65,7 @@ defmodule Mix.Tasks.Allbert.Ask do
 
     if prompt == "" do
       Mix.raise(
-        "Usage: mix allbert.ask [--trace] [--channel cli] [--user local|--operator local] [--thread THREAD_ID|--new-thread] [--session SESSION_ID] \"prompt\""
+        "Usage: mix allbert.ask [--trace] [--channel cli] [--user local|--operator local] [--thread THREAD_ID|--new-thread] [--session SESSION_ID] [--active-app APP_ID] \"prompt\""
       )
     end
 
@@ -97,6 +100,7 @@ defmodule Mix.Tasks.Allbert.Ask do
     |> maybe_put(:operator_id, blank_to_nil(opts[:operator]))
     |> maybe_put(:thread_id, blank_to_nil(opts[:thread]))
     |> maybe_put(:session_id, blank_to_nil(opts[:session]))
+    |> maybe_put(:active_app, blank_to_nil(opts[:active_app]))
     |> maybe_put(:new_thread, opts[:new_thread])
     |> Runtime.submit_user_input()
   end

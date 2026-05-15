@@ -2,9 +2,9 @@
 
 ## v0.20 - StockSage Plugin App And Domain
 
-Status: implemented through plugin-ownership cleanup on 2026-05-15. Version
-metadata is `0.20.0`; the operator manual verification matrix remains the
-release gate. Release tag is pending operator acceptance.
+Status: implemented through M5 closeout fixes on 2026-05-15. Version metadata
+is `0.20.0`; the operator manual verification matrix remains the release gate.
+Release tag is pending operator acceptance.
 
 ### Added
 
@@ -23,6 +23,10 @@ release gate. Release tag is pending operator acceptance.
   `queue_analysis`, all contributed through `StockSage.Plugin.actions/0`.
 - Operator CLIs `mix stocksage.analyses list/show` and
   `mix stocksage.queue create/list`.
+- `mix allbert.skills list` for operator inspection of discovered skill
+  manifests, including StockSage plugin provenance.
+- `mix allbert.ask --active-app APP_ID` for one-turn CLI app context, used
+  alongside volatile running-node session scratchpad context.
 - `:stocksage_write` as a low-risk local domain write permission for queue and
   domain writes only.
 
@@ -36,6 +40,8 @@ release gate. Release tag is pending operator acceptance.
   LiveViews, start native trading agents, or emit canvas components.
 - `queue_analysis` creates only a durable local queue row. It does not start a
   worker or external process.
+- Engine-selected registry actions from direct-answer fallbacks now execute
+  through `Actions.Runner`; app affinity still does not grant permission.
 - StockSage memory entries are SQLite domain records and are not automatically
   promoted into markdown Allbert memory.
 

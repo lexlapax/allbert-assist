@@ -7,7 +7,7 @@ defmodule AllbertAssist.App.Bootstrap do
 
   require Logger
 
-  @default_apps [AllbertAssist.App.CoreApp, AllbertAssist.App.StockSageStub]
+  @default_apps [AllbertAssist.App.CoreApp]
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
@@ -29,17 +29,18 @@ defmodule AllbertAssist.App.Bootstrap do
 
   defp register_configured_apps(opts) do
     registry = Keyword.get(opts, :registry, AllbertAssist.App.Registry)
-    Enum.each(configured_apps!(), &register_app(&1, registry))
+    plugin_registry = Keyword.get(opts, :plugin_registry, PluginRegistry)
+    Enum.each(configured_apps!(plugin_registry), &register_app(&1, registry))
   end
 
-  defp configured_apps! do
+  defp configured_apps!(plugin_registry) do
     apps = Application.get_env(:allbert_assist, :apps, default_apps())
 
     unless is_list(apps) do
       raise RuntimeError, "expected :allbert_assist, :apps to be a list, got: #{inspect(apps)}"
     end
 
-    plugin_apps = PluginRegistry.registered_apps()
+    plugin_apps = PluginRegistry.registered_apps(server: plugin_registry)
 
     apps
     |> drop_stubs_replaced_by_plugins(plugin_apps)

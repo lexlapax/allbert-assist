@@ -272,12 +272,24 @@ defmodule AllbertAssist.Skills.Registry do
   end
 
   defp app_roots do
+    plugin_skill_paths =
+      PluginRegistry.registered_skill_paths()
+      |> Map.new(fn %{plugin_id: plugin_id, path: path} -> {Path.expand(path), plugin_id} end)
+
     AppRegistry.registered_skill_paths()
     |> Enum.map(fn %{app_id: app_id, path: path} ->
       :app
       |> root_spec(path, :trusted, true, 3)
       |> Map.put(:app_id, app_id)
+      |> maybe_put_plugin_id_for_path(plugin_skill_paths, path)
     end)
+  end
+
+  defp maybe_put_plugin_id_for_path(source, plugin_skill_paths, path) do
+    case Map.fetch(plugin_skill_paths, Path.expand(path)) do
+      {:ok, plugin_id} -> Map.put(source, :plugin_id, plugin_id)
+      :error -> source
+    end
   end
 
   defp plugin_roots do

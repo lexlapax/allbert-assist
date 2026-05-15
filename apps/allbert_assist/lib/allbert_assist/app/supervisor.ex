@@ -17,6 +17,7 @@ defmodule AllbertAssist.App.Supervisor do
       Keyword.get(opts, :dynamic_supervisor, AllbertAssist.App.DynamicSupervisor)
 
     bootstrap = Keyword.get(opts, :bootstrap, AllbertAssist.App.Bootstrap)
+    plugin_registry = Keyword.get(opts, :plugin_registry, AllbertAssist.Plugin.Registry)
     table_name = Keyword.get(opts, :table_name, :allbert_app_registry)
     enabled? = Keyword.get(opts, :enabled?, true)
 
@@ -27,7 +28,8 @@ defmodule AllbertAssist.App.Supervisor do
        enabled?: enabled?,
        dynamic_supervisor: dynamic_supervisor},
       {AllbertAssist.App.DynamicSupervisor, name: dynamic_supervisor},
-      {AllbertAssist.App.Bootstrap, name: bootstrap, registry: registry}
+      {AllbertAssist.App.Bootstrap,
+       name: bootstrap, registry: registry, plugin_registry: plugin_registry}
     ]
 
     Supervisor.init(children, strategy: :one_for_all)

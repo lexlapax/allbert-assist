@@ -2,6 +2,7 @@ defmodule StockSage.PluginTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.App.Bootstrap, as: AppBootstrap
   alias AllbertAssist.App.Validator, as: AppValidator
   alias AllbertAssist.Plugin.Bootstrap, as: PluginBootstrap
   alias AllbertAssist.Plugin.ChildSupervisor
@@ -91,6 +92,33 @@ defmodule StockSage.PluginTest do
     refute entry.module == AllbertAssist.App.StockSageStub
     assert {:ok, :stocksage} = AppRegistry.normalize_app_id("stocksage", server: app_registry)
     assert {:ok, :stocksage} = AppRegistry.normalize_app_id(:stocksage, server: app_registry)
+  end
+
+  test "app bootstrap consumes registered plugin apps instead of the placeholder stub", %{
+    plugin_registry: plugin_registry,
+    child_supervisor: child_supervisor,
+    app_registry: app_registry
+  } do
+    start_supervised!(
+      {PluginBootstrap,
+       name: :"stocksage_plugin_bootstrap_#{System.unique_integer([:positive])}",
+       registry: plugin_registry,
+       child_supervisor: child_supervisor,
+       discoveries: [{:module, StockSage.Plugin, [source: :shipped]}]}
+    )
+
+    start_supervised!(
+      {AppBootstrap,
+       name: :"stocksage_app_bootstrap_#{System.unique_integer([:positive])}",
+       registry: app_registry,
+       plugin_registry: plugin_registry}
+    )
+
+    assert_eventually(fn ->
+      assert {:ok, entry} = AppRegistry.lookup(:stocksage, server: app_registry)
+      assert entry.module == StockSage.App
+      refute entry.module == AllbertAssist.App.StockSageStub
+    end)
   end
 
   test "StockSage app validates against the v0.18 surface provider contract" do
