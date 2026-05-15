@@ -8,7 +8,7 @@ defmodule Mix.Tasks.Stocksage.Analyses do
 
   use Mix.Task
 
-  alias StockSage.Analyses
+  alias AllbertAssist.Actions.Runner
 
   @shortdoc "List or show local StockSage analyses"
   @switches [user: :string, operator: :string, symbol: :string, limit: :integer, offset: :integer]
@@ -26,15 +26,19 @@ defmodule Mix.Tasks.Stocksage.Analyses do
     {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
 
     with :ok <- reject_invalid(invalid),
-         {:ok, user_id} <- resolve_user(opts) do
-      analyses =
-        Analyses.list_analyses(user_id,
-          symbol: Keyword.get(opts, :symbol),
-          limit: Keyword.get(opts, :limit, 50),
-          offset: Keyword.get(opts, :offset, 0)
-        )
-
-      {:ok, {:list, user_id, analyses}}
+         {:ok, user_id} <- resolve_user(opts),
+         {:ok, response} <-
+           run_action(
+             "list_analyses",
+             %{
+               user_id: user_id,
+               symbol: Keyword.get(opts, :symbol),
+               limit: Keyword.get(opts, :limit, 50),
+               offset: Keyword.get(opts, :offset, 0)
+             },
+             user_id
+           ) do
+      {:ok, {:list, user_id, response.analyses}}
     end
   end
 
@@ -42,15 +46,29 @@ defmodule Mix.Tasks.Stocksage.Analyses do
     {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
 
     with :ok <- reject_invalid(invalid),
-         {:ok, user_id} <- resolve_user(opts) do
-      case Analyses.get_analysis_with_details(user_id, analysis_id) do
-        {:ok, analysis} -> {:ok, {:show, user_id, analysis}}
-        {:error, :not_found} -> {:error, {:not_found, analysis_id}}
+         {:ok, user_id} <- resolve_user(opts),
+         {:ok, response} <-
+           run_action("show_analysis", %{user_id: user_id, analysis_id: analysis_id}, user_id) do
+      case response.status do
+        :completed -> {:ok, {:show, user_id, response.analysis}}
+        :not_found -> {:error, {:not_found, analysis_id}}
       end
     end
   end
 
   defp dispatch(_args), do: {:error, :usage}
+
+  defp run_action(action, params, user_id) do
+    case Runner.run(action, params, context(user_id)) do
+      {:ok, %{status: :completed} = response} -> {:ok, response}
+      {:ok, %{status: :not_found} = response} -> {:ok, response}
+      {:ok, response} -> {:error, Map.get(response, :error, :action_failed)}
+    end
+  end
+
+  defp context(user_id) do
+    %{request: %{channel: :cli, user_id: user_id, operator_id: user_id, app_id: :stocksage}}
+  end
 
   defp print_result({:ok, {:list, user_id, analyses}}) do
     Mix.shell().info("StockSage analyses for #{user_id}")
@@ -88,9 +106,7 @@ defmodule Mix.Tasks.Stocksage.Analyses do
     end)
   end
 
-  defp print_result({:error, reason}) do
-    Mix.raise(format_reason(reason))
-  end
+  defp print_result({:error, reason}), do: Mix.raise(format_reason(reason))
 
   defp reject_invalid([]), do: :ok
   defp reject_invalid(invalid), do: {:error, {:invalid_options, invalid}}
@@ -126,9 +142,12 @@ defmodule Mix.Tasks.Stocksage.Analyses do
 
   defp format_reason({:invalid_options, invalid}), do: "invalid options #{inspect(invalid)}"
   defp format_reason({:not_found, id}), do: "StockSage analysis not found: #{id}"
+  defp format_reason(:action_failed), do: "StockSage analyses action failed"
 
   defp format_reason({:user_operator_mismatch, user, operator}),
     do: "--user #{user} differs from --operator #{operator}"
+
+  defp format_reason(reason), do: inspect(reason)
 
   defp bounded(nil, _max), do: "-"
 

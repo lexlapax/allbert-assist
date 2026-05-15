@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Memory
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
@@ -57,6 +58,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
     System.delete_env("ALLBERT_TRACE_ENABLED")
 
     unless stocksage_registered? do
+      PluginRegistry.register_module(StockSage.Plugin)
       AppRegistry.register(StockSage.App)
     end
 

@@ -24,41 +24,45 @@ defmodule StockSage.Actions.GetTrends do
   @impl true
   def run(params, context) do
     permission_decision = Actions.authorize(:read_only, context)
-    user_id = Actions.user_id(params, context)
 
-    if Actions.allowed?(permission_decision) do
-      trends =
-        Analyses.summarize_trends(user_id,
-          symbol: Actions.field(params, :symbol),
-          limit: Actions.positive_limit(Actions.field(params, :limit), 50)
-        )
+    with {:ok, user_id} <- Actions.user_id(params, context) do
+      if Actions.allowed?(permission_decision) do
+        trends =
+          Analyses.summarize_trends(user_id,
+            symbol: Actions.field(params, :symbol),
+            limit: Actions.positive_limit(Actions.field(params, :limit), 50)
+          )
 
-      {:ok,
-       %{
-         message: "StockSage trends include #{trends.returned} local outcomes.",
-         status: :completed,
-         trends:
-           Map.update!(
-             trends,
-             :outcomes,
-             &Enum.map(&1, fn outcome -> outcome_summary(outcome) end)
-           ),
-         actions: [
-           Actions.action("get_trends", :completed, :read_only, permission_decision, %{
-             returned: trends.returned
-           })
-         ]
-       }}
+        {:ok,
+         %{
+           message: "StockSage trends include #{trends.returned} local outcomes.",
+           status: :completed,
+           trends:
+             Map.update!(
+               trends,
+               :outcomes,
+               &Enum.map(&1, fn outcome -> outcome_summary(outcome) end)
+             ),
+           actions: [
+             Actions.action("get_trends", :completed, :read_only, permission_decision, %{
+               returned: trends.returned
+             })
+           ]
+         }}
+      else
+        status = Actions.status_from_decision(permission_decision)
+
+        {:ok,
+         %{
+           message: "StockSage trends are not available to this request.",
+           status: status,
+           error: :permission_denied,
+           actions: [Actions.action("get_trends", status, :read_only, permission_decision)]
+         }}
+      end
     else
-      status = Actions.status_from_decision(permission_decision)
-
-      {:ok,
-       %{
-         message: "StockSage trends are not available to this request.",
-         status: status,
-         error: :permission_denied,
-         actions: [Actions.action("get_trends", status, :read_only, permission_decision)]
-       }}
+      {:error, :missing_user_id} ->
+        Actions.missing_user("get_trends", :read_only, permission_decision)
     end
   end
 

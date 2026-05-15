@@ -25,8 +25,16 @@ defmodule StockSage.Actions.ListAnalyses do
   @impl true
   def run(params, context) do
     permission_decision = Actions.authorize(:read_only, context)
-    user_id = Actions.user_id(params, context)
 
+    with {:ok, user_id} <- Actions.user_id(params, context) do
+      maybe_list(user_id, params, permission_decision)
+    else
+      {:error, :missing_user_id} ->
+        Actions.missing_user("list_analyses", :read_only, permission_decision)
+    end
+  end
+
+  defp maybe_list(user_id, params, permission_decision) do
     if Actions.allowed?(permission_decision) do
       opts = [
         symbol: Actions.field(params, :symbol),

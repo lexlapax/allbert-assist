@@ -17,9 +17,10 @@ defmodule StockSage.Domain do
   end
 
   def normalize_symbol(symbol) when is_binary(symbol) do
-    symbol
-    |> String.trim()
-    |> String.upcase()
+    case String.trim(symbol) do
+      "" -> nil
+      trimmed -> String.upcase(trimmed)
+    end
   end
 
   def normalize_symbol(symbol), do: symbol

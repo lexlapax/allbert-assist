@@ -6,6 +6,7 @@ defmodule AllbertAssist.RuntimeTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Conversations
   alias AllbertAssist.Memory
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
   alias AllbertAssist.Session.Scratchpad
@@ -689,6 +690,8 @@ defmodule AllbertAssist.RuntimeTest do
   defp restore_system_env(key, value), do: System.put_env(key, value)
 
   defp ensure_stocksage_app! do
+    ensure_stocksage_plugin!()
+
     case AppRegistry.lookup(:stocksage) do
       {:ok, _entry} ->
         :ok
@@ -696,6 +699,16 @@ defmodule AllbertAssist.RuntimeTest do
       {:error, :not_found} ->
         assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
         on_exit(fn -> AppRegistry.unregister(:stocksage) end)
+    end
+  end
+
+  defp ensure_stocksage_plugin! do
+    case PluginRegistry.lookup("stocksage") do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, :not_found} ->
+        assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
     end
   end
 
