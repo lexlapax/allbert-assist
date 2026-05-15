@@ -956,8 +956,11 @@ Expected direction:
 
 - Add a supervised bridge, likely JSON-over-stdio Port, around Python
   StockSage/TradingAgents.
-- Add `StockSage.Actions.RunAnalysis` and a Mix smoke command that persists a
-  real analysis.
+- Add `StockSage.Actions.RunAnalysis`, register it through
+  `StockSage.Plugin.actions/0` and the plugin manifest, and add a Mix smoke
+  command that persists a real analysis.
+- Start `StockSage.TraderBridge` under `StockSage.Supervisor`, contributed via
+  `StockSage.Plugin.child_spec/1`.
 - Consume v0.18 queue records and persist bridge results into the existing
   `stocksage_*` tables.
 - Route natural language analysis prompts through StockSage skill/action
@@ -988,6 +991,8 @@ Status: planned. Formerly M-D2c.
 Expected direction:
 
 - Implement the native Jido trading-agent topology behind StockSage actions.
+- Keep native worker supervisors under `StockSage.Supervisor`, contributed
+  through the StockSage plugin child spec.
 - Keep the Python bridge selectable until golden fixtures and batch smoke tests
   prove native parity within documented variance.
 - Make native analysis default only after acceptance passes.
@@ -1002,8 +1007,12 @@ Expected direction:
 
 - Add StockSage workspace, analysis, queue, and trends LiveViews as standard
   app surfaces.
+- Update `StockSage.App.nav_surfaces/0` for the `/stocksage/...` routes so
+  later workspace navigation can discover them from app registration.
 - Use PubSub/streams for live progress and set `active_app: :stocksage` when
   the user is in StockSage context.
+- Treat static route mounting as a stepping stone to v0.25
+  `AllbertAssist.App.SurfaceProvider` metadata.
 - Leave canvas registration out of this slice.
 
 ## v0.24: Security Hardening And Evals
@@ -1036,6 +1045,8 @@ Expected direction:
   UI surface, and data/settings layers.
 - Add `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, validation
   tooling, and optional future encoders.
+- Update `StockSage.App` to implement `AllbertAssist.App.SurfaceProvider` for
+  the v0.23 `/stocksage/...` LiveView routes.
 - Keep AG-UI/A2UI as future adapters, not local hard dependencies.
 - Prove the contract with StockSage before v0.27 consumes it.
 
@@ -1044,6 +1055,8 @@ Expected direction:
 Plan: `docs/plans/v0.26-plan.md`
 
 Status: planned. Formerly M-D3b.
+
+Prerequisite: v0.25 provides full app-contract memory namespace registration.
 
 Expected direction:
 
