@@ -13,6 +13,7 @@ defmodule AllbertAssist.Actions.Plugins.ShowPlugin do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Security.PermissionGate
 
@@ -68,15 +69,29 @@ defmodule AllbertAssist.Actions.Plugins.ShowPlugin do
   end
 
   defp diagnostics(plugin_id) do
-    PluginRegistry.diagnostics()
-    |> Map.get(plugin_id, [])
-    |> Enum.map(fn diagnostic ->
-      %{
-        kind: Map.get(diagnostic, :kind, :plugin_diagnostic),
-        severity: Map.get(diagnostic, :severity, :info),
-        message: Map.get(diagnostic, :message, "Plugin diagnostic.")
-      }
-    end)
+    plugin_diagnostics =
+      PluginRegistry.diagnostics()
+      |> Map.get(plugin_id, [])
+      |> Enum.map(fn diagnostic ->
+        %{
+          kind: Map.get(diagnostic, :kind, :plugin_diagnostic),
+          severity: Map.get(diagnostic, :severity, :info),
+          message: Map.get(diagnostic, :message, "Plugin diagnostic.")
+        }
+      end)
+
+    action_diagnostics =
+      ActionsRegistry.diagnostics()
+      |> Enum.filter(&(Map.get(&1, :plugin_id) == plugin_id))
+      |> Enum.map(fn diagnostic ->
+        %{
+          kind: Map.get(diagnostic, :kind, :action_registry_diagnostic),
+          severity: Map.get(diagnostic, :severity, :info),
+          message: Map.get(diagnostic, :message, "Action registry diagnostic.")
+        }
+      end)
+
+    plugin_diagnostics ++ action_diagnostics
   end
 
   defp message(plugin) do

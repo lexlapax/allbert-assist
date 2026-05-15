@@ -125,9 +125,14 @@ defmodule Mix.Tasks.Allbert.Plugins do
     Mix.shell().info("Diagnostics:")
 
     Enum.each(diagnostics, fn diagnostic ->
-      Mix.shell().info("- #{diagnostic_kind(diagnostic)} #{diagnostic_message(diagnostic)}")
+      Mix.shell().info(
+        "- #{diagnostic_plugin(diagnostic)}#{diagnostic_kind(diagnostic)} #{diagnostic_message(diagnostic)}"
+      )
     end)
   end
+
+  defp diagnostic_plugin(%{plugin_id: plugin_id}) when is_binary(plugin_id), do: "#{plugin_id}: "
+  defp diagnostic_plugin(_diagnostic), do: ""
 
   defp diagnostic_kind(diagnostic), do: Map.get(diagnostic, :kind, :plugin_diagnostic)
   defp diagnostic_message(diagnostic), do: Map.get(diagnostic, :message, "Plugin diagnostic.")

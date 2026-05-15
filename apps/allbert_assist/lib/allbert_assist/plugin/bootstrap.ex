@@ -66,25 +66,14 @@ defmodule AllbertAssist.Plugin.Bootstrap do
          false <- entry.children == :ignore do
       child_spec = Supervisor.child_spec(entry.children, [])
 
-      case DynamicSupervisor.start_child(child_supervisor, child_spec) do
-        {:ok, _pid} ->
-          :ok
-
-        {:ok, _pid, _info} ->
-          :ok
-
-        {:error, {:already_started, _pid}} ->
+      case existing_child_id?(registry, plugin_id, child_spec.id) do
+        true ->
           Registry.put_diagnostics(plugin_id, [duplicate_child_diagnostic(child_spec)],
             server: registry
           )
 
-        {:error, {:already_present, _pid}} ->
-          Registry.put_diagnostics(plugin_id, [duplicate_child_diagnostic(child_spec)],
-            server: registry
-          )
-
-        {:error, reason} ->
-          Registry.put_diagnostics(plugin_id, [child_start_diagnostic(reason)], server: registry)
+        false ->
+          start_child(plugin_id, child_supervisor, child_spec, registry)
       end
     else
       _other -> :ok
@@ -94,6 +83,40 @@ defmodule AllbertAssist.Plugin.Bootstrap do
       Registry.put_diagnostics(plugin_id, [child_start_diagnostic(Exception.message(exception))],
         server: registry
       )
+  end
+
+  defp start_child(plugin_id, child_supervisor, child_spec, registry) do
+    case DynamicSupervisor.start_child(child_supervisor, child_spec) do
+      {:ok, _pid} ->
+        :ok
+
+      {:ok, _pid, _info} ->
+        :ok
+
+      {:error, {:already_started, _pid}} ->
+        Registry.put_diagnostics(plugin_id, [duplicate_child_diagnostic(child_spec)],
+          server: registry
+        )
+
+      {:error, {:already_present, _pid}} ->
+        Registry.put_diagnostics(plugin_id, [duplicate_child_diagnostic(child_spec)],
+          server: registry
+        )
+
+      {:error, reason} ->
+        Registry.put_diagnostics(plugin_id, [child_start_diagnostic(reason)], server: registry)
+    end
+  end
+
+  defp existing_child_id?(registry, plugin_id, child_id) do
+    Registry.registered_plugins(server: registry)
+    |> Enum.reject(&(&1.plugin_id == plugin_id or &1.children == :ignore))
+    |> Enum.any?(fn entry ->
+      entry.children
+      |> Supervisor.child_spec([])
+      |> Map.get(:id)
+      |> Kernel.==(child_id)
+    end)
   end
 
   defp duplicate_child_diagnostic(child_spec) do
