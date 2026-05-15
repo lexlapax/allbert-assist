@@ -94,15 +94,16 @@ rules.
 
 `AllbertAssist.App.CoreApp` is the first `SurfaceProvider` implementation,
 established in v0.18. It declares the `/agent` conversation route as the
-built-in chat surface — the default surface every channel and runtime turn
-lands on when no other `active_app` is active. Channel-delivered requests
-default to `active_app: :allbert` in v0.18 so every turn has a declared home
-app. v0.24 upgrades `CoreApp`'s surface from `/agent` into the full workspace
-shell; it is `CoreApp`'s surface implementation, not a separate shell.
+built-in chat surface - the default surface every local runtime turn lands on
+when no other `active_app` is active. Runtime requests default to
+`active_app: :allbert` in v0.18 so every turn has a declared home app. Explicit
+known app context from request data or the v0.14 scratchpad still wins. v0.24
+upgrades `CoreApp`'s surface from `/agent` into the full workspace shell; it is
+`CoreApp`'s surface implementation, not a separate shell.
 
 StockSage is the second proving app for this contract. v0.20, formerly M-D2a,
-implements `StockSage.App` with the v0.18 app/surface contract from day one —
-there is no lite→full migration. v0.25 builds all StockSage LiveViews on
+implements `StockSage.App` with the v0.18 app/surface contract from day one -
+there is no lite-to-full migration. v0.25 builds all StockSage LiveViews on
 `AllbertAssist.App.SurfaceProvider` from day one; there is no stepping-stone
 static route mounting that later migrates to the surface contract. Memory
 namespace registration is the one deferred layer, added in v0.27 where

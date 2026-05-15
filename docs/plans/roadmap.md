@@ -929,6 +929,9 @@ Expected direction:
 ## v0.18: Full App Contract And Surface DSL
 
 Plan: `docs/plans/v0.18-plan.md`
+
+Request flow: `docs/plans/v0.18-request-flow.md`
+
 ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
 Status: planned. Formerly M-AppContract-Full, previously planned as v0.25,
@@ -948,13 +951,13 @@ Expected direction:
 - Upgrade `AllbertAssist.App.CoreApp` to implement `SurfaceProvider`, declaring
   the `/agent` conversation route as the first built-in chat surface. This is
   the first `SurfaceProvider` implementation; v0.20 StockSage is the second.
-- Default channel-delivered requests (v0.16 Telegram/email) to
-  `active_app: :allbert` when no other app context is active in scratchpad.
-  Every runtime turn now has a declared home app.
+- Default runtime requests to `active_app: :allbert` when no known app context
+  is active in request data or scratchpad. Every runtime turn now has a
+  declared home app.
 - Add `mix allbert.validate_app MyApp` and
   `docs/how-to-create-an-allbert-app.md`.
 - Design the app/surface contract so v0.20 StockSage can implement
-  `SurfaceProvider` from day one; no lite→full migration needed.
+  `SurfaceProvider` from day one; no lite-to-full migration needed.
 - Keep AG-UI/A2UI as future adapters, not local hard dependencies.
 
 ## v0.19: Cross-Surface Intent Enrichment

@@ -361,9 +361,10 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.17: plugin contract and shipped source-tree channel plugins.
 - v0.18: app/surface contract and `AllbertAssist.Surface` DSL, with memory
   namespace registration deferred to v0.27; `CoreApp` becomes the first
-  `SurfaceProvider` (declaring `/agent` as the built-in chat surface), channels
-  default to `active_app: :allbert`, and v0.20 StockSage implements the same
-  app/surface contract from day one as the second `SurfaceProvider`.
+  `SurfaceProvider` (declaring `/agent` as the built-in chat surface), runtime
+  turns default to `active_app: :allbert` when no known app context exists, and
+  v0.20 StockSage implements the same app/surface contract from day one as the
+  second `SurfaceProvider`.
 - v0.19: cross-surface intent enrichment using jobs, channels, memory,
   scratchpad, app registry context, and registered surface metadata.
 - v0.20: StockSage plugin, umbrella app, and SQLite-first domain.
