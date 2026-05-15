@@ -917,9 +917,10 @@ Plan: `docs/plans/v0.18-plan.md`
 ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
 Status: planned. Formerly M-AppContract-Full, previously planned as v0.25,
-then v0.21. Moved before StockSage so v0.20 implements the full contract from
-day one and v0.25 LiveViews build on `AllbertAssist.App.SurfaceProvider`
-without any stepping-stone migration.
+then v0.21. Moved before StockSage so v0.20 implements the app/surface contract
+from day one and v0.25 LiveViews build on `AllbertAssist.App.SurfaceProvider`
+without any stepping-stone migration. Memory namespace registration is the
+final deferred app-contract layer in v0.27.
 
 Expected direction:
 
@@ -937,8 +938,8 @@ Expected direction:
   Every runtime turn now has a declared home app.
 - Add `mix allbert.validate_app MyApp` and
   `docs/how-to-create-an-allbert-app.md`.
-- Design the full contract so v0.20 StockSage can implement `SurfaceProvider`
-  from day one; no lite→full migration needed.
+- Design the app/surface contract so v0.20 StockSage can implement
+  `SurfaceProvider` from day one; no lite→full migration needed.
 - Keep AG-UI/A2UI as future adapters, not local hard dependencies.
 
 ## v0.19: Cross-Surface Intent Enrichment
@@ -974,7 +975,7 @@ Expected direction:
 - Add `stocksage` and `stocksage_web` umbrella apps.
 - Implement `./plugins/stocksage` as the plugin package, with
   `StockSage.Plugin` as the plugin entrypoint and `StockSage.App` using the
-  v0.18 full app contract.
+  v0.18 app/surface contract.
 - Add SQLite-first StockSage domain records with string `user_id` and optional
   thread/request context.
 - Use the existing `AllbertAssist.Repo` and central SQLite database with
@@ -1043,7 +1044,7 @@ Plan: `docs/plans/v0.24-plan.md`
 Status: planned. Formerly the old v0.17 workspace-surface plan, then v0.27,
 then v0.24 when moved before StockSage LiveViews.
 
-Prerequisite: v0.18 Full App Contract, v0.19 intent enrichment, v0.21 memory
+Prerequisite: v0.18 app/surface contract, v0.19 intent enrichment, v0.21 memory
 review, v0.22 Python bridge, and v0.23 Native Jido agents are complete.
 
 Expected direction:
@@ -1064,9 +1065,9 @@ Expected direction:
 Plan: `docs/plans/v0.25-plan.md`
 
 Status: planned. Formerly M-D3a, previously planned as v0.24. Redesigned to
-build on the v0.18 Full App Contract and Surface DSL from day one.
+build on the v0.18 app/surface contract and Surface DSL from day one.
 
-Prerequisite: v0.18 Full App Contract, v0.22 Python bridge, v0.23 Native Jido
+Prerequisite: v0.18 app/surface contract, v0.22 Python bridge, v0.23 Native Jido
 agents, and v0.24 workspace surface are complete so both analysis engines and
 the workspace shell are available from the start.
 
@@ -1099,7 +1100,7 @@ Expected direction:
   protocol/path/crash safety, and financial workflow authorization coverage.
 - Add surface and SurfaceProvider security evals: catalog bypass, component
   injection, cross-app component type theft, and `to_a2ui/1` redaction-bypass
-  attempts. v0.18 Full App Contract is complete; app-registration evals are
+  attempts. v0.18 app/surface contract is complete; app-registration evals are
   required, not conditional.
 - Require StockSage external market-data calls to flow through Resource Access
   Security Posture and confirmations.
@@ -1113,7 +1114,7 @@ Status: planned. Formerly M-D3b.
 Expected direction:
 
 - Add memory namespace registration to `AllbertAssist.App.Registry` as the
-  final deferred layer of the v0.18 Full App Contract.
+  final deferred layer of the v0.18 app contract.
 - Add outcome resolver, trend metrics, rating calibration, reruns, empty/error
   states, and responsive polish.
 - Replicate Python StockSage 0.0.2 user-facing behavior in Elixir, with Python
@@ -1139,16 +1140,17 @@ Plan: `docs/plans/v0.29-plan.md`
 
 Status: research (unstarted).
 
-Prerequisite: StockSage proves the full v0.18 contract end to end through v0.27,
-v0.24 canvas ships, and v0.28 proves the app/canvas path.
+Prerequisite: StockSage proves the plugin/app path in v0.20, SurfaceProvider
+LiveViews in v0.25, memory namespace completion in v0.27, and canvas
+integration in v0.28.
 
 Expected direction:
 
 - `mix allbert.gen.plugin MyPlugin` scaffolds `./plugins/my_plugin/` with a
   manifest, plugin module, sample skill root, diagnostics, validation docs,
   and explicit compile-path/project-integration instructions.
-- `mix allbert.gen.app MyApp` scaffolds an app plugin that includes all five
-  app contract layers.
+- `mix allbert.gen.app MyApp` scaffolds an app plugin that includes the
+  app/surface contract layers, including a memory namespace stub.
 - Generated app-plugin output includes a plugin module, app module, app
   supervision wiring, sample Jido action, sample `SKILL.md`, sample surface
   provider or surface node, sample Ecto domain stub, and validation docs.

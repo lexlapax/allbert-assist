@@ -183,7 +183,7 @@ For v0.24 agentic workspace surface and ephemeral UI work, read
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing the
 workspace shell lifecycle, canvas persistence, ephemeral surface scoping and
 discard, surface validation at render time, signal-to-render pipeline, or
-workspace navigation behavior. v0.24 requires v0.18 Full App Contract, v0.19
+workspace navigation behavior. v0.24 requires v0.18 app/surface contract, v0.19
 intent enrichment, v0.21 memory review, v0.22 Python bridge, and v0.23 Native
 Jido agents. v0.25 StockSage LiveViews and v0.26 security hardening follow.
 
@@ -203,12 +203,16 @@ plugin-contributed app after v0.17; v0.20 uses `AllbertAssist.Repo` and
 `stocksage_*` tables, not a separate `StockSage.Repo`.
 
 For v0.29 plugin/app generator work, read `docs/plans/v0.29-plan.md`,
-`docs/plans/v0.18-plan.md`, `docs/plans/v0.27-plan.md`,
-`docs/plans/v0.24-plan.md`, `docs/plans/v0.28-plan.md`, and
+`docs/plans/v0.18-plan.md`, `docs/plans/v0.20-plan.md`,
+`docs/plans/v0.24-plan.md`, `docs/plans/v0.25-plan.md`,
+`docs/plans/v0.27-plan.md`, `docs/plans/v0.28-plan.md`, and
 `docs/adr/0017-allbert-plugin-contract.md`, and
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
 `mix allbert.gen.plugin`, `mix allbert.gen.app`, generated plugin/app
 structure, generated skill or action inertness, or `mix allbert.publish_skills`.
+The generator encodes the shape proven by v0.20 StockSage plugin/app, v0.25
+StockSage SurfaceProvider LiveViews, v0.27 memory namespace completion, and
+v0.28 canvas integration.
 The generator must not grant automatic trust, enable generated skills, load
 runtime modules from arbitrary folders, or publish externally without explicit
 operator action.
