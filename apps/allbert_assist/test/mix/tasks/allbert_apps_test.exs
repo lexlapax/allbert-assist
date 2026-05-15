@@ -5,10 +5,12 @@ defmodule Mix.Tasks.Allbert.AppsTest do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias Mix.Tasks.Allbert.Apps, as: AppsTask
+  alias Mix.Tasks.Allbert.ValidateApp, as: ValidateAppTask
 
   setup do
     on_exit(fn ->
       Mix.Task.reenable("allbert.apps")
+      Mix.Task.reenable("allbert.validate_app")
     end)
   end
 
@@ -32,7 +34,8 @@ defmodule Mix.Tasks.Allbert.AppsTest do
     assert show_output =~ "Display name: Allbert"
     assert show_output =~ "Actions: (none)"
     assert show_output =~ "Skill paths: (none)"
-    assert show_output =~ "Surfaces: (none)"
+    assert show_output =~ "Surface provider surfaces: agent:/agent"
+    refute show_output =~ "chat-root"
   end
 
   test "validate checks a compiled module without registering another app" do
@@ -45,7 +48,20 @@ defmodule Mix.Tasks.Allbert.AppsTest do
 
     assert output =~ "Validation: ok"
     assert output =~ "App: allbert"
+    assert output =~ "Provider surfaces: agent:/agent"
     assert length(AppRegistry.registered_apps()) == before_count
+  end
+
+  test "standalone validate_app task prints v0.18 contract summary" do
+    output =
+      capture_io(fn ->
+        assert :ok = ValidateAppTask.run(["AllbertAssist.App.CoreApp"])
+      end)
+
+    assert output =~ "Validation: ok"
+    assert output =~ "app_id: allbert"
+    assert output =~ "provider_surfaces: :agent:/agent"
+    refute output =~ "chat-root"
   end
 
   test "unknown app and unknown module fail cleanly without creating atoms" do

@@ -10,12 +10,17 @@ not the architecture center.
 
 ## Current Status
 
-v0.17 is implemented through its M6 closeout on 2026-05-14 and is ready for
-operator manual verification. It adds the local plugin contract, plugin
+v0.18 is implemented through its M6 closeout on 2026-05-15 and is ready for
+operator manual verification. It adds the full local app/surface contract,
+`AllbertAssist.App.SurfaceProvider`, the validated `AllbertAssist.Surface` DSL,
+`CoreApp` declaring `/agent` as the built-in chat surface, `active_app:
+:allbert` runtime fallback, app/plugin settings schema merging, and
+`mix allbert.validate_app`. Version metadata is now `0.18.0`.
+
+v0.17 remains the local plugin contract: plugin
 discovery/registry/bootstrap/supervision, shipped source-tree Telegram and
 email channel plugins, plugin-contributed skill roots/apps/actions, read-only
-plugin inspection actions, and `mix allbert.plugins`. Version metadata is now
-`0.17.0`.
+plugin inspection actions, and `mix allbert.plugins`.
 
 v0.16 remains the supervised Telegram and email channel substrate: durable
 channel events, explicit external identity mapping, channel-native runtime
@@ -95,6 +100,17 @@ Release details live in `CHANGELOG.md`.
 - Allow trusted compiled source-tree plugins to contribute apps, channels,
   actions, skill roots, settings schema metadata, and supervised child specs
   without granting permissions or bypassing Security Central.
+- Validate the full local app/surface contract through
+  `mix allbert.validate_app MODULE`.
+- Let apps declare provider surfaces through
+  `AllbertAssist.App.SurfaceProvider` and validated
+  `AllbertAssist.Surface` nodes.
+- Treat `/agent` as the built-in `CoreApp` chat surface while leaving the
+  reviewed Phoenix route implementation in place.
+- Default runtime turns with no known app context to `active_app: allbert` and
+  record that context in signals, traces, responses, and conversation metadata.
+- Merge app/plugin-contributed settings schema entries into Settings Central
+  at read and validation time.
 - Tag registered action capabilities with optional `app_id` when an app claims
   the action, without granting permissions from that tag.
 - Include app-contributed skill paths in skill discovery after project roots
@@ -164,11 +180,11 @@ Release details live in `CHANGELOG.md`.
   `resource_uri` should be re-created through the current approval/resource
   grant UX.
 
-v0.17 does not add hosted auth, roles, distributed scheduling, remote workers,
+v0.18 does not add hosted auth, roles, distributed scheduling, remote workers,
 archive/delete workflow, durable app-registry persistence, app-scoped
 permissions, app-owned jobs, app-scoped intent routing, SMS,
 Discord, Slack, webhooks, IMAP IDLE, SMTP provider APIs, proactive broadcast,
-`AllbertAssist.Surface`, dynamic route loading, workspace UI, canvas state,
+dynamic route loading, workspace UI replacement, canvas state,
 semantic retrieval, vector search, browser/crawler behavior, MCP execution,
 `agent://` delegation, generic local file reading, remote plugin installs,
 package-manager execution during plugin discovery, hot reload, arbitrary code
@@ -184,9 +200,10 @@ traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.17 implementation plan: `docs/plans/v0.17-plan.md`
-- v0.17 request flow and manual verification: `docs/plans/v0.17-request-flow.md`
-- Next milestone plan: `docs/plans/v0.18-plan.md`
+- v0.18 implementation plan: `docs/plans/v0.18-plan.md`
+- v0.18 request flow and manual verification: `docs/plans/v0.18-request-flow.md`
+- App authoring guide: `docs/developer/how-to-create-an-allbert-app.md`
+- Next milestone plan: `docs/plans/v0.19-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development

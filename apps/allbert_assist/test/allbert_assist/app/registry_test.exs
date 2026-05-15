@@ -5,6 +5,8 @@ defmodule AllbertAssist.App.RegistryTest do
   alias AllbertAssist.Actions.Multiply
   alias AllbertAssist.App.Registry
   alias AllbertAssist.App.Validator
+  alias AllbertAssist.Surface
+  alias AllbertAssist.Surface.Node
 
   defmodule FixtureApp do
     use AllbertAssist.App
@@ -56,6 +58,87 @@ defmodule AllbertAssist.App.RegistryTest do
 
     @impl true
     def validate(_opts), do: :ok
+  end
+
+  defmodule ProviderApp do
+    use AllbertAssist.App
+    use AllbertAssist.App.SurfaceProvider
+
+    @impl true
+    def app_id, do: :provider_app
+
+    @impl true
+    def display_name, do: "Provider App"
+
+    @impl true
+    def version, do: "0.18.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def agents, do: [AllbertAssist.Agents.IntentAgent]
+
+    @impl true
+    def signals, do: %{emits: ["provider.app.started"], subscribes: []}
+
+    @impl true
+    def settings_schema do
+      [%{key: "apps.provider_app.enabled", type: :boolean, default: false}]
+    end
+
+    @impl true
+    def surfaces do
+      [
+        %Surface{
+          id: :home,
+          app_id: :provider_app,
+          label: "Provider Home",
+          path: "/provider",
+          kind: :route,
+          status: :available,
+          nodes: [%Node{id: "root", component: :route}],
+          fallback_text: "Provider home."
+        }
+      ]
+    end
+
+    def surface_catalog, do: [%{component: :route, allowed_props: [], allowed_bindings: []}]
+  end
+
+  defmodule DuplicateRouteProviderApp do
+    use AllbertAssist.App
+    use AllbertAssist.App.SurfaceProvider
+
+    @impl true
+    def app_id, do: :duplicate_route_provider_app
+
+    @impl true
+    def display_name, do: "Duplicate Route Provider"
+
+    @impl true
+    def version, do: "0.18.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def surfaces do
+      [
+        %Surface{
+          id: :other_home,
+          app_id: :duplicate_route_provider_app,
+          label: "Duplicate Route",
+          path: "/provider",
+          kind: :route,
+          status: :available,
+          nodes: [%Node{id: "root", component: :route}],
+          fallback_text: "Duplicate route."
+        }
+      ]
+    end
+
+    def surface_catalog, do: [%{component: :route, allowed_props: [], allowed_bindings: []}]
   end
 
   defmodule DuplicateSurfaceApp do
@@ -188,8 +271,11 @@ defmodule AllbertAssist.App.RegistryTest do
   end
 
   test "use AllbertAssist.App supplies inert defaults" do
+    assert EmptyApp.agents() == []
     assert EmptyApp.actions() == []
+    assert EmptyApp.signals() == %{emits: [], subscribes: []}
     assert EmptyApp.skill_paths() == []
+    assert EmptyApp.settings_schema() == []
     assert EmptyApp.surfaces() == []
     assert EmptyApp.child_spec([]) == :ignore
   end
@@ -226,6 +312,47 @@ defmodule AllbertAssist.App.RegistryTest do
     assert {:error, :not_found} = Registry.lookup(:fixture_app, opts)
     assert Registry.registered_apps(opts) == []
     assert DynamicSupervisor.which_children(dynamic_supervisor) == []
+  end
+
+  test "stores and exposes full v0.18 contract fields", %{opts: opts} do
+    assert {:ok, :provider_app} = Registry.register(ProviderApp, opts)
+
+    assert {:ok, entry} = Registry.lookup(:provider_app, opts)
+    assert entry.agents == [AllbertAssist.Agents.IntentAgent]
+    assert entry.signals.emits == ["provider.app.started"]
+    assert [%{key: "apps.provider_app.enabled"}] = entry.settings_schema
+    assert entry.surface_provider == ProviderApp
+    assert [%Surface{id: :home}] = entry.provider_surfaces
+
+    assert [%{app_id: :provider_app, module: AllbertAssist.Agents.IntentAgent}] =
+             Registry.registered_agents(opts)
+
+    assert [%{app_id: :provider_app, emits: ["provider.app.started"]}] =
+             Registry.registered_signals(opts)
+
+    assert [%{app_id: :provider_app, key: "apps.provider_app.enabled"}] =
+             Registry.registered_settings_schema(opts)
+
+    assert [%{app_id: :provider_app, module: ProviderApp, surfaces: [%Surface{id: :home}]}] =
+             Registry.registered_surface_providers(opts)
+
+    assert [%{id: :home, path: "/provider", provider?: true}] = Registry.registered_surfaces(opts)
+  end
+
+  test "cross-app duplicate provider route paths are diagnostics only", %{opts: opts} do
+    assert {:ok, :provider_app} = Registry.register(ProviderApp, opts)
+
+    assert {:ok, :duplicate_route_provider_app} =
+             Registry.register(DuplicateRouteProviderApp, opts)
+
+    assert %{
+             duplicate_route_provider_app: [
+               %{
+                 kind: :duplicate_route_path,
+                 detail: %{path: "/provider", app_id: :duplicate_route_provider_app}
+               }
+             ]
+           } = Registry.diagnostics(opts)
   end
 
   test "rejects duplicate app ids without disturbing existing registration", %{opts: opts} do

@@ -9,8 +9,12 @@ defmodule AllbertAssist.App.Validator do
     version: 0,
     validate: 1,
     child_spec: 1,
+    agents: 0,
     actions: 0,
-    skill_paths: 0
+    signals: 0,
+    skill_paths: 0,
+    settings_schema: 0,
+    surfaces: 0
   ]
 
   @app_id_regex ~r/^[a-z][a-z0-9_]*$/
@@ -19,6 +23,33 @@ defmodule AllbertAssist.App.Validator do
     allbert: [AllbertAssist.App.CoreApp],
     stocksage: [AllbertAssist.App.StockSageStub, StockSage.App]
   }
+
+  @known_setting_types [
+    :string,
+    :string_or_empty,
+    :email_or_empty,
+    :timezone,
+    :enum,
+    :boolean,
+    :string_list,
+    :http_methods,
+    :external_service_profiles,
+    :command_profiles,
+    :interpreter_profiles,
+    :package_manager_profiles,
+    :resource_grants,
+    :url_or_nil,
+    :secret_ref_or_nil,
+    :channel_secret_ref,
+    :channel_identity_map,
+    :provider_ref,
+    :profile_ref,
+    :temperature,
+    :positive_integer,
+    :bounded_integer,
+    :non_negative_integer,
+    :timeout_ms
+  ]
 
   @type result :: {:ok, map()} | {:error, {atom(), term()}, [map()]}
 
@@ -29,18 +60,28 @@ defmodule AllbertAssist.App.Validator do
          {:ok, display_name} <- validate_string(module, :display_name, 64),
          {:ok, version} <- validate_string(module, :version, 32),
          :ok <- run_app_validation(module, opts),
+         {:ok, agents} <- validate_agents(module),
          {:ok, actions} <- validate_actions(module),
+         {:ok, signals} <- validate_signals(module),
          {:ok, skill_paths} <- validate_skill_paths(module),
-         {:ok, surfaces} <- validate_surfaces(module, app_id) do
+         {:ok, settings_schema} <- validate_settings_schema(module, app_id),
+         {:ok, surface_provider} <- validate_surface_provider(module, app_id),
+         {:ok, surfaces} <- validate_surfaces(module, app_id, surface_provider.provider?) do
       {:ok,
        %{
          app_id: app_id,
          module: module,
          display_name: display_name,
          version: version,
+         agents: agents,
          actions: actions,
+         signals: signals,
          skill_paths: skill_paths,
-         surfaces: surfaces
+         settings_schema: settings_schema,
+         surfaces: surfaces,
+         surface_provider: surface_provider.module,
+         provider_surfaces: surface_provider.surfaces,
+         surface_catalog: surface_provider.catalog
        }}
     else
       {:error, reason, diagnostics} -> {:error, reason, diagnostics}
@@ -156,6 +197,175 @@ defmodule AllbertAssist.App.Validator do
 
   defp validate_action_module(action), do: {:error, {:unknown_action_module, action}}
 
+  defp validate_agents(module) do
+    case module.agents() do
+      agents when is_list(agents) ->
+        validate_agent_modules(agents, module, [])
+
+      _other ->
+        {:error, {:invalid_agents, module}}
+    end
+  end
+
+  defp validate_agent_modules([], _module, acc), do: {:ok, Enum.reverse(acc)}
+
+  defp validate_agent_modules([agent | rest], module, acc) do
+    if is_atom(agent) and Code.ensure_loaded?(agent) do
+      validate_agent_modules(rest, module, [agent | acc])
+    else
+      {:error, {:invalid_agents, module}}
+    end
+  end
+
+  defp validate_signals(module) do
+    case module.signals() do
+      %{emits: emits, subscribes: subscribes} = signals ->
+        with :ok <- validate_signal_topics(emits),
+             :ok <- validate_signal_topics(subscribes) do
+          {:ok, %{emits: signals.emits, subscribes: signals.subscribes}}
+        else
+          {:error, reason} -> {:error, {:invalid_signals, reason}}
+        end
+
+      _other ->
+        {:error, {:invalid_signals, module}}
+    end
+  end
+
+  defp validate_signal_topics(topics) when is_list(topics) do
+    if Enum.all?(topics, &valid_signal_topic?/1), do: :ok, else: {:error, :topic}
+  end
+
+  defp validate_signal_topics(_topics), do: {:error, :topic_list}
+
+  defp valid_signal_topic?(topic) when is_binary(topic) do
+    byte_size(topic) in 1..128 and
+      Regex.match?(~r/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$/, topic)
+  end
+
+  defp valid_signal_topic?(_topic), do: false
+
+  defp validate_settings_schema(module, app_id) do
+    case module.settings_schema() do
+      schema when is_list(schema) ->
+        normalize_settings_schema(schema, app_id, [])
+
+      _other ->
+        {:error, {:invalid_settings_schema, module}}
+    end
+  end
+
+  defp normalize_settings_schema([], _app_id, acc), do: {:ok, Enum.reverse(acc)}
+
+  defp normalize_settings_schema([entry | rest], app_id, acc) when is_map(entry) do
+    key = field(entry, :key)
+    type = field(entry, :type)
+
+    cond do
+      not is_binary(key) or not String.starts_with?(key, "apps.#{app_id}.") ->
+        {:error, {:invalid_settings_schema, :key}}
+
+      type not in @known_setting_types ->
+        {:error, {:invalid_settings_schema, :type}}
+
+      not json_safe?(field(entry, :default)) ->
+        {:error, {:invalid_settings_schema, :default}}
+
+      true ->
+        normalize_settings_schema(rest, app_id, [
+          %{
+            app_id: app_id,
+            key: key,
+            type: type,
+            default: field(entry, :default),
+            description: normalize_optional_string(field(entry, :description)) || "",
+            secret?: field(entry, :secret?, false)
+          }
+          | acc
+        ])
+    end
+  end
+
+  defp normalize_settings_schema(_schema, _app_id, _acc),
+    do: {:error, {:invalid_settings_schema, :entry}}
+
+  defp validate_surface_provider(module, app_id) do
+    if surface_provider?(module) do
+      with {:ok, provider_surfaces} <- validate_provider_surfaces(module, app_id),
+           {:ok, catalog} <- validate_provider_catalog(module) do
+        {:ok, %{provider?: true, module: module, surfaces: provider_surfaces, catalog: catalog}}
+      end
+    else
+      {:ok, %{provider?: false, module: nil, surfaces: [], catalog: []}}
+    end
+  end
+
+  defp surface_provider?(module) do
+    attributes = module.module_info(:attributes)
+
+    behaviours =
+      attributes
+      |> Keyword.get_values(:behaviour)
+      |> List.flatten()
+
+    AllbertAssist.App.SurfaceProvider in behaviours or
+      attributes
+      |> Keyword.get_values(:allbert_surface_provider)
+      |> List.flatten()
+      |> Enum.member?(true)
+  rescue
+    _exception -> false
+  end
+
+  defp validate_provider_surfaces(module, app_id) do
+    with surfaces when is_list(surfaces) <- module.surfaces(),
+         {:ok, validated} <- validate_surface_list(surfaces),
+         :ok <- validate_provider_surface_app_ids(validated, app_id),
+         :ok <- validate_unique_provider_surface_ids(validated) do
+      {:ok, validated}
+    else
+      _other -> {:error, {:invalid_surface_provider, module}}
+    end
+  end
+
+  defp validate_surface_list(surfaces) do
+    Enum.reduce_while(surfaces, {:ok, []}, fn surface, {:ok, acc} ->
+      case AllbertAssist.Surface.validate_surface(surface) do
+        {:ok, surface} -> {:cont, {:ok, [surface | acc]}}
+        {:error, diagnostics} -> {:halt, {:error, {:invalid_surface_provider, diagnostics}}}
+      end
+    end)
+    |> case do
+      {:ok, surfaces} -> {:ok, Enum.reverse(surfaces)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_provider_surface_app_ids(surfaces, app_id) do
+    if Enum.all?(surfaces, &(&1.app_id == app_id)) do
+      :ok
+    else
+      {:error, {:invalid_surface_provider, :app_id}}
+    end
+  end
+
+  defp validate_unique_provider_surface_ids(surfaces) do
+    duplicates =
+      surfaces
+      |> Enum.map(& &1.id)
+      |> Enum.frequencies()
+      |> Enum.filter(fn {_id, count} -> count > 1 end)
+
+    if duplicates == [], do: :ok, else: {:error, {:invalid_surface_provider, :duplicate_id}}
+  end
+
+  defp validate_provider_catalog(module) do
+    case module.surface_catalog() do
+      catalog when is_list(catalog) -> AllbertAssist.Surface.validate_catalog(catalog)
+      _other -> {:error, {:invalid_surface_catalog, module}}
+    end
+  end
+
   defp validate_skill_paths(module) do
     case module.skill_paths() do
       paths when is_list(paths) ->
@@ -184,7 +394,9 @@ defmodule AllbertAssist.App.Validator do
 
   defp validate_skill_path(path), do: {:error, {:invalid_skill_path, path}}
 
-  defp validate_surfaces(module, app_id) do
+  defp validate_surfaces(_module, _app_id, true), do: {:ok, []}
+
+  defp validate_surfaces(module, app_id, false) do
     surfaces = if function_exported?(module, :surfaces, 0), do: module.surfaces(), else: []
 
     with true <- is_list(surfaces),
@@ -292,6 +504,21 @@ defmodule AllbertAssist.App.Validator do
   defp normalize_optional_string(value) when is_binary(value), do: String.trim(value)
   defp normalize_optional_string(_value), do: nil
 
+  defp json_safe?(value)
+       when is_binary(value) or is_number(value) or is_boolean(value) or is_nil(value),
+       do: true
+
+  defp json_safe?(value) when is_list(value), do: Enum.all?(value, &json_safe?/1)
+
+  defp json_safe?(value) when is_map(value) do
+    Enum.all?(value, fn
+      {key, nested} when is_binary(key) -> json_safe?(nested)
+      {_key, _nested} -> false
+    end)
+  end
+
+  defp json_safe?(_value), do: false
+
   defp normalize_diagnostics(diagnostics), do: Enum.map(diagnostics, &normalize_diagnostic/1)
 
   defp normalize_diagnostic(%{} = diagnostic) do
@@ -320,5 +547,8 @@ defmodule AllbertAssist.App.Validator do
   defp reason_message({kind, detail}), do: "#{kind}: #{inspect(detail)}"
   defp reason_message(reason), do: inspect(reason)
 
-  defp field(map, key) when is_map(map), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
+  defp field(map, key, default \\ nil)
+
+  defp field(map, key, default) when is_map(map),
+    do: Map.get(map, key, Map.get(map, Atom.to_string(key), default))
 end

@@ -1,0 +1,130 @@
+# How To Create An Allbert App
+
+Allbert apps are local, compiled Elixir modules that contribute contract
+metadata to the Allbert runtime. They do not gain authority by registering.
+Actions still run through `AllbertAssist.Actions.Runner`, Security Central,
+confirmations, traces, and audits.
+
+## Minimal Plugin-Contributed App
+
+```elixir
+defmodule MyPlugin.App do
+  use AllbertAssist.App
+  use AllbertAssist.App.SurfaceProvider
+
+  alias AllbertAssist.Surface
+  alias AllbertAssist.Surface.Node
+
+  @impl true
+  def app_id, do: :my_app
+
+  @impl true
+  def display_name, do: "My App"
+
+  @impl true
+  def version, do: "0.1.0"
+
+  @impl true
+  def validate(_opts), do: :ok
+
+  @impl true
+  def actions, do: [MyPlugin.Actions.SayHello]
+
+  @impl true
+  def agents, do: []
+
+  @impl true
+  def signals do
+    %{emits: ["my_app.example.started"], subscribes: []}
+  end
+
+  @impl true
+  def skill_paths do
+    [Path.expand("../skills", __DIR__)]
+  end
+
+  @impl true
+  def settings_schema do
+    [
+      %{
+        key: "apps.my_app.enabled",
+        type: :boolean,
+        default: false,
+        description: "Enable My App.",
+        secret?: false
+      }
+    ]
+  end
+
+  @impl true
+  def surfaces do
+    [
+      %Surface{
+        id: :home,
+        app_id: :my_app,
+        label: "My App",
+        path: "/my_app",
+        kind: :route,
+        status: :placeholder,
+        nodes: [%Node{id: "root", component: :route}],
+        fallback_text: "My App is available at /my_app."
+      }
+    ]
+  end
+
+  def surface_catalog do
+    [%{component: :route, allowed_props: [], allowed_bindings: []}]
+  end
+end
+```
+
+The plugin module then contributes the app:
+
+```elixir
+defmodule MyPlugin do
+  use AllbertAssist.Plugin
+
+  def plugin_id, do: "example.my_plugin"
+  def display_name, do: "Example My Plugin"
+  def version, do: "0.1.0"
+  def validate(_opts), do: :ok
+  def apps, do: [MyPlugin.App]
+end
+```
+
+## Callback Summary
+
+`AllbertAssist.App` callbacks:
+
+- `app_id/0`, `display_name/0`, `version/0`: identity metadata.
+- `validate/1`: app-owned startup validation.
+- `child_spec/1`: optional supervised child process; defaults to `:ignore`.
+- `agents/0`: declared agent modules.
+- `actions/0`: registered Jido action modules.
+- `signals/0`: declared emitted/subscribed signal topics.
+- `skill_paths/0`: app-owned Agent Skill roots.
+- `settings_schema/0`: Settings Central schema entries under
+  `apps.<app_id>.*`.
+- `surfaces/0`: legacy navigation summaries, or provider surfaces when the
+  module uses `AllbertAssist.App.SurfaceProvider`.
+
+`AllbertAssist.App.SurfaceProvider` callbacks:
+
+- `surfaces/0`: validated `AllbertAssist.Surface` declarations.
+- `surface_catalog/0`: allowed component catalog entries.
+- `fallback_surface/1`: optional text fallback; defaults to
+  `{:error, :not_found}`.
+
+Memory namespace registration is not part of v0.18. It is deferred to v0.27.
+
+## Validate The App
+
+After the module is compiled:
+
+```sh
+mix allbert.validate_app MyPlugin.App
+```
+
+Expected output includes the app id, version, action count, skill path count,
+agent count, settings schema count, signal counts, and surface ids/paths. The
+task prints summaries only; it does not dump raw node trees or secrets.

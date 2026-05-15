@@ -1,6 +1,7 @@
 defmodule AllbertAssist.SettingsTest do
   use ExUnit.Case, async: false
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -13,6 +14,35 @@ defmodule AllbertAssist.SettingsTest do
     "ALLBERT_SETTINGS_ROOT",
     "ALLBERT_SETTINGS_MASTER_KEY"
   ]
+
+  defmodule AppSettingsFixture do
+    use AllbertAssist.App
+
+    @impl true
+    def app_id, do: :settings_fixture_app
+
+    @impl true
+    def display_name, do: "Settings Fixture"
+
+    @impl true
+    def version, do: "0.18.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def settings_schema do
+      [
+        %{
+          key: "apps.settings_fixture_app.enabled",
+          type: :boolean,
+          default: false,
+          description: "Enable settings fixture.",
+          secret?: false
+        }
+      ]
+    end
+  end
 
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
@@ -27,6 +57,7 @@ defmodule AllbertAssist.SettingsTest do
     System.put_env("ALLBERT_HOME", home)
 
     on_exit(fn ->
+      AppRegistry.unregister(:settings_fixture_app)
       PluginRegistry.clear()
       PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
       PluginRegistry.register_module(AllbertAssist.Plugins.Email)
@@ -158,14 +189,14 @@ defmodule AllbertAssist.SettingsTest do
                trust_status: :trusted,
                settings_schema: [
                  %{
-                   key: "example.settings.enabled",
+                   key: "plugins.example.settings.enabled",
                    type: :boolean,
                    default: false,
                    writable?: true,
                    sensitive?: false
                  },
                  %{
-                   key: "example.settings.mode",
+                   key: "plugins.example.settings.mode",
                    type: :enum,
                    default: "safe",
                    writable?: true,
@@ -175,18 +206,31 @@ defmodule AllbertAssist.SettingsTest do
                ]
              })
 
-    assert {:ok, false} = Settings.get("example.settings.enabled")
-    assert {:ok, "safe"} = Settings.get("example.settings.mode")
-    assert "example.settings.enabled" in Settings.safe_write_keys()
+    assert {:ok, false} = Settings.get("plugins.example.settings.enabled")
+    assert {:ok, "safe"} = Settings.get("plugins.example.settings.mode")
+    assert "plugins.example.settings.enabled" in Settings.safe_write_keys()
 
     assert {:ok, resolved} =
-             Settings.put("example.settings.enabled", true, %{audit?: false})
+             Settings.put("plugins.example.settings.enabled", true, %{audit?: false})
 
     assert resolved.value == true
-    assert {:ok, true} = Settings.get("example.settings.enabled")
+    assert {:ok, true} = Settings.get("plugins.example.settings.enabled")
 
-    assert {:error, {:invalid_setting, "example.settings.mode", _reason}} =
-             Settings.put("example.settings.mode", "reckless", %{audit?: false})
+    assert {:error, {:invalid_setting, "plugins.example.settings.mode", _reason}} =
+             Settings.put("plugins.example.settings.mode", "reckless", %{audit?: false})
+  end
+
+  test "app-contributed settings schema participates in Settings Central" do
+    assert {:ok, :settings_fixture_app} = AppRegistry.register(AppSettingsFixture)
+
+    assert {:ok, false} = Settings.get("apps.settings_fixture_app.enabled")
+    assert "apps.settings_fixture_app.enabled" in Settings.safe_write_keys()
+
+    assert {:ok, resolved} =
+             Settings.put("apps.settings_fixture_app.enabled", true, %{audit?: false})
+
+    assert resolved.value == true
+    assert {:ok, true} = Settings.get("apps.settings_fixture_app.enabled")
   end
 
   test "confirmation settings are writable and validated" do

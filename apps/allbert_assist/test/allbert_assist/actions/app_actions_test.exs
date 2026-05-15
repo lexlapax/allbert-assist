@@ -63,9 +63,13 @@ defmodule AllbertAssist.Actions.AppActionsTest do
     assert response.app.display_name == "Allbert"
     assert response.app.module == AllbertAssist.App.CoreApp
     assert response.app.action_names == []
+    assert response.app.agent_names == []
     assert response.app.skill_paths == []
     assert response.app.surfaces == []
+    assert [%{id: :agent, path: "/agent"}] = response.app.provider_surfaces
+    assert response.app.surface_catalog_count == 3
     refute inspect(response.app) =~ "child_pid"
+    refute inspect(response.app) =~ "chat-root"
   end
 
   test "show_app sorts action names for deterministic app inspection" do

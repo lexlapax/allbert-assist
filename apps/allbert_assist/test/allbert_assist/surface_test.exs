@@ -1,0 +1,144 @@
+defmodule AllbertAssist.SurfaceTest do
+  use ExUnit.Case, async: true
+
+  alias AllbertAssist.Actions.Intent.DirectAnswer
+  alias AllbertAssist.Surface
+  alias AllbertAssist.Surface.ActionBinding
+  alias AllbertAssist.Surface.Encoder
+  alias AllbertAssist.Surface.Node
+
+  defp valid_surface(attrs \\ %{}) do
+    struct!(
+      Surface,
+      Map.merge(
+        %{
+          id: :agent,
+          app_id: :allbert,
+          label: "Allbert Chat",
+          path: "/agent",
+          kind: :chat,
+          status: :available,
+          fallback_text: "Allbert chat is available at /agent.",
+          nodes: [
+            %Node{
+              id: "chat-root",
+              component: :chat,
+              children: [
+                %Node{id: "chat-timeline", component: :timeline},
+                %Node{id: "chat-composer", component: :composer}
+              ]
+            }
+          ]
+        },
+        attrs
+      )
+    )
+  end
+
+  test "valid chat surface validates" do
+    assert {:ok, %Surface{id: :agent}} = Surface.validate_surface(valid_surface())
+  end
+
+  test "known components are the v0.18 initial catalog" do
+    assert Surface.known_components() |> length() == 12
+    assert :chat in Surface.known_components()
+    assert :route in Surface.known_components()
+    assert :action_button in Surface.known_components()
+  end
+
+  test "rejects unknown component and duplicate node ids" do
+    assert {:error, diagnostics} =
+             Surface.validate_surface(
+               valid_surface(%{
+                 nodes: [
+                   %Node{id: "dup", component: :chat},
+                   %Node{id: "dup", component: :unknown}
+                 ]
+               })
+             )
+
+    assert Enum.any?(diagnostics, &(&1.kind == :duplicate_node_id))
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_field))
+  end
+
+  test "rejects non-local paths" do
+    assert {:error, diagnostics} =
+             Surface.validate_surface(valid_surface(%{path: "https://example.com"}))
+
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_path))
+
+    assert {:error, diagnostics} =
+             Surface.validate_surface(valid_surface(%{path: "no-leading-slash"}))
+
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_path))
+  end
+
+  test "rejects secret-like keys and unsafe prop values" do
+    unsafe_values = [
+      %{api_key: "secret"},
+      %{bot_token: "secret"},
+      %{body: "<div>html</div>"},
+      %{href: "javascript:alert(1)"},
+      %{href: "http://example.com"}
+    ]
+
+    Enum.each(unsafe_values, fn props ->
+      assert {:error, diagnostics} =
+               Surface.validate_surface(
+                 valid_surface(%{nodes: [%Node{id: "node", component: :text, props: props}]})
+               )
+
+      assert diagnostics != []
+    end)
+  end
+
+  test "valid action binding is enriched with registry metadata" do
+    assert {:ok, %Surface{nodes: [%Node{bindings: [binding]}]}} =
+             Surface.validate_surface(
+               valid_surface(%{
+                 nodes: [
+                   %Node{
+                     id: "action",
+                     component: :action_button,
+                     bindings: [%ActionBinding{action_name: DirectAnswer.name()}]
+                   }
+                 ]
+               })
+             )
+
+    assert binding.action_module == DirectAnswer
+    assert binding.permission == :read_only
+    assert binding.confirmation_required? == false
+  end
+
+  test "invalid action bindings are rejected" do
+    for action_name <- ["", "model_invented_action"] do
+      assert {:error, diagnostics} =
+               Surface.validate_surface(
+                 valid_surface(%{
+                   nodes: [
+                     %Node{
+                       id: "action",
+                       component: :action_button,
+                       bindings: [%ActionBinding{action_name: action_name}]
+                     }
+                   ]
+                 })
+               )
+
+      assert diagnostics != []
+    end
+  end
+
+  test "catalog validation and A2UI stub" do
+    assert {:ok, [%{component: :chat}]} =
+             Surface.validate_catalog([
+               %{component: :chat, allowed_props: [], allowed_bindings: []}
+             ])
+
+    assert {:error, diagnostics} = Surface.validate_catalog([%{component: :nope}])
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_field))
+
+    assert {:error, :not_implemented} = Encoder.to_a2ui(valid_surface())
+  end
+end
