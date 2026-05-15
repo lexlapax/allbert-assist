@@ -31,7 +31,7 @@ StockSage lands in v0.20 as a source-tree plugin-contributed app:
 
 - `./plugins/stocksage` is the plugin package.
 - `StockSage.Plugin` is the plugin entrypoint.
-- `StockSage.App` implements the v0.15 `AllbertAssist.App` contract.
+- `StockSage.App` implements the v0.18 app/surface contract from day one.
 - `apps/stocksage` contains the domain contexts, schemas, local actions, Mix
   tasks, and tests.
 - `apps/stocksage_web` is a compile-ready placeholder for later LiveViews, but
