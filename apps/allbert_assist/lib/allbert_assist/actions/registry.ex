@@ -20,7 +20,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.ActivateSkill
   alias AllbertAssist.Actions.Intent.AppendMemory
   alias AllbertAssist.Actions.Intent.DirectAnswer
+  alias AllbertAssist.Actions.Intent.ExplainIntent
   alias AllbertAssist.Actions.Intent.ExternalNetworkRequest
+  alias AllbertAssist.Actions.Intent.ListIntentCandidates
   alias AllbertAssist.Actions.Intent.ListSkills
   alias AllbertAssist.Actions.Intent.PlanShellCommand
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
@@ -113,6 +115,8 @@ defmodule AllbertAssist.Actions.Registry do
     ClearActiveApp,
     ShowSessionScratchpad,
     RecordTrace,
+    ExplainIntent,
+    ListIntentCandidates,
     RegistryHealth,
     TraceSummary
   ]
@@ -484,6 +488,20 @@ defmodule AllbertAssist.Actions.Registry do
       permission: :memory_write,
       exposure: :internal,
       execution_mode: :internal_trace,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ExplainIntent => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :read_only,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ListIntentCandidates => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :read_only,
       skill_backed?: false,
       confirmation: :not_required
     },

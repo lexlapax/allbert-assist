@@ -181,7 +181,7 @@ For v0.18 app contract and surface DSL regression work, read `docs/plans/v0.18-p
 callbacks, surface validation, workspace navigation, or canvas component
 catalogs.
 
-For active v0.19 cross-surface intent enrichment work, read
+For v0.19 cross-surface intent enrichment regression work, read
 `docs/plans/v0.19-plan.md`, `docs/plans/v0.19-request-flow.md`,
 `docs/plans/v0.11-plan.md`,
 `docs/plans/v0.11-request-flow.md`, `docs/plans/v0.18-plan.md`,

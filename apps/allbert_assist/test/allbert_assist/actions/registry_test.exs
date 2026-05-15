@@ -129,6 +129,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "clear_active_app",
              "show_session_scratchpad",
              "record_trace",
+             "explain_intent",
+             "list_intent_candidates",
              "registry_health",
              "trace_summary"
            ]
@@ -185,6 +187,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "clear_active_app",
              "show_session_scratchpad",
              "record_trace",
+             "explain_intent",
+             "list_intent_candidates",
              "registry_health",
              "trace_summary"
            ]
@@ -276,6 +280,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert trace_summary.execution_mode == :read_only
     assert trace_summary.exposure == :internal
     assert trace_summary.confirmation == :not_required
+
+    assert {:ok, explain_intent} = Registry.capability("explain_intent")
+    assert explain_intent.permission == :read_only
+    assert explain_intent.execution_mode == :read_only
+    assert explain_intent.exposure == :internal
+    assert explain_intent.confirmation == :not_required
 
     assert {:ok, list_apps} = Registry.capability("list_apps")
     assert list_apps.permission == :read_only

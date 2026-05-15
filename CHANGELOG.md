@@ -1,5 +1,45 @@
 # Changelog
 
+## v0.19 - Cross-Surface Intent Enrichment
+
+Status: implemented through M6 closeout on 2026-05-15. Version metadata is
+`0.19.0`; the operator manual verification matrix is ready for acceptance
+checks.
+
+### Added
+
+- Registry-aware intent candidates for actions, skills, and registered app
+  surfaces, with bounded selected/rejected candidate metadata in decisions.
+- Active-app affinity and inert registered-surface navigation decisions for
+  prompts such as opening the Allbert chat surface.
+- Optional `AllbertAssist.Intent.Classifier` model-assist hook, disabled by
+  default, with fake classifier tests and candidate-set validation.
+- `explain_intent` and `list_intent_candidates` read-only internal actions for
+  operator inspection.
+- `## Intent Candidates` trace rendering with selected candidate, rejected
+  candidates, app context, classifier diagnostics, and surface target metadata.
+
+### Safety
+
+- v0.11-v0.13 resource, confirmation, Approval Handoff, job, and channel
+  behavior remains unchanged; risky prompts still route through their existing
+  registered actions and resource posture before any surface fallback.
+- `active_app`, plugin provenance, surface metadata, and model output are
+  ranking/explainability inputs only. They do not grant authority or bypass
+  Security Central.
+- Model assistance cannot invent candidates, is off by default, and records no
+  raw prompt or raw model completion in traces.
+
+### Verification
+
+- Focused suites passed for candidate validation, ranking, classifier fallback,
+  runtime risky-route preservation, trace rendering, and intent-inspection
+  actions.
+- Final v0.19 closeout gates passed: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- Manual verification steps live in `docs/plans/v0.19-request-flow.md`.
+
 ## v0.18 - Full App Contract And Surface DSL
 
 Status: implemented through M6 closeout on 2026-05-15. Version metadata is

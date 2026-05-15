@@ -174,6 +174,10 @@ defmodule AllbertAssist.Trace do
 
     #{intent_decision_text(response)}
 
+    ## Intent Candidates
+
+    #{intent_candidates_text(response)}
+
     ## Resource Access
 
     #{intent_resource_access_text(response)}
@@ -539,6 +543,55 @@ defmodule AllbertAssist.Trace do
         |> Redactor.redact()
         |> inspect(pretty: true, limit: :infinity)
     end
+  end
+
+  defp intent_candidates_text(response) do
+    candidates =
+      response
+      |> map_value(:decision)
+      |> map_value(:trace_metadata)
+      |> map_value(:intent_candidates)
+
+    case candidates do
+      nil ->
+        "none"
+
+      candidates ->
+        selected = map_value(candidates, :selected)
+        rejected = candidates |> map_value(:rejected) |> List.wrap() |> Enum.take(5)
+
+        """
+        Active app: #{response |> map_value(:decision) |> map_value(:trace_metadata) |> map_value(:active_app) || "none"}
+        Surface target: #{bounded_inspect(response |> map_value(:decision) |> map_value(:trace_metadata) |> map_value(:surface_target))}
+        Classifier: #{bounded_inspect(response |> map_value(:decision) |> map_value(:trace_metadata) |> map_value(:classifier))}
+        Selected: #{candidate_line(selected)}
+        Rejected:
+        #{rejected_lines(rejected)}
+        """
+        |> String.trim()
+    end
+  end
+
+  defp candidate_line(nil), do: "none"
+
+  defp candidate_line(candidate) do
+    "#{map_value(candidate, :kind)}/#{map_value(candidate, :id)} score=#{map_value(candidate, :score)} reason=#{map_value(candidate, :reason) || "none"}"
+  end
+
+  defp rejected_lines([]), do: "none"
+
+  defp rejected_lines(rejected) do
+    rejected
+    |> Enum.map(&"- #{candidate_line(&1)}")
+    |> Enum.join("\n")
+  end
+
+  defp bounded_inspect(nil), do: "none"
+
+  defp bounded_inspect(value) do
+    value
+    |> Redactor.redact()
+    |> inspect(pretty: true, limit: 20)
   end
 
   defp intent_resource_access_text(response) do
