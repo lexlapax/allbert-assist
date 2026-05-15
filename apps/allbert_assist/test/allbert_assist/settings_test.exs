@@ -110,6 +110,35 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("skills.imported_cache_policy", "auto", %{})
   end
 
+  test "plugin settings are writable and validated", %{home: home} do
+    assert {:ok, ["./plugins", "<ALLBERT_HOME>/plugins"]} = Settings.get("plugins.scan_paths")
+    assert {:ok, "shipped_and_skill_only"} = Settings.get("plugins.load_policy")
+
+    project_plugins = Path.join(home, "plugins")
+
+    assert {:ok, resolved} =
+             Settings.put("plugins.scan_paths", [project_plugins], %{audit?: false})
+
+    assert resolved.value == [project_plugins]
+    assert {:ok, [^project_plugins]} = Settings.get("plugins.scan_paths")
+
+    assert {:ok, disabled} =
+             Settings.put("plugins.disabled", ["example.disabled"], %{audit?: false})
+
+    assert disabled.value == ["example.disabled"]
+
+    assert {:ok, policy} =
+             Settings.put("plugins.load_policy", "shipped_only", %{audit?: false})
+
+    assert policy.value == "shipped_only"
+
+    assert {:error, {:invalid_setting, "plugins.load_policy", _reason}} =
+             Settings.put("plugins.load_policy", "load_everything", %{})
+
+    assert {:error, {:invalid_setting, "plugins.enabled", _reason}} =
+             Settings.put("plugins.enabled", ["ok", 123], %{})
+  end
+
   test "confirmation settings are writable and validated" do
     assert {:ok, resolved} =
              Settings.put("confirmations.default_ttl_minutes", 30, %{audit?: false})

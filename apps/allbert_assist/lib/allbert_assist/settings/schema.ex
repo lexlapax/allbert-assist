@@ -85,6 +85,11 @@ defmodule AllbertAssist.Settings.Schema do
     "skills.online_import.sources.skills_sh.base_url",
     "skills.online_import.sources.skills_sh.api_url",
     "skills.online_import.sources.skills_sh.cache_ttl_seconds",
+    "plugins.enabled",
+    "plugins.disabled",
+    "plugins.scan_paths",
+    "plugins.trusted_project_roots",
+    "plugins.load_policy",
     "confirmations.default_ttl_minutes",
     "confirmations.auto_expire_on_startup",
     "confirmations.require_reason_for_denial",
@@ -515,6 +520,37 @@ defmodule AllbertAssist.Settings.Schema do
       default: 3600,
       writable?: true,
       sensitive?: false
+    },
+    "plugins.enabled" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "plugins.disabled" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "plugins.scan_paths" => %{
+      type: :string_list,
+      default: ["./plugins", "<ALLBERT_HOME>/plugins"],
+      writable?: true,
+      sensitive?: false
+    },
+    "plugins.trusted_project_roots" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "plugins.load_policy" => %{
+      type: :enum,
+      default: "shipped_and_skill_only",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["shipped_and_skill_only", "shipped_only"]
     },
     "permissions.memory_write" => %{
       type: :enum,
@@ -1040,6 +1076,13 @@ defmodule AllbertAssist.Settings.Schema do
       "skill_write" => "allowed",
       "skill_script_execute" => "denied",
       "confirmation_decide" => "allowed"
+    },
+    "plugins" => %{
+      "enabled" => [],
+      "disabled" => [],
+      "scan_paths" => ["./plugins", "<ALLBERT_HOME>/plugins"],
+      "trusted_project_roots" => [],
+      "load_policy" => "shipped_and_skill_only"
     },
     "execution" => %{
       "local" => %{
