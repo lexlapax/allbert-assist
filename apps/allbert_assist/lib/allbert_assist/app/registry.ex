@@ -80,6 +80,35 @@ defmodule AllbertAssist.App.Registry do
     call(opts, :registered_surfaces, [])
   end
 
+  @spec registered_agents(keyword()) :: [%{app_id: atom(), module: module()}]
+  def registered_agents(opts \\ []) do
+    call(opts, :registered_agents, [])
+  end
+
+  @spec registered_signals(keyword()) :: [
+          %{app_id: atom(), emits: [String.t()], subscribes: [String.t()]}
+        ]
+  def registered_signals(opts \\ []) do
+    call(opts, :registered_signals, [])
+  end
+
+  @spec registered_settings_schema(keyword()) :: [map()]
+  def registered_settings_schema(opts \\ []) do
+    call(opts, :registered_settings_schema, [])
+  end
+
+  @spec registered_surface_providers(keyword()) :: [
+          %{
+            app_id: atom(),
+            module: module(),
+            surfaces: [AllbertAssist.Surface.t()],
+            catalog: [map()]
+          }
+        ]
+  def registered_surface_providers(opts \\ []) do
+    call(opts, :registered_surface_providers, [])
+  end
+
   @spec registered_skill_paths(keyword()) :: [%{app_id: atom(), path: Path.t()}]
   def registered_skill_paths(opts \\ []) do
     call(opts, :registered_skill_paths, [])
@@ -202,8 +231,66 @@ defmodule AllbertAssist.App.Registry do
   def handle_call(:registered_apps, _from, state), do: {:reply, entries_in_order(state), state}
 
   def handle_call(:registered_surfaces, _from, state) do
-    surfaces = state |> entries_in_order() |> Enum.flat_map(& &1.surfaces)
+    surfaces = state |> entries_in_order() |> Enum.flat_map(&entry_surfaces/1)
     {:reply, surfaces, state}
+  end
+
+  def handle_call(:registered_agents, _from, state) do
+    agents =
+      state
+      |> entries_in_order()
+      |> Enum.flat_map(fn entry ->
+        entry
+        |> Map.get(:agents, [])
+        |> Enum.map(&%{app_id: entry.app_id, module: &1})
+      end)
+
+    {:reply, agents, state}
+  end
+
+  def handle_call(:registered_signals, _from, state) do
+    signals =
+      state
+      |> entries_in_order()
+      |> Enum.map(fn entry ->
+        signals = Map.get(entry, :signals, %{emits: [], subscribes: []})
+        %{app_id: entry.app_id, emits: signals.emits, subscribes: signals.subscribes}
+      end)
+
+    {:reply, signals, state}
+  end
+
+  def handle_call(:registered_settings_schema, _from, state) do
+    schema =
+      state
+      |> entries_in_order()
+      |> Enum.flat_map(&Map.get(&1, :settings_schema, []))
+
+    {:reply, schema, state}
+  end
+
+  def handle_call(:registered_surface_providers, _from, state) do
+    providers =
+      state
+      |> entries_in_order()
+      |> Enum.flat_map(fn entry ->
+        case Map.get(entry, :surface_provider) do
+          nil ->
+            []
+
+          provider ->
+            [
+              %{
+                app_id: entry.app_id,
+                module: provider,
+                surfaces: Map.get(entry, :provider_surfaces, []),
+                catalog: Map.get(entry, :surface_catalog, [])
+              }
+            ]
+        end
+      end)
+
+    {:reply, providers, state}
   end
 
   def handle_call(:registered_skill_paths, _from, state) do
@@ -307,21 +394,78 @@ defmodule AllbertAssist.App.Registry do
   end
 
   defp cross_surface_diagnostics(entry, state) do
-    existing_ids =
+    existing_surfaces =
       state
       |> entries_in_order()
-      |> Enum.flat_map(& &1.surfaces)
+      |> Enum.flat_map(&entry_surfaces/1)
+
+    existing_ids =
+      existing_surfaces
       |> MapSet.new(& &1.id)
 
-    entry.surfaces
-    |> Enum.filter(&MapSet.member?(existing_ids, &1.id))
-    |> Enum.map(fn surface ->
-      %{
-        kind: :duplicate_surface_id,
-        message: "Surface id #{inspect(surface.id)} is already registered by another app.",
-        detail: %{surface_id: surface.id, app_id: entry.app_id}
-      }
-    end)
+    existing_paths =
+      existing_surfaces
+      |> MapSet.new(& &1.path)
+
+    entry_surfaces = entry_surfaces(entry)
+
+    duplicate_id_diagnostics =
+      entry_surfaces
+      |> Enum.filter(&MapSet.member?(existing_ids, &1.id))
+      |> Enum.map(fn surface ->
+        %{
+          kind: :duplicate_surface_id,
+          severity: :warning,
+          message: "Surface id #{inspect(surface.id)} is already registered by another app.",
+          detail: %{surface_id: surface.id, app_id: entry.app_id}
+        }
+      end)
+
+    duplicate_path_diagnostics =
+      entry_surfaces
+      |> Enum.filter(&MapSet.member?(existing_paths, &1.path))
+      |> Enum.map(fn surface ->
+        %{
+          kind: :duplicate_route_path,
+          severity: :warning,
+          message: "Surface path #{inspect(surface.path)} is already registered by another app.",
+          detail: %{surface_id: surface.id, path: surface.path, app_id: entry.app_id}
+        }
+      end)
+
+    duplicate_id_diagnostics ++ duplicate_path_diagnostics
+  end
+
+  defp entry_surfaces(entry) do
+    provider_surfaces =
+      entry
+      |> Map.get(:provider_surfaces, [])
+      |> Enum.map(&surface_summary/1)
+
+    provider_ids = MapSet.new(provider_surfaces, & &1.id)
+
+    legacy_surfaces =
+      entry
+      |> Map.get(:surfaces, [])
+      |> Enum.reject(&MapSet.member?(provider_ids, &1.id))
+
+    legacy_surfaces ++ provider_surfaces
+  end
+
+  defp surface_summary(%AllbertAssist.Surface{} = surface) do
+    %{
+      id: surface.id,
+      label: surface.label,
+      path: surface.path,
+      app_id: surface.app_id,
+      kind: surface.kind,
+      status: surface.status,
+      provider?: true
+    }
+  end
+
+  defp surface_summary(%{} = surface) do
+    Map.put_new(surface, :provider?, false)
   end
 
   defp put_diagnostics(state, _key, []), do: state

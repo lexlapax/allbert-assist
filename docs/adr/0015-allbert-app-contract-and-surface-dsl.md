@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted. v0.15 minimal contract implemented. v0.18 full contract planned;
-this ADR must be updated with concrete module names and signatures after
-v0.18 implementation.
+Accepted. v0.15 minimal contract implemented. v0.18 full app/surface contract
+implemented on 2026-05-15; memory namespace registration remains deferred to
+v0.27.
 
 ## Context
 
@@ -125,6 +125,16 @@ rendering cannot use nodes.
 An app may implement both `AllbertAssist.App` and
 `AllbertAssist.App.SurfaceProvider` in the same module. `CoreApp` is the first
 `SurfaceProvider` implementation in v0.18; StockSage v0.20 is the second.
+
+Implementation note: v0.18 keeps the legacy `AllbertAssist.App.surfaces/0`
+navigation callback for backward compatibility. Because Elixir warns when two
+behaviours define the same callback name/arity with different intent,
+`use AllbertAssist.App.SurfaceProvider` records a persisted provider marker
+attribute instead of adding a second `@behaviour` to modules that already use
+`AllbertAssist.App`. The contract module and callback signatures remain the
+public documentation boundary; `AllbertAssist.App.Validator` detects the
+provider marker and validates provider surfaces/catalogs through the same
+rules.
 
 Surface events must return Jido signals or route through registered actions.
 LiveView renders and collects operator input; it does not own app domain logic,
