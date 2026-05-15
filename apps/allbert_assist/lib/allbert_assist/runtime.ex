@@ -21,6 +21,7 @@ defmodule AllbertAssist.Runtime do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Agents.IntentAgent
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Conversations
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Intent.Decision
@@ -126,6 +127,7 @@ defmodule AllbertAssist.Runtime do
          {:ok, session_id} <- normalize_session_id(attrs),
          {:ok, thread} <- resolve_thread(attrs, identity.user_id, text) do
       session_context = session_context(identity.user_id, session_id)
+      app_context = resolve_active_app(attrs, session_context)
 
       {:ok,
        %{
@@ -135,11 +137,11 @@ defmodule AllbertAssist.Runtime do
          operator_id: identity.operator_id,
          thread_id: thread.id,
          session_id: session_id,
-         active_app: session_context.active_app,
+         active_app: app_context.active_app,
          thread_context: empty_thread_context(identity.user_id, thread.id),
          conversation_thread: thread,
          metadata: fetch_value(attrs, :metadata) || %{},
-         diagnostics: session_context.diagnostics,
+         diagnostics: session_context.diagnostics ++ app_context.diagnostics,
          timeout_ms: fetch_value(attrs, :timeout_ms) || @default_timeout_ms
        }}
     end
@@ -165,6 +167,48 @@ defmodule AllbertAssist.Runtime do
           ]
         }
     end
+  end
+
+  defp resolve_active_app(attrs, session_context) do
+    requested_app = fetch_value(attrs, :active_app) || fetch_value(attrs, :app_id)
+
+    case normalize_known_app(requested_app) do
+      {:ok, app_id} when not is_nil(app_id) ->
+        %{active_app: app_id, diagnostics: []}
+
+      {:ok, nil} ->
+        resolve_session_or_default(session_context, [])
+
+      {:error, :unknown_app} ->
+        diagnostics = [
+          %{
+            source: :active_app,
+            kind: :unknown_app_id,
+            app_id: inspect(Redactor.redact(requested_app)),
+            fallback: :allbert
+          }
+        ]
+
+        resolve_session_or_default(%{active_app: nil}, diagnostics)
+    end
+  end
+
+  defp resolve_session_or_default(session_context, diagnostics) do
+    case normalize_known_app(session_context.active_app) do
+      {:ok, app_id} when not is_nil(app_id) ->
+        %{active_app: app_id, diagnostics: diagnostics}
+
+      _other ->
+        %{active_app: :allbert, diagnostics: diagnostics}
+    end
+  end
+
+  defp normalize_known_app(nil), do: {:ok, nil}
+
+  defp normalize_known_app(app_id) do
+    AppRegistry.normalize_app_id(app_id)
+  catch
+    :exit, _reason -> if app_id == :allbert, do: {:ok, :allbert}, else: {:error, :unknown_app}
   end
 
   defp normalize_text(value) when is_binary(value) do

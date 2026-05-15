@@ -172,7 +172,7 @@ adapters still start from registered descriptors under
 `./plugins/allbert.telegram` and `./plugins/allbert.email` as shipped
 source-tree plugins.
 
-For v0.18 app contract and surface DSL work, read `docs/plans/v0.18-plan.md`,
+For v0.18 app contract and surface DSL regression work, read `docs/plans/v0.18-plan.md`,
 `docs/plans/v0.18-request-flow.md`, `docs/plans/v0.15-plan.md`,
 `docs/plans/v0.15-request-flow.md`,
 `docs/plans/allbert-jido-vision.md`, and
@@ -180,6 +180,16 @@ For v0.18 app contract and surface DSL work, read `docs/plans/v0.18-plan.md`,
 `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, full app
 callbacks, surface validation, workspace navigation, or canvas component
 catalogs.
+
+For active v0.19 cross-surface intent enrichment work, read
+`docs/plans/v0.19-plan.md`, `docs/plans/v0.11-plan.md`,
+`docs/plans/v0.11-request-flow.md`, `docs/plans/v0.18-plan.md`,
+`docs/plans/v0.18-request-flow.md`, `docs/plans/allbert-jido-vision.md`,
+`docs/adr/0015-allbert-app-contract-and-surface-dsl.md`, and
+`docs/adr/0012-resource-access-security-posture.md` before changing intent
+candidate ranking, app/surface routing inputs, model-assisted
+classification, or intent eval fixtures. v0.19 consumes app/surface metadata;
+it must not add new execution powers or treat `active_app` as authorization.
 
 For v0.24 agentic workspace surface and ephemeral UI work, read
 `docs/plans/v0.24-plan.md`, `docs/plans/v0.25-plan.md`,

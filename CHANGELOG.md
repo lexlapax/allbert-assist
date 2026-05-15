@@ -1,5 +1,59 @@
 # Changelog
 
+## v0.18 - Full App Contract And Surface DSL
+
+Status: implemented through M6 closeout on 2026-05-15. Version metadata is
+`0.18.0`; the operator manual verification matrix is ready for acceptance
+checks.
+
+### Added
+
+- Full `AllbertAssist.App` contract callbacks for agents, signals, and
+  settings schema metadata while preserving v0.15 minimal app compatibility.
+- `AllbertAssist.App.SurfaceProvider` and the validated
+  `AllbertAssist.Surface` DSL with nodes, action bindings, catalog validation,
+  and the initial twelve-component catalog.
+- `AllbertAssist.Surface.Encoder.to_a2ui/1` as a typed future adapter boundary
+  that returns `{:error, :not_implemented}` without adding AG-UI/A2UI runtime
+  dependencies.
+- `AllbertAssist.App.CoreApp` as the first surface provider, declaring the
+  existing `/agent` route as the built-in chat surface.
+- `mix allbert.validate_app MODULE` and
+  `docs/developer/how-to-create-an-allbert-app.md`.
+
+### Changed
+
+- Runtime turns now default to `active_app: :allbert` when no known request or
+  scratchpad app context exists. Unknown app id strings fall back to `:allbert`
+  with diagnostics and without atom creation.
+- App registry entries now store agents, signals, settings schema entries,
+  provider surfaces, and surface catalogs.
+- `mix allbert.apps show` and the `show_app` action now expose v0.18 contract
+  summaries without raw node trees or process internals.
+- Settings Central now merges app and plugin settings schema contributions at
+  read/validation time, closing the v0.17 schema-consumption gap.
+
+### Safety
+
+- App registration, provider surfaces, action bindings, and `active_app`
+  context do not grant permissions or bypass Security Central.
+- Surface validation rejects unknown components, duplicate node ids, non-local
+  paths, secret-like props, raw HTML/script values, remote URL props, and
+  unknown action bindings before registration.
+- v0.18 does not add memory namespace registration, canvas rendering, dynamic
+  route loading, generated UI execution, AG-UI/A2UI dependencies, or app/plugin
+  generators.
+
+### Verification
+
+- Focused suites passed for the app contract, Surface DSL, app registry,
+  settings schema merge, runtime active-app defaulting, app actions, and Mix
+  app validation tasks.
+- Final v0.18 closeout gates passed: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- Manual verification steps live in `docs/plans/v0.18-request-flow.md`.
+
 ## v0.17 - Plugin Contract And Shipped Channel Plugins
 
 Status: implemented through M6 closeout on 2026-05-14. Version metadata is
