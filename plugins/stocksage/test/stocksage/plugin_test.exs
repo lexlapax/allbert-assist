@@ -43,7 +43,9 @@ defmodule StockSage.PluginTest do
              StockSage.Actions.ListAnalyses,
              StockSage.Actions.ShowAnalysis,
              StockSage.Actions.GetTrends,
-             StockSage.Actions.QueueAnalysis
+             StockSage.Actions.QueueAnalysis,
+             StockSage.Actions.ListQueue,
+             StockSage.Actions.ImportSqlite
            ]
 
     assert StockSage.Plugin.child_spec([]) == :ignore
@@ -66,7 +68,7 @@ defmodule StockSage.PluginTest do
              Enum.find(discoveries, &match?({:module, StockSage.Plugin, _opts}, &1))
   end
 
-  test "bootstrap registers plugin and app without StockSageStub", %{
+  test "bootstrap registers the plugin and app", %{
     plugin_registry: plugin_registry,
     child_supervisor: child_supervisor,
     app_registry: app_registry
@@ -89,12 +91,11 @@ defmodule StockSage.PluginTest do
     assert {:ok, :stocksage} = AppRegistry.register(StockSage.App, server: app_registry)
     assert {:ok, entry} = AppRegistry.lookup(:stocksage, server: app_registry)
     assert entry.module == StockSage.App
-    refute entry.module == AllbertAssist.App.StockSageStub
     assert {:ok, :stocksage} = AppRegistry.normalize_app_id("stocksage", server: app_registry)
     assert {:ok, :stocksage} = AppRegistry.normalize_app_id(:stocksage, server: app_registry)
   end
 
-  test "app bootstrap consumes registered plugin apps instead of the placeholder stub", %{
+  test "app bootstrap consumes registered plugin apps", %{
     plugin_registry: plugin_registry,
     child_supervisor: child_supervisor,
     app_registry: app_registry
@@ -117,7 +118,6 @@ defmodule StockSage.PluginTest do
     assert_eventually(fn ->
       assert {:ok, entry} = AppRegistry.lookup(:stocksage, server: app_registry)
       assert entry.module == StockSage.App
-      refute entry.module == AllbertAssist.App.StockSageStub
     end)
   end
 

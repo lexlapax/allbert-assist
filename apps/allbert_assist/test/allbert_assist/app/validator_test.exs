@@ -452,7 +452,7 @@ defmodule AllbertAssist.App.ValidatorTest do
     assert {:ok, %{app_id: :allbert, provider_surfaces: [%Surface{id: :agent}]}} =
              Validator.validate(AllbertAssist.App.CoreApp, [])
 
-    assert {:ok, %{app_id: :stocksage}} = Validator.validate(AllbertAssist.App.StockSageStub, [])
+    assert {:ok, %{app_id: :stocksage}} = Validator.validate(StockSage.App, [])
   end
 
   test "rejects invalid and reserved app ids" do

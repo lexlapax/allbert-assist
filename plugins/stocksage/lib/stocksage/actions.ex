@@ -4,7 +4,7 @@ defmodule StockSage.Actions do
   alias AllbertAssist.Security.PermissionGate
   alias StockSage.Domain
 
-  def capability(permission) do
+  def capability(permission, attrs \\ %{}) do
     %{
       permission: permission,
       exposure: :agent,
@@ -13,6 +13,7 @@ defmodule StockSage.Actions do
       confirmation: :not_required,
       app_id: :stocksage
     }
+    |> Map.merge(attrs)
   end
 
   def authorize(permission, context) do
@@ -20,24 +21,30 @@ defmodule StockSage.Actions do
   end
 
   def user_id(params, context) do
-    params
-    |> field(:user_id)
-    |> blank_to_nil()
-    |> case do
-      nil -> context |> field(:user_id) |> blank_to_nil()
-      value -> value
-    end
-    |> case do
-      nil -> context |> get_in([:request, :user_id]) |> blank_to_nil()
-      value -> value
-    end
-    |> case do
-      nil -> context |> field(:operator_id) |> blank_to_nil()
-      value -> value
-    end
-    |> case do
-      nil -> "local"
-      value -> Domain.normalize_user_id(value)
+    user_id =
+      params
+      |> field(:user_id)
+      |> blank_to_nil()
+      |> case do
+        nil -> context |> field(:user_id) |> blank_to_nil()
+        value -> value
+      end
+      |> case do
+        nil -> context |> get_in([:request, :user_id]) |> blank_to_nil()
+        value -> value
+      end
+      |> case do
+        nil -> context |> field(:operator_id) |> blank_to_nil()
+        value -> value
+      end
+      |> case do
+        nil -> context |> get_in([:request, :operator_id]) |> blank_to_nil()
+        value -> value
+      end
+
+    case user_id do
+      nil -> {:error, :missing_user_id}
+      value -> {:ok, Domain.normalize_user_id(value)}
     end
   end
 
@@ -70,6 +77,18 @@ defmodule StockSage.Actions do
     do: PermissionGate.response_status(permission_decision)
 
   def allowed?(permission_decision), do: PermissionGate.allowed?(permission_decision)
+
+  def missing_user(action_name, permission, permission_decision) do
+    {:ok,
+     %{
+       message: "StockSage requires an explicit user_id for this action.",
+       status: :error,
+       error: :missing_user_id,
+       actions: [
+         action(action_name, :error, permission, permission_decision, %{error: :missing_user_id})
+       ]
+     }}
+  end
 
   def action(name, status, permission, permission_decision, metadata \\ %{}) do
     %{

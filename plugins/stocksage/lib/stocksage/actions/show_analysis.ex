@@ -23,19 +23,24 @@ defmodule StockSage.Actions.ShowAnalysis do
   @impl true
   def run(params, context) do
     permission_decision = Actions.authorize(:read_only, context)
-    user_id = Actions.user_id(params, context)
-    analysis_id = Actions.field(params, :analysis_id) || Actions.field(params, :id)
 
-    if Actions.allowed?(permission_decision) do
-      case Analyses.get_analysis_with_details(user_id, analysis_id) do
-        {:ok, analysis} ->
-          {:ok, completed(user_id, analysis, permission_decision)}
+    with {:ok, user_id} <- Actions.user_id(params, context) do
+      analysis_id = Actions.field(params, :analysis_id) || Actions.field(params, :id)
 
-        {:error, :not_found} ->
-          {:ok, not_found(analysis_id, permission_decision)}
+      if Actions.allowed?(permission_decision) do
+        case Analyses.get_analysis_with_details(user_id, analysis_id) do
+          {:ok, analysis} ->
+            {:ok, completed(user_id, analysis, permission_decision)}
+
+          {:error, :not_found} ->
+            {:ok, not_found(analysis_id, permission_decision)}
+        end
+      else
+        denied(permission_decision)
       end
     else
-      denied(permission_decision)
+      {:error, :missing_user_id} ->
+        Actions.missing_user("show_analysis", :read_only, permission_decision)
     end
   end
 

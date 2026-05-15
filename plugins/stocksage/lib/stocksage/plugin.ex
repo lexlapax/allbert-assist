@@ -29,7 +29,9 @@ defmodule StockSage.Plugin do
       StockSage.Actions.ListAnalyses,
       StockSage.Actions.ShowAnalysis,
       StockSage.Actions.GetTrends,
-      StockSage.Actions.QueueAnalysis
+      StockSage.Actions.QueueAnalysis,
+      StockSage.Actions.ListQueue,
+      StockSage.Actions.ImportSqlite
     ]
   end
 
