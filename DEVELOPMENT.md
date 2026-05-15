@@ -139,18 +139,27 @@ For v0.14 session scratchpad work, start with:
 - `docs/plans/allbert-jido-vision.md`
 - `docs/adr/0014-local-workspace-identity.md`
 
-For v0.15 or v0.24 app contract and surface DSL work, start with the active
+For v0.15 or v0.25 app contract and surface DSL work, start with the active
 plan plus:
 
 - `docs/plans/v0.15-plan.md`
 - `docs/plans/v0.15-request-flow.md`
-- `docs/plans/v0.24-plan.md`
+- `docs/plans/v0.25-plan.md`
 - `docs/plans/allbert-jido-vision.md`
 - `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
+For v0.17 plugin contract work, start with:
+
+- `docs/plans/v0.17-plan.md`
+- `docs/plans/v0.17-request-flow.md`
+- `docs/plans/allbert-jido-vision.md`
+- `docs/adr/0017-allbert-plugin-contract.md`
+- `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
+- `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
+
 For StockSage workspace app milestones, start with the active milestone plan,
-`docs/plans/allbert-jido-vision.md`, ADR 0014, and ADR 0015. The canonical
-plans are `v0.17`, `v0.19`, `v0.21`, `v0.22`, `v0.25`, and `v0.27`.
+`docs/plans/allbert-jido-vision.md`, ADR 0014, ADR 0015, and ADR 0017. The
+canonical plans are `v0.18`, `v0.20`, `v0.22`, `v0.23`, `v0.26`, and `v0.28`.
 
 After v0.12 closeout, remember that local conversation history is SQLite-backed
 `AllbertAssist.Conversations` data, not markdown memory and not hosted auth.
@@ -183,6 +192,16 @@ updates and send responses through bounded provider clients only; they must not
 fetch arbitrary URLs, download media/documents, import skills, execute provider
 methods, mutate confirmations privately, or bypass Resource Access Security
 Posture.
+
+For v0.17, plugins are the local package/discovery layer for extension
+contributions. Plugins may contribute apps, channels, actions, skills, settings
+schema entries, and supervised children, but registration is not authority.
+Do not load arbitrary code from `<ALLBERT_HOME>/plugins`, execute package
+managers during discovery, auto-trust plugin skills, grant action permissions,
+or bypass confirmations from plugin metadata. Do not automatically compile
+arbitrary `./plugins/*/lib` folders. Telegram and email move into
+`./plugins/allbert.telegram` and `./plugins/allbert.email` as shipped
+source-tree channel plugins while preserving the v0.16 channel boundary.
 
 After v0.11 closeout, remember that URL summarization, document inspection,
 direct skill URL import, local skill directory import, local path access,
