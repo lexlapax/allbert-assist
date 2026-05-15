@@ -3,6 +3,7 @@ defmodule AllbertAssist.Actions.Runner do
   Shared runtime boundary for invoking registered Allbert Jido actions.
   """
 
+  alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Signals
@@ -206,7 +207,7 @@ defmodule AllbertAssist.Actions.Runner do
   defp action_capability(context, action_module) do
     Map.get(context, :action_capability) ||
       case Registry.capability(action_module) do
-        {:ok, capability} -> AllbertAssist.Actions.Capability.summary(capability)
+        {:ok, capability} -> Capability.summary(capability)
         {:error, _reason} -> nil
       end
   end

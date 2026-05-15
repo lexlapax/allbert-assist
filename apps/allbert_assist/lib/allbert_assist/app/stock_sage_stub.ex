@@ -10,7 +10,7 @@ defmodule AllbertAssist.App.StockSageStub do
   def display_name, do: "StockSage (placeholder)"
 
   @impl true
-  def version, do: "0.16.0"
+  def version, do: "0.17.0"
 
   @impl true
   def validate(_opts), do: :ok

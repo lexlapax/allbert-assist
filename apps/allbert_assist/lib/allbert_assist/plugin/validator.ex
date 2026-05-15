@@ -25,8 +25,11 @@ defmodule AllbertAssist.Plugin.Validator do
          {:ok, attrs} <- module_attrs(module, opts) do
       {:ok, struct!(Entry, attrs)}
     else
-      {:error, reason, diagnostics} -> {:error, reason, diagnostics}
-      {:error, reason} -> {:error, reason, [diagnostic(:error, reason, "Invalid plugin module.")]}
+      {:error, reason, diagnostics} ->
+        {:error, reason, diagnostics}
+
+      {:error, reason} ->
+        {:error, reason, [diagnostic(:error, :module_not_loaded, "Invalid plugin module.")]}
     end
   rescue
     exception ->
@@ -323,16 +326,24 @@ defmodule AllbertAssist.Plugin.Validator do
         diagnostics
 
       true ->
-        Enum.reduce(skill_paths, diagnostics, fn path, acc ->
-          if valid_relative_path?(path, root_path) do
-            acc
-          else
-            [
-              diagnostic(:error, :invalid_skill_path, "Skill path must stay inside plugin root.")
-              | acc
-            ]
-          end
-        end)
+        validate_manifest_skill_path_entries(skill_paths, diagnostics, root_path)
+    end
+  end
+
+  defp validate_manifest_skill_path_entries(skill_paths, diagnostics, root_path) do
+    Enum.reduce(skill_paths, diagnostics, fn path, acc ->
+      validate_manifest_skill_path_entry(path, acc, root_path)
+    end)
+  end
+
+  defp validate_manifest_skill_path_entry(path, diagnostics, root_path) do
+    if valid_relative_path?(path, root_path) do
+      diagnostics
+    else
+      [
+        diagnostic(:error, :invalid_skill_path, "Skill path must stay inside plugin root.")
+        | diagnostics
+      ]
     end
   end
 

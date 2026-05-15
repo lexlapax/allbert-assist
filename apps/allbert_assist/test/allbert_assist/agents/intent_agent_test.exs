@@ -81,7 +81,9 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              "list_channels",
              "show_channel",
              "list_apps",
-             "show_app"
+             "show_app",
+             "list_plugins",
+             "show_plugin"
            ]
   end
 

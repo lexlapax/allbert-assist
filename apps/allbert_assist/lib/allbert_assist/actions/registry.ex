@@ -31,6 +31,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Jobs.TraceSummary
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
+  alias AllbertAssist.Actions.Plugins.ListPlugins
+  alias AllbertAssist.Actions.Plugins.ShowPlugin
   alias AllbertAssist.Actions.Resources.ListResourceGrants
   alias AllbertAssist.Actions.Resources.RememberResourceGrant
   alias AllbertAssist.Actions.Resources.RevokeResourceGrant
@@ -83,7 +85,9 @@ defmodule AllbertAssist.Actions.Registry do
     ListChannels,
     ShowChannel,
     ListApps,
-    ShowApp
+    ShowApp,
+    ListPlugins,
+    ShowPlugin
   ]
 
   @internal_actions [
@@ -291,6 +295,20 @@ defmodule AllbertAssist.Actions.Registry do
       confirmation: :not_required
     },
     ShowChannel => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :settings_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ListPlugins => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :settings_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ShowPlugin => %{
       permission: :read_only,
       exposure: :agent,
       execution_mode: :settings_read,

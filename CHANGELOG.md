@@ -1,5 +1,59 @@
 # Changelog
 
+## v0.17 - Plugin Contract And Shipped Channel Plugins
+
+Status: implemented through M6 closeout on 2026-05-14. Version metadata is
+`0.17.0`; the operator manual verification matrix is ready for acceptance
+checks.
+
+### Added
+
+- `AllbertAssist.Plugin` behaviour, normalized plugin entries, manifest
+  validation, plugin discovery, supervised plugin registry/bootstrap, and a
+  plugin child supervisor.
+- Static `plugins.*` settings schema and default scan paths for `./plugins`
+  and `<ALLBERT_HOME>/plugins`.
+- Shipped source-tree plugin packages for Telegram and email under
+  `./plugins/allbert.telegram` and `./plugins/allbert.email`.
+- Plugin-contributed skill roots, actions, apps, channel descriptors, settings
+  schema metadata, and supervised child specs.
+- Read-only registered actions `list_plugins` and `show_plugin`.
+- `mix allbert.plugins list/show/diagnostics`.
+
+### Changed
+
+- Telegram and email provider-specific channel code moved out of the core app
+  tree and into shipped source-tree plugin packages while preserving v0.16
+  channel behavior and settings keys.
+- `AllbertAssist.Channels` now reads channel descriptors from
+  `AllbertAssist.Plugin.Registry` instead of a hardcoded provider map.
+- `AllbertAssist.Actions.Registry` can merge trusted compiled
+  plugin-contributed actions while stamping plugin provenance on capability and
+  runner metadata.
+- `AllbertAssist.App.Bootstrap` consumes plugin-contributed app modules.
+- Version metadata and built-in app versions moved to `0.17.0`.
+
+### Safety
+
+- Plugins are discovery and packaging contracts, not authority. Plugin metadata
+  does not grant permissions, trust, confirmations, resource access, or
+  execution rights.
+- v0.17 does not load arbitrary code from `<ALLBERT_HOME>/plugins`, run package
+  managers during discovery, install remote plugins, hot-reload plugin code, or
+  automatically compile arbitrary `./plugins/*/lib` folders.
+- Plugin CLI/action output renders normalized metadata and contribution counts;
+  it does not print raw manifests, provider payloads, or secret reference keys.
+
+### Verification
+
+- Milestone focused suites passed for plugin validation, manifest discovery,
+  plugin registry/bootstrap, skill roots, channel descriptor migration,
+  plugin-contributed apps/actions, and `mix allbert.plugins`.
+- Final v0.17 closeout gates passed: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- Manual verification steps live in `docs/plans/v0.17-request-flow.md`.
+
 ## v0.16 - Additional Channels
 
 Status: implemented through M7 closeout on 2026-05-14. Version metadata is
