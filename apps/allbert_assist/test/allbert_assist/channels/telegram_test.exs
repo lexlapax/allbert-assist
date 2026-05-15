@@ -13,6 +13,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
+  alias Plug.Conn.Query
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -83,7 +84,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
     test "gets updates through Telegram Bot API" do
       Req.Test.expect(__MODULE__, fn conn ->
         assert conn.request_path == "/bottoken/getUpdates"
-        query = Plug.Conn.Query.decode(conn.query_string)
+        query = Query.decode(conn.query_string)
         assert query["offset"] == "42"
         assert query["timeout"] == "25"
 
@@ -153,7 +154,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
       Req.Test.expect(__MODULE__, fn conn ->
         assert conn.request_path == "/bottoken/getUpdates"
-        query = Plug.Conn.Query.decode(conn.query_string)
+        query = Query.decode(conn.query_string)
         assert query["offset"] == "1"
         json(conn, %{"ok" => true, "result" => [text_update(200), callback_update(201)]})
       end)
@@ -341,7 +342,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
                })
 
       Req.Test.expect(__MODULE__, fn conn ->
-        query = Plug.Conn.Query.decode(conn.query_string)
+        query = Query.decode(conn.query_string)
         assert query["offset"] == "301"
         json(conn, %{"ok" => true, "result" => []})
       end)

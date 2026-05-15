@@ -174,13 +174,13 @@ authorization.
 
 For v0.16, additional channels are supervised delivery adapters around
 `AllbertAssist.Runtime.submit_user_input/1` and registered confirmation
-actions. Telegram is the first proving adapter. External provider identities
-must map to local string `user_id` values through Settings Central; there is no
-implicit `"local"` fallback and no hosted accounts model. Channel events belong
-in SQLite for dedupe and traceability, while conversation history remains
-`AllbertAssist.Conversations` data. Channel transports may receive updates and
-send responses through a bounded provider client only; they must not fetch
-arbitrary URLs, download media/documents, import skills, execute provider
+actions. Telegram and email are the proving adapters. External provider
+identities must map to local string `user_id` values through Settings Central;
+there is no implicit `"local"` fallback and no hosted accounts model. Channel
+events belong in SQLite for dedupe and traceability, while conversation history
+remains `AllbertAssist.Conversations` data. Channel transports may receive
+updates and send responses through bounded provider clients only; they must not
+fetch arbitrary URLs, download media/documents, import skills, execute provider
 methods, mutate confirmations privately, or bypass Resource Access Security
 Posture.
 

@@ -47,6 +47,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "list_provider_profiles",
              "list_model_profiles",
              "set_provider_credential",
+             "list_channels",
+             "show_channel",
              "list_apps",
              "show_app",
              "validate_skill",
@@ -83,6 +85,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert "direct_answer" in agent_action_names
     assert "set_provider_credential" in agent_action_names
+    assert "list_channels" in agent_action_names
+    assert "show_channel" in agent_action_names
     assert "list_apps" in agent_action_names
     assert "show_app" in agent_action_names
     refute "security_status" in agent_action_names

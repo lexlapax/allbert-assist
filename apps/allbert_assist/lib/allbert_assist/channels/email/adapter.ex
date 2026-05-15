@@ -7,9 +7,9 @@ defmodule AllbertAssist.Channels.Email.Adapter do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels
-  alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.Email.Parser
   alias AllbertAssist.Channels.Email.Renderer
+  alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings.Secrets
 
@@ -212,30 +212,27 @@ defmodule AllbertAssist.Channels.Email.Adapter do
   end
 
   defp email_text_body(fields, state) do
-    text_body =
-      cond do
-        present?(fields.text_body) ->
-          fields.text_body
-
-        present?(fields.html_body) and Map.get(state.settings, "allow_html_replies", false) ->
-          strip_html(fields.html_body)
-
-        present?(fields.html_body) ->
-          {:error, :html_only}
-
-        true ->
-          {:error, :empty_body}
+    with {:ok, body} <- selected_email_body(fields, state) do
+      case command_from_text(body) do
+        {:command, action, confirmation_id} -> {:command, action, confirmation_id}
+        :regular_text -> {:regular_text, String.trim(body)}
       end
+    end
+  end
 
-    case text_body do
-      {:error, reason} ->
-        {:error, reason}
+  defp selected_email_body(fields, state) do
+    cond do
+      present?(fields.text_body) ->
+        {:ok, fields.text_body}
 
-      body ->
-        case command_from_text(body) do
-          {:command, action, confirmation_id} -> {:command, action, confirmation_id}
-          :regular_text -> {:regular_text, String.trim(body)}
-        end
+      present?(fields.html_body) and Map.get(state.settings, "allow_html_replies", false) ->
+        {:ok, strip_html(fields.html_body)}
+
+      present?(fields.html_body) ->
+        {:error, :html_only}
+
+      true ->
+        {:error, :empty_body}
     end
   end
 

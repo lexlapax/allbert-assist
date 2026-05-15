@@ -103,33 +103,42 @@ defmodule AllbertAssist.Channels.Email.Parser do
   end
 
   defp extract_multipart(content_type, body) do
-    boundary =
-      Regex.run(~r/boundary="?([^";]+)"?/i, content_type)
-      |> case do
-        [_, value] -> value
-        _match -> nil
-      end
+    case multipart_boundary(content_type) do
+      nil ->
+        {nil, nil}
 
-    if boundary do
-      parts = String.split(body, "--" <> boundary)
+      boundary ->
+        body
+        |> String.split("--" <> boundary)
+        |> Enum.reduce({nil, nil}, &extract_multipart_part/2)
+    end
+  end
 
-      Enum.reduce(parts, {nil, nil}, fn part, {text, html} ->
-        case split_message(String.trim(part)) do
-          {:ok, headers, part_body} ->
-            part_type = headers |> Map.get("content-type", "text/plain") |> String.downcase()
+  defp multipart_boundary(content_type) do
+    case Regex.run(~r/boundary="?([^";]+)"?/i, content_type) do
+      [_, value] -> value
+      _match -> nil
+    end
+  end
 
-            cond do
-              String.contains?(part_type, "text/plain") -> {text || part_body, html}
-              String.contains?(part_type, "text/html") -> {text, html || part_body}
-              true -> {text, html}
-            end
+  defp extract_multipart_part(part, acc) do
+    case split_message(String.trim(part)) do
+      {:ok, headers, part_body} ->
+        headers
+        |> Map.get("content-type", "text/plain")
+        |> String.downcase()
+        |> put_multipart_part(part_body, acc)
 
-          {:error, _reason} ->
-            {text, html}
-        end
-      end)
-    else
-      {nil, nil}
+      {:error, _reason} ->
+        acc
+    end
+  end
+
+  defp put_multipart_part(part_type, part_body, {text, html}) do
+    cond do
+      String.contains?(part_type, "text/plain") -> {text || part_body, html}
+      String.contains?(part_type, "text/html") -> {text, html || part_body}
+      true -> {text, html}
     end
   end
 
