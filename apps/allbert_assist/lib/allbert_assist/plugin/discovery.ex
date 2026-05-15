@@ -7,7 +7,8 @@ defmodule AllbertAssist.Plugin.Discovery do
 
   @shipped_modules %{
     "allbert.telegram" => AllbertAssist.Plugins.Telegram,
-    "allbert.email" => AllbertAssist.Plugins.Email
+    "allbert.email" => AllbertAssist.Plugins.Email,
+    "stocksage" => StockSage.Plugin
   }
 
   @default_settings %{

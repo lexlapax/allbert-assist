@@ -4,10 +4,24 @@ defmodule AllbertAssist.Session.AppIdTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Session.AppId
 
+  setup do
+    registered? = AppRegistry.known_app_id?(:stocksage)
+
+    unless registered? do
+      assert {:ok, :stocksage} = AppRegistry.register(AllbertAssist.App.StockSageStub)
+    end
+
+    on_exit(fn ->
+      unless registered?, do: AppRegistry.unregister(:stocksage)
+    end)
+  end
+
   test "normalizes nil aliases and known app ids through the registry" do
     assert {:ok, nil} = AppId.normalize(nil)
     assert {:ok, nil} = AppId.normalize("")
     assert {:ok, nil} = AppId.normalize("general")
+    assert {:ok, :allbert} = AppId.normalize("allbert")
+    assert {:ok, :allbert} = AppId.normalize(:allbert)
     assert {:ok, :stocksage} = AppId.normalize("stocksage")
     assert {:ok, :stocksage} = AppId.normalize(:stocksage)
   end
@@ -25,6 +39,7 @@ defmodule AllbertAssist.Session.AppIdTest do
 
   test "labels only known registered atoms" do
     assert AppId.label(nil) == "none"
+    assert AppId.label(:allbert) == "allbert"
     assert AppId.label(:stocksage) == "stocksage"
     refute AppRegistry.known_app_id?(:not_registered_app_id_for_test)
     assert AppId.label(:not_registered_app_id_for_test) == "unknown"

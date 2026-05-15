@@ -8,8 +8,18 @@ defmodule AllbertAssist.Session.ScratchpadTest do
   setup do
     name = :"scratchpad_#{System.unique_integer([:positive])}"
     table = :"scratchpad_table_#{System.unique_integer([:positive])}"
+    registered? = AllbertAssist.App.Registry.known_app_id?(:stocksage)
+
+    unless registered? do
+      assert {:ok, :stocksage} =
+               AllbertAssist.App.Registry.register(AllbertAssist.App.StockSageStub)
+    end
 
     start_scratchpad!(name, table_name: table, ttl_ms: 120_000, sweep_interval_ms: 0)
+
+    on_exit(fn ->
+      unless registered?, do: AllbertAssist.App.Registry.unregister(:stocksage)
+    end)
 
     {:ok, opts: [server: name]}
   end

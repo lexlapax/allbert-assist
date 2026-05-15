@@ -7,7 +7,7 @@ defmodule AllbertAssist.App.Bootstrap do
 
   require Logger
 
-  @default_apps [AllbertAssist.App.CoreApp, AllbertAssist.App.StockSageStub]
+  @default_apps [AllbertAssist.App.CoreApp]
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
