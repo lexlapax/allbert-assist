@@ -85,6 +85,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_channel",
              "list_apps",
              "show_app",
+             "list_plugins",
+             "show_plugin",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -123,6 +125,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert "show_channel" in agent_action_names
     assert "list_apps" in agent_action_names
     assert "show_app" in agent_action_names
+    assert "list_plugins" in agent_action_names
+    assert "show_plugin" in agent_action_names
     refute "security_status" in agent_action_names
     refute "record_trace" in agent_action_names
   end
@@ -263,6 +267,17 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert show_app.permission == :read_only
     assert show_app.execution_mode == :settings_read
     assert show_app.exposure == :agent
+
+    assert {:ok, list_plugins} = Registry.capability("list_plugins")
+    assert list_plugins.permission == :read_only
+    assert list_plugins.execution_mode == :settings_read
+    assert list_plugins.exposure == :agent
+    refute list_plugins.skill_backed?
+
+    assert {:ok, show_plugin} = Registry.capability("show_plugin")
+    assert show_plugin.permission == :read_only
+    assert show_plugin.execution_mode == :settings_read
+    assert show_plugin.exposure == :agent
 
     assert {:ok, approve_confirmation} = Registry.capability("approve_confirmation")
     assert approve_confirmation.permission == :confirmation_decide

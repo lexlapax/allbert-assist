@@ -359,25 +359,34 @@ defmodule AllbertAssist.Skills.Registry do
   end
 
   defp apply_policy(skill, settings) do
+    case policy_diagnostic(skill, settings) do
+      nil -> policy_result(trust_imported_if_enabled(skill, settings), true, nil)
+      diagnostic -> policy_result(skill, false, diagnostic)
+    end
+  end
+
+  defp policy_diagnostic(skill, settings) do
     cond do
       selected?(skill, settings["disabled"]) ->
-        policy_result(skill, false, disabled_diagnostic(skill))
+        disabled_diagnostic(skill)
 
-      skill.source_scope == :project_native and skill.trust_status == :pending ->
-        policy_result(skill, false, project_pending_diagnostic(skill))
-
-      skill.source_scope == :project_interoperable and skill.trust_status == :pending ->
-        policy_result(skill, false, project_pending_diagnostic(skill))
+      project_pending?(skill) ->
+        project_pending_diagnostic(skill)
 
       skill.source_scope == :plugin and skill.trust_status in [:pending, :untrusted] ->
-        policy_result(skill, false, plugin_pending_diagnostic(skill))
+        plugin_pending_diagnostic(skill)
 
       skill.source_scope == :imported_cache and not imported_enabled?(skill, settings) ->
-        policy_result(skill, false, imported_disabled_diagnostic(skill))
+        imported_disabled_diagnostic(skill)
 
       true ->
-        policy_result(trust_imported_if_enabled(skill, settings), true, nil)
+        nil
     end
+  end
+
+  defp project_pending?(skill) do
+    skill.source_scope in [:project_native, :project_interoperable] and
+      skill.trust_status == :pending
   end
 
   defp split_policy_results(policy_results) do

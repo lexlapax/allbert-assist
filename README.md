@@ -10,11 +10,16 @@ not the architecture center.
 
 ## Current Status
 
-v0.16 is implemented through its M7 closeout on 2026-05-14 and is ready for
-operator manual verification. It adds supervised Telegram and email channel
-adapters, durable channel events, explicit external identity mapping,
-channel-native runtime responses, confirmation callbacks/commands, and
-`mix allbert.channels`. Version metadata is now `0.16.0`.
+v0.17 is implemented through its M6 closeout on 2026-05-14 and is ready for
+operator manual verification. It adds the local plugin contract, plugin
+discovery/registry/bootstrap/supervision, shipped source-tree Telegram and
+email channel plugins, plugin-contributed skill roots/apps/actions, read-only
+plugin inspection actions, and `mix allbert.plugins`. Version metadata is now
+`0.17.0`.
+
+v0.16 remains the supervised Telegram and email channel substrate: durable
+channel events, explicit external identity mapping, channel-native runtime
+responses, confirmation callbacks/commands, and `mix allbert.channels`.
 
 v0.15 was released and tagged as `v0.15` on 2026-05-14. It remains the minimal
 `AllbertAssist.App` contract, supervised app registry, built-in `CoreApp`,
@@ -78,7 +83,18 @@ Release details live in `CHANGELOG.md`.
 - Inspect registered apps through `mix allbert.apps list/show/validate` and
   the read-only registered `list_apps`/`show_app` actions.
 - Keep `allbert` and `stocksage` app ids valid through built-in `CoreApp` and
-  transitional `StockSageStub` until the real StockSage app lands.
+  transitional `StockSageStub`.
+- Discover local plugins from `./plugins` and `<ALLBERT_HOME>/plugins` through
+  `AllbertAssist.Plugin.Registry` without loading arbitrary code.
+- Inspect normalized plugin metadata through `mix allbert.plugins
+  list/show/diagnostics` and read-only registered `list_plugins`/`show_plugin`
+  actions.
+- Ship Telegram and email as source-tree channel plugins under
+  `./plugins/allbert.telegram` and `./plugins/allbert.email` while preserving
+  the v0.16 channel boundary.
+- Allow trusted compiled source-tree plugins to contribute apps, channels,
+  actions, skill roots, settings schema metadata, and supervised child specs
+  without granting permissions or bypassing Security Central.
 - Tag registered action capabilities with optional `app_id` when an app claims
   the action, without granting permissions from that tag.
 - Include app-contributed skill paths in skill discovery after project roots
@@ -148,15 +164,18 @@ Release details live in `CHANGELOG.md`.
   `resource_uri` should be re-created through the current approval/resource
   grant UX.
 
-v0.16 does not add hosted auth, roles, distributed scheduling, remote workers,
-archive/delete workflow, durable app-registry persistence, plugin discovery,
-app-scoped permissions, app-owned jobs, app-scoped intent routing, SMS,
+v0.17 does not add hosted auth, roles, distributed scheduling, remote workers,
+archive/delete workflow, durable app-registry persistence, app-scoped
+permissions, app-owned jobs, app-scoped intent routing, SMS,
 Discord, Slack, webhooks, IMAP IDLE, SMTP provider APIs, proactive broadcast,
 `AllbertAssist.Surface`, dynamic route loading, workspace UI, canvas state,
 semantic retrieval, vector search, browser/crawler behavior, MCP execution,
-`agent://` delegation, or generic local file reading. Every effect still flows
-through registered actions, Security Central, Settings Central policy, durable
-confirmations, redaction, traces, and audits.
+`agent://` delegation, generic local file reading, remote plugin installs,
+package-manager execution during plugin discovery, hot reload, arbitrary code
+loading from `<ALLBERT_HOME>/plugins`, or automatic compilation of arbitrary
+`./plugins/*/lib` folders. Every effect still flows through registered actions,
+Security Central, Settings Central policy, durable confirmations, redaction,
+traces, and audits.
 
 ## Start Here
 
@@ -165,9 +184,9 @@ confirmations, redaction, traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.16 implementation plan: `docs/plans/v0.16-plan.md`
-- v0.16 request flow and manual verification: `docs/plans/v0.16-request-flow.md`
-- Next milestone plan: `docs/plans/v0.17-plan.md`
+- v0.17 implementation plan: `docs/plans/v0.17-plan.md`
+- v0.17 request flow and manual verification: `docs/plans/v0.17-request-flow.md`
+- Next milestone plan: `docs/plans/v0.18-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development
