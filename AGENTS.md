@@ -219,9 +219,10 @@ For StockSage workspace app work, read the active StockSage milestone plan
 StockSage agents, actions, domain records, the Python bridge, StockSage
 LiveViews, canvas components, or the StockSage skill pack. For v0.20 also read
 `docs/plans/v0.20-request-flow.md` and
-`docs/adr/0018-stocksage-local-domain-app.md`. StockSage enters as a
-plugin-contributed app after v0.17; v0.20 uses `AllbertAssist.Repo` and
-`stocksage_*` tables, not a separate `StockSage.Repo`. v0.20 read-by-id paths
+`docs/adr/0018-stocksage-local-domain-app.md`. StockSage enters as a shipped
+source-tree plugin app after v0.17; v0.20 uses `./plugins/stocksage`,
+`AllbertAssist.Repo`, and `stocksage_*` tables, not `apps/stocksage`,
+`apps/stocksage_web`, or a separate `StockSage.Repo`. v0.20 read-by-id paths
 must require `user_id`; `:stocksage_write` is scoped to local StockSage domain
 writes and must not authorize financial API calls or analysis execution.
 

@@ -30,19 +30,24 @@ StockSage a special case instead of the first normal app.
 
 ## Decision
 
-StockSage lands in v0.20 as a source-tree plugin-contributed app:
+StockSage lands in v0.20 as a shipped source-tree plugin app:
 
 - `./plugins/stocksage` is the plugin package.
 - `StockSage.Plugin` is the plugin entrypoint.
+- `./plugins/stocksage/lib` contains `StockSage.App`, domain contexts,
+  schemas, local actions, Mix tasks, and plugin-owned supervisors.
+- `./plugins/stocksage/test` contains StockSage's plugin/app tests.
 - `StockSage.App` implements the v0.18 app/surface contract from day one.
-- `apps/stocksage` contains the domain contexts, schemas, local actions, Mix
-  tasks, and tests.
-- `apps/stocksage_web` is a compile-ready placeholder for later LiveViews, but
-  v0.20 mounts no routes.
+- v0.20 adds no `apps/stocksage` or `apps/stocksage_web` umbrella apps. The
+  top-level umbrella apps remain the Allbert host; StockSage is loaded as a
+  reviewed, compiled source-tree plugin contribution.
 
 StockSage uses the existing `AllbertAssist.Repo` and the existing local SQLite
-database. v0.20 does not add `StockSage.Repo`. StockSage migrations live in
-the central Allbert migration path and create `stocksage_*` tables.
+database. v0.20 does not add `StockSage.Repo`. StockSage migration files live
+under `./plugins/stocksage/priv/repo/migrations`; the Allbert host explicitly
+loads reviewed shipped plugin migration paths when creating or migrating the
+local database. Those migrations create `stocksage_*` tables in the shared
+database.
 
 StockSage tables store string `user_id` and optional Allbert request context
 fields such as `thread_id`, `session_id`, `app_id`, `input_signal_id`, and
@@ -77,7 +82,8 @@ through the real app.
 
 ## Consequences
 
-- StockSage proves the plugin/app path without private Allbert bootstrapping.
+- StockSage proves the plugin/app path without private Allbert bootstrapping or
+  a parallel umbrella app.
 - All local data stays in one SQLite database, so backup/export and test setup
   remain simple.
 - Future StockSage milestones can reuse the same queue, analysis, detail,
@@ -99,5 +105,6 @@ through the real app.
 - StockSage LiveViews, route mounts, concrete StockSage surface navigation,
   canvas components, or `canvas_ops`. The v0.18 Surface DSL contract itself is
   already available and `StockSage.App` implements the provider behaviour with
-  no live surfaces in v0.20.
+  no live surfaces in v0.20. Later LiveView code remains plugin-owned and must
+  be declared through `AllbertAssist.App.SurfaceProvider`.
 - Automatic promotion of StockSage memory records to markdown Allbert memory.

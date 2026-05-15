@@ -1,5 +1,57 @@
 # Changelog
 
+## v0.20 - StockSage Plugin App And Domain
+
+Status: implementation cleanup in progress on 2026-05-15 to make StockSage a
+true shipped plugin app. Version metadata is `0.20.0`; the operator manual
+verification matrix remains the release gate. Release tag is pending operator
+acceptance.
+
+### Added
+
+- `./plugins/stocksage` as the first real shipped plugin app package with
+  `StockSage.Plugin`, `StockSage.App`, skill roots, settings schema entries,
+  and registered action contributions.
+- Plugin-owned StockSage domain, action, import, CLI, and test modules under
+  `./plugins/stocksage`; no `apps/stocksage` or `apps/stocksage_web` umbrella
+  apps.
+- Shared SQLite `stocksage_*` domain tables through `AllbertAssist.Repo`:
+  analyses, analysis details, outcomes, queue entries, queue runs, and
+  StockSage-local memory entries.
+- `StockSage.Import.SqliteImporter` and `mix stocksage.import_sqlite` for
+  read-only, idempotent import of the representative legacy SQLite fixture.
+- Safe local actions `list_analyses`, `show_analysis`, `get_trends`, and
+  `queue_analysis`, all contributed through `StockSage.Plugin.actions/0`.
+- Operator CLIs `mix stocksage.analyses list/show` and
+  `mix stocksage.queue create/list`.
+- `:stocksage_write` as a low-risk local domain write permission for queue and
+  domain writes only.
+
+### Safety
+
+- StockSage uses the existing `AllbertAssist.Repo`; no `StockSage.Repo` or
+  second database boundary was introduced.
+- Every domain row carries `user_id`, and read-by-id paths require `user_id`;
+  another user's durable id returns not-found.
+- v0.20 does not execute Python, call market-data APIs, mount StockSage
+  LiveViews, start native trading agents, or emit canvas components.
+- `queue_analysis` creates only a durable local queue row. It does not start a
+  worker or external process.
+- StockSage memory entries are SQLite domain records and are not automatically
+  promoted into markdown Allbert memory.
+
+### Verification
+
+- Focused suites passed for plugin/app registration, domain schemas and
+  contexts, legacy import, actions through `Actions.Runner`, settings schema
+  merge, Security Central, and StockSage Mix tasks.
+- Final v0.20 closeout gates to run after plugin-ownership cleanup:
+  `mix test plugins/stocksage/test`,
+  `mix test apps/allbert_assist/test`, `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- Manual verification steps live in `docs/plans/v0.20-request-flow.md`.
+
 ## v0.19 - Cross-Surface Intent Enrichment
 
 Status: implemented through M6 closeout on 2026-05-15. Version metadata is

@@ -369,7 +369,7 @@ historical aliases only and remain in old reference notes for continuity.
   memory/trace metadata, scratchpad, app registry context, plugin provenance,
   and registered surface metadata; v0.21 reviewed-memory retrieval plugs in
   later.
-- v0.20: StockSage plugin, umbrella app, and SQLite-first domain.
+- v0.20: StockSage shipped plugin app and SQLite-first domain.
 - v0.21: markdown memory review and retrieval, distinct from conversation
   history.
 - v0.22: StockSage Python bridge.

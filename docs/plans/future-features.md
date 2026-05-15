@@ -31,7 +31,7 @@ homes:
 - Plugin contract and shipped source-tree channel plugins: v0.17.
 - Full app contract and Surface DSL: v0.18.
 - Cross-surface intent enrichment: v0.19.
-- StockSage plugin, umbrella app, and domain: v0.20.
+- StockSage shipped plugin app and domain: v0.20.
 - Memory review and retrieval: v0.21.
 - StockSage Python bridge: v0.22.
 - Native Jido trading agents: v0.23.
