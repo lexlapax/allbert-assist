@@ -7,7 +7,12 @@
   "module": "StockSage.Plugin",
   "contributions": {
     "apps": ["StockSage.App"],
-    "actions": [],
+    "actions": [
+      "StockSage.Actions.ListAnalyses",
+      "StockSage.Actions.ShowAnalysis",
+      "StockSage.Actions.GetTrends",
+      "StockSage.Actions.QueueAnalysis"
+    ],
     "skill_paths": ["skills"]
   }
 }

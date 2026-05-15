@@ -24,6 +24,16 @@ defmodule StockSage.Plugin do
   def apps, do: [StockSage.App]
 
   @impl true
+  def actions do
+    [
+      StockSage.Actions.ListAnalyses,
+      StockSage.Actions.ShowAnalysis,
+      StockSage.Actions.GetTrends,
+      StockSage.Actions.QueueAnalysis
+    ]
+  end
+
+  @impl true
   def skill_paths do
     [Path.expand("../../skills", __DIR__)]
   end
@@ -59,7 +69,7 @@ defmodule StockSage.Plugin do
         key: "stocksage.queue.default_priority",
         type: :enum,
         default: "normal",
-        values: ["low", "normal", "high"],
+        allowed_values: ["low", "normal", "high"],
         description: "Default priority for new StockSage queue entries."
       }
     ]
