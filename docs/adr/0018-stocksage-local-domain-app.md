@@ -13,9 +13,12 @@ not accidentally pull later milestones forward.
 
 The surrounding decisions are already established:
 
+- ADR 0006 defines Security Central as the policy and permission evaluation
+  boundary.
 - ADR 0014 defines local string `user_id`, optional `thread_id` and
   `session_id`, and no hosted accounts/roles.
-- ADR 0015 defines `AllbertAssist.App` as the app contract.
+- ADR 0015 defines `AllbertAssist.App`, `AllbertAssist.App.SurfaceProvider`,
+  and `AllbertAssist.Surface` as the app/surface contract.
 - ADR 0017 defines plugins as the package/discovery boundary, not authority.
 - `allbert-jido-vision.md` keeps SQLite as the local default and defers
   PostgreSQL, hosted auth, Oban-as-hard-dependency, Python bridge execution,
@@ -64,8 +67,9 @@ against the source database. It does not execute Python, fetch market data, run
 package managers, import skills, or promote memory.
 
 The first StockSage actions may read local imported data and create local queue
-entries. They do not run analysis. `StockSage.Actions.RunAnalysis` belongs to
-the Python bridge milestone.
+entries. Read actions use `:read_only`; queue creation uses a scoped local
+domain write permission, `:stocksage_write`. They do not run analysis.
+`StockSage.Actions.RunAnalysis` belongs to the Python bridge milestone.
 
 `AllbertAssist.App.StockSageStub` is removed from default app registration
 when `StockSage.App` is registered. The `:stocksage` app id remains valid
@@ -92,5 +96,8 @@ through the real app.
 - Python bridge execution and `StockSage.Actions.RunAnalysis`.
 - Native trading agents.
 - Market-data API calls.
-- LiveViews, dynamic routes, Surface DSL, canvas components, or `canvas_ops`.
+- StockSage LiveViews, route mounts, concrete StockSage surface navigation,
+  canvas components, or `canvas_ops`. The v0.18 Surface DSL contract itself is
+  already available and `StockSage.App` implements the provider behaviour with
+  no live surfaces in v0.20.
 - Automatic promotion of StockSage memory records to markdown Allbert memory.
