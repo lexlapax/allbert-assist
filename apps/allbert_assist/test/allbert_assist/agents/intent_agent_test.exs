@@ -646,6 +646,12 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert mcp_response.message =~ "MCP resources and future agent endpoints"
     assert [%{workflow: :unsupported_uri_scheme}] = mcp_response.actions
 
+    assert mcp_response.decision.trace_metadata.intent_candidates.selected.action_name ==
+             "unsupported_resource_workflow"
+
+    assert [%{operation_class: :external_service_request, unsupported?: true}] =
+             mcp_response.decision.trace_metadata.intent_candidates.selected.resource_access
+
     assert {:ok, agent_response} =
              IntentAgent.respond(%{
                text: "Delegate this to agent+https://agent.example/tasks/review",
