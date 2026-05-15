@@ -62,6 +62,46 @@ defmodule AllbertAssist.Plugin.RegistryTest do
     end
   end
 
+  defmodule IgnoreChildPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.ignore_child"
+
+    @impl true
+    def display_name, do: "Example Ignore Child"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+  end
+
+  defmodule DuplicateChildPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.duplicate_child"
+
+    @impl true
+    def display_name, do: "Example Duplicate Child"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def child_spec(_opts) do
+      %{
+        id: {ChildPlugin, :agent},
+        start: {Agent, :start_link, [fn -> %{plugin: plugin_id()} end, []]}
+      }
+    end
+  end
+
   setup do
     registry = :"plugin_registry_#{System.unique_integer([:positive])}"
     table = :"plugin_registry_table_#{System.unique_integer([:positive])}"
@@ -121,6 +161,53 @@ defmodule AllbertAssist.Plugin.RegistryTest do
              Enum.find(discoveries, &match?({:module, AllbertAssist.Plugins.Email, _}, &1))
   end
 
+  test "discovery records missing, invalid, and disabled plugin diagnostics" do
+    root = Path.join(System.tmp_dir!(), "plugin-discovery-#{System.unique_integer([:positive])}")
+    plugins_root = Path.join(root, "plugins")
+    invalid_root = Path.join(plugins_root, "invalid")
+    disabled_root = Path.join(plugins_root, "disabled")
+    missing_root = Path.join(root, "missing")
+
+    File.mkdir_p!(invalid_root)
+    File.mkdir_p!(disabled_root)
+
+    File.write!(Path.join(invalid_root, "allbert_plugin.json"), "{")
+
+    File.write!(Path.join(disabled_root, "allbert_plugin.json"), """
+    {
+      "schema_version": 1,
+      "plugin_id": "example.disabled",
+      "name": "Example Disabled",
+      "version": "0.1.0",
+      "kind": "skills",
+      "skill_paths": []
+    }
+    """)
+
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    discoveries =
+      Discovery.discover(
+        project_root: root,
+        settings: %{
+          "enabled" => [],
+          "disabled" => [],
+          "scan_paths" => [missing_root, "./plugins"],
+          "trusted_project_roots" => [],
+          "load_policy" => "shipped_and_skill_only"
+        }
+      )
+
+    assert {:diagnostic, ^missing_root, [%{kind: :plugin_scan_path_missing}]} =
+             Enum.find(discoveries, &match?({:diagnostic, ^missing_root, _}, &1))
+
+    assert {:diagnostic, ^invalid_root, [%{kind: :invalid_json}]} =
+             Enum.find(discoveries, &match?({:diagnostic, ^invalid_root, _}, &1))
+
+    assert {:diagnostic, "example.disabled", [%{kind: :plugin_not_enabled}]} =
+             Enum.find(discoveries, &match?({:diagnostic, "example.disabled", _}, &1))
+  end
+
   test "bootstrap registers discovered modules and starts plugin children", %{
     registry: registry,
     child_supervisor: child_supervisor
@@ -140,6 +227,51 @@ defmodule AllbertAssist.Plugin.RegistryTest do
 
     assert [%{plugin_id: "example.child", child_spec: _spec}] =
              Registry.registered_child_specs(server: registry)
+  end
+
+  test "bootstrap accepts ignored children without starting a process", %{
+    registry: registry,
+    child_supervisor: child_supervisor
+  } do
+    start_supervised!(
+      {Bootstrap,
+       name: :"plugin_bootstrap_#{System.unique_integer([:positive])}",
+       registry: registry,
+       child_supervisor: child_supervisor,
+       discoveries: [{:module, IgnoreChildPlugin, [source: :shipped]}]}
+    )
+
+    assert_eventually(fn ->
+      assert [%{plugin_id: "example.ignore_child"}] =
+               Registry.registered_plugins(server: registry)
+
+      assert %{active: 0} = DynamicSupervisor.count_children(child_supervisor)
+    end)
+
+    assert [] = Registry.registered_child_specs(server: registry)
+  end
+
+  test "bootstrap records duplicate plugin child ids without starting another child", %{
+    registry: registry,
+    child_supervisor: child_supervisor
+  } do
+    start_supervised!(
+      {Bootstrap,
+       name: :"plugin_bootstrap_#{System.unique_integer([:positive])}",
+       registry: registry,
+       child_supervisor: child_supervisor,
+       discoveries: [
+         {:module, ChildPlugin, [source: :shipped]},
+         {:module, DuplicateChildPlugin, [source: :shipped]}
+       ]}
+    )
+
+    assert_eventually(fn ->
+      assert %{active: 1} = DynamicSupervisor.count_children(child_supervisor)
+
+      diagnostics = Registry.diagnostics(server: registry)
+      assert [%{kind: :duplicate_child_id}] = diagnostics["example.duplicate_child"]
+    end)
   end
 
   defp assert_eventually(fun, attempts \\ 20)

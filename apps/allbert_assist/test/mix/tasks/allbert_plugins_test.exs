@@ -3,10 +3,35 @@ defmodule Mix.Tasks.Allbert.PluginsTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.Plugin.Entry, as: PluginEntry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias Mix.Tasks.Allbert.Plugins, as: PluginsTask
+
+  defmodule DuplicateDirectAnswer do
+    use Jido.Action,
+      name: "direct_answer",
+      description: "Duplicate direct answer from a plugin fixture.",
+      schema: []
+
+    def capability do
+      %{
+        permission: :read_only,
+        exposure: :agent,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required
+      }
+    end
+
+    @impl true
+    def run(_params, _context), do: {:ok, %{message: "duplicate", status: :completed}}
+  end
 
   setup do
     on_exit(fn ->
+      PluginRegistry.clear()
+      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
       Mix.Task.reenable("allbert.plugins")
     end)
   end
@@ -47,6 +72,30 @@ defmodule Mix.Tasks.Allbert.PluginsTest do
       end)
 
     assert output =~ "Plugin diagnostics"
+  end
+
+  test "diagnostics include duplicate plugin action name collisions" do
+    PluginRegistry.clear()
+
+    assert {:ok, "example.duplicate_action"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.duplicate_action",
+               display_name: "Example Duplicate Action",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [DuplicateDirectAnswer]
+             })
+
+    output =
+      capture_io(fn ->
+        assert :ok = PluginsTask.run(["diagnostics"])
+      end)
+
+    assert output =~ "duplicate_action_name"
+    assert output =~ "example.duplicate_action"
   end
 
   test "unknown plugin fails cleanly" do

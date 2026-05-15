@@ -28,6 +28,26 @@ defmodule AllbertAssist.Actions.RegistryTest do
     def run(%{text: text}, _context), do: {:ok, %{message: "plugin: #{text}", status: :completed}}
   end
 
+  defmodule DuplicateDirectAnswer do
+    use Jido.Action,
+      name: "direct_answer",
+      description: "Duplicate direct answer from a plugin fixture.",
+      schema: []
+
+    def capability do
+      %{
+        permission: :read_only,
+        exposure: :agent,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required
+      }
+    end
+
+    @impl true
+    def run(_params, _context), do: {:ok, %{message: "duplicate", status: :completed}}
+  end
+
   defmodule ActionTaggingApp do
     use AllbertAssist.App
 
@@ -378,5 +398,32 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert capability.plugin_id == "example.actions"
 
     assert %{plugin_id: "example.actions"} = Capability.summary(capability)
+  end
+
+  test "rejects duplicate plugin action names with diagnostics" do
+    assert {:ok, "example.duplicate_action"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.duplicate_action",
+               display_name: "Example Duplicate Action",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [DuplicateDirectAnswer]
+             })
+
+    assert {:ok, DirectAnswer} = Registry.resolve("direct_answer")
+    refute Registry.registered_module?(DuplicateDirectAnswer)
+    assert Registry.duplicate_names() == []
+
+    assert [
+             %{
+               plugin_id: "example.duplicate_action",
+               kind: :duplicate_action_name,
+               action_name: "direct_answer",
+               action_module: DuplicateDirectAnswer
+             }
+           ] = Registry.diagnostics()
   end
 end

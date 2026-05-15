@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Settings.Schema do
   @moduledoc false
 
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Resources.OperationClass
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
@@ -1217,12 +1218,12 @@ defmodule AllbertAssist.Settings.Schema do
     }
   }
 
-  def defaults, do: @defaults
-  def schema, do: @schema
-  def safe_write_keys, do: @safe_write_keys
+  def defaults, do: deep_merge(plugin_defaults(), @defaults)
+  def schema, do: Map.merge(plugin_schema(), @schema)
+  def safe_write_keys, do: Enum.uniq(@safe_write_keys ++ plugin_safe_write_keys())
 
   def safe_write_key?(key) when is_binary(key) do
-    Enum.any?(@safe_write_keys, &key_matches?(&1, key))
+    Enum.any?(safe_write_keys(), &key_matches?(&1, key))
   end
 
   def safe_write_key?(_key), do: false
@@ -1271,7 +1272,7 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   def known_key?(key) do
-    Map.has_key?(@schema, key) ||
+    Map.has_key?(schema(), key) ||
       wildcard_known_key?(key) ||
       default_key?(key)
   end
@@ -1293,7 +1294,7 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp schema_for_key(key) do
     cond do
-      schema = Map.get(@schema, key) ->
+      schema = Map.get(schema(), key) ->
         schema
 
       Regex.match?(~r/^providers\.[^.]+\.[^.]+$/, key) ->
@@ -1305,7 +1306,7 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp validate_static_keys(settings) do
-    @schema
+    schema()
     |> Map.keys()
     |> Enum.reduce_while(:ok, fn key, :ok ->
       case validate_value(schema_for_key(key), get_dotted(settings, key), key, settings) do
@@ -1880,7 +1881,7 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp reject_unknown_top_level(settings) do
-    known = MapSet.new(Map.keys(@defaults))
+    known = MapSet.new(Map.keys(defaults()))
 
     settings
     |> Map.keys()
@@ -1900,7 +1901,7 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp default_key?(key) do
-    @defaults
+    defaults()
     |> flatten_default_keys()
     |> MapSet.member?(key)
   end
@@ -1929,6 +1930,83 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp split_key(key), do: String.split(key, ".", trim: true)
+
+  defp plugin_schema do
+    PluginRegistry.registered_settings_schema()
+    |> Enum.flat_map(&normalize_plugin_schema_entry/1)
+    |> Map.new()
+  end
+
+  defp plugin_defaults do
+    plugin_schema()
+    |> Enum.reduce(%{}, fn {key, schema}, defaults ->
+      put_dotted(defaults, key, Map.fetch!(schema, :default))
+    end)
+  end
+
+  defp plugin_safe_write_keys do
+    plugin_schema()
+    |> Enum.filter(fn {_key, schema} -> Map.get(schema, :writable?, true) end)
+    |> Enum.map(fn {key, _schema} -> key end)
+  end
+
+  defp normalize_plugin_schema_entry(entry) when is_map(entry) do
+    key = schema_field(entry, :key)
+    type = schema_field(entry, :type)
+
+    cond do
+      not valid_plugin_setting_key?(key) ->
+        []
+
+      not is_atom(type) ->
+        []
+
+      not has_schema_field?(entry, :default) ->
+        []
+
+      true ->
+        [{key, plugin_schema_attrs(entry, type)}]
+    end
+  end
+
+  defp normalize_plugin_schema_entry(_entry), do: []
+
+  defp plugin_schema_attrs(entry, type) do
+    %{
+      type: type,
+      default: schema_field(entry, :default),
+      writable?: schema_field(entry, :writable?, true),
+      sensitive?: schema_field(entry, :sensitive?, sensitive_key?(schema_field(entry, :key)))
+    }
+    |> maybe_put_schema_attr(:allowed_values, schema_field(entry, :allowed_values))
+    |> maybe_put_schema_attr(:min, schema_field(entry, :min))
+    |> maybe_put_schema_attr(:max, schema_field(entry, :max))
+  end
+
+  defp maybe_put_schema_attr(schema, _key, nil), do: schema
+  defp maybe_put_schema_attr(schema, key, value), do: Map.put(schema, key, value)
+
+  defp schema_field(entry, key, default \\ nil) do
+    Map.get(entry, key, Map.get(entry, Atom.to_string(key), default))
+  end
+
+  defp has_schema_field?(entry, key) do
+    Map.has_key?(entry, key) or Map.has_key?(entry, Atom.to_string(key))
+  end
+
+  defp valid_plugin_setting_key?(key) when is_binary(key) do
+    byte_size(key) <= 160 and Regex.match?(~r/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, key)
+  end
+
+  defp valid_plugin_setting_key?(_key), do: false
+
+  defp deep_merge(left, right) when is_map(left) and is_map(right) do
+    Map.merge(left, right, fn _key, left_value, right_value ->
+      deep_merge(left_value, right_value)
+    end)
+  end
+
+  defp deep_merge(_left, right), do: right
 
   defp put_in_segments(_settings, [], value), do: value
 
