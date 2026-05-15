@@ -57,6 +57,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Skills.ValidateSkill
   alias AllbertAssist.Actions.Trace.RecordTrace
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
 
   @agent_actions [
     DirectAnswer,
@@ -486,27 +487,44 @@ defmodule AllbertAssist.Actions.Registry do
 
   @doc "Return registered runtime action modules in stable display order."
   @spec modules() :: nonempty_list(module())
-  def modules, do: @actions
+  def modules, do: @actions ++ plugin_actions()
 
   @doc "Return action modules that can be exposed to the intent agent."
   @spec agent_modules() :: nonempty_list(module())
-  def agent_modules, do: @agent_actions
+  def agent_modules do
+    @agent_actions ++
+      Enum.filter(plugin_actions(), fn module ->
+        module
+        |> plugin_capability_attrs()
+        |> case do
+          {:ok, attrs} -> attrs.exposure == :agent
+          {:error, _reason} -> false
+        end
+      end)
+  end
 
   @doc "Return registered action names in stable display order."
   @spec names() :: [String.t()]
-  def names, do: Enum.map(@actions, & &1.name())
+  def names, do: Enum.map(modules(), & &1.name())
 
   @doc "Return canonical capability metadata for all registered actions."
   @spec capabilities() :: [Capability.t()]
-  def capabilities, do: Enum.map(@actions, &capability_for_module!/1)
+  def capabilities, do: Enum.map(modules(), &capability_for_module!/1)
 
   @doc "Return canonical capability metadata for intent-agent actions."
   @spec agent_capabilities() :: [Capability.t()]
-  def agent_capabilities, do: Enum.map(@agent_actions, &capability_for_module!/1)
+  def agent_capabilities, do: Enum.map(agent_modules(), &capability_for_module!/1)
 
   @doc "Return canonical capability metadata for internal-only actions."
   @spec internal_capabilities() :: [Capability.t()]
-  def internal_capabilities, do: Enum.map(@internal_actions, &capability_for_module!/1)
+  def internal_capabilities do
+    internal_plugin_actions =
+      Enum.reject(plugin_actions(), fn module ->
+        module in agent_modules()
+      end)
+
+    Enum.map(@internal_actions ++ internal_plugin_actions, &capability_for_module!/1)
+  end
 
   @doc "Return action capabilities contributed by one registered app."
   @spec capabilities_for_app(atom()) :: [Capability.t()]
@@ -521,13 +539,15 @@ defmodule AllbertAssist.Actions.Registry do
   @doc "Resolve a registered action by module, string name, or atom name."
   @spec resolve(module() | String.t() | atom()) ::
           {:ok, module()} | {:error, {:unknown_action, term()}}
-  def resolve(action) when is_atom(action) and action in @actions, do: {:ok, action}
-
   def resolve(action) when is_atom(action) do
-    action
-    |> Atom.to_string()
-    |> String.replace_prefix("Elixir.", "")
-    |> resolve_name(action)
+    if action in modules() do
+      {:ok, action}
+    else
+      action
+      |> Atom.to_string()
+      |> String.replace_prefix("Elixir.", "")
+      |> resolve_name(action)
+    end
   end
 
   def resolve(action) when is_binary(action), do: resolve_name(action, action)
@@ -554,7 +574,7 @@ defmodule AllbertAssist.Actions.Registry do
 
   @doc "Return true when the module is registered for runtime invocation."
   @spec registered_module?(module()) :: boolean()
-  def registered_module?(module), do: module in @actions
+  def registered_module?(module), do: module in modules()
 
   @doc "Return duplicate registered names. This should always be empty."
   @spec duplicate_names() :: [String.t()]
@@ -568,23 +588,68 @@ defmodule AllbertAssist.Actions.Registry do
   defp resolve_name(name, original) do
     normalized = normalize_name(name)
 
-    case Enum.find(@actions, &(normalize_name(&1.name()) == normalized)) do
+    case Enum.find(modules(), &(normalize_name(&1.name()) == normalized)) do
       nil -> {:error, {:unknown_action, original}}
       module -> {:ok, module}
     end
   end
 
   defp capability_for_module!(module) do
-    attrs = Map.fetch!(@capability_attrs, module)
+    attrs = capability_attrs!(module)
     app_id = AppRegistry.app_id_for_action(module)
+    plugin_id = PluginRegistry.plugin_id_for_action(module)
 
     module
     |> Capability.new(attrs)
     |> maybe_put_app_id(app_id)
+    |> maybe_put_plugin_id(plugin_id)
+  end
+
+  defp capability_attrs!(module) do
+    case Map.fetch(@capability_attrs, module) do
+      {:ok, attrs} ->
+        attrs
+
+      :error ->
+        case plugin_capability_attrs(module) do
+          {:ok, attrs} -> attrs
+          {:error, reason} -> raise KeyError, key: module, term: reason
+        end
+    end
+  end
+
+  defp plugin_actions do
+    PluginRegistry.registered_actions()
+    |> Enum.filter(&valid_plugin_action?/1)
+    |> Enum.reject(&(&1 in @actions))
+  end
+
+  defp valid_plugin_action?(module) do
+    Code.ensure_loaded?(module) and function_exported?(module, :name, 0) and
+      match?({:ok, _attrs}, plugin_capability_attrs(module))
+  end
+
+  defp plugin_capability_attrs(module) do
+    if function_exported?(module, :capability, 0) do
+      attrs = module.capability()
+
+      required = [:permission, :exposure, :execution_mode, :skill_backed?, :confirmation]
+
+      if is_map(attrs) and Enum.all?(required, &Map.has_key?(attrs, &1)) do
+        {:ok, attrs}
+      else
+        {:error, :invalid_plugin_capability}
+      end
+    else
+      {:error, :missing_plugin_capability}
+    end
   end
 
   defp maybe_put_app_id(capability, nil), do: capability
   defp maybe_put_app_id(capability, app_id), do: %{capability | app_id: app_id}
+
+  defp maybe_put_plugin_id(capability, nil), do: capability
+  defp maybe_put_plugin_id(capability, plugin_id), do: %{capability | plugin_id: plugin_id}
 
   defp normalize_name(name) do
     name
