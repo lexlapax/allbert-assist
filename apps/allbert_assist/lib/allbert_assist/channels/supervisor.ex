@@ -9,11 +9,6 @@ defmodule AllbertAssist.Channels.Supervisor do
 
   @impl true
   def init(opts) do
-    children = [
-      {AllbertAssist.Channels.Telegram.Adapter, opts},
-      {AllbertAssist.Channels.Email.Adapter, opts}
-    ]
-
-    Supervisor.init(children, strategy: :one_for_one)
+    Supervisor.init(AllbertAssist.Channels.channel_child_specs(opts), strategy: :one_for_one)
   end
 end

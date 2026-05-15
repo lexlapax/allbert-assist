@@ -52,6 +52,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
       File.rm_rf!(root)
       AppRegistry.unregister(:skill_registry_app)
       PluginRegistry.clear()
+      restore_shipped_plugins()
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(AppSkillApp, original_app_config)
@@ -416,4 +417,10 @@ defmodule AllbertAssist.Skills.RegistryTest do
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  defp restore_shipped_plugins do
+    PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+    PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+    :ok
+  end
 end

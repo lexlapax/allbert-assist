@@ -6,6 +6,7 @@ defmodule AllbertAssist.Channels do
   import Ecto.Query
 
   alias AllbertAssist.Channels.Event
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
@@ -29,17 +30,6 @@ defmodule AllbertAssist.Channels do
     :payload_summary,
     :error
   ]
-
-  @providers %{
-    "telegram" => %{
-      provider: "telegram_bot_api",
-      secret_refs: ["channels.telegram.bot_token_ref"]
-    },
-    "email" => %{
-      provider: "email_imap",
-      secret_refs: ["channels.email.imap_password_ref", "channels.email.smtp_password_ref"]
-    }
-  }
 
   @spec create_event(map()) :: {:ok, Event.t()} | {:error, Ecto.Changeset.t()}
   def create_event(attrs) when is_map(attrs) do
@@ -94,28 +84,45 @@ defmodule AllbertAssist.Channels do
   end
 
   @spec derive_session_id(String.t(), String.t(), String.t() | nil) :: String.t()
-  def derive_session_id("telegram", external_user_id, external_chat_id) do
-    hash_session_id("ch_tg_", ["telegram", external_user_id, external_chat_id])
-  end
-
-  def derive_session_id("email", external_user_id, _external_chat_id) do
-    hash_session_id("ch_em_", ["email", external_user_id])
-  end
-
   def derive_session_id(channel, external_user_id, external_chat_id) do
-    prefix = "ch_" <> String.slice(channel, 0, 2) <> "_"
-    hash_session_id(prefix, [channel, external_user_id, external_chat_id])
+    case channel_descriptor(channel) do
+      {:ok, %{session_strategy: {:telegram_chat, opts}}} ->
+        hash_session_id(Keyword.fetch!(opts, :prefix), [
+          channel,
+          external_user_id,
+          external_chat_id
+        ])
+
+      {:ok, %{session_strategy: {:email_sender, opts}}} ->
+        hash_session_id(Keyword.fetch!(opts, :prefix), [channel, external_user_id])
+
+      {:ok, %{session_strategy: {strategy, opts}}} ->
+        prefix = Keyword.get(opts, :prefix, default_session_prefix(channel))
+        hash_session_id(prefix, [channel, strategy, external_user_id, external_chat_id])
+
+      {:error, :unknown_channel} ->
+        hash_session_id(default_session_prefix(channel), [
+          channel,
+          external_user_id,
+          external_chat_id
+        ])
+    end
   end
 
   @spec list_channels() :: [map()]
   def list_channels do
-    Enum.map(["telegram", "email"], &channel_summary/1)
+    PluginRegistry.registered_channels()
+    |> Enum.sort_by(&channel_order/1)
+    |> Enum.map(&channel_summary/1)
   end
 
   @spec channel_settings(String.t()) :: {:ok, map()} | {:error, :unknown_channel}
-  def channel_settings(channel) when channel in ["telegram", "email"] do
-    with {:ok, settings, _user_settings} <- Store.resolved_settings(),
-         channel_settings when is_map(channel_settings) <- get_in(settings, ["channels", channel]) do
+  def channel_settings(channel) when is_binary(channel) do
+    with {:ok, descriptor} <- channel_descriptor(channel),
+         prefix when is_binary(prefix) <- Map.get(descriptor, :settings_prefix),
+         {:ok, settings, _user_settings} <- Store.resolved_settings(),
+         channel_settings when is_map(channel_settings) <-
+           get_in(settings, String.split(prefix, ".")) do
       {:ok, channel_settings}
     else
       _other -> {:error, :unknown_channel}
@@ -124,32 +131,98 @@ defmodule AllbertAssist.Channels do
 
   def channel_settings(_channel), do: {:error, :unknown_channel}
 
-  defp channel_summary(channel) do
+  @spec channel_descriptor(String.t()) :: {:ok, map()} | {:error, :unknown_channel}
+  def channel_descriptor(channel) when is_binary(channel) do
+    PluginRegistry.registered_channels()
+    |> Enum.find(&(&1.channel_id == channel))
+    |> case do
+      nil -> {:error, :unknown_channel}
+      descriptor -> {:ok, descriptor}
+    end
+  end
+
+  def channel_descriptor(_channel), do: {:error, :unknown_channel}
+
+  @spec channel_provider(String.t()) :: String.t() | nil
+  def channel_provider(channel) do
+    case channel_descriptor(channel) do
+      {:ok, descriptor} -> descriptor.provider
+      {:error, :unknown_channel} -> nil
+    end
+  end
+
+  @spec channel_child_specs(keyword()) :: [Supervisor.child_spec()]
+  def channel_child_specs(opts \\ []) do
+    PluginRegistry.registered_channels()
+    |> Enum.filter(&(&1.status == :enabled))
+    |> Enum.map(&descriptor_child_spec(&1, opts))
+  end
+
+  defp descriptor_child_spec(%{child_spec: {module, descriptor_opts}} = descriptor, opts) do
+    Supervisor.child_spec({module, Keyword.merge(descriptor_opts, opts)},
+      id: descriptor.channel_id
+    )
+  end
+
+  defp descriptor_child_spec(%{child_spec: module} = descriptor, opts) when is_atom(module) do
+    Supervisor.child_spec({module, opts}, id: descriptor.channel_id)
+  end
+
+  defp descriptor_child_spec(%{child_spec: child_spec}, _opts),
+    do: Supervisor.child_spec(child_spec, [])
+
+  defp legacy_channel_settings(channel) when channel in ["telegram", "email"] do
+    with {:ok, settings, _user_settings} <- Store.resolved_settings(),
+         channel_settings when is_map(channel_settings) <- get_in(settings, ["channels", channel]) do
+      {:ok, channel_settings}
+    else
+      _other -> {:error, :unknown_channel}
+    end
+  end
+
+  defp legacy_channel_settings(_channel), do: {:error, :unknown_channel}
+
+  defp channel_summary(descriptor) do
+    channel = descriptor.channel_id
+
     settings =
       case channel_settings(channel) do
-        {:ok, settings} -> settings
-        {:error, _reason} -> %{}
+        {:ok, settings} ->
+          settings
+
+        {:error, _reason} ->
+          case legacy_channel_settings(channel) do
+            {:ok, settings} -> settings
+            {:error, _reason} -> %{}
+          end
       end
 
     %{
       channel: channel,
-      provider: @providers[channel].provider,
+      provider: descriptor.provider,
+      plugin_id: descriptor.plugin_id,
+      source: descriptor.source,
       enabled: Map.get(settings, "enabled", false),
       identity_count: settings |> Map.get("identity_map", []) |> length(),
-      credential_status: credential_status(channel),
+      credential_status: credential_status(descriptor),
       last_event: last_event_summary(channel)
     }
   end
 
-  defp credential_status(channel) do
+  defp credential_status(%{channel_id: channel} = descriptor) do
     channel_settings =
       case channel_settings(channel) do
-        {:ok, settings} -> settings
-        {:error, _reason} -> %{}
+        {:ok, settings} ->
+          settings
+
+        {:error, _reason} ->
+          case legacy_channel_settings(channel) do
+            {:ok, settings} -> settings
+            {:error, _reason} -> %{}
+          end
       end
 
-    @providers
-    |> Map.fetch!(channel)
+    descriptor
     |> Map.fetch!(:secret_refs)
     |> Enum.map(fn key ->
       ref_key = key |> String.split(".") |> List.last()
@@ -164,6 +237,12 @@ defmodule AllbertAssist.Channels do
     end)
     |> Map.new()
   end
+
+  defp default_session_prefix(channel), do: "ch_" <> String.slice(to_string(channel), 0, 2) <> "_"
+
+  defp channel_order(%{channel_id: "telegram"}), do: {0, "telegram"}
+  defp channel_order(%{channel_id: "email"}), do: {1, "email"}
+  defp channel_order(%{channel_id: channel_id}), do: {10, channel_id}
 
   defp tap_event({:ok, %Event{} = event} = result, fun) when is_function(fun, 1) do
     fun.(event)
