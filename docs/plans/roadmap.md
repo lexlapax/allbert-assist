@@ -929,10 +929,16 @@ Expected direction:
 - Add `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface` DSL with
   catalog validation, and `AllbertAssist.Surface.Encoder.to_a2ui/1` as the
   typed AG-UI adaptation stub.
+- Upgrade `AllbertAssist.App.CoreApp` to implement `SurfaceProvider`, declaring
+  the `/agent` conversation route as the first built-in chat surface. This is
+  the first `SurfaceProvider` implementation; v0.20 StockSage is the second.
+- Default channel-delivered requests (v0.16 Telegram/email) to
+  `active_app: :allbert` when no other app context is active in scratchpad.
+  Every runtime turn now has a declared home app.
 - Add `mix allbert.validate_app MyApp` and
   `docs/how-to-create-an-allbert-app.md`.
 - Design the full contract so v0.20 StockSage can implement `SurfaceProvider`
-  as the first real consumer from day one; no lite→full migration needed.
+  from day one; no lite→full migration needed.
 - Keep AG-UI/A2UI as future adapters, not local hard dependencies.
 
 ## v0.19: Cross-Surface Intent Enrichment
@@ -1042,8 +1048,10 @@ review, v0.22 Python bridge, and v0.23 Native Jido agents are complete.
 
 Expected direction:
 
-- Replace the rudimentary `/agent` concept with a signal-driven operator
-  workspace while keeping LiveView thin.
+- Upgrade `AllbertAssist.App.CoreApp`'s declared surface from the rudimentary
+  `/agent` prompt into a signal-driven LiveView workspace. v0.24 is `CoreApp`'s
+  surface implementation, not a free-floating shell; it does not redefine the
+  app contract or surface DSL that v0.18 provides.
 - Use `AllbertAssist.App.Registry` for app navigation and
   `AllbertAssist.Surface` (defined in v0.18) for canvas/task component
   validation.
