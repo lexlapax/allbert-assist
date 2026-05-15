@@ -3,6 +3,8 @@ defmodule AllbertAssist.App.Bootstrap do
 
   use GenServer
 
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+
   require Logger
 
   @default_apps [AllbertAssist.App.CoreApp, AllbertAssist.App.StockSageStub]
@@ -37,7 +39,8 @@ defmodule AllbertAssist.App.Bootstrap do
       raise RuntimeError, "expected :allbert_assist, :apps to be a list, got: #{inspect(apps)}"
     end
 
-    apps
+    (apps ++ PluginRegistry.registered_apps())
+    |> Enum.uniq()
   end
 
   defp register_app(module, registry) do

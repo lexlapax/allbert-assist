@@ -5,6 +5,8 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
   alias AllbertAssist.App.Registry
   alias AllbertAssist.Conversations
   alias AllbertAssist.Jobs
+  alias AllbertAssist.Plugin.Entry, as: PluginEntry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Session
 
   defmodule ValidApp do
@@ -41,11 +43,30 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
     end
   end
 
+  defmodule PluginApp do
+    use AllbertAssist.App
+
+    @impl true
+    def app_id, do: :plugin_bootstrap_app
+
+    @impl true
+    def display_name, do: "Plugin Bootstrap App"
+
+    @impl true
+    def version, do: "0.17.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+  end
+
   setup do
     original_apps = Application.get_env(:allbert_assist, :apps)
     original_bootstrap = Application.get_env(:allbert_assist, :apps_bootstrap)
 
     on_exit(fn ->
+      PluginRegistry.clear()
+      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
       restore_env(:apps, original_apps)
       restore_env(:apps_bootstrap, original_bootstrap)
     end)
@@ -117,6 +138,45 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
 
     assert %{restart_broken_app: [%{kind: :restart_broken}]} =
              Registry.diagnostics(server: registry)
+  end
+
+  test "app bootstrap consumes plugin-contributed apps" do
+    PluginRegistry.clear()
+
+    assert {:ok, "example.app"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.app",
+               display_name: "Example App",
+               version: "0.1.0",
+               kind: "app",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               apps: [PluginApp]
+             })
+
+    registry = :"plugin_app_registry_#{System.unique_integer([:positive])}"
+    dynamic_supervisor = :"plugin_app_dynamic_supervisor_#{System.unique_integer([:positive])}"
+    bootstrap = :"plugin_app_bootstrap_#{System.unique_integer([:positive])}"
+    supervisor = :"plugin_app_supervisor_#{System.unique_integer([:positive])}"
+    table = :"plugin_app_table_#{System.unique_integer([:positive])}"
+
+    start_supervised!(
+      Supervisor.child_spec(
+        {AllbertAssist.App.Supervisor,
+         name: supervisor,
+         registry: registry,
+         dynamic_supervisor: dynamic_supervisor,
+         bootstrap: bootstrap,
+         table_name: table},
+        id: supervisor
+      )
+    )
+
+    assert wait_until(fn -> :plugin_bootstrap_app in app_ids(registry) end)
+
+    assert {:ok, %{display_name: "Plugin Bootstrap App"}} =
+             Registry.lookup(:plugin_bootstrap_app, server: registry)
   end
 
   test "bootstrap can be disabled for tests without registering default apps" do

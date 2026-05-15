@@ -66,7 +66,7 @@ defmodule AllbertAssist.Actions.Runner do
       permission_decision: permission_decision(response),
       selected_skill: Map.get(context, :selected_skill),
       skill_metadata: Redactor.redact(Map.get(context, :skill_metadata)),
-      action_capability: Redactor.redact(Map.get(context, :action_capability)),
+      action_capability: Redactor.redact(action_capability(context, action_module)),
       error: Map.get(response, :error)
     }
 
@@ -202,6 +202,14 @@ defmodule AllbertAssist.Actions.Runner do
   end
 
   defp permission_decision(_response), do: nil
+
+  defp action_capability(context, action_module) do
+    Map.get(context, :action_capability) ||
+      case Registry.capability(action_module) do
+        {:ok, capability} -> AllbertAssist.Actions.Capability.summary(capability)
+        {:error, _reason} -> nil
+      end
+  end
 
   defp log_signal({:ok, %Signal{} = signal}) do
     :ok = Signals.log(signal)
