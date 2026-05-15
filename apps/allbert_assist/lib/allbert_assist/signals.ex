@@ -14,10 +14,38 @@ defmodule AllbertAssist.Signals do
   @action_requested "allbert.action.requested"
   @action_completed "allbert.action.completed"
 
+  @channel_signal_types %{
+    update_received: "allbert.channel.update_received",
+    message_rejected: "allbert.channel.message_rejected",
+    runtime_submitted: "allbert.channel.runtime_submitted",
+    response_sent: "allbert.channel.response_sent",
+    delivery_failed: "allbert.channel.delivery_failed",
+    callback_received: "allbert.channel.callback_received"
+  }
+
   @doc "Return action lifecycle signal names."
   @spec action_signal_types() :: %{requested: String.t(), completed: String.t()}
   def action_signal_types do
     %{requested: @action_requested, completed: @action_completed}
+  end
+
+  @doc "Return channel lifecycle signal names."
+  @spec channel_signal_types() :: %{atom() => String.t()}
+  def channel_signal_types, do: @channel_signal_types
+
+  @doc "Create a channel lifecycle signal."
+  @spec channel_lifecycle(atom(), map()) :: {:ok, Signal.t()} | {:error, term()}
+  def channel_lifecycle(kind, metadata) when is_atom(kind) and is_map(metadata) do
+    with {:ok, type} <- Map.fetch(@channel_signal_types, kind) do
+      Signal.new(
+        type,
+        Redactor.redact(metadata),
+        source: "/allbert/channels/#{Map.get(metadata, :channel, "unknown")}",
+        subject: Map.get(metadata, :user_id) || Map.get(metadata, "user_id")
+      )
+    else
+      :error -> {:error, {:unknown_channel_signal, kind}}
+    end
   end
 
   @doc "Create an action-requested signal."

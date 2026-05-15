@@ -238,6 +238,31 @@ defmodule AllbertAssist.Channels.EmailTest do
       assert event.reason == ":oversized"
     end
 
+    test "html-only confirmation text is rejected as inbound when html replies are disabled" do
+      configure_email!()
+      configure_runtime!()
+
+      fake =
+        start_fake_imap!(%{
+          "1" =>
+            html_only_email(
+              "html-command@example.com",
+              "<p>ALLBERT:DENY:conf_email_html</p>"
+            )
+        })
+
+      server = :"email-html-only-command-#{System.unique_integer([:positive])}"
+      start_email_server!(server, fake)
+
+      assert {:ok, %{processed: 0, rejected: 1}} = Adapter.poll_once(server)
+
+      event = Channels.get_event_by_external_id("email", "html-command@example.com")
+      assert event.direction == "inbound"
+      assert event.status == "rejected"
+      assert event.reason == ":html_only"
+      refute_received {:runtime_request, _request}
+    end
+
     test "typed confirmation commands resolve through registered actions" do
       configure_email!()
       assert {:ok, confirmation} = create_confirmation!("conf_email_deny", "email")
@@ -419,6 +444,18 @@ defmodule AllbertAssist.Channels.EmailTest do
     Content-Type: text/plain; charset=utf-8
 
     #{command}
+    """
+  end
+
+  defp html_only_email(message_id, html_body) do
+    """
+    From: Alice <alice@example.com>
+    To: allbert@example.com
+    Subject: Confirm
+    Message-ID: <#{message_id}>
+    Content-Type: text/html; charset=utf-8
+
+    #{html_body}
     """
   end
 

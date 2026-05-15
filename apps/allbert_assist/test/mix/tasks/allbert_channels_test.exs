@@ -30,8 +30,11 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.delete_env(:allbert_assist, Trace)
 
+    parent = self()
+
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, request ->
+        Kernel.send(parent, {:runtime_request, request})
         {:ok, %{message: "Task channel response: #{request.text}", status: :completed}}
       end
     )
@@ -68,6 +71,16 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
     assert show_output =~ "Channel: telegram"
     assert show_output =~ "Provider: telegram_bot_api"
+
+    Mix.Task.reenable("allbert.channels")
+
+    email_show_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["show", "email"])
+      end)
+
+    assert email_show_output =~ "Channel: email"
+    assert email_show_output =~ "Provider: email_imap"
   end
 
   test "stores credentials without printing secret values" do
@@ -124,6 +137,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert telegram_output =~ "status=processed"
     assert telegram_output =~ "User: alice"
     assert telegram_output =~ "Task channel response: hello"
+    assert_received {:runtime_request, %{channel: "telegram", text: "hello"}}
 
     Mix.Task.reenable("allbert.channels")
 
@@ -141,7 +155,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
     Mix.Task.reenable("allbert.channels")
 
-    email_output =
+    seed_email_output =
       capture_io(fn ->
         assert :ok =
                  ChannelsTask.run([
@@ -149,13 +163,42 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
                    "simulate",
                    "--external-user",
                    "alice@example.com",
+                   "email seed"
+                 ])
+      end)
+
+    assert seed_email_output =~ "status=processed"
+    assert seed_email_output =~ "Task channel response: email seed"
+    assert_received {:runtime_request, %{channel: "email", text: "email seed"}}
+
+    Mix.Task.reenable("allbert.channels")
+
+    new_thread_email_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "email",
+                   "simulate",
+                   "--external-user",
+                   "alice@example.com",
+                   "--new-thread",
                    "email hello"
                  ])
       end)
 
-    assert email_output =~ "status=processed"
-    assert email_output =~ "Task channel response: email hello"
-    assert Repo.aggregate(Event, :count) == 2
+    assert new_thread_email_output =~ "status=processed"
+    assert new_thread_email_output =~ "Task channel response: email hello"
+    assert_received {:runtime_request, %{channel: "email", text: "email hello"}}
+
+    email_threads =
+      Event
+      |> where([event], event.channel == "email")
+      |> order_by([event], asc: event.inserted_at)
+      |> select([event], event.thread_id)
+      |> Repo.all()
+
+    assert length(Enum.uniq(email_threads)) == 2
+    assert Repo.aggregate(Event, :count) == 3
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

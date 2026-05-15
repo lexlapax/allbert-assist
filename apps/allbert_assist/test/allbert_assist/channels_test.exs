@@ -1,10 +1,14 @@
 defmodule AllbertAssist.ChannelsTest do
   use AllbertAssist.DataCase, async: false
 
+  import ExUnit.CaptureLog
+
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.Paths
   alias AllbertAssist.Repo
+  alias AllbertAssist.Settings
 
   describe "channel events" do
     test "creates and updates durable events" do
@@ -53,6 +57,80 @@ defmodule AllbertAssist.ChannelsTest do
                  | direction: "outbound",
                    external_event_id: "101"
                })
+    end
+
+    test "emits channel lifecycle signals from durable event state changes" do
+      original_logger_level = Logger.level()
+      Logger.configure(level: :info)
+
+      log =
+        try do
+          capture_log([level: :info], fn ->
+            assert {:ok, inbound} =
+                     Channels.create_event(%{
+                       channel: "telegram",
+                       provider: "telegram_bot_api",
+                       direction: "inbound",
+                       external_event_id: "signal-inbound",
+                       external_user_id: "123",
+                       status: "received"
+                     })
+
+            assert {:ok, _event} =
+                     Channels.update_event(inbound, %{
+                       status: "processed",
+                       user_id: "alice",
+                       session_id: "ch_tg_signal",
+                       thread_id: "thr_signal",
+                       trace_id: "trace_signal",
+                       input_signal_id: "sig_signal"
+                     })
+
+            assert {:ok, _callback} =
+                     Channels.create_event(%{
+                       channel: "email",
+                       provider: "email_imap",
+                       direction: "callback",
+                       external_event_id: "signal-callback",
+                       external_user_id: "alice@example.com",
+                       status: "received"
+                     })
+
+            assert {:ok, _rejected} =
+                     Channels.create_event(%{
+                       channel: "email",
+                       provider: "email_imap",
+                       direction: "inbound",
+                       external_event_id: "signal-rejected",
+                       status: "rejected",
+                       reason: ":not_mapped"
+                     })
+
+            assert {:ok, failed} =
+                     Channels.create_event(%{
+                       channel: "email",
+                       provider: "email_imap",
+                       direction: "outbound",
+                       external_event_id: "signal-failed",
+                       status: "received"
+                     })
+
+            assert {:ok, _event} =
+                     Channels.update_event(failed, %{
+                       status: "failed",
+                       error: "smtp unavailable"
+                     })
+          end)
+        after
+          Logger.configure(level: original_logger_level)
+        end
+
+      assert log =~ "allbert.channel.update_received"
+      assert log =~ "allbert.channel.runtime_submitted"
+      assert log =~ "allbert.channel.response_sent"
+      assert log =~ "allbert.channel.callback_received"
+      assert log =~ "allbert.channel.message_rejected"
+      assert log =~ "allbert.channel.delivery_failed"
     end
 
     test "returns max inbound integer event id for Telegram offset derivation" do
@@ -117,4 +195,46 @@ defmodule AllbertAssist.ChannelsTest do
       refute email =~ "alice"
     end
   end
+
+  describe "channel summaries" do
+    setup do
+      original_paths_config = Application.get_env(:allbert_assist, Paths)
+      original_settings_config = Application.get_env(:allbert_assist, Settings)
+
+      root =
+        Path.join(
+          System.tmp_dir!(),
+          "allbert-channels-summary-test-#{System.unique_integer([:positive])}"
+        )
+
+      Application.put_env(:allbert_assist, Paths, home: root)
+      Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+
+      on_exit(fn ->
+        restore_env(Paths, original_paths_config)
+        restore_env(Settings, original_settings_config)
+        File.rm_rf!(root)
+      end)
+
+      %{root: root}
+    end
+
+    test "lists channels when Settings Central returns an error", %{root: root} do
+      settings_path = Path.join([root, "settings", "settings.yml"])
+      File.mkdir_p!(Path.dirname(settings_path))
+      File.write!(settings_path, "[not, a, map]\n")
+
+      assert [
+               %{channel: "telegram", credential_status: telegram_status},
+               %{channel: "email", credential_status: email_status}
+             ] = Channels.list_channels()
+
+      assert telegram_status["channels.telegram.bot_token_ref"] == :missing
+      assert email_status["channels.email.imap_password_ref"] == :missing
+      assert email_status["channels.email.smtp_password_ref"] == :missing
+    end
+  end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 end
