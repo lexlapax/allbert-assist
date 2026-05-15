@@ -80,7 +80,8 @@ defmodule AllbertAssist.Umbrella.MixProject do
         "deps.unlock --unused",
         "format --check-formatted",
         "credo --strict",
-        "test"
+        "test",
+        "do --app allbert_assist cmd mix test ../../plugins/stocksage/test/stocksage ../../plugins/stocksage/test/mix"
       ],
       check: ["format --check-formatted", "credo --strict", "dialyzer"]
     ]

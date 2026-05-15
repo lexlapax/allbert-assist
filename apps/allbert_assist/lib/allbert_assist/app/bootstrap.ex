@@ -7,7 +7,7 @@ defmodule AllbertAssist.App.Bootstrap do
 
   require Logger
 
-  @default_apps [AllbertAssist.App.CoreApp]
+  @default_apps [AllbertAssist.App.CoreApp, AllbertAssist.App.StockSageStub]
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
@@ -33,13 +33,17 @@ defmodule AllbertAssist.App.Bootstrap do
   end
 
   defp configured_apps! do
-    apps = Application.get_env(:allbert_assist, :apps, @default_apps)
+    apps = Application.get_env(:allbert_assist, :apps, default_apps())
 
     unless is_list(apps) do
       raise RuntimeError, "expected :allbert_assist, :apps to be a list, got: #{inspect(apps)}"
     end
 
-    (apps ++ PluginRegistry.registered_apps())
+    plugin_apps = PluginRegistry.registered_apps()
+
+    apps
+    |> drop_stubs_replaced_by_plugins(plugin_apps)
+    |> Kernel.++(plugin_apps)
     |> Enum.uniq()
   end
 
@@ -51,5 +55,26 @@ defmodule AllbertAssist.App.Bootstrap do
       {:error, reason} ->
         Logger.warning("App registration failed: #{inspect(module)}: #{inspect(reason)}")
     end
+  end
+
+  defp default_apps, do: @default_apps
+
+  defp drop_stubs_replaced_by_plugins(apps, plugin_apps) do
+    plugin_app_ids = MapSet.new(Enum.flat_map(plugin_apps, &safe_app_id/1))
+
+    Enum.reject(apps, fn
+      AllbertAssist.App.StockSageStub -> MapSet.member?(plugin_app_ids, :stocksage)
+      _app -> false
+    end)
+  end
+
+  defp safe_app_id(module) do
+    if Code.ensure_loaded?(module) and function_exported?(module, :app_id, 0) do
+      [module.app_id()]
+    else
+      []
+    end
+  rescue
+    _exception -> []
   end
 end
