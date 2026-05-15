@@ -2,6 +2,8 @@ defmodule AllbertAssist.SettingsTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Entry, as: PluginEntry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
 
@@ -25,6 +27,9 @@ defmodule AllbertAssist.SettingsTest do
     System.put_env("ALLBERT_HOME", home)
 
     on_exit(fn ->
+      PluginRegistry.clear()
+      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
       File.rm_rf!(home)
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
@@ -137,6 +142,51 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:error, {:invalid_setting, "plugins.enabled", _reason}} =
              Settings.put("plugins.enabled", ["ok", 123], %{})
+  end
+
+  test "plugin-contributed settings schema participates in Settings Central" do
+    PluginRegistry.clear()
+
+    assert {:ok, "example.settings"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.settings",
+               display_name: "Example Settings",
+               version: "0.1.0",
+               kind: "settings",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               settings_schema: [
+                 %{
+                   key: "example.settings.enabled",
+                   type: :boolean,
+                   default: false,
+                   writable?: true,
+                   sensitive?: false
+                 },
+                 %{
+                   key: "example.settings.mode",
+                   type: :enum,
+                   default: "safe",
+                   writable?: true,
+                   sensitive?: false,
+                   allowed_values: ["safe", "fast"]
+                 }
+               ]
+             })
+
+    assert {:ok, false} = Settings.get("example.settings.enabled")
+    assert {:ok, "safe"} = Settings.get("example.settings.mode")
+    assert "example.settings.enabled" in Settings.safe_write_keys()
+
+    assert {:ok, resolved} =
+             Settings.put("example.settings.enabled", true, %{audit?: false})
+
+    assert resolved.value == true
+    assert {:ok, true} = Settings.get("example.settings.enabled")
+
+    assert {:error, {:invalid_setting, "example.settings.mode", _reason}} =
+             Settings.put("example.settings.mode", "reckless", %{audit?: false})
   end
 
   test "confirmation settings are writable and validated" do
