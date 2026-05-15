@@ -1,12 +1,57 @@
 defmodule AllbertAssist.Intent.EngineTest do
-  use ExUnit.Case, async: true
+  use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.EvalFixtures
+  alias AllbertAssist.Plugin.Entry, as: PluginEntry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+
+  defmodule PluginEcho do
+    use Jido.Action,
+      name: "plugin_echo_v019",
+      description: "Echo from an intent engine plugin fixture.",
+      schema: [text: [type: :string, required: false]]
+
+    def capability do
+      %{
+        permission: :read_only,
+        exposure: :agent,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required
+      }
+    end
+
+    @impl true
+    def run(params, _context), do: {:ok, Map.put(params, :status, :completed)}
+  end
+
+  setup do
+    original_plugins = PluginRegistry.registered_plugins()
+    original_diagnostics = PluginRegistry.diagnostics()
+
+    PluginRegistry.clear()
+
+    assert {:ok, "allbert.telegram"} =
+             PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+
+    assert {:ok, "allbert.email"} = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+
+    on_exit(fn ->
+      PluginRegistry.clear()
+      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+
+      Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
+        PluginRegistry.put_diagnostics(plugin_id, diagnostics)
+      end)
+    end)
+
+    :ok
+  end
 
   test "decide returns the v0.11 decision shape for a direct-answer turn" do
-    assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: "what can you do?"))
+    assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: "tell me a tiny joke"))
 
     assert %Decision{} = decision
     assert decision.intent == :direct_answer
@@ -14,6 +59,33 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.intent_candidates.selected.kind == :action
     assert decision.trace_metadata.intent_candidates.selected.id == "direct_answer"
     assert decision.trace_metadata.intent_candidates.total > 1
+    assert decision.trace_metadata.intent_candidates.engine_version == "v0.19"
+  end
+
+  test "decide preserves a deterministic route decision as the engine-selected route" do
+    assert {:ok, decision} =
+             Decision.new(%{
+               intent: :list_skills,
+               selected_action: "list_skills",
+               selected_skill: "list-skills",
+               context: %{request: EvalFixtures.request()}
+             })
+
+    request =
+      EvalFixtures.request(text: "List the skills you can inspect.")
+      |> Map.put(:route_hint, %{
+        route: :list_skills,
+        explicit?: true,
+        source: :intent_agent_predicates
+      })
+      |> Map.put(:route_decision, decision)
+
+    assert {:ok, selected} = Engine.decide(request)
+
+    assert selected.selected_action == "list_skills"
+    assert selected.trace_metadata.intent_candidates.selected.id == "list_skills"
+    assert selected.trace_metadata.intent_candidates.selected.trace_metadata.engine_route_hint?
+    assert selected.trace_metadata.intent_candidates.total > 1
   end
 
   test "put_candidate_metadata annotates existing decisions without changing selected action" do
@@ -41,6 +113,57 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert length(candidates) <= 80
   end
 
+  test "plugin-contributed action candidates carry plugin provenance" do
+    assert {:ok, "example.intent_engine"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.intent_engine",
+               display_name: "Intent Engine Plugin",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [PluginEcho]
+             })
+
+    assert Enum.any?(
+             Engine.collect_candidates(EvalFixtures.request(text: "run plugin echo v019")),
+             &match?(
+               %{
+                 kind: :action,
+                 action_name: "plugin_echo_v019",
+                 source: :plugin,
+                 plugin_id: "example.intent_engine"
+               },
+               &1
+             )
+           )
+  end
+
+  test "collects channel memory and refusal candidates" do
+    assert Enum.any?(AllbertAssist.Channels.list_channels(), &(&1.channel == "telegram"))
+
+    candidates =
+      Engine.collect_candidates(
+        EvalFixtures.request(text: "Remember this and show my telegram channels")
+      )
+
+    assert Enum.any?(
+             candidates,
+             &match?(
+               %{kind: :channel, channel_id: "telegram", plugin_id: "allbert.telegram"},
+               &1
+             )
+           )
+
+    assert Enum.any?(candidates, &match?(%{kind: :memory, id: "markdown_memory:append"}, &1))
+
+    refusal_candidates =
+      Engine.collect_candidates(EvalFixtures.request(text: "Read local file ./mix.exs"))
+
+    assert Enum.any?(refusal_candidates, &match?(%{kind: :refusal}, &1))
+  end
+
   test "candidate metadata includes rejected registry candidates" do
     assert {:ok, decision} =
              Decision.new(%{
@@ -54,6 +177,46 @@ defmodule AllbertAssist.Intent.EngineTest do
 
     assert %{rejected: rejected} = annotated.trace_metadata.intent_candidates
     assert Enum.any?(rejected, &(&1.kind == :action and &1.id == "direct_answer"))
+  end
+
+  test "candidate metadata can hide rejected candidates through settings" do
+    original_home = System.get_env("ALLBERT_HOME")
+    original_paths = Application.get_env(:allbert_assist, AllbertAssist.Paths)
+    original_settings = Application.get_env(:allbert_assist, AllbertAssist.Settings)
+
+    home =
+      Path.join(System.tmp_dir!(), "allbert-engine-test-#{System.unique_integer([:positive])}")
+
+    System.put_env("ALLBERT_HOME", home)
+    Application.delete_env(:allbert_assist, AllbertAssist.Paths)
+    Application.delete_env(:allbert_assist, AllbertAssist.Settings)
+
+    on_exit(fn ->
+      if original_home,
+        do: System.put_env("ALLBERT_HOME", original_home),
+        else: System.delete_env("ALLBERT_HOME")
+
+      restore_env(AllbertAssist.Paths, original_paths)
+      restore_env(AllbertAssist.Settings, original_settings)
+      File.rm_rf!(home)
+    end)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.trace_rejected_candidates", false, %{
+               audit?: false
+             })
+
+    assert {:ok, decision} =
+             Decision.new(%{
+               intent: :list_skills,
+               selected_action: "list_skills",
+               selected_skill: "list-skills",
+               context: %{request: EvalFixtures.request()}
+             })
+
+    annotated = Engine.put_candidate_metadata(decision, %{request: EvalFixtures.request()})
+
+    assert annotated.trace_metadata.intent_candidates.rejected == []
   end
 
   test "decide returns inert surface navigation when a registered surface matches" do
@@ -81,4 +244,7 @@ defmodule AllbertAssist.Intent.EngineTest do
       String.to_existing_atom(unknown)
     end
   end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end

@@ -86,8 +86,8 @@ defmodule AllbertAssist.Intent.ClassifierTest do
 
     assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: "what can you do?"))
 
-    assert decision.intent == :direct_answer
-    assert decision.selected_action == "direct_answer"
+    assert decision.intent == :registry_action
+    assert decision.selected_action == "list_skills"
     assert decision.trace_metadata.classifier.status == :unknown_candidate
   end
 
@@ -102,8 +102,8 @@ defmodule AllbertAssist.Intent.ClassifierTest do
       FakeClassifier.put_result(result)
 
       assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: "what can you do?"))
-      assert decision.intent == :direct_answer
-      assert decision.selected_action == "direct_answer"
+      assert decision.intent == :registry_action
+      assert decision.selected_action == "list_skills"
 
       assert decision.trace_metadata.classifier.status in [
                :low_confidence,
