@@ -12,6 +12,7 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Candidate
+  alias AllbertAssist.Intent.Classifier
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Ranker
   alias AllbertAssist.Settings
@@ -20,11 +21,16 @@ defmodule AllbertAssist.Intent.Engine do
   @spec decide(map()) :: {:ok, Decision.t()} | {:error, term()}
   def decide(request) when is_map(request) do
     app_context = active_app_context(request)
+    candidates = ranked_candidates(request)
+    {classifier_candidate, classifier_diagnostic} = classifier_candidate(candidates, request)
 
     attrs =
-      case surface_navigation_candidate(request) do
-        nil -> direct_answer_attrs(request, app_context)
-        surface -> surface_navigation_attrs(surface, request, app_context)
+      case classifier_candidate || surface_navigation_candidate(candidates) do
+        nil ->
+          direct_answer_attrs(request, app_context, classifier_diagnostic)
+
+        candidate ->
+          decision_attrs_for_candidate(candidate, request, app_context, classifier_diagnostic)
       end
 
     with {:ok, decision} <- Decision.new(attrs) do
@@ -84,7 +90,7 @@ defmodule AllbertAssist.Intent.Engine do
 
   def collect_candidates(_request), do: []
 
-  defp direct_answer_attrs(request, app_context) do
+  defp direct_answer_attrs(request, app_context, classifier_diagnostic) do
     %{
       intent: :direct_answer,
       reason: "The prompt is handled by the default direct-answer route.",
@@ -92,12 +98,72 @@ defmodule AllbertAssist.Intent.Engine do
       selected_action: "direct_answer",
       active_app: app_context.active_app,
       diagnostics: app_context.diagnostics,
-      trace_metadata: %{source_text: field(request, :text)},
+      trace_metadata:
+        %{source_text: field(request, :text)} |> put_classifier(classifier_diagnostic),
       context: %{request: request}
     }
   end
 
-  defp surface_navigation_attrs(surface, request, app_context) do
+  defp decision_attrs_for_candidate(
+         %{kind: :surface} = surface,
+         request,
+         app_context,
+         classifier_diagnostic
+       ) do
+    surface_navigation_attrs(surface, request, app_context, classifier_diagnostic)
+  end
+
+  defp decision_attrs_for_candidate(
+         %{kind: :action} = candidate,
+         request,
+         app_context,
+         classifier_diagnostic
+       ) do
+    %{
+      intent: :registry_action,
+      confidence: Ranker.score(candidate),
+      reason: field(candidate, :reason),
+      selected_action: field(candidate, :action_name),
+      active_app: app_context.active_app,
+      diagnostics: app_context.diagnostics,
+      trace_metadata:
+        %{
+          source_text: field(request, :text),
+          classifier_selected?: not is_nil(classifier_diagnostic)
+        }
+        |> put_classifier(classifier_diagnostic),
+      context: %{request: request}
+    }
+  end
+
+  defp decision_attrs_for_candidate(
+         %{kind: :skill} = candidate,
+         request,
+         app_context,
+         classifier_diagnostic
+       ) do
+    %{
+      intent: :registry_skill,
+      confidence: Ranker.score(candidate),
+      reason: field(candidate, :reason),
+      selected_skill: field(candidate, :skill_name),
+      active_app: app_context.active_app,
+      diagnostics: app_context.diagnostics,
+      trace_metadata:
+        %{
+          source_text: field(request, :text),
+          classifier_selected?: not is_nil(classifier_diagnostic)
+        }
+        |> put_classifier(classifier_diagnostic),
+      context: %{request: request}
+    }
+  end
+
+  defp decision_attrs_for_candidate(_candidate, request, app_context, classifier_diagnostic) do
+    direct_answer_attrs(request, app_context, classifier_diagnostic)
+  end
+
+  defp surface_navigation_attrs(surface, request, app_context, classifier_diagnostic) do
     surface_target = surface_target(surface)
 
     %{
@@ -108,23 +174,38 @@ defmodule AllbertAssist.Intent.Engine do
       selected_action: nil,
       active_app: app_context.active_app,
       diagnostics: app_context.diagnostics,
-      trace_metadata: %{
-        source_text: field(request, :text),
-        surface_target: surface_target,
-        ranking_reason: get_in_trace(surface, :ranking_reason)
-      },
+      trace_metadata:
+        %{
+          source_text: field(request, :text),
+          surface_target: surface_target,
+          ranking_reason: get_in_trace(surface, :ranking_reason)
+        }
+        |> put_classifier(classifier_diagnostic),
       context: %{request: request}
     }
   end
 
-  defp surface_navigation_candidate(request) do
+  defp ranked_candidates(request) do
     request
     |> collect_candidates()
     |> Ranker.rank(request)
+    |> Candidate.bound(total_limit: max_candidates())
+  end
+
+  defp surface_navigation_candidate(candidates) do
+    candidates
     |> Enum.find(fn candidate ->
       field(candidate, :kind) == :surface and
         get_in_trace(candidate, :ranking_reason) == :surface_text_match
     end)
+  end
+
+  defp classifier_candidate(candidates, request) do
+    case Classifier.classify(candidates, request) do
+      {:ok, %{candidate: candidate, diagnostic: diagnostic}} -> {candidate, diagnostic}
+      {:error, %{status: :disabled}} -> {nil, nil}
+      {:error, diagnostic} -> {nil, diagnostic}
+    end
   end
 
   defp selected_candidate(%Decision{intent: :open_surface} = decision) do
@@ -260,6 +341,11 @@ defmodule AllbertAssist.Intent.Engine do
 
     [selected | candidates]
   end
+
+  defp put_classifier(trace_metadata, nil), do: trace_metadata
+
+  defp put_classifier(trace_metadata, diagnostic),
+    do: Map.put(trace_metadata, :classifier, diagnostic)
 
   defp surface_target(surface) do
     %{
