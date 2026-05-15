@@ -73,7 +73,7 @@ defmodule StockSage.Memory do
     |> Repo.all()
   end
 
-  defp get_entry_by_legacy(user_id, legacy_source, legacy_id) do
+  def get_entry_by_legacy(user_id, legacy_source, legacy_id) do
     MemoryEntry
     |> where(
       [entry],
