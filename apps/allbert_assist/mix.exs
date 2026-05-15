@@ -28,8 +28,15 @@ defmodule AllbertAssist.MixProject do
   end
 
   # Specifies which paths to compile per environment.
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
+  defp elixirc_paths(:test), do: ["lib" | shipped_plugin_paths()] ++ ["test/support"]
+  defp elixirc_paths(_), do: ["lib" | shipped_plugin_paths()]
+
+  defp shipped_plugin_paths do
+    [
+      "../../plugins/allbert.telegram/lib",
+      "../../plugins/allbert.email/lib"
+    ]
+  end
 
   # Specifies your project dependencies.
   #
