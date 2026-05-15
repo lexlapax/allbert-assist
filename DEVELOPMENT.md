@@ -174,9 +174,9 @@ For v0.17 plugin contract work, start with:
 - `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
 
 For StockSage workspace app milestones, start with the active milestone plan,
-`docs/plans/allbert-jido-vision.md`, ADR 0014, ADR 0015, ADR 0017, and ADR
-0018. For v0.20, also read `docs/plans/v0.20-request-flow.md`. The canonical
-plans are `v0.20`, `v0.22`, `v0.23`, `v0.25`, `v0.27`, and `v0.28`.
+`docs/plans/allbert-jido-vision.md`, ADR 0006, ADR 0014, ADR 0015, ADR 0017,
+and ADR 0018. For v0.20, also read `docs/plans/v0.20-request-flow.md`. The
+canonical plans are `v0.20`, `v0.22`, `v0.23`, `v0.25`, `v0.27`, and `v0.28`.
 
 For v0.29 generator work, encode only the shape already proven by v0.20
 StockSage plugin/app, v0.25 StockSage SurfaceProvider LiveViews, v0.27 memory
@@ -234,6 +234,9 @@ For v0.20, StockSage is the first source-tree plugin-contributed app. It uses
 `AllbertAssist.Repo`, and `stocksage_*` SQLite tables. Do not add
 `StockSage.Repo`, run Python, call market-data APIs, mount StockSage routes,
 or auto-promote StockSage memory records to markdown memory in this slice.
+Read-by-id paths must require `user_id`; `:stocksage_write` is only a local
+domain write permission and must not authorize financial API calls or analysis
+execution.
 
 After v0.11 closeout, remember that URL summarization, document inspection,
 direct skill URL import, local skill directory import, local path access,

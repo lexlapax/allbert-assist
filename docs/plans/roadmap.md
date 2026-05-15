@@ -1013,6 +1013,8 @@ Expected direction:
   `stocksage.db` baseline.
 - Add safe local StockSage actions for listing/showing imported analyses,
   reading local trends, and queueing an analysis request without executing it.
+- Add scoped `:stocksage_write` permission for local StockSage domain writes;
+  it does not authorize financial API calls or analysis execution.
 - Keep PostgreSQL, Oban-as-hard-dependency, LiveViews, bridge execution, and
   native trading agents out of this slice.
 
