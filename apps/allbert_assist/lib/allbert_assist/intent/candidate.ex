@@ -81,7 +81,7 @@ defmodule AllbertAssist.Intent.Candidate do
            normalize_member(field(attrs, :status, :candidate), @statuses, :invalid_status),
          {:ok, app_id} <- normalize_app_id(field(attrs, :app_id)),
          {:ok, action_name} <-
-           normalize_action_name(kind, field(attrs, :action_name) || field(attrs, :id), status) do
+           normalize_action_name(kind, action_name_attr(kind, attrs), status) do
       candidate = %__MODULE__{
         kind: kind,
         id: bounded_string(field(attrs, :id) || action_name || fallback_id(kind, attrs)),
@@ -218,6 +218,9 @@ defmodule AllbertAssist.Intent.Candidate do
   end
 
   defp normalize_action_name(_kind, action, _status), do: {:ok, optional_bounded_string(action)}
+
+  defp action_name_attr(:action, attrs), do: field(attrs, :action_name) || field(attrs, :id)
+  defp action_name_attr(_kind, attrs), do: field(attrs, :action_name)
 
   defp normalize_app_id(nil), do: {:ok, nil}
 

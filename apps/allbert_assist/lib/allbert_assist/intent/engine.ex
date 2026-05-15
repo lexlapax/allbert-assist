@@ -19,14 +19,13 @@ defmodule AllbertAssist.Intent.Engine do
 
   @spec decide(map()) :: {:ok, Decision.t()} | {:error, term()}
   def decide(request) when is_map(request) do
-    attrs = %{
-      intent: :direct_answer,
-      reason: "The prompt is handled by the default direct-answer route.",
-      selected_skill: "direct-answer",
-      selected_action: "direct_answer",
-      trace_metadata: %{source_text: field(request, :text)},
-      context: %{request: request}
-    }
+    app_context = active_app_context(request)
+
+    attrs =
+      case surface_navigation_candidate(request) do
+        nil -> direct_answer_attrs(request, app_context)
+        surface -> surface_navigation_attrs(surface, request, app_context)
+      end
 
     with {:ok, decision} <- Decision.new(attrs) do
       {:ok, put_candidate_metadata(decision, %{request: request})}
@@ -37,8 +36,8 @@ defmodule AllbertAssist.Intent.Engine do
 
   @spec put_candidate_metadata(Decision.t(), map()) :: Decision.t()
   def put_candidate_metadata(%Decision{} = decision, context) do
-    selected = Candidate.selected_from_decision(decision)
     request = request_from_context(context)
+    selected = selected_candidate(decision)
 
     candidates =
       request
@@ -54,6 +53,7 @@ defmodule AllbertAssist.Intent.Engine do
 
     trace_metadata =
       decision.trace_metadata
+      |> Map.put(:active_app, normalized_active_app(request))
       |> Map.put(:intent_candidates, %{
         selected: selected |> Candidate.to_map(),
         rejected: rejected,
@@ -83,6 +83,73 @@ defmodule AllbertAssist.Intent.Engine do
   end
 
   def collect_candidates(_request), do: []
+
+  defp direct_answer_attrs(request, app_context) do
+    %{
+      intent: :direct_answer,
+      reason: "The prompt is handled by the default direct-answer route.",
+      selected_skill: "direct-answer",
+      selected_action: "direct_answer",
+      active_app: app_context.active_app,
+      diagnostics: app_context.diagnostics,
+      trace_metadata: %{source_text: field(request, :text)},
+      context: %{request: request}
+    }
+  end
+
+  defp surface_navigation_attrs(surface, request, app_context) do
+    surface_target = surface_target(surface)
+
+    %{
+      intent: :open_surface,
+      confidence: Ranker.score(surface),
+      reason: "The request matched a registered app surface.",
+      selected_skill: nil,
+      selected_action: nil,
+      active_app: app_context.active_app,
+      diagnostics: app_context.diagnostics,
+      trace_metadata: %{
+        source_text: field(request, :text),
+        surface_target: surface_target,
+        ranking_reason: get_in_trace(surface, :ranking_reason)
+      },
+      context: %{request: request}
+    }
+  end
+
+  defp surface_navigation_candidate(request) do
+    request
+    |> collect_candidates()
+    |> Ranker.rank(request)
+    |> Enum.find(fn candidate ->
+      field(candidate, :kind) == :surface and
+        get_in_trace(candidate, :ranking_reason) == :surface_text_match
+    end)
+  end
+
+  defp selected_candidate(%Decision{intent: :open_surface} = decision) do
+    case field(decision.trace_metadata, :surface_target) do
+      %{} = surface ->
+        Candidate.new!(%{
+          kind: :surface,
+          id: field(surface, :id),
+          label: field(surface, :label),
+          source: :app,
+          status: :selected,
+          selected?: true,
+          score: 1.0,
+          reason: "Selected registered surface #{field(surface, :label)}.",
+          surface_id: field(surface, :surface_id),
+          app_id: field(surface, :app_id),
+          trace_metadata: surface
+        })
+
+      _other ->
+        Candidate.selected_from_decision(decision)
+    end
+  end
+
+  defp selected_candidate(%Decision{} = decision), do: Candidate.selected_from_decision(decision)
 
   defp do_collect_candidates(request) do
     action_candidates() ++ skill_candidates(request) ++ surface_candidates()
@@ -192,6 +259,69 @@ defmodule AllbertAssist.Intent.Engine do
       end)
 
     [selected | candidates]
+  end
+
+  defp surface_target(surface) do
+    %{
+      id: field(surface, :id),
+      label: field(surface, :label),
+      app_id: field(surface, :app_id),
+      surface_id: field(surface, :surface_id),
+      path: get_in_trace(surface, :path),
+      kind: get_in_trace(surface, :kind),
+      provider?: get_in_trace(surface, :provider?)
+    }
+  end
+
+  defp active_app_context(request) do
+    requested = field(request, :active_app) || field(request, :app_id)
+    do_active_app_context(requested)
+  end
+
+  defp do_active_app_context(requested) do
+    case AppRegistry.normalize_app_id(requested) do
+      {:ok, nil} ->
+        %{active_app: :allbert, diagnostics: []}
+
+      {:ok, app_id} ->
+        %{active_app: app_id, diagnostics: []}
+
+      {:error, reason} ->
+        %{
+          active_app: :allbert,
+          diagnostics: [
+            %{
+              source: :active_app,
+              kind: :unknown_app_id,
+              app_id: inspect(requested),
+              fallback: :allbert,
+              reason: reason
+            }
+          ]
+        }
+    end
+  catch
+    :exit, reason ->
+      %{
+        active_app: :allbert,
+        diagnostics: [
+          %{
+            source: :active_app,
+            kind: :unknown_app_id,
+            app_id: inspect(requested),
+            fallback: :allbert,
+            reason: reason
+          }
+        ]
+      }
+  end
+
+  defp normalized_active_app(request), do: active_app_context(request).active_app
+
+  defp get_in_trace(candidate, key) do
+    candidate
+    |> field(:trace_metadata, %{})
+    |> field(key)
   end
 
   defp request_from_context(%{request: request}) when is_map(request), do: request
