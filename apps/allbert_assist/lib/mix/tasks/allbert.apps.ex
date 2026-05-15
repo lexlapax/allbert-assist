@@ -82,8 +82,17 @@ defmodule Mix.Tasks.Allbert.Apps do
     Mix.shell().info("Version: #{app.version}")
     Mix.shell().info("Module: #{inspect(app.module)}")
     Mix.shell().info("Actions: #{list_value(app.action_names)}")
+    Mix.shell().info("Agents: #{list_value(app.agent_names)}")
     Mix.shell().info("Skill paths: #{list_value(app.skill_paths)}")
-    Mix.shell().info("Surfaces: #{surface_value(app.surfaces)}")
+
+    Mix.shell().info(
+      "Signals: emits=#{app.signal_emit_count} subscribes=#{app.signal_subscribe_count}"
+    )
+
+    Mix.shell().info("Settings schema entries: #{app.settings_schema_count}")
+    Mix.shell().info("Legacy surfaces: #{surface_value(app.surfaces)}")
+    Mix.shell().info("Surface provider surfaces: #{surface_value(app.provider_surfaces)}")
+    Mix.shell().info("Surface catalog entries: #{app.surface_catalog_count}")
     print_diagnostics(app.diagnostics)
   end
 
@@ -93,6 +102,17 @@ defmodule Mix.Tasks.Allbert.Apps do
     Mix.shell().info("App: #{attrs.app_id}")
     Mix.shell().info("Display name: #{attrs.display_name}")
     Mix.shell().info("Version: #{attrs.version}")
+    Mix.shell().info("Actions: #{length(attrs.actions)}")
+    Mix.shell().info("Skill paths: #{length(attrs.skill_paths)}")
+    Mix.shell().info("Agents: #{length(attrs.agents)}")
+    Mix.shell().info("Settings schema entries: #{length(attrs.settings_schema)}")
+
+    Mix.shell().info(
+      "Signals: emits=#{length(attrs.signals.emits)} subscribes=#{length(attrs.signals.subscribes)}"
+    )
+
+    Mix.shell().info("Legacy surfaces: #{surface_value(attrs.surfaces)}")
+    Mix.shell().info("Provider surfaces: #{surface_value(attrs.provider_surfaces)}")
   end
 
   defp print_result({:ok, {:validation_failed, diagnostics}}) do
@@ -181,8 +201,12 @@ defmodule Mix.Tasks.Allbert.Apps do
         version: 0,
         validate: 1,
         child_spec: 1,
+        agents: 0,
         actions: 0,
-        skill_paths: 0
+        signals: 0,
+        skill_paths: 0,
+        settings_schema: 0,
+        surfaces: 0
       ],
       fn {name, arity} -> function_exported?(module, name, arity) end
     )

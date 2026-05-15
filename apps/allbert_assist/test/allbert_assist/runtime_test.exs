@@ -103,7 +103,7 @@ defmodule AllbertAssist.RuntimeTest do
         assert response.operator_id == "local"
         assert String.starts_with?(response.thread_id, "thr_")
         assert response.session_id == nil
-        assert response.active_app == nil
+        assert response.active_app == :allbert
         assert is_binary(response.input_signal_id)
         assert is_binary(response.signal_id)
         response
@@ -120,11 +120,11 @@ defmodule AllbertAssist.RuntimeTest do
                        user_id: "local",
                        operator_id: "local",
                        thread_id: thread_id,
-                       active_app: nil
+                       active_app: :allbert
                      }}
 
     assert_received {:agent_signal_data, input_signal_data}
-    refute Map.has_key?(input_signal_data, :active_app)
+    assert input_signal_data.active_app == :allbert
 
     assert {:ok, thread} = Conversations.get_thread("local", thread_id)
     assert thread.kind == "general"
@@ -167,7 +167,7 @@ defmodule AllbertAssist.RuntimeTest do
     assert response.user_id == "alice"
     assert response.operator_id == "alice"
     assert response.session_id == "session-1"
-    assert response.active_app == nil
+    assert response.active_app == :allbert
     assert String.starts_with?(response.thread_id, "thr_")
 
     assert_received {:agent_request,
@@ -176,7 +176,7 @@ defmodule AllbertAssist.RuntimeTest do
                        operator_id: "alice",
                        thread_id: thread_id,
                        session_id: "session-1",
-                       active_app: nil
+                       active_app: :allbert
                      }}
 
     assert {:ok, _thread} = Conversations.get_thread("alice", thread_id)
@@ -263,6 +263,40 @@ defmodule AllbertAssist.RuntimeTest do
     refute trace =~ "raw-value"
   end
 
+  test "resolves explicit active_app strings and falls back safely for unknown ids" do
+    assert {:ok, known_response} =
+             Runtime.submit_user_input(%{
+               text: "known app request",
+               channel: :test,
+               user_id: "active-app-user",
+               active_app: "stocksage"
+             })
+
+    assert known_response.active_app == :stocksage
+    assert known_response.diagnostics == []
+
+    assert_received {:agent_request, %{active_app: :stocksage}}
+    assert_received {:agent_signal_data, %{active_app: :stocksage}}
+
+    unknown = "unknown_app_#{System.unique_integer([:positive])}"
+
+    assert {:ok, unknown_response} =
+             Runtime.submit_user_input(%{
+               text: "unknown app request",
+               channel: :test,
+               user_id: "active-app-user",
+               active_app: unknown,
+               new_thread: true
+             })
+
+    assert unknown_response.active_app == :allbert
+    assert [%{kind: :unknown_app_id, fallback: :allbert}] = unknown_response.diagnostics
+
+    assert_raise ArgumentError, fn ->
+      String.to_existing_atom(unknown)
+    end
+  end
+
   test "expired session entries and scratchpad lookup failures keep runtime turns alive" do
     user = "runtime-expired-#{System.unique_integer([:positive])}"
     session_id = "sess-1"
@@ -295,7 +329,7 @@ defmodule AllbertAssist.RuntimeTest do
                session_id: session_id
              })
 
-    assert expired_response.active_app == nil
+    assert expired_response.active_app == :allbert
     assert expired_response.diagnostics == []
 
     Application.put_env(
@@ -312,7 +346,7 @@ defmodule AllbertAssist.RuntimeTest do
                session_id: "missing-server"
              })
 
-    assert unavailable_response.active_app == nil
+    assert unavailable_response.active_app == :allbert
     assert [%{source: :session_scratchpad}] = unavailable_response.diagnostics
   end
 

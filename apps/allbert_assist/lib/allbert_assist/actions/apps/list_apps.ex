@@ -48,9 +48,13 @@ defmodule AllbertAssist.Actions.Apps.ListApps do
       app_id: entry.app_id,
       display_name: entry.display_name,
       version: entry.version,
+      agent_count: length(Map.get(entry, :agents, [])),
       action_count: length(entry.actions),
+      signal_emit_count: length(get_in(entry, [:signals, :emits]) || []),
+      signal_subscribe_count: length(get_in(entry, [:signals, :subscribes]) || []),
       skill_path_count: length(entry.skill_paths),
-      surface_count: length(entry.surfaces)
+      settings_schema_count: length(Map.get(entry, :settings_schema, [])),
+      surface_count: length(entry.surfaces) + length(Map.get(entry, :provider_surfaces, []))
     }
   end
 

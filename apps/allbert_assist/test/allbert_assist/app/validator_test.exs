@@ -1,8 +1,11 @@
 defmodule AllbertAssist.App.ValidatorTest do
   use ExUnit.Case, async: true
 
+  alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Multiply
   alias AllbertAssist.App.Validator
+  alias AllbertAssist.Surface
+  alias AllbertAssist.Surface.Node
 
   defmodule ValidAppCase do
     defmacro __using__(_opts) do
@@ -305,9 +308,150 @@ defmodule AllbertAssist.App.ValidatorTest do
     end
   end
 
+  defmodule ValidProviderApp do
+    use AllbertAssist.App.ValidatorTest.ValidAppCase
+    use AllbertAssist.App.SurfaceProvider
+
+    @impl true
+    def app_id, do: :valid_provider_app
+
+    @impl true
+    def display_name, do: "Valid Provider"
+
+    @impl true
+    def version, do: "0.18.0"
+
+    @impl true
+    def agents, do: [AllbertAssist.Agents.IntentAgent]
+
+    @impl true
+    def actions, do: [DirectAnswer]
+
+    @impl true
+    def signals do
+      %{
+        emits: ["valid_provider.analysis.started"],
+        subscribes: ["valid_provider.analysis.finished"]
+      }
+    end
+
+    @impl true
+    def settings_schema do
+      [
+        %{
+          key: "apps.valid_provider_app.enabled",
+          type: :boolean,
+          default: false,
+          description: "Enable fixture app."
+        }
+      ]
+    end
+
+    @impl true
+    def surfaces do
+      [
+        %Surface{
+          id: :home,
+          app_id: :valid_provider_app,
+          label: "Provider Home",
+          path: "/provider",
+          kind: :route,
+          status: :available,
+          nodes: [%Node{id: "root", component: :route}],
+          fallback_text: "Provider home."
+        }
+      ]
+    end
+
+    def surface_catalog, do: [%{component: :route, allowed_props: [], allowed_bindings: []}]
+  end
+
+  defmodule InvalidAgentApp do
+    use AllbertAssist.App.ValidatorTest.ValidAppCase
+
+    @impl true
+    def app_id, do: :invalid_agent_app
+
+    @impl true
+    def display_name, do: "Invalid Agent"
+
+    @impl true
+    def version, do: "0.18.0"
+
+    @impl true
+    def agents, do: [This.Module.Does.Not.Exist]
+  end
+
+  defmodule InvalidSignalsApp do
+    use AllbertAssist.App.ValidatorTest.ValidAppCase
+
+    @impl true
+    def app_id, do: :invalid_signals_app
+
+    @impl true
+    def display_name, do: "Invalid Signals"
+
+    @impl true
+    def version, do: "0.18.0"
+
+    @impl true
+    def signals, do: %{emits: ["bad signal name"], subscribes: []}
+  end
+
+  defmodule InvalidSettingsSchemaApp do
+    use AllbertAssist.App.ValidatorTest.ValidAppCase
+
+    @impl true
+    def app_id, do: :invalid_settings_schema_app
+
+    @impl true
+    def display_name, do: "Invalid Settings"
+
+    @impl true
+    def version, do: "0.18.0"
+
+    @impl true
+    def settings_schema, do: [%{key: "apps.other.enabled", type: :boolean, default: false}]
+  end
+
+  defmodule InvalidProviderApp do
+    use AllbertAssist.App.ValidatorTest.ValidAppCase
+    use AllbertAssist.App.SurfaceProvider
+
+    @impl true
+    def app_id, do: :invalid_provider_app
+
+    @impl true
+    def display_name, do: "Invalid Provider"
+
+    @impl true
+    def version, do: "0.18.0"
+
+    @impl true
+    def surfaces do
+      [
+        %Surface{
+          id: :bad,
+          app_id: :invalid_provider_app,
+          label: "Bad",
+          path: "/bad",
+          kind: :route,
+          status: :available,
+          nodes: [%Node{id: "bad", component: :not_real}],
+          fallback_text: "Bad."
+        }
+      ]
+    end
+
+    def surface_catalog, do: [%{component: :route, allowed_props: [], allowed_bindings: []}]
+  end
+
   test "accepts valid app modules and built-in reserved-id owners" do
     assert {:ok, %{app_id: :validator_valid_app}} = Validator.validate(ValidApp, [])
-    assert {:ok, %{app_id: :allbert}} = Validator.validate(AllbertAssist.App.CoreApp, [])
+
+    assert {:ok, %{app_id: :allbert, provider_surfaces: [%Surface{id: :agent}]}} =
+             Validator.validate(AllbertAssist.App.CoreApp, [])
+
     assert {:ok, %{app_id: :stocksage}} = Validator.validate(AllbertAssist.App.StockSageStub, [])
   end
 
@@ -339,6 +483,27 @@ defmodule AllbertAssist.App.ValidatorTest do
     assert_error(SurfaceAppMismatchApp, {:invalid_surface, :app_id})
     assert_error(SurfaceOversizedOptionalApp, {:invalid_surface, :icon})
     assert_error(SurfaceDuplicateIdApp, {:invalid_surface, :duplicate_id})
+  end
+
+  test "validates full v0.18 provider contract" do
+    assert {:ok, attrs} = Validator.validate(ValidProviderApp, [])
+    assert attrs.agents == [AllbertAssist.Agents.IntentAgent]
+    assert attrs.actions == [DirectAnswer]
+    assert attrs.signals.emits == ["valid_provider.analysis.started"]
+    assert [%{key: "apps.valid_provider_app.enabled"}] = attrs.settings_schema
+    assert attrs.surface_provider == ValidProviderApp
+    assert [%Surface{id: :home}] = attrs.provider_surfaces
+    assert [%{component: :route}] = attrs.surface_catalog
+  end
+
+  test "rejects invalid v0.18 contract fields" do
+    assert_error(InvalidAgentApp, {:invalid_agents, InvalidAgentApp})
+    assert_error(InvalidSignalsApp, {:invalid_signals, :topic})
+    assert_error(InvalidSettingsSchemaApp, {:invalid_settings_schema, :key})
+
+    assert {:error, {:invalid_surface_provider, _diagnostics},
+            [%{kind: :invalid_surface_provider}]} =
+             Validator.validate(InvalidProviderApp, [])
   end
 
   defp assert_error(module, reason) do

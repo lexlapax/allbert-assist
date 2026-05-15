@@ -1,6 +1,9 @@
 defmodule AllbertAssist.Settings.Schema do
   @moduledoc false
 
+  require Logger
+
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Resources.OperationClass
   alias AllbertAssist.Resources.ResourceURI
@@ -1218,9 +1221,22 @@ defmodule AllbertAssist.Settings.Schema do
     }
   }
 
-  def defaults, do: deep_merge(plugin_defaults(), @defaults)
-  def schema, do: Map.merge(plugin_schema(), @schema)
-  def safe_write_keys, do: Enum.uniq(@safe_write_keys ++ plugin_safe_write_keys())
+  def defaults do
+    plugin_defaults()
+    |> deep_merge(app_defaults())
+    |> deep_merge(@defaults)
+  end
+
+  def runtime_schema, do: schema()
+
+  def schema do
+    plugin_schema()
+    |> Map.merge(app_schema())
+    |> Map.merge(@schema)
+  end
+
+  def safe_write_keys,
+    do: Enum.uniq(@safe_write_keys ++ app_safe_write_keys() ++ plugin_safe_write_keys())
 
   def safe_write_key?(key) when is_binary(key) do
     Enum.any?(safe_write_keys(), &key_matches?(&1, key))
@@ -1931,8 +1947,29 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp split_key(key), do: String.split(key, ".", trim: true)
 
+  defp app_schema do
+    :app
+    |> safe_registered_settings()
+    |> Enum.flat_map(&normalize_app_schema_entry/1)
+    |> Map.new()
+  end
+
+  defp app_defaults do
+    app_schema()
+    |> Enum.reduce(%{}, fn {key, schema}, defaults ->
+      put_dotted(defaults, key, Map.fetch!(schema, :default))
+    end)
+  end
+
+  defp app_safe_write_keys do
+    app_schema()
+    |> Enum.filter(fn {_key, schema} -> Map.get(schema, :writable?, true) end)
+    |> Enum.map(fn {key, _schema} -> key end)
+  end
+
   defp plugin_schema do
-    PluginRegistry.registered_settings_schema()
+    :plugin
+    |> safe_registered_settings()
     |> Enum.flat_map(&normalize_plugin_schema_entry/1)
     |> Map.new()
   end
@@ -1950,12 +1987,65 @@ defmodule AllbertAssist.Settings.Schema do
     |> Enum.map(fn {key, _schema} -> key end)
   end
 
+  defp safe_registered_settings(:app) do
+    AppRegistry.registered_settings_schema()
+  rescue
+    exception ->
+      Logger.warning("App settings schema unavailable: #{Exception.message(exception)}")
+      []
+  catch
+    :exit, reason ->
+      Logger.warning("App settings schema unavailable: #{inspect(reason)}")
+      []
+  end
+
+  defp safe_registered_settings(:plugin) do
+    PluginRegistry.registered_settings_schema()
+  rescue
+    exception ->
+      Logger.warning("Plugin settings schema unavailable: #{Exception.message(exception)}")
+      []
+  catch
+    :exit, reason ->
+      Logger.warning("Plugin settings schema unavailable: #{inspect(reason)}")
+      []
+  end
+
+  defp normalize_app_schema_entry(entry) when is_map(entry) do
+    key = schema_field(entry, :key)
+
+    if valid_app_setting_key?(key) do
+      normalize_schema_entry(entry)
+    else
+      []
+    end
+  end
+
+  defp normalize_app_schema_entry(_entry), do: []
+
   defp normalize_plugin_schema_entry(entry) when is_map(entry) do
+    key = schema_field(entry, :key)
+
+    cond do
+      valid_plugin_setting_key?(key) ->
+        normalize_schema_entry(entry)
+
+      Map.has_key?(@schema, key) ->
+        normalize_schema_entry(entry)
+
+      true ->
+        []
+    end
+  end
+
+  defp normalize_plugin_schema_entry(_entry), do: []
+
+  defp normalize_schema_entry(entry) when is_map(entry) do
     key = schema_field(entry, :key)
     type = schema_field(entry, :type)
 
     cond do
-      not valid_plugin_setting_key?(key) ->
+      not is_binary(key) ->
         []
 
       not is_atom(type) ->
@@ -1968,8 +2058,6 @@ defmodule AllbertAssist.Settings.Schema do
         [{key, plugin_schema_attrs(entry, type)}]
     end
   end
-
-  defp normalize_plugin_schema_entry(_entry), do: []
 
   defp plugin_schema_attrs(entry, type) do
     %{
@@ -1995,10 +2083,17 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp valid_plugin_setting_key?(key) when is_binary(key) do
-    byte_size(key) <= 160 and Regex.match?(~r/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, key)
+    byte_size(key) <= 160 and
+      Regex.match?(~r/^plugins\.[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, key)
   end
 
   defp valid_plugin_setting_key?(_key), do: false
+
+  defp valid_app_setting_key?(key) when is_binary(key) do
+    byte_size(key) <= 160 and Regex.match?(~r/^apps\.[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, key)
+  end
+
+  defp valid_app_setting_key?(_key), do: false
 
   defp deep_merge(left, right) when is_map(left) and is_map(right) do
     Map.merge(left, right, fn _key, left_value, right_value ->

@@ -934,7 +934,7 @@ Request flow: `docs/plans/v0.18-request-flow.md`
 
 ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
-Status: planned. Formerly M-AppContract-Full, previously planned as v0.25,
+Status: implemented through M6 closeout on 2026-05-15. Formerly M-AppContract-Full, previously planned as v0.25,
 then v0.21. Moved before StockSage so v0.20 implements the app/surface contract
 from day one and v0.25 LiveViews build on `AllbertAssist.App.SurfaceProvider`
 without any stepping-stone migration. Memory namespace registration is the
@@ -955,7 +955,7 @@ Expected direction:
   is active in request data or scratchpad. Every runtime turn now has a
   declared home app.
 - Add `mix allbert.validate_app MyApp` and
-  `docs/how-to-create-an-allbert-app.md`.
+  `docs/developer/how-to-create-an-allbert-app.md`.
 - Design the app/surface contract so v0.20 StockSage can implement
   `SurfaceProvider` from day one; no lite-to-full migration needed.
 - Keep AG-UI/A2UI as future adapters, not local hard dependencies.

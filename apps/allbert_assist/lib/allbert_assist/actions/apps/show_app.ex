@@ -59,8 +59,14 @@ defmodule AllbertAssist.Actions.Apps.ShowApp do
       version: entry.version,
       module: entry.module,
       action_names: entry.actions |> Enum.map(& &1.name()) |> Enum.sort(),
+      agent_names: entry |> Map.get(:agents, []) |> Enum.map(&inspect/1) |> Enum.sort(),
+      signal_emit_count: length(get_in(entry, [:signals, :emits]) || []),
+      signal_subscribe_count: length(get_in(entry, [:signals, :subscribes]) || []),
       skill_paths: entry.skill_paths,
+      settings_schema_count: length(Map.get(entry, :settings_schema, [])),
       surfaces: entry.surfaces,
+      provider_surfaces: Enum.map(Map.get(entry, :provider_surfaces, []), &surface_summary/1),
+      surface_catalog_count: length(Map.get(entry, :surface_catalog, [])),
       diagnostics: diagnostics(entry.app_id)
     }
   end
@@ -81,8 +87,13 @@ defmodule AllbertAssist.Actions.Apps.ShowApp do
     App #{app.app_id}: #{app.display_name}
     Version: #{app.version}
     Actions: #{line_value(app.action_names)}
+    Agents: #{line_value(app.agent_names)}
     Skill paths: #{line_value(app.skill_paths)}
-    Surfaces: #{surface_value(app.surfaces)}
+    Signals: emits=#{app.signal_emit_count} subscribes=#{app.signal_subscribe_count}
+    Settings schema entries: #{app.settings_schema_count}
+    Legacy surfaces: #{surface_value(app.surfaces)}
+    Surface provider surfaces: #{surface_value(app.provider_surfaces)}
+    Surface catalog entries: #{app.surface_catalog_count}
     """
     |> String.trim()
   end
@@ -96,6 +107,17 @@ defmodule AllbertAssist.Actions.Apps.ShowApp do
     surfaces
     |> Enum.map(&"#{&1.id}:#{&1.path}")
     |> Enum.join(", ")
+  end
+
+  defp surface_summary(surface) do
+    %{
+      id: surface.id,
+      app_id: surface.app_id,
+      label: surface.label,
+      path: surface.path,
+      kind: surface.kind,
+      status: surface.status
+    }
   end
 
   defp denied(app_id, permission_decision, reason) do
