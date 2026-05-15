@@ -294,7 +294,7 @@ defmodule AllbertAssist.Intent.Candidate do
       {_key, nil} -> true
       {_key, ""} -> true
       {_key, []} -> true
-      {_key, %{}} -> true
+      {_key, value} when is_map(value) and map_size(value) == 0 -> true
       _entry -> false
     end)
   end
