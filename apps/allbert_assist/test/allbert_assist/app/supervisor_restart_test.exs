@@ -135,10 +135,12 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
       )
     )
 
-    assert wait_until(fn -> app_ids(registry) == [:restart_valid_app] end)
+    assert wait_until(fn -> app_ids(registry) == [:restart_valid_app, :stocksage] end)
 
     assert {:ok, %{display_name: "Restart Valid App"}} =
              Registry.lookup(:restart_valid_app, server: registry)
+
+    assert {:ok, %{display_name: "StockSage"}} = Registry.lookup(:stocksage, server: registry)
 
     assert {:error, :not_found} = Registry.lookup(:restart_broken_app, server: registry)
 

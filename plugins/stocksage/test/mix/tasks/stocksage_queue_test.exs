@@ -4,10 +4,26 @@ defmodule Mix.Tasks.Stocksage.QueueTest do
   import ExUnit.CaptureIO
 
   alias Mix.Tasks.Stocksage.Queue, as: QueueTask
+  alias AllbertAssist.Settings
   alias StockSage.Queue
 
   setup do
-    on_exit(fn -> Mix.Task.reenable("stocksage.queue") end)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "stocksage-queue-task-settings-#{System.unique_integer([:positive])}"
+      )
+
+    Application.put_env(:allbert_assist, Settings, root: root)
+
+    on_exit(fn ->
+      restore_env(Settings, original_settings_config)
+      File.rm_rf!(root)
+      Mix.Task.reenable("stocksage.queue")
+    end)
+
     :ok
   end
 
@@ -50,4 +66,22 @@ defmodule Mix.Tasks.Stocksage.QueueTest do
       end)
     end
   end
+
+  test "create respects stocksage_write denial through the action runner" do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "permissions" => %{"stocksage_write" => "denied"}
+             })
+
+    assert_raise Mix.Error, ~r/permission_denied/, fn ->
+      capture_io(fn ->
+        QueueTask.run(["create", "tsla", "--user", "alice"])
+      end)
+    end
+
+    assert [] = Queue.list_entries("alice")
+  end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end

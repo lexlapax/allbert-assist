@@ -2,18 +2,30 @@ defmodule AllbertAssist.Session.AppIdTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Session.AppId
 
   setup do
     registered? = AppRegistry.known_app_id?(:stocksage)
+    ensure_stocksage_plugin!()
 
     unless registered? do
-      assert {:ok, :stocksage} = AppRegistry.register(AllbertAssist.App.StockSageStub)
+      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
     end
 
     on_exit(fn ->
       unless registered?, do: AppRegistry.unregister(:stocksage)
     end)
+  end
+
+  defp ensure_stocksage_plugin! do
+    case PluginRegistry.lookup("stocksage") do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, :not_found} ->
+        assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
+    end
   end
 
   test "normalizes nil aliases and known app ids through the registry" do

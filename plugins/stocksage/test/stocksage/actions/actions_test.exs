@@ -10,6 +10,7 @@ defmodule StockSage.ActionsTest do
   alias AllbertAssist.Skills
   alias AllbertAssist.Settings
   alias StockSage.{Analyses, Queue}
+  alias StockSage.LegacyFixture
 
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -33,18 +34,20 @@ defmodule StockSage.ActionsTest do
   end
 
   test "registered action capabilities carry StockSage app metadata" do
-    for {name, permission} <- [
-          {"list_analyses", :read_only},
-          {"show_analysis", :read_only},
-          {"get_trends", :read_only},
-          {"queue_analysis", :stocksage_write}
+    for {name, permission, exposure} <- [
+          {"list_analyses", :read_only, :agent},
+          {"show_analysis", :read_only, :agent},
+          {"get_trends", :read_only, :agent},
+          {"queue_analysis", :stocksage_write, :agent},
+          {"list_queue", :read_only, :internal},
+          {"import_stocksage_sqlite", :stocksage_write, :internal}
         ] do
       assert {:ok, capability} = Registry.capability(name)
       assert capability.permission == permission
       assert capability.app_id == :stocksage
       assert capability.plugin_id == "stocksage"
       assert capability.execution_mode == :local_domain
-      assert capability.exposure == :agent
+      assert capability.exposure == exposure
     end
   end
 
@@ -126,6 +129,58 @@ defmodule StockSage.ActionsTest do
     assert response.status == :completed
     assert response.queue_entry.symbol == "TSLA"
     assert [%{symbol: "TSLA", status: "queued"}] = Queue.list_entries("alice")
+  end
+
+  test "actions require explicit user context at the action boundary" do
+    assert {:ok, response} = Runner.run("queue_analysis", %{symbol: "AAPL"}, %{})
+
+    assert response.status == :error
+    assert response.error == :missing_user_id
+    assert [] = Queue.list_entries("local")
+  end
+
+  test "list_queue reads rows through the runner" do
+    assert {:ok, entry} = Queue.create_entry(%{user_id: "alice", symbol: "aapl"})
+
+    assert {:ok, response} = Runner.run("list_queue", %{user_id: "alice"}, %{})
+
+    assert response.status == :completed
+    assert [%{id: id, symbol: "AAPL"}] = response.queue_entries
+    assert id == entry.id
+  end
+
+  test "import_stocksage_sqlite imports only after runner authorization" do
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "stocksage-action-fixture-#{System.unique_integer([:positive])}.db"
+      )
+
+    LegacyFixture.create!(path)
+    on_exit(fn -> File.rm(path) end)
+
+    assert {:ok, response} =
+             Runner.run(
+               "import_stocksage_sqlite",
+               %{user_id: "alice", path: path, dry_run: true},
+               %{}
+             )
+
+    assert response.status == :completed
+    assert response.import.dry_run
+    assert response.import.counts["analyses"].inserted == 3
+    assert [] = Analyses.list_analyses("alice")
+
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "permissions" => %{"stocksage_write" => "denied"}
+             })
+
+    assert {:ok, denied} =
+             Runner.run("import_stocksage_sqlite", %{user_id: "alice", path: path}, %{})
+
+    assert denied.status == :denied
+    assert [] = Analyses.list_analyses("alice")
   end
 
   test "stocksage_write can be denied without affecting read-only actions" do

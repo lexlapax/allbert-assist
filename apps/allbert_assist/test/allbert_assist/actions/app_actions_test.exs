@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.AppActionsTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Actions.Session.SetActiveApp
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
 
   defmodule UnsortedActionsApp do
     use AllbertAssist.App
@@ -110,6 +111,7 @@ defmodule AllbertAssist.Actions.AppActionsTest do
         :ok
 
       {:error, :not_found} ->
+        PluginRegistry.register_module(StockSage.Plugin)
         assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
         on_exit(fn -> AppRegistry.unregister(:stocksage) end)
     end

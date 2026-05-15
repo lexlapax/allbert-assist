@@ -2,6 +2,7 @@ defmodule StockSage.Domain.QueueTest do
   use StockSage.DataCase
 
   alias StockSage.Queue
+  alias StockSage.Domain.QueueRun
 
   describe "queue entries" do
     test "create normalizes symbol and defaults lifecycle fields" do
@@ -35,9 +36,25 @@ defmodule StockSage.Domain.QueueTest do
       assert run.queue_id == entry.id
       assert run.user_id == "alice"
       assert run.status == "started"
+      assert run.started_at
       assert [listed] = Queue.list_runs("alice", entry.id)
       assert listed.id == run.id
       assert [] = Queue.list_runs("bob", entry.id)
+    end
+
+    test "queue run changeset validates required fields and lifecycle statuses" do
+      assert %{id: [_], queue_id: [_], user_id: [_]} =
+               errors_on(QueueRun.changeset(%QueueRun{}, %{}))
+
+      changeset =
+        QueueRun.changeset(%QueueRun{}, %{
+          id: "queue_run_1",
+          queue_id: "queue_1",
+          user_id: "alice",
+          status: "blocked"
+        })
+
+      assert %{status: [_]} = errors_on(changeset)
     end
 
     test "validates lifecycle enum values" do

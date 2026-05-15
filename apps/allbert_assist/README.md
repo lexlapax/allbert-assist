@@ -24,6 +24,8 @@ The current v0.20 runtime exposes:
 - `StockSage.Actions.ShowAnalysis`
 - `StockSage.Actions.GetTrends`
 - `StockSage.Actions.QueueAnalysis`
+- `StockSage.Actions.ListQueue`
+- `StockSage.Actions.ImportSqlite`
 - `mix stocksage.import_sqlite`
 - `mix stocksage.analyses`
 - `mix stocksage.queue`

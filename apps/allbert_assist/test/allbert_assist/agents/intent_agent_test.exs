@@ -86,7 +86,12 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "show_plugin"
     ]
 
-    stocksage_actions = ["list_analyses", "show_analysis", "get_trends", "queue_analysis"]
+    stocksage_actions = [
+      "list_analyses",
+      "show_analysis",
+      "get_trends",
+      "queue_analysis"
+    ]
 
     assert action_names in [core_actions, core_actions ++ stocksage_actions]
   end

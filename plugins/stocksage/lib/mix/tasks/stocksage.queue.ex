@@ -8,7 +8,7 @@ defmodule Mix.Tasks.Stocksage.Queue do
 
   use Mix.Task
 
-  alias StockSage.Queue
+  alias AllbertAssist.Actions.Runner
 
   @shortdoc "Create and inspect local StockSage queue rows"
   @switches [
@@ -35,20 +35,21 @@ defmodule Mix.Tasks.Stocksage.Queue do
     {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
 
     with :ok <- reject_invalid(invalid),
-         {:ok, user_id} <- resolve_user(opts) do
-      Queue.create_entry(%{
-        user_id: user_id,
-        symbol: symbol,
-        thread_id: Keyword.get(opts, :thread_id),
-        session_id: Keyword.get(opts, :session_id),
-        priority: Keyword.get(opts, :priority, "normal"),
-        requested_for: parse_date(Keyword.get(opts, :requested_for)),
-        request: %{"source" => "stocksage.queue.cli"}
-      })
-      |> case do
-        {:ok, entry} -> {:ok, {:created, entry}}
-        {:error, changeset} -> {:error, {:invalid_queue_entry, errors_on(changeset)}}
-      end
+         {:ok, user_id} <- resolve_user(opts),
+         {:ok, response} <-
+           run_action(
+             "queue_analysis",
+             %{
+               user_id: user_id,
+               symbol: symbol,
+               thread_id: Keyword.get(opts, :thread_id),
+               session_id: Keyword.get(opts, :session_id),
+               priority: Keyword.get(opts, :priority, "normal"),
+               requested_for: Keyword.get(opts, :requested_for)
+             },
+             user_id
+           ) do
+      {:ok, {:created, response.queue_entry}}
     end
   end
 
@@ -56,18 +57,33 @@ defmodule Mix.Tasks.Stocksage.Queue do
     {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
 
     with :ok <- reject_invalid(invalid),
-         {:ok, user_id} <- resolve_user(opts) do
-      entries =
-        Queue.list_entries(user_id,
-          status: Keyword.get(opts, :status),
-          limit: Keyword.get(opts, :limit, 50)
-        )
-
-      {:ok, {:list, user_id, entries}}
+         {:ok, user_id} <- resolve_user(opts),
+         {:ok, response} <-
+           run_action(
+             "list_queue",
+             %{
+               user_id: user_id,
+               status: Keyword.get(opts, :status),
+               limit: Keyword.get(opts, :limit, 50)
+             },
+             user_id
+           ) do
+      {:ok, {:list, user_id, response.queue_entries}}
     end
   end
 
   defp dispatch(_args), do: {:error, :usage}
+
+  defp run_action(action, params, user_id) do
+    case Runner.run(action, params, context(user_id)) do
+      {:ok, %{status: :completed} = response} -> {:ok, response}
+      {:ok, response} -> {:error, Map.get(response, :error, :action_failed)}
+    end
+  end
+
+  defp context(user_id) do
+    %{request: %{channel: :cli, user_id: user_id, operator_id: user_id, app_id: :stocksage}}
+  end
 
   defp print_result({:ok, {:created, entry}}) do
     Mix.shell().info("StockSage queue entry #{entry.id}")
@@ -116,23 +132,6 @@ defmodule Mix.Tasks.Stocksage.Queue do
     end
   end
 
-  defp parse_date(nil), do: nil
-
-  defp parse_date(value) do
-    case Date.from_iso8601(to_string(value)) do
-      {:ok, date} -> date
-      _ -> nil
-    end
-  end
-
-  defp errors_on(changeset) do
-    Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
-      Regex.replace(~r"%{(\w+)}", message, fn _, key ->
-        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
-      end)
-    end)
-  end
-
   defp format_reason(:usage) do
     """
     Usage:
@@ -143,9 +142,12 @@ defmodule Mix.Tasks.Stocksage.Queue do
 
   defp format_reason({:invalid_options, invalid}), do: "invalid options #{inspect(invalid)}"
   defp format_reason({:invalid_queue_entry, errors}), do: "invalid queue entry #{inspect(errors)}"
+  defp format_reason(:action_failed), do: "StockSage queue action failed"
 
   defp format_reason({:user_operator_mismatch, user, operator}),
     do: "--user #{user} differs from --operator #{operator}"
+
+  defp format_reason(reason), do: inspect(reason)
 
   defp format_value(nil), do: "-"
   defp format_value(value), do: to_string(value)
