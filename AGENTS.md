@@ -164,8 +164,11 @@ apps/actions/skills/settings/children, channel registration, shipped
 Telegram/email source-tree plugin wrappers, or plugin diagnostics. v0.17 plugins are
 package/discovery contracts, not authority; they must not load arbitrary code
 from `<ALLBERT_HOME>/plugins`, grant trust, grant permissions, bypass
-confirmations, execute package managers during discovery, or automatically
-compile arbitrary `./plugins/*/lib` folders. Telegram and email move into
+confirmations, execute package managers during discovery, add a parallel
+channel registry, or automatically compile arbitrary `./plugins/*/lib` folders.
+Plugin-owned child specs run under the plugin child supervisor; channel
+adapters still start from registered descriptors under
+`AllbertAssist.Channels.Supervisor`. Telegram and email move into
 `./plugins/allbert.telegram` and `./plugins/allbert.email` as shipped
 source-tree plugins.
 
