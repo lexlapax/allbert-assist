@@ -83,6 +83,27 @@ defmodule AllbertAssist.SettingsTest do
     assert resolved.writable?
   end
 
+  test "intent enrichment settings resolve defaults and validate writes" do
+    assert {:ok, false} = Settings.get("intent.model_assist_enabled")
+    assert {:ok, "fast"} = Settings.get("intent.model_profile")
+    assert {:ok, 3000} = Settings.get("intent.model_timeout_ms")
+    assert {:ok, 0.72} = Settings.get("intent.model_min_confidence")
+    assert {:ok, 80} = Settings.get("intent.max_candidates")
+    assert {:ok, true} = Settings.get("intent.trace_rejected_candidates")
+
+    assert {:ok, resolved} =
+             Settings.put("intent.max_candidates", 120, %{audit?: false})
+
+    assert resolved.value == 120
+    assert {:ok, 120} = Settings.get("intent.max_candidates")
+
+    assert {:error, {:invalid_setting, "intent.model_min_confidence", _reason}} =
+             Settings.put("intent.model_min_confidence", 1.5, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "intent.max_candidates", _reason}} =
+             Settings.put("intent.max_candidates", 0, %{audit?: false})
+  end
+
   test "safe write stores only operator override and survives reread", %{home: home} do
     assert {:ok, resolved} =
              Settings.put("operator.communication_style", "detailed", %{
