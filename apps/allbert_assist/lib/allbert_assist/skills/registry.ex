@@ -9,6 +9,7 @@ defmodule AllbertAssist.Skills.Registry do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.CapabilityContract
@@ -213,6 +214,7 @@ defmodule AllbertAssist.Skills.Registry do
       trust_status: discovery.trust_status,
       kind: skill_kind(discovery.source_scope, spec, contract),
       activation_mode: :progressive_disclosure,
+      plugin_id: Map.get(discovery, :plugin_id),
       spec: spec,
       capability_contract: contract,
       permission: skill_permission(contract),
@@ -252,9 +254,10 @@ defmodule AllbertAssist.Skills.Registry do
       )
     ] ++
       app_roots() ++
+      plugin_roots() ++
       [
-        root_spec(:user_native, Paths.skills_root(), :trusted, true, 4),
-        root_spec(:user_interoperable, user_interoperable_root(context), :trusted, true, 5)
+        root_spec(:user_native, Paths.skills_root(), :trusted, true, 5),
+        root_spec(:user_interoperable, user_interoperable_root(context), :trusted, true, 6)
       ] ++ configured_roots(settings, project_root) ++ [imported_root(settings)]
   end
 
@@ -277,9 +280,19 @@ defmodule AllbertAssist.Skills.Registry do
     end)
   end
 
+  defp plugin_roots do
+    PluginRegistry.registered_skill_paths()
+    |> Enum.map(fn %{plugin_id: plugin_id, path: path, trust_status: trust_status, source: source} ->
+      :plugin
+      |> root_spec(path, trust_status, true, 4)
+      |> Map.put(:plugin_id, plugin_id)
+      |> Map.put(:plugin_source, source)
+    end)
+  end
+
   defp configured_roots(settings, project_root) do
     settings["scan_paths"]
-    |> Enum.with_index(6)
+    |> Enum.with_index(7)
     |> Enum.map(fn {path, precedence} ->
       root_spec(
         :configured_scan_path,
@@ -355,6 +368,9 @@ defmodule AllbertAssist.Skills.Registry do
 
       skill.source_scope == :project_interoperable and skill.trust_status == :pending ->
         policy_result(skill, false, project_pending_diagnostic(skill))
+
+      skill.source_scope == :plugin and skill.trust_status in [:pending, :untrusted] ->
+        policy_result(skill, false, plugin_pending_diagnostic(skill))
 
       skill.source_scope == :imported_cache and not imported_enabled?(skill, settings) ->
         policy_result(skill, false, imported_disabled_diagnostic(skill))
@@ -677,6 +693,7 @@ defmodule AllbertAssist.Skills.Registry do
     |> Map.put(:source_scope, discovery.source_scope)
     |> Map.put(:source_path, Map.get(diagnostic, :path, discovery.path))
     |> maybe_put_app_id(discovery)
+    |> maybe_put_plugin_id(discovery)
   end
 
   defp disabled_diagnostic(skill) do
@@ -694,6 +711,10 @@ defmodule AllbertAssist.Skills.Registry do
       "Imported cache skill is disabled by policy.",
       skill
     )
+  end
+
+  defp plugin_pending_diagnostic(skill) do
+    skill_diagnostic(:warning, :plugin_skill_pending, "Plugin skill is pending trust.", skill)
   end
 
   defp duplicate_hidden_diagnostic(skill, winner) do
@@ -722,12 +743,23 @@ defmodule AllbertAssist.Skills.Registry do
       code,
       message,
       [name: skill.name, source_scope: skill.source_scope, source_path: skill.source_path] ++
+        plugin_detail(skill) ++
         extra
     )
   end
 
+  defp plugin_detail(%{plugin_id: plugin_id}) when is_binary(plugin_id),
+    do: [plugin_id: plugin_id]
+
+  defp plugin_detail(_skill), do: []
+
   defp maybe_put_app_id(diagnostic, %{app_id: app_id}), do: Map.put(diagnostic, :app_id, app_id)
   defp maybe_put_app_id(diagnostic, _discovery), do: diagnostic
+
+  defp maybe_put_plugin_id(diagnostic, %{plugin_id: plugin_id}),
+    do: Map.put(diagnostic, :plugin_id, plugin_id)
+
+  defp maybe_put_plugin_id(diagnostic, _discovery), do: diagnostic
 
   defp legacy_instructions(attrs) do
     """
@@ -753,9 +785,10 @@ defmodule AllbertAssist.Skills.Registry do
   defp scope_precedence(:project_native), do: 1
   defp scope_precedence(:project_interoperable), do: 2
   defp scope_precedence(:app), do: 3
-  defp scope_precedence(:user_native), do: 4
-  defp scope_precedence(:user_interoperable), do: 5
-  defp scope_precedence(:configured_scan_path), do: 6
+  defp scope_precedence(:plugin), do: 4
+  defp scope_precedence(:user_native), do: 5
+  defp scope_precedence(:user_interoperable), do: 6
+  defp scope_precedence(:configured_scan_path), do: 7
   defp scope_precedence(:imported_cache), do: 100
 
   defp diagnostic(severity, code, message, opts) do
