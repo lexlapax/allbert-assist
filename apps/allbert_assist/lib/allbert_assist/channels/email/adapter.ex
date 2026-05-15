@@ -147,7 +147,7 @@ defmodule AllbertAssist.Channels.Email.Adapter do
     status =
       case Parser.parse_email(raw_email) do
         {:ok, fields} ->
-          case insert_received_event(fields, uid, event_direction(fields)) do
+          case insert_received_event(fields, uid, event_direction(fields, state)) do
             {:ok, %AllbertAssist.Channels.Event{} = event} ->
               process_parsed_email(state, event, fields, uid)
 
@@ -204,8 +204,8 @@ defmodule AllbertAssist.Channels.Email.Adapter do
     |> event_result()
   end
 
-  defp event_direction(fields) do
-    case command_from_fields(fields) do
+  defp event_direction(fields, state) do
+    case command_from_selected_body(fields, state) do
       {:command, _action, _confirmation_id} -> "callback"
       :regular_text -> "inbound"
     end
@@ -406,19 +406,12 @@ defmodule AllbertAssist.Channels.Email.Adapter do
   defp rejected_or_failed({:delivery_failed, _reason}), do: :failed
   defp rejected_or_failed(_reason), do: :rejected
 
-  defp command_from_fields(fields) do
-    fields
-    |> body_for_command_detection()
-    |> command_from_text()
+  defp command_from_selected_body(fields, state) do
+    case selected_email_body(fields, state) do
+      {:ok, body} -> command_from_text(body)
+      {:error, _reason} -> :regular_text
+    end
   end
-
-  defp body_for_command_detection(%{text_body: text_body}) when is_binary(text_body),
-    do: text_body
-
-  defp body_for_command_detection(%{html_body: html_body}) when is_binary(html_body),
-    do: html_body
-
-  defp body_for_command_detection(_fields), do: nil
 
   defp command_from_text(text) when is_binary(text), do: Parser.detect_command(text)
   defp command_from_text(_text), do: :regular_text

@@ -76,6 +76,9 @@ defmodule AllbertAssist.Channels.Event do
     |> validate_length(:payload_summary, max: 500)
     |> validate_length(:error, max: 500)
     |> unique_constraint(:external_event_id,
+      name: :channel_events_inbound_callback_dedup
+    )
+    |> unique_constraint(:external_event_id,
       name: :channel_events_channel_external_event_id_index
     )
   end
