@@ -9,6 +9,7 @@ defmodule AllbertAssist.Channels do
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
+  alias AllbertAssist.Signals
 
   @known_event_keys [
     :channel,
@@ -53,6 +54,7 @@ defmodule AllbertAssist.Channels do
     %Event{}
     |> Event.changeset(attrs)
     |> Repo.insert()
+    |> tap_event(&emit_created_signals/1)
   end
 
   @spec update_event(Event.t(), map()) :: {:ok, Event.t()} | {:error, Ecto.Changeset.t()}
@@ -65,6 +67,7 @@ defmodule AllbertAssist.Channels do
     event
     |> Event.changeset(attrs)
     |> Repo.update()
+    |> tap_event(&emit_updated_signals/1)
   end
 
   @spec get_event_by_external_id(String.t(), String.t()) :: Event.t() | nil
@@ -139,7 +142,11 @@ defmodule AllbertAssist.Channels do
   end
 
   defp credential_status(channel) do
-    {:ok, channel_settings} = channel_settings(channel)
+    channel_settings =
+      case channel_settings(channel) do
+        {:ok, settings} -> settings
+        {:error, _reason} -> %{}
+      end
 
     @providers
     |> Map.fetch!(channel)
@@ -156,6 +163,75 @@ defmodule AllbertAssist.Channels do
       end
     end)
     |> Map.new()
+  end
+
+  defp tap_event({:ok, %Event{} = event} = result, fun) when is_function(fun, 1) do
+    fun.(event)
+    result
+  end
+
+  defp tap_event(result, _fun), do: result
+
+  defp emit_created_signals(%Event{} = event) do
+    case event.direction do
+      "callback" ->
+        emit_channel_signal(:update_received, event)
+        emit_channel_signal(:callback_received, event)
+
+      "inbound" ->
+        emit_channel_signal(:update_received, event)
+
+      _other ->
+        :ok
+    end
+
+    emit_status_signal(event)
+  end
+
+  defp emit_updated_signals(%Event{} = event), do: emit_status_signal(event)
+
+  defp emit_status_signal(%Event{status: "processed", direction: "inbound"} = event) do
+    emit_channel_signal(:runtime_submitted, event)
+    emit_channel_signal(:response_sent, event)
+  end
+
+  defp emit_status_signal(%Event{status: "processed", direction: "callback"} = event) do
+    emit_channel_signal(:response_sent, event)
+  end
+
+  defp emit_status_signal(%Event{status: "rejected"} = event) do
+    emit_channel_signal(:message_rejected, event)
+  end
+
+  defp emit_status_signal(%Event{status: "failed"} = event) do
+    emit_channel_signal(:delivery_failed, event)
+  end
+
+  defp emit_status_signal(_event), do: :ok
+
+  defp emit_channel_signal(kind, %Event{} = event) do
+    metadata = %{
+      channel: event.channel,
+      provider: event.provider,
+      external_event_id: event.external_event_id,
+      external_user_id: event.external_user_id,
+      external_chat_id: event.external_chat_id,
+      external_message_id: event.external_message_id,
+      user_id: event.user_id,
+      session_id: event.session_id,
+      thread_id: event.thread_id,
+      trace_id: event.trace_id,
+      input_signal_id: event.input_signal_id,
+      direction: event.direction,
+      status: event.status,
+      reason: event.reason,
+      error: event.error
+    }
+
+    case Signals.channel_lifecycle(kind, metadata) do
+      {:ok, signal} -> Signals.log(signal)
+      {:error, _reason} -> :ok
+    end
   end
 
   defp last_event_summary(channel) do

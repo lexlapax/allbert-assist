@@ -15,7 +15,7 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels email set-password --type smtp PASSWORD
       mix allbert.channels email map --external-user EMAIL --user USER
       mix allbert.channels email unmap --external-user EMAIL
-      mix allbert.channels email simulate --external-user EMAIL "prompt"
+      mix allbert.channels email simulate --external-user EMAIL [--new-thread] "prompt"
       mix allbert.channels email poll-once
   """
 
@@ -35,6 +35,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   @switches [
     chat: :string,
     external_user: :string,
+    new_thread: :boolean,
     type: :string,
     user: :string
   ]
@@ -126,7 +127,8 @@ defmodule Mix.Tasks.Allbert.Channels do
 
     simulate_email!(
       required!(opts, :external_user),
-      single_arg!(args, "Prompt is required")
+      single_arg!(args, "Prompt is required"),
+      Keyword.get(opts, :new_thread, false)
     )
   end
 
@@ -147,7 +149,7 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels email set-password --type imap|smtp PASSWORD
       mix allbert.channels email map --external-user EMAIL --user USER
       mix allbert.channels email unmap --external-user EMAIL
-      mix allbert.channels email simulate --external-user EMAIL "prompt"
+      mix allbert.channels email simulate --external-user EMAIL [--new-thread] "prompt"
       mix allbert.channels email poll-once
     """)
   end
@@ -297,11 +299,12 @@ defmodule Mix.Tasks.Allbert.Channels do
     end
   end
 
-  defp simulate_email!(external_user_id, text) do
+  defp simulate_email!(external_user_id, text, forced_new_thread?) do
     with {:ok, settings} <- Channels.channel_settings("email"),
          {:ok, user_id} <-
            Identity.resolve("email", external_user_id, Map.get(settings, "identity_map", [])),
          session_id <- Channels.derive_session_id("email", external_user_id, nil),
+         {prompt, prompted_new_thread?} <- prompt_text(text),
          {:ok, event} <-
            Channels.create_event(%{
              channel: "email",
@@ -314,11 +317,12 @@ defmodule Mix.Tasks.Allbert.Channels do
            }),
          {:ok, response} <-
            Runtime.submit_user_input(%{
-             text: text,
+             text: prompt,
              channel: "email",
              user_id: user_id,
              operator_id: user_id,
              session_id: session_id,
+             new_thread: forced_new_thread? or prompted_new_thread?,
              metadata: simulate_metadata("email", "email_imap", event, nil)
            }),
          {:ok, _subject, body, _html} <- Email.Renderer.render_response(response),
