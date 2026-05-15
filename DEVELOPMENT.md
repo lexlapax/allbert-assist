@@ -158,10 +158,11 @@ For active v0.19 cross-surface intent enrichment work, start with:
 - `docs/plans/v0.18-plan.md`
 - `docs/plans/v0.18-request-flow.md`
 - `docs/plans/allbert-jido-vision.md`
+- `docs/adr/0012-resource-access-security-posture.md`
 - `docs/adr/0014-local-workspace-identity.md`
 - `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 - `docs/adr/0017-allbert-plugin-contract.md`
-- `docs/adr/0012-resource-access-security-posture.md`
+- `docs/adr/0019-cross-surface-intent-enrichment.md`
 
 For v0.17 plugin contract work, start with:
 
