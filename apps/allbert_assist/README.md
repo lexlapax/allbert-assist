@@ -2,12 +2,16 @@
 
 Core runtime app for Allbert Assist.
 
-The current v0.18 runtime exposes:
+The current v0.19 runtime exposes:
 
 - `AllbertAssist.Runtime.submit_user_input/1`
 - `AllbertAssist.Agents.IntentAgent`
 - `AllbertAssist.Actions.Registry`
 - `AllbertAssist.Actions.Runner`
+- `AllbertAssist.Intent.Candidate`
+- `AllbertAssist.Intent.Engine`
+- `AllbertAssist.Intent.Ranker`
+- `AllbertAssist.Intent.Classifier`
 - `AllbertAssist.App`
 - `AllbertAssist.App.Registry`
 - `AllbertAssist.App.SurfaceProvider`
@@ -16,6 +20,8 @@ The current v0.18 runtime exposes:
 - `Mix.Tasks.Allbert.ValidateApp`
 - `AllbertAssist.Skills`
 - `AllbertAssist.Actions.Intent.ActivateSkill`
+- `AllbertAssist.Actions.Intent.ExplainIntent`
+- `AllbertAssist.Actions.Intent.ListIntentCandidates`
 - `AllbertAssist.Security`
 - `AllbertAssist.Actions.Security.Status`
 - `AllbertAssist.Actions.Skills.ValidateSkill`
@@ -51,7 +57,7 @@ remain readable as audit history, while new v0.10 external service, package
 install, and online skill import requests resume only through their registered
 actions after confirmation.
 
-See the umbrella root `README.md`, `docs/plans/v0.18-plan.md`,
-`docs/plans/v0.18-request-flow.md`, and
+See the umbrella root `README.md`, `docs/plans/v0.19-plan.md`,
+`docs/plans/v0.19-request-flow.md`, and
 `docs/developer/how-to-create-an-allbert-app.md` for current app/surface
-contract behavior.
+and intent-routing behavior.

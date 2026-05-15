@@ -3,7 +3,9 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
 
   alias AllbertAssist.Actions.Intent.ActivateSkill
   alias AllbertAssist.Actions.Intent.AppendMemory
+  alias AllbertAssist.Actions.Intent.ExplainIntent
   alias AllbertAssist.Actions.Intent.ExternalNetworkRequest
+  alias AllbertAssist.Actions.Intent.ListIntentCandidates
   alias AllbertAssist.Actions.Intent.ListSkills
   alias AllbertAssist.Actions.Intent.PlanShellCommand
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
@@ -57,6 +59,34 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
     assert append_memory = Enum.find(response.skills, &(&1.name == "append-memory"))
     assert append_memory.capability_contract.validation_status == :valid
     assert append_memory.capability_contract.execution_eligible?
+  end
+
+  test "explain_intent returns bounded decision metadata without execution" do
+    assert {:ok, response} = ExplainIntent.run(%{text: "Open Allbert chat"}, %{})
+
+    assert response.status == :completed
+    assert response.message =~ "Intent :open_surface"
+    assert response.decision.intent == :open_surface
+    assert response.intent_candidates.selected.kind == :surface
+
+    assert [%{name: "explain_intent", intent_metadata: %{candidate_count: count}}] =
+             response.actions
+
+    assert count > 0
+  end
+
+  test "list_intent_candidates returns bounded ranked candidates without execution" do
+    assert {:ok, response} =
+             ListIntentCandidates.run(%{text: "what can you do?"}, %{})
+
+    assert response.status == :completed
+    assert response.message =~ "Intent candidates"
+    assert Enum.any?(response.candidates, &(&1.kind == :action and &1.id == "direct_answer"))
+
+    assert [%{name: "list_intent_candidates", intent_metadata: %{candidate_count: count}}] =
+             response.actions
+
+    assert count == length(response.candidates)
   end
 
   test "read_skill returns one skill declaration" do
