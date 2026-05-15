@@ -3,6 +3,9 @@ defmodule AllbertAssist.Skills.RegistryTest do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Discovery
+  alias AllbertAssist.Plugin.Entry, as: PluginEntry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Skills
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
@@ -35,6 +38,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
 
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, Paths)
+    PluginRegistry.clear()
 
     root = temp_path("root")
     home = Path.join(root, "home")
@@ -47,6 +51,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
     on_exit(fn ->
       File.rm_rf!(root)
       AppRegistry.unregister(:skill_registry_app)
+      PluginRegistry.clear()
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(AppSkillApp, original_app_config)
@@ -151,6 +156,104 @@ defmodule AllbertAssist.Skills.RegistryTest do
                  &1.winning_source_scope == :app and
                  &1.source_scope == :user_native)
            )
+  end
+
+  test "trusted plugin skill paths are discovered after app roots and before user roots",
+       context do
+    plugin_root = Path.join(context.root, "plugin-skills")
+    write_skill(plugin_root, "shared-skill", "shared-skill")
+    write_skill(Path.join(context.home, "skills"), "shared-skill", "shared-skill")
+
+    assert {:ok, "example.skills"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.skills",
+               display_name: "Example Skills",
+               version: "0.1.0",
+               kind: "skills",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               skill_paths: [plugin_root]
+             })
+
+    assert {:ok, [skill]} = Skills.list(registry_context(context))
+    assert skill.name == "shared-skill"
+    assert skill.source_scope == :plugin
+    assert skill.trust_status == :trusted
+
+    assert {:ok, diagnostics} = Skills.diagnostics(registry_context(context))
+
+    assert Enum.any?(
+             diagnostics,
+             &(&1.code == :duplicate_skill_hidden and
+                 &1.winning_source_scope == :plugin and
+                 &1.source_scope == :user_native)
+           )
+  end
+
+  test "pending plugin skill paths stay inspectable but hidden", context do
+    plugin_root = Path.join(context.root, "pending-plugin-skills")
+    write_skill(plugin_root, "pending-plugin-skill", "pending-plugin-skill")
+
+    assert {:ok, "example.pending"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.pending",
+               display_name: "Example Pending",
+               version: "0.1.0",
+               kind: "skills",
+               source: :home,
+               status: :enabled,
+               trust_status: :pending,
+               skill_paths: [plugin_root]
+             })
+
+    assert {:ok, []} = Skills.list(registry_context(context))
+    assert {:ok, diagnostics} = Skills.diagnostics(registry_context(context))
+
+    assert Enum.any?(
+             diagnostics,
+             &(&1.code == :plugin_skill_pending and
+                 &1.plugin_id == "example.pending" and
+                 &1.source_scope == :plugin)
+           )
+  end
+
+  test "enabled trusted folder plugin contributes skill roots", context do
+    plugin_root = Path.join([context.project_root, "plugins", "example.skills"])
+    skills_root = Path.join(plugin_root, "skills")
+    write_skill(skills_root, "folder-plugin-skill", "folder-plugin-skill")
+
+    File.write!(Path.join(plugin_root, "allbert_plugin.json"), """
+    {
+      "schema_version": 1,
+      "plugin_id": "example.skills",
+      "name": "Example Skills",
+      "version": "0.1.0",
+      "kind": "skills",
+      "skill_paths": ["skills"]
+    }
+    """)
+
+    discoveries =
+      Discovery.discover(
+        project_root: context.project_root,
+        settings: %{
+          "enabled" => ["example.skills"],
+          "disabled" => [],
+          "scan_paths" => [Path.join(context.project_root, "plugins")],
+          "trusted_project_roots" => [context.project_root],
+          "load_policy" => "shipped_and_skill_only"
+        }
+      )
+
+    assert [{:entry, entry}] = discoveries
+    assert entry.trust_status == :trusted
+    assert {:ok, "example.skills"} = PluginRegistry.register_entry(entry)
+
+    assert {:ok, [skill]} = Skills.list(registry_context(context))
+    assert skill.name == "folder-plugin-skill"
+    assert skill.source_scope == :plugin
+    assert skill.trust_status == :trusted
   end
 
   test "built-in skill names are reserved", context do

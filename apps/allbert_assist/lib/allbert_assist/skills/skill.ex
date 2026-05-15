@@ -26,6 +26,7 @@ defmodule AllbertAssist.Skills.Skill do
     :trust_status,
     :kind,
     :activation_mode,
+    :plugin_id,
     :spec,
     :capability_contract,
     :contract_validation,
@@ -43,6 +44,7 @@ defmodule AllbertAssist.Skills.Skill do
           | :project_native
           | :project_interoperable
           | :app
+          | :plugin
           | :user_native
           | :user_interoperable
           | :configured_scan_path
@@ -67,6 +69,7 @@ defmodule AllbertAssist.Skills.Skill do
           trust_status: trust_status(),
           kind: kind(),
           activation_mode: atom(),
+          plugin_id: nil | String.t(),
           spec: nil | AgentSkillSpec.t(),
           capability_contract: nil | CapabilityContract.t(),
           contract_validation: nil | map(),
