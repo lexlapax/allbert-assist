@@ -170,6 +170,11 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert response.decision.selected_action == "external_network_request"
     assert response.decision.confirmation == :pending
 
+    selected_candidate = response.decision.trace_metadata.intent_candidates.selected
+    assert selected_candidate.kind == :action
+    assert selected_candidate.action_name == "external_network_request"
+    assert [%{operation_class: :summarize_url}] = selected_candidate.resource_access
+
     assert [
              %{
                name: "external_network_request",
@@ -235,6 +240,9 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
     assert response.status == :needs_confirmation
     assert response.trace_id =~ Path.join(root, "traces")
+
+    assert response.decision.trace_metadata.intent_candidates.selected.action_name ==
+             "run_shell_command"
 
     trace = File.read!(response.trace_id)
     assert trace =~ "Selected action: run_shell_command"
