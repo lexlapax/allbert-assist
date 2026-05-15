@@ -365,8 +365,10 @@ historical aliases only and remain in old reference notes for continuity.
   turns default to `active_app: :allbert` when no known app context exists, and
   v0.20 StockSage implements the same app/surface contract from day one as the
   second `SurfaceProvider`.
-- v0.19: cross-surface intent enrichment using jobs, channels, memory,
-  scratchpad, app registry context, and registered surface metadata.
+- v0.19: cross-surface intent enrichment using jobs, channels, existing
+  memory/trace metadata, scratchpad, app registry context, plugin provenance,
+  and registered surface metadata; v0.21 reviewed-memory retrieval plugs in
+  later.
 - v0.20: StockSage plugin, umbrella app, and SQLite-first domain.
 - v0.21: markdown memory review and retrieval, distinct from conversation
   history.
