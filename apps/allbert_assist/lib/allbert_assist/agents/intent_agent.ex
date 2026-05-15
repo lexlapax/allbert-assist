@@ -89,22 +89,68 @@ defmodule AllbertAssist.Agents.IntentAgent do
     context = %{request: request, agent: __MODULE__}
     route = text |> route() |> execution_route(text)
 
+    case maybe_surface_navigation(route, request) do
+      {:ok, decision} ->
+        {:ok, surface_navigation_response(decision)}
+
+      :continue ->
+        respond_to_route(route, text, context)
+    end
+  end
+
+  def respond(_request), do: {:error, :missing_text}
+
+  defp respond_to_route(route, text, context) do
     case decision_for_route(route, text, context) do
       {:ok, decision} ->
-        if Decision.refused?(decision) do
-          {:ok, decision_refusal_response(decision)}
-        else
-          route
-          |> run_route(text, context)
-          |> attach_decision(decision, context)
-        end
+        run_validated_route(route, text, context, decision)
 
       {:error, reason} ->
         {:ok, invalid_decision_response(reason, text, context)}
     end
   end
 
-  def respond(_request), do: {:error, :missing_text}
+  defp run_validated_route(route, text, context, %Decision{} = decision) do
+    if Decision.refused?(decision) do
+      {:ok, decision_refusal_response(decision)}
+    else
+      route
+      |> run_route(text, context)
+      |> attach_decision(decision, context)
+    end
+  end
+
+  defp maybe_surface_navigation(:direct_answer, request) do
+    case Engine.decide(request) do
+      {:ok, %Decision{intent: :open_surface} = decision} -> {:ok, decision}
+      _other -> :continue
+    end
+  end
+
+  defp maybe_surface_navigation(_route, _request), do: :continue
+
+  defp surface_navigation_response(%Decision{} = decision) do
+    target = Map.get(decision.trace_metadata, :surface_target, %{})
+    label = Map.get(target, :label) || "registered surface"
+    path = Map.get(target, :path)
+
+    %{
+      message: surface_navigation_message(label, path),
+      status: :completed,
+      active_app: decision.active_app,
+      decision: decision,
+      resource_access: [],
+      approval_handoff: nil,
+      diagnostics: decision.diagnostics,
+      actions: []
+    }
+  end
+
+  defp surface_navigation_message(label, path) when is_binary(path) do
+    "Open #{label}: #{path}"
+  end
+
+  defp surface_navigation_message(label, _path), do: "Open #{label}."
 
   @doc "Return the action modules that define the v0.01 intent surface."
   def action_modules do

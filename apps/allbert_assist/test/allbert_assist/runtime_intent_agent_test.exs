@@ -68,6 +68,22 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert response.decision.trace_metadata.intent_candidates.selected.id == "list_skills"
   end
 
+  test "default runtime can return inert registered surface navigation" do
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Open Allbert chat",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :completed
+    assert response.message == "Open Allbert Chat: /agent"
+    assert response.actions == []
+    assert response.decision.intent == :open_surface
+    assert Map.get(response.decision, :selected_action) == nil
+    assert response.decision.trace_metadata.surface_target.path == "/agent"
+  end
+
   test "default runtime refuses command execution" do
     assert {:ok, response} =
              Runtime.submit_user_input(%{
