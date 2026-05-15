@@ -354,9 +354,10 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.15: minimal app registration contract.
 - v0.16: Telegram/email channel adapters and channel foundation.
 - v0.17: plugin contract and shipped source-tree channel plugins.
-- v0.18: full app contract and `AllbertAssist.Surface` DSL, before StockSage
-  lands; `AllbertAssist.App.SurfaceProvider` available to all apps from this
-  point forward. v0.20 StockSage implements the full contract from day one.
+- v0.18: full app contract and `AllbertAssist.Surface` DSL; `CoreApp` becomes
+  the first `SurfaceProvider` (declaring `/agent` as the built-in chat surface),
+  channels default to `active_app: :allbert`, and v0.20 StockSage implements
+  the full contract from day one as the second `SurfaceProvider`.
 - v0.19: cross-surface intent enrichment using jobs, channels, memory,
   scratchpad, app registry context, and registered surface metadata.
 - v0.20: StockSage plugin, umbrella app, and SQLite-first domain.
@@ -364,8 +365,9 @@ historical aliases only and remain in old reference notes for continuity.
   history.
 - v0.22: StockSage Python bridge.
 - v0.23: native Jido trading agents.
-- v0.24: agentic workspace surface and ephemeral UI substrate, built after
-  both analysis engines and the full app contract are in place.
+- v0.24: upgrades `CoreApp`'s declared `/agent` surface (from v0.18) into a
+  signal-driven workspace shell; canvas and ephemeral UI are additive. Built
+  after both analysis engines, memory review, and intent enrichment are in place.
 - v0.25: StockSage LiveViews built on `AllbertAssist.App.SurfaceProvider`
   from day one; component catalog declared as the foundation for v0.28 canvas.
 - v0.26: security hardening and evals, including cross-user/thread leakage,
