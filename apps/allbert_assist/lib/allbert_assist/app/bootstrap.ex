@@ -43,7 +43,6 @@ defmodule AllbertAssist.App.Bootstrap do
     plugin_apps = PluginRegistry.registered_apps(server: plugin_registry)
 
     apps
-    |> drop_stubs_replaced_by_plugins(plugin_apps)
     |> Kernel.++(plugin_apps)
     |> Enum.uniq()
   end
@@ -59,23 +58,4 @@ defmodule AllbertAssist.App.Bootstrap do
   end
 
   defp default_apps, do: @default_apps
-
-  defp drop_stubs_replaced_by_plugins(apps, plugin_apps) do
-    plugin_app_ids = MapSet.new(Enum.flat_map(plugin_apps, &safe_app_id/1))
-
-    Enum.reject(apps, fn
-      AllbertAssist.App.StockSageStub -> MapSet.member?(plugin_app_ids, :stocksage)
-      _app -> false
-    end)
-  end
-
-  defp safe_app_id(module) do
-    if Code.ensure_loaded?(module) and function_exported?(module, :app_id, 0) do
-      [module.app_id()]
-    else
-      []
-    end
-  rescue
-    _exception -> []
-  end
 end

@@ -5,7 +5,9 @@ StockSage is Allbert's first shipped source-tree plugin workspace app.
 v0.20 provides the local data foundation only:
 
 - `./plugins/stocksage` contributes `StockSage.Plugin`, `StockSage.App`,
-  skills, settings schema entries, and four safe local actions.
+  skills, settings schema entries, four safe operator/skill-facing local
+  actions, and two internal CLI actions that still run through the Allbert
+  action runner.
 - Plugin-owned Ecto schemas and contexts use `AllbertAssist.Repo` and shared
   SQLite `stocksage_*` tables.
 - `mix stocksage.import_sqlite` imports a representative legacy SQLite file

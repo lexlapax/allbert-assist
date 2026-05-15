@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Session.ScratchpadTest do
   use ExUnit.Case, async: false
 
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Session
   alias AllbertAssist.Session.AppId
   alias AllbertAssist.Session.Scratchpad
@@ -9,10 +10,10 @@ defmodule AllbertAssist.Session.ScratchpadTest do
     name = :"scratchpad_#{System.unique_integer([:positive])}"
     table = :"scratchpad_table_#{System.unique_integer([:positive])}"
     registered? = AllbertAssist.App.Registry.known_app_id?(:stocksage)
+    ensure_stocksage_plugin!()
 
     unless registered? do
-      assert {:ok, :stocksage} =
-               AllbertAssist.App.Registry.register(AllbertAssist.App.StockSageStub)
+      assert {:ok, :stocksage} = AllbertAssist.App.Registry.register(StockSage.App)
     end
 
     start_scratchpad!(name, table_name: table, ttl_ms: 120_000, sweep_interval_ms: 0)
@@ -22,6 +23,16 @@ defmodule AllbertAssist.Session.ScratchpadTest do
     end)
 
     {:ok, opts: [server: name]}
+  end
+
+  defp ensure_stocksage_plugin! do
+    case PluginRegistry.lookup("stocksage") do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, :not_found} ->
+        assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
+    end
   end
 
   test "AppId registry normalizes known apps and never creates unknown atoms" do

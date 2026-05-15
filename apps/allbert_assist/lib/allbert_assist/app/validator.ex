@@ -21,7 +21,7 @@ defmodule AllbertAssist.App.Validator do
   @reserved_nil_aliases [:none, :general]
   @reserved_app_owners %{
     allbert: [AllbertAssist.App.CoreApp],
-    stocksage: [AllbertAssist.App.StockSageStub, StockSage.App]
+    stocksage: [StockSage.App]
   }
 
   @known_setting_types [

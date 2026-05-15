@@ -27,45 +27,49 @@ defmodule StockSage.Actions.QueueAnalysis do
   @impl true
   def run(params, context) do
     permission_decision = Actions.authorize(:stocksage_write, context)
-    user_id = Actions.user_id(params, context)
 
-    if Actions.allowed?(permission_decision) do
-      attrs = %{
-        user_id: user_id,
-        symbol: Actions.field(params, :symbol),
-        thread_id: Actions.field(params, :thread_id) || Actions.field(context, :thread_id),
-        session_id: Actions.field(params, :session_id) || Actions.field(context, :session_id),
-        requested_for: parse_date(Actions.field(params, :requested_for)),
-        priority: Actions.field(params, :priority, "normal"),
-        request: %{
-          "source" => "queue_analysis_action",
-          "app_id" => "stocksage"
-        },
-        input_signal_id: Actions.field(context, :input_signal_id),
-        trace_id: Actions.field(context, :trace_id)
-      }
+    with {:ok, user_id} <- Actions.user_id(params, context) do
+      if Actions.allowed?(permission_decision) do
+        attrs = %{
+          user_id: user_id,
+          symbol: Actions.field(params, :symbol),
+          thread_id: Actions.field(params, :thread_id) || Actions.field(context, :thread_id),
+          session_id: Actions.field(params, :session_id) || Actions.field(context, :session_id),
+          requested_for: parse_date(Actions.field(params, :requested_for)),
+          priority: Actions.field(params, :priority, "normal"),
+          request: %{
+            "source" => "queue_analysis_action",
+            "app_id" => "stocksage"
+          },
+          input_signal_id: Actions.field(context, :input_signal_id),
+          trace_id: Actions.field(context, :trace_id)
+        }
 
-      case Queue.create_entry(attrs) do
-        {:ok, entry} ->
-          {:ok, completed(entry, permission_decision)}
+        case Queue.create_entry(attrs) do
+          {:ok, entry} ->
+            {:ok, completed(entry, permission_decision)}
 
-        {:error, changeset} ->
-          {:ok, invalid(changeset, permission_decision)}
+          {:error, changeset} ->
+            {:ok, invalid(changeset, permission_decision)}
+        end
+      else
+        status = Actions.status_from_decision(permission_decision)
+
+        {:ok,
+         %{
+           message: "StockSage queue writes are not available to this request.",
+           status: status,
+           error: :permission_denied,
+           actions: [
+             Actions.action("queue_analysis", status, :stocksage_write, permission_decision, %{
+               error: :permission_denied
+             })
+           ]
+         }}
       end
     else
-      status = Actions.status_from_decision(permission_decision)
-
-      {:ok,
-       %{
-         message: "StockSage queue writes are not available to this request.",
-         status: status,
-         error: :permission_denied,
-         actions: [
-           Actions.action("queue_analysis", status, :stocksage_write, permission_decision, %{
-             error: :permission_denied
-           })
-         ]
-       }}
+      {:error, :missing_user_id} ->
+        Actions.missing_user("queue_analysis", :stocksage_write, permission_decision)
     end
   end
 

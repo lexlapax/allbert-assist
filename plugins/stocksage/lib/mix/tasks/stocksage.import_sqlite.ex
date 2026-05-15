@@ -7,7 +7,7 @@ defmodule Mix.Tasks.Stocksage.ImportSqlite do
 
   use Mix.Task
 
-  alias StockSage.Import.SqliteImporter
+  alias AllbertAssist.Actions.Runner
 
   @shortdoc "Import a legacy StockSage SQLite database"
   @switches [user: :string, operator: :string, dry_run: :boolean, limit: :integer]
@@ -26,13 +26,31 @@ defmodule Mix.Tasks.Stocksage.ImportSqlite do
 
     with :ok <- reject_invalid(invalid),
          {:ok, path} <- single_path(rest),
-         {:ok, user_id} <- resolve_user(opts) do
-      SqliteImporter.import(path,
-        user_id: user_id,
-        dry_run: Keyword.get(opts, :dry_run, false),
-        limit: Keyword.get(opts, :limit)
-      )
+         {:ok, user_id} <- resolve_user(opts),
+         {:ok, response} <-
+           run_action(
+             "import_stocksage_sqlite",
+             %{
+               path: path,
+               user_id: user_id,
+               dry_run: Keyword.get(opts, :dry_run, false),
+               limit: Keyword.get(opts, :limit)
+             },
+             user_id
+           ) do
+      {:ok, response.import}
     end
+  end
+
+  defp run_action(action, params, user_id) do
+    case Runner.run(action, params, context(user_id)) do
+      {:ok, %{status: :completed} = response} -> {:ok, response}
+      {:ok, response} -> {:error, Map.get(response, :error, :action_failed)}
+    end
+  end
+
+  defp context(user_id) do
+    %{request: %{channel: :cli, user_id: user_id, operator_id: user_id, app_id: :stocksage}}
   end
 
   defp print_result({:ok, result}) do
@@ -89,6 +107,7 @@ defmodule Mix.Tasks.Stocksage.ImportSqlite do
   defp format_reason({:invalid_options, invalid}), do: "invalid options #{inspect(invalid)}"
   defp format_reason({:not_found, path}), do: "source path not found: #{path}"
   defp format_reason({:remote_uri_not_allowed, uri}), do: "remote URI not allowed: #{uri}"
+  defp format_reason(:action_failed), do: "StockSage import action failed"
 
   defp format_reason({:user_operator_mismatch, user, operator}),
     do: "--user #{user} differs from --operator #{operator}"
