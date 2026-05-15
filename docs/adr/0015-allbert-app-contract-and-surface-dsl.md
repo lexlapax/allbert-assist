@@ -21,7 +21,7 @@ discovery, Phoenix PubSub, and the Jido signal bus. What it lacks is a public
 contract for another umbrella app to participate as a first-class Allbert
 workspace app.
 
-v0.27 also plans an agentic workspace surface and declarative UI substrate.
+v0.24 also plans an agentic workspace surface and declarative UI substrate.
 That canvas should consume a stable Allbert-native app and surface contract
 rather than inventing app discovery, component catalogs, or node shapes inside
 the LiveView implementation.
@@ -51,7 +51,7 @@ operator, model, channel, or job input. v0.15 navigation surface descriptors
 are display data only; they do not mount routes, load LiveViews, or define
 canvas nodes.
 
-The full contract for v0.21, formerly M-AppContract-Full, expands this into
+The full contract for v0.18, formerly M-AppContract-Full, expands this into
 five layers:
 
 - Identity and OTP lifecycle: validation, child specs, and workspace config
@@ -67,10 +67,10 @@ five layers:
 
 `AllbertAssist.App.Registry` is the runtime app discovery point. In v0.15,
 registered apps provide identity, child supervision, action tags, skill paths,
-navigation descriptors, and app lookup for active-app validation. In v0.21,
+navigation descriptors, and app lookup for active-app validation. In v0.18,
 the same public contract expands to declared signals, settings schemas, and
 interactive surface providers. Memory namespace registration is the final
-deferred layer, added in v0.26. App registration does not grant permission by
+deferred layer, added in v0.27. App registration does not grant permission by
 itself; actions still run through the action runner, Security Central,
 confirmations, traces, and audits.
 
@@ -80,7 +80,7 @@ registered actions. LiveView renders and collects operator input; it does not
 own app domain logic, approval storage, security policy, or resource grants.
 
 Allbert will define `AllbertAssist.Surface` as the native declarative surface
-DSL for v0.27 canvas artifacts and task-scoped ephemeral UI. Surface nodes are
+DSL for v0.24 canvas artifacts and task-scoped ephemeral UI. Surface nodes are
 Elixir data validated against a known component catalog. Model output cannot
 invent arbitrary HTML, JavaScript, LiveView components, actions, permissions,
 resource identities, scripts, URLs, or secret-bearing fields.
@@ -91,16 +91,16 @@ LiveView, PubSub, Jido signals, registered actions, and
 the same validation, provenance, fallback text, redaction, and action-binding
 rules.
 
-StockSage is the first proving app for this contract. After v0.17, it starts
-from `./plugins/stocksage` as `StockSage.Plugin` contributing `StockSage.App`
-for the lite contract in v0.18, formerly M-D2a, then implements the full app
-contract in v0.21 before StockSage LiveViews are built in v0.24. v0.24 builds
-all StockSage LiveViews on `AllbertAssist.App.SurfaceProvider` from day one;
-there is no stepping-stone static route mounting that later migrates to the
-surface contract. Memory namespace registration is the one deferred layer,
-added in v0.26 where StockSage polish first consumes it.
+StockSage is the first proving app for this contract. v0.18 establishes the
+full contract before StockSage lands; v0.20, formerly M-D2a, implements
+`StockSage.App` with the full v0.18 contract from day one — there is no
+lite→full migration. v0.25 builds all StockSage LiveViews on
+`AllbertAssist.App.SurfaceProvider` from day one; there is no stepping-stone
+static route mounting that later migrates to the surface contract. Memory
+namespace registration is the one deferred layer, added in v0.27 where
+StockSage polish first consumes it.
 
-The `AllbertAssist.Surface.Encoder.to_a2ui/1` stub is introduced in v0.21 as
+The `AllbertAssist.Surface.Encoder.to_a2ui/1` stub is introduced in v0.18 as
 the designated AG-UI adaptation interface. Its type signature documents the
 intended translation from `AllbertAssist.Surface.Node` to AG-UI
 `STATE_SNAPSHOT`-style events. Concrete AG-UI protocol emission is deferred to
@@ -112,7 +112,7 @@ post-v0.29 adapter work.
   routing, security, or skill-registration shortcuts.
 - Intent routing can use `active_app` from session context to prioritize
   app-scoped actions while keeping cross-app routing explicit.
-- v0.27 has a concrete app registry and surface DSL to consume for workspace
+- v0.24 has a concrete app registry and surface DSL to consume for workspace
   shell navigation and canvas component validation.
 - Future Allbert apps get a stable contract before generator work begins.
 - The app contract does not add new execution authority. Permission decisions
@@ -121,7 +121,7 @@ post-v0.29 adapter work.
 ## Deferred
 
 - `mix allbert.gen.plugin` and `mix allbert.gen.app` scaffolding, until
-  StockSage proves the plugin/app contract and v0.27 ships.
+  StockSage proves the plugin/app contract and v0.24 ships.
 - AG-UI streaming endpoints, A2UI renderer compatibility, MCP Apps, and
   third-party remote UI execution.
 - Dynamic runtime mounting of arbitrary routes or LiveView components from
