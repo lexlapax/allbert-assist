@@ -202,7 +202,7 @@ defmodule StockSage.Analyses do
     }
   end
 
-  defp get_analysis_by_legacy(user_id, legacy_source, legacy_id) do
+  def get_analysis_by_legacy(user_id, legacy_source, legacy_id) do
     Analysis
     |> where(
       [analysis],
@@ -212,7 +212,7 @@ defmodule StockSage.Analyses do
     |> Repo.one()
   end
 
-  defp get_detail_by_legacy(analysis_id, legacy_source, legacy_id) do
+  def get_detail_by_legacy(analysis_id, legacy_source, legacy_id) do
     AnalysisDetail
     |> where(
       [detail],
@@ -222,7 +222,7 @@ defmodule StockSage.Analyses do
     |> Repo.one()
   end
 
-  defp get_outcome_by_legacy(user_id, legacy_source, legacy_id) do
+  def get_outcome_by_legacy(user_id, legacy_source, legacy_id) do
     Outcome
     |> where(
       [outcome],
