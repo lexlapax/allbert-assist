@@ -216,6 +216,8 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
     trace = File.read!(response.trace_id)
     assert trace =~ "## Intent Decision"
+    assert trace =~ "## Intent Candidates"
+    assert trace =~ "Selected: action/external_network_request"
     assert trace =~ "Intent decision: external_network_request"
     assert trace =~ "resource_access_count: 1"
     assert trace =~ "approval_handoff"

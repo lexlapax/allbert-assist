@@ -968,7 +968,8 @@ Request flow: `docs/plans/v0.19-request-flow.md`
 
 ADR: `docs/adr/0019-cross-surface-intent-enrichment.md`
 
-Status: planned. Formerly v0.15, previously planned as v0.22.
+Status: implemented through M6 closeout on 2026-05-15. Ready for operator
+manual verification. Formerly v0.15, previously planned as v0.22.
 
 Expected direction:
 

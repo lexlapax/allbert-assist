@@ -10,12 +10,18 @@ not the architecture center.
 
 ## Current Status
 
-v0.18 is implemented through its M6 closeout on 2026-05-15 and is ready for
-operator manual verification. It adds the full local app/surface contract,
+v0.19 is implemented through its M6 closeout on 2026-05-15 and is ready for
+operator manual verification. It adds registry-aware intent candidates,
+active-app affinity, inert registered-surface navigation, optional
+model-assisted classification disabled by default, intent candidate trace
+rendering, and read-only `explain_intent` / `list_intent_candidates`
+inspection actions. Version metadata is now `0.19.0`.
+
+v0.18 remains the full local app/surface contract:
 `AllbertAssist.App.SurfaceProvider`, the validated `AllbertAssist.Surface` DSL,
 `CoreApp` declaring `/agent` as the built-in chat surface, `active_app:
 :allbert` runtime fallback, app/plugin settings schema merging, and
-`mix allbert.validate_app`. Version metadata is now `0.18.0`.
+`mix allbert.validate_app`.
 
 v0.17 remains the local plugin contract: plugin
 discovery/registry/bootstrap/supervision, shipped source-tree Telegram and
@@ -109,6 +115,15 @@ Release details live in `CHANGELOG.md`.
   reviewed Phoenix route implementation in place.
 - Default runtime turns with no known app context to `active_app: allbert` and
   record that context in signals, traces, responses, and conversation metadata.
+- Collect bounded intent candidates from registered actions, trusted skills,
+  and registered app surfaces, then record selected/rejected candidate
+  reasoning in traces.
+- Return inert navigation suggestions for registered surfaces such as
+  `/agent` without generating routes or executing actions.
+- Keep optional model-assisted intent classification disabled by default; when
+  enabled, proposals must select from already-collected candidates.
+- Inspect intent decisions and candidate sets through read-only internal
+  `explain_intent` and `list_intent_candidates` actions.
 - Merge app/plugin-contributed settings schema entries into Settings Central
   at read and validation time.
 - Tag registered action capabilities with optional `app_id` when an app claims
@@ -313,6 +328,6 @@ Allbert remains local and conservative:
 README is intentionally not the testing plan. Use:
 
 - `docs/operator/onboarding.md` for first-run operator guidance.
-- `docs/plans/v0.15-request-flow.md` for the v0.15 manual verification matrix.
-- `docs/plans/v0.15-plan.md` for milestone-specific verification.
+- `docs/plans/v0.19-request-flow.md` for the v0.19 manual verification matrix.
+- `docs/plans/v0.19-plan.md` for milestone-specific verification.
 - `CHANGELOG.md` for release status, verification summary, and tag readiness.

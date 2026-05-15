@@ -149,7 +149,7 @@ For v0.15/v0.18 app contract and surface DSL regression work, start with:
 - `docs/plans/allbert-jido-vision.md`
 - `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
-For active v0.19 cross-surface intent enrichment work, start with:
+For v0.19 cross-surface intent enrichment regression work, start with:
 
 - `docs/plans/v0.19-plan.md`
 - `docs/plans/v0.19-request-flow.md`
