@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "plugin_id": "stocksage",
+  "name": "StockSage",
+  "version": "0.20.0",
+  "kind": "app",
+  "module": "StockSage.Plugin",
+  "contributions": {
+    "apps": ["StockSage.App"],
+    "actions": [],
+    "skill_paths": ["skills"]
+  }
+}
