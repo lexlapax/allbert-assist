@@ -32,17 +32,20 @@ defmodule AllbertAssist.Channels.Email.ImapClient do
 
   def search_unseen(%__MODULE__{} = conn) do
     with {:ok, _conn, response} <- command(conn, "SEARCH UNSEEN") do
-      uids =
-        response
-        |> String.split(["\r\n", "\n"])
-        |> Enum.find_value([], fn line ->
-          case String.split(String.trim(line), " ") do
-            ["*", "SEARCH" | ids] -> ids
-            _other -> nil
-          end
-        end)
+      {:ok, search_uids(response)}
+    end
+  end
 
-      {:ok, uids}
+  defp search_uids(response) do
+    response
+    |> String.split(["\r\n", "\n"])
+    |> Enum.find_value([], &search_uids_from_line/1)
+  end
+
+  defp search_uids_from_line(line) do
+    case String.split(String.trim(line), " ") do
+      ["*", "SEARCH" | ids] -> ids
+      _other -> nil
     end
   end
 

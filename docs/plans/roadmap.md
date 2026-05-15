@@ -839,9 +839,10 @@ Request flow: `docs/plans/v0.16-request-flow.md`
 
 ADR: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
 
-Status: planned. Formerly v0.13.
+Status: implemented and ready for operator manual verification on 2026-05-14.
+Formerly v0.13.
 
-Expected direction:
+Implemented direction:
 
 - Add the channel adapter boundary and prove it with two providers: Telegram
   (Bot API long polling, inline keyboard buttons) and email (IMAP polling,

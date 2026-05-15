@@ -10,6 +10,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Apps.ListApps
   alias AllbertAssist.Actions.Apps.ShowApp
   alias AllbertAssist.Actions.Capability
+  alias AllbertAssist.Actions.Channels.ListChannels
+  alias AllbertAssist.Actions.Channels.ShowChannel
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
   alias AllbertAssist.Actions.Confirmations.DenyConfirmation
   alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
@@ -77,6 +79,8 @@ defmodule AllbertAssist.Actions.Registry do
     ListProviderProfiles,
     ListModelProfiles,
     SetProviderCredential,
+    ListChannels,
+    ShowChannel,
     ListApps,
     ShowApp
   ]
@@ -272,6 +276,20 @@ defmodule AllbertAssist.Actions.Registry do
       confirmation: :not_required
     },
     ShowApp => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :settings_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ListChannels => %{
+      permission: :read_only,
+      exposure: :agent,
+      execution_mode: :settings_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ShowChannel => %{
       permission: :read_only,
       exposure: :agent,
       execution_mode: :settings_read,

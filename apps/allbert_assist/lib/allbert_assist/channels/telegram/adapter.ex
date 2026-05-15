@@ -129,29 +129,32 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   defp process_update(update, state) do
     case Parser.parse_update(update) do
       {:text_message, fields} ->
-        case insert_received_event(fields, "inbound") do
-          {:ok, %AllbertAssist.Channels.Event{} = event} ->
-            handle_text_message(event, fields, state)
-
-          {:ok, :duplicate} ->
-            {:ok, :duplicate}
-
-          {:error, reason} ->
-            {:error, reason}
-        end
+        process_text_update(fields, state)
 
       {:callback_query, fields} ->
-        case insert_received_event(fields, "callback") do
-          {:ok, %AllbertAssist.Channels.Event{} = event} -> handle_callback(event, fields, state)
-          {:ok, :duplicate} -> {:ok, :duplicate}
-          {:error, reason} -> {:error, reason}
-        end
+        process_callback_update(fields, state)
 
       {:unsupported, %{external_event_id: external_event_id, type: type}} ->
         insert_rejected_event(external_event_id, type)
 
       {:malformed, reason} ->
         {:error, {:malformed, reason}}
+    end
+  end
+
+  defp process_text_update(fields, state) do
+    case insert_received_event(fields, "inbound") do
+      {:ok, %AllbertAssist.Channels.Event{} = event} -> handle_text_message(event, fields, state)
+      {:ok, :duplicate} -> {:ok, :duplicate}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp process_callback_update(fields, state) do
+    case insert_received_event(fields, "callback") do
+      {:ok, %AllbertAssist.Channels.Event{} = event} -> handle_callback(event, fields, state)
+      {:ok, :duplicate} -> {:ok, :duplicate}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -346,15 +349,16 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     end
   end
 
-  defp parse_callback_data(data) when is_binary(data) and byte_size(data) <= 64 do
-    case Regex.run(@callback_data_re, data) do
-      [_, action, confirmation_id] -> {:ok, action, confirmation_id}
-      _match -> {:error, :malformed_callback_data}
+  defp parse_callback_data(data) when is_binary(data) do
+    if byte_size(data) <= 64 do
+      case Regex.run(@callback_data_re, data) do
+        [_, action, confirmation_id] -> {:ok, action, confirmation_id}
+        _match -> {:error, :malformed_callback_data}
+      end
+    else
+      {:error, :callback_data_too_long}
     end
   end
-
-  defp parse_callback_data(data) when is_binary(data), do: {:error, :callback_data_too_long}
-  defp parse_callback_data(_data), do: {:error, :malformed_callback_data}
 
   defp run_confirmation_action(action, confirmation_id, user_id, session_id, fields) do
     Runner.run(confirmation_action_name(action), %{id: confirmation_id}, %{
@@ -393,8 +397,6 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
   defp deliver_callback_result(chat_id, chunks, state),
     do: deliver_chunks(chat_id, chunks, nil, state)
-
-  defp answer_callback(nil, _message, _state), do: :ok
 
   defp answer_callback(callback_query_id, message, state) do
     case Client.answer_callback_query(state.token, callback_query_id, message, state.req_options) do
