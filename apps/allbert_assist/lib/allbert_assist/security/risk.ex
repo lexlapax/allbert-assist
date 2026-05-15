@@ -24,6 +24,7 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:settings_write), do: :medium
   def tier(:skill_write), do: :medium
   def tier(:confirmation_decide), do: :medium
+  def tier(:stocksage_write), do: :low
   def tier(:skill_script_execute), do: :high
   def tier(:settings_secret_write), do: :high
   def tier(:external_network), do: :high
@@ -39,6 +40,7 @@ defmodule AllbertAssist.Security.Risk do
   defp reasons(:settings_write, _tier, _context), do: ["operator-visible settings change"]
   defp reasons(:skill_write, _tier, _context), do: ["local skill scaffold write"]
   defp reasons(:confirmation_decide, _tier, _context), do: ["operator confirmation decision"]
+  defp reasons(:stocksage_write, _tier, _context), do: ["local StockSage SQLite domain write"]
   defp reasons(:skill_script_execute, _tier, _context), do: ["trusted skill script execution"]
   defp reasons(:settings_secret_write, _tier, _context), do: ["encrypted credential write"]
   defp reasons(:external_network, _tier, _context), do: ["confirmed external network boundary"]

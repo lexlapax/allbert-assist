@@ -56,6 +56,7 @@ defmodule AllbertAssist.Actions.Capability do
           | :secret_write
           | :security_status
           | :internal_trace
+          | :local_domain
 
   @type t :: %__MODULE__{
           name: String.t(),

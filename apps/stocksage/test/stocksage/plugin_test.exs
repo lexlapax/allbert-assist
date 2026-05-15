@@ -37,7 +37,12 @@ defmodule StockSage.PluginTest do
     assert StockSage.Plugin.apps() == [StockSage.App]
     assert [skill_root] = StockSage.Plugin.skill_paths()
     assert String.ends_with?(skill_root, "plugins/stocksage/skills")
-    assert StockSage.Plugin.actions() == []
+    assert StockSage.Plugin.actions() == [
+             StockSage.Actions.ListAnalyses,
+             StockSage.Actions.ShowAnalysis,
+             StockSage.Actions.GetTrends,
+             StockSage.Actions.QueueAnalysis
+           ]
     assert StockSage.Plugin.child_spec([]) == :ignore
   end
 
