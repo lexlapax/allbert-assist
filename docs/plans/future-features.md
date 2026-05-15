@@ -28,18 +28,19 @@ homes:
 - Session scratchpad and active app context: v0.14.
 - Minimal app registration contract: v0.15.
 - Telegram channel adapter, email channel adapter, and reusable channel foundation: v0.16.
-- StockSage umbrella app and domain: v0.17.
-- Memory review and retrieval: v0.18.
-- StockSage Python bridge: v0.19.
-- Cross-surface intent enrichment: v0.20.
-- Native Jido trading agents: v0.21.
-- StockSage LiveViews: v0.22.
-- Security hardening and evals: v0.23.
-- Full app contract and Surface DSL: v0.24.
-- StockSage polish, outcomes, and trends: v0.25.
-- Agentic workspace surface and local ephemeral UI substrate: v0.26.
-- StockSage canvas integration: v0.27.
-- Allbert app generator: v0.28.
+- Plugin contract and shipped source-tree channel plugins: v0.17.
+- StockSage plugin, umbrella app, and domain: v0.18.
+- Memory review and retrieval: v0.19.
+- StockSage Python bridge: v0.20.
+- Cross-surface intent enrichment: v0.21.
+- Native Jido trading agents: v0.22.
+- StockSage LiveViews: v0.23.
+- Security hardening and evals: v0.24.
+- Full app contract and Surface DSL: v0.25.
+- StockSage polish, outcomes, and trends: v0.26.
+- Agentic workspace surface and local ephemeral UI substrate: v0.27.
+- StockSage canvas integration: v0.28.
+- Allbert plugin and app generator: v0.29.
 
 Do not duplicate those here unless the future feature is broader than the
 existing plan.
@@ -48,18 +49,18 @@ existing plan.
 
 ### Autonomous Skill Creation
 
-Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, and v0.28
+Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, and v0.29
 generator planning.
 
 Allbert should eventually help create new skills from traces, repeated tasks,
-corrections, or explicit user requests. v0.28 covers manual app scaffolding
-only: it may generate ordinary app files, sample actions, sample skills, and
-validation docs, but it does not autonomously infer, trust, enable, publish, or
-activate new capabilities from traces.
+corrections, or explicit user requests. v0.29 covers manual plugin/app
+scaffolding only: it may generate ordinary source files, sample actions, sample
+skills, and validation docs, but it does not autonomously infer, trust, enable,
+publish, or activate new capabilities from traces.
 
 Needed before planning:
 
-- v0.28 manual app generator accepted through user testing
+- v0.29 manual plugin/app generator accepted through user testing
 - review and trust workflow
 - trace-to-skill draft workflow
 - explicit operator approval before enabling
@@ -69,21 +70,44 @@ Needed before planning:
 
 ### Dynamic Elixir Code Generation Or Module Loading
 
-Source: v0.03/v0.06 execution-boundary clarification and v0.28 generator
+Source: v0.03/v0.06 execution-boundary clarification and v0.29 generator
 planning.
 
 Allbert should not auto-generate, compile, or load Elixir modules from
-arbitrary skill folders. v0.28 may scaffold ordinary source files into the
-project for review, compile, and validation, but runtime module loading from
-untrusted app or skill folders remains unplanned.
+arbitrary plugin, app, or skill folders. v0.29 may scaffold ordinary source
+files into the project for review, compile, and validation, but runtime module
+loading from untrusted plugin/app/skill folders remains unplanned.
 
 Needed before planning:
 
 - separate ADR for code-generation boundaries
-- v0.28 scaffold/review/compile/test workflow proven
+- v0.29 scaffold/review/compile/test workflow proven
 - explicit distinction between generating source and enabling capability
 - rollback and migration story
 - policy for generated migrations, dependency additions, and operator review
+
+### Remote Plugin Marketplace And Code-Bearing Plugin Distribution
+
+Source: v0.17 plugin substrate and v0.29 generator planning.
+
+v0.17 creates local plugin discovery and ships Telegram/email as source-tree
+plugins under `./plugins`, but it does not install remote plugins, resolve
+dependencies, automatically compile arbitrary `./plugins/*/lib` directories,
+compile code from `<ALLBERT_HOME>/plugins`, hot-reload code-bearing plugins,
+or sandbox untrusted plugin execution. v0.29 may scaffold plugin source for
+developer review, compile, and test, but marketplace distribution and
+arbitrary runtime loading remain parked here.
+
+Needed before planning:
+
+- v0.17 plugin registry accepted through user testing
+- v0.24 plugin-boundary security evals accepted
+- v0.29 plugin/app generator accepted through user testing
+- dependency install/update policy
+- plugin signing, provenance, versioning, and rollback model
+- clear trust tiers for skill-only, compiled local, third-party source, and
+  remote binary/plugin packages
+- sandbox or review posture for code-bearing third-party plugins
 
 ### Additional Remote Channel Adapters
 
@@ -91,12 +115,14 @@ Source: origin note, allbert-jido vision, and v0.16 dual-channel planning.
 
 v0.16 proves the channel adapter boundary with Telegram (Bot API long polling,
 inline buttons) and email (IMAP polling, SMTP replies, typed-command approvals).
-The remaining remote channels named in the vision, including Discord,
-WhatsApp-style chat, SMS, and Slack-style team chat, are still parked here until
-promoted to their own implementation-ready milestone. They should reuse the v0.16
-channel context, identity mapping posture, durable event dedupe, runtime
-submission flow, Approval Handoff rendering, confirmation callback/command
-pattern, and redaction rules instead of inventing provider-specific runtimes.
+v0.17 makes Telegram and email shipped source-tree channel plugins under
+`./plugins`. The remaining remote channels named in the vision, including
+Discord, WhatsApp-style chat, SMS, and Slack-style team chat, are still parked
+here until promoted to their own implementation-ready milestone. They should
+reuse the v0.16 channel context, identity mapping posture, durable event
+dedupe, runtime submission flow, Approval Handoff rendering, confirmation
+callback/command pattern, redaction rules, and v0.17 plugin contribution model
+instead of inventing provider-specific runtimes.
 
 Each remaining provider still needs a focused design pass because the security
 and UX surfaces differ:
@@ -110,10 +136,11 @@ and UX surfaces differ:
 Needed before planning:
 
 - v0.16 Telegram and email adapters accepted through user testing
+- v0.17 channel plugin contribution model accepted through user testing
 - v0.16 channel event and identity-map contracts stable
 - provider-specific Settings Central schema and secret policy
 - provider-specific delivery, retry, dedupe, and callback model
-- v0.23 security evals for cross-channel spoofing, replay, group leakage,
+- v0.24 security evals for cross-channel spoofing, replay, group leakage,
   command injection in reply bodies, and resource approval scope leakage
 - operator UX for mapping, disabling, and inspecting external identities
 - clear decision on whether a provider starts as inbound-only, response-only,
@@ -134,7 +161,7 @@ Needed before planning:
 - migration/export policy
 - offline behavior
 - redaction and audit consistency across backends
-- v0.23 security evals covering secret redaction regressions
+- v0.24 security evals covering secret redaction regressions
 
 ### Remote Sync And Profile Export/Import
 
@@ -147,7 +174,7 @@ Needed before planning:
 
 - stable Allbert Home layout
 - schema/version metadata for settings, memory, skills, cache, and database
-- SQLite conversation and app data export policy after v0.12/v0.17
+- SQLite conversation and app data export policy after v0.12/v0.18
 - encrypted secret migration policy
 - conflict resolution policy
 - operator-visible dry run and rollback
@@ -163,7 +190,7 @@ future work for shared workspaces, team channels, or hosted deployments.
 Needed before planning:
 
 - v0.12 string identity and thread isolation accepted
-- v0.23 cross-user/thread leakage evals accepted
+- v0.24 cross-user/thread leakage evals accepted
 - hosted deployment posture and threat model
 - operator/user/admin role model
 - per-user Settings Central scope
@@ -182,28 +209,28 @@ Needed before planning:
 
 - stable settings schema
 - operator workflows from real usage
-- v0.24 app settings schema declarations, if app-scoped settings have landed
+- v0.25 app settings schema declarations, if app-scoped settings have landed
 - grouping, search, validation, and audit navigation design
 - secret entry UX
 - accessibility and mobile behavior
 
-### Post-v0.28 UI Protocol Interop
+### Post-v0.29 UI Protocol Interop
 
-Source: operator UI discussion, v0.16 channel planning, v0.18 memory review,
-v0.20 intent enrichment, v0.23 security hardening, and research into A2UI,
+Source: operator UI discussion, v0.16 channel planning, v0.19 memory review,
+v0.21 intent enrichment, v0.24 security hardening, and research into A2UI,
 AG-UI, MCP Apps, ChatGPT Canvas, Claude Artifacts, Google Gemini generative UI,
 BISCUIT, and Athena.
 
-v0.24, v0.26, and v0.27 own the local Allbert-native app contract, surface DSL,
+v0.25, v0.27, and v0.28 own the local Allbert-native app contract, surface DSL,
 workspace, ephemeral UI, canvas, and StockSage canvas proof. The remaining
 unassigned work is external protocol interoperability and richer generated UI
 interfaces after the local substrate is boring and safe.
 
-Needed before broader post-v0.28 planning:
+Needed before broader post-v0.29 planning:
 
-- v0.26 local workspace and surface contracts accepted through user testing
-- v0.27 app canvas integration accepted through StockSage user testing
-- v0.23/v0.26 security evals proving generated surfaces cannot invent actions,
+- v0.27 local workspace and surface contracts accepted through user testing
+- v0.28 app canvas integration accepted through StockSage user testing
+- v0.24/v0.27 security evals proving generated surfaces cannot invent actions,
   permissions, resources, scripts, URLs, or secret-bearing output
 - A2UI renderer compatibility assessment
 - AG-UI bridge assessment for agent/frontend event streams
@@ -227,8 +254,8 @@ Needed before planning:
 - v0.16 channel adapter foundation
 - external network/browser permission policy
 - v0.11 URL/document resource posture and Approval Handoff accepted
-- v0.18 memory review workflow
-- v0.23 browser/search security eval posture
+- v0.19 memory review workflow
+- v0.24 browser/search security eval posture
 - sensitive-data detection and confirmation
 - traceable extraction path
 
@@ -246,7 +273,7 @@ Needed before planning:
 
 - stable resource access reference and approval scope records
 - v0.11 URL/document approval handoff accepted through user testing
-- v0.23 prompt-injection and data-exfiltration evals for fetched content
+- v0.24 prompt-injection and data-exfiltration evals for fetched content
 - bounded content cache/digest policy
 - extractor contracts for HTML, markdown, plain text, PDF, office documents,
   archives, and unknown binary content
@@ -271,9 +298,9 @@ handoff, adapter implementation, redaction, trace, audit, and tests.
 Needed before planning:
 
 - v0.11 unsupported MCP/agent URI posture accepted
-- v0.23 evals for cross-scheme grant reuse, tool/resource confusion, prompt
+- v0.24 evals for cross-scheme grant reuse, tool/resource confusion, prompt
   injection through MCP resources, and remote agent impersonation
-- v0.24/v0.26 surface contract stability if MCP Apps UI is in scope
+- v0.25/v0.27 surface contract stability if MCP Apps UI is in scope
 - MCP server configuration and permission model
 - agent endpoint discovery, authentication, and trust model
 - channel-native Approval Handoff consumption from v0.16
@@ -288,7 +315,7 @@ retrieval are stable.
 
 Needed before planning:
 
-- v0.18 reviewed markdown memory corpus
+- v0.19 reviewed markdown memory corpus
 - rebuildable derived artifacts
 - evals for personality and recall quality
 - privacy and deletion policy
@@ -305,7 +332,7 @@ workspace surface contract are stable.
 Needed before planning:
 
 - v0.16 channel adapter contract
-- v0.26 workspace/surface contract
+- v0.27 workspace/surface contract
 - Settings Central channel preferences
 - authentication or local operator identity policy
 - confirmation handoff behavior
@@ -333,7 +360,7 @@ Needed before planning:
 - permission and confirmation integration
 - trace and audit integration
 - install/update story for runtime dependencies
-- v0.23 eval coverage for script/package/resource bypasses
+- v0.24 eval coverage for script/package/resource bypasses
 
 ### Container And Remote Execution Sandboxes
 
@@ -381,7 +408,7 @@ Questions to resolve before graduation:
   sandbox fails
 
 v0.08 through v0.11 establish the local host-process and resource-access
-baseline. v0.23 should show which real workflows cannot be made acceptable
+baseline. v0.24 should show which real workflows cannot be made acceptable
 with registered actions, Settings Central policy, Security Central,
 confirmation, Level 1/Level 2 host controls, redaction, and audit alone.
 

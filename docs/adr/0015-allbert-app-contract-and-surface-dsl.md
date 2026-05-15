@@ -11,13 +11,17 @@ StockSage is the first planned domain app inside that workspace. It needs to
 register actions, skills, app navigation, signals, settings, and eventually
 canvas components without reaching through private Allbert internals.
 
+ADR 0017 adds a broader plugin contract. That decision does not replace the
+app contract. A plugin is the package/discovery boundary; an app is one
+contribution type inside that boundary.
+
 The existing core already has important boundaries: registered Jido actions,
 the shared action runner, Security Central, Settings Central, Agent Skills
 discovery, Phoenix PubSub, and the Jido signal bus. What it lacks is a public
 contract for another umbrella app to participate as a first-class Allbert
 workspace app.
 
-v0.26 also plans an agentic workspace surface and declarative UI substrate.
+v0.27 also plans an agentic workspace surface and declarative UI substrate.
 That canvas should consume a stable Allbert-native app and surface contract
 rather than inventing app discovery, component catalogs, or node shapes inside
 the LiveView implementation.
@@ -47,7 +51,7 @@ operator, model, channel, or job input. v0.15 navigation surface descriptors
 are display data only; they do not mount routes, load LiveViews, or define
 canvas nodes.
 
-The full contract for v0.24, formerly M-AppContract-Full, expands this into
+The full contract for v0.25, formerly M-AppContract-Full, expands this into
 five layers:
 
 - Identity and OTP lifecycle: validation, child specs, and workspace config
@@ -63,7 +67,7 @@ five layers:
 
 `AllbertAssist.App.Registry` is the runtime app discovery point. In v0.15,
 registered apps provide identity, child supervision, action tags, skill paths,
-navigation descriptors, and app lookup for active-app validation. In v0.24,
+navigation descriptors, and app lookup for active-app validation. In v0.25,
 the same public contract expands to declared signals, settings schemas, memory
 namespaces, and interactive surface providers. App registration does not grant
 permission by itself; actions still run through the action runner, Security
@@ -75,7 +79,7 @@ registered actions. LiveView renders and collects operator input; it does not
 own app domain logic, approval storage, security policy, or resource grants.
 
 Allbert will define `AllbertAssist.Surface` as the native declarative surface
-DSL for v0.26 canvas artifacts and task-scoped ephemeral UI. Surface nodes are
+DSL for v0.27 canvas artifacts and task-scoped ephemeral UI. Surface nodes are
 Elixir data validated against a known component catalog. Model output cannot
 invent arbitrary HTML, JavaScript, LiveView components, actions, permissions,
 resource identities, scripts, URLs, or secret-bearing fields.
@@ -86,17 +90,18 @@ LiveView, PubSub, Jido signals, registered actions, and
 the same validation, provenance, fallback text, redaction, and action-binding
 rules.
 
-StockSage is the first proving app for this contract. It starts with the lite
-contract before v0.17, formerly M-D2a, then implements the full contract
-before v0.26 canvas work consumes app surfaces.
+StockSage is the first proving app for this contract. After v0.17, it starts
+from `./plugins/stocksage` as `StockSage.Plugin` contributing `StockSage.App`
+for the lite contract in v0.18, formerly M-D2a, then implements the full app
+contract before v0.27 canvas work consumes app surfaces.
 
 ## Consequences
 
-- StockSage can be added as new umbrella apps without private routing,
-  security, or skill-registration shortcuts.
+- StockSage can be added as a plugin-contributed umbrella app without private
+  routing, security, or skill-registration shortcuts.
 - Intent routing can use `active_app` from session context to prioritize
   app-scoped actions while keeping cross-app routing explicit.
-- v0.26 has a concrete app registry and surface DSL to consume for workspace
+- v0.27 has a concrete app registry and surface DSL to consume for workspace
   shell navigation and canvas component validation.
 - Future Allbert apps get a stable contract before generator work begins.
 - The app contract does not add new execution authority. Permission decisions
@@ -104,8 +109,8 @@ before v0.26 canvas work consumes app surfaces.
 
 ## Deferred
 
-- `mix allbert.gen.app` scaffolding, until StockSage proves the contract and
-  v0.26 ships.
+- `mix allbert.gen.plugin` and `mix allbert.gen.app` scaffolding, until
+  StockSage proves the plugin/app contract and v0.27 ships.
 - AG-UI streaming endpoints, A2UI renderer compatibility, MCP Apps, and
   third-party remote UI execution.
 - Dynamic runtime mounting of arbitrary routes or LiveView components from

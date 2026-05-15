@@ -149,9 +149,9 @@ Release details live in `CHANGELOG.md`.
   grant UX.
 
 v0.16 does not add hosted auth, roles, distributed scheduling, remote workers,
-archive/delete workflow, durable app-registry persistence, app-scoped
-permissions, app-owned jobs, app-scoped intent routing, SMS, Discord, Slack,
-webhooks, IMAP IDLE, SMTP provider APIs, proactive broadcast,
+archive/delete workflow, durable app-registry persistence, plugin discovery,
+app-scoped permissions, app-owned jobs, app-scoped intent routing, SMS,
+Discord, Slack, webhooks, IMAP IDLE, SMTP provider APIs, proactive broadcast,
 `AllbertAssist.Surface`, dynamic route loading, workspace UI, canvas state,
 semantic retrieval, vector search, browser/crawler behavior, MCP execution,
 `agent://` delegation, or generic local file reading. Every effect still flows

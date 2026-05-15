@@ -148,6 +148,30 @@ runs commands, spends money, contacts outside services, or sends messages,
 Allbert should know which skill requested it, which agent selected it, which
 permission applies, and what trace will be recorded.
 
+### Plugins
+
+Plugins are the package and discovery layer for developer extensions. A plugin
+can contribute a channel adapter, a workspace app, a skill pack, a small set of
+actions, settings schema entries, supervised children, or a combination of
+those pieces.
+
+Plugins do not replace the lower-level contracts. They feed them. A
+plugin-contributed app still implements `AllbertAssist.App`; a
+plugin-contributed channel still behaves as a delivery adapter around the
+runtime; a plugin-contributed action still executes through the action runner
+and Security Central; a plugin-contributed skill still follows skill trust and
+enablement policy.
+
+The default local plugin roots are `./plugins` for source-tree
+project/developer plugins and `<ALLBERT_HOME>/plugins` for user-owned plugin
+folders. Allbert's own Telegram and email channels move into
+`./plugins/allbert.telegram` and `./plugins/allbert.email` first so shipped
+features use the same package shape as later developer extensions. Code-bearing
+source-tree plugins are compiled only by explicit project/release
+configuration. Home plugins may contribute manifests and skill roots first,
+but Allbert should not compile or load arbitrary code from
+`<ALLBERT_HOME>/plugins` at startup.
+
 ### Workspace Apps
 
 Apps are first-class workspace participants. An app should be able to declare
@@ -215,11 +239,12 @@ channels, jobs, skills, and actions. API keys should be encrypted at rest and
 redacted everywhere they are surfaced.
 
 Settings should cover operator profile, provider profiles, model profiles,
-trace defaults, skill scan paths and trust decisions, permission policy,
-confirmation behavior, job defaults, channel preferences, and memory review
-policy. Settings should be layered so Allbert can explain whether a value came
-from built-in defaults, deployment config, operator settings, project settings,
-channel settings, or a request override.
+trace defaults, skill scan paths and trust decisions, plugin paths and
+enablement, permission policy, confirmation behavior, job defaults, channel
+preferences, and memory review policy. Settings should be layered so Allbert
+can explain whether a value came from built-in defaults, deployment config,
+operator settings, project settings, plugin settings, channel settings, or a
+request override.
 
 ### Channels And Jobs
 
@@ -230,10 +255,12 @@ The first channels are CLI/REPL and Phoenix LiveView. v0.16 proves the first
 additional remote channels with Telegram (Bot API long polling, inline buttons)
 and email (IMAP polling, SMTP replies, typed-command confirmations). Both
 adapters share the same channel substrate, identity mapping posture, durable
-event dedupe model, and Approval Handoff rendering contract. Later channels can
-include Discord, WhatsApp-style chat, SMS, browser/search capture, and native
-UI surfaces. Each channel should translate external input into signals and
-render agent output back into the medium without owning the agent logic.
+event dedupe model, and Approval Handoff rendering contract. v0.17 moves
+Telegram and email into shipped source-tree channel plugins so later channels
+can arrive through the same extension path. Later channels can include Discord,
+WhatsApp-style chat, SMS, browser/search capture, and native UI surfaces. Each
+channel should translate external input into signals and render agent output
+back into the medium without owning the agent logic.
 
 Scheduled work should follow the same pattern. Cron-like jobs, recurring
 summaries, memory maintenance, health checks, and daily briefings should emit
@@ -321,23 +348,24 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.13: scheduled jobs.
 - v0.14: ETS session scratchpad and `active_app` context.
 - v0.15: minimal app registration contract.
-- v0.16: Telegram channel adapter and channel foundation.
-- v0.17: StockSage umbrella app and SQLite-first domain.
-- v0.18: markdown memory review and retrieval, distinct from conversation
+- v0.16: Telegram/email channel adapters and channel foundation.
+- v0.17: plugin contract and shipped source-tree channel plugins.
+- v0.18: StockSage plugin, umbrella app, and SQLite-first domain.
+- v0.19: markdown memory review and retrieval, distinct from conversation
   history.
-- v0.19: StockSage Python bridge.
-- v0.20: cross-surface intent enrichment using jobs, channels, memory,
+- v0.20: StockSage Python bridge.
+- v0.21: cross-surface intent enrichment using jobs, channels, memory,
   scratchpad, and app registry context.
-- v0.21: native Jido trading agents.
-- v0.22: StockSage LiveViews.
-- v0.23: security hardening and evals, including cross-user/thread leakage,
+- v0.22: native Jido trading agents.
+- v0.23: StockSage LiveViews.
+- v0.24: security hardening and evals, including cross-user/thread leakage,
   app-scoped routing, bridge safety, and financial authorization.
-- v0.24: full app contract and `AllbertAssist.Surface` DSL.
-- v0.25: StockSage polish, outcomes, and trends.
-- v0.26: agentic workspace surface and ephemeral UI substrate. This cannot
-  start until v0.23 and v0.24 are complete.
-- v0.27: StockSage canvas integration.
-- v0.28: Allbert app generator.
+- v0.25: full app contract and `AllbertAssist.Surface` DSL.
+- v0.26: StockSage polish, outcomes, and trends.
+- v0.27: agentic workspace surface and ephemeral UI substrate. This cannot
+  start until v0.24 and v0.25 are complete.
+- v0.28: StockSage canvas integration.
+- v0.29: Allbert plugin and app generator.
 
 ## Deferred Until The Foundation Settles
 
@@ -368,6 +396,6 @@ Allbert should become a compact, personal, inspectable assistant runtime:
 - Canvas and ephemeral UI surfaces that make agent work inspectable,
   steerable, and safe.
 
-The system should grow by adding skills, agents, memory, and channels around a
-stable core. The user should feel that Allbert is becoming more personal and
-more capable without becoming less understandable.
+The system should grow by adding plugins, skills, agents, memory, apps, and
+channels around a stable core. The user should feel that Allbert is becoming
+more personal and more capable without becoming less understandable.
