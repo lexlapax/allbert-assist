@@ -65,6 +65,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert response.status == :completed
     assert response.message =~ "v0.01-safe capabilities"
     assert [%{name: "list_skills"}] = response.actions
+    assert response.decision.trace_metadata.intent_candidates.selected.id == "list_skills"
   end
 
   test "default runtime refuses command execution" do

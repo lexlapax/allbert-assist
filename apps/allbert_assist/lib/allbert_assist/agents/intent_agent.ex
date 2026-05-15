@@ -68,6 +68,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Intent.Decision
+  alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.ResourceAccess
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Resources.ResourceURI
@@ -696,7 +697,11 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp attach_decision({:ok, response}, %Decision{} = decision, context) do
-    decision = sync_decision_after_response(decision, response, context)
+    decision =
+      decision
+      |> sync_decision_after_response(response, context)
+      |> Engine.put_candidate_metadata()
+
     approval_handoff = ApprovalHandoff.to_map(decision.approval_handoff)
 
     response =
@@ -751,6 +756,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp decision_refusal_response(%Decision{} = decision) do
+    decision = Engine.put_candidate_metadata(decision)
     permission_decision = Decision.authorization_decision(decision)
 
     reason =
@@ -793,6 +799,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
         trace_metadata: %{source_text: text},
         context: context
       })
+
+    decision = Engine.put_candidate_metadata(decision)
 
     %{
       message: "I could not validate that intent decision: #{inspect(reason)}.",

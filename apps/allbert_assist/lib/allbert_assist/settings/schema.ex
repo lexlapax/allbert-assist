@@ -16,6 +16,12 @@ defmodule AllbertAssist.Settings.Schema do
     "operator.handoff_detail",
     "runtime.trace_default",
     "runtime.diagnostics_verbosity",
+    "intent.model_assist_enabled",
+    "intent.model_profile",
+    "intent.model_timeout_ms",
+    "intent.model_min_confidence",
+    "intent.max_candidates",
+    "intent.trace_rejected_candidates",
     "providers.*.enabled",
     "providers.*.base_url",
     "providers.*.api_key_ref",
@@ -223,6 +229,46 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: false,
       sensitive?: false,
       allowed_values: ["hidden", "summary", "detailed"]
+    },
+    "intent.model_assist_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "intent.model_profile" => %{
+      type: :profile_ref,
+      default: "fast",
+      writable?: true,
+      sensitive?: false
+    },
+    "intent.model_timeout_ms" => %{
+      type: :timeout_ms,
+      default: 3000,
+      writable?: true,
+      sensitive?: false
+    },
+    "intent.model_min_confidence" => %{
+      type: :bounded_float,
+      default: 0.72,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.max_candidates" => %{
+      type: :bounded_integer,
+      default: 80,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 500
+    },
+    "intent.trace_rejected_candidates" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
     },
     "channels.cli.response_style" => %{
       type: :enum,
@@ -1009,6 +1055,14 @@ defmodule AllbertAssist.Settings.Schema do
       "model_alias" => "local",
       "cost_visibility" => "summary"
     },
+    "intent" => %{
+      "model_assist_enabled" => false,
+      "model_profile" => "fast",
+      "model_timeout_ms" => 3000,
+      "model_min_confidence" => 0.72,
+      "max_candidates" => 80,
+      "trace_rejected_candidates" => true
+    },
     "providers" => %{
       "local_ollama" => %{
         "type" => "openai_compatible",
@@ -1632,6 +1686,14 @@ defmodule AllbertAssist.Settings.Schema do
        when is_integer(value) do
     if value >= min and value <= max, do: :ok, else: {:error, {:out_of_range, min, max}}
   end
+
+  defp validate_value(%{type: :bounded_float, min: min, max: max}, value, _key, _settings)
+       when is_number(value) do
+    if value >= min and value <= max, do: :ok, else: {:error, {:out_of_range, min, max}}
+  end
+
+  defp validate_value(%{type: :bounded_float}, value, _key, _settings),
+    do: {:error, {:expected_number, value}}
 
   defp validate_value(%{type: :non_negative_integer}, value, _key, _settings)
        when is_integer(value) do
