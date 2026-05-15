@@ -45,6 +45,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.skill_write",
     "permissions.skill_script_execute",
     "permissions.confirmation_decide",
+    "permissions.stocksage_write",
     "execution.local.enabled",
     "execution.local.allowed_roots",
     "execution.local.allowed_commands",
@@ -672,6 +673,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "denied"]
     },
+    "permissions.stocksage_write" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
     "execution.local.enabled" => %{
       type: :boolean,
       default: false,
@@ -1133,7 +1141,8 @@ defmodule AllbertAssist.Settings.Schema do
       "settings_write" => "allowed_safe_keys",
       "skill_write" => "allowed",
       "skill_script_execute" => "denied",
-      "confirmation_decide" => "allowed"
+      "confirmation_decide" => "allowed",
+      "stocksage_write" => "allowed"
     },
     "plugins" => %{
       "enabled" => [],
@@ -2145,11 +2154,35 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp valid_plugin_setting_key?(key) when is_binary(key) do
-    byte_size(key) <= 160 and
-      Regex.match?(~r/^plugins\.[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, key)
+    byte_size(key) <= 160 and Regex.match?(~r/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, key) and
+      key |> split_key() |> List.first() |> reserved_plugin_settings_namespace?() |> Kernel.not()
   end
 
   defp valid_plugin_setting_key?(_key), do: false
+
+  defp reserved_plugin_settings_namespace?(namespace) do
+    namespace in [
+      "agents",
+      "apps",
+      "channels",
+      "confirmations",
+      "execution",
+      "external_services",
+      "intent",
+      "jobs",
+      "memory",
+      "model_profiles",
+      "operator",
+      "package_installs",
+      "permissions",
+      "plugins",
+      "providers",
+      "resource_grants",
+      "runtime",
+      "sessions",
+      "skills"
+    ]
+  end
 
   defp valid_app_setting_key?(key) when is_binary(key) do
     byte_size(key) <= 160 and Regex.match?(~r/^apps\.[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, key)

@@ -22,6 +22,9 @@ defmodule StockSage.App do
   def validate(_opts), do: :ok
 
   @impl AllbertAssist.App
+  def actions, do: StockSage.Plugin.actions()
+
+  @impl AllbertAssist.App
   def skill_paths, do: StockSage.Plugin.skill_paths()
 
   @impl AllbertAssist.App
