@@ -989,7 +989,7 @@ Expected direction:
 - Keep v0.11 resource posture and Approval Handoff behavior unchanged for URL,
   document, package, shell, script, import, MCP, and agent-resource prompts.
 
-## v0.20: StockSage Plugin, Umbrella App, And Domain
+## v0.20: StockSage Plugin App And Domain
 
 Plan: `docs/plans/v0.20-plan.md`
 
@@ -997,14 +997,17 @@ Request flow: `docs/plans/v0.20-request-flow.md`
 
 ADR: `docs/adr/0018-stocksage-local-domain-app.md`
 
-Status: planned. Formerly M-D2a.
+Status: implementation cleanup in progress on 2026-05-15 to make StockSage a
+true shipped plugin app under `./plugins/stocksage`. Release tag pending
+operator acceptance. Formerly M-D2a.
 
 Expected direction:
 
-- Add `stocksage` and `stocksage_web` umbrella apps.
-- Implement `./plugins/stocksage` as the plugin package, with
+- Implement `./plugins/stocksage` as the shipped plugin app package, with
   `StockSage.Plugin` as the plugin entrypoint and `StockSage.App` using the
   v0.18 app/surface contract.
+- Keep StockSage implementation code plugin-owned; do not add `apps/stocksage`
+  or `apps/stocksage_web` umbrella apps.
 - Add SQLite-first StockSage domain records with string `user_id` and optional
   thread/request context.
 - Use the existing `AllbertAssist.Repo` and central SQLite database with
@@ -1105,7 +1108,7 @@ the workspace shell are available from the start.
 Expected direction:
 
 - Add StockSage workspace, analysis, queue, and trends LiveViews in
-  `apps/stocksage_web`.
+  plugin-owned StockSage web surface modules.
 - Implement `AllbertAssist.App.SurfaceProvider` on `StockSage.App` and declare
   StockSage surfaces through the `AllbertAssist.Surface` DSL. No static route
   mounting to migrate later.
