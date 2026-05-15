@@ -122,13 +122,16 @@ Dependency order from here:
 12. Scheduled jobs that emit signals into the same runtime.
 13. Session scratchpad and minimal app registration.
 14. Additional channels that translate messages into the same runtime.
-15. StockSage as the first workspace app, proving the app contract.
-16. Memory review, summarization, and retrieval improvements.
-17. Cross-surface intent enrichment over real skills, actions, permissions,
+15. Plugin contract and shipped source-tree channel plugins so developer
+    extensions have one discovery and registration path.
+16. StockSage as the first plugin-contributed workspace app, proving the app
+    contract through the plugin layer.
+17. Memory review, summarization, and retrieval improvements.
+18. Cross-surface intent enrichment over real skills, actions, permissions,
     confirmations, jobs, channels, memory, and app context.
-18. Security hardening and evals after real execution, import, channel, job,
+19. Security hardening and evals after real execution, import, channel, job,
     memory, intent, app, and financial-analysis behavior exists.
-19. Full app/surface contract, workspace canvas, and app generator work only
+20. Full app/surface contract, workspace canvas, and app generator work only
     after the local runtime and security substrate are proven.
 
 `config.exs` remains deployment and boot configuration. It should not become
@@ -822,7 +825,7 @@ Expected direction:
   validation, child supervision, registered actions, skill paths, and nav
   surfaces.
 - Register built-in `CoreApp` and transitional `StockSageStub` so v0.14
-  `active_app` acceptance continues until real StockSage lands in v0.17.
+  `active_app` acceptance continues until real StockSage lands in v0.18.
 - Tag registered actions with optional `app_id`.
 - Normalize app ids through the registry without dynamic atom creation from
   operator/channel/model input.
@@ -868,16 +871,51 @@ Implemented direction:
   APIs, arbitrary provider method calls, email attachments, remote document
   extraction, and proactive broadcast out of v0.16.
 
-## v0.17: StockSage Umbrella App And Domain
+## v0.17: Plugin Contract And Shipped Channel Plugins
 
 Plan: `docs/plans/v0.17-plan.md`
+
+Request flow: `docs/plans/v0.17-request-flow.md`
+
+ADR: `docs/adr/0017-allbert-plugin-contract.md`
+
+Status: planned.
+
+Expected direction:
+
+- Add `AllbertAssist.Plugin`, `AllbertAssist.Plugin.Registry`, plugin
+  discovery, plugin bootstrap, and plugin supervision.
+- Use `./plugins` as a real source-tree plugin root, starting with shipped
+  `./plugins/allbert.telegram` and `./plugins/allbert.email` packages.
+- Scan default folder plugin paths: `./plugins` and `<ALLBERT_HOME>/plugins`.
+- Keep plugin ids as strings and reject atom creation from manifests, settings,
+  channel input, model output, or operator input.
+- Support shipped compiled source-tree plugins and skill-only folder plugins in
+  v0.17; do not compile or load arbitrary code from
+  `<ALLBERT_HOME>/plugins`, and do not automatically compile arbitrary
+  `./plugins/*/lib` directories.
+- Move the v0.16 Telegram and email provider-specific code into the shipped
+  plugin packages while preserving v0.16 channel behavior.
+- Let plugin contributions feed app registration, channel descriptors, action
+  registry additions, skill roots, settings schema entries, and supervised
+  children without granting permission or trust.
+- Add `mix allbert.plugins` and read-only plugin inspection actions.
+- Prepare v0.18 StockSage to land through a `./plugins/stocksage` package
+  that contributes `StockSage.Plugin`, `StockSage.App`, and StockSage skill
+  roots.
+
+## v0.18: StockSage Plugin, Umbrella App, And Domain
+
+Plan: `docs/plans/v0.18-plan.md`
 
 Status: planned. Formerly M-D2a.
 
 Expected direction:
 
 - Add `stocksage` and `stocksage_web` umbrella apps.
-- Implement `StockSage.App` using the v0.15 app contract.
+- Implement `./plugins/stocksage` as the plugin package, with
+  `StockSage.Plugin` as the plugin entrypoint and `StockSage.App` using the
+  v0.15 app contract.
 - Add SQLite-first StockSage domain records with string `user_id` and optional
   thread/request context.
 - Add local StockSage skill pack paths and an import task for the frozen Python
@@ -885,9 +923,9 @@ Expected direction:
 - Keep PostgreSQL, Oban-as-hard-dependency, LiveViews, bridge execution, and
   native trading agents out of this slice.
 
-## v0.18: Memory Review And Retrieval
+## v0.19: Memory Review And Retrieval
 
-Plan: `docs/plans/v0.18-plan.md`
+Plan: `docs/plans/v0.19-plan.md`
 
 Status: planned. Formerly v0.14.
 
@@ -900,9 +938,9 @@ Expected direction:
   no automatic promotion of thread turns.
 - Add retrieval only after review and source-of-truth semantics are stable.
 
-## v0.19: StockSage Python Bridge
+## v0.20: StockSage Python Bridge
 
-Plan: `docs/plans/v0.19-plan.md`
+Plan: `docs/plans/v0.20-plan.md`
 
 Status: planned. Formerly M-D2b.
 
@@ -915,9 +953,9 @@ Expected direction:
 - Route natural language analysis prompts through StockSage skill/action
   boundaries when app context and permission posture allow it.
 
-## v0.20: Cross-Surface Intent Enrichment
+## v0.21: Cross-Surface Intent Enrichment
 
-Plan: `docs/plans/v0.20-plan.md`
+Plan: `docs/plans/v0.21-plan.md`
 
 Status: planned. Formerly v0.15.
 
@@ -931,9 +969,9 @@ Expected direction:
 - Prioritize app-registered actions and skill paths only when `active_app`
   gives explicit session evidence.
 
-## v0.21: Native Jido Trading Agents
+## v0.22: Native Jido Trading Agents
 
-Plan: `docs/plans/v0.21-plan.md`
+Plan: `docs/plans/v0.22-plan.md`
 
 Status: planned. Formerly M-D2c.
 
@@ -944,9 +982,9 @@ Expected direction:
   prove native parity within documented variance.
 - Make native analysis default only after acceptance passes.
 
-## v0.22: StockSage LiveViews
+## v0.23: StockSage LiveViews
 
-Plan: `docs/plans/v0.22-plan.md`
+Plan: `docs/plans/v0.23-plan.md`
 
 Status: planned. Formerly M-D3a.
 
@@ -958,9 +996,9 @@ Expected direction:
   the user is in StockSage context.
 - Leave canvas registration out of this slice.
 
-## v0.23: Security Hardening And Evals
+## v0.24: Security Hardening And Evals
 
-Plan: `docs/plans/v0.23-plan.md`
+Plan: `docs/plans/v0.24-plan.md`
 
 Status: planned. Formerly v0.16.
 
@@ -975,9 +1013,9 @@ Expected direction:
 - Require StockSage external market-data calls to flow through Resource Access
   Security Posture and confirmations.
 
-## v0.24: Full App Contract And Surface DSL
+## v0.25: Full App Contract And Surface DSL
 
-Plan: `docs/plans/v0.24-plan.md`
+Plan: `docs/plans/v0.25-plan.md`
 ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
 Status: planned. Formerly M-AppContract-Full.
@@ -989,11 +1027,11 @@ Expected direction:
 - Add `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, validation
   tooling, and optional future encoders.
 - Keep AG-UI/A2UI as future adapters, not local hard dependencies.
-- Prove the contract with StockSage before v0.26 consumes it.
+- Prove the contract with StockSage before v0.27 consumes it.
 
-## v0.25: StockSage Polish, Outcomes, And Trends
+## v0.26: StockSage Polish, Outcomes, And Trends
 
-Plan: `docs/plans/v0.25-plan.md`
+Plan: `docs/plans/v0.26-plan.md`
 
 Status: planned. Formerly M-D3b.
 
@@ -1004,13 +1042,14 @@ Expected direction:
 - Replicate Python StockSage 0.0.2 user-facing behavior in Elixir, with Python
   remaining only as explicit fallback until native parity closes.
 
-## v0.26: Agentic Workspace Surface And Ephemeral UI Substrate
+## v0.27: Agentic Workspace Surface And Ephemeral UI Substrate
 
-Plan: `docs/plans/v0.26-plan.md`
+Plan: `docs/plans/v0.27-plan.md`
 
-Status: planned. Formerly v0.17.
+Status: planned. Formerly the old v0.17 workspace-surface plan before the
+unified roadmap and plugin-substrate insertion.
 
-Prerequisite: v0.23 and v0.24 are complete.
+Prerequisite: v0.24 and v0.25 are complete.
 
 Expected direction:
 
@@ -1022,41 +1061,46 @@ Expected direction:
   fallback text, redaction, and action-binding constraints.
 - Leave AG-UI/A2UI/MCP Apps interoperability to later adapter work.
 
-## v0.27: StockSage Canvas Integration
+## v0.28: StockSage Canvas Integration
 
-Plan: `docs/plans/v0.27-plan.md`
+Plan: `docs/plans/v0.28-plan.md`
 
 Status: planned. Formerly M-Canvas.
 
 Expected direction:
 
-- Register StockSage chart and analysis-card components with the v0.26 canvas
+- Register StockSage chart and analysis-card components with the v0.27 canvas
   catalog.
 - Let StockSage analysis responses emit canvas operations for durable tiles.
 - Add no new StockSage domain model or analysis behavior.
 
-## v0.28: Allbert App Generator
+## v0.29: Allbert Plugin And App Generator
 
-Plan: `docs/plans/v0.28-plan.md`
+Plan: `docs/plans/v0.29-plan.md`
 
 Status: research (unstarted).
 
-Prerequisite: StockSage proves the full v0.24 contract end to end after v0.25,
-v0.26 canvas ships, and v0.27 proves the app/canvas path.
+Prerequisite: StockSage proves the full v0.25 contract end to end after v0.26,
+v0.27 canvas ships, and v0.28 proves the app/canvas path.
 
 Expected direction:
 
-- `mix allbert.gen.app MyApp` scaffolds all five app contract layers.
-- Generated output includes an app module, app supervision wiring, sample Jido
-  action, sample `SKILL.md`, sample surface provider or surface node, sample
-  Ecto domain stub, and validation docs.
+- `mix allbert.gen.plugin MyPlugin` scaffolds `./plugins/my_plugin/` with a
+  manifest, plugin module, sample skill root, diagnostics, validation docs,
+  and explicit compile-path/project-integration instructions.
+- `mix allbert.gen.app MyApp` scaffolds an app plugin that includes all five
+  app contract layers.
+- Generated app-plugin output includes a plugin module, app module, app
+  supervision wiring, sample Jido action, sample `SKILL.md`, sample surface
+  provider or surface node, sample Ecto domain stub, and validation docs.
 - `mix allbert.validate_app MyApp` passes on first run.
-- Generated code is inert by default: no automatic trust, skill enablement,
-  publishing, permission grants, or execution authority.
+- Generated code is inert by default: no automatic compile-path changes,
+  trust, skill enablement, publishing, permission grants, or execution
+  authority.
 - Optionally add `mix allbert.publish_skills` for publishing app `SKILL.md`
   files to agentskills.io after the local app contract is proven.
 
-Post-v0.28 candidates remain in `docs/plans/future-features.md` until
+Post-v0.29 candidates remain in `docs/plans/future-features.md` until
 promoted.
 
 ## Future: Distillation And Self-Improvement

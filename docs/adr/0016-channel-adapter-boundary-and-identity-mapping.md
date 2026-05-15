@@ -96,6 +96,12 @@ Settings Central configuration. No external identity may implicitly claim
 
 For v0.16, Telegram and email are the first two proving adapters.
 
+ADR 0017 later moves Telegram and email registration into shipped source-tree
+Allbert plugins under `./plugins/allbert.telegram` and
+`./plugins/allbert.email`. That packaging change does not change this channel
+boundary: Telegram and email remain delivery adapters around the runtime and
+registered actions.
+
 Telegram: user IDs map to local users through `channels.telegram.identity_map`.
 The bot token is stored through Settings Secrets and referenced by
 `channels.telegram.bot_token_ref`. Inbound updates arrive via long polling
@@ -132,7 +138,9 @@ URLs, prompt text, credentials, or remembered grant powers.
 
 The two adapters are supervised independently under `:one_for_one` in
 `AllbertAssist.Channels.Supervisor`. A crash or misconfiguration in one adapter
-does not restart or disable the other.
+does not restart or disable the other. After v0.17, the same supervisor starts
+them from registered channel plugin descriptors rather than a hardcoded child
+list.
 
 ## Consequences
 
@@ -146,8 +154,8 @@ does not restart or disable the other.
   (`channel_events`), identity mapping posture
   (`AllbertAssist.Channels.Identity`), session_id derivation, and response
   rendering pattern are provider-neutral. Adding a new provider requires a new
-  Adapter/Client(s)/Renderer/Parser triple; the rest of the substrate is
-  reused.
+  plugin-contributed Adapter/Client(s)/Renderer/Parser triple; the rest of the
+  substrate is reused.
 - Telegram polling offset is resilient: adapter restarts derive the correct
   offset from `channel_events` without a separate state table, and the partial
   unique index provides a second dedup guard.
@@ -158,7 +166,7 @@ does not restart or disable the other.
   store as strings in ETS, SQLite, and runtime metadata. Telegram includes
   chat id in the hash so group and private chats get separate sessions. Email
   session ids use only the sender address since email has no chat concept.
-- v0.23 security evals have concrete cross-channel surfaces to test:
+- v0.24 security evals have concrete cross-channel surfaces to test:
   identity spoofing, callback replay, command injection in email reply bodies,
   resource-scope leakage, provider payload injection, cross-user thread leakage,
   secret redaction in provider error responses, and attachment bypass attempts.
@@ -175,8 +183,8 @@ does not restart or disable the other.
   in v0.16 adapter code).
 - Email attachment download, extraction, and content forwarding.
 - HTML email parsing or rich email rendering.
-- Email, SMS, Discord, Slack, native app, browser, and MCP channels beyond the
-  v0.16 Telegram and email proving adapters.
+- SMS, Discord, Slack, native app, browser, MCP channels, and richer email
+  modes beyond the v0.16 Telegram and email proving adapters.
 - Media/document download and deep remote document extraction.
 - Proactive broadcast and scheduled outbound messaging.
 - UI protocol interop and workspace-native channel surfaces.

@@ -154,7 +154,22 @@ rendering, or runtime channel metadata. v0.16 channels are delivery adapters
 around the runtime and registered actions; they must not own intent,
 confirmation storage, resource access policy, memory, or execution.
 
-For v0.24 app contract and surface DSL work, read `docs/plans/v0.24-plan.md`,
+For v0.17 plugin contract work, read `docs/plans/v0.17-plan.md`,
+`docs/plans/v0.17-request-flow.md`, `docs/plans/allbert-jido-vision.md`,
+`docs/adr/0017-allbert-plugin-contract.md`,
+`docs/adr/0015-allbert-app-contract-and-surface-dsl.md`, and
+`docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md` before
+changing plugin discovery, plugin paths, plugin settings, plugin-contributed
+apps/actions/skills/settings/children, channel registration, shipped
+Telegram/email source-tree plugin wrappers, or plugin diagnostics. v0.17 plugins are
+package/discovery contracts, not authority; they must not load arbitrary code
+from `<ALLBERT_HOME>/plugins`, grant trust, grant permissions, bypass
+confirmations, execute package managers during discovery, or automatically
+compile arbitrary `./plugins/*/lib` folders. Telegram and email move into
+`./plugins/allbert.telegram` and `./plugins/allbert.email` as shipped
+source-tree plugins.
+
+For v0.25 app contract and surface DSL work, read `docs/plans/v0.25-plan.md`,
 `docs/plans/v0.15-plan.md`, `docs/plans/v0.15-request-flow.md`,
 `docs/plans/allbert-jido-vision.md`, and
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
@@ -162,33 +177,37 @@ For v0.24 app contract and surface DSL work, read `docs/plans/v0.24-plan.md`,
 callbacks, surface validation, workspace navigation, or canvas component
 catalogs.
 
-For v0.26 agentic workspace surface and ephemeral UI work, read
-`docs/plans/v0.26-plan.md`, `docs/plans/v0.23-plan.md`,
-`docs/plans/v0.24-plan.md`, `docs/plans/allbert-jido-vision.md`, and
+For v0.27 agentic workspace surface and ephemeral UI work, read
+`docs/plans/v0.27-plan.md`, `docs/plans/v0.24-plan.md`,
+`docs/plans/v0.25-plan.md`, `docs/plans/allbert-jido-vision.md`, and
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing the
 workspace shell lifecycle, canvas persistence, ephemeral surface scoping and
 discard, surface validation at render time, signal-to-render pipeline, or
-workspace navigation behavior. v0.26 cannot start until v0.23 and v0.24 are
+workspace navigation behavior. v0.27 cannot start until v0.24 and v0.25 are
 complete.
 
 For StockSage workspace app work, read the active StockSage milestone plan
-(`docs/plans/v0.17-plan.md`, `docs/plans/v0.19-plan.md`,
-`docs/plans/v0.21-plan.md`, `docs/plans/v0.22-plan.md`,
-`docs/plans/v0.25-plan.md`, or `docs/plans/v0.27-plan.md`),
+(`docs/plans/v0.18-plan.md`, `docs/plans/v0.20-plan.md`,
+`docs/plans/v0.22-plan.md`, `docs/plans/v0.23-plan.md`,
+`docs/plans/v0.26-plan.md`, or `docs/plans/v0.28-plan.md`),
 `docs/plans/allbert-jido-vision.md`,
+`docs/adr/0017-allbert-plugin-contract.md`,
 `docs/adr/0014-local-workspace-identity.md`, and
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
 StockSage agents, actions, domain records, the Python bridge, StockSage
-LiveViews, canvas components, or the StockSage skill pack.
+LiveViews, canvas components, or the StockSage skill pack. StockSage enters as
+a plugin-contributed app after v0.17.
 
-For v0.28 app generator work, read `docs/plans/v0.28-plan.md`,
-`docs/plans/v0.24-plan.md`, `docs/plans/v0.25-plan.md`,
-`docs/plans/v0.26-plan.md`, `docs/plans/v0.27-plan.md`, and
+For v0.29 plugin/app generator work, read `docs/plans/v0.29-plan.md`,
+`docs/plans/v0.25-plan.md`, `docs/plans/v0.26-plan.md`,
+`docs/plans/v0.27-plan.md`, `docs/plans/v0.28-plan.md`, and
+`docs/adr/0017-allbert-plugin-contract.md`, and
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
-`mix allbert.gen.app`, generated app structure, generated skill or action
-inertness, or `mix allbert.publish_skills`. The generator must not grant
-automatic trust, enable generated skills, load runtime modules from arbitrary
-folders, or publish externally without explicit operator action.
+`mix allbert.gen.plugin`, `mix allbert.gen.app`, generated plugin/app
+structure, generated skill or action inertness, or `mix allbert.publish_skills`.
+The generator must not grant automatic trust, enable generated skills, load
+runtime modules from arbitrary folders, or publish externally without explicit
+operator action.
 
 ## Non-Negotiables
 
