@@ -51,7 +51,7 @@ operator, model, channel, or job input. v0.15 navigation surface descriptors
 are display data only; they do not mount routes, load LiveViews, or define
 canvas nodes.
 
-The full contract for v0.25, formerly M-AppContract-Full, expands this into
+The full contract for v0.21, formerly M-AppContract-Full, expands this into
 five layers:
 
 - Identity and OTP lifecycle: validation, child specs, and workspace config
@@ -67,11 +67,12 @@ five layers:
 
 `AllbertAssist.App.Registry` is the runtime app discovery point. In v0.15,
 registered apps provide identity, child supervision, action tags, skill paths,
-navigation descriptors, and app lookup for active-app validation. In v0.25,
-the same public contract expands to declared signals, settings schemas, memory
-namespaces, and interactive surface providers. App registration does not grant
-permission by itself; actions still run through the action runner, Security
-Central, confirmations, traces, and audits.
+navigation descriptors, and app lookup for active-app validation. In v0.21,
+the same public contract expands to declared signals, settings schemas, and
+interactive surface providers. Memory namespace registration is the final
+deferred layer, added in v0.26. App registration does not grant permission by
+itself; actions still run through the action runner, Security Central,
+confirmations, traces, and audits.
 
 Allbert will define `AllbertAssist.App.SurfaceProvider` for apps with
 interactive surfaces. Surface events must return Jido signals or route through
@@ -93,11 +94,17 @@ rules.
 StockSage is the first proving app for this contract. After v0.17, it starts
 from `./plugins/stocksage` as `StockSage.Plugin` contributing `StockSage.App`
 for the lite contract in v0.18, formerly M-D2a, then implements the full app
-contract before v0.27 canvas work consumes app surfaces. v0.23 may mount
-ordinary `/stocksage/...` LiveView routes as a stepping stone, but v0.25 must
-describe those existing routes through `AllbertAssist.App.SurfaceProvider` so
-workspace navigation and later canvas work consume the app contract rather
-than a private router inventory.
+contract in v0.21 before StockSage LiveViews are built in v0.24. v0.24 builds
+all StockSage LiveViews on `AllbertAssist.App.SurfaceProvider` from day one;
+there is no stepping-stone static route mounting that later migrates to the
+surface contract. Memory namespace registration is the one deferred layer,
+added in v0.26 where StockSage polish first consumes it.
+
+The `AllbertAssist.Surface.Encoder.to_a2ui/1` stub is introduced in v0.21 as
+the designated AG-UI adaptation interface. Its type signature documents the
+intended translation from `AllbertAssist.Surface.Node` to AG-UI
+`STATE_SNAPSHOT`-style events. Concrete AG-UI protocol emission is deferred to
+post-v0.29 adapter work.
 
 ## Consequences
 
