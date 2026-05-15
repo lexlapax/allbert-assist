@@ -162,6 +162,11 @@ runtime; a plugin-contributed action still executes through the action runner
 and Security Central; a plugin-contributed skill still follows skill trust and
 enablement policy.
 
+The plugin registry is the contribution index. Channel descriptors are
+registered there and consumed by the shared channel substrate; apps and
+surfaces still use the app/surface contracts. The registry should not become
+an authorization system or a second runtime.
+
 The default local plugin roots are `./plugins` for source-tree
 project/developer plugins and `<ALLBERT_HOME>/plugins` for user-owned plugin
 folders. Allbert's own Telegram and email channels move into
