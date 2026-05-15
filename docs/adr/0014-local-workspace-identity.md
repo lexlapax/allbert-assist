@@ -67,7 +67,7 @@ deployment milestone.
 - External channel identities must map explicitly to local string `user_id`
   values through Settings Central rather than claiming local identities
   implicitly.
-- Conversation history and markdown memory remain distinct. v0.19 review work
+- Conversation history and markdown memory remain distinct. v0.21 review work
   may promote selected lessons from threads into markdown memory, but it must
   not automatically convert all turns into durable memory entries.
 - Tests and CI still use temporary Allbert homes and must not write local
