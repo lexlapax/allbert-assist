@@ -35,17 +35,37 @@ defmodule Mix.Tasks.Allbert.ValidateApp do
   end
 
   defp resolve_module(module_name) when is_binary(module_name) do
-    module =
-      module_name
-      |> String.trim()
-      |> String.split(".", trim: true)
-      |> Module.concat()
+    normalized = String.trim(module_name)
 
-    if Code.ensure_loaded?(module),
-      do: {:ok, module},
-      else: {:error, {:unknown_module, module_name}}
-  rescue
-    _exception -> {:error, {:unknown_module, module_name}}
+    candidate_modules()
+    |> Enum.find(&module_matches?(&1, normalized))
+    |> case do
+      nil -> {:error, {:unknown_module, module_name}}
+      module -> {:ok, module}
+    end
+  end
+
+  defp candidate_modules do
+    loaded_modules =
+      :code.all_loaded()
+      |> Enum.map(fn {module, _path} -> module end)
+
+    app_modules =
+      case :application.get_key(:allbert_assist, :modules) do
+        {:ok, modules} -> modules
+        :undefined -> []
+      end
+
+    (loaded_modules ++ app_modules)
+    |> Enum.uniq()
+    |> Enum.filter(&is_atom/1)
+  end
+
+  defp module_matches?(module, name) do
+    full_name = Atom.to_string(module)
+    short_name = String.replace_prefix(full_name, "Elixir.", "")
+
+    name in [full_name, short_name]
   end
 
   defp print_success(attrs) do
