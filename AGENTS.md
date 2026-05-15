@@ -169,7 +169,7 @@ compile arbitrary `./plugins/*/lib` folders. Telegram and email move into
 `./plugins/allbert.telegram` and `./plugins/allbert.email` as shipped
 source-tree plugins.
 
-For v0.25 app contract and surface DSL work, read `docs/plans/v0.25-plan.md`,
+For v0.21 app contract and surface DSL work, read `docs/plans/v0.21-plan.md`,
 `docs/plans/v0.15-plan.md`, `docs/plans/v0.15-request-flow.md`,
 `docs/plans/allbert-jido-vision.md`, and
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
@@ -179,7 +179,7 @@ catalogs.
 
 For v0.27 agentic workspace surface and ephemeral UI work, read
 `docs/plans/v0.27-plan.md`, `docs/plans/v0.24-plan.md`,
-`docs/plans/v0.25-plan.md`, `docs/plans/allbert-jido-vision.md`, and
+`docs/plans/v0.21-plan.md`, `docs/plans/allbert-jido-vision.md`, and
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing the
 workspace shell lifecycle, canvas persistence, ephemeral surface scoping and
 discard, surface validation at render time, signal-to-render pipeline, or
@@ -188,7 +188,7 @@ complete.
 
 For StockSage workspace app work, read the active StockSage milestone plan
 (`docs/plans/v0.18-plan.md`, `docs/plans/v0.20-plan.md`,
-`docs/plans/v0.22-plan.md`, `docs/plans/v0.23-plan.md`,
+`docs/plans/v0.23-plan.md`, `docs/plans/v0.24-plan.md`,
 `docs/plans/v0.26-plan.md`, or `docs/plans/v0.28-plan.md`),
 `docs/plans/allbert-jido-vision.md`,
 `docs/adr/0017-allbert-plugin-contract.md`,
@@ -202,7 +202,7 @@ plugin-contributed app after v0.17; v0.18 uses `AllbertAssist.Repo` and
 `stocksage_*` tables, not a separate `StockSage.Repo`.
 
 For v0.29 plugin/app generator work, read `docs/plans/v0.29-plan.md`,
-`docs/plans/v0.25-plan.md`, `docs/plans/v0.26-plan.md`,
+`docs/plans/v0.21-plan.md`, `docs/plans/v0.26-plan.md`,
 `docs/plans/v0.27-plan.md`, `docs/plans/v0.28-plan.md`, and
 `docs/adr/0017-allbert-plugin-contract.md`, and
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing

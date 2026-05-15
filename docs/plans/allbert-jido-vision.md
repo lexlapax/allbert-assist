@@ -358,14 +358,19 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.19: markdown memory review and retrieval, distinct from conversation
   history.
 - v0.20: StockSage Python bridge.
-- v0.21: cross-surface intent enrichment using jobs, channels, memory,
-  scratchpad, and app registry context.
-- v0.22: native Jido trading agents.
-- v0.23: StockSage LiveViews.
-- v0.24: security hardening and evals, including cross-user/thread leakage,
-  app-scoped routing, bridge safety, and financial authorization.
-- v0.25: full app contract and `AllbertAssist.Surface` DSL.
-- v0.26: StockSage polish, outcomes, and trends.
+- v0.21: full app contract and `AllbertAssist.Surface` DSL, before any
+  plugin-contributed app web surfaces are built; `AllbertAssist.App.SurfaceProvider`
+  available to all apps from this point forward.
+- v0.22: cross-surface intent enrichment using jobs, channels, memory,
+  scratchpad, app registry context, and registered surface metadata.
+- v0.23: native Jido trading agents.
+- v0.24: StockSage LiveViews built on `AllbertAssist.App.SurfaceProvider`
+  from day one; component catalog declared as the foundation for v0.28 canvas.
+- v0.25: security hardening and evals, including cross-user/thread leakage,
+  app-scoped routing, Surface DSL/SurfaceProvider coverage, bridge safety, and
+  financial authorization.
+- v0.26: StockSage polish, outcomes, and trends; completes memory namespace
+  registration as the final deferred layer of the v0.21 app contract.
 - v0.27: agentic workspace surface and ephemeral UI substrate. This cannot
   start until v0.24 and v0.25 are complete.
 - v0.28: StockSage canvas integration.
