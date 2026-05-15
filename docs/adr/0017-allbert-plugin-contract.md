@@ -79,6 +79,19 @@ Settings Central owns user-facing plugin configuration through keys such as
 configuration may override plugin roots for deterministic boot tests, but
 runtime preferences remain settings-backed.
 
+`AllbertAssist.Plugin.Registry` is the single contribution index for v0.17.
+Channel descriptors are first-class plugin registry entries; v0.17 does not
+introduce a separate channel registry. The shared `AllbertAssist.Channels`
+context and `AllbertAssist.Channels.Supervisor` consume channel descriptors
+from the plugin registry for channel summaries, settings lookup, credential
+status, session derivation, and adapter child specs.
+
+Plugin entries are normalized records, not raw manifests. Each entry carries a
+string plugin id, display name, version, kind, source, status, trust status,
+compiled module when present, root/manifest paths, bounded contribution lists,
+and diagnostics. CLI and registered actions render summaries from normalized
+entries and must not print raw unbounded manifests or secrets.
+
 v0.17 converts Telegram and email into shipped source-tree channel plugins
 under `./plugins/allbert.telegram` and `./plugins/allbert.email`. Their
 adapter/client/parser/renderer implementation modules keep the existing
@@ -89,11 +102,24 @@ ownership moves to `AllbertAssist.Plugins.Telegram` and
 must consume registered channel contributions instead of hardcoding Telegram
 and email.
 
+The stable v0.16 Settings Central keys for Telegram and email remain stable:
+`channels.telegram.*` and `channels.email.*`. For bootstrap safety, their
+schema remains statically known in core during v0.17 while the shipped plugin
+modules expose matching settings metadata for plugin inspection, channel
+summaries, and future plugin schema merging.
+
 Runtime discovery may read plugin manifests, but manifests are not dynamic code
 loading instructions. A module named in a manifest can be registered only when
 it is already compiled and the plugin id/module pair is present in a shipped or
 explicitly configured allowlist. Home-plugin manifests that name modules do not
 cause compilation, code loading, atom creation, or registration in v0.17.
+
+Allbert will add a plugin child supervisor. Compiled plugin modules may return
+a child spec from `child_spec/1`; bootstrap starts those child specs under
+`AllbertAssist.Plugin.ChildSupervisor`. `:ignore` remains the normal value for
+metadata-only plugins. Channel adapters remain under
+`AllbertAssist.Channels.Supervisor` because they are channel descriptors, not
+general plugin children.
 
 Plugin-contributed OTP processes must live under the child spec returned by the
 plugin entrypoint. Domain apps may use their own supervisor, such as
@@ -113,6 +139,10 @@ app registry. ADR 0018 owns StockSage's local domain and persistence boundary.
 - StockSage can prove the same mechanism that third-party developers will use.
 - Telegram and email become proving examples of shipped source-tree channel
   plugins.
+- Channel discovery becomes data-driven through plugin descriptors without
+  adding a second channel registry.
+- Existing Telegram/email settings survive the file move without a settings
+  migration.
 - Skill-only home plugins are possible without introducing runtime code
   loading.
 - Code-bearing third-party plugins require developer review, explicit
