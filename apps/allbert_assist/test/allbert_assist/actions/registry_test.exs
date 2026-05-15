@@ -5,6 +5,28 @@ defmodule AllbertAssist.Actions.RegistryTest do
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Multiply
   alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.Plugin.Entry, as: PluginEntry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+
+  defmodule PluginEcho do
+    use Jido.Action,
+      name: "plugin_echo",
+      description: "Echo from a plugin fixture.",
+      schema: [text: [type: :string, required: true]]
+
+    def capability do
+      %{
+        permission: :read_only,
+        exposure: :agent,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required
+      }
+    end
+
+    @impl true
+    def run(%{text: text}, _context), do: {:ok, %{message: "plugin: #{text}", status: :completed}}
+  end
 
   defmodule ActionTaggingApp do
     use AllbertAssist.App
@@ -23,6 +45,18 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     @impl true
     def actions, do: [DirectAnswer]
+  end
+
+  setup do
+    PluginRegistry.clear()
+
+    on_exit(fn ->
+      PluginRegistry.clear()
+      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+    end)
+
+    :ok
   end
 
   test "returns the canonical runtime action names in stable order" do
@@ -303,5 +337,31 @@ defmodule AllbertAssist.Actions.RegistryTest do
              )
 
     assert Registry.capabilities_for_app(:missing_app) == []
+  end
+
+  test "merges plugin-contributed actions with capability provenance" do
+    assert {:ok, "example.actions"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.actions",
+               display_name: "Example Actions",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [PluginEcho]
+             })
+
+    assert "plugin_echo" in Registry.names()
+    assert {:ok, PluginEcho} = Registry.resolve("plugin_echo")
+    assert Registry.registered_module?(PluginEcho)
+    assert PluginEcho in Registry.agent_modules()
+
+    assert {:ok, capability} = Registry.capability("plugin_echo")
+    assert capability.permission == :read_only
+    assert capability.exposure == :agent
+    assert capability.plugin_id == "example.actions"
+
+    assert %{plugin_id: "example.actions"} = Capability.summary(capability)
   end
 end

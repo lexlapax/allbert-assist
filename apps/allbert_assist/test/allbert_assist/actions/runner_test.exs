@@ -7,8 +7,30 @@ defmodule AllbertAssist.Actions.RunnerTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Entry, as: PluginEntry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
+
+  defmodule PluginEcho do
+    use Jido.Action,
+      name: "runner_plugin_echo",
+      description: "Echo from a runner plugin fixture.",
+      schema: [text: [type: :string, required: true]]
+
+    def capability do
+      %{
+        permission: :read_only,
+        exposure: :agent,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required
+      }
+    end
+
+    @impl true
+    def run(%{text: text}, _context), do: {:ok, %{message: "plugin: #{text}", status: :completed}}
+  end
 
   setup do
     original_memory_config = Application.get_env(:allbert_assist, Memory)
@@ -25,6 +47,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+    PluginRegistry.clear()
     configure_external()
     Logger.configure(level: :info)
 
@@ -33,6 +56,9 @@ defmodule AllbertAssist.Actions.RunnerTest do
       restore_env(Memory, original_memory_config)
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
+      PluginRegistry.clear()
+      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
       File.rm_rf!(root)
     end)
 
@@ -113,6 +139,28 @@ defmodule AllbertAssist.Actions.RunnerTest do
                runner_metadata: %{selected_skill: "direct-answer"}
              }
            ] = response.actions
+  end
+
+  test "runs plugin-contributed actions through the normal runner boundary" do
+    assert {:ok, "example.runner_actions"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.runner_actions",
+               display_name: "Example Runner Actions",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [PluginEcho]
+             })
+
+    assert {:ok, response} = Runner.run("runner_plugin_echo", %{text: "hello"}, context())
+
+    assert response.status == :completed
+    assert response.message == "plugin: hello"
+    assert response.runner_metadata.action_name == "runner_plugin_echo"
+    assert response.runner_metadata.action_capability.plugin_id == "example.runner_actions"
+    assert response.actions == []
   end
 
   test "unknown names and unregistered modules never execute" do
