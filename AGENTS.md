@@ -173,7 +173,8 @@ adapters still start from registered descriptors under
 source-tree plugins.
 
 For v0.18 app contract and surface DSL work, read `docs/plans/v0.18-plan.md`,
-`docs/plans/v0.15-plan.md`, `docs/plans/v0.15-request-flow.md`,
+`docs/plans/v0.18-request-flow.md`, `docs/plans/v0.15-plan.md`,
+`docs/plans/v0.15-request-flow.md`,
 `docs/plans/allbert-jido-vision.md`, and
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
 `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, full app
