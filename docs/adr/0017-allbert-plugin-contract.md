@@ -95,9 +95,10 @@ it is already compiled and the plugin id/module pair is present in a shipped or
 explicitly configured allowlist. Home-plugin manifests that name modules do not
 cause compilation, code loading, atom creation, or registration in v0.17.
 
-StockSage should then land as a plugin-contributed app in v0.18. The app
-contract remains intact; the plugin layer feeds `StockSage.App` into
-`AllbertAssist.App.Registry` rather than replacing the app registry.
+StockSage should then land as a plugin-contributed app in v0.18 through
+`./plugins/stocksage`. The app contract remains intact; the plugin layer feeds
+`StockSage.App` into `AllbertAssist.App.Registry` rather than replacing the
+app registry. ADR 0018 owns StockSage's local domain and persistence boundary.
 
 ## Consequences
 

@@ -195,8 +195,11 @@ For StockSage workspace app work, read the active StockSage milestone plan
 `docs/adr/0014-local-workspace-identity.md`, and
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md` before changing
 StockSage agents, actions, domain records, the Python bridge, StockSage
-LiveViews, canvas components, or the StockSage skill pack. StockSage enters as
-a plugin-contributed app after v0.17.
+LiveViews, canvas components, or the StockSage skill pack. For v0.18 also read
+`docs/plans/v0.18-request-flow.md` and
+`docs/adr/0018-stocksage-local-domain-app.md`. StockSage enters as a
+plugin-contributed app after v0.17; v0.18 uses `AllbertAssist.Repo` and
+`stocksage_*` tables, not a separate `StockSage.Repo`.
 
 For v0.29 plugin/app generator work, read `docs/plans/v0.29-plan.md`,
 `docs/plans/v0.25-plan.md`, `docs/plans/v0.26-plan.md`,
