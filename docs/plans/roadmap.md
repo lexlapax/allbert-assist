@@ -908,6 +908,10 @@ Expected direction:
 
 Plan: `docs/plans/v0.18-plan.md`
 
+Request flow: `docs/plans/v0.18-request-flow.md`
+
+ADR: `docs/adr/0018-stocksage-local-domain-app.md`
+
 Status: planned. Formerly M-D2a.
 
 Expected direction:
@@ -918,8 +922,12 @@ Expected direction:
   v0.15 app contract.
 - Add SQLite-first StockSage domain records with string `user_id` and optional
   thread/request context.
+- Use the existing `AllbertAssist.Repo` and central SQLite database with
+  `stocksage_*` tables; do not add `StockSage.Repo`.
 - Add local StockSage skill pack paths and an import task for the frozen Python
   `stocksage.db` baseline.
+- Add safe local StockSage actions for listing/showing imported analyses,
+  reading local trends, and queueing an analysis request without executing it.
 - Keep PostgreSQL, Oban-as-hard-dependency, LiveViews, bridge execution, and
   native trading agents out of this slice.
 
@@ -950,6 +958,8 @@ Expected direction:
   StockSage/TradingAgents.
 - Add `StockSage.Actions.RunAnalysis` and a Mix smoke command that persists a
   real analysis.
+- Consume v0.18 queue records and persist bridge results into the existing
+  `stocksage_*` tables.
 - Route natural language analysis prompts through StockSage skill/action
   boundaries when app context and permission posture allow it.
 

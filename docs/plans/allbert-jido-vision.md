@@ -39,10 +39,10 @@ memory, settings, security, signals, agents, actions, app registration, and
 operator surfaces. Domain apps plug into that environment through public
 contracts rather than private hooks.
 
-StockSage is the first proving app. It enters the umbrella as normal OTP
-applications, registers actions and skill paths through Allbert, stores
-local-first domain records, and eventually contributes LiveViews and canvas
-components through the app/surface contract.
+StockSage is the first proving app. It enters through `./plugins/stocksage`
+and normal umbrella applications, registers actions and skill paths through
+Allbert, stores local-first domain records, and eventually contributes
+LiveViews and canvas components through the app/surface contract.
 
 The workspace path carries several grounding decisions:
 
@@ -300,9 +300,13 @@ changing the StockSage domain model.
 StockSage proves Allbert's app model with a concrete financial-analysis
 workflow:
 
+- Plugin/app package: `./plugins/stocksage` contributes `StockSage.Plugin`,
+  `StockSage.App`, skill roots, local actions, and app metadata through the
+  same plugin/app contracts used by other extensions.
 - Domain storage: analyses, analysis details, outcomes, queue entries, queue
   runs, and memory entries with string `user_id` and optional thread/request
-  context.
+  context. These use the existing local Allbert SQLite repo with `stocksage_*`
+  tables unless a later hosted milestone changes the data boundary.
 - Skill pack: local `SKILL.md` files for running analysis, fetching trends,
   and queueing analysis through registered Jido actions.
 - Python bridge: a supervised Port or equivalent JSON boundary around the

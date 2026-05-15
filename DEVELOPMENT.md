@@ -158,8 +158,9 @@ For v0.17 plugin contract work, start with:
 - `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
 
 For StockSage workspace app milestones, start with the active milestone plan,
-`docs/plans/allbert-jido-vision.md`, ADR 0014, ADR 0015, and ADR 0017. The
-canonical plans are `v0.18`, `v0.20`, `v0.22`, `v0.23`, `v0.26`, and `v0.28`.
+`docs/plans/allbert-jido-vision.md`, ADR 0014, ADR 0015, ADR 0017, and ADR
+0018. For v0.18, also read `docs/plans/v0.18-request-flow.md`. The canonical
+plans are `v0.18`, `v0.20`, `v0.22`, `v0.23`, `v0.26`, and `v0.28`.
 
 After v0.12 closeout, remember that local conversation history is SQLite-backed
 `AllbertAssist.Conversations` data, not markdown memory and not hosted auth.
@@ -202,6 +203,12 @@ or bypass confirmations from plugin metadata. Do not automatically compile
 arbitrary `./plugins/*/lib` folders. Telegram and email move into
 `./plugins/allbert.telegram` and `./plugins/allbert.email` as shipped
 source-tree channel plugins while preserving the v0.16 channel boundary.
+
+For v0.18, StockSage is the first source-tree plugin-contributed app. It uses
+`./plugins/stocksage`, `apps/stocksage`, `apps/stocksage_web`, the existing
+`AllbertAssist.Repo`, and `stocksage_*` SQLite tables. Do not add
+`StockSage.Repo`, run Python, call market-data APIs, mount StockSage routes,
+or auto-promote StockSage memory records to markdown memory in this slice.
 
 After v0.11 closeout, remember that URL summarization, document inspection,
 direct skill URL import, local skill directory import, local path access,
