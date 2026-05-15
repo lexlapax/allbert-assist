@@ -81,7 +81,7 @@ through the real app.
 - v0.22 can add the Python bridge without redesigning persistence.
 - v0.23 can add native Jido agents without introducing a second queue model.
 - v0.25 can build LiveViews on `AllbertAssist.App.SurfaceProvider` using the
-  v0.18 Full App Contract as the foundation from day one.
+  v0.18 app/surface contract as the foundation from day one.
 - v0.26 security evals can target concrete financial and plugin-domain
   boundaries.
 

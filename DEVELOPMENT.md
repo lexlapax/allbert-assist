@@ -162,6 +162,11 @@ For StockSage workspace app milestones, start with the active milestone plan,
 0018. For v0.20, also read `docs/plans/v0.20-request-flow.md`. The canonical
 plans are `v0.20`, `v0.22`, `v0.23`, `v0.25`, `v0.27`, and `v0.28`.
 
+For v0.29 generator work, encode only the shape already proven by v0.20
+StockSage plugin/app, v0.25 StockSage SurfaceProvider LiveViews, v0.27 memory
+namespace completion, and v0.28 canvas integration. The generator should not
+invent new plugin/app contracts or bypass explicit compile-path review.
+
 After v0.12 closeout, remember that local conversation history is SQLite-backed
 `AllbertAssist.Conversations` data, not markdown memory and not hosted auth.
 Runtime requests and responses carry canonical `user_id`, legacy
