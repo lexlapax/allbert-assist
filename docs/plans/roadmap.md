@@ -832,7 +832,7 @@ Expected direction:
   validation, child supervision, registered actions, skill paths, and nav
   surfaces.
 - Register built-in `CoreApp` and transitional `StockSageStub` so v0.14
-  `active_app` acceptance continues until real StockSage lands in v0.18.
+  `active_app` acceptance continues until real StockSage lands in v0.20.
 - Tag registered actions with optional `app_id`.
 - Normalize app ids through the registry without dynamic atom creation from
   operator/channel/model input.
@@ -907,100 +907,39 @@ Expected direction:
   registry additions, skill roots, settings schema entries, and supervised
   children without granting permission or trust.
 - Add `mix allbert.plugins` and read-only plugin inspection actions.
-- Prepare v0.18 StockSage to land through a `./plugins/stocksage` package
+- Prepare v0.20 StockSage to land through a `./plugins/stocksage` package
   that contributes `StockSage.Plugin`, `StockSage.App`, and StockSage skill
   roots.
 
-## v0.18: StockSage Plugin, Umbrella App, And Domain
+## v0.18: Full App Contract And Surface DSL
 
 Plan: `docs/plans/v0.18-plan.md`
-
-Request flow: `docs/plans/v0.18-request-flow.md`
-
-ADR: `docs/adr/0018-stocksage-local-domain-app.md`
-
-Status: planned. Formerly M-D2a.
-
-Expected direction:
-
-- Add `stocksage` and `stocksage_web` umbrella apps.
-- Implement `./plugins/stocksage` as the plugin package, with
-  `StockSage.Plugin` as the plugin entrypoint and `StockSage.App` using the
-  v0.15 app contract.
-- Add SQLite-first StockSage domain records with string `user_id` and optional
-  thread/request context.
-- Use the existing `AllbertAssist.Repo` and central SQLite database with
-  `stocksage_*` tables; do not add `StockSage.Repo`.
-- Add local StockSage skill pack paths and an import task for the frozen Python
-  `stocksage.db` baseline.
-- Add safe local StockSage actions for listing/showing imported analyses,
-  reading local trends, and queueing an analysis request without executing it.
-- Keep PostgreSQL, Oban-as-hard-dependency, LiveViews, bridge execution, and
-  native trading agents out of this slice.
-
-## v0.19: Memory Review And Retrieval
-
-Plan: `docs/plans/v0.19-plan.md`
-
-Status: planned. Formerly v0.14.
-
-Expected direction:
-
-- Add operator review, correction, promotion, and pruning over markdown
-  long-term memory.
-- Generate summaries and compiled runtime views from markdown sources.
-- Keep SQLite conversation history from v0.12 distinct from markdown memory;
-  no automatic promotion of thread turns.
-- Add retrieval only after review and source-of-truth semantics are stable.
-
-## v0.20: StockSage Python Bridge
-
-Plan: `docs/plans/v0.20-plan.md`
-
-Status: planned. Formerly M-D2b.
-
-Expected direction:
-
-- Add a supervised bridge, likely JSON-over-stdio Port, around Python
-  StockSage/TradingAgents.
-- Add `StockSage.Actions.RunAnalysis`, register it through
-  `StockSage.Plugin.actions/0` and the plugin manifest, and add a Mix smoke
-  command that persists a real analysis.
-- Start `StockSage.TraderBridge` under `StockSage.Supervisor`, contributed via
-  `StockSage.Plugin.child_spec/1`.
-- Consume v0.18 queue records and persist bridge results into the existing
-  `stocksage_*` tables.
-- Route natural language analysis prompts through StockSage skill/action
-  boundaries when app context and permission posture allow it.
-
-## v0.21: Full App Contract And Surface DSL
-
-Plan: `docs/plans/v0.21-plan.md`
 ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
-Status: planned. Formerly M-AppContract-Full, previously planned as v0.25.
-Moved before StockSage LiveViews so all plugin-contributed app surfaces build
-on `AllbertAssist.App.SurfaceProvider` from day one.
+Status: planned. Formerly M-AppContract-Full, previously planned as v0.25,
+then v0.21. Moved before StockSage so v0.20 implements the full contract from
+day one and v0.25 LiveViews build on `AllbertAssist.App.SurfaceProvider`
+without any stepping-stone migration.
 
 Expected direction:
 
 - Expand the app contract into identity/OTP, agents/actions/signals, skills,
   UI surface, and data/settings layers. Memory namespace registration is
-  deferred to v0.26.
+  deferred to v0.27.
 - Add `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface` DSL with
   catalog validation, and `AllbertAssist.Surface.Encoder.to_a2ui/1` as the
   typed AG-UI adaptation stub.
 - Add `mix allbert.validate_app MyApp` and
   `docs/how-to-create-an-allbert-app.md`.
-- Update `StockSage.App` to implement the full contract so v0.24 LiveViews
-  can build on `SurfaceProvider` from day one.
+- Design the full contract so v0.20 StockSage can implement `SurfaceProvider`
+  as the first real consumer from day one; no lite→full migration needed.
 - Keep AG-UI/A2UI as future adapters, not local hard dependencies.
 
-## v0.22: Cross-Surface Intent Enrichment
+## v0.19: Cross-Surface Intent Enrichment
 
-Plan: `docs/plans/v0.22-plan.md`
+Plan: `docs/plans/v0.19-plan.md`
 
-Status: planned. Formerly v0.15, previously planned as v0.21.
+Status: planned. Formerly v0.15, previously planned as v0.22.
 
 Expected direction:
 
@@ -1014,11 +953,73 @@ Expected direction:
 - Use registered app surface metadata to include surface navigation as a
   routing target when session context supports it.
 
+## v0.20: StockSage Plugin, Umbrella App, And Domain
+
+Plan: `docs/plans/v0.20-plan.md`
+
+Request flow: `docs/plans/v0.20-request-flow.md`
+
+ADR: `docs/adr/0018-stocksage-local-domain-app.md`
+
+Status: planned. Formerly M-D2a.
+
+Expected direction:
+
+- Add `stocksage` and `stocksage_web` umbrella apps.
+- Implement `./plugins/stocksage` as the plugin package, with
+  `StockSage.Plugin` as the plugin entrypoint and `StockSage.App` using the
+  v0.18 full app contract.
+- Add SQLite-first StockSage domain records with string `user_id` and optional
+  thread/request context.
+- Use the existing `AllbertAssist.Repo` and central SQLite database with
+  `stocksage_*` tables; do not add `StockSage.Repo`.
+- Add local StockSage skill pack paths and an import task for the frozen Python
+  `stocksage.db` baseline.
+- Add safe local StockSage actions for listing/showing imported analyses,
+  reading local trends, and queueing an analysis request without executing it.
+- Keep PostgreSQL, Oban-as-hard-dependency, LiveViews, bridge execution, and
+  native trading agents out of this slice.
+
+## v0.21: Memory Review And Retrieval
+
+Plan: `docs/plans/v0.21-plan.md`
+
+Status: planned. Formerly v0.14.
+
+Expected direction:
+
+- Add operator review, correction, promotion, and pruning over markdown
+  long-term memory.
+- Generate summaries and compiled runtime views from markdown sources.
+- Keep SQLite conversation history from v0.12 distinct from markdown memory;
+  no automatic promotion of thread turns.
+- Add retrieval only after review and source-of-truth semantics are stable.
+
+## v0.22: StockSage Python Bridge
+
+Plan: `docs/plans/v0.22-plan.md`
+
+Status: planned. Formerly M-D2b.
+
+Expected direction:
+
+- Add a supervised bridge, likely JSON-over-stdio Port, around Python
+  StockSage/TradingAgents.
+- Add `StockSage.Actions.RunAnalysis`, register it through
+  `StockSage.Plugin.actions/0` and the plugin manifest, and add a Mix smoke
+  command that persists a real analysis.
+- Start `StockSage.TraderBridge` under `StockSage.Supervisor`, contributed via
+  `StockSage.Plugin.child_spec/1`.
+- Consume v0.20 queue records and persist bridge results into the existing
+  `stocksage_*` tables.
+- Route natural language analysis prompts through StockSage skill/action
+  boundaries when app context and permission posture allow it.
+
 ## v0.23: Native Jido Trading Agents
 
 Plan: `docs/plans/v0.23-plan.md`
 
-Status: planned. Formerly M-D2c, previously planned as v0.22.
+Status: planned. Formerly M-D2c, previously planned as v0.19.
 
 Expected direction:
 
@@ -1029,15 +1030,37 @@ Expected direction:
   prove native parity within documented variance.
 - Make native analysis default only after acceptance passes.
 
-## v0.24: StockSage LiveViews
+## v0.24: Agentic Workspace Surface And Ephemeral UI Substrate
 
 Plan: `docs/plans/v0.24-plan.md`
 
-Status: planned. Formerly M-D3a, previously planned as v0.23. Redesigned to
-build on the v0.21 Full App Contract and Surface DSL from day one.
+Status: planned. Formerly the old v0.17 workspace-surface plan, then v0.27,
+then v0.24 when moved before StockSage LiveViews.
 
-Prerequisite: v0.21 Full App Contract complete; v0.23 Native Jido Agents
-complete so both analysis engines are available from the start.
+Prerequisite: v0.18 Full App Contract, v0.19 intent enrichment, v0.21 memory
+review, v0.22 Python bridge, and v0.23 Native Jido agents are complete.
+
+Expected direction:
+
+- Replace the rudimentary `/agent` concept with a signal-driven operator
+  workspace while keeping LiveView thin.
+- Use `AllbertAssist.App.Registry` for app navigation and
+  `AllbertAssist.Surface` (defined in v0.18) for canvas/task component
+  validation.
+- Define canvas persistence, ephemeral surface lifecycle, provenance,
+  fallback text, redaction, and action-binding constraints.
+- Leave AG-UI/A2UI/MCP Apps interoperability to later adapter work.
+
+## v0.25: StockSage LiveViews
+
+Plan: `docs/plans/v0.25-plan.md`
+
+Status: planned. Formerly M-D3a, previously planned as v0.24. Redesigned to
+build on the v0.18 Full App Contract and Surface DSL from day one.
+
+Prerequisite: v0.18 Full App Contract, v0.22 Python bridge, v0.23 Native Jido
+agents, and v0.24 workspace surface are complete so both analysis engines and
+the workspace shell are available from the start.
 
 Expected direction:
 
@@ -1052,11 +1075,11 @@ Expected direction:
 - Use PubSub/streams for live progress and set `active_app: :stocksage` when
   navigating under `/stocksage/`.
 
-## v0.25: Security Hardening And Evals
+## v0.26: Security Hardening And Evals
 
-Plan: `docs/plans/v0.25-plan.md`
+Plan: `docs/plans/v0.26-plan.md`
 
-Status: planned. Formerly v0.16, previously planned as v0.24.
+Status: planned. Formerly v0.16, previously planned as v0.25.
 
 Expected direction:
 
@@ -1068,46 +1091,25 @@ Expected direction:
   protocol/path/crash safety, and financial workflow authorization coverage.
 - Add surface and SurfaceProvider security evals: catalog bypass, component
   injection, cross-app component type theft, and `to_a2ui/1` redaction-bypass
-  attempts. v0.21 Full App Contract is complete; app-registration evals are
+  attempts. v0.18 Full App Contract is complete; app-registration evals are
   required, not conditional.
 - Require StockSage external market-data calls to flow through Resource Access
   Security Posture and confirmations.
 
-## v0.26: StockSage Polish, Outcomes, And Trends
+## v0.27: StockSage Polish, Outcomes, And Trends
 
-Plan: `docs/plans/v0.26-plan.md`
+Plan: `docs/plans/v0.27-plan.md`
 
 Status: planned. Formerly M-D3b.
 
 Expected direction:
 
 - Add memory namespace registration to `AllbertAssist.App.Registry` as the
-  final deferred layer of the v0.21 Full App Contract.
+  final deferred layer of the v0.18 Full App Contract.
 - Add outcome resolver, trend metrics, rating calibration, reruns, empty/error
   states, and responsive polish.
 - Replicate Python StockSage 0.0.2 user-facing behavior in Elixir, with Python
   remaining only as explicit fallback until native parity closes.
-
-## v0.27: Agentic Workspace Surface And Ephemeral UI Substrate
-
-Plan: `docs/plans/v0.27-plan.md`
-
-Status: planned. Formerly the old v0.17 workspace-surface plan before the
-unified roadmap and plugin-substrate insertion.
-
-Prerequisite: v0.24 (StockSage LiveViews) and v0.25 (Security Hardening) are
-complete.
-
-Expected direction:
-
-- Replace the rudimentary `/agent` concept with a signal-driven operator
-  workspace while keeping LiveView thin.
-- Use `AllbertAssist.App.Registry` for app navigation and
-  `AllbertAssist.Surface` (defined in v0.21) for canvas/task component
-  validation.
-- Define canvas persistence, ephemeral surface lifecycle, provenance,
-  fallback text, redaction, and action-binding constraints.
-- Leave AG-UI/A2UI/MCP Apps interoperability to later adapter work.
 
 ## v0.28: StockSage Canvas Integration
 
@@ -1117,8 +1119,8 @@ Status: planned. Formerly M-Canvas.
 
 Expected direction:
 
-- Register StockSage chart and analysis-card components with the v0.27 canvas
-  catalog. Component types were declared in v0.24; v0.28 is wiring, not format
+- Register StockSage chart and analysis-card components with the v0.24 canvas
+  catalog. Component types were declared in v0.25; v0.28 is wiring, not format
   migration.
 - Let StockSage analysis responses emit canvas operations for durable tiles.
 - Add no new StockSage domain model or analysis behavior.
@@ -1129,8 +1131,8 @@ Plan: `docs/plans/v0.29-plan.md`
 
 Status: research (unstarted).
 
-Prerequisite: StockSage proves the full v0.21 contract end to end through v0.26,
-v0.27 canvas ships, and v0.28 proves the app/canvas path.
+Prerequisite: StockSage proves the full v0.18 contract end to end through v0.27,
+v0.24 canvas ships, and v0.28 proves the app/canvas path.
 
 Expected direction:
 

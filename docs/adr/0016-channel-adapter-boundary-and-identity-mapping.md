@@ -166,7 +166,7 @@ list.
   store as strings in ETS, SQLite, and runtime metadata. Telegram includes
   chat id in the hash so group and private chats get separate sessions. Email
   session ids use only the sender address since email has no chat concept.
-- v0.25 security evals have concrete cross-channel surfaces to test:
+- v0.26 security evals have concrete cross-channel surfaces to test:
   identity spoofing, callback replay, command injection in email reply bodies,
   resource-scope leakage, provider payload injection, cross-user thread leakage,
   secret redaction in provider error responses, and attachment bypass attempts.

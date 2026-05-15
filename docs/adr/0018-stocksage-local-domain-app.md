@@ -21,13 +21,13 @@ The surrounding decisions are already established:
   PostgreSQL, hosted auth, Oban-as-hard-dependency, Python bridge execution,
   native trading agents, and StockSage LiveViews to later milestones.
 
-Without a binding decision, v0.18 could accidentally create a second database
+Without a binding decision, v0.20 could accidentally create a second database
 boundary, run Python during import, bypass the plugin registry, or make
 StockSage a special case instead of the first normal app.
 
 ## Decision
 
-StockSage lands in v0.18 as a source-tree plugin-contributed app:
+StockSage lands in v0.20 as a source-tree plugin-contributed app:
 
 - `./plugins/stocksage` is the plugin package.
 - `StockSage.Plugin` is the plugin entrypoint.
@@ -35,10 +35,10 @@ StockSage lands in v0.18 as a source-tree plugin-contributed app:
 - `apps/stocksage` contains the domain contexts, schemas, local actions, Mix
   tasks, and tests.
 - `apps/stocksage_web` is a compile-ready placeholder for later LiveViews, but
-  v0.18 mounts no routes.
+  v0.20 mounts no routes.
 
 StockSage uses the existing `AllbertAssist.Repo` and the existing local SQLite
-database. v0.18 does not add `StockSage.Repo`. StockSage migrations live in
+database. v0.20 does not add `StockSage.Repo`. StockSage migrations live in
 the central Allbert migration path and create `stocksage_*` tables.
 
 StockSage tables store string `user_id` and optional Allbert request context
@@ -58,7 +58,7 @@ The first domain records are:
 StockSage memory entries are local StockSage domain records. They are not
 markdown Allbert memory entries and are not auto-promoted to markdown memory.
 
-The v0.18 legacy import path reads a local SQLite database and maps rows into
+The v0.20 legacy import path reads a local SQLite database and maps rows into
 StockSage domain records with provenance. Import is idempotent and read-only
 against the source database. It does not execute Python, fetch market data, run
 package managers, import skills, or promote memory.
@@ -78,11 +78,11 @@ through the real app.
   remain simple.
 - Future StockSage milestones can reuse the same queue, analysis, detail,
   outcome, and memory records.
-- v0.20 can add the Python bridge without redesigning persistence.
+- v0.22 can add the Python bridge without redesigning persistence.
 - v0.23 can add native Jido agents without introducing a second queue model.
-- v0.24 can build LiveViews on `AllbertAssist.App.SurfaceProvider` using the
-  v0.21 Full App Contract as the foundation from day one.
-- v0.25 security evals can target concrete financial and plugin-domain
+- v0.25 can build LiveViews on `AllbertAssist.App.SurfaceProvider` using the
+  v0.18 Full App Contract as the foundation from day one.
+- v0.26 security evals can target concrete financial and plugin-domain
   boundaries.
 
 ## Deferred
