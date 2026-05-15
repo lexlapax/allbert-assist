@@ -229,9 +229,9 @@ arbitrary `./plugins/*/lib` folders. Telegram and email move into
 `./plugins/allbert.telegram` and `./plugins/allbert.email` as shipped
 source-tree channel plugins while preserving the v0.16 channel boundary.
 
-For v0.20, StockSage is the first source-tree plugin-contributed app. It uses
-`./plugins/stocksage`, `apps/stocksage`, `apps/stocksage_web`, the existing
-`AllbertAssist.Repo`, and `stocksage_*` SQLite tables. Do not add
+For v0.20, StockSage is the first shipped source-tree plugin app. It uses
+`./plugins/stocksage`, the existing `AllbertAssist.Repo`, and
+`stocksage_*` SQLite tables. Do not add `apps/stocksage`, `apps/stocksage_web`,
 `StockSage.Repo`, run Python, call market-data APIs, mount StockSage routes,
 or auto-promote StockSage memory records to markdown memory in this slice.
 Read-by-id paths must require `user_id`; `:stocksage_write` is only a local

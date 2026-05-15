@@ -9,9 +9,10 @@ v0.27.
 ## Context
 
 Allbert is becoming a personal AI workspace rather than a single chat surface.
-StockSage is the first planned domain app inside that workspace. It needs to
-register actions, skills, app navigation, signals, settings, and eventually
-canvas components without reaching through private Allbert internals.
+StockSage is the first planned domain plugin app inside that workspace. It
+needs to register actions, skills, app navigation, signals, settings, and
+eventually canvas components without reaching through private Allbert
+internals.
 
 ADR 0017 adds a broader plugin contract. That decision does not replace the
 app contract. A plugin is the package/discovery boundary; an app is one
@@ -20,8 +21,8 @@ contribution type inside that boundary.
 The existing core already has important boundaries: registered Jido actions,
 the shared action runner, Security Central, Settings Central, Agent Skills
 discovery, Phoenix PubSub, and the Jido signal bus. What it lacks is a public
-contract for another umbrella app to participate as a first-class Allbert
-workspace app.
+contract for another local app, including plugin-contributed apps, to
+participate as a first-class Allbert workspace app.
 
 v0.24 also plans an agentic workspace surface and declarative UI substrate.
 That canvas should consume a stable Allbert-native app and surface contract
@@ -204,7 +205,7 @@ StockSage polish first consumes it.
 - The built-in chat surface (`/agent`, upgraded to the workspace shell in
   v0.24) is formally declared through `CoreApp`'s `SurfaceProvider`, not an
   orphan LiveView route.
-- StockSage can be added as a plugin-contributed umbrella app without private
+- StockSage can be added as a shipped plugin app without private
   routing, security, or skill-registration shortcuts.
 - Intent routing can use `active_app` from session context to prioritize
   app-scoped actions while keeping cross-app routing explicit.
