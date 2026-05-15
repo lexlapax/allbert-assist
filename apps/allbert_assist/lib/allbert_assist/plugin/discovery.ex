@@ -74,7 +74,9 @@ defmodule AllbertAssist.Plugin.Discovery do
              Validator.diagnostic(
                :info,
                :plugin_scan_path_missing,
-               "Plugin scan path is missing.", path: root_path)
+               "Plugin scan path is missing.",
+               path: root_path
+             )
            ]}
         ]
 
@@ -101,7 +103,9 @@ defmodule AllbertAssist.Plugin.Discovery do
            Validator.diagnostic(
              :debug,
              :plugin_manifest_missing,
-             "Plugin folder has no manifest.", path: folder)
+             "Plugin folder has no manifest.",
+             path: folder
+           )
          ]}
       ]
     end
@@ -138,7 +142,9 @@ defmodule AllbertAssist.Plugin.Discovery do
              Validator.diagnostic(
                :error,
                :manifest_read_failed,
-               "Could not read plugin manifest.", reason: reason)
+               "Could not read plugin manifest.",
+               reason: reason
+             )
            ]}
         ]
     end
@@ -213,7 +219,13 @@ defmodule AllbertAssist.Plugin.Discovery do
 
   defp trust_status(:project, settings, folder) do
     trusted_roots = Enum.map(Map.get(settings, "trusted_project_roots", []), &Path.expand/1)
-    if Path.expand(folder) in trusted_roots, do: :trusted, else: :pending
+    folder = Path.expand(folder)
+
+    if Enum.any?(trusted_roots, &(folder == &1 or String.starts_with?(folder, &1 <> "/"))) do
+      :trusted
+    else
+      :pending
+    end
   end
 
   defp source_for(folder, project_root) do
