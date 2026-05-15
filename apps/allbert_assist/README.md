@@ -2,7 +2,7 @@
 
 Core runtime app for Allbert Assist.
 
-The current v0.19 runtime exposes:
+The current v0.20 runtime exposes:
 
 - `AllbertAssist.Runtime.submit_user_input/1`
 - `AllbertAssist.Agents.IntentAgent`
@@ -18,6 +18,15 @@ The current v0.19 runtime exposes:
 - `AllbertAssist.Surface`
 - `AllbertAssist.Surface.Encoder`
 - `Mix.Tasks.Allbert.ValidateApp`
+- `StockSage.Plugin`
+- `StockSage.App`
+- `StockSage.Actions.ListAnalyses`
+- `StockSage.Actions.ShowAnalysis`
+- `StockSage.Actions.GetTrends`
+- `StockSage.Actions.QueueAnalysis`
+- `mix stocksage.import_sqlite`
+- `mix stocksage.analyses`
+- `mix stocksage.queue`
 - `AllbertAssist.Skills`
 - `AllbertAssist.Actions.Intent.ActivateSkill`
 - `AllbertAssist.Actions.Intent.ExplainIntent`
@@ -57,7 +66,7 @@ remain readable as audit history, while new v0.10 external service, package
 install, and online skill import requests resume only through their registered
 actions after confirmation.
 
-See the umbrella root `README.md`, `docs/plans/v0.19-plan.md`,
-`docs/plans/v0.19-request-flow.md`, and
-`docs/developer/how-to-create-an-allbert-app.md` for current app/surface
-and intent-routing behavior.
+See the umbrella root `README.md`, `docs/plans/v0.20-plan.md`,
+`docs/plans/v0.20-request-flow.md`, `plugins/stocksage/README.md`, and
+`docs/developer/how-to-create-an-allbert-app.md` for current StockSage,
+app/surface, and intent-routing behavior.

@@ -10,12 +10,17 @@ not the architecture center.
 
 ## Current Status
 
-v0.19 is implemented through its M6 closeout on 2026-05-15 and is ready for
-operator manual verification. It adds registry-aware intent candidates,
-active-app affinity, inert registered-surface navigation, optional
-model-assisted classification disabled by default, intent candidate trace
-rendering, and read-only `explain_intent` / `list_intent_candidates`
-inspection actions. Version metadata is now `0.19.0`.
+v0.20 implementation cleanup is in progress on 2026-05-15 to make StockSage
+the first real shipped plugin workspace app, with a `./plugins/stocksage`
+package, shared SQLite `stocksage_*` tables, read-only legacy import, safe
+local StockSage actions, StockSage skills, and bounded operator CLIs. Version
+metadata is now `0.20.0`; release tagging remains pending operator acceptance.
+
+v0.19 remains the cross-surface intent enrichment release: registry-aware
+intent candidates, active-app affinity, inert registered-surface navigation,
+optional model-assisted classification disabled by default, intent candidate
+trace rendering, and read-only `explain_intent` / `list_intent_candidates`
+inspection actions.
 
 v0.18 remains the full local app/surface contract:
 `AllbertAssist.App.SurfaceProvider`, the validated `AllbertAssist.Surface` DSL,
@@ -94,7 +99,7 @@ Release details live in `CHANGELOG.md`.
 - Inspect registered apps through `mix allbert.apps list/show/validate` and
   the read-only registered `list_apps`/`show_app` actions.
 - Keep `allbert` and `stocksage` app ids valid through built-in `CoreApp` and
-  transitional `StockSageStub`.
+  the real plugin-contributed `StockSage.App`.
 - Discover local plugins from `./plugins` and `<ALLBERT_HOME>/plugins` through
   `AllbertAssist.Plugin.Registry` without loading arbitrary code.
 - Inspect normalized plugin metadata through `mix allbert.plugins
@@ -124,6 +129,14 @@ Release details live in `CHANGELOG.md`.
   enabled, proposals must select from already-collected candidates.
 - Inspect intent decisions and candidate sets through read-only internal
   `explain_intent` and `list_intent_candidates` actions.
+- Import representative legacy StockSage SQLite data into local
+  `stocksage_*` tables with `mix stocksage.import_sqlite`.
+- List/show local StockSage analyses and create/list local StockSage queue
+  rows with `mix stocksage.analyses` and `mix stocksage.queue`.
+- Route active StockSage sessions toward the safe local StockSage actions
+  contributed by `StockSage.Plugin`, while keeping Python execution,
+  market-data APIs, StockSage LiveViews, native trading agents, and canvas work
+  in later milestones.
 - Merge app/plugin-contributed settings schema entries into Settings Central
   at read and validation time.
 - Tag registered action capabilities with optional `app_id` when an app claims
@@ -215,10 +228,10 @@ traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.18 implementation plan: `docs/plans/v0.18-plan.md`
-- v0.18 request flow and manual verification: `docs/plans/v0.18-request-flow.md`
+- v0.20 implementation plan: `docs/plans/v0.20-plan.md`
+- v0.20 request flow and manual verification: `docs/plans/v0.20-request-flow.md`
 - App authoring guide: `docs/developer/how-to-create-an-allbert-app.md`
-- Next milestone plan: `docs/plans/v0.19-plan.md`
+- Next milestone plan: `docs/plans/v0.21-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development
@@ -258,6 +271,9 @@ mix allbert.sessions set-active-app --user alice --session sess-1 stocksage
 mix allbert.apps list
 mix allbert.apps show stocksage
 mix allbert.apps validate AllbertAssist.App.CoreApp
+mix stocksage.import_sqlite plugins/stocksage/test/fixtures/stocksage_fixture.db --user local --dry-run
+mix stocksage.analyses list --user local
+mix stocksage.queue create AAPL --user local
 mix allbert.ask --user alice --new-thread "hello"
 mix allbert.threads --user alice
 mix allbert.jobs list --user alice
@@ -328,6 +344,6 @@ Allbert remains local and conservative:
 README is intentionally not the testing plan. Use:
 
 - `docs/operator/onboarding.md` for first-run operator guidance.
-- `docs/plans/v0.19-request-flow.md` for the v0.19 manual verification matrix.
-- `docs/plans/v0.19-plan.md` for milestone-specific verification.
+- `docs/plans/v0.20-request-flow.md` for the v0.20 manual verification matrix.
+- `docs/plans/v0.20-plan.md` for milestone-specific verification.
 - `CHANGELOG.md` for release status, verification summary, and tag readiness.
