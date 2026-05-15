@@ -124,22 +124,32 @@ Dependency order from here:
 14. Additional channels that translate messages into the same runtime.
 15. Plugin contract and shipped source-tree channel plugins so developer
     extensions have one discovery and registration path.
-16. StockSage as the first plugin-contributed workspace app, proving the app
-    contract through the plugin layer.
-17. Memory review, summarization, and retrieval improvements.
-18. Full app contract and Surface DSL before any plugin-contributed app builds
-    web surfaces, so `AllbertAssist.App.SurfaceProvider` is the foundation
-    from day one rather than a later migration.
-19. Cross-surface intent enrichment over real skills, actions, permissions,
-    confirmations, jobs, channels, memory, app context, and surface metadata.
-20. Native Jido trading agents as the analysis engine before StockSage web
-    surfaces are built so both engines are available from day one.
-21. StockSage LiveViews built on the Surface DSL, proving the plugin-contributed
-    app surface pattern.
-22. Security hardening and evals after real execution, import, channel, job,
-    memory, intent, app, surface, and financial-analysis behavior exists.
-23. Workspace canvas and app generator work only after the local runtime,
-    security substrate, and surface contracts are proven.
+16. Full app/surface contract: `CoreApp` becomes the first `SurfaceProvider`
+    (declaring the built-in chat surface), channels default to
+    `active_app: :allbert`, and the contract is ready for StockSage to
+    implement from day one.
+17. Cross-surface intent enrichment over real skills, actions, permissions,
+    confirmations, jobs, channels, existing memory metadata, app context, and
+    registered surface metadata.
+18. StockSage as the first plugin-contributed workspace app, implementing the
+    full app/surface contract from day one through the plugin layer.
+19. Memory review, summarization, and retrieval improvements.
+20. StockSage Python bridge bringing real analysis results into Allbert.
+21. Native Jido trading agents as the second analysis engine so both are
+    available before StockSage web surfaces are built.
+22. Workspace shell upgrade: `CoreApp`'s surface transitions from the
+    rudimentary `/agent` prompt to a signal-driven LiveView workspace with
+    canvas and ephemeral UI substrate.
+23. StockSage LiveViews built on the Surface DSL, proving the plugin-contributed
+    app surface pattern on top of the workspace shell.
+24. Security hardening and evals after real execution, import, channel, job,
+    memory, intent, app, workspace, surface, and financial-analysis behavior
+    exists.
+25. StockSage polish, outcomes, trends, and memory namespace registration as
+    the final deferred layer of the app/surface contract.
+26. StockSage canvas integration wiring existing components into the workspace
+    catalog.
+27. Plugin and app generator encoding only the shape already proven end to end.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
