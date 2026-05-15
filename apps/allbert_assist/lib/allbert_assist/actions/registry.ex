@@ -603,6 +603,10 @@ defmodule AllbertAssist.Actions.Registry do
     |> Enum.map(fn {name, _count} -> name end)
   end
 
+  @doc "Return action registry diagnostics, including plugin action collisions."
+  @spec diagnostics() :: [map()]
+  def diagnostics, do: plugin_action_diagnostics()
+
   defp resolve_name(name, original) do
     normalized = normalize_name(name)
 
@@ -637,9 +641,51 @@ defmodule AllbertAssist.Actions.Registry do
   end
 
   defp plugin_actions do
-    PluginRegistry.registered_actions()
-    |> Enum.filter(&valid_plugin_action?/1)
-    |> Enum.reject(&(&1 in @actions))
+    plugin_action_entries()
+    |> Enum.reject(&plugin_action_duplicate?/1)
+    |> Enum.map(& &1.module)
+  end
+
+  defp plugin_action_entries do
+    PluginRegistry.registered_plugins()
+    |> Enum.flat_map(fn plugin ->
+      plugin.actions
+      |> Enum.filter(&valid_plugin_action?/1)
+      |> Enum.reject(&(&1 in @actions))
+      |> Enum.map(&%{plugin_id: plugin.plugin_id, module: &1, name: normalize_name(&1.name())})
+    end)
+  end
+
+  defp plugin_action_duplicate?(entry) do
+    entry.name in static_action_names() or
+      entry.name in duplicate_plugin_action_names()
+  end
+
+  defp plugin_action_diagnostics do
+    plugin_action_entries()
+    |> Enum.filter(&plugin_action_duplicate?/1)
+    |> Enum.map(fn entry ->
+      %{
+        plugin_id: entry.plugin_id,
+        kind: :duplicate_action_name,
+        severity: :error,
+        message: "Plugin action name collides with another registered action.",
+        action_name: entry.name,
+        action_module: entry.module
+      }
+    end)
+  end
+
+  defp duplicate_plugin_action_names do
+    plugin_action_entries()
+    |> Enum.map(& &1.name)
+    |> Enum.frequencies()
+    |> Enum.filter(fn {_name, count} -> count > 1 end)
+    |> Enum.map(fn {name, _count} -> name end)
+  end
+
+  defp static_action_names do
+    Enum.map(@actions, &normalize_name(&1.name()))
   end
 
   defp valid_plugin_action?(module) do
