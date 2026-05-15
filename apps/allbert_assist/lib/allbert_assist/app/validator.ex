@@ -324,6 +324,7 @@ defmodule AllbertAssist.App.Validator do
          :ok <- validate_unique_provider_surface_ids(validated) do
       {:ok, validated}
     else
+      {:error, reason} -> {:error, reason}
       _other -> {:error, {:invalid_surface_provider, module}}
     end
   end
