@@ -186,14 +186,16 @@ For active v0.19 cross-surface intent enrichment work, read
 `docs/plans/v0.11-plan.md`,
 `docs/plans/v0.11-request-flow.md`, `docs/plans/v0.18-plan.md`,
 `docs/plans/v0.18-request-flow.md`, `docs/plans/allbert-jido-vision.md`,
+`docs/adr/0012-resource-access-security-posture.md`,
 `docs/adr/0014-local-workspace-identity.md`,
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`,
 `docs/adr/0017-allbert-plugin-contract.md`, and
-`docs/adr/0012-resource-access-security-posture.md` before changing intent
-candidate ranking, app/surface routing inputs, model-assisted
-classification, or intent eval fixtures. v0.19 consumes app/surface metadata;
-it must not add new execution powers, treat plugin provenance as authority, or
-treat `active_app` as authorization.
+`docs/adr/0019-cross-surface-intent-enrichment.md` before changing intent
+candidate ranking, app/surface routing inputs, model-assisted classification,
+classifier prompt content, or intent eval fixtures. v0.19 consumes app/surface
+metadata; it must not add new execution powers, treat plugin provenance as
+authority, treat `active_app` as authorization, or make model output
+authoritative over the collected candidate set.
 
 For v0.24 agentic workspace surface and ephemeral UI work, read
 `docs/plans/v0.24-plan.md`, `docs/plans/v0.25-plan.md`,
