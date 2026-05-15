@@ -964,6 +964,8 @@ Expected direction:
 
 Plan: `docs/plans/v0.19-plan.md`
 
+Request flow: `docs/plans/v0.19-request-flow.md`
+
 Status: planned. Formerly v0.15, previously planned as v0.22.
 
 Expected direction:
@@ -971,12 +973,18 @@ Expected direction:
 - Move from route predicates toward hybrid deterministic and model-assisted
   intent ranking over real runtime signals.
 - Use settings, skills, actions, Security Central, confirmations, traces,
-  jobs, channels, memory review, session scratchpad, app registry context, and
-  registered surface metadata as routing inputs.
+  jobs, channels, existing memory/trace metadata, session scratchpad, plugin
+  provenance, app registry context, and registered surface metadata as routing
+  inputs. Reviewed-memory retrieval plugs in later through v0.21 and is not a
+  v0.19 prerequisite.
 - Prioritize app-registered actions and skill paths only when `active_app`
   gives explicit session evidence.
 - Use registered app surface metadata to include surface navigation as a
   routing target when session context supports it.
+- Keep `active_app` and plugin provenance as ranking/explainability metadata,
+  never authorization.
+- Keep v0.11 resource posture and Approval Handoff behavior unchanged for URL,
+  document, package, shell, script, import, MCP, and agent-resource prompts.
 
 ## v0.20: StockSage Plugin, Umbrella App, And Domain
 
