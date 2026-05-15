@@ -202,6 +202,10 @@ Posture.
 For v0.17, plugins are the local package/discovery layer for extension
 contributions. Plugins may contribute apps, channels, actions, skills, settings
 schema entries, and supervised children, but registration is not authority.
+Channel descriptors live in `AllbertAssist.Plugin.Registry`; do not add a
+parallel channel registry in v0.17. Plugin-owned child specs run under the
+plugin child supervisor, while channel adapters remain under
+`AllbertAssist.Channels.Supervisor`.
 Do not load arbitrary code from `<ALLBERT_HOME>/plugins`, execute package
 managers during discovery, auto-trust plugin skills, grant action permissions,
 or bypass confirmations from plugin metadata. Do not automatically compile

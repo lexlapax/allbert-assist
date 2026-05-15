@@ -913,9 +913,13 @@ Expected direction:
   `./plugins/*/lib` directories.
 - Move the v0.16 Telegram and email provider-specific code into the shipped
   plugin packages while preserving v0.16 channel behavior.
-- Let plugin contributions feed app registration, channel descriptors, action
-  registry additions, skill roots, settings schema entries, and supervised
-  children without granting permission or trust.
+- Let plugin contributions feed app registration, first-class channel
+  descriptors in `AllbertAssist.Plugin.Registry`, action registry additions,
+  skill roots, settings schema entries, and supervised children without
+  granting permission or trust.
+- Start compiled plugin-owned child specs under a plugin child supervisor;
+  channel adapters still start under `AllbertAssist.Channels.Supervisor` from
+  registered descriptors.
 - Add `mix allbert.plugins` and read-only plugin inspection actions.
 - Prepare v0.20 StockSage to land through a `./plugins/stocksage` package
   that contributes `StockSage.Plugin`, `StockSage.App`, and StockSage skill
