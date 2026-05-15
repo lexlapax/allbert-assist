@@ -29,16 +29,16 @@ homes:
 - Minimal app registration contract: v0.15.
 - Telegram channel adapter, email channel adapter, and reusable channel foundation: v0.16.
 - Plugin contract and shipped source-tree channel plugins: v0.17.
-- StockSage plugin, umbrella app, and domain: v0.18.
-- Memory review and retrieval: v0.19.
-- StockSage Python bridge: v0.20.
-- Full app contract and Surface DSL: v0.21.
-- Cross-surface intent enrichment: v0.22.
+- Full app contract and Surface DSL: v0.18.
+- Cross-surface intent enrichment: v0.19.
+- StockSage plugin, umbrella app, and domain: v0.20.
+- Memory review and retrieval: v0.21.
+- StockSage Python bridge: v0.22.
 - Native Jido trading agents: v0.23.
-- StockSage LiveViews: v0.24.
-- Security hardening and evals: v0.25.
-- StockSage polish, outcomes, and trends: v0.26.
-- Agentic workspace surface and local ephemeral UI substrate: v0.27.
+- Agentic workspace surface and local ephemeral UI substrate: v0.24.
+- StockSage LiveViews: v0.25.
+- Security hardening and evals: v0.26.
+- StockSage polish, outcomes, and trends: v0.27.
 - StockSage canvas integration: v0.28.
 - Allbert plugin and app generator: v0.29.
 
@@ -101,7 +101,7 @@ arbitrary runtime loading remain parked here.
 Needed before planning:
 
 - v0.17 plugin registry accepted through user testing
-- v0.25 plugin-boundary security evals accepted
+- v0.26 plugin-boundary security evals accepted
 - v0.29 plugin/app generator accepted through user testing
 - dependency install/update policy
 - plugin signing, provenance, versioning, and rollback model
@@ -140,7 +140,7 @@ Needed before planning:
 - v0.16 channel event and identity-map contracts stable
 - provider-specific Settings Central schema and secret policy
 - provider-specific delivery, retry, dedupe, and callback model
-- v0.25 security evals for cross-channel spoofing, replay, group leakage,
+- v0.26 security evals for cross-channel spoofing, replay, group leakage,
   command injection in reply bodies, and resource approval scope leakage
 - operator UX for mapping, disabling, and inspecting external identities
 - clear decision on whether a provider starts as inbound-only, response-only,
@@ -161,7 +161,7 @@ Needed before planning:
 - migration/export policy
 - offline behavior
 - redaction and audit consistency across backends
-- v0.25 security evals covering secret redaction regressions
+- v0.26 security evals covering secret redaction regressions
 
 ### Remote Sync And Profile Export/Import
 
@@ -174,7 +174,7 @@ Needed before planning:
 
 - stable Allbert Home layout
 - schema/version metadata for settings, memory, skills, cache, and database
-- SQLite conversation and app data export policy after v0.12/v0.18
+- SQLite conversation and app data export policy after v0.12/v0.20
 - encrypted secret migration policy
 - conflict resolution policy
 - operator-visible dry run and rollback
@@ -190,7 +190,7 @@ future work for shared workspaces, team channels, or hosted deployments.
 Needed before planning:
 
 - v0.12 string identity and thread isolation accepted
-- v0.25 cross-user/thread leakage evals accepted
+- v0.26 cross-user/thread leakage evals accepted
 - hosted deployment posture and threat model
 - operator/user/admin role model
 - per-user Settings Central scope
@@ -209,28 +209,28 @@ Needed before planning:
 
 - stable settings schema
 - operator workflows from real usage
-- v0.21 app settings schema declarations, if app-scoped settings have landed
+- v0.18 app settings schema declarations, if app-scoped settings have landed
 - grouping, search, validation, and audit navigation design
 - secret entry UX
 - accessibility and mobile behavior
 
 ### Post-v0.29 UI Protocol Interop
 
-Source: operator UI discussion, v0.16 channel planning, v0.19 memory review,
-v0.22 intent enrichment, v0.25 security hardening, and research into A2UI,
+Source: operator UI discussion, v0.16 channel planning, v0.21 memory review,
+v0.19 intent enrichment, v0.26 security hardening, and research into A2UI,
 AG-UI, MCP Apps, ChatGPT Canvas, Claude Artifacts, Google Gemini generative UI,
 BISCUIT, and Athena.
 
-v0.21, v0.27, and v0.28 own the local Allbert-native app contract, surface DSL,
+v0.18, v0.24, and v0.28 own the local Allbert-native app contract, surface DSL,
 workspace, ephemeral UI, canvas, and StockSage canvas proof. The remaining
 unassigned work is external protocol interoperability and richer generated UI
 interfaces after the local substrate is boring and safe.
 
 Needed before broader post-v0.29 planning:
 
-- v0.27 local workspace and surface contracts accepted through user testing
+- v0.24 local workspace and surface contracts accepted through user testing
 - v0.28 app canvas integration accepted through StockSage user testing
-- v0.25/v0.27 security evals proving generated surfaces cannot invent actions,
+- v0.26/v0.24 security evals proving generated surfaces cannot invent actions,
   permissions, resources, scripts, URLs, or secret-bearing output
 - A2UI renderer compatibility assessment
 - AG-UI bridge assessment for agent/frontend event streams
@@ -254,8 +254,8 @@ Needed before planning:
 - v0.16 channel adapter foundation
 - external network/browser permission policy
 - v0.11 URL/document resource posture and Approval Handoff accepted
-- v0.19 memory review workflow
-- v0.25 browser/search security eval posture
+- v0.21 memory review workflow
+- v0.26 browser/search security eval posture
 - sensitive-data detection and confirmation
 - traceable extraction path
 
@@ -273,7 +273,7 @@ Needed before planning:
 
 - stable resource access reference and approval scope records
 - v0.11 URL/document approval handoff accepted through user testing
-- v0.25 prompt-injection and data-exfiltration evals for fetched content
+- v0.26 prompt-injection and data-exfiltration evals for fetched content
 - bounded content cache/digest policy
 - extractor contracts for HTML, markdown, plain text, PDF, office documents,
   archives, and unknown binary content
@@ -298,9 +298,9 @@ handoff, adapter implementation, redaction, trace, audit, and tests.
 Needed before planning:
 
 - v0.11 unsupported MCP/agent URI posture accepted
-- v0.25 evals for cross-scheme grant reuse, tool/resource confusion, prompt
+- v0.26 evals for cross-scheme grant reuse, tool/resource confusion, prompt
   injection through MCP resources, and remote agent impersonation
-- v0.21/v0.27 surface contract stability if MCP Apps UI is in scope
+- v0.18/v0.24 surface contract stability if MCP Apps UI is in scope
 - MCP server configuration and permission model
 - agent endpoint discovery, authentication, and trust model
 - channel-native Approval Handoff consumption from v0.16
@@ -315,7 +315,7 @@ retrieval are stable.
 
 Needed before planning:
 
-- v0.19 reviewed markdown memory corpus
+- v0.21 reviewed markdown memory corpus
 - rebuildable derived artifacts
 - evals for personality and recall quality
 - privacy and deletion policy
@@ -332,7 +332,7 @@ workspace surface contract are stable.
 Needed before planning:
 
 - v0.16 channel adapter contract
-- v0.27 workspace/surface contract
+- v0.24 workspace/surface contract
 - Settings Central channel preferences
 - authentication or local operator identity policy
 - confirmation handoff behavior
@@ -360,7 +360,7 @@ Needed before planning:
 - permission and confirmation integration
 - trace and audit integration
 - install/update story for runtime dependencies
-- v0.25 eval coverage for script/package/resource bypasses
+- v0.26 eval coverage for script/package/resource bypasses
 
 ### Container And Remote Execution Sandboxes
 
@@ -408,7 +408,7 @@ Questions to resolve before graduation:
   sandbox fails
 
 v0.08 through v0.11 establish the local host-process and resource-access
-baseline. v0.25 should show which real workflows cannot be made acceptable
+baseline. v0.26 should show which real workflows cannot be made acceptable
 with registered actions, Settings Central policy, Security Central,
 confirmation, Level 1/Level 2 host controls, redaction, and audit alone.
 

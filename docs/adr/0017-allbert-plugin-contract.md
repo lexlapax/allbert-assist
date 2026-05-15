@@ -101,7 +101,7 @@ plugin entrypoint. Domain apps may use their own supervisor, such as
 queues for that app should be descendants of that supervisor so they share the
 plugin lifecycle and cannot bypass plugin enablement/disablement semantics.
 
-StockSage should then land as a plugin-contributed app in v0.18 through
+StockSage should then land as a plugin-contributed app in v0.20 through
 `./plugins/stocksage`. The app contract remains intact; the plugin layer feeds
 `StockSage.App` into `AllbertAssist.App.Registry` rather than replacing the
 app registry. ADR 0018 owns StockSage's local domain and persistence boundary.
@@ -117,7 +117,7 @@ app registry. ADR 0018 owns StockSage's local domain and persistence boundary.
   loading.
 - Code-bearing third-party plugins require developer review, explicit
   compilation, and tests before they can participate in runtime behavior.
-- v0.21 app/surface work can build on the plugin layer instead of broadening
+- v0.18 app/surface work can build on the plugin layer instead of broadening
   app registration into a catch-all extension registry.
 - v0.29 generator work should generate plugin scaffolds, not only app modules.
 
