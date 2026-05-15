@@ -10,11 +10,12 @@ not the architecture center.
 
 ## Current Status
 
-v0.20 implementation cleanup is in progress on 2026-05-15 to make StockSage
-the first real shipped plugin workspace app, with a `./plugins/stocksage`
-package, shared SQLite `stocksage_*` tables, read-only legacy import, safe
-local StockSage actions, StockSage skills, and bounded operator CLIs. Version
-metadata is now `0.20.0`; release tagging remains pending operator acceptance.
+v0.20 is implemented through plugin-ownership cleanup on 2026-05-15 and is
+ready for operator manual verification. It makes StockSage the first real
+shipped plugin workspace app, with a `./plugins/stocksage` package, shared
+SQLite `stocksage_*` tables, read-only legacy import, safe local StockSage
+actions, StockSage skills, and bounded operator CLIs. Version metadata is now
+`0.20.0`; release tagging remains pending operator acceptance.
 
 v0.19 remains the cross-surface intent enrichment release: registry-aware
 intent candidates, active-app affinity, inert registered-surface navigation,

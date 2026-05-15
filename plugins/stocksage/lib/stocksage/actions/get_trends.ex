@@ -37,7 +37,12 @@ defmodule StockSage.Actions.GetTrends do
        %{
          message: "StockSage trends include #{trends.returned} local outcomes.",
          status: :completed,
-         trends: Map.update!(trends, :outcomes, &Enum.map(&1, fn outcome -> outcome_summary(outcome) end)),
+         trends:
+           Map.update!(
+             trends,
+             :outcomes,
+             &Enum.map(&1, fn outcome -> outcome_summary(outcome) end)
+           ),
          actions: [
            Actions.action("get_trends", :completed, :read_only, permission_decision, %{
              returned: trends.returned

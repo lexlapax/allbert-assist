@@ -57,34 +57,38 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
 
     action_names = Enum.map(IntentAgent.action_modules(), & &1.name())
 
-    assert action_names == [
-             "direct_answer",
-             "append_memory",
-             "read_recent_memory",
-             "list_skills",
-             "read_skill",
-             "activate_skill",
-             "plan_shell_command",
-             "run_shell_command",
-             "unsupported_resource_workflow",
-             "external_network_request",
-             "plan_package_install",
-             "search_online_skills",
-             "show_online_skill",
-             "list_settings",
-             "read_setting",
-             "update_setting",
-             "explain_setting",
-             "list_provider_profiles",
-             "list_model_profiles",
-             "set_provider_credential",
-             "list_channels",
-             "show_channel",
-             "list_apps",
-             "show_app",
-             "list_plugins",
-             "show_plugin"
-           ]
+    core_actions = [
+      "direct_answer",
+      "append_memory",
+      "read_recent_memory",
+      "list_skills",
+      "read_skill",
+      "activate_skill",
+      "plan_shell_command",
+      "run_shell_command",
+      "unsupported_resource_workflow",
+      "external_network_request",
+      "plan_package_install",
+      "search_online_skills",
+      "show_online_skill",
+      "list_settings",
+      "read_setting",
+      "update_setting",
+      "explain_setting",
+      "list_provider_profiles",
+      "list_model_profiles",
+      "set_provider_credential",
+      "list_channels",
+      "show_channel",
+      "list_apps",
+      "show_app",
+      "list_plugins",
+      "show_plugin"
+    ]
+
+    stocksage_actions = ["list_analyses", "show_analysis", "get_trends", "queue_analysis"]
+
+    assert action_names in [core_actions, core_actions ++ stocksage_actions]
   end
 
   test "routes explicit settings prompts to settings actions" do

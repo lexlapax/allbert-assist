@@ -74,7 +74,8 @@ defmodule StockSage.Import.SqliteImporterTest do
   end
 
   test "rejects missing paths and remote uris before opening a database" do
-    assert {:error, {:not_found, _path}} = SqliteImporter.import("/tmp/does-not-exist-stocksage.db")
+    assert {:error, {:not_found, _path}} =
+             SqliteImporter.import("/tmp/does-not-exist-stocksage.db")
 
     assert {:error, {:remote_uri_not_allowed, "https://example.com/stocksage.db"}} =
              SqliteImporter.import("https://example.com/stocksage.db")

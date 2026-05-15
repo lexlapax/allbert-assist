@@ -82,7 +82,11 @@ defmodule StockSage.Actions.ListAnalyses do
        message: "StockSage analyses are not available to this request.",
        status: status,
        error: :permission_denied,
-       actions: [Actions.action(name, status, :read_only, permission_decision, %{error: :permission_denied})]
+       actions: [
+         Actions.action(name, status, :read_only, permission_decision, %{
+           error: :permission_denied
+         })
+       ]
      }}
   end
 end

@@ -66,7 +66,8 @@ defmodule StockSage.Actions do
 
   def blank_to_nil(value), do: value
 
-  def status_from_decision(permission_decision), do: PermissionGate.response_status(permission_decision)
+  def status_from_decision(permission_decision),
+    do: PermissionGate.response_status(permission_decision)
 
   def allowed?(permission_decision), do: PermissionGate.allowed?(permission_decision)
 
