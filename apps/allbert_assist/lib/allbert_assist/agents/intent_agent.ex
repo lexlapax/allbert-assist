@@ -700,7 +700,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
     decision =
       decision
       |> sync_decision_after_response(response, context)
-      |> Engine.put_candidate_metadata()
+      |> Engine.put_candidate_metadata(context)
 
     approval_handoff = ApprovalHandoff.to_map(decision.approval_handoff)
 
