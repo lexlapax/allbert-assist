@@ -1,6 +1,7 @@
 defmodule AllbertAssist.JobsTest do
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Jobs
@@ -10,6 +11,7 @@ defmodule AllbertAssist.JobsTest do
   alias AllbertAssist.Jobs.Scheduler
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
@@ -360,6 +362,7 @@ defmodule AllbertAssist.JobsTest do
     test "runtime prompt jobs inherit active app context from session scratchpad" do
       user = "job-session-#{System.unique_integer([:positive])}"
       session_id = "sess-1"
+      ensure_stocksage_app!()
 
       on_exit(fn -> Session.clear(user, session_id) end)
 
@@ -754,6 +757,18 @@ defmodule AllbertAssist.JobsTest do
 
   defp restore_app_env(module, config) do
     Application.put_env(:allbert_assist, module, config)
+  end
+
+  defp ensure_stocksage_app! do
+    case AppRegistry.lookup(:stocksage) do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, :not_found} ->
+        PluginRegistry.register_module(StockSage.Plugin)
+        assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+        on_exit(fn -> AppRegistry.unregister(:stocksage) end)
+    end
   end
 
   defp start_test_scheduler(opts) do

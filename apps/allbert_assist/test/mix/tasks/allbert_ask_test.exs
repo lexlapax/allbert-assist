@@ -3,6 +3,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Execution.Audit
@@ -21,6 +22,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
     original_trace_enabled_env = System.get_env("ALLBERT_TRACE_ENABLED")
+    stocksage_registered? = AppRegistry.known_app_id?(:stocksage)
     parent = self()
 
     root =
@@ -54,6 +56,10 @@ defmodule Mix.Tasks.Allbert.AskTest do
     Application.delete_env(:allbert_assist, Trace)
     System.delete_env("ALLBERT_TRACE_ENABLED")
 
+    unless stocksage_registered? do
+      AppRegistry.register(StockSage.App)
+    end
+
     on_exit(fn ->
       restore_env(Runtime, original_runtime_config)
       restore_env(Memory, original_memory_config)
@@ -62,6 +68,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
       restore_system_env("ALLBERT_TRACE_ENABLED", original_trace_enabled_env)
+      unless stocksage_registered?, do: AppRegistry.unregister(:stocksage)
       Mix.Task.reenable("allbert.ask")
       File.rm_rf!(root)
     end)
@@ -130,6 +137,31 @@ defmodule Mix.Tasks.Allbert.AskTest do
                      %{
                        user_id: ^user,
                        session_id: ^session_id,
+                       active_app: :stocksage
+                     }}
+  end
+
+  test "passes one-turn active app option through runtime" do
+    user = "ask-active-app-#{System.unique_integer([:positive])}"
+
+    output =
+      capture_io(fn ->
+        assert :ok =
+                 Ask.run([
+                   "--user",
+                   user,
+                   "--active-app",
+                   "stocksage",
+                   "list my analyses"
+                 ])
+      end)
+
+    assert output =~ "User: #{user}"
+    assert output =~ "Active app: stocksage"
+
+    assert_received {:agent_request,
+                     %{
+                       user_id: ^user,
                        active_app: :stocksage
                      }}
   end

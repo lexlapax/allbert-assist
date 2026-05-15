@@ -4,10 +4,13 @@ defmodule Mix.Tasks.Allbert.AppsTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias Mix.Tasks.Allbert.Apps, as: AppsTask
   alias Mix.Tasks.Allbert.ValidateApp, as: ValidateAppTask
 
   setup do
+    ensure_stocksage_app!()
+
     on_exit(fn ->
       Mix.Task.reenable("allbert.apps")
       Mix.Task.reenable("allbert.validate_app")
@@ -82,6 +85,18 @@ defmodule Mix.Tasks.Allbert.AppsTest do
 
     assert_raise ArgumentError, fn ->
       String.to_existing_atom(atom_name)
+    end
+  end
+
+  defp ensure_stocksage_app! do
+    case AppRegistry.lookup(:stocksage) do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, :not_found} ->
+        PluginRegistry.register_module(StockSage.Plugin)
+        assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+        on_exit(fn -> AppRegistry.unregister(:stocksage) end)
     end
   end
 end

@@ -113,9 +113,13 @@ defmodule AllbertAssist.Agents.IntentAgent do
   def respond(_request), do: {:error, :missing_text}
 
   defp engine_request(request, route, %Decision{} = decision) do
-    request
-    |> Map.put(:route_hint, route_hint(route))
-    |> Map.put(:route_decision, decision)
+    request = Map.put(request, :route_hint, route_hint(route))
+
+    if route == :direct_answer do
+      request
+    else
+      Map.put(request, :route_decision, decision)
+    end
   end
 
   defp route_hint(route) do
@@ -135,10 +139,24 @@ defmodule AllbertAssist.Agents.IntentAgent do
       {:ok, decision_refusal_response(decision)}
     else
       route
+      |> execution_route_for_decision(decision)
       |> run_route(text, context)
       |> attach_decision(decision, context)
     end
   end
+
+  defp execution_route_for_decision(:direct_answer, %Decision{
+         active_app: active_app,
+         trace_metadata: %{app_id: app_id},
+         intent: :registry_action,
+         selected_action: action_name
+       })
+       when not is_nil(active_app) and app_id == active_app and is_binary(action_name) and
+              action_name != "direct_answer" do
+    {:registry_action, action_name}
+  end
+
+  defp execution_route_for_decision(route, _decision), do: route
 
   defp surface_navigation_response(%Decision{} = decision) do
     target = Map.get(decision.trace_metadata, :surface_target, %{})
@@ -732,6 +750,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
     run_skill_action("direct-answer", "direct_answer", %{text: text}, text, context)
   end
 
+  defp run_route({:registry_action, action_name}, text, context) do
+    run_action(action_name, registry_action_params(action_name, text, context), text, context)
+  end
+
   defp run_skill_action(skill_name, action_name, params, text, context) do
     case ActionPlan.build(skill_name, action_name, params, context) do
       {:ok, plan} ->
@@ -753,6 +775,37 @@ defmodule AllbertAssist.Agents.IntentAgent do
     Runner.run(action_name, params, runner_context)
   end
 
+  defp registry_action_params(action_name, text, %{request: request}) do
+    %{}
+    |> maybe_put_param(:user_id, Map.get(request, :user_id))
+    |> maybe_put_param(:thread_id, Map.get(request, :thread_id))
+    |> maybe_put_param(:session_id, Map.get(request, :session_id))
+    |> maybe_put_symbol(action_name, text)
+  end
+
+  defp maybe_put_param(params, _key, nil), do: params
+  defp maybe_put_param(params, _key, ""), do: params
+  defp maybe_put_param(params, key, value), do: Map.put(params, key, value)
+
+  defp maybe_put_symbol(params, action_name, text)
+       when action_name in ["get_trends", "queue_analysis"] do
+    case stock_symbol_from_text(text) do
+      nil -> params
+      symbol -> Map.put(params, :symbol, symbol)
+    end
+  end
+
+  defp maybe_put_symbol(params, _action_name, _text), do: params
+
+  defp stock_symbol_from_text(text) do
+    ~r/\b[A-Z]{1,5}\b/
+    |> Regex.run(text)
+    |> case do
+      [symbol] -> symbol
+      _other -> nil
+    end
+  end
+
   defp attach_decision({:ok, response}, %Decision{} = decision, context) do
     decision =
       decision
@@ -764,6 +817,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
     response =
       response
       |> Map.put(:decision, decision)
+      |> Map.put(:active_app, decision.active_app)
       |> Map.put(:resource_access, ResourceAccess.to_maps(decision.resource_access))
       |> Map.put(:approval_handoff, approval_handoff)
       |> Map.update(:actions, [], &attach_approval_handoff(&1, approval_handoff))

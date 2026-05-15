@@ -79,6 +79,7 @@ defmodule AllbertAssist.MixProject do
     [
       setup: ["deps.get", "ecto.setup"],
       "ecto.setup": ["ecto.create", migrate_task(), "run #{__DIR__}/priv/repo/seeds.exs"],
+      "ecto.migrate.allbert": [migrate_task()],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", migrate_task("--quiet"), "test"]
     ]

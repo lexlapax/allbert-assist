@@ -63,10 +63,16 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
     original_apps = Application.get_env(:allbert_assist, :apps)
     original_bootstrap = Application.get_env(:allbert_assist, :apps_bootstrap)
 
+    PluginRegistry.clear()
+    PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+    PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+    PluginRegistry.register_module(StockSage.Plugin)
+
     on_exit(fn ->
       PluginRegistry.clear()
       PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
       PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+      PluginRegistry.register_module(StockSage.Plugin)
       restore_env(:apps, original_apps)
       restore_env(:apps_bootstrap, original_bootstrap)
     end)
