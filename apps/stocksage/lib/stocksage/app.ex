@@ -1,0 +1,31 @@
+defmodule StockSage.App do
+  @moduledoc """
+  Allbert app contract implementation for StockSage.
+
+  v0.20 registers StockSage as a real app with no concrete web surfaces yet.
+  v0.25 fills in LiveView route surfaces through the same provider behaviour.
+  """
+
+  use AllbertAssist.App
+  use AllbertAssist.App.SurfaceProvider
+
+  @impl true
+  def app_id, do: :stocksage
+
+  @impl true
+  def display_name, do: "StockSage"
+
+  @impl true
+  def version, do: "0.20.0"
+
+  @impl true
+  def validate(_opts), do: :ok
+
+  @impl AllbertAssist.App
+  def skill_paths, do: StockSage.Plugin.skill_paths()
+
+  @impl AllbertAssist.App
+  def surfaces, do: []
+
+  def surface_catalog, do: []
+end
