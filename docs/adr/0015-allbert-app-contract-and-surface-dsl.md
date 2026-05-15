@@ -91,10 +91,17 @@ LiveView, PubSub, Jido signals, registered actions, and
 the same validation, provenance, fallback text, redaction, and action-binding
 rules.
 
-StockSage is the first proving app for this contract. v0.18 establishes the
-full contract before StockSage lands; v0.20, formerly M-D2a, implements
-`StockSage.App` with the full v0.18 contract from day one — there is no
-lite→full migration. v0.25 builds all StockSage LiveViews on
+`AllbertAssist.App.CoreApp` is the first `SurfaceProvider` implementation,
+established in v0.18. It declares the `/agent` conversation route as the
+built-in chat surface — the default surface every channel and runtime turn
+lands on when no other `active_app` is active. Channel-delivered requests
+default to `active_app: :allbert` in v0.18 so every turn has a declared home
+app. v0.24 upgrades `CoreApp`'s surface from `/agent` into the full workspace
+shell; it is `CoreApp`'s surface implementation, not a separate shell.
+
+StockSage is the second proving app for this contract. v0.20, formerly M-D2a,
+implements `StockSage.App` with the full v0.18 contract from day one — there
+is no lite→full migration. v0.25 builds all StockSage LiveViews on
 `AllbertAssist.App.SurfaceProvider` from day one; there is no stepping-stone
 static route mounting that later migrates to the surface contract. Memory
 namespace registration is the one deferred layer, added in v0.27 where
@@ -108,12 +115,18 @@ post-v0.29 adapter work.
 
 ## Consequences
 
+- Every runtime turn has a declared home app from v0.18: `active_app: :allbert`
+  by default, overridden when a specific app context is active.
+- The built-in chat surface (`/agent`, upgraded to the workspace shell in v0.24)
+  is formally declared through `CoreApp`'s `SurfaceProvider`, not an orphan
+  LiveView route.
 - StockSage can be added as a plugin-contributed umbrella app without private
   routing, security, or skill-registration shortcuts.
 - Intent routing can use `active_app` from session context to prioritize
   app-scoped actions while keeping cross-app routing explicit.
 - v0.24 has a concrete app registry and surface DSL to consume for workspace
-  shell navigation and canvas component validation.
+  shell navigation and canvas component validation. v0.24 is `CoreApp`'s
+  surface upgrade, not a separate shell.
 - Future Allbert apps get a stable contract before generator work begins.
 - The app contract does not add new execution authority. Permission decisions
   remain at the action boundary.
