@@ -33,8 +33,8 @@ defmodule AllbertAssist.MixProject do
 
   defp shipped_plugin_paths do
     [
-      "../../plugins/allbert.telegram/lib",
-      "../../plugins/allbert.email/lib"
+      Path.expand("../../plugins/allbert.telegram/lib", __DIR__),
+      Path.expand("../../plugins/allbert.email/lib", __DIR__)
     ]
   end
 

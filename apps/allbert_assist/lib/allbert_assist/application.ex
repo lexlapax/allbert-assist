@@ -17,12 +17,18 @@ defmodule AllbertAssist.Application do
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
         AllbertAssist.Jido
       ]
+      |> maybe_add_plugin_supervisor()
       |> maybe_add_app_supervisor()
       |> maybe_add_session_scratchpad()
       |> maybe_add_scheduler()
       |> maybe_add_channels_supervisor()
 
     Supervisor.start_link(children, strategy: :one_for_one, name: AllbertAssist.Supervisor)
+  end
+
+  defp maybe_add_plugin_supervisor(children) do
+    opts = Application.get_env(:allbert_assist, AllbertAssist.Plugin.Registry, [])
+    children ++ [{AllbertAssist.Plugin.Supervisor, opts}]
   end
 
   defp maybe_add_session_scratchpad(children) do
