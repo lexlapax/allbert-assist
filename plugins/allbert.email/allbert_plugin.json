@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "plugin_id": "allbert.email",
+  "name": "Allbert Email Channel",
+  "version": "0.17.0",
+  "kind": "channel",
+  "module": "AllbertAssist.Plugins.Email",
+  "contributions": {
+    "channels": ["email"],
+    "apps": [],
+    "actions": []
+  }
+}

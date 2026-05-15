@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "plugin_id": "allbert.telegram",
+  "name": "Allbert Telegram Channel",
+  "version": "0.17.0",
+  "kind": "channel",
+  "module": "AllbertAssist.Plugins.Telegram",
+  "contributions": {
+    "channels": ["telegram"],
+    "apps": [],
+    "actions": []
+  }
+}
