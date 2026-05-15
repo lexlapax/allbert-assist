@@ -11,21 +11,37 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Channels
   alias AllbertAssist.Intent.Candidate
   alias AllbertAssist.Intent.Classifier
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Ranker
+  alias AllbertAssist.Jobs
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills
 
   @spec decide(map()) :: {:ok, Decision.t()} | {:error, term()}
+  def decide(%{route_decision: %Decision{} = decision} = request) when is_map(request) do
+    if explicit_route_hint?(request) do
+      {:ok, put_candidate_metadata(decision, %{request: request})}
+    else
+      decide_without_explicit_route(request)
+    end
+  end
+
   def decide(request) when is_map(request) do
+    decide_without_explicit_route(request)
+  end
+
+  def decide(value), do: {:error, {:invalid_request, value}}
+
+  defp decide_without_explicit_route(request) do
     app_context = active_app_context(request)
     candidates = ranked_candidates(request)
     {classifier_candidate, classifier_diagnostic} = classifier_candidate(candidates, request)
 
     attrs =
-      case classifier_candidate || surface_navigation_candidate(candidates) do
+      case selected_route_candidate(classifier_candidate, candidates, request) do
         nil ->
           direct_answer_attrs(request, app_context, classifier_diagnostic)
 
@@ -33,29 +49,24 @@ defmodule AllbertAssist.Intent.Engine do
           decision_attrs_for_candidate(candidate, request, app_context, classifier_diagnostic)
       end
 
-    with {:ok, decision} <- Decision.new(attrs) do
+    with {:ok, decision} <- build_decision(attrs, request, classifier_diagnostic) do
       {:ok, put_candidate_metadata(decision, %{request: request})}
     end
   end
 
-  def decide(value), do: {:error, {:invalid_request, value}}
-
   @spec put_candidate_metadata(Decision.t(), map()) :: Decision.t()
   def put_candidate_metadata(%Decision{} = decision, context) do
     request = request_from_context(context)
-    selected = selected_candidate(decision)
+    collected_candidates = collect_candidates(request)
+    selected = selected_candidate(decision, collected_candidates)
 
     candidates =
-      request
-      |> collect_candidates()
+      collected_candidates
       |> include_selected(selected)
       |> Ranker.rank(request)
       |> Candidate.bound(total_limit: max_candidates())
 
-    rejected =
-      candidates
-      |> Enum.reject(&(field(&1, :id) == selected.id and field(&1, :kind) == selected.kind))
-      |> Enum.map(&Candidate.to_map/1)
+    rejected = rejected_candidates(candidates, selected)
 
     trace_metadata =
       decision.trace_metadata
@@ -64,7 +75,7 @@ defmodule AllbertAssist.Intent.Engine do
         selected: selected |> Candidate.to_map(),
         rejected: rejected,
         total: length(candidates),
-        engine_version: "v0.19-m2"
+        engine_version: "v0.19"
       })
 
     %{decision | trace_metadata: trace_metadata}
@@ -85,6 +96,7 @@ defmodule AllbertAssist.Intent.Engine do
   def collect_candidates(request) when is_map(request) do
     request
     |> do_collect_candidates()
+    |> Ranker.rank(request)
     |> Candidate.bound(total_limit: max_candidates())
   end
 
@@ -131,6 +143,7 @@ defmodule AllbertAssist.Intent.Engine do
           source_text: field(request, :text),
           classifier_selected?: not is_nil(classifier_diagnostic)
         }
+        |> put_route_hint(candidate)
         |> put_classifier(classifier_diagnostic),
       context: %{request: request}
     }
@@ -152,6 +165,58 @@ defmodule AllbertAssist.Intent.Engine do
       trace_metadata:
         %{
           source_text: field(request, :text),
+          classifier_selected?: not is_nil(classifier_diagnostic)
+        }
+        |> put_route_hint(candidate)
+        |> put_classifier(classifier_diagnostic),
+      context: %{request: request}
+    }
+  end
+
+  defp decision_attrs_for_candidate(
+         %{kind: :memory} = candidate,
+         request,
+         app_context,
+         classifier_diagnostic
+       ) do
+    %{
+      intent: field(candidate, :trace_metadata, %{}) |> field(:intent, :direct_answer),
+      confidence: Ranker.score(candidate),
+      reason: field(candidate, :reason),
+      selected_skill: field(candidate, :skill_name),
+      selected_action: field(candidate, :action_name),
+      active_app: app_context.active_app,
+      diagnostics: app_context.diagnostics,
+      trace_metadata:
+        %{
+          source_text: field(request, :text),
+          candidate_kind: :memory,
+          classifier_selected?: not is_nil(classifier_diagnostic)
+        }
+        |> put_classifier(classifier_diagnostic),
+      context: %{request: request}
+    }
+  end
+
+  defp decision_attrs_for_candidate(
+         %{kind: kind} = candidate,
+         request,
+         app_context,
+         classifier_diagnostic
+       )
+       when kind in [:job, :channel, :refusal] do
+    %{
+      intent: field(candidate, :trace_metadata, %{}) |> field(:intent, :direct_answer),
+      confidence: Ranker.score(candidate),
+      reason: field(candidate, :reason),
+      selected_action: field(candidate, :action_name),
+      active_app: app_context.active_app,
+      diagnostics: app_context.diagnostics,
+      trace_metadata:
+        %{
+          source_text: field(request, :text),
+          candidate_kind: kind,
+          candidate_id: field(candidate, :id),
           classifier_selected?: not is_nil(classifier_diagnostic)
         }
         |> put_classifier(classifier_diagnostic),
@@ -192,19 +257,65 @@ defmodule AllbertAssist.Intent.Engine do
     |> Candidate.bound(total_limit: max_candidates())
   end
 
-  defp surface_navigation_candidate(candidates) do
-    candidates
-    |> Enum.find(fn candidate ->
-      field(candidate, :kind) == :surface and
-        get_in_trace(candidate, :ranking_reason) == :surface_text_match
+  defp selected_route_candidate(classifier_candidate, candidates, request) do
+    classifier_candidate ||
+      surface_navigation_candidate(candidates, request) ||
+      route_hint_candidate(candidates) ||
+      deterministic_candidate(candidates)
+  end
+
+  defp surface_navigation_candidate(candidates, request) do
+    if route_hint_direct_answer?(request) do
+      candidates
+      |> Enum.find(fn candidate ->
+        field(candidate, :kind) == :surface and
+          get_in_trace(candidate, :ranking_reason) == :surface_text_match
+      end)
+    end
+  end
+
+  defp route_hint_candidate(candidates) do
+    Enum.find(candidates, &(get_in_trace(&1, :engine_route_hint?) == true))
+  end
+
+  defp deterministic_candidate(candidates) do
+    Enum.find(candidates, fn candidate ->
+      get_in_trace(candidate, :ranking_reason) in [
+        :action_text_match,
+        :skill_text_match,
+        :job_text_match,
+        :channel_text_match,
+        :memory_keyword_match,
+        :refusal_keyword_match
+      ]
     end)
   end
 
   defp classifier_candidate(candidates, request) do
-    case Classifier.classify(candidates, request) do
-      {:ok, %{candidate: candidate, diagnostic: diagnostic}} -> {candidate, diagnostic}
-      {:error, %{status: :disabled}} -> {nil, nil}
-      {:error, diagnostic} -> {nil, diagnostic}
+    if classifier_allowed?(request) do
+      case Classifier.classify(candidates, request) do
+        {:ok, %{candidate: candidate, diagnostic: diagnostic}} -> {candidate, diagnostic}
+        {:error, %{status: :disabled}} -> {nil, nil}
+        {:error, diagnostic} -> {nil, diagnostic}
+      end
+    else
+      {nil, nil}
+    end
+  end
+
+  defp selected_candidate(%Decision{} = decision, candidates) when is_list(candidates) do
+    case route_hint_candidate(candidates) do
+      %{id: id, kind: kind} = candidate ->
+        selected = Candidate.selected_from_decision(decision)
+
+        if selected.id == id and selected.kind == kind do
+          candidate
+        else
+          selected_candidate(decision)
+        end
+
+      nil ->
+        selected_candidate(decision)
     end
   end
 
@@ -233,16 +344,23 @@ defmodule AllbertAssist.Intent.Engine do
   defp selected_candidate(%Decision{} = decision), do: Candidate.selected_from_decision(decision)
 
   defp do_collect_candidates(request) do
-    action_candidates() ++ skill_candidates(request) ++ surface_candidates()
+    route_hint_candidates(request) ++
+      action_candidates(request) ++
+      surface_candidates() ++
+      relevant_job_candidates(request) ++
+      relevant_channel_candidates(request) ++
+      memory_candidates(request) ++
+      refusal_candidates(request) ++
+      relevant_skill_candidates(request)
   end
 
-  defp action_candidates do
+  defp action_candidates(request) do
     ActionsRegistry.agent_capabilities()
-    |> Enum.map(&candidate_from_capability/1)
+    |> Enum.map(&candidate_from_capability(&1, request))
     |> Enum.reject(&is_nil/1)
   end
 
-  defp candidate_from_capability(%Capability{} = capability) do
+  defp candidate_from_capability(%Capability{} = capability, request) do
     Candidate.new!(%{
       kind: :action,
       id: capability.name,
@@ -257,11 +375,35 @@ defmodule AllbertAssist.Intent.Engine do
       permission: capability.permission,
       execution_mode: capability.execution_mode,
       confirmation: capability.confirmation,
+      resource_access: action_resource_access(capability, request),
       trace_metadata: Capability.summary(capability)
     })
   rescue
     _exception -> nil
   end
+
+  defp route_hint_candidates(%{route_decision: %Decision{} = decision, route_hint: route_hint}) do
+    selected = Candidate.selected_from_decision(decision)
+
+    [
+      %{
+        selected
+        | score: 1.0,
+          source: :deterministic,
+          reason: "Selected by the deterministic IntentAgent route candidate.",
+          trace_metadata: %{
+            engine_route_hint?: true,
+            route: field(route_hint, :route),
+            explicit?: field(route_hint, :explicit?, false),
+            source: field(route_hint, :source)
+          }
+      }
+    ]
+  rescue
+    _exception -> []
+  end
+
+  defp route_hint_candidates(_request), do: []
 
   defp skill_candidates(request) do
     {:ok, skills} = Skills.list(%{request: request})
@@ -271,6 +413,10 @@ defmodule AllbertAssist.Intent.Engine do
     |> Enum.reject(&is_nil/1)
   rescue
     _exception -> []
+  end
+
+  defp relevant_skill_candidates(request) do
+    if skill_candidates_relevant?(request), do: skill_candidates(request), else: []
   end
 
   defp candidate_from_skill(skill) do
@@ -333,6 +479,158 @@ defmodule AllbertAssist.Intent.Engine do
     _exception -> nil
   end
 
+  defp job_candidates(request) do
+    user_id = field(request, :user_id) || field(request, :operator_id) || "local"
+
+    user_id
+    |> Jobs.list_jobs(limit: 10)
+    |> Enum.map(&candidate_from_job/1)
+    |> Enum.reject(&is_nil/1)
+  rescue
+    _exception -> []
+  end
+
+  defp relevant_job_candidates(request) do
+    text = field(request, :text) || ""
+
+    if job_text?(text), do: job_candidates(request), else: []
+  end
+
+  defp candidate_from_job(job) do
+    Candidate.new!(%{
+      kind: :job,
+      id: job.id,
+      label: job.name,
+      source: :job,
+      status: :candidate,
+      score: 0.18,
+      reason: "Scheduled job #{job.name}.",
+      job_id: job.id,
+      app_id: app_id_from_string(job.app_id),
+      trace_metadata: %{
+        status: job.status,
+        target_type: job.target_type,
+        schedule_kind: field(job.schedule, :kind),
+        thread_mode: job.thread_mode
+      }
+    })
+  rescue
+    _exception -> nil
+  end
+
+  defp channel_candidates do
+    Channels.list_channels()
+    |> Enum.map(&candidate_from_channel/1)
+    |> Enum.reject(&is_nil/1)
+  rescue
+    _exception -> []
+  end
+
+  defp relevant_channel_candidates(request) do
+    text = field(request, :text) || ""
+
+    if channel_text?(text), do: channel_candidates(), else: []
+  end
+
+  defp candidate_from_channel(channel) do
+    channel_id = field(channel, :channel)
+
+    Candidate.new!(%{
+      kind: :channel,
+      id: channel_id,
+      label: field(channel, :provider) || channel_id,
+      source: :channel,
+      status: :candidate,
+      score: 0.18,
+      reason: "Registered channel #{channel_id}.",
+      channel_id: channel_id,
+      plugin_id: field(channel, :plugin_id),
+      action_name: "list_channels",
+      trace_metadata: %{
+        provider: field(channel, :provider),
+        enabled: field(channel, :enabled),
+        identity_count: field(channel, :identity_count),
+        credential_status: field(channel, :credential_status)
+      }
+    })
+  rescue
+    _exception -> nil
+  end
+
+  defp memory_candidates(request) do
+    text = field(request, :text) || ""
+
+    []
+    |> maybe_add_memory_append_candidate(text)
+    |> maybe_add_memory_read_candidate(text)
+  end
+
+  defp maybe_add_memory_append_candidate(candidates, text) do
+    if memory_append_text?(text) do
+      [
+        Candidate.new!(%{
+          kind: :memory,
+          id: "markdown_memory:append",
+          label: "Append markdown memory",
+          source: :memory,
+          status: :candidate,
+          score: 0.3,
+          reason: "Request text matched markdown memory write language.",
+          action_name: "append_memory",
+          skill_name: "append-memory",
+          trace_metadata: %{intent: :append_memory}
+        })
+        | candidates
+      ]
+    else
+      candidates
+    end
+  end
+
+  defp maybe_add_memory_read_candidate(candidates, text) do
+    if memory_read_text?(text) do
+      [
+        Candidate.new!(%{
+          kind: :memory,
+          id: "markdown_memory:read_recent",
+          label: "Read recent markdown memory",
+          source: :memory,
+          status: :candidate,
+          score: 0.3,
+          reason: "Request text matched markdown memory recall language.",
+          action_name: "read_recent_memory",
+          skill_name: "read-recent-memory",
+          trace_metadata: %{intent: :read_recent_memory}
+        })
+        | candidates
+      ]
+    else
+      candidates
+    end
+  end
+
+  defp refusal_candidates(request) do
+    text = field(request, :text) || ""
+
+    if refusal_text?(text) do
+      [
+        Candidate.new!(%{
+          kind: :refusal,
+          id: "unsupported_resource_workflow",
+          label: "Unsupported resource workflow",
+          source: :deterministic,
+          status: :candidate,
+          score: 0.3,
+          reason: "Request text matched an unsupported resource workflow.",
+          action_name: "unsupported_resource_workflow",
+          trace_metadata: %{intent: :unsupported_resource_workflow}
+        })
+      ]
+    else
+      []
+    end
+  end
+
   defp include_selected(candidates, selected) do
     candidates =
       Enum.reject(candidates, fn candidate ->
@@ -346,6 +644,37 @@ defmodule AllbertAssist.Intent.Engine do
 
   defp put_classifier(trace_metadata, diagnostic),
     do: Map.put(trace_metadata, :classifier, diagnostic)
+
+  defp put_route_hint(trace_metadata, candidate) do
+    if get_in_trace(candidate, :engine_route_hint?) == true do
+      trace_metadata
+      |> Map.put(:engine_route_hint?, true)
+      |> Map.put(:engine_route_hint, field(candidate, :trace_metadata, %{}))
+    else
+      trace_metadata
+    end
+  end
+
+  defp build_decision(attrs, %{route_decision: %Decision{} = decision}, classifier_diagnostic) do
+    if selected_route_decision_attrs?(attrs) do
+      {:ok, put_classifier_on_decision(decision, classifier_diagnostic)}
+    else
+      Decision.new(attrs)
+    end
+  end
+
+  defp build_decision(attrs, _request, _classifier_diagnostic), do: Decision.new(attrs)
+
+  defp selected_route_decision_attrs?(attrs) do
+    attrs[:trace_metadata]
+    |> field(:engine_route_hint?, false)
+  end
+
+  defp put_classifier_on_decision(%Decision{} = decision, nil), do: decision
+
+  defp put_classifier_on_decision(%Decision{} = decision, diagnostic) do
+    %{decision | trace_metadata: Map.put(decision.trace_metadata, :classifier, diagnostic)}
+  end
 
   defp surface_target(surface) do
     %{
@@ -404,6 +733,149 @@ defmodule AllbertAssist.Intent.Engine do
 
   defp normalized_active_app(request), do: active_app_context(request).active_app
 
+  defp route_hint_direct_answer?(request) do
+    case field(request, :route_hint) do
+      %{route: :direct_answer} -> true
+      %{"route" => :direct_answer} -> true
+      nil -> true
+      _other -> false
+    end
+  end
+
+  defp explicit_route_hint?(request) do
+    request
+    |> field(:route_hint, %{})
+    |> field(:explicit?, false)
+  end
+
+  defp classifier_allowed?(request) do
+    route_hint_direct_answer?(request)
+  end
+
+  defp rejected_candidates(candidates, selected) do
+    if trace_rejected_candidates?() do
+      candidates
+      |> Enum.reject(&(field(&1, :id) == selected.id and field(&1, :kind) == selected.kind))
+      |> Enum.take(12)
+      |> Enum.map(&rejected_candidate_to_map/1)
+    else
+      []
+    end
+  end
+
+  defp rejected_candidate_to_map(candidate) do
+    candidate
+    |> Candidate.to_map()
+    |> Map.drop([:trace_metadata, :resource_access])
+  end
+
+  defp trace_rejected_candidates? do
+    case Settings.get("intent.trace_rejected_candidates") do
+      {:ok, false} -> false
+      _other -> true
+    end
+  rescue
+    _exception -> true
+  end
+
+  defp action_resource_access(%Capability{name: name}, request) do
+    request
+    |> field(:route_decision)
+    |> case do
+      %Decision{selected_action: ^name, resource_access: entries} -> entries
+      _other -> []
+    end
+  end
+
+  defp app_id_from_string(nil), do: nil
+
+  defp app_id_from_string(app_id) when is_binary(app_id) do
+    case AppRegistry.normalize_app_id(app_id) do
+      {:ok, app_id} -> app_id
+      {:error, _reason} -> nil
+    end
+  catch
+    :exit, _reason -> nil
+  end
+
+  defp app_id_from_string(app_id) when is_atom(app_id), do: app_id
+  defp app_id_from_string(_app_id), do: nil
+
+  defp memory_append_text?(text) when is_binary(text) do
+    normalized = String.downcase(text)
+
+    String.contains?(normalized, "remember") ||
+      String.contains?(normalized, "my name is") ||
+      String.contains?(normalized, "i prefer") ||
+      String.contains?(normalized, "save this")
+  end
+
+  defp memory_append_text?(_text), do: false
+
+  defp memory_read_text?(text) when is_binary(text) do
+    normalized = String.downcase(text)
+
+    String.contains?(normalized, "what do you remember") ||
+      String.contains?(normalized, "recall") ||
+      String.contains?(normalized, "what is my name") ||
+      String.contains?(normalized, "remember about")
+  end
+
+  defp memory_read_text?(_text), do: false
+
+  defp refusal_text?(text) when is_binary(text) do
+    normalized = String.downcase(text)
+
+    String.contains?(normalized, "read local file") ||
+      String.contains?(normalized, "crawl ") ||
+      String.contains?(normalized, "mcp://") ||
+      String.contains?(normalized, "agent://")
+  end
+
+  defp refusal_text?(_text), do: false
+
+  defp job_text?(text) when is_binary(text) do
+    text_contains_any?(text, ["job", "jobs", "schedule", "scheduled"])
+  end
+
+  defp job_text?(_text), do: false
+
+  defp channel_text?(text) when is_binary(text) do
+    text_contains_any?(text, ["channel", "channels", "telegram", "email", "sms"])
+  end
+
+  defp channel_text?(_text), do: false
+
+  defp text_contains_any?(text, values) do
+    normalized = String.downcase(text)
+    Enum.any?(values, &String.contains?(normalized, &1))
+  end
+
+  defp skill_candidates_relevant?(request) do
+    route =
+      request
+      |> field(:route_hint, %{})
+      |> field(:route)
+
+    is_nil(route) or
+      route in [
+        :direct_answer,
+        :list_skills,
+        :read_skill,
+        :activate_skill,
+        :append_memory,
+        :append_personal_memory,
+        :read_recent_memory
+      ] or
+      skill_text?(field(request, :text))
+  end
+
+  defp skill_text?(text) when is_binary(text) do
+    text_contains_any?(text, ["skill", "skills", "capabilities", "what can you do"])
+  end
+
+  defp skill_text?(_text), do: false
+
   defp get_in_trace(candidate, key) do
     candidate
     |> field(:trace_metadata, %{})
@@ -434,7 +906,11 @@ defmodule AllbertAssist.Intent.Engine do
     _exception -> 80
   end
 
-  defp field(map, key, default \\ nil) when is_map(map) do
+  defp field(map, key, default \\ nil)
+
+  defp field(map, key, default) when is_map(map) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
+
+  defp field(_value, _key, default), do: default
 end

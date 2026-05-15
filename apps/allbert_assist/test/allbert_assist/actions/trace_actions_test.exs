@@ -2,6 +2,8 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.Actions.Trace.RecordTrace
+  alias AllbertAssist.Intent.Candidate
+  alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Memory
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
@@ -122,6 +124,46 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
       trace = File.read!(response.trace_id)
       Enum.each(expected_lines, &assert(trace =~ &1))
     end)
+  end
+
+  test "renders intent candidate metadata without leaking secret-like values" do
+    Application.put_env(:allbert_assist, Trace, enabled: true)
+
+    assert {:ok, selected} =
+             Candidate.new(%{
+               kind: :action,
+               id: "direct_answer",
+               action_name: "direct_answer",
+               source: :deterministic,
+               status: :selected,
+               trace_metadata: %{api_key: "sk-test-secret", note: "safe"}
+             })
+
+    assert {:ok, decision} =
+             Decision.new(%{
+               intent: :direct_answer,
+               selected_action: "direct_answer",
+               trace_metadata: %{
+                 intent_candidates: %{
+                   selected: Candidate.to_map(selected),
+                   rejected: [],
+                   total: 1,
+                   engine_version: "v0.19"
+                 }
+               },
+               context: %{request: %{text: "Trace candidate redaction."}}
+             })
+
+    trace_turn =
+      turn("Trace candidate redaction.")
+      |> put_in([:response, :decision], decision)
+
+    assert {:ok, response} = RecordTrace.run(%{turn: trace_turn}, context())
+
+    trace = File.read!(response.trace_id)
+    assert trace =~ "## Intent Candidates"
+    assert trace =~ "[REDACTED]"
+    refute trace =~ "sk-test-secret"
   end
 
   defp turn(text) do

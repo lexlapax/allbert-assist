@@ -89,26 +89,46 @@ defmodule AllbertAssist.Agents.IntentAgent do
     context = %{request: request, agent: __MODULE__}
     route = text |> route() |> execution_route(text)
 
-    case maybe_surface_navigation(route, request) do
-      {:ok, decision} ->
-        {:ok, surface_navigation_response(decision)}
-
-      :continue ->
-        respond_to_route(route, text, context)
-    end
-  end
-
-  def respond(_request), do: {:error, :missing_text}
-
-  defp respond_to_route(route, text, context) do
     case decision_for_route(route, text, context) do
       {:ok, decision} ->
-        run_validated_route(route, text, context, decision)
+        request
+        |> engine_request(route, decision)
+        |> Engine.decide()
+        |> case do
+          {:ok, %Decision{intent: :open_surface} = decision} ->
+            {:ok, surface_navigation_response(decision)}
+
+          {:ok, %Decision{} = decision} ->
+            run_validated_route(route, text, context, decision)
+
+          {:error, _reason} ->
+            run_validated_route(route, text, context, decision)
+        end
 
       {:error, reason} ->
         {:ok, invalid_decision_response(reason, text, context)}
     end
   end
+
+  def respond(_request), do: {:error, :missing_text}
+
+  defp engine_request(request, route, %Decision{} = decision) do
+    request
+    |> Map.put(:route_hint, route_hint(route))
+    |> Map.put(:route_decision, decision)
+  end
+
+  defp route_hint(route) do
+    %{
+      route: route_name(route),
+      explicit?: route != :direct_answer,
+      source: :intent_agent_predicates
+    }
+  end
+
+  defp route_name(route) when is_atom(route), do: route
+  defp route_name({route, _value}), do: route
+  defp route_name({route, _value1, _value2}), do: route
 
   defp run_validated_route(route, text, context, %Decision{} = decision) do
     if Decision.refused?(decision) do
@@ -119,15 +139,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
       |> attach_decision(decision, context)
     end
   end
-
-  defp maybe_surface_navigation(:direct_answer, request) do
-    case Engine.decide(request) do
-      {:ok, %Decision{intent: :open_surface} = decision} -> {:ok, decision}
-      _other -> :continue
-    end
-  end
-
-  defp maybe_surface_navigation(_route, _request), do: :continue
 
   defp surface_navigation_response(%Decision{} = decision) do
     target = Map.get(decision.trace_metadata, :surface_target, %{})
