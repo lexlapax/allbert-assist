@@ -55,4 +55,30 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert %{rejected: rejected} = annotated.trace_metadata.intent_candidates
     assert Enum.any?(rejected, &(&1.kind == :action and &1.id == "direct_answer"))
   end
+
+  test "decide returns inert surface navigation when a registered surface matches" do
+    assert {:ok, decision} =
+             Engine.decide(EvalFixtures.request(text: "Open Allbert chat for me"))
+
+    assert decision.intent == :open_surface
+    assert decision.selected_action == nil
+    assert decision.selected_skill == nil
+    assert decision.trace_metadata.surface_target.path == "/agent"
+    assert decision.trace_metadata.intent_candidates.selected.kind == :surface
+    assert decision.trace_metadata.intent_candidates.selected.surface_id == "agent"
+  end
+
+  test "unknown active app falls back to allbert without creating atoms" do
+    unknown = "__allbert_unknown_app_#{System.unique_integer([:positive])}__"
+
+    assert {:ok, decision} =
+             Engine.decide(EvalFixtures.request(text: "what can you do?", active_app: unknown))
+
+    assert decision.active_app == :allbert
+    assert %{kind: :unknown_app_id, fallback: :allbert} = hd(decision.diagnostics)
+
+    assert_raise ArgumentError, fn ->
+      String.to_existing_atom(unknown)
+    end
+  end
 end
