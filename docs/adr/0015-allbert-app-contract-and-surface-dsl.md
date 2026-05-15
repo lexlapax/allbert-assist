@@ -51,8 +51,9 @@ operator, model, channel, or job input. v0.15 navigation surface descriptors
 are display data only; they do not mount routes, load LiveViews, or define
 canvas nodes.
 
-The full contract for v0.18, formerly M-AppContract-Full, expands this into
-five layers:
+The v0.18 contract, formerly M-AppContract-Full, expands the app/surface
+contract into these layers, with memory namespace registration explicitly
+deferred to v0.27:
 
 - Identity and OTP lifecycle: validation, child specs, and workspace config
   injection.
@@ -62,8 +63,8 @@ five layers:
   Skills registry.
 - UI surface: navigation surfaces, configured routes, surface providers, and
   later canvas component catalogs.
-- Data and settings: settings schema declarations and memory namespaces the
-  app may write through existing Allbert boundaries.
+- Data and settings: settings schema declarations; memory namespaces the app
+  may write through existing Allbert boundaries are added in v0.27.
 
 `AllbertAssist.App.Registry` is the runtime app discovery point. In v0.15,
 registered apps provide identity, child supervision, action tags, skill paths,
@@ -100,8 +101,8 @@ app. v0.24 upgrades `CoreApp`'s surface from `/agent` into the full workspace
 shell; it is `CoreApp`'s surface implementation, not a separate shell.
 
 StockSage is the second proving app for this contract. v0.20, formerly M-D2a,
-implements `StockSage.App` with the full v0.18 contract from day one — there
-is no lite→full migration. v0.25 builds all StockSage LiveViews on
+implements `StockSage.App` with the v0.18 app/surface contract from day one —
+there is no lite→full migration. v0.25 builds all StockSage LiveViews on
 `AllbertAssist.App.SurfaceProvider` from day one; there is no stepping-stone
 static route mounting that later migrates to the surface contract. Memory
 namespace registration is the one deferred layer, added in v0.27 where
@@ -134,7 +135,8 @@ post-v0.29 adapter work.
 ## Deferred
 
 - `mix allbert.gen.plugin` and `mix allbert.gen.app` scaffolding, until
-  StockSage proves the plugin/app contract and v0.24 ships.
+  StockSage proves the plugin/app contract, StockSage SurfaceProvider
+  LiveViews, memory namespace completion, and canvas path through v0.28.
 - AG-UI streaming endpoints, A2UI renderer compatibility, MCP Apps, and
   third-party remote UI execution.
 - Dynamic runtime mounting of arbitrary routes or LiveView components from
