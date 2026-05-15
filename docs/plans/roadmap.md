@@ -127,12 +127,19 @@ Dependency order from here:
 16. StockSage as the first plugin-contributed workspace app, proving the app
     contract through the plugin layer.
 17. Memory review, summarization, and retrieval improvements.
-18. Cross-surface intent enrichment over real skills, actions, permissions,
-    confirmations, jobs, channels, memory, and app context.
-19. Security hardening and evals after real execution, import, channel, job,
-    memory, intent, app, and financial-analysis behavior exists.
-20. Full app/surface contract, workspace canvas, and app generator work only
-    after the local runtime and security substrate are proven.
+18. Full app contract and Surface DSL before any plugin-contributed app builds
+    web surfaces, so `AllbertAssist.App.SurfaceProvider` is the foundation
+    from day one rather than a later migration.
+19. Cross-surface intent enrichment over real skills, actions, permissions,
+    confirmations, jobs, channels, memory, app context, and surface metadata.
+20. Native Jido trading agents as the analysis engine before StockSage web
+    surfaces are built so both engines are available from day one.
+21. StockSage LiveViews built on the Surface DSL, proving the plugin-contributed
+    app surface pattern.
+22. Security hardening and evals after real execution, import, channel, job,
+    memory, intent, app, surface, and financial-analysis behavior exists.
+23. Workspace canvas and app generator work only after the local runtime,
+    security substrate, and surface contracts are proven.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -966,27 +973,52 @@ Expected direction:
 - Route natural language analysis prompts through StockSage skill/action
   boundaries when app context and permission posture allow it.
 
-## v0.21: Cross-Surface Intent Enrichment
+## v0.21: Full App Contract And Surface DSL
 
 Plan: `docs/plans/v0.21-plan.md`
+ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
-Status: planned. Formerly v0.15.
+Status: planned. Formerly M-AppContract-Full, previously planned as v0.25.
+Moved before StockSage LiveViews so all plugin-contributed app surfaces build
+on `AllbertAssist.App.SurfaceProvider` from day one.
+
+Expected direction:
+
+- Expand the app contract into identity/OTP, agents/actions/signals, skills,
+  UI surface, and data/settings layers. Memory namespace registration is
+  deferred to v0.26.
+- Add `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface` DSL with
+  catalog validation, and `AllbertAssist.Surface.Encoder.to_a2ui/1` as the
+  typed AG-UI adaptation stub.
+- Add `mix allbert.validate_app MyApp` and
+  `docs/how-to-create-an-allbert-app.md`.
+- Update `StockSage.App` to implement the full contract so v0.24 LiveViews
+  can build on `SurfaceProvider` from day one.
+- Keep AG-UI/A2UI as future adapters, not local hard dependencies.
+
+## v0.22: Cross-Surface Intent Enrichment
+
+Plan: `docs/plans/v0.22-plan.md`
+
+Status: planned. Formerly v0.15, previously planned as v0.21.
 
 Expected direction:
 
 - Move from route predicates toward hybrid deterministic and model-assisted
   intent ranking over real runtime signals.
 - Use settings, skills, actions, Security Central, confirmations, traces,
-  jobs, channels, memory review, session scratchpad, and app registry context
-  as routing inputs.
+  jobs, channels, memory review, session scratchpad, app registry context, and
+  registered surface metadata as routing inputs.
 - Prioritize app-registered actions and skill paths only when `active_app`
   gives explicit session evidence.
+- Use registered app surface metadata to include surface navigation as a
+  routing target when session context supports it.
 
-## v0.22: Native Jido Trading Agents
+## v0.23: Native Jido Trading Agents
 
-Plan: `docs/plans/v0.22-plan.md`
+Plan: `docs/plans/v0.23-plan.md`
 
-Status: planned. Formerly M-D2c.
+Status: planned. Formerly M-D2c, previously planned as v0.22.
 
 Expected direction:
 
@@ -997,29 +1029,34 @@ Expected direction:
   prove native parity within documented variance.
 - Make native analysis default only after acceptance passes.
 
-## v0.23: StockSage LiveViews
-
-Plan: `docs/plans/v0.23-plan.md`
-
-Status: planned. Formerly M-D3a.
-
-Expected direction:
-
-- Add StockSage workspace, analysis, queue, and trends LiveViews as standard
-  app surfaces.
-- Update `StockSage.App.nav_surfaces/0` for the `/stocksage/...` routes so
-  later workspace navigation can discover them from app registration.
-- Use PubSub/streams for live progress and set `active_app: :stocksage` when
-  the user is in StockSage context.
-- Treat static route mounting as a stepping stone to v0.25
-  `AllbertAssist.App.SurfaceProvider` metadata.
-- Leave canvas registration out of this slice.
-
-## v0.24: Security Hardening And Evals
+## v0.24: StockSage LiveViews
 
 Plan: `docs/plans/v0.24-plan.md`
 
-Status: planned. Formerly v0.16.
+Status: planned. Formerly M-D3a, previously planned as v0.23. Redesigned to
+build on the v0.21 Full App Contract and Surface DSL from day one.
+
+Prerequisite: v0.21 Full App Contract complete; v0.23 Native Jido Agents
+complete so both analysis engines are available from the start.
+
+Expected direction:
+
+- Add StockSage workspace, analysis, queue, and trends LiveViews in
+  `apps/stocksage_web`.
+- Implement `AllbertAssist.App.SurfaceProvider` on `StockSage.App` and declare
+  StockSage surfaces through the `AllbertAssist.Surface` DSL. No static route
+  mounting to migrate later.
+- Declare StockSage component catalog entries (`:analysis_card`,
+  `:queue_entry`, `:trend_summary`) so `RunAnalysis` results carry validated
+  Surface nodes from day one. Canvas tile registration is v0.28.
+- Use PubSub/streams for live progress and set `active_app: :stocksage` when
+  navigating under `/stocksage/`.
+
+## v0.25: Security Hardening And Evals
+
+Plan: `docs/plans/v0.25-plan.md`
+
+Status: planned. Formerly v0.16, previously planned as v0.24.
 
 Expected direction:
 
@@ -1029,26 +1066,12 @@ Expected direction:
   background execution.
 - Add cross-user/thread leakage, app-scoped action routing, Python bridge
   protocol/path/crash safety, and financial workflow authorization coverage.
+- Add surface and SurfaceProvider security evals: catalog bypass, component
+  injection, cross-app component type theft, and `to_a2ui/1` redaction-bypass
+  attempts. v0.21 Full App Contract is complete; app-registration evals are
+  required, not conditional.
 - Require StockSage external market-data calls to flow through Resource Access
   Security Posture and confirmations.
-
-## v0.25: Full App Contract And Surface DSL
-
-Plan: `docs/plans/v0.25-plan.md`
-ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
-
-Status: planned. Formerly M-AppContract-Full.
-
-Expected direction:
-
-- Expand the app contract into identity/OTP, agents/actions/signals, skills,
-  UI surface, and data/settings layers.
-- Add `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface`, validation
-  tooling, and optional future encoders.
-- Update `StockSage.App` to implement `AllbertAssist.App.SurfaceProvider` for
-  the v0.23 `/stocksage/...` LiveView routes.
-- Keep AG-UI/A2UI as future adapters, not local hard dependencies.
-- Prove the contract with StockSage before v0.27 consumes it.
 
 ## v0.26: StockSage Polish, Outcomes, And Trends
 
@@ -1056,10 +1079,10 @@ Plan: `docs/plans/v0.26-plan.md`
 
 Status: planned. Formerly M-D3b.
 
-Prerequisite: v0.25 provides full app-contract memory namespace registration.
-
 Expected direction:
 
+- Add memory namespace registration to `AllbertAssist.App.Registry` as the
+  final deferred layer of the v0.21 Full App Contract.
 - Add outcome resolver, trend metrics, rating calibration, reruns, empty/error
   states, and responsive polish.
 - Replicate Python StockSage 0.0.2 user-facing behavior in Elixir, with Python
@@ -1072,14 +1095,16 @@ Plan: `docs/plans/v0.27-plan.md`
 Status: planned. Formerly the old v0.17 workspace-surface plan before the
 unified roadmap and plugin-substrate insertion.
 
-Prerequisite: v0.24 and v0.25 are complete.
+Prerequisite: v0.24 (StockSage LiveViews) and v0.25 (Security Hardening) are
+complete.
 
 Expected direction:
 
 - Replace the rudimentary `/agent` concept with a signal-driven operator
   workspace while keeping LiveView thin.
 - Use `AllbertAssist.App.Registry` for app navigation and
-  `AllbertAssist.Surface` for canvas/task component validation.
+  `AllbertAssist.Surface` (defined in v0.21) for canvas/task component
+  validation.
 - Define canvas persistence, ephemeral surface lifecycle, provenance,
   fallback text, redaction, and action-binding constraints.
 - Leave AG-UI/A2UI/MCP Apps interoperability to later adapter work.
@@ -1093,7 +1118,8 @@ Status: planned. Formerly M-Canvas.
 Expected direction:
 
 - Register StockSage chart and analysis-card components with the v0.27 canvas
-  catalog.
+  catalog. Component types were declared in v0.24; v0.28 is wiring, not format
+  migration.
 - Let StockSage analysis responses emit canvas operations for durable tiles.
 - Add no new StockSage domain model or analysis behavior.
 
@@ -1103,7 +1129,7 @@ Plan: `docs/plans/v0.29-plan.md`
 
 Status: research (unstarted).
 
-Prerequisite: StockSage proves the full v0.25 contract end to end after v0.26,
+Prerequisite: StockSage proves the full v0.21 contract end to end through v0.26,
 v0.27 canvas ships, and v0.28 proves the app/canvas path.
 
 Expected direction:

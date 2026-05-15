@@ -117,8 +117,8 @@ app registry. ADR 0018 owns StockSage's local domain and persistence boundary.
   loading.
 - Code-bearing third-party plugins require developer review, explicit
   compilation, and tests before they can participate in runtime behavior.
-- v0.24/v0.25 app/surface work can build on the plugin layer instead of
-  broadening app registration into a catch-all extension registry.
+- v0.21 app/surface work can build on the plugin layer instead of broadening
+  app registration into a catch-all extension registry.
 - v0.29 generator work should generate plugin scaffolds, not only app modules.
 
 ## Deferred
