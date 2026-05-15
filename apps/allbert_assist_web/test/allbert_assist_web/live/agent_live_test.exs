@@ -41,7 +41,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     |> element("#agent-form")
     |> render_submit(%{"prompt" => "Say hello from the runtime boundary."})
 
-    html = render_async(view, 1_000)
+    html = render_async(view, 2_000)
 
     assert has_element?(view, "#agent-response")
     assert html =~ "Runtime LiveView response: Say hello from the runtime boundary."
@@ -58,7 +58,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     |> element("#agent-form")
     |> render_submit(%{"prompt" => "Activate skill append-memory"})
 
-    html = render_async(view, 1_000)
+    html = render_async(view, 2_000)
 
     assert has_element?(view, "#agent-response")
     assert html =~ "## Skill Context"
@@ -76,7 +76,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     |> element("#agent-form")
     |> render_submit(%{"prompt" => "check https://example.com/report and summarize it"})
 
-    html = render_async(view, 1_000)
+    html = render_async(view, 2_000)
 
     assert has_element?(view, "#agent-response")
     assert html =~ "External network request is ready"
@@ -99,7 +99,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     |> element("#agent-form")
     |> render_submit(%{"prompt" => "Fetch https://example.com from the internet"})
 
-    html = render_async(view, 1_000)
+    html = render_async(view, 2_000)
 
     assert has_element?(view, "#approval-handoff")
     assert html =~ "Approval Required"

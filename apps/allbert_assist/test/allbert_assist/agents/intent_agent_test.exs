@@ -481,6 +481,10 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert [%{operation_class: :summarize_url, downstream_consumer: :url_summarizer}] =
              response.resource_access
 
+    assert [
+             %{operation_class: :summarize_url, downstream_consumer: :url_summarizer}
+           ] = response.decision.trace_metadata.intent_candidates.selected.resource_access
+
     assert {:ok, pending} = Confirmations.read(confirmation_id)
     assert pending["params_summary"]["operation_class"] == "summarize_url"
     assert [ref] = pending["params_summary"]["resource_refs"]

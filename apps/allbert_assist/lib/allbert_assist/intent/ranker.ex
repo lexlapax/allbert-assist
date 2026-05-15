@@ -44,6 +44,12 @@ defmodule AllbertAssist.Intent.Ranker do
     candidate
     |> apply_active_app_affinity(context)
     |> apply_surface_text_match(context)
+    |> apply_action_text_match(context)
+    |> apply_skill_text_match(context)
+    |> apply_job_text_match(context)
+    |> apply_channel_text_match(context)
+    |> apply_memory_keyword_match(context)
+    |> apply_refusal_keyword_match(context)
   end
 
   defp apply_active_app_affinity(candidate, %{active_app: active_app})
@@ -65,6 +71,71 @@ defmodule AllbertAssist.Intent.Ranker do
     end
   end
 
+  defp apply_action_text_match(candidate, context) do
+    text = Map.get(context, :text)
+
+    if field(candidate, :kind) == :action and action_text_match?(candidate, text) do
+      boost(candidate, 0.3, :action_text_match, "Request text matched a registered action.")
+    else
+      candidate
+    end
+  end
+
+  defp apply_skill_text_match(candidate, context) do
+    text = Map.get(context, :text)
+
+    if field(candidate, :kind) == :skill and skill_text_match?(candidate, text) do
+      boost(candidate, 0.25, :skill_text_match, "Request text matched a trusted skill.")
+    else
+      candidate
+    end
+  end
+
+  defp apply_job_text_match(candidate, context) do
+    text = Map.get(context, :text)
+
+    if field(candidate, :kind) == :job and job_text_match?(candidate, text) do
+      boost(candidate, 0.25, :job_text_match, "Request text matched a scheduled job.")
+    else
+      candidate
+    end
+  end
+
+  defp apply_channel_text_match(candidate, context) do
+    text = Map.get(context, :text)
+
+    if field(candidate, :kind) == :channel and channel_text_match?(candidate, text) do
+      boost(candidate, 0.25, :channel_text_match, "Request text matched a registered channel.")
+    else
+      candidate
+    end
+  end
+
+  defp apply_memory_keyword_match(candidate, context) do
+    text = Map.get(context, :text)
+
+    if field(candidate, :kind) == :memory and memory_text_match?(candidate, text) do
+      boost(candidate, 0.25, :memory_keyword_match, "Request text matched memory keywords.")
+    else
+      candidate
+    end
+  end
+
+  defp apply_refusal_keyword_match(candidate, context) do
+    text = Map.get(context, :text)
+
+    if field(candidate, :kind) == :refusal and refusal_text_match?(text) do
+      boost(
+        candidate,
+        0.25,
+        :refusal_keyword_match,
+        "Request text matched unsupported resource workflow keywords."
+      )
+    else
+      candidate
+    end
+  end
+
   defp surface_text_match?(candidate, text) when is_binary(text) do
     navigation_request?(text) and
       Enum.any?(
@@ -80,6 +151,59 @@ defmodule AllbertAssist.Intent.Ranker do
 
   defp surface_text_match?(_candidate, _text), do: false
 
+  defp action_text_match?(candidate, text) when is_binary(text) do
+    Enum.any?(
+      [
+        field(candidate, :label),
+        field(candidate, :id),
+        field(candidate, :action_name)
+      ],
+      &compound_text_match?(text, &1)
+    ) or keyword_action_match?(text, field(candidate, :action_name))
+  end
+
+  defp action_text_match?(_candidate, _text), do: false
+
+  defp skill_text_match?(candidate, text) when is_binary(text) do
+    Enum.any?(
+      [
+        field(candidate, :label),
+        field(candidate, :id),
+        field(candidate, :skill_name)
+      ],
+      &compound_text_match?(text, &1)
+    )
+  end
+
+  defp skill_text_match?(_candidate, _text), do: false
+
+  defp job_text_match?(candidate, text) when is_binary(text) do
+    job_request?(text) and
+      Enum.any?([field(candidate, :label), field(candidate, :id), field(candidate, :job_id)], fn
+        nil -> true
+        value -> compound_text_match?(text, value)
+      end)
+  end
+
+  defp job_text_match?(_candidate, _text), do: false
+
+  defp channel_text_match?(candidate, text) when is_binary(text) do
+    channel_request?(text) and
+      Enum.any?(
+        [
+          field(candidate, :label),
+          field(candidate, :id),
+          field(candidate, :channel_id),
+          field(candidate, :plugin_id)
+        ],
+        &compound_text_match?(text, &1)
+      )
+  end
+
+  defp channel_text_match?(_candidate, _text), do: false
+
+  defp memory_text_match?(_candidate, text), do: memory_request?(text)
+
   defp navigation_request?(text) do
     normalized = String.downcase(text)
 
@@ -88,9 +212,87 @@ defmodule AllbertAssist.Intent.Ranker do
     end)
   end
 
+  defp job_request?(text), do: text_has_any?(text, ["job", "jobs", "schedule", "scheduled"])
+
+  defp channel_request?(text) do
+    text_has_any?(text, ["channel", "channels", "telegram", "email", "sms"])
+  end
+
+  defp memory_request?(text) do
+    text_has_any?(text, ["remember", "memory", "recall", "what is my name", "i prefer"])
+  end
+
+  defp refusal_text_match?(text) do
+    text_has_any?(text, ["read local file", "mcp://", "agent://", "crawl"])
+  end
+
+  defp keyword_action_match?(text, "list_skills") do
+    text_has_any?(text, ["skills", "capabilities", "what can you do"])
+  end
+
+  defp keyword_action_match?(text, "read_recent_memory"), do: memory_request?(text)
+  defp keyword_action_match?(text, "append_memory"), do: memory_request?(text)
+  defp keyword_action_match?(text, "list_channels"), do: channel_request?(text)
+  defp keyword_action_match?(text, "show_channel"), do: channel_request?(text)
+
+  defp keyword_action_match?(text, "external_network_request"),
+    do: text_has_any?(text, ["http", "https", "fetch", "url", "internet"])
+
+  defp keyword_action_match?(text, "run_shell_command"),
+    do: text_has_any?(text, ["run", "execute", "shell", "command"])
+
+  defp keyword_action_match?(text, "plan_shell_command"),
+    do: text_has_any?(text, ["plan command", "shell command"])
+
+  defp keyword_action_match?(text, "list_settings"),
+    do: text_has_any?(text, ["settings", "setting"])
+
+  defp keyword_action_match?(text, "read_setting"),
+    do: text_has_any?(text, ["settings", "setting"])
+
+  defp keyword_action_match?(text, "update_setting"),
+    do: text_has_any?(text, ["settings", "setting"])
+
+  defp keyword_action_match?(_text, _action), do: false
+
   defp text_match?(text, value) when is_atom(value), do: text_match?(text, Atom.to_string(value))
   defp text_match?(text, value) when is_binary(value), do: exact_text_match?(text, value)
   defp text_match?(_text, _value), do: false
+
+  defp compound_text_match?(text, value) when is_atom(value),
+    do: compound_text_match?(text, Atom.to_string(value))
+
+  defp compound_text_match?(text, value) when is_binary(text) and is_binary(value) do
+    normalized_text = normalize_text(text)
+    normalized_value = normalize_text(value)
+
+    String.contains?(normalized_text, normalized_value) or
+      normalized_value
+      |> String.split(" ", trim: true)
+      |> Enum.reject(&(String.length(&1) < 3))
+      |> case do
+        [] -> false
+        tokens -> Enum.all?(tokens, &String.contains?(normalized_text, &1))
+      end
+  end
+
+  defp compound_text_match?(_text, _value), do: false
+
+  defp text_has_any?(text, values) when is_binary(text) do
+    normalized = normalize_text(text)
+    Enum.any?(values, &String.contains?(normalized, normalize_text(&1)))
+  end
+
+  defp text_has_any?(_text, _values), do: false
+
+  defp normalize_text(value) do
+    value
+    |> to_string()
+    |> String.downcase()
+    |> String.replace(~r/[_\-:.\/]+/, " ")
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+  end
 
   defp boost(candidate, amount, kind, reason) do
     candidate
