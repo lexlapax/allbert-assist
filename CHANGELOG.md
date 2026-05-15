@@ -2,10 +2,9 @@
 
 ## v0.20 - StockSage Plugin App And Domain
 
-Status: implementation cleanup in progress on 2026-05-15 to make StockSage a
-true shipped plugin app. Version metadata is `0.20.0`; the operator manual
-verification matrix remains the release gate. Release tag is pending operator
-acceptance.
+Status: implemented through plugin-ownership cleanup on 2026-05-15. Version
+metadata is `0.20.0`; the operator manual verification matrix remains the
+release gate. Release tag is pending operator acceptance.
 
 ### Added
 
@@ -45,9 +44,9 @@ acceptance.
 - Focused suites passed for plugin/app registration, domain schemas and
   contexts, legacy import, actions through `Actions.Runner`, settings schema
   merge, Security Central, and StockSage Mix tasks.
-- Final v0.20 closeout gates to run after plugin-ownership cleanup:
-  `mix test plugins/stocksage/test`,
-  `mix test apps/allbert_assist/test`, `mix compile --warnings-as-errors`,
+- Final v0.20 closeout gates passed: `mix test`,
+  `mix test ../../plugins/stocksage/test/stocksage ../../plugins/stocksage/test/mix`
+  from the host app, `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
 - Manual verification steps live in `docs/plans/v0.20-request-flow.md`.

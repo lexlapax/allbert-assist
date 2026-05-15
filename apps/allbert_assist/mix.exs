@@ -4,7 +4,7 @@ defmodule AllbertAssist.MixProject do
   def project do
     [
       app: :allbert_assist,
-      version: "0.19.0",
+      version: "0.20.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -28,13 +28,23 @@ defmodule AllbertAssist.MixProject do
   end
 
   # Specifies which paths to compile per environment.
-  defp elixirc_paths(:test), do: ["lib" | shipped_plugin_paths()] ++ ["test/support"]
+  defp elixirc_paths(:test) do
+    ["lib" | shipped_plugin_paths()] ++ ["test/support" | shipped_plugin_test_support_paths()]
+  end
+
   defp elixirc_paths(_), do: ["lib" | shipped_plugin_paths()]
 
   defp shipped_plugin_paths do
     [
       Path.expand("../../plugins/allbert.telegram/lib", __DIR__),
-      Path.expand("../../plugins/allbert.email/lib", __DIR__)
+      Path.expand("../../plugins/allbert.email/lib", __DIR__),
+      Path.expand("../../plugins/stocksage/lib", __DIR__)
+    ]
+  end
+
+  defp shipped_plugin_test_support_paths do
+    [
+      Path.expand("../../plugins/stocksage/test/support", __DIR__)
     ]
   end
 
@@ -68,9 +78,20 @@ defmodule AllbertAssist.MixProject do
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup"],
-      "ecto.setup": ["ecto.create", "ecto.migrate", "run #{__DIR__}/priv/repo/seeds.exs"],
+      "ecto.setup": ["ecto.create", migrate_task(), "run #{__DIR__}/priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]
+      test: ["ecto.create --quiet", migrate_task("--quiet"), "test"]
     ]
+  end
+
+  defp migrate_task(extra_args \\ "") do
+    [
+      "ecto.migrate",
+      extra_args,
+      "--migrations-path priv/repo/migrations",
+      "--migrations-path ../../plugins/stocksage/priv/repo/migrations"
+    ]
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join(" ")
   end
 end

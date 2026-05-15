@@ -102,10 +102,17 @@ defmodule StockSage.Import.SqliteImporter do
 
     Enum.reduce(rows, {@empty_entity, []}, fn row, {count, warnings} ->
       case import_row(table, row, opts) do
-        :inserted -> {increment(count, :inserted), warnings}
-        :updated -> {increment(count, :updated), warnings}
-        :skipped -> {increment(count, :skipped), warnings}
-        {:invalid, reason} -> {increment(count, :invalid), [invalid_warning(table, row, reason) | warnings]}
+        :inserted ->
+          {increment(count, :inserted), warnings}
+
+        :updated ->
+          {increment(count, :updated), warnings}
+
+        :skipped ->
+          {increment(count, :skipped), warnings}
+
+        {:invalid, reason} ->
+          {increment(count, :invalid), [invalid_warning(table, row, reason) | warnings]}
       end
     end)
     |> then(fn {count, warnings} -> {count, Enum.reverse(warnings)} end)
@@ -221,7 +228,7 @@ defmodule StockSage.Import.SqliteImporter do
       :skipped
     else
       validate_row(:detail, %{
-      id: "dry_run_detail",
+        id: "dry_run_detail",
         analysis_id: "dry-run-analysis",
         user_id: opts[:user_id],
         section: row["section"],

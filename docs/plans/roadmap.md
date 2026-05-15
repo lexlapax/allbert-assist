@@ -997,9 +997,9 @@ Request flow: `docs/plans/v0.20-request-flow.md`
 
 ADR: `docs/adr/0018-stocksage-local-domain-app.md`
 
-Status: implementation cleanup in progress on 2026-05-15 to make StockSage a
-true shipped plugin app under `./plugins/stocksage`. Release tag pending
-operator acceptance. Formerly M-D2a.
+Status: implemented through plugin-ownership cleanup on 2026-05-15. Ready for
+operator manual verification; release tag pending operator acceptance.
+Formerly M-D2a.
 
 Expected direction:
 
