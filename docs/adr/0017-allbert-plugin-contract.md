@@ -95,6 +95,12 @@ it is already compiled and the plugin id/module pair is present in a shipped or
 explicitly configured allowlist. Home-plugin manifests that name modules do not
 cause compilation, code loading, atom creation, or registration in v0.17.
 
+Plugin-contributed OTP processes must live under the child spec returned by the
+plugin entrypoint. Domain apps may use their own supervisor, such as
+`StockSage.Supervisor`, but bridge processes, native workers, and background
+queues for that app should be descendants of that supervisor so they share the
+plugin lifecycle and cannot bypass plugin enablement/disablement semantics.
+
 StockSage should then land as a plugin-contributed app in v0.18 through
 `./plugins/stocksage`. The app contract remains intact; the plugin layer feeds
 `StockSage.App` into `AllbertAssist.App.Registry` rather than replacing the

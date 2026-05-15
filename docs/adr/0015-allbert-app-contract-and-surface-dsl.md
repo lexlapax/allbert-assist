@@ -93,7 +93,11 @@ rules.
 StockSage is the first proving app for this contract. After v0.17, it starts
 from `./plugins/stocksage` as `StockSage.Plugin` contributing `StockSage.App`
 for the lite contract in v0.18, formerly M-D2a, then implements the full app
-contract before v0.27 canvas work consumes app surfaces.
+contract before v0.27 canvas work consumes app surfaces. v0.23 may mount
+ordinary `/stocksage/...` LiveView routes as a stepping stone, but v0.25 must
+describe those existing routes through `AllbertAssist.App.SurfaceProvider` so
+workspace navigation and later canvas work consume the app contract rather
+than a private router inventory.
 
 ## Consequences
 
