@@ -139,12 +139,12 @@ For v0.14 session scratchpad work, start with:
 - `docs/plans/allbert-jido-vision.md`
 - `docs/adr/0014-local-workspace-identity.md`
 
-For v0.15 or v0.25 app contract and surface DSL work, start with the active
+For v0.15 or v0.21 app contract and surface DSL work, start with the active
 plan plus:
 
 - `docs/plans/v0.15-plan.md`
 - `docs/plans/v0.15-request-flow.md`
-- `docs/plans/v0.25-plan.md`
+- `docs/plans/v0.21-plan.md`
 - `docs/plans/allbert-jido-vision.md`
 - `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
@@ -160,7 +160,7 @@ For v0.17 plugin contract work, start with:
 For StockSage workspace app milestones, start with the active milestone plan,
 `docs/plans/allbert-jido-vision.md`, ADR 0014, ADR 0015, ADR 0017, and ADR
 0018. For v0.18, also read `docs/plans/v0.18-request-flow.md`. The canonical
-plans are `v0.18`, `v0.20`, `v0.22`, `v0.23`, `v0.26`, and `v0.28`.
+plans are `v0.18`, `v0.20`, `v0.23`, `v0.24`, `v0.26`, and `v0.28`.
 
 After v0.12 closeout, remember that local conversation history is SQLite-backed
 `AllbertAssist.Conversations` data, not markdown memory and not hosted auth.

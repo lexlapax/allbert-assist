@@ -79,9 +79,10 @@ through the real app.
 - Future StockSage milestones can reuse the same queue, analysis, detail,
   outcome, and memory records.
 - v0.20 can add the Python bridge without redesigning persistence.
-- v0.22 can add native Jido agents without introducing a second queue model.
-- v0.23 can build LiveViews as thin surfaces over existing contexts/actions.
-- v0.24 security evals can target concrete financial and plugin-domain
+- v0.23 can add native Jido agents without introducing a second queue model.
+- v0.24 can build LiveViews on `AllbertAssist.App.SurfaceProvider` using the
+  v0.21 Full App Contract as the foundation from day one.
+- v0.25 security evals can target concrete financial and plugin-domain
   boundaries.
 
 ## Deferred
