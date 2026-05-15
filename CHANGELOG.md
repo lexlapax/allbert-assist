@@ -1,5 +1,56 @@
 # Changelog
 
+## v0.16 - Additional Channels
+
+Status: implemented through M7 closeout on 2026-05-14. Version metadata is
+`0.16.0`; the operator manual verification matrix is ready for acceptance
+checks.
+
+### Added
+
+- Shared `AllbertAssist.Channels` substrate with durable `channel_events`,
+  explicit external identity mapping, stable channel `session_id` derivation,
+  and supervised channel adapters.
+- Telegram Bot API long-polling adapter with bounded `Req` client, text and
+  callback parsing, runtime submission, response rendering, inline approval
+  buttons, callback acknowledgements, and restart offset derivation.
+- Email IMAP/SMTP adapter with minimal TLS IMAP polling, `gen_smtp` outbound
+  replies, MIME text parsing, typed confirmation commands, and Message-ID
+  dedupe.
+- Read-only registered actions `list_channels` and `show_channel`.
+- `mix allbert.channels` for list/show, Telegram token storage, email password
+  storage, identity map/unmap, local simulation, and bounded `poll-once`.
+
+### Changed
+
+- Runtime turns from Telegram and email preserve `channel`, external identity,
+  resolved `user_id`, `session_id`, `thread_id`, input signal id, and trace id
+  on channel event rows.
+- Durable confirmation resolution now preserves redacted `resolver_metadata`
+  from channel callbacks and typed email commands.
+- Version metadata and built-in app versions moved to `0.16.0`.
+
+### Safety
+
+- Channels are delivery adapters only. They do not own intent, security policy,
+  confirmation storage, memory, jobs, app routing, or execution authority.
+- Telegram and email credentials are stored through Settings Secrets and are
+  redacted from CLI output, traces, logs, and channel summaries.
+- v0.16 adds no SMS, Discord, Slack, webhooks, IMAP IDLE, SMTP provider APIs,
+  media downloads, attachments, remote document extraction, provider method
+  execution, or proactive broadcast.
+
+### Verification
+
+- Milestone focused suites passed for channel settings/schema, durable event
+  dedupe, identity resolution, Telegram transport/runtime/callbacks, email
+  transport/runtime/commands, confirmation action metadata, and
+  `mix allbert.channels`.
+- Final v0.16 closeout gates passed: `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- Manual verification steps live in `docs/plans/v0.16-request-flow.md`.
+
 ## v0.15 - Minimal App Registration Contract
 
 Status: released and tagged as `v0.15` on 2026-05-14. Version metadata is

@@ -10,11 +10,16 @@ not the architecture center.
 
 ## Current Status
 
-v0.15 is implemented through its M5 closeout and tagged as `v0.15` on
-2026-05-14 for operator manual verification. It adds the minimal
+v0.16 is implemented through its M7 closeout on 2026-05-14 and is ready for
+operator manual verification. It adds supervised Telegram and email channel
+adapters, durable channel events, explicit external identity mapping,
+channel-native runtime responses, confirmation callbacks/commands, and
+`mix allbert.channels`. Version metadata is now `0.16.0`.
+
+v0.15 was released and tagged as `v0.15` on 2026-05-14. It remains the minimal
 `AllbertAssist.App` contract, supervised app registry, built-in `CoreApp`,
 transitional `StockSageStub`, app capability tagging, app-contributed skill
-paths, and `mix allbert.apps`. Version metadata is now `0.15.0`.
+paths, and `mix allbert.apps`.
 
 v0.14 was released and tagged as `v0.14` on 2026-05-14. It remains the
 volatile supervised session scratchpad and active-app context substrate.
@@ -78,6 +83,20 @@ Release details live in `CHANGELOG.md`.
   the action, without granting permissions from that tag.
 - Include app-contributed skill paths in skill discovery after project roots
   and before user roots.
+- Configure Telegram and email channel credentials through Settings Secrets and
+  map external Telegram user ids or sender email addresses to local string
+  `user_id` values through Settings Central.
+- Receive Telegram Bot API long-poll updates and email IMAP messages through
+  supervised adapters that submit mapped text to
+  `AllbertAssist.Runtime.submit_user_input/1`.
+- Render runtime responses back through Telegram messages or plain-text email
+  replies, while retaining conversation history in SQLite `Thread`/`Message`
+  rows and transport metadata in `channel_events`.
+- Resolve durable confirmations from Telegram inline buttons or typed email
+  commands through the existing registered confirmation actions.
+- Exercise both channel flows locally without provider access through
+  `mix allbert.channels telegram simulate ...` and
+  `mix allbert.channels email simulate ...`.
 - Store operator settings, provider profiles, encrypted local secrets, memory,
   confirmations, cache files, and audit artifacts under Allbert Home.
 - Persist explicit markdown memory and optional markdown traces.
@@ -129,14 +148,15 @@ Release details live in `CHANGELOG.md`.
   `resource_uri` should be re-created through the current approval/resource
   grant UX.
 
-v0.15 does not add hosted auth, roles, distributed scheduling, remote workers,
+v0.16 does not add hosted auth, roles, distributed scheduling, remote workers,
 archive/delete workflow, durable app-registry persistence, app-scoped
-permissions, app-owned jobs, app-scoped intent routing, `AllbertAssist.Surface`,
-dynamic route loading, workspace UI, canvas state, semantic retrieval, vector
-search, browser/crawler behavior, MCP execution, `agent://` delegation, or
-generic local file reading. Every effect still flows through registered
-actions, Security Central, Settings Central policy, durable confirmations,
-redaction, traces, and audits.
+permissions, app-owned jobs, app-scoped intent routing, SMS, Discord, Slack,
+webhooks, IMAP IDLE, SMTP provider APIs, proactive broadcast,
+`AllbertAssist.Surface`, dynamic route loading, workspace UI, canvas state,
+semantic retrieval, vector search, browser/crawler behavior, MCP execution,
+`agent://` delegation, or generic local file reading. Every effect still flows
+through registered actions, Security Central, Settings Central policy, durable
+confirmations, redaction, traces, and audits.
 
 ## Start Here
 
@@ -145,9 +165,9 @@ redaction, traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.15 implementation plan: `docs/plans/v0.15-plan.md`
-- v0.15 request flow and manual verification: `docs/plans/v0.15-request-flow.md`
-- Next milestone plan: `docs/plans/v0.16-plan.md`
+- v0.16 implementation plan: `docs/plans/v0.16-plan.md`
+- v0.16 request flow and manual verification: `docs/plans/v0.16-request-flow.md`
+- Next milestone plan: `docs/plans/v0.17-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development

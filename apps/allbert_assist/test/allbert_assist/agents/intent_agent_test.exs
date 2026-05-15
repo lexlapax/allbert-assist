@@ -78,6 +78,8 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              "list_provider_profiles",
              "list_model_profiles",
              "set_provider_credential",
+             "list_channels",
+             "show_channel",
              "list_apps",
              "show_app"
            ]
