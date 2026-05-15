@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted.
+Accepted. v0.15 minimal contract implemented. v0.18 full contract planned;
+this ADR must be updated with concrete module names and signatures after
+v0.18 implementation.
 
 ## Context
 
@@ -33,95 +35,165 @@ adapter after the local contract is proven.
 
 ## Decision
 
-Allbert will define an app contract centered on `AllbertAssist.App` and
+Allbert defines an app contract centered on `AllbertAssist.App` and
 managed by `AllbertAssist.App.Registry`.
 
-The minimal contract for v0.15, formerly M-AppContract-Lite, includes:
+### v0.15 Minimal Contract
 
-- app identity: `app_id`, display name, and version
-- startup validation and child supervision
-- registered Jido actions tagged with `app_id`
-- app skill paths added to the global skill registry
-- navigation surface descriptors for the future Allbert shell
+The v0.15 minimal contract, formerly M-AppContract-Lite, includes:
 
-The v0.15 registry is volatile and supervised as one unit: registry ETS
-state, app child supervision, and bootstrap registration restart together.
-String app ids are normalized through the registry without creating atoms from
-operator, model, channel, or job input. v0.15 navigation surface descriptors
-are display data only; they do not mount routes, load LiveViews, or define
-canvas nodes.
+- App identity: `app_id/0`, `display_name/0`, and `version/0`.
+- Startup validation and child supervision via `validate/1` and `child_spec/1`.
+- Registered Jido actions tagged with `app_id` via `actions/0`.
+- App skill paths added to the global skill registry via `skill_paths/0`.
+- Legacy navigation surface descriptors via `surfaces/0` for the future
+  Allbert shell.
 
-The v0.18 contract, formerly M-AppContract-Full, expands the app/surface
-contract into these layers, with memory namespace registration explicitly
+The v0.15 registry is volatile and supervised as one unit: registry ETS state,
+app child supervision, and bootstrap registration restart together. String app
+ids are normalized through the registry without creating atoms from operator,
+model, channel, or job input. v0.15 navigation surface descriptors are display
+data only; they do not mount routes, load LiveViews, or define canvas nodes.
+
+### v0.18 Full Contract
+
+The v0.18 full contract, formerly M-AppContract-Full, expands the app/surface
+contract through these layers, with memory namespace registration explicitly
 deferred to v0.27:
 
 - Identity and OTP lifecycle: validation, child specs, and workspace config
   injection.
-- Agents, actions, and signals: registered agents/actions, declared emitted
-  and subscribed signal topics, and scoped routing metadata.
+- Agents, actions, and signals: `agents/0` (declared agent modules),
+  `actions/0` (registered actions), and `signals/0` (declared emitted and
+  subscribed signal topics).
 - Skills: app-owned `SKILL.md` paths discovered through the existing Agent
-  Skills registry.
-- UI surface: navigation surfaces, configured routes, surface providers, and
-  later canvas component catalogs.
-- Data and settings: settings schema declarations; memory namespaces the app
-  may write through existing Allbert boundaries are added in v0.27.
+  Skills registry via `skill_paths/0`.
+- Settings: `settings_schema/0` (schema declarations merged into Settings
+  Central at runtime, not at compile time). Settings schema entry keys must
+  begin with `apps.<app_id>.`.
+- UI surface: `surfaces/0` kept as the legacy navigation summary; interactive
+  surfaces declared through `AllbertAssist.App.SurfaceProvider`; the native
+  `AllbertAssist.Surface` DSL validates nodes and action bindings.
+- Memory namespaces the app may write through existing Allbert boundaries are
+  deferred to v0.27.
+
+### Registry
 
 `AllbertAssist.App.Registry` is the runtime app discovery point. In v0.15,
 registered apps provide identity, child supervision, action tags, skill paths,
 navigation descriptors, and app lookup for active-app validation. In v0.18,
-the same public contract expands to declared signals, settings schemas, and
-interactive surface providers. Memory namespace registration is the final
-deferred layer, added in v0.27. App registration does not grant permission by
-itself; actions still run through the action runner, Security Central,
-confirmations, traces, and audits.
+the same public contract expands to store declared agents, signals, settings
+schemas, SurfaceProvider surfaces, and surface catalogs, and exposes them
+through new query functions.
 
-Allbert will define `AllbertAssist.App.SurfaceProvider` for apps with
-interactive surfaces. Surface events must return Jido signals or route through
-registered actions. LiveView renders and collects operator input; it does not
-own app domain logic, approval storage, security policy, or resource grants.
+App registration does not grant permission by itself; actions still run through
+the action runner, Security Central, confirmations, traces, and audits.
 
-Allbert will define `AllbertAssist.Surface` as the native declarative surface
-DSL for v0.24 canvas artifacts and task-scoped ephemeral UI. Surface nodes are
-Elixir data validated against a known component catalog. Model output cannot
-invent arbitrary HTML, JavaScript, LiveView components, actions, permissions,
-resource identities, scripts, URLs, or secret-bearing fields.
+Cross-app duplicate route paths produce registry diagnostics but do not fail
+registration. Same-app duplicate surface ids are validation failures.
 
-AG-UI and A2UI remain optional future adapters. The first local substrate uses
-LiveView, PubSub, Jido signals, registered actions, and
-`AllbertAssist.Surface` directly. Any external protocol encoder must preserve
-the same validation, provenance, fallback text, redaction, and action-binding
-rules.
+### Settings Schema Merge
+
+v0.18 wires plugin and app settings schema contributions into Settings Central
+at runtime. The static compiled schema is always present. App registry
+contributions and plugin registry contributions are merged at read and
+validation time. If a registry is unavailable, Settings Central proceeds with
+the available sources and logs a warning; it does not crash.
+
+This closes the v0.17 gap where contributions were stored in registries but
+never consumed.
+
+### Active App Default
+
+v0.18 adds a resolution rule applied to all request entry points: if no
+explicit known app context exists and the session scratchpad has no known
+`active_app`, the runtime defaults to `active_app: :allbert`. Unknown app id
+strings from channels, model output, or external requests are not atomized;
+they fall back to `:allbert` with a diagnostic. The resolution rule lives in
+`AllbertAssist.Runtime` and applies to CLI, LiveView, channel adapter, and
+job turns.
+
+`active_app` is resolved context, not execution authority.
+
+### SurfaceProvider
+
+Allbert defines `AllbertAssist.App.SurfaceProvider` for apps with interactive
+surfaces. Required callbacks are `surfaces/0` and `surface_catalog/0`. An
+optional `fallback_surface/1` callback provides text-only fallback when
+rendering cannot use nodes.
+
+An app may implement both `AllbertAssist.App` and
+`AllbertAssist.App.SurfaceProvider` in the same module. `CoreApp` is the first
+`SurfaceProvider` implementation in v0.18; StockSage v0.20 is the second.
+
+Surface events must return Jido signals or route through registered actions.
+LiveView renders and collects operator input; it does not own app domain logic,
+approval storage, security policy, or resource grants.
+
+### Surface DSL
+
+Allbert defines `AllbertAssist.Surface` as the native declarative surface DSL
+for v0.24 canvas artifacts and task-scoped ephemeral UI. Surface nodes are
+Elixir data validated against a known component catalog. The v0.18 initial
+catalog has twelve components: `:route`, `:chat`, `:timeline`, `:composer`,
+`:panel`, `:section`, `:text`, `:list`, `:empty_state`, `:button`,
+`:action_button`, `:status_badge`.
+
+Model output cannot invent arbitrary HTML, JavaScript, LiveView components,
+actions, permissions, resource identities, scripts, URLs, or secret-bearing
+fields. Surface validation enforces:
+
+- Node component atoms must be in the known catalog.
+- Prop keys matching secret-like patterns (`*_key`, `*_secret`, `*_token`,
+  `*_password`, `*_credential`) are rejected.
+- Prop values that are raw HTML strings, script strings, or remote URLs are
+  rejected.
+- Surface paths must be local routes starting with `/`; no scheme or host.
+- Action bindings must reference registered action names present in the
+  actions registry.
+
+Action bindings are validated at surface registration time. They carry
+permission and confirmation requirement metadata from the actions registry as
+display metadata; they cannot grant permission, change confirmation
+requirements, or bypass Security Central.
+
+### AG-UI and A2UI Stub
+
+`AllbertAssist.Surface.Encoder.to_a2ui/1` is introduced in v0.18 as the
+designated AG-UI adaptation interface. Its type signature documents the
+intended translation from `AllbertAssist.Surface` validated nodes to AG-UI
+`STATE_SNAPSHOT`-style events. The v0.18 implementation returns
+`{:error, :not_implemented}`. AG-UI and A2UI must not become runtime package
+dependencies in v0.18 or earlier versions.
+
+### CoreApp
 
 `AllbertAssist.App.CoreApp` is the first `SurfaceProvider` implementation,
 established in v0.18. It declares the `/agent` conversation route as the
-built-in chat surface - the default surface every local runtime turn lands on
+built-in chat surface — the default surface every local runtime turn lands on
 when no other `active_app` is active. Runtime requests default to
-`active_app: :allbert` in v0.18 so every turn has a declared home app. Explicit
-known app context from request data or the v0.14 scratchpad still wins. v0.24
-upgrades `CoreApp`'s surface from `/agent` into the full workspace shell; it is
-`CoreApp`'s surface implementation, not a separate shell.
+`active_app: :allbert` in v0.18 so every turn has a declared home app.
+Explicit known app context from request data or the v0.14 scratchpad still
+wins. v0.24 upgrades `CoreApp`'s surface from `/agent` into the full workspace
+shell; it is `CoreApp`'s surface implementation, not a separate shell.
+
+### StockSage
 
 StockSage is the second proving app for this contract. v0.20, formerly M-D2a,
-implements `StockSage.App` with the v0.18 app/surface contract from day one -
+implements `StockSage.App` with the v0.18 app/surface contract from day one —
 there is no lite-to-full migration. v0.25 builds all StockSage LiveViews on
 `AllbertAssist.App.SurfaceProvider` from day one; there is no stepping-stone
 static route mounting that later migrates to the surface contract. Memory
 namespace registration is the one deferred layer, added in v0.27 where
 StockSage polish first consumes it.
 
-The `AllbertAssist.Surface.Encoder.to_a2ui/1` stub is introduced in v0.18 as
-the designated AG-UI adaptation interface. Its type signature documents the
-intended translation from `AllbertAssist.Surface.Node` to AG-UI
-`STATE_SNAPSHOT`-style events. Concrete AG-UI protocol emission is deferred to
-post-v0.29 adapter work.
-
 ## Consequences
 
 - Every runtime turn has a declared home app from v0.18: `active_app: :allbert`
   by default, overridden when a specific app context is active.
-- The built-in chat surface (`/agent`, upgraded to the workspace shell in v0.24)
-  is formally declared through `CoreApp`'s `SurfaceProvider`, not an orphan
-  LiveView route.
+- The built-in chat surface (`/agent`, upgraded to the workspace shell in
+  v0.24) is formally declared through `CoreApp`'s `SurfaceProvider`, not an
+  orphan LiveView route.
 - StockSage can be added as a plugin-contributed umbrella app without private
   routing, security, or skill-registration shortcuts.
 - Intent routing can use `active_app` from session context to prioritize
@@ -132,14 +204,27 @@ post-v0.29 adapter work.
 - Future Allbert apps get a stable contract before generator work begins.
 - The app contract does not add new execution authority. Permission decisions
   remain at the action boundary.
+- Settings schema contributions from apps and plugins participate in Settings
+  Central validation and reads; the v0.17 gap is closed.
+- App registration for apps with invalid surfaces fails only for those apps;
+  the runtime keeps running.
+- Cross-app duplicate route paths are observable warnings; they are not boot
+  failures.
 
 ## Deferred
 
+- Memory namespace registration in `AllbertAssist.App.Registry`, deferred to
+  v0.27 where StockSage polish first consumes it.
 - `mix allbert.gen.plugin` and `mix allbert.gen.app` scaffolding, until
   StockSage proves the plugin/app contract, StockSage SurfaceProvider
   LiveViews, memory namespace completion, and canvas path through v0.28.
+  Planned for v0.29.
 - AG-UI streaming endpoints, A2UI renderer compatibility, MCP Apps, and
   third-party remote UI execution.
 - Dynamic runtime mounting of arbitrary routes or LiveView components from
   untrusted app folders.
 - Hosted marketplace publishing of app skill packs.
+- Canvas component catalog expansion beyond the twelve v0.18 initial components.
+- Automatic signal subscription wiring from declared `signals/0` metadata.
+  v0.18 stores declarations only; Jido signal flow remains the only runtime
+  signal path.
