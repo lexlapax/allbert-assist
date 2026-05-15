@@ -3,11 +3,14 @@ defmodule Mix.Tasks.Allbert.SessionsTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Session
   alias Mix.Tasks.Allbert.Sessions, as: SessionsTask
 
   setup do
     user = "cli-session-#{System.unique_integer([:positive])}"
+    ensure_stocksage_app!()
 
     on_exit(fn ->
       Session.clear(user, "sess-1")
@@ -146,5 +149,17 @@ defmodule Mix.Tasks.Allbert.SessionsTest do
       end)
 
     assert output =~ "Expired sessions removed="
+  end
+
+  defp ensure_stocksage_app! do
+    case AppRegistry.lookup(:stocksage) do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, :not_found} ->
+        PluginRegistry.register_module(StockSage.Plugin)
+        assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+        on_exit(fn -> AppRegistry.unregister(:stocksage) end)
+    end
   end
 end

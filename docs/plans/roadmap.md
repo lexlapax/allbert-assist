@@ -997,7 +997,7 @@ Request flow: `docs/plans/v0.20-request-flow.md`
 
 ADR: `docs/adr/0018-stocksage-local-domain-app.md`
 
-Status: implemented through plugin-ownership cleanup on 2026-05-15. Ready for
+Status: implemented through M5 closeout fixes on 2026-05-15. Ready for
 operator manual verification; release tag pending operator acceptance.
 Formerly M-D2a.
 

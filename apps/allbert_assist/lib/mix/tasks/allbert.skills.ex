@@ -5,6 +5,7 @@ defmodule Mix.Tasks.Allbert.Skills do
   ## Usage
 
       mix allbert.skills validate PATH
+      mix allbert.skills list
       mix allbert.skills create NAME ACTION PERMISSION DESCRIPTION... [--root ROOT] [--overwrite]
       mix allbert.skills run SKILL SCRIPT [--cwd PATH] [--timeout MS] [--max-output-bytes BYTES] -- [ARGS...]
       mix allbert.skills search-online QUERY...
@@ -35,6 +36,12 @@ defmodule Mix.Tasks.Allbert.Skills do
   defp dispatch(["validate", path]) do
     with {:ok, response} <- completed_action("validate_skill", %{path: path}) do
       {:ok, {:validation, response.validation}}
+    end
+  end
+
+  defp dispatch(["list"]) do
+    with {:ok, response} <- completed_action("list_skills", %{}) do
+      {:ok, {:list, response.skills}}
     end
   end
 
@@ -116,6 +123,7 @@ defmodule Mix.Tasks.Allbert.Skills do
     Mix.raise("""
     Usage:
       mix allbert.skills validate PATH
+      mix allbert.skills list
       mix allbert.skills create NAME ACTION PERMISSION DESCRIPTION... [--root ROOT] [--overwrite]
       mix allbert.skills run SKILL SCRIPT [--cwd PATH] [--timeout MS] [--max-output-bytes BYTES] -- [ARGS...]
       mix allbert.skills search-online QUERY...
@@ -134,6 +142,16 @@ defmodule Mix.Tasks.Allbert.Skills do
     Mix.shell().info("Contract: #{validation.contract.validation_status}")
     Mix.shell().info("Execution eligible: #{validation.contract.execution_eligible?}")
     print_diagnostics(validation.diagnostics)
+  end
+
+  defp print_result({:ok, {:list, skills}}) do
+    Mix.shell().info("Skills: #{length(skills)}")
+
+    Enum.each(skills, fn skill ->
+      Mix.shell().info(
+        "- #{skill.name} source=#{skill.source_scope} trust=#{skill.trust_status} plugin=#{skill.plugin_id || "-"} action=#{primary_action(skill)}"
+      )
+    end)
   end
 
   defp print_result({:ok, {:created, skill}}) do
@@ -263,6 +281,15 @@ defmodule Mix.Tasks.Allbert.Skills do
       "Enabled: #{import.enabled?}",
       "Trusted: #{import.trusted?}"
     ]
+  end
+
+  defp primary_action(skill) do
+    skill
+    |> get_in([:capability_contract, :actions])
+    |> case do
+      [action | _rest] -> action
+      _other -> "-"
+    end
   end
 
   defp parse_create_options(args) do

@@ -72,6 +72,7 @@ defmodule AllbertAssist.Actions.Intent.ListSkills do
       trust_status: skill.trust_status,
       activation_mode: skill.activation_mode,
       aliases: skill.aliases,
+      plugin_id: skill.plugin_id,
       status: skill.status,
       permission: skill.permission,
       capability_contract: contract_summary(skill)

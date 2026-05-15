@@ -3,6 +3,7 @@ defmodule StockSage.ActionsTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -166,6 +167,30 @@ defmodule StockSage.ActionsTest do
     assert selected.kind == :action
     assert selected.app_id == :stocksage
     assert selected.action_name in ["list_analyses", "show_analysis"]
+  end
+
+  test "intent agent executes a selected StockSage action from active app context" do
+    assert {:ok, _analysis} =
+             Analyses.create_analysis(%{
+               user_id: "alice",
+               symbol: "aapl",
+               status: "completed",
+               source: "manual",
+               summary: "AAPL summary"
+             })
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "list my analyses",
+               user_id: "alice",
+               active_app: :stocksage
+             })
+
+    assert response.status == :completed
+    assert response.message == "Found 1 StockSage analyses for alice."
+    assert response.active_app == :stocksage
+    assert [%{name: "list_analyses", status: :completed}] = response.actions
+    assert response.decision.selected_action == "list_analyses"
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

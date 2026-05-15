@@ -27,6 +27,11 @@ defmodule AllbertAssist.Actions.AppActionsTest do
     def actions, do: [SetActiveApp, DirectAnswer]
   end
 
+  setup do
+    ensure_stocksage_app!()
+    :ok
+  end
+
   test "list_apps exposes redacted summaries through the action runner" do
     original_logger_level = Logger.level()
     Logger.configure(level: :info)
@@ -97,5 +102,16 @@ defmodule AllbertAssist.Actions.AppActionsTest do
 
   defp context do
     %{request: %{input_signal_id: "input-sig", operator_id: "local", user_id: "local"}}
+  end
+
+  defp ensure_stocksage_app! do
+    case AppRegistry.lookup(:stocksage) do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, :not_found} ->
+        assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+        on_exit(fn -> AppRegistry.unregister(:stocksage) end)
+    end
   end
 end

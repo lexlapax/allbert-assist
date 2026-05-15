@@ -16,15 +16,14 @@ defmodule AllbertAssist.Plugin.Bootstrap do
   end
 
   @impl true
-  def init(opts), do: {:ok, Map.new(opts), {:continue, :discover_plugins}}
+  def init(opts) do
+    opts = Map.new(opts)
 
-  @impl true
-  def handle_continue(:discover_plugins, opts) do
     if Map.get(opts, :bootstrap?, true) do
       discover_and_register(opts)
     end
 
-    {:noreply, opts}
+    {:ok, opts}
   end
 
   defp discover_and_register(opts) do

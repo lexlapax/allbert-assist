@@ -4,16 +4,23 @@ defmodule AllbertAssist.Actions.SessionActionsTest do
   import ExUnit.CaptureLog
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Session
 
   setup do
     original_logger_level = Logger.level()
+    stocksage_registered? = AppRegistry.known_app_id?(:stocksage)
     Logger.configure(level: :info)
 
     user = "session-action-#{System.unique_integer([:positive])}"
 
+    unless stocksage_registered? do
+      AppRegistry.register(StockSage.App)
+    end
+
     on_exit(fn ->
       Logger.configure(level: original_logger_level)
+      unless stocksage_registered?, do: AppRegistry.unregister(:stocksage)
       Session.clear(user, "sess-1")
       Session.clear(user, "sess-keys")
       Session.clear(user, "sess-none")

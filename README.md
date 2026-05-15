@@ -10,7 +10,7 @@ not the architecture center.
 
 ## Current Status
 
-v0.20 is implemented through plugin-ownership cleanup on 2026-05-15 and is
+v0.20 is implemented through M5 closeout fixes on 2026-05-15 and is
 ready for operator manual verification. It makes StockSage the first real
 shipped plugin workspace app, with a `./plugins/stocksage` package, shared
 SQLite `stocksage_*` tables, read-only legacy import, safe local StockSage
@@ -134,10 +134,10 @@ Release details live in `CHANGELOG.md`.
   `stocksage_*` tables with `mix stocksage.import_sqlite`.
 - List/show local StockSage analyses and create/list local StockSage queue
   rows with `mix stocksage.analyses` and `mix stocksage.queue`.
-- Route active StockSage sessions toward the safe local StockSage actions
-  contributed by `StockSage.Plugin`, while keeping Python execution,
-  market-data APIs, StockSage LiveViews, native trading agents, and canvas work
-  in later milestones.
+- Route active StockSage session or one-turn CLI app context toward the safe
+  local StockSage actions contributed by `StockSage.Plugin`, while keeping
+  Python execution, market-data APIs, StockSage LiveViews, native trading
+  agents, and canvas work in later milestones.
 - Merge app/plugin-contributed settings schema entries into Settings Central
   at read and validation time.
 - Tag registered action capabilities with optional `app_id` when an app claims
@@ -268,6 +268,7 @@ CLI entrypoints:
 ```sh
 mix allbert.ask "hello"
 mix allbert.ask --user alice --session sess-1 "hello"
+mix allbert.ask --user alice --active-app stocksage "list my analyses"
 mix allbert.sessions set-active-app --user alice --session sess-1 stocksage
 mix allbert.apps list
 mix allbert.apps show stocksage
