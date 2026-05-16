@@ -1025,16 +1025,18 @@ Expected direction:
 
 Plan: `docs/plans/v0.21-plan.md`
 
-Status: planned. Formerly v0.14.
+Status: implemented; ready for operator manual verification before release tag.
+Formerly v0.14.
 
 Expected direction:
 
-- Add operator review, correction, promotion, and pruning over markdown
+- Added operator review, correction, promotion, and pruning over markdown
   long-term memory.
-- Generate summaries and compiled runtime views from markdown sources.
-- Keep SQLite conversation history from v0.12 distinct from markdown memory;
+- Generated summaries and compiled runtime views from markdown sources.
+- Kept SQLite conversation history from v0.12 distinct from markdown memory;
   no automatic promotion of thread turns.
-- Add retrieval only after review and source-of-truth semantics are stable.
+- Added metadata-only memory candidates to the v0.19 intent engine after
+  review and source-of-truth semantics stabilized.
 
 ## v0.22: StockSage Python Bridge
 
