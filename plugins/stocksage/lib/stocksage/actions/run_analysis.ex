@@ -34,6 +34,8 @@ defmodule StockSage.Actions.RunAnalysis do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
+  alias AllbertAssist.Signals, as: AllbertSignals
+  alias Jido.Signal
   alias StockSage.Actions
   alias StockSage.Analyses
   alias StockSage.Bridge.Protocol
@@ -45,6 +47,14 @@ defmodule StockSage.Actions.RunAnalysis do
   @summary_max 500
   @failure_summary_max 200
   @max_analysis_date_offset_days 730
+  # Default 1 MiB cap for persisted detail bodies when
+  # `stocksage.bridge_max_output_bytes` is unavailable. v0.22 unifies the
+  # in-flight bridge bound and the persisted detail bound on this single
+  # setting per audit feedback.
+  @default_detail_max 1_048_576
+  @signal_analysis_requested "allbert.stocksage.analysis_requested"
+  @signal_analysis_completed "allbert.stocksage.analysis_completed"
+  @signal_analysis_failed "allbert.stocksage.analysis_failed"
 
   def capability do
     Actions.capability(:stocksage_analyze, %{
@@ -166,20 +176,98 @@ defmodule StockSage.Actions.RunAnalysis do
   end
 
   defp run_after_approval(validated, context, permission_decision) do
-    started_at = DateTime.utc_now()
+    with :ok <- ensure_queue_entry(validated) do
+      started_at = DateTime.utc_now()
+      emit_analysis_signal(@signal_analysis_requested, requested_payload(validated, context))
 
-    case TraderBridge.analyze(%{
-           ticker: validated.ticker,
-           analysis_date: Date.to_iso8601(validated.analysis_date),
-           engine: validated.engine
-         }) do
-      {:ok, result} ->
-        persist_success(validated, result, context, permission_decision, started_at)
+      case TraderBridge.analyze(%{
+             ticker: validated.ticker,
+             analysis_date: Date.to_iso8601(validated.analysis_date),
+             engine: validated.engine
+           }) do
+        {:ok, result} ->
+          persist_success(validated, result, context, permission_decision, started_at)
 
-      {:error, reason} ->
-        persist_failure(validated, reason, context, permission_decision, started_at)
+        {:error, reason} ->
+          persist_failure(validated, reason, context, permission_decision, started_at)
+      end
+    else
+      {:error, queue_reason} ->
+        queue_entry_invalid(validated, permission_decision, queue_reason)
     end
   end
+
+  defp ensure_queue_entry(%{queue_entry_id: nil}), do: :ok
+  defp ensure_queue_entry(%{queue_entry_id: ""}), do: :ok
+
+  defp ensure_queue_entry(%{queue_entry_id: queue_id, user_id: user_id})
+       when is_binary(queue_id) and queue_id != "" do
+    case Queue.get_entry(user_id, queue_id) do
+      {:ok, entry} ->
+        cond do
+          entry.user_id != user_id ->
+            {:error, :queue_entry_not_found}
+
+          entry.status in ["queued", "running"] ->
+            :ok
+
+          true ->
+            {:error, {:queue_entry_already_consumed, entry.status}}
+        end
+
+      {:error, :not_found} ->
+        {:error, :queue_entry_not_found}
+
+      _other ->
+        {:error, :queue_entry_lookup_failed}
+    end
+  end
+
+  defp ensure_queue_entry(_other), do: :ok
+
+  defp queue_entry_invalid(validated, permission_decision, reason) do
+    emit_analysis_signal(@signal_analysis_failed, %{
+      ticker: validated.ticker,
+      analysis_date: Date.to_iso8601(validated.analysis_date),
+      engine: validated.engine,
+      user_id: validated.user_id,
+      queue_entry_id: validated.queue_entry_id,
+      error: queue_reason_to_string(reason)
+    })
+
+    {:ok,
+     %{
+       message:
+         "StockSage analysis aborted before bridge call: #{queue_reason_to_string(reason)}.",
+       status: :error,
+       error: :queue_entry_not_found,
+       detail: queue_reason_to_string(reason),
+       permission_decision: permission_decision,
+       actions: [
+         Actions.action(
+           "run_analysis",
+           :error,
+           :stocksage_analyze,
+           permission_decision,
+           %{
+             error: :queue_entry_not_found,
+             ticker: validated.ticker,
+             analysis_date: Date.to_iso8601(validated.analysis_date),
+             engine: validated.engine,
+             queue_entry_id: validated.queue_entry_id,
+             reason: queue_reason_to_string(reason)
+           }
+         )
+       ]
+     }}
+  end
+
+  defp queue_reason_to_string({:queue_entry_already_consumed, status}),
+    do: "queue entry already consumed (status=#{status})"
+
+  defp queue_reason_to_string(:queue_entry_not_found), do: "queue entry not found"
+  defp queue_reason_to_string(:queue_entry_lookup_failed), do: "queue entry lookup failed"
+  defp queue_reason_to_string(other), do: inspect(other)
 
   defp persist_success(validated, result, context, permission_decision, started_at) do
     duration_ms = DateTime.diff(DateTime.utc_now(), started_at, :millisecond)
@@ -210,6 +298,18 @@ defmodule StockSage.Actions.RunAnalysis do
       {:ok, analysis} ->
         write_detail(analysis, validated, result, truncated?)
         update_queue(validated, analysis, :completed, started_at)
+
+        emit_analysis_signal(@signal_analysis_completed, %{
+          analysis_id: analysis.id,
+          ticker: validated.ticker,
+          analysis_date: Date.to_iso8601(validated.analysis_date),
+          engine: validated.engine,
+          user_id: validated.user_id,
+          queue_entry_id: validated.queue_entry_id,
+          bridge_duration_ms: duration_ms,
+          truncated: truncated?,
+          stub: Map.get(result, "stub", false)
+        })
 
         {:ok,
          %{
@@ -281,6 +381,17 @@ defmodule StockSage.Actions.RunAnalysis do
 
     update_queue(validated, %{id: analysis_id}, :failed, started_at, reason)
 
+    emit_analysis_signal(@signal_analysis_failed, %{
+      analysis_id: analysis_id,
+      ticker: validated.ticker,
+      analysis_date: Date.to_iso8601(validated.analysis_date),
+      engine: validated.engine,
+      user_id: validated.user_id,
+      queue_entry_id: validated.queue_entry_id,
+      bridge_duration_ms: duration_ms,
+      error: Protocol.bounded_reason(reason)
+    })
+
     {:ok,
      %{
        message:
@@ -320,7 +431,7 @@ defmodule StockSage.Actions.RunAnalysis do
       user_id: validated.user_id,
       section: "result",
       agent: "python_bridge",
-      content: bounded(Map.get(result, "raw"), 16_000),
+      content: bounded(Map.get(result, "raw"), persisted_detail_max()),
       payload: %{
         "engine" => validated.engine,
         "truncated" => truncated?,
@@ -329,6 +440,20 @@ defmodule StockSage.Actions.RunAnalysis do
     }
 
     Analyses.create_detail(detail_attrs)
+  end
+
+  # The persisted detail body cap is unified with the in-flight bridge bound
+  # via `stocksage.bridge_max_output_bytes` (v0.22 audit, gap 5). Operators
+  # can lower this in Settings Central if they want tighter trace/redaction
+  # posture; bridge_max_output_bytes governs the bridge response too, so the
+  # two stay aligned.
+  defp persisted_detail_max do
+    case Settings.get("stocksage.bridge_max_output_bytes") do
+      {:ok, value} when is_integer(value) and value > 0 -> value
+      _other -> @default_detail_max
+    end
+  rescue
+    _exception -> @default_detail_max
   end
 
   defp update_queue(validated, analysis, status, started_at, reason \\ nil)
@@ -526,5 +651,32 @@ defmodule StockSage.Actions.RunAnalysis do
     end
   rescue
     _exception -> true
+  end
+
+  defp requested_payload(validated, context) do
+    %{
+      ticker: validated.ticker,
+      analysis_date: Date.to_iso8601(validated.analysis_date),
+      engine: validated.engine,
+      user_id: validated.user_id,
+      queue_entry_id: validated.queue_entry_id,
+      confirmation_id: confirmation_id(context),
+      input_signal_id: Actions.field(context, :input_signal_id),
+      trace_id: Actions.field(context, :trace_id)
+    }
+  end
+
+  defp emit_analysis_signal(type, payload) when is_binary(type) and is_map(payload) do
+    case Signal.new(
+           type,
+           AllbertSignals.redact(payload),
+           source: "/allbert/stocksage/run_analysis",
+           subject: Map.get(payload, :user_id)
+         ) do
+      {:ok, %Signal{} = signal} -> AllbertSignals.log(signal)
+      _other -> :ok
+    end
+  rescue
+    _exception -> :ok
   end
 end
