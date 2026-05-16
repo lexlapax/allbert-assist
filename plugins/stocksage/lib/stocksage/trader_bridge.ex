@@ -23,7 +23,11 @@ defmodule StockSage.TraderBridge do
 
   require Logger
 
-  @default_timeout_ms 300_000
+  # Real TradingAgents `propagate` calls invoke a multi-agent LLM debate
+  # workflow that routinely takes 5-10 minutes for a single ticker/date.
+  # The default tolerates that runtime; operators can lower this via
+  # `stocksage.bridge_timeout_ms` for stub-mode tests or fast paths.
+  @default_timeout_ms 600_000
   @default_max_output_bytes 1_048_576
   @line_max_bytes 16_384
 
@@ -31,7 +35,9 @@ defmodule StockSage.TraderBridge do
           required(:ticker) => String.t(),
           required(:analysis_date) => String.t(),
           optional(:engine) => String.t(),
-          optional(:max_output_bytes) => pos_integer()
+          optional(:max_output_bytes) => pos_integer(),
+          optional(:force_stub) => boolean(),
+          optional(:config) => map()
         }
 
   @type bridge_status :: :running | :disabled | :crashed | :stopped

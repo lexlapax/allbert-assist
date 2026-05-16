@@ -7,22 +7,61 @@ StockSage.Bridge.Protocol.
 
 This file lives under ./plugins/stocksage/priv/python/. Elixir owns the Port
 lifecycle; this script is the subprocess body.
+
+v0.22 M2 wires the real TradingAgents call. Requests can pass
+``force_stub: true`` to use the stub path (for tests and dev environments
+without LLM credentials). When ``tradingagents`` cannot be imported, the
+bridge reports ``tradingagents_unavailable`` rather than silently stubbing,
+so production gaps surface loudly.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import traceback
 from datetime import date, datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 MAX_REASON_CHARS = 500
 DEFAULT_MAX_OUTPUT_BYTES = 1_048_576
 VALID_ACTIONS = ("ping", "run_analysis")
 TICKER_PATTERN = re.compile(r"^[A-Z0-9._-]{1,10}$")
+
+# Bounded list of final_state fields we surface in `raw`. Keeping this small
+# avoids dumping every agent transcript into the persisted detail row.
+_FINAL_STATE_FIELDS = (
+    "final_trade_decision",
+    "investment_plan",
+    "trader_investment_plan",
+    "market_report",
+    "sentiment_report",
+    "news_report",
+    "fundamentals_report",
+)
+
+
+def _try_import_tradingagents():
+    """Attempt to import TradingAgents at module load.
+
+    Returns a tuple of (TradingAgentsGraph_cls, DEFAULT_CONFIG, error_str).
+    On failure, error_str is set and the first two are None. Callers handle
+    the missing-install case by returning a structured error response unless
+    the request explicitly requested the stub path.
+    """
+    try:
+        from tradingagents.graph.trading_graph import TradingAgentsGraph  # type: ignore
+        from tradingagents.default_config import DEFAULT_CONFIG  # type: ignore
+
+        return TradingAgentsGraph, DEFAULT_CONFIG, None
+    except Exception as exc:  # noqa: BLE001 - import errors must not crash bridge.
+        return None, None, f"tradingagents_import_failed: {exc.__class__.__name__}: {exc}"
+
+
+_TA_GRAPH_CLS, _TA_DEFAULT_CONFIG, _TA_IMPORT_ERROR = _try_import_tradingagents()
 
 
 def write_response(payload: Dict[str, Any]) -> None:
@@ -53,7 +92,7 @@ def handle_ping(request: Dict[str, Any]) -> Dict[str, Any]:
     return ok_response(request.get("id", ""), "pong")
 
 
-def parse_ticker(value: Any) -> str | None:
+def parse_ticker(value: Any) -> Optional[str]:
     if not isinstance(value, str):
         return None
     stripped = value.strip()
@@ -62,7 +101,7 @@ def parse_ticker(value: Any) -> str | None:
     return stripped
 
 
-def parse_analysis_date(value: Any) -> date | None:
+def parse_analysis_date(value: Any) -> Optional[date]:
     if not isinstance(value, str):
         return None
     try:
@@ -88,11 +127,13 @@ def bound_summary(summary: str, limit: int) -> tuple[str, bool]:
 
 
 def run_tradingagents_stub(ticker: str, analysis_date: date, engine: str) -> Dict[str, Any]:
-    """Placeholder used until M2 wires the real TradingAgents call.
+    """Deterministic stub path used by tests and force_stub callers.
 
-    The bridge protocol contract is fully defined here so that the Elixir side
-    and the supervised Port lifecycle can be exercised without TradingAgents
-    being installed. The real call replaces this body in M2.
+    Returns a shape compatible with the real TradingAgents result so the
+    Elixir side can exercise the full persistence and trace pipeline without
+    LLM credentials, market-data API access, or the multi-minute propagation
+    runtime. The Elixir side persists `stub: true` in the analysis detail
+    payload so traces and operator inspection make the source obvious.
     """
     return {
         "ticker": ticker,
@@ -100,10 +141,115 @@ def run_tradingagents_stub(ticker: str, analysis_date: date, engine: str) -> Dic
         "engine": engine,
         "summary": (
             f"Stub analysis for {ticker} on {analysis_date.isoformat()} "
-            f"using {engine}. TradingAgents integration pending v0.22 M2."
+            f"using {engine}. force_stub=true."
+        ),
+        "decision": "Hold",
+        "final_trade_decision": (
+            f"**Rating**: Hold\n\nStub deterministic decision for {ticker} "
+            f"on {analysis_date.isoformat()}. No real market data consulted."
         ),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "stub": True,
+    }
+
+
+def _build_config(request: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge optional per-request overrides into the TradingAgents config.
+
+    Operators can pass a bounded set of overrides through the bridge protocol
+    (e.g., `deep_think_llm`, `quick_think_llm`, `max_debate_rounds`,
+    `online_tools`, `data_vendors`). Anything else is ignored. The default
+    config from TradingAgents itself is the base; environment variables for
+    LLM credentials are still required at the python venv level.
+    """
+    if _TA_DEFAULT_CONFIG is None:
+        return {}
+
+    config: Dict[str, Any] = dict(_TA_DEFAULT_CONFIG)
+    overrides = request.get("config") or {}
+    if not isinstance(overrides, dict):
+        return config
+
+    allowed_keys = {
+        "deep_think_llm",
+        "quick_think_llm",
+        "max_debate_rounds",
+        "max_risk_discuss_rounds",
+        "max_recur_limit",
+        "online_tools",
+        "data_vendors",
+        "output_language",
+        "checkpoint_enabled",
+    }
+    for key, value in overrides.items():
+        if key in allowed_keys:
+            config[key] = value
+
+    return config
+
+
+def _serialize_final_state(final_state: Any, limit: int) -> tuple[str, bool]:
+    """Render the bounded subset of final_state we surface back to Elixir."""
+    if not isinstance(final_state, dict):
+        return "", False
+
+    snapshot: Dict[str, Any] = {}
+    for key in _FINAL_STATE_FIELDS:
+        value = final_state.get(key)
+        if isinstance(value, (str, int, float, bool)):
+            snapshot[key] = value
+        elif value is None:
+            snapshot[key] = None
+        else:
+            snapshot[key] = str(value)
+
+    raw_json = json.dumps(snapshot, separators=(",", ":"), default=str)
+    encoded = raw_json.encode("utf-8")
+    if len(encoded) <= limit:
+        return raw_json, False
+    truncated = encoded[: max(limit - 3, 0)].decode("utf-8", errors="ignore") + "..."
+    return truncated, True
+
+
+def run_tradingagents_real(
+    ticker: str, analysis_date: date, engine: str, request: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Real TradingAgents propagate path.
+
+    Raises ``RuntimeError`` if the import path is unavailable; callers gate
+    this behind the import check. Real calls take minutes and require LLM
+    credentials and (depending on data vendor) market-data API keys in the
+    venv environment that runs this script.
+    """
+    if _TA_GRAPH_CLS is None or _TA_DEFAULT_CONFIG is None:
+        raise RuntimeError("tradingagents_unavailable")
+
+    config = _build_config(request)
+    graph = _TA_GRAPH_CLS(debug=False, config=config)
+    final_state, decision = graph.propagate(ticker, analysis_date.isoformat())
+
+    decision_text = decision if isinstance(decision, str) else str(decision)
+    final_trade_decision = ""
+    if isinstance(final_state, dict):
+        candidate = final_state.get("final_trade_decision")
+        if isinstance(candidate, str):
+            final_trade_decision = candidate
+
+    summary = f"TradingAgents decision: {decision_text}"
+    if final_trade_decision:
+        excerpt = final_trade_decision.splitlines()[0][:200]
+        summary = f"{summary} — {excerpt}"
+
+    return {
+        "ticker": ticker,
+        "analysis_date": analysis_date.isoformat(),
+        "engine": engine,
+        "summary": summary,
+        "decision": decision_text,
+        "final_trade_decision": final_trade_decision,
+        "final_state": final_state,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "stub": False,
     }
 
 
@@ -122,19 +268,42 @@ def handle_run_analysis(request: Dict[str, Any]) -> Dict[str, Any]:
         return error_response(request_id, "invalid_engine")
 
     limit = max_output_bytes(request)
+    force_stub = bool(request.get("force_stub"))
+
+    # Loud failure: production callers must not silently degrade to the stub
+    # path when tradingagents is missing. Test callers explicitly opt into
+    # stub mode via `force_stub: true`.
+    if not force_stub and _TA_IMPORT_ERROR is not None:
+        return error_response(request_id, _TA_IMPORT_ERROR)
 
     try:
-        raw_result = run_tradingagents_stub(ticker, analysis_date, engine)
+        if force_stub:
+            raw_result = run_tradingagents_stub(ticker, analysis_date, engine)
+        else:
+            raw_result = run_tradingagents_real(ticker, analysis_date, engine, request)
+    except RuntimeError as exc:
+        return error_response(request_id, f"tradingagents_error: {exc}")
     except Exception as exc:  # noqa: BLE001 - bridge must not crash on subroutine error.
         return error_response(request_id, f"tradingagents_error: {exc}")
 
     summary, truncated = bound_summary(raw_result.get("summary", ""), limit)
-    raw_json = json.dumps(raw_result, separators=(",", ":"), default=str)
-    raw_bytes = raw_json.encode("utf-8")
-    raw_truncated = False
-    if len(raw_bytes) > limit:
-        raw_json = raw_bytes[: max(limit - 3, 0)].decode("utf-8", errors="ignore") + "..."
-        raw_truncated = True
+    raw_json, raw_truncated = _serialize_final_state(
+        raw_result.get("final_state", raw_result), limit
+    )
+    # Stub path doesn't produce a final_state; fall back to serializing the
+    # whole stub result so the persisted detail row has structured data to
+    # render in traces and operator inspection.
+    if not raw_json:
+        full_json = json.dumps(raw_result, separators=(",", ":"), default=str)
+        full_bytes = full_json.encode("utf-8")
+        if len(full_bytes) > limit:
+            raw_json = (
+                full_bytes[: max(limit - 3, 0)].decode("utf-8", errors="ignore") + "..."
+            )
+            raw_truncated = True
+        else:
+            raw_json = full_json
+            raw_truncated = False
 
     return ok_response(
         request_id,
@@ -143,6 +312,7 @@ def handle_run_analysis(request: Dict[str, Any]) -> Dict[str, Any]:
             "analysis_date": analysis_date.isoformat(),
             "engine": engine,
             "summary": summary,
+            "decision": raw_result.get("decision"),
             "raw": raw_json,
             "truncated": truncated or raw_truncated,
             "stub": raw_result.get("stub", False),
@@ -196,4 +366,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # Surfacing the import error path early as a warning helps operators see
+    # the gap on first run rather than only when an analysis is attempted.
+    if _TA_IMPORT_ERROR is not None and os.environ.get("STOCKSAGE_BRIDGE_VERBOSE"):
+        sys.stderr.write(f"StockSage bridge: {_TA_IMPORT_ERROR}\n")
+        sys.stderr.flush()
     sys.exit(main())
