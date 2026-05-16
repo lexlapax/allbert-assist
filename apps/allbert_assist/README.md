@@ -2,7 +2,7 @@
 
 Core runtime app for Allbert Assist.
 
-The current v0.20 runtime exposes:
+The current v0.21 runtime exposes:
 
 - `AllbertAssist.Runtime.submit_user_input/1`
 - `AllbertAssist.Agents.IntentAgent`
@@ -51,6 +51,23 @@ The current v0.20 runtime exposes:
 - `AllbertAssist.Actions.Confirmations.DenyConfirmation`
 - `AllbertAssist.Actions.Confirmations.ExpireConfirmations`
 - `AllbertAssist.Memory`
+- `AllbertAssist.Memory.Entry`
+- `AllbertAssist.Memory.Review`
+- `AllbertAssist.Memory.Index`
+- `AllbertAssist.Memory.Compiler`
+- `AllbertAssist.Memory.Promotion`
+- `AllbertAssist.Actions.Memory.ListMemoryEntries`
+- `AllbertAssist.Actions.Memory.ReadMemoryEntry`
+- `AllbertAssist.Actions.Memory.SearchMemory`
+- `AllbertAssist.Actions.Memory.ReviewMemoryEntry`
+- `AllbertAssist.Actions.Memory.UpdateMemoryEntry`
+- `AllbertAssist.Actions.Memory.DeleteMemoryEntry`
+- `AllbertAssist.Actions.Memory.PruneMemoryEntries`
+- `AllbertAssist.Actions.Memory.PromoteConversationTurn`
+- `AllbertAssist.Actions.Memory.CompileMemoryIndex`
+- `AllbertAssist.Actions.Memory.SummarizeMemoryCategory`
+- `AllbertAssist.Actions.Memory.ListMemoryCategorySummary`
+- `mix allbert.memory`
 - `AllbertAssist.Settings`
 - `AllbertAssist.Trace`
 - `mix allbert.ask`
@@ -68,7 +85,7 @@ remain readable as audit history, while new v0.10 external service, package
 install, and online skill import requests resume only through their registered
 actions after confirmation.
 
-See the umbrella root `README.md`, `docs/plans/v0.20-plan.md`,
-`docs/plans/v0.20-request-flow.md`, `plugins/stocksage/README.md`, and
-`docs/developer/how-to-create-an-allbert-app.md` for current StockSage,
-app/surface, and intent-routing behavior.
+See the umbrella root `README.md`, `docs/plans/v0.21-plan.md`,
+`docs/plans/v0.21-request-flow.md`, `plugins/stocksage/README.md`, and
+`docs/developer/how-to-create-an-allbert-app.md` for current memory review,
+StockSage, app/surface, and intent-routing behavior.

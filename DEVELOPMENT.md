@@ -164,6 +164,14 @@ For v0.19 cross-surface intent enrichment regression work, start with:
 - `docs/adr/0017-allbert-plugin-contract.md`
 - `docs/adr/0019-cross-surface-intent-enrichment.md`
 
+For v0.21 memory review and retrieval regression work, start with:
+
+- `docs/plans/v0.21-plan.md`
+- `docs/plans/v0.21-request-flow.md`
+- `docs/plans/allbert-jido-vision.md`
+- `docs/adr/0014-local-workspace-identity.md`
+- `docs/adr/0019-cross-surface-intent-enrichment.md`
+
 For v0.17 plugin contract work, start with:
 
 - `docs/plans/v0.17-plan.md`
