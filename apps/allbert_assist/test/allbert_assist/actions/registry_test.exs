@@ -133,6 +133,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "list_intent_candidates",
              "list_memory_entries",
              "read_memory_entry",
+             "review_memory_entry",
+             "update_memory_entry",
+             "delete_memory_entry",
+             "prune_memory_entries",
              "registry_health",
              "trace_summary"
            ]
@@ -193,6 +197,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "list_intent_candidates",
              "list_memory_entries",
              "read_memory_entry",
+             "review_memory_entry",
+             "update_memory_entry",
+             "delete_memory_entry",
+             "prune_memory_entries",
              "registry_health",
              "trace_summary"
            ]
@@ -250,6 +258,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert run_package_install.exposure == :internal
     assert run_package_install.confirmation == :required
     assert run_package_install.resumable?
+
+    assert {:ok, delete_memory_entry} = Registry.capability("delete_memory_entry")
+    assert delete_memory_entry.permission == :memory_write
+    assert delete_memory_entry.execution_mode == :memory_archive
+    assert delete_memory_entry.confirmation == :required
+    assert delete_memory_entry.resumable?
 
     assert {:ok, search_online_skills} = Registry.capability("search_online_skills")
     assert search_online_skills.permission == :external_network
@@ -353,6 +367,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("import_remote_skill")
     assert Registry.resumable?("import_local_skill")
     assert Registry.resumable?("run_skill_script")
+    assert Registry.resumable?("delete_memory_entry")
+    assert Registry.resumable?("prune_memory_entries")
 
     refute Registry.resumable?("direct_answer")
     refute Registry.resumable?("plan_package_install")
