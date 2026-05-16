@@ -226,6 +226,42 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
     refute trace =~ "entry body content that should stay hidden"
   end
 
+  test "renders memory review metadata without entry body content" do
+    Application.put_env(:allbert_assist, Trace, enabled: true)
+
+    trace_turn =
+      turn("Review memory.")
+      |> put_in([:response, :actions], [
+        %{
+          name: "review_memory_entry",
+          status: :completed,
+          permission: :memory_write,
+          execution: :review,
+          memory_path: "/tmp/allbert/memory/notes/reviewed.md",
+          review_status: :kept,
+          confirmation_id: "conf_123"
+        },
+        %{
+          name: "delete_memory_entry",
+          status: :needs_confirmation,
+          permission: :memory_write,
+          execution: :pending_confirmation,
+          memory_path: "/tmp/allbert/memory/notes/delete.md",
+          confirmation_id: "conf_456"
+        }
+      ])
+
+    assert {:ok, response} = RecordTrace.run(%{turn: trace_turn}, context())
+
+    trace = File.read!(response.trace_id)
+    assert trace =~ "## Memory Review"
+    assert trace =~ "review_memory_entry status=completed"
+    assert trace =~ "review_status=kept"
+    assert trace =~ "confirmation=conf_123"
+    assert trace =~ "delete_memory_entry status=needs_confirmation"
+    refute trace =~ "entry body content that should stay hidden"
+  end
+
   defp turn(text) do
     {:ok, input_signal} =
       Signal.new(

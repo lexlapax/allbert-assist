@@ -10,12 +10,17 @@ not the architecture center.
 
 ## Current Status
 
-v0.20 is implemented through M5 closeout fixes on 2026-05-15 and is
-ready for operator manual verification. It makes StockSage the first real
-shipped plugin workspace app, with a `./plugins/stocksage` package, shared
-SQLite `stocksage_*` tables, read-only legacy import, safe local StockSage
-actions, StockSage skills, and bounded operator CLIs. Version metadata is now
-`0.20.0`; release tagging remains pending operator acceptance.
+v0.21 is implemented through M6 closeout on 2026-05-15 and is ready for
+operator manual verification. It adds review-aware markdown memory,
+`mix allbert.memory`, confirmation-gated delete/prune/promotion flows,
+derived memory index and summary artifacts, metadata-only memory candidates in
+the intent engine, and memory review trace rendering. Version metadata is now
+`0.21.0`; release tagging remains pending operator acceptance.
+
+v0.20 remains the StockSage plugin app and domain release. It makes StockSage
+the first real shipped plugin workspace app, with a `./plugins/stocksage`
+package, shared SQLite `stocksage_*` tables, read-only legacy import, safe
+local StockSage actions, StockSage skills, and bounded operator CLIs.
 
 v0.19 remains the cross-surface intent enrichment release: registry-aware
 intent candidates, active-app affinity, inert registered-surface navigation,
@@ -88,6 +93,10 @@ Release details live in `CHANGELOG.md`.
   `mix allbert.jobs create template ...`; templates are normal job rows after
   creation.
 - Inspect scheduled jobs and recent runs in the thin `/jobs` LiveView surface.
+- Review, correct, prune, delete, search, summarize, and promote markdown
+  memory entries through `mix allbert.memory`.
+- Compile rebuildable memory index/summary artifacts and expose
+  metadata-only memory candidates in intent traces.
 - Set, clear, list, and inspect volatile session scratchpad entries through
   `mix allbert.sessions`.
 - Pass `--session` to `mix allbert.ask` so runtime turns can read
@@ -229,10 +238,12 @@ traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
+- v0.21 implementation plan: `docs/plans/v0.21-plan.md`
+- v0.21 request flow and manual verification: `docs/plans/v0.21-request-flow.md`
 - v0.20 implementation plan: `docs/plans/v0.20-plan.md`
 - v0.20 request flow and manual verification: `docs/plans/v0.20-request-flow.md`
 - App authoring guide: `docs/developer/how-to-create-an-allbert-app.md`
-- Next milestone plan: `docs/plans/v0.21-plan.md`
+- Next milestone plan: `docs/plans/v0.22-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development
@@ -346,6 +357,6 @@ Allbert remains local and conservative:
 README is intentionally not the testing plan. Use:
 
 - `docs/operator/onboarding.md` for first-run operator guidance.
-- `docs/plans/v0.20-request-flow.md` for the v0.20 manual verification matrix.
-- `docs/plans/v0.20-plan.md` for milestone-specific verification.
+- `docs/plans/v0.21-request-flow.md` for the v0.21 manual verification matrix.
+- `docs/plans/v0.21-plan.md` for milestone-specific verification.
 - `CHANGELOG.md` for release status, verification summary, and tag readiness.
