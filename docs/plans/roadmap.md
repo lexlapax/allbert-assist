@@ -10,6 +10,10 @@ plans live alongside this file. Identified but unassigned future work lives in
 for verification before deletion. This roadmap and the v0.xx plan files are
 the canonical implementation sources.
 
+For coding agents, this roadmap is the current planning index. Use
+`CHANGELOG.md` for released behavior, ADRs for binding decisions, and active
+milestone plans/request-flow docs for implementation details.
+
 ## Vision
 
 Allbert is a personal assistant runtime that grows with its user. The core
