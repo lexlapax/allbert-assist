@@ -16,7 +16,8 @@ defmodule AllbertAssist.Security.Policy do
     skill_write: "permissions.skill_write",
     skill_script_execute: "permissions.skill_script_execute",
     confirmation_decide: "permissions.confirmation_decide",
-    stocksage_write: "permissions.stocksage_write"
+    stocksage_write: "permissions.stocksage_write",
+    stocksage_analyze: "permissions.stocksage_analyze"
   }
 
   @default_decisions %{
@@ -32,6 +33,7 @@ defmodule AllbertAssist.Security.Policy do
     skill_script_execute: :denied,
     confirmation_decide: :allowed,
     stocksage_write: :allowed,
+    stocksage_analyze: :needs_confirmation,
     settings_secret_write: :allowed,
     settings_secret_read: :denied
   }
@@ -51,6 +53,7 @@ defmodule AllbertAssist.Security.Policy do
           | :skill_script_execute
           | :confirmation_decide
           | :stocksage_write
+          | :stocksage_analyze
           | :settings_secret_write
           | :settings_secret_read
 
@@ -70,6 +73,7 @@ defmodule AllbertAssist.Security.Policy do
       :skill_script_execute,
       :confirmation_decide,
       :stocksage_write,
+      :stocksage_analyze,
       :settings_secret_write,
       :settings_secret_read
     ]
@@ -111,6 +115,7 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:package_install), do: :needs_confirmation
   def safety_floor(:online_skill_import), do: :needs_confirmation
   def safety_floor(:skill_script_execute), do: :needs_confirmation
+  def safety_floor(:stocksage_analyze), do: :needs_confirmation
   def safety_floor(:settings_secret_read), do: :denied
   def safety_floor(permission) when permission in @known_permissions, do: :allowed
   def safety_floor(_permission), do: :denied
@@ -217,6 +222,13 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:stocksage_write, :allowed, _configured, _floor, _context),
     do: "Local StockSage domain writes are allowed through registered StockSage actions."
+
+  defp reason(:stocksage_analyze, :needs_confirmation, _configured, _floor, _context),
+    do:
+      "StockSage analysis execution requires confirmation; the Python bridge makes external market-data calls."
+
+  defp reason(:stocksage_analyze, :denied, _configured, _floor, _context),
+    do: "StockSage analysis execution is denied by current policy."
 
   defp reason(:settings_secret_write, :allowed, _configured, _floor, _context),
     do: "Provider credentials may be configured through explicit credential flows."

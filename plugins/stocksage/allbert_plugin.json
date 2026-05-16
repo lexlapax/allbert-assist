@@ -2,7 +2,7 @@
   "schema_version": 1,
   "plugin_id": "stocksage",
   "name": "StockSage",
-  "version": "0.20.0",
+  "version": "0.22.0",
   "kind": "app",
   "module": "StockSage.Plugin",
   "contributions": {
@@ -13,7 +13,8 @@
       "StockSage.Actions.GetTrends",
       "StockSage.Actions.QueueAnalysis",
       "StockSage.Actions.ListQueue",
-      "StockSage.Actions.ImportSqlite"
+      "StockSage.Actions.ImportSqlite",
+      "StockSage.Actions.RunAnalysis"
     ],
     "skill_paths": ["skills"]
   }
