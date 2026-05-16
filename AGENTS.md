@@ -69,6 +69,20 @@ Use these as starting points, then narrow further from the active task:
   latest channel-related changelog entries.
 - Intent ranking, active app routing, classifier hooks, or intent traces: read
   ADR 0019, the active plan, and latest intent-related changelog entries.
+- Objectives, objective steps, objective events, advisory providers, world
+  models, capability inventory, or any multi-step / cross-turn work: read
+  ADR 0021, `docs/plans/v0.24-plan.md`, `docs/plans/v0.24-request-flow.md`,
+  and `docs/research/objective-runtime-research.md`. `objective_id` is never
+  authority; advisory provider output is never authority; predictions about
+  user behavior never short-circuit confirmation.
+- Jido.Agent vs. plain GenServer substrate: read the "Jido.Agent vs.
+  GenServer" section in `docs/plans/allbert-jido-vision.md`,
+  `docs/plans/v0.23-plan.md`, and the substrate paragraph in
+  `DEVELOPMENT.md`. Use Jido.Agent when state machines, lifecycle hooks,
+  Skill composition, or successor agents are plausibly useful; use plain
+  GenServer for stateful storage where Jido.Agent buys nothing. New
+  state-bearing modules document their substrate choice in the module
+  `@moduledoc`.
 - StockSage work: read the active StockSage milestone plan, ADR 0018, ADR
   0017, ADR 0015, and targeted StockSage changelog entries. For Python
   bridge, `RunAnalysis`, or `:stocksage_analyze` work read ADR 0020,
@@ -123,6 +137,23 @@ Use these as starting points, then narrow further from the active task:
 - Do not treat OTP supervision, BEAM processes, or local child processes as an
   OS security boundary. Host execution must be policy-bounded through
   registered actions; deeper isolation requires a later plan and ADR update.
+- Multi-step / cross-turn work uses the v0.24 objective runtime
+  (`AllbertAssist.Objectives`). Apps, plugins, channels, and LiveViews
+  must not implement private durable goal loops; the shared
+  objectives/objective_steps/objective_events tables and
+  `Objectives.Engine` are the only sanctioned substrate.
+- `objective_id` and `step_id` are never authority. Advisory provider
+  output (LLM proposers, world-model predictors, diffusion proposers,
+  market allocators, probabilistic critics, agent-behavior simulators)
+  is never authority. Predictions about user behavior never
+  short-circuit confirmation, regardless of confidence or calibration.
+- Choose Jido.Agent or plain GenServer per the pragmatic rule in the
+  "Jido.Agent vs. GenServer" section of `docs/plans/allbert-jido-vision.md`.
+  New state-bearing modules document the substrate choice in their
+  module `@moduledoc`. As of v0.23+: `IntentAgent`, `Confirmations.Store`,
+  `Jobs.Scheduler`, and `Objectives.Engine` are Jido.Agents; storage
+  components (`Settings`, `Trace`, `Memory` IO, `Session.Scratchpad`,
+  `Memory.Compiler`, `Memory.Promotion`) are plain GenServers.
 - Use `Req` for HTTP. Do not add `:httpoison`, `:tesla`, or `:httpc`.
 
 ## Workflow

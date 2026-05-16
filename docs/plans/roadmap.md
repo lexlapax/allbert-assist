@@ -139,21 +139,31 @@ Dependency order from here:
     full app/surface contract from day one through the plugin layer.
 19. Memory review, summarization, and retrieval improvements.
 20. StockSage Python bridge bringing real analysis results into Allbert.
-21. Native Jido trading agents as the second analysis engine so both are
-    available before StockSage web surfaces are built.
-22. Workspace shell upgrade: `CoreApp`'s surface transitions from the
+21. Jido State-Machine Convergence: convert `Confirmations.Store` and
+    `Jobs.Scheduler` from plain `GenServer` to `Jido.Agent` so the runtime
+    substrate is consistent with the original Jido vision before the
+    objective runtime ships. Pure refactor; no new user-visible features.
+22. Objective Runtime Foundation: shared durable layer for multi-step,
+    multi-turn work. `Objectives.Engine` as a Jido.Agent built on the
+    converged substrate; `objectives`/`objective_steps`/`objective_events`
+    SQLite tables; `objective_id`/`step_id` threaded through confirmations,
+    jobs, and StockSage `RunAnalysis`.
+23. Native Jido trading agents as the second analysis engine, consuming
+    objective state from day one so both engines are available before
+    StockSage web surfaces are built.
+24. Workspace shell upgrade: `CoreApp`'s surface transitions from the
     rudimentary `/agent` prompt to a signal-driven LiveView workspace with
     canvas and ephemeral UI substrate.
-23. StockSage LiveViews built on the Surface DSL, proving the plugin-contributed
+25. StockSage LiveViews built on the Surface DSL, proving the plugin-contributed
     app surface pattern on top of the workspace shell.
-24. Security hardening and evals after real execution, import, channel, job,
-    memory, intent, app, workspace, surface, and financial-analysis behavior
-    exists.
-25. StockSage polish, outcomes, trends, and memory namespace registration as
+26. Security hardening and evals after real execution, import, channel, job,
+    memory, intent, app, workspace, surface, objective, and financial-
+    analysis behavior exists.
+27. StockSage polish, outcomes, trends, and memory namespace registration as
     the final deferred layer of the app/surface contract.
-26. StockSage canvas integration wiring existing components into the workspace
+28. StockSage canvas integration wiring existing components into the workspace
     catalog.
-27. Plugin and app generator encoding only the shape already proven end to end.
+29. Plugin and app generator encoding only the shape already proven end to end.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -1072,54 +1082,127 @@ Expected direction:
 - Accept ADR 0020 defining the JSON-over-stdio protocol, plugin ownership
   boundary, and v0.26 market-data hardening handoff.
 
-## v0.23: Native Jido Trading Agents
+## v0.23: Jido State-Machine Convergence
 
 Plan: `docs/plans/v0.23-plan.md`
+Request flow: `docs/plans/v0.23-request-flow.md`
 
-Status: planned. Formerly M-D2c, previously planned as v0.19.
+Status: planned. NEW milestone inserted by the project-direction rethink
+(see `docs/plans/project-direction-rethink-01.md`). Closes the clearest part
+of the gap between the original Jido-substrate vision and the current code
+before v0.24 ships `Objectives.Engine` as another new Jido.Agent.
+
+Expected direction:
+
+- Convert `AllbertAssist.Confirmations.Store` from plain `GenServer` to
+  `Jido.Agent` with `on_before_cmd`/`on_after_cmd` hooks at status
+  transitions. SQLite remains authoritative for durable state.
+- Convert `AllbertAssist.Jobs.Scheduler` from plain `GenServer` to
+  `Jido.Agent`. Replace `Process.send_after`-based tick with
+  `Jido.Action` `:emit_after` directive.
+- Codify the pragmatic substrate rule in the vision, `AGENTS.md`, and
+  `DEVELOPMENT.md`: use Jido.Agent when state machines, lifecycle hooks,
+  or successor agents are plausibly useful; use plain GenServer for
+  stateful storage where Jido.Agent buys nothing. Settings, Trace,
+  Memory storage IO, Session.Scratchpad, Memory.Compiler, and
+  Memory.Promotion stay as plain GenServers.
+- Pure architectural refactor: no new user-visible features, no schema
+  changes, no permission changes. All v0.07 and v0.13 acceptance
+  criteria continue to hold.
+
+## v0.24: Objective Runtime Foundation
+
+Plan: `docs/plans/v0.24-plan.md`
+Request flow: `docs/plans/v0.24-request-flow.md`
+ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
+Research note: `docs/research/objective-runtime-research.md`
+
+Status: planned. NEW milestone inserted by the project-direction rethink
+(see `docs/plans/project-direction-rethink-01.md`). Adds the durable
+multi-step work substrate that v0.25 native trading agents, v0.26
+workspace shell, and future apps will build on.
+
+Expected direction:
+
+- Add `AllbertAssist.Objectives` umbrella with `Objective`, `Step`,
+  `Event` schemas and `Objectives.Engine` as a `Jido.Agent` (built on
+  v0.23 converged substrate) implementing a seven-stage state machine.
+- Add `objectives`, `objective_steps`, `objective_events` SQLite tables.
+- Thread `objective_id` + `step_id` through confirmations, jobs,
+  StockSage `RunAnalysis`, traces, and audit.
+- Ship five step kinds: `action`, `ask_user`, `wait`, `observe`,
+  `reflect`. Reserved kinds (`delegate_agent`, `surface`, etc.) named in
+  ADR 0021 but not implemented.
+- Ship `mix allbert.objectives list|show|cancel|continue` CLI commands.
+- Add `## Objective` and `## Objective Steps` trace sections.
+- Add LiveView objective badge and `/objectives/:id` view.
+- Cooperative cancellation only; mid-action interruption deferred to
+  v0.25+.
+- Acceptance smokes: single-step `analyze AAPL` objective and two-step
+  `analyze AAPL and compare to MSFT` objective.
+- Reserved vocabulary: advisory provider behaviour, world-model
+  provider, capability inventory, route, acquisition option, planner.
+  See ADR 0021 and the research note.
+
+## v0.25: Native Jido Trading Agents
+
+Plan: `docs/plans/v0.25-plan.md`
+
+Status: planned. Formerly M-D2c, previously planned as v0.19, then v0.23
+before the project-direction rethink inserted v0.23 Jido State-Machine
+Convergence and v0.24 Objective Runtime Foundation.
 
 Expected direction:
 
 - Implement the native Jido trading-agent topology behind StockSage actions.
 - Keep native worker supervisors under `StockSage.Supervisor`, contributed
   through the StockSage plugin child spec.
+- Consume v0.24 objective state from day one: each analysis runs as an
+  objective step with `objective_id`/`step_id` threaded through
+  confirmations, traces, and `stocksage_analyses` rows.
 - Keep the Python bridge selectable until golden fixtures and batch smoke tests
   prove native parity within documented variance.
 - Make native analysis default only after acceptance passes.
 
-## v0.24: Agentic Workspace Surface And Ephemeral UI Substrate
+## v0.26: Agentic Workspace Surface And Ephemeral UI Substrate
 
-Plan: `docs/plans/v0.24-plan.md`
+Plan: `docs/plans/v0.26-plan.md`
 
 Status: planned. Formerly the old v0.17 workspace-surface plan, then v0.27,
-then v0.24 when moved before StockSage LiveViews.
+then v0.24 when moved before StockSage LiveViews, then v0.26 after the
+project-direction rethink.
 
 Prerequisite: v0.18 app/surface contract, v0.19 intent enrichment, v0.21 memory
-review, v0.22 Python bridge, and v0.23 Native Jido agents are complete.
+review, v0.22 Python bridge, v0.23 Jido Convergence, v0.24 Objective Runtime
+Foundation, and v0.25 Native Jido agents are complete.
 
 Expected direction:
 
 - Upgrade `AllbertAssist.App.CoreApp`'s declared surface from the rudimentary
-  `/agent` prompt into a signal-driven LiveView workspace. v0.24 is `CoreApp`'s
+  `/agent` prompt into a signal-driven LiveView workspace. v0.26 is `CoreApp`'s
   surface implementation, not a free-floating shell; it does not redefine the
   app contract or surface DSL that v0.18 provides.
 - Use `AllbertAssist.App.Registry` for app navigation and
   `AllbertAssist.Surface` (defined in v0.18) for canvas/task component
   validation.
+- Render objective state through the workspace shell: open-objective badges,
+  step inspection, cancellation controls, trace links.
 - Define canvas persistence, ephemeral surface lifecycle, provenance,
   fallback text, redaction, and action-binding constraints.
 - Leave AG-UI/A2UI/MCP Apps interoperability to later adapter work.
 
-## v0.25: StockSage LiveViews
+## v0.27: StockSage LiveViews
 
-Plan: `docs/plans/v0.25-plan.md`
+Plan: `docs/plans/v0.27-plan.md`
 
-Status: planned. Formerly M-D3a, previously planned as v0.24. Redesigned to
-build on the v0.18 app/surface contract and Surface DSL from day one.
+Status: planned. Formerly M-D3a, previously planned as v0.24, then v0.25
+before the project-direction rethink. Redesigned to build on the v0.18
+app/surface contract and Surface DSL from day one.
 
-Prerequisite: v0.18 app/surface contract, v0.22 Python bridge, v0.23 Native Jido
-agents, and v0.24 workspace surface are complete so both analysis engines and
-the workspace shell are available from the start.
+Prerequisite: v0.18 app/surface contract, v0.22 Python bridge, v0.24
+Objective Runtime Foundation, v0.25 Native Jido agents, and v0.26 workspace
+surface are complete so both analysis engines, objective state, and the
+workspace shell are available from the start.
 
 Expected direction:
 
@@ -1128,17 +1211,20 @@ Expected direction:
 - Implement `AllbertAssist.App.SurfaceProvider` on `StockSage.App` and declare
   StockSage surfaces through the `AllbertAssist.Surface` DSL. No static route
   mounting to migrate later.
+- Render objective state for StockSage analyses: which objective an analysis
+  belongs to, multi-step "analyze and compare" flows, cancellation.
 - Declare StockSage component catalog entries (`:analysis_card`,
   `:queue_entry`, `:trend_summary`) so `RunAnalysis` results carry validated
-  Surface nodes from day one. Canvas tile registration is v0.28.
+  Surface nodes from day one. Canvas tile registration is v0.30.
 - Use PubSub/streams for live progress and set `active_app: :stocksage` when
   navigating under `/stocksage/`.
 
-## v0.26: Security Hardening And Evals
+## v0.28: Security Hardening And Evals
 
-Plan: `docs/plans/v0.26-plan.md`
+Plan: `docs/plans/v0.28-plan.md`
 
-Status: planned. Formerly v0.16, previously planned as v0.25.
+Status: planned. Formerly v0.16, previously planned as v0.25, then v0.26
+before the project-direction rethink.
 
 Expected direction:
 
@@ -1148,6 +1234,12 @@ Expected direction:
   background execution.
 - Add cross-user/thread leakage, app-scoped action routing, Python bridge
   protocol/path/crash safety, and financial workflow authorization coverage.
+- Add objective runtime security evals: `objective_id` used as authority,
+  cross-user objective lookup, cross-thread objective resume, unbounded
+  loop_count, advisory provider output treated as observed fact, predictions
+  about user behavior short-circuiting confirmation, `cancel_objective` race
+  conditions, simulated state written as memory truth without operator
+  confirmation.
 - Add surface and SurfaceProvider security evals: catalog bypass, component
   injection, cross-app component type theft, and `to_a2ui/1` redaction-bypass
   attempts. v0.18 app/surface contract is complete; app-registration evals are
@@ -1155,11 +1247,12 @@ Expected direction:
 - Require StockSage external market-data calls to flow through Resource Access
   Security Posture and confirmations.
 
-## v0.27: StockSage Polish, Outcomes, And Trends
+## v0.29: StockSage Polish, Outcomes, And Trends
 
-Plan: `docs/plans/v0.27-plan.md`
+Plan: `docs/plans/v0.29-plan.md`
 
-Status: planned. Formerly M-D3b.
+Status: planned. Formerly M-D3b, previously planned as v0.27 before the
+project-direction rethink.
 
 Expected direction:
 
@@ -1170,29 +1263,31 @@ Expected direction:
 - Replicate Python StockSage 0.0.2 user-facing behavior in Elixir, with Python
   remaining only as explicit fallback until native parity closes.
 
-## v0.28: StockSage Canvas Integration
+## v0.30: StockSage Canvas Integration
 
-Plan: `docs/plans/v0.28-plan.md`
+Plan: `docs/plans/v0.30-plan.md`
 
-Status: planned. Formerly M-Canvas.
+Status: planned. Formerly M-Canvas, previously planned as v0.28 before the
+project-direction rethink.
 
 Expected direction:
 
-- Register StockSage chart and analysis-card components with the v0.24 canvas
-  catalog. Component types were declared in v0.25; v0.28 is wiring, not format
+- Register StockSage chart and analysis-card components with the v0.26 canvas
+  catalog. Component types were declared in v0.27; v0.30 is wiring, not format
   migration.
 - Let StockSage analysis responses emit canvas operations for durable tiles.
 - Add no new StockSage domain model or analysis behavior.
 
-## v0.29: Allbert Plugin And App Generator
+## v0.31: Allbert Plugin And App Generator
 
-Plan: `docs/plans/v0.29-plan.md`
+Plan: `docs/plans/v0.31-plan.md`
 
-Status: research (unstarted).
+Status: research (unstarted). Previously planned as v0.29 before the
+project-direction rethink.
 
 Prerequisite: StockSage proves the plugin/app path in v0.20, SurfaceProvider
-LiveViews in v0.25, memory namespace completion in v0.27, and canvas
-integration in v0.28.
+LiveViews in v0.27, memory namespace completion in v0.29, and canvas
+integration in v0.30.
 
 Expected direction:
 
@@ -1203,7 +1298,8 @@ Expected direction:
   app/surface contract layers, including a memory namespace stub.
 - Generated app-plugin output includes a plugin module, app module, app
   supervision wiring, sample Jido action, sample `SKILL.md`, sample surface
-  provider or surface node, sample Ecto domain stub, and validation docs.
+  provider or surface node, sample Ecto domain stub, optional objective
+  scaffolding for multi-step capabilities, and validation docs.
 - `mix allbert.validate_app MyApp` passes on first run.
 - Generated code is inert by default: no automatic compile-path changes,
   trust, skill enablement, publishing, permission grants, or execution
@@ -1211,7 +1307,7 @@ Expected direction:
 - Optionally add `mix allbert.publish_skills` for publishing app `SKILL.md`
   files to agentskills.io after the local app contract is proven.
 
-Post-v0.29 candidates remain in `docs/plans/future-features.md` until
+Post-v0.31 candidates remain in `docs/plans/future-features.md` until
 promoted.
 
 ## Future: Distillation And Self-Improvement
