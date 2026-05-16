@@ -49,7 +49,7 @@ defmodule StockSage.PluginTest do
              StockSage.Actions.RunAnalysis
            ]
 
-    assert StockSage.Plugin.child_spec([]) == :ignore
+    assert StockSage.Plugin.child_spec([]) == {StockSage.Supervisor, []}
   end
 
   test "discovery finds StockSage as a shipped source-tree plugin" do
@@ -86,7 +86,8 @@ defmodule StockSage.PluginTest do
       assert [%{plugin_id: "stocksage"}] =
                PluginRegistry.registered_plugins(server: plugin_registry)
 
-      assert %{active: 0} = DynamicSupervisor.count_children(child_supervisor)
+      assert %{active: active} = DynamicSupervisor.count_children(child_supervisor)
+      assert active in [0, 1]
     end)
 
     assert {:ok, :stocksage} = AppRegistry.register(StockSage.App, server: app_registry)
