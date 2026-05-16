@@ -263,6 +263,7 @@ operator action.
 
 ## Non-Negotiables
 
+- NEVER include claude, codex, gemini, opencode, pi, cursor, antigravity etc attributions in git  commits. the process we follow is strict supervision during planning, architecting and development, with ai providing fill in the gaps. that means the attribution should be the human, not the ai coding tools.
 - Preserve user data. Do not delete or rewrite memory, traces, settings,
   secrets, databases, skill folders, or user-created files unless explicitly
   asked.
