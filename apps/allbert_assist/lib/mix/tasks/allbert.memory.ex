@@ -6,6 +6,10 @@ defmodule Mix.Tasks.Allbert.Memory do
 
       mix allbert.memory list [--category notes] [--status unreviewed] [--limit 20]
       mix allbert.memory show PATH
+      mix allbert.memory review PATH --status kept|flagged|prune_nominated [--note "..."]
+      mix allbert.memory update PATH [--summary "..."] [--body "..."] [--note "..."]
+      mix allbert.memory delete PATH
+      mix allbert.memory prune [--dry-run] [--write]
   """
 
   use Mix.Task
@@ -70,11 +74,103 @@ defmodule Mix.Tasks.Allbert.Memory do
     end
   end
 
+  defp dispatch(["review", path | args]) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [status: :string, note: :string, user: :string, operator: :string]
+      )
+
+    reject_invalid!(invalid)
+    reject_rest!(rest, "review")
+    user_id = user_id!(opts)
+    status = opts[:status] || Mix.raise("review requires --status")
+
+    params = %{path: path, status: status, note: opts[:note], user_id: user_id}
+
+    with {:ok, response} <- completed_action("review_memory_entry", params, user_id) do
+      {:ok, {:reviewed, response.entry}}
+    end
+  end
+
+  defp dispatch(["update", path | args]) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [summary: :string, body: :string, note: :string, user: :string, operator: :string]
+      )
+
+    reject_invalid!(invalid)
+    reject_rest!(rest, "update")
+    user_id = user_id!(opts)
+
+    params =
+      %{
+        path: path,
+        summary: opts[:summary],
+        body: opts[:body],
+        note: opts[:note],
+        user_id: user_id
+      }
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Map.new()
+
+    with {:ok, response} <- completed_action("update_memory_entry", params, user_id) do
+      {:ok, {:updated, response.entry}}
+    end
+  end
+
+  defp dispatch(["delete", path | args]) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args, strict: [user: :string, operator: :string])
+
+    reject_invalid!(invalid)
+    reject_rest!(rest, "delete")
+    user_id = user_id!(opts)
+
+    with {:ok, response} <-
+           accepted_action("delete_memory_entry", %{path: path, user_id: user_id}, user_id) do
+      {:ok, {:delete, response}}
+    end
+  end
+
+  defp dispatch(["prune" | args]) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [
+          category: :string,
+          dry_run: :boolean,
+          write: :boolean,
+          user: :string,
+          operator: :string
+        ]
+      )
+
+    reject_invalid!(invalid)
+    reject_rest!(rest, "prune")
+    user_id = user_id!(opts)
+
+    params =
+      %{
+        category: opts[:category],
+        write: opts[:write] == true,
+        user_id: user_id
+      }
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Map.new()
+
+    with {:ok, response} <- accepted_action("prune_memory_entries", params, user_id) do
+      {:ok, {:prune, response}}
+    end
+  end
+
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
       mix allbert.memory list [--category notes|preferences|traces|skills] [--status unreviewed|kept|flagged|prune_nominated] [--limit N] [--since YYYY-MM-DD] [--user USER]
       mix allbert.memory show PATH [--user USER]
+      mix allbert.memory review PATH --status kept|flagged|prune_nominated [--note "..."] [--user USER]
+      mix allbert.memory update PATH [--summary "..."] [--body "..."] [--note "..."] [--user USER]
+      mix allbert.memory delete PATH [--user USER]
+      mix allbert.memory prune [--category notes|preferences|traces|skills] [--dry-run] [--write] [--user USER]
     """)
   end
 
@@ -107,6 +203,37 @@ defmodule Mix.Tasks.Allbert.Memory do
     Mix.shell().info(entry.body)
   end
 
+  defp print_result({:ok, {label, entry}}) when label in [:reviewed, :updated] do
+    Mix.shell().info("#{label}: #{entry.path}")
+    Mix.shell().info("Summary: #{entry.summary}")
+    Mix.shell().info("Review status: #{entry.review_status}")
+  end
+
+  defp print_result({:ok, {:delete, %{status: :needs_confirmation} = response}}) do
+    Mix.shell().info("Confirmation: #{response.confirmation_id}")
+    Mix.shell().info("No file was moved.")
+  end
+
+  defp print_result({:ok, {:delete, %{status: :completed} = response}}) do
+    Mix.shell().info("Archived: #{response.archived.path}")
+    Mix.shell().info("Archived path: #{response.archived.archived_path}")
+  end
+
+  defp print_result({:ok, {:prune, %{status: :needs_confirmation} = response}}) do
+    Mix.shell().info("Confirmation: #{response.confirmation_id}")
+    Mix.shell().info("Candidate count: #{length(response.candidates)}")
+  end
+
+  defp print_result({:ok, {:prune, response}}) do
+    Mix.shell().info("Candidate count: #{length(response.candidates)}")
+
+    Enum.each(response.candidates, fn candidate ->
+      Mix.shell().info(
+        "#{candidate.reason} #{candidate.category} #{candidate.summary} #{candidate.path}"
+      )
+    end)
+  end
+
   defp print_result({:error, reason}) do
     Mix.raise("Memory command failed: #{inspect(reason)}")
   end
@@ -115,6 +242,16 @@ defmodule Mix.Tasks.Allbert.Memory do
     case Runner.run(action_name, params, context(user_id)) do
       {:ok, %{status: :completed} = response} -> {:ok, response}
       {:ok, response} -> {:error, response_error(response)}
+    end
+  end
+
+  defp accepted_action(action_name, params, user_id) do
+    case Runner.run(action_name, params, context(user_id)) do
+      {:ok, %{status: status} = response} when status in [:completed, :needs_confirmation] ->
+        {:ok, response}
+
+      {:ok, response} ->
+        {:error, response_error(response)}
     end
   end
 

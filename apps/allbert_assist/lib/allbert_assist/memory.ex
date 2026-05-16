@@ -12,6 +12,7 @@ defmodule AllbertAssist.Memory do
 
   alias AllbertAssist.Memory.Entry
   alias AllbertAssist.Memory.Review
+  alias AllbertAssist.Paths
 
   @type category :: :notes | :preferences | :traces | :skills
 
@@ -137,6 +138,92 @@ defmodule AllbertAssist.Memory do
   end
 
   def read_entry(_path, _opts), do: {:error, :invalid_path}
+
+  @doc "Write or replace the review section on one active memory entry."
+  @spec review_entry(String.t(), map(), keyword()) :: {:ok, Entry.t()} | {:error, term()}
+  def review_entry(path, attrs, opts \\ [])
+
+  def review_entry(path, attrs, opts) when is_binary(path) and is_map(attrs) do
+    user_id = Keyword.get(opts, :user_id)
+
+    with {:ok, path} <- normalize_active_path(path),
+         {:ok, entry} <- read_entry(path, user_id: user_id),
+         {:ok, content} <- File.read(path),
+         {:ok, updated} <- Review.write_review(content, attrs),
+         :ok <- File.write(path, updated) do
+      read_entry(entry.path, user_id: user_id)
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def review_entry(_path, _attrs, _opts), do: {:error, :invalid_review}
+
+  @doc "Update body and/or summary while preserving metadata and review state."
+  @spec update_entry(String.t(), map(), keyword()) :: {:ok, Entry.t()} | {:error, term()}
+  def update_entry(path, attrs, opts \\ [])
+
+  def update_entry(path, attrs, opts) when is_binary(path) and is_map(attrs) do
+    user_id = Keyword.get(opts, :user_id)
+
+    with {:ok, path} <- normalize_active_path(path),
+         {:ok, entry} <- read_entry(path, user_id: user_id),
+         {:ok, content} <- File.read(path),
+         {:ok, updated} <- update_entry_content(content, attrs),
+         {:ok, reviewed} <- maybe_write_correction_review(updated, attrs, entry, user_id),
+         :ok <- File.write(path, reviewed) do
+      read_entry(entry.path, user_id: user_id)
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def update_entry(_path, _attrs, _opts), do: {:error, :invalid_update}
+
+  @doc "Move active entries into the deleted-memory archive."
+  @spec archive_entries([String.t()], keyword()) :: {:ok, [map()]} | {:error, term()}
+  def archive_entries(paths, opts \\ []) when is_list(paths) and is_list(opts) do
+    user_id = Keyword.get(opts, :user_id)
+
+    paths
+    |> Enum.reduce_while({:ok, []}, fn path, {:ok, archived} ->
+      case archive_entry(path, user_id: user_id) do
+        {:ok, item} -> {:cont, {:ok, [item | archived]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, archived} -> {:ok, Enum.reverse(archived)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc "Move one active entry into the deleted-memory archive."
+  @spec archive_entry(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def archive_entry(path, opts \\ [])
+
+  def archive_entry(path, opts) when is_binary(path) and is_list(opts) do
+    user_id = Keyword.get(opts, :user_id)
+
+    with {:ok, entry} <- read_entry(path, user_id: user_id),
+         {:ok, source} <- normalize_active_path(entry.path),
+         destination <- deleted_path(source, entry.timestamp),
+         :ok <- File.mkdir_p(Path.dirname(destination)),
+         :ok <- File.rename(source, destination) do
+      {:ok,
+       %{
+         path: source,
+         archived_path: destination,
+         category: entry.category,
+         summary: entry.summary,
+         user_id: entry.actor
+       }}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def archive_entry(_path, _opts), do: {:error, :invalid_path}
 
   defp normalize_category(category) when category in @categories, do: {:ok, category}
 
@@ -298,6 +385,92 @@ defmodule AllbertAssist.Memory do
       _other ->
         ""
     end
+  end
+
+  defp update_entry_content(content, attrs) do
+    body = Map.get(attrs, :body, Map.get(attrs, "body"))
+    summary = Map.get(attrs, :summary, Map.get(attrs, "summary"))
+
+    if blank?(body) and blank?(summary) do
+      {:error, :missing_update}
+    else
+      content
+      |> maybe_replace_summary(summary)
+      |> maybe_replace_body(body)
+      |> then(&{:ok, &1})
+    end
+  end
+
+  defp maybe_replace_summary(content, summary) when is_binary(summary) do
+    summary = String.trim(summary)
+
+    if summary == "" do
+      content
+    else
+      Regex.replace(~r/^# Memory: .+$/m, content, "# Memory: #{summary}", global: false)
+    end
+  end
+
+  defp maybe_replace_summary(content, _summary), do: content
+
+  defp maybe_replace_body(content, body) when is_binary(body) do
+    body = String.trim(body)
+
+    if body == "" do
+      content
+    else
+      [before_review, review_suffix] =
+        case String.split(content, "\n## Review", parts: 2) do
+          [prefix, suffix] -> [prefix, "\n## Review" <> suffix]
+          [prefix] -> [prefix, ""]
+        end
+
+      updated_body =
+        case String.split(before_review, "## Body", parts: 2) do
+          [prefix, _old_body] -> "#{String.trim(prefix)}\n\n## Body\n\n#{body}"
+          [_prefix] -> "#{String.trim(before_review)}\n\n## Body\n\n#{body}"
+        end
+
+      "#{updated_body}#{review_suffix}"
+      |> String.trim()
+      |> Kernel.<>("\n")
+    end
+  end
+
+  defp maybe_replace_body(content, _body), do: content
+
+  defp maybe_write_correction_review(content, attrs, entry, user_id) do
+    note = Map.get(attrs, :note, Map.get(attrs, :correction_note, Map.get(attrs, "note")))
+
+    if blank?(note) do
+      {:ok, content}
+    else
+      status =
+        case entry.review_status do
+          :unreviewed -> :kept
+          status -> status
+        end
+
+      Review.write_review(content, %{
+        status: status,
+        reviewed_by: user_id || entry.actor,
+        note: note
+      })
+    end
+  end
+
+  defp blank?(value), do: not is_binary(value) or String.trim(value) == ""
+
+  defp deleted_path(source, timestamp) do
+    month =
+      case DateTime.from_iso8601(timestamp) do
+        {:ok, datetime, _offset} -> Calendar.strftime(datetime, "%Y-%m")
+        _other -> Date.utc_today() |> Calendar.strftime("%Y-%m")
+      end
+
+    Paths.memory_deleted_root()
+    |> Path.join(month)
+    |> Path.join(Path.basename(source))
   end
 
   defp categories_for_filter(nil), do: @categories
