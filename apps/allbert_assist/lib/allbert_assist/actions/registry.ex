@@ -31,6 +31,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
   alias AllbertAssist.Actions.Jobs.RegistryHealth
   alias AllbertAssist.Actions.Jobs.TraceSummary
+  alias AllbertAssist.Actions.Memory.ListMemoryEntries
+  alias AllbertAssist.Actions.Memory.ReadMemoryEntry
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
   alias AllbertAssist.Actions.Plugins.ListPlugins
@@ -117,6 +119,8 @@ defmodule AllbertAssist.Actions.Registry do
     RecordTrace,
     ExplainIntent,
     ListIntentCandidates,
+    ListMemoryEntries,
+    ReadMemoryEntry,
     RegistryHealth,
     TraceSummary
   ]
@@ -502,6 +506,20 @@ defmodule AllbertAssist.Actions.Registry do
       permission: :read_only,
       exposure: :internal,
       execution_mode: :read_only,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ListMemoryEntries => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :memory_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ReadMemoryEntry => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :memory_read,
       skill_backed?: false,
       confirmation: :not_required
     },
