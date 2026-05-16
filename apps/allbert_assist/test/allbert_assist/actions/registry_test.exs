@@ -141,6 +141,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "compile_memory_index",
              "summarize_memory_category",
              "list_memory_category_summary",
+             "promote_conversation_turn",
              "registry_health",
              "trace_summary"
            ]
@@ -209,6 +210,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "compile_memory_index",
              "summarize_memory_category",
              "list_memory_category_summary",
+             "promote_conversation_turn",
              "registry_health",
              "trace_summary"
            ]
@@ -377,6 +379,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("run_skill_script")
     assert Registry.resumable?("delete_memory_entry")
     assert Registry.resumable?("prune_memory_entries")
+    assert Registry.resumable?("promote_conversation_turn")
 
     refute Registry.resumable?("direct_answer")
     refute Registry.resumable?("plan_package_install")
