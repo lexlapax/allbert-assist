@@ -50,6 +50,26 @@ defmodule AllbertAssist.Memory.IndexTest do
     assert "keyword:concise" in reasons
   end
 
+  test "query scores are capped at the v0.21 memory candidate ceiling" do
+    assert {:ok, _entry} =
+             Memory.append(%{
+               category: :preferences,
+               body: "Alice wants concise compact release notes with compact concise summaries.",
+               actor: "alice",
+               agent: "test",
+               channel: :test,
+               source_signal_id: "sig"
+             })
+
+    assert {:ok, _result} = Compiler.compile_index(Memory.root())
+    assert {:ok, index} = Index.load(Memory.root())
+
+    assert {:ok, [%{score: score}]} =
+             Index.query(index, "concise compact release notes summaries", user_id: "alice")
+
+    assert score <= 0.5
+  end
+
   test "summarize_category writes a derived markdown summary" do
     assert {:ok, entry} =
              Memory.append(%{

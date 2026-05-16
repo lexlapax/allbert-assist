@@ -109,6 +109,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, false} = Settings.get("memory.auto_promote_sensitive_entries")
     assert {:ok, "preserve_markdown"} = Settings.get("memory.retention_policy")
     assert {:ok, true} = Settings.get("memory.delete_requires_confirmation")
+    assert {:ok, true} = Settings.get("memory.prune_requires_confirmation")
     assert {:ok, true} = Settings.get("memory.promotion_requires_confirmation")
     assert {:ok, 500} = Settings.get("memory.max_entries_per_category")
     assert {:ok, true} = Settings.get("memory.index_enabled")
@@ -123,6 +124,11 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("memory.retention_policy", "prune_traces_after_30d", %{audit?: false})
 
     assert retention.value == "prune_traces_after_30d"
+
+    assert {:ok, prune_confirmation} =
+             Settings.put("memory.prune_requires_confirmation", false, %{audit?: false})
+
+    assert prune_confirmation.value == false
 
     assert {:ok, max_entries} =
              Settings.put("memory.max_entries_per_category", 10, %{audit?: false})

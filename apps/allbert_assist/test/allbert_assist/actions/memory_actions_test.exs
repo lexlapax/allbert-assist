@@ -169,6 +169,29 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     refute File.exists?(entry.path)
   end
 
+  test "prune_memory_entries can require confirmation independently from delete" do
+    assert {:ok, _setting} =
+             Settings.put("memory.prune_requires_confirmation", false, %{audit?: false})
+
+    assert {:ok, entry} = append("alice", "Prune immediately after review.")
+
+    assert {:ok, _reviewed} =
+             ReviewMemoryEntry.run(
+               %{path: entry.path, status: "prune_nominated", user_id: "alice"},
+               %{user_id: "alice"}
+             )
+
+    assert {:ok, response} =
+             PruneMemoryEntries.run(%{user_id: "alice", write: true}, %{user_id: "alice"})
+
+    assert response.status == :completed
+    assert response.archived != []
+    refute File.exists?(entry.path)
+
+    assert {:ok, delete_setting} = Settings.get("memory.delete_requires_confirmation")
+    assert delete_setting == true
+  end
+
   test "compile_memory_index, search_memory, and summarize_memory_category use derived artifacts" do
     assert {:ok, entry} = append("alice", "Alice prefers compact release notes.")
 

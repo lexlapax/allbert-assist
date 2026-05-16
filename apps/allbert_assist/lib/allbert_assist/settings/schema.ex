@@ -148,6 +148,7 @@ defmodule AllbertAssist.Settings.Schema do
     "memory.auto_promote_sensitive_entries",
     "memory.retention_policy",
     "memory.delete_requires_confirmation",
+    "memory.prune_requires_confirmation",
     "memory.promotion_requires_confirmation",
     "memory.max_entries_per_category",
     "memory.index_enabled",
@@ -1048,6 +1049,12 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "memory.prune_requires_confirmation" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
     "memory.promotion_requires_confirmation" => %{
       type: :boolean,
       default: true,
@@ -1328,6 +1335,7 @@ defmodule AllbertAssist.Settings.Schema do
       "auto_promote_sensitive_entries" => false,
       "retention_policy" => "preserve_markdown",
       "delete_requires_confirmation" => true,
+      "prune_requires_confirmation" => true,
       "promotion_requires_confirmation" => true,
       "max_entries_per_category" => 500,
       "index_enabled" => true,
