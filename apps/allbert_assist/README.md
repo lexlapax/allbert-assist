@@ -2,7 +2,7 @@
 
 Core runtime app for Allbert Assist.
 
-The current v0.21 runtime exposes:
+The current v0.22 runtime exposes:
 
 - `AllbertAssist.Runtime.submit_user_input/1`
 - `AllbertAssist.Agents.IntentAgent`
@@ -26,9 +26,13 @@ The current v0.21 runtime exposes:
 - `StockSage.Actions.QueueAnalysis`
 - `StockSage.Actions.ListQueue`
 - `StockSage.Actions.ImportSqlite`
+- `StockSage.Actions.RunAnalysis`
+- `StockSage.Bridge.Protocol`
+- `StockSage.TraderBridge`
 - `mix stocksage.import_sqlite`
 - `mix stocksage.analyses`
 - `mix stocksage.queue`
+- `mix stocksage.analyze`
 - `AllbertAssist.Skills`
 - `AllbertAssist.Actions.Intent.ActivateSkill`
 - `AllbertAssist.Actions.Intent.ExplainIntent`
@@ -85,7 +89,17 @@ remain readable as audit history, while new v0.10 external service, package
 install, and online skill import requests resume only through their registered
 actions after confirmation.
 
-See the umbrella root `README.md`, `docs/plans/v0.21-plan.md`,
-`docs/plans/v0.21-request-flow.md`, `plugins/stocksage/README.md`, and
+The StockSage plugin now contributes the v0.22 Python bridge: the supervised
+`StockSage.TraderBridge` GenServer wraps a `priv/python/bridge.py` subprocess,
+and the registered `StockSage.Actions.RunAnalysis` action gates execution
+behind the new `:stocksage_analyze` permission and v0.07 confirmation
+workflow. All bridge code lives under `./plugins/stocksage/`; Allbert core
+does not import bridge internals — the only contact points are the action
+runner, Security Central, the action registry, and `AllbertAssist.Repo`.
+
+See the umbrella root `README.md`, `docs/plans/v0.20-plan.md`,
+`docs/plans/v0.20-request-flow.md`, `docs/plans/v0.21-plan.md`,
+`docs/plans/v0.21-request-flow.md`, `docs/plans/v0.22-plan.md`,
+`docs/plans/v0.22-request-flow.md`, `plugins/stocksage/README.md`, and
 `docs/developer/how-to-create-an-allbert-app.md` for current memory review,
 StockSage, app/surface, and intent-routing behavior.

@@ -206,7 +206,7 @@ defmodule StockSage.ActionsTest do
     assert "list-analyses" in skill_names
     assert "show-analysis" in skill_names
     assert "get-trends" in skill_names
-    refute "run-analysis" in skill_names
+    assert "run-analysis" in skill_names
   end
 
   test "active StockSage app context produces StockSage action candidates" do
@@ -222,6 +222,23 @@ defmodule StockSage.ActionsTest do
     assert selected.kind == :action
     assert selected.app_id == :stocksage
     assert selected.action_name in ["list_analyses", "show_analysis"]
+  end
+
+  test "RunAnalysis appears as a candidate when active_app is stocksage" do
+    assert {:ok, decision} =
+             Engine.decide(%{
+               text: "analyze AAPL for 2026-05-01",
+               user_id: "alice",
+               active_app: :stocksage
+             })
+
+    %{selected: selected, rejected: rejected} = decision.trace_metadata.intent_candidates
+    all = [selected | rejected]
+
+    assert Enum.any?(all, fn candidate ->
+             Map.get(candidate, :action_name) == "run_analysis"
+           end),
+           "run_analysis not in candidates: #{inspect(Enum.map(all, & &1.action_name))}"
   end
 
   test "intent agent executes a selected StockSage action from active app context" do
