@@ -218,6 +218,10 @@ defmodule AllbertAssist.Trace do
 
     #{shell_command_metadata_text(response.actions)}
 
+    ## StockSage Analysis
+
+    #{stocksage_analysis_text(response.actions)}
+
     ## Diagnostics
 
     #{diagnostics_text(response)}
@@ -523,6 +527,57 @@ defmodule AllbertAssist.Trace do
   defp diagnostics_text(%{diagnostics: []}), do: "none"
   defp diagnostics_text(%{diagnostics: diagnostics}), do: inspect(diagnostics, pretty: true)
   defp diagnostics_text(_response), do: "none"
+
+  defp stocksage_analysis_text(actions) do
+    case stocksage_run_analysis_action(actions) do
+      nil ->
+        "none"
+
+      action ->
+        metadata = stocksage_action_metadata(action)
+
+        [
+          "- Action: run_analysis",
+          "- Status: #{Map.get(action, :status)}",
+          "- Ticker: #{stocksage_field(metadata, :ticker)}",
+          "- Analysis date: #{stocksage_field(metadata, :analysis_date)}",
+          "- Engine: #{stocksage_field(metadata, :engine)}",
+          "- Analysis id: #{stocksage_field(metadata, :analysis_id) || stocksage_field(metadata, :confirmation_id)}",
+          "- Bridge duration ms: #{stocksage_field(metadata, :bridge_duration_ms)}",
+          "- Truncated: #{stocksage_field(metadata, :truncated)}",
+          "- Queue entry id: #{stocksage_field(metadata, :queue_entry_id)}",
+          "- Summary: #{bounded_summary(stocksage_field(metadata, :summary))}"
+        ]
+        |> Enum.join("\n")
+    end
+  end
+
+  defp stocksage_run_analysis_action(actions) do
+    Enum.find(actions, fn action ->
+      Map.get(action, :name) == "run_analysis" or Map.get(action, "name") == "run_analysis"
+    end)
+  end
+
+  defp stocksage_action_metadata(action) do
+    Map.get(action, :stocksage, %{}) || Map.get(action, "stocksage", %{})
+  end
+
+  defp stocksage_field(metadata, key) when is_map(metadata) do
+    case Map.fetch(metadata, key) do
+      {:ok, value} -> value
+      :error -> Map.get(metadata, Atom.to_string(key))
+    end
+  end
+
+  defp stocksage_field(_metadata, _key), do: nil
+
+  defp bounded_summary(nil), do: "-"
+
+  defp bounded_summary(value) when is_binary(value) do
+    if byte_size(value) > 200, do: binary_part(value, 0, 200), else: value
+  end
+
+  defp bounded_summary(value), do: inspect(value)
 
   defp intent_decision_summary(response) do
     case map_value(response, :decision) do

@@ -70,7 +70,12 @@ Use these as starting points, then narrow further from the active task:
 - Intent ranking, active app routing, classifier hooks, or intent traces: read
   ADR 0019, the active plan, and latest intent-related changelog entries.
 - StockSage work: read the active StockSage milestone plan, ADR 0018, ADR
-  0017, ADR 0015, and targeted StockSage changelog entries.
+  0017, ADR 0015, and targeted StockSage changelog entries. For Python
+  bridge, `RunAnalysis`, or `:stocksage_analyze` work read ADR 0020,
+  `docs/plans/v0.22-plan.md`, and `CHANGELOG.md` v0.22; bridge code is
+  plugin-owned (under `./plugins/stocksage/`), and the
+  `:stocksage_analyze` safety floor is `:needs_confirmation` and cannot
+  be lowered by settings.
 - Workspace shell, ephemeral UI, canvas, or app surfaces: read ADR 0015 and the
   active workspace/surface milestone plan.
 

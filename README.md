@@ -10,12 +10,31 @@ not the architecture center.
 
 ## Current Status
 
-v0.21 is implemented through M6 closeout on 2026-05-15 and is ready for
-operator manual verification. It adds review-aware markdown memory,
-`mix allbert.memory`, confirmation-gated delete/prune/promotion flows,
+v0.22 is implemented through M5 closeout on 2026-05-15 and is ready for
+operator manual verification. It adds the StockSage Python bridge: a
+supervised JSON-over-stdio Port wraps a `bridge.py` subprocess, a new
+`StockSage.Actions.RunAnalysis` Jido action takes a ticker and analysis date
+through a durable confirmation, the bridge runs after operator approval, and
+the result persists into the `stocksage_analyses` / `stocksage_analysis_details`
+tables already established in v0.20. The bridge requires confirmation by
+default through the new `:stocksage_analyze` permission class, whose safety
+floor (`needs_confirmation`) cannot be lowered through settings. Version
+metadata is now `0.22.0`; release tagging remains pending operator acceptance.
+
+Operator loop (M3/M4):
+
+```sh
+mix stocksage.analyze AAPL 2026-05-01 --user local
+# → "Confirmation id: conf_..." printed; no bridge call yet
+mix allbert.confirmations approve <id> --reason "..."
+# → bridge runs, analysis row persisted
+mix allbert.ask "list my stocksage analyses"
+```
+
+v0.21 remains the memory review and retrieval release: review-aware markdown
+memory, `mix allbert.memory`, confirmation-gated delete/prune/promotion flows,
 derived memory index and summary artifacts, metadata-only memory candidates in
-the intent engine, and memory review trace rendering. Version metadata is now
-`0.21.0`; release tagging remains pending operator acceptance.
+the intent engine, and memory review trace rendering.
 
 v0.20 remains the StockSage plugin app and domain release. It makes StockSage
 the first real shipped plugin workspace app, with a `./plugins/stocksage`

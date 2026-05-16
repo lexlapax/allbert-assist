@@ -10,6 +10,88 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.22 - StockSage Python Bridge
+
+Status: implemented through M6 closeout and post-implementation gap fixes on
+2026-05-15. Version metadata is `0.21.0`; the operator manual verification
+matrix remains the release gate. Release tag is pending operator acceptance.
+
+### Added (v0.22)
+
+- `StockSage.Bridge.Protocol` and `./plugins/stocksage/priv/python/bridge.py`
+  implement the ADR 0020 JSON-over-stdio envelope for the supervised Python
+  bridge. The bridge supports `ping` and `run_analysis` actions and bounds
+  responses with `stocksage.bridge_max_output_bytes`.
+- `StockSage.TraderBridge` GenServer owns a long-lived Erlang `Port` to
+  `bridge.py`, isolates Port crashes with `{:error, :bridge_crashed}`, and
+  honours `stocksage.bridge_enabled`, `stocksage.bridge_timeout_ms`, and
+  `stocksage.python_path` from Settings Central. The bridge runs under
+  `StockSage.Supervisor` as a plugin-owned child contributed via
+  `StockSage.Plugin.child_spec/1`.
+- `StockSage.Actions.RunAnalysis` registered through
+  `StockSage.Plugin.actions/0` as a `resumable?: true` Jido action gated by
+  the new `:stocksage_analyze` permission. The action validates ticker (regex,
+  ≤10 chars) and ISO-8601 analysis date, creates a durable confirmation
+  record on the first call, and runs the bridge on the approved resume path
+  through `AllbertAssist.Actions.Confirmations.ApproveConfirmation`. Bridge
+  success persists `stocksage_analyses` (+ `stocksage_analysis_details`)
+  rows; bridge errors persist a `status: failed` analysis row.
+- `:stocksage_analyze` permission class added to `AllbertAssist.Security.Policy`
+  and `AllbertAssist.Security.Risk` with default `needs_confirmation`, safety
+  floor `needs_confirmation` (cannot be lowered to `allowed` via settings),
+  and risk tier `high`.
+- `permissions.stocksage_analyze` setting registered in the core schema with
+  `allowed_values: ["needs_confirmation", "denied"]`. Five new
+  `stocksage.bridge_*` and `stocksage.analysis_engine` settings added to the
+  StockSage plugin settings schema.
+- `mix stocksage.analyze TICKER ANALYSIS_DATE [--user] [--engine] [--queue-id]`
+  CLI prints the confirmation id on first call and completed analysis
+  metadata after approval. `--queue-id` links a queue entry to the run.
+- `AllbertAssist.Trace` renders a new `## StockSage Analysis` section with
+  bounded action metadata (action, status, ticker, analysis date, engine,
+  analysis id, bridge duration, truncated, summary ≤ 200 chars).
+- New `run-analysis` skill declares the `run_analysis` action,
+  `:stocksage_analyze` permission, confirmation requirement, and example
+  prompts. The skill is discoverable via the v0.19 engine when
+  `active_app: :stocksage`.
+
+### Safety (v0.22)
+
+- Bridge execution requires confirmation by default. The `:stocksage_analyze`
+  safety floor is `:needs_confirmation` and cannot be lowered via settings.
+- TradingAgents external market-data API calls are included in the operator's
+  approval scope and disclosed in the confirmation record. Per-source
+  Resource Access Security Posture for those calls is deferred to v0.26.
+- Raw bridge output is bounded by `stocksage.bridge_max_output_bytes` and
+  never appears in traces, CLI list summaries, or signals. Only bounded
+  summaries (≤500 chars in `stocksage_analyses.summary`, ≤200 chars in
+  trace `## StockSage Analysis`) are surfaced.
+- Bridge crashes and timeouts do not propagate to Allbert core supervision;
+  callers receive bounded `{:error, :bridge_crashed}` / `{:error, :timeout}`.
+- Setting `stocksage.bridge_enabled = false` short-circuits RunAnalysis before
+  any confirmation record is created.
+- All bridge code lives under `./plugins/stocksage/`. Allbert core does not
+  import bridge internals; the only core touchpoints are
+  `AllbertAssist.Actions.Runner`, `AllbertAssist.Security`,
+  `AllbertAssist.Actions.Registry`, and `AllbertAssist.Repo`.
+
+### Verification (v0.22)
+
+- Focused suites passed for `StockSage.Bridge.ProtocolTest`,
+  `StockSage.TraderBridgeTest` (tagged `:bridge`), `StockSage.SupervisorTest`,
+  `StockSage.Actions.RunAnalysisTest` (including the
+  `approve_confirmation` end-to-end loop),
+  `Mix.Tasks.Stocksage.AnalyzeTest`, the StockSage `ActionsTest` intent
+  routing additions, `StockSage.TraceTest`, and the
+  `AllbertAssist.Security.PermissionGateTest` additions for
+  `:stocksage_analyze`.
+- Closeout gates: `mix format --check-formatted`, `mix credo --strict`,
+  `mix compile --warnings-as-errors`.
+- Operator smoke confirmed (`mix stocksage.analyze AAPL 2026-05-01 --user
+  local` → confirmation id → `mix allbert.confirmations approve <id>` →
+  `stocksage_analyses` and `stocksage_analysis_details` rows persisted with
+  bounded summary, confirmation resolved as approved).
+
 ## v0.21 - Memory Review And Retrieval
 
 Status: implemented through M6 closeout and post-implementation gap fixes on
