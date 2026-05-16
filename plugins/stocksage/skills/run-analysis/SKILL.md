@@ -30,7 +30,7 @@ examples:
 
 - The Python bridge makes external market-data API calls. The operator
   confirmation covers analysis as a whole; per-source confirmations arrive in
-  v0.26.
+  v0.28 (formerly v0.26 before the project-direction rethink renumber).
 - Raw TradingAgents output is never surfaced in traces, CLI list summaries, or
   signals. Only bounded structured metadata is shown.
 - `:stocksage_analyze` has a `needs_confirmation` safety floor; no setting can
