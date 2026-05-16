@@ -156,7 +156,8 @@ operation classes, share grants across consumers, or bypass confirmation.
   of growing more private predicates. App-specific routing comes from
   app/action/skill/surface registry metadata, not from agent-level
   StockSage-or-any-other-app predicates.
-- Future milestones (v0.21 memory retrieval, v0.24 workspace shell) can plug
+- Future milestones (v0.21 memory retrieval, v0.26 workspace shell — formerly
+  v0.24) can plug
   into the engine as additional candidate sources or scoring signals without
   changing the authority model.
 

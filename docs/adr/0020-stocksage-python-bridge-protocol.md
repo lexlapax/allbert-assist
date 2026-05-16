@@ -7,10 +7,12 @@ Accepted (v0.22 M1, 2026-05-15).
 ## Context
 
 StockSage needs real analysis results before native Jido trading agents are
-built in v0.23. The existing Python TradingAgents baseline can produce those
-results today. A supervised bridge around it gives Allbert a working engine
-during the v0.22–v0.23 window and lets v0.23 replace the bridge call without
-changing the permission, confirmation, or persistence contracts.
+built in v0.25 (formerly v0.23 before the project-direction rethink inserted
+v0.23 Jido State-Machine Convergence and v0.24 Objective Runtime Foundation).
+The existing Python TradingAgents baseline can produce those results today. A
+supervised bridge around it gives Allbert a working engine during the
+v0.22–v0.25 window and lets v0.25 replace the bridge call without changing
+the permission, confirmation, or persistence contracts.
 
 Several decisions shape the bridge design:
 
@@ -32,9 +34,10 @@ Several decisions shape the bridge design:
   tables already established in v0.20.
 
 Without a binding protocol decision, v0.22 could accidentally use a different
-bridge mechanism than v0.23 expects, produce analysis results in a format that
-v0.25 LiveViews cannot render, or leave market-data call authorization
-undefined when v0.26 security hardening arrives.
+bridge mechanism than v0.25 (formerly v0.23) expects, produce analysis results
+in a format that v0.27 (formerly v0.25) LiveViews cannot render, or leave
+market-data call authorization undefined when v0.28 (formerly v0.26) security
+hardening arrives.
 
 ## Decision
 
@@ -46,8 +49,8 @@ rather than ErlPort. Reasons:
 - No additional dependency: plain `Port.open/2` with `:binary` and
   `{:line, max_bytes}` is standard OTP.
 - Python side requires only stdlib (`sys`, `json`); no ErlPort Python package.
-- Protocol is language-neutral: v0.23 native agents can mock the same protocol
-  shape during transition testing without Python installed.
+- Protocol is language-neutral: v0.25 (formerly v0.23) native agents can mock
+  the same protocol shape during transition testing without Python installed.
 - ErlPort's type-mapping layer adds complexity without benefit for a
   JSON-structured domain.
 
@@ -149,11 +152,12 @@ analysis through the Python bridge.
   `allowed` or `denied_explicit`; the floor is enforced by Security Central.
 - Risk tier: `high` (external subprocess, external API calls).
 
-When v0.23 native agents replace bridge dispatch in `RunAnalysis`, they use
-the same `:stocksage_analyze` permission, the same confirmation path, and the
-same result persistence contract. The permission class does not change.
+When v0.25 (formerly v0.23) native agents replace bridge dispatch in
+`RunAnalysis`, they use the same `:stocksage_analyze` permission, the same
+confirmation path, and the same result persistence contract. The permission
+class does not change.
 
-### Market-Data API Calls: Flagged For v0.26
+### Market-Data API Calls: Flagged For v0.28
 
 TradingAgents makes external market-data API calls as part of analysis.
 These calls are made inside the Python process and are not individually
@@ -161,7 +165,7 @@ governed by Resource Access Security Posture or confirmations in v0.22.
 The operator confirmation for `RunAnalysis` covers the analysis action as a
 whole, including its knowledge that TradingAgents makes external calls.
 
-This is an acknowledged gap. v0.26 security hardening must:
+This is an acknowledged gap. v0.28 (formerly v0.26) security hardening must:
 
 - Require market-data API calls from StockSage to flow through Resource Access
   Security Posture as registered operation-class consumers.
@@ -170,7 +174,7 @@ This is an acknowledged gap. v0.26 security hardening must:
 - Apply remembered-grant eligibility or explicit confirmation to each distinct
   market-data source.
 
-Until v0.26, the confirmation record for `RunAnalysis` must include a
+Until v0.28, the confirmation record for `RunAnalysis` must include a
 disclosure that TradingAgents external calls are included in the approved
 scope and are not individually remembered-granted.
 
@@ -193,15 +197,18 @@ Only bounded summaries and structured metadata are surfaced.
 
 - `StockSage.Actions.RunAnalysis` uses `:stocksage_analyze` and the v0.07
   confirmation workflow. This becomes the stable contract across v0.22 (bridge)
-  and v0.23 (native agents); callers do not need to change.
+  and v0.25 (formerly v0.23) native agents; callers do not need to change.
+  v0.24 Objective Runtime Foundation will thread optional
+  `objective_id`/`step_id` parameters through the same action without
+  changing the permission, confirmation, or persistence shape.
 - `StockSage.Bridge.Protocol` encodes and decodes the JSON envelope. This
   module is the test seam for bridge protocol correctness.
-- v0.25 StockSage LiveViews render results from `stocksage_analyses` and
-  `stocksage_analysis_details`; the table schema established in v0.22 must not
-  change shape in v0.25 without a migration.
-- v0.26 security hardening adds individual Resource Access Security Posture
-  governance for market-data API calls; the current disclosure-in-confirmation
-  approach is a temporary placeholder.
+- v0.27 (formerly v0.25) StockSage LiveViews render results from
+  `stocksage_analyses` and `stocksage_analysis_details`; the table schema
+  established in v0.22 must not change shape in v0.27 without a migration.
+- v0.28 (formerly v0.26) security hardening adds individual Resource Access
+  Security Posture governance for market-data API calls; the current
+  disclosure-in-confirmation approach is a temporary placeholder.
 - The bridge technology (JSON-over-stdio Port) is not a long-term locked
   decision. If a later milestone (e.g., a hosted deployment) needs a different
   bridge transport, `StockSage.TraderBridge` is the swap point; the action,
