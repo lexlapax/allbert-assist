@@ -158,7 +158,12 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       "run_skill_script" ->
         resume_skill_script(record, reason, context, permission_decision, target_decision)
 
-      action_name when action_name in ["delete_memory_entry", "prune_memory_entries"] ->
+      action_name
+      when action_name in [
+             "delete_memory_entry",
+             "prune_memory_entries",
+             "promote_conversation_turn"
+           ] ->
         resume_memory_action(
           record,
           reason,
@@ -511,6 +516,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       {:ok, %{status: :completed} = response} ->
         target_result =
           Map.get(response, :archived) ||
+            Map.get(response, :memory) ||
             %{
               status: :completed,
               archived_count: get_in(response, [:actions, Access.at(0), :archived_count])

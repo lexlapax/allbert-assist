@@ -13,6 +13,7 @@ defmodule Mix.Tasks.Allbert.Memory do
       mix allbert.memory search QUERY [--category notes] [--limit 10]
       mix allbert.memory compile-index
       mix allbert.memory summarize --category notes
+      mix allbert.memory promote-turn --thread-id THREAD --message-id MESSAGE [--category notes]
   """
 
   use Mix.Task
@@ -217,6 +218,39 @@ defmodule Mix.Tasks.Allbert.Memory do
     end
   end
 
+  defp dispatch(["promote-turn" | args]) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [
+          thread_id: :string,
+          message_id: :string,
+          category: :string,
+          summary: :string,
+          user: :string,
+          operator: :string
+        ]
+      )
+
+    reject_invalid!(invalid)
+    reject_rest!(rest, "promote-turn")
+    user_id = user_id!(opts)
+
+    params =
+      %{
+        user_id: user_id,
+        thread_id: opts[:thread_id] || Mix.raise("promote-turn requires --thread-id"),
+        message_id: opts[:message_id] || Mix.raise("promote-turn requires --message-id"),
+        category: opts[:category],
+        summary: opts[:summary]
+      }
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Map.new()
+
+    with {:ok, response} <- accepted_action("promote_conversation_turn", params, user_id) do
+      {:ok, {:promote_turn, response}}
+    end
+  end
+
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
@@ -229,6 +263,7 @@ defmodule Mix.Tasks.Allbert.Memory do
       mix allbert.memory search QUERY [--category notes|preferences|traces|skills] [--limit N] [--user USER]
       mix allbert.memory compile-index [--user USER]
       mix allbert.memory summarize --category notes|preferences|traces|skills [--user USER]
+      mix allbert.memory promote-turn --thread-id THREAD_ID --message-id MESSAGE_ID [--category notes] [--summary "..."] [--user USER]
     """)
   end
 
@@ -314,6 +349,16 @@ defmodule Mix.Tasks.Allbert.Memory do
     Mix.shell().info("Summary: #{result.path}")
     Mix.shell().info("Entries: #{result.entry_count}")
     Mix.shell().info("Derived at: #{result.derived_at}")
+  end
+
+  defp print_result({:ok, {:promote_turn, %{status: :needs_confirmation} = response}}) do
+    Mix.shell().info("Confirmation: #{response.confirmation_id}")
+    Mix.shell().info("No memory was written.")
+  end
+
+  defp print_result({:ok, {:promote_turn, %{status: :completed} = response}}) do
+    Mix.shell().info("Promoted: #{response.memory.path}")
+    Mix.shell().info("Summary: #{response.memory.summary}")
   end
 
   defp print_result({:error, reason}) do
