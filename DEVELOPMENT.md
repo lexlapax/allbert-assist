@@ -337,9 +337,9 @@ components. The choice is pragmatic and per-component, not uniform.
 Reach for `Jido.Agent` when one or more is plausibly useful:
 
 - A named state machine with declared transitions.
-- Lifecycle hooks at meaningful points (`on_before_validate_state`,
-  `on_after_validate_state`, `on_before_run`, `on_after_run`, `on_error`,
-  `on_before_cmd`, `on_after_cmd`).
+- Lifecycle hooks at meaningful points. As of the current Jido docs, the
+  supported hooks to plan around are `on_before_cmd/2` and `on_after_cmd/3`;
+  verify any additional callback against Context7 or source before coding.
 - Skill composition (Jido.Skill attaching actions, signals, child specs).
 - A plausible successor agent with better algorithms later. The "v2 with
   better algorithms" test: if you can imagine the module being rewritten
