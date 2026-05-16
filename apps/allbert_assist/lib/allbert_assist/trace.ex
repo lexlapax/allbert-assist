@@ -178,6 +178,10 @@ defmodule AllbertAssist.Trace do
 
     #{intent_candidates_text(response)}
 
+    ## Memory Review
+
+    #{memory_review_text(response.actions)}
+
     ## Resource Access
 
     #{intent_resource_access_text(response)}
@@ -600,6 +604,44 @@ defmodule AllbertAssist.Trace do
     end)
     |> Enum.join("\n")
   end
+
+  defp memory_review_text(actions) do
+    actions
+    |> List.wrap()
+    |> Enum.filter(&memory_review_action?/1)
+    |> Enum.map(&memory_review_line/1)
+    |> case do
+      [] -> "none"
+      lines -> Enum.join(lines, "\n")
+    end
+  end
+
+  defp memory_review_action?(action) do
+    action_name(action) in [
+      "review_memory_entry",
+      "update_memory_entry",
+      "delete_memory_entry",
+      "prune_memory_entries",
+      "promote_conversation_turn",
+      "compile_memory_index",
+      "summarize_memory_category"
+    ]
+  end
+
+  defp memory_review_line(action) do
+    "- #{action_name(action)} status=#{memory_action_value(action, :status, "unknown")} execution=#{memory_action_value(action, :execution, "none")} path=#{memory_action_path(action)} category=#{memory_action_value(action, :memory_category, "unknown")} review_status=#{memory_action_value(action, :review_status, "unknown")} confirmation=#{memory_action_value(action, :confirmation_id, "none")} count=#{memory_action_count(action)}"
+  end
+
+  defp memory_action_path(action) do
+    map_value(action, :memory_path) || map_value(action, :archived_path) || "none"
+  end
+
+  defp memory_action_count(action) do
+    map_value(action, :candidate_count) || map_value(action, :archived_count) ||
+      map_value(action, :entry_count) || "none"
+  end
+
+  defp memory_action_value(action, key, default), do: map_value(action, key) || default
 
   defp bounded_inspect(nil), do: "none"
 

@@ -197,6 +197,17 @@ metadata; it must not add new execution powers, treat plugin provenance as
 authority, treat `active_app` as authorization, or make model output
 authoritative over the collected candidate set.
 
+For v0.21 memory review and retrieval regression work, read
+`docs/plans/v0.21-plan.md`, `docs/plans/v0.21-request-flow.md`,
+`docs/plans/allbert-jido-vision.md`,
+`docs/adr/0014-local-workspace-identity.md`, and
+`docs/adr/0019-cross-surface-intent-enrichment.md` before changing markdown
+memory review, correction, deletion, pruning, promotion from conversation
+history, derived memory indexes/summaries, memory intent candidates, or memory
+trace rendering. Markdown memory remains the source of truth; SQLite thread
+history is not auto-promoted; memory candidates are metadata-only proposal data
+and never grant permission or authorize actions.
+
 For v0.24 agentic workspace surface and ephemeral UI work, read
 `docs/plans/v0.24-plan.md`, `docs/plans/v0.25-plan.md`,
 `docs/plans/v0.18-plan.md`, `docs/plans/allbert-jido-vision.md`, and
