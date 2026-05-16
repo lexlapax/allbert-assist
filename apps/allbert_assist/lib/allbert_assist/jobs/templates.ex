@@ -26,6 +26,11 @@ defmodule AllbertAssist.Jobs.Templates do
       name: "trace-summary",
       target_type: "registered_action",
       description: "Read-only trace file and scheduled job-run summary."
+    },
+    %{
+      name: "memory-index-rebuild",
+      target_type: "registered_action",
+      description: "Read-only rebuild of the derived markdown memory index."
     }
   ]
 
@@ -63,6 +68,17 @@ defmodule AllbertAssist.Jobs.Templates do
        target_type: "registered_action",
        target: %{action_name: "trace_summary", params: %{}},
        metadata: %{template_name: "trace-summary"}
+     }}
+  end
+
+  def expand("memory-index-rebuild", opts) do
+    {:ok,
+     %{
+       name: Map.get(opts, :name) || "memory-index-rebuild",
+       description: Map.get(opts, :description) || "Memory index rebuild",
+       target_type: "registered_action",
+       target: %{action_name: "compile_memory_index", params: %{}},
+       metadata: %{template_name: "memory-index-rebuild"}
      }}
   end
 
