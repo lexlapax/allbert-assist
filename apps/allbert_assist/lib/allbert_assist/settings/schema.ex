@@ -143,7 +143,15 @@ defmodule AllbertAssist.Settings.Schema do
     "channels.email.from_name",
     "channels.email.identity_map",
     "channels.email.max_body_bytes",
-    "channels.email.allow_html_replies"
+    "channels.email.allow_html_replies",
+    "memory.review_cadence",
+    "memory.auto_promote_sensitive_entries",
+    "memory.retention_policy",
+    "memory.delete_requires_confirmation",
+    "memory.promotion_requires_confirmation",
+    "memory.max_entries_per_category",
+    "memory.index_enabled",
+    "memory.max_index_entries"
   ]
 
   @resource_grant_required_keys ~w[
@@ -1013,22 +1021,60 @@ defmodule AllbertAssist.Settings.Schema do
     "memory.review_cadence" => %{
       type: :enum,
       default: "manual",
-      writable?: false,
+      writable?: true,
       sensitive?: false,
       allowed_values: ["manual", "daily", "weekly"]
     },
     "memory.auto_promote_sensitive_entries" => %{
       type: :boolean,
       default: false,
-      writable?: false,
+      writable?: true,
       sensitive?: false
     },
     "memory.retention_policy" => %{
       type: :enum,
       default: "preserve_markdown",
-      writable?: false,
+      writable?: true,
       sensitive?: false,
-      allowed_values: ["preserve_markdown"]
+      allowed_values: [
+        "preserve_markdown",
+        "prune_traces_after_30d",
+        "prune_traces_after_90d"
+      ]
+    },
+    "memory.delete_requires_confirmation" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "memory.promotion_requires_confirmation" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "memory.max_entries_per_category" => %{
+      type: :bounded_integer,
+      default: 500,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 100_000
+    },
+    "memory.index_enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "memory.max_index_entries" => %{
+      type: :bounded_integer,
+      default: 1000,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 100_000
     }
   }
 
@@ -1280,7 +1326,12 @@ defmodule AllbertAssist.Settings.Schema do
     "memory" => %{
       "review_cadence" => "manual",
       "auto_promote_sensitive_entries" => false,
-      "retention_policy" => "preserve_markdown"
+      "retention_policy" => "preserve_markdown",
+      "delete_requires_confirmation" => true,
+      "promotion_requires_confirmation" => true,
+      "max_entries_per_category" => 500,
+      "index_enabled" => true,
+      "max_index_entries" => 1000
     }
   }
 
