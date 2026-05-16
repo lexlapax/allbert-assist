@@ -17,6 +17,8 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Ranker
   alias AllbertAssist.Jobs
+  alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.Index, as: MemoryIndex
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills
 
@@ -74,6 +76,7 @@ defmodule AllbertAssist.Intent.Engine do
       |> Map.put(:intent_candidates, %{
         selected: selected |> Candidate.to_map(),
         rejected: rejected,
+        memory: memory_candidate_maps(candidates),
         total: length(candidates),
         engine_version: "v0.19"
       })
@@ -561,8 +564,58 @@ defmodule AllbertAssist.Intent.Engine do
     text = field(request, :text) || ""
 
     []
+    |> add_indexed_memory_candidates(request, text)
     |> maybe_add_memory_append_candidate(text)
     |> maybe_add_memory_read_candidate(text)
+  end
+
+  defp add_indexed_memory_candidates(candidates, request, text) do
+    candidates ++ indexed_memory_candidates(request, text)
+  end
+
+  defp indexed_memory_candidates(request, text) when is_binary(text) do
+    user_id = field(request, :user_id) || field(request, :operator_id) || "local"
+    root = Memory.root()
+
+    with true <- memory_index_enabled?(),
+         false <- String.trim(text) == "",
+         false <- MemoryIndex.stale?(root),
+         {:ok, index} <- MemoryIndex.load(root),
+         {:ok, entries} <- MemoryIndex.query(index, text, user_id: user_id, limit: 10) do
+      entries
+      |> Enum.map(&candidate_from_indexed_memory/1)
+      |> Enum.reject(&is_nil/1)
+    else
+      _skip -> []
+    end
+  rescue
+    _exception -> []
+  end
+
+  defp indexed_memory_candidates(_request, _text), do: []
+
+  defp candidate_from_indexed_memory(entry) do
+    path = field(entry, :path)
+    summary = field(entry, :summary)
+
+    Candidate.new!(%{
+      kind: :memory,
+      id: "markdown_memory:#{path}",
+      label: summary,
+      source: :memory,
+      status: :candidate,
+      score: field(entry, :score, 0.1),
+      reason: "Indexed markdown memory matched the request.",
+      trace_metadata: %{
+        category: field(entry, :category),
+        timestamp: field(entry, :timestamp),
+        review_status: field(entry, :review_status),
+        path: path,
+        match_reasons: field(entry, :match_reasons, [])
+      }
+    })
+  rescue
+    _exception -> nil
   end
 
   defp maybe_add_memory_append_candidate(candidates, text) do
@@ -769,8 +822,28 @@ defmodule AllbertAssist.Intent.Engine do
     |> Map.drop([:trace_metadata, :resource_access])
   end
 
+  defp memory_candidate_maps(candidates) do
+    candidates
+    |> Enum.filter(&(field(&1, :kind) == :memory))
+    |> Enum.take(5)
+    |> Enum.map(fn candidate ->
+      candidate
+      |> Candidate.to_map()
+      |> Map.take([:kind, :id, :source, :score, :reason, :trace_metadata])
+    end)
+  end
+
   defp trace_rejected_candidates? do
     case Settings.get("intent.trace_rejected_candidates") do
+      {:ok, false} -> false
+      _other -> true
+    end
+  rescue
+    _exception -> true
+  end
+
+  defp memory_index_enabled? do
+    case Settings.get("memory.index_enabled") do
       {:ok, false} -> false
       _other -> true
     end

@@ -4,8 +4,11 @@ defmodule AllbertAssist.Intent.EngineTest do
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.EvalFixtures
+  alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.Compiler
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Settings
 
   defmodule PluginEcho do
     use Jido.Action,
@@ -164,6 +167,109 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert Enum.any?(refusal_candidates, &match?(%{kind: :refusal}, &1))
   end
 
+  test "collects index-backed markdown memory candidates without bodies or secrets" do
+    with_memory_home(fn ->
+      assert {:ok, _entry} =
+               Memory.append(%{
+                 category: :preferences,
+                 body: "Alice prefers concise release notes and no token=abc123 in output.",
+                 actor: "alice",
+                 agent: "test",
+                 channel: :test,
+                 source_signal_id: "sig"
+               })
+
+      assert {:ok, _result} = Compiler.compile_index(Memory.root())
+
+      candidates =
+        Engine.collect_candidates(
+          EvalFixtures.request(text: "recall concise release notes", user_id: "alice")
+        )
+
+      assert %{trace_metadata: trace_metadata} =
+               Enum.find(candidates, fn candidate ->
+                 candidate.kind == :memory and
+                   String.starts_with?(candidate.id, "markdown_memory:/")
+               end)
+
+      assert trace_metadata.category == :preferences
+      assert trace_metadata.review_status == :unreviewed
+      assert is_binary(trace_metadata.timestamp)
+      assert is_binary(trace_metadata.path)
+      assert "keyword:concise" in trace_metadata.match_reasons
+      refute Map.has_key?(trace_metadata, :body)
+      refute inspect(trace_metadata) =~ "abc123"
+    end)
+  end
+
+  test "does not collect flagged prune-nominated disabled or stale memory index entries" do
+    with_memory_home(fn ->
+      assert {:ok, flagged} =
+               Memory.append(%{
+                 category: :notes,
+                 body: "Alice flagged memory about quarterly launch notes.",
+                 actor: "alice",
+                 agent: "test",
+                 channel: :test,
+                 source_signal_id: "sig"
+               })
+
+      assert {:ok, _pruned} =
+               Memory.append(%{
+                 category: :notes,
+                 body: "Alice prune nominated memory about launch notes.",
+                 actor: "alice",
+                 agent: "test",
+                 channel: :test,
+                 source_signal_id: "sig"
+               })
+
+      assert {:ok, _flagged} =
+               Memory.review_entry(flagged.path, %{status: :flagged, reviewed_by: "alice"},
+                 user_id: "alice"
+               )
+
+      assert {:ok, [pruned]} =
+               Memory.list_entries(user_id: "alice", limit: 10)
+               |> then(fn {:ok, entries} ->
+                 {:ok, Enum.reject(entries, &(&1.path == flagged.path))}
+               end)
+
+      assert {:ok, _prune_nominated} =
+               Memory.review_entry(pruned.path, %{status: :prune_nominated, reviewed_by: "alice"},
+                 user_id: "alice"
+               )
+
+      assert {:ok, _result} = Compiler.compile_index(Memory.root())
+
+      request = EvalFixtures.request(text: "recall launch notes", user_id: "alice")
+      refute indexed_memory_candidate?(Engine.collect_candidates(request))
+
+      assert {:ok, active} =
+               Memory.append(%{
+                 category: :notes,
+                 body: "Alice active memory about launch notes.",
+                 actor: "alice",
+                 agent: "test",
+                 channel: :test,
+                 source_signal_id: "sig"
+               })
+
+      assert {:ok, _kept} =
+               Memory.review_entry(active.path, %{status: :kept, reviewed_by: "alice"},
+                 user_id: "alice"
+               )
+
+      refute indexed_memory_candidate?(Engine.collect_candidates(request))
+
+      assert {:ok, _result} = Compiler.compile_index(Memory.root())
+      assert indexed_memory_candidate?(Engine.collect_candidates(request))
+
+      assert {:ok, _setting} = Settings.put("memory.index_enabled", false, %{audit?: false})
+      refute indexed_memory_candidate?(Engine.collect_candidates(request))
+    end)
+  end
+
   test "candidate metadata includes rejected registry candidates" do
     assert {:ok, decision} =
              Decision.new(%{
@@ -247,4 +353,32 @@ defmodule AllbertAssist.Intent.EngineTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp with_memory_home(fun) do
+    original_paths = Application.get_env(:allbert_assist, AllbertAssist.Paths)
+    original_memory = Application.get_env(:allbert_assist, Memory)
+    original_settings = Application.get_env(:allbert_assist, Settings)
+
+    home =
+      Path.join(System.tmp_dir!(), "allbert-engine-memory-#{System.unique_integer([:positive])}")
+
+    Application.put_env(:allbert_assist, AllbertAssist.Paths, home: home)
+    Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+
+    try do
+      fun.()
+    after
+      restore_env(AllbertAssist.Paths, original_paths)
+      restore_env(Memory, original_memory)
+      restore_env(Settings, original_settings)
+      File.rm_rf!(home)
+    end
+  end
+
+  defp indexed_memory_candidate?(candidates) do
+    Enum.any?(candidates, fn candidate ->
+      candidate.kind == :memory and String.starts_with?(candidate.id, "markdown_memory:/")
+    end)
+  end
 end

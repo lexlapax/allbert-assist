@@ -166,6 +166,66 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
     refute trace =~ "sk-test-secret"
   end
 
+  test "renders bounded memory intent candidates without entry bodies" do
+    Application.put_env(:allbert_assist, Trace, enabled: true)
+
+    memory_candidate = %{
+      kind: :memory,
+      id: "markdown_memory:/tmp/allbert/memory/preferences/example.md",
+      source: :memory,
+      score: 0.42,
+      reason: "Indexed markdown memory matched the request.",
+      trace_metadata: %{
+        category: :preferences,
+        timestamp: "2026-05-15T00:00:00Z",
+        review_status: :kept,
+        path: "/tmp/allbert/memory/preferences/example.md",
+        match_reasons: ["keyword:concise"]
+      }
+    }
+
+    assert {:ok, decision} =
+             Decision.new(%{
+               intent: :direct_answer,
+               selected_action: "direct_answer",
+               trace_metadata: %{
+                 intent_candidates: %{
+                   selected: %{
+                     kind: :action,
+                     id: "direct_answer",
+                     source: :deterministic,
+                     score: 1.0
+                   },
+                   memory: [
+                     memory_candidate,
+                     %{
+                       memory_candidate
+                       | id: "markdown_memory:/tmp/allbert/memory/preferences/second.md",
+                         reason: "Second metadata-only memory candidate."
+                     }
+                   ],
+                   rejected: [],
+                   total: 2,
+                   engine_version: "v0.19"
+                 }
+               },
+               context: %{request: %{text: "Trace memory candidates."}}
+             })
+
+    trace_turn =
+      turn("Trace memory candidates.")
+      |> put_in([:response, :decision], decision)
+
+    assert {:ok, response} = RecordTrace.run(%{turn: trace_turn}, context())
+
+    trace = File.read!(response.trace_id)
+    assert trace =~ "Memory:"
+    assert trace =~ "category=preferences"
+    assert trace =~ "review_status=kept"
+    assert trace =~ "example.md"
+    refute trace =~ "entry body content that should stay hidden"
+  end
+
   defp turn(text) do
     {:ok, input_signal} =
       Signal.new(
