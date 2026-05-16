@@ -61,7 +61,8 @@ matrix remains the release gate. Release tag is pending operator acceptance.
   safety floor is `:needs_confirmation` and cannot be lowered via settings.
 - TradingAgents external market-data API calls are included in the operator's
   approval scope and disclosed in the confirmation record. Per-source
-  Resource Access Security Posture for those calls is deferred to v0.26.
+  Resource Access Security Posture for those calls is deferred to v0.28
+  (formerly v0.26 before the project-direction rethink renumber).
 - Raw bridge output is bounded by `stocksage.bridge_max_output_bytes` and
   never appears in traces, CLI list summaries, or signals. Only bounded
   summaries (≤500 chars in `stocksage_analyses.summary`, ≤200 chars in

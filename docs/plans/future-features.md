@@ -62,7 +62,8 @@ publish, or activate new capabilities from traces.
 
 Needed before planning:
 
-- v0.29 manual plugin/app generator accepted through user testing
+- v0.31 (formerly v0.29) manual plugin/app generator accepted through user
+  testing
 - review and trust workflow
 - trace-to-skill draft workflow
 - explicit operator approval before enabling
@@ -72,8 +73,8 @@ Needed before planning:
 
 ### Dynamic Elixir Code Generation Or Module Loading
 
-Source: v0.03/v0.06 execution-boundary clarification and v0.29 generator
-planning.
+Source: v0.03/v0.06 execution-boundary clarification and v0.31 (formerly
+v0.29) generator planning.
 
 Allbert should not auto-generate, compile, or load Elixir modules from
 arbitrary plugin, app, or skill folders. v0.29 may scaffold ordinary source
@@ -83,20 +84,21 @@ loading from untrusted plugin/app/skill folders remains unplanned.
 Needed before planning:
 
 - separate ADR for code-generation boundaries
-- v0.29 scaffold/review/compile/test workflow proven
+- v0.31 (formerly v0.29) scaffold/review/compile/test workflow proven
 - explicit distinction between generating source and enabling capability
 - rollback and migration story
 - policy for generated migrations, dependency additions, and operator review
 
 ### Remote Plugin Marketplace And Code-Bearing Plugin Distribution
 
-Source: v0.17 plugin substrate and v0.29 generator planning.
+Source: v0.17 plugin substrate and v0.31 (formerly v0.29) generator planning.
 
 v0.17 creates local plugin discovery and ships Telegram/email as source-tree
 plugins under `./plugins`, but it does not install remote plugins, resolve
 dependencies, automatically compile arbitrary `./plugins/*/lib` directories,
 compile code from `<ALLBERT_HOME>/plugins`, hot-reload code-bearing plugins,
-or sandbox untrusted plugin execution. v0.29 may scaffold plugin source for
+or sandbox untrusted plugin execution. v0.31 (formerly v0.29) may scaffold
+plugin source for
 developer review, compile, and test, but marketplace distribution and
 arbitrary runtime loading remain parked here.
 
@@ -104,7 +106,7 @@ Needed before planning:
 
 - v0.17 plugin registry accepted through user testing
 - v0.26 plugin-boundary security evals accepted
-- v0.29 plugin/app generator accepted through user testing
+- v0.31 (formerly v0.29) plugin/app generator accepted through user testing
 - dependency install/update policy
 - plugin signing, provenance, versioning, and rollback model
 - clear trust tiers for skill-only, compiled local, third-party source, and
@@ -142,8 +144,9 @@ Needed before planning:
 - v0.16 channel event and identity-map contracts stable
 - provider-specific Settings Central schema and secret policy
 - provider-specific delivery, retry, dedupe, and callback model
-- v0.26 security evals for cross-channel spoofing, replay, group leakage,
-  command injection in reply bodies, and resource approval scope leakage
+- v0.28 (formerly v0.26) security evals for cross-channel spoofing, replay,
+  group leakage, command injection in reply bodies, and resource approval
+  scope leakage
 - operator UX for mapping, disabling, and inspecting external identities
 - clear decision on whether a provider starts as inbound-only, response-only,
   or full request/response with confirmation callbacks
@@ -163,7 +166,7 @@ Needed before planning:
 - migration/export policy
 - offline behavior
 - redaction and audit consistency across backends
-- v0.26 security evals covering secret redaction regressions
+- v0.28 (formerly v0.26) security evals covering secret redaction regressions
 
 ### Remote Sync And Profile Export/Import
 
@@ -282,15 +285,17 @@ Needed before planning:
 - secret entry UX
 - accessibility and mobile behavior
 
-### Post-v0.29 UI Protocol Interop
+### Post-v0.31 UI Protocol Interop
 
 Source: operator UI discussion, v0.16 channel planning, v0.21 memory review,
-v0.19 intent enrichment, v0.26 security hardening, and research into A2UI,
+v0.19 intent enrichment, v0.28 (formerly v0.26) security hardening, and
+research into A2UI,
 AG-UI, MCP Apps, ChatGPT Canvas, Claude Artifacts, Google Gemini generative UI,
 BISCUIT, and Athena.
 
-v0.18, v0.24, and v0.28 own the local Allbert-native app contract, surface DSL,
-workspace, ephemeral UI, canvas, and StockSage canvas proof. The remaining
+v0.18, v0.26, and v0.30 (formerly v0.18, v0.24, and v0.28) own the local
+Allbert-native app contract, surface DSL, workspace, ephemeral UI, canvas, and
+StockSage canvas proof. The remaining
 unassigned work is external protocol interoperability and richer generated UI
 interfaces after the local substrate is boring and safe.
 
@@ -366,9 +371,11 @@ handoff, adapter implementation, redaction, trace, audit, and tests.
 Needed before planning:
 
 - v0.11 unsupported MCP/agent URI posture accepted
-- v0.26 evals for cross-scheme grant reuse, tool/resource confusion, prompt
-  injection through MCP resources, and remote agent impersonation
-- v0.18/v0.24 surface contract stability if MCP Apps UI is in scope
+- v0.28 (formerly v0.26) evals for cross-scheme grant reuse,
+  tool/resource confusion, prompt injection through MCP resources, and
+  remote agent impersonation
+- v0.18/v0.26 (formerly v0.18/v0.24) surface contract stability if MCP Apps
+  UI is in scope
 - MCP server configuration and permission model
 - agent endpoint discovery, authentication, and trust model
 - channel-native Approval Handoff consumption from v0.16
@@ -400,7 +407,7 @@ workspace surface contract are stable.
 Needed before planning:
 
 - v0.16 channel adapter contract
-- v0.24 workspace/surface contract
+- v0.26 (formerly v0.24) workspace/surface contract
 - Settings Central channel preferences
 - authentication or local operator identity policy
 - confirmation handoff behavior

@@ -432,7 +432,8 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.16: Telegram/email channel adapters and channel foundation.
 - v0.17: plugin contract and shipped source-tree channel plugins.
 - v0.18: app/surface contract and `AllbertAssist.Surface` DSL, with memory
-  namespace registration deferred to v0.27; `CoreApp` becomes the first
+  namespace registration deferred to v0.29 (formerly v0.27); `CoreApp`
+  becomes the first
   `SurfaceProvider` (declaring `/agent` as the built-in chat surface), runtime
   turns default to `active_app: :allbert` when no known app context exists, and
   v0.20 StockSage implements the same app/surface contract from day one as the

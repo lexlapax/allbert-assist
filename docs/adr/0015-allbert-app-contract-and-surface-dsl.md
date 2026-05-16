@@ -4,7 +4,7 @@
 
 Accepted. v0.15 minimal contract implemented. v0.18 full app/surface contract
 implemented on 2026-05-15; memory namespace registration remains deferred to
-v0.27.
+v0.29 (formerly v0.27 before the project-direction rethink renumber).
 
 ## Context
 
@@ -24,10 +24,10 @@ discovery, Phoenix PubSub, and the Jido signal bus. What it lacks is a public
 contract for another local app, including plugin-contributed apps, to
 participate as a first-class Allbert workspace app.
 
-v0.24 also plans an agentic workspace surface and declarative UI substrate.
-That canvas should consume a stable Allbert-native app and surface contract
-rather than inventing app discovery, component catalogs, or node shapes inside
-the LiveView implementation.
+v0.26 (formerly v0.24) plans an agentic workspace surface and declarative UI
+substrate. That canvas should consume a stable Allbert-native app and surface
+contract rather than inventing app discovery, component catalogs, or node
+shapes inside the LiveView implementation.
 
 External protocols such as AG-UI and A2UI are useful research references, but
 Allbert's local web surface should remain Phoenix LiveView over supervised
@@ -60,7 +60,7 @@ data only; they do not mount routes, load LiveViews, or define canvas nodes.
 
 The v0.18 full contract, formerly M-AppContract-Full, expands the app/surface
 contract through these layers, with memory namespace registration explicitly
-deferred to v0.27:
+deferred to v0.29 (formerly v0.27):
 
 - Identity and OTP lifecycle: validation, child specs, and workspace config
   injection.
@@ -76,7 +76,7 @@ deferred to v0.27:
   surfaces declared through `AllbertAssist.App.SurfaceProvider`; the native
   `AllbertAssist.Surface` DSL validates nodes and action bindings.
 - Memory namespaces the app may write through existing Allbert boundaries are
-  deferred to v0.27.
+  deferred to v0.29.
 
 ### Registry
 
@@ -144,7 +144,8 @@ approval storage, security policy, or resource grants.
 ### Surface DSL
 
 Allbert defines `AllbertAssist.Surface` as the native declarative surface DSL
-for v0.24 canvas artifacts and task-scoped ephemeral UI. Surface nodes are
+for v0.26 (formerly v0.24) canvas artifacts and task-scoped ephemeral UI.
+Surface nodes are
 Elixir data validated against a known component catalog. The v0.18 initial
 catalog has twelve components: `:route`, `:chat`, `:timeline`, `:composer`,
 `:panel`, `:section`, `:text`, `:list`, `:empty_state`, `:button`,
@@ -185,33 +186,34 @@ built-in chat surface — the default surface every local runtime turn lands on
 when no other `active_app` is active. Runtime requests default to
 `active_app: :allbert` in v0.18 so every turn has a declared home app.
 Explicit known app context from request data or the v0.14 scratchpad still
-wins. v0.24 upgrades `CoreApp`'s surface from `/agent` into the full workspace
-shell; it is `CoreApp`'s surface implementation, not a separate shell.
+wins. v0.26 (formerly v0.24) upgrades `CoreApp`'s surface from `/agent` into
+the full workspace shell; it is `CoreApp`'s surface implementation, not a
+separate shell.
 
 ### StockSage
 
 StockSage is the second proving app for this contract. v0.20, formerly M-D2a,
 implements `StockSage.App` with the v0.18 app/surface contract from day one —
-there is no lite-to-full migration. v0.25 builds all StockSage LiveViews on
-`AllbertAssist.App.SurfaceProvider` from day one; there is no stepping-stone
-static route mounting that later migrates to the surface contract. Memory
-namespace registration is the one deferred layer, added in v0.27 where
-StockSage polish first consumes it.
+there is no lite-to-full migration. v0.27 (formerly v0.25) builds all
+StockSage LiveViews on `AllbertAssist.App.SurfaceProvider` from day one;
+there is no stepping-stone static route mounting that later migrates to the
+surface contract. Memory namespace registration is the one deferred layer,
+added in v0.29 (formerly v0.27) where StockSage polish first consumes it.
 
 ## Consequences
 
 - Every runtime turn has a declared home app from v0.18: `active_app: :allbert`
   by default, overridden when a specific app context is active.
 - The built-in chat surface (`/agent`, upgraded to the workspace shell in
-  v0.24) is formally declared through `CoreApp`'s `SurfaceProvider`, not an
-  orphan LiveView route.
+  v0.26 (formerly v0.24)) is formally declared through `CoreApp`'s
+  `SurfaceProvider`, not an orphan LiveView route.
 - StockSage can be added as a shipped plugin app without private
   routing, security, or skill-registration shortcuts.
 - Intent routing can use `active_app` from session context to prioritize
   app-scoped actions while keeping cross-app routing explicit.
-- v0.24 has a concrete app registry and surface DSL to consume for workspace
-  shell navigation and canvas component validation. v0.24 is `CoreApp`'s
-  surface upgrade, not a separate shell.
+- v0.26 (formerly v0.24) has a concrete app registry and surface DSL to
+  consume for workspace shell navigation and canvas component validation.
+  v0.26 is `CoreApp`'s surface upgrade, not a separate shell.
 - Future Allbert apps get a stable contract before generator work begins.
 - The app contract does not add new execution authority. Permission decisions
   remain at the action boundary.
@@ -225,11 +227,11 @@ StockSage polish first consumes it.
 ## Deferred
 
 - Memory namespace registration in `AllbertAssist.App.Registry`, deferred to
-  v0.27 where StockSage polish first consumes it.
+  v0.29 (formerly v0.27) where StockSage polish first consumes it.
 - `mix allbert.gen.plugin` and `mix allbert.gen.app` scaffolding, until
   StockSage proves the plugin/app contract, StockSage SurfaceProvider
-  LiveViews, memory namespace completion, and canvas path through v0.28.
-  Planned for v0.29.
+  LiveViews, memory namespace completion, and canvas path through v0.30
+  (formerly v0.28). Planned for v0.31 (formerly v0.29).
 - AG-UI streaming endpoints, A2UI renderer compatibility, MCP Apps, and
   third-party remote UI execution.
 - Dynamic runtime mounting of arbitrary routes or LiveView components from

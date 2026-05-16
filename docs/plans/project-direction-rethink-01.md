@@ -428,9 +428,10 @@ when provably safe.
 - **Trust-tiered runtime sandboxing per session type.** Main sessions run
   natively; channel-originated sessions run sandboxed. Allbert's v0.16
   channel adapters map external identities to local `user_id` but do not
-  isolate runtime per channel. v0.26 security hardening should consider
-  this, and v0.23 objective `source_channel`/`source_session_type` fields
-  should leave room for a per-session-type policy.
+  isolate runtime per channel. v0.28 (formerly v0.26) security hardening
+  should consider this, and v0.24 objective
+  `source_channel`/`source_session_type` fields should leave room for a
+  per-session-type policy.
 - **Conversation compaction.** OpenClaw automatically summarizes older
   session segments. Allbert's v0.21 memory `compile_memory_index` is
   similar in spirit for markdown memory; v0.12 threads have no equivalent
