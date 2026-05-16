@@ -219,12 +219,21 @@ For StockSage workspace app work, read the active StockSage milestone plan
 StockSage agents, actions, domain records, the Python bridge, StockSage
 LiveViews, canvas components, or the StockSage skill pack. For v0.20 also read
 `docs/plans/v0.20-request-flow.md` and
-`docs/adr/0018-stocksage-local-domain-app.md`. StockSage enters as a shipped
-source-tree plugin app after v0.17; v0.20 uses `./plugins/stocksage`,
+`docs/adr/0018-stocksage-local-domain-app.md`. For v0.22 also read
+`docs/plans/v0.22-request-flow.md` and
+`docs/adr/0020-stocksage-python-bridge-protocol.md` before changing
+`StockSage.TraderBridge`, `StockSage.Bridge.Protocol`, `bridge.py`,
+`StockSage.Actions.RunAnalysis`, `:stocksage_analyze` permission policy,
+bridge protocol, bridge supervision, or result persistence. StockSage enters
+as a shipped source-tree plugin app after v0.17; v0.20 uses `./plugins/stocksage`,
 `AllbertAssist.Repo`, and `stocksage_*` tables, not `apps/stocksage`,
 `apps/stocksage_web`, or a separate `StockSage.Repo`. v0.20 read-by-id paths
 must require `user_id`; `:stocksage_write` is scoped to local StockSage domain
 writes and must not authorize financial API calls or analysis execution.
+v0.22 adds `:stocksage_analyze` as the distinct permission class for bridge
+execution; all bridge code lives under `./plugins/stocksage/` and Allbert
+core does not import bridge internals. The `:stocksage_analyze` safety floor
+is `:needs_confirmation`; no setting can lower it to `:allowed`.
 
 For v0.29 plugin/app generator work, read `docs/plans/v0.29-plan.md`,
 `docs/plans/v0.18-plan.md`, `docs/plans/v0.20-plan.md`,

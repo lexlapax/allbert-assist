@@ -1039,22 +1039,30 @@ Expected direction:
 ## v0.22: StockSage Python Bridge
 
 Plan: `docs/plans/v0.22-plan.md`
+Request flow: `docs/plans/v0.22-request-flow.md`
+ADR: `docs/adr/0020-stocksage-python-bridge-protocol.md`
 
 Status: planned. Formerly M-D2b.
 
 Expected direction:
 
-- Add a supervised bridge, likely JSON-over-stdio Port, around Python
-  StockSage/TradingAgents.
-- Add `StockSage.Actions.RunAnalysis`, register it through
-  `StockSage.Plugin.actions/0` and the plugin manifest, and add a Mix smoke
-  command that persists a real analysis.
-- Start `StockSage.TraderBridge` under `StockSage.Supervisor`, contributed via
-  `StockSage.Plugin.child_spec/1`.
-- Consume v0.20 queue records and persist bridge results into the existing
-  `stocksage_*` tables.
-- Route natural language analysis prompts through StockSage skill/action
-  boundaries when app context and permission posture allow it.
+- Add `StockSage.TraderBridge` as a supervised JSON-over-stdio Port GenServer
+  started under `StockSage.Supervisor` (plugin-owned; Allbert core is not
+  aware of bridge internals).
+- Add `./plugins/stocksage/priv/python/bridge.py` wrapping the frozen Python
+  TradingAgents baseline.
+- Add `StockSage.Actions.RunAnalysis` as a registered Jido action with the
+  new `:stocksage_analyze` permission class (default `needs_confirmation`,
+  safety floor `needs_confirmation`, risk tier `high`).
+- Register `RunAnalysis` through `StockSage.Plugin.actions/0` and
+  `allbert_plugin.json`.
+- Add `mix stocksage.analyze TICKER DATE` as the first-class CLI entry point.
+- Consume v0.20 queue records via `--queue-id` and persist bridge results into
+  `stocksage_analyses` and `stocksage_analysis_details`.
+- Route natural language "analyze AAPL" to `RunAnalysis` when `active_app:
+  :stocksage` gives explicit session evidence; no new core predicates.
+- Accept ADR 0020 defining the JSON-over-stdio protocol, plugin ownership
+  boundary, and v0.26 market-data hardening handoff.
 
 ## v0.23: Native Jido Trading Agents
 
