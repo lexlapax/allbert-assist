@@ -3,6 +3,7 @@ defmodule AllbertAssist.Settings do
   Settings Central for Allbert-owned operator configuration.
   """
 
+  alias AllbertAssist.Memory.ReviewCadence
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
@@ -40,6 +41,7 @@ defmodule AllbertAssist.Settings do
   def put(key, value, context \\ %{}) when is_binary(key) do
     with {:ok, settings, user_settings, diagnostics} <-
            Store.put_user_setting(key, value, context) do
+      diagnostics = diagnostics ++ post_write_diagnostics(key, value, context)
       resolved = resolved_setting(key, Schema.get_dotted(settings, key), settings, user_settings)
 
       {:ok,
@@ -178,4 +180,22 @@ defmodule AllbertAssist.Settings do
   defp sanitize_context(context) when is_map(context) do
     Map.drop(context, [:secret, "secret", :api_key, "api_key", :token, "token"])
   end
+
+  defp post_write_diagnostics("memory.review_cadence", value, context) do
+    case ReviewCadence.sync(value, context) do
+      {:ok, diagnostic} -> [diagnostic]
+      {:error, reason} -> [%{source: :memory_review_cadence, error: inspect(reason)}]
+    end
+  rescue
+    exception ->
+      [
+        %{
+          source: :memory_review_cadence,
+          error: Exception.message(exception),
+          kind: exception.__struct__
+        }
+      ]
+  end
+
+  defp post_write_diagnostics(_key, _value, _context), do: []
 end

@@ -187,7 +187,7 @@ defmodule AllbertAssist.Memory.Index do
       |> Map.get("timestamp")
       |> recency_score()
 
-    score = min(1.0, token_matches * 0.35 + recency)
+    score = min(0.5, token_matches * 0.35 + recency)
     {score, entry}
   end
 
