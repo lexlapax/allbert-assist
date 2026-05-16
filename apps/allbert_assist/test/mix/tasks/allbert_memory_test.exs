@@ -1,0 +1,77 @@
+defmodule Mix.Tasks.Allbert.MemoryTest do
+  use ExUnit.Case, async: false
+
+  import ExUnit.CaptureIO
+
+  alias AllbertAssist.Memory
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
+  alias Mix.Tasks.Allbert.Memory, as: MemoryTask
+
+  setup do
+    original_memory = Application.get_env(:allbert_assist, Memory)
+    original_paths = Application.get_env(:allbert_assist, Paths)
+    original_settings = Application.get_env(:allbert_assist, Settings)
+
+    home =
+      Path.join(System.tmp_dir!(), "allbert-memory-cli-#{System.unique_integer([:positive])}")
+
+    Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+
+    on_exit(fn ->
+      Mix.Task.reenable("allbert.memory")
+      restore_env(Paths, original_paths)
+      restore_env(Memory, original_memory)
+      restore_env(Settings, original_settings)
+      File.rm_rf!(home)
+    end)
+
+    {:ok, home: home}
+  end
+
+  test "list and show render stable memory output" do
+    assert {:ok, entry} =
+             Memory.append(%{
+               category: :preferences,
+               body: "Alice prefers concise updates.",
+               actor: "alice",
+               agent: "test",
+               channel: :test,
+               source_signal_id: "sig"
+             })
+
+    list_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["list", "--user", "alice", "--category", "preferences"])
+      end)
+
+    assert list_output =~ "preferences"
+    assert list_output =~ "unreviewed"
+    assert list_output =~ "Alice prefers concise updates."
+    assert list_output =~ entry.path
+
+    Mix.Task.reenable("allbert.memory")
+
+    show_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["show", entry.path, "--user", "alice"])
+      end)
+
+    assert show_output =~ "Review status: unreviewed"
+    assert show_output =~ "Alice prefers concise updates."
+  end
+
+  test "empty list prints an empty-state message" do
+    output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["list", "--user", "alice"])
+      end)
+
+    assert output =~ "No memory entries."
+  end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+end

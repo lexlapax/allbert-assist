@@ -104,6 +104,38 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("intent.max_candidates", 0, %{audit?: false})
   end
 
+  test "memory review settings are writable and validate bounds" do
+    assert {:ok, "manual"} = Settings.get("memory.review_cadence")
+    assert {:ok, false} = Settings.get("memory.auto_promote_sensitive_entries")
+    assert {:ok, "preserve_markdown"} = Settings.get("memory.retention_policy")
+    assert {:ok, true} = Settings.get("memory.delete_requires_confirmation")
+    assert {:ok, true} = Settings.get("memory.promotion_requires_confirmation")
+    assert {:ok, 500} = Settings.get("memory.max_entries_per_category")
+    assert {:ok, true} = Settings.get("memory.index_enabled")
+    assert {:ok, 1000} = Settings.get("memory.max_index_entries")
+
+    assert {:ok, cadence} =
+             Settings.put("memory.review_cadence", "weekly", %{audit?: false})
+
+    assert cadence.value == "weekly"
+
+    assert {:ok, retention} =
+             Settings.put("memory.retention_policy", "prune_traces_after_30d", %{audit?: false})
+
+    assert retention.value == "prune_traces_after_30d"
+
+    assert {:ok, max_entries} =
+             Settings.put("memory.max_entries_per_category", 10, %{audit?: false})
+
+    assert max_entries.value == 10
+
+    assert {:error, {:invalid_setting, "memory.review_cadence", _reason}} =
+             Settings.put("memory.review_cadence", "hourly", %{audit?: false})
+
+    assert {:error, {:invalid_setting, "memory.max_index_entries", _reason}} =
+             Settings.put("memory.max_index_entries", 0, %{audit?: false})
+  end
+
   test "safe write stores only operator override and survives reread", %{home: home} do
     assert {:ok, resolved} =
              Settings.put("operator.communication_style", "detailed", %{

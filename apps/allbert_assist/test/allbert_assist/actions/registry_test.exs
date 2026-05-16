@@ -131,6 +131,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "record_trace",
              "explain_intent",
              "list_intent_candidates",
+             "list_memory_entries",
+             "read_memory_entry",
              "registry_health",
              "trace_summary"
            ]
@@ -189,6 +191,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "record_trace",
              "explain_intent",
              "list_intent_candidates",
+             "list_memory_entries",
+             "read_memory_entry",
              "registry_health",
              "trace_summary"
            ]
