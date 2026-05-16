@@ -318,6 +318,7 @@ defmodule AllbertAssist.Memory do
       |> Path.join("*.md")
       |> Path.wildcard()
     end)
+    |> Enum.reject(&(Path.basename(&1) |> String.starts_with?(".")))
     |> Enum.sort(:desc)
   end
 

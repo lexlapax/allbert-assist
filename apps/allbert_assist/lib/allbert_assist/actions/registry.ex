@@ -31,11 +31,15 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
   alias AllbertAssist.Actions.Jobs.RegistryHealth
   alias AllbertAssist.Actions.Jobs.TraceSummary
+  alias AllbertAssist.Actions.Memory.CompileMemoryIndex
   alias AllbertAssist.Actions.Memory.DeleteMemoryEntry
+  alias AllbertAssist.Actions.Memory.ListMemoryCategorySummary
   alias AllbertAssist.Actions.Memory.ListMemoryEntries
   alias AllbertAssist.Actions.Memory.PruneMemoryEntries
   alias AllbertAssist.Actions.Memory.ReadMemoryEntry
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
+  alias AllbertAssist.Actions.Memory.SearchMemory
+  alias AllbertAssist.Actions.Memory.SummarizeMemoryCategory
   alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
@@ -129,6 +133,10 @@ defmodule AllbertAssist.Actions.Registry do
     UpdateMemoryEntry,
     DeleteMemoryEntry,
     PruneMemoryEntries,
+    SearchMemory,
+    CompileMemoryIndex,
+    SummarizeMemoryCategory,
+    ListMemoryCategorySummary,
     RegistryHealth,
     TraceSummary
   ]
@@ -560,6 +568,34 @@ defmodule AllbertAssist.Actions.Registry do
       skill_backed?: false,
       confirmation: :required,
       resumable?: true
+    },
+    SearchMemory => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :memory_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    CompileMemoryIndex => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :memory_index_compile,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    SummarizeMemoryCategory => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :memory_summary_compile,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ListMemoryCategorySummary => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :memory_read,
+      skill_backed?: false,
+      confirmation: :not_required
     },
     RegistryHealth => %{
       permission: :read_only,
