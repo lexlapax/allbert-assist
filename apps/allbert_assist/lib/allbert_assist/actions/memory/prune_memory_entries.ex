@@ -220,7 +220,7 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
   end
 
   defp confirmation_required? do
-    case Settings.get("memory.delete_requires_confirmation") do
+    case Settings.get("memory.prune_requires_confirmation") do
       {:ok, false} -> false
       _other -> true
     end

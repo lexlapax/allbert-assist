@@ -12,9 +12,9 @@ changelog entries or release notes.
 
 ## v0.21 - Memory Review And Retrieval
 
-Status: implemented through M6 closeout on 2026-05-15. Version metadata is
-`0.21.0`; the operator manual verification matrix remains the release gate.
-Release tag is pending operator acceptance.
+Status: implemented through M6 closeout and post-implementation gap fixes on
+2026-05-15. Version metadata is `0.21.0`; the operator manual verification
+matrix remains the release gate. Release tag is pending operator acceptance.
 
 ### Added
 
@@ -29,7 +29,10 @@ Release tag is pending operator acceptance.
   `.summary.md` files under the markdown memory root.
 - Metadata-only `:memory` intent candidates from the compiled index, with
   trace rendering for bounded candidate metadata.
-- `memory-index-rebuild` as a CLI-instantiated scheduled job template.
+- `memory-index-rebuild` as a CLI-instantiated scheduled job template and as
+  the managed job synchronized from `memory.review_cadence`.
+- `memory.prune_requires_confirmation` to control bulk prune confirmation
+  independently from single-entry delete confirmation.
 
 ### Safety
 
@@ -39,7 +42,8 @@ Release tag is pending operator acceptance.
   deleted/pruned entries are archived under `memory/deleted/YYYY-MM/` rather
   than hard-deleted.
 - Memory candidates are proposal data only. They do not grant permissions,
-  authorize actions, or include entry bodies in intent traces.
+  authorize actions, or include entry bodies in intent traces. Candidate scores
+  are capped at 0.5.
 - Flagged and prune-nominated entries are excluded from search/index intent
   candidates.
 
@@ -48,6 +52,9 @@ Release tag is pending operator acceptance.
 - Focused suites passed for memory entry parsing, review status round-trips,
   memory actions, promotion ownership checks, index/search/summary artifacts,
   trace rendering, intent memory candidates, job templates, and Mix tasks.
+- Post-implementation focused suites added compiler edge-case tests, cadence
+  job synchronization tests, prune-confirmation separation coverage, and the
+  memory candidate score cap assertion.
 - Final v0.21 closeout gates passed: `mix compile --warnings-as-errors`,
   `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
   `git diff --check`.
