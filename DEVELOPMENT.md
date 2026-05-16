@@ -329,6 +329,88 @@ Skill scripts, external package installs, shell execution, and external network
 adapters remain inert until a milestone explicitly adds sandboxing,
 permission, confirmation, and tracing.
 
+## Component Substrate: Jido.Agent vs. GenServer
+
+Allbert uses both `Jido.Agent` and plain `GenServer` for state-bearing
+components. The choice is pragmatic and per-component, not uniform.
+
+Reach for `Jido.Agent` when one or more is plausibly useful:
+
+- A named state machine with declared transitions.
+- Lifecycle hooks at meaningful points (`on_before_validate_state`,
+  `on_after_validate_state`, `on_before_run`, `on_after_run`, `on_error`,
+  `on_before_cmd`, `on_after_cmd`).
+- Skill composition (Jido.Skill attaching actions, signals, child specs).
+- A plausible successor agent with better algorithms later. The "v2 with
+  better algorithms" test: if you can imagine the module being rewritten
+  with smarter logic that another team's agent could implement against
+  the same command interface, Jido.Agent fits.
+
+Use plain `GenServer` when the module is stateful storage and the
+v2-with-better-algorithms test fails. Settings is a key-value store
+with validation; Trace is an append-only writer; Memory storage IO is
+markdown file IO; Session.Scratchpad is an ETS wrapper with TTL. None
+of these have a meaningful "smarter algorithm" successor; agent
+ceremony adds nothing.
+
+As of v0.23 and v0.24:
+
+- **Jido.Agent**: `IntentAgent`, `Confirmations.Store`, `Jobs.Scheduler`,
+  `Objectives.Engine`.
+- **Plain GenServer**: `Settings`, `Trace`, `Memory` storage IO,
+  `Session.Scratchpad`, `Memory.Compiler`, `Memory.Promotion`.
+
+Every new state-bearing module must include a `@moduledoc` paragraph
+that states its substrate choice and one-sentence rationale, e.g.,
+"`Jido.Agent` because it carries a status state machine with audit
+hooks at every transition" or "`GenServer` because it's a key-value
+cache and no useful successor with better algorithms exists."
+
+## Objective Runtime
+
+v0.24 adds `AllbertAssist.Objectives` as the durable substrate for
+multi-step, multi-turn work. ADR 0021 records the boundaries.
+
+Three durable layers:
+
+- **Intent** — per-turn; what the user appears to mean now;
+  `AllbertAssist.Intent.Decision` is inert proposal data.
+- **Objective** — cross-turn; what Allbert is trying to accomplish;
+  `objectives`/`objective_steps`/`objective_events` SQLite tables.
+- **Action** — per-step; the executable capability boundary at
+  `Actions.Runner.run/3` + Security Central + confirmations.
+
+Authority rules (carry into every consumer):
+
+- `objective_id` is never permission. `step_id` is never permission.
+  `active_app` on an objective is never permission.
+- Advisory provider output (LLM proposers, world-model predictors,
+  diffusion proposers, market allocators, probabilistic critics,
+  agent-behavior simulators) is never authority. Predictions can rank,
+  score, predict, summarize, critique; they cannot authorize, execute,
+  or short-circuit confirmation.
+- Predictions about user behavior never short-circuit confirmation. "The
+  user usually says yes" is not equivalent to the user saying yes this
+  time. This rule holds regardless of confidence or calibration.
+
+The engine implements a seven-stage state machine: receive → interpret
+intent → frame/resume objective → propose and evaluate steps →
+authorize → execute → observe and advance. Cooperative cancellation
+only; mid-action interruption is deferred to v0.25+.
+
+Multi-step capabilities (intent that decomposes into multiple actions)
+should be represented as objectives with multiple steps, not private
+loops inside an app, channel, LiveView, or plugin. Apps and plugins
+may propose objective steps through the registered objective actions;
+they may not subscribe to raw signals and mutate objective state
+privately.
+
+Reserved vocabulary (named in ADR 0021; not implemented in v0.24):
+capability inventory, capability gap, route, acquisition option,
+advisory provider umbrella behaviour, world-model provider, diffusion
+proposer, market allocator, probabilistic inference provider. Research
+note at `docs/research/objective-runtime-research.md`.
+
 ## Elixir And OTP Rules
 
 - Keep the code warning-free.

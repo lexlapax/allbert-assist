@@ -105,6 +105,36 @@ runs whatever it wants." It should be "input becomes a signal, intent is routed
 through an agent, capabilities are selected as actions, permissions are checked,
 results and traces are recorded, and follow-up signals continue the loop."
 
+### Jido.Agent vs. GenServer: When To Reach For Each
+
+The components above are guidance about *what* belongs where. The question
+of *how* a state-bearing module is implemented — `Jido.Agent` vs. plain
+`GenServer` — is a pragmatic per-component decision.
+
+Through v0.22, only `AllbertAssist.Agents.IntentAgent` was a `Jido.Agent`,
+and no module used `on_before_cmd`/`on_after_cmd` lifecycle hooks. Most
+state-bearing modules (Settings, Confirmations.Store, Memory, Sessions,
+Jobs.Scheduler, Trace) were plain `GenServer` modules. v0.23 Jido
+State-Machine Convergence converts `Confirmations.Store` and
+`Jobs.Scheduler` to `Jido.Agent` because both are state-machine
+components with plausible successor-agent stories. v0.24 adds
+`AllbertAssist.Objectives.Engine` as the next Jido.Agent.
+
+The pragmatic rule for new state-bearing modules:
+
+- Use `Jido.Agent` when one or more is plausibly useful: a state machine
+  with named transitions, lifecycle hooks (`on_before_validate_state`,
+  `on_after_cmd`, etc.), Skill composition, or a successor agent with
+  better algorithms later.
+- Use plain `GenServer` when the module is stateful storage and the test
+  "can you imagine a useful v2 with better algorithms?" answers no.
+
+Concretely after v0.24: IntentAgent, Confirmations.Store, Jobs.Scheduler,
+and Objectives.Engine are Jido.Agents. Settings, Trace, Memory storage
+IO, Session.Scratchpad, Memory.Compiler, and Memory.Promotion are plain
+GenServers. New state-bearing modules document their substrate choice in
+the module `@moduledoc` so reviewers can see the reasoning.
+
 ## Subsystem Vision
 
 ### Kernel
@@ -130,6 +160,48 @@ traces, prune memory, and prepare daily context.
 
 The important rule is that agents coordinate and decide. They do not become
 unbounded bags of side effects.
+
+### Intent, Objectives, And World Models
+
+Allbert separates three layers of state across the runtime:
+
+- **Intent** captures what the user appears to mean *now*. It is per-turn,
+  inert (`AllbertAssist.Intent.Decision`), and proposal-shaped. Intent
+  ranking through `Intent.Engine` is candidate-ranking infrastructure
+  (ADR 0019). Intent never grants authority.
+- **Objective** captures what Allbert is trying to accomplish *across one or
+  more steps, confirmations, channels, jobs, and turns*. Objectives are
+  durable SQLite rows (`objectives`, `objective_steps`, `objective_events`)
+  with acceptance criteria, constraints, status, and links to traces.
+  `AllbertAssist.Objectives.Engine` (introduced in v0.24) is a
+  `Jido.Agent` that implements a seven-stage state machine for receiving
+  input, interpreting intent, framing/resuming objectives, proposing and
+  evaluating steps, authorizing the selected step, executing, and
+  observing/advancing. Objectives never grant authority either; ADR 0021
+  records the binding rules.
+- **Action** captures the executable capability. `Actions.Runner.run/3` +
+  Security Central + confirmations + resource access posture remain the
+  only effectful boundary. Every step that mutates, fetches, sends,
+  executes, or contacts external systems grounds here.
+
+Across all three layers, hooks and advisory providers (LLM proposers,
+world-model predictors, diffusion proposers, market allocators,
+probabilistic critics, agent-behavior simulators) may **propose**, rank,
+predict, score, or summarize. They may not **authorize**, execute, mark
+simulated state as observed truth, or short-circuit operator confirmation.
+A future agent-model provider that predicts the user is likely to approve
+a step never replaces the confirmation; "the user usually says yes" is
+not equivalent to the user saying yes this time.
+
+World models, when they arrive, are advisory providers — not the
+architecture and not the umbrella for all future intelligence. ADR 0021
+reserves vocabulary for `WorldModelProvider`, `DiffusionProposalProvider`,
+`MarketAllocatorProvider`, `ProbabilisticInferenceProvider`,
+`CriticEvaluatorProvider`, `ResourceDecisionProvider`,
+`CapabilityProvider`, `RouteProvider`, and `IntentProvider` without
+implementing any of them. The first behaviour extraction waits until at
+least two providers of the same role exist. The research summary lives
+in `docs/research/objective-runtime-research.md`.
 
 ### Actions And Skills
 
@@ -373,19 +445,32 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.21: markdown memory review and retrieval, distinct from conversation
   history.
 - v0.22: StockSage Python bridge.
-- v0.23: native Jido trading agents.
-- v0.24: upgrades `CoreApp`'s declared `/agent` surface (from v0.18) into a
+- v0.23: Jido State-Machine Convergence — converts `Confirmations.Store` and
+  `Jobs.Scheduler` from plain `GenServer` to `Jido.Agent` so the runtime
+  substrate is consistent before the objective runtime ships. Pure
+  refactor; codifies the pragmatic substrate rule. Inserted by the
+  project-direction rethink (`docs/plans/project-direction-rethink-01.md`).
+- v0.24: Objective Runtime Foundation — adds the durable multi-step work
+  substrate. `Objectives.Engine` as a `Jido.Agent`;
+  `objectives`/`objective_steps`/`objective_events` SQLite tables;
+  `objective_id`/`step_id` threaded through confirmations, jobs, and
+  StockSage `RunAnalysis`; ADR 0021 records intent / objective / capability /
+  advisory provider boundaries. Inserted by the project-direction rethink.
+- v0.25: native Jido trading agents, consuming objective state from day one.
+- v0.26: upgrades `CoreApp`'s declared `/agent` surface (from v0.18) into a
   signal-driven workspace shell; canvas and ephemeral UI are additive. Built
-  after both analysis engines, memory review, and intent enrichment are in place.
-- v0.25: StockSage LiveViews built on `AllbertAssist.App.SurfaceProvider`
-  from day one; component catalog declared as the foundation for v0.28 canvas.
-- v0.26: security hardening and evals, including cross-user/thread leakage,
-  app-scoped routing, Surface DSL/SurfaceProvider coverage, bridge safety, and
-  financial authorization.
-- v0.27: StockSage polish, outcomes, and trends; completes memory namespace
+  after both analysis engines, objective state, memory review, and intent
+  enrichment are in place.
+- v0.27: StockSage LiveViews built on `AllbertAssist.App.SurfaceProvider`
+  from day one; component catalog declared as the foundation for v0.30 canvas;
+  renders objective state for StockSage analyses.
+- v0.28: security hardening and evals, including cross-user/thread leakage,
+  app-scoped routing, objective-scope coverage, Surface DSL/SurfaceProvider
+  coverage, bridge safety, and financial authorization.
+- v0.29: StockSage polish, outcomes, and trends; completes memory namespace
   registration as the final deferred layer of the v0.18 app contract.
-- v0.28: StockSage canvas integration.
-- v0.29: Allbert plugin and app generator.
+- v0.30: StockSage canvas integration.
+- v0.31: Allbert plugin and app generator.
 
 ## Deferred Until The Foundation Settles
 

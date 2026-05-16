@@ -5,6 +5,16 @@
 Accepted. v0.19 M1 confirmed the candidate contract and engine skeleton follow
 these invariants.
 
+ADR 0021 (Intent, Objective, Capability, And Advisory Boundary) supersedes
+any reading of this ADR that implies intent ranking is the full
+work-management layer. The intent engine continues as proposal
+infrastructure under this ADR's invariants; multi-step / cross-turn work
+state lives in the v0.24 objective runtime
+(`AllbertAssist.Objectives`). ADR 0021 also adds `:objective` as a
+candidate kind under the Section 2 invariants here: an objective
+candidate carries the same proposal-only authority limits as memory
+candidates, surface candidates, and action candidates.
+
 ## Context
 
 v0.11 introduced `AllbertAssist.Intent.Decision` as an inert decision contract
