@@ -1081,7 +1081,7 @@ Expected direction:
 - Route natural language "analyze AAPL" to `RunAnalysis` when `active_app:
   :stocksage` gives explicit session evidence; no new core predicates.
 - Accept ADR 0020 defining the JSON-over-stdio protocol, plugin ownership
-  boundary, and v0.26 market-data hardening handoff.
+  boundary, and v0.28 (formerly v0.26) market-data hardening handoff.
 
 ## v0.23: Jido State-Machine Convergence
 
@@ -1095,12 +1095,15 @@ before v0.24 ships `Objectives.Engine` as another new Jido.Agent.
 
 Expected direction:
 
-- Convert `AllbertAssist.Confirmations.Store` from plain `GenServer` to
-  `Jido.Agent` with `on_before_cmd`/`on_after_cmd` hooks at status
-  transitions. SQLite remains authoritative for durable state.
+- Convert `AllbertAssist.Confirmations.Store` from its current plain
+  Allbert Home file-backed module into a Jido.Agent-backed state machine.
+  Confirmation YAML files and audit markdown remain authoritative; no
+  confirmation SQLite migration.
 - Convert `AllbertAssist.Jobs.Scheduler` from plain `GenServer` to
-  `Jido.Agent`. Replace `Process.send_after`-based tick with
-  `Jido.Action` `:emit_after` directive.
+  Jido.Agent-backed scheduler. Jobs and job runs remain authoritative in
+  SQLite; due work is still read from SQLite on each tick. Use the current
+  documented Jido scheduling directive (`Jido.Agent.Directive.schedule/2` or
+  equivalent verified API), not invented `:emit_after` syntax.
 - Codify the pragmatic substrate rule in the vision, `AGENTS.md`, and
   `DEVELOPMENT.md`: use Jido.Agent when state machines, lifecycle hooks,
   or successor agents are plausibly useful; use plain GenServer for

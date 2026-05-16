@@ -123,9 +123,9 @@ components with plausible successor-agent stories. v0.24 adds
 The pragmatic rule for new state-bearing modules:
 
 - Use `Jido.Agent` when one or more is plausibly useful: a state machine
-  with named transitions, lifecycle hooks (`on_before_validate_state`,
-  `on_after_cmd`, etc.), Skill composition, or a successor agent with
-  better algorithms later.
+  with named transitions, documented lifecycle hooks such as
+  `on_before_cmd/2` and `on_after_cmd/3`, Skill composition, or a successor
+  agent with better algorithms later.
 - Use plain `GenServer` when the module is stateful storage and the test
   "can you imagine a useful v2 with better algorithms?" answers no.
 
