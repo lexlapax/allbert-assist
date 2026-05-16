@@ -2,11 +2,14 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
+  alias AllbertAssist.Actions.Memory.CompileMemoryIndex
   alias AllbertAssist.Actions.Memory.DeleteMemoryEntry
   alias AllbertAssist.Actions.Memory.ListMemoryEntries
   alias AllbertAssist.Actions.Memory.PruneMemoryEntries
   alias AllbertAssist.Actions.Memory.ReadMemoryEntry
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
+  alias AllbertAssist.Actions.Memory.SearchMemory
+  alias AllbertAssist.Actions.Memory.SummarizeMemoryCategory
   alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
@@ -164,6 +167,33 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
 
     assert approved.status == :completed
     refute File.exists?(entry.path)
+  end
+
+  test "compile_memory_index, search_memory, and summarize_memory_category use derived artifacts" do
+    assert {:ok, entry} = append("alice", "Alice prefers compact release notes.")
+
+    assert {:ok, compiled} =
+             CompileMemoryIndex.run(%{user_id: "alice"}, %{user_id: "alice"})
+
+    assert compiled.status == :completed
+    assert compiled.result.entry_count == 1
+    assert File.exists?(compiled.result.path)
+
+    assert {:ok, search} =
+             SearchMemory.run(%{query: "compact release", user_id: "alice"}, %{user_id: "alice"})
+
+    assert search.status == :completed
+    assert [%{path: path, match_reasons: reasons}] = search.entries
+    assert path == entry.path
+    assert "keyword:compact" in reasons
+
+    assert {:ok, summary} =
+             SummarizeMemoryCategory.run(%{category: "notes", user_id: "alice"}, %{
+               user_id: "alice"
+             })
+
+    assert summary.status == :completed
+    assert File.read!(summary.result.path) =~ "# DERIVED - DO NOT EDIT"
   end
 
   defp append(actor, body) do

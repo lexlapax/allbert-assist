@@ -137,6 +137,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "update_memory_entry",
              "delete_memory_entry",
              "prune_memory_entries",
+             "search_memory",
+             "compile_memory_index",
+             "summarize_memory_category",
+             "list_memory_category_summary",
              "registry_health",
              "trace_summary"
            ]
@@ -201,6 +205,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "update_memory_entry",
              "delete_memory_entry",
              "prune_memory_entries",
+             "search_memory",
+             "compile_memory_index",
+             "summarize_memory_category",
+             "list_memory_category_summary",
              "registry_health",
              "trace_summary"
            ]

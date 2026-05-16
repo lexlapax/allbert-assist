@@ -141,6 +141,46 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert File.exists?(entry.path)
   end
 
+  test "compile-index, search, and summarize render operator output" do
+    assert {:ok, _entry} =
+             Memory.append(%{
+               category: :preferences,
+               body: "Alice prefers concise release summaries.",
+               actor: "alice",
+               agent: "test",
+               channel: :test,
+               source_signal_id: "sig"
+             })
+
+    compile_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["compile-index", "--user", "alice"])
+      end)
+
+    assert compile_output =~ "Index:"
+    assert compile_output =~ "Entries: 1"
+
+    Mix.Task.reenable("allbert.memory")
+
+    search_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["search", "concise release", "--user", "alice"])
+      end)
+
+    assert search_output =~ "preferences"
+    assert search_output =~ "Alice prefers concise"
+
+    Mix.Task.reenable("allbert.memory")
+
+    summary_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["summarize", "--category", "preferences", "--user", "alice"])
+      end)
+
+    assert summary_output =~ "Summary:"
+    assert summary_output =~ "Entries: 1"
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 end

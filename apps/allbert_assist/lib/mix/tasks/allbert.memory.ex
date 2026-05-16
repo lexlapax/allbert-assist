@@ -10,6 +10,9 @@ defmodule Mix.Tasks.Allbert.Memory do
       mix allbert.memory update PATH [--summary "..."] [--body "..."] [--note "..."]
       mix allbert.memory delete PATH
       mix allbert.memory prune [--dry-run] [--write]
+      mix allbert.memory search QUERY [--category notes] [--limit 10]
+      mix allbert.memory compile-index
+      mix allbert.memory summarize --category notes
   """
 
   use Mix.Task
@@ -162,6 +165,58 @@ defmodule Mix.Tasks.Allbert.Memory do
     end
   end
 
+  defp dispatch(["search", query | args]) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [category: :string, limit: :integer, user: :string, operator: :string]
+      )
+
+    reject_invalid!(invalid)
+    reject_rest!(rest, "search")
+    user_id = user_id!(opts)
+
+    params =
+      %{query: query, category: opts[:category], limit: opts[:limit], user_id: user_id}
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Map.new()
+
+    with {:ok, response} <- completed_action("search_memory", params, user_id) do
+      {:ok, {:search, response.entries}}
+    end
+  end
+
+  defp dispatch(["compile-index" | args]) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args, strict: [user: :string, operator: :string])
+
+    reject_invalid!(invalid)
+    reject_rest!(rest, "compile-index")
+    user_id = user_id!(opts)
+
+    with {:ok, response} <- completed_action("compile_memory_index", %{user_id: user_id}, user_id) do
+      {:ok, {:compiled_index, response.result}}
+    end
+  end
+
+  defp dispatch(["summarize" | args]) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args, strict: [category: :string, user: :string, operator: :string])
+
+    reject_invalid!(invalid)
+    reject_rest!(rest, "summarize")
+    user_id = user_id!(opts)
+    category = opts[:category] || Mix.raise("summarize requires --category")
+
+    with {:ok, response} <-
+           completed_action(
+             "summarize_memory_category",
+             %{category: category, user_id: user_id},
+             user_id
+           ) do
+      {:ok, {:summary, response.result}}
+    end
+  end
+
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
@@ -171,6 +226,9 @@ defmodule Mix.Tasks.Allbert.Memory do
       mix allbert.memory update PATH [--summary "..."] [--body "..."] [--note "..."] [--user USER]
       mix allbert.memory delete PATH [--user USER]
       mix allbert.memory prune [--category notes|preferences|traces|skills] [--dry-run] [--write] [--user USER]
+      mix allbert.memory search QUERY [--category notes|preferences|traces|skills] [--limit N] [--user USER]
+      mix allbert.memory compile-index [--user USER]
+      mix allbert.memory summarize --category notes|preferences|traces|skills [--user USER]
     """)
   end
 
@@ -232,6 +290,30 @@ defmodule Mix.Tasks.Allbert.Memory do
         "#{candidate.reason} #{candidate.category} #{candidate.summary} #{candidate.path}"
       )
     end)
+  end
+
+  defp print_result({:ok, {:search, []}}) do
+    Mix.shell().info("No memory search results.")
+  end
+
+  defp print_result({:ok, {:search, entries}}) do
+    Enum.each(entries, fn entry ->
+      Mix.shell().info(
+        "#{entry.score} #{entry.category} #{entry.review_status} #{entry.summary} #{entry.path}"
+      )
+    end)
+  end
+
+  defp print_result({:ok, {:compiled_index, result}}) do
+    Mix.shell().info("Index: #{result.path}")
+    Mix.shell().info("Entries: #{result.entry_count}")
+    Mix.shell().info("Elapsed ms: #{result.elapsed_ms}")
+  end
+
+  defp print_result({:ok, {:summary, result}}) do
+    Mix.shell().info("Summary: #{result.path}")
+    Mix.shell().info("Entries: #{result.entry_count}")
+    Mix.shell().info("Derived at: #{result.derived_at}")
   end
 
   defp print_result({:error, reason}) do
