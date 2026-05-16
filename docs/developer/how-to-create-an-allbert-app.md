@@ -115,7 +115,8 @@ end
 - `fallback_surface/1`: optional text fallback; defaults to
   `{:error, :not_found}`.
 
-Memory namespace registration is not part of v0.18. It is deferred to v0.27.
+Memory namespace registration is not part of v0.18. It is deferred to v0.29
+(formerly v0.27 before the project-direction rethink renumber).
 
 ## Validate The App
 

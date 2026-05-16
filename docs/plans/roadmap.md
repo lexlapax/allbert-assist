@@ -950,15 +950,16 @@ ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
 Status: implemented through M6 closeout on 2026-05-15. Formerly M-AppContract-Full, previously planned as v0.25,
 then v0.21. Moved before StockSage so v0.20 implements the app/surface contract
-from day one and v0.25 LiveViews build on `AllbertAssist.App.SurfaceProvider`
-without any stepping-stone migration. Memory namespace registration is the
-final deferred app-contract layer in v0.27.
+from day one and v0.27 (formerly v0.25) LiveViews build on
+`AllbertAssist.App.SurfaceProvider` without any stepping-stone migration.
+Memory namespace registration is the final deferred app-contract layer in
+v0.29 (formerly v0.27).
 
 Expected direction:
 
 - Expand the app contract into identity/OTP, agents/actions/signals, skills,
   UI surface, and data/settings layers. Memory namespace registration is
-  deferred to v0.27.
+  deferred to v0.29 (formerly v0.27).
 - Add `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface` DSL with
   catalog validation, and `AllbertAssist.Surface.Encoder.to_a2ui/1` as the
   typed AG-UI adaptation stub.
