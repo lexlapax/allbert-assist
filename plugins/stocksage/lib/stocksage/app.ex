@@ -3,7 +3,8 @@ defmodule StockSage.App do
   Allbert app contract implementation for StockSage.
 
   v0.20 registers StockSage as a real app with no concrete web surfaces yet.
-  v0.25 fills in LiveView route surfaces through the same provider behaviour.
+  v0.27 (formerly v0.25) fills in LiveView route surfaces through the same
+  provider behaviour.
   """
 
   use AllbertAssist.App
