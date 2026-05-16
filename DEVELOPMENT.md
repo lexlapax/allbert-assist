@@ -17,245 +17,36 @@ Before implementation work:
 3. Read the active milestone plan in `docs/plans/`.
 4. Read the matching request-flow document, when one exists.
 5. Read ADRs that constrain the task.
-6. Inspect the relevant code before editing.
+6. Use `CHANGELOG.md` for targeted shipped-history context when needed.
+7. Inspect the relevant code before editing.
 
-For v0.04 runtime convergence regression or boundary-adjacent work, start with:
+Use `docs/developer/agent-context-map.md` only when a task needs deeper
+subsystem routing or released-version context. Do not bulk-read historical
+plans or changelog entries.
 
-- `docs/plans/v0.04-plan.md`
-- `docs/plans/v0.04-request-flow.md`
-- `docs/adr/0001-signal-first-jido-runtime.md`
-- `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
+Document authority order:
 
-For v0.05 Security Central regression or boundary work, start with:
+1. Current user request
+2. Code and tests
+3. Active milestone plan and request-flow document
+4. ADRs
+5. `docs/plans/roadmap.md`
+6. `CHANGELOG.md` released-history notes
+7. Historical plans
 
-- `docs/plans/v0.05-plan.md`
-- `docs/plans/v0.05-request-flow.md`
-- `docs/adr/0006-security-central.md`
-- `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
+If these sources conflict, flag the conflict instead of silently following
+stale guidance.
 
-For v0.06 skill-backed execution regression work, start with:
+## Commit And Attribution Hygiene
 
-- `docs/plans/v0.06-plan.md`
-- `docs/plans/v0.06-request-flow.md`
-- `docs/plans/v0.03-plan.md`
-- `docs/plans/v0.03-request-flow.md`
-- `docs/adr/0003-skill-manifests-as-capability-contracts.md`
-- `docs/adr/0006-security-central.md`
-- `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
-
-For v0.07 confirmation workflow regression work, start with:
-
-- `docs/plans/v0.07-plan.md`
-- `docs/plans/v0.07-request-flow.md`
-- `docs/adr/0001-signal-first-jido-runtime.md`
-- `docs/adr/0006-security-central.md`
-- `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
-- `docs/adr/0008-durable-confirmation-requests.md`
-
-For v0.08 local execution sandbox regression work, start with:
-
-- `docs/plans/v0.08-plan.md`
-- `docs/plans/v0.08-request-flow.md`
-- `docs/plans/v0.07-plan.md`
-- `docs/plans/v0.07-request-flow.md`
-- `docs/adr/0001-signal-first-jido-runtime.md`
-- `docs/adr/0006-security-central.md`
-- `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
-- `docs/adr/0008-durable-confirmation-requests.md`
-- `docs/adr/0009-local-execution-sandbox-levels.md`
-
-For active v0.09 skill script runner work, start with:
-
-- `docs/plans/v0.09-plan.md`
-- `docs/plans/v0.09-request-flow.md`
-- `docs/plans/v0.03-plan.md`
-- `docs/plans/v0.03-request-flow.md`
-- `docs/plans/v0.06-plan.md`
-- `docs/plans/v0.06-request-flow.md`
-- `docs/plans/v0.08-plan.md`
-- `docs/plans/v0.08-request-flow.md`
-- `docs/adr/0003-skill-manifests-as-capability-contracts.md`
-- `docs/adr/0006-security-central.md`
-- `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
-- `docs/adr/0008-durable-confirmation-requests.md`
-- `docs/adr/0009-local-execution-sandbox-levels.md`
-- `docs/adr/0010-resource-gated-skill-script-execution.md`
-
-For active v0.10 external capability adapter work, start with:
-
-- `docs/plans/v0.10-plan.md`
-- `docs/plans/v0.10-request-flow.md`
-- `docs/plans/v0.07-request-flow.md`
-- `docs/plans/v0.08-request-flow.md`
-- `docs/plans/v0.09-request-flow.md`
-- `docs/adr/0006-security-central.md`
-- `docs/adr/0008-durable-confirmation-requests.md`
-- `docs/adr/0009-local-execution-sandbox-levels.md`
-- `docs/adr/0010-resource-gated-skill-script-execution.md`
-- `docs/adr/0011-confirmed-external-capability-adapters.md`
-- `docs/adr/0012-resource-access-security-posture.md`
-- `docs/adr/0013-uri-first-resource-identity.md`
-
-For active v0.11 execution-aware intent, Approval Handoff, or remote network
-content posture work, start with:
-
-- `docs/plans/v0.11-plan.md`
-- `docs/plans/v0.11-request-flow.md`
-- `docs/plans/v0.10-plan.md`
-- `docs/plans/v0.10-request-flow.md`
-- `docs/plans/v0.07-request-flow.md`
-- `docs/plans/v0.08-request-flow.md`
-- `docs/plans/v0.09-request-flow.md`
-- `docs/adr/0006-security-central.md`
-- `docs/adr/0008-durable-confirmation-requests.md`
-- `docs/adr/0009-local-execution-sandbox-levels.md`
-- `docs/adr/0010-resource-gated-skill-script-execution.md`
-- `docs/adr/0011-confirmed-external-capability-adapters.md`
-- `docs/adr/0012-resource-access-security-posture.md`
-- `docs/adr/0013-uri-first-resource-identity.md`
-
-For v0.12 local workspace identity and conversation history work, start with:
-
-- `docs/plans/v0.12-plan.md`
-- `docs/plans/v0.12-request-flow.md`
-- `docs/plans/allbert-jido-vision.md`
-- `docs/adr/0014-local-workspace-identity.md`
-
-For v0.13 scheduled jobs work, start with:
-
-- `docs/plans/v0.13-plan.md`
-- `docs/plans/v0.13-request-flow.md`
-- `docs/plans/v0.11-request-flow.md`
-- `docs/plans/v0.12-request-flow.md`
-- `docs/plans/allbert-jido-vision.md`
-- `docs/adr/0008-durable-confirmation-requests.md`
-- `docs/adr/0012-resource-access-security-posture.md`
-- `docs/adr/0014-local-workspace-identity.md`
-
-For v0.14 session scratchpad work, start with:
-
-- `docs/plans/v0.14-plan.md`
-- `docs/plans/v0.14-request-flow.md`
-- `docs/plans/allbert-jido-vision.md`
-- `docs/adr/0014-local-workspace-identity.md`
-
-For v0.15/v0.18 app contract and surface DSL regression work, start with:
-
-- `docs/plans/v0.15-plan.md`
-- `docs/plans/v0.15-request-flow.md`
-- `docs/plans/v0.18-plan.md`
-- `docs/plans/v0.18-request-flow.md`
-- `docs/developer/how-to-create-an-allbert-app.md`
-- `docs/plans/allbert-jido-vision.md`
-- `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
-
-For v0.19 cross-surface intent enrichment regression work, start with:
-
-- `docs/plans/v0.19-plan.md`
-- `docs/plans/v0.19-request-flow.md`
-- `docs/plans/v0.11-plan.md`
-- `docs/plans/v0.11-request-flow.md`
-- `docs/plans/v0.18-plan.md`
-- `docs/plans/v0.18-request-flow.md`
-- `docs/plans/allbert-jido-vision.md`
-- `docs/adr/0012-resource-access-security-posture.md`
-- `docs/adr/0014-local-workspace-identity.md`
-- `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
-- `docs/adr/0017-allbert-plugin-contract.md`
-- `docs/adr/0019-cross-surface-intent-enrichment.md`
-
-For v0.21 memory review and retrieval regression work, start with:
-
-- `docs/plans/v0.21-plan.md`
-- `docs/plans/v0.21-request-flow.md`
-- `docs/plans/allbert-jido-vision.md`
-- `docs/adr/0014-local-workspace-identity.md`
-- `docs/adr/0019-cross-surface-intent-enrichment.md`
-
-For v0.17 plugin contract work, start with:
-
-- `docs/plans/v0.17-plan.md`
-- `docs/plans/v0.17-request-flow.md`
-- `docs/plans/allbert-jido-vision.md`
-- `docs/adr/0017-allbert-plugin-contract.md`
-- `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
-- `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
-
-For StockSage workspace app milestones, start with the active milestone plan,
-`docs/plans/allbert-jido-vision.md`, ADR 0006, ADR 0014, ADR 0015, ADR 0017,
-and ADR 0018. For v0.20, also read `docs/plans/v0.20-request-flow.md`. The
-canonical plans are `v0.20`, `v0.22`, `v0.23`, `v0.25`, `v0.27`, and `v0.28`.
-
-For v0.29 generator work, encode only the shape already proven by v0.20
-StockSage plugin/app, v0.25 StockSage SurfaceProvider LiveViews, v0.27 memory
-namespace completion, and v0.28 canvas integration. The generator should not
-invent new plugin/app contracts or bypass explicit compile-path review.
-
-After v0.12 closeout, remember that local conversation history is SQLite-backed
-`AllbertAssist.Conversations` data, not markdown memory and not hosted auth.
-Runtime requests and responses carry canonical `user_id`, legacy
-`operator_id`, `thread_id`, and optional `session_id`; new runtime-facing work
-should preserve those fields in signals, traces, confirmations, and job/channel
-metadata without adding accounts or roles.
-
-For v0.13, scheduled jobs are a local supervised runtime channel, not a second
-automation runtime. Job definitions and run records belong in SQLite, due work
-enters through `AllbertAssist.Runtime.submit_user_input/1` or
-`AllbertAssist.Actions.Runner.run/3`, and risky work must stop at the existing
-confirmation/Approval Handoff boundary.
-
-For v0.15, app registration is a supervised local contract, not authority.
-`AllbertAssist.App.Registry` may expose app identity, actions, skill paths, and
-navigation metadata, but permissions, confirmations, resource access, traces,
-and execution still belong at the registered action/runtime boundary. Do not
-load modules dynamically, create routes from app metadata, or treat `app_id` as
-authorization.
-
-For v0.16, additional channels are supervised delivery adapters around
-`AllbertAssist.Runtime.submit_user_input/1` and registered confirmation
-actions. Telegram and email are the proving adapters. External provider
-identities must map to local string `user_id` values through Settings Central;
-there is no implicit `"local"` fallback and no hosted accounts model. Channel
-events belong in SQLite for dedupe and traceability, while conversation history
-remains `AllbertAssist.Conversations` data. Channel transports may receive
-updates and send responses through bounded provider clients only; they must not
-fetch arbitrary URLs, download media/documents, import skills, execute provider
-methods, mutate confirmations privately, or bypass Resource Access Security
-Posture.
-
-For v0.17, plugins are the local package/discovery layer for extension
-contributions. Plugins may contribute apps, channels, actions, skills, settings
-schema entries, and supervised children, but registration is not authority.
-Channel descriptors live in `AllbertAssist.Plugin.Registry`; do not add a
-parallel channel registry in v0.17. Plugin-owned child specs run under the
-plugin child supervisor, while channel adapters remain under
-`AllbertAssist.Channels.Supervisor`.
-Do not load arbitrary code from `<ALLBERT_HOME>/plugins`, execute package
-managers during discovery, auto-trust plugin skills, grant action permissions,
-or bypass confirmations from plugin metadata. Do not automatically compile
-arbitrary `./plugins/*/lib` folders. Telegram and email move into
-`./plugins/allbert.telegram` and `./plugins/allbert.email` as shipped
-source-tree channel plugins while preserving the v0.16 channel boundary.
-
-For v0.20, StockSage is the first shipped source-tree plugin app. It uses
-`./plugins/stocksage`, the existing `AllbertAssist.Repo`, and
-`stocksage_*` SQLite tables. Do not add `apps/stocksage`, `apps/stocksage_web`,
-`StockSage.Repo`, run Python, call market-data APIs, mount StockSage routes,
-or auto-promote StockSage memory records to markdown memory in this slice.
-Read-by-id paths must require `user_id`; `:stocksage_write` is only a local
-domain write permission and must not authorize financial API calls or analysis
-execution.
-
-After v0.11 closeout, remember that URL summarization, document inspection,
-direct skill URL import, local skill directory import, local path access,
-trusted skill script execution, package installs, online source consumers,
-future MCP resources, and future agent endpoints are all URI-backed resource
-access operation classes. v0.11 implements execution-aware decisions, Approval
-Handoff, URL/document fetch approvals over the v0.10 Req substrate, and explicit
-unavailable states for missing summarizers, extractors, and generic local file
-readers. Channels and summarizers do not fetch, read, import, or execute
-directly; they render or consume Approval Handoff data and registered action
-results.
+- Commit messages should describe the human-intended change only.
+- Never include AI-tool attribution in git commits, commit messages, PR text,
+  release notes, changelog entries, or generated docs.
+- Do not add Claude, Codex, Gemini, opencode, Cursor, Antigravity, Pi, or
+  similar generated-by/co-authored-by footers.
+- The project process is strict human supervision during planning,
+  architecture, and development. Attribution belongs to the human project
+  authors, not AI coding tools.
 
 ## Fresh Checkout
 
@@ -341,6 +132,7 @@ git diff --check
 - `config/`: Phoenix, repo, release, and bootstrap configuration.
 - `docs/plans/`: roadmap and implementation-ready milestone plans.
 - `docs/adr/`: architectural decisions.
+- `docs/developer/`: developer-facing guides and lazy-loaded agent context.
 - `docs/notes/`: origin notes and project context.
 - `notebooks/`: exploratory Livebook material.
 
@@ -628,6 +420,8 @@ For each milestone:
    `mix compile --warnings-as-errors`, `mix format --check-formatted`,
    `mix credo --strict`, `mix dialyzer`, and `mix precommit`.
 9. Run `git diff --check` for docs-only changes.
+10. Keep commits free of AI-tool attribution, generated-by footers, and
+    co-author trailers.
 
 Each milestone should include operator/user verification steps, not only unit
 tests.
