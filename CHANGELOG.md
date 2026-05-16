@@ -13,7 +13,7 @@ changelog entries or release notes.
 ## v0.22 - StockSage Python Bridge
 
 Status: implemented through M6 closeout and post-implementation gap fixes on
-2026-05-15. Version metadata is `0.21.0`; the operator manual verification
+2026-05-15. Version metadata is `0.22.0`; the operator manual verification
 matrix remains the release gate. Release tag is pending operator acceptance.
 
 ### Added (v0.22)

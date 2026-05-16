@@ -33,7 +33,8 @@ Target end state after the operator decides:
 | Content | Destination |
 |---------|-------------|
 | Intent-vs-objective decision, authority and boundary rules | `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md` (new ADR) |
-| Concrete v0.23 implementation, milestones, tests, exit signal | `docs/plans/v0.23-plan.md` (rewritten) + `docs/plans/v0.23-request-flow.md` (new) |
+| Jido convergence implementation, milestones, tests, exit signal | `docs/plans/v0.23-plan.md` + `docs/plans/v0.23-request-flow.md` |
+| Objective runtime implementation, milestones, tests, exit signal | `docs/plans/v0.24-plan.md` + `docs/plans/v0.24-request-flow.md` |
 | Citations, literature, future provider roles (world models, diffusion, market allocators, JEPA) | `docs/research/objective-runtime-research.md` (new) |
 | Coding policy non-negotiables | `AGENTS.md` additions |
 | Roadmap renumbering and milestone bumps | `docs/plans/roadmap.md` |
@@ -743,9 +744,10 @@ Implications for the objective design (with operator decision applied):
 - **The objective engine is implemented as a `Jido.Agent` using
   `on_before_cmd`/`on_after_cmd` lifecycle hooks for stage transitions.**
   This is the operator's accepted choice (see Decisions Locked In above).
-  The engine becomes the first non-`IntentAgent` consumer of `Jido.Agent`
-  in the codebase and the first user of `on_before_cmd`/`on_after_cmd`
-  anywhere. It establishes the pattern that future specialist agents
+  v0.23 first converts `Confirmations.Store` and `Jobs.Scheduler` as the
+  first non-`IntentAgent` Jido.Agent state machines. `Objectives.Engine`
+  follows in v0.24 and becomes the first new objective-layer Jido.Agent.
+  Together they establish the pattern that future specialist agents
   (delegated planners, evaluators, StockSage analysts) will follow.
 - The Jido agent owns engine state; **objective rows in SQLite remain
   authoritative for durable state.** The engine agent's state is a
@@ -1117,8 +1119,9 @@ Immediate doc changes:
   And World Models" section; update Product Shape and North Star; note the
   corrected Jido usage state (Signal + Action are load-bearing; Agent
   abstraction is barely used).
-- `docs/plans/roadmap.md` — insert v0.23 Objective Runtime Foundation and
-  renumber v0.23+ (under Alternative A).
+- `docs/plans/roadmap.md` — reflect the accepted sequence: v0.23 Jido
+  State-Machine Convergence, v0.24 Objective Runtime Foundation, downstream
+  plans through v0.31.
 - `docs/plans/future-features.md` — replace the rough "Intents vs
   Objective" note; move Objective Runtime Foundation into "Already
   Planned Elsewhere"; add a separate unassigned entry for future real
@@ -1295,14 +1298,16 @@ Existing (carried forward from the earlier draft):
 
 Resolved 2026-05-16 (see Decisions Locked In near the top):
 
-14. ~~Alternative A / B / C / D for v0.23.~~ **Resolved: Alternative A.**
-    v0.23 = Objective Runtime Foundation; v0.23–v0.29 renumber to
-    v0.24–v0.30.
+14. ~~Alternative A / B / C / D for the next milestone.~~ **Resolved with
+    a convergence pre-step.** v0.23 = Jido State-Machine Convergence;
+    v0.24 = Objective Runtime Foundation; downstream plans are renumbered
+    through v0.31.
 
 15. ~~Objective engine implementation.~~ **Resolved: Jido.Agent +
-    `on_before_cmd`/`on_after_cmd`.** Engine becomes the first non-
-    IntentAgent Jido.Agent in the codebase; objective rows in SQLite
-    remain authoritative for durable state.
+    `on_before_cmd`/`on_after_cmd`.** v0.23 first converts the existing
+    confirmation and scheduler state machines. `Objectives.Engine` then
+    becomes the next Jido.Agent in v0.24; objective rows in SQLite remain
+    authoritative for durable objective state.
 
 16. ~~Signal vocabulary.~~ **Resolved: coexist.** `allbert.objective.*`
     signals emit alongside existing `allbert.action.*` and

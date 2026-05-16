@@ -38,7 +38,7 @@ Do not load every section by default.
 | Workspace shell, ephemeral UI, canvas | ADR 0015, active workspace plan | v0.26, v0.30 |
 | Plugin/app generator | ADR 0017, ADR 0015, v0.31 plan | v0.31 |
 
-## Released Version Map
+## Version Map
 
 - v0.01: first local assistant loop, signals, direct answer, markdown memory,
   traces, CLI and LiveView entrypoints.
@@ -65,6 +65,11 @@ Do not load every section by default.
 - v0.20: StockSage plugin app, local domain, import, actions, and skills.
 - v0.21: memory review, correction, pruning, promotion, index, search, and
   memory intent candidates.
+- v0.22: StockSage Python bridge and `RunAnalysis` confirmation flow. Status
+  may be pending manual verification until the active roadmap says tagged.
+- v0.23: planned Jido State-Machine Convergence for Confirmations.Store and
+  Jobs.Scheduler.
+- v0.24: planned Objective Runtime Foundation.
 
 ## Area Notes
 
@@ -118,14 +123,17 @@ routes dynamically without an explicit plan.
 
 Allbert uses both `Jido.Agent` and plain `GenServer` for state-bearing
 components. The pragmatic rule (from v0.23 and the vision): use `Jido.Agent`
-when state machines, lifecycle hooks, Skill composition, or successor
-agents are plausibly useful; use plain `GenServer` for stateful storage
-where Jido.Agent buys nothing. As of v0.23: `IntentAgent`,
-`Confirmations.Store`, `Jobs.Scheduler`, and (in v0.24)
-`Objectives.Engine` are Jido.Agents; `Settings`, `Trace`, `Memory`
-storage IO, `Session.Scratchpad`, `Memory.Compiler`, and
-`Memory.Promotion` are plain GenServers. New modules document their
-substrate choice in the module `@moduledoc`.
+when state machines, documented lifecycle hooks (`on_before_cmd/2`,
+`on_after_cmd/3`), Skill composition, or successor agents are plausibly
+useful; use plain `GenServer` for stateful storage where Jido.Agent buys
+nothing. Before v0.23, only `IntentAgent` is a Jido agent. v0.23 converts
+`Confirmations.Store` and `Jobs.Scheduler`; v0.24 adds
+`Objectives.Engine`. `Confirmations.Store` remains Allbert Home file-backed,
+not SQLite-backed. `Jobs.Scheduler` remains SQLite-job-backed and keeps no
+authoritative in-memory job queue. `Settings`, `Trace`, `Memory` storage IO,
+`Session.Scratchpad`, `Memory.Compiler`, and `Memory.Promotion` stay plain
+GenServers/modules. New modules document their substrate choice in the module
+`@moduledoc`.
 
 ### Objectives And Advisory Providers (v0.24)
 
