@@ -1,8 +1,14 @@
 defmodule AllbertAssist.Actions.MemoryActionsTest do
   use ExUnit.Case, async: false
 
+  alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
+  alias AllbertAssist.Actions.Memory.DeleteMemoryEntry
   alias AllbertAssist.Actions.Memory.ListMemoryEntries
+  alias AllbertAssist.Actions.Memory.PruneMemoryEntries
   alias AllbertAssist.Actions.Memory.ReadMemoryEntry
+  alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
+  alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
@@ -11,6 +17,7 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     original_memory = Application.get_env(:allbert_assist, Memory)
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
+    original_confirmations = Application.get_env(:allbert_assist, Confirmations)
 
     home =
       Path.join(System.tmp_dir!(), "allbert-memory-actions-#{System.unique_integer([:positive])}")
@@ -18,11 +25,13 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+    Application.put_env(:allbert_assist, Confirmations, root: Path.join(home, "confirmations"))
 
     on_exit(fn ->
       restore_env(Paths, original_paths)
       restore_env(Memory, original_memory)
       restore_env(Settings, original_settings)
+      restore_env(Confirmations, original_confirmations)
       File.rm_rf!(home)
     end)
 
@@ -64,6 +73,97 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
 
     assert response.status == :error
     assert response.error == :path_outside_memory_root
+  end
+
+  test "review_memory_entry writes review state and update_memory_entry preserves it" do
+    assert {:ok, entry} = append("alice", "Alice prefers short updates.")
+
+    assert {:ok, reviewed} =
+             ReviewMemoryEntry.run(
+               %{path: entry.path, status: "flagged", note: "stale", user_id: "alice"},
+               %{user_id: "alice"}
+             )
+
+    assert reviewed.status == :completed
+    assert reviewed.entry.review_status == :flagged
+    assert reviewed.entry.correction_note == "stale"
+
+    assert {:ok, updated} =
+             UpdateMemoryEntry.run(
+               %{
+                 path: entry.path,
+                 summary: "Concise update preference",
+                 body: "Alice prefers concise implementation updates.",
+                 user_id: "alice"
+               },
+               %{user_id: "alice"}
+             )
+
+    assert updated.status == :completed
+    assert updated.entry.summary == "Concise update preference"
+    assert updated.entry.body =~ "concise implementation"
+    assert updated.entry.review_status == :flagged
+  end
+
+  test "delete_memory_entry creates confirmation and approval archives the file" do
+    assert {:ok, entry} = append("alice", "Delete me after confirmation.")
+
+    assert {:ok, response} =
+             DeleteMemoryEntry.run(%{path: entry.path, user_id: "alice"}, %{
+               user_id: "alice",
+               actor: "alice",
+               channel: :test
+             })
+
+    assert response.status == :needs_confirmation
+    assert File.exists?(entry.path)
+
+    assert {:ok, approved} =
+             ApproveConfirmation.run(%{id: response.confirmation_id, reason: "test"}, %{
+               user_id: "alice",
+               actor: "alice",
+               channel: :test
+             })
+
+    assert approved.status == :completed
+    assert approved.confirmation["status"] == "approved"
+    refute File.exists?(entry.path)
+    assert [%{confirmation_metadata: %{target_resumed?: true}}] = approved.actions
+  end
+
+  test "prune_memory_entries dry-run and approval archive prune-nominated entries" do
+    assert {:ok, entry} = append("alice", "Prune me after review.")
+
+    assert {:ok, _reviewed} =
+             ReviewMemoryEntry.run(
+               %{path: entry.path, status: "prune_nominated", user_id: "alice"},
+               %{user_id: "alice"}
+             )
+
+    assert {:ok, dry_run} = PruneMemoryEntries.run(%{user_id: "alice"}, %{user_id: "alice"})
+    assert dry_run.status == :completed
+    assert [%{path: path, reason: :prune_nominated}] = dry_run.candidates
+    assert path == entry.path
+
+    assert {:ok, pending} =
+             PruneMemoryEntries.run(%{user_id: "alice", write: true}, %{
+               user_id: "alice",
+               actor: "alice",
+               channel: :test
+             })
+
+    assert pending.status == :needs_confirmation
+    assert File.exists?(entry.path)
+
+    assert {:ok, approved} =
+             ApproveConfirmation.run(%{id: pending.confirmation_id, reason: "test"}, %{
+               user_id: "alice",
+               actor: "alice",
+               channel: :test
+             })
+
+    assert approved.status == :completed
+    refute File.exists?(entry.path)
   end
 
   defp append(actor, body) do
