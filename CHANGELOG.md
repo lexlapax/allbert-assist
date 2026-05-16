@@ -1,5 +1,15 @@
 # Changelog
 
+## How Agents Should Use This File
+
+Use this changelog as shipped-history context. Search by version or subsystem
+when a task touches released behavior. ADRs, active plans, tests, and code are
+more authoritative for current design and implementation. Do not bulk-read old
+plans unless the task requires historical detail.
+
+Do not add AI-tool attribution, co-author trailers, or generated-by footers to
+changelog entries or release notes.
+
 ## v0.21 - Memory Review And Retrieval
 
 Status: implemented through M6 closeout on 2026-05-15. Version metadata is
