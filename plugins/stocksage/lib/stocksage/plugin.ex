@@ -110,5 +110,5 @@ defmodule StockSage.Plugin do
   end
 
   @impl true
-  def child_spec(_opts), do: :ignore
+  def child_spec(opts), do: {StockSage.Supervisor, opts}
 end
