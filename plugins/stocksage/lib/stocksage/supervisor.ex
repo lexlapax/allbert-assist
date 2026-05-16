@@ -1,10 +1,11 @@
 defmodule StockSage.Supervisor do
   @moduledoc """
-  StockSage plugin supervisor placeholder.
+  StockSage plugin supervisor.
 
-  v0.20 has no long-running StockSage workers. Later milestones add the bridge
-  and native analysis workers under this supervisor instead of starting them
-  outside the plugin lifecycle.
+  Owns long-running StockSage plugin children. v0.22 adds
+  `StockSage.TraderBridge` as the supervised Port wrapper for the Python
+  bridge. Children crash and restart inside this supervisor; they do not
+  propagate to Allbert core supervision.
   """
 
   use Supervisor
@@ -14,5 +15,11 @@ defmodule StockSage.Supervisor do
   end
 
   @impl true
-  def init(_opts), do: Supervisor.init([], strategy: :one_for_one)
+  def init(_opts) do
+    children = [
+      {StockSage.TraderBridge, []}
+    ]
+
+    Supervisor.init(children, strategy: :one_for_one)
+  end
 end

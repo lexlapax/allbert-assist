@@ -1048,7 +1048,9 @@ Plan: `docs/plans/v0.22-plan.md`
 Request flow: `docs/plans/v0.22-request-flow.md`
 ADR: `docs/adr/0020-stocksage-python-bridge-protocol.md`
 
-Status: planned. Formerly M-D2b.
+Status: implemented through M5 closeout on 2026-05-15. Ready for operator
+manual verification. Release tag `v0.22` is pending operator acceptance.
+Formerly M-D2b.
 
 Expected direction:
 
