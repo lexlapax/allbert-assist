@@ -3,8 +3,13 @@
 Status: working analysis draft.
 
 Purpose: capture the current rethink that Allbert should be organized around
-both intent understanding and objective/outcome management, with future room
-for world-model providers beyond LLM/GPT-style language models.
+human-understandable objective loops: understand intent, frame outcomes,
+inventory available capabilities and resources, generate possible routes,
+evaluate tradeoffs, choose or ask, execute through registered actions,
+observe, and learn. The architecture should leave room for deterministic,
+probabilistic, stochastic, diffusion-style, market/resource-allocation,
+world-model, language-model, and future advisory model providers without
+making any of them authority.
 
 This document is intentionally root-level and temporary while the project
 direction is being questioned. It is not yet an ADR, roadmap, or implementation
@@ -55,6 +60,20 @@ The system should distinguish:
 - Step: a bounded unit of work inside an objective.
 - Observation: an actual result from the environment, runtime, action,
   channel, job, memory, trace, or user.
+- Capability inventory: what Allbert can currently do through registered
+  actions, plugins, skills, channels, apps, jobs, providers, settings,
+  credentials, local resources, and operator-approved access.
+- Capability gap: what Allbert cannot currently do, but could ask the user to
+  configure, research, install, implement, generate, schedule, or decline.
+- Route: a proposed way to pursue an objective using available or acquirable
+  capabilities.
+- Resource decision model: advisory logic that prices routes by cost, latency,
+  risk, scarcity, trust, user burden, reversibility, maintenance, and
+  probability of success.
+- Acquisition option: a proposed investment in new capability, such as
+  requesting a credential, changing a setting, installing a plugin, generating
+  an app scaffold, writing code, or asking the user to choose a different
+  path.
 - World model: a future predictive or counterfactual model of how state may
   change under proposed actions. This is not the same thing as an LLM.
 - Planner/evaluator: proposal and assessment logic that may use deterministic
@@ -75,14 +94,18 @@ input signal
   -> intent interpretation
   -> objective framing or resumption
   -> objective admission and constraint check
-  -> span-out: propose possible operators/steps/workflows
+  -> inventory capabilities/resources
+  -> identify capability gaps
+  -> span-out: propose possible routes/operators/steps/workflows/acquisitions
   -> retrieve: memory, workflow memory, app/domain context
-  -> evaluate/simulate: policy, risk, world-model predictions, cost, feasibility
-  -> consolidate: compare, prune, merge, rank, and explain candidates
-  -> commit: choose the next bounded step, ask the user, or block
+  -> evaluate/simulate/price: policy, risk, resources, cost, feasibility,
+     prediction, scarcity, trust, latency, and user burden
+  -> allocate/consolidate: compare, prune, merge, rank, and explain routes
+  -> commit: choose the next bounded step, ask, acquire, defer, decline, or block
   -> authorize: Security Central, resource posture, confirmation
   -> execute through registered actions only
   -> observe action/runtime/user/environment result
+  -> update capability/resource estimates
   -> reflect/consolidate: traces, memory candidates, workflow learning
   -> evaluate progress against objective acceptance criteria
   -> repeat, block, cancel, fail, or complete
@@ -96,8 +119,9 @@ Important refinement: not every item above needs to become a durable database
 row in v0.23. Some are concrete state-machine phases; others are hook points
 where plugins, apps, policies, memories, model providers, or future world
 models can contribute advisory data. The durable v0.23 records should stay
-small: objectives, objective steps, and objective events. The richer stages can
-be represented as event types, trace sections, and hook contracts first.
+small: objectives, objective steps, and objective events. Capability
+inventory, resource decisions, and advisory model outputs can start as event
+types, trace sections, and hook contracts before becoming durable subsystems.
 
 ## Why This Matters Now
 
@@ -182,6 +206,122 @@ Key takeaways:
    and memory/planning integration. Allbert already has skills, memory, traces,
    jobs, actions, plugins, and surfaces; the missing shared layer is durable
    objective/step state.
+6. Resource decisions are first-class. Bounded optimality and resource-rational
+   analysis argue that intelligent systems should account for limited
+   computation, time, money, attention, information, and hardware. Allbert
+   should not only ask "what action matches this intent?" It should ask
+   "which route is worth taking with the capabilities and resources available
+   now, and which missing capability is worth acquiring?"
+7. Model routing and cascades are a practical near-term version of this
+   problem. FrugalGPT, Language Model Cascades, RouterBench, and RouteLLM all
+   treat model choice as a cost/quality/latency tradeoff. Allbert should
+   generalize that idea beyond LLMs: route between local rules, small models,
+   remote models, plugins, jobs, memory, actions, app providers, or user
+   questions.
+8. Market and contract metaphors are useful, but dangerous if over-literal.
+   Hayek's knowledge problem, Coase's transaction-cost boundary, Contract Net,
+   and auction-based multi-agent allocation all point to the same lesson:
+   providers may expose local bids, costs, scarcity, and expected value, but
+   Allbert must keep the market inside audited contracts rather than letting
+   autonomous providers spend, install, call, or execute on their own.
+
+### JEPA And Predictive World Models
+
+JEPA stands for Joint-Embedding Predictive Architecture. The important
+architectural lesson is not "use Meta's model" or "replace GPT." It is that a
+future Allbert world-model provider may predict latent representations of
+state, action consequences, or surprise rather than generate text or pixels.
+
+I-JEPA and V-JEPA are non-generative predictive architectures: they learn by
+predicting abstract representations in an embedding space. V-JEPA 2 makes the
+planning relevance explicit: a world model can encode current and target
+states, predict how candidate actions change the latent state, and score which
+candidate appears closer to a goal. For Allbert, that maps to the
+`evaluate/simulate/score` stage as bounded prediction metadata.
+
+Stanford's PSI work reinforces the same non-language direction from a
+different angle. Its world model extracts and reintegrates intermediate
+structures such as optical flow, depth, and object segmentation through
+counterfactual prediction. That is evidence that "world model" should not mean
+"LLM with a longer prompt." It should mean a provider that can expose
+predictive structure and counterfactual handles, sometimes in modalities that
+are not text at all.
+
+Human and social simulations are another provider family. Stanford/Google
+Generative Agents and Stanford HAI's later human-behavior simulation work show
+agent models that simulate attitudes, behaviors, memory, planning, and social
+interaction. These are not authority either; they are advisory models for
+"what may happen if..." questions and require strong privacy, consent, and
+over-reliance guardrails.
+
+Embodied AI and robotics world models are a further future branch. Stanford's
+BEHAVIOR-1K is a useful grounded example because it frames long-horizon
+activities in realistic simulated environments. Allbert should leave room for
+embodied providers, but v0.23 should not implement a robot runtime, simulator,
+video model, vector store, or external provider call.
+
+Immediate Allbert implication: the objective runtime should be model-agnostic.
+It should be able to call LLM-style language providers, JEPA-style latent
+predictors, deterministic domain models, probabilistic simulators, and
+human/agent simulators through the same advisory world-model/provider
+contract, while preserving Jido actions and Security Central as the only
+effectful authority boundary.
+
+### Resource Decision, Markets, And Model-Agnostic Routing
+
+The broader rethink is not just "future world models." It is that Allbert
+needs a human-readable decision economy around objectives.
+
+The core unit should be a route: a proposed way to advance an objective. A
+route may use an existing action, combine several existing capabilities, ask
+the user, wait for a job, retrieve memory, call a provider, request a
+credential, install a plugin, generate a scaffold, write code, or decline the
+objective. The route is still only proposal data until it reaches the existing
+authorization and action boundaries.
+
+Resource decision models should evaluate routes using explicit dimensions:
+
+- capability availability
+- capability gap and acquisition effort
+- expected quality or probability of success
+- latency and wall-clock time
+- money, token, CPU, memory, network, and battery cost
+- Security Central risk and resource access posture
+- credential or secret availability
+- trust, provenance, and plugin/app ownership
+- user attention burden
+- reversibility and blast radius
+- maintenance burden if new code or configuration is created
+
+This should stay legible to an operator. The system can eventually host
+stochastic, probabilistic, diffusion-style, market-allocation, or
+model-routing providers, but the explanation should remain plain:
+
+```text
+I can do this three ways:
+1. use an existing local action, slower but already trusted
+2. ask you for a missing credential, faster after setup
+3. create a new plugin/app scaffold, more work and requires review
+```
+
+Diffusion models belong in this broader provider story too. Diffusion Policy,
+MetaDiffuser, and diffusion-as-optimizer work show diffusion models being used
+for trajectory generation, planning, action policies, and optimization rather
+than only image generation. For Allbert, that means a future diffusion
+provider might propose candidate route trajectories or optimize step sequences.
+It must still remain advisory.
+
+Market-style allocation also belongs here. A future Allbert planner might ask
+several providers for bids: local deterministic rule, small local model,
+remote LLM, StockSage domain planner, memory/workflow provider, or plugin
+agent. Each bid can include cost, confidence, expected latency, required
+permissions, and missing resources. The final selection stays inside
+Allbert's objective engine and authorization path, not inside a provider.
+
+Immediate v0.23 implication: reserve vocabulary for capability inventory,
+capability gaps, routes, acquisition options, and resource decision providers.
+Do not implement a public marketplace, autonomous installer, dynamic code
+loader, spend policy, or provider bidding runtime yet.
 
 Sources reviewed or identified:
 
@@ -194,11 +334,52 @@ Sources reviewed or identified:
 - Genie: https://arxiv.org/abs/2402.15391
 - A Path Towards Autonomous Machine Intelligence:
   https://openreview.net/pdf/315d43ba26f55357a84cec9a7ed15a6610094f79.pdf
+- I-JEPA:
+  https://arxiv.org/abs/2301.08243
+- V-JEPA:
+  https://ai.meta.com/blog/v-jepa-yann-lecun-ai-model-video-joint-embedding-predictive-architecture/
+- V-JEPA 2:
+  https://ai.meta.com/blog/v-jepa-2-world-model-benchmarks/
+- Stanford PSI:
+  https://arxiv.org/abs/2509.09737
+- Stanford NeuroAI Lab publications:
+  https://neuroailab.stanford.edu/publications.html
 - Language Models, Agent Models, and World Models:
   https://arxiv.org/abs/2312.05230
 - Voyager: https://arxiv.org/abs/2305.16291
 - Reflexion: https://arxiv.org/abs/2303.11366
 - Generative Agents: https://arxiv.org/abs/2304.03442
+- Stanford HAI human-behavior simulation brief:
+  https://hai.stanford.edu/policy/simulating-human-behavior-with-ai-agents?sf225800334=1
+- BEHAVIOR-1K:
+  https://arxiv.org/abs/2403.09227
+- Resource-rational analysis:
+  https://www.cambridge.org/core/journals/behavioral-and-brain-sciences/article/abs/resourcerational-analysis-understanding-human-cognition-as-the-optimal-use-of-limited-computational-resources/586866D9AD1D1EA7A1EECE217D392F4A
+- Provably Bounded-Optimal Agents:
+  https://arxiv.org/abs/cs/9505103
+- Language Model Cascades:
+  https://arxiv.org/abs/2207.10342
+- FrugalGPT:
+  https://arxiv.org/abs/2305.05176
+- RouterBench:
+  https://arxiv.org/abs/2403.12031
+- RouteLLM:
+  https://arxiv.org/abs/2406.18665
+- Diffusion Policy:
+  https://arxiv.org/abs/2303.04137
+- MetaDiffuser:
+  https://arxiv.org/abs/2305.19923
+- Diffusion Models as Optimizers for Efficient Planning:
+  https://arxiv.org/abs/2407.16142
+- Hayek, The Use of Knowledge in Society:
+  https://www.mercatus.org/sites/default/files/d7/the_use_of_knowledge_in_society_-_hayek.pdf
+- Coase transaction-cost theory of the firm overview:
+  https://www2.sjsu.edu/faculty/watkins/coase.htm
+- Auction-based multi-agent task allocation:
+  https://arxiv.org/abs/2107.00144
+- Reactive multi-agent coordination using auction-based allocation and
+  behavior trees:
+  https://arxiv.org/abs/2304.01976
 - BDI model discussion:
   https://turing.cs.pub.ro/ai_mas/papers/bdi.pdf
 - PDDL/HTN planning families should be researched further if Allbert adopts a
@@ -221,6 +402,10 @@ Sources reviewed or identified:
   https://docs.langchain.com/oss/python/langgraph/thinking-in-langgraph
 - Jido docs via Context7:
   `/agentjido/jido` and `/agentjido/jido_signal`
+
+Research caution: do not overclaim every robotics or diffusion-policy example
+as Stanford-originated unless a primary source says so. The Stanford-specific
+embodied source verified in this pass is BEHAVIOR-1K.
 
 ## Research Update: More Than Intent, Objective, Action
 
@@ -423,10 +608,71 @@ Jido substrate:
 - registered actions only for runtime-visible policy changes
 - objective status can become `blocked`
 
+### 6A. Capability Inventory / Gap Analysis / Resource Routing
+
+Purpose: determine what Allbert can use right now, what is missing, and
+whether the next route should use existing capability, acquire capability, ask
+the user, defer, or decline.
+
+Capability inventory includes:
+
+- registered actions and their permissions
+- app and plugin contracts
+- skills and skill scripts
+- channels and delivery status
+- jobs and background execution state
+- settings, configured credentials, and secret status
+- memory and derived indexes
+- surfaces and workspace capabilities
+- provider/model profiles
+- local files, caches, and resource grants
+- app/domain-specific context such as StockSage queue state
+
+Capability gaps include:
+
+- missing setting or credential
+- disabled plugin or app
+- untrusted or unavailable skill
+- unsupported route or missing action
+- unavailable provider/model profile
+- missing resource grant
+- missing data or domain record
+- code that would need to be written or generated
+- work that should be declined rather than acquired
+
+Route decision options:
+
+- use an existing capability
+- combine existing capabilities
+- ask the user for missing input
+- request a credential, setting, or resource grant
+- install/import/enable a plugin after explicit review
+- generate a scaffold for reviewed code
+- schedule or defer background work
+- decline or refuse the objective
+
+Hooks:
+
+- `before_capability_inventory`
+- `capability_provider`
+- `capability_gap_provider`
+- `route_provider`
+- `resource_decision_provider`
+- `after_capability_inventory`
+
+Jido substrate:
+
+- inventory and route proposals are bounded data, not execution
+- provider bids can be represented as signals and trace sections
+- Jido actions remain the only boundary for changing settings, installing,
+  importing, writing, executing, spending, or contacting external systems
+- capability acquisition is never silent; it requires operator-visible
+  confirmation or a specific registered action path
+
 ### 7. Span-Out / Operator And Step Proposal
 
 Purpose: propose possible next steps, operators, specialist agents, app
-actions, workflows, or questions.
+actions, workflows, acquisition options, or questions.
 
 This stage should produce proposal data. It should not execute.
 
@@ -439,14 +685,19 @@ Possible providers:
 - workflow memory
 - LLM planner proposals
 - world-model predictions
+- diffusion-style trajectory or step-sequence proposals
+- resource decision models
+- market/allocation-style provider bids
 - StockSage domain planner
 
 Hooks:
 
 - `before_span_out`
 - `step_proposer`
+- `route_proposer`
 - `workflow_provider`
 - `specialist_agent_provider`
+- `acquisition_option_provider`
 - `after_span_out`
 
 Jido substrate:
@@ -483,34 +734,42 @@ Jido substrate:
 - pure modules for local derived artifacts
 - trace section for retrieved context summaries, never unbounded content
 
-### 9. Evaluate / Simulate / Score
+### 9. Evaluate / Simulate / Price / Score
 
 Purpose: evaluate proposed steps before committing. This includes policy,
-resource risk, expected cost, feasibility, likely progress, world-model
-prediction, and whether the user must be asked.
+resource risk, expected cost, feasibility, capability gaps, scarcity, latency,
+trust, user burden, likely progress, diffusion/trajectory proposals,
+world-model prediction, and whether the user must be asked.
 
-This is where future world models fit.
+This is where future world models, diffusion providers, probabilistic
+inference, resource decision models, and market-style allocators fit.
 
 Hooks:
 
 - `before_step_evaluation`
 - `step_evaluator`
 - `world_model_provider`
+- `diffusion_proposal_provider`
+- `resource_decision_provider`
+- `market_allocator_provider`
 - `risk_evaluator`
 - `cost_evaluator`
 - `after_step_evaluation`
 
 Jido substrate:
 
-- world-model providers are behaviours/plugins that return predictive
-  metadata only
+- advisory providers are behaviours/plugins that return proposal, prediction,
+  pricing, or evaluation metadata only
 - Security Central still owns actual permission at action execution
 - prediction signals must be labeled as simulated/counterfactual
+- provider pricing or bids are not permission grants and cannot spend,
+  install, write code, call external services, or execute
 
-### 10. Consolidate / Span-In
+### 10. Allocate / Consolidate / Span-In
 
 Purpose: merge duplicates, prune unsafe or irrelevant proposals, rank
-remaining proposals, explain the tradeoffs, and select one or more next steps.
+remaining proposals, explain the tradeoffs, and select one or more next
+routes or steps.
 
 This stage corresponds to the user's "span-in" language.
 
@@ -518,6 +777,7 @@ Hooks:
 
 - `before_consolidation`
 - `step_ranker`
+- `route_allocator`
 - `conflict_resolver`
 - `after_consolidation`
 
@@ -738,6 +998,16 @@ expanded pipeline:
 - Jido Signal Bus middleware and future journal support can host cross-cutting
   concerns such as logging, redaction checks, causality, and dispatch, but
   Security Central still belongs at the action boundary.
+- World-model providers should run as supervised OTP children or external
+  workers with bounded queues, timeouts, backpressure, and circuit breakers.
+  Heavy model runtimes should be isolated behind explicit provider processes
+  rather than smuggled into pure planning code.
+- Jido signals should record provider calls, prediction summaries, failures,
+  timeouts, and observation deltas. Prediction signals must be labeled
+  simulated/counterfactual so they cannot be confused with observed state.
+- Plugin and app providers may contribute predictions only through declared
+  contracts. They must not subscribe to raw objective signals and mutate
+  objective state privately.
 
 Proposed Allbert layer on top of Jido:
 
@@ -747,6 +1017,9 @@ AllbertAssist.Objectives.Hooks         # internal hook dispatcher
 AllbertAssist.Objectives.HookProvider  # future plugin/app contribution behaviour
 AllbertAssist.Objectives.Stage         # stage names, statuses, bounds
 AllbertAssist.Objectives.Event         # durable objective event records
+AllbertAssist.Objectives.Capabilities  # inventory and gap vocabulary
+AllbertAssist.Objectives.Routes        # route and acquisition proposals
+AllbertAssist.Objectives.AdvisoryProvider
 AllbertAssist.Objectives.WorldModelProvider
 ```
 
@@ -818,8 +1091,13 @@ AllbertAssist.Objectives.Engine
 AllbertAssist.Objectives.Stage
 AllbertAssist.Objectives.Hooks
 AllbertAssist.Objectives.HookProvider
+AllbertAssist.Objectives.Capability
+AllbertAssist.Objectives.CapabilityGap
+AllbertAssist.Objectives.Route
+AllbertAssist.Objectives.AcquisitionOption
 AllbertAssist.Objectives.Planner
 AllbertAssist.Objectives.Evaluator
+AllbertAssist.Objectives.AdvisoryProvider
 AllbertAssist.Objectives.WorldModelProvider
 AllbertAssist.Actions.Objectives.ListObjectives
 AllbertAssist.Actions.Objectives.ShowObjective
@@ -853,6 +1131,8 @@ Objective fields:
 - `progress_summary`
 - `last_observation_summary`
 - `world_model_summary`
+- `capability_summary`
+- `route_summary`
 - `loop_count`
 - `created_at`
 - `updated_at`
@@ -863,8 +1143,9 @@ Step fields:
 - `id`
 - `objective_id`
 - `parent_step_id`
-- `kind`: `span_out`, `consolidate`, `action`, `evaluation`, `ask_user`,
-  `wait`, `observe`, `delegate_agent`, `surface`, `reflect`
+- `kind`: `capability_inventory`, `capability_gap`, `route`, `span_out`,
+  `consolidate`, `action`, `evaluation`, `acquisition`, `ask_user`, `wait`,
+  `observe`, `delegate_agent`, `surface`, `reflect`
 - `status`: `proposed`, `selected`, `running`, `blocked`, `completed`,
   `cancelled`, `failed`
 - `stage`
@@ -874,6 +1155,9 @@ Step fields:
 - `candidate_agent`
 - `candidate_surface`
 - `candidate_workflow`
+- `candidate_route`
+- `capability_gaps`
+- `acquisition_options`
 - `result_summary`
 - `observation_summary`
 - `evaluation_summary`
@@ -894,6 +1178,11 @@ allbert.objective.step.selected
 allbert.objective.step.running
 allbert.objective.step.completed
 allbert.objective.step.failed
+allbert.objective.capabilities.inventoried
+allbert.objective.capability_gap.detected
+allbert.objective.route.proposed
+allbert.objective.route.selected
+allbert.objective.acquisition.proposed
 allbert.objective.observed
 allbert.objective.reflected
 allbert.objective.blocked
@@ -916,8 +1205,14 @@ objectives.require_confirmation_for_background_continuation
 objectives.trace_detail
 objectives.hooks_enabled
 objectives.hook_timeout_ms
+objectives.capability_inventory_enabled
+objectives.resource_decision_provider
+objectives.resource_decision_timeout_ms
+objectives.route_trace_detail
 objectives.world_model_provider
+objectives.world_model_provider_type
 objectives.world_model_enabled
+objectives.world_model_timeout_ms
 ```
 
 The settings above should be conservative by default. Any background
@@ -931,19 +1226,93 @@ Recommended v0.23 implementation line:
 - Implement internal hooks for guard, enrichment, proposal, evaluation,
   consolidation, observation, reflection, and rendering, but keep effectful
   hook execution disabled unless the hook is an existing registered action.
-- Implement `WorldModelProvider` as an inert behaviour plus settings
-  placeholders and trace vocabulary.
+- Reserve capability inventory, capability gap, route, acquisition option, and
+  resource decision provider vocabulary. Keep it internal and trace-oriented
+  until the first objective loop proves the shape.
+- Implement `WorldModelProvider` as an inert behaviour plus a null provider,
+  settings placeholders, signal vocabulary, and trace shape.
+- Implement no JEPA model, learned model, simulator, vector store, robot
+  runtime, or external provider call in v0.23.
+- Implement no marketplace, autonomous installer, dynamic code loader, spend
+  policy, provider bidding runtime, or automatic capability acquisition in
+  v0.23.
 - Implement no public plugin hook contribution until one internal objective
   loop is proven.
 
-## World Model Provider Hook
+## Advisory Provider And World Model Hooks
 
-v0.23 should reserve the interface but keep it inert.
+World models are one advisory provider family, not the umbrella for all future
+intelligence. v0.23 should reserve the broader interface but keep it inert.
+
+Advisory provider taxonomy to reserve:
+
+- `AllbertAssist.Objectives.IntentProvider`
+- `AllbertAssist.Objectives.RouteProvider`
+- `AllbertAssist.Objectives.CapabilityProvider`
+- `AllbertAssist.Objectives.ResourceDecisionProvider`
+- `AllbertAssist.Objectives.WorldModelProvider`
+- `AllbertAssist.Objectives.DiffusionProposalProvider`
+- `AllbertAssist.Objectives.ProbabilisticInferenceProvider`
+- `AllbertAssist.Objectives.MarketAllocatorProvider`
+- `AllbertAssist.Objectives.CriticEvaluatorProvider`
+
+Possible umbrella behaviour:
+
+```elixir
+defmodule AllbertAssist.Objectives.AdvisoryProvider do
+  @callback provider_type() ::
+              :intent
+              | :route
+              | :capability
+              | :resource_decision
+              | :world_model
+              | :diffusion_proposal
+              | :probabilistic_inference
+              | :market_allocator
+              | :critic_evaluator
+
+  @callback propose(stage, objective, context) ::
+              {:ok, proposals} | {:error, reason}
+
+  @callback evaluate_route(route, context) ::
+              {:ok, evaluation} | {:error, reason}
+
+  @callback explain(result, context) ::
+              {:ok, explanation} | {:error, reason}
+end
+```
+
+The umbrella provider is deliberately proposal-shaped. It should not expose
+callbacks for executing, installing, granting, spending, writing files, or
+mutating objective truth.
+
+World-model provider types to reserve:
+
+- `:language_model` for proposal, explanation, critique, summarization, and
+  translation.
+- `:embedding_predictive` for JEPA-style latent prediction and surprise/error
+  comparison.
+- `:symbolic_domain` for deterministic Elixir or app-domain rules.
+- `:probabilistic_simulator` for counterfactual rollout and uncertainty-aware
+  scoring.
+- `:agent_model` for human, operator, social, or multi-agent behavior
+  simulation.
+- `:embodied_world_model` for future robotics, physical-world, video, or
+  sensor-grounded providers.
 
 Possible behaviour:
 
 ```elixir
 defmodule AllbertAssist.Objectives.WorldModelProvider do
+  @callback encode_state(context) ::
+              {:ok, state_representation} | {:error, reason}
+
+  @callback predict_latent_transition(state_representation, proposed_step, context) ::
+              {:ok, latent_prediction} | {:error, reason}
+
+  @callback compare_prediction_to_observation(prediction, observation, context) ::
+              {:ok, comparison} | {:error, reason}
+
   @callback predict_transition(objective, proposed_step, context) ::
               {:ok, prediction} | {:error, reason}
 
@@ -955,19 +1324,28 @@ defmodule AllbertAssist.Objectives.WorldModelProvider do
 end
 ```
 
+The JEPA-oriented callbacks are intentionally representation-shaped, not
+text-shaped. `state_representation` may later be an opaque local reference, a
+bounded summary, or a redacted derived artifact. v0.23 should not persist raw
+embeddings or add vector retrieval; it should only reserve the vocabulary.
+
 Rules:
 
 - No learned model is implemented in v0.23.
 - No simulator execution is implemented in v0.23.
+- No vector store, robot runtime, or JEPA runtime is implemented in v0.23.
 - No external provider calls are implemented in v0.23.
 - World-model output is predictive/counterfactual data, not observed fact.
 - Simulated state must be labeled as simulated.
 - World-model output cannot authorize, execute, create actions, grant
   permissions, or write memory/domain truth.
+- World-model output cannot bypass Jido action execution, Security Central,
+  confirmation, resource access posture, traces, or audits.
 - Any future provider must run behind explicit Settings Central config,
   Security Central posture, redaction, traces, and evals.
 
-This hook exists so Allbert can later support world models, simulators,
+These hooks exist so Allbert can later support resource routers, diffusion
+proposal models, market-style allocators, world models, simulators,
 domain-specific predictive models, planning evaluators, or app-provided
 forecast engines without treating LLMs/GPTs as the only intelligence source.
 
@@ -997,6 +1375,14 @@ If accepted, add these to `AGENTS.md`, `DEVELOPMENT.md`, and possibly a new ADR:
 - Apps/plugins may contribute objective context or candidate steps only
   through declared hook/provider contracts. They must not subscribe to raw
   signals and mutate objective state privately.
+- Capability acquisition is never silent. Installing/importing/enabling a
+  plugin, requesting credentials, writing code, generating an app scaffold,
+  spending money, calling a paid/external provider, or granting resource access
+  must go through an operator-visible registered action path.
+- Resource decision, market-allocation, model-routing, diffusion, probabilistic,
+  and world-model providers may propose, price, predict, rank, or critique
+  routes. They cannot authorize, execute, spend, install, grant trust, mutate
+  objective truth, or bypass Security Central.
 - Impasses are first-class. If Allbert has no candidate step, too many
   unresolved candidates, insufficient context, or an unexecutable selected
   step, it should record an impasse and ask, retrieve, defer, or block rather
@@ -1022,9 +1408,11 @@ Immediate doc changes:
   separate unassigned entry for future real world-model providers and
   simulation.
 
-- `docs/adr/0021-intent-objective-and-world-model-boundary.md`
-  New ADR. It should define intent, objective, step, observation,
-  planner/evaluator, world model, and action authority boundaries.
+- `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
+  New ADR. It should define intent, objective, step, observation, capability
+  inventory, capability gap, route, acquisition option, resource decision
+  model, planner/evaluator, world model, advisory provider, and action
+  authority boundaries.
 
 - `docs/adr/0019-cross-surface-intent-enrichment.md`
   Add a note that ADR 0021 supersedes any implication that intent ranking is
@@ -1068,7 +1456,7 @@ Settings UI should eventually explain settings by runtime layer:
 
 - identity/session
 - intent
-- objectives/planning/world-model hooks
+- objectives/planning/capability inventory/resource decisions/advisory hooks
 - actions/security
 - jobs
 - channels
@@ -1083,6 +1471,7 @@ affects authority, and where its audit trail lives.
 Needed before Full Settings UI Polish is planned:
 
 - stable objective settings schema
+- stable capability inventory and resource decision settings schema
 - objective trace/debug UI
 - app/plugin settings grouping
 - security posture explanation per setting
@@ -1097,6 +1486,10 @@ Needed before Full Settings UI Polish is planned:
 - Do not let StockSage native agents create a private durable task graph.
 - Do not let workspace LiveViews own objective logic.
 - Do not treat world-model predictions as truth.
+- Do not treat provider bids, route scores, market prices, cost estimates, or
+  model-routing choices as authority.
+- Do not silently acquire capabilities. Missing capabilities should become
+  explicit options, confirmations, refusals, or implementation work.
 - Do not introduce autonomous background loops without explicit operator
   controls.
 - Do not add broad compatibility layers for old pre-production plans. Prefer
@@ -1125,8 +1518,8 @@ Needed before Full Settings UI Polish is planned:
    bounded acceptance criteria plus explicit action results; model evaluation
    is advisory only.
 6. How much world-model abstraction should be included in v0.23? Current
-   recommendation: behaviour, settings placeholder, trace vocabulary, and
-   explicit non-goals only. No provider implementation.
+   recommendation: behaviour, null provider, settings placeholder, trace
+   vocabulary, and explicit non-goals only. No provider implementation.
 7. Which stages should be durable in v0.23 versus signal/trace-only? Current
    recommendation: persist objectives, selected/proposed steps, observations,
    impasses, and status transitions. Keep most hook internals as bounded event
@@ -1143,3 +1536,16 @@ Needed before Full Settings UI Polish is planned:
     Current recommendation: objective traces may compile into workflow-memory
     candidates after review. They are not trusted skills and not executable
     until promoted through explicit skill/app/action workflows.
+11. Should v0.23 include a first inert `ResourceDecisionProvider` contract, or
+    only route/capability vocabulary in traces? Current recommendation:
+    include the vocabulary and internal null provider shape, but do not expose
+    public plugin/provider contribution until a simple objective loop proves
+    what the engine actually needs.
+12. How should Allbert represent a capability gap that might require code?
+    Current recommendation: treat it as an acquisition option with status
+    `requires_review`, never as automatic code generation or dynamic module
+    loading.
+13. Should market metaphors become literal auctions between providers?
+    Current recommendation: no for v0.23. Keep bid-like fields such as cost,
+    latency, confidence, required permissions, and missing resources as
+    explanatory metadata. Do not implement provider competition as authority.
