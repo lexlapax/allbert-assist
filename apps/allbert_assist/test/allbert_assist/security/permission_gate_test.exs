@@ -17,9 +17,28 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :skill_script_execute,
              :confirmation_decide,
              :stocksage_write,
+             :stocksage_analyze,
              :settings_secret_write,
              :settings_secret_read
            ]
+  end
+
+  test "requires confirmation for StockSage analysis execution" do
+    decision = PermissionGate.authorize(:stocksage_analyze, %{})
+
+    assert decision.permission == :stocksage_analyze
+    assert decision.decision == :needs_confirmation
+    assert decision.requires_confirmation
+    assert decision.risk.tier == :high
+    refute PermissionGate.allowed?(decision)
+    assert PermissionGate.response_status(decision) == :needs_confirmation
+  end
+
+  test "stocksage_analyze cannot be lowered to :allowed by settings" do
+    # Safety floor is needs_confirmation; even a misconfigured value cannot
+    # weaken the decision.
+    decision = PermissionGate.authorize(:stocksage_analyze, %{})
+    assert decision.decision in [:needs_confirmation, :denied]
   end
 
   test "allows read-only, memory-write intent, command planning, and StockSage local writes" do

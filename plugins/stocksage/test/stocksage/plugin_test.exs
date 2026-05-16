@@ -45,7 +45,8 @@ defmodule StockSage.PluginTest do
              StockSage.Actions.GetTrends,
              StockSage.Actions.QueueAnalysis,
              StockSage.Actions.ListQueue,
-             StockSage.Actions.ImportSqlite
+             StockSage.Actions.ImportSqlite,
+             StockSage.Actions.RunAnalysis
            ]
 
     assert StockSage.Plugin.child_spec([]) == :ignore
