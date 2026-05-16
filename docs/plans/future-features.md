@@ -34,13 +34,15 @@ homes:
 - StockSage shipped plugin app and domain: v0.20.
 - Memory review and retrieval: v0.21.
 - StockSage Python bridge: v0.22.
-- Native Jido trading agents: v0.23.
-- Agentic workspace surface and local ephemeral UI substrate: v0.24.
-- StockSage LiveViews: v0.25.
-- Security hardening and evals: v0.26.
-- StockSage polish, outcomes, and trends: v0.27.
-- StockSage canvas integration: v0.28.
-- Allbert plugin and app generator: v0.29.
+- Jido State-Machine Convergence (Confirmations.Store + Jobs.Scheduler to Jido.Agent): v0.23.
+- Objective Runtime Foundation (durable multi-step work substrate): v0.24.
+- Native Jido trading agents: v0.25 (formerly v0.23 before the project-direction rethink).
+- Agentic workspace surface and local ephemeral UI substrate: v0.26 (formerly v0.24).
+- StockSage LiveViews: v0.27 (formerly v0.25).
+- Security hardening and evals: v0.28 (formerly v0.26).
+- StockSage polish, outcomes, and trends: v0.29 (formerly v0.27).
+- StockSage canvas integration: v0.30 (formerly v0.28).
+- Allbert plugin and app generator: v0.31 (formerly v0.29).
 
 Do not duplicate those here unless the future feature is broader than the
 existing plan.
@@ -197,12 +199,71 @@ Needed before planning:
 - per-user memory and channel policy
 - audit and confirmation ownership
 
-### Intents vs Objective for agent tasks
-- we're trying to figure out intent from user
-- after that, or in parallel, is to figure out the objective of the next set of actions which refers to the outcomes that the system is trying to active.
-- the whole allbert system should be based on those two principles
-- which then break down into various span-out, span-in, hierarchy, consolidate, and repeat 
-until you get to the actual outcome.
+### Intents vs Objective for agent tasks (graduated)
+
+**Status: graduated to v0.24 Objective Runtime Foundation.**
+
+The original parking-lot note observed that Allbert should be organized
+around two layers — intent (what the user appears to mean now) and
+objective (what outcome to pursue across steps) — that decompose into
+span-out / span-in / hierarchy / consolidation cycles.
+
+That observation drove the project-direction rethink
+(`docs/plans/project-direction-rethink-01.md`) and graduated into
+v0.24 Objective Runtime Foundation:
+
+- ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
+- Plan: `docs/plans/v0.24-plan.md`
+- Request flow: `docs/plans/v0.24-request-flow.md`
+- Research note: `docs/research/objective-runtime-research.md`
+
+Reserved vocabulary still in research stage (named in ADR 0021,
+implemented only when real consumers appear):
+
+- Capability inventory, capability gap, route, acquisition option modules.
+- Advisory provider umbrella behaviour and provider roles
+  (`WorldModelProvider`, `DiffusionProposalProvider`,
+  `MarketAllocatorProvider`, `ProbabilisticInferenceProvider`,
+  `CriticEvaluatorProvider`, `ResourceDecisionProvider`).
+- Hook contribution API for plugins/apps.
+- LLM-assisted step proposer and acceptance evaluator.
+- Parallel step execution.
+- Capability acquisition automation.
+
+These remain parked here as a single line in `docs/plans/future-features.md`
+"Advisory Providers And World Models" entry below until a real consumer
+arrives.
+
+### Advisory Providers And World Models
+
+Source: v0.24 reserved vocabulary in ADR 0021.
+
+v0.24 ships one deterministic step proposer and one deterministic
+acceptance evaluator. The advisory provider umbrella (intent provider,
+route provider, capability provider, resource decision provider,
+world-model provider, diffusion proposal provider, probabilistic
+inference provider, market allocator provider, critic evaluator
+provider) is reserved vocabulary in ADR 0021. The first behaviour
+extraction happens when at least two providers of the same role exist.
+
+Hard rules that apply to any future advisory provider (carry into
+planning):
+
+- No advisory output authorizes execution.
+- World-model output is predictive/counterfactual, not observed fact.
+- Predictions about user behavior never short-circuit confirmation.
+- All effectful work flows through `Actions.Runner.run/3`, Security
+  Central, confirmations, resource access posture, traces, and audits.
+- Settings Central config, Security Central posture, redaction,
+  traces, and evals gate any provider call.
+
+Needed before planning:
+
+- A concrete consumer (e.g., an LLM-assisted step proposer in
+  StockSage v0.25+, or a learned scheduler in a later release).
+- Eval coverage for the rules above.
+- Settings Central schema for provider config and timeouts.
+- Trace/audit shape for advisory output.
 
 ### Full Settings UI Polish
 

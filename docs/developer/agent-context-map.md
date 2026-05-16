@@ -32,9 +32,11 @@ Do not load every section by default.
 | Intent candidates, active app routing, classifier hooks | ADR 0019 | v0.19 |
 | StockSage plugin app and domain | ADR 0018, ADR 0017, ADR 0015 | v0.20 |
 | Markdown memory review, promotion, index, retrieval | ADR 0014, ADR 0019 | v0.21 |
-| StockSage bridge, agents, LiveViews, canvas | Active StockSage milestone plan | v0.22, v0.23, v0.25, v0.27, v0.28 |
-| Workspace shell, ephemeral UI, canvas | ADR 0015, active workspace plan | v0.24, v0.28 |
-| Plugin/app generator | ADR 0017, ADR 0015, v0.29 plan | v0.29 |
+| Jido.Agent vs GenServer substrate (pragmatic rule) | ADR 0007, vision "Jido.Agent vs GenServer", v0.23 plan | v0.23 |
+| Objectives, steps, events, advisory providers, world models | ADR 0021, v0.24 plan, research note | v0.24 |
+| StockSage bridge, agents, LiveViews, canvas | Active StockSage milestone plan | v0.22, v0.25, v0.27, v0.29, v0.30 |
+| Workspace shell, ephemeral UI, canvas | ADR 0015, active workspace plan | v0.26, v0.30 |
+| Plugin/app generator | ADR 0017, ADR 0015, v0.31 plan | v0.31 |
 
 ## Released Version Map
 
@@ -111,3 +113,36 @@ Apps may have reviewed Phoenix LiveViews and routes, but web surfaces must be
 declared through `AllbertAssist.App.SurfaceProvider` and validated by
 `AllbertAssist.Surface`. Surface metadata is not authority and must not create
 routes dynamically without an explicit plan.
+
+### Jido.Agent vs. GenServer Substrate (v0.23)
+
+Allbert uses both `Jido.Agent` and plain `GenServer` for state-bearing
+components. The pragmatic rule (from v0.23 and the vision): use `Jido.Agent`
+when state machines, lifecycle hooks, Skill composition, or successor
+agents are plausibly useful; use plain `GenServer` for stateful storage
+where Jido.Agent buys nothing. As of v0.23: `IntentAgent`,
+`Confirmations.Store`, `Jobs.Scheduler`, and (in v0.24)
+`Objectives.Engine` are Jido.Agents; `Settings`, `Trace`, `Memory`
+storage IO, `Session.Scratchpad`, `Memory.Compiler`, and
+`Memory.Promotion` are plain GenServers. New modules document their
+substrate choice in the module `@moduledoc`.
+
+### Objectives And Advisory Providers (v0.24)
+
+The objective runtime is the durable cross-turn substrate. `Objectives`
+hold acceptance criteria and status; `Objective.Step` records hold
+per-step work; `Objective.Event` records hold lifecycle history.
+`Objectives.Engine` is a `Jido.Agent` implementing a seven-stage state
+machine: receive → interpret intent → frame/resume objective → propose
+and evaluate steps → authorize → execute → observe and advance.
+
+Authority rule (ADR 0021): `objective_id` is not permission;
+`active_app` on an objective is not permission; advisory provider
+output (LLM proposers, world-model predictors, diffusion proposers,
+market allocators, probabilistic critics) is never authority. Everything
+effectful flows through `Actions.Runner.run/3` and Security Central.
+
+Reserved vocabulary: capability inventory, capability gap, route,
+acquisition option, world-model provider, diffusion proposer, market
+allocator. Named in ADR 0021; not implemented in v0.24. Research note
+at `docs/research/objective-runtime-research.md`.
