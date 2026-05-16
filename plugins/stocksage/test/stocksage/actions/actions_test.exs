@@ -224,6 +224,23 @@ defmodule StockSage.ActionsTest do
     assert selected.action_name in ["list_analyses", "show_analysis"]
   end
 
+  test "RunAnalysis appears as a candidate when active_app is stocksage" do
+    assert {:ok, decision} =
+             Engine.decide(%{
+               text: "analyze AAPL for 2026-05-01",
+               user_id: "alice",
+               active_app: :stocksage
+             })
+
+    %{selected: selected, rejected: rejected} = decision.trace_metadata.intent_candidates
+    all = [selected | rejected]
+
+    assert Enum.any?(all, fn candidate ->
+             Map.get(candidate, :action_name) == "run_analysis"
+           end),
+           "run_analysis not in candidates: #{inspect(Enum.map(all, & &1.action_name))}"
+  end
+
   test "intent agent executes a selected StockSage action from active app context" do
     assert {:ok, _analysis} =
              Analyses.create_analysis(%{
