@@ -173,6 +173,9 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
           action_name
         )
 
+      "run_analysis" ->
+        resume_run_analysis(record, reason, context, permission_decision, target_decision)
+
       _other ->
         resolve_status(record, :adapter_unavailable, reason, context, permission_decision, %{
           target_policy_decision: target_decision,
@@ -541,6 +544,58 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
             target_resumed?: false,
             target_status: Map.get(response, :status, :denied),
             target_result: %{status: Map.get(response, :status), error: Map.get(response, :error)},
+            blocked_by_policy?: Map.get(response, :status) == :denied
+          }
+        )
+    end
+  end
+
+  defp resume_run_analysis(record, reason, context, permission_decision, target_decision) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run("run_analysis", Map.get(record, "resume_params_ref", %{}), target_context) do
+      {:ok, %{status: status} = response} when status in [:completed, :failed] ->
+        target_result =
+          Map.get(response, :result) ||
+            Map.take(response, [
+              :analysis_id,
+              :ticker,
+              :analysis_date,
+              :engine,
+              :bridge_duration_ms,
+              :truncated,
+              :status,
+              :summary,
+              :error
+            ])
+
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: status,
+          target_result: target_result
+        })
+
+      {:ok, response} ->
+        target_result =
+          Map.get(response, :result, %{status: Map.get(response, :status)})
+
+        target_status = Map.get(target_result, :status, Map.get(response, :status, :denied))
+
+        resolve_status(
+          record,
+          :denied,
+          reason || "run_analysis target did not run: #{inspect(target_status)}",
+          context,
+          permission_decision,
+          %{
+            target_policy_decision: target_decision,
+            target_resumed?: false,
+            target_status: target_status,
+            target_result: target_result,
             blocked_by_policy?: Map.get(response, :status) == :denied
           }
         )
