@@ -197,6 +197,13 @@ Needed before planning:
 - per-user memory and channel policy
 - audit and confirmation ownership
 
+### Intents vs Objective for agent tasks
+- we're trying to figure out intent from user
+- after that, or in parallel, is to figure out the objective of the next set of actions which refers to the outcomes that the system is trying to active.
+- the whole allbert system should be based on those two principles
+- which then break down into various span-out, span-in, hierarchy, consolidate, and repeat 
+until you get to the actual outcome.
+
 ### Full Settings UI Polish
 
 Source: v0.02 non-goals.
