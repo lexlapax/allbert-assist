@@ -93,6 +93,12 @@ defmodule AllbertAssist.Paths do
     )
   end
 
+  @doc "Return the archived deleted-memory root."
+  @spec memory_deleted_root() :: String.t()
+  def memory_deleted_root do
+    Path.join(memory_root(), "deleted")
+  end
+
   @doc "Return the durable confirmation request root."
   @spec confirmations_root() :: String.t()
   def confirmations_root do

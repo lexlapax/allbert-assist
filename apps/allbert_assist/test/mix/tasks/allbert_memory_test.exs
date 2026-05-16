@@ -72,6 +72,75 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert output =~ "No memory entries."
   end
 
+  test "review, update, delete, and prune run through CLI action surfaces" do
+    assert {:ok, entry} =
+             Memory.append(%{
+               category: :notes,
+               body: "Alice prefers terse milestone notes.",
+               actor: "alice",
+               agent: "test",
+               channel: :test,
+               source_signal_id: "sig"
+             })
+
+    review_output =
+      capture_io(fn ->
+        assert :ok =
+                 MemoryTask.run([
+                   "review",
+                   entry.path,
+                   "--status",
+                   "prune_nominated",
+                   "--note",
+                   "duplicate",
+                   "--user",
+                   "alice"
+                 ])
+      end)
+
+    assert review_output =~ "reviewed:"
+    assert review_output =~ "Review status: prune_nominated"
+
+    Mix.Task.reenable("allbert.memory")
+
+    update_output =
+      capture_io(fn ->
+        assert :ok =
+                 MemoryTask.run([
+                   "update",
+                   entry.path,
+                   "--summary",
+                   "Terse milestone notes",
+                   "--user",
+                   "alice"
+                 ])
+      end)
+
+    assert update_output =~ "updated:"
+    assert update_output =~ "Terse milestone notes"
+
+    Mix.Task.reenable("allbert.memory")
+
+    prune_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["prune", "--user", "alice"])
+      end)
+
+    assert prune_output =~ "Candidate count: 1"
+    assert prune_output =~ "prune_nominated"
+
+    Mix.Task.reenable("allbert.memory")
+
+    delete_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["delete", entry.path, "--user", "alice"])
+      end)
+
+    assert delete_output =~ "Confirmation:"
+    assert delete_output =~ "No file was moved."
+    assert File.exists?(entry.path)
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 end
