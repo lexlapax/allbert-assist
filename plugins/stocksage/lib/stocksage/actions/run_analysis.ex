@@ -237,7 +237,8 @@ defmodule StockSage.Actions.RunAnalysis do
                  engine: validated.engine,
                  bridge_duration_ms: duration_ms,
                  truncated: truncated?,
-                 queue_entry_id: validated.queue_entry_id
+                 queue_entry_id: validated.queue_entry_id,
+                 summary: summary
                }
              )
            ]
