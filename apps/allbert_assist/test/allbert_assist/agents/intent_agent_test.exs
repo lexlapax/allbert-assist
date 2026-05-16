@@ -90,7 +90,8 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "list_analyses",
       "show_analysis",
       "get_trends",
-      "queue_analysis"
+      "queue_analysis",
+      "run_analysis"
     ]
 
     assert action_names in [core_actions, core_actions ++ stocksage_actions]

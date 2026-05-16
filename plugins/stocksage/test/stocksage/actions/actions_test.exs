@@ -206,7 +206,7 @@ defmodule StockSage.ActionsTest do
     assert "list-analyses" in skill_names
     assert "show-analysis" in skill_names
     assert "get-trends" in skill_names
-    refute "run-analysis" in skill_names
+    assert "run-analysis" in skill_names
   end
 
   test "active StockSage app context produces StockSage action candidates" do

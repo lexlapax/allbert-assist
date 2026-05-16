@@ -46,6 +46,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.skill_script_execute",
     "permissions.confirmation_decide",
     "permissions.stocksage_write",
+    "permissions.stocksage_analyze",
     "execution.local.enabled",
     "execution.local.allowed_roots",
     "execution.local.allowed_commands",
@@ -689,6 +690,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.stocksage_analyze" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
     "execution.local.enabled" => %{
       type: :boolean,
       default: false,
@@ -1195,7 +1203,8 @@ defmodule AllbertAssist.Settings.Schema do
       "skill_write" => "allowed",
       "skill_script_execute" => "denied",
       "confirmation_decide" => "allowed",
-      "stocksage_write" => "allowed"
+      "stocksage_write" => "allowed",
+      "stocksage_analyze" => "needs_confirmation"
     },
     "plugins" => %{
       "enabled" => [],

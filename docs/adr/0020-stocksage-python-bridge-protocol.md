@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. To be accepted during v0.22 M1.
+Accepted (v0.22 M1, 2026-05-15).
 
 ## Context
 
