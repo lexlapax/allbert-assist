@@ -149,6 +149,7 @@ defmodule Mix.Tasks.Allbert.JobsTest do
     assert templates_output =~ "daily-brief"
     assert templates_output =~ "registry-health"
     assert templates_output =~ "trace-summary"
+    assert templates_output =~ "memory-index-rebuild"
 
     create_output =
       capture_io(fn ->

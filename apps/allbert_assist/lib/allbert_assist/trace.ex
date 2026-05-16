@@ -559,12 +559,15 @@ defmodule AllbertAssist.Trace do
       candidates ->
         selected = map_value(candidates, :selected)
         rejected = candidates |> map_value(:rejected) |> List.wrap() |> Enum.take(5)
+        memory = candidates |> map_value(:memory) |> List.wrap() |> Enum.take(5)
 
         """
         Active app: #{response |> map_value(:decision) |> map_value(:trace_metadata) |> map_value(:active_app) || "none"}
         Surface target: #{bounded_inspect(response |> map_value(:decision) |> map_value(:trace_metadata) |> map_value(:surface_target))}
         Classifier: #{bounded_inspect(response |> map_value(:decision) |> map_value(:trace_metadata) |> map_value(:classifier))}
         Selected: #{candidate_line(selected)}
+        Memory:
+        #{memory_lines(memory)}
         Rejected:
         #{rejected_lines(rejected)}
         """
@@ -583,6 +586,18 @@ defmodule AllbertAssist.Trace do
   defp rejected_lines(rejected) do
     rejected
     |> Enum.map(&"- #{candidate_line(&1)}")
+    |> Enum.join("\n")
+  end
+
+  defp memory_lines([]), do: "none"
+
+  defp memory_lines(candidates) do
+    candidates
+    |> Enum.map(fn candidate ->
+      trace = map_value(candidate, :trace_metadata) || %{}
+
+      "- #{candidate_line(candidate)} category=#{map_value(trace, :category) || "unknown"} review_status=#{map_value(trace, :review_status) || "unknown"} timestamp=#{map_value(trace, :timestamp) || "unknown"} path=#{map_value(trace, :path) || "unknown"}"
+    end)
     |> Enum.join("\n")
   end
 

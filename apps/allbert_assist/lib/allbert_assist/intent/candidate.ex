@@ -21,7 +21,8 @@ defmodule AllbertAssist.Intent.Candidate do
     skill: 20,
     surface: 20,
     job: 10,
-    channel: 10
+    channel: 10,
+    memory: 10
   }
 
   defstruct [
