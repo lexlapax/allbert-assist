@@ -3,10 +3,12 @@ defmodule AllbertAssist.Jobs.SchedulerAgentTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Jobs
+  alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Scheduler
   alias AllbertAssist.Jobs.Scheduler.Agent, as: SchedulerAgent
   alias AllbertAssist.Paths
+  alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Trace
@@ -102,8 +104,8 @@ defmodule AllbertAssist.Jobs.SchedulerAgentTest do
 
     assert {:ok, due_job} =
              job
-             |> AllbertAssist.Jobs.Job.changeset(%{next_due_at: DateTime.add(now, -60, :second)})
-             |> AllbertAssist.Repo.update()
+             |> Job.changeset(%{next_due_at: DateTime.add(now, -60, :second)})
+             |> Repo.update()
 
     scheduler = start_test_scheduler(cleanup_on_start?: false)
 

@@ -225,6 +225,7 @@ defmodule AllbertAssist.Trace do
     ## Diagnostics
 
     #{diagnostics_text(response)}
+    #{AllbertAssist.JidoBacked.debug_trace_markdown()}
     """
     |> String.trim()
   end

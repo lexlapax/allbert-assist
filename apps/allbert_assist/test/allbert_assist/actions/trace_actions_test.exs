@@ -262,6 +262,31 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
     refute trace =~ "entry body content that should stay hidden"
   end
 
+  test "renders bounded JidoBacked diagnostics only when debug trace is enabled" do
+    Application.put_env(:allbert_assist, Trace, enabled: true)
+
+    assert {:ok, response} =
+             RecordTrace.run(%{turn: turn("Trace without Jido debug.")}, context())
+
+    refute File.read!(response.trace_id) =~ "## Jido Debug"
+
+    assert {:ok, _setting} =
+             Settings.put("allbert.jido.debug_trace", true, %{
+               actor: "local",
+               channel: :test
+             })
+
+    assert {:ok, response} = RecordTrace.run(%{turn: turn("Trace with Jido debug.")}, context())
+    trace = File.read!(response.trace_id)
+
+    assert trace =~ "## Jido Debug"
+    assert trace =~ "AllbertAssist.Confirmations.Store.Agent"
+    assert trace =~ "AllbertAssist.Jobs.Scheduler.Agent"
+    assert trace =~ "last_result="
+    refute trace =~ "api_key"
+    refute trace =~ "token"
+  end
+
   defp turn(text) do
     {:ok, input_signal} =
       Signal.new(

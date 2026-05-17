@@ -357,10 +357,11 @@ Where this gets enforced:
 - Reviewed at each milestone closeout: if a milestone changes an app's
   signals/actions/surfaces or persists a new schema for that app, bump
   the app's `version/0` to match the milestone's Allbert release.
-- The v0.22 audit closeout bumped `AllbertAssist.App.CoreApp.version/0`
-  from `"0.21.0"` to `"0.22.0"` and `StockSage.App.version/0` from
-  `"0.20.0"` to `"0.22.0"` because v0.22 added the bridge protocol,
-  StockSage analysis result schema, and named StockSage signals.
+- The v0.23 closeout bumped `AllbertAssist.App.CoreApp.version/0`
+  from `"0.22.0"` to `"0.23.0"` because v0.23 added the JidoBacked
+  substrate and `allbert.jido.debug_trace` setting to the core runtime.
+  StockSage.App remains `"0.22.0"` because v0.23 did not change the
+  StockSage app surface.
 
 ## Component Substrate: Jido.Agent vs. GenServer
 
