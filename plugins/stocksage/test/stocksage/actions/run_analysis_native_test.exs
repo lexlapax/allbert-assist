@@ -8,6 +8,8 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
 
   setup do
     put_setting!("stocksage.native_engine_enabled", true)
+    put_setting!("stocksage.native_max_debate_rounds", 1)
+    put_setting!("stocksage.native_max_risk_rounds", 1)
     put_setting!("permissions.stocksage_analyze", "needs_confirmation")
     :ok
   end
