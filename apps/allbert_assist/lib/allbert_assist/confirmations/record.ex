@@ -31,6 +31,8 @@ defmodule AllbertAssist.Confirmations.Record do
         "security_decision" => redacted_map(value(attrs, :security_decision, %{})),
         "source_signal_id" => stringify(value(attrs, :source_signal_id)),
         "source_trace_id" => stringify(value(attrs, :source_trace_id)),
+        "objective_id" => stringify(value(attrs, :objective_id)),
+        "step_id" => stringify(value(attrs, :step_id)),
         "runner_metadata" => redacted_map(value(attrs, :runner_metadata, %{})),
         "params_summary" => redacted_map(value(attrs, :params_summary, %{})),
         "resume_params_ref" => redacted_map(value(attrs, :resume_params_ref, %{})),

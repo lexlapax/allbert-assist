@@ -163,12 +163,14 @@ defmodule AllbertAssist.Trace do
     ## Response
 
     #{response.message}
+    #{objective_inline(response)}
 
     ## Actions
 
     ```elixir
     #{inspect(Redactor.redact(response.actions), pretty: true, limit: :infinity)}
     ```
+    #{objective_inline(response)}
 
     ## Intent Decision
 
@@ -197,6 +199,7 @@ defmodule AllbertAssist.Trace do
     ## Confirmation Metadata
 
     #{confirmation_metadata_text(response.actions)}
+    #{objective_inline(response)}
 
     ## External Request Metadata
 
@@ -221,6 +224,11 @@ defmodule AllbertAssist.Trace do
     ## StockSage Analysis
 
     #{stocksage_analysis_text(response.actions)}
+    #{objective_inline(response)}
+
+    ## Objective Steps
+
+    #{objective_steps_text(response)}
 
     ## Diagnostics
 
@@ -593,6 +601,73 @@ defmodule AllbertAssist.Trace do
   end
 
   defp bounded_summary(value), do: inspect(value)
+
+  defp objective_inline(response) do
+    case objective_context(response) do
+      nil ->
+        ""
+
+      objective ->
+        """
+
+        ### Objective
+
+        - Objective: #{map_value(objective, :title) || map_value(objective, :id)}
+        - Objective id: #{map_value(objective, :id)}
+        - Status: #{map_value(objective, :status)}
+        - Step count: #{map_value(objective, :step_count) || length(List.wrap(map_value(objective, :steps)))}
+        """
+    end
+  end
+
+  defp objective_steps_text(response) do
+    response
+    |> objective_context()
+    |> case do
+      nil ->
+        "none"
+
+      objective ->
+        steps =
+          objective
+          |> map_value(:steps)
+          |> List.wrap()
+          |> Enum.take(5)
+
+        case steps do
+          [] ->
+            "- Objective: #{map_value(objective, :id)} status=#{map_value(objective, :status)} steps=#{map_value(objective, :step_count) || 0}"
+
+          steps ->
+            Enum.map_join(steps, "\n", fn step ->
+              "- Step: #{map_value(step, :id) || "unknown"} status=#{map_value(step, :status) || "unknown"} kind=#{map_value(step, :kind) || "unknown"} action=#{map_value(step, :candidate_action) || "none"} confirmation=#{map_value(step, :confirmation_id) || "none"}"
+            end)
+        end
+    end
+  end
+
+  defp objective_context(response) do
+    map_value(response, :objective) ||
+      response
+      |> map_value(:actions)
+      |> List.wrap()
+      |> Enum.find_value(&action_objective_context/1)
+  end
+
+  defp action_objective_context(action) do
+    case map_value(action, :objective_id) do
+      nil ->
+        stocksage = map_value(action, :stocksage) || %{}
+
+        case map_value(stocksage, :objective_id) do
+          nil -> nil
+          id -> %{id: id, status: "unknown", step_count: 0}
+        end
+
+      id ->
+        %{id: id, status: map_value(action, :status) || "unknown", step_count: 0}
+    end
+  end
 
   defp intent_decision_summary(response) do
     case map_value(response, :decision) do

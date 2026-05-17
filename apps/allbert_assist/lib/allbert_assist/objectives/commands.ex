@@ -69,19 +69,23 @@ defmodule AllbertAssist.Objectives.Commands do
     end
   end
 
-  defp maybe_merge_projection(state, %{objective: %Objective{} = objective, steps: steps}) do
+  defp maybe_merge_projection(state, %{objective: %Objective{} = objective, steps: steps} = value) do
+    stage = Map.get(value, :stage, "propose_steps")
+
     state
     |> update_nested(:active_objectives, objective.id, Objectives.objective_summary(objective))
-    |> update_nested(:current_stage, objective.id, "propose_steps")
+    |> update_nested(:current_stage, objective.id, stage)
     |> update_nested(:loop_counts, objective.id, objective.loop_count || 0)
     |> maybe_put_proposer_hint(objective)
     |> maybe_put(:last_summary, %{objective_id: objective.id, proposed_steps: length(steps)})
   end
 
-  defp maybe_merge_projection(state, %{objective: %Objective{} = objective}) do
+  defp maybe_merge_projection(state, %{objective: %Objective{} = objective} = value) do
+    stage = Map.get(value, :stage, "frame_objective")
+
     state
     |> update_nested(:active_objectives, objective.id, Objectives.objective_summary(objective))
-    |> update_nested(:current_stage, objective.id, "frame_objective")
+    |> update_nested(:current_stage, objective.id, stage)
     |> update_nested(:loop_counts, objective.id, objective.loop_count || 0)
   end
 
@@ -307,17 +311,727 @@ defmodule AllbertAssist.Objectives.Commands.ProposeSteps do
       active_app: objective.active_app,
       objective_id: objective.id,
       text: Map.get(params, :text) || Map.get(params, "text") || objective.source_intent,
-      proposer_hint: hint
+      proposer_hint: hint,
+      force_stub: Map.get(params, :force_stub) || Map.get(params, "force_stub")
     }
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
     |> Map.new()
-    |> Map.merge(Map.take(context, [:input_signal_id, :trace_id]))
+    |> Map.merge(Map.take(context, [:input_signal_id, :trace_id, :force_stub]))
   end
 
   defp continuation_summary(:done), do: %{status: :done}
 
   defp continuation_summary({:more, {app_id, state}}),
     do: %{status: :more, app_id: app_id, state: state}
+end
+
+defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
+  @moduledoc false
+
+  use Jido.Action,
+    name: "allbert_objectives_authorize_step",
+    description: "Private objective step authorization command."
+
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Commands
+  alias AllbertAssist.Objectives.{Objective, Step}
+  alias AllbertAssist.Repo
+
+  @impl true
+  def run(params, context) do
+    state = Map.get(context, :state, %{})
+
+    with {:ok, step_id} <- step_id(params),
+         {:ok, step} <- get_step(step_id),
+         {:ok, objective} <- Objectives.get_objective(step.objective_id),
+         {:ok, action} <- resolve_action(step),
+         {:ok, action_params} <- action_params(step),
+         {:ok, result} <- authorize(objective, step, action, action_params, params, context) do
+      Commands.finish(:authorize_step, {:ok, result}, state)
+    else
+      {:error, reason} ->
+        Commands.finish(:authorize_step, {:error, reason}, state)
+    end
+  end
+
+  defp authorize(%Objective{} = objective, %Step{} = step, action, action_params, params, context) do
+    Repo.transaction(fn ->
+      selected_step =
+        step
+        |> Objectives.transition_step("selected", %{stage: "authorize_step"})
+        |> unwrap_or_rollback()
+
+      _event =
+        create_step_event!(
+          objective,
+          selected_step,
+          "step_selected",
+          "Objective step selected.",
+          %{
+            candidate_action: selected_step.candidate_action
+          }
+        )
+
+      {:ok, running_objective} =
+        Objectives.update_objective(objective, %{
+          status: "running",
+          current_step_id: selected_step.id
+        })
+
+      Commands.emit_objective(:step_selected, objective, %{
+        stage: :authorize_step,
+        step_id: selected_step.id,
+        kind: selected_step.kind,
+        candidate_action: selected_step.candidate_action,
+        trace_id: trace_id(params, context)
+      })
+
+      runner_context = runner_context(running_objective, selected_step, params, context)
+
+      case Runner.run(action, action_params, runner_context) do
+        {:ok, %{status: :needs_confirmation} = response} ->
+          confirmation_id = Map.get(response, :confirmation_id)
+
+          blocked_step =
+            selected_step
+            |> Objectives.transition_step("blocked", %{
+              stage: "authorize_step",
+              confirmation_id: confirmation_id,
+              trace_id: trace_id(params, context),
+              result_summary: "Waiting for confirmation #{confirmation_id}."
+            })
+            |> unwrap_or_rollback()
+
+          blocked_objective =
+            objective
+            |> Objectives.update_objective(%{
+              status: "blocked",
+              current_step_id: blocked_step.id,
+              progress_summary: "Waiting for confirmation #{confirmation_id}."
+            })
+            |> unwrap_or_rollback()
+
+          _event =
+            create_objective_event!(blocked_objective, "blocked", "Objective blocked.", %{
+              reason: :confirmation_required,
+              confirmation_id: confirmation_id,
+              step_id: blocked_step.id
+            })
+
+          Commands.emit_objective(:blocked, blocked_objective, %{
+            stage: :authorize_step,
+            step_id: blocked_step.id,
+            reason: "confirmation_required",
+            trace_id: trace_id(params, context)
+          })
+
+          %{
+            objective: blocked_objective,
+            step: blocked_step,
+            response: response,
+            confirmation_id: confirmation_id,
+            stage: "authorize_step"
+          }
+
+        {:ok, %{status: status} = response} when status in [:completed, :failed, :error] ->
+          {step_status, signal_kind, event_kind} =
+            if status == :completed do
+              {"completed", :step_completed, "step_completed"}
+            else
+              {"failed", :step_failed, "step_failed"}
+            end
+
+          finished_step =
+            selected_step
+            |> Objectives.transition_step(step_status, %{
+              stage: "execute_step",
+              trace_id: trace_id(params, context),
+              result_summary: result_summary(response)
+            })
+            |> unwrap_or_rollback()
+
+          updated_objective =
+            objective
+            |> Objectives.update_objective(%{
+              status: "running",
+              current_step_id: finished_step.id
+            })
+            |> unwrap_or_rollback()
+
+          _event =
+            create_step_event!(
+              updated_objective,
+              finished_step,
+              event_kind,
+              "Objective step #{step_status}.",
+              %{status: status, result_summary: result_summary(response)}
+            )
+
+          Commands.emit_objective(signal_kind, updated_objective, %{
+            stage: :execute_step,
+            step_id: finished_step.id,
+            result_summary: result_summary(response),
+            trace_id: trace_id(params, context)
+          })
+
+          %{
+            objective: updated_objective,
+            step: finished_step,
+            response: response,
+            stage: "execute_step"
+          }
+
+        {:ok, response} ->
+          failed_step =
+            selected_step
+            |> Objectives.transition_step("failed", %{
+              stage: "execute_step",
+              trace_id: trace_id(params, context),
+              result_summary: result_summary(response)
+            })
+            |> unwrap_or_rollback()
+
+          failed_objective =
+            objective
+            |> Objectives.update_objective(%{
+              status: "failed",
+              current_step_id: failed_step.id,
+              progress_summary: "Objective step failed during authorization."
+            })
+            |> unwrap_or_rollback()
+
+          _event =
+            create_step_event!(
+              failed_objective,
+              failed_step,
+              "step_failed",
+              "Objective step failed.",
+              %{response_status: Map.get(response, :status)}
+            )
+
+          Commands.emit_objective(:step_failed, failed_objective, %{
+            stage: :authorize_step,
+            step_id: failed_step.id,
+            error: inspect(Map.get(response, :status, :unknown)),
+            trace_id: trace_id(params, context)
+          })
+
+          %{
+            objective: failed_objective,
+            step: failed_step,
+            response: response,
+            stage: "authorize_step"
+          }
+      end
+    end)
+  end
+
+  defp unwrap_or_rollback({:ok, value}), do: value
+  defp unwrap_or_rollback({:error, reason}), do: Repo.rollback(reason)
+
+  defp create_step_event!(objective, step, kind, summary, payload) do
+    Objectives.create_event(%{
+      objective_id: objective.id,
+      step_id: step.id,
+      kind: kind,
+      summary: summary,
+      payload: payload
+    })
+    |> unwrap_or_rollback()
+  end
+
+  defp create_objective_event!(objective, kind, summary, payload) do
+    Objectives.create_event(%{
+      objective_id: objective.id,
+      kind: kind,
+      summary: summary,
+      payload: payload
+    })
+    |> unwrap_or_rollback()
+  end
+
+  defp runner_context(objective, step, params, context) do
+    Map.merge(context, %{
+      user_id: objective.user_id,
+      operator_id: objective.user_id,
+      thread_id: objective.source_thread_id,
+      session_id: objective.session_id,
+      active_app: objective.active_app && String.to_existing_atom(objective.active_app),
+      objective_id: objective.id,
+      step_id: step.id,
+      trace_id: trace_id(params, context),
+      objective: %{
+        id: objective.id,
+        title: objective.title,
+        status: objective.status
+      }
+    })
+  rescue
+    ArgumentError ->
+      Map.merge(context, %{
+        user_id: objective.user_id,
+        operator_id: objective.user_id,
+        thread_id: objective.source_thread_id,
+        session_id: objective.session_id,
+        objective_id: objective.id,
+        step_id: step.id,
+        trace_id: trace_id(params, context),
+        objective: %{id: objective.id, title: objective.title, status: objective.status}
+      })
+  end
+
+  defp resolve_action(%Step{candidate_action: action}) when is_binary(action) do
+    action
+    |> action_candidates()
+    |> Enum.find_value(fn candidate ->
+      case ActionsRegistry.resolve(candidate) do
+        {:ok, module} -> {:ok, module}
+        {:error, _reason} -> nil
+      end
+    end)
+    |> case do
+      nil -> {:error, {:unknown_step_action, action}}
+      {:ok, module} -> {:ok, module}
+    end
+  end
+
+  defp resolve_action(_step), do: {:error, :missing_step_action}
+
+  defp action_candidates(action) do
+    modules =
+      ActionsRegistry.modules()
+      |> Enum.filter(&(inspect(&1) == action))
+
+    modules ++ [action]
+  end
+
+  defp action_params(%Step{action_params: nil}), do: {:ok, %{}}
+  defp action_params(%Step{action_params: %{} = params}), do: {:ok, params}
+
+  defp action_params(%Step{action_params: params}) when is_binary(params) do
+    case Jason.decode(params) do
+      {:ok, %{} = decoded} -> {:ok, decoded}
+      _other -> {:error, :invalid_step_action_params}
+    end
+  end
+
+  defp action_params(_step), do: {:error, :invalid_step_action_params}
+
+  defp get_step(id) do
+    case AllbertAssist.Repo.get(Step, id) do
+      %Step{} = step -> {:ok, step}
+      nil -> {:error, {:step_not_found, id}}
+    end
+  end
+
+  defp step_id(params) do
+    case Map.get(params, :step_id) || Map.get(params, "step_id") do
+      value when is_binary(value) and value != "" -> {:ok, value}
+      _other -> {:error, :missing_step_id}
+    end
+  end
+
+  defp trace_id(params, context) do
+    Map.get(params, :trace_id) || Map.get(params, "trace_id") || Map.get(context, :trace_id) ||
+      Map.get(context, "trace_id")
+  end
+
+  defp result_summary(response) do
+    summary =
+      Map.get(response, :summary) ||
+        Map.get(response, "summary") ||
+        Map.get(response, :message) ||
+        Map.get(response, "message") ||
+        inspect(Map.take(response, [:status, :error]))
+
+    if is_binary(summary) and byte_size(summary) > 2_000,
+      do: binary_part(summary, 0, 2_000),
+      else: summary
+  end
+end
+
+defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
+  @moduledoc false
+
+  use Jido.Action,
+    name: "allbert_objectives_execute_step",
+    description: "Private objective step execution command."
+
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Confirmations
+  alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Commands
+  alias AllbertAssist.Objectives.{Objective, Step}
+  alias AllbertAssist.Repo
+
+  @impl true
+  def run(params, context) do
+    state = Map.get(context, :state, %{})
+
+    with {:ok, step_id} <- step_id(params),
+         {:ok, step} <- get_step(step_id),
+         {:ok, objective} <- Objectives.get_objective(step.objective_id),
+         {:ok, result} <- execute(objective, step, params, context) do
+      Commands.finish(:execute_step, {:ok, result}, state)
+    else
+      {:error, reason} ->
+        Commands.finish(:execute_step, {:error, reason}, state)
+    end
+  end
+
+  defp execute(%Objective{} = objective, %Step{confirmation_id: id} = step, params, context)
+       when is_binary(id) and id != "" do
+    with {:ok, record} <- Confirmations.read(id),
+         :ok <- confirmation_ready(record) do
+      status = confirmation_target_status(record)
+      target_result = confirmation_target_result(record)
+      complete_from_result(objective, step, status, target_result, params, context)
+    end
+  end
+
+  defp execute(%Objective{} = objective, %Step{} = step, params, context) do
+    with {:ok, action} <- resolve_action(step),
+         {:ok, action_params} <- action_params(step) do
+      runner_context =
+        Map.merge(context, %{
+          user_id: objective.user_id,
+          operator_id: objective.user_id,
+          thread_id: objective.source_thread_id,
+          session_id: objective.session_id,
+          objective_id: objective.id,
+          step_id: step.id,
+          trace_id: trace_id(params, context)
+        })
+
+      case Runner.run(action, action_params, runner_context) do
+        {:ok, %{status: :needs_confirmation} = response} ->
+          {:error, {:step_requires_confirmation, Map.get(response, :confirmation_id)}}
+
+        {:ok, response} ->
+          complete_from_result(
+            objective,
+            step,
+            Map.get(response, :status),
+            response,
+            params,
+            context
+          )
+      end
+    end
+  end
+
+  defp complete_from_result(objective, step, status, result, params, context) do
+    Repo.transaction(fn ->
+      running =
+        step
+        |> Objectives.transition_step("running", %{
+          stage: "execute_step",
+          trace_id: trace_id(params, context)
+        })
+        |> unwrap_or_rollback()
+
+      completed? = normalize_status(status) == :completed
+      step_status = if completed?, do: "completed", else: "failed"
+      event_kind = if completed?, do: "step_completed", else: "step_failed"
+      signal_kind = if completed?, do: :step_completed, else: :step_failed
+      result_summary = result_summary(result)
+
+      finished =
+        running
+        |> Objectives.transition_step(step_status, %{
+          stage: "execute_step",
+          result_summary: result_summary,
+          trace_id: trace_id(params, context)
+        })
+        |> unwrap_or_rollback()
+
+      updated_objective =
+        objective
+        |> Objectives.update_objective(%{
+          status: if(completed?, do: "running", else: "failed"),
+          current_step_id: finished.id,
+          progress_summary: result_summary
+        })
+        |> unwrap_or_rollback()
+
+      _event =
+        Objectives.create_event(%{
+          objective_id: updated_objective.id,
+          step_id: finished.id,
+          kind: event_kind,
+          summary: "Objective step #{step_status}.",
+          payload: %{status: status, result_summary: result_summary}
+        })
+        |> unwrap_or_rollback()
+
+      Commands.emit_objective(signal_kind, updated_objective, %{
+        stage: :execute_step,
+        step_id: finished.id,
+        result_summary: result_summary,
+        trace_id: trace_id(params, context)
+      })
+
+      %{
+        objective: updated_objective,
+        step: finished,
+        result: result,
+        status: normalize_status(status),
+        stage: "execute_step"
+      }
+    end)
+  end
+
+  defp confirmation_ready(%{"status" => "approved"}), do: :ok
+
+  defp confirmation_ready(%{"status" => "pending", "id" => id}),
+    do: {:error, {:confirmation_pending, id}}
+
+  defp confirmation_ready(%{"status" => status}),
+    do: {:error, {:confirmation_not_approved, status}}
+
+  defp confirmation_target_status(record) do
+    record
+    |> get_in(["operator_resolution", "target_status"])
+    |> normalize_status()
+  end
+
+  defp confirmation_target_result(record) do
+    get_in(record, ["operator_resolution", "target_result"]) || %{}
+  end
+
+  defp normalize_status("completed"), do: :completed
+  defp normalize_status(:completed), do: :completed
+  defp normalize_status("failed"), do: :failed
+  defp normalize_status(:failed), do: :failed
+  defp normalize_status("error"), do: :failed
+  defp normalize_status(:error), do: :failed
+  defp normalize_status(_status), do: :failed
+
+  defp unwrap_or_rollback({:ok, value}), do: value
+  defp unwrap_or_rollback({:error, reason}), do: Repo.rollback(reason)
+
+  defp resolve_action(%Step{candidate_action: action}) when is_binary(action) do
+    action
+    |> action_candidates()
+    |> Enum.find_value(fn candidate ->
+      case ActionsRegistry.resolve(candidate) do
+        {:ok, module} -> {:ok, module}
+        {:error, _reason} -> nil
+      end
+    end)
+    |> case do
+      nil -> {:error, {:unknown_step_action, action}}
+      {:ok, module} -> {:ok, module}
+    end
+  end
+
+  defp resolve_action(_step), do: {:error, :missing_step_action}
+
+  defp action_candidates(action) do
+    modules =
+      ActionsRegistry.modules()
+      |> Enum.filter(&(inspect(&1) == action))
+
+    modules ++ [action]
+  end
+
+  defp action_params(%Step{action_params: nil}), do: {:ok, %{}}
+  defp action_params(%Step{action_params: %{} = params}), do: {:ok, params}
+
+  defp action_params(%Step{action_params: params}) when is_binary(params) do
+    case Jason.decode(params) do
+      {:ok, %{} = decoded} -> {:ok, decoded}
+      _other -> {:error, :invalid_step_action_params}
+    end
+  end
+
+  defp action_params(_step), do: {:error, :invalid_step_action_params}
+
+  defp get_step(id) do
+    case Repo.get(Step, id) do
+      %Step{} = step -> {:ok, step}
+      nil -> {:error, {:step_not_found, id}}
+    end
+  end
+
+  defp step_id(params) do
+    case Map.get(params, :step_id) || Map.get(params, "step_id") do
+      value when is_binary(value) and value != "" -> {:ok, value}
+      _other -> {:error, :missing_step_id}
+    end
+  end
+
+  defp trace_id(params, context) do
+    Map.get(params, :trace_id) || Map.get(params, "trace_id") || Map.get(context, :trace_id) ||
+      Map.get(context, "trace_id")
+  end
+
+  defp result_summary(result) when is_map(result) do
+    summary =
+      Map.get(result, :summary) ||
+        Map.get(result, "summary") ||
+        Map.get(result, :message) ||
+        Map.get(result, "message") ||
+        inspect(Map.take(result, [:status, "status", :error, "error"]))
+
+    if is_binary(summary) and byte_size(summary) > 2_000,
+      do: binary_part(summary, 0, 2_000),
+      else: summary
+  end
+
+  defp result_summary(result), do: inspect(result)
+end
+
+defmodule AllbertAssist.Objectives.Commands.ObserveStep do
+  @moduledoc false
+
+  use Jido.Action,
+    name: "allbert_objectives_observe_step",
+    description: "Private objective observation command."
+
+  alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Commands
+  alias AllbertAssist.Objectives.Evaluator
+  alias AllbertAssist.Objectives.{Objective, Step}
+  alias AllbertAssist.Repo
+
+  @impl true
+  def run(params, context) do
+    state = Map.get(context, :state, %{})
+
+    with {:ok, step_id} <- step_id(params),
+         {:ok, step} <- get_step(step_id),
+         {:ok, objective} <- Objectives.get_objective(step.objective_id),
+         {:ok, result} <- observe(objective, step, params, context) do
+      Commands.finish(:observe_step, {:ok, result}, state)
+    else
+      {:error, reason} ->
+        Commands.finish(:observe_step, {:error, reason}, state)
+    end
+  end
+
+  defp observe(%Objective{} = objective, %Step{} = step, params, context) do
+    Repo.transaction(fn ->
+      summary = observation_summary(step, params)
+
+      observed_step =
+        step
+        |> Objectives.update_step(%{stage: "observe_step", observation_summary: summary})
+        |> unwrap_or_rollback()
+
+      loop_count = (objective.loop_count || 0) + 1
+      preliminary_steps = replace_step(Objectives.list_steps(objective.id), observed_step)
+      verdict = Evaluator.evaluate(objective, preliminary_steps)
+      completed? = verdict == :met
+
+      objective_status = if completed?, do: "completed", else: "running"
+
+      updated_objective =
+        objective
+        |> Objectives.update_objective(%{
+          status: objective_status,
+          current_step_id: observed_step.id,
+          loop_count: loop_count,
+          last_observation_summary: summary,
+          progress_summary: summary,
+          completed_at: completed_at(completed?)
+        })
+        |> unwrap_or_rollback()
+
+      _observed =
+        Objectives.create_event(%{
+          objective_id: updated_objective.id,
+          step_id: observed_step.id,
+          kind: "observed",
+          summary: "Observed objective step result.",
+          payload: %{verdict: verdict, observation_summary: summary, loop_count: loop_count}
+        })
+        |> unwrap_or_rollback()
+
+      Commands.emit_objective(:observed, updated_objective, %{
+        stage: :observe_step,
+        step_id: observed_step.id,
+        observation_summary: summary,
+        loop_count: loop_count,
+        trace_id: trace_id(params, context)
+      })
+
+      if completed? do
+        _completed =
+          Objectives.create_event(%{
+            objective_id: updated_objective.id,
+            kind: "completed",
+            summary: "Objective acceptance criteria met.",
+            payload: %{verdict: verdict, progress_summary: summary}
+          })
+          |> unwrap_or_rollback()
+
+        Commands.emit_objective(:completed, updated_objective, %{
+          stage: :observe_step,
+          step_id: observed_step.id,
+          completed_at: updated_objective.completed_at,
+          progress_summary: summary,
+          trace_id: trace_id(params, context)
+        })
+      end
+
+      %{
+        objective: updated_objective,
+        step: observed_step,
+        verdict: verdict,
+        observation_summary: summary,
+        stage: "observe_step"
+      }
+    end)
+  end
+
+  defp replace_step(steps, %Step{id: id} = replacement) do
+    Enum.map(steps, fn
+      %Step{id: ^id} -> replacement
+      step -> step
+    end)
+  end
+
+  defp completed_at(true), do: DateTime.utc_now()
+  defp completed_at(false), do: nil
+
+  defp observation_summary(step, params) do
+    explicit = Map.get(params, :observation_summary) || Map.get(params, "observation_summary")
+
+    summary =
+      explicit ||
+        step.result_summary ||
+        "Completed #{step.kind} step #{step.id}."
+
+    if is_binary(summary) and byte_size(summary) > 2_000,
+      do: binary_part(summary, 0, 2_000),
+      else: summary
+  end
+
+  defp unwrap_or_rollback({:ok, value}), do: value
+  defp unwrap_or_rollback({:error, reason}), do: Repo.rollback(reason)
+
+  defp get_step(id) do
+    case Repo.get(Step, id) do
+      %Step{} = step -> {:ok, step}
+      nil -> {:error, {:step_not_found, id}}
+    end
+  end
+
+  defp step_id(params) do
+    case Map.get(params, :step_id) || Map.get(params, "step_id") do
+      value when is_binary(value) and value != "" -> {:ok, value}
+      _other -> {:error, :missing_step_id}
+    end
+  end
+
+  defp trace_id(params, context) do
+    Map.get(params, :trace_id) || Map.get(params, "trace_id") || Map.get(context, :trace_id) ||
+      Map.get(context, "trace_id")
+  end
 end
 
 defmodule AllbertAssist.Objectives.Commands.Noop do

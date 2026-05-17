@@ -163,8 +163,8 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     assert {:ok, %{status: :noop}} =
              JidoBacked.dispatch(
                name,
-               "allbert.objectives.engine.execute_step",
-               %{command: "execute_step"},
+               "allbert.objectives.engine.advance_objective",
+               %{command: "advance_objective"},
                source: "/test"
              )
   end
