@@ -1154,10 +1154,11 @@ Request flow: `docs/plans/v0.24-request-flow.md`
 ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
 Research note: `docs/research/objective-runtime-research.md`
 
-Status: planned. NEW milestone inserted by the project-direction rethink
-(see `docs/plans/project-direction-rethink-01.md`). Adds the durable
-multi-step work substrate that v0.25 native trading agents, v0.26
-workspace shell, and future apps will build on.
+Status: implemented through M6 closeout; ready for operator manual
+verification before release tag. NEW milestone inserted by the
+project-direction rethink (see `docs/plans/project-direction-rethink-01.md`).
+Adds the durable multi-step work substrate that v0.25 native trading agents,
+v0.26 workspace shell, and future apps will build on.
 
 Expected direction:
 
@@ -1206,10 +1207,10 @@ Expected direction:
 - Acceptance smokes: single-step `analyze AAPL` objective and two-step
   `analyze AAPL and compare to MSFT` objective (with `parent_step_id`
   populated end-to-end).
-- ADR 0021 amended at v0.24 M6 to enumerate `:objective_write`,
-  `parent_step_id` semantics, minimal `:delegate_agent`,
-  `objective_id` on `stocksage_analyses`, and the `:abandoned`
-  status. ADR 0021 status moves to Accepted at M6.
+- ADR 0021 accepted at v0.24 M6 and amended to enumerate
+  `:objective_write`, `parent_step_id` semantics, minimal
+  `:delegate_agent`, `objective_id` on `stocksage_analyses`, and the
+  `:abandoned` status.
 - Reserved vocabulary: advisory provider behaviour, world-model
   provider, capability inventory, route, acquisition option, planner.
   See ADR 0021 and the research note.

@@ -881,8 +881,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
-  defp maybe_frame_objective(response, _decision, _context), do: response
-
   defp run_objective_route(text, %{request: request} = context, %Decision{} = decision) do
     permission_decision = objective_write_decision(context, request)
 
@@ -954,17 +952,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
            diagnostics: [%{source: :objectives, error: inspect(reason)}]
          }}
     end
-  end
-
-  defp run_objective_route(_text, _context, _decision) do
-    {:ok,
-     %{
-       message: "Unable to start objective: missing request context.",
-       status: :error,
-       error: :missing_request_context,
-       actions: [],
-       diagnostics: [%{source: :objectives, error: ":missing_request_context"}]
-     }}
   end
 
   defp replace_objective_step(steps, %{id: id} = replacement) do

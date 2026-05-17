@@ -10,6 +10,7 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
   alias AllbertAssist.JidoBacked
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Commands
+  alias AllbertAssist.Objectives.Proposer
 
   @frame_objective "allbert.objectives.engine.frame_objective"
   @propose_steps "allbert.objectives.engine.propose_steps"
@@ -144,19 +145,19 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
 
   defp proposer_hints(active) do
     active
-    |> Enum.flat_map(fn objective ->
-      case objective.proposer_hint && Jason.decode(objective.proposer_hint) do
-        {:ok, %{} = hint} ->
-          case AllbertAssist.Objectives.Proposer.normalize_hint(hint) do
-            {:ok, nil} -> []
-            {:ok, normalized_hint} -> [{objective.id, normalized_hint}]
-            {:error, _reason} -> []
-          end
-
-        _other ->
-          []
-      end
-    end)
+    |> Enum.flat_map(&proposer_hint_entry/1)
     |> Map.new()
   end
+
+  defp proposer_hint_entry(%{id: id, proposer_hint: hint}) when is_binary(hint) do
+    with {:ok, %{} = hint_map} <- Jason.decode(hint),
+         {:ok, normalized_hint} when not is_nil(normalized_hint) <-
+           Proposer.normalize_hint(hint_map) do
+      [{id, normalized_hint}]
+    else
+      _other -> []
+    end
+  end
+
+  defp proposer_hint_entry(_objective), do: []
 end

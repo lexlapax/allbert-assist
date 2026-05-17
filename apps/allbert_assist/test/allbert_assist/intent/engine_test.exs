@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Intent.EngineTest do
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.EvalFixtures
@@ -169,6 +170,15 @@ defmodule AllbertAssist.Intent.EngineTest do
   end
 
   test "collect_candidates/2 includes objective candidates only when requested" do
+    registered? = AppRegistry.known_app_id?(:stocksage)
+
+    unless registered? do
+      assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
+      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+    end
+
+    on_exit(fn -> unless registered?, do: AppRegistry.unregister(:stocksage) end)
+
     assert {:ok, objective} =
              Objectives.create_objective(%{
                user_id: "alice",

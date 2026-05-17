@@ -8,8 +8,11 @@ defmodule AllbertAssist.Objectives.AcceptanceCriteria do
   @required_clause_kinds ~w[step_completed_with_action observation_contains]
   @needs_more_clause_kinds ~w[completed_step_count_below]
 
+  @type criteria :: %{String.t() => term()}
+  @type decode_error :: {:expected_map, term()} | {:invalid_json, Jason.DecodeError.t()}
+
   @doc "Return the single-step fixture criteria used by M1 tests."
-  @spec single_step(map()) :: map()
+  @spec single_step(map()) :: criteria()
   def single_step(attrs \\ %{}) do
     action = Map.get(attrs, :action, "StockSage.Actions.RunAnalysis")
 
@@ -30,7 +33,7 @@ defmodule AllbertAssist.Objectives.AcceptanceCriteria do
   end
 
   @doc "Decode criteria JSON."
-  @spec decode(String.t() | nil) :: {:ok, map() | nil} | {:error, term()}
+  @spec decode(String.t() | nil) :: {:ok, criteria() | nil} | {:error, decode_error()}
   def decode(nil), do: {:ok, nil}
 
   def decode(text) when is_binary(text) do
