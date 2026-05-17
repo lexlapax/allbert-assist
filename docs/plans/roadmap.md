@@ -1155,8 +1155,8 @@ Request flow: `docs/plans/v0.24-request-flow.md`
 ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
 Research note: `docs/research/objective-runtime-research.md`
 
-Status: implemented through M6 closeout plus post-audit hardening; ready for operator manual
-verification before release tag. NEW milestone inserted by the
+Status: released and tagged as `v0.24` on 2026-05-17 after M6 closeout,
+post-audit hardening, and release verification. NEW milestone inserted by the
 project-direction rethink (see `docs/plans/project-direction-rethink-01.md`).
 Adds the durable multi-step work substrate that v0.25 native financial
 specialist agents, v0.26 workspace shell, and future apps will build on.
