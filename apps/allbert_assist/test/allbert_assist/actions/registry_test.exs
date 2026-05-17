@@ -142,6 +142,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "summarize_memory_category",
              "list_memory_category_summary",
              "promote_conversation_turn",
+             "list_objectives",
+             "show_objective",
+             "cancel_objective",
+             "continue_objective",
+             "delegate_agent",
              "registry_health",
              "trace_summary"
            ]
@@ -211,6 +216,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "summarize_memory_category",
              "list_memory_category_summary",
              "promote_conversation_turn",
+             "list_objectives",
+             "show_objective",
+             "cancel_objective",
+             "continue_objective",
+             "delegate_agent",
              "registry_health",
              "trace_summary"
            ]
@@ -227,6 +237,20 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert create_skill.permission == :skill_write
     assert create_skill.exposure == :internal
     refute create_skill.skill_backed?
+
+    assert {:ok, list_objectives} = Registry.capability("list_objectives")
+    assert list_objectives.permission == :read_only
+    assert list_objectives.exposure == :internal
+    assert list_objectives.execution_mode == :objectives_read
+
+    assert {:ok, cancel_objective} = Registry.capability("cancel_objective")
+    assert cancel_objective.permission == :objective_write
+    assert cancel_objective.exposure == :internal
+    assert cancel_objective.execution_mode == :objective_engine
+
+    assert {:ok, delegate_agent} = Registry.capability("delegate_agent")
+    assert delegate_agent.permission == :objective_write
+    assert delegate_agent.execution_mode == :objective_delegate
 
     assert {:ok, run_skill_script} = Registry.capability("run_skill_script")
     assert run_skill_script.permission == :skill_script_execute

@@ -40,9 +40,6 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
       {:error, :not_found} ->
         {:ok, not_found(permission_decision)}
 
-      {:error, :objective_abandoned} ->
-        {:error, :objective_abandoned}
-
       {:error, reason} ->
         {:ok, error(permission_decision, reason)}
     end
@@ -146,22 +143,20 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
   end
 
   defp current_step(objective) do
-    cond do
-      is_binary(objective.current_step_id) ->
-        case Repo.get(Step, objective.current_step_id) do
-          %Step{} = step -> {:ok, step}
-          nil -> {:error, :no_current_step}
-        end
-
-      true ->
-        objective.id
-        |> Objectives.list_steps()
-        |> Enum.reverse()
-        |> List.first()
-        |> case do
-          %Step{} = step -> {:ok, step}
-          nil -> {:error, :no_current_step}
-        end
+    if is_binary(objective.current_step_id) do
+      case Repo.get(Step, objective.current_step_id) do
+        %Step{} = step -> {:ok, step}
+        nil -> {:error, :no_current_step}
+      end
+    else
+      objective.id
+      |> Objectives.list_steps()
+      |> Enum.reverse()
+      |> List.first()
+      |> case do
+        %Step{} = step -> {:ok, step}
+        nil -> {:error, :no_current_step}
+      end
     end
   end
 

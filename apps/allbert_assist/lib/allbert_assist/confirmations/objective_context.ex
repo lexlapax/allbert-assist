@@ -18,32 +18,38 @@ defmodule AllbertAssist.Confirmations.ObjectiveContext do
   def info(nil), do: nil
 
   def info(record_or_handoff) when is_map(record_or_handoff) do
-    objective_id = field(record_or_handoff, :objective_id)
     params_summary = params_summary(record_or_handoff)
-    objective_id = objective_id || field(params_summary, :objective_id)
+    objective_id = field(record_or_handoff, :objective_id) || field(params_summary, :objective_id)
 
     if blank?(objective_id) do
       nil
     else
-      snapshot_title = field(params_summary, :objective_title)
-      snapshot_status = field(params_summary, :objective_status)
-
-      live =
-        case Objectives.get_objective(objective_id) do
-          {:ok, objective} -> objective
-          {:error, _reason} -> nil
-        end
-
-      %{
-        objective_id: objective_id,
-        step_id: field(record_or_handoff, :step_id) || field(params_summary, :step_id),
-        title: bounded((live && live.title) || snapshot_title || objective_id, @max_title),
-        status: (live && live.status) || snapshot_status,
-        snapshot_status: snapshot_status,
-        stale?: stale?(snapshot_status, live),
-        stale_note: stale_note(snapshot_status, live)
-      }
+      record_or_handoff
+      |> info_map(params_summary, objective_id)
       |> Redactor.redact()
+    end
+  end
+
+  defp info_map(record_or_handoff, params_summary, objective_id) do
+    live = live_objective(objective_id)
+    snapshot_title = field(params_summary, :objective_title)
+    snapshot_status = field(params_summary, :objective_status)
+
+    %{
+      objective_id: objective_id,
+      step_id: field(record_or_handoff, :step_id) || field(params_summary, :step_id),
+      title: bounded((live && live.title) || snapshot_title || objective_id, @max_title),
+      status: (live && live.status) || snapshot_status,
+      snapshot_status: snapshot_status,
+      stale?: stale?(snapshot_status, live),
+      stale_note: stale_note(snapshot_status, live)
+    }
+  end
+
+  defp live_objective(objective_id) do
+    case Objectives.get_objective(objective_id) do
+      {:ok, objective} -> objective
+      {:error, _reason} -> nil
     end
   end
 

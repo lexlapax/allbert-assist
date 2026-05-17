@@ -3,6 +3,7 @@ defmodule AllbertAssist.Objectives.Commands do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Objectives.Proposer
   alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Signals
 
@@ -34,20 +35,19 @@ defmodule AllbertAssist.Objectives.Commands do
 
   @doc false
   def objective_attrs(params) do
-    now_title = Map.get(params, :title) || Map.get(params, "title") || "Objective"
+    now_title = param(params, :title) || "Objective"
 
     %{
-      user_id: Map.get(params, :user_id) || Map.get(params, "user_id"),
-      source_thread_id: Map.get(params, :source_thread_id) || Map.get(params, "source_thread_id"),
-      session_id: Map.get(params, :session_id) || Map.get(params, "session_id"),
-      active_app: app_value(Map.get(params, :active_app) || Map.get(params, "active_app")),
-      status: Map.get(params, :status) || Map.get(params, "status") || "open",
+      user_id: param(params, :user_id),
+      source_thread_id: param(params, :source_thread_id),
+      session_id: param(params, :session_id),
+      active_app: app_value(param(params, :active_app)),
+      status: param(params, :status) || "open",
       title: now_title,
-      objective: Map.get(params, :objective) || Map.get(params, "objective") || now_title,
-      acceptance_criteria:
-        Map.get(params, :acceptance_criteria) || Map.get(params, "acceptance_criteria"),
-      constraints: Map.get(params, :constraints) || Map.get(params, "constraints"),
-      source_intent: Map.get(params, :source_intent) || Map.get(params, "source_intent")
+      objective: param(params, :objective) || now_title,
+      acceptance_criteria: param(params, :acceptance_criteria),
+      constraints: param(params, :constraints),
+      source_intent: param(params, :source_intent)
     }
   end
 
@@ -108,19 +108,16 @@ defmodule AllbertAssist.Objectives.Commands do
   end
 
   defp maybe_put_proposer_hint(state, %Objective{id: id, proposer_hint: hint}) do
-    case hint && Jason.decode(hint) do
-      {:ok, %{} = hint_map} ->
+    case normalized_proposer_hint(hint) do
+      {:ok, normalized_hint} ->
         current = Map.get(state, :proposer_hints, %{})
+        Map.put(state, :proposer_hints, Map.put(current, id, normalized_hint))
 
-        case AllbertAssist.Objectives.Proposer.normalize_hint(hint_map) do
-          {:ok, normalized_hint} ->
-            Map.put(state, :proposer_hints, Map.put(current, id, normalized_hint))
+      :delete ->
+        current = Map.get(state, :proposer_hints, %{})
+        Map.put(state, :proposer_hints, Map.delete(current, id))
 
-          {:error, _reason} ->
-            state
-        end
-
-      _other ->
+      :skip ->
         state
     end
   end
@@ -132,6 +129,22 @@ defmodule AllbertAssist.Objectives.Commands do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp normalized_proposer_hint(nil), do: :delete
+
+  defp normalized_proposer_hint(hint) when is_binary(hint) do
+    with {:ok, %{} = hint_map} <- Jason.decode(hint),
+         {:ok, normalized_hint} when not is_nil(normalized_hint) <-
+           Proposer.normalize_hint(hint_map) do
+      {:ok, normalized_hint}
+    else
+      _other -> :skip
+    end
+  end
+
+  defp normalized_proposer_hint(_hint), do: :skip
+
+  defp param(params, key), do: Map.get(params, key) || Map.get(params, Atom.to_string(key))
 
   defp app_value(nil), do: nil
   defp app_value(app) when is_atom(app), do: Atom.to_string(app)
@@ -188,24 +201,28 @@ defmodule AllbertAssist.Objectives.Commands.ProposeSteps do
          {:ok, objective} <- Objectives.get_objective(objective_id),
          {:ok, intent_decision} <- intent_decision(params, objective),
          proposer_context <- proposer_context(params, context, objective, state) do
-      case Proposer.propose(intent_decision, proposer_context) do
-        {:ok, _steps, _continuation} = proposal ->
-          with {:ok, result} <- persist_proposal(objective, proposal) do
-            Commands.finish(:propose_steps, {:ok, result}, state)
-          else
-            {:error, reason} -> Commands.finish(:propose_steps, {:error, reason}, state)
-          end
-
-        {:no_steps, reason} ->
-          record_no_steps(params, state, reason)
-
-        {:error, reason} ->
-          Commands.finish(:propose_steps, {:error, reason}, state)
-      end
+      intent_decision
+      |> Proposer.propose(proposer_context)
+      |> handle_proposal(objective, params, state)
     else
       {:error, reason} ->
         Commands.finish(:propose_steps, {:error, reason}, state)
     end
+  end
+
+  defp handle_proposal({:ok, _steps, _continuation} = proposal, objective, _params, state) do
+    case persist_proposal(objective, proposal) do
+      {:ok, result} -> Commands.finish(:propose_steps, {:ok, result}, state)
+      {:error, reason} -> Commands.finish(:propose_steps, {:error, reason}, state)
+    end
+  end
+
+  defp handle_proposal({:no_steps, reason}, _objective, params, state) do
+    record_no_steps(params, state, reason)
+  end
+
+  defp handle_proposal({:error, reason}, _objective, _params, state) do
+    Commands.finish(:propose_steps, {:error, reason}, state)
   end
 
   defp persist_proposal(objective, {:ok, step_attrs, continuation}) do
@@ -221,46 +238,59 @@ defmodule AllbertAssist.Objectives.Commands.ProposeSteps do
 
   defp do_persist_proposal(objective, {:ok, step_attrs, continuation}) do
     Repo.transaction(fn ->
-      steps =
-        Enum.map(step_attrs, fn attrs ->
-          attrs =
-            attrs
-            |> Map.put(:objective_id, objective.id)
-            |> Map.put_new(:status, "proposed")
-            |> Map.put_new(:stage, "propose_steps")
-
-          case Objectives.create_step(attrs) do
-            {:ok, step} ->
-              {:ok, _event} =
-                Objectives.create_event(%{
-                  objective_id: objective.id,
-                  step_id: step.id,
-                  kind: "step_proposed",
-                  summary: "Proposed #{step.kind} objective step.",
-                  payload: %{
-                    candidate_action: step.candidate_action,
-                    provider: step.provider,
-                    continuation: continuation_summary(continuation)
-                  }
-                })
-
-              step
-
-            {:error, reason} ->
-              Repo.rollback(reason)
-          end
-        end)
-
-      objective =
-        objective
-        |> update_hint(continuation)
-        |> case do
-          {:ok, objective} -> objective
-          {:error, reason} -> Repo.rollback(reason)
-        end
+      steps = Enum.map(step_attrs, &persist_step!(objective, &1, continuation))
+      objective = update_hint!(objective, continuation)
 
       %{objective: objective, steps: steps, continuation: continuation_summary(continuation)}
     end)
+  end
+
+  defp persist_step!(objective, attrs, continuation) do
+    attrs
+    |> step_attrs(objective)
+    |> Objectives.create_step()
+    |> case do
+      {:ok, step} ->
+        create_step_proposed_event!(objective, step, continuation)
+        step
+
+      {:error, reason} ->
+        Repo.rollback(reason)
+    end
+  end
+
+  defp step_attrs(attrs, objective) do
+    attrs
+    |> Map.put(:objective_id, objective.id)
+    |> Map.put_new(:status, "proposed")
+    |> Map.put_new(:stage, "propose_steps")
+  end
+
+  defp create_step_proposed_event!(objective, step, continuation) do
+    Objectives.create_event(%{
+      objective_id: objective.id,
+      step_id: step.id,
+      kind: "step_proposed",
+      summary: "Proposed #{step.kind} objective step.",
+      payload: %{
+        candidate_action: step.candidate_action,
+        provider: step.provider,
+        continuation: continuation_summary(continuation)
+      }
+    })
+    |> unwrap_or_rollback()
+  end
+
+  defp unwrap_or_rollback({:ok, value}), do: value
+  defp unwrap_or_rollback({:error, reason}), do: Repo.rollback(reason)
+
+  defp update_hint!(objective, continuation) do
+    objective
+    |> update_hint(continuation)
+    |> case do
+      {:ok, objective} -> objective
+      {:error, reason} -> Repo.rollback(reason)
+    end
   end
 
   defp record_cap_impasse(objective, cap_hit, payload) do
@@ -443,11 +473,13 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
           }
         )
 
-      {:ok, running_objective} =
-        Objectives.update_objective(objective, %{
+      running_objective =
+        objective
+        |> Objectives.update_objective(%{
           status: "running",
           current_step_id: selected_step.id
         })
+        |> unwrap_or_rollback()
 
       Commands.emit_objective(:step_selected, objective, %{
         stage: :authorize_step,
@@ -459,143 +491,145 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
 
       runner_context = runner_context(running_objective, selected_step, params, context)
 
-      case Runner.run(action, action_params, runner_context) do
-        {:ok, %{status: :needs_confirmation} = response} ->
-          confirmation_id = Map.get(response, :confirmation_id)
-
-          blocked_step =
-            selected_step
-            |> Objectives.transition_step("blocked", %{
-              stage: "authorize_step",
-              confirmation_id: confirmation_id,
-              trace_id: trace_id(params, context),
-              result_summary: "Waiting for confirmation #{confirmation_id}."
-            })
-            |> unwrap_or_rollback()
-
-          blocked_objective =
-            objective
-            |> Objectives.update_objective(%{
-              status: "blocked",
-              current_step_id: blocked_step.id,
-              progress_summary: "Waiting for confirmation #{confirmation_id}."
-            })
-            |> unwrap_or_rollback()
-
-          _event =
-            create_objective_event!(blocked_objective, "blocked", "Objective blocked.", %{
-              reason: :confirmation_required,
-              confirmation_id: confirmation_id,
-              step_id: blocked_step.id
-            })
-
-          Commands.emit_objective(:blocked, blocked_objective, %{
-            stage: :authorize_step,
-            step_id: blocked_step.id,
-            reason: "confirmation_required",
-            trace_id: trace_id(params, context)
-          })
-
-          %{
-            objective: blocked_objective,
-            step: blocked_step,
-            response: response,
-            confirmation_id: confirmation_id,
-            stage: "authorize_step"
-          }
-
-        {:ok, %{status: status} = response} when status in [:completed, :failed, :error] ->
-          {step_status, signal_kind, event_kind} =
-            if status == :completed do
-              {"completed", :step_completed, "step_completed"}
-            else
-              {"failed", :step_failed, "step_failed"}
-            end
-
-          finished_step =
-            selected_step
-            |> Objectives.transition_step(step_status, %{
-              stage: "execute_step",
-              trace_id: trace_id(params, context),
-              result_summary: result_summary(response)
-            })
-            |> unwrap_or_rollback()
-
-          updated_objective =
-            objective
-            |> Objectives.update_objective(%{
-              status: "running",
-              current_step_id: finished_step.id
-            })
-            |> unwrap_or_rollback()
-
-          _event =
-            create_step_event!(
-              updated_objective,
-              finished_step,
-              event_kind,
-              "Objective step #{step_status}.",
-              %{status: status, result_summary: result_summary(response)}
-            )
-
-          Commands.emit_objective(signal_kind, updated_objective, %{
-            stage: :execute_step,
-            step_id: finished_step.id,
-            result_summary: result_summary(response),
-            trace_id: trace_id(params, context)
-          })
-
-          %{
-            objective: updated_objective,
-            step: finished_step,
-            response: response,
-            stage: "execute_step"
-          }
-
-        {:ok, response} ->
-          failed_step =
-            selected_step
-            |> Objectives.transition_step("failed", %{
-              stage: "execute_step",
-              trace_id: trace_id(params, context),
-              result_summary: result_summary(response)
-            })
-            |> unwrap_or_rollback()
-
-          failed_objective =
-            objective
-            |> Objectives.update_objective(%{
-              status: "failed",
-              current_step_id: failed_step.id,
-              progress_summary: "Objective step failed during authorization."
-            })
-            |> unwrap_or_rollback()
-
-          _event =
-            create_step_event!(
-              failed_objective,
-              failed_step,
-              "step_failed",
-              "Objective step failed.",
-              %{response_status: Map.get(response, :status)}
-            )
-
-          Commands.emit_objective(:step_failed, failed_objective, %{
-            stage: :authorize_step,
-            step_id: failed_step.id,
-            error: inspect(Map.get(response, :status, :unknown)),
-            trace_id: trace_id(params, context)
-          })
-
-          %{
-            objective: failed_objective,
-            step: failed_step,
-            response: response,
-            stage: "authorize_step"
-          }
-      end
+      action
+      |> Runner.run(action_params, runner_context)
+      |> handle_runner_result(objective, selected_step, params, context)
     end)
   end
+
+  defp handle_runner_result(
+         {:ok, %{status: :needs_confirmation} = response},
+         objective,
+         step,
+         params,
+         context
+       ) do
+    confirmation_id = Map.get(response, :confirmation_id)
+
+    blocked_step =
+      step
+      |> Objectives.transition_step("blocked", %{
+        stage: "authorize_step",
+        confirmation_id: confirmation_id,
+        trace_id: trace_id(params, context),
+        result_summary: "Waiting for confirmation #{confirmation_id}."
+      })
+      |> unwrap_or_rollback()
+
+    blocked_objective =
+      objective
+      |> Objectives.update_objective(%{
+        status: "blocked",
+        current_step_id: blocked_step.id,
+        progress_summary: "Waiting for confirmation #{confirmation_id}."
+      })
+      |> unwrap_or_rollback()
+
+    create_objective_event!(blocked_objective, "blocked", "Objective blocked.", %{
+      reason: :confirmation_required,
+      confirmation_id: confirmation_id,
+      step_id: blocked_step.id
+    })
+
+    Commands.emit_objective(:blocked, blocked_objective, %{
+      stage: :authorize_step,
+      step_id: blocked_step.id,
+      reason: "confirmation_required",
+      trace_id: trace_id(params, context)
+    })
+
+    %{
+      objective: blocked_objective,
+      step: blocked_step,
+      response: response,
+      confirmation_id: confirmation_id,
+      stage: "authorize_step"
+    }
+  end
+
+  defp handle_runner_result({:ok, %{status: status} = response}, objective, step, params, context)
+       when status in [:completed, :failed, :error] do
+    {step_status, signal_kind, event_kind} = terminal_step_status(status)
+
+    finished_step =
+      step
+      |> Objectives.transition_step(step_status, %{
+        stage: "execute_step",
+        trace_id: trace_id(params, context),
+        result_summary: result_summary(response)
+      })
+      |> unwrap_or_rollback()
+
+    updated_objective =
+      objective
+      |> Objectives.update_objective(%{
+        status: "running",
+        current_step_id: finished_step.id
+      })
+      |> unwrap_or_rollback()
+
+    create_step_event!(
+      updated_objective,
+      finished_step,
+      event_kind,
+      "Objective step #{step_status}.",
+      %{status: status, result_summary: result_summary(response)}
+    )
+
+    Commands.emit_objective(signal_kind, updated_objective, %{
+      stage: :execute_step,
+      step_id: finished_step.id,
+      result_summary: result_summary(response),
+      trace_id: trace_id(params, context)
+    })
+
+    %{
+      objective: updated_objective,
+      step: finished_step,
+      response: response,
+      stage: "execute_step"
+    }
+  end
+
+  defp handle_runner_result({:ok, response}, objective, step, params, context) do
+    failed_step =
+      step
+      |> Objectives.transition_step("failed", %{
+        stage: "execute_step",
+        trace_id: trace_id(params, context),
+        result_summary: result_summary(response)
+      })
+      |> unwrap_or_rollback()
+
+    failed_objective =
+      objective
+      |> Objectives.update_objective(%{
+        status: "failed",
+        current_step_id: failed_step.id,
+        progress_summary: "Objective step failed during authorization."
+      })
+      |> unwrap_or_rollback()
+
+    create_step_event!(
+      failed_objective,
+      failed_step,
+      "step_failed",
+      "Objective step failed.",
+      %{response_status: Map.get(response, :status)}
+    )
+
+    Commands.emit_objective(:step_failed, failed_objective, %{
+      stage: :authorize_step,
+      step_id: failed_step.id,
+      error: inspect(Map.get(response, :status, :unknown)),
+      trace_id: trace_id(params, context)
+    })
+
+    %{objective: failed_objective, step: failed_step, response: response, stage: "authorize_step"}
+  end
+
+  defp terminal_step_status(:completed), do: {"completed", :step_completed, "step_completed"}
+  defp terminal_step_status(_status), do: {"failed", :step_failed, "step_failed"}
 
   defp unwrap_or_rollback({:ok, value}), do: value
   defp unwrap_or_rollback({:error, reason}), do: Repo.rollback(reason)
@@ -1380,12 +1414,27 @@ defmodule AllbertAssist.Objectives.Commands.Noop do
     name: "allbert_objectives_noop",
     description: "Private objective placeholder command."
 
+  alias AllbertAssist.Objectives.Commands
+
+  @binary_commands %{
+    "propose_steps" => :propose_steps,
+    "evaluate_steps" => :evaluate_steps,
+    "authorize_step" => :authorize_step,
+    "execute_step" => :execute_step,
+    "observe_step" => :observe_step,
+    "advance_objective" => :advance_objective,
+    "cancel_objective" => :cancel_objective,
+    "continue_objective" => :continue_objective,
+    "prune_stale" => :prune_stale
+  }
+  @atom_commands MapSet.new([:noop | Map.values(@binary_commands)])
+
   @impl true
   def run(params, context) do
     state = Map.get(context, :state, %{})
     command = Map.get(params, :command) || Map.get(params, "command") || :noop
 
-    AllbertAssist.Objectives.Commands.finish(
+    Commands.finish(
       normalize_command(command),
       {:ok, %{status: :noop}},
       state
@@ -1393,34 +1442,12 @@ defmodule AllbertAssist.Objectives.Commands.Noop do
   end
 
   defp normalize_command(command) when is_binary(command) do
-    case command do
-      "propose_steps" -> :propose_steps
-      "evaluate_steps" -> :evaluate_steps
-      "authorize_step" -> :authorize_step
-      "execute_step" -> :execute_step
-      "observe_step" -> :observe_step
-      "advance_objective" -> :advance_objective
-      "cancel_objective" -> :cancel_objective
-      "continue_objective" -> :continue_objective
-      "prune_stale" -> :prune_stale
-      _other -> :noop
-    end
+    Map.get(@binary_commands, command, :noop)
   end
 
-  defp normalize_command(command)
-       when command in [
-              :propose_steps,
-              :evaluate_steps,
-              :authorize_step,
-              :execute_step,
-              :observe_step,
-              :advance_objective,
-              :cancel_objective,
-              :continue_objective,
-              :prune_stale,
-              :noop
-            ],
-       do: command
+  defp normalize_command(command) when is_atom(command) do
+    if MapSet.member?(@atom_commands, command), do: command, else: :noop
+  end
 
   defp normalize_command(_command), do: :noop
 end

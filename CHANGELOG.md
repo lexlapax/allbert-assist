@@ -10,6 +10,80 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.24 - Objective Runtime Foundation
+
+Status: implemented and ready for operator manual verification. Version
+metadata is `0.24.0`; the release tag is pending operator acceptance.
+
+### Added (v0.24)
+
+- Durable objective runtime tables: `objectives`, `objective_steps`, and
+  `objective_events`, plus nullable `objective_id` / `step_id` links on
+  confirmations, scheduled jobs, StockSage queue rows, and StockSage analyses.
+- `AllbertAssist.Objectives.Engine.Agent`, a JidoBacked seven-stage
+  coordinator for receiving a turn, framing/resuming an objective, proposing
+  and evaluating steps, authorizing through the existing action boundary,
+  executing, observing, and advancing.
+- Registered objective actions:
+  `list_objectives`, `show_objective`, `continue_objective`, and
+  `cancel_objective`, surfaced through `mix allbert.objectives`.
+- `:objective_write` permission class and objective runtime settings for the
+  master switch, loop caps, stale abandonment window, and max steps per turn.
+- Deterministic acceptance evaluator, durable hybrid proposer hints, and the
+  first app proposer (`StockSage.Proposer`) proving a one-step analysis and a
+  two-step "analyze AAPL and compare to MSFT" flow.
+- Minimal `:delegate_agent` step contract and
+  `AllbertAssist.Objectives.AgentRegistry` as the v0.25 handoff for
+  specialist agents.
+- Objective lifecycle signals, canonical runtime turn signal aliases, and the
+  web-side `AllbertAssistWeb.SignalBridge` that fans objective signals into
+  per-user Phoenix.PubSub topics.
+- `/agent` active-objective badges and `/objectives/:id` inspection/cancel
+  surface. LiveViews remain thin consumers of registered actions.
+
+### Changed (v0.24)
+
+- StockSage `RunAnalysis` and queue/analysis rows now preserve
+  `objective_id` and `step_id` context when invoked from an objective.
+- Confirmation renderers for CLI, SettingsLive, Telegram, and email now show
+  objective title/status context and a stale-warning note when the linked
+  objective has moved since confirmation creation.
+- `Intent.Engine.collect_candidates/2` now accepts objective context and ADR
+  0019 registers `:objective` as a proposal-only candidate kind.
+- Trace rendering now includes inline objective context and a bounded
+  `## Objective Steps` section for turns that touch objective work.
+- `AllbertAssist.App.CoreApp.version/0`, umbrella app metadata, and
+  StockSage plugin/app metadata are release-pinned to `0.24.0`.
+
+### Safety (v0.24)
+
+- `objective_id`, `step_id`, and `active_app` are never permission. Every
+  effectful objective step still executes through `Actions.Runner.run/3`,
+  Security Central, resource posture, and durable confirmations.
+- The objective engine never writes confirmation YAML directly and never
+  calls app internals for effectful work.
+- Cancellation is cooperative only. Pending/proposed/selected/blocked steps
+  can be cancelled; already approved in-flight work is not interrupted.
+- Advisory provider, world-model, diffusion, market-allocation, and
+  capability-inventory vocabulary remains reserved only. v0.24 ships no
+  external advisory provider calls, no parallel execution, no dynamic
+  planner, and no authority transfer to model output.
+
+### Verification (v0.24)
+
+- Milestone suites passed for objective schemas/migrations/settings,
+  JidoBacked engine setup, framing/resume, StockSage proposer integration,
+  confirmation threading, continuation, delegation, cancellation, channel
+  rendering, LiveView surfaces, and SignalBridge behavior.
+- M5 focused suite passed with allbert_assist 42 tests and
+  allbert_assist_web 7 tests, 0 failures.
+- Closeout gates passed: `git diff --check`, `mix format
+  --check-formatted`, `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer` (0 unskipped errors),
+  `mix test` (`allbert_assist` 661 tests and `allbert_assist_web`
+  25 tests), StockSage plugin tests (123 tests), and `mix precommit`.
+- Operator smoke steps live in `docs/plans/v0.24-request-flow.md`.
+
 ## v0.23 - Jido State-Machine Convergence
 
 Status: implemented and ready for operator manual verification. Version

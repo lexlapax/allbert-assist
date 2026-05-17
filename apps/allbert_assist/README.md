@@ -2,7 +2,7 @@
 
 Core runtime app for Allbert Assist.
 
-The current v0.23 runtime exposes:
+The current v0.24 runtime exposes:
 
 - `AllbertAssist.Runtime.submit_user_input/1`
 - `AllbertAssist.JidoBacked`
@@ -10,6 +10,17 @@ The current v0.23 runtime exposes:
 - `AllbertAssist.Agents.IntentAgent`
 - `AllbertAssist.Confirmations.Store.Agent`
 - `AllbertAssist.Jobs.Scheduler.Agent`
+- `AllbertAssist.Objectives`
+- `AllbertAssist.Objectives.Objective`
+- `AllbertAssist.Objectives.Step`
+- `AllbertAssist.Objectives.Event`
+- `AllbertAssist.Objectives.Engine.Agent`
+- `AllbertAssist.Objectives.AgentRegistry`
+- `AllbertAssist.Actions.Objectives.ListObjectives`
+- `AllbertAssist.Actions.Objectives.ShowObjective`
+- `AllbertAssist.Actions.Objectives.ContinueObjective`
+- `AllbertAssist.Actions.Objectives.CancelObjective`
+- `mix allbert.objectives`
 - `AllbertAssist.Actions.Registry`
 - `AllbertAssist.Actions.Runner`
 - `AllbertAssist.Intent.Candidate`
@@ -105,10 +116,17 @@ v0.23 adds the shared `AllbertAssist.JidoBacked` substrate. The confirmation
 store and scheduled-job scheduler are now Jido-backed coordinator agents, while
 their public facade modules and durable YAML/SQLite stores remain unchanged.
 
+v0.24 adds `AllbertAssist.Objectives`, the durable objective runtime for
+multi-step and cross-turn work. `Objectives.Engine.Agent` is Jido-backed, but
+all effectful objective steps still execute through registered actions,
+Security Central, resource posture, and durable confirmations. StockSage now
+threads `objective_id` and `step_id` through its analysis flow.
+
 See the umbrella root `README.md`, `docs/plans/v0.20-plan.md`,
 `docs/plans/v0.20-request-flow.md`, `docs/plans/v0.21-plan.md`,
 `docs/plans/v0.21-request-flow.md`, `docs/plans/v0.22-plan.md`,
 `docs/plans/v0.22-request-flow.md`, `docs/plans/v0.23-plan.md`,
-`docs/plans/v0.23-request-flow.md`, `plugins/stocksage/README.md`, and
+`docs/plans/v0.23-request-flow.md`, `docs/plans/v0.24-plan.md`,
+`docs/plans/v0.24-request-flow.md`, `plugins/stocksage/README.md`, and
 `docs/developer/how-to-create-an-allbert-app.md` for current memory review,
-StockSage, app/surface, and intent-routing behavior.
+StockSage, app/surface, intent-routing, and objective-runtime behavior.

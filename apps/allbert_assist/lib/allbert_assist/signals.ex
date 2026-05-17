@@ -10,6 +10,7 @@ defmodule AllbertAssist.Signals do
 
   alias AllbertAssist.Security.Redactor
   alias Jido.Signal
+  alias Jido.Signal.Bus
 
   @action_requested "allbert.action.requested"
   @action_completed "allbert.action.completed"
@@ -170,7 +171,7 @@ defmodule AllbertAssist.Signals do
   end
 
   defp publish(%Signal{} = signal) do
-    case Jido.Signal.Bus.publish(AllbertAssist.SignalBus, [signal]) do
+    case Bus.publish(AllbertAssist.SignalBus, [signal]) do
       {:ok, _recorded} ->
         :ok
 

@@ -10,13 +10,29 @@ not the architecture center.
 
 ## Current Status
 
-v0.23 is implemented and ready for operator manual verification. It is an
-internal convergence milestone: `Confirmations.Store` and `Jobs.Scheduler`
-keep their public facades and durable stores, but now run through
+v0.24 is implemented and ready for operator manual verification. It adds the
+Objective Runtime Foundation: durable `objectives`, `objective_steps`, and
+`objective_events`; `AllbertAssist.Objectives.Engine.Agent` on the
+JidoBacked substrate; objective-aware StockSage analysis flow; objective
+signals and trace sections; confirmation context rendering; and
+`mix allbert.objectives list|show|continue|cancel`. Version metadata is now
+`0.24.0`; the release tag is still pending operator acceptance.
+
+Operator loop:
+
+```sh
+mix allbert.ask "analyze AAPL and compare to MSFT" --user local
+mix allbert.objectives list --user local
+mix allbert.objectives show <objective_id> --user local
+mix allbert.confirmations approve <confirmation_id> --reason "..."
+mix allbert.objectives continue <objective_id> --user local
+```
+
+v0.23 remains the internal convergence milestone: `Confirmations.Store` and
+`Jobs.Scheduler` keep their public facades and durable stores, but run through
 Jido-backed coordinator agents under `AllbertAssist.JidoBacked.Supervisor`.
-Operator-facing confirmation, job, channel, memory, and StockSage flows are
-intended to remain identical to v0.22 by default. Version metadata is now
-`0.23.0`; the release tag is still pending operator acceptance.
+Operator-facing confirmation, job, channel, memory, and StockSage flows remain
+identical to v0.22 by default.
 
 v0.22 was released and tagged as `v0.22` on 2026-05-16 after audit closeout
 and post-implementation gap fixes. It adds the StockSage Python bridge: a
@@ -105,6 +121,16 @@ Release details live in `CHANGELOG.md`.
 - Run confirmation-store and scheduled-job coordination through
   `AllbertAssist.JidoBacked` agents while keeping durable YAML/SQLite stores
   authoritative.
+- Frame multi-step or cross-turn work as durable objectives with
+  `objectives`, `objective_steps`, and `objective_events` rows.
+- Inspect and steer objectives through `mix allbert.objectives list`,
+  `mix allbert.objectives show`, `mix allbert.objectives continue`, and
+  `mix allbert.objectives cancel --reason ...`.
+- Route objective execution through `Actions.Runner.run/3`, Security Central,
+  and durable confirmations; `objective_id` and `step_id` are context, not
+  authority.
+- Render objective context in traces, CLI confirmations, Telegram and email
+  confirmation handoffs, `/agent` objective badges, and `/objectives/:id`.
 - Persist local SQLite conversation threads and ordered user/assistant
   messages with string `user_id` and `thread_id`.
 - Continue the user's recent general thread by default, create a fresh thread
@@ -174,8 +200,8 @@ Release details live in `CHANGELOG.md`.
   rows with `mix stocksage.analyses` and `mix stocksage.queue`.
 - Route active StockSage session or one-turn CLI app context toward the safe
   local StockSage actions contributed by `StockSage.Plugin`, while keeping
-  Python execution, market-data APIs, StockSage LiveViews, native trading
-  agents, and canvas work in later milestones.
+  market-data APIs, StockSage LiveViews, native trading agents, and canvas
+  work in later milestones.
 - Merge app/plugin-contributed settings schema entries into Settings Central
   at read and validation time.
 - Tag registered action capabilities with optional `app_id` when an app claims
@@ -267,10 +293,10 @@ traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.23 release plan: `docs/plans/v0.23-plan.md`
-- v0.23 request flow and manual verification: `docs/plans/v0.23-request-flow.md`
+- v0.24 release plan: `docs/plans/v0.24-plan.md`
+- v0.24 request flow and manual verification: `docs/plans/v0.24-request-flow.md`
 - App authoring guide: `docs/developer/how-to-create-an-allbert-app.md`
-- Next milestone plan: `docs/plans/v0.24-plan.md`
+- Next milestone plan: `docs/plans/v0.25-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development

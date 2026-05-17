@@ -3,8 +3,8 @@ defmodule AllbertAssist.SignalsTest do
 
   import ExUnit.CaptureLog
 
-  alias Jido.Signal.Bus
   alias AllbertAssist.Signals
+  alias Jido.Signal.Bus
 
   test "redacts sensitive keys recursively" do
     assert Signals.redact(%{
