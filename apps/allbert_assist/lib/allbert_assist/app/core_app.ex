@@ -15,11 +15,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.22 audit closeout
-  # bumped this from "0.21.0" to align with `apps/allbert_assist/mix.exs`
-  # and remove the "is this number stale?" ambiguity. Convention is
-  # documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.22.0"
+  # the app (release-pinned, not semantic-per-app). v0.23 adds the
+  # JidoBacked substrate and debug trace setting to the core runtime.
+  # Convention is documented in DEVELOPMENT.md "App version metadata".
+  def version, do: "0.23.0"
 
   @impl true
   def validate(_opts), do: :ok

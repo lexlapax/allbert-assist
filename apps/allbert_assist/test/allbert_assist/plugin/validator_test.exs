@@ -1,5 +1,5 @@
 defmodule AllbertAssist.Plugin.ValidatorTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias AllbertAssist.Plugin.Entry
   alias AllbertAssist.Plugin.Manifest

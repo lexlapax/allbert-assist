@@ -8,9 +8,16 @@ defmodule AllbertAssist.JidoBacked do
   projection, not a new security or persistence boundary.
   """
 
+  alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Settings
   alias Jido.AgentServer
   alias Jido.Signal
+
+  @debug_agents [
+    {:"Elixir.AllbertAssist.Confirmations.Store.Agent",
+     :"Elixir.AllbertAssist.Confirmations.Store.Agent"},
+    {:"Elixir.AllbertAssist.Jobs.Scheduler.Agent", :"Elixir.AllbertAssist.Jobs.Scheduler"}
+  ]
 
   @type dispatch_result :: {:ok, term()} | {:error, term()}
 
@@ -25,6 +32,11 @@ defmodule AllbertAssist.JidoBacked do
 
     quote location: :keep do
       @behaviour AllbertAssist.JidoBacked
+
+      @dialyzer {:nowarn_function, __agent_metadata__: 0}
+      @dialyzer {:nowarn_function, actions: 0}
+      @dialyzer {:nowarn_function, signal_routes: 0}
+      @dialyzer {:nowarn_function, validate: 2}
 
       use Jido.Agent,
         name: unquote(name),
@@ -113,10 +125,29 @@ defmodule AllbertAssist.JidoBacked do
   end
 
   @doc """
-  Gate for future bounded debug trace emission.
+  Return a bounded markdown trace section for JidoBacked agent diagnostics.
 
-  v0.23 keeps default operator traces byte-identical. The hook exists so
-  converted coordinators can expose bounded state when the explicit setting is
+  Default operator traces stay byte-identical because the section is emitted
+  only when `allbert.jido.debug_trace` is explicitly enabled.
+  """
+  @spec debug_trace_markdown() :: String.t()
+  def debug_trace_markdown do
+    if debug_trace_enabled?() do
+      body =
+        @debug_agents
+        |> Enum.map(&debug_agent_line/1)
+        |> Enum.join("\n")
+
+      "\n\n## Jido Debug\n\n#{body}"
+    else
+      ""
+    end
+  end
+
+  @doc """
+  Gate for bounded debug trace emission.
+
+  Converted coordinators expose bounded state when the explicit setting is
   enabled, without changing their public result shape.
   """
   @spec maybe_emit_debug_trace(map(), atom(), map()) :: :ok
@@ -130,6 +161,67 @@ defmodule AllbertAssist.JidoBacked do
   defp unwrap_last_result(%{"last_result" => {:ok, result}}), do: {:ok, result}
   defp unwrap_last_result(%{"last_result" => {:error, reason}}), do: {:error, reason}
   defp unwrap_last_result(_state), do: {:error, :jido_backed_missing_result}
+
+  defp debug_agent_line({agent_module, server}) do
+    case Process.whereis(server) do
+      nil ->
+        "- #{inspect(agent_module)}: unavailable"
+
+      _pid ->
+        case AgentServer.state(server) do
+          {:ok, server_state} ->
+            "- #{inspect(agent_module)}: #{debug_agent_summary(server_state)}"
+
+          {:error, reason} ->
+            "- #{inspect(agent_module)}: unavailable reason=#{bounded_debug_value(reason)}"
+        end
+    end
+  rescue
+    exception ->
+      "- #{inspect(agent_module)}: unavailable reason=#{bounded_debug_value(Exception.message(exception))}"
+  catch
+    kind, reason ->
+      "- #{inspect(agent_module)}: unavailable reason=#{bounded_debug_value({kind, reason})}"
+  end
+
+  defp debug_agent_summary(%{status: status, agent: %{state: state}}) when is_map(state) do
+    [
+      "server_status=#{status}",
+      "last_command=#{state_value(state, :last_command) || "unknown"}",
+      "last_result=#{last_result_status(state_value(state, :last_result))}",
+      "pending_count=#{pending_count(state)}",
+      "last_tick_at=#{state_value(state, :last_tick_at) || "none"}",
+      "last_rebuilt_at=#{state_value(state, :last_rebuilt_at) || "none"}",
+      "last_error=#{bounded_debug_value(state_value(state, :last_error) || "none")}"
+    ]
+    |> Enum.join(" ")
+  end
+
+  defp debug_agent_summary(_server_state), do: "unavailable reason=unexpected_state"
+
+  defp state_value(state, key) when is_map(state) do
+    Map.get(state, key) || Map.get(state, Atom.to_string(key))
+  end
+
+  defp last_result_status({:ok, _result}), do: "ok"
+  defp last_result_status({:error, _reason}), do: "error"
+  defp last_result_status(other), do: bounded_debug_value(other || "unknown")
+
+  defp pending_count(state) do
+    case state_value(state, :pending_ids) do
+      ids when is_list(ids) -> length(ids)
+      _other -> "n/a"
+    end
+  end
+
+  defp bounded_debug_value(value) do
+    value
+    |> Redactor.redact()
+    |> inspect(limit: 20, printable_limit: 240)
+    |> then(fn text ->
+      if byte_size(text) > 240, do: binary_part(text, 0, 240), else: text
+    end)
+  end
 
   defp default_id(module) do
     module

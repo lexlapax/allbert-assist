@@ -10,6 +10,68 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.23 - Jido State-Machine Convergence
+
+Status: implemented and ready for operator manual verification. Version
+metadata is `0.23.0`; the release tag is pending operator acceptance.
+
+### Added (v0.23)
+
+- `AllbertAssist.JidoBacked` shared substrate for internal state-machine
+  coordinators that are implemented as `Jido.Agent` instances but keep their
+  existing durable stores as the source of truth.
+- `AllbertAssist.JidoBacked.Supervisor` under the core application
+  supervision tree, currently hosting `Confirmations.Store.Agent` and
+  `Jobs.Scheduler.Agent`.
+- Jido-backed `AllbertAssist.Confirmations.Store.Agent` with private
+  `Jido.Action` command modules for create/read/list/resolve/expire/rebuild.
+  Confirmation YAML and audit markdown under Allbert Home remain authoritative.
+- Jido-backed `AllbertAssist.Jobs.Scheduler.Agent` with private scheduler
+  commands for run-once, stale-run cleanup, tick, and scheduled next tick.
+  SQLite `scheduled_jobs` and `scheduled_job_runs` rows remain authoritative.
+- `allbert.jido.debug_trace` Settings Central key, default `false`. When
+  enabled alongside trace recording, trace markdown includes a bounded
+  `## Jido Debug` section for the converted coordinators.
+- `docs/developer/jido-agent-pattern.md` and updated development/agent context
+  docs describing the pragmatic rule for choosing `Jido.Agent` vs plain
+  `GenServer`.
+
+### Changed (v0.23)
+
+- `AllbertAssist.Confirmations.Store` and `AllbertAssist.Jobs.Scheduler` are
+  now public facades over Jido-backed agents. Their public API, CLI behavior,
+  action behavior, audit shapes, and durable storage locations are preserved.
+- `AllbertAssist.Application` starts scheduler coordination through
+  `AllbertAssist.JidoBacked.Supervisor` rather than a separate scheduler child.
+- Transitional compatibility modules used during parity testing were removed
+  before release closeout.
+
+### Safety (v0.23)
+
+- Private command actions are not registered capabilities, not intent
+  candidates, and not operator-callable actions. All effectful public behavior
+  still goes through the existing registered action runner and Security
+  Central boundaries.
+- `Jido.Agent` is not treated as a security boundary. Durable confirmations
+  remain file-backed; scheduled jobs remain SQLite-backed; permissions and
+  confirmations remain enforced at the public action boundary.
+- Default operator traces remain unchanged. Jido debug details appear only
+  after explicitly enabling `allbert.jido.debug_trace`, and the emitted
+  metadata is bounded and redacted.
+
+### Verification (v0.23)
+
+- Focused suites passed for JidoBacked helpers/supervision, confirmation-store
+  agent parity, confirmation public actions/CLI, scheduler agent behavior,
+  jobs public API/CLI/LiveView consumers, convergence integration flows,
+  channel simulation flows, memory confirmation actions, and StockSage
+  `RunAnalysis` confirmation behavior.
+- Closeout gates passed: focused v0.23 M1-M4 suites, full `mix test`,
+  plugin `RunAnalysis` regression, `mix format --check-formatted`,
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, deleted-module grep gate, and `git diff --check`.
+- Operator smoke steps live in `docs/plans/v0.23-request-flow.md`.
+
 ## v0.22 - StockSage Python Bridge
 
 Status: released and tagged as `v0.22` on 2026-05-16 after M5 closeout,

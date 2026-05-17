@@ -1088,10 +1088,12 @@ Expected direction:
 Plan: `docs/plans/v0.23-plan.md`
 Request flow: `docs/plans/v0.23-request-flow.md`
 
-Status: planned. NEW milestone inserted by the project-direction rethink
-(see `docs/plans/project-direction-rethink-01.md`). Closes the clearest part
-of the gap between the original Jido-substrate vision and the current code
-before v0.24 ships `Objectives.Engine` as another new Jido.Agent.
+Status: implemented through M5 closeout and ready for operator manual
+verification. Release tag pending operator acceptance. NEW milestone inserted
+by the project-direction rethink (see
+`docs/plans/project-direction-rethink-01.md`). Closes the clearest part of
+the gap between the original Jido-substrate vision and the current code before
+v0.24 ships `Objectives.Engine` as another new Jido.Agent.
 
 Expected direction:
 
@@ -1099,16 +1101,15 @@ Expected direction:
   v0.23 conversions and v0.24 `Objectives.Engine.Agent` use one
   substrate contract, not three ad-hoc ports.
 - Ship `AllbertAssist.JidoBacked.Supervisor` (one-for-one) under
-  `AllbertAssist.Supervisor`; hosts both v0.23 agents and v0.24
+  `AllbertAssist.Supervisor`; hosts both v0.23 agents and later v0.24
   `Objectives.Engine.Agent`.
 - Convert `AllbertAssist.Confirmations.Store` from its current plain
   Allbert Home file-backed module into a JidoBacked agent.
   Confirmation YAML files and audit markdown remain authoritative;
   no confirmation SQLite migration. Module split: existing name stays
   as the public facade; new `.Agent` submodule holds the JidoBacked
-  agent. `.Legacy` modules retained only during M1/M2 development;
-  deleted at v0.23 M5 closeout (no transitional window past the
-  milestone).
+  agent. Transitional compatibility modules were deleted at v0.23 M5
+  closeout.
 - Convert `AllbertAssist.Jobs.Scheduler` from plain `GenServer` to
   JidoBacked scheduler with the same facade + `.Agent` split.
   Jobs and job runs remain authoritative in SQLite; due work is still
@@ -1142,6 +1143,8 @@ Expected direction:
   no schema changes; no permission changes. All v0.07 and v0.13
   acceptance criteria continue to hold byte-for-byte against the
   golden-file snapshots.
+- v0.23 version metadata is `0.23.0`; manual smoke remains the final
+  release gate before tagging `v0.23`.
 
 ## v0.24: Objective Runtime Foundation
 
