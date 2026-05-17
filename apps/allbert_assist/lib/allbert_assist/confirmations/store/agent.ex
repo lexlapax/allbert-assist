@@ -51,10 +51,6 @@ defmodule AllbertAssist.Confirmations.Store.Agent do
   end
 
   @doc false
-  @impl true
-  def emit_debug_trace?(_state), do: JidoBacked.debug_trace_enabled?()
-
-  @doc false
   def create(attrs, opts \\ []) when is_map(attrs) and is_list(opts) do
     dispatch(@create, %{attrs: attrs, opts: opts})
   end
