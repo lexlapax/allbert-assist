@@ -74,8 +74,8 @@ Do not load every section by default.
 - v0.24: Objective Runtime Foundation: durable objectives,
   objective steps/events, canonical runtime turn signal aliases,
   objective signals, SignalBridge, and objective intent candidates.
-- v0.25: Native financial specialist agents for StockSage: 10 reusable
-  supervised Jido.AI delegate agents (analysts, bull/bear theses,
+- v0.25: Native financial specialist agents for StockSage: 9 reusable
+  supervised Jido.AI delegate specialists (analysts, bull/bear theses,
   3 risk debaters, decision synthesizer) + 1 deterministic Jido.Agent
   quality gate + 1 JidoBacked `StockSage.Agents.NativeCoordinator`
   orchestrator. Multi-round bull/bear/risk debate via v0.24
@@ -87,7 +87,7 @@ Do not load every section by default.
   permits, Allbert-authored otherwise). New `mix allbert.delegate
   <agent_id>` Mix task in Allbert core proves cross-app callability.
   No one-for-one Python graph clone. No automatic native → Python
-  fallback.
+  fallback, and no persistent Python/parity engine default.
 
 ## Area Notes
 
@@ -174,6 +174,9 @@ hybrid proposer Stage 4 `{:more, hint}` continuation — each round =
 one `objective_steps` row of `kind: :delegate_agent` (per ADR 0022 A2).
 Operators inspect rounds via `mix allbert.objectives show <id>`.
 
+Engine choice is request-scoped. Absent engine means native;
+`--engine python` and `--engine both` are explicit
+comparison/reference modes, not Settings Central defaults.
 `--engine both` runs native + Python concurrently; persists ONE
 analysis row with both engines' fields populated + parity_diff JSON
 (per ADR 0022 A5, A6). Parity metric: 5-point rating-scale agreement

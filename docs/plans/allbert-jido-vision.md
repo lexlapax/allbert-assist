@@ -63,8 +63,8 @@ The workspace path carries several grounding decisions:
   A supervised bridge gets useful analysis into Allbert early; native
   financial specialist agents become the v0.25 operational engine. The Python
   bridge then remains only as an explicitly requested comparison/reference
-  harness. Those agents are reusable delegate agents, not a one-for-one Python
-  graph translation.
+  harness, never a persistent default or automatic fallback. Those agents are
+  reusable delegate agents, not a one-for-one Python graph translation.
 - The older Rust Allbert experiment is prior art for identity, sessions,
   daemon jobs, memory, and retrieval. It is not an active sibling runtime for
   this roadmap.

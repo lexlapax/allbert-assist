@@ -1233,7 +1233,7 @@ Plan: `docs/plans/v0.25-plan.md`
 Request flow: `docs/plans/v0.25-request-flow.md`
 ADR: `docs/adr/0022-native-financial-specialist-agents.md`
 
-Status: planning-ready after holistic revisit (2026-05-17). Formerly M-D2c,
+Status: planning-ready after third holistic revisit (2026-05-17). Formerly M-D2c,
 previously planned as v0.19, then v0.23 before the project-direction rethink
 inserted v0.23 Jido State-Machine Convergence and v0.24 Objective Runtime
 Foundation.
@@ -1241,25 +1241,63 @@ Foundation.
 Expected direction:
 
 - Implement reusable native financial specialist agents behind StockSage
-  actions. They are not a one-for-one translation of the Python TradingAgents
-  graph; they adapt role intent and prompt material into bounded Jido/Jido.AI
-  agents that can be called through the shared objective delegate-agent path.
+  actions. They are NOT a one-for-one translation of the Python TradingAgents
+  graph; they adapt role intent and license-compatible prompt material into
+  9 bounded Jido.AI specialists + 1 deterministic Jido.Agent quality_gate,
+  plus one JidoBacked `StockSage.Agents.NativeCoordinator` orchestrator.
+- Register 10 specialist agent ids in
+  `AllbertAssist.Objectives.AgentRegistry` at boot:
+  `stocksage.market_context`, `stocksage.news_sentiment`,
+  `stocksage.fundamentals`, `stocksage.bull_thesis`,
+  `stocksage.bear_thesis`, `stocksage.risk_aggressive`,
+  `stocksage.risk_conservative`, `stocksage.risk_neutral`,
+  `stocksage.decision_synthesizer`, `stocksage.quality_gate`.
+  Three risk debaters preserved as distinct agents (per ADR 0022 A1) for
+  Python-parity final-decision quality.
+- Multi-round bull/bear and risk debate via the v0.24 hybrid proposer
+  Stage 4 `{:more, hint}` continuation. Each round = one
+  `objective_steps` row of `kind: :delegate_agent`. Bounded by
+  `stocksage.native_max_debate_rounds` (default 2) +
+  `stocksage.native_max_risk_rounds` (default 1).
 - Keep native worker supervisors under `StockSage.Supervisor`, contributed
   through the StockSage plugin child spec.
 - Consume v0.24 objective state from day one: each analysis runs as an
-  objective step with `objective_id`/`step_id` threaded through
+  objective with multiple steps; `objective_id`/`step_id` threaded through
   confirmations, traces, and `stocksage_analyses` rows.
-- Register `stocksage.market_context`, `stocksage.news_sentiment`,
-  `stocksage.fundamentals`, `stocksage.bull_thesis`,
-  `stocksage.bear_thesis`, `stocksage.decision_synthesizer`, and
-  `stocksage.quality_gate` in
-  `AllbertAssist.Objectives.AgentRegistry`.
-- Add action-backed evidence providers and fixture mode so native analysis
-  can be smoke-tested without external credentials while preserving Resource
+- Add 5 tiered action-backed evidence providers (`FetchMarketData`,
+  `FetchNews`, `FetchSentiment`, `FetchFundamentals`, `FetchFinancials`)
+  under `StockSage.Actions.Evidence.*` with new
+  `:stocksage_evidence_fetch` permission class. Fixture mode is a
+  first-class operator surface (not test-only) so native analysis can be
+  smoke-tested without market-data credentials while preserving Resource
   Access Security Posture.
 - Keep the Python bridge available only for explicitly requested comparison,
-  similarity scoring, and regression fixtures. It is not automatic fallback.
+  similarity scoring, and regression fixtures. It is NOT automatic fallback.
+- Add `--engine both` for parallel parity runs (native + Python concurrent),
+  persists ONE `stocksage_analyses` row with both engines' fields + a
+  parity_diff JSON computed as 5-point rating-scale agreement +
+  bounded confidence delta. Parity acceptance:
+  `rating_agreement >= 0.5 AND confidence_delta < stocksage.native_parity_variance`
+  (default 0.25).
+- Add per-agent LLM model profile overrides via
+  `stocksage.native_model_profile_<role>` settings (matches Python's
+  `deep_think_llm` / `quick_think_llm` split).
+- Hybrid prompt provenance: verbatim from TradingAgents v0.2.5 where
+  license permits (with `## Attribution` header), Allbert-authored
+  otherwise. M1 task = per-prompt license audit. Prompts ship under
+  `plugins/stocksage/priv/prompts/native_agents/<role>.md`.
+- Ship `mix allbert.delegate <agent_id>` Mix task in Allbert core (NOT
+  StockSage) as operator-visible cross-app reuse proof. Any registered
+  specialist agent callable from outside StockSage via the v0.24
+  DelegateAgent registered action + AgentRegistry.
 - Make native analysis the only default operational engine in v0.25.
+  Engine choice is per request: absent engine means native; `--engine
+  python` and `--engine both` are explicit comparison/reference modes
+  gated by `stocksage.python_comparison_enabled`. Do not extend
+  `stocksage.analysis_engine` into a persistent Python/parity default.
+- ADR 0022 amended at v0.25 M1 to enumerate 10-agent topology, multi-round,
+  parity metric, NativeCoordinator, tiered evidence actions, `mix
+  allbert.delegate` cross-app proof; status moves to Accepted at M6.
 
 ## v0.26: Agentic Workspace Surface And Ephemeral UI Substrate
 
