@@ -34,7 +34,9 @@ Do not load every section by default.
 | Markdown memory review, promotion, index, retrieval | ADR 0014, ADR 0019 | v0.21 |
 | Jido.Agent vs GenServer substrate (pragmatic rule) | ADR 0007, vision "Jido.Agent vs GenServer", v0.23 plan | v0.23 |
 | Objectives, steps, events, advisory providers, world models | ADR 0021, ADR 0019, v0.24 plan/request-flow, research note | v0.24 |
-| StockSage bridge, native financial agents, LiveViews, canvas | Active StockSage milestone plan, ADR 0020, ADR 0022 | v0.22, v0.25, v0.27, v0.29, v0.30 |
+| StockSage Python bridge | `docs/plans/v0.22-plan.md`, ADR 0020 | v0.22 |
+| StockSage native financial specialist agents (10 + coordinator) | `docs/plans/v0.25-plan.md`, `docs/plans/v0.25-request-flow.md`, ADR 0022 | v0.25 |
+| StockSage LiveViews, native-agent rendering, canvas | Active StockSage milestone plan | v0.27, v0.29, v0.30 |
 | Workspace shell, ephemeral UI, canvas | ADR 0015, active workspace plan | v0.26, v0.30 |
 | Plugin/app generator | ADR 0017, ADR 0015, v0.31 plan | v0.31 |
 
@@ -72,10 +74,20 @@ Do not load every section by default.
 - v0.24: Objective Runtime Foundation: durable objectives,
   objective steps/events, canonical runtime turn signal aliases,
   objective signals, SignalBridge, and objective intent candidates.
-- v0.25: Native financial specialist agents for StockSage: reusable
-  supervised Jido/Jido.AI delegate agents, action-backed evidence, native
-  `RunAnalysis` engine, explicit Python comparison/reference runs, fixture
-  parity, and no one-for-one Python graph clone.
+- v0.25: Native financial specialist agents for StockSage: 10 reusable
+  supervised Jido.AI delegate agents (analysts, bull/bear theses,
+  3 risk debaters, decision synthesizer) + 1 deterministic Jido.Agent
+  quality gate + 1 JidoBacked `StockSage.Agents.NativeCoordinator`
+  orchestrator. Multi-round bull/bear/risk debate via v0.24
+  objective-step loop. 5 tiered evidence actions
+  (`StockSage.Actions.Evidence.*`) with new `:stocksage_evidence_fetch`
+  permission class. `--engine both` parallel parity runs with 5-point
+  rating-scale agreement metric. Per-agent LLM model profile overrides.
+  Hybrid prompt provenance (verbatim where TradingAgents license
+  permits, Allbert-authored otherwise). New `mix allbert.delegate
+  <agent_id>` Mix task in Allbert core proves cross-app callability.
+  No one-for-one Python graph clone. No automatic native → Python
+  fallback.
 
 ## Area Notes
 
@@ -128,15 +140,49 @@ one. `plugins/stocksage/priv/python/bridge.py` contains the bridge protocol and
 final-state field list, not the role prompts; prompt inventory belongs under
 `plugins/stocksage/priv/prompts/native_agents/`.
 
-Native financial agents register stable ids such as
-`stocksage.market_context`, `stocksage.news_sentiment`,
-`stocksage.fundamentals`, `stocksage.bull_thesis`,
-`stocksage.bear_thesis`, `stocksage.decision_synthesizer`, and
-`stocksage.quality_gate` in `AllbertAssist.Objectives.AgentRegistry`. They
-return advisory report packets only. Market data, news, fundamentals,
-persistence, confirmations, settings, traces, and final analysis writes still
-flow through registered actions, `Actions.Runner.run/3`, Security Central, and
-Resource Access Security Posture.
+Native financial agents register 10 stable ids in
+`AllbertAssist.Objectives.AgentRegistry` at app boot (per ADR 0022
+Amendment A1):
+
+- `stocksage.market_context` — Jido.AI; tool: FetchMarketData
+- `stocksage.news_sentiment` — Jido.AI; tools: FetchNews, FetchSentiment
+- `stocksage.fundamentals` — Jido.AI; tools: FetchFundamentals, FetchFinancials
+- `stocksage.bull_thesis` — Jido.AI; multi-round capable
+- `stocksage.bear_thesis` — Jido.AI; multi-round capable
+- `stocksage.risk_aggressive` — Jido.AI; multi-round capable; deep-think default
+- `stocksage.risk_conservative` — Jido.AI; multi-round capable; deep-think default
+- `stocksage.risk_neutral` — Jido.AI; multi-round capable; deep-think default
+- `stocksage.decision_synthesizer` — Jido.AI; deep-think default
+- `stocksage.quality_gate` — plain Jido.Agent (deterministic; no LLM)
+
+Plus one supervised JidoBacked orchestrator NOT registered in
+AgentRegistry: `StockSage.Agents.NativeCoordinator` (per ADR 0022 A3).
+The coordinator owns per-analysis projection, multi-round dispatch
+order, and parity-run composition; it is called from
+`StockSage.Actions.RunAnalysis` via `JidoBacked.dispatch/4`.
+
+All agents return bounded advisory report packets per ADR 0022 only.
+Market data, news, fundamentals, persistence, confirmations, settings,
+traces, and final analysis writes still flow through registered
+actions, `Actions.Runner.run/3`, Security Central, and Resource
+Access Security Posture. The 5 tiered evidence actions live under
+`StockSage.Actions.Evidence.*` and are gated by the new
+`:stocksage_evidence_fetch` permission class (per ADR 0022 A4).
+
+Multi-round debate (bull/bear/risk) is implemented via the v0.24
+hybrid proposer Stage 4 `{:more, hint}` continuation — each round =
+one `objective_steps` row of `kind: :delegate_agent` (per ADR 0022 A2).
+Operators inspect rounds via `mix allbert.objectives show <id>`.
+
+`--engine both` runs native + Python concurrently; persists ONE
+analysis row with both engines' fields populated + parity_diff JSON
+(per ADR 0022 A5, A6). Parity metric: 5-point rating-scale agreement
+(exact 1.0 / adjacent 0.5 / distant 0.0) + bounded confidence delta.
+
+Cross-app callability: `mix allbert.delegate <agent_id>` Mix task lives
+in Allbert core (not StockSage) and proves any registered specialist
+agent is callable from outside StockSage via the v0.24 DelegateAgent
+registered action + AgentRegistry (per ADR 0022 A7).
 
 ### Workspace And Surfaces
 
