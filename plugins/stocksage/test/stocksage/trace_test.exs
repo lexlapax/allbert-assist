@@ -69,6 +69,7 @@ defmodule StockSage.TraceTest do
         analysis_id: "analysis_abc",
         bridge_duration_ms: 42,
         truncated: false,
+        stub: false,
         summary: "AAPL stub summary",
         queue_entry_id: nil
       }
@@ -85,7 +86,67 @@ defmodule StockSage.TraceTest do
     assert body =~ "Analysis id: analysis_abc"
     assert body =~ "Bridge duration ms: 42"
     assert body =~ "Truncated: false"
+    assert body =~ "Stub: false"
     assert body =~ "AAPL stub summary"
+  end
+
+  test "trace section renders Stub: true when the action came from force_stub mode",
+       %{captured: captured} do
+    # v0.22 audit closeout (Gap 1 — stub-mode visibility): the trace
+    # section surfaces stub flag prominently so operators inspecting a
+    # run after the fact can't miss that it came from the stub path.
+    action = %{
+      name: "run_analysis",
+      status: :completed,
+      permission: :stocksage_analyze,
+      stocksage: %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-01",
+        engine: "tradingagents",
+        analysis_id: "analysis_stub_xyz",
+        bridge_duration_ms: 5,
+        truncated: false,
+        stub: true,
+        summary: "Stub analysis for AAPL on 2026-05-01 using tradingagents."
+      }
+    }
+
+    assert {:ok, _entry} = Trace.record_turn(build_turn([action]))
+
+    [{:last, attrs}] = :ets.lookup(captured, :last)
+    body = attrs.body
+
+    assert body =~ "Stub: true",
+           "expected `Stub: true` line in trace section; got body:\n#{body}"
+  end
+
+  test "trace section defaults Stub: to false when the field is missing",
+       %{captured: captured} do
+    # Backward compatibility: actions persisted before the stub flag was
+    # added to action metadata should still render a sensible value
+    # rather than `Stub: ` or crashing.
+    action = %{
+      name: "run_analysis",
+      status: :completed,
+      permission: :stocksage_analyze,
+      stocksage: %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-01",
+        engine: "tradingagents",
+        analysis_id: "analysis_legacy",
+        bridge_duration_ms: 42,
+        truncated: false,
+        summary: "Legacy action without stub field"
+      }
+    }
+
+    assert {:ok, _entry} = Trace.record_turn(build_turn([action]))
+
+    [{:last, attrs}] = :ets.lookup(captured, :last)
+    body = attrs.body
+
+    assert body =~ "Stub: false",
+           "expected `Stub: false` default in trace section when stub field is missing"
   end
 
   test "renders 'none' when no run_analysis action is present", %{captured: captured} do
