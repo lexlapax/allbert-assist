@@ -10,6 +10,7 @@ defmodule StockSage.Domain.Analysis do
 
   @statuses ~w[imported queued completed failed]
   @sources ~w[legacy_sqlite manual python_bridge native]
+  @engines ~w[native python tradingagents both]
 
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
@@ -27,9 +28,11 @@ defmodule StockSage.Domain.Analysis do
     field :analysis_date, :date
     field :status, :string, default: "imported"
     field :source, :string, default: "manual"
+    field :engine, :string, default: "tradingagents"
     field :recommendation, :string
     field :score, :decimal
     field :summary, :string
+    field :parity_diff, :string
     field :legacy_source, :string
     field :legacy_id, :string
     field :input_signal_id, :string
@@ -57,9 +60,11 @@ defmodule StockSage.Domain.Analysis do
       :analysis_date,
       :status,
       :source,
+      :engine,
       :recommendation,
       :score,
       :summary,
+      :parity_diff,
       :legacy_source,
       :legacy_id,
       :input_signal_id,
@@ -72,11 +77,13 @@ defmodule StockSage.Domain.Analysis do
     |> validate_required([:id, :user_id, :app_id, :symbol, :status, :source])
     |> validate_inclusion(:status, @statuses)
     |> validate_inclusion(:source, @sources)
+    |> validate_inclusion(:engine, @engines)
     |> Domain.validate_common()
     |> validate_length(:id, min: 5, max: 80)
     |> validate_length(:app_id, is: 9)
     |> validate_length(:recommendation, max: 120)
     |> validate_length(:summary, max: 8_000)
+    |> validate_length(:parity_diff, max: 4_000)
     |> unique_constraint([:user_id, :legacy_source, :legacy_id],
       name: :stocksage_analyses_user_legacy_idx
     )
@@ -84,4 +91,5 @@ defmodule StockSage.Domain.Analysis do
 
   def statuses, do: @statuses
   def sources, do: @sources
+  def engines, do: @engines
 end
