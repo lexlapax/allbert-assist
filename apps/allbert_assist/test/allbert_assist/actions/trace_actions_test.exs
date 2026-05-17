@@ -283,6 +283,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
     assert trace =~ "AllbertAssist.Confirmations.Store.Agent"
     assert trace =~ "AllbertAssist.Jobs.Scheduler.Agent"
     assert trace =~ "last_result="
+    assert trace =~ "last_summary="
     refute trace =~ "api_key"
     refute trace =~ "token"
   end
