@@ -5,9 +5,11 @@
 Proposed. Targeted for acceptance with v0.24 Objective Runtime Foundation
 M6 closeout. Amendments below (Section: v0.24 Amendments) enumerate the
 plan-level decisions that crystallized during the third validation pass
-on 2026-05-16 and the fourth validation pass on 2026-05-17 (post-v0.23
-implementation). Amendments A1–A10 came from the third pass; A11–A13
-came from the fourth pass.
+on 2026-05-16, the fourth validation pass on 2026-05-17, and the final
+implementation-readiness correction on 2026-05-17. Amendments A1–A10
+came from the third pass; A11–A13 came from the fourth pass and were
+corrected in the final readiness pass to match the closed v0.23 substrate
+and the verified Jido APIs.
 
 ## Context
 
@@ -317,9 +319,14 @@ agents and bridge processes.
 
 ### 8. Coexisting signals
 
-`allbert.objective.*` signals emit alongside existing
-`allbert.action.*` and `allbert.runtime.turn.*` events. No existing
-signal is removed or renamed. Trace volume is bounded by
+Objective namespace signals emit alongside existing
+`allbert.input.received`, `allbert.agent.responded`, and
+`allbert.action.*` signals. v0.24 also formalizes the
+CoreApp-declared `allbert.runtime.turn.started` and
+`allbert.runtime.turn.completed` aliases. No existing signal is
+removed or renamed. Subscribers use `allbert.objective.**` on the
+named `Jido.Signal.Bus` because nested objective signals can contain
+more than one segment after `objective`. Trace volume is bounded by
 `objectives.trace_detail` (default `:operator`).
 
 ### 9. Pragmatic substrate rule (from v0.23)
@@ -459,7 +466,9 @@ who need a different window; it is not implemented in v0.24.
 For single-step objectives, both
 `allbert.runtime.turn.completed` and `allbert.objective.completed`
 fire and **share the same `trace_id`** so consumers can correlate
-the two without scanning per-turn payload identifiers. This is the
+the two without scanning per-turn payload identifiers. The runtime
+turn signal is a v0.24 canonical alias; legacy
+`allbert.agent.responded` remains intact. This is the
 operator-visible form of the Section 8 ("coexisting signals")
 guarantee.
 
@@ -515,8 +524,10 @@ of:
 - `{:ok, [step_attrs, ...], {:more, hint}}` — first or intermediate
   batch; engine re-invokes `propose/2` after Stage 7 with
   `Keyword.put(context, :proposer_hint, hint)`. Engine persists the
-  hint into `Objectives.Engine.Agent.proposer_hints[objective_id]`
-  so a crash + rehydrate replays correctly.
+  hint as bounded JSON in `objectives.proposer_hint` and caches the
+  decoded tagged tuple in
+  `Objectives.Engine.Agent.proposer_hints[objective_id]` so a crash +
+  rehydrate replays correctly.
 - `{:no_steps, reason}` — no steps available; engine records reason
   in framing event and does not create the objective (framing call)
   or transitions to `:blocked` with reason `:no_more_steps`
@@ -526,7 +537,8 @@ The `hint` is a **tagged tuple keyed by app_id**
 (e.g., `{:stocksage, %{step_index: 1, completed_steps: [...]}}`).
 Engine pattern-matches on the tag to route back to the right
 proposer without inspecting inner state. Inner-map shape is per-app
-and opaque to the engine.
+and opaque to the engine, but it must be JSON-encodable, redacted, and
+bounded before persistence.
 
 This contract supports the v0.24 two-step
 "analyze AAPL and compare to MSFT" smoke without requiring the
@@ -577,27 +589,25 @@ This is the operator-visible form of the Section 3 "Planner /
 evaluator" deterministic contract: acceptance is a function of
 structured data, never free-form model output.
 
-### A13. v0.24 M1 owns v0.23 substrate gap-8 fix (fourth-pass decision 2026-05-17)
+### A13. v0.23 directive-only substrate is a v0.24 expected input (fourth-pass correction 2026-05-17)
 
-v0.23's `AllbertAssist.JidoBacked.unwrap_last_result/1` returned
-`{:error, :jido_backed_missing_result}` for directive-only command
-returns (audit gap 8). v0.24 Engine commands routinely emit
-directives (`Jido.Agent.Directive.enqueue/2` for next-stage
-scheduling), so the substrate must accept those shapes.
+v0.24 Engine commands routinely emit directives such as
+`Jido.Agent.Directive.schedule/2` for delayed next-stage self-signals.
+The v0.23 closeout already extended
+`AllbertAssist.JidoBacked.unwrap_last_result/1` so directive-only
+command returns are not misread as missing results.
 
-The fix lands in v0.24 M1 as the first commit (before any objective
-code):
+v0.24 M1 therefore pre-flights the existing v0.23 regressions instead
+of owning a new substrate rewrite:
 
-- Accept `{:ok, %{}, directives}` (empty result + directives) → return
-  `{:ok, :dispatched, directives}` or equivalent non-error shape.
-- Accept `{:ok, %Jido.Agent.Directive{} = d}` →
-  `{:ok, :dispatched, [d]}`.
-- Existing happy path (`{:ok, %{result: x}}`, no directives) →
-  unchanged.
+- `{:ok, %{}, directives}` returns a non-error dispatch success.
+- `{:ok, %Jido.Agent.Directive{} = d}` returns a non-error dispatch
+  success.
+- Existing result-bearing happy paths stay unchanged.
 
-v0.23 is already tagged; v0.24 owns the substrate extension as part
-of its substrate-dependency obligation. v0.23 tests are extended
-with regression coverage for each new shape in v0.24 M1.
+If these regressions fail locally, fix the v0.23 substrate before
+adding objective code. Otherwise, objective implementation starts from
+the closed v0.23 contract.
 
 ## Consequences
 
@@ -618,9 +628,14 @@ with regression coverage for each new shape in v0.24 M1.
 - New `:objective_write` permission class in Security Central
   (Amendment A1).
 - New `:abandoned` objective status (Amendment A5).
-- New `allbert.objective.*` signal namespace (11 signals); both
-  `allbert.runtime.turn.completed` and `allbert.objective.completed`
-  share `trace_id` for single-step objectives (Amendment A7).
+- New objective signal namespace (11 signals), published through
+  `Jido.Signal.Bus` under `AllbertAssist.SignalBus`; subscribers use
+  `allbert.objective.**`. v0.24 preserves legacy
+  `allbert.input.received` / `allbert.agent.responded` emissions and
+  adds CoreApp-declared `allbert.runtime.turn.started` /
+  `allbert.runtime.turn.completed` aliases. For single-step
+  objectives, `allbert.runtime.turn.completed` and
+  `allbert.objective.completed` share `trace_id` (Amendment A7).
 - New `objectives.*` settings keys (4 implemented; ~15 reserved).
 - New `mix allbert.objectives list|show|cancel|continue` CLI
   commands; `cancel --reason` is required.
@@ -646,19 +661,22 @@ with regression coverage for each new shape in v0.24 M1.
 - Hybrid proposer contract (`{:more, hint}` / `:done` /
   `{:no_steps, _}`) shipped so multi-step objectives can stream
   proposals across observation cycles (Amendment A11). Engine
-  persists hints in JidoBacked agent state under `proposer_hints`.
+  persists hints in durable `objectives.proposer_hint` JSON and caches
+  them in JidoBacked agent state under `proposer_hints`.
 - Acceptance criteria are persisted as structured JSON in
   `objectives.acceptance_criteria` (Amendment A12). Evaluator clauses
   are deterministic and reject unknown kinds at changeset
   validation.
-- v0.23 `JidoBacked.unwrap_last_result/1` extended in v0.24 M1 to
-  accept directive-only command returns (Amendment A13).
+- v0.23 `JidoBacked.unwrap_last_result/1` directive-only support is a
+  v0.24 M1 pre-flight expectation, not new v0.24 work (Amendment A13).
 - `AllbertAssist.Objectives.AgentRegistry` ships as an empty registry
   in v0.24 (specialist agents register themselves in v0.25+). v0.24
-  M1 verifies whether `Jido.Registry` can be reused; falls back to
-  Elixir `Registry` if Jido's primitive is unsuitable.
+  M1 uses the verified Jido/OTP registry-backed path where practical
+  and falls back to Elixir `Registry` only if a focused local spike
+  proves the Jido path insufficient. The wrapper exposes
+  `register/3`, `lookup/1`, and `dispatch/3`.
 - `AllbertAssistWeb.SignalBridge` GenServer (web-app side) bridges
-  `allbert.objective.*` signals to per-user Phoenix.PubSub topics so
+  `allbert.objective.**` signals to per-user Phoenix.PubSub topics so
   AgentLive + ObjectiveLive update in real time. Engine never knows
   about Phoenix.PubSub; web-app graceful absence falls back to
   5-second poll.
