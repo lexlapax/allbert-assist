@@ -1,13 +1,14 @@
 defmodule StockSage.Actions.RunAnalysis do
   @moduledoc """
-  StockSage analysis execution through the supervised Python bridge.
+  StockSage analysis execution through the native specialist graph or the
+  explicitly requested Python bridge.
 
   On first call the action creates a durable confirmation record and returns
   `:needs_confirmation`. On the approved resume path (`approve_confirmation`
   invokes this action with `confirmation.approved? = true`), the action
-  re-checks Security Central, calls `StockSage.TraderBridge.analyze/1`, and
-  persists the result rows. Failures write a failure row; bridge crashes,
-  timeouts, and disabled-bridge cases are surfaced as structured errors.
+  re-checks Security Central, runs the requested engine, and persists the
+  result rows. Native failures, bridge crashes, timeouts, and disabled-bridge
+  cases are surfaced as structured errors.
 
   Bridge code lives under `./plugins/stocksage/`. Allbert core does not
   import bridge internals.
@@ -47,17 +48,21 @@ defmodule StockSage.Actions.RunAnalysis do
 
   use Jido.Action,
     name: "run_analysis",
-    description: "Run a StockSage analysis for a ticker through the Python bridge.",
+    description: "Run a StockSage analysis for a ticker.",
     category: "stocksage",
     tags: ["stocksage", "analysis", "confirmation"],
     schema: [
       ticker: [type: :string, required: true],
       analysis_date: [type: :string, required: true],
       engine: [type: :string, required: false],
+      compare_python: [type: :boolean, required: false],
+      evidence_mode: [type: :string, required: false],
       user_id: [type: :string, required: false],
       queue_entry_id: [type: :string, required: false],
       objective_id: [type: :string, required: false],
       step_id: [type: :string, required: false],
+      thread_id: [type: :string, required: false],
+      session_id: [type: :string, required: false],
       # When true, the bridge runs the deterministic stub path regardless
       # of whether `tradingagents` is importable. Stub responses are
       # labeled `stub: true` in the persisted detail row. Used by tests,
@@ -71,11 +76,13 @@ defmodule StockSage.Actions.RunAnalysis do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Signals, as: AllbertSignals
   alias Jido.Signal
   alias StockSage.Actions
+  alias StockSage.Agents.NativeCoordinator
   alias StockSage.Analyses
   alias StockSage.Bridge.Protocol
   alias StockSage.Queue
@@ -99,7 +106,7 @@ defmodule StockSage.Actions.RunAnalysis do
     Actions.capability(:stocksage_analyze, %{
       confirmation: :required,
       exposure: :agent,
-      execution_mode: :python_bridge,
+      execution_mode: :native_agent_graph,
       risk_tier: :high,
       resumable?: true
     })
@@ -111,17 +118,21 @@ defmodule StockSage.Actions.RunAnalysis do
 
     with {:ok, ticker} <- normalize_ticker(Actions.field(params, :ticker)),
          {:ok, analysis_date} <- normalize_analysis_date(Actions.field(params, :analysis_date)),
-         engine <- normalize_engine(Actions.field(params, :engine)),
+         engine <- normalize_engine(params),
          {:ok, user_id} <- Actions.user_id(params, context) do
       validated = %{
         ticker: ticker,
         analysis_date: analysis_date,
         engine: engine,
+        evidence_mode: normalize_evidence_mode(Actions.field(params, :evidence_mode)),
         user_id: user_id,
         queue_entry_id: blank(Actions.field(params, :queue_entry_id)),
         objective_id:
           blank(Actions.field(params, :objective_id) || Actions.field(context, :objective_id)),
         step_id: blank(Actions.field(params, :step_id) || Actions.field(context, :step_id)),
+        thread_id: blank(Actions.field(params, :thread_id) || Actions.field(context, :thread_id)),
+        session_id:
+          blank(Actions.field(params, :session_id) || Actions.field(context, :session_id)),
         force_stub: normalize_bool(Actions.field(params, :force_stub))
       }
 
@@ -140,7 +151,10 @@ defmodule StockSage.Actions.RunAnalysis do
 
   defp dispatch(validated, context, permission_decision) do
     cond do
-      not bridge_enabled?() ->
+      validated.engine == "native" and not native_engine_enabled?() ->
+        native_disabled(validated, permission_decision)
+
+      python_engine?(validated.engine) and not bridge_enabled?() ->
         bridge_disabled(validated, permission_decision)
 
       approval_resume?(context) ->
@@ -172,12 +186,13 @@ defmodule StockSage.Actions.RunAnalysis do
            source_trace_id: Actions.field(context, :trace_id),
            target_action: %{name: "run_analysis", module: inspect(__MODULE__)},
            target_permission: :stocksage_analyze,
-           target_execution_mode: :python_bridge,
+           target_execution_mode: target_execution_mode(validated.engine),
            security_decision: permission_decision,
            params_summary: %{
              ticker: validated.ticker,
              analysis_date: Date.to_iso8601(validated.analysis_date),
              engine: validated.engine,
+             evidence_mode: validated.evidence_mode,
              user_id: validated.user_id,
              queue_entry_id: validated.queue_entry_id,
              objective_id: validated.objective_id,
@@ -185,23 +200,19 @@ defmodule StockSage.Actions.RunAnalysis do
              objective_title: get_in(context, [:objective, :title]),
              objective_status: get_in(context, [:objective, :status]),
              force_stub: validated.force_stub,
-             disclosure:
-               if(validated.force_stub,
-                 do:
-                   "Stub-mode analysis: no TradingAgents call will be made. " <>
-                     "Persisted detail row will be labeled stub: true.",
-                 else:
-                   "TradingAgents will make external market-data API calls as part of this analysis."
-               )
+             disclosure: confirmation_disclosure(validated)
            },
            resume_params_ref: %{
              ticker: validated.ticker,
              analysis_date: Date.to_iso8601(validated.analysis_date),
              engine: validated.engine,
+             evidence_mode: validated.evidence_mode,
              user_id: validated.user_id,
              queue_entry_id: validated.queue_entry_id,
              objective_id: validated.objective_id,
              step_id: validated.step_id,
+             thread_id: validated.thread_id,
+             session_id: validated.session_id,
              force_stub: validated.force_stub
            }
          }) do
@@ -225,6 +236,7 @@ defmodule StockSage.Actions.RunAnalysis do
                  ticker: validated.ticker,
                  analysis_date: Date.to_iso8601(validated.analysis_date),
                  engine: validated.engine,
+                 evidence_mode: validated.evidence_mode,
                  user_id: validated.user_id,
                  queue_entry_id: validated.queue_entry_id,
                  objective_id: validated.objective_id,
@@ -245,25 +257,112 @@ defmodule StockSage.Actions.RunAnalysis do
       started_at = DateTime.utc_now()
       emit_analysis_signal(@signal_analysis_requested, requested_payload(validated, context))
 
-      analyze_params =
-        %{
-          ticker: validated.ticker,
-          analysis_date: Date.to_iso8601(validated.analysis_date),
-          engine: validated.engine
-        }
-        |> maybe_put(:force_stub, validated.force_stub)
+      case validated.engine do
+        "native" ->
+          run_native_after_approval(validated, context, permission_decision, started_at)
 
-      case TraderBridge.analyze(analyze_params) do
-        {:ok, result} ->
-          persist_success(validated, result, context, permission_decision, started_at)
+        engine when engine in ["python", "tradingagents"] ->
+          run_python_after_approval(validated, context, permission_decision, started_at)
 
-        {:error, reason} ->
-          persist_failure(validated, reason, context, permission_decision, started_at)
+        engine ->
+          persist_failure(
+            validated,
+            {:unsupported_engine, engine},
+            context,
+            permission_decision,
+            started_at
+          )
       end
     else
       {:error, queue_reason} ->
         queue_entry_invalid(validated, permission_decision, queue_reason)
     end
+  end
+
+  defp run_native_after_approval(validated, context, permission_decision, started_at) do
+    with {:ok, validated, context} <- ensure_native_objective(validated, context),
+         {:ok, result} <- NativeCoordinator.analyze(native_request(validated, context)) do
+      persist_success(validated, result, context, permission_decision, started_at)
+    else
+      {:error, reason} ->
+        persist_failure(validated, reason, context, permission_decision, started_at)
+    end
+  end
+
+  defp run_python_after_approval(validated, context, permission_decision, started_at) do
+    analyze_params =
+      %{
+        ticker: validated.ticker,
+        analysis_date: Date.to_iso8601(validated.analysis_date),
+        engine: bridge_engine(validated.engine)
+      }
+      |> maybe_put(:force_stub, validated.force_stub)
+
+    case TraderBridge.analyze(analyze_params) do
+      {:ok, result} ->
+        persist_success(validated, result, context, permission_decision, started_at)
+
+      {:error, reason} ->
+        persist_failure(validated, reason, context, permission_decision, started_at)
+    end
+  end
+
+  defp ensure_native_objective(%{objective_id: objective_id} = validated, context)
+       when is_binary(objective_id) and objective_id != "" do
+    {:ok, validated, context}
+  end
+
+  defp ensure_native_objective(validated, context) do
+    attrs = %{
+      user_id: validated.user_id,
+      source_thread_id: validated.thread_id,
+      session_id: validated.session_id,
+      active_app: "stocksage",
+      title: "Analyze #{validated.ticker} native",
+      objective:
+        "Produce a native StockSage analysis for #{validated.ticker} on " <>
+          Date.to_iso8601(validated.analysis_date),
+      acceptance_criteria: %{
+        "kind" => "stocksage_native_analysis",
+        "ticker" => validated.ticker,
+        "analysis_date" => Date.to_iso8601(validated.analysis_date),
+        "engine" => "native"
+      },
+      source_intent: "stocksage.run_analysis"
+    }
+
+    case Objectives.create_objective(attrs) do
+      {:ok, objective} ->
+        validated = %{validated | objective_id: objective.id}
+        context = Map.put(context, :objective_id, objective.id)
+        {:ok, validated, context}
+
+      {:error, reason} ->
+        {:error, {:objective_create_failed, errors_on(reason)}}
+    end
+  end
+
+  defp native_request(validated, context) do
+    %{
+      request_id: confirmation_id(context),
+      ticker: validated.ticker,
+      analysis_date: Date.to_iso8601(validated.analysis_date),
+      user_id: validated.user_id,
+      operator_id: validated.user_id,
+      objective_id: validated.objective_id,
+      step_id: validated.step_id,
+      thread_id: validated.thread_id || Actions.field(context, :thread_id),
+      session_id: validated.session_id || Actions.field(context, :session_id),
+      trace_id: Actions.field(context, :trace_id),
+      evidence_mode: validated.evidence_mode,
+      fixture: validated.evidence_mode == "fixture",
+      parent: %{
+        permission: :stocksage_analyze,
+        approved?: true,
+        confirmation_id: confirmation_id(context)
+      }
+    }
+    |> drop_nil_values()
   end
 
   # `validated.force_stub` is always a boolean (normalized via
@@ -305,6 +404,7 @@ defmodule StockSage.Actions.RunAnalysis do
       ticker: validated.ticker,
       analysis_date: Date.to_iso8601(validated.analysis_date),
       engine: validated.engine,
+      evidence_mode: validated.evidence_mode,
       user_id: validated.user_id,
       queue_entry_id: validated.queue_entry_id,
       objective_id: validated.objective_id,
@@ -348,15 +448,17 @@ defmodule StockSage.Actions.RunAnalysis do
 
   defp persist_success(validated, result, context, permission_decision, started_at) do
     duration_ms = DateTime.diff(DateTime.utc_now(), started_at, :millisecond)
-    summary = bounded(Map.get(result, "summary"), @summary_max)
-    truncated? = Map.get(result, "truncated", false)
+    summary = bounded(result_field(result, :summary), @summary_max)
+    truncated? = result_field(result, :truncated, false)
 
     analysis_attrs = %{
       user_id: validated.user_id,
       symbol: validated.ticker,
       analysis_date: validated.analysis_date,
       status: "completed",
-      source: "python_bridge",
+      source: analysis_source(validated.engine),
+      engine: persisted_engine(validated.engine),
+      recommendation: result_field(result, :recommendation),
       summary: summary,
       thread_id: Actions.field(context, :thread_id),
       session_id: Actions.field(context, :session_id),
@@ -367,7 +469,7 @@ defmodule StockSage.Actions.RunAnalysis do
       step_id: validated.step_id,
       metadata: %{
         "engine" => validated.engine,
-        "bridge_duration_ms" => duration_ms,
+        "duration_ms" => duration_ms,
         "truncated" => truncated?,
         "queue_entry_id" => validated.queue_entry_id,
         "objective_id" => validated.objective_id,
@@ -380,7 +482,7 @@ defmodule StockSage.Actions.RunAnalysis do
     # signal, and trace section so operators inspecting any of those
     # surfaces immediately see whether a row came from a real
     # TradingAgents propagate call or from the deterministic stub.
-    stub? = Map.get(result, "stub", false)
+    stub? = result_field(result, :stub, false)
 
     case Analyses.create_analysis(analysis_attrs) do
       {:ok, analysis} ->
@@ -396,7 +498,8 @@ defmodule StockSage.Actions.RunAnalysis do
           queue_entry_id: validated.queue_entry_id,
           objective_id: validated.objective_id,
           step_id: validated.step_id,
-          bridge_duration_ms: duration_ms,
+          duration_ms: duration_ms,
+          bridge_duration_ms: if(python_engine?(validated.engine), do: duration_ms, else: nil),
           truncated: truncated?,
           stub: stub?
         })
@@ -414,7 +517,8 @@ defmodule StockSage.Actions.RunAnalysis do
            summary: summary,
            truncated: truncated?,
            stub: stub?,
-           bridge_duration_ms: duration_ms,
+           duration_ms: duration_ms,
+           bridge_duration_ms: if(python_engine?(validated.engine), do: duration_ms, else: nil),
            objective_id: validated.objective_id,
            step_id: validated.step_id,
            actions: [
@@ -428,7 +532,9 @@ defmodule StockSage.Actions.RunAnalysis do
                  ticker: analysis.symbol,
                  analysis_date: Date.to_iso8601(validated.analysis_date),
                  engine: validated.engine,
-                 bridge_duration_ms: duration_ms,
+                 duration_ms: duration_ms,
+                 bridge_duration_ms:
+                   if(python_engine?(validated.engine), do: duration_ms, else: nil),
                  truncated: truncated?,
                  stub: stub?,
                  queue_entry_id: validated.queue_entry_id,
@@ -454,7 +560,8 @@ defmodule StockSage.Actions.RunAnalysis do
       symbol: validated.ticker,
       analysis_date: validated.analysis_date,
       status: "failed",
-      source: "python_bridge",
+      source: analysis_source(validated.engine),
+      engine: persisted_engine(validated.engine),
       summary: summary,
       thread_id: Actions.field(context, :thread_id),
       session_id: Actions.field(context, :session_id),
@@ -465,7 +572,7 @@ defmodule StockSage.Actions.RunAnalysis do
       step_id: validated.step_id,
       metadata: %{
         "engine" => validated.engine,
-        "bridge_duration_ms" => duration_ms,
+        "duration_ms" => duration_ms,
         "error" => Protocol.bounded_reason(reason),
         "queue_entry_id" => validated.queue_entry_id,
         "objective_id" => validated.objective_id,
@@ -490,7 +597,8 @@ defmodule StockSage.Actions.RunAnalysis do
       queue_entry_id: validated.queue_entry_id,
       objective_id: validated.objective_id,
       step_id: validated.step_id,
-      bridge_duration_ms: duration_ms,
+      duration_ms: duration_ms,
+      bridge_duration_ms: if(python_engine?(validated.engine), do: duration_ms, else: nil),
       error: Protocol.bounded_reason(reason)
     })
 
@@ -506,7 +614,8 @@ defmodule StockSage.Actions.RunAnalysis do
        engine: validated.engine,
        error: reason,
        persistence_error: persistence_error,
-       bridge_duration_ms: duration_ms,
+       duration_ms: duration_ms,
+       bridge_duration_ms: if(python_engine?(validated.engine), do: duration_ms, else: nil),
        objective_id: validated.objective_id,
        step_id: validated.step_id,
        actions: [
@@ -520,7 +629,8 @@ defmodule StockSage.Actions.RunAnalysis do
              ticker: validated.ticker,
              analysis_date: Date.to_iso8601(validated.analysis_date),
              engine: validated.engine,
-             bridge_duration_ms: duration_ms,
+             duration_ms: duration_ms,
+             bridge_duration_ms: if(python_engine?(validated.engine), do: duration_ms, else: nil),
              error: Protocol.bounded_reason(reason),
              queue_entry_id: validated.queue_entry_id,
              objective_id: validated.objective_id,
@@ -536,13 +646,17 @@ defmodule StockSage.Actions.RunAnalysis do
       analysis_id: analysis.id,
       user_id: validated.user_id,
       section: "result",
-      agent: "python_bridge",
-      content: bounded(Map.get(result, "raw"), persisted_detail_max()),
-      payload: %{
-        "engine" => validated.engine,
-        "truncated" => truncated?,
-        "stub" => Map.get(result, "stub", false)
-      }
+      agent: detail_agent(validated.engine),
+      content: bounded(detail_content(result), persisted_detail_max()),
+      payload:
+        %{
+          "engine" => validated.engine,
+          "truncated" => truncated?,
+          "stub" => result_field(result, :stub, false),
+          "native_report" =>
+            if(validated.engine == "native", do: redact_native_result(result), else: nil)
+        }
+        |> drop_nil_values()
     }
 
     Analyses.create_detail(detail_attrs)
@@ -560,6 +674,91 @@ defmodule StockSage.Actions.RunAnalysis do
     end
   rescue
     _exception -> @default_detail_max
+  end
+
+  defp result_field(result, key, default \\ nil)
+
+  defp result_field(result, key, default) when is_map(result) and is_atom(key) do
+    Map.get(result, key, Map.get(result, Atom.to_string(key), default))
+  end
+
+  defp result_field(result, key, default) when is_map(result) and is_binary(key) do
+    Map.get(result, key, default)
+  end
+
+  defp result_field(_result, _key, default), do: default
+
+  defp analysis_source("native"), do: "native"
+  defp analysis_source(_engine), do: "python_bridge"
+
+  defp persisted_engine("tradingagents"), do: "tradingagents"
+  defp persisted_engine(engine) when engine in ["native", "python", "both"], do: engine
+  defp persisted_engine(_engine), do: "tradingagents"
+
+  defp bridge_engine("python"), do: "tradingagents"
+  defp bridge_engine(engine), do: engine
+
+  defp detail_agent("native"), do: "native_coordinator"
+  defp detail_agent(_engine), do: "python_bridge"
+
+  defp detail_content(result) when is_map(result) do
+    result_field(result, :raw) || Jason.encode!(json_safe(result))
+  end
+
+  defp detail_content(result), do: inspect(result)
+
+  defp redact_native_result(result) when is_map(result) do
+    result
+    |> Map.take([
+      :engine,
+      :ticker,
+      :analysis_date,
+      :agent_ids,
+      :agent_reports,
+      :debate_rounds,
+      :final_trade_decision,
+      :recommendation,
+      :confidence,
+      :investment_plan,
+      :trader_investment_plan,
+      :warnings,
+      :generated_at
+    ])
+    |> json_safe()
+  end
+
+  defp json_safe(value) do
+    value
+    |> AllbertSignals.redact()
+    |> to_json_safe()
+  end
+
+  defp to_json_safe(%DateTime{} = value), do: DateTime.to_iso8601(value)
+  defp to_json_safe(%Date{} = value), do: Date.to_iso8601(value)
+  defp to_json_safe(%Time{} = value), do: Time.to_iso8601(value)
+
+  defp to_json_safe(value) when is_map(value) do
+    Enum.reduce(value, %{}, fn {key, nested}, acc ->
+      Map.put(acc, json_key(key), to_json_safe(nested))
+    end)
+  end
+
+  defp to_json_safe(value) when is_list(value), do: Enum.map(value, &to_json_safe/1)
+  defp to_json_safe(value) when is_tuple(value), do: inspect(value)
+  defp to_json_safe(value) when is_atom(value), do: Atom.to_string(value)
+
+  defp to_json_safe(value) when is_binary(value) or is_number(value) or is_boolean(value),
+    do: value
+
+  defp to_json_safe(nil), do: nil
+  defp to_json_safe(value), do: inspect(value, limit: 20, printable_limit: 1_000)
+
+  defp json_key(key) when is_atom(key), do: Atom.to_string(key)
+  defp json_key(key) when is_binary(key), do: key
+  defp json_key(key), do: inspect(key)
+
+  defp drop_nil_values(map) when is_map(map) do
+    Enum.reject(map, fn {_key, value} -> is_nil(value) end) |> Map.new()
   end
 
   defp update_queue(validated, analysis, status, started_at, reason \\ nil)
@@ -626,10 +825,35 @@ defmodule StockSage.Actions.RunAnalysis do
     end
   end
 
-  defp normalize_engine(nil), do: "tradingagents"
-  defp normalize_engine(""), do: "tradingagents"
-  defp normalize_engine(value) when is_binary(value), do: String.trim(value)
-  defp normalize_engine(_), do: "tradingagents"
+  defp normalize_engine(params) when is_map(params) do
+    cond do
+      normalize_bool(Actions.field(params, :compare_python)) ->
+        "both"
+
+      true ->
+        params
+        |> Actions.field(:engine)
+        |> normalize_engine_value()
+    end
+  end
+
+  defp normalize_engine_value(nil), do: "native"
+  defp normalize_engine_value(""), do: "native"
+
+  defp normalize_engine_value(value) when is_binary(value) do
+    case value |> String.trim() |> String.downcase() do
+      "native" -> "native"
+      "python" -> "python"
+      "tradingagents" -> "tradingagents"
+      "both" -> "both"
+      other -> other
+    end
+  end
+
+  defp normalize_engine_value(_), do: "native"
+
+  defp normalize_evidence_mode(value) when value in ["live", "fixture", "compare"], do: value
+  defp normalize_evidence_mode(_value), do: nil
 
   defp normalize_bool(true), do: true
   defp normalize_bool("true"), do: true
@@ -663,6 +887,61 @@ defmodule StockSage.Actions.RunAnalysis do
        ]
      }}
   end
+
+  defp native_disabled(validated, permission_decision) do
+    {:ok,
+     %{
+       message: "StockSage native engine is disabled; analysis cannot run.",
+       status: :error,
+       error: :native_engine_disabled,
+       permission_decision: permission_decision,
+       actions: [
+         Actions.action(
+           "run_analysis",
+           :error,
+           :stocksage_analyze,
+           permission_decision,
+           %{
+             error: :native_engine_disabled,
+             ticker: validated.ticker,
+             engine: validated.engine
+           }
+         )
+       ]
+     }}
+  end
+
+  defp target_execution_mode("native"), do: :native_agent_graph
+  defp target_execution_mode("both"), do: :native_python_parity
+  defp target_execution_mode(_engine), do: :python_bridge
+
+  defp confirmation_disclosure(%{engine: "native"} = validated) do
+    evidence =
+      case validated.evidence_mode do
+        "fixture" -> "fixture evidence; no market-data network calls from evidence actions"
+        "compare" -> "fixture plus live evidence comparison where Resource Access grants allow it"
+        _other -> "live evidence actions where Resource Access grants allow them"
+      end
+
+    "Native StockSage specialist analysis: supervised Jido agents will run with #{evidence}. " <>
+      "Specialist output is advisory and cannot authorize trades."
+  end
+
+  defp confirmation_disclosure(%{engine: "both"} = validated) do
+    confirmation_disclosure(%{validated | engine: "native"}) <>
+      " Python comparison is explicitly requested and will run only through the documented bridge."
+  end
+
+  defp confirmation_disclosure(validated) do
+    if validated.force_stub do
+      "Stub-mode Python analysis: no TradingAgents call will be made. " <>
+        "Persisted detail row will be labeled stub: true."
+    else
+      "Explicit Python TradingAgents analysis will make external market-data API calls as configured."
+    end
+  end
+
+  defp python_engine?(engine), do: engine in ["python", "tradingagents", "both"]
 
   defp invalid(permission_decision, error, message) do
     {:ok,
@@ -763,6 +1042,15 @@ defmodule StockSage.Actions.RunAnalysis do
 
   defp bridge_enabled? do
     case Settings.get("stocksage.bridge_enabled") do
+      {:ok, value} when is_boolean(value) -> value
+      _other -> true
+    end
+  rescue
+    _exception -> true
+  end
+
+  defp native_engine_enabled? do
+    case Settings.get("stocksage.native_engine_enabled") do
       {:ok, value} when is_boolean(value) -> value
       _other -> true
     end

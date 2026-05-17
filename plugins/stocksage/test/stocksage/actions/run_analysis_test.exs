@@ -43,6 +43,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "AAPL",
         analysis_date: "2026-05-01",
+        engine: "python",
         user_id: "alice",
         objective_id: "obj_run_analysis_test",
         step_id: "step_run_analysis_test"
@@ -100,7 +101,12 @@ defmodule StockSage.Actions.RunAnalysisTest do
       assert {:ok, response} =
                Runner.run(
                  "run_analysis",
-                 %{ticker: "AAPL", analysis_date: "2026-05-01", user_id: "alice"},
+                 %{
+                   ticker: "AAPL",
+                   analysis_date: "2026-05-01",
+                   engine: "python",
+                   user_id: "alice"
+                 },
                  %{}
                )
 
@@ -123,6 +129,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "AAPL",
         analysis_date: "2026-05-01",
+        engine: "python",
         user_id: "alice",
         objective_id: "obj_success_test",
         step_id: "step_success_test",
@@ -176,6 +183,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "TSLA",
         analysis_date: "2026-05-01",
+        engine: "python",
         user_id: "alice",
         queue_entry_id: entry.id,
         force_stub: true
@@ -204,6 +212,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "AAPL",
         analysis_date: "2026-05-01",
+        engine: "python",
         user_id: "alice",
         queue_entry_id: "queue_missing_xyz",
         force_stub: true
@@ -238,6 +247,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "TSLA",
         analysis_date: "2026-05-01",
+        engine: "python",
         user_id: "bob",
         queue_entry_id: alice_entry.id,
         force_stub: true
@@ -268,6 +278,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "MSFT",
         analysis_date: "2026-05-01",
+        engine: "python",
         user_id: "alice",
         queue_entry_id: entry.id,
         force_stub: true
@@ -323,6 +334,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "AAPL",
         analysis_date: "2026-05-01",
+        engine: "python",
         user_id: "alice",
         force_stub: true
       }
@@ -349,6 +361,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "AAPL",
         analysis_date: "2026-05-01",
+        engine: "python",
         user_id: "alice",
         queue_entry_id: "queue_missing",
         force_stub: true
@@ -376,6 +389,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "MSFT",
         analysis_date: "2026-05-01",
+        engine: "python",
         user_id: "alice",
         force_stub: true
       }
@@ -416,6 +430,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "NVDA",
         analysis_date: "2026-05-01",
+        engine: "python",
         user_id: "alice",
         force_stub: true
       }
@@ -456,6 +471,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "NVDA",
         analysis_date: "2026-05-01",
+        engine: "python",
         user_id: "alice",
         force_stub: true
       }
@@ -476,7 +492,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
 
       assert output =~ "Target: run_analysis status=completed"
       assert output =~ "stub=true"
-      assert output =~ "engine=tradingagents"
+      assert output =~ "engine=python"
       assert output =~ "truncated=false"
       assert output =~ "Analysis id:"
       assert output =~ "Ticker: NVDA"
