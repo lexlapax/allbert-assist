@@ -5,7 +5,9 @@
 Proposed. Targeted for acceptance with v0.24 Objective Runtime Foundation
 M6 closeout. Amendments below (Section: v0.24 Amendments) enumerate the
 plan-level decisions that crystallized during the third validation pass
-on 2026-05-16.
+on 2026-05-16 and the fourth validation pass on 2026-05-17 (post-v0.23
+implementation). Amendments A1–A10 came from the third pass; A11–A13
+came from the fourth pass.
 
 ## Context
 
@@ -500,6 +502,103 @@ from opts; older callers continue to work without modification.
 ADR 0019 is amended separately at v0.24 M2 to register `:objective`
 as a candidate kind under the existing Section 2 invariants.
 
+### A11. Hybrid proposer contract (fourth-pass decision 2026-05-17)
+
+The deterministic proposer (Section 3 — Planner/evaluator;
+Amendment A9 above) supports a **hybrid propose-execute-reflect
+cycle** for multi-step objectives. `Proposer.propose/2` returns one
+of:
+
+- `{:ok, [step_attrs, ...], :done}` — final batch; no more steps
+  pending. Engine runs Stages 5–7 for each step, then evaluates
+  acceptance.
+- `{:ok, [step_attrs, ...], {:more, hint}}` — first or intermediate
+  batch; engine re-invokes `propose/2` after Stage 7 with
+  `Keyword.put(context, :proposer_hint, hint)`. Engine persists the
+  hint into `Objectives.Engine.Agent.proposer_hints[objective_id]`
+  so a crash + rehydrate replays correctly.
+- `{:no_steps, reason}` — no steps available; engine records reason
+  in framing event and does not create the objective (framing call)
+  or transitions to `:blocked` with reason `:no_more_steps`
+  (mid-objective call).
+
+The `hint` is a **tagged tuple keyed by app_id**
+(e.g., `{:stocksage, %{step_index: 1, completed_steps: [...]}}`).
+Engine pattern-matches on the tag to route back to the right
+proposer without inspecting inner state. Inner-map shape is per-app
+and opaque to the engine.
+
+This contract supports the v0.24 two-step
+"analyze AAPL and compare to MSFT" smoke without requiring the
+proposer to predict the full plan upfront. v0.25+ LLM-assisted
+proposers (when shipped under a future ADR) inherit the same
+contract.
+
+### A12. Acceptance criteria structured shape (fourth-pass decision 2026-05-17)
+
+`objectives.acceptance_criteria` is a JSON-encoded TEXT column with
+a structured map shape, not free-form natural language. The
+`AllbertAssist.Objectives.Evaluator.evaluate/2` function compares
+the map against completed step rows + observations and returns
+`:met | :not_met | :needs_more_steps`.
+
+Shape:
+
+```elixir
+%{
+  "min_completed_steps" => integer,
+  "required" => [clause, ...],          # all clauses must hold for :met
+  "needs_more_when" => [clause, ...],   # holds → :needs_more_steps vs :not_met
+  "summary" => string                   # operator-facing
+}
+```
+
+Clause kinds shipped in v0.24 (extensible via future ADRs;
+unknown kinds are rejected at changeset validation):
+
+- `step_completed_with_action` — completed step exists whose
+  `candidate_action` matches and `action_params` super-set-matches
+  `params_match`; cardinality via `min_count` (default 1).
+- `completed_step_count_below` — used in `needs_more_when` only;
+  true if fewer than `value` steps are `:completed`.
+- `observation_contains` — completed step's `observation_summary`
+  contains the literal `substring`.
+
+Reserved clause kinds (named, not implemented in v0.24):
+`step_failed`, `step_observation_matches_regex`,
+`total_duration_under_ms`, `acceptance_via_llm` (LLM-assisted
+evaluation reserved per Section 3).
+
+Test fixtures live under
+`apps/allbert_assist/test/fixtures/v0.24/acceptance_criteria/` with
+JSON exemplars for the two v0.24 acceptance flows.
+
+This is the operator-visible form of the Section 3 "Planner /
+evaluator" deterministic contract: acceptance is a function of
+structured data, never free-form model output.
+
+### A13. v0.24 M1 owns v0.23 substrate gap-8 fix (fourth-pass decision 2026-05-17)
+
+v0.23's `AllbertAssist.JidoBacked.unwrap_last_result/1` returned
+`{:error, :jido_backed_missing_result}` for directive-only command
+returns (audit gap 8). v0.24 Engine commands routinely emit
+directives (`Jido.Agent.Directive.enqueue/2` for next-stage
+scheduling), so the substrate must accept those shapes.
+
+The fix lands in v0.24 M1 as the first commit (before any objective
+code):
+
+- Accept `{:ok, %{}, directives}` (empty result + directives) → return
+  `{:ok, :dispatched, directives}` or equivalent non-error shape.
+- Accept `{:ok, %Jido.Agent.Directive{} = d}` →
+  `{:ok, :dispatched, [d]}`.
+- Existing happy path (`{:ok, %{result: x}}`, no directives) →
+  unchanged.
+
+v0.23 is already tagged; v0.24 owns the substrate extension as part
+of its substrate-dependency obligation. v0.23 tests are extended
+with regression coverage for each new shape in v0.24 M1.
+
 ## Consequences
 
 ### What changes
@@ -544,6 +643,44 @@ as a candidate kind under the existing Section 2 invariants.
   specialist agents have a binding target (Amendment A3).
 - ADR 0019 amended at v0.24 M2 to register `:objective` as a
   candidate kind.
+- Hybrid proposer contract (`{:more, hint}` / `:done` /
+  `{:no_steps, _}`) shipped so multi-step objectives can stream
+  proposals across observation cycles (Amendment A11). Engine
+  persists hints in JidoBacked agent state under `proposer_hints`.
+- Acceptance criteria are persisted as structured JSON in
+  `objectives.acceptance_criteria` (Amendment A12). Evaluator clauses
+  are deterministic and reject unknown kinds at changeset
+  validation.
+- v0.23 `JidoBacked.unwrap_last_result/1` extended in v0.24 M1 to
+  accept directive-only command returns (Amendment A13).
+- `AllbertAssist.Objectives.AgentRegistry` ships as an empty registry
+  in v0.24 (specialist agents register themselves in v0.25+). v0.24
+  M1 verifies whether `Jido.Registry` can be reused; falls back to
+  Elixir `Registry` if Jido's primitive is unsuitable.
+- `AllbertAssistWeb.SignalBridge` GenServer (web-app side) bridges
+  `allbert.objective.*` signals to per-user Phoenix.PubSub topics so
+  AgentLive + ObjectiveLive update in real time. Engine never knows
+  about Phoenix.PubSub; web-app graceful absence falls back to
+  5-second poll.
+- `objectives.continue` action is **idempotent for no-progress
+  calls**: returns `{:ok, %{status: :still_blocked, reason}}` without
+  `loop_count` increment or impasse event when nothing has changed
+  since the objective was blocked. `:abandoned` is **terminal**:
+  `continue` returns `{:error, :objective_abandoned}`.
+- Confirmations carry a snapshot of `objective_title` +
+  `objective_status` in `params_summary` at creation. Renderers fetch
+  the live objective row and prepend a stale-warning `Note:` line
+  when the snapshot diverges. Applies uniformly across CLI,
+  Telegram, email, and LiveView.
+- Trace markdown places objective context as **inline `### Objective`
+  subsections** under each top-level section that touched the
+  objective during the turn (Selected Skill, Confirmation, Action
+  Result, Intent Candidates, Memory Review). A dedicated top-level
+  `## Objective Steps` section also renders per turn.
+- Per-app `StockSage.Proposer` registers at app boot via
+  `AllbertAssist.Objectives.Proposer.register_app_proposer/2`. v0.24
+  ships exactly one registered proposer; proposer rules are
+  hardcoded Elixir, not settings data.
 
 ### What stays the same
 
