@@ -103,11 +103,17 @@ defmodule StockSage.Actions.ShowAnalysis do
   end
 
   defp detail_summary(detail) do
+    # v0.22 third-validation closeout (MED): surface the persisted detail
+    # `payload` (bounded; the writer in `RunAnalysis` only stores a small
+    # map with `engine` / `truncated` / `stub`). Operators inspecting a
+    # row via `mix stocksage.analyses show <id>` need this to see whether
+    # the bridge ran the stub path or made a real TradingAgents call.
     %{
       id: detail.id,
       section: detail.section,
       agent: detail.agent,
-      content: detail.content
+      content: detail.content,
+      payload: detail.payload || %{}
     }
   end
 
