@@ -558,6 +558,14 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
     case Runner.run("run_analysis", Map.get(record, "resume_params_ref", %{}), target_context) do
       {:ok, %{status: status} = response} when status in [:completed, :failed] ->
+        # v0.22 third-validation closeout (MED/LOW): include :stub so the
+        # resumed target_result preserves the bridge-mode flag. Without
+        # this, operators inspecting the confirmation record after
+        # approval cannot tell whether the analysis came from the
+        # deterministic stub path or a real TradingAgents propagate
+        # call — even though the underlying RunAnalysis response carries
+        # the field. The same fields are surfaced in the CLI approve
+        # output by `print_target_result_summary/1`.
         target_result =
           Map.get(response, :result) ||
             Map.take(response, [
@@ -567,6 +575,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
               :engine,
               :bridge_duration_ms,
               :truncated,
+              :stub,
               :status,
               :summary,
               :error

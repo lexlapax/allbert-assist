@@ -11,8 +11,12 @@ lifecycle; this script is the subprocess body.
 v0.22 M2 wires the real TradingAgents call. Requests can pass
 ``force_stub: true`` to use the stub path (for tests and dev environments
 without LLM credentials). When ``tradingagents`` cannot be imported, the
-bridge reports ``tradingagents_unavailable`` rather than silently stubbing,
-so production gaps surface loudly.
+bridge reports a ``tradingagents_import_failed: <ExceptionClass>: <msg>``
+error reason rather than silently stubbing, so production gaps surface
+loudly. (Earlier docstring drafts referred to this as
+``tradingagents_unavailable`` — that name was renamed during the v0.22
+audit closeout for symmetry with the import-error shape; updated by the
+v0.22 third-validation pass.)
 """
 
 from __future__ import annotations

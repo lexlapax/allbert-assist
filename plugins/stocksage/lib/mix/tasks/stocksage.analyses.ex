@@ -94,7 +94,14 @@ defmodule Mix.Tasks.Stocksage.Analyses do
     Mix.shell().info("Details: #{length(analysis.details)}")
 
     Enum.each(analysis.details, fn detail ->
-      Mix.shell().info("- #{detail.section}: #{bounded(detail.content, 240)}")
+      # v0.22 third-validation closeout (MED): print stub + truncated
+      # from the persisted payload so the operator can immediately tell
+      # which detail rows came from the deterministic stub path versus a
+      # real TradingAgents propagate call. The payload may be empty for
+      # legacy rows written before v0.22; `format_detail_meta/1` returns
+      # an empty string in that case so legacy output is unchanged.
+      meta = format_detail_meta(Map.get(detail, :payload) || %{})
+      Mix.shell().info("- #{detail.section}#{meta}: #{bounded(detail.content, 240)}")
     end)
 
     Mix.shell().info("Outcomes: #{length(analysis.outcomes)}")
@@ -163,4 +170,31 @@ defmodule Mix.Tasks.Stocksage.Analyses do
 
   defp format_value(nil), do: "-"
   defp format_value(value), do: to_string(value)
+
+  # Render the small set of operator-facing payload fields the bridge
+  # writes (`engine`, `truncated`, `stub`). Anything else in the payload
+  # is intentionally omitted from the CLI so an oversized or surprising
+  # payload key never leaks into the operator's terminal. Order is
+  # stable for predictable diffs in operator smoke transcripts.
+  defp format_detail_meta(payload) when is_map(payload) do
+    [
+      maybe_meta(payload, "stub", "stub"),
+      maybe_meta(payload, "truncated", "truncated"),
+      maybe_meta(payload, "engine", "engine")
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> ""
+      parts -> " (" <> Enum.join(parts, ", ") <> ")"
+    end
+  end
+
+  defp format_detail_meta(_payload), do: ""
+
+  defp maybe_meta(payload, key, label) do
+    case Map.fetch(payload, key) do
+      {:ok, value} -> "#{label}=#{value}"
+      :error -> nil
+    end
+  end
 end
