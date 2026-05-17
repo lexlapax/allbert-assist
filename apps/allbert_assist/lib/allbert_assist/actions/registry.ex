@@ -44,6 +44,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
   alias AllbertAssist.Actions.Objectives.ListObjectives
   alias AllbertAssist.Actions.Objectives.ShowObjective
+  alias AllbertAssist.Actions.Objectives.ContinueObjective
+  alias AllbertAssist.Actions.Objectives.DelegateAgent
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
   alias AllbertAssist.Actions.Plugins.ListPlugins
@@ -143,6 +145,8 @@ defmodule AllbertAssist.Actions.Registry do
     PromoteConversationTurn,
     ListObjectives,
     ShowObjective,
+    ContinueObjective,
+    DelegateAgent,
     RegistryHealth,
     TraceSummary
   ]
@@ -622,6 +626,20 @@ defmodule AllbertAssist.Actions.Registry do
       permission: :read_only,
       exposure: :internal,
       execution_mode: :objectives_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ContinueObjective => %{
+      permission: :objective_write,
+      exposure: :internal,
+      execution_mode: :objective_engine,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    DelegateAgent => %{
+      permission: :objective_write,
+      exposure: :internal,
+      execution_mode: :objective_delegate,
       skill_backed?: false,
       confirmation: :not_required
     },
