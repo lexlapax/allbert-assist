@@ -101,7 +101,7 @@ defmodule AllbertAssist.Objectives.Commands.ContinueObjective do
     }
 
     with {:ok, propose_patch, proposed, _directives} <-
-           run_command(Commands.ProposeSteps, proposer_params, context) do
+           Commands.run_subcommand(Commands.ProposeSteps, proposer_params, context) do
       case proposed do
         %{steps: [step | _rest]} ->
           context = merge_context_state(context, propose_patch)
@@ -120,7 +120,7 @@ defmodule AllbertAssist.Objectives.Commands.ContinueObjective do
     authorize_params = %{step_id: step.id, trace_id: trace_id(params, context)}
 
     with {:ok, _patch, %{objective: updated, step: authorized, response: response}, _directives} <-
-           run_command(Commands.AuthorizeStep, authorize_params, context) do
+           Commands.run_subcommand(Commands.AuthorizeStep, authorize_params, context) do
       {:ok,
        %{
          message: "Objective #{updated.id} advanced to step #{authorized.id}.",
@@ -138,7 +138,7 @@ defmodule AllbertAssist.Objectives.Commands.ContinueObjective do
     advance_params = %{step_id: step.id, trace_id: trace_id(params, context)}
 
     with {:ok, _patch, result, _directives} <-
-           run_command(Commands.AdvanceObjective, advance_params, context) do
+           Commands.run_subcommand(Commands.AdvanceObjective, advance_params, context) do
       {:ok, result}
     end
   end
@@ -172,29 +172,6 @@ defmodule AllbertAssist.Objectives.Commands.ContinueObjective do
 
   defp step_ready(%Step{status: "blocked"}), do: {:error, :blocked_without_confirmation}
   defp step_ready(_step), do: :ok
-
-  defp run_command(module, params, context) do
-    case module.run(params, context) do
-      {:ok, patch} ->
-        with {:ok, result} <- last_result(patch) do
-          {:ok, patch, result, []}
-        end
-
-      {:ok, patch, directives} ->
-        with {:ok, result} <- last_result(patch) do
-          {:ok, patch, result, List.wrap(directives)}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp last_result(%{last_result: {:ok, result}}), do: {:ok, result}
-  defp last_result(%{"last_result" => {:ok, result}}), do: {:ok, result}
-  defp last_result(%{last_result: {:error, reason}}), do: {:error, reason}
-  defp last_result(%{"last_result" => {:error, reason}}), do: {:error, reason}
-  defp last_result(_patch), do: {:error, :missing_command_result}
 
   defp objective(params, context) do
     with {:ok, objective_id} <- objective_id(params),
