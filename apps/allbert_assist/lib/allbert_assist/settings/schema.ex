@@ -14,6 +14,7 @@ defmodule AllbertAssist.Settings.Schema do
     "operator.timezone",
     "operator.communication_style",
     "operator.handoff_detail",
+    "allbert.jido.debug_trace",
     "runtime.trace_default",
     "runtime.diagnostics_verbosity",
     "intent.model_assist_enabled",
@@ -213,6 +214,12 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       allowed_values: ["brief", "concrete_next_steps", "full_context"]
+    },
+    "allbert.jido.debug_trace" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
     },
     "runtime.trace_default" => %{
       type: :enum,
@@ -1112,6 +1119,11 @@ defmodule AllbertAssist.Settings.Schema do
   }
 
   @defaults %{
+    "allbert" => %{
+      "jido" => %{
+        "debug_trace" => false
+      }
+    },
     "operator" => %{
       "display_name" => "local",
       "timezone" => "America/Los_Angeles",
