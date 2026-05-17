@@ -10,6 +10,14 @@ not the architecture center.
 
 ## Current Status
 
+v0.23 is implemented and ready for operator manual verification. It is an
+internal convergence milestone: `Confirmations.Store` and `Jobs.Scheduler`
+keep their public facades and durable stores, but now run through
+Jido-backed coordinator agents under `AllbertAssist.JidoBacked.Supervisor`.
+Operator-facing confirmation, job, channel, memory, and StockSage flows are
+intended to remain identical to v0.22 by default. Version metadata is now
+`0.23.0`; the release tag is still pending operator acceptance.
+
 v0.22 was released and tagged as `v0.22` on 2026-05-16 after audit closeout
 and post-implementation gap fixes. It adds the StockSage Python bridge: a
 supervised JSON-over-stdio Port wraps a `bridge.py` subprocess, a new
@@ -18,8 +26,7 @@ through a durable confirmation, the bridge runs after operator approval, and
 the result persists into the `stocksage_analyses` / `stocksage_analysis_details`
 tables already established in v0.20. The bridge requires confirmation by
 default through the new `:stocksage_analyze` permission class, whose safety
-floor (`needs_confirmation`) cannot be lowered through settings. Version
-metadata is now `0.22.0`.
+floor (`needs_confirmation`) cannot be lowered through settings.
 
 Operator loop (M3/M4):
 
@@ -95,6 +102,9 @@ Release details live in `CHANGELOG.md`.
 - Accept user input through CLI and Phoenix LiveView.
 - Route runtime work through `AllbertAssist.Runtime.submit_user_input/1`,
   Jido agents, registered actions, and `AllbertAssist.Actions.Runner.run/3`.
+- Run confirmation-store and scheduled-job coordination through
+  `AllbertAssist.JidoBacked` agents while keeping durable YAML/SQLite stores
+  authoritative.
 - Persist local SQLite conversation threads and ordered user/assistant
   messages with string `user_id` and `thread_id`.
 - Continue the user's recent general thread by default, create a fresh thread
@@ -257,10 +267,10 @@ traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.22 release plan: `docs/plans/v0.22-plan.md`
-- v0.22 request flow and manual verification: `docs/plans/v0.22-request-flow.md`
+- v0.23 release plan: `docs/plans/v0.23-plan.md`
+- v0.23 request flow and manual verification: `docs/plans/v0.23-request-flow.md`
 - App authoring guide: `docs/developer/how-to-create-an-allbert-app.md`
-- Next milestone plan: `docs/plans/v0.23-plan.md`
+- Next milestone plan: `docs/plans/v0.24-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development
