@@ -1095,24 +1095,53 @@ before v0.24 ships `Objectives.Engine` as another new Jido.Agent.
 
 Expected direction:
 
+- Ship `AllbertAssist.JidoBacked` shared behaviour + macros so both
+  v0.23 conversions and v0.24 `Objectives.Engine.Agent` use one
+  substrate contract, not three ad-hoc ports.
+- Ship `AllbertAssist.JidoBacked.Supervisor` (one-for-one) under
+  `AllbertAssist.Supervisor`; hosts both v0.23 agents and v0.24
+  `Objectives.Engine.Agent`.
 - Convert `AllbertAssist.Confirmations.Store` from its current plain
-  Allbert Home file-backed module into a Jido.Agent-backed state machine.
-  Confirmation YAML files and audit markdown remain authoritative; no
-  confirmation SQLite migration.
+  Allbert Home file-backed module into a JidoBacked agent.
+  Confirmation YAML files and audit markdown remain authoritative;
+  no confirmation SQLite migration. Module split: existing name stays
+  as the public facade; new `.Agent` submodule holds the JidoBacked
+  agent. `.Legacy` modules retained only during M1/M2 development;
+  deleted at v0.23 M5 closeout (no transitional window past the
+  milestone).
 - Convert `AllbertAssist.Jobs.Scheduler` from plain `GenServer` to
-  Jido.Agent-backed scheduler. Jobs and job runs remain authoritative in
-  SQLite; due work is still read from SQLite on each tick. Use the current
-  documented Jido scheduling directive (`Jido.Agent.Directive.schedule/2` or
-  equivalent verified API), not invented `:emit_after` syntax.
+  JidoBacked scheduler with the same facade + `.Agent` split.
+  Jobs and job runs remain authoritative in SQLite; due work is still
+  read from SQLite on each tick. Use `Jido.Agent.Directive.schedule/2`
+  as the primary tick scheduling primitive; document any required
+  fallback in the agent's `@moduledoc`.
+- Register internal Jido.Action modules for store/scheduler operations
+  in `AllbertAssist.Actions.Registry` with a `:internal` tag;
+  `mix allbert.actions list` filters them out by default;
+  `--internal` opts them back in.
+- Add exactly one new setting: `allbert.jido.debug_trace` (boolean,
+  default `false`). When `true`, JidoBacked agents emit bounded
+  debug metadata to trace markdown via a `## Jido Debug` subsection.
+- Byte-parity test mechanism: golden-file snapshots for trace
+  markdown, audit YAML, and CLI output (stored under
+  `apps/allbert_assist/test/fixtures/v0.23/`) plus hand-written
+  assertions for state transitions.
 - Codify the pragmatic substrate rule in the vision, `AGENTS.md`, and
   `DEVELOPMENT.md`: use Jido.Agent when state machines, lifecycle hooks,
   or successor agents are plausibly useful; use plain GenServer for
   stateful storage where Jido.Agent buys nothing. Settings, Trace,
   Memory storage IO, Session.Scratchpad, Memory.Compiler, and
   Memory.Promotion stay as plain GenServers.
-- Pure architectural refactor: no new user-visible features, no schema
-  changes, no permission changes. All v0.07 and v0.13 acceptance
-  criteria continue to hold.
+- New `docs/developer/jido-agent-pattern.md` with worked example
+  (state shape, schema validation, lifecycle hooks, directive
+  emission, signal correlation, supervisor placement,
+  rebuild-on-restart contract); short summary subsection in
+  `DEVELOPMENT.md` pointing at it.
+- Pure architectural refactor: no new user-visible features beyond
+  the operator-opt-in debug-trace gate and `--internal` filter flag;
+  no schema changes; no permission changes. All v0.07 and v0.13
+  acceptance criteria continue to hold byte-for-byte against the
+  golden-file snapshots.
 
 ## v0.24: Objective Runtime Foundation
 
@@ -1129,21 +1158,47 @@ workspace shell, and future apps will build on.
 Expected direction:
 
 - Add `AllbertAssist.Objectives` umbrella with `Objective`, `Step`,
-  `Event` schemas and `Objectives.Engine` as a `Jido.Agent` (built on
-  v0.23 converged substrate) implementing a seven-stage state machine.
-- Add `objectives`, `objective_steps`, `objective_events` SQLite tables.
-- Thread `objective_id` + `step_id` through confirmations, jobs,
-  StockSage `RunAnalysis`, traces, and audit.
-- Ship five step kinds: `action`, `ask_user`, `wait`, `observe`,
-  `reflect`. Reserved kinds (`delegate_agent`, `surface`, etc.) named in
-  ADR 0021 but not implemented.
-- Ship `mix allbert.objectives list|show|cancel|continue` CLI commands.
+  `Event` schemas and `Objectives.Engine.Agent` as a JidoBacked
+  agent (built on v0.23 `AllbertAssist.JidoBacked` substrate)
+  implementing a seven-stage state machine.
+- Add `objectives`, `objective_steps`, `objective_events` SQLite tables
+  via four sequential timestamped migrations (3 core +
+  1 StockSage plugin).
+- Thread `objective_id` + `step_id` through confirmations, scheduled_jobs,
+  `stocksage_analysis_queue`, `stocksage_analyses` (with btree index on
+  `stocksage_analyses.objective_id`), traces, and audit.
+- Ship six step kinds: `action`, `ask_user`, `wait`, `observe`,
+  `reflect`, and the **minimal `:delegate_agent` contract** that
+  unblocks v0.25 specialist trading agents. Other reserved kinds
+  (`capability_inventory`, `route`, etc.) named in ADR 0021 but not
+  implemented in v0.24.
+- Hardcoded per-app Proposer modules (e.g., `StockSage.Proposer`)
+  registered via `AllbertAssist.Objectives.Proposer.register_app_proposer/2`
+  at app boot. Proposer rules are Elixir code, not settings data.
+- Add `:objective_write` permission class (default `:allow`, floor
+  `:allow`; symmetry with other `_write` classes).
+- Ship `mix allbert.objectives list|show|cancel|continue` CLI commands;
+  `cancel --reason` is required.
 - Add `## Objective` and `## Objective Steps` trace sections.
-- Add LiveView objective badge and `/objectives/:id` view.
+- Extend `AllbertAssistWeb.AgentLive` with an objective badge; add new
+  `AllbertAssistWeb.ObjectiveLive` at `/objectives/:id`.
 - Cooperative cancellation only; mid-action interruption deferred to
-  v0.25+.
+  v0.25+. Cancel-then-approve preserves the single-shot confirmation
+  audit trail.
+- Eager engine rehydration at boot; objectives with `updated_at`
+  older than 1 hour are marked `:abandoned` (new terminal status).
+- `Intent.Engine.collect_candidates/2` arity adds `:objective`
+  candidate kind; ADR 0019 amended.
+- Both `allbert.runtime.turn.completed` and
+  `allbert.objective.completed` share `trace_id` for consumer
+  correlation.
 - Acceptance smokes: single-step `analyze AAPL` objective and two-step
-  `analyze AAPL and compare to MSFT` objective.
+  `analyze AAPL and compare to MSFT` objective (with `parent_step_id`
+  populated end-to-end).
+- ADR 0021 amended at v0.24 M6 to enumerate `:objective_write`,
+  `parent_step_id` semantics, minimal `:delegate_agent`,
+  `objective_id` on `stocksage_analyses`, and the `:abandoned`
+  status. ADR 0021 status moves to Accepted at M6.
 - Reserved vocabulary: advisory provider behaviour, world-model
   provider, capability inventory, route, acquisition option, planner.
   See ADR 0021 and the research note.
