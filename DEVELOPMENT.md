@@ -329,6 +329,38 @@ Skill scripts, external package installs, shell execution, and external network
 adapters remain inert until a milestone explicitly adds sandboxing,
 permission, confirmation, and tracing.
 
+## App Version Metadata
+
+Every `AllbertAssist.App` implementation defines `version/0`. The
+convention is **release-pinned, not semantic-per-app**: bump the
+returned string to match the Allbert release that last meaningfully
+changed the app's surface (signals, actions, surfaces, schemas,
+behaviour). Do not bump the string for cosmetic changes or release
+mechanics that didn't move the surface.
+
+Why release-pinned and not semver-per-app:
+
+- Reduces "is this number stale?" ambiguity. The number tracks the
+  release that introduced the behaviour, so a v0.22 reader can
+  immediately tell that an app version of `0.20.0` means the app
+  surface hasn't moved since v0.20.
+- Avoids per-app semver bookkeeping for apps that ship together. A
+  semver-per-app convention would require a major-version policy
+  per-app and an audit log per-app — neither of which we maintain.
+- Keeps the version string consistent with the related `mix.exs`
+  version when the app is the umbrella core (`AllbertAssist.App.CoreApp`
+  → `apps/allbert_assist/mix.exs`).
+
+Where this gets enforced:
+
+- Reviewed at each milestone closeout: if a milestone changes an app's
+  signals/actions/surfaces or persists a new schema for that app, bump
+  the app's `version/0` to match the milestone's Allbert release.
+- The v0.22 audit closeout bumped `AllbertAssist.App.CoreApp.version/0`
+  from `"0.21.0"` to `"0.22.0"` and `StockSage.App.version/0` from
+  `"0.20.0"` to `"0.22.0"` because v0.22 added the bridge protocol,
+  StockSage analysis result schema, and named StockSage signals.
+
 ## Component Substrate: Jido.Agent vs. GenServer
 
 Allbert uses both `Jido.Agent` and plain `GenServer` for state-bearing

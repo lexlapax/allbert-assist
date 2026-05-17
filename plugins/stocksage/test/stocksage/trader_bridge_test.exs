@@ -93,6 +93,158 @@ defmodule StockSage.TraderBridgeTest do
     end
   end
 
+  describe "large bridge response assembly" do
+    # v0.22 audit closeout (Gap 2 — large bridge response coverage): the
+    # bridge port is opened with {:line, 16_384}, so the Erlang VM splits
+    # any single line longer than 16 KB into one or more
+    # `{port, {:data, {:noeol, fragment}}}` deliveries followed by a
+    # trailing `{:eol, last}`. The existing tests only exercise stub-mode
+    # responses (well under 16 KB), so the buffer-assembly path in
+    # handle_info/2 was never exercised by tests. Real TradingAgents runs
+    # routinely cross this threshold. These tests synthesize the
+    # fragmented port deliveries directly to the GenServer so we don't
+    # need to wait on a real propagate() to produce a large response.
+    setup do
+      put_setting!("stocksage.bridge_enabled", true)
+      name = unique_name()
+      {:ok, pid} = TraderBridge.start_link(name: name)
+      on_exit(fn -> safe_stop(pid) end)
+      %{name: name}
+    end
+
+    test "assembles a >16 KB response fragmented across :noeol + :eol deliveries " <>
+           "and routes it to the pending caller",
+         %{name: name} do
+      # Bring the bridge up so the GenServer has a real port reference;
+      # the port pattern-match in handle_info/2 requires the inbound
+      # message's port term to equal state.port.
+      assert :ok = TraderBridge.ping(name)
+      state = :sys.get_state(name)
+      assert is_port(state.port)
+
+      # Inject a fake pending entry whose `from` is the test process so
+      # the GenServer's route_response will GenServer.reply back to us.
+      test_pid = self()
+      fake_ref = make_ref()
+      fake_from = {test_pid, fake_ref}
+      fake_id = "large_response_audit_#{System.unique_integer([:positive])}"
+
+      :sys.replace_state(name, fn s ->
+        pending = Map.put(s.pending, fake_id, %{from: fake_from, timer: nil})
+        %{s | pending: pending}
+      end)
+
+      # Build a single-line JSON response well over the 16 KB line limit
+      # by stuffing a multi-tens-of-KB summary field. The whole payload
+      # must be one JSON object on one line — the bridge's framing is
+      # newline-delimited, and only the {:eol, _} terminator triggers
+      # route_response.
+      large_summary = String.duplicate("A", 60_000)
+
+      response =
+        Jason.encode!(%{
+          "id" => fake_id,
+          "status" => "ok",
+          "result" => %{
+            "ticker" => "AAPL",
+            "analysis_date" => "2026-05-01",
+            "engine" => "tradingagents",
+            "summary" => large_summary,
+            "decision" => "Hold",
+            "truncated" => false,
+            "stub" => false
+          }
+        })
+
+      assert byte_size(response) > 16_384,
+             "fixture must exceed the bridge's 16 KB line limit to exercise fragmentation"
+
+      # Slice the response into 8 KB fragments and deliver them as
+      # `{:noeol, chunk}` followed by a final `{:eol, last_chunk}` to
+      # mimic exactly what the Erlang VM produces in {:line, 16_384}
+      # mode for an oversize line.
+      port = state.port
+      chunks = chunk_binary(response, 8_192)
+      {leading, [last]} = Enum.split(chunks, -1)
+
+      Enum.each(leading, fn fragment ->
+        send(name, {port, {:data, {:noeol, fragment}}})
+      end)
+
+      send(name, {port, {:data, {:eol, last}}})
+
+      # The route_response path: decodes the assembled line, looks up the
+      # pending entry by id, and replies. GenServer.reply delivers a
+      # `{ref, reply}` message to the from's pid.
+      assert_receive {^fake_ref, {:ok, result}}, 2_000
+
+      assert result["ticker"] == "AAPL"
+      assert result["analysis_date"] == "2026-05-01"
+      assert result["decision"] == "Hold"
+      assert result["summary"] == large_summary
+
+      # Buffer should be drained on :eol so the next response starts clean.
+      final_state = :sys.get_state(name)
+      assert final_state.buffer == ""
+      refute Map.has_key?(final_state.pending, fake_id)
+    end
+
+    test "assembles a response split into many small :noeol fragments before the :eol",
+         %{name: name} do
+      # Stress the buffer with a long stream of tiny fragments (256 B
+      # each) totaling >16 KB. The VM never produces fragments this
+      # small in practice, but the buffer-append path should not care
+      # about chunk size — only that {:eol, _} terminates the line.
+      assert :ok = TraderBridge.ping(name)
+      state = :sys.get_state(name)
+      assert is_port(state.port)
+
+      test_pid = self()
+      fake_ref = make_ref()
+      fake_from = {test_pid, fake_ref}
+      fake_id = "many_fragments_audit_#{System.unique_integer([:positive])}"
+
+      :sys.replace_state(name, fn s ->
+        pending = Map.put(s.pending, fake_id, %{from: fake_from, timer: nil})
+        %{s | pending: pending}
+      end)
+
+      large_summary = String.duplicate("B", 20_000)
+
+      response =
+        Jason.encode!(%{
+          "id" => fake_id,
+          "status" => "ok",
+          "result" => %{
+            "ticker" => "MSFT",
+            "analysis_date" => "2026-05-01",
+            "engine" => "tradingagents",
+            "summary" => large_summary,
+            "decision" => "Overweight",
+            "truncated" => false,
+            "stub" => false
+          }
+        })
+
+      port = state.port
+      chunks = chunk_binary(response, 256)
+      {leading, [last]} = Enum.split(chunks, -1)
+
+      Enum.each(leading, fn fragment ->
+        send(name, {port, {:data, {:noeol, fragment}}})
+      end)
+
+      send(name, {port, {:data, {:eol, last}}})
+
+      assert_receive {^fake_ref, {:ok, result}}, 2_000
+      assert result["ticker"] == "MSFT"
+      assert result["summary"] == large_summary
+
+      final_state = :sys.get_state(name)
+      assert final_state.buffer == ""
+    end
+  end
+
   describe "crash recovery" do
     setup do
       put_setting!("stocksage.bridge_enabled", true)
@@ -186,5 +338,21 @@ defmodule StockSage.TraderBridgeTest do
     if Process.alive?(pid), do: GenServer.stop(pid)
   catch
     :exit, _reason -> :ok
+  end
+
+  defp chunk_binary(binary, chunk_size)
+       when is_binary(binary) and is_integer(chunk_size) and chunk_size > 0 do
+    do_chunk_binary(binary, chunk_size, [])
+  end
+
+  defp do_chunk_binary(<<>>, _chunk_size, acc), do: Enum.reverse(acc)
+
+  defp do_chunk_binary(binary, chunk_size, acc) when byte_size(binary) <= chunk_size do
+    Enum.reverse([binary | acc])
+  end
+
+  defp do_chunk_binary(binary, chunk_size, acc) do
+    <<chunk::binary-size(chunk_size), rest::binary>> = binary
+    do_chunk_binary(rest, chunk_size, [chunk | acc])
   end
 end

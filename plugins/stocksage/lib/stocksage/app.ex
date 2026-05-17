@@ -17,7 +17,10 @@ defmodule StockSage.App do
   def display_name, do: "StockSage"
 
   @impl true
-  def version, do: "0.20.0"
+  # v0.22 audit closeout: release-pinned, bumped from "0.20.0" since v0.22
+  # added the Python bridge + RunAnalysis to this app. Convention is
+  # documented in DEVELOPMENT.md "App version metadata".
+  def version, do: "0.22.0"
 
   @impl true
   def validate(_opts), do: :ok
