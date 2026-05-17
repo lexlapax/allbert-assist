@@ -148,9 +148,10 @@ Dependency order from here:
     converged substrate; `objectives`/`objective_steps`/`objective_events`
     SQLite tables; `objective_id`/`step_id` threaded through confirmations,
     jobs, and StockSage `RunAnalysis`.
-23. Native Jido trading agents as the second analysis engine, consuming
-    objective state from day one so both engines are available before
-    StockSage web surfaces are built.
+23. Native financial specialist agents as the second analysis engine,
+    consuming objective state from day one so both engines are available before
+    StockSage web surfaces are built. These are reusable delegate agents, not
+    a one-for-one Python graph clone.
 24. Workspace shell upgrade: `CoreApp`'s surface transitions from the
     rudimentary `/agent` prompt to a signal-driven LiveView workspace with
     canvas and ephemeral UI substrate.
@@ -1034,7 +1035,7 @@ Expected direction:
 - Add scoped `:stocksage_write` permission for local StockSage domain writes;
   it does not authorize financial API calls or analysis execution.
 - Keep PostgreSQL, Oban-as-hard-dependency, LiveViews, bridge execution, and
-  native trading agents out of this slice.
+  native financial specialist agents out of this slice.
 
 ## v0.21: Memory Review And Retrieval
 
@@ -1157,8 +1158,8 @@ Research note: `docs/research/objective-runtime-research.md`
 Status: implemented through M6 closeout plus post-audit hardening; ready for operator manual
 verification before release tag. NEW milestone inserted by the
 project-direction rethink (see `docs/plans/project-direction-rethink-01.md`).
-Adds the durable multi-step work substrate that v0.25 native trading agents,
-v0.26 workspace shell, and future apps will build on.
+Adds the durable multi-step work substrate that v0.25 native financial
+specialist agents, v0.26 workspace shell, and future apps will build on.
 
 Expected direction:
 
@@ -1226,25 +1227,39 @@ Expected direction:
   provider, capability inventory, route, acquisition option, planner.
   See ADR 0021 and the research note.
 
-## v0.25: Native Jido Trading Agents
+## v0.25: Native Financial Specialist Agents
 
 Plan: `docs/plans/v0.25-plan.md`
+Request flow: `docs/plans/v0.25-request-flow.md`
+ADR: `docs/adr/0022-native-financial-specialist-agents.md`
 
-Status: planned. Formerly M-D2c, previously planned as v0.19, then v0.23
-before the project-direction rethink inserted v0.23 Jido State-Machine
-Convergence and v0.24 Objective Runtime Foundation.
+Status: planning-ready after holistic revisit (2026-05-17). Formerly M-D2c,
+previously planned as v0.19, then v0.23 before the project-direction rethink
+inserted v0.23 Jido State-Machine Convergence and v0.24 Objective Runtime
+Foundation.
 
 Expected direction:
 
-- Implement the native Jido trading-agent topology behind StockSage actions.
+- Implement reusable native financial specialist agents behind StockSage
+  actions. They are not a one-for-one translation of the Python TradingAgents
+  graph; they adapt role intent and prompt material into bounded Jido/Jido.AI
+  agents that can be called through the shared objective delegate-agent path.
 - Keep native worker supervisors under `StockSage.Supervisor`, contributed
   through the StockSage plugin child spec.
 - Consume v0.24 objective state from day one: each analysis runs as an
   objective step with `objective_id`/`step_id` threaded through
   confirmations, traces, and `stocksage_analyses` rows.
-- Keep the Python bridge selectable until golden fixtures and batch smoke tests
-  prove native parity within documented variance.
-- Make native analysis default only after acceptance passes.
+- Register `stocksage.market_context`, `stocksage.news_sentiment`,
+  `stocksage.fundamentals`, `stocksage.bull_thesis`,
+  `stocksage.bear_thesis`, `stocksage.decision_synthesizer`, and
+  `stocksage.quality_gate` in
+  `AllbertAssist.Objectives.AgentRegistry`.
+- Add action-backed evidence providers and fixture mode so native analysis
+  can be smoke-tested without external credentials while preserving Resource
+  Access Security Posture.
+- Keep the Python bridge available only for explicitly requested comparison,
+  similarity scoring, and regression fixtures. It is not automatic fallback.
+- Make native analysis the only default operational engine in v0.25.
 
 ## v0.26: Agentic Workspace Surface And Ephemeral UI Substrate
 
@@ -1343,7 +1358,7 @@ Expected direction:
 - Add outcome resolver, trend metrics, rating calibration, reruns, empty/error
   states, and responsive polish.
 - Replicate Python StockSage 0.0.2 user-facing behavior in Elixir, with Python
-  remaining only as explicit fallback until native parity closes.
+  remaining only as an explicitly requested comparison/reference harness.
 
 ## v0.30: StockSage Canvas Integration
 

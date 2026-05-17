@@ -485,6 +485,31 @@ advisory provider umbrella behaviour, world-model provider, diffusion
 proposer, market allocator, probabilistic inference provider. Research
 note at `docs/research/objective-runtime-research.md`.
 
+## Native Financial Specialist Agents
+
+v0.25 StockSage native agents are the first real consumers of objective
+delegate-agent steps. Read `docs/plans/v0.25-plan.md`,
+`docs/plans/v0.25-request-flow.md`, ADR 0020, ADR 0021, and ADR 0022 before
+touching this path.
+
+Implementation posture:
+
+- The native path is not a one-for-one Python TradingAgents graph translation.
+  It adapts role intent, result fields, fixtures, and license-compatible prompt
+  material into reusable financial specialist agents.
+- Specialist agents live under `./plugins/stocksage`, start under
+  `StockSage.Supervisor`, and register stable ids in
+  `AllbertAssist.Objectives.AgentRegistry`.
+- Specialist agents return advisory report packets. They do not persist
+  analyses, create confirmations, fetch market data directly, or grant
+  permission.
+- Market data, news/sentiment, fundamentals, persistence, and final
+  `RunAnalysis` writes go through registered actions, `Actions.Runner.run/3`,
+  Security Central, and Resource Access Security Posture.
+- Python remains available only as an explicitly requested
+  comparison/reference harness. Native failures must stay visible; do not
+  automatically retry or recover with Python.
+
 ## Elixir And OTP Rules
 
 - Keep the code warning-free.

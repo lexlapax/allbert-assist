@@ -60,9 +60,11 @@ The workspace path carries several grounding decisions:
   session_id}`. It may carry `active_app`, but it is not durable memory and not
   a security boundary.
 - Python StockSage and TradingAgents remain the behavioral baseline at first.
-  A supervised bridge gets useful analysis into Allbert early; native Jido
-  trading agents become default only after parity tests prove they are close
-  enough.
+  A supervised bridge gets useful analysis into Allbert early; native
+  financial specialist agents become the v0.25 operational engine. The Python
+  bridge then remains only as an explicitly requested comparison/reference
+  harness. Those agents are reusable delegate agents, not a one-for-one Python
+  graph translation.
 - The older Rust Allbert experiment is prior art for identity, sessions,
   daemon jobs, memory, and retrieval. It is not an active sibling runtime for
   this roadmap.
@@ -397,8 +399,11 @@ workflow:
   and queueing analysis through registered Jido actions.
 - Python bridge: a supervised Port or equivalent JSON boundary around the
   existing TradingAgents baseline.
-- Native agents: a later Jido analysis topology that matches the Python
-  baseline within documented variance before becoming default.
+- Native agents: reusable financial specialist agents under the v0.24
+  objective/delegate-agent contract. They adapt the Python baseline's role
+  intent, result fields, fixtures, and prompt material where license-compatible,
+  but they are designed as Elixir/OTP/Jido agents callable by the wider Allbert
+  runtime, not as a one-for-one TradingAgents class graph.
 - Web surfaces: workspace, analysis, queue, and trends LiveViews mounted
   through the app contract, setting `active_app: :stocksage` when the user is
   in StockSage context.
@@ -466,7 +471,9 @@ historical aliases only and remain in old reference notes for continuity.
   `objective_id`/`step_id` threaded through confirmations, jobs, and
   StockSage `RunAnalysis`; ADR 0021 records intent / objective / capability /
   advisory provider boundaries. Inserted by the project-direction rethink.
-- v0.25: native Jido trading agents, consuming objective state from day one.
+- v0.25: native financial specialist agents, consuming objective state from day
+  one through the delegate-agent path; Python bridge remains available only for
+  explicit comparison/reference runs and is never automatic fallback.
 - v0.26: upgrades `CoreApp`'s declared `/agent` surface (from v0.18) into a
   signal-driven workspace shell; canvas and ephemeral UI are additive. Built
   after both analysis engines, objective state, memory review, and intent

@@ -34,7 +34,7 @@ Do not load every section by default.
 | Markdown memory review, promotion, index, retrieval | ADR 0014, ADR 0019 | v0.21 |
 | Jido.Agent vs GenServer substrate (pragmatic rule) | ADR 0007, vision "Jido.Agent vs GenServer", v0.23 plan | v0.23 |
 | Objectives, steps, events, advisory providers, world models | ADR 0021, ADR 0019, v0.24 plan/request-flow, research note | v0.24 |
-| StockSage bridge, agents, LiveViews, canvas | Active StockSage milestone plan | v0.22, v0.25, v0.27, v0.29, v0.30 |
+| StockSage bridge, native financial agents, LiveViews, canvas | Active StockSage milestone plan, ADR 0020, ADR 0022 | v0.22, v0.25, v0.27, v0.29, v0.30 |
 | Workspace shell, ephemeral UI, canvas | ADR 0015, active workspace plan | v0.26, v0.30 |
 | Plugin/app generator | ADR 0017, ADR 0015, v0.31 plan | v0.31 |
 
@@ -72,6 +72,10 @@ Do not load every section by default.
 - v0.24: Objective Runtime Foundation: durable objectives,
   objective steps/events, canonical runtime turn signal aliases,
   objective signals, SignalBridge, and objective intent candidates.
+- v0.25: Native financial specialist agents for StockSage: reusable
+  supervised Jido/Jido.AI delegate agents, action-backed evidence, native
+  `RunAnalysis` engine, explicit Python comparison/reference runs, fixture
+  parity, and no one-for-one Python graph clone.
 
 ## Area Notes
 
@@ -113,6 +117,26 @@ It uses `AllbertAssist.Repo` and `stocksage_*` tables. Do not create
 `apps/stocksage`, `apps/stocksage_web`, or a separate `StockSage.Repo`.
 Permission for local domain writes does not authorize financial API calls or
 analysis execution.
+
+v0.25 native financial agents are plugin-owned but runtime-callable through
+the shared objective delegate-agent substrate. Read
+`docs/plans/v0.25-plan.md`, `docs/plans/v0.25-request-flow.md`, ADR 0020, ADR
+0021, and ADR 0022 before touching them. The native agents should adapt the
+TradingAgents baseline's role intent, fixtures, result fields, and
+license-compatible prompt material, not clone every Python role/class one for
+one. `plugins/stocksage/priv/python/bridge.py` contains the bridge protocol and
+final-state field list, not the role prompts; prompt inventory belongs under
+`plugins/stocksage/priv/prompts/native_agents/`.
+
+Native financial agents register stable ids such as
+`stocksage.market_context`, `stocksage.news_sentiment`,
+`stocksage.fundamentals`, `stocksage.bull_thesis`,
+`stocksage.bear_thesis`, `stocksage.decision_synthesizer`, and
+`stocksage.quality_gate` in `AllbertAssist.Objectives.AgentRegistry`. They
+return advisory report packets only. Market data, news, fundamentals,
+persistence, confirmations, settings, traces, and final analysis writes still
+flow through registered actions, `Actions.Runner.run/3`, Security Central, and
+Resource Access Security Posture.
 
 ### Workspace And Surfaces
 

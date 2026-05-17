@@ -89,7 +89,12 @@ Use these as starting points, then narrow further from the active task:
   `docs/plans/v0.22-plan.md`, and `CHANGELOG.md` v0.22; bridge code is
   plugin-owned (under `./plugins/stocksage/`), and the
   `:stocksage_analyze` safety floor is `:needs_confirmation` and cannot
-  be lowered by settings.
+  be lowered by settings. For native financial specialist agents read ADR
+  0022 plus `docs/plans/v0.25-plan.md` and
+  `docs/plans/v0.25-request-flow.md`; they are reusable delegate agents under
+  the objective runtime, not a one-for-one Python TradingAgents graph clone.
+  Python bridge calls after v0.25 are explicit comparison/reference runs only,
+  never automatic fallback or a persistent default.
 - Workspace shell, ephemeral UI, canvas, or app surfaces: read ADR 0015 and the
   active workspace/surface milestone plan.
 
