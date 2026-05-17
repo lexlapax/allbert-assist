@@ -457,7 +457,7 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.22: StockSage Python bridge.
 - v0.23: Jido State-Machine Convergence — converts `Confirmations.Store` and
   `Jobs.Scheduler` from plain `GenServer` to `Jido.Agent` so the runtime
-  substrate is consistent before the objective runtime ships. Pure
+  substrate is consistent before the v0.24 objective runtime. Pure
   refactor; codifies the pragmatic substrate rule. Inserted by the
   project-direction rethink (`docs/plans/project-direction-rethink-01.md`).
 - v0.24: Objective Runtime Foundation — adds the durable multi-step work

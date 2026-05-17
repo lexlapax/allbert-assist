@@ -357,11 +357,15 @@ Where this gets enforced:
 - Reviewed at each milestone closeout: if a milestone changes an app's
   signals/actions/surfaces or persists a new schema for that app, bump
   the app's `version/0` to match the milestone's Allbert release.
-- The v0.23 closeout bumped `AllbertAssist.App.CoreApp.version/0`
-  from `"0.22.0"` to `"0.23.0"` because v0.23 added the JidoBacked
-  substrate and `allbert.jido.debug_trace` setting to the core runtime.
-  StockSage.App remains `"0.22.0"` because v0.23 did not change the
-  StockSage app surface.
+- The v0.24 closeout bumped `AllbertAssist.App.CoreApp.version/0`
+  from `"0.23.0"` to `"0.24.0"` because v0.24 added the objective
+  runtime, canonical turn signal aliases, objective actions, and
+  objective surfaces to the core runtime.
+- The v0.24 closeout also bumped `StockSage.App.version/0` and
+  `./plugins/stocksage/allbert_plugin.json` from `"0.22.0"` to
+  `"0.24.0"` because v0.24 threads objective context through
+  StockSage analysis rows and adds the deterministic StockSage
+  proposer path.
 
 ## Component Substrate: Jido.Agent vs. GenServer
 
@@ -387,18 +391,18 @@ markdown file IO; Session.Scratchpad is an ETS wrapper with TTL. None
 of these have a meaningful "smarter algorithm" successor; agent
 ceremony adds nothing.
 
-As of v0.23:
+As of v0.24:
 
 - **Jido.Agent**: `IntentAgent`,
-  `AllbertAssist.Confirmations.Store.Agent`, and
-  `AllbertAssist.Jobs.Scheduler.Agent`.
+  `AllbertAssist.Confirmations.Store.Agent`,
+  `AllbertAssist.Jobs.Scheduler.Agent`, and
+  `AllbertAssist.Objectives.Engine.Agent`.
 - **Plain GenServer**: `Settings`, `Trace`, `Memory` storage IO,
   `Session.Scratchpad`, `Memory.Compiler`, `Memory.Promotion`.
 
-v0.24 adds `AllbertAssist.Objectives.Engine.Agent` on the same
-`AllbertAssist.JidoBacked` substrate. See
-`docs/developer/jido-agent-pattern.md` for the worked v0.23 conversion
-example.
+See `docs/developer/jido-agent-pattern.md` for the worked v0.23 conversion
+example and the v0.24 schema/signal-route shape used by
+`AllbertAssist.Objectives.Engine.Agent`.
 
 Every new state-bearing module must include a `@moduledoc` paragraph
 that states its substrate choice and one-sentence rationale, e.g.,

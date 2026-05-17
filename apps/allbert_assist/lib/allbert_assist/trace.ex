@@ -621,29 +621,29 @@ defmodule AllbertAssist.Trace do
   end
 
   defp objective_steps_text(response) do
-    response
-    |> objective_context()
-    |> case do
-      nil ->
-        "none"
-
-      objective ->
-        steps =
-          objective
-          |> map_value(:steps)
-          |> List.wrap()
-          |> Enum.take(5)
-
-        case steps do
-          [] ->
-            "- Objective: #{map_value(objective, :id)} status=#{map_value(objective, :status)} steps=#{map_value(objective, :step_count) || 0}"
-
-          steps ->
-            Enum.map_join(steps, "\n", fn step ->
-              "- Step: #{map_value(step, :id) || "unknown"} status=#{map_value(step, :status) || "unknown"} kind=#{map_value(step, :kind) || "unknown"} action=#{map_value(step, :candidate_action) || "none"} confirmation=#{map_value(step, :confirmation_id) || "none"}"
-            end)
-        end
+    case objective_context(response) do
+      nil -> "none"
+      objective -> objective_steps_text_for(objective)
     end
+  end
+
+  defp objective_steps_text_for(objective) do
+    objective
+    |> map_value(:steps)
+    |> List.wrap()
+    |> Enum.take(5)
+    |> case do
+      [] -> objective_without_steps_text(objective)
+      steps -> Enum.map_join(steps, "\n", &objective_step_text/1)
+    end
+  end
+
+  defp objective_without_steps_text(objective) do
+    "- Objective: #{map_value(objective, :id)} status=#{map_value(objective, :status)} steps=#{map_value(objective, :step_count) || 0}"
+  end
+
+  defp objective_step_text(step) do
+    "- Step: #{map_value(step, :id) || "unknown"} status=#{map_value(step, :status) || "unknown"} kind=#{map_value(step, :kind) || "unknown"} action=#{map_value(step, :candidate_action) || "none"} confirmation=#{map_value(step, :confirmation_id) || "none"}"
   end
 
   defp objective_context(response) do

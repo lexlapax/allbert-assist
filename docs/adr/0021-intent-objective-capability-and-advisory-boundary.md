@@ -2,14 +2,17 @@
 
 ## Status
 
-Proposed. Targeted for acceptance with v0.24 Objective Runtime Foundation
-M6 closeout. Amendments below (Section: v0.24 Amendments) enumerate the
-plan-level decisions that crystallized during the third validation pass
-on 2026-05-16, the fourth validation pass on 2026-05-17, and the final
-implementation-readiness correction on 2026-05-17. Amendments A1–A10
-came from the third pass; A11–A13 came from the fourth pass and were
-corrected in the final readiness pass to match the closed v0.23 substrate
-and the verified Jido APIs.
+Accepted. Accepted with v0.24 Objective Runtime Foundation M6 closeout on
+2026-05-17.
+
+Amendments below (Section: v0.24 Amendments) enumerate the plan-level
+decisions that crystallized during the third validation pass on 2026-05-16,
+the fourth validation pass on 2026-05-17, and the final
+implementation-readiness correction on 2026-05-17. Amendments A1–A10 came
+from the third pass; A11–A13 came from the fourth pass and were corrected in
+the final readiness pass to match the closed v0.23 substrate and the verified
+Jido APIs. M6 acceptance confirms those amendments as the binding v0.24
+objective-runtime contract.
 
 ## Context
 

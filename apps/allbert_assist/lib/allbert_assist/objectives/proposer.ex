@@ -216,6 +216,4 @@ defmodule AllbertAssist.Objectives.Proposer do
   defp field(map, key) when is_map(map) do
     Map.get(map, key) || Map.get(map, Atom.to_string(key))
   end
-
-  defp field(_value, _key), do: nil
 end

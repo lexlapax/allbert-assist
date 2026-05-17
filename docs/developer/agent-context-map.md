@@ -69,7 +69,7 @@ Do not load every section by default.
   and tagged after audit closeout and post-implementation gap fixes.
 - v0.23: Jido State-Machine Convergence for Confirmations.Store and
   Jobs.Scheduler using `AllbertAssist.JidoBacked`.
-- v0.24: planned Objective Runtime Foundation: durable objectives,
+- v0.24: Objective Runtime Foundation: durable objectives,
   objective steps/events, canonical runtime turn signal aliases,
   objective signals, SignalBridge, and objective intent candidates.
 

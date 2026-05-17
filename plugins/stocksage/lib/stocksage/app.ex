@@ -17,10 +17,10 @@ defmodule StockSage.App do
   def display_name, do: "StockSage"
 
   @impl true
-  # v0.22 audit closeout: release-pinned, bumped from "0.20.0" since v0.22
-  # added the Python bridge + RunAnalysis to this app. Convention is
-  # documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.22.0"
+  # v0.24 closeout: release-pinned, bumped from "0.22.0" because v0.24
+  # threaded objectives through StockSage analyses and added the proposer path.
+  # Convention is documented in DEVELOPMENT.md "App version metadata".
+  def version, do: "0.24.0"
 
   @impl true
   def validate(_opts), do: :ok

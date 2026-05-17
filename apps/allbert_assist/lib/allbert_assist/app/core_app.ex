@@ -15,10 +15,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.23 adds the
-  # JidoBacked substrate and debug trace setting to the core runtime.
+  # the app (release-pinned, not semantic-per-app). v0.24 adds the
+  # objective runtime, canonical turn signals, and objective surfaces.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.23.0"
+  def version, do: "0.24.0"
 
   @impl true
   def validate(_opts), do: :ok
