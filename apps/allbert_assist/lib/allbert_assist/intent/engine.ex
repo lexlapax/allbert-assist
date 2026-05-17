@@ -19,6 +19,8 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Jobs
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Index, as: MemoryIndex
+  alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills
 
@@ -59,7 +61,7 @@ defmodule AllbertAssist.Intent.Engine do
   @spec put_candidate_metadata(Decision.t(), map()) :: Decision.t()
   def put_candidate_metadata(%Decision{} = decision, context) do
     request = request_from_context(context)
-    collected_candidates = collect_candidates(request)
+    collected_candidates = collect_candidates(request, objective_opts(context))
     selected = selected_candidate(decision, collected_candidates)
 
     candidates =
@@ -77,6 +79,7 @@ defmodule AllbertAssist.Intent.Engine do
         selected: selected |> Candidate.to_map(),
         rejected: rejected,
         memory: memory_candidate_maps(candidates),
+        objectives: objective_candidate_maps(candidates),
         total: length(candidates),
         engine_version: "v0.19"
       })
@@ -97,13 +100,20 @@ defmodule AllbertAssist.Intent.Engine do
 
   @spec collect_candidates(map()) :: [Candidate.t()]
   def collect_candidates(request) when is_map(request) do
+    collect_candidates(request, [])
+  end
+
+  def collect_candidates(_request), do: []
+
+  @spec collect_candidates(map(), keyword()) :: [Candidate.t()]
+  def collect_candidates(request, opts) when is_map(request) and is_list(opts) do
     request
-    |> do_collect_candidates()
+    |> do_collect_candidates(opts)
     |> Ranker.rank(request)
     |> Candidate.bound(total_limit: max_candidates())
   end
 
-  def collect_candidates(_request), do: []
+  def collect_candidates(_request, _opts), do: []
 
   defp direct_answer_attrs(request, app_context, classifier_diagnostic) do
     %{
@@ -194,6 +204,31 @@ defmodule AllbertAssist.Intent.Engine do
         %{
           source_text: field(request, :text),
           candidate_kind: :memory,
+          classifier_selected?: not is_nil(classifier_diagnostic)
+        }
+        |> put_classifier(classifier_diagnostic),
+      context: %{request: request}
+    }
+  end
+
+  defp decision_attrs_for_candidate(
+         %{kind: :objective} = candidate,
+         request,
+         app_context,
+         classifier_diagnostic
+       ) do
+    %{
+      intent: :continue_objective,
+      confidence: Ranker.score(candidate),
+      reason: field(candidate, :reason),
+      active_app: app_context.active_app,
+      diagnostics: app_context.diagnostics,
+      trace_metadata:
+        %{
+          source_text: field(request, :text),
+          candidate_kind: :objective,
+          objective_id: field(candidate, :id),
+          objective_candidate: Candidate.to_map(candidate),
           classifier_selected?: not is_nil(classifier_diagnostic)
         }
         |> put_classifier(classifier_diagnostic),
@@ -297,6 +332,7 @@ defmodule AllbertAssist.Intent.Engine do
         :job_text_match,
         :channel_text_match,
         :memory_keyword_match,
+        :objective_text_match,
         :refusal_keyword_match
       ] or
         (reason == :app_affinity and field(candidate, :kind) in [:action, :skill])
@@ -355,13 +391,14 @@ defmodule AllbertAssist.Intent.Engine do
 
   defp selected_candidate(%Decision{} = decision), do: Candidate.selected_from_decision(decision)
 
-  defp do_collect_candidates(request) do
+  defp do_collect_candidates(request, opts) do
     route_hint_candidates(request) ++
       action_candidates(request) ++
       surface_candidates() ++
       relevant_job_candidates(request) ++
       relevant_channel_candidates(request) ++
       memory_candidates(request) ++
+      objective_candidates(request, Keyword.get(opts, :objective)) ++
       refusal_candidates(request) ++
       relevant_skill_candidates(request)
   end
@@ -671,6 +708,64 @@ defmodule AllbertAssist.Intent.Engine do
     end
   end
 
+  defp objective_candidates(_request, nil), do: []
+
+  defp objective_candidates(request, true) do
+    user_id = field(request, :user_id) || field(request, :operator_id) || "local"
+
+    user_id
+    |> Objectives.list_objectives(status: ["open", "running", "blocked"], limit: 5)
+    |> Enum.map(&candidate_from_objective/1)
+    |> Enum.reject(&is_nil/1)
+  rescue
+    _exception -> []
+  end
+
+  defp objective_candidates(_request, %Objective{} = objective) do
+    [candidate_from_objective(objective)]
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp objective_candidates(_request, objectives) when is_list(objectives) do
+    objectives
+    |> Enum.map(&candidate_from_objective/1)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp objective_candidates(_request, %{} = objective) do
+    [candidate_from_objective(objective)]
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp objective_candidates(_request, _objective), do: []
+
+  defp candidate_from_objective(objective) do
+    id = field(objective, :id)
+    title = field(objective, :title)
+
+    Candidate.new!(%{
+      kind: :objective,
+      id: id,
+      label: title,
+      source: :objective,
+      status: :candidate,
+      score: 0.2,
+      reason: title || "Active objective #{id}.",
+      app_id: app_id_from_string(field(objective, :active_app)),
+      trace_metadata: %{
+        objective_id: id,
+        title: title,
+        objective: field(objective, :objective),
+        status: field(objective, :status),
+        source_thread_id: field(objective, :source_thread_id),
+        current_step_id: field(objective, :current_step_id),
+        loop_count: field(objective, :loop_count)
+      }
+    })
+  rescue
+    _exception -> nil
+  end
+
   defp refusal_candidates(request) do
     text = field(request, :text) || ""
 
@@ -841,6 +936,21 @@ defmodule AllbertAssist.Intent.Engine do
       |> Map.take([:kind, :id, :source, :score, :reason, :trace_metadata])
     end)
   end
+
+  defp objective_candidate_maps(candidates) do
+    candidates
+    |> Enum.filter(&(field(&1, :kind) == :objective))
+    |> Enum.take(5)
+    |> Enum.map(fn candidate ->
+      candidate
+      |> Candidate.to_map()
+      |> Map.take([:kind, :id, :source, :score, :reason, :trace_metadata])
+    end)
+  end
+
+  defp objective_opts(%{objective: objective}), do: [objective: objective]
+  defp objective_opts(%{"objective" => objective}), do: [objective: objective]
+  defp objective_opts(_context), do: []
 
   defp trace_rejected_candidates? do
     case Settings.get("intent.trace_rejected_candidates") do

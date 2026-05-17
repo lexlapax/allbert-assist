@@ -39,7 +39,7 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
     ],
     signal_routes: [
       {@frame_objective, Commands.FrameObjective},
-      {@propose_steps, Commands.Noop},
+      {@propose_steps, Commands.ProposeSteps},
       {@evaluate_steps, Commands.Noop},
       {@authorize_step, Commands.Noop},
       {@execute_step, Commands.Noop},
@@ -77,6 +77,7 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
   def command_modules do
     [
       Commands.FrameObjective,
+      Commands.ProposeSteps,
       Commands.Noop
     ]
   end
@@ -84,6 +85,11 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
   @doc false
   def frame_objective(server \\ __MODULE__, params) when is_map(params) do
     dispatch(server, @frame_objective, params)
+  end
+
+  @doc false
+  def propose_steps(server \\ __MODULE__, params) when is_map(params) do
+    dispatch(server, @propose_steps, params)
   end
 
   @doc false
@@ -131,8 +137,15 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
     active
     |> Enum.flat_map(fn objective ->
       case objective.proposer_hint && Jason.decode(objective.proposer_hint) do
-        {:ok, %{"app_id" => app_id, "state" => state}} -> [{objective.id, {app_id, state}}]
-        _other -> []
+        {:ok, %{} = hint} ->
+          case AllbertAssist.Objectives.Proposer.normalize_hint(hint) do
+            {:ok, nil} -> []
+            {:ok, normalized_hint} -> [{objective.id, normalized_hint}]
+            {:error, _reason} -> []
+          end
+
+        _other ->
+          []
       end
     end)
     |> Map.new()

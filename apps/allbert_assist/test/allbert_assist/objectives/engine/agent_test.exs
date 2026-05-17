@@ -6,6 +6,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
   alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Objectives.Proposer
   alias AllbertAssist.Repo
   alias Jido.AgentServer
   alias Jido.Signal.Bus
@@ -43,6 +44,45 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
 
     assert {:ok, %{agent: %{state: state}}} = AgentServer.state(name)
     assert Map.has_key?(state.active_objectives, objective.id)
+  end
+
+  test "propose_steps persists steps and durable hybrid hints" do
+    on_exit(fn -> Proposer.unregister_app_proposer(:allbert) end)
+    assert :ok = Proposer.register_app_proposer(:allbert, HybridProposer)
+
+    name = start_test_engine()
+
+    assert {:ok, %{objective: objective}} =
+             EngineAgent.frame_objective(name, %{
+               user_id: "alice",
+               title: "Compare AAPL and MSFT",
+               objective: "Complete two analysis steps.",
+               source_intent: "analyze AAPL and compare to MSFT",
+               active_app: :allbert
+             })
+
+    assert {:ok, %{steps: [first], continuation: %{status: :more}}} =
+             EngineAgent.propose_steps(name, %{
+               objective_id: objective.id,
+               text: "analyze AAPL and compare to MSFT"
+             })
+
+    assert first.candidate_action == "StockSage.Actions.RunAnalysis"
+    assert first.action_params |> Jason.decode!() |> Map.fetch!("ticker") == "AAPL"
+
+    assert {:ok, hinted} = Objectives.get_objective(objective.id)
+    assert %{"app_id" => "allbert"} = Jason.decode!(hinted.proposer_hint)
+
+    assert {:ok, %{steps: [second], continuation: %{status: :done}}} =
+             EngineAgent.propose_steps(name, %{
+               objective_id: objective.id,
+               text: "continue objective"
+             })
+
+    assert second.action_params |> Jason.decode!() |> Map.fetch!("ticker") == "MSFT"
+    assert [_, _] = Objectives.list_steps(objective.id)
+    assert {:ok, done} = Objectives.get_objective(objective.id)
+    assert done.proposer_hint == nil
   end
 
   test "handle_command_error records bounded error state without crashing" do
@@ -133,5 +173,28 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     name = :"objectives_engine_#{System.unique_integer([:positive])}"
     start_supervised!({EngineAgent, name: name, id: Atom.to_string(name), child_id: name})
     name
+  end
+end
+
+defmodule HybridProposer do
+  @behaviour AllbertAssist.Objectives.ProposerBehaviour
+
+  @impl true
+  def propose(_intent_decision, %{proposer_hint: {:allbert, %{"cursor" => 1}}}) do
+    {:ok, [step("MSFT")], :done}
+  end
+
+  def propose(_intent_decision, _context) do
+    {:ok, [step("AAPL")], {:more, {:allbert, %{"cursor" => 1}}}}
+  end
+
+  defp step(ticker) do
+    %{
+      kind: "action",
+      stage: "propose_steps",
+      provider: inspect(__MODULE__),
+      candidate_action: "StockSage.Actions.RunAnalysis",
+      action_params: %{"ticker" => ticker}
+    }
   end
 end

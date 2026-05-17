@@ -70,9 +70,11 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.ResourceAccess
+  alias AllbertAssist.Objectives.Engine.Agent, as: ObjectivesEngine
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
+  alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Skills.ActionPlan
 
   @doc """
@@ -780,12 +782,21 @@ defmodule AllbertAssist.Agents.IntentAgent do
     |> maybe_put_param(:user_id, Map.get(request, :user_id))
     |> maybe_put_param(:thread_id, Map.get(request, :thread_id))
     |> maybe_put_param(:session_id, Map.get(request, :session_id))
+    |> maybe_put_analysis_params(action_name, text)
     |> maybe_put_symbol(action_name, text)
   end
 
   defp maybe_put_param(params, _key, nil), do: params
   defp maybe_put_param(params, _key, ""), do: params
   defp maybe_put_param(params, key, value), do: Map.put(params, key, value)
+
+  defp maybe_put_analysis_params(params, "run_analysis", text) do
+    params
+    |> maybe_put_param(:ticker, stock_symbol_from_text(text))
+    |> maybe_put_param(:analysis_date, Date.utc_today() |> Date.to_iso8601())
+  end
+
+  defp maybe_put_analysis_params(params, _action_name, _text), do: params
 
   defp maybe_put_symbol(params, action_name, text)
        when action_name in ["get_trends", "queue_analysis"] do
@@ -822,8 +833,119 @@ defmodule AllbertAssist.Agents.IntentAgent do
       |> Map.put(:approval_handoff, approval_handoff)
       |> Map.update(:actions, [], &attach_approval_handoff(&1, approval_handoff))
       |> Map.update(:diagnostics, decision.diagnostics, &(decision.diagnostics ++ &1))
+      |> maybe_frame_objective(decision, context)
 
     {:ok, response}
+  end
+
+  defp maybe_frame_objective(response, %Decision{} = decision, %{request: request} = context) do
+    with true <- objective_framing_candidate?(decision),
+         {:ok, params} <- objective_frame_params(decision, request),
+         permission_decision <- objective_write_decision(context, request),
+         true <- PermissionGate.allowed?(permission_decision),
+         {:ok, %{objective: objective}} <- ObjectivesEngine.frame_objective(params),
+         {:ok, %{steps: steps} = proposed} <-
+           ObjectivesEngine.propose_steps(%{
+             objective_id: objective.id,
+             text: request.text,
+             intent_decision: %{
+               text: request.text,
+               selected_action: decision.selected_action,
+               active_app: decision.active_app
+             }
+           }) do
+      response
+      |> Map.put(:objective, objective_response(objective, steps, proposed))
+      |> Map.update(:actions, [], fn actions ->
+        actions ++ [objective_action(objective, steps, context, permission_decision)]
+      end)
+    else
+      false ->
+        response
+
+      {:error, reason} ->
+        Map.update(response, :diagnostics, [], fn diagnostics ->
+          diagnostics ++ [%{source: :objectives, error: inspect(reason)}]
+        end)
+    end
+  end
+
+  defp maybe_frame_objective(response, _decision, _context), do: response
+
+  defp objective_framing_candidate?(%Decision{
+         active_app: :stocksage,
+         selected_action: "run_analysis"
+       }),
+       do: true
+
+  defp objective_framing_candidate?(_decision), do: false
+
+  defp objective_frame_params(decision, request) do
+    case stock_symbol_from_text(request.text) do
+      nil ->
+        {:error, :missing_objective_entity}
+
+      symbol ->
+        {:ok,
+         %{
+           user_id: request.user_id,
+           source_thread_id: Map.get(request, :thread_id),
+           session_id: Map.get(request, :session_id),
+           active_app: decision.active_app,
+           title: "Analyze #{symbol}",
+           objective: "Complete a StockSage analysis for #{symbol}.",
+           source_intent: request.text,
+           acceptance_criteria: %{
+             "min_completed_steps" => 1,
+             "required" => [
+               %{
+                 "kind" => "step_completed_with_action",
+                 "action" => "StockSage.Actions.RunAnalysis",
+                 "params_match" => %{"ticker" => symbol},
+                 "min_count" => 1
+               }
+             ],
+             "needs_more_when" => [
+               %{"kind" => "completed_step_count_below", "value" => 1}
+             ],
+             "summary" => "One completed StockSage RunAnalysis step for #{symbol}."
+           }
+         }}
+    end
+  end
+
+  defp objective_response(objective, steps, proposed) do
+    %{
+      id: objective.id,
+      status: objective.status,
+      title: objective.title,
+      active_app: objective.active_app,
+      step_count: length(steps),
+      continuation: Map.get(proposed, :continuation)
+    }
+  end
+
+  defp objective_write_decision(context, request) do
+    context =
+      context
+      |> Map.put(:user_id, Map.get(request, :user_id))
+      |> Map.put(:operator_id, Map.get(request, :operator_id))
+      |> Map.delete(:selected_action)
+
+    PermissionGate.authorize(:objective_write, context)
+  end
+
+  defp objective_action(objective, steps, context, permission_decision) do
+    %{
+      name: "frame_objective",
+      status: :proposed,
+      permission: :objective_write,
+      permission_decision: permission_decision,
+      objective_id: objective.id,
+      step_count: length(steps),
+      user_id: get_in(context, [:request, :user_id]),
+      active_app: objective.active_app
+    }
   end
 
   defp sync_decision_after_response(%Decision{} = decision, response, context) do
