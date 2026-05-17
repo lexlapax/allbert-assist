@@ -33,8 +33,12 @@ defmodule AllbertAssist.JidoBacked do
         signal_routes: unquote(Macro.escape(signal_routes))
 
       @doc "Start the Jido AgentServer for this coordinator."
+      @spec start_link() :: GenServer.on_start()
+      def start_link, do: start_link([])
+
+      @doc "Start the Jido AgentServer for this coordinator."
       @spec start_link(keyword()) :: GenServer.on_start()
-      def start_link(opts \\ []) do
+      def start_link(opts) do
         AllbertAssist.JidoBacked.start_link(__MODULE__, opts)
       end
 
@@ -43,6 +47,8 @@ defmodule AllbertAssist.JidoBacked do
       def child_spec(opts) do
         AllbertAssist.JidoBacked.child_spec(__MODULE__, opts)
       end
+
+      defoverridable start_link: 0, start_link: 1, child_spec: 1
     end
   end
 
