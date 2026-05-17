@@ -33,7 +33,7 @@ Do not load every section by default.
 | StockSage plugin app and domain | ADR 0018, ADR 0017, ADR 0015 | v0.20 |
 | Markdown memory review, promotion, index, retrieval | ADR 0014, ADR 0019 | v0.21 |
 | Jido.Agent vs GenServer substrate (pragmatic rule) | ADR 0007, vision "Jido.Agent vs GenServer", v0.23 plan | v0.23 |
-| Objectives, steps, events, advisory providers, world models | ADR 0021, v0.24 plan, research note | v0.24 |
+| Objectives, steps, events, advisory providers, world models | ADR 0021, ADR 0019, v0.24 plan/request-flow, research note | v0.24 |
 | StockSage bridge, agents, LiveViews, canvas | Active StockSage milestone plan | v0.22, v0.25, v0.27, v0.29, v0.30 |
 | Workspace shell, ephemeral UI, canvas | ADR 0015, active workspace plan | v0.26, v0.30 |
 | Plugin/app generator | ADR 0017, ADR 0015, v0.31 plan | v0.31 |
@@ -69,7 +69,9 @@ Do not load every section by default.
   and tagged after audit closeout and post-implementation gap fixes.
 - v0.23: Jido State-Machine Convergence for Confirmations.Store and
   Jobs.Scheduler using `AllbertAssist.JidoBacked`.
-- v0.24: planned Objective Runtime Foundation.
+- v0.24: planned Objective Runtime Foundation: durable objectives,
+  objective steps/events, canonical runtime turn signal aliases,
+  objective signals, SignalBridge, and objective intent candidates.
 
 ## Area Notes
 
@@ -144,17 +146,46 @@ document canonical confirmation audit and scheduler summary behavior.
 ### Objectives And Advisory Providers (v0.24)
 
 The objective runtime is the durable cross-turn substrate. `Objectives`
-hold acceptance criteria and status; `Objective.Step` records hold
-per-step work; `Objective.Event` records hold lifecycle history.
-`Objectives.Engine` is a `Jido.Agent` implementing a seven-stage state
-machine: receive → interpret intent → frame/resume objective → propose
-and evaluate steps → authorize → execute → observe and advance.
+hold acceptance criteria and status; `Objectives.Step` records
+per-step work; `Objectives.Event` records lifecycle history.
+`Objectives.Engine.Agent` is a JidoBacked agent implementing a
+seven-stage state machine: receive → interpret intent → frame/resume
+objective → propose and evaluate steps → authorize → execute → observe
+and advance. Private engine commands are `Jido.Action` modules routed
+through JidoBacked signal dispatch; they are not registered actions and
+must not appear as intent candidates. Do not define custom `cmd/3`
+functions on a JidoBacked agent; `use Jido.Agent` already provides that
+API.
 
 Authority rule (ADR 0021): `objective_id` is not permission;
 `active_app` on an objective is not permission; advisory provider
 output (LLM proposers, world-model predictors, diffusion proposers,
 market allocators, probabilistic critics) is never authority. Everything
 effectful flows through `Actions.Runner.run/3` and Security Central.
+Objective-driven `RunAnalysis` or other app actions must still use the
+registered action runner path; the objective engine never calls
+confirmation storage directly.
+
+Durability rule: JidoBacked state is a rebuildable projection. Hybrid
+proposer continuation state is stored in durable
+`objectives.proposer_hint` JSON and only cached in
+`Engine.Agent.proposer_hints`. Crash/rehydrate behavior should reload
+from SQLite, not from serialized agent state.
+
+Signal rule: v0.24 preserves legacy `allbert.input.received` and
+`allbert.agent.responded` emissions and adds canonical
+`allbert.runtime.turn.started` / `allbert.runtime.turn.completed`
+aliases. Objective signals publish through the named
+`Jido.Signal.Bus` (`AllbertAssist.SignalBus`); web subscribers use
+`allbert.objective.**`, not `allbert.objective.*`. SignalBridge lives
+in the web app and broadcasts objective events to per-user PubSub
+topics; the engine remains Phoenix-agnostic.
+
+ADR accounting: v0.24 M2 amends ADR 0019 to register the `:objective`
+candidate kind. v0.24 M6 moves ADR 0021 to Accepted after confirming
+the implemented `:objective_write`, `parent_step_id`,
+`objectives.proposer_hint`, minimal `:delegate_agent`, `:abandoned`,
+signal, and confirmation-threading contracts.
 
 Reserved vocabulary: capability inventory, capability gap, route,
 acquisition option, world-model provider, diffusion proposer, market

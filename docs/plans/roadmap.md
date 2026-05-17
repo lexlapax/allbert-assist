@@ -1167,7 +1167,9 @@ Expected direction:
   implementing a seven-stage state machine.
 - Add `objectives`, `objective_steps`, `objective_events` SQLite tables
   via four sequential timestamped migrations (3 core +
-  1 StockSage plugin).
+  1 StockSage plugin). The `objectives` table carries durable
+  `proposer_hint` JSON for hybrid proposer continuation; the
+  Engine.Agent state only caches it.
 - Thread `objective_id` + `step_id` through confirmations, scheduled_jobs,
   `stocksage_analysis_queue`, `stocksage_analyses` (with btree index on
   `stocksage_analyses.objective_id`), traces, and audit.
@@ -1193,7 +1195,12 @@ Expected direction:
   older than 1 hour are marked `:abandoned` (new terminal status).
 - `Intent.Engine.collect_candidates/2` arity adds `:objective`
   candidate kind; ADR 0019 amended.
-- Both `allbert.runtime.turn.completed` and
+- Preserve legacy `allbert.input.received` and
+  `allbert.agent.responded` emissions; add CoreApp-declared
+  `allbert.runtime.turn.started` / `allbert.runtime.turn.completed`
+  aliases. Objective and canonical runtime turn signals publish through
+  `AllbertAssist.SignalBus`; SignalBridge subscribers use
+  `allbert.objective.**`. Both `allbert.runtime.turn.completed` and
   `allbert.objective.completed` share `trace_id` for consumer
   correlation.
 - Acceptance smokes: single-step `analyze AAPL` objective and two-step
