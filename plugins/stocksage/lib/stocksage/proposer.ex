@@ -30,7 +30,8 @@ defmodule StockSage.Proposer do
              "step_index" => 1,
              "completed_steps" => [],
              "total_planned" => 2,
-             "remaining_tickers" => [second]
+             "remaining_tickers" => [second],
+             "force_stub" => field(context, :force_stub)
            }}}}
 
       {_tickers, {:stocksage, %{} = state}} ->
@@ -88,6 +89,8 @@ defmodule StockSage.Proposer do
       |> List.wrap()
       |> List.last()
 
+    context = Map.put(context, :force_stub, Map.get(state, "force_stub"))
+
     {:ok, [run_analysis_step(ticker, context, parent_step_id: parent_step_id)], :done}
   end
 
@@ -97,6 +100,8 @@ defmodule StockSage.Proposer do
       |> Map.get(:completed_steps, [])
       |> List.wrap()
       |> List.last()
+
+    context = Map.put(context, :force_stub, Map.get(state, :force_stub))
 
     {:ok, [run_analysis_step(ticker, context, parent_step_id: parent_step_id)], :done}
   end
