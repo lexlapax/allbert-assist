@@ -34,6 +34,38 @@ defmodule AllbertAssist.Objectives.Commands do
   end
 
   @doc false
+  def run_subcommand(module, params, context)
+      when is_atom(module) and is_map(params) and is_map(context) do
+    # Orchestrator commands already run inside the Engine.Agent dispatch. They
+    # call sibling command modules directly so their state patches can be
+    # composed before one outer finish/4, and so they do not re-enter the same
+    # AgentServer while it is handling the current command.
+    case module.run(params, context) do
+      {:ok, patch} ->
+        with {:ok, result} <- command_result(patch) do
+          {:ok, patch, result, []}
+        end
+
+      {:ok, patch, directives} ->
+        with {:ok, result} <- command_result(patch) do
+          {:ok, patch, result, List.wrap(directives)}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def run_subcommand(_module, _params, _context), do: {:error, :invalid_subcommand}
+
+  @doc false
+  def command_result(%{last_result: {:ok, result}}), do: {:ok, result}
+  def command_result(%{"last_result" => {:ok, result}}), do: {:ok, result}
+  def command_result(%{last_result: {:error, reason}}), do: {:error, reason}
+  def command_result(%{"last_result" => {:error, reason}}), do: {:error, reason}
+  def command_result(_patch), do: {:error, :missing_command_result}
+
+  @doc false
   def objective_attrs(params) do
     now_title = param(params, :title) || "Objective"
 

@@ -673,6 +673,16 @@ are callable through objective steps by Allbert runtime paths that have the
 right action/permission story. They do not own durable objective state, bypass
 registered actions, or create a StockSage-private agent graph.
 
+### A19. Orchestrator commands compose subcommands directly
+
+`AdvanceObjective` and `ContinueObjective` are themselves already invoked by
+the Engine.Agent through JidoBacked signal routing. Inside those orchestrators,
+subcommands are invoked through `AllbertAssist.Objectives.Commands.run_subcommand/3`
+so their patches and directives can be composed before one outer `finish/4`.
+They do not recursively call `JidoBacked.dispatch/4` against the same engine
+agent. This preserves state projection semantics and avoids re-entering the
+same `AgentServer` while it is handling a command.
+
 ## Consequences
 
 ### What changes
