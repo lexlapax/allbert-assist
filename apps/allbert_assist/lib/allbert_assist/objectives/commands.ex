@@ -392,6 +392,7 @@ defmodule AllbertAssist.Objectives.Commands.ProposeSteps do
   defp proposer_context(params, context, objective, state) do
     hint =
       Map.get(params, :proposer_hint) || Map.get(params, "proposer_hint") ||
+        objective_proposer_hint(objective.proposer_hint) ||
         get_in(state, [:proposer_hints, objective.id])
 
     %{
@@ -408,6 +409,24 @@ defmodule AllbertAssist.Objectives.Commands.ProposeSteps do
     |> Map.new()
     |> Map.merge(Map.take(context, [:input_signal_id, :trace_id, :force_stub]))
   end
+
+  defp objective_proposer_hint(nil), do: nil
+
+  defp objective_proposer_hint(hint) when is_binary(hint) do
+    case Jason.decode(hint) do
+      {:ok, %{} = decoded} -> objective_proposer_hint(decoded)
+      _other -> nil
+    end
+  end
+
+  defp objective_proposer_hint(%{} = hint) do
+    case Proposer.normalize_hint(hint) do
+      {:ok, normalized} -> normalized
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp objective_proposer_hint(_hint), do: nil
 
   defp continuation_summary(:done), do: %{status: :done}
 
@@ -1405,49 +1424,4 @@ defmodule AllbertAssist.Objectives.Commands.CancelObjective do
     Map.get(params, :trace_id) || Map.get(params, "trace_id") || Map.get(context, :trace_id) ||
       Map.get(context, "trace_id")
   end
-end
-
-defmodule AllbertAssist.Objectives.Commands.Noop do
-  @moduledoc false
-
-  use Jido.Action,
-    name: "allbert_objectives_noop",
-    description: "Private objective placeholder command."
-
-  alias AllbertAssist.Objectives.Commands
-
-  @binary_commands %{
-    "propose_steps" => :propose_steps,
-    "evaluate_steps" => :evaluate_steps,
-    "authorize_step" => :authorize_step,
-    "execute_step" => :execute_step,
-    "observe_step" => :observe_step,
-    "advance_objective" => :advance_objective,
-    "cancel_objective" => :cancel_objective,
-    "continue_objective" => :continue_objective,
-    "prune_stale" => :prune_stale
-  }
-  @atom_commands MapSet.new([:noop | Map.values(@binary_commands)])
-
-  @impl true
-  def run(params, context) do
-    state = Map.get(context, :state, %{})
-    command = Map.get(params, :command) || Map.get(params, "command") || :noop
-
-    Commands.finish(
-      normalize_command(command),
-      {:ok, %{status: :noop}},
-      state
-    )
-  end
-
-  defp normalize_command(command) when is_binary(command) do
-    Map.get(@binary_commands, command, :noop)
-  end
-
-  defp normalize_command(command) when is_atom(command) do
-    if MapSet.member?(@atom_commands, command), do: command, else: :noop
-  end
-
-  defp normalize_command(_command), do: :noop
 end

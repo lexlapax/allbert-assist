@@ -7,7 +7,21 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
   alias Mix.Tasks.Allbert.Objectives, as: ObjectivesTask
 
   setup do
-    on_exit(fn -> Mix.Task.reenable("allbert.objectives") end)
+    previous_halt = Application.get_env(:allbert_assist, Mix.Tasks.Allbert.Objectives)
+
+    Application.put_env(:allbert_assist, Mix.Tasks.Allbert.Objectives,
+      halt_fun: fn code -> throw({:halt, code}) end
+    )
+
+    on_exit(fn ->
+      Mix.Task.reenable("allbert.objectives")
+
+      if previous_halt do
+        Application.put_env(:allbert_assist, Mix.Tasks.Allbert.Objectives, previous_halt)
+      else
+        Application.delete_env(:allbert_assist, Mix.Tasks.Allbert.Objectives)
+      end
+    end)
   end
 
   test "lists and shows objectives through registered actions" do
@@ -57,11 +71,12 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
                status: "running"
              })
 
-    assert_raise Mix.Error, ~r/Usage error \(64\): cancel requires --reason/, fn ->
-      capture_io(fn ->
-        ObjectivesTask.run(["cancel", objective.id, "--user", "alice"])
-      end)
-    end
+    assert {:halt, 64} =
+             catch_throw(
+               capture_io(:stderr, fn ->
+                 ObjectivesTask.run(["cancel", objective.id, "--user", "alice"])
+               end)
+             )
 
     Mix.Task.reenable("allbert.objectives")
 
@@ -85,10 +100,38 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
   end
 
   test "operator alias must match user" do
-    assert_raise Mix.Error, ~r/--user and --operator must match/, fn ->
+    assert {:halt, 66} =
+             catch_throw(
+               capture_io(:stderr, fn ->
+                 ObjectivesTask.run(["list", "--user", "alice", "--operator", "bob"])
+               end)
+             )
+  end
+
+  test "show exits with documented not-found code" do
+    assert {:halt, 65} =
+             catch_throw(
+               capture_io(:stderr, fn ->
+                 ObjectivesTask.run(["show", "obj_missing", "--user", "alice"])
+               end)
+             )
+  end
+
+  test "continue terminal advisory is a successful command" do
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Already abandoned",
+               objective: "No more work.",
+               status: "abandoned"
+             })
+
+    output =
       capture_io(fn ->
-        ObjectivesTask.run(["list", "--user", "alice", "--operator", "bob"])
+        assert :ok = ObjectivesTask.run(["continue", objective.id, "--user", "alice"])
       end)
-    end
+
+    assert output =~ "cannot continue"
+    assert output =~ "Reason: Objective is abandoned."
   end
 end

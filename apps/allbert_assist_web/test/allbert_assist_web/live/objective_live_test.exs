@@ -60,4 +60,37 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
     [cancelled_step] = Objectives.list_steps(objective.id)
     assert cancelled_step.status == "cancelled"
   end
+
+  test "renders missing, terminal, and refreshed objective states", %{conn: conn} do
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "local",
+               title: "Terminal objective",
+               objective: "Already abandoned.",
+               status: "abandoned"
+             })
+
+    {:ok, view, html} = live(conn, ~p"/objectives/#{objective.id}")
+    assert html =~ "Terminal objective"
+    assert html =~ "abandoned"
+    refute has_element?(view, "#objective-cancel-button")
+
+    assert {:ok, _objective} = Objectives.update_objective(objective, %{status: "cancelled"})
+    send(view.pid, {:objective_event, %{type: "allbert.objective.cancelled"}})
+    assert render(view) =~ "cancelled"
+
+    {:ok, _missing_view, missing_html} = live(conn, ~p"/objectives/obj_missing_live")
+    assert missing_html =~ "Objective not found."
+
+    assert {:ok, other_user} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Alice only",
+               objective: "Should not leak."
+             })
+
+    {:ok, _cross_view, cross_html} = live(conn, ~p"/objectives/#{other_user.id}")
+    assert cross_html =~ "Objective not found."
+    refute cross_html =~ "Alice only"
+  end
 end

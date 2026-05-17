@@ -592,25 +592,77 @@ This is the operator-visible form of the Section 3 "Planner /
 evaluator" deterministic contract: acceptance is a function of
 structured data, never free-form model output.
 
-### A13. v0.23 directive-only substrate is a v0.24 expected input (fourth-pass correction 2026-05-17)
+### A13. Directive support is conservative and advisory (fourth-pass correction 2026-05-17; hardening update 2026-05-17)
 
 v0.24 Engine commands routinely emit directives such as
 `Jido.Agent.Directive.schedule/2` for delayed next-stage self-signals.
-The v0.23 closeout already extended
-`AllbertAssist.JidoBacked.unwrap_last_result/1` so directive-only
-command returns are not misread as missing results.
-
-v0.24 M1 therefore pre-flights the existing v0.23 regressions instead
-of owning a new substrate rewrite:
+`AllbertAssist.JidoBacked.unwrap_last_result/1` treats directive-only
+command returns as successful dispatch instead of missing results:
 
 - `{:ok, %{}, directives}` returns a non-error dispatch success.
 - `{:ok, %Jido.Agent.Directive{} = d}` returns a non-error dispatch
   success.
 - Existing result-bearing happy paths stay unchanged.
 
-If these regressions fail locally, fix the v0.23 substrate before
-adding objective code. Otherwise, objective implementation starts from
-the closed v0.23 contract.
+Directives remain scheduler hints inside supervised Jido execution. They do
+not authorize actions, grant permissions, bypass confirmations, or mutate
+durable objective truth privately. v0.24 includes a real command path
+(`PruneStale`) that may return a conservative schedule directive.
+
+### A14. Ten private objective commands are the release contract (post-audit hardening 2026-05-17)
+
+The objective engine command graph consists of 10 real private `Jido.Action`
+modules:
+
+- `FrameObjective`
+- `ProposeSteps`
+- `EvaluateSteps`
+- `AuthorizeStep`
+- `ExecuteStep`
+- `ObserveStep`
+- `AdvanceObjective`
+- `CancelObjective`
+- `ContinueObjective`
+- `PruneStale`
+
+No `Commands.Noop` placeholder is part of the v0.24 contract. These modules are
+private engine commands, not Allbert capability actions, and must remain absent
+from `AllbertAssist.Actions.Registry`.
+
+### A15. Objectives facade and store helpers cohabit in one module (post-audit hardening 2026-05-17)
+
+`AllbertAssist.Objectives` is both the public lifecycle facade and the local
+store context during v0.24. The public facade functions are:
+
+- `list/2`
+- `get/2`
+- `frame/2`
+- `advance/2`
+- `cancel/3`
+- `continue/2`
+
+The existing lower-level `create_*`, `update_*`, `list_*`, and `get_*` helpers
+remain in the same module as internal runtime/store helpers for the engine,
+migrations, and focused tests. Apps, plugins, LiveViews, and v0.25 specialist
+agents should use the facade or registered actions for lifecycle transitions.
+`frame/2` requires an explicit `user_id`; local identity defaults stay at
+operator/runtime boundaries.
+
+### A16. AgentRegistry is monitored and local (post-audit hardening 2026-05-17)
+
+`AllbertAssist.Objectives.AgentRegistry` is a small monitored GenServer registry
+for the local v0.24/v0.25 objective-agent namespace. It validates that a
+registered server is alive, monitors the pid, evicts entries on `DOWN`, and
+dispatches through `Jido.AgentServer.call/3`. This avoids dead-pid delegation
+without adding a distributed registry dependency before Allbert needs one.
+
+### A17. Objective CLI exit codes are enforced (post-audit hardening 2026-05-17)
+
+`mix allbert.objectives` uses real OS exit codes for known failure classes:
+usage `64`, not found `65`, `--user`/`--operator` mismatch `66`, and unexpected
+action/security/final failures `1`. Success, including advisory no-op
+`continue` statuses, exits `0`. Tests inject the halt function so these codes
+are verified without terminating ExUnit.
 
 ## Consequences
 
@@ -670,14 +722,20 @@ the closed v0.23 contract.
   `objectives.acceptance_criteria` (Amendment A12). Evaluator clauses
   are deterministic and reject unknown kinds at changeset
   validation.
-- v0.23 `JidoBacked.unwrap_last_result/1` directive-only support is a
-  v0.24 M1 pre-flight expectation, not new v0.24 work (Amendment A13).
-- `AllbertAssist.Objectives.AgentRegistry` ships as an empty registry
-  in v0.24 (specialist agents register themselves in v0.25+). v0.24
-  M1 uses the verified Jido/OTP registry-backed path where practical
-  and falls back to Elixir `Registry` only if a focused local spike
-  proves the Jido path insufficient. The wrapper exposes
-  `register/3`, `lookup/1`, and `dispatch/3`.
+- Directive-only JidoBacked command output is explicitly supported and advisory
+  only (Amendment A13).
+- The v0.24 objective command graph is 10 real private `Jido.Action` modules;
+  no `Commands.Noop` placeholders ship (Amendment A14).
+- `AllbertAssist.Objectives` exposes lifecycle facade functions while keeping
+  lower-level store helpers in the same module as internal runtime helpers
+  (Amendment A15).
+- `AllbertAssist.Objectives.AgentRegistry` ships as an empty monitored local
+  GenServer registry in v0.24 (specialist agents register themselves in
+  v0.25+). It exposes `register/4`, `lookup/1`, `list/0`, `unregister/1`, and
+  `dispatch/4`, monitors registered servers, and evicts dead entries
+  (Amendment A16).
+- `mix allbert.objectives` enforces documented OS exit codes through a
+  test-injectable halt function (Amendment A17).
 - `AllbertAssistWeb.SignalBridge` GenServer (web-app side) bridges
   `allbert.objective.**` signals to per-user Phoenix.PubSub topics so
   AgentLive + ObjectiveLive update in real time. Engine never knows
@@ -686,8 +744,9 @@ the closed v0.23 contract.
 - `objectives.continue` action is **idempotent for no-progress
   calls**: returns `{:ok, %{status: :still_blocked, reason}}` without
   `loop_count` increment or impasse event when nothing has changed
-  since the objective was blocked. `:abandoned` is **terminal**:
-  `continue` returns `{:error, :objective_abandoned}`.
+  since the objective was blocked. Terminal statuses are advisory no-ops:
+  `:objective_abandoned`, `:objective_cancelled`, `:objective_failed`, and
+  already `:completed` return status/reason and do not mutate the row.
 - Confirmations carry a snapshot of `objective_title` +
   `objective_status` in `params_summary` at creation. Renderers fetch
   the live objective row and prepend a stale-warning `Note:` line

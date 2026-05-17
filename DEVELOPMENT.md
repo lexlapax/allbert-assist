@@ -462,6 +462,16 @@ intent → frame/resume objective → propose and evaluate steps →
 authorize → execute → observe and advance. Cooperative cancellation
 only; mid-action interruption is deferred to v0.25+.
 
+The seven-stage pipeline is implemented by 10 private
+`AllbertAssist.Objectives.Commands.*` Jido command modules. They are internal
+engine commands, not capability actions, and must stay out of
+`AllbertAssist.Actions.Registry`. `AllbertAssist.Objectives` is the public
+lifecycle facade (`list/2`, `get/2`, `frame/2`, `advance/2`, `cancel/3`,
+`continue/2`); its lower-level create/update/list helpers are internal store
+helpers for the engine and tests. `frame/2` requires an explicit `user_id`.
+`AllbertAssist.Objectives.AgentRegistry` is a monitored local registry for
+future delegate agents and evicts dead entries before dispatch.
+
 Multi-step capabilities (intent that decomposes into multiple actions)
 should be represented as objectives with multiple steps, not private
 loops inside an app, channel, LiveView, or plugin. Apps and plugins

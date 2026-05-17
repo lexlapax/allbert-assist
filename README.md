@@ -10,13 +10,15 @@ not the architecture center.
 
 ## Current Status
 
-v0.24 is implemented and ready for operator manual verification. It adds the
-Objective Runtime Foundation: durable `objectives`, `objective_steps`, and
-`objective_events`; `AllbertAssist.Objectives.Engine.Agent` on the
-JidoBacked substrate; objective-aware StockSage analysis flow; objective
-signals and trace sections; confirmation context rendering; and
-`mix allbert.objectives list|show|continue|cancel`. Version metadata is now
-`0.24.0`; the release tag is still pending operator acceptance.
+v0.24 is implemented through post-audit hardening and ready for operator
+manual verification. It adds the Objective Runtime Foundation: durable
+`objectives`, `objective_steps`, and `objective_events`;
+`AllbertAssist.Objectives.Engine.Agent` on the JidoBacked substrate with 10
+private command modules; the `AllbertAssist.Objectives` lifecycle facade;
+objective-aware StockSage analysis flow; objective signals and trace sections;
+confirmation context rendering; and `mix allbert.objectives
+list|show|continue|cancel` with real documented exit codes. Version metadata is
+now `0.24.0`; the release tag is still pending operator acceptance.
 
 Operator loop:
 

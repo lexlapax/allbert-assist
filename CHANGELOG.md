@@ -12,8 +12,9 @@ changelog entries or release notes.
 
 ## v0.24 - Objective Runtime Foundation
 
-Status: implemented and ready for operator manual verification. Version
-metadata is `0.24.0`; the release tag is pending operator acceptance.
+Status: implemented through post-audit hardening and ready for operator manual
+verification. Version metadata is `0.24.0`; the release tag is pending
+operator acceptance.
 
 ### Added (v0.24)
 
@@ -21,9 +22,10 @@ metadata is `0.24.0`; the release tag is pending operator acceptance.
   `objective_events`, plus nullable `objective_id` / `step_id` links on
   confirmations, scheduled jobs, StockSage queue rows, and StockSage analyses.
 - `AllbertAssist.Objectives.Engine.Agent`, a JidoBacked seven-stage
-  coordinator for receiving a turn, framing/resuming an objective, proposing
-  and evaluating steps, authorizing through the existing action boundary,
-  executing, observing, and advancing.
+  coordinator backed by 10 real private command modules for receiving a turn,
+  framing/resuming an objective, proposing and evaluating steps, authorizing
+  through the existing action boundary, executing, observing, advancing,
+  continuing, cancelling, and pruning stale objectives.
 - Registered objective actions:
   `list_objectives`, `show_objective`, `continue_objective`, and
   `cancel_objective`, surfaced through `mix allbert.objectives`.
@@ -32,9 +34,9 @@ metadata is `0.24.0`; the release tag is pending operator acceptance.
 - Deterministic acceptance evaluator, durable hybrid proposer hints, and the
   first app proposer (`StockSage.Proposer`) proving a one-step analysis and a
   two-step "analyze AAPL and compare to MSFT" flow.
-- Minimal `:delegate_agent` step contract and
+- Minimal `:delegate_agent` step contract and monitored
   `AllbertAssist.Objectives.AgentRegistry` as the v0.25 handoff for
-  specialist agents.
+  specialist agents; dead delegate-agent entries are evicted automatically.
 - Objective lifecycle signals, canonical runtime turn signal aliases, and the
   web-side `AllbertAssistWeb.SignalBridge` that fans objective signals into
   per-user Phoenix.PubSub topics.
@@ -52,6 +54,12 @@ metadata is `0.24.0`; the release tag is pending operator acceptance.
   0019 registers `:objective` as a proposal-only candidate kind.
 - Trace rendering now includes inline objective context and a bounded
   `## Objective Steps` section for turns that touch objective work.
+- `AllbertAssist.Objectives` now exposes the public lifecycle facade
+  (`list/2`, `get/2`, `frame/2`, `advance/2`, `cancel/3`, `continue/2`) while
+  retaining lower-level store helpers for the engine.
+- `mix allbert.objectives` now enforces documented OS exit codes for usage,
+  not-found, identity mismatch, and unexpected action/security failures via a
+  test-injectable halt function.
 - `AllbertAssist.App.CoreApp.version/0`, umbrella app metadata, and
   StockSage plugin/app metadata are release-pinned to `0.24.0`.
 
@@ -62,6 +70,8 @@ metadata is `0.24.0`; the release tag is pending operator acceptance.
   Security Central, resource posture, and durable confirmations.
 - The objective engine never writes confirmation YAML directly and never
   calls app internals for effectful work.
+- Private objective command modules remain internal Jido engine commands and
+  are not registered in `AllbertAssist.Actions.Registry`.
 - Cancellation is cooperative only. Pending/proposed/selected/blocked steps
   can be cancelled; already approved in-flight work is not interrupted.
 - Advisory provider, world-model, diffusion, market-allocation, and
@@ -72,16 +82,24 @@ metadata is `0.24.0`; the release tag is pending operator acceptance.
 ### Verification (v0.24)
 
 - Milestone suites passed for objective schemas/migrations/settings,
-  JidoBacked engine setup, framing/resume, StockSage proposer integration,
-  confirmation threading, continuation, delegation, cancellation, channel
-  rendering, LiveView surfaces, and SignalBridge behavior.
+  JidoBacked engine setup, all 10 private command modules, framing/resume,
+  StockSage proposer integration, confirmation threading, continuation,
+  delegation, cancellation, channel rendering, LiveView surfaces, and
+  SignalBridge behavior.
+- Hardening tests now cover directive-returning command paths, objective
+  facade identity scoping, delegate-agent dead-entry cleanup, real CLI exit
+  codes, migration up/down reversal, inline trace placement, Telegram/email
+  plugin objective rendering, ObjectiveLive terminal/cross-user/PubSub paths,
+  SignalBridge subscription failure, evaluator matrix cases, and engine
+  proposer-hint rehydration.
 - M5 focused suite passed with allbert_assist 42 tests and
   allbert_assist_web 7 tests, 0 failures.
 - Closeout gates passed: `git diff --check`, `mix format
   --check-formatted`, `mix compile --warnings-as-errors`,
   `mix credo --strict`, `mix dialyzer` (0 unskipped errors),
-  `mix test` (`allbert_assist` 661 tests and `allbert_assist_web`
-  25 tests), StockSage plugin tests (123 tests), and `mix precommit`.
+  `mix test` (`allbert_assist` 673 tests and `allbert_assist_web`
+  27 tests), StockSage plugin tests (123 tests), Telegram/email plugin
+  renderer tests (2 tests), and `mix precommit`.
 - Operator smoke steps live in `docs/plans/v0.24-request-flow.md`.
 
 ## v0.23 - Jido State-Machine Convergence

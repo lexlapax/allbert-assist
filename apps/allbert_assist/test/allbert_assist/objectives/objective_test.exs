@@ -69,4 +69,38 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
     assert {:ok, abandoned} = Objectives.get_objective(objective.id)
     assert abandoned.status == "abandoned"
   end
+
+  test "public facade scopes reads and delegates lifecycle transitions to the engine" do
+    assert {:ok, %{objective: framed}} =
+             Objectives.frame(
+               %{
+                 user_id: "alice",
+                 thread_id: "thr_facade",
+                 session_id: "sess_facade",
+                 active_app: :stocksage,
+                 title: "Facade objective",
+                 objective: "Complete a facade objective."
+               },
+               %{}
+             )
+
+    assert framed.user_id == "alice"
+    assert framed.source_thread_id == "thr_facade"
+    assert framed.active_app == "stocksage"
+
+    assert {:ok, [listed]} = Objectives.list("alice", %{"active_app" => "stocksage"})
+    assert listed.id == framed.id
+    assert {:ok, ^framed} = Objectives.get("alice", framed.id)
+    assert {:error, :not_found} = Objectives.get("bob", framed.id)
+
+    assert {:ok, %{objective: cancelled}} =
+             Objectives.cancel("alice", framed.id, "facade test complete")
+
+    assert cancelled.status == "cancelled"
+  end
+
+  test "public facade requires explicit user identity when framing" do
+    assert {:error, :missing_user_id} =
+             Objectives.frame(%{title: "No user", objective: "Do not silently default."}, %{})
+  end
 end
