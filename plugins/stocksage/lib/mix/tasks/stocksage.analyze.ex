@@ -1,6 +1,6 @@
 defmodule Mix.Tasks.Stocksage.Analyze do
   @moduledoc """
-  Request a StockSage analysis through the Python bridge.
+  Request a StockSage analysis through the native engine or explicit Python bridge.
 
       mix stocksage.analyze TICKER ANALYSIS_DATE [--user USER] [--engine ENGINE] [--queue-id QUEUE_ID]
 
@@ -19,11 +19,14 @@ defmodule Mix.Tasks.Stocksage.Analyze do
 
   alias AllbertAssist.Actions.Runner
 
-  @shortdoc "Request a StockSage analysis through the supervised Python bridge"
+  @shortdoc "Request a StockSage analysis"
   @switches [
     user: :string,
     operator: :string,
     engine: :string,
+    evidence_mode: :string,
+    compare_python: :boolean,
+    force_stub: :boolean,
     queue_id: :string,
     thread_id: :string,
     session_id: :string
@@ -50,6 +53,9 @@ defmodule Mix.Tasks.Stocksage.Analyze do
           analysis_date: analysis_date,
           user_id: user_id,
           engine: Keyword.get(opts, :engine),
+          evidence_mode: Keyword.get(opts, :evidence_mode),
+          compare_python: Keyword.get(opts, :compare_python),
+          force_stub: Keyword.get(opts, :force_stub),
           queue_entry_id: Keyword.get(opts, :queue_id),
           thread_id: Keyword.get(opts, :thread_id),
           session_id: Keyword.get(opts, :session_id)
@@ -106,7 +112,7 @@ defmodule Mix.Tasks.Stocksage.Analyze do
     Mix.shell().info("Analysis date: #{response.analysis_date}")
     Mix.shell().info("Engine: #{response.engine}")
 
-    if Map.has_key?(response, :bridge_duration_ms) do
+    if Map.get(response, :bridge_duration_ms) do
       Mix.shell().info("Bridge duration ms: #{response.bridge_duration_ms}")
     end
 
