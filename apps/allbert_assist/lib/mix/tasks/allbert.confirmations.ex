@@ -124,6 +124,12 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     print_remembered_grants(confirmation)
     print_shell_metadata(confirmation)
     print_skill_script_metadata(confirmation)
+    # v0.22 third-validation closeout (MED/LOW): surface the resumed
+    # target's bounded result so operators see what actually ran (and,
+    # for StockSage, whether it came from the stub path). Without this,
+    # `mix allbert.confirmations approve <id>` printed resolver text
+    # but never told the operator the analysis decision/stub flag.
+    print_target_result_summary(confirmation)
     print_approval_commands(confirmation)
     print_status_note(confirmation)
   end
@@ -293,6 +299,80 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     confirmation
     |> SkillScriptMetadata.lines()
     |> Enum.each(fn line -> Mix.shell().info(line) end)
+  end
+
+  # Surface a bounded operator summary of the resumed target's result.
+  # Stored at `operator_resolution.target_result` (string-keyed JSON
+  # because the confirmation record is persisted as JSON). Only prints
+  # for resolved confirmations whose target ran; pending records and
+  # confirmations without a target_result are no-ops.
+  defp print_target_result_summary(confirmation) do
+    target_result =
+      confirmation
+      |> Map.get("operator_resolution", %{})
+      |> Kernel.||(%{})
+      |> Map.get("target_result", %{})
+      |> Kernel.||(%{})
+
+    target_status =
+      confirmation
+      |> get_in(["operator_resolution", "target_status"])
+      |> case do
+        nil -> Map.get(target_result, "status")
+        value -> value
+      end
+
+    target_action_name = get_in(confirmation, ["target_action", "name"])
+
+    cond do
+      target_result == %{} ->
+        :ok
+
+      target_action_name == "run_analysis" ->
+        Mix.shell().info(
+          "Target: run_analysis status=#{target_status || "unknown"}#{maybe_kv(target_result, "stub", "stub")}#{maybe_kv(target_result, "engine", "engine")}#{maybe_kv(target_result, "bridge_duration_ms", "bridge_duration_ms")}#{maybe_kv(target_result, "truncated", "truncated")}"
+        )
+
+        maybe_target_field(target_result, "analysis_id", "Analysis id")
+        maybe_target_field(target_result, "ticker", "Ticker")
+        maybe_target_field(target_result, "analysis_date", "Analysis date")
+        maybe_target_field(target_result, "summary", "Summary", 240)
+
+      true ->
+        # Generic fallback: surface status only (bounded). Anything more
+        # would risk leaking domain-specific fields without a vetted
+        # formatter; per-target formatters (like the run_analysis branch
+        # above) can be added when their docs make a stub/decision/etc.
+        # field operator-visible.
+        Mix.shell().info(
+          "Target: #{target_action_name || "unknown"} status=#{target_status || "unknown"}"
+        )
+    end
+  end
+
+  defp maybe_kv(map, key, label) do
+    case Map.get(map, key) do
+      nil -> ""
+      value -> " #{label}=#{value}"
+    end
+  end
+
+  defp maybe_target_field(map, key, label, max \\ 120) do
+    case Map.get(map, key) do
+      nil -> :ok
+      "" -> :ok
+      value -> Mix.shell().info("#{label}: #{bounded_string(value, max)}")
+    end
+  end
+
+  defp bounded_string(value, max) when is_integer(max) and max > 0 do
+    string = to_string(value)
+
+    if String.length(string) > max do
+      String.slice(string, 0, max) <> "..."
+    else
+      string
+    end
   end
 
   defp print_approval_commands(%{"status" => "pending", "id" => id}) do
