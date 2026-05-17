@@ -402,8 +402,13 @@ they start. The contract is:
   agent's registry id.
 - Engine's `:execute_step` for `kind: :delegate_agent` looks up the
   agent in `AllbertAssist.Objectives.AgentRegistry` and dispatches
-  via the new `AllbertAssist.Objectives.Actions.DelegateAgent`
-  registered action.
+  via the new `AllbertAssist.Actions.Objectives.DelegateAgent`
+  registered capability action (operator-facing namespace
+  `AllbertAssist.Actions.Objectives.*`, registered in
+  `Actions.Registry`, gated by Security Central — not a private
+  engine command). Private engine commands live in
+  `AllbertAssist.Objectives.Commands.*`; see v0.24 plan Module
+  Shapes for the namespace boundary.
 - v0.24 ships the contract + a stub-tested round-trip. No specialist
   agents are registered in v0.24; the registry is empty by default.
   v0.25 specialist agents register themselves at boot.
