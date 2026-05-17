@@ -62,4 +62,27 @@ defmodule AllbertAssist.Objectives.AgentRegistryTest do
     assert {:error, :not_found} = AgentRegistry.lookup(id)
     assert {:error, :not_found} = AgentRegistry.dispatch(id, :ping, %{})
   end
+
+  test "registered agents are monitored and evicted when their process exits" do
+    server = :"objective_registry_dead_#{System.unique_integer([:positive])}"
+    id = "dead-#{System.unique_integer([:positive])}"
+
+    pid = start_supervised!({StubAgent, name: server})
+    ref = Process.monitor(pid)
+
+    assert {:ok, _entry} = AgentRegistry.register(id, server, StubAgent, %{kind: :test})
+    assert {:ok, _entry} = AgentRegistry.lookup(id)
+
+    Process.exit(pid, :kill)
+
+    assert_receive {:DOWN, ^ref, :process, ^pid, :killed}, 1_000
+    assert {:error, :not_found} = AgentRegistry.lookup(id)
+  end
+
+  test "register rejects servers that are not alive" do
+    id = "not-started-#{System.unique_integer([:positive])}"
+    server = :"objective_registry_not_started_#{System.unique_integer([:positive])}"
+
+    assert {:error, :server_not_found} = AgentRegistry.register(id, server, StubAgent, %{})
+  end
 end

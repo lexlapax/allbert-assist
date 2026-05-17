@@ -24,8 +24,10 @@ defmodule AllbertAssistWeb.SignalBridge do
   end
 
   @impl true
-  def init(_opts) do
-    case Bus.subscribe(AllbertAssist.SignalBus, @objective_pattern) do
+  def init(opts) do
+    subscribe_fun = Keyword.get(opts, :subscribe_fun, &Bus.subscribe/2)
+
+    case subscribe_fun.(AllbertAssist.SignalBus, @objective_pattern) do
       {:ok, subscription_id} ->
         {:ok, %{subscription_id: subscription_id}}
 

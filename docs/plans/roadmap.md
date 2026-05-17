@@ -1154,7 +1154,7 @@ Request flow: `docs/plans/v0.24-request-flow.md`
 ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
 Research note: `docs/research/objective-runtime-research.md`
 
-Status: implemented through M6 closeout; ready for operator manual
+Status: implemented through M6 closeout plus post-audit hardening; ready for operator manual
 verification before release tag. NEW milestone inserted by the
 project-direction rethink (see `docs/plans/project-direction-rethink-01.md`).
 Adds the durable multi-step work substrate that v0.25 native trading agents,
@@ -1165,7 +1165,13 @@ Expected direction:
 - Add `AllbertAssist.Objectives` umbrella with `Objective`, `Step`,
   `Event` schemas and `Objectives.Engine.Agent` as a JidoBacked
   agent (built on v0.23 `AllbertAssist.JidoBacked` substrate)
-  implementing a seven-stage state machine.
+  implementing a seven-stage state machine through 10 private
+  objective command modules. These command modules are not registered
+  capability actions.
+- Expose `AllbertAssist.Objectives.list/2`, `get/2`, `frame/2`,
+  `advance/2`, `cancel/3`, and `continue/2` as the public lifecycle
+  facade while keeping lower-level store helpers internal to the
+  engine and tests.
 - Add `objectives`, `objective_steps`, `objective_events` SQLite tables
   via four sequential timestamped migrations (3 core +
   1 StockSage plugin). The `objectives` table carries durable
@@ -1179,13 +1185,18 @@ Expected direction:
   unblocks v0.25 specialist trading agents. Other reserved kinds
   (`capability_inventory`, `route`, etc.) named in ADR 0021 but not
   implemented in v0.24.
+- Ship monitored `AllbertAssist.Objectives.AgentRegistry` for
+  `:delegate_agent` targets. It evicts dead registered agent processes
+  and dispatches through `Jido.AgentServer.call/3`.
 - Hardcoded per-app Proposer modules (e.g., `StockSage.Proposer`)
   registered via `AllbertAssist.Objectives.Proposer.register_app_proposer/2`
   at app boot. Proposer rules are Elixir code, not settings data.
 - Add `:objective_write` permission class (default `:allow`, floor
   `:allow`; symmetry with other `_write` classes).
 - Ship `mix allbert.objectives list|show|cancel|continue` CLI commands;
-  `cancel --reason` is required.
+  `cancel --reason` is required. Known errors use real OS exit codes:
+  `64` usage, `65` not found, `66` identity mismatch, `1` unexpected
+  action/security failure.
 - Add `## Objective` and `## Objective Steps` trace sections.
 - Extend `AllbertAssistWeb.AgentLive` with an objective badge; add new
   `AllbertAssistWeb.ObjectiveLive` at `/objectives/:id`.

@@ -15,14 +15,24 @@ defmodule Mix.Tasks.Allbert.Objectives do
   alias AllbertAssist.Actions.Runner
 
   @shortdoc "Inspect durable Allbert objectives"
+  @usage_exit 64
+  @not_found_exit 65
+  @identity_exit 66
+  @failure_exit 1
 
   @impl true
   def run(args) do
-    Mix.Task.run("app.start")
+    try do
+      Mix.Task.run("app.start")
 
-    args
-    |> dispatch()
-    |> print_result()
+      args
+      |> dispatch()
+      |> print_result()
+    catch
+      {:objectives_error, code, message} ->
+        Mix.shell().error(message)
+        halt(code)
+    end
   end
 
   defp dispatch(["list" | args]) do
@@ -77,7 +87,14 @@ defmodule Mix.Tasks.Allbert.Objectives do
 
     case Runner.run("continue_objective", %{id: id, user_id: user_id}, context(user_id)) do
       {:ok, %{status: status} = response}
-      when status in [:completed, :needs_confirmation, :still_blocked] ->
+      when status in [
+             :completed,
+             :needs_confirmation,
+             :still_blocked,
+             :objective_abandoned,
+             :objective_cancelled,
+             :objective_failed
+           ] ->
         {:ok, {:continue, response}}
 
       {:ok, response} ->
@@ -114,13 +131,16 @@ defmodule Mix.Tasks.Allbert.Objectives do
   end
 
   defp dispatch(_args) do
-    Mix.raise("""
-    Usage:
-      mix allbert.objectives list [--user USER] [--status open|running|blocked|completed|cancelled|failed|abandoned] [--active-app APP_ID] [--limit N]
-      mix allbert.objectives show OBJECTIVE_ID [--user USER]
-      mix allbert.objectives continue OBJECTIVE_ID [--user USER]
-      mix allbert.objectives cancel OBJECTIVE_ID --reason REASON [--user USER]
-    """)
+    fail!(
+      @usage_exit,
+      """
+      Usage:
+        mix allbert.objectives list [--user USER] [--status open|running|blocked|completed|cancelled|failed|abandoned] [--active-app APP_ID] [--limit N]
+        mix allbert.objectives show OBJECTIVE_ID [--user USER]
+        mix allbert.objectives continue OBJECTIVE_ID [--user USER]
+        mix allbert.objectives cancel OBJECTIVE_ID --reason REASON [--user USER]
+      """
+    )
   end
 
   defp print_result({:ok, {:list, []}}) do
@@ -136,7 +156,7 @@ defmodule Mix.Tasks.Allbert.Objectives do
   end
 
   defp print_result({:ok, {:show, %{status: :not_found}}}) do
-    Mix.raise("Objective not found.")
+    fail!(@not_found_exit, "Objective not found.")
   end
 
   defp print_result({:ok, {:show, response}}) do
@@ -181,7 +201,7 @@ defmodule Mix.Tasks.Allbert.Objectives do
   end
 
   defp print_result({:error, reason}) do
-    Mix.raise("Objectives command failed: #{inspect(reason)}")
+    fail!(error_code(reason), "Objectives command failed: #{inspect(reason)}")
   end
 
   defp print_steps([]), do: Mix.shell().info("- none")
@@ -235,7 +255,7 @@ defmodule Mix.Tasks.Allbert.Objectives do
 
     cond do
       user && operator && user != operator ->
-        Mix.raise("--user and --operator must match when both are provided.")
+        fail!(@identity_exit, "--user and --operator must match when both are provided.")
 
       user ->
         user
@@ -252,18 +272,18 @@ defmodule Mix.Tasks.Allbert.Objectives do
     opts[:reason]
     |> blank_to_nil()
     |> case do
-      nil -> Mix.raise("Usage error (64): cancel requires --reason REASON.")
+      nil -> fail!(@usage_exit, "Usage error (64): cancel requires --reason REASON.")
       reason -> reason
     end
   end
 
   defp reject_invalid!([]), do: :ok
-  defp reject_invalid!(invalid), do: Mix.raise("Unknown options: #{inspect(invalid)}")
+  defp reject_invalid!(invalid), do: fail!(@usage_exit, "Unknown options: #{inspect(invalid)}")
 
   defp reject_rest!([], _command), do: :ok
 
   defp reject_rest!(rest, command),
-    do: Mix.raise("Unexpected #{command} arguments: #{inspect(rest)}")
+    do: fail!(@usage_exit, "Unexpected #{command} arguments: #{inspect(rest)}")
 
   defp blank_to_nil(nil), do: nil
 
@@ -281,5 +301,22 @@ defmodule Mix.Tasks.Allbert.Objectives do
     map
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
     |> Map.new()
+  end
+
+  defp error_code(:not_found), do: @not_found_exit
+  defp error_code({:not_found, _id}), do: @not_found_exit
+  defp error_code(:missing_reason), do: @usage_exit
+  defp error_code(:missing_objective_id), do: @usage_exit
+  defp error_code(:missing_user_id), do: @usage_exit
+  defp error_code(_reason), do: @failure_exit
+
+  @spec fail!(non_neg_integer(), String.t()) :: no_return()
+  defp fail!(code, message), do: throw({:objectives_error, code, message})
+
+  defp halt(code) do
+    :allbert_assist
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:halt_fun, &System.halt/1)
+    |> then(& &1.(code))
   end
 end

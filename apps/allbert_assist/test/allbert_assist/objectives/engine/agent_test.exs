@@ -2,7 +2,6 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Actions.Registry
-  alias AllbertAssist.JidoBacked
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
@@ -13,6 +12,19 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
   alias Jido.Signal.Bus
 
   test "private engine command modules are not registered capability actions" do
+    assert EngineAgent.command_modules() == [
+             AllbertAssist.Objectives.Commands.FrameObjective,
+             AllbertAssist.Objectives.Commands.ProposeSteps,
+             AllbertAssist.Objectives.Commands.EvaluateSteps,
+             AllbertAssist.Objectives.Commands.AuthorizeStep,
+             AllbertAssist.Objectives.Commands.ExecuteStep,
+             AllbertAssist.Objectives.Commands.ObserveStep,
+             AllbertAssist.Objectives.Commands.AdvanceObjective,
+             AllbertAssist.Objectives.Commands.CancelObjective,
+             AllbertAssist.Objectives.Commands.ContinueObjective,
+             AllbertAssist.Objectives.Commands.PruneStale
+           ]
+
     for module <- EngineAgent.command_modules() do
       refute Registry.registered_module?(module)
       assert {:error, {:unknown_action, ^module}} = Registry.capability(module)
@@ -158,16 +170,80 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     assert stale_after.status == "abandoned"
   end
 
-  test "no-op command returns a non-error dispatch for directive-free stub commands" do
+  test "supervisor restart reloads durable proposer hints from sqlite" do
+    name = :"objectives_engine_restart_#{System.unique_integer([:positive])}"
+
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               status: "open",
+               active_app: "allbert",
+               title: "Restart with hint",
+               objective: "Keep proposer hint durable.",
+               proposer_hint: %{"app_id" => "allbert", "state" => %{"cursor" => 1}}
+             })
+
+    start_supervised!({EngineAgent, name: name, id: Atom.to_string(name), child_id: name})
+    assert {:ok, %{agent: %{state: state}}} = AgentServer.state(name)
+    assert state.proposer_hints[objective.id] == {:allbert, %{"cursor" => 1}}
+
+    :ok = stop_supervised(name)
+
+    start_supervised!({EngineAgent, name: name, id: Atom.to_string(name), child_id: name})
+    assert {:ok, %{agent: %{state: restarted}}} = AgentServer.state(name)
+    assert restarted.proposer_hints[objective.id] == {:allbert, %{"cursor" => 1}}
+  end
+
+  test "evaluate_steps records a deterministic acceptance verdict" do
     name = start_test_engine()
 
-    assert {:ok, %{status: :noop}} =
-             JidoBacked.dispatch(
-               name,
-               "allbert.objectives.engine.advance_objective",
-               %{command: "advance_objective"},
-               source: "/test"
-             )
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Evaluate",
+               objective: "Evaluate one completed step."
+             })
+
+    assert {:ok, _step} =
+             Objectives.create_step(%{
+               objective_id: objective.id,
+               kind: "action",
+               status: "completed",
+               stage: "observe_step",
+               candidate_action: "StockSage.Actions.RunAnalysis"
+             })
+
+    assert {:ok, %{verdict: :met, evaluated_steps: 1}} =
+             EngineAgent.evaluate_steps(name, %{objective_id: objective.id})
+
+    assert {:ok, %{agent: %{state: state}}} = AgentServer.state(name)
+    assert state.last_acceptance_verdicts[objective.id] == :met
+  end
+
+  test "prune_stale command prunes and can return a conservative schedule directive" do
+    now = DateTime.utc_now()
+    name = start_test_engine()
+
+    assert {:ok, stale} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               status: "blocked",
+               title: "Stale",
+               objective: "Stale objective"
+             })
+
+    stale_at = DateTime.add(now, -2, :hour)
+
+    assert {1, _} =
+             Objective
+             |> where([o], o.id == ^stale.id)
+             |> Repo.update_all(set: [updated_at: stale_at])
+
+    assert {:ok, %{status: :completed, abandoned: 1}} =
+             EngineAgent.prune_stale(name, %{now: now, schedule_next_ms: 60_000})
+
+    assert {:ok, pruned} = Objectives.get_objective(stale.id)
+    assert pruned.status == "abandoned"
   end
 
   test "delegate_agent step executes through registered delegate action and AgentRegistry" do
@@ -197,11 +273,15 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                action_params: %{payload: "hello"}
              })
 
-    assert {:ok, %{step: completed}} =
-             EngineAgent.execute_step(engine_name, %{step_id: step.id, trace_id: "trace_delegate"})
+    assert {:ok, %{step: completed, objective: completed_objective, verdict: :met}} =
+             EngineAgent.advance_objective(engine_name, %{
+               step_id: step.id,
+               trace_id: "trace_delegate"
+             })
 
     assert completed.status == "completed"
     assert completed.result_summary =~ "Delegated objective step"
+    assert completed_objective.status == "completed"
   end
 
   defp start_test_engine do

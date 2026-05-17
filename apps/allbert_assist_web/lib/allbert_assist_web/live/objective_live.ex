@@ -62,7 +62,14 @@ defmodule AllbertAssistWeb.ObjectiveLive do
 
     case Runner.run("continue_objective", params, context(socket)) do
       {:ok, %{status: status} = response}
-      when status in [:completed, :needs_confirmation, :still_blocked] ->
+      when status in [
+             :completed,
+             :needs_confirmation,
+             :still_blocked,
+             :objective_abandoned,
+             :objective_cancelled,
+             :objective_failed
+           ] ->
         {:noreply, socket |> assign(response: response.message, error: nil) |> refresh()}
 
       {:ok, response} ->

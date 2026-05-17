@@ -30,4 +30,19 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
     :ok = Signals.log(runtime_signal)
     refute_receive {:objective_event, %{type: "allbert.runtime.turn.started"}}, 100
   end
+
+  test "starts safely when signal bus subscription fails" do
+    name = :"signal_bridge_failed_#{System.unique_integer([:positive])}"
+
+    pid =
+      start_supervised!(
+        {SignalBridge,
+         name: name,
+         subscribe_fun: fn AllbertAssist.SignalBus, "allbert.objective.**" ->
+           {:error, :bus_unavailable}
+         end}
+      )
+
+    assert Process.alive?(pid)
+  end
 end

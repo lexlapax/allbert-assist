@@ -81,7 +81,8 @@ defmodule AllbertAssist.Umbrella.MixProject do
         "format --check-formatted",
         "credo --strict",
         "test",
-        "do --app allbert_assist cmd mix test ../../plugins/stocksage/test/stocksage ../../plugins/stocksage/test/mix"
+        "do --app allbert_assist cmd mix test ../../plugins/stocksage/test/stocksage ../../plugins/stocksage/test/mix",
+        "do --app allbert_assist cmd mix test ../../plugins/allbert.telegram/test ../../plugins/allbert.email/test"
       ],
       check: ["format --check-formatted", "credo --strict", "dialyzer"]
     ]

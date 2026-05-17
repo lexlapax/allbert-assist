@@ -1,0 +1,100 @@
+defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
+  use ExUnit.Case, async: false
+
+  defmodule MigrationRepo do
+    use Ecto.Repo,
+      otp_app: :allbert_assist,
+      adapter: Ecto.Adapters.SQLite3
+  end
+
+  alias Ecto.Adapters.SQL
+
+  @migrations [
+    {20_260_514_000_000, AllbertAssist.Repo.Migrations.CreateScheduledJobs,
+     "apps/allbert_assist/priv/repo/migrations/20260514000000_create_scheduled_jobs.exs"},
+    {20_260_515_000_000, AllbertAssist.Repo.Migrations.CreateStockSageDomain,
+     "plugins/stocksage/priv/repo/migrations/20260515000000_create_stocksage_domain.exs"},
+    {20_260_517_000_000, AllbertAssist.Repo.Migrations.AddObjectives,
+     "apps/allbert_assist/priv/repo/migrations/20260517000000_add_objectives.exs"},
+    {20_260_517_000_100, AllbertAssist.Repo.Migrations.AddObjectiveStepsAndEvents,
+     "apps/allbert_assist/priv/repo/migrations/20260517000100_add_objective_steps_and_events.exs"},
+    {20_260_517_000_200, AllbertAssist.Repo.Migrations.AddObjectiveColumnsToScheduledJobs,
+     "apps/allbert_assist/priv/repo/migrations/20260517000200_add_objective_columns_to_scheduled_jobs.exs"},
+    {20_260_517_000_300, AllbertAssist.Repo.Migrations.AddObjectiveColumnsToStockSageTables,
+     "plugins/stocksage/priv/repo/migrations/20260517000300_add_objective_columns_to_stocksage_tables.exs"}
+  ]
+
+  test "v0.24 objective migrations run up and down on an isolated sqlite database" do
+    db_path =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-v024-migration-#{System.unique_integer([:positive])}.db"
+      )
+
+    {:ok, pid} = MigrationRepo.start_link(database: db_path, pool_size: 1)
+    ensure_migration_modules!()
+
+    on_exit(fn ->
+      if Process.alive?(pid) do
+        try do
+          GenServer.stop(pid)
+        catch
+          :exit, _reason -> :ok
+        end
+      end
+
+      File.rm(db_path)
+    end)
+
+    Enum.each(@migrations, fn {version, module, _path} ->
+      assert :ok = Ecto.Migrator.up(MigrationRepo, version, module, log: false)
+    end)
+
+    assert table_exists?("objectives")
+    assert table_exists?("objective_steps")
+    assert table_exists?("objective_events")
+    assert column_exists?("scheduled_jobs", "objective_id")
+    assert column_exists?("stocksage_analyses", "objective_id")
+    assert column_exists?("stocksage_analysis_queue", "step_id")
+
+    @migrations
+    |> Enum.reverse()
+    |> Enum.each(fn {version, module, _path} ->
+      assert :ok = Ecto.Migrator.down(MigrationRepo, version, module, log: false)
+    end)
+
+    refute table_exists?("objectives")
+    refute table_exists?("objective_steps")
+    refute table_exists?("objective_events")
+    refute column_exists?("scheduled_jobs", "objective_id")
+    refute column_exists?("stocksage_analyses", "objective_id")
+    refute column_exists?("stocksage_analysis_queue", "step_id")
+  end
+
+  defp ensure_migration_modules! do
+    root = Path.expand("../../../../..", __DIR__)
+
+    Enum.each(@migrations, fn {_version, module, path} ->
+      unless Code.ensure_loaded?(module) do
+        Code.require_file(Path.join(root, path))
+      end
+    end)
+  end
+
+  defp table_exists?(table) do
+    %{rows: rows} =
+      SQL.query!(
+        MigrationRepo,
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        [table]
+      )
+
+    rows != []
+  end
+
+  defp column_exists?(table, column) do
+    %{rows: rows} = SQL.query!(MigrationRepo, "PRAGMA table_info(#{table})", [])
+
+    Enum.any?(rows, fn row -> Enum.at(row, 1) == column end)
+  end
+end
