@@ -137,7 +137,9 @@ substrate choice in the module `@moduledoc`. Private Jido command modules
 inside these agents are not registered Allbert capability actions and must not
 appear in intent candidates. Worked conversion details live in
 `docs/developer/jido-agent-pattern.md`. Transitional compatibility modules
-used during v0.23 parity testing were removed before release closeout.
+used during v0.23 parity testing were removed before release closeout, while
+retained fixture snapshots under `apps/allbert_assist/test/fixtures/v0.23/`
+document canonical confirmation audit and scheduler summary behavior.
 
 ### Objectives And Advisory Providers (v0.24)
 
