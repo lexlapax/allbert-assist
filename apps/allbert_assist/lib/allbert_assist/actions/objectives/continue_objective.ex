@@ -51,6 +51,9 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
   defp continue(%{status: "abandoned"}, _permission_decision, _context),
     do: {:error, :objective_abandoned}
 
+  defp continue(%{status: "cancelled"}, _permission_decision, _context),
+    do: {:error, :objective_cancelled}
+
   defp continue(objective, permission_decision, context) do
     with {:ok, step} <- current_step(objective),
          :ok <- step_ready(step) do

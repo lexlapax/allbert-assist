@@ -45,7 +45,7 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
       {@execute_step, Commands.ExecuteStep},
       {@observe_step, Commands.ObserveStep},
       {@advance_objective, Commands.Noop},
-      {@cancel_objective, Commands.Noop},
+      {@cancel_objective, Commands.CancelObjective},
       {@continue_objective, Commands.Noop},
       {@prune_stale, Commands.Noop}
     ]
@@ -81,6 +81,7 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
       Commands.AuthorizeStep,
       Commands.ExecuteStep,
       Commands.ObserveStep,
+      Commands.CancelObjective,
       Commands.Noop
     ]
   end

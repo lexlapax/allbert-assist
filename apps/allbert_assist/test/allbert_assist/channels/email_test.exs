@@ -8,6 +8,7 @@ defmodule AllbertAssist.Channels.EmailTest do
   alias AllbertAssist.Channels.Email.SmtpClient
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
@@ -150,6 +151,44 @@ defmodule AllbertAssist.Channels.EmailTest do
 
       assert handoff_body =~ "ALLBERT:APPROVE:conf_123"
       assert handoff_body =~ "ALLBERT:DENY:conf_123"
+    end
+
+    test "renders objective snapshot and stale warning for approval handoffs" do
+      assert {:ok, objective} =
+               Objectives.create_objective(%{
+                 user_id: "alice",
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 status: "running"
+               })
+
+      handoff = %{
+        confirmation_id: "conf_obj",
+        status: :pending,
+        objective_id: objective.id,
+        target_action: %{
+          action: %{name: "run_analysis"},
+          params_summary: %{
+            objective_id: objective.id,
+            objective_title: "Analyze AAPL",
+            objective_status: "running"
+          }
+        }
+      }
+
+      assert {:ok, _cancelled} =
+               Objectives.update_objective(objective, %{
+                 status: "cancelled",
+                 progress_summary: "Cancelled in renderer test."
+               })
+
+      assert {:ok, _subject, body, nil} =
+               Renderer.render_response(%{approval_handoff: handoff}, subject: "Approval")
+
+      assert body =~ "Objective: #{objective.id}"
+      assert body =~ "Title: Analyze AAPL"
+      assert body =~ "Status: :cancelled"
+      assert body =~ "Note: objective is now :cancelled"
     end
   end
 

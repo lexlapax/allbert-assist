@@ -3,7 +3,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.{Confirmations, Paths, Runtime, Settings}
+  alias AllbertAssist.{Confirmations, Objectives, Paths, Runtime, Settings}
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
@@ -47,6 +47,22 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert html =~ "Runtime LiveView response: Say hello from the runtime boundary."
     assert html =~ "Status: completed"
     assert has_element?(view, "#agent-signal")
+  end
+
+  test "renders active objective badge from registered action boundary", %{conn: conn} do
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "local",
+               title: "Analyze AAPL",
+               objective: "Complete one analysis for AAPL.",
+               status: "blocked",
+               active_app: "stocksage"
+             })
+
+    {:ok, view, html} = live(conn, ~p"/agent")
+
+    assert html =~ "Analyze AAPL"
+    assert has_element?(view, "#objective-badge-#{objective.id}")
   end
 
   test "default runtime can activate a skill through LiveView", %{conn: conn} do

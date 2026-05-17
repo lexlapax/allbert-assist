@@ -9,6 +9,8 @@ defmodule AllbertAssistWeb.Application do
   def start(_type, _args) do
     children = [
       AllbertAssistWeb.Telemetry,
+      {Phoenix.PubSub, name: AllbertAssistWeb.PubSub},
+      AllbertAssistWeb.SignalBridge,
       # Start a worker by calling: AllbertAssistWeb.Worker.start_link(arg)
       # {AllbertAssistWeb.Worker, arg},
       # Start to serve requests, typically the last entry

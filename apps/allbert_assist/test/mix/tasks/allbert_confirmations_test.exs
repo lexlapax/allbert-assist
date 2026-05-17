@@ -1,10 +1,11 @@
 defmodule Mix.Tasks.Allbert.ConfirmationsTest do
-  use ExUnit.Case, async: false
+  use AllbertAssist.DataCase, async: false
 
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias Mix.Tasks.Allbert.Confirmations, as: ConfirmationsTask
@@ -109,6 +110,46 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
     assert_raise Mix.Error, ~r/confirmation_not_found/, fn ->
       ConfirmationsTask.run(["show", "missing"])
     end
+  end
+
+  test "show renders objective snapshot and stale warning" do
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Analyze AAPL",
+               objective: "Complete one analysis for AAPL.",
+               status: "running"
+             })
+
+    attrs =
+      base_attrs()
+      |> Map.put(:id, "conf_cli_objective")
+      |> Map.put(:objective_id, objective.id)
+      |> Map.put(:step_id, "step_cli_objective")
+      |> Map.put(:params_summary, %{
+        objective_id: objective.id,
+        objective_title: "Analyze AAPL",
+        objective_status: "running"
+      })
+
+    assert {:ok, record} = Confirmations.create(attrs)
+
+    assert {:ok, _cancelled} =
+             Objectives.update_objective(objective, %{
+               status: "cancelled",
+               progress_summary: "Cancelled for stale confirmation test."
+             })
+
+    show_output =
+      capture_io(fn ->
+        assert :ok = ConfirmationsTask.run(["show", record["id"]])
+      end)
+
+    assert show_output =~ "Objective: #{objective.id}"
+    assert show_output =~ "Title: Analyze AAPL"
+    assert show_output =~ "Status: :cancelled"
+    assert show_output =~ "Step: step_cli_objective"
+    assert show_output =~ "Note: objective is now :cancelled"
   end
 
   test "shows and approves skill script confirmation metadata", %{root: root, home: home} do

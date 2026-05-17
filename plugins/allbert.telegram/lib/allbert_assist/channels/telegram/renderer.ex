@@ -2,6 +2,7 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
   @moduledoc false
 
   alias AllbertAssist.Intent.ApprovalHandoff
+  alias AllbertAssist.Confirmations.ObjectiveContext
 
   @telegram_limit 4096
   @callback_limit 64
@@ -23,8 +24,7 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
 
   def render_approval_handoff(handoff_data, opts \\ []) do
     text =
-      handoff_data
-      |> ApprovalHandoff.lines()
+      (ObjectiveContext.lines(handoff_data) ++ ApprovalHandoff.lines(handoff_data))
       |> case do
         [] -> ["Approval required."]
         lines -> lines
