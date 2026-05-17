@@ -1115,10 +1115,10 @@ Expected direction:
   read from SQLite on each tick. Use `Jido.Agent.Directive.schedule/2`
   as the primary tick scheduling primitive; document any required
   fallback in the agent's `@moduledoc`.
-- Register internal Jido.Action modules for store/scheduler operations
-  in `AllbertAssist.Actions.Registry` with a `:internal` tag;
-  `mix allbert.actions list` filters them out by default;
-  `--internal` opts them back in.
+- Implement private Jido.Action command modules for store/scheduler
+  operations. They are not registered in `AllbertAssist.Actions.Registry`,
+  are not intent candidates, and are not operator-callable capability
+  actions.
 - Add exactly one new setting: `allbert.jido.debug_trace` (boolean,
   default `false`). When `true`, JidoBacked agents emit bounded
   debug metadata to trace markdown via a `## Jido Debug` subsection.
@@ -1138,7 +1138,7 @@ Expected direction:
   rebuild-on-restart contract); short summary subsection in
   `DEVELOPMENT.md` pointing at it.
 - Pure architectural refactor: no new user-visible features beyond
-  the operator-opt-in debug-trace gate and `--internal` filter flag;
+  the operator-opt-in debug-trace gate;
   no schema changes; no permission changes. All v0.07 and v0.13
   acceptance criteria continue to hold byte-for-byte against the
   golden-file snapshots.

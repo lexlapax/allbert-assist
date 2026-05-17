@@ -324,9 +324,15 @@ signal is removed or renamed. Trace volume is bounded by
 
 `Objectives.Engine` is a Jido.Agent because it is a stage state
 machine with lifecycle hooks that earn their keep. New state-bearing
-components author chooses Jido.Agent or plain GenServer based on
+components choose Jido.Agent or plain GenServer based on
 plausible value (state machine, lifecycle hooks, successor-agent
 story). This is not a hard rule; reviewers judge case-by-case.
+
+Private Jido command modules inside those agents are not registered
+Allbert capability actions and are not intent candidates. Objective
+runtime commands must not appear in `AllbertAssist.Actions.Registry`
+unless a later ADR explicitly promotes an operator-facing diagnostic or
+capability action.
 
 ### 10. Hard non-goals for v0.24
 
