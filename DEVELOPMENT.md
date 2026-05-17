@@ -508,7 +508,8 @@ Implementation posture:
   Security Central, and Resource Access Security Posture.
 - Python remains available only as an explicitly requested
   comparison/reference harness. Native failures must stay visible; do not
-  automatically retry or recover with Python.
+  automatically retry or recover with Python, and do not introduce a
+  persistent Settings Central default that selects Python or parity mode.
 
 ## Elixir And OTP Rules
 
