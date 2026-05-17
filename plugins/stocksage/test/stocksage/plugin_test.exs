@@ -46,7 +46,9 @@ defmodule StockSage.PluginTest do
              StockSage.Actions.QueueAnalysis,
              StockSage.Actions.ListQueue,
              StockSage.Actions.ImportSqlite,
-             StockSage.Actions.RunAnalysis
+             StockSage.Actions.RunAnalysis,
+             StockSage.Actions.Agents.ListAgents,
+             StockSage.Actions.Agents.ShowAgent
            ]
 
     # child_spec/1 now returns the supervisor's full child_spec map (not the

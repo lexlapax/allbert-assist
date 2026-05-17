@@ -18,6 +18,7 @@ defmodule AllbertAssist.Security.Context do
       channel: channel(request, context),
       session: session(request, context),
       action: action(context),
+      parent: parent(context),
       skill: skill(context),
       resource: resource(context),
       secret_status: secret_status(context),
@@ -151,6 +152,22 @@ defmodule AllbertAssist.Security.Context do
     context
     |> map_value(:action_capability)
     |> Redactor.redact()
+  end
+
+  defp parent(context) do
+    parent = Map.get(context, :parent) || Map.get(context, "parent") || %{}
+
+    %{
+      permission:
+        map_value(parent, :permission) || map_value(context, :parent_permission) ||
+          map_value(context, :target_permission),
+      approved?:
+        map_value(parent, :approved?) == true or
+          map_value(parent, :status) in [:approved, "approved"] or
+          map_value(context, :parent_approved?) == true,
+      confirmation_id:
+        map_value(parent, :confirmation_id) || map_value(context, :parent_confirmation_id)
+    }
   end
 
   defp resource_summary(%{spec: %{resources: resources}}) when is_list(resources) do
