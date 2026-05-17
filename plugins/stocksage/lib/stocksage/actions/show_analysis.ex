@@ -103,18 +103,37 @@ defmodule StockSage.Actions.ShowAnalysis do
   end
 
   defp detail_summary(detail) do
-    # v0.22 third-validation closeout (MED): surface the persisted detail
-    # `payload` (bounded; the writer in `RunAnalysis` only stores a small
-    # map with `engine` / `truncated` / `stub`). Operators inspecting a
-    # row via `mix stocksage.analyses show <id>` need this to see whether
-    # the bridge ran the stub path or made a real TradingAgents call.
+    # Only expose the vetted operator-facing payload fields. Imported legacy
+    # rows can carry arbitrary payload_json, so never return the raw map here.
     %{
       id: detail.id,
       section: detail.section,
       agent: detail.agent,
       content: detail.content,
-      payload: detail.payload || %{}
+      payload: detail_payload_summary(detail.payload)
     }
+  end
+
+  defp detail_payload_summary(payload) when is_map(payload) do
+    %{}
+    |> maybe_payload(payload, "engine")
+    |> maybe_payload(payload, "truncated")
+    |> maybe_payload(payload, "stub")
+  end
+
+  defp detail_payload_summary(_payload), do: %{}
+
+  defp maybe_payload(summary, payload, key) do
+    case Map.fetch(payload, key) do
+      {:ok, value} ->
+        Map.put(summary, key, value)
+
+      :error ->
+        case Map.fetch(payload, String.to_atom(key)) do
+          {:ok, value} -> Map.put(summary, key, value)
+          :error -> summary
+        end
+    end
   end
 
   defp outcome_summary(outcome) do

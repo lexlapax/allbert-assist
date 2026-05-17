@@ -65,8 +65,8 @@ Do not load every section by default.
 - v0.20: StockSage plugin app, local domain, import, actions, and skills.
 - v0.21: memory review, correction, pruning, promotion, index, search, and
   memory intent candidates.
-- v0.22: StockSage Python bridge and `RunAnalysis` confirmation flow. Status
-  may be pending manual verification until the active roadmap says tagged.
+- v0.22: StockSage Python bridge and `RunAnalysis` confirmation flow. Released
+  and tagged after audit closeout and post-implementation gap fixes.
 - v0.23: planned Jido State-Machine Convergence for Confirmations.Store and
   Jobs.Scheduler.
 - v0.24: planned Objective Runtime Foundation.
