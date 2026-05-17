@@ -18,6 +18,7 @@ defmodule StockSage.Agents do
       type: :jido_ai,
       model_role: :market_context,
       default_model_profile: "fast",
+      tool_modules: [StockSage.Actions.Evidence.FetchMarketData],
       tool_names: ["stocksage_fetch_market_data"]
     },
     %{
@@ -29,6 +30,10 @@ defmodule StockSage.Agents do
       type: :jido_ai,
       model_role: :news_sentiment,
       default_model_profile: "fast",
+      tool_modules: [
+        StockSage.Actions.Evidence.FetchNews,
+        StockSage.Actions.Evidence.FetchSentiment
+      ],
       tool_names: ["stocksage_fetch_news", "stocksage_fetch_sentiment"]
     },
     %{
@@ -40,6 +45,10 @@ defmodule StockSage.Agents do
       type: :jido_ai,
       model_role: :fundamentals,
       default_model_profile: "fast",
+      tool_modules: [
+        StockSage.Actions.Evidence.FetchFundamentals,
+        StockSage.Actions.Evidence.FetchFinancials
+      ],
       tool_names: ["stocksage_fetch_fundamentals", "stocksage_fetch_financials"]
     },
     %{
@@ -51,6 +60,7 @@ defmodule StockSage.Agents do
       type: :jido_ai,
       model_role: :bull_thesis,
       default_model_profile: "fast",
+      tool_modules: [],
       tool_names: []
     },
     %{
@@ -62,6 +72,7 @@ defmodule StockSage.Agents do
       type: :jido_ai,
       model_role: :bear_thesis,
       default_model_profile: "fast",
+      tool_modules: [],
       tool_names: []
     },
     %{
@@ -73,6 +84,7 @@ defmodule StockSage.Agents do
       type: :jido_ai,
       model_role: :risk_aggressive,
       default_model_profile: "slow",
+      tool_modules: [],
       tool_names: []
     },
     %{
@@ -84,6 +96,7 @@ defmodule StockSage.Agents do
       type: :jido_ai,
       model_role: :risk_conservative,
       default_model_profile: "slow",
+      tool_modules: [],
       tool_names: []
     },
     %{
@@ -95,6 +108,7 @@ defmodule StockSage.Agents do
       type: :jido_ai,
       model_role: :risk_neutral,
       default_model_profile: "slow",
+      tool_modules: [],
       tool_names: []
     },
     %{
@@ -106,6 +120,7 @@ defmodule StockSage.Agents do
       type: :jido_ai,
       model_role: :decision_synthesizer,
       default_model_profile: "slow",
+      tool_modules: [],
       tool_names: []
     },
     %{
@@ -117,6 +132,7 @@ defmodule StockSage.Agents do
       type: :jido,
       model_role: nil,
       default_model_profile: nil,
+      tool_modules: [],
       tool_names: []
     }
   ]

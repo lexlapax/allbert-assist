@@ -34,7 +34,12 @@ defmodule StockSage.Plugin do
       StockSage.Actions.ImportSqlite,
       StockSage.Actions.RunAnalysis,
       StockSage.Actions.Agents.ListAgents,
-      StockSage.Actions.Agents.ShowAgent
+      StockSage.Actions.Agents.ShowAgent,
+      StockSage.Actions.Evidence.FetchMarketData,
+      StockSage.Actions.Evidence.FetchNews,
+      StockSage.Actions.Evidence.FetchSentiment,
+      StockSage.Actions.Evidence.FetchFundamentals,
+      StockSage.Actions.Evidence.FetchFinancials
     ]
   end
 

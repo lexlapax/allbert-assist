@@ -103,6 +103,9 @@ defmodule AllbertAssist.Security.Policy do
         approved_parent_analysis?(permission, context) and configured.decision != :denied ->
           :allowed
 
+        fixture_evidence?(permission, context) and configured.decision != :denied ->
+          :allowed
+
         true ->
           effective
       end
@@ -204,6 +207,12 @@ defmodule AllbertAssist.Security.Policy do
   end
 
   defp approved_parent_analysis?(_permission, _context), do: false
+
+  defp fixture_evidence?(:stocksage_evidence_fetch, %{resource: %{kind: kind}})
+       when kind in [:fixture_evidence, "fixture_evidence"],
+       do: true
+
+  defp fixture_evidence?(_permission, _context), do: false
 
   defp reason(:read_only, :allowed, _configured, _floor, _context),
     do: "Read-only inspection is allowed locally."

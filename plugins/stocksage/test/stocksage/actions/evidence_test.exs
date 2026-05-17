@@ -1,0 +1,82 @@
+defmodule StockSage.Actions.EvidenceTest do
+  use ExUnit.Case, async: false
+
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Settings
+  alias StockSage.Evidence
+
+  setup do
+    original = Application.get_env(:allbert_assist, Settings)
+
+    root =
+      Path.join(System.tmp_dir!(), "stocksage-evidence-#{System.unique_integer([:positive])}")
+
+    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+    PluginRegistry.register_module(StockSage.Plugin)
+
+    on_exit(fn ->
+      if original do
+        Application.put_env(:allbert_assist, Settings, original)
+      else
+        Application.delete_env(:allbert_assist, Settings)
+      end
+
+      File.rm_rf!(root)
+    end)
+
+    :ok
+  end
+
+  test "fixture mode loads synthetic market evidence without external grants" do
+    assert {:ok, response} =
+             Runner.run(
+               "stocksage_fetch_market_data",
+               %{ticker: "AAPL", analysis_date: "2026-05-15", evidence_mode: "fixture"},
+               %{request: %{channel: :test, user_id: "alice", operator_id: "alice"}}
+             )
+
+    assert response.status == :completed
+    assert response.evidence.kind == :market_data
+    assert response.evidence.mode == "fixture"
+    assert response.evidence.payload["license"] == "synthetic"
+    assert hd(response.resource_access).mode == "fixture"
+  end
+
+  test "global evidence mode and per-call override are respected" do
+    assert {:ok, _setting} =
+             Settings.put("stocksage.native_evidence_mode", "fixture", %{audit?: false})
+
+    assert Evidence.mode(%{}) == "fixture"
+    assert Evidence.mode(%{evidence_mode: "live"}) == "live"
+    assert Evidence.mode(%{fixture: true, evidence_mode: "live"}) == "fixture"
+  end
+
+  test "live evidence outside approved analysis requires confirmation" do
+    assert {:ok, response} =
+             Runner.run(
+               "stocksage_fetch_news",
+               %{ticker: "AAPL", analysis_date: "2026-05-15", evidence_mode: "live"},
+               %{request: %{channel: :test, user_id: "alice", operator_id: "alice"}}
+             )
+
+    assert response.status == :needs_confirmation
+    assert response.error == :resource_access_required
+    assert hd(response.resource_access).mode == "live"
+  end
+
+  test "all shipped synthetic fixtures decode for the smoke tickers and evidence kinds" do
+    for kind <- [:market_data, :news, :sentiment, :fundamentals, :financials],
+        ticker <- ~w[AAPL MSFT NVDA] do
+      assert {:ok, evidence} =
+               Evidence.fetch(kind, %{
+                 ticker: ticker,
+                 analysis_date: "2026-05-15",
+                 evidence_mode: "fixture"
+               })
+
+      assert evidence.payload["ticker"] == ticker
+      assert evidence.payload["license"] == "synthetic"
+    end
+  end
+end

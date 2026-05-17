@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Stocksage.AgentsTest do
-  use ExUnit.Case, async: false
+  use StockSage.DataCase
 
   import ExUnit.CaptureIO
 
@@ -38,5 +38,28 @@ defmodule Mix.Tasks.Stocksage.AgentsTest do
         AgentsTask.run(["show", "stocksage.nope", "--user", "alice"])
       end)
     end
+  end
+
+  test "smoke delegates through objective action boundary and fixture evidence" do
+    output =
+      capture_io(fn ->
+        assert :ok =
+                 AgentsTask.run([
+                   "smoke",
+                   "stocksage.market_context",
+                   "--ticker",
+                   "AAPL",
+                   "--analysis-date",
+                   "2026-05-15",
+                   "--fixture",
+                   "--user",
+                   "alice"
+                 ])
+      end)
+
+    assert output =~ "StockSage native agent smoke stocksage.market_context"
+    assert output =~ "Evidence packets: 1"
+    assert output =~ "stocksage_fetch_market_data"
+    assert output =~ "mode=fixture"
   end
 end
