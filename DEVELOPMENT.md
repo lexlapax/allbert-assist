@@ -303,8 +303,9 @@ while keeping pure helper modules plain Elixir.
 The shared runtime action boundary is
 `AllbertAssist.Actions.Runner.run/3`. New runtime-facing capabilities should
 be registered in `AllbertAssist.Actions.Registry`, emit lifecycle metadata
-through the runner, and expose internal actions separately from the
-intent-agent tool surface when needed.
+through the runner, and stay distinct from private Jido command modules used
+inside state-machine agents. Private Jido command modules are not registered
+Allbert capability actions and must not appear in intent candidates.
 
 v0.05 Security Central defines shared security decisions, risk, redaction,
 trust-boundary, and audit vocabulary without adding new execution powers.

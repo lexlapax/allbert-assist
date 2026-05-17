@@ -133,7 +133,8 @@ not SQLite-backed. `Jobs.Scheduler` remains SQLite-job-backed and keeps no
 authoritative in-memory job queue. `Settings`, `Trace`, `Memory` storage IO,
 `Session.Scratchpad`, `Memory.Compiler`, and `Memory.Promotion` stay plain
 GenServers/modules. New modules document their substrate choice in the module
-`@moduledoc`.
+`@moduledoc`. Private Jido command modules inside these agents are not
+registered Allbert capability actions and must not appear in intent candidates.
 
 ### Objectives And Advisory Providers (v0.24)
 
