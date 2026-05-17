@@ -24,6 +24,54 @@ defmodule AllbertAssist.JidoBackedTest do
     def command_modules, do: []
   end
 
+  defmodule DirectiveListCommand do
+    use Jido.Action,
+      name: "test_directive_list",
+      description: "Returns only an empty state patch plus a directive list."
+
+    alias Jido.Agent.Directive
+    alias Jido.Signal
+
+    @impl true
+    def run(_params, _context) do
+      {:ok, %{}, [Directive.schedule(60_000, Signal.new!("test.never", %{}))]}
+    end
+  end
+
+  defmodule DirectiveSingleCommand do
+    use Jido.Action,
+      name: "test_directive_single",
+      description: "Returns only an empty state patch plus one directive."
+
+    alias Jido.Agent.Directive
+    alias Jido.Signal
+
+    @impl true
+    def run(_params, _context) do
+      {:ok, %{}, Directive.schedule(60_000, Signal.new!("test.never", %{}))}
+    end
+  end
+
+  defmodule DirectiveOnlyAgent do
+    use AllbertAssist.JidoBacked,
+      name: "directive_only_agent",
+      description: "Directive-only test agent.",
+      signal_routes: [
+        {"test.directive_list", AllbertAssist.JidoBackedTest.DirectiveListCommand},
+        {"test.directive_single", AllbertAssist.JidoBackedTest.DirectiveSingleCommand}
+      ]
+
+    @impl true
+    def rebuild_state(_opts), do: {:ok, %{mode: :directive_only}}
+
+    @impl true
+    def command_modules,
+      do: [
+        AllbertAssist.JidoBackedTest.DirectiveListCommand,
+        AllbertAssist.JidoBackedTest.DirectiveSingleCommand
+      ]
+  end
+
   setup do
     original_jido_backed_config = Application.get_env(:allbert_assist, JidoBacked)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -98,6 +146,21 @@ defmodule AllbertAssist.JidoBackedTest do
                %{id: record["id"]},
                source: "/test"
              )
+  end
+
+  test "dispatch treats directive-only commands as successful dispatches" do
+    name = :"directive_only_agent_#{System.unique_integer([:positive])}"
+
+    start_supervised!(
+      {DirectiveOnlyAgent,
+       name: name, initial_state: %{mode: :directive_only, last_error: "stale"}}
+    )
+
+    assert {:ok, :dispatched} =
+             JidoBacked.dispatch(name, "test.directive_list", %{}, source: "/test")
+
+    assert {:ok, :dispatched} =
+             JidoBacked.dispatch(name, "test.directive_single", %{}, source: "/test")
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
