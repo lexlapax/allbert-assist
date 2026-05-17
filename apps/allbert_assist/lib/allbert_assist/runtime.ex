@@ -28,6 +28,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Intent.ResourceAccess
   alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Session
+  alias AllbertAssist.Signals
   alias Jido.Signal
 
   @input_received "allbert.input.received"
@@ -99,6 +100,7 @@ defmodule AllbertAssist.Runtime do
     with {:ok, request} <- normalize_request(attrs),
          {:ok, input_signal} <- new_input_signal(request),
          :ok <- log_signal(input_signal),
+         :ok <- log_runtime_turn_started(input_signal, request),
          {:ok, user_message} <- persist_user_message(request, input_signal),
          request <- put_thread_context(request, user_message),
          {:ok, agent_response} <- agent_runner().(input_signal, request),
@@ -110,6 +112,7 @@ defmodule AllbertAssist.Runtime do
        response
        |> record_trace(input_signal, response_signal, request)
        |> persist_assistant_message(request, response_signal)
+       |> maybe_log_runtime_turn_completed(request)
        |> maybe_log_trace_signal(request)}
     end
   end
@@ -518,6 +521,50 @@ defmodule AllbertAssist.Runtime do
         Logger.warning("allbert trace signal failed: #{inspect(reason)}")
         add_diagnostic(response, %{source: :trace_signal, error: inspect(reason)})
     end
+  end
+
+  defp log_runtime_turn_started(input_signal, request) do
+    %{
+      input_signal_id: input_signal.id,
+      user_id: request.user_id,
+      operator_id: request.operator_id,
+      thread_id: request.thread_id,
+      session_id: request.session_id,
+      channel: request.channel
+    }
+    |> maybe_put(:active_app, request.active_app)
+    |> Signals.runtime_turn_started()
+    |> case do
+      {:ok, signal} -> Signals.log(signal)
+      {:error, reason} -> Logger.debug("allbert turn-start signal skipped: #{inspect(reason)}")
+    end
+
+    :ok
+  end
+
+  defp maybe_log_runtime_turn_completed(response, request) do
+    %{
+      input_signal_id: response.input_signal_id,
+      response_signal_id: response.signal_id,
+      trace_id: response.trace_id,
+      status: response.status,
+      user_id: request.user_id,
+      operator_id: request.operator_id,
+      thread_id: request.thread_id,
+      session_id: request.session_id,
+      channel: request.channel
+    }
+    |> maybe_put(:active_app, request.active_app)
+    |> Signals.runtime_turn_completed()
+    |> case do
+      {:ok, signal} ->
+        Signals.log(signal)
+
+      {:error, reason} ->
+        Logger.debug("allbert turn-completed signal skipped: #{inspect(reason)}")
+    end
+
+    response
   end
 
   defp add_diagnostic(response, diagnostic) do

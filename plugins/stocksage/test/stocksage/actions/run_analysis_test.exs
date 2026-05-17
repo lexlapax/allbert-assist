@@ -43,18 +43,29 @@ defmodule StockSage.Actions.RunAnalysisTest do
       params = %{
         ticker: "AAPL",
         analysis_date: "2026-05-01",
-        user_id: "alice"
+        user_id: "alice",
+        objective_id: "obj_run_analysis_test",
+        step_id: "step_run_analysis_test"
       }
 
-      assert {:ok, response} = Runner.run("run_analysis", params, %{})
+      assert {:ok, response} =
+               Runner.run("run_analysis", params, %{
+                 objective: %{title: "Analyze AAPL", status: "running"},
+                 trace_id: "trace_run_analysis_test"
+               })
+
       assert response.status == :needs_confirmation
       assert is_binary(response.confirmation_id)
 
       {:ok, record} = Confirmations.read(response.confirmation_id)
       assert record["status"] == "pending"
       assert record["target_permission"] == "stocksage_analyze"
+      assert record["objective_id"] == "obj_run_analysis_test"
+      assert record["step_id"] == "step_run_analysis_test"
       assert record["params_summary"]["ticker"] == "AAPL"
       assert record["params_summary"]["analysis_date"] == "2026-05-01"
+      assert record["params_summary"]["objective_title"] == "Analyze AAPL"
+      assert record["params_summary"]["objective_status"] == "running"
       assert record["params_summary"]["disclosure"] =~ "TradingAgents"
     end
 
@@ -113,6 +124,8 @@ defmodule StockSage.Actions.RunAnalysisTest do
         ticker: "AAPL",
         analysis_date: "2026-05-01",
         user_id: "alice",
+        objective_id: "obj_success_test",
+        step_id: "step_success_test",
         force_stub: true
       }
 
@@ -121,6 +134,8 @@ defmodule StockSage.Actions.RunAnalysisTest do
       assert response.status == :completed
       assert response.ticker == "AAPL"
       assert is_binary(response.analysis_id)
+      assert response.objective_id == "obj_success_test"
+      assert response.step_id == "step_success_test"
       assert response.bridge_duration_ms >= 0
 
       # v0.22 audit closeout (Gap 1 — stub-mode visibility): the top-level
@@ -139,7 +154,12 @@ defmodule StockSage.Actions.RunAnalysisTest do
 
       analyses = Analyses.list_analyses("alice", limit: 10)
       assert Enum.any?(analyses, &(&1.id == response.analysis_id))
-      assert Enum.any?(analyses, &(&1.status == "completed" and &1.source == "python_bridge"))
+
+      assert Enum.any?(
+               analyses,
+               &(&1.status == "completed" and &1.source == "python_bridge" and
+                   &1.objective_id == "obj_success_test" and &1.step_id == "step_success_test")
+             )
     end
 
     test "links to a queue entry when queue_entry_id is provided" do

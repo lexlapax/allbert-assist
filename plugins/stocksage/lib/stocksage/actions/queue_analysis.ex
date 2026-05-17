@@ -11,6 +11,8 @@ defmodule StockSage.Actions.QueueAnalysis do
       symbol: [type: :string, required: true],
       thread_id: [type: :string, required: false],
       session_id: [type: :string, required: false],
+      objective_id: [type: :string, required: false],
+      step_id: [type: :string, required: false],
       requested_for: [type: :string, required: false],
       priority: [type: :string, required: false]
     ],
@@ -35,6 +37,9 @@ defmodule StockSage.Actions.QueueAnalysis do
           symbol: Actions.field(params, :symbol),
           thread_id: Actions.field(params, :thread_id) || Actions.field(context, :thread_id),
           session_id: Actions.field(params, :session_id) || Actions.field(context, :session_id),
+          objective_id:
+            Actions.field(params, :objective_id) || Actions.field(context, :objective_id),
+          step_id: Actions.field(params, :step_id) || Actions.field(context, :step_id),
           requested_for: parse_date(Actions.field(params, :requested_for)),
           priority: Actions.field(params, :priority, "normal"),
           request: %{
@@ -84,13 +89,17 @@ defmodule StockSage.Actions.QueueAnalysis do
         status: entry.status,
         priority: entry.priority,
         requested_for: entry.requested_for,
+        objective_id: entry.objective_id,
+        step_id: entry.step_id,
         inserted_at: entry.inserted_at
       },
       actions: [
         Actions.action("queue_analysis", :completed, :stocksage_write, permission_decision, %{
           queue_id: entry.id,
           symbol: entry.symbol,
-          status: entry.status
+          status: entry.status,
+          objective_id: entry.objective_id,
+          step_id: entry.step_id
         })
       ]
     }
