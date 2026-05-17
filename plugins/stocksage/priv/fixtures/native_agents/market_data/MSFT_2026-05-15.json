@@ -1,0 +1,1 @@
+{"fixture_version":"v0.25","license":"synthetic","ticker":"MSFT","analysis_date":"2026-05-15","price":{"close":486.15,"currency":"USD"},"indicators":{"rsi_14":61.1,"sma_20":478.4,"sma_50":462.9},"notes":["Synthetic market data for operator smoke tests."]}

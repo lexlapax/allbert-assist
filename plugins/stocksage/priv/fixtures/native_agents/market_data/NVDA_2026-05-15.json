@@ -1,0 +1,1 @@
+{"fixture_version":"v0.25","license":"synthetic","ticker":"NVDA","analysis_date":"2026-05-15","price":{"close":148.73,"currency":"USD"},"indicators":{"rsi_14":64.8,"sma_20":143.6,"sma_50":137.2},"notes":["Synthetic market data for operator smoke tests."]}
