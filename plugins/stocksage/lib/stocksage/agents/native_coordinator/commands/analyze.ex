@@ -1,11 +1,10 @@
 defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
   @moduledoc """
-  Single-round native StockSage coordinator.
+  Native StockSage coordinator.
 
-  M4 executes the full ten-agent graph once: three evidence analysts,
-  bull/bear thesis, three risk perspectives, synthesizer, then deterministic
-  quality gate. Multi-round looping is added in M5; this command already keeps
-  every specialist call visible through objective steps and native signals.
+  M5 executes the full ten-agent graph with configurable bull/bear and risk
+  debate rounds. Every specialist call remains visible through objective steps
+  and native signals.
   """
 
   use Jido.Action,
@@ -14,6 +13,7 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AgentRegistry
+  alias AllbertAssist.Settings
   alias AllbertAssist.Signals, as: AllbertSignals
   alias Jido.Signal
   alias StockSage.Agents
@@ -60,37 +60,15 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
         1
       )
 
-    {bull_reports, bull_warnings} =
-      run_sequence(
-        ["stocksage.bull_thesis", "stocksage.bear_thesis"],
-        request,
-        analyst_reports,
-        :bull_bear,
-        1
-      )
+    {bull_reports, bull_warnings, bull_rounds} =
+      run_bull_bear_rounds(request, analyst_reports, debate_round_count(request))
 
-    emit_native("allbert.stocksage.native.debate_round.completed", request, %{
-      round_index: 1,
-      role_class: :bull_bear
-    })
-
-    {risk_reports, risk_warnings} =
-      run_group(
-        [
-          "stocksage.risk_aggressive",
-          "stocksage.risk_conservative",
-          "stocksage.risk_neutral"
-        ],
+    {risk_reports, risk_warnings, risk_rounds} =
+      run_risk_rounds(
         request,
         Map.merge(analyst_reports, bull_reports),
-        :risk,
-        1
+        risk_round_count(request)
       )
-
-    emit_native("allbert.stocksage.native.debate_round.completed", request, %{
-      round_index: 1,
-      role_class: :risk
-    })
 
     prior_reports =
       %{}
@@ -137,6 +115,7 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
         risk_reports: risk_reports,
         synth_reports: synth_reports,
         quality_reports: quality_reports,
+        debate_rounds: merge_rounds(bull_rounds, risk_rounds),
         warnings: warnings
       })
 
@@ -192,6 +171,69 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
 
     agent_reports = Map.take(reports, agent_ids)
     {agent_reports, Enum.reverse(warnings)}
+  end
+
+  defp run_bull_bear_rounds(request, prior_reports, max_rounds) do
+    Enum.reduce(1..max_rounds, {%{}, [], []}, fn round_index, {reports, warnings, rounds} ->
+      round_prior = Map.merge(prior_reports, reports)
+
+      {round_reports, round_warnings} =
+        run_sequence(
+          ["stocksage.bull_thesis", "stocksage.bear_thesis"],
+          request,
+          round_prior,
+          :bull_bear,
+          round_index
+        )
+
+      emit_native("allbert.stocksage.native.debate_round.completed", request, %{
+        round_index: round_index,
+        role_class: :bull_bear
+      })
+
+      renamed = rename_round_reports(round_reports, round_index)
+
+      round = %{
+        round_index: round_index,
+        bull: Map.get(round_reports, "stocksage.bull_thesis"),
+        bear: Map.get(round_reports, "stocksage.bear_thesis")
+      }
+
+      {Map.merge(reports, renamed), warnings ++ round_warnings, [round | rounds]}
+    end)
+    |> then(fn {reports, warnings, rounds} -> {reports, warnings, Enum.reverse(rounds)} end)
+  end
+
+  defp run_risk_rounds(request, prior_reports, max_rounds) do
+    risk_ids = [
+      "stocksage.risk_aggressive",
+      "stocksage.risk_conservative",
+      "stocksage.risk_neutral"
+    ]
+
+    Enum.reduce(1..max_rounds, {%{}, [], []}, fn round_index, {reports, warnings, rounds} ->
+      {round_reports, round_warnings} =
+        run_group(risk_ids, request, Map.merge(prior_reports, reports), :risk, round_index)
+
+      emit_native("allbert.stocksage.native.debate_round.completed", request, %{
+        round_index: round_index,
+        role_class: :risk
+      })
+
+      renamed = rename_round_reports(round_reports, round_index)
+
+      round = %{
+        round_index: round_index,
+        risks: Enum.map(risk_ids, &Map.get(round_reports, &1)) |> Enum.reject(&is_nil/1)
+      }
+
+      {Map.merge(reports, renamed), warnings ++ round_warnings, [round | rounds]}
+    end)
+    |> then(fn {reports, warnings, rounds} -> {reports, warnings, Enum.reverse(rounds)} end)
+  end
+
+  defp rename_round_reports(reports, round_index) do
+    Map.new(reports, fn {agent_id, report} -> {"#{agent_id}.round_#{round_index}", report} end)
   end
 
   defp dispatch_agent(agent_id, request, prior_reports, stage, round_index) do
@@ -324,17 +366,7 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
       step_id: field(request, :step_id),
       agent_ids: Agents.ids(),
       agent_reports: agent_reports,
-      debate_rounds: [
-        %{
-          round_index: 1,
-          bull: field(Map.get(parts.bull_reports, "stocksage.bull_thesis", %{}), :report),
-          bear: field(Map.get(parts.bull_reports, "stocksage.bear_thesis", %{}), :report),
-          risks:
-            ["stocksage.risk_aggressive", "stocksage.risk_conservative", "stocksage.risk_neutral"]
-            |> Enum.map(&Map.get(parts.risk_reports, &1))
-            |> Enum.reject(&is_nil/1)
-        }
-      ],
+      debate_rounds: parts.debate_rounds,
       final_trade_decision: field(synthesis, :final_trade_decision) || "Hold",
       recommendation: field(synthesis, :recommendation) || field(synthesis, :rating) || "Hold",
       confidence: field(synthesis, :confidence, 0.5),
@@ -416,7 +448,9 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
       fixture: field(params, :fixture),
       parent: field(params, :parent, %{}),
       fail_agent_id: field(params, :fail_agent_id),
-      force_quality_reject: field(params, :force_quality_reject)
+      force_quality_reject: field(params, :force_quality_reject),
+      max_debate_rounds: field(params, :max_debate_rounds),
+      max_risk_rounds: field(params, :max_risk_rounds)
     }
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
     |> Map.new()
@@ -431,6 +465,52 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
 
   defp warning(agent_id, reason) do
     "#{agent_id}: #{inspect(reason, limit: 20, printable_limit: 240)}"
+  end
+
+  defp merge_rounds(bull_rounds, risk_rounds) do
+    max_rounds = max(length(bull_rounds), length(risk_rounds))
+
+    Enum.map(1..max_rounds, fn round_index ->
+      bull =
+        Enum.find(bull_rounds, &(&1.round_index == round_index)) || %{round_index: round_index}
+
+      risk =
+        Enum.find(risk_rounds, &(&1.round_index == round_index)) || %{round_index: round_index}
+
+      Map.merge(bull, risk)
+    end)
+  end
+
+  defp debate_round_count(request) do
+    request
+    |> field(:max_debate_rounds)
+    |> bounded_round_setting("stocksage.native_max_debate_rounds", 2, 1, 5)
+  end
+
+  defp risk_round_count(request) do
+    request
+    |> field(:max_risk_rounds)
+    |> bounded_round_setting("stocksage.native_max_risk_rounds", 1, 1, 3)
+  end
+
+  defp bounded_round_setting(value, _key, _default, min, max) when is_integer(value) do
+    value |> max(min) |> min(max)
+  end
+
+  defp bounded_round_setting(value, key, default, min, max) when is_binary(value) do
+    case Integer.parse(value) do
+      {parsed, ""} -> bounded_round_setting(parsed, key, default, min, max)
+      _other -> bounded_round_setting(nil, key, default, min, max)
+    end
+  end
+
+  defp bounded_round_setting(_value, key, default, min, max) do
+    case Settings.get(key) do
+      {:ok, value} when is_integer(value) -> value |> max(min) |> min(max)
+      _other -> default
+    end
+  rescue
+    _exception -> default
   end
 
   defp field(map, key, default \\ nil)
