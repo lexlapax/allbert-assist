@@ -16,6 +16,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :skill_write,
              :skill_script_execute,
              :confirmation_decide,
+             :objective_write,
              :stocksage_write,
              :stocksage_analyze,
              :settings_secret_write,
@@ -42,7 +43,13 @@ defmodule AllbertAssist.Security.PermissionGateTest do
   end
 
   test "allows read-only, memory-write intent, command planning, and StockSage local writes" do
-    for permission <- [:read_only, :memory_write, :command_plan, :stocksage_write] do
+    for permission <- [
+          :read_only,
+          :memory_write,
+          :command_plan,
+          :objective_write,
+          :stocksage_write
+        ] do
       decision = PermissionGate.authorize(permission, %{})
 
       assert decision.permission == permission

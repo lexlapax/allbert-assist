@@ -1,0 +1,32 @@
+{
+  "min_completed_steps": 2,
+  "required": [
+    {
+      "kind": "step_completed_with_action",
+      "action": "StockSage.Actions.RunAnalysis",
+      "params_match": {
+        "ticker": "AAPL"
+      },
+      "min_count": 1
+    },
+    {
+      "kind": "step_completed_with_action",
+      "action": "StockSage.Actions.RunAnalysis",
+      "params_match": {
+        "ticker": "MSFT"
+      },
+      "min_count": 1
+    },
+    {
+      "kind": "observation_contains",
+      "substring": "comparison"
+    }
+  ],
+  "needs_more_when": [
+    {
+      "kind": "completed_step_count_below",
+      "value": 2
+    }
+  ],
+  "summary": "Two completed RunAnalysis steps for AAPL and MSFT with a comparison observation."
+}

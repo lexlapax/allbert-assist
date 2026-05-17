@@ -1,0 +1,20 @@
+{
+  "min_completed_steps": 1,
+  "required": [
+    {
+      "kind": "step_completed_with_action",
+      "action": "StockSage.Actions.RunAnalysis",
+      "params_match": {
+        "ticker": "AAPL"
+      },
+      "min_count": 1
+    }
+  ],
+  "needs_more_when": [
+    {
+      "kind": "completed_step_count_below",
+      "value": 1
+    }
+  ],
+  "summary": "One completed RunAnalysis step for AAPL."
+}

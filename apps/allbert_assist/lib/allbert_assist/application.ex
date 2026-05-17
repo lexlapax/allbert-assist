@@ -15,6 +15,7 @@ defmodule AllbertAssist.Application do
         {DNSCluster, query: Application.get_env(:allbert_assist, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: AllbertAssist.PubSub},
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
+        AllbertAssist.Objectives.AgentRegistry,
         AllbertAssist.Jido
       ]
       |> maybe_add_plugin_supervisor()

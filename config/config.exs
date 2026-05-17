@@ -71,6 +71,14 @@ config :allbert_assist, AllbertAssist.Jido,
   max_tasks: 1_000,
   agent_pools: []
 
+config :allbert_assist, AllbertAssist.JidoBacked.Supervisor,
+  extra_children: [AllbertAssist.Objectives.Engine.Agent]
+
+config :allbert_assist, AllbertAssist.JidoBacked,
+  debug_agents: [
+    {AllbertAssist.Objectives.Engine.Agent, AllbertAssist.Objectives.Engine.Agent}
+  ]
+
 # Jido.AI model aliases. Reference these by atom (`:fast`, `:capable`, ...)
 # in agent code so swapping providers is a config-only change.
 # Format is "<provider>:<model>". ReqLLM uses the OpenAI-compatible provider
