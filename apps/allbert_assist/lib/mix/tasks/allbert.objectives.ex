@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.Objectives do
 
       mix allbert.objectives list [--user USER] [--status open] [--active-app stocksage] [--limit 20]
       mix allbert.objectives show OBJECTIVE_ID [--user USER]
+      mix allbert.objectives continue OBJECTIVE_ID [--user USER]
   """
 
   use Mix.Task
@@ -66,11 +67,29 @@ defmodule Mix.Tasks.Allbert.Objectives do
     end
   end
 
+  defp dispatch(["continue", id | args]) do
+    {opts, rest, invalid} = OptionParser.parse(args, strict: [user: :string, operator: :string])
+
+    reject_invalid!(invalid)
+    reject_rest!(rest, "continue")
+    user_id = user_id!(opts)
+
+    case Runner.run("continue_objective", %{id: id, user_id: user_id}, context(user_id)) do
+      {:ok, %{status: status} = response}
+      when status in [:completed, :needs_confirmation, :still_blocked] ->
+        {:ok, {:continue, response}}
+
+      {:ok, response} ->
+        {:error, response_error(response)}
+    end
+  end
+
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
       mix allbert.objectives list [--user USER] [--status open|running|blocked|completed|cancelled|failed|abandoned] [--active-app APP_ID] [--limit N]
       mix allbert.objectives show OBJECTIVE_ID [--user USER]
+      mix allbert.objectives continue OBJECTIVE_ID [--user USER]
     """)
   end
 
@@ -109,6 +128,18 @@ defmodule Mix.Tasks.Allbert.Objectives do
     Mix.shell().info("")
     Mix.shell().info("Events:")
     print_events(response.events)
+  end
+
+  defp print_result({:ok, {:continue, response}}) do
+    Mix.shell().info(response.message)
+
+    if Map.get(response, :confirmation_id) do
+      Mix.shell().info("Confirmation: #{response.confirmation_id}")
+    end
+
+    if Map.get(response, :reason) do
+      Mix.shell().info("Reason: #{response.reason}")
+    end
   end
 
   defp print_result({:error, reason}) do
