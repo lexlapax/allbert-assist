@@ -81,8 +81,8 @@ defmodule AllbertAssist.Objectives do
     attrs =
       attrs
       |> atomize_known()
-      |> Map.update(:acceptance_criteria, nil, &encode_jsonish/1)
-      |> Map.update(:proposer_hint, nil, &encode_jsonish/1)
+      |> update_if_present(:acceptance_criteria, &encode_jsonish/1)
+      |> update_if_present(:proposer_hint, &encode_jsonish/1)
 
     objective
     |> Objective.changeset(attrs)
@@ -182,8 +182,8 @@ defmodule AllbertAssist.Objectives do
       attrs
       |> atomize_known()
       |> normalize_step_fields()
-      |> Map.update(:action_params, nil, &encode_jsonish/1)
-      |> Map.update(:resource_access, nil, &encode_jsonish/1)
+      |> update_if_present(:action_params, &encode_jsonish/1)
+      |> update_if_present(:resource_access, &encode_jsonish/1)
 
     step
     |> Step.changeset(attrs)
