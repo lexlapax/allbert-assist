@@ -66,6 +66,10 @@ metadata is `0.23.0`; the release tag is pending operator acceptance.
   jobs public API/CLI/LiveView consumers, convergence integration flows,
   channel simulation flows, memory confirmation actions, and StockSage
   `RunAnalysis` confirmation behavior.
+- Retained v0.23 fixture snapshots cover canonical confirmation audit output
+  and scheduler summary output under
+  `apps/allbert_assist/test/fixtures/v0.23/`; `StoreGoldenTest` and
+  `SchedulerGoldenTest` read those fixtures as release regression coverage.
 - Closeout gates passed: focused v0.23 M1-M4 suites, full `mix test`,
   plugin `RunAnalysis` regression, `mix format --check-formatted`,
   `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
