@@ -12,9 +12,8 @@ changelog entries or release notes.
 
 ## v0.24 - Objective Runtime Foundation
 
-Status: implemented through post-audit hardening and ready for operator manual
-verification. Version metadata is `0.24.0`; the release tag is pending
-operator acceptance.
+Status: released and tagged as `v0.24` on 2026-05-17 after post-audit
+hardening and release verification. Version metadata is `0.24.0`.
 
 ### Added (v0.24)
 
@@ -101,6 +100,7 @@ operator acceptance.
   27 tests), StockSage plugin tests (123 tests), Telegram/email plugin
   renderer tests (2 tests), and `mix precommit`.
 - Operator smoke steps live in `docs/plans/v0.24-request-flow.md`.
+- Release tag: `v0.24`.
 
 ## v0.23 - Jido State-Machine Convergence
 
