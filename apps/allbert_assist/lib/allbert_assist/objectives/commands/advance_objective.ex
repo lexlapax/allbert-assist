@@ -17,7 +17,7 @@ defmodule AllbertAssist.Objectives.Commands.AdvanceObjective do
     with {:ok, step} <- step(params),
          {:ok, _objective} <- Objectives.get_objective(step.objective_id),
          {:ok, execute_patch, execute_result, execute_directives} <-
-           run_command(
+           Commands.run_subcommand(
              Commands.ExecuteStep,
              %{step_id: step.id, trace_id: trace_id(params, context)},
              context
@@ -25,7 +25,7 @@ defmodule AllbertAssist.Objectives.Commands.AdvanceObjective do
          {:ok, executed_step} <- executed_step(execute_result),
          context <- merge_context_state(context, execute_patch),
          {:ok, observe_patch, observe_result, observe_directives} <-
-           run_command(
+           Commands.run_subcommand(
              Commands.ObserveStep,
              %{step_id: executed_step.id, trace_id: trace_id(params, context)},
              context
@@ -90,29 +90,6 @@ defmodule AllbertAssist.Objectives.Commands.AdvanceObjective do
   end
 
   defp get_step(_id), do: {:error, :missing_step_id}
-
-  defp run_command(module, params, context) do
-    case module.run(params, context) do
-      {:ok, patch} ->
-        with {:ok, result} <- last_result(patch) do
-          {:ok, patch, result, []}
-        end
-
-      {:ok, patch, directives} ->
-        with {:ok, result} <- last_result(patch) do
-          {:ok, patch, result, List.wrap(directives)}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp last_result(%{last_result: {:ok, result}}), do: {:ok, result}
-  defp last_result(%{"last_result" => {:ok, result}}), do: {:ok, result}
-  defp last_result(%{last_result: {:error, reason}}), do: {:error, reason}
-  defp last_result(%{"last_result" => {:error, reason}}), do: {:error, reason}
-  defp last_result(_patch), do: {:error, :missing_command_result}
 
   defp executed_step(%{step: %Step{} = step}), do: {:ok, step}
   defp executed_step(_result), do: {:error, :missing_executed_step}
