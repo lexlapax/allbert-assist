@@ -7,6 +7,7 @@ defmodule Mix.Tasks.Allbert.Objectives do
       mix allbert.objectives list [--user USER] [--status open] [--active-app stocksage] [--limit 20]
       mix allbert.objectives show OBJECTIVE_ID [--user USER]
       mix allbert.objectives continue OBJECTIVE_ID [--user USER]
+      mix allbert.objectives cancel OBJECTIVE_ID --reason REASON [--user USER]
   """
 
   use Mix.Task
@@ -84,12 +85,41 @@ defmodule Mix.Tasks.Allbert.Objectives do
     end
   end
 
+  defp dispatch(["cancel", id | args]) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [
+          user: :string,
+          operator: :string,
+          reason: :string
+        ]
+      )
+
+    reject_invalid!(invalid)
+    reject_rest!(rest, "cancel")
+    user_id = user_id!(opts)
+    reason = required_reason!(opts)
+
+    case Runner.run(
+           "cancel_objective",
+           %{id: id, user_id: user_id, reason: reason},
+           context(user_id)
+         ) do
+      {:ok, %{status: :cancelled} = response} ->
+        {:ok, {:cancel, response}}
+
+      {:ok, response} ->
+        {:error, response_error(response)}
+    end
+  end
+
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
       mix allbert.objectives list [--user USER] [--status open|running|blocked|completed|cancelled|failed|abandoned] [--active-app APP_ID] [--limit N]
       mix allbert.objectives show OBJECTIVE_ID [--user USER]
       mix allbert.objectives continue OBJECTIVE_ID [--user USER]
+      mix allbert.objectives cancel OBJECTIVE_ID --reason REASON [--user USER]
     """)
   end
 
@@ -139,6 +169,14 @@ defmodule Mix.Tasks.Allbert.Objectives do
 
     if Map.get(response, :reason) do
       Mix.shell().info("Reason: #{response.reason}")
+    end
+  end
+
+  defp print_result({:ok, {:cancel, response}}) do
+    Mix.shell().info(response.message)
+
+    if Map.get(response, :cancelled_step_count) do
+      Mix.shell().info("Cancelled steps: #{response.cancelled_step_count}")
     end
   end
 
@@ -207,6 +245,15 @@ defmodule Mix.Tasks.Allbert.Objectives do
 
       true ->
         "local"
+    end
+  end
+
+  defp required_reason!(opts) do
+    opts[:reason]
+    |> blank_to_nil()
+    |> case do
+      nil -> Mix.raise("Usage error (64): cancel requires --reason REASON.")
+      reason -> reason
     end
   end
 

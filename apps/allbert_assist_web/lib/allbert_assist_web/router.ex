@@ -20,6 +20,7 @@ defmodule AllbertAssistWeb.Router do
     get "/", PageController, :home
     live "/agent", AgentLive
     live "/jobs", JobsLive
+    live "/objectives/:id", ObjectiveLive
     live "/settings", SettingsLive
   end
 

@@ -73,7 +73,7 @@ defmodule AllbertAssist.Objectives.Commands do
     stage = Map.get(value, :stage, "propose_steps")
 
     state
-    |> update_nested(:active_objectives, objective.id, Objectives.objective_summary(objective))
+    |> put_objective_projection(objective)
     |> update_nested(:current_stage, objective.id, stage)
     |> update_nested(:loop_counts, objective.id, objective.loop_count || 0)
     |> maybe_put_proposer_hint(objective)
@@ -84,13 +84,23 @@ defmodule AllbertAssist.Objectives.Commands do
     stage = Map.get(value, :stage, "frame_objective")
 
     state
-    |> update_nested(:active_objectives, objective.id, Objectives.objective_summary(objective))
+    |> put_objective_projection(objective)
     |> update_nested(:current_stage, objective.id, stage)
     |> update_nested(:loop_counts, objective.id, objective.loop_count || 0)
     |> maybe_put_proposer_hint(objective)
   end
 
   defp maybe_merge_projection(state, _value), do: state
+
+  defp put_objective_projection(state, %Objective{status: status, id: id} = objective)
+       when status in ["open", "running", "blocked"] do
+    update_nested(state, :active_objectives, id, Objectives.objective_summary(objective))
+  end
+
+  defp put_objective_projection(state, %Objective{id: id}) do
+    current = Map.get(state, :active_objectives, %{})
+    Map.put(state, :active_objectives, Map.delete(current, id))
+  end
 
   defp maybe_put_proposer_hint(state, %Objective{id: id, proposer_hint: nil}) do
     current = Map.get(state, :proposer_hints, %{})
@@ -1215,6 +1225,151 @@ defmodule AllbertAssist.Objectives.Commands.ObserveStep do
     end
   rescue
     _exception -> 5
+  end
+end
+
+defmodule AllbertAssist.Objectives.Commands.CancelObjective do
+  @moduledoc false
+
+  use Jido.Action,
+    name: "allbert_objectives_cancel_objective",
+    description: "Private objective cancellation command."
+
+  alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Commands
+  alias AllbertAssist.Objectives.{Objective, Step}
+  alias AllbertAssist.Repo
+
+  @impl true
+  def run(params, context) do
+    state = Map.get(context, :state, %{})
+
+    with {:ok, objective_id} <- objective_id(params),
+         {:ok, user_id} <- user_id(params, context),
+         {:ok, reason} <- reason(params),
+         {:ok, objective} <- Objectives.get_objective(user_id, objective_id),
+         {:ok, result} <- cancel(objective, reason, params, context) do
+      Commands.finish(:cancel_objective, {:ok, result}, state)
+    else
+      {:error, error} ->
+        Commands.finish(:cancel_objective, {:error, error}, state)
+    end
+  end
+
+  defp cancel(%Objective{status: "cancelled"} = objective, reason, params, context) do
+    {:ok,
+     %{
+       objective: objective,
+       steps: Objectives.list_steps(objective.id),
+       event: nil,
+       reason: reason,
+       stage: "cancel_objective",
+       already_cancelled?: true,
+       trace_id: trace_id(params, context)
+     }}
+  end
+
+  defp cancel(%Objective{status: "abandoned"}, _reason, _params, _context),
+    do: {:error, :objective_abandoned}
+
+  defp cancel(%Objective{} = objective, reason, params, context) do
+    Repo.transaction(fn ->
+      now = DateTime.utc_now()
+
+      cancelled =
+        objective
+        |> Objectives.update_objective(%{
+          status: "cancelled",
+          progress_summary: "Cancelled: #{reason}",
+          completed_at: now
+        })
+        |> unwrap_or_rollback()
+
+      steps =
+        objective.id
+        |> Objectives.list_steps()
+        |> Enum.map(&cancel_step(&1, reason, params, context))
+
+      {:ok, event} =
+        Objectives.create_event(%{
+          objective_id: cancelled.id,
+          kind: "cancelled",
+          summary: "Objective cancelled: #{reason}",
+          payload: %{
+            reason: reason,
+            trace_id: trace_id(params, context),
+            cancelled_step_count: Enum.count(steps, &(&1.status == "cancelled"))
+          }
+        })
+
+      Commands.emit_objective(:cancelled, cancelled, %{
+        stage: :cancel_objective,
+        reason: reason,
+        trace_id: trace_id(params, context)
+      })
+
+      %{
+        objective: cancelled,
+        steps: steps,
+        event: event,
+        reason: reason,
+        stage: "cancel_objective",
+        trace_id: trace_id(params, context)
+      }
+    end)
+  end
+
+  defp cancel_step(%Step{status: status} = step, _reason, _params, _context)
+       when status in ["completed", "failed", "cancelled", "running"],
+       do: step
+
+  defp cancel_step(%Step{} = step, reason, params, context) do
+    step
+    |> Objectives.transition_step("cancelled", %{
+      stage: "cancel_objective",
+      trace_id: trace_id(params, context),
+      result_summary: "Cancelled with objective: #{reason}"
+    })
+    |> unwrap_or_rollback()
+  end
+
+  defp unwrap_or_rollback({:ok, value}), do: value
+  defp unwrap_or_rollback({:error, reason}), do: Repo.rollback(reason)
+
+  defp objective_id(params) do
+    case Map.get(params, :id) || Map.get(params, "id") || Map.get(params, :objective_id) ||
+           Map.get(params, "objective_id") do
+      value when is_binary(value) and value != "" -> {:ok, value}
+      _other -> {:error, :missing_objective_id}
+    end
+  end
+
+  defp user_id(params, context) do
+    case Map.get(params, :user_id) || Map.get(params, "user_id") ||
+           Map.get(context, :user_id) || Map.get(context, "user_id") do
+      value when is_binary(value) and value != "" -> {:ok, value}
+      _other -> {:error, :missing_user_id}
+    end
+  end
+
+  defp reason(params) do
+    case Map.get(params, :reason) || Map.get(params, "reason") do
+      value when is_binary(value) ->
+        value
+        |> String.trim()
+        |> case do
+          "" -> {:error, :missing_reason}
+          reason -> {:ok, String.slice(reason, 0, 500)}
+        end
+
+      _other ->
+        {:error, :missing_reason}
+    end
+  end
+
+  defp trace_id(params, context) do
+    Map.get(params, :trace_id) || Map.get(params, "trace_id") || Map.get(context, :trace_id) ||
+      Map.get(context, "trace_id")
   end
 end
 

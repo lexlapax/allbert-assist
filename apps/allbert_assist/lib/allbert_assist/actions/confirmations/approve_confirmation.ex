@@ -578,7 +578,9 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
               :stub,
               :status,
               :summary,
-              :error
+              :error,
+              :objective_id,
+              :step_id
             ])
 
         resolve_status(record, :approved, reason, context, permission_decision, %{

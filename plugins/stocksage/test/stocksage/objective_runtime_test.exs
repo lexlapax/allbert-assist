@@ -277,6 +277,67 @@ defmodule StockSage.ObjectiveRuntimeTest do
     assert unchanged.loop_count == 0
   end
 
+  test "cancel-then-approve keeps single-shot action result but does not advance objective" do
+    assert {:ok, %{objective: objective}} =
+             EngineAgent.frame_objective(%{
+               user_id: "alice",
+               title: "Analyze AAPL",
+               objective: "Complete one analysis.",
+               source_intent: "analyze AAPL",
+               active_app: :stocksage
+             })
+
+    assert {:ok, %{steps: [step]}} =
+             EngineAgent.propose_steps(%{
+               objective_id: objective.id,
+               text: "analyze AAPL",
+               force_stub: true
+             })
+
+    assert {:ok, %{step: blocked_step, response: authorize_response}} =
+             EngineAgent.authorize_step(%{step_id: step.id, trace_id: "trace_cancel_approve"})
+
+    assert blocked_step.status == "blocked"
+    assert authorize_response.status == :needs_confirmation
+
+    assert {:ok, cancel_response} =
+             Runner.run(
+               "cancel_objective",
+               %{id: objective.id, user_id: "alice", reason: "operator cancelled"},
+               %{actor: "alice", user_id: "alice", channel: :test, trace_id: "trace_cancel"}
+             )
+
+    assert cancel_response.status == :cancelled
+
+    assert {:ok, _approval} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: authorize_response.confirmation_id, reason: "approve stale work"},
+               %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :test,
+                 trace_id: "trace_cancel_approve"
+               }
+             )
+
+    assert {:ok, cancelled} = Objectives.get_objective(objective.id)
+    assert cancelled.status == "cancelled"
+    assert cancelled.loop_count == 0
+
+    assert [cancelled_step] = Objectives.list_steps(objective.id)
+    assert cancelled_step.status == "cancelled"
+
+    analyses = Analyses.list_analyses("alice", limit: 10)
+    assert Enum.any?(analyses, &(&1.objective_id == objective.id and &1.symbol == "AAPL"))
+
+    assert {:ok, record} = Confirmations.read(authorize_response.confirmation_id)
+    assert record["status"] == "approved"
+
+    assert get_in(record, ["operator_resolution", "target_result", "objective_id"]) ==
+             objective.id
+  end
+
   test "observe_step records max_loop_count impasse when evaluator still needs more steps" do
     put_setting!("objectives.max_loop_count", 1)
 
