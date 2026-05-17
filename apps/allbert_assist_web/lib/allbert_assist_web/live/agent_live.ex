@@ -10,11 +10,21 @@ defmodule AllbertAssistWeb.AgentLive do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
+  alias AllbertAssistWeb.SignalBridge
 
   @impl true
   def mount(_params, _session, socket) do
+    user_id = "local"
+
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for(user_id))
+      Process.send_after(self(), :refresh_objectives, 5_000)
+    end
+
     socket =
       assign(socket,
+        user_id: user_id,
+        active_objectives: active_objectives(user_id),
         prompt: "Hello Allbert. What can you do right now?",
         response: nil,
         error: nil,
@@ -76,6 +86,16 @@ defmodule AllbertAssistWeb.AgentLive do
   end
 
   @impl true
+  def handle_info({:objective_event, _signal}, socket) do
+    {:noreply, refresh_objectives(socket)}
+  end
+
+  def handle_info(:refresh_objectives, socket) do
+    if connected?(socket), do: Process.send_after(self(), :refresh_objectives, 5_000)
+    {:noreply, refresh_objectives(socket)}
+  end
+
+  @impl true
   def handle_async(:ask, {:ok, {:ok, response}}, socket) do
     {:noreply,
      assign(socket,
@@ -108,6 +128,17 @@ defmodule AllbertAssistWeb.AgentLive do
             Routes prompts through <code>AllbertAssist.Runtime</code>
             using Jido signals and the primary intent agent.
           </p>
+          <div :if={@active_objectives != []} id="objective-badges" class="mt-3 flex flex-wrap gap-2">
+            <.link
+              :for={objective <- @active_objectives}
+              id={"objective-badge-#{objective.id}"}
+              navigate={~p"/objectives/#{objective.id}"}
+              class="badge badge-outline gap-2"
+            >
+              <span>{objective.status}</span>
+              <span>{objective.title}</span>
+            </.link>
+          </div>
         </header>
 
         <form id="agent-form" phx-submit="ask" class="space-y-3">
@@ -246,4 +277,19 @@ defmodule AllbertAssistWeb.AgentLive do
   end
 
   defp approval_confirmation_id(_handoff), do: nil
+
+  defp active_objectives(user_id) do
+    case Runner.run(
+           "list_objectives",
+           %{user_id: user_id, status: ["open", "running", "blocked"], limit: 5},
+           %{actor: user_id, user_id: user_id, operator_id: user_id, channel: :live_view}
+         ) do
+      {:ok, %{status: :completed, objectives: objectives}} -> objectives
+      _other -> []
+    end
+  end
+
+  defp refresh_objectives(socket) do
+    assign(socket, :active_objectives, active_objectives(socket.assigns.user_id))
+  end
 end

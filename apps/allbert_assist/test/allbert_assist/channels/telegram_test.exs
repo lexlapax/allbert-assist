@@ -8,6 +8,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
   alias AllbertAssist.Channels.Telegram.Renderer
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
@@ -138,6 +139,43 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
       assert List.flatten(buttons)
              |> Enum.any?(&(&1["callback_data"] == "allbert:v1:approve:conf_123"))
+    end
+
+    test "renders objective snapshot and stale warning for approval handoffs" do
+      assert {:ok, objective} =
+               Objectives.create_objective(%{
+                 user_id: "alice",
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 status: "running"
+               })
+
+      handoff = %{
+        confirmation_id: "conf_obj",
+        status: :pending,
+        objective_id: objective.id,
+        target_action: %{
+          action: %{name: "run_analysis"},
+          params_summary: %{
+            objective_id: objective.id,
+            objective_title: "Analyze AAPL",
+            objective_status: "running"
+          }
+        }
+      }
+
+      assert {:ok, _cancelled} =
+               Objectives.update_objective(objective, %{
+                 status: "cancelled",
+                 progress_summary: "Cancelled in renderer test."
+               })
+
+      assert {:ok, [text], _keyboard} = Renderer.render_response(%{approval_handoff: handoff})
+
+      assert text =~ "Objective: #{objective.id}"
+      assert text =~ "Title: Analyze AAPL"
+      assert text =~ "Status: :cancelled"
+      assert text =~ "Note: objective is now :cancelled"
     end
   end
 

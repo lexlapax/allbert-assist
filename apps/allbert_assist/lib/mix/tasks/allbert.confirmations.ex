@@ -17,6 +17,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.ExternalRequestMetadata
+  alias AllbertAssist.Confirmations.ObjectiveContext
   alias AllbertAssist.Confirmations.OnlineSkillMetadata
   alias AllbertAssist.Confirmations.PackageInstallMetadata
   alias AllbertAssist.Confirmations.ResourceMetadata
@@ -84,6 +85,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   defp print_result({:ok, {:list, confirmations}}) do
     Enum.each(confirmations, fn confirmation ->
       Mix.shell().info(summary(confirmation))
+      print_objective_context(confirmation)
       print_external_request_metadata(confirmation)
       print_online_skill_metadata(confirmation)
       print_package_install_metadata(confirmation)
@@ -103,6 +105,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
     Mix.shell().info("Origin: #{origin_text(confirmation)}")
     Mix.shell().info("Resolver: #{resolver_text(confirmation)}")
     Mix.shell().info("Trace: #{Map.get(confirmation, "source_trace_id", "none")}")
+    print_objective_context(confirmation)
     print_external_request_metadata(confirmation)
     print_online_skill_metadata(confirmation)
     print_package_install_metadata(confirmation)
@@ -117,6 +120,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   defp print_result({:ok, {:resolved, confirmation}}) do
     Mix.shell().info("#{confirmation["id"]} status=#{confirmation["status"]}")
     Mix.shell().info("Resolver: #{resolver_text(confirmation)}")
+    print_objective_context(confirmation)
     print_external_request_metadata(confirmation)
     print_online_skill_metadata(confirmation)
     print_package_install_metadata(confirmation)
@@ -250,6 +254,12 @@ defmodule Mix.Tasks.Allbert.Confirmations do
       nil -> :ok
       note -> Mix.shell().info("Note: #{note}")
     end
+  end
+
+  defp print_objective_context(confirmation) do
+    confirmation
+    |> ObjectiveContext.lines()
+    |> Enum.each(fn line -> Mix.shell().info(line) end)
   end
 
   defp print_shell_metadata(confirmation) do
