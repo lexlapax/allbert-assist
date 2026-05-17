@@ -56,6 +56,8 @@ defmodule StockSage.Actions.RunAnalysis do
       engine: [type: :string, required: false],
       user_id: [type: :string, required: false],
       queue_entry_id: [type: :string, required: false],
+      objective_id: [type: :string, required: false],
+      step_id: [type: :string, required: false],
       # When true, the bridge runs the deterministic stub path regardless
       # of whether `tradingagents` is importable. Stub responses are
       # labeled `stub: true` in the persisted detail row. Used by tests,
@@ -117,6 +119,9 @@ defmodule StockSage.Actions.RunAnalysis do
         engine: engine,
         user_id: user_id,
         queue_entry_id: blank(Actions.field(params, :queue_entry_id)),
+        objective_id:
+          blank(Actions.field(params, :objective_id) || Actions.field(context, :objective_id)),
+        step_id: blank(Actions.field(params, :step_id) || Actions.field(context, :step_id)),
         force_stub: normalize_bool(Actions.field(params, :force_stub))
       }
 
@@ -159,6 +164,12 @@ defmodule StockSage.Actions.RunAnalysis do
   defp request_confirmation(validated, context, permission_decision) do
     case Confirmations.create(%{
            origin: origin(context, validated),
+           objective_id: validated.objective_id,
+           step_id: validated.step_id,
+           source_signal_id:
+             Actions.field(context, :input_signal_id) ||
+               Actions.field(context, :runner_requested_signal_id),
+           source_trace_id: Actions.field(context, :trace_id),
            target_action: %{name: "run_analysis", module: inspect(__MODULE__)},
            target_permission: :stocksage_analyze,
            target_execution_mode: :python_bridge,
@@ -169,6 +180,10 @@ defmodule StockSage.Actions.RunAnalysis do
              engine: validated.engine,
              user_id: validated.user_id,
              queue_entry_id: validated.queue_entry_id,
+             objective_id: validated.objective_id,
+             step_id: validated.step_id,
+             objective_title: get_in(context, [:objective, :title]),
+             objective_status: get_in(context, [:objective, :status]),
              force_stub: validated.force_stub,
              disclosure:
                if(validated.force_stub,
@@ -185,6 +200,8 @@ defmodule StockSage.Actions.RunAnalysis do
              engine: validated.engine,
              user_id: validated.user_id,
              queue_entry_id: validated.queue_entry_id,
+             objective_id: validated.objective_id,
+             step_id: validated.step_id,
              force_stub: validated.force_stub
            }
          }) do
@@ -210,6 +227,8 @@ defmodule StockSage.Actions.RunAnalysis do
                  engine: validated.engine,
                  user_id: validated.user_id,
                  queue_entry_id: validated.queue_entry_id,
+                 objective_id: validated.objective_id,
+                 step_id: validated.step_id,
                  risk_tier: :high
                }
              )
@@ -288,6 +307,8 @@ defmodule StockSage.Actions.RunAnalysis do
       engine: validated.engine,
       user_id: validated.user_id,
       queue_entry_id: validated.queue_entry_id,
+      objective_id: validated.objective_id,
+      step_id: validated.step_id,
       error: queue_reason_to_string(reason)
     })
 
@@ -311,6 +332,8 @@ defmodule StockSage.Actions.RunAnalysis do
              analysis_date: Date.to_iso8601(validated.analysis_date),
              engine: validated.engine,
              queue_entry_id: validated.queue_entry_id,
+             objective_id: validated.objective_id,
+             step_id: validated.step_id,
              reason: queue_reason_to_string(reason)
            }
          )
@@ -340,11 +363,15 @@ defmodule StockSage.Actions.RunAnalysis do
       input_signal_id: Actions.field(context, :input_signal_id),
       trace_id: Actions.field(context, :trace_id),
       request_id: confirmation_id(context),
+      objective_id: validated.objective_id,
+      step_id: validated.step_id,
       metadata: %{
         "engine" => validated.engine,
         "bridge_duration_ms" => duration_ms,
         "truncated" => truncated?,
-        "queue_entry_id" => validated.queue_entry_id
+        "queue_entry_id" => validated.queue_entry_id,
+        "objective_id" => validated.objective_id,
+        "step_id" => validated.step_id
       }
     }
 
@@ -367,6 +394,8 @@ defmodule StockSage.Actions.RunAnalysis do
           engine: validated.engine,
           user_id: validated.user_id,
           queue_entry_id: validated.queue_entry_id,
+          objective_id: validated.objective_id,
+          step_id: validated.step_id,
           bridge_duration_ms: duration_ms,
           truncated: truncated?,
           stub: stub?
@@ -386,6 +415,8 @@ defmodule StockSage.Actions.RunAnalysis do
            truncated: truncated?,
            stub: stub?,
            bridge_duration_ms: duration_ms,
+           objective_id: validated.objective_id,
+           step_id: validated.step_id,
            actions: [
              Actions.action(
                "run_analysis",
@@ -401,6 +432,8 @@ defmodule StockSage.Actions.RunAnalysis do
                  truncated: truncated?,
                  stub: stub?,
                  queue_entry_id: validated.queue_entry_id,
+                 objective_id: validated.objective_id,
+                 step_id: validated.step_id,
                  summary: summary
                }
              )
@@ -428,11 +461,15 @@ defmodule StockSage.Actions.RunAnalysis do
       input_signal_id: Actions.field(context, :input_signal_id),
       trace_id: Actions.field(context, :trace_id),
       request_id: confirmation_id(context),
+      objective_id: validated.objective_id,
+      step_id: validated.step_id,
       metadata: %{
         "engine" => validated.engine,
         "bridge_duration_ms" => duration_ms,
         "error" => Protocol.bounded_reason(reason),
-        "queue_entry_id" => validated.queue_entry_id
+        "queue_entry_id" => validated.queue_entry_id,
+        "objective_id" => validated.objective_id,
+        "step_id" => validated.step_id
       }
     }
 
@@ -451,6 +488,8 @@ defmodule StockSage.Actions.RunAnalysis do
       engine: validated.engine,
       user_id: validated.user_id,
       queue_entry_id: validated.queue_entry_id,
+      objective_id: validated.objective_id,
+      step_id: validated.step_id,
       bridge_duration_ms: duration_ms,
       error: Protocol.bounded_reason(reason)
     })
@@ -468,6 +507,8 @@ defmodule StockSage.Actions.RunAnalysis do
        error: reason,
        persistence_error: persistence_error,
        bridge_duration_ms: duration_ms,
+       objective_id: validated.objective_id,
+       step_id: validated.step_id,
        actions: [
          Actions.action(
            "run_analysis",
@@ -481,7 +522,9 @@ defmodule StockSage.Actions.RunAnalysis do
              engine: validated.engine,
              bridge_duration_ms: duration_ms,
              error: Protocol.bounded_reason(reason),
-             queue_entry_id: validated.queue_entry_id
+             queue_entry_id: validated.queue_entry_id,
+             objective_id: validated.objective_id,
+             step_id: validated.step_id
            }
          )
        ]
@@ -522,7 +565,7 @@ defmodule StockSage.Actions.RunAnalysis do
   defp update_queue(validated, analysis, status, started_at, reason \\ nil)
 
   defp update_queue(
-         %{queue_entry_id: queue_id, user_id: user_id},
+         %{queue_entry_id: queue_id, user_id: user_id} = validated,
          analysis,
          status,
          started_at,
@@ -530,7 +573,11 @@ defmodule StockSage.Actions.RunAnalysis do
        )
        when is_binary(queue_id) and queue_id != "" do
     with {:ok, entry} <- Queue.get_entry(user_id, queue_id) do
-      _ = Queue.update_entry_status(entry, Atom.to_string(status))
+      _ =
+        Queue.update_entry_status(entry, Atom.to_string(status), %{
+          objective_id: Map.get(validated, :objective_id),
+          step_id: Map.get(validated, :step_id)
+        })
 
       Queue.create_run(entry, %{
         status: Atom.to_string(status),
@@ -690,7 +737,9 @@ defmodule StockSage.Actions.RunAnalysis do
       user_id: validated.user_id,
       session_id: Map.get(context, :session_id),
       surface: Map.get(context, :surface, "action"),
-      app_id: :stocksage
+      app_id: :stocksage,
+      objective_id: validated.objective_id,
+      step_id: validated.step_id
     }
   end
 
@@ -728,6 +777,8 @@ defmodule StockSage.Actions.RunAnalysis do
       engine: validated.engine,
       user_id: validated.user_id,
       queue_entry_id: validated.queue_entry_id,
+      objective_id: validated.objective_id,
+      step_id: validated.step_id,
       confirmation_id: confirmation_id(context),
       input_signal_id: Actions.field(context, :input_signal_id),
       trace_id: Actions.field(context, :trace_id)

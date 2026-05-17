@@ -56,6 +56,16 @@ defmodule StockSage.Proposer do
   def parse_tickers(_text), do: []
 
   def run_analysis_step(ticker, context, opts \\ []) do
+    action_params =
+      %{
+        ticker: ticker,
+        analysis_date: analysis_date(context),
+        user_id: field(context, :user_id),
+        force_stub: field(context, :force_stub)
+      }
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Map.new()
+
     %{
       kind: "action",
       status: "proposed",
@@ -63,11 +73,7 @@ defmodule StockSage.Proposer do
       provider: inspect(__MODULE__),
       candidate_action: "StockSage.Actions.RunAnalysis",
       parent_step_id: Keyword.get(opts, :parent_step_id),
-      action_params: %{
-        ticker: ticker,
-        analysis_date: analysis_date(context),
-        user_id: field(context, :user_id)
-      },
+      action_params: action_params,
       resource_access: [],
       result_summary: nil
     }

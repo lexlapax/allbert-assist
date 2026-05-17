@@ -41,9 +41,9 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
       {@frame_objective, Commands.FrameObjective},
       {@propose_steps, Commands.ProposeSteps},
       {@evaluate_steps, Commands.Noop},
-      {@authorize_step, Commands.Noop},
-      {@execute_step, Commands.Noop},
-      {@observe_step, Commands.Noop},
+      {@authorize_step, Commands.AuthorizeStep},
+      {@execute_step, Commands.ExecuteStep},
+      {@observe_step, Commands.ObserveStep},
       {@advance_objective, Commands.Noop},
       {@cancel_objective, Commands.Noop},
       {@continue_objective, Commands.Noop},
@@ -78,6 +78,9 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
     [
       Commands.FrameObjective,
       Commands.ProposeSteps,
+      Commands.AuthorizeStep,
+      Commands.ExecuteStep,
+      Commands.ObserveStep,
       Commands.Noop
     ]
   end
@@ -90,6 +93,11 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
   @doc false
   def propose_steps(server \\ __MODULE__, params) when is_map(params) do
     dispatch(server, @propose_steps, params)
+  end
+
+  @doc false
+  def authorize_step(server \\ __MODULE__, params) when is_map(params) do
+    dispatch(server, @authorize_step, Map.put(params, :command, :authorize_step))
   end
 
   @doc false

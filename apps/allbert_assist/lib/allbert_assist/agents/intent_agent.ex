@@ -137,13 +137,20 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp route_name({route, _value1, _value2}), do: route
 
   defp run_validated_route(route, text, context, %Decision{} = decision) do
-    if Decision.refused?(decision) do
-      {:ok, decision_refusal_response(decision)}
-    else
-      route
-      |> execution_route_for_decision(decision)
-      |> run_route(text, context)
-      |> attach_decision(decision, context)
+    cond do
+      Decision.refused?(decision) ->
+        {:ok, decision_refusal_response(decision)}
+
+      objective_framing_candidate?(decision) ->
+        text
+        |> run_objective_route(context, decision)
+        |> attach_decision(decision, context)
+
+      true ->
+        route
+        |> execution_route_for_decision(decision)
+        |> run_route(text, context)
+        |> attach_decision(decision, context)
     end
   end
 
@@ -839,7 +846,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp maybe_frame_objective(response, %Decision{} = decision, %{request: request} = context) do
-    with true <- objective_framing_candidate?(decision),
+    with false <- Map.has_key?(response, :objective),
+         true <- objective_framing_candidate?(decision),
          {:ok, params} <- objective_frame_params(decision, request),
          permission_decision <- objective_write_decision(context, request),
          true <- PermissionGate.allowed?(permission_decision),
@@ -863,6 +871,9 @@ defmodule AllbertAssist.Agents.IntentAgent do
       false ->
         response
 
+      true ->
+        response
+
       {:error, reason} ->
         Map.update(response, :diagnostics, [], fn diagnostics ->
           diagnostics ++ [%{source: :objectives, error: inspect(reason)}]
@@ -871,6 +882,107 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp maybe_frame_objective(response, _decision, _context), do: response
+
+  defp run_objective_route(text, %{request: request} = context, %Decision{} = decision) do
+    permission_decision = objective_write_decision(context, request)
+
+    with true <- PermissionGate.allowed?(permission_decision),
+         {:ok, params} <- objective_frame_params(decision, request),
+         {:ok, %{objective: objective}} <- ObjectivesEngine.frame_objective(params),
+         {:ok, %{steps: [step | _rest] = steps} = proposed} <-
+           ObjectivesEngine.propose_steps(%{
+             objective_id: objective.id,
+             text: text,
+             intent_decision: %{
+               text: text,
+               selected_action: decision.selected_action,
+               active_app: decision.active_app
+             }
+           }),
+         {:ok, authorization} <-
+           ObjectivesEngine.authorize_step(%{
+             step_id: step.id,
+             input_signal_id: Map.get(request, :input_signal_id),
+             trace_id: Map.get(request, :trace_id)
+           }) do
+      response = Map.get(authorization, :response, %{})
+      authorized_step = Map.get(authorization, :step, step)
+      updated_objective = Map.get(authorization, :objective, objective)
+      steps = replace_objective_step(steps, authorized_step)
+
+      {:ok,
+       %{
+         message: objective_route_message(updated_objective, authorized_step, response),
+         status: Map.get(response, :status, :completed),
+         confirmation: Map.get(response, :confirmation),
+         confirmation_id: Map.get(response, :confirmation_id),
+         permission_decision: Map.get(response, :permission_decision),
+         actions:
+           response
+           |> Map.get(:actions, [])
+           |> Kernel.++([
+             objective_action(updated_objective, steps, context, permission_decision)
+           ]),
+         objective: objective_response(updated_objective, steps, proposed),
+         diagnostics: []
+       }}
+    else
+      false ->
+        {:ok,
+         %{
+           message: "Objective creation is not permitted for this request.",
+           status: PermissionGate.response_status(permission_decision),
+           error: :permission_denied,
+           actions: [
+             %{
+               name: "frame_objective",
+               status: PermissionGate.response_status(permission_decision),
+               permission: :objective_write,
+               permission_decision: permission_decision
+             }
+           ],
+           diagnostics: []
+         }}
+
+      {:error, reason} ->
+        {:ok,
+         %{
+           message: "Unable to start objective: #{inspect(reason)}",
+           status: :error,
+           error: reason,
+           actions: [],
+           diagnostics: [%{source: :objectives, error: inspect(reason)}]
+         }}
+    end
+  end
+
+  defp run_objective_route(_text, _context, _decision) do
+    {:ok,
+     %{
+       message: "Unable to start objective: missing request context.",
+       status: :error,
+       error: :missing_request_context,
+       actions: [],
+       diagnostics: [%{source: :objectives, error: ":missing_request_context"}]
+     }}
+  end
+
+  defp replace_objective_step(steps, %{id: id} = replacement) do
+    Enum.map(steps, fn
+      %{id: ^id} -> replacement
+      step -> step
+    end)
+  end
+
+  defp objective_route_message(objective, step, %{status: :needs_confirmation} = response) do
+    confirmation_id = Map.get(response, :confirmation_id) || step.confirmation_id
+
+    "Started objective #{objective.title}. Confirmation required for step #{step.id}: #{confirmation_id}."
+  end
+
+  defp objective_route_message(objective, step, response) do
+    "Started objective #{objective.title}. Step #{step.id} is #{Map.get(response, :status, step.status)}."
+  end
 
   defp objective_framing_candidate?(%Decision{
          active_app: :stocksage,
@@ -921,7 +1033,19 @@ defmodule AllbertAssist.Agents.IntentAgent do
       title: objective.title,
       active_app: objective.active_app,
       step_count: length(steps),
+      steps: Enum.map(steps, &objective_step_response/1),
       continuation: Map.get(proposed, :continuation)
+    }
+  end
+
+  defp objective_step_response(step) do
+    %{
+      id: step.id,
+      status: step.status,
+      kind: step.kind,
+      candidate_action: step.candidate_action,
+      parent_step_id: step.parent_step_id,
+      confirmation_id: step.confirmation_id
     }
   end
 
