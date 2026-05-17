@@ -287,13 +287,28 @@ defmodule StockSage.TraderBridge do
   end
 
   defp build_analyze_request(params) do
-    %{
+    base = %{
       action: "run_analysis",
       ticker: Map.get(params, :ticker) || Map.get(params, "ticker"),
       analysis_date: Map.get(params, :analysis_date) || Map.get(params, "analysis_date"),
       engine: Map.get(params, :engine) || Map.get(params, "engine") || "tradingagents"
     }
+
+    base
+    |> put_optional_bool(
+      :force_stub,
+      Map.get(params, :force_stub) || Map.get(params, "force_stub")
+    )
+    |> put_optional_map(:config, Map.get(params, :config) || Map.get(params, "config"))
   end
+
+  defp put_optional_bool(map, _key, nil), do: map
+  defp put_optional_bool(map, key, value) when is_boolean(value), do: Map.put(map, key, value)
+  defp put_optional_bool(map, _key, _other), do: map
+
+  defp put_optional_map(map, _key, nil), do: map
+  defp put_optional_map(map, key, value) when is_map(value), do: Map.put(map, key, value)
+  defp put_optional_map(map, _key, _other), do: map
 
   defp generate_id do
     16

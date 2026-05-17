@@ -155,6 +155,13 @@ defmodule Mix.Tasks.Stocksage.Analyze do
     end
   end
 
+  # Error shapes formatted here come from three callers in this module:
+  # `dispatch/1` → `{:error, :usage}`, `reject_invalid/1` →
+  # `{:error, {:invalid_options, _}}`, `resolve_user/1` →
+  # `{:error, {:user_operator_mismatch, _, _}}`. Dialyzer flagged a
+  # variable-pattern catch-all as dead; if a new error shape is added
+  # to a caller, add a clause here too (or runtime will raise a
+  # FunctionClauseError with the offending shape).
   defp format_reason(:usage) do
     """
     Usage:
@@ -166,6 +173,4 @@ defmodule Mix.Tasks.Stocksage.Analyze do
 
   defp format_reason({:user_operator_mismatch, user, operator}),
     do: "--user #{user} differs from --operator #{operator}"
-
-  defp format_reason(reason), do: inspect(reason)
 end

@@ -11,6 +11,38 @@ defmodule StockSage.Actions.RunAnalysis do
 
   Bridge code lives under `./plugins/stocksage/`. Allbert core does not
   import bridge internals.
+
+  ## Substrate (v0.22 M2 audit closeout)
+
+  This module is a plain `Jido.Action` (not a `Jido.Agent`). It owns no
+  state machine; the durable confirmation row owns the resume contract.
+
+  ## `approval_resume?/1` — internal API only (v0.22 M2 audit moderate gap 6)
+
+  The private `approval_resume?/1` clause matches on
+  `%{confirmation: %{approved?: true}}` in the action context. This is an
+  **internal** convention used by
+  `AllbertAssist.Actions.Confirmations.ApproveConfirmation` when it
+  resumes a previously-pending action through the action runner. External
+  callers must not forge this context shape to bypass the confirmation
+  flow:
+
+  - Production callers reach `RunAnalysis` through
+    `AllbertAssist.Actions.Runner.run/3` with no `:confirmation` key —
+    the action then creates a pending confirmation and returns
+    `:needs_confirmation`.
+  - The only legitimate caller that supplies `confirmation.approved? =
+    true` is `ApproveConfirmation`, which has already re-checked Security
+    Central and resolved the durable confirmation record before resuming.
+  - Tests may supply the shape directly to exercise the resume branch
+    without going through the full confirmation lifecycle.
+
+  Hardening (caller verification, signed resume marker, or
+  per-confirmation resume token) is deferred to v0.23 Jido State-Machine
+  Convergence, where `Confirmations.Store` becomes a `Jido.Agent` with
+  lifecycle hooks suitable for verified-resume gating. v0.22 audit
+  closure (moderate gap 6) explicitly documents this as internal-API-only
+  rather than tightening it now.
   """
 
   use Jido.Action,
@@ -23,7 +55,12 @@ defmodule StockSage.Actions.RunAnalysis do
       analysis_date: [type: :string, required: true],
       engine: [type: :string, required: false],
       user_id: [type: :string, required: false],
-      queue_entry_id: [type: :string, required: false]
+      queue_entry_id: [type: :string, required: false],
+      # When true, the bridge runs the deterministic stub path regardless
+      # of whether `tradingagents` is importable. Stub responses are
+      # labeled `stub: true` in the persisted detail row. Used by tests,
+      # smoke flows, and dev environments without LLM credentials.
+      force_stub: [type: :boolean, required: false]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -79,7 +116,8 @@ defmodule StockSage.Actions.RunAnalysis do
         analysis_date: analysis_date,
         engine: engine,
         user_id: user_id,
-        queue_entry_id: blank(Actions.field(params, :queue_entry_id))
+        queue_entry_id: blank(Actions.field(params, :queue_entry_id)),
+        force_stub: normalize_bool(Actions.field(params, :force_stub))
       }
 
       dispatch(validated, context, permission_decision)
@@ -131,15 +169,23 @@ defmodule StockSage.Actions.RunAnalysis do
              engine: validated.engine,
              user_id: validated.user_id,
              queue_entry_id: validated.queue_entry_id,
+             force_stub: validated.force_stub,
              disclosure:
-               "TradingAgents will make external market-data API calls as part of this analysis."
+               if(validated.force_stub,
+                 do:
+                   "Stub-mode analysis: no TradingAgents call will be made. " <>
+                     "Persisted detail row will be labeled stub: true.",
+                 else:
+                   "TradingAgents will make external market-data API calls as part of this analysis."
+               )
            },
            resume_params_ref: %{
              ticker: validated.ticker,
              analysis_date: Date.to_iso8601(validated.analysis_date),
              engine: validated.engine,
              user_id: validated.user_id,
-             queue_entry_id: validated.queue_entry_id
+             queue_entry_id: validated.queue_entry_id,
+             force_stub: validated.force_stub
            }
          }) do
       {:ok, confirmation} ->
@@ -180,11 +226,15 @@ defmodule StockSage.Actions.RunAnalysis do
       started_at = DateTime.utc_now()
       emit_analysis_signal(@signal_analysis_requested, requested_payload(validated, context))
 
-      case TraderBridge.analyze(%{
-             ticker: validated.ticker,
-             analysis_date: Date.to_iso8601(validated.analysis_date),
-             engine: validated.engine
-           }) do
+      analyze_params =
+        %{
+          ticker: validated.ticker,
+          analysis_date: Date.to_iso8601(validated.analysis_date),
+          engine: validated.engine
+        }
+        |> maybe_put(:force_stub, validated.force_stub)
+
+      case TraderBridge.analyze(analyze_params) do
         {:ok, result} ->
           persist_success(validated, result, context, permission_decision, started_at)
 
@@ -197,11 +247,20 @@ defmodule StockSage.Actions.RunAnalysis do
     end
   end
 
+  # `validated.force_stub` is always a boolean (normalized via
+  # `normalize_bool/1`), so the only "skip" case is `false`. `nil` is
+  # unreachable here; dialyzer flagged a dead pattern when it was present.
+  defp maybe_put(map, _key, false), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
   defp ensure_queue_entry(%{queue_entry_id: nil}), do: :ok
   defp ensure_queue_entry(%{queue_entry_id: ""}), do: :ok
 
   defp ensure_queue_entry(%{queue_entry_id: queue_id, user_id: user_id})
        when is_binary(queue_id) and queue_id != "" do
+    # `Queue.get_entry/2` returns `{:ok, entry} | {:error, :not_found}`;
+    # no other error shape is reachable, which is why the dialyzer-clean
+    # match list below has only those two arms.
     case Queue.get_entry(user_id, queue_id) do
       {:ok, entry} ->
         cond do
@@ -217,9 +276,6 @@ defmodule StockSage.Actions.RunAnalysis do
 
       {:error, :not_found} ->
         {:error, :queue_entry_not_found}
-
-      _other ->
-        {:error, :queue_entry_lookup_failed}
     end
   end
 
@@ -266,8 +322,6 @@ defmodule StockSage.Actions.RunAnalysis do
     do: "queue entry already consumed (status=#{status})"
 
   defp queue_reason_to_string(:queue_entry_not_found), do: "queue entry not found"
-  defp queue_reason_to_string(:queue_entry_lookup_failed), do: "queue entry lookup failed"
-  defp queue_reason_to_string(other), do: inspect(other)
 
   defp persist_success(validated, result, context, permission_decision, started_at) do
     duration_ms = DateTime.diff(DateTime.utc_now(), started_at, :millisecond)
@@ -520,6 +574,11 @@ defmodule StockSage.Actions.RunAnalysis do
   defp normalize_engine(""), do: "tradingagents"
   defp normalize_engine(value) when is_binary(value), do: String.trim(value)
   defp normalize_engine(_), do: "tradingagents"
+
+  defp normalize_bool(true), do: true
+  defp normalize_bool("true"), do: true
+  defp normalize_bool(1), do: true
+  defp normalize_bool(_other), do: false
 
   defp blank(nil), do: nil
   defp blank(""), do: nil
