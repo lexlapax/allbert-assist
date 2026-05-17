@@ -15,6 +15,10 @@ defmodule AllbertAssist.Settings.Schema do
     "operator.communication_style",
     "operator.handoff_detail",
     "allbert.jido.debug_trace",
+    "objectives.enabled",
+    "objectives.max_steps_per_turn",
+    "objectives.max_loop_count",
+    "objectives.trace_detail",
     "runtime.trace_default",
     "runtime.diagnostics_verbosity",
     "intent.model_assist_enabled",
@@ -46,6 +50,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.skill_write",
     "permissions.skill_script_execute",
     "permissions.confirmation_decide",
+    "permissions.objective_write",
     "permissions.stocksage_write",
     "permissions.stocksage_analyze",
     "execution.local.enabled",
@@ -220,6 +225,35 @@ defmodule AllbertAssist.Settings.Schema do
       default: false,
       writable?: true,
       sensitive?: false
+    },
+    "objectives.enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "objectives.max_steps_per_turn" => %{
+      type: :bounded_integer,
+      default: 3,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 16
+    },
+    "objectives.max_loop_count" => %{
+      type: :bounded_integer,
+      default: 5,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 32
+    },
+    "objectives.trace_detail" => %{
+      type: :enum,
+      default: "operator",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["operator", "debug"]
     },
     "runtime.trace_default" => %{
       type: :enum,
@@ -690,6 +724,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "denied"]
     },
+    "permissions.objective_write" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
     "permissions.stocksage_write" => %{
       type: :enum,
       default: "allowed",
@@ -1124,6 +1165,12 @@ defmodule AllbertAssist.Settings.Schema do
         "debug_trace" => false
       }
     },
+    "objectives" => %{
+      "enabled" => true,
+      "max_steps_per_turn" => 3,
+      "max_loop_count" => 5,
+      "trace_detail" => "operator"
+    },
     "operator" => %{
       "display_name" => "local",
       "timezone" => "America/Los_Angeles",
@@ -1215,6 +1262,7 @@ defmodule AllbertAssist.Settings.Schema do
       "skill_write" => "allowed",
       "skill_script_execute" => "denied",
       "confirmation_decide" => "allowed",
+      "objective_write" => "allowed",
       "stocksage_write" => "allowed",
       "stocksage_analyze" => "needs_confirmation"
     },

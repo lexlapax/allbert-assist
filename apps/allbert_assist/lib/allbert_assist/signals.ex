@@ -13,6 +13,22 @@ defmodule AllbertAssist.Signals do
 
   @action_requested "allbert.action.requested"
   @action_completed "allbert.action.completed"
+  @runtime_turn_started "allbert.runtime.turn.started"
+  @runtime_turn_completed "allbert.runtime.turn.completed"
+
+  @objective_signal_types %{
+    created: "allbert.objective.created",
+    updated: "allbert.objective.updated",
+    step_proposed: "allbert.objective.step.proposed",
+    step_selected: "allbert.objective.step.selected",
+    step_completed: "allbert.objective.step.completed",
+    step_failed: "allbert.objective.step.failed",
+    observed: "allbert.objective.observed",
+    blocked: "allbert.objective.blocked",
+    completed: "allbert.objective.completed",
+    cancelled: "allbert.objective.cancelled",
+    impasse: "allbert.objective.impasse"
+  }
 
   @channel_signal_types %{
     update_received: "allbert.channel.update_received",
@@ -29,9 +45,19 @@ defmodule AllbertAssist.Signals do
     %{requested: @action_requested, completed: @action_completed}
   end
 
+  @doc "Return canonical runtime turn signal names."
+  @spec runtime_turn_signal_types() :: %{started: String.t(), completed: String.t()}
+  def runtime_turn_signal_types do
+    %{started: @runtime_turn_started, completed: @runtime_turn_completed}
+  end
+
   @doc "Return channel lifecycle signal names."
   @spec channel_signal_types() :: %{atom() => String.t()}
   def channel_signal_types, do: @channel_signal_types
+
+  @doc "Return objective lifecycle signal names."
+  @spec objective_signal_types() :: %{atom() => String.t()}
+  def objective_signal_types, do: @objective_signal_types
 
   @doc "Create a channel lifecycle signal."
   @spec channel_lifecycle(atom(), map()) :: {:ok, Signal.t()} | {:error, term()}
@@ -45,6 +71,33 @@ defmodule AllbertAssist.Signals do
       )
     else
       :error -> {:error, {:unknown_channel_signal, kind}}
+    end
+  end
+
+  @doc "Create a canonical runtime turn-started signal."
+  @spec runtime_turn_started(map()) :: {:ok, Signal.t()} | {:error, term()}
+  def runtime_turn_started(metadata) when is_map(metadata) do
+    runtime_turn_signal(@runtime_turn_started, metadata)
+  end
+
+  @doc "Create a canonical runtime turn-completed signal."
+  @spec runtime_turn_completed(map()) :: {:ok, Signal.t()} | {:error, term()}
+  def runtime_turn_completed(metadata) when is_map(metadata) do
+    runtime_turn_signal(@runtime_turn_completed, metadata)
+  end
+
+  @doc "Create an objective lifecycle signal."
+  @spec objective_lifecycle(atom(), map()) :: {:ok, Signal.t()} | {:error, term()}
+  def objective_lifecycle(kind, metadata) when is_atom(kind) and is_map(metadata) do
+    with {:ok, type} <- Map.fetch(@objective_signal_types, kind) do
+      Signal.new(
+        type,
+        metadata |> bound_objective_payload() |> Redactor.redact(),
+        source: "/allbert/objectives/#{Map.get(metadata, :objective_id, "unknown")}",
+        subject: Map.get(metadata, :user_id) || Map.get(metadata, "user_id")
+      )
+    else
+      :error -> {:error, {:unknown_objective_signal, kind}}
     end
   end
 
@@ -99,12 +152,72 @@ defmodule AllbertAssist.Signals do
   @spec log(Signal.t()) :: :ok
   def log(%Signal{} = signal) do
     Logger.info("allbert signal #{signal.type} id=#{signal.id} source=#{signal.source}")
+    publish(signal)
     :ok
   end
 
   @doc "Recursively redact values with sensitive key names."
   @spec redact(term()) :: term()
   defdelegate redact(value), to: Redactor
+
+  defp runtime_turn_signal(type, metadata) do
+    Signal.new(
+      type,
+      Redactor.redact(metadata),
+      source: "/allbert/runtime/turn",
+      subject: Map.get(metadata, :user_id) || Map.get(metadata, "user_id")
+    )
+  end
+
+  defp publish(%Signal{} = signal) do
+    case Jido.Signal.Bus.publish(AllbertAssist.SignalBus, [signal]) do
+      {:ok, _recorded} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.debug(
+          "allbert signal publish skipped type=#{signal.type} reason=#{inspect(reason)}"
+        )
+
+        :ok
+    end
+  rescue
+    exception ->
+      Logger.debug(
+        "allbert signal publish failed type=#{signal.type} reason=#{Exception.message(exception)}"
+      )
+
+      :ok
+  catch
+    :exit, reason ->
+      Logger.debug(
+        "allbert signal publish unavailable type=#{signal.type} reason=#{inspect(reason)}"
+      )
+
+      :ok
+  end
+
+  defp bound_objective_payload(metadata) do
+    metadata
+    |> bound_string(:title, 200)
+    |> bound_string(:objective, 2_000)
+    |> bound_string(:acceptance_criteria, 2_000)
+    |> bound_string(:observation_summary, 2_000)
+    |> bound_string(:result_summary, 2_000)
+    |> bound_string(:progress_summary, 2_000)
+    |> bound_string(:reason, 500)
+    |> bound_string(:error, 500)
+  end
+
+  defp bound_string(map, key, max) do
+    case Map.fetch(map, key) do
+      {:ok, value} when is_binary(value) and byte_size(value) > max ->
+        Map.put(map, key, binary_part(value, 0, max) <> "...")
+
+      _other ->
+        map
+    end
+  end
 
   defp response_summary(%{} = response) do
     response

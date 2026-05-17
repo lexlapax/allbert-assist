@@ -36,6 +36,7 @@ defmodule AllbertAssist.Jobs do
     :thread_mode,
     :session_id,
     :app_id,
+    :objective_id,
     :channel,
     :next_due_at,
     :last_run_at,
