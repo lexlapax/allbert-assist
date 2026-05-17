@@ -154,6 +154,9 @@ Use these as starting points, then narrow further from the active task:
   `Jobs.Scheduler`, and `Objectives.Engine` are Jido.Agents; storage
   components (`Settings`, `Trace`, `Memory` IO, `Session.Scratchpad`,
   `Memory.Compiler`, `Memory.Promotion`) are plain GenServers.
+- Private Jido command modules inside those agents are not Allbert capability
+  actions. Do not register them in `AllbertAssist.Actions.Registry` or expose
+  them as intent candidates.
 - Use `Req` for HTTP. Do not add `:httpoison`, `:tesla`, or `:httpc`.
 
 ## Workflow

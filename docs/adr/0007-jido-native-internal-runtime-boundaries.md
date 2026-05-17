@@ -38,6 +38,28 @@ settings, skills, and security events.
 Plain Elixir modules remain valid behind those boundaries for pure logic and
 low-level implementation details.
 
+### v0.23 Amendment: Pragmatic Jido.Agent Substrate Rule
+
+v0.23 adds a pragmatic substrate rule for state-bearing modules:
+
+- Use `Jido.Agent` when the component is a named state machine, benefits from
+  lifecycle hooks, emits or coordinates transition signals, or has a plausible
+  successor-agent story.
+- Use plain `GenServer`, plain modules, or contexts when the component is
+  storage IO, parsing, schema validation, deterministic transformation, or a
+  simple cache where a Jido agent would add ceremony without better runtime
+  semantics.
+
+Internal `Jido.Action` modules used as commands inside a `Jido.Agent` are not
+automatically Allbert capability actions. They do not enter
+`AllbertAssist.Actions.Registry`, do not appear in intent candidates, and do
+not grant permissions. Only intentionally registered Allbert actions executed
+through `AllbertAssist.Actions.Runner.run/3` are capability boundaries.
+
+OTP supervision, `Jido.AgentServer`, and BEAM processes are still not security
+boundaries. Authority remains at registered actions, Security Central,
+confirmations, resource posture, and audit.
+
 ## Consequences
 
 - v0.04 becomes Jido Runtime Convergence Refactor.
