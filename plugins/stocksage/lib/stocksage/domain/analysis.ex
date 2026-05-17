@@ -34,6 +34,8 @@ defmodule StockSage.Domain.Analysis do
     field :legacy_id, :string
     field :input_signal_id, :string
     field :trace_id, :string
+    field :objective_id, :string
+    field :step_id, :string
     field :metadata, :map, default: %{}
 
     timestamps(type: :utc_datetime_usec)
@@ -62,6 +64,8 @@ defmodule StockSage.Domain.Analysis do
       :legacy_id,
       :input_signal_id,
       :trace_id,
+      :objective_id,
+      :step_id,
       :metadata
     ])
     |> Domain.normalize_common()

@@ -16,6 +16,7 @@ defmodule AllbertAssist.Security.Policy do
     skill_write: "permissions.skill_write",
     skill_script_execute: "permissions.skill_script_execute",
     confirmation_decide: "permissions.confirmation_decide",
+    objective_write: "permissions.objective_write",
     stocksage_write: "permissions.stocksage_write",
     stocksage_analyze: "permissions.stocksage_analyze"
   }
@@ -32,6 +33,7 @@ defmodule AllbertAssist.Security.Policy do
     skill_write: :allowed,
     skill_script_execute: :denied,
     confirmation_decide: :allowed,
+    objective_write: :allowed,
     stocksage_write: :allowed,
     stocksage_analyze: :needs_confirmation,
     settings_secret_write: :allowed,
@@ -52,6 +54,7 @@ defmodule AllbertAssist.Security.Policy do
           | :skill_write
           | :skill_script_execute
           | :confirmation_decide
+          | :objective_write
           | :stocksage_write
           | :stocksage_analyze
           | :settings_secret_write
@@ -72,6 +75,7 @@ defmodule AllbertAssist.Security.Policy do
       :skill_write,
       :skill_script_execute,
       :confirmation_decide,
+      :objective_write,
       :stocksage_write,
       :stocksage_analyze,
       :settings_secret_write,
@@ -219,6 +223,12 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:confirmation_decide, :allowed, _configured, _floor, _context),
     do: "Confirmation approval and denial are allowed for the local operator."
+
+  defp reason(:objective_write, :allowed, _configured, _floor, _context),
+    do: "Objective lifecycle writes are allowed through registered objective actions."
+
+  defp reason(:objective_write, :denied, _configured, _floor, _context),
+    do: "Objective lifecycle writes are denied by current policy."
 
   defp reason(:stocksage_write, :allowed, _configured, _floor, _context),
     do: "Local StockSage domain writes are allowed through registered StockSage actions."

@@ -1,6 +1,9 @@
 defmodule AllbertAssist.SignalsTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
+
+  alias Jido.Signal.Bus
   alias AllbertAssist.Signals
 
   test "redacts sensitive keys recursively" do
@@ -82,5 +85,59 @@ defmodule AllbertAssist.SignalsTest do
     assert [%{credential: "[REDACTED]"}] = completed.data.response.actions
     refute inspect(completed.data) =~ "sk-test"
     refute inspect(completed.data) =~ "sk-skill"
+  end
+
+  test "objective and runtime turn signal helpers redact and publish through the signal bus" do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.objective.**")
+
+    original_logger_level = Logger.level()
+    Logger.configure(level: :info)
+
+    log =
+      try do
+        capture_log([level: :info], fn ->
+          assert {:ok, signal} =
+                   Signals.objective_lifecycle(:created, %{
+                     objective_id: "obj_signal",
+                     user_id: "alice",
+                     title: "Analyze AAPL",
+                     api_key: "sk-test"
+                   })
+
+          assert signal.type == "allbert.objective.created"
+          assert signal.data.api_key == "[REDACTED]"
+          :ok = Signals.log(signal)
+        end)
+      after
+        Logger.configure(level: original_logger_level)
+      end
+
+    assert log =~ "allbert.objective.created"
+
+    assert_receive {:signal, signal}, 1_000
+    assert signal.type == "allbert.objective.created"
+    assert signal.data.objective_id == "obj_signal"
+    refute inspect(signal.data) =~ "sk-test"
+
+    assert {:ok, started} = Signals.runtime_turn_started(%{user_id: "alice", trace_id: "trace_1"})
+
+    assert {:ok, completed} =
+             Signals.runtime_turn_completed(%{user_id: "alice", trace_id: "trace_1"})
+
+    assert started.type == "allbert.runtime.turn.started"
+    assert completed.type == "allbert.runtime.turn.completed"
+    assert completed.data.trace_id == "trace_1"
+  end
+
+  test "objective signal payloads are bounded" do
+    assert {:ok, signal} =
+             Signals.objective_lifecycle(:observed, %{
+               objective_id: "obj_bound",
+               user_id: "alice",
+               observation_summary: String.duplicate("x", 2_100)
+             })
+
+    assert byte_size(signal.data.observation_summary) <= 2_003
   end
 end

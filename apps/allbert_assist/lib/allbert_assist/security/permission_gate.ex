@@ -21,7 +21,9 @@ defmodule AllbertAssist.Security.PermissionGate do
           | :skill_write
           | :skill_script_execute
           | :confirmation_decide
+          | :objective_write
           | :stocksage_write
+          | :stocksage_analyze
           | :settings_secret_write
           | :settings_secret_read
 
