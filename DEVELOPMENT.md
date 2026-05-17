@@ -386,18 +386,44 @@ markdown file IO; Session.Scratchpad is an ETS wrapper with TTL. None
 of these have a meaningful "smarter algorithm" successor; agent
 ceremony adds nothing.
 
-As of v0.23 and v0.24:
+As of v0.23:
 
-- **Jido.Agent**: `IntentAgent`, `Confirmations.Store`, `Jobs.Scheduler`,
-  `Objectives.Engine`.
+- **Jido.Agent**: `IntentAgent`,
+  `AllbertAssist.Confirmations.Store.Agent`, and
+  `AllbertAssist.Jobs.Scheduler.Agent`.
 - **Plain GenServer**: `Settings`, `Trace`, `Memory` storage IO,
   `Session.Scratchpad`, `Memory.Compiler`, `Memory.Promotion`.
+
+v0.24 adds `AllbertAssist.Objectives.Engine.Agent` on the same
+`AllbertAssist.JidoBacked` substrate. See
+`docs/developer/jido-agent-pattern.md` for the worked v0.23 conversion
+example.
 
 Every new state-bearing module must include a `@moduledoc` paragraph
 that states its substrate choice and one-sentence rationale, e.g.,
 "`Jido.Agent` because it carries a status state machine with audit
 hooks at every transition" or "`GenServer` because it's a key-value
 cache and no useful successor with better algorithms exists."
+
+Worked example:
+
+```elixir
+use AllbertAssist.JidoBacked,
+  name: "allbert_confirmations_store",
+  signal_routes: [
+    {"allbert.confirmations.store.create",
+     AllbertAssist.Confirmations.Store.Commands.Create}
+  ]
+```
+
+Private command modules such as
+`AllbertAssist.Confirmations.Store.Commands.Create` use `Jido.Action`
+inside the state machine, but they are not Allbert capability actions and
+must not be registered in `AllbertAssist.Actions.Registry`.
+
+`allbert.jido.debug_trace` is the operator-controllable diagnostic switch for
+bounded JidoBacked trace details. It defaults to `false`; do not add default
+operator-visible trace output from a JidoBacked agent.
 
 ## Objective Runtime
 

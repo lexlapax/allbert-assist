@@ -150,10 +150,11 @@ Use these as starting points, then narrow further from the active task:
 - Choose Jido.Agent or plain GenServer per the pragmatic rule in the
   "Jido.Agent vs. GenServer" section of `docs/plans/allbert-jido-vision.md`.
   New state-bearing modules document the substrate choice in their
-  module `@moduledoc`. As of v0.23+: `IntentAgent`, `Confirmations.Store`,
-  `Jobs.Scheduler`, and `Objectives.Engine` are Jido.Agents; storage
-  components (`Settings`, `Trace`, `Memory` IO, `Session.Scratchpad`,
-  `Memory.Compiler`, `Memory.Promotion`) are plain GenServers.
+  module `@moduledoc`. As of v0.23, `IntentAgent`,
+  `Confirmations.Store.Agent`, and `Jobs.Scheduler.Agent` are Jido agents;
+  v0.24 adds `Objectives.Engine.Agent`. Storage components (`Settings`,
+  `Trace`, `Memory` IO, `Session.Scratchpad`, `Memory.Compiler`,
+  `Memory.Promotion`) are plain GenServers/modules.
 - Private Jido command modules inside those agents are not Allbert capability
   actions. Do not register them in `AllbertAssist.Actions.Registry` or expose
   them as intent candidates.
