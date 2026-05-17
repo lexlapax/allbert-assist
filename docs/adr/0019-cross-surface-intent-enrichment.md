@@ -10,10 +10,37 @@ any reading of this ADR that implies intent ranking is the full
 work-management layer. The intent engine continues as proposal
 infrastructure under this ADR's invariants; multi-step / cross-turn work
 state lives in the v0.24 objective runtime
-(`AllbertAssist.Objectives`). ADR 0021 also adds `:objective` as a
-candidate kind under the Section 2 invariants here: an objective
-candidate carries the same proposal-only authority limits as memory
-candidates, surface candidates, and action candidates.
+(`AllbertAssist.Objectives`).
+
+### v0.24 Amendment (2026-05-16): `:objective` candidate kind registered
+
+v0.24 M2 amends this ADR to formally register `:objective` as a
+candidate kind. An objective candidate carries the same
+proposal-only authority limits as memory candidates, surface
+candidates, and action candidates. Specifics:
+
+- New arity `AllbertAssist.Intent.Engine.collect_candidates/2`
+  accepts an optional keyword list with an `:objective` key. The
+  legacy `collect_candidates/1` arity is preserved and delegates to
+  `/2` with empty opts.
+- Candidate shape: `kind: :objective`, `id:` set to the target
+  `objective_id`, `source: :objective`, `score: 0.2..0.5` (recency
+  + topic match), `reason:` set to the objective title.
+- `Candidate.bound/2` `@default_kind_limits` gains
+  `objective: 5`.
+- Section 2 invariants (proposal-only, no permission grant, no
+  authority bypass) hold for `:objective` candidates without
+  exception.
+- Selecting an `:objective` candidate routes to the engine's
+  `:continue_objective` command rather than creating a new
+  objective.
+- Memory candidates (`:memory`) and objective candidates
+  (`:objective`) can coexist in the same ranking pass without
+  conflict.
+
+ADR 0021 Section 3 (Vocabulary) and Section 4 (Authority rule)
+remain the source of truth for objective semantics; this amendment
+records only the engine-side candidate registration.
 
 ## Context
 
