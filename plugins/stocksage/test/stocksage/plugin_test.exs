@@ -49,7 +49,15 @@ defmodule StockSage.PluginTest do
              StockSage.Actions.RunAnalysis
            ]
 
-    assert StockSage.Plugin.child_spec([]) == {StockSage.Supervisor, []}
+    # child_spec/1 now returns the supervisor's full child_spec map (not the
+    # {module, args} shorthand) so it satisfies the AllbertAssist.Plugin
+    # @callback typespec. Dialyzer flagged the shorthand before v0.22 audit
+    # closeout's pre-existing-warning cleanup.
+    child_spec = StockSage.Plugin.child_spec([])
+    assert is_map(child_spec)
+    assert child_spec.id == StockSage.Supervisor
+    assert {StockSage.Supervisor, :start_link, [_opts]} = child_spec.start
+    assert child_spec.type == :supervisor
   end
 
   test "discovery finds StockSage as a shipped source-tree plugin" do

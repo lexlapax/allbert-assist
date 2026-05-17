@@ -45,6 +45,7 @@ defmodule AllbertAssist.Intent.Ranker do
     |> apply_active_app_affinity(context)
     |> apply_surface_text_match(context)
     |> apply_action_text_match(context)
+    |> apply_active_app_keyword(context)
     |> apply_skill_text_match(context)
     |> apply_job_text_match(context)
     |> apply_channel_text_match(context)
@@ -62,6 +63,35 @@ defmodule AllbertAssist.Intent.Ranker do
   end
 
   defp apply_active_app_affinity(candidate, _context), do: candidate
+
+  # v0.22 audit closeout (gap 2): when the candidate's `app_id` matches the
+  # session's `active_app` AND the request text matches an app-specific
+  # keyword for the candidate's registered action_name, boost like a normal
+  # action_text_match. Without active_app set, this clause is inert — so
+  # cross-app routing stays explicit (the same phrasing without StockSage
+  # context does not implicitly route to RunAnalysis).
+  defp apply_active_app_keyword(candidate, %{active_app: active_app, text: text})
+       when is_atom(active_app) and active_app not in [nil, :allbert] and is_binary(text) do
+    if field(candidate, :kind) == :action and
+         field(candidate, :app_id) == active_app and
+         active_app_keyword_match?(active_app, field(candidate, :action_name), text) do
+      boost(
+        candidate,
+        0.3,
+        :action_text_match,
+        "Active app #{active_app} keyword matched action #{field(candidate, :action_name)}."
+      )
+    else
+      candidate
+    end
+  end
+
+  defp apply_active_app_keyword(candidate, _context), do: candidate
+
+  defp active_app_keyword_match?(:stocksage, "run_analysis", text),
+    do: text_has_any?(text, ["analyze", "analysis", "analyse"])
+
+  defp active_app_keyword_match?(_app, _action, _text), do: false
 
   defp apply_surface_text_match(candidate, %{text: text}) do
     if field(candidate, :kind) == :surface and surface_text_match?(candidate, text) do

@@ -167,7 +167,7 @@ defmodule AllbertAssist.Trace do
     ## Actions
 
     ```elixir
-    #{inspect(response.actions, pretty: true, limit: :infinity)}
+    #{inspect(Redactor.redact(response.actions), pretty: true, limit: :infinity)}
     ```
 
     ## Intent Decision

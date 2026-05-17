@@ -1,6 +1,8 @@
 defmodule StockSage.Actions.RunAnalysisTest do
   use StockSage.DataCase, async: false
 
+  import ExUnit.CaptureLog
+
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Settings
@@ -99,10 +101,15 @@ defmodule StockSage.Actions.RunAnalysisTest do
     test "executes the bridge and persists a completed analysis row" do
       context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
 
+      # force_stub: true so the bridge uses the deterministic stub path
+      # (the test environment doesn't have TradingAgents installed). The
+      # persisted detail row carries `payload.stub == true` for operator
+      # visibility.
       params = %{
         ticker: "AAPL",
         analysis_date: "2026-05-01",
-        user_id: "alice"
+        user_id: "alice",
+        force_stub: true
       }
 
       assert {:ok, response} = Runner.run("run_analysis", params, context)
@@ -132,7 +139,8 @@ defmodule StockSage.Actions.RunAnalysisTest do
         ticker: "TSLA",
         analysis_date: "2026-05-01",
         user_id: "alice",
-        queue_entry_id: entry.id
+        queue_entry_id: entry.id,
+        force_stub: true
       }
 
       assert {:ok, response} = Runner.run("run_analysis", params, context)
@@ -147,6 +155,90 @@ defmodule StockSage.Actions.RunAnalysisTest do
                runs,
                &(&1.status == "completed" and &1.analysis_id == response.analysis_id)
              )
+    end
+
+    test "queue_entry_id not found returns :queue_entry_not_found and writes NO analysis row" do
+      # v0.22 audit closeout (gap 3): before the fix, an invalid queue_entry_id
+      # silently no-opped in update_queue/5 but the bridge was already called
+      # and the analysis row already persisted, polluting the test DB.
+      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+
+      params = %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-01",
+        user_id: "alice",
+        queue_entry_id: "queue_missing_xyz",
+        force_stub: true
+      }
+
+      pre_count = length(Analyses.list_analyses("alice", limit: 100))
+
+      assert {:ok, response} = Runner.run("run_analysis", params, context)
+      assert response.status == :error
+      assert response.error == :queue_entry_not_found
+
+      post_count = length(Analyses.list_analyses("alice", limit: 100))
+
+      assert post_count == pre_count,
+             "no analysis row should have been persisted for a missing queue id; " <>
+               "pre=#{pre_count} post=#{post_count}"
+    end
+
+    test "queue_entry_id from another user returns :queue_entry_not_found (cross-user isolation)" do
+      # The queue entry belongs to alice; bob tries to consume it. Behavior is
+      # identical to a missing entry — no leak of alice's data, no row written.
+      {:ok, alice_entry} =
+        Queue.create_entry(%{
+          user_id: "alice",
+          symbol: "TSLA",
+          status: "queued",
+          priority: "normal"
+        })
+
+      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+
+      params = %{
+        ticker: "TSLA",
+        analysis_date: "2026-05-01",
+        user_id: "bob",
+        queue_entry_id: alice_entry.id,
+        force_stub: true
+      }
+
+      assert {:ok, response} = Runner.run("run_analysis", params, context)
+      assert response.status == :error
+      assert response.error == :queue_entry_not_found
+
+      assert Analyses.list_analyses("bob", limit: 100) == [],
+             "bob should not have any analysis rows from a cross-user queue id"
+    end
+
+    test "queue_entry_id already-consumed returns :queue_entry_not_found" do
+      {:ok, entry} =
+        Queue.create_entry(%{
+          user_id: "alice",
+          symbol: "MSFT",
+          status: "queued",
+          priority: "normal"
+        })
+
+      # Pre-consume the entry.
+      {:ok, _consumed} = Queue.update_entry_status(entry, "completed")
+
+      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+
+      params = %{
+        ticker: "MSFT",
+        analysis_date: "2026-05-01",
+        user_id: "alice",
+        queue_entry_id: entry.id,
+        force_stub: true
+      }
+
+      assert {:ok, response} = Runner.run("run_analysis", params, context)
+      assert response.status == :error
+      assert response.error == :queue_entry_not_found
+      assert response.detail =~ "already consumed"
     end
 
     test "writes a failed row when the bridge returns an error" do
@@ -179,9 +271,77 @@ defmodule StockSage.Actions.RunAnalysisTest do
     end
   end
 
+  describe "named StockSage signals (v0.22 audit closeout — gap 4)" do
+    setup do
+      original_level = Logger.level()
+      Logger.configure(level: :info)
+      on_exit(fn -> Logger.configure(level: original_level) end)
+      :ok
+    end
+
+    test "fires analysis_requested and analysis_completed on the happy path" do
+      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+
+      params = %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-01",
+        user_id: "alice",
+        force_stub: true
+      }
+
+      log =
+        capture_log([level: :info], fn ->
+          assert {:ok, response} = Runner.run("run_analysis", params, context)
+          assert response.status == :completed
+        end)
+
+      assert log =~ "allbert.stocksage.analysis_requested",
+             "expected analysis_requested signal in log; got: #{log}"
+
+      assert log =~ "allbert.stocksage.analysis_completed",
+             "expected analysis_completed signal in log; got: #{log}"
+
+      refute log =~ "allbert.stocksage.analysis_failed",
+             "analysis_failed must not fire on the happy path"
+    end
+
+    test "fires analysis_failed when queue validation rejects before bridge call" do
+      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+
+      params = %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-01",
+        user_id: "alice",
+        queue_entry_id: "queue_missing",
+        force_stub: true
+      }
+
+      log =
+        capture_log([level: :info], fn ->
+          assert {:ok, response} = Runner.run("run_analysis", params, context)
+          assert response.error == :queue_entry_not_found
+        end)
+
+      assert log =~ "allbert.stocksage.analysis_failed",
+             "expected analysis_failed signal for queue-validation rejection"
+
+      refute log =~ "allbert.stocksage.analysis_requested",
+             "analysis_requested must not fire when queue validation rejects first"
+    end
+  end
+
   describe "approve_confirmation end-to-end" do
     test "approving a pending run_analysis confirmation persists the result" do
-      params = %{ticker: "MSFT", analysis_date: "2026-05-01", user_id: "alice"}
+      # force_stub is persisted into the confirmation's resume_params_ref
+      # so the resumed action also runs in stub mode (no silent
+      # stub-mode flip at approval time).
+      params = %{
+        ticker: "MSFT",
+        analysis_date: "2026-05-01",
+        user_id: "alice",
+        force_stub: true
+      }
+
       {:ok, response} = Runner.run("run_analysis", params, %{})
       assert response.status == :needs_confirmation
       confirmation_id = response.confirmation_id

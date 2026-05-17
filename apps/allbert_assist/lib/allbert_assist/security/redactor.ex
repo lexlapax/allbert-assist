@@ -5,7 +5,26 @@ defmodule AllbertAssist.Security.Redactor do
 
   @redacted "[REDACTED]"
   @secret_ref "[SECRET_REF]"
-  @sensitive_key_fragments ["api_key", "apikey", "secret", "token", "password", "credential"]
+  # v0.22 M2 audit closeout (moderate gap 10): expanded to cover
+  # `raw_bridge_body`/`raw_final_state`/`raw_response` style fields that
+  # downstream consumers (StockSage bridge, future advisory providers)
+  # may dump into action maps. `authorization` and `bearer` catch
+  # header-style credentials. Key-name redaction is the mechanism;
+  # callers that need to dump raw secret content for debugging must
+  # explicitly opt out at their own boundary, never silently.
+  @sensitive_key_fragments [
+    "api_key",
+    "apikey",
+    "secret",
+    "token",
+    "password",
+    "credential",
+    "raw_bridge",
+    "raw_final",
+    "raw_response",
+    "authorization",
+    "bearer"
+  ]
   @status_keys ["credential_status", "secret_status", "secret_ref_display"]
 
   @type posture :: %{
