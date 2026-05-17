@@ -26,7 +26,17 @@ defmodule StockSage.TraderBridgeTest do
     end
 
     test "analyze with valid params returns a structured result", %{name: name} do
-      params = %{ticker: "AAPL", analysis_date: "2026-05-01", engine: "tradingagents"}
+      # force_stub: true keeps the bridge on the deterministic stub path
+      # so the test does not require `tradingagents` in the bridge venv or
+      # LLM credentials. The persisted detail row in callers will be
+      # labeled `stub: true` for operator visibility.
+      params = %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-01",
+        engine: "tradingagents",
+        force_stub: true
+      }
+
       assert {:ok, result} = TraderBridge.analyze(params, name)
 
       assert result["ticker"] == "AAPL"
@@ -34,6 +44,21 @@ defmodule StockSage.TraderBridgeTest do
       assert result["engine"] == "tradingagents"
       assert is_binary(result["summary"])
       assert result["truncated"] in [true, false]
+      assert result["stub"] == true
+      assert is_binary(result["decision"])
+    end
+
+    test "analyze without force_stub returns tradingagents_import_failed when " <>
+           "tradingagents is not available in the bridge venv",
+         %{name: name} do
+      # When the bridge's Python interpreter cannot import tradingagents
+      # and force_stub is not set, bridge.py returns a loud
+      # tradingagents_import_failed error rather than silently degrading
+      # to stub mode. This matches the M2 audit closeout posture.
+      params = %{ticker: "AAPL", analysis_date: "2026-05-01", engine: "tradingagents"}
+
+      assert {:error, {:bridge_error, reason}} = TraderBridge.analyze(params, name)
+      assert reason =~ "tradingagents_import_failed"
     end
 
     test "analyze rejects an invalid ticker via bridge.py validation", %{name: name} do
@@ -95,6 +120,52 @@ defmodule StockSage.TraderBridgeTest do
       Process.sleep(50)
 
       # Subsequent call lazily reopens the port.
+      assert :ok = TraderBridge.ping(name)
+      assert TraderBridge.bridge_status(name) == :running
+    end
+
+    # v0.22 audit closeout (moderate gap 9): the existing test above proves
+    # that a subsequent call recovers the port, but does not prove that
+    # in-flight callers get :bridge_crashed. The plan's safety story
+    # requires both.
+    test "in-flight callers receive :bridge_crashed when the port exits mid-flight",
+         %{name: name} do
+      # Bring the bridge up.
+      assert :ok = TraderBridge.ping(name)
+      assert TraderBridge.bridge_status(name) == :running
+
+      # Inject a fake pending entry whose `from` is our test process. This
+      # represents an in-flight caller waiting on GenServer.call. We bypass
+      # actually issuing a Port.command because the stub bridge responds
+      # quickly enough that there's no reliable mid-flight window — but the
+      # GenServer's mark_crashed/flush_pending logic is what we want to
+      # exercise, and a real pending entry has the same shape regardless of
+      # how it was registered.
+      test_pid = self()
+      fake_ref = make_ref()
+      fake_from = {test_pid, fake_ref}
+      fake_id = "in_flight_audit_test_#{System.unique_integer([:positive])}"
+
+      :sys.replace_state(name, fn state ->
+        pending = Map.put(state.pending, fake_id, %{from: fake_from, timer: nil})
+        %{state | pending: pending}
+      end)
+
+      # Synchronously deliver the :EXIT message to simulate a port crash.
+      # handle_info({:EXIT, port, ...}) → mark_crashed → flush_pending →
+      # GenServer.reply(fake_from, {:error, :bridge_crashed}).
+      state = :sys.get_state(name)
+      send(name, {:EXIT, state.port, :test_crash})
+
+      # GenServer.reply delivers a message of shape {ref, reply} to from's pid.
+      assert_receive {^fake_ref, {:error, :bridge_crashed}}, 1_000
+
+      # And the bridge should be in :crashed status, ready for lazy recovery
+      # on the next call.
+      Process.sleep(10)
+      assert TraderBridge.bridge_status(name) == :crashed
+
+      # Recovery still works.
       assert :ok = TraderBridge.ping(name)
       assert TraderBridge.bridge_status(name) == :running
     end

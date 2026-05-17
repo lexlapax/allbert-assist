@@ -241,6 +241,40 @@ defmodule StockSage.ActionsTest do
            "run_analysis not in candidates: #{inspect(Enum.map(all, & &1.action_name))}"
   end
 
+  # v0.22 audit closeout (gap 2): the original test above only asserted
+  # candidate presence. The audit found that even when run_analysis is a
+  # high-scoring candidate, the engine selected `direct_answer`. This
+  # selection test enforces that the active-app boost + run_analysis
+  # keyword match actually result in `run_analysis` being chosen.
+  test "Engine.decide selects run_analysis for analyze + active_app stocksage" do
+    assert {:ok, decision} =
+             Engine.decide(%{
+               text: "analyze AAPL for 2026-05-01",
+               user_id: "alice",
+               active_app: :stocksage
+             })
+
+    assert decision.selected_action == "run_analysis",
+           "expected selected_action=run_analysis, got #{inspect(decision.selected_action)}; " <>
+             "intent=#{inspect(decision.intent)}; " <>
+             "selected=#{inspect(decision.trace_metadata.intent_candidates.selected)}"
+  end
+
+  test "Engine.decide does NOT select run_analysis when active_app is not stocksage" do
+    # Cross-app routing must remain explicit. Without the StockSage session
+    # the active-app boost does not apply and the engine falls back to its
+    # default (direct_answer) for the same phrasing.
+    assert {:ok, decision} =
+             Engine.decide(%{
+               text: "analyze AAPL for 2026-05-01",
+               user_id: "alice"
+             })
+
+    refute decision.selected_action == "run_analysis",
+           "run_analysis should not be selected without active_app: :stocksage; " <>
+             "got selected_action=#{inspect(decision.selected_action)}"
+  end
+
   test "intent agent executes a selected StockSage action from active app context" do
     assert {:ok, _analysis} =
              Analyses.create_analysis(%{

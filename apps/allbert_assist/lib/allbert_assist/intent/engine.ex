@@ -283,14 +283,23 @@ defmodule AllbertAssist.Intent.Engine do
 
   defp deterministic_candidate(candidates) do
     Enum.find(candidates, fn candidate ->
-      get_in_trace(candidate, :ranking_reason) in [
+      reason = get_in_trace(candidate, :ranking_reason)
+
+      # v0.22 audit closeout (gap 2): when the active-app boost is the
+      # only reason a candidate ranked, it's still selectable as long as
+      # it's a registered action or skill candidate. Surfaces, memories,
+      # channels, jobs, and refusals require an explicit text-match reason
+      # to be picked; otherwise active-app context could silently route to
+      # an unintended surface or memory entry.
+      reason in [
         :action_text_match,
         :skill_text_match,
         :job_text_match,
         :channel_text_match,
         :memory_keyword_match,
         :refusal_keyword_match
-      ]
+      ] or
+        (reason == :app_affinity and field(candidate, :kind) in [:action, :skill])
     end)
   end
 

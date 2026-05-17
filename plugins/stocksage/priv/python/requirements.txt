@@ -1,0 +1,43 @@
+# StockSage bridge Python dependencies
+#
+# These are required only for the real TradingAgents path (non-stub).
+# Test and dev environments that run the bridge with `force_stub: true`
+# need NONE of these — bridge.py's stub path uses Python stdlib only.
+#
+# v0.22 M2 audit closeout: pinned to a specific upstream release rather
+# than a local checkout, so production installs are reproducible. Bump
+# the tag below when the operator decides to take a new upstream
+# release after validating it.
+#
+# Operator setup (v0.22 audit closeout):
+#
+#   1. Create a clean Python 3.12+ venv:
+#        python3 -m venv ~/.venvs/allbert-stocksage
+#        ~/.venvs/allbert-stocksage/bin/python -m pip install --upgrade pip
+#
+#   2. Install:
+#        ~/.venvs/allbert-stocksage/bin/pip install -r \
+#          plugins/stocksage/priv/python/requirements.txt
+#
+#      Or directly:
+#        ~/.venvs/allbert-stocksage/bin/pip install \
+#          "tradingagents @ git+https://github.com/TauricResearch/TradingAgents.git@v0.2.5"
+#
+#   3. Point Allbert at the venv's interpreter:
+#        mix allbert.settings set stocksage.python_path \
+#          $HOME/.venvs/allbert-stocksage/bin/python
+#
+#   4. Export LLM credentials in the environment that spawns the bridge:
+#        export OPENAI_API_KEY="sk-..."
+#        # (or ANTHROPIC_API_KEY, etc., depending on tradingagents config)
+#
+# The bridge subprocess inherits the operator's environment. Allbert
+# does NOT inject keys; secrets stay in the operator's shell/env file
+# and are redacted from Allbert logs/traces via the Settings Central
+# secret store.
+#
+# A real `propagate` call routinely takes 2-10 minutes (1-3 LLM rounds
+# in the multi-agent debate). The default `stocksage.bridge_timeout_ms`
+# is 600_000 (10 min) to tolerate the upper end.
+
+tradingagents @ git+https://github.com/TauricResearch/TradingAgents.git@v0.2.5
