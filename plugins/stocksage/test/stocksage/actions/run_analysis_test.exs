@@ -119,6 +119,20 @@ defmodule StockSage.Actions.RunAnalysisTest do
       assert is_binary(response.analysis_id)
       assert response.bridge_duration_ms >= 0
 
+      # v0.22 audit closeout (Gap 1 — stub-mode visibility): the top-level
+      # response carries `stub`, and the action's stocksage metadata
+      # carries it too so trace/CLI consumers don't need to dig into the
+      # persisted detail row to know the source.
+      assert response.stub == true,
+             "expected response.stub == true with force_stub:true; got #{inspect(response.stub)}"
+
+      [action_map] = response.actions
+      action_stocksage = Map.get(action_map, :stocksage) || %{}
+
+      assert Map.get(action_stocksage, :stub) == true,
+             "expected action.stocksage.stub == true; got " <>
+               inspect(action_stocksage, limit: :infinity)
+
       analyses = Analyses.list_analyses("alice", limit: 10)
       assert Enum.any?(analyses, &(&1.id == response.analysis_id))
       assert Enum.any?(analyses, &(&1.status == "completed" and &1.source == "python_bridge"))

@@ -78,16 +78,20 @@ defmodule Mix.Tasks.Stocksage.Analyze do
 
   defp print_result({:ok, %{status: :needs_confirmation} = response}) do
     confirmation = Map.get(response, :confirmation, %{})
+    params_summary = Map.get(confirmation, "params_summary", %{})
 
     Mix.shell().info("StockSage analysis confirmation required.")
     Mix.shell().info("Confirmation id: #{response.confirmation_id}")
-    Mix.shell().info("Ticker: #{Map.get(confirmation, "params_summary", %{})["ticker"]}")
+    Mix.shell().info("Ticker: #{params_summary["ticker"]}")
+    Mix.shell().info("Analysis date: #{params_summary["analysis_date"]}")
+    Mix.shell().info("Engine: #{params_summary["engine"]}")
 
-    Mix.shell().info(
-      "Analysis date: #{Map.get(confirmation, "params_summary", %{})["analysis_date"]}"
-    )
-
-    Mix.shell().info("Engine: #{Map.get(confirmation, "params_summary", %{})["engine"]}")
+    # v0.22 audit closeout (Gap 1 — stub-mode visibility): warn loudly
+    # before approval so operators don't accidentally approve a stub-mode
+    # request thinking they're getting a real TradingAgents run.
+    if params_summary["force_stub"] == true do
+      Mix.shell().info("Stub: true (force_stub set; approval will NOT call real TradingAgents)")
+    end
 
     Mix.shell().info("""
     Approve with:
@@ -108,6 +112,14 @@ defmodule Mix.Tasks.Stocksage.Analyze do
 
     if Map.has_key?(response, :truncated) do
       Mix.shell().info("Truncated: #{response.truncated}")
+    end
+
+    # v0.22 audit closeout (Gap 1 — stub-mode visibility): always print
+    # the stub flag on completed runs so operator inspection makes the
+    # source unmistakable. `true` = bridge ran in `force_stub: true` mode
+    # (no real TradingAgents call); `false` = real run.
+    if Map.has_key?(response, :stub) do
+      Mix.shell().info("Stub: #{response.stub}")
     end
 
     Mix.shell().info("Summary: #{response.summary}")

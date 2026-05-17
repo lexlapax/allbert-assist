@@ -348,6 +348,13 @@ defmodule StockSage.Actions.RunAnalysis do
       }
     }
 
+    # v0.22 audit closeout (Gap 1 — stub-mode visibility): surface the
+    # `stub` flag in the action's response, runner metadata, completed
+    # signal, and trace section so operators inspecting any of those
+    # surfaces immediately see whether a row came from a real
+    # TradingAgents propagate call or from the deterministic stub.
+    stub? = Map.get(result, "stub", false)
+
     case Analyses.create_analysis(analysis_attrs) do
       {:ok, analysis} ->
         write_detail(analysis, validated, result, truncated?)
@@ -362,7 +369,7 @@ defmodule StockSage.Actions.RunAnalysis do
           queue_entry_id: validated.queue_entry_id,
           bridge_duration_ms: duration_ms,
           truncated: truncated?,
-          stub: Map.get(result, "stub", false)
+          stub: stub?
         })
 
         {:ok,
@@ -377,6 +384,7 @@ defmodule StockSage.Actions.RunAnalysis do
            engine: validated.engine,
            summary: summary,
            truncated: truncated?,
+           stub: stub?,
            bridge_duration_ms: duration_ms,
            actions: [
              Actions.action(
@@ -391,6 +399,7 @@ defmodule StockSage.Actions.RunAnalysis do
                  engine: validated.engine,
                  bridge_duration_ms: duration_ms,
                  truncated: truncated?,
+                 stub: stub?,
                  queue_entry_id: validated.queue_entry_id,
                  summary: summary
                }
