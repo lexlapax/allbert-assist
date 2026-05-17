@@ -50,6 +50,7 @@ defmodule AllbertAssist.Intent.Ranker do
     |> apply_job_text_match(context)
     |> apply_channel_text_match(context)
     |> apply_memory_keyword_match(context)
+    |> apply_objective_text_match(context)
     |> apply_refusal_keyword_match(context)
   end
 
@@ -151,6 +152,21 @@ defmodule AllbertAssist.Intent.Ranker do
     end
   end
 
+  defp apply_objective_text_match(candidate, context) do
+    text = Map.get(context, :text)
+
+    if field(candidate, :kind) == :objective and objective_text_match?(candidate, text) do
+      boost(
+        candidate,
+        0.25,
+        :objective_text_match,
+        "Request text matched an active objective."
+      )
+    else
+      candidate
+    end
+  end
+
   defp apply_refusal_keyword_match(candidate, context) do
     text = Map.get(context, :text)
 
@@ -234,6 +250,21 @@ defmodule AllbertAssist.Intent.Ranker do
 
   defp memory_text_match?(_candidate, text), do: memory_request?(text)
 
+  defp objective_text_match?(candidate, text) when is_binary(text) do
+    objective_request?(text) or
+      Enum.any?(
+        [
+          field(candidate, :label),
+          field(candidate, :id),
+          get_in_trace(candidate, :title),
+          get_in_trace(candidate, :objective)
+        ],
+        &compound_text_match?(text, &1)
+      )
+  end
+
+  defp objective_text_match?(_candidate, _text), do: false
+
   defp navigation_request?(text) do
     normalized = String.downcase(text)
 
@@ -250,6 +281,10 @@ defmodule AllbertAssist.Intent.Ranker do
 
   defp memory_request?(text) do
     text_has_any?(text, ["remember", "memory", "recall", "what is my name", "i prefer"])
+  end
+
+  defp objective_request?(text) do
+    text_has_any?(text, ["objective", "objectives", "goal", "goals", "continue"])
   end
 
   defp refusal_text_match?(text) do

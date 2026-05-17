@@ -6,6 +6,7 @@ defmodule AllbertAssist.Intent.EngineTest do
   alias AllbertAssist.Intent.EvalFixtures
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Compiler
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
@@ -165,6 +166,27 @@ defmodule AllbertAssist.Intent.EngineTest do
       Engine.collect_candidates(EvalFixtures.request(text: "Read local file ./mix.exs"))
 
     assert Enum.any?(refusal_candidates, &match?(%{kind: :refusal}, &1))
+  end
+
+  test "collect_candidates/2 includes objective candidates only when requested" do
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Analyze AAPL",
+               objective: "Complete one StockSage analysis for AAPL.",
+               active_app: "stocksage"
+             })
+
+    request = EvalFixtures.request(text: "continue the AAPL objective", user_id: "alice")
+
+    refute Enum.any?(Engine.collect_candidates(request), &(&1.kind == :objective))
+
+    candidates = Engine.collect_candidates(request, objective: true)
+
+    assert %{kind: :objective, id: id, source: :objective, app_id: :stocksage} =
+             Enum.find(candidates, &(&1.kind == :objective))
+
+    assert id == objective.id
   end
 
   test "collects index-backed markdown memory candidates without bodies or secrets" do

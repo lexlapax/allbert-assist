@@ -24,6 +24,7 @@ defmodule StockSage.ActionsTest do
     Application.put_env(:allbert_assist, Settings, root: root)
     PluginRegistry.register_module(StockSage.Plugin)
     AppRegistry.register(StockSage.App)
+    AllbertAssist.Objectives.Proposer.register_app_proposer(:stocksage, StockSage.Proposer)
 
     on_exit(fn ->
       restore_env(Settings, original_settings_config)
@@ -311,6 +312,28 @@ defmodule StockSage.ActionsTest do
     assert response.active_app == :stocksage
     assert [%{name: "list_analyses", status: :completed}] = response.actions
     assert response.decision.selected_action == "list_analyses"
+  end
+
+  test "intent agent frames and proposes a StockSage objective without executing it" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "analyze AAPL",
+               user_id: "alice",
+               active_app: :stocksage
+             })
+
+    assert response.decision.selected_action == "run_analysis"
+    assert response.objective.title == "Analyze AAPL"
+    assert response.objective.step_count == 1
+    assert Enum.any?(response.actions, &match?(%{name: "frame_objective", status: :proposed}, &1))
+
+    [objective] = AllbertAssist.Objectives.list_objectives("alice", active_app: "stocksage")
+    assert objective.title == "Analyze AAPL"
+
+    assert [step] = AllbertAssist.Objectives.list_steps(objective.id)
+    assert step.status == "proposed"
+    assert step.candidate_action == "StockSage.Actions.RunAnalysis"
+    assert step.action_params |> Jason.decode!() |> Map.fetch!("ticker") == "AAPL"
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
