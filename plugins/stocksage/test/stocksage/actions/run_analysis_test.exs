@@ -1,11 +1,13 @@
 defmodule StockSage.Actions.RunAnalysisTest do
   use StockSage.DataCase, async: false
 
+  import ExUnit.CaptureIO
   import ExUnit.CaptureLog
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Settings
+  alias Mix.Tasks.Allbert.Confirmations, as: ConfirmationsTask
   alias StockSage.Analyses
   alias StockSage.Queue
   alias StockSage.TraderBridge
@@ -30,6 +32,8 @@ defmodule StockSage.Actions.RunAnalysisTest do
       _pid ->
         :ok
     end
+
+    on_exit(fn -> Mix.Task.reenable("allbert.confirmations") end)
 
     %{}
   end
@@ -426,6 +430,37 @@ defmodule StockSage.Actions.RunAnalysisTest do
 
       assert Map.get(stored_target, "stub") == true,
              "persisted operator_resolution.target_result should include `stub`; got: #{inspect(stored_target)}"
+    end
+
+    test "confirmation approve CLI prints bounded run_analysis target summary with stub flag" do
+      params = %{
+        ticker: "NVDA",
+        analysis_date: "2026-05-01",
+        user_id: "alice",
+        force_stub: true
+      }
+
+      {:ok, response} = Runner.run("run_analysis", params, %{})
+      assert response.status == :needs_confirmation
+
+      output =
+        capture_io(fn ->
+          assert :ok =
+                   ConfirmationsTask.run([
+                     "approve",
+                     response.confirmation_id,
+                     "--reason",
+                     "cli stub summary"
+                   ])
+        end)
+
+      assert output =~ "Target: run_analysis status=completed"
+      assert output =~ "stub=true"
+      assert output =~ "engine=tradingagents"
+      assert output =~ "truncated=false"
+      assert output =~ "Analysis id:"
+      assert output =~ "Ticker: NVDA"
+      assert output =~ "Summary:"
     end
   end
 

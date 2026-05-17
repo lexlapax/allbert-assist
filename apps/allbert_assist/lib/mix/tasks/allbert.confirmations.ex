@@ -330,7 +330,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
 
       target_action_name == "run_analysis" ->
         Mix.shell().info(
-          "Target: run_analysis status=#{target_status || "unknown"}#{maybe_kv(target_result, "stub", "stub")}#{maybe_kv(target_result, "engine", "engine")}#{maybe_kv(target_result, "bridge_duration_ms", "bridge_duration_ms")}#{maybe_kv(target_result, "truncated", "truncated")}"
+          "Target: run_analysis status=#{bounded_string(target_status || "unknown", 40)}#{maybe_kv(target_result, "stub", "stub")}#{maybe_kv(target_result, "engine", "engine")}#{maybe_kv(target_result, "bridge_duration_ms", "bridge_duration_ms")}#{maybe_kv(target_result, "truncated", "truncated")}"
         )
 
         maybe_target_field(target_result, "analysis_id", "Analysis id")
@@ -345,7 +345,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
         # above) can be added when their docs make a stub/decision/etc.
         # field operator-visible.
         Mix.shell().info(
-          "Target: #{target_action_name || "unknown"} status=#{target_status || "unknown"}"
+          "Target: #{bounded_string(target_action_name || "unknown", 80)} status=#{bounded_string(target_status || "unknown", 40)}"
         )
     end
   end
@@ -353,7 +353,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   defp maybe_kv(map, key, label) do
     case Map.get(map, key) do
       nil -> ""
-      value -> " #{label}=#{value}"
+      value -> " #{label}=#{bounded_string(value, 80)}"
     end
   end
 

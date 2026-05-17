@@ -12,9 +12,9 @@ changelog entries or release notes.
 
 ## v0.22 - StockSage Python Bridge
 
-Status: implemented through M6 closeout and post-implementation gap fixes on
-2026-05-15. Version metadata is `0.22.0`; the operator manual verification
-matrix remains the release gate. Release tag is pending operator acceptance.
+Status: released and tagged as `v0.22` on 2026-05-16 after M5 closeout,
+operator audit closeout, and post-implementation gap fixes. Version metadata
+is `0.22.0`.
 
 ### Added (v0.22)
 
@@ -66,7 +66,9 @@ matrix remains the release gate. Release tag is pending operator acceptance.
 - Raw bridge output is bounded by `stocksage.bridge_max_output_bytes` and
   never appears in traces, CLI list summaries, or signals. Only bounded
   summaries (≤500 chars in `stocksage_analyses.summary`, ≤200 chars in
-  trace `## StockSage Analysis`) are surfaced.
+  trace `## StockSage Analysis`) are surfaced. `show_analysis` returns only
+  the vetted detail payload fields (`engine`, `stub`, `truncated`) and never
+  exposes arbitrary imported `payload_json`.
 - Bridge crashes and timeouts do not propagate to Allbert core supervision;
   callers receive bounded `{:error, :bridge_crashed}` / `{:error, :timeout}`.
 - Setting `stocksage.bridge_enabled = false` short-circuits RunAnalysis before
@@ -81,13 +83,15 @@ matrix remains the release gate. Release tag is pending operator acceptance.
 - Focused suites passed for `StockSage.Bridge.ProtocolTest`,
   `StockSage.TraderBridgeTest` (tagged `:bridge`), `StockSage.SupervisorTest`,
   `StockSage.Actions.RunAnalysisTest` (including the
-  `approve_confirmation` end-to-end loop),
+  `approve_confirmation` end-to-end loop and bounded confirmation CLI target
+  summary),
   `Mix.Tasks.Stocksage.AnalyzeTest`, the StockSage `ActionsTest` intent
   routing additions, `StockSage.TraceTest`, and the
   `AllbertAssist.Security.PermissionGateTest` additions for
   `:stocksage_analyze`.
-- Closeout gates: `mix format --check-formatted`, `mix credo --strict`,
-  `mix compile --warnings-as-errors`.
+- Closeout gates: `mix format --check-formatted`,
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
 - Operator smoke confirmed (`mix stocksage.analyze AAPL 2026-05-01 --user
   local` → confirmation id → `mix allbert.confirmations approve <id>` →
   `stocksage_analyses` and `stocksage_analysis_details` rows persisted with
