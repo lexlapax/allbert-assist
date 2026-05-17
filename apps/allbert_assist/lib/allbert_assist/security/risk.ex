@@ -27,6 +27,7 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:objective_write), do: :low
   def tier(:stocksage_write), do: :low
   def tier(:stocksage_analyze), do: :high
+  def tier(:stocksage_evidence_fetch), do: :medium
   def tier(:skill_script_execute), do: :high
   def tier(:settings_secret_write), do: :high
   def tier(:external_network), do: :high
@@ -47,6 +48,9 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:stocksage_analyze, _tier, _context),
     do: ["StockSage Python bridge analysis execution with external market-data calls"]
+
+  defp reasons(:stocksage_evidence_fetch, _tier, _context),
+    do: ["StockSage bounded external evidence provider call"]
 
   defp reasons(:skill_script_execute, _tier, _context), do: ["trusted skill script execution"]
   defp reasons(:settings_secret_write, _tier, _context), do: ["encrypted credential write"]

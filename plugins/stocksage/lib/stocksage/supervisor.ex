@@ -3,9 +3,10 @@ defmodule StockSage.Supervisor do
   StockSage plugin supervisor.
 
   Owns long-running StockSage plugin children. v0.22 adds
-  `StockSage.TraderBridge` as the supervised Port wrapper for the Python
-  bridge. Children crash and restart inside this supervisor; they do not
-  propagate to Allbert core supervision.
+  `StockSage.TraderBridge` as the supervised Port wrapper for the explicit
+  Python comparison bridge. v0.25 adds `StockSage.Agents.Supervisor` for the
+  native specialist-agent graph. Children crash and restart inside this
+  supervisor; they do not propagate to Allbert core supervision.
   """
 
   use Supervisor
@@ -20,6 +21,7 @@ defmodule StockSage.Supervisor do
       AllbertAssist.Objectives.Proposer.register_app_proposer(:stocksage, StockSage.Proposer)
 
     children = [
+      {StockSage.Agents.Supervisor, []},
       {StockSage.TraderBridge, []}
     ]
 

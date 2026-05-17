@@ -18,7 +18,8 @@ defmodule AllbertAssist.Security.Policy do
     confirmation_decide: "permissions.confirmation_decide",
     objective_write: "permissions.objective_write",
     stocksage_write: "permissions.stocksage_write",
-    stocksage_analyze: "permissions.stocksage_analyze"
+    stocksage_analyze: "permissions.stocksage_analyze",
+    stocksage_evidence_fetch: "permissions.stocksage_evidence_fetch"
   }
 
   @default_decisions %{
@@ -36,6 +37,7 @@ defmodule AllbertAssist.Security.Policy do
     objective_write: :allowed,
     stocksage_write: :allowed,
     stocksage_analyze: :needs_confirmation,
+    stocksage_evidence_fetch: :allowed,
     settings_secret_write: :allowed,
     settings_secret_read: :denied
   }
@@ -57,6 +59,7 @@ defmodule AllbertAssist.Security.Policy do
           | :objective_write
           | :stocksage_write
           | :stocksage_analyze
+          | :stocksage_evidence_fetch
           | :settings_secret_write
           | :settings_secret_read
 
@@ -78,6 +81,7 @@ defmodule AllbertAssist.Security.Policy do
       :objective_write,
       :stocksage_write,
       :stocksage_analyze,
+      :stocksage_evidence_fetch,
       :settings_secret_write,
       :settings_secret_read
     ]
@@ -90,7 +94,18 @@ defmodule AllbertAssist.Security.Policy do
     floor = safety_floor(permission)
     effective = apply_safety_floor(configured.decision, floor)
     context_denial = context_denial(permission, context)
-    final_effective = if context_denial, do: :denied, else: effective
+
+    final_effective =
+      cond do
+        context_denial ->
+          :denied
+
+        approved_parent_analysis?(permission, context) and configured.decision != :denied ->
+          :allowed
+
+        true ->
+          effective
+      end
 
     %{
       permission: permission,
@@ -120,6 +135,7 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:online_skill_import), do: :needs_confirmation
   def safety_floor(:skill_script_execute), do: :needs_confirmation
   def safety_floor(:stocksage_analyze), do: :needs_confirmation
+  def safety_floor(:stocksage_evidence_fetch), do: :needs_confirmation
   def safety_floor(:settings_secret_read), do: :denied
   def safety_floor(permission) when permission in @known_permissions, do: :allowed
   def safety_floor(_permission), do: :denied
@@ -181,6 +197,14 @@ defmodule AllbertAssist.Security.Policy do
 
   defp context_denial(_permission, _context), do: nil
 
+  defp approved_parent_analysis?(:stocksage_evidence_fetch, %{parent: parent})
+       when is_map(parent) do
+    Map.get(parent, :permission) in [:stocksage_analyze, "stocksage_analyze"] and
+      Map.get(parent, :approved?) == true
+  end
+
+  defp approved_parent_analysis?(_permission, _context), do: false
+
   defp reason(:read_only, :allowed, _configured, _floor, _context),
     do: "Read-only inspection is allowed locally."
 
@@ -239,6 +263,16 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:stocksage_analyze, :denied, _configured, _floor, _context),
     do: "StockSage analysis execution is denied by current policy."
+
+  defp reason(:stocksage_evidence_fetch, :allowed, _configured, _floor, _context),
+    do: "StockSage evidence fetch is allowed inside an approved StockSage analysis run."
+
+  defp reason(:stocksage_evidence_fetch, :needs_confirmation, _configured, _floor, _context),
+    do:
+      "StockSage evidence fetch requires Resource Access confirmation outside an approved analysis run."
+
+  defp reason(:stocksage_evidence_fetch, :denied, _configured, _floor, _context),
+    do: "StockSage evidence fetch is denied by current policy."
 
   defp reason(:settings_secret_write, :allowed, _configured, _floor, _context),
     do: "Provider credentials may be configured through explicit credential flows."

@@ -53,6 +53,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.objective_write",
     "permissions.stocksage_write",
     "permissions.stocksage_analyze",
+    "permissions.stocksage_evidence_fetch",
     "execution.local.enabled",
     "execution.local.allowed_roots",
     "execution.local.allowed_commands",
@@ -745,6 +746,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["needs_confirmation", "denied"]
     },
+    "permissions.stocksage_evidence_fetch" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
     "execution.local.enabled" => %{
       type: :boolean,
       default: false,
@@ -1264,7 +1272,8 @@ defmodule AllbertAssist.Settings.Schema do
       "confirmation_decide" => "allowed",
       "objective_write" => "allowed",
       "stocksage_write" => "allowed",
-      "stocksage_analyze" => "needs_confirmation"
+      "stocksage_analyze" => "needs_confirmation",
+      "stocksage_evidence_fetch" => "allowed"
     },
     "plugins" => %{
       "enabled" => [],
@@ -1653,6 +1662,14 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_value(%{type: :boolean}, value, _key, _settings),
     do: {:error, {:expected_boolean, value}}
+
+  defp validate_value(%{type: :string_or_nil}, nil, _key, _settings), do: :ok
+
+  defp validate_value(%{type: :string_or_nil}, value, _key, _settings) when is_binary(value),
+    do: :ok
+
+  defp validate_value(%{type: :string_or_nil}, value, _key, _settings),
+    do: {:error, {:expected_string_or_nil, value}}
 
   defp validate_value(%{type: :string_list}, value, _key, _settings) when is_list(value) do
     if Enum.all?(value, &valid_string_list_item?/1) do

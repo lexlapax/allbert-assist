@@ -31,6 +31,33 @@ defmodule StockSage.SettingsSchemaTest do
     assert schema["stocksage.analysis_engine"].allowed_values == ["tradingagents"]
   end
 
+  test "v0.25 native agent settings register with defaults and validation bounds" do
+    schema = Schema.runtime_schema()
+
+    assert schema["stocksage.native_engine_enabled"].default == true
+    assert schema["stocksage.native_model_profile"].default == "fast"
+    assert schema["stocksage.native_model_profile_market_context"].default == nil
+    assert schema["stocksage.native_model_profile_risk_aggressive"].default == "slow"
+    assert schema["stocksage.native_model_profile_decision_synthesizer"].default == "slow"
+    assert schema["stocksage.native_max_debate_rounds"].min == 1
+    assert schema["stocksage.native_max_debate_rounds"].max == 5
+    assert schema["stocksage.native_max_risk_rounds"].min == 1
+    assert schema["stocksage.native_max_risk_rounds"].max == 3
+
+    assert schema["stocksage.native_evidence_mode"].allowed_values == [
+             "live",
+             "fixture",
+             "compare"
+           ]
+
+    assert schema["stocksage.native_parity_variance"].min == 0.0
+    assert schema["stocksage.native_parity_variance"].max == 1.0
+    assert schema["stocksage.python_comparison_enabled"].default == true
+
+    assert Schema.safe_write_key?("stocksage.native_model_profile_market_context")
+    assert Schema.safe_write_key?("stocksage.native_evidence_mode")
+  end
+
   test "permissions.stocksage_analyze registers with needs_confirmation default and floor" do
     schema = Schema.runtime_schema()
     entry = schema["permissions.stocksage_analyze"]
@@ -38,5 +65,14 @@ defmodule StockSage.SettingsSchemaTest do
     assert entry.default == "needs_confirmation"
     assert entry.allowed_values == ["needs_confirmation", "denied"]
     refute "allowed" in entry.allowed_values
+  end
+
+  test "permissions.stocksage_evidence_fetch registers for bounded evidence actions" do
+    schema = Schema.runtime_schema()
+    entry = schema["permissions.stocksage_evidence_fetch"]
+
+    assert entry.default == "allowed"
+    assert entry.allowed_values == ["allowed", "needs_confirmation", "denied"]
+    assert Schema.safe_write_key?("permissions.stocksage_evidence_fetch")
   end
 end
