@@ -41,14 +41,14 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
     signal_routes: [
       {@frame_objective, Commands.FrameObjective},
       {@propose_steps, Commands.ProposeSteps},
-      {@evaluate_steps, Commands.Noop},
+      {@evaluate_steps, Commands.EvaluateSteps},
       {@authorize_step, Commands.AuthorizeStep},
       {@execute_step, Commands.ExecuteStep},
       {@observe_step, Commands.ObserveStep},
-      {@advance_objective, Commands.Noop},
+      {@advance_objective, Commands.AdvanceObjective},
       {@cancel_objective, Commands.CancelObjective},
-      {@continue_objective, Commands.Noop},
-      {@prune_stale, Commands.Noop}
+      {@continue_objective, Commands.ContinueObjective},
+      {@prune_stale, Commands.PruneStale}
     ]
 
   @doc false
@@ -79,11 +79,14 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
     [
       Commands.FrameObjective,
       Commands.ProposeSteps,
+      Commands.EvaluateSteps,
       Commands.AuthorizeStep,
       Commands.ExecuteStep,
       Commands.ObserveStep,
+      Commands.AdvanceObjective,
       Commands.CancelObjective,
-      Commands.Noop
+      Commands.ContinueObjective,
+      Commands.PruneStale
     ]
   end
 
@@ -98,8 +101,18 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
   end
 
   @doc false
+  def evaluate_steps(server \\ __MODULE__, params) when is_map(params) do
+    dispatch(server, @evaluate_steps, Map.put(params, :command, :evaluate_steps))
+  end
+
+  @doc false
   def authorize_step(server \\ __MODULE__, params) when is_map(params) do
     dispatch(server, @authorize_step, Map.put(params, :command, :authorize_step))
+  end
+
+  @doc false
+  def advance_objective(server \\ __MODULE__, params) when is_map(params) do
+    dispatch(server, @advance_objective, Map.put(params, :command, :advance_objective))
   end
 
   @doc false
@@ -120,6 +133,11 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
   @doc false
   def observe_step(server \\ __MODULE__, params) when is_map(params) do
     dispatch(server, @observe_step, Map.put(params, :command, :observe_step))
+  end
+
+  @doc false
+  def prune_stale(server \\ __MODULE__, params \\ %{}) when is_map(params) do
+    dispatch(server, @prune_stale, Map.put(params, :command, :prune_stale))
   end
 
   @doc false

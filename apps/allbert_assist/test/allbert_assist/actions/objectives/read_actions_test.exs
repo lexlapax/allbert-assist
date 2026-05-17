@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Objectives
 
   test "list_objectives is user scoped and goes through action runner metadata" do
@@ -116,5 +117,77 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     assert cancelled_step.status == "cancelled"
 
     assert Enum.any?(Objectives.list_events(objective.id), &(&1.kind == "cancelled"))
+  end
+
+  test "continue_objective returns advisory statuses for pending and terminal objectives" do
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Blocked objective",
+               objective: "Wait for approval.",
+               status: "blocked"
+             })
+
+    assert {:ok, step} =
+             Objectives.create_step(%{
+               objective_id: objective.id,
+               kind: "action",
+               status: "blocked",
+               stage: "authorize_step",
+               candidate_action: "StockSage.Actions.RunAnalysis",
+               confirmation_id: "conf_continue_pending"
+             })
+
+    assert {:ok, _objective} = Objectives.update_objective(objective, %{current_step_id: step.id})
+
+    assert {:ok, _confirmation} =
+             Confirmations.create(%{
+               id: "conf_continue_pending",
+               origin: %{actor: "alice", channel: "test", surface: "objective-action-test"},
+               target_action: %{name: "run_analysis"},
+               target_permission: :stocksage_analyze,
+               target_execution_mode: :external_market_data,
+               security_decision: %{
+                 permission: :stocksage_analyze,
+                 decision: :needs_confirmation
+               },
+               params_summary: %{objective_id: objective.id, step_id: step.id}
+             })
+
+    assert {:ok, blocked} =
+             Runner.run("continue_objective", %{id: objective.id, user_id: "alice"}, %{
+               user_id: "alice",
+               operator_id: "alice",
+               actor: "alice"
+             })
+
+    assert blocked.status == :still_blocked
+    assert blocked.reason =~ "Confirmation conf_continue_pending is still pending"
+
+    assert {:ok, abandoned} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Abandoned objective",
+               objective: "Already abandoned.",
+               status: "abandoned"
+             })
+
+    assert {:ok, terminal} =
+             Runner.run("continue_objective", %{id: abandoned.id, user_id: "alice"}, %{
+               user_id: "alice",
+               operator_id: "alice",
+               actor: "alice"
+             })
+
+    assert terminal.status == :objective_abandoned
+
+    assert {:ok, missing} =
+             Runner.run("continue_objective", %{id: "obj_missing", user_id: "alice"}, %{
+               user_id: "alice",
+               operator_id: "alice",
+               actor: "alice"
+             })
+
+    assert missing.status == :not_found
   end
 end

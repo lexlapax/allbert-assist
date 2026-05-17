@@ -52,4 +52,39 @@ defmodule AllbertAssist.Objectives.EvaluatorTest do
                %{status: "completed", observation_summary: "Comparison complete for AAPL/MSFT"}
              ])
   end
+
+  test "verdict matrix covers needs-more, not-met, and unknown clauses" do
+    needs_more = %{
+      "min_completed_steps" => 2,
+      "required" => [],
+      "needs_more_when" => [%{"kind" => "completed_step_count_below", "value" => 2}]
+    }
+
+    assert :needs_more_steps =
+             Evaluator.evaluate(needs_more, [
+               %{status: "completed", candidate_action: "one"}
+             ])
+
+    not_met = %{
+      "min_completed_steps" => 1,
+      "required" => [%{"kind" => "step_completed_with_action", "action" => "missing"}],
+      "needs_more_when" => []
+    }
+
+    assert :not_met =
+             Evaluator.evaluate(not_met, [
+               %{status: "completed", candidate_action: "other"}
+             ])
+
+    unknown = %{
+      "min_completed_steps" => 1,
+      "required" => [%{"kind" => "future_clause"}],
+      "needs_more_when" => []
+    }
+
+    assert :not_met =
+             Evaluator.evaluate(unknown, [
+               %{status: "completed", candidate_action: "other"}
+             ])
+  end
 end

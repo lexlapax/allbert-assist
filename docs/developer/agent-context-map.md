@@ -151,11 +151,16 @@ per-step work; `Objectives.Event` records lifecycle history.
 `Objectives.Engine.Agent` is a JidoBacked agent implementing a
 seven-stage state machine: receive → interpret intent → frame/resume
 objective → propose and evaluate steps → authorize → execute → observe
-and advance. Private engine commands are `Jido.Action` modules routed
-through JidoBacked signal dispatch; they are not registered actions and
-must not appear as intent candidates. Do not define custom `cmd/3`
-functions on a JidoBacked agent; `use Jido.Agent` already provides that
-API.
+and advance. The seven-stage pipeline is implemented by 10 real private
+`AllbertAssist.Objectives.Commands.*` `Jido.Action` modules routed through
+JidoBacked signal dispatch; they are not registered actions and must not appear
+as intent candidates. Do not define custom `cmd/3` functions on a JidoBacked
+agent; `use Jido.Agent` already provides that API.
+
+Facade rule: use `AllbertAssist.Objectives.list/2`, `get/2`, `frame/2`,
+`advance/2`, `cancel/3`, `continue/2`, or registered objective actions for
+lifecycle transitions. The lower-level create/update/list helpers in the same
+module are internal store helpers. `frame/2` requires explicit user identity.
 
 Authority rule (ADR 0021): `objective_id` is not permission;
 `active_app` on an objective is not permission; advisory provider
@@ -165,6 +170,11 @@ effectful flows through `Actions.Runner.run/3` and Security Central.
 Objective-driven `RunAnalysis` or other app actions must still use the
 registered action runner path; the objective engine never calls
 confirmation storage directly.
+
+Delegate rule: `AllbertAssist.Objectives.AgentRegistry` is a monitored local
+registry. It evicts dead registered agent processes and dispatches through
+`Jido.AgentServer.call/3`; plugins should not keep their own hidden delegate
+agent lookup tables.
 
 Durability rule: JidoBacked state is a rebuildable projection. Hybrid
 proposer continuation state is stored in durable

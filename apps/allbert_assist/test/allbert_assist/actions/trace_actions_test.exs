@@ -288,6 +288,43 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
     refute trace =~ "token"
   end
 
+  test "renders objective context inline and objective step details" do
+    Application.put_env(:allbert_assist, Trace, enabled: true)
+
+    objective = %{
+      id: "obj_trace",
+      title: "Trace Objective",
+      status: "running",
+      step_count: 1,
+      steps: [
+        %{
+          id: "step_trace",
+          status: "blocked",
+          kind: "action",
+          candidate_action: "StockSage.Actions.RunAnalysis",
+          confirmation_id: "conf_trace"
+        }
+      ]
+    }
+
+    trace_turn =
+      "Trace objective context."
+      |> turn()
+      |> put_in([:response, :objective], objective)
+
+    assert {:ok, response} = RecordTrace.run(%{turn: trace_turn}, context())
+    trace = File.read!(response.trace_id)
+
+    assert trace =~ "## Response\n\nRuntime response: Trace objective context.\n\n### Objective"
+    assert trace =~ "## Actions\n\n```elixir"
+    assert trace =~ "## Confirmation Metadata"
+    assert trace =~ "- Objective: Trace Objective"
+    assert trace =~ "## Objective Steps"
+
+    assert trace =~
+             "- Step: step_trace status=blocked kind=action action=StockSage.Actions.RunAnalysis confirmation=conf_trace"
+  end
+
   defp turn(text) do
     {:ok, input_signal} =
       Signal.new(

@@ -1,9 +1,10 @@
 defmodule AllbertAssist.Objectives do
   @moduledoc """
-  Durable objective runtime context.
+  Durable objective runtime facade and store context.
 
-  v0.24 keeps SQLite authoritative. JidoBacked agent state is a rebuildable
-  projection over this context.
+  v0.24 keeps SQLite authoritative. Public lifecycle functions delegate to the
+  JidoBacked objective engine; lower-level create/update/list helpers are used
+  by that engine as rebuildable storage primitives.
   """
 
   import Ecto.Query
@@ -54,6 +55,69 @@ defmodule AllbertAssist.Objectives do
   @type objective_result :: {:ok, Objective.t()} | {:error, term()}
   @type step_result :: {:ok, Step.t()} | {:error, term()}
   @type event_result :: {:ok, Event.t()} | {:error, term()}
+
+  @doc "List objectives for a user through the public objective facade."
+  @spec list(String.t(), map() | keyword()) :: {:ok, [Objective.t()]}
+  def list(user_id, filters \\ %{}) when is_binary(user_id) do
+    {:ok, list_objectives(user_id, opts_from(filters))}
+  end
+
+  @doc "Fetch one objective for a user through the public objective facade."
+  @spec get(String.t(), String.t()) :: objective_result()
+  def get(user_id, objective_id) when is_binary(user_id) and is_binary(objective_id) do
+    get_objective(user_id, objective_id)
+  end
+
+  @doc "Frame a durable objective from an intent decision and request context."
+  @spec frame(map(), map()) :: {:ok, map()} | {:error, term()}
+  def frame(intent_decision, context \\ %{}) when is_map(intent_decision) and is_map(context) do
+    with {:ok, user_id} <- facade_user_id(intent_decision, context) do
+      AllbertAssist.Objectives.Engine.Agent.frame_objective(%{
+        user_id: user_id,
+        source_thread_id:
+          facade_field(intent_decision, :thread_id) || facade_field(context, :thread_id),
+        session_id:
+          facade_field(intent_decision, :session_id) || facade_field(context, :session_id),
+        active_app:
+          facade_field(intent_decision, :active_app) || facade_field(context, :active_app),
+        title: objective_title(intent_decision),
+        objective: objective_text(intent_decision),
+        acceptance_criteria: facade_field(intent_decision, :acceptance_criteria),
+        constraints: facade_field(intent_decision, :constraints),
+        source_intent:
+          facade_field(intent_decision, :text) || facade_field(intent_decision, :intent)
+      })
+    end
+  end
+
+  @doc "Advance the current step for an objective through the engine."
+  @spec advance(String.t(), map()) :: {:ok, map()} | {:error, term()}
+  def advance(objective_id, event \\ %{}) when is_binary(objective_id) and is_map(event) do
+    AllbertAssist.Objectives.Engine.Agent.advance_objective(%{
+      objective_id: objective_id,
+      trace_id: facade_field(event, :trace_id)
+    })
+  end
+
+  @doc "Cancel an objective through the engine."
+  @spec cancel(String.t(), String.t(), String.t()) :: {:ok, map()} | {:error, term()}
+  def cancel(user_id, objective_id, reason)
+      when is_binary(user_id) and is_binary(objective_id) and is_binary(reason) do
+    AllbertAssist.Objectives.Engine.Agent.cancel_objective(%{
+      id: objective_id,
+      user_id: user_id,
+      reason: reason
+    })
+  end
+
+  @doc "Continue an objective through the engine."
+  @spec continue(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
+  def continue(user_id, objective_id) when is_binary(user_id) and is_binary(objective_id) do
+    AllbertAssist.Objectives.Engine.Agent.continue_objective(%{
+      id: objective_id,
+      user_id: user_id
+    })
+  end
 
   @doc "Generate an opaque objective-system id."
   @spec new_id(String.t()) :: String.t()
@@ -277,6 +341,57 @@ defmodule AllbertAssist.Objectives do
   end
 
   defp normalize_limit(_limit, default, _max), do: default
+
+  defp opts_from(filters) when is_list(filters), do: filters
+
+  defp opts_from(filters) when is_map(filters) do
+    [:limit, :status, :statuses, :active_app, :source_thread_id]
+    |> Enum.flat_map(fn key ->
+      case facade_field(filters, key) do
+        nil -> []
+        value -> [{key, value}]
+      end
+    end)
+  end
+
+  defp objective_title(intent_decision) do
+    intent_decision
+    |> facade_field(:title)
+    |> case do
+      value when is_binary(value) and value != "" -> value
+      _other -> objective_text(intent_decision) |> String.slice(0, 120)
+    end
+  end
+
+  defp objective_text(intent_decision) do
+    (facade_field(intent_decision, :objective) ||
+       facade_field(intent_decision, :text) ||
+       facade_field(intent_decision, :intent) ||
+       "Objective")
+    |> to_string()
+  end
+
+  defp facade_field(map, key) when is_map(map) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
+
+  defp facade_user_id(intent_decision, context) do
+    user_id = facade_field(intent_decision, :user_id) || facade_field(context, :user_id)
+
+    case user_id do
+      value when is_binary(value) ->
+        value = String.trim(value)
+
+        if value == "" do
+          {:error, :missing_user_id}
+        else
+          {:ok, value}
+        end
+
+      _other ->
+        {:error, :missing_user_id}
+    end
+  end
 
   defp normalize_string(value) when is_atom(value), do: Atom.to_string(value)
   defp normalize_string(value), do: value

@@ -141,7 +141,9 @@ Use these as starting points, then narrow further from the active task:
   (`AllbertAssist.Objectives`). Apps, plugins, channels, and LiveViews
   must not implement private durable goal loops; the shared
   objectives/objective_steps/objective_events tables and
-  `Objectives.Engine` are the only sanctioned substrate.
+  `Objectives.Engine` are the only sanctioned substrate. Use the public
+  `AllbertAssist.Objectives` lifecycle facade or registered objective actions
+  for transitions; lower-level store helpers are internal runtime helpers.
 - `objective_id` and `step_id` are never authority. Advisory provider
   output (LLM proposers, world-model predictors, diffusion proposers,
   market allocators, probabilistic critics, agent-behavior simulators)
