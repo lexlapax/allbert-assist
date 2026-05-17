@@ -67,8 +67,8 @@ Do not load every section by default.
   memory intent candidates.
 - v0.22: StockSage Python bridge and `RunAnalysis` confirmation flow. Released
   and tagged after audit closeout and post-implementation gap fixes.
-- v0.23: planned Jido State-Machine Convergence for Confirmations.Store and
-  Jobs.Scheduler.
+- v0.23: Jido State-Machine Convergence for Confirmations.Store and
+  Jobs.Scheduler using `AllbertAssist.JidoBacked`.
 - v0.24: planned Objective Runtime Foundation.
 
 ## Area Notes
@@ -126,15 +126,17 @@ components. The pragmatic rule (from v0.23 and the vision): use `Jido.Agent`
 when state machines, documented lifecycle hooks (`on_before_cmd/2`,
 `on_after_cmd/3`), Skill composition, or successor agents are plausibly
 useful; use plain `GenServer` for stateful storage where Jido.Agent buys
-nothing. Before v0.23, only `IntentAgent` is a Jido agent. v0.23 converts
-`Confirmations.Store` and `Jobs.Scheduler`; v0.24 adds
-`Objectives.Engine`. `Confirmations.Store` remains Allbert Home file-backed,
-not SQLite-backed. `Jobs.Scheduler` remains SQLite-job-backed and keeps no
-authoritative in-memory job queue. `Settings`, `Trace`, `Memory` storage IO,
-`Session.Scratchpad`, `Memory.Compiler`, and `Memory.Promotion` stay plain
-GenServers/modules. New modules document their substrate choice in the module
-`@moduledoc`. Private Jido command modules inside these agents are not
-registered Allbert capability actions and must not appear in intent candidates.
+nothing. As of v0.23, `IntentAgent`,
+`Confirmations.Store.Agent`, and `Jobs.Scheduler.Agent` are Jido agents;
+v0.24 adds `Objectives.Engine.Agent`. `Confirmations.Store` remains Allbert
+Home file-backed, not SQLite-backed. `Jobs.Scheduler` remains
+SQLite-job-backed and keeps no authoritative in-memory job queue. `Settings`,
+`Trace`, `Memory` storage IO, `Session.Scratchpad`, `Memory.Compiler`, and
+`Memory.Promotion` stay plain GenServers/modules. New modules document their
+substrate choice in the module `@moduledoc`. Private Jido command modules
+inside these agents are not registered Allbert capability actions and must not
+appear in intent candidates. Worked conversion details live in
+`docs/developer/jido-agent-pattern.md`.
 
 ### Objectives And Advisory Providers (v0.24)
 
