@@ -7,6 +7,7 @@ defmodule AllbertAssist.Jobs.SchedulerAgentTest do
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Scheduler
   alias AllbertAssist.Jobs.Scheduler.Agent, as: SchedulerAgent
+  alias AllbertAssist.Jobs.Scheduler.Executor
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
@@ -46,6 +47,18 @@ defmodule AllbertAssist.Jobs.SchedulerAgentTest do
     assert {:ok,
             %{policy: "disabled", claimed: 0, completed: 0, needs_confirmation: 0, failed: 0}} =
              Scheduler.run_once(scheduler, ~U[2026-05-14 08:00:00Z])
+  end
+
+  test "scheduler default options preserve the v0.22 runtime posture" do
+    assert %{
+             interval_ms: 60_000,
+             initial_delay_ms: 1_000,
+             batch_size: 5,
+             stale_run_ms: 300_000,
+             enabled?: true,
+             poll_on_start?: true,
+             cleanup_on_start?: true
+           } = Executor.build_state([])
   end
 
   test "startup stale-run cleanup is preserved" do

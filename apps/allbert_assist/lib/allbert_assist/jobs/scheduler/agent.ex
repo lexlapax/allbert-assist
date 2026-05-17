@@ -50,10 +50,6 @@ defmodule AllbertAssist.Jobs.Scheduler.Agent do
     ]
   end
 
-  @doc false
-  @impl true
-  def emit_debug_trace?(_state), do: JidoBacked.debug_trace_enabled?()
-
   @doc "Start the scheduler agent."
   @spec start_link() :: GenServer.on_start()
   def start_link, do: start_link([])

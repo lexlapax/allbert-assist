@@ -13,22 +13,22 @@ defmodule AllbertAssist.JidoBacked do
   alias Jido.AgentServer
   alias Jido.Signal
 
-  @debug_agents [
-    {:"Elixir.AllbertAssist.Confirmations.Store.Agent",
-     :"Elixir.AllbertAssist.Confirmations.Store.Agent"},
-    {:"Elixir.AllbertAssist.Jobs.Scheduler.Agent", :"Elixir.AllbertAssist.Jobs.Scheduler"}
+  @default_debug_agents [
+    {AllbertAssist.Confirmations.Store.Agent, AllbertAssist.Confirmations.Store.Agent},
+    {AllbertAssist.Jobs.Scheduler.Agent, AllbertAssist.Jobs.Scheduler}
   ]
 
+  @type debug_agent :: {module(), GenServer.server()}
   @type dispatch_result :: {:ok, term()} | {:error, term()}
 
   @callback rebuild_state(keyword()) :: {:ok, map()} | {:error, term()}
   @callback command_modules() :: [module()]
-  @callback emit_debug_trace?(map()) :: boolean()
 
   defmacro __using__(opts) do
     name = Keyword.fetch!(opts, :name)
     description = Keyword.get(opts, :description, "Allbert JidoBacked coordinator.")
-    signal_routes = Keyword.fetch!(opts, :signal_routes)
+    schema = Keyword.get(opts, :schema, [])
+    signal_routes = Keyword.get(opts, :signal_routes, [])
 
     quote location: :keep do
       @behaviour AllbertAssist.JidoBacked
@@ -41,8 +41,8 @@ defmodule AllbertAssist.JidoBacked do
       use Jido.Agent,
         name: unquote(name),
         description: unquote(description),
-        schema: [],
-        signal_routes: unquote(Macro.escape(signal_routes))
+        schema: unquote(schema),
+        signal_routes: unquote(signal_routes)
 
       @doc "Start the Jido AgentServer for this coordinator."
       @spec start_link() :: GenServer.on_start()
@@ -130,11 +130,11 @@ defmodule AllbertAssist.JidoBacked do
   Default operator traces stay byte-identical because the section is emitted
   only when `allbert.jido.debug_trace` is explicitly enabled.
   """
-  @spec debug_trace_markdown() :: String.t()
-  def debug_trace_markdown do
+  @spec debug_trace_markdown([debug_agent()]) :: String.t()
+  def debug_trace_markdown(agents \\ debug_agents()) do
     if debug_trace_enabled?() do
       body =
-        @debug_agents
+        agents
         |> Enum.map(&debug_agent_line/1)
         |> Enum.join("\n")
 
@@ -144,16 +144,16 @@ defmodule AllbertAssist.JidoBacked do
     end
   end
 
-  @doc """
-  Gate for bounded debug trace emission.
-
-  Converted coordinators expose bounded state when the explicit setting is
-  enabled, without changing their public result shape.
-  """
-  @spec maybe_emit_debug_trace(map(), atom(), map()) :: :ok
-  def maybe_emit_debug_trace(state, _event, _context) when is_map(state) do
-    _enabled? = debug_trace_enabled?()
-    :ok
+  @doc "Return JidoBacked agents included in the generic trace debug section."
+  @spec debug_agents() :: [debug_agent()]
+  def debug_agents do
+    :allbert_assist
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:debug_agents, [])
+    |> case do
+      agents when is_list(agents) -> @default_debug_agents ++ agents
+      _other -> @default_debug_agents
+    end
   end
 
   defp unwrap_last_result(%{last_result: {:ok, result}}), do: {:ok, result}
@@ -191,6 +191,7 @@ defmodule AllbertAssist.JidoBacked do
       "last_result=#{last_result_status(state_value(state, :last_result))}",
       "pending_count=#{pending_count(state)}",
       "last_tick_at=#{state_value(state, :last_tick_at) || "none"}",
+      "last_summary=#{bounded_debug_value(state_value(state, :last_summary) || "none")}",
       "last_rebuilt_at=#{state_value(state, :last_rebuilt_at) || "none"}",
       "last_error=#{bounded_debug_value(state_value(state, :last_error) || "none")}"
     ]

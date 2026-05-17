@@ -6,8 +6,26 @@ defmodule AllbertAssist.JidoBackedTest do
   alias AllbertAssist.Confirmations.Store.Agent, as: StoreAgent
   alias AllbertAssist.JidoBacked
   alias AllbertAssist.Settings
+  alias Jido.AgentServer
+
+  defmodule SchemaOnlyAgent do
+    use AllbertAssist.JidoBacked,
+      name: "schema_only_agent",
+      description: "Schema-only test agent with no signal routes.",
+      schema: [
+        active_objectives: [type: :map, default: %{}],
+        current_stage: [type: :atom, default: :idle]
+      ]
+
+    @impl true
+    def rebuild_state(_opts), do: {:ok, %{active_objectives: %{}, current_stage: :rebuilt}}
+
+    @impl true
+    def command_modules, do: []
+  end
 
   setup do
+    original_jido_backed_config = Application.get_env(:allbert_assist, JidoBacked)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
@@ -16,6 +34,7 @@ defmodule AllbertAssist.JidoBackedTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
     on_exit(fn ->
+      restore_env(JidoBacked, original_jido_backed_config)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(root)
     end)
@@ -32,6 +51,26 @@ defmodule AllbertAssist.JidoBackedTest do
 
     assert resolved.value == true
     assert JidoBacked.debug_trace_enabled?()
+  end
+
+  test "macro supports schema-only agents for v0.24 objective engine shape" do
+    agent = SchemaOnlyAgent.new()
+
+    assert agent.state.active_objectives == %{}
+    assert agent.state.current_stage == :idle
+    assert SchemaOnlyAgent.signal_routes() == []
+
+    name = :"schema_only_agent_#{System.unique_integer([:positive])}"
+    start_supervised!({SchemaOnlyAgent, name: name})
+
+    assert {:ok, %{agent: %{state: %{current_stage: :rebuilt}}}} = AgentServer.state(name)
+  end
+
+  test "debug agent list can be extended without editing JidoBacked" do
+    name = :"schema_only_debug_agent_#{System.unique_integer([:positive])}"
+    Application.put_env(:allbert_assist, JidoBacked, debug_agents: [{SchemaOnlyAgent, name}])
+
+    assert {SchemaOnlyAgent, name} in JidoBacked.debug_agents()
   end
 
   test "private confirmation command modules are not registered capability actions" do

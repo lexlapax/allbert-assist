@@ -1123,10 +1123,10 @@ Expected direction:
 - Add exactly one new setting: `allbert.jido.debug_trace` (boolean,
   default `false`). When `true`, JidoBacked agents emit bounded
   debug metadata to trace markdown via a `## Jido Debug` subsection.
-- Byte-parity test mechanism: golden-file snapshots for trace
-  markdown, audit YAML, and CLI output (stored under
-  `apps/allbert_assist/test/fixtures/v0.23/`) plus hand-written
-  assertions for state transitions.
+- Compatibility test mechanism: focused regression/snapshot assertions for
+  trace markdown, audit YAML, CLI output, and state transitions, plus the
+  full release gate. v0.23 does not retain a large pre-v0.23 differential
+  fixture harness after M5.
 - Codify the pragmatic substrate rule in the vision, `AGENTS.md`, and
   `DEVELOPMENT.md`: use Jido.Agent when state machines, lifecycle hooks,
   or successor agents are plausibly useful; use plain GenServer for

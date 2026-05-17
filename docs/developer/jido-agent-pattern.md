@@ -85,7 +85,6 @@ Each JidoBacked agent implements:
 ```elixir
 @callback rebuild_state(keyword()) :: {:ok, map()} | {:error, term()}
 @callback command_modules() :: [module()]
-@callback emit_debug_trace?(map()) :: boolean()
 ```
 
 `rebuild_state/1` reconstructs the in-memory projection from the durable
@@ -98,12 +97,27 @@ source of truth:
 In-memory state is never authoritative. Restarting the process must not lose a
 pending confirmation, scheduled job, or run record.
 
+`use AllbertAssist.JidoBacked` accepts optional `schema:` and optional
+`signal_routes:` entries. A JidoBacked agent may be schema-only during early
+construction, which is the expected v0.24 shape for `Objectives.Engine.Agent`
+before its command routes are attached.
+
+The macro intentionally passes the caller's `schema:` and `signal_routes:`
+declarations through to `use Jido.Agent` instead of narrowing them to the
+v0.23 empty-schema shape. Future objective agents can therefore use richer
+state defaults, such as `%{}` maps, without receiving quoted AST data at
+runtime.
+
 ## Supervisor Placement
 
 `AllbertAssist.Application` starts `AllbertAssist.JidoBacked.Supervisor`
 after the core Jido runtime and app/plugin registries and before session,
 channel, and surface consumers. The JidoBacked supervisor owns converted core
 coordinators. It is not a plugin contribution point in v0.23.
+
+Later core milestones can append JidoBacked children with the supervisor's
+`:extra_children` option without replacing the v0.23 confirmation and
+scheduler agents. Use the full `:children` override only in focused tests.
 
 The scheduler is started only through `JidoBacked.Supervisor`; do not also
 start `AllbertAssist.Jobs.Scheduler` as a separate application child.
