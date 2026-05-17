@@ -16,6 +16,9 @@ defmodule StockSage.Supervisor do
 
   @impl true
   def init(_opts) do
+    :ok =
+      AllbertAssist.Objectives.Proposer.register_app_proposer(:stocksage, StockSage.Proposer)
+
     children = [
       {StockSage.TraderBridge, []}
     ]

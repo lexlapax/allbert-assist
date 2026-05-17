@@ -42,6 +42,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Memory.SearchMemory
   alias AllbertAssist.Actions.Memory.SummarizeMemoryCategory
   alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
+  alias AllbertAssist.Actions.Objectives.ListObjectives
+  alias AllbertAssist.Actions.Objectives.ShowObjective
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
   alias AllbertAssist.Actions.Plugins.ListPlugins
@@ -139,6 +141,8 @@ defmodule AllbertAssist.Actions.Registry do
     SummarizeMemoryCategory,
     ListMemoryCategorySummary,
     PromoteConversationTurn,
+    ListObjectives,
+    ShowObjective,
     RegistryHealth,
     TraceSummary
   ]
@@ -606,6 +610,20 @@ defmodule AllbertAssist.Actions.Registry do
       skill_backed?: false,
       confirmation: :required,
       resumable?: true
+    },
+    ListObjectives => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :objectives_read,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ShowObjective => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :objectives_read,
+      skill_backed?: false,
+      confirmation: :not_required
     },
     RegistryHealth => %{
       permission: :read_only,
