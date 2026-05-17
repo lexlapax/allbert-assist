@@ -119,6 +119,9 @@ State-Machine Convergence converts `Confirmations.Store` and
 `Jobs.Scheduler` to `Jido.Agent` because both are state-machine
 components with plausible successor-agent stories. v0.24 adds
 `AllbertAssist.Objectives.Engine` as the next Jido.Agent.
+The v0.23 conversions share `AllbertAssist.JidoBacked`, a small substrate
+that standardizes AgentServer child specs, private command routing, restart
+rehydration, and the optional `allbert.jido.debug_trace` diagnostic gate.
 
 The pragmatic rule for new state-bearing modules:
 
