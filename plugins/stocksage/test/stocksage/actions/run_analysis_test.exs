@@ -380,6 +380,53 @@ defmodule StockSage.Actions.RunAnalysisTest do
       analyses = Analyses.list_analyses("alice", limit: 10)
       assert Enum.any?(analyses, &(&1.symbol == "MSFT" and &1.status == "completed"))
     end
+
+    test "resumed target_result preserves the :stub flag so operator inspection is honest" do
+      # v0.22 third-validation closeout (MED/LOW): the resumed
+      # target_result must include :stub. Without this, operators
+      # reading the confirmation record after approval cannot tell
+      # whether the analysis ran the stub path or a real TradingAgents
+      # propagate call — even though the underlying RunAnalysis response
+      # carries the field. The fix added :stub to the Map.take list in
+      # approve_confirmation/resume_run_analysis; this test pins it.
+      params = %{
+        ticker: "NVDA",
+        analysis_date: "2026-05-01",
+        user_id: "alice",
+        force_stub: true
+      }
+
+      {:ok, response} = Runner.run("run_analysis", params, %{})
+      assert response.status == :needs_confirmation
+      confirmation_id = response.confirmation_id
+
+      assert {:ok, approval} =
+               Runner.run(
+                 "approve_confirmation",
+                 %{id: confirmation_id, reason: "stub-mode resume audit"},
+                 %{actor: "alice", channel: :test, surface: "action"}
+               )
+
+      assert approval.status == :completed
+
+      target_result =
+        approval.actions
+        |> List.first()
+        |> get_in([:confirmation_metadata, :target_result])
+
+      assert Map.get(target_result, :stub) == true,
+             "resumed target_result should include :stub; got: #{inspect(target_result)}"
+
+      # The serialized confirmation record carries the same field with a
+      # string key (because the resolution metadata round-trips through
+      # JSON). Both paths must surface stub so the CLI and any future
+      # LiveView consumer can rely on the contract.
+      stored = approval.confirmation
+      stored_target = get_in(stored, ["operator_resolution", "target_result"])
+
+      assert Map.get(stored_target, "stub") == true,
+             "persisted operator_resolution.target_result should include `stub`; got: #{inspect(stored_target)}"
+    end
   end
 
   defp safe_stop(pid) do

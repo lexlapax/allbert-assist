@@ -94,16 +94,22 @@ defmodule StockSage.TraderBridgeTest do
   end
 
   describe "large bridge response assembly" do
-    # v0.22 audit closeout (Gap 2 — large bridge response coverage): the
-    # bridge port is opened with {:line, 16_384}, so the Erlang VM splits
-    # any single line longer than 16 KB into one or more
-    # `{port, {:data, {:noeol, fragment}}}` deliveries followed by a
-    # trailing `{:eol, last}`. The existing tests only exercise stub-mode
-    # responses (well under 16 KB), so the buffer-assembly path in
-    # handle_info/2 was never exercised by tests. Real TradingAgents runs
-    # routinely cross this threshold. These tests synthesize the
-    # fragmented port deliveries directly to the GenServer so we don't
-    # need to wait on a real propagate() to produce a large response.
+    # v0.22 audit closeout (Gap 2 — large bridge response coverage). Scope
+    # note: these tests prove the *buffer assembly path* in handle_info/2,
+    # NOT real port/Python integration. They synthesize
+    # `{port, {:data, {:noeol, fragment}}}` and `{:eol, last}` messages
+    # directly to the GenServer via `send/2`, so the GenServer's framing
+    # and pending-caller routing is exercised end-to-end, but the actual
+    # Erlang Port + Python stdout pipe is not in the loop. The third
+    # validation pass explicitly accepted this as "buffer path proven,"
+    # not "real large bridge response proven." A separate operator-run
+    # real-bridge verification (see `docs/plans/v0.22-request-flow.md`
+    # "Real-Bridge Verification") covers the live integration side. The
+    # bridge port is opened with `{:line, 16_384}`, so any single line
+    # longer than 16 KB is split into one or more `:noeol` fragments
+    # followed by a trailing `:eol`. The existing stub tests stay under
+    # 16 KB, so without these synthetic tests the buffer-assembly path
+    # would have no automated coverage.
     setup do
       put_setting!("stocksage.bridge_enabled", true)
       name = unique_name()
