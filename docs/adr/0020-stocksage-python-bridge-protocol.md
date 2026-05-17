@@ -6,9 +6,10 @@ Accepted (v0.22 M1, 2026-05-15).
 
 ## Context
 
-StockSage needs real analysis results before native Jido trading agents are
-built in v0.25 (formerly v0.23 before the project-direction rethink inserted
-v0.23 Jido State-Machine Convergence and v0.24 Objective Runtime Foundation).
+StockSage needs real analysis results before native financial specialist
+agents are built in v0.25 (formerly v0.23 before the project-direction rethink
+inserted v0.23 Jido State-Machine Convergence and v0.24 Objective Runtime
+Foundation).
 The existing Python TradingAgents baseline can produce those results today. A
 supervised bridge around it gives Allbert a working engine during the
 v0.22–v0.25 window and lets v0.25 replace the bridge call without changing
@@ -49,8 +50,9 @@ rather than ErlPort. Reasons:
 - No additional dependency: plain `Port.open/2` with `:binary` and
   `{:line, max_bytes}` is standard OTP.
 - Python side requires only stdlib (`sys`, `json`); no ErlPort Python package.
-- Protocol is language-neutral: v0.25 (formerly v0.23) native agents can mock
-  the same protocol shape during transition testing without Python installed.
+- Protocol is language-neutral: v0.25 (formerly v0.23) native financial
+  agents can mock the same protocol shape during transition testing without
+  Python installed.
 - ErlPort's type-mapping layer adds complexity without benefit for a
   JSON-structured domain.
 
@@ -152,10 +154,26 @@ analysis through the Python bridge.
   `allowed` or `denied_explicit`; the floor is enforced by Security Central.
 - Risk tier: `high` (external subprocess, external API calls).
 
-When v0.25 (formerly v0.23) native agents replace bridge dispatch in
-`RunAnalysis`, they use the same `:stocksage_analyze` permission, the same
+When v0.25 (formerly v0.23) native financial agents add a native dispatch path
+in `RunAnalysis`, they use the same `:stocksage_analyze` permission, the same
 confirmation path, and the same result persistence contract. The permission
 class does not change.
+
+### v0.25 Native-Agent Handoff
+
+ADR 0022 supersedes the older shorthand "native Jido trading agents" with the
+more precise "native financial specialist agents." The bridge remains the
+baseline and explicit comparison/reference harness. It is not an automatic
+fallback. v0.25 does not clone the Python graph one-for-one; it uses reusable
+supervised Jido/Jido.AI agents that are called through the v0.24 objective
+delegate-agent substrate. `StockSage.Actions.RunAnalysis` remains the analysis
+action boundary for both engines.
+
+Native agents preserve the bridge's operator-visible result contract where it
+matters: the same analysis tables, the same `:stocksage_analyze` permission,
+the same confirmation workflow, and compatible final-state fields such as
+`final_trade_decision`, `investment_plan`, `market_report`,
+`sentiment_report`, `news_report`, and `fundamentals_report`.
 
 ### Market-Data API Calls: Flagged For v0.28
 
@@ -197,7 +215,9 @@ Only bounded summaries and structured metadata are surfaced.
 
 - `StockSage.Actions.RunAnalysis` uses `:stocksage_analyze` and the v0.07
   confirmation workflow. This becomes the stable contract across v0.22 (bridge)
-  and v0.25 (formerly v0.23) native agents; callers do not need to change.
+  and v0.25 (formerly v0.23) native financial specialist agents; callers do
+  not need to change for native execution. Python execution after v0.25 is
+  explicitly requested comparison/reference behavior, never automatic fallback.
   v0.24 Objective Runtime Foundation will thread optional
   `objective_id`/`step_id` parameters through the same action without
   changing the permission, confirmation, or persistence shape.
