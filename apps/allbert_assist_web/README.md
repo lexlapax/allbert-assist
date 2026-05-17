@@ -26,3 +26,9 @@ Security Central status through the registered `security_status` action.
 v0.06 action-backed skill behavior remains in the shared runtime/action
 boundary, so LiveView skill prompts use the same selected-skill, contract,
 Security Central, and trace metadata as the CLI.
+
+v0.23 is an internal Jido state-machine convergence release. It does not add a
+new web surface: `/agent`, `/settings`, and `/jobs` continue to call the same
+runtime, settings, security, confirmation, and jobs boundaries. Default trace
+output remains unchanged; `## Jido Debug` appears only when
+`allbert.jido.debug_trace` is explicitly enabled.
