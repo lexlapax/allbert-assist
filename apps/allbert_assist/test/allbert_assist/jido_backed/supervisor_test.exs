@@ -14,8 +14,13 @@ defmodule AllbertAssist.JidoBacked.SupervisorTest do
             [AllbertAssist.Jobs.Scheduler.Agent]} =
              List.keyfind(children, AllbertAssist.Jobs.Scheduler.Agent, 0)
 
+    assert {AllbertAssist.Objectives.Engine.Agent, engine_pid, :worker,
+            [AllbertAssist.Objectives.Engine.Agent]} =
+             List.keyfind(children, AllbertAssist.Objectives.Engine.Agent, 0)
+
     assert is_pid(store_pid)
     assert is_pid(scheduler_pid)
+    assert is_pid(engine_pid)
   end
 
   test "supervisor can append later JidoBacked children without replacing v0.23 agents" do

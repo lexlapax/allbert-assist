@@ -36,6 +36,7 @@ defmodule AllbertAssist.Jobs.Job do
     field :thread_mode, :string
     field :session_id, :string
     field :app_id, :string
+    field :objective_id, :string
     field :channel, :string, default: "job"
     field :next_due_at, :utc_datetime_usec
     field :last_run_at, :utc_datetime_usec
@@ -65,6 +66,7 @@ defmodule AllbertAssist.Jobs.Job do
       :thread_mode,
       :session_id,
       :app_id,
+      :objective_id,
       :channel,
       :next_due_at,
       :last_run_at,

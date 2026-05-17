@@ -104,6 +104,34 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("intent.max_candidates", 0, %{audit?: false})
   end
 
+  test "objective runtime settings resolve defaults and validate writes" do
+    assert {:ok, true} = Settings.get("objectives.enabled")
+    assert {:ok, 3} = Settings.get("objectives.max_steps_per_turn")
+    assert {:ok, 5} = Settings.get("objectives.max_loop_count")
+    assert {:ok, "operator"} = Settings.get("objectives.trace_detail")
+
+    assert {:ok, resolved} = Settings.put("objectives.enabled", false, %{audit?: false})
+    assert resolved.value == false
+
+    assert {:ok, resolved} = Settings.put("objectives.max_steps_per_turn", 8, %{audit?: false})
+    assert resolved.value == 8
+
+    assert {:ok, resolved} = Settings.put("objectives.max_loop_count", 12, %{audit?: false})
+    assert resolved.value == 12
+
+    assert {:ok, resolved} = Settings.put("objectives.trace_detail", "debug", %{audit?: false})
+    assert resolved.value == "debug"
+
+    assert {:error, {:invalid_setting, "objectives.max_steps_per_turn", _reason}} =
+             Settings.put("objectives.max_steps_per_turn", 0, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "objectives.max_loop_count", _reason}} =
+             Settings.put("objectives.max_loop_count", 33, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "objectives.trace_detail", _reason}} =
+             Settings.put("objectives.trace_detail", "verbose", %{audit?: false})
+  end
+
   test "memory review settings are writable and validate bounds" do
     assert {:ok, "manual"} = Settings.get("memory.review_cadence")
     assert {:ok, false} = Settings.get("memory.auto_promote_sensitive_entries")
