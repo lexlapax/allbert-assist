@@ -993,11 +993,11 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp objective_framing_candidate?(_decision), do: false
 
   defp objective_frame_params(decision, request) do
-    case stock_symbol_from_text(request.text) do
-      nil ->
+    case stock_symbols_from_text(request.text) do
+      [] ->
         {:error, :missing_objective_entity}
 
-      symbol ->
+      [symbol] ->
         {:ok,
          %{
            user_id: request.user_id,
@@ -1023,7 +1023,47 @@ defmodule AllbertAssist.Agents.IntentAgent do
              "summary" => "One completed StockSage RunAnalysis step for #{symbol}."
            }
          }}
+
+      [first, second | _rest] ->
+        {:ok,
+         %{
+           user_id: request.user_id,
+           source_thread_id: Map.get(request, :thread_id),
+           session_id: Map.get(request, :session_id),
+           active_app: decision.active_app,
+           title: "Compare #{first} and #{second}",
+           objective: "Complete StockSage analyses for #{first} and #{second}.",
+           source_intent: request.text,
+           acceptance_criteria: %{
+             "min_completed_steps" => 2,
+             "required" => [
+               %{
+                 "kind" => "step_completed_with_action",
+                 "action" => "StockSage.Actions.RunAnalysis",
+                 "params_match" => %{"ticker" => first},
+                 "min_count" => 1
+               },
+               %{
+                 "kind" => "step_completed_with_action",
+                 "action" => "StockSage.Actions.RunAnalysis",
+                 "params_match" => %{"ticker" => second},
+                 "min_count" => 1
+               }
+             ],
+             "needs_more_when" => [
+               %{"kind" => "completed_step_count_below", "value" => 2}
+             ],
+             "summary" => "Completed StockSage RunAnalysis steps for #{first} and #{second}."
+           }
+         }}
     end
+  end
+
+  defp stock_symbols_from_text(text) do
+    ~r/\b[A-Z]{1,5}\b/
+    |> Regex.scan(text)
+    |> Enum.map(&List.first/1)
+    |> Enum.uniq()
   end
 
   defp objective_response(objective, steps, proposed) do

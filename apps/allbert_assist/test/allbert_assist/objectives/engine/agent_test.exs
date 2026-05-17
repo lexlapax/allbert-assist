@@ -4,6 +4,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.JidoBacked
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Proposer
@@ -169,11 +170,76 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
              )
   end
 
+  test "delegate_agent step executes through registered delegate action and AgentRegistry" do
+    engine_name = start_test_engine()
+    delegate_name = :"objective_delegate_#{System.unique_integer([:positive])}"
+    start_supervised!({DelegateTestAgent, name: delegate_name})
+
+    assert {:ok, _entry} =
+             AgentRegistry.register("delegate-test", delegate_name, DelegateTestAgent, %{})
+
+    on_exit(fn -> AgentRegistry.unregister("delegate-test") end)
+
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Delegate",
+               objective: "Delegate one step."
+             })
+
+    assert {:ok, step} =
+             Objectives.create_step(%{
+               objective_id: objective.id,
+               kind: "delegate_agent",
+               status: "selected",
+               stage: "execute_step",
+               delegate_agent_id: "delegate-test",
+               action_params: %{payload: "hello"}
+             })
+
+    assert {:ok, %{step: completed}} =
+             EngineAgent.execute_step(engine_name, %{step_id: step.id, trace_id: "trace_delegate"})
+
+    assert completed.status == "completed"
+    assert completed.result_summary =~ "Delegated objective step"
+  end
+
   defp start_test_engine do
     name = :"objectives_engine_#{System.unique_integer([:positive])}"
     start_supervised!({EngineAgent, name: name, id: Atom.to_string(name), child_id: name})
     name
   end
+end
+
+defmodule DelegateTestCommand do
+  use Jido.Action,
+    name: "delegate_test_command",
+    description: "Test-only delegate command."
+
+  @impl true
+  def run(params, _context) do
+    {:ok,
+     %{
+       delegate_payload: params,
+       last_result: {:ok, %{status: :completed}},
+       last_summary: "delegate completed"
+     }}
+  end
+end
+
+defmodule DelegateTestAgent do
+  use AllbertAssist.JidoBacked,
+    name: "delegate_test_agent",
+    description: "Test-only objective delegate agent.",
+    signal_routes: [
+      {"allbert.objectives.delegate.execute", DelegateTestCommand}
+    ]
+
+  @impl true
+  def rebuild_state(_opts), do: {:ok, %{last_result: {:ok, %{status: :idle}}}}
+
+  @impl true
+  def command_modules, do: [DelegateTestCommand]
 end
 
 defmodule HybridProposer do

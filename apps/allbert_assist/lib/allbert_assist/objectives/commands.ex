@@ -87,6 +87,7 @@ defmodule AllbertAssist.Objectives.Commands do
     |> update_nested(:active_objectives, objective.id, Objectives.objective_summary(objective))
     |> update_nested(:current_stage, objective.id, stage)
     |> update_nested(:loop_counts, objective.id, objective.loop_count || 0)
+    |> maybe_put_proposer_hint(objective)
   end
 
   defp maybe_merge_projection(state, _value), do: state
@@ -167,6 +168,7 @@ defmodule AllbertAssist.Objectives.Commands.ProposeSteps do
   alias AllbertAssist.Objectives.Commands
   alias AllbertAssist.Objectives.Proposer
   alias AllbertAssist.Repo
+  alias AllbertAssist.Settings
 
   @impl true
   def run(params, context) do
@@ -197,6 +199,17 @@ defmodule AllbertAssist.Objectives.Commands.ProposeSteps do
   end
 
   defp persist_proposal(objective, {:ok, step_attrs, continuation}) do
+    if length(step_attrs) > max_steps_per_turn() do
+      record_cap_impasse(objective, :max_steps_per_turn, %{
+        proposed_steps: length(step_attrs),
+        max_steps_per_turn: max_steps_per_turn()
+      })
+    else
+      do_persist_proposal(objective, {:ok, step_attrs, continuation})
+    end
+  end
+
+  defp do_persist_proposal(objective, {:ok, step_attrs, continuation}) do
     Repo.transaction(fn ->
       steps =
         Enum.map(step_attrs, fn attrs ->
@@ -237,6 +250,43 @@ defmodule AllbertAssist.Objectives.Commands.ProposeSteps do
         end
 
       %{objective: objective, steps: steps, continuation: continuation_summary(continuation)}
+    end)
+  end
+
+  defp record_cap_impasse(objective, cap_hit, payload) do
+    Repo.transaction(fn ->
+      blocked =
+        objective
+        |> Objectives.update_objective(%{
+          status: "blocked",
+          progress_summary: "#{cap_hit} objective cap reached."
+        })
+        |> case do
+          {:ok, objective} -> objective
+          {:error, reason} -> Repo.rollback(reason)
+        end
+
+      {:ok, event} =
+        Objectives.create_event(%{
+          objective_id: blocked.id,
+          kind: "impasse",
+          summary: "#{cap_hit} reached.",
+          payload: Map.put(payload, :cap_hit, cap_hit)
+        })
+
+      Commands.emit_objective(:impasse, blocked, %{
+        stage: :propose_steps,
+        cap_hit: cap_hit,
+        trace_id: nil
+      })
+
+      Commands.emit_objective(:blocked, blocked, %{
+        stage: :propose_steps,
+        reason: Atom.to_string(cap_hit),
+        trace_id: nil
+      })
+
+      %{objective: blocked, steps: [], event: event, impasse: cap_hit, stage: "propose_steps"}
     end)
   end
 
@@ -323,6 +373,15 @@ defmodule AllbertAssist.Objectives.Commands.ProposeSteps do
 
   defp continuation_summary({:more, {app_id, state}}),
     do: %{status: :more, app_id: app_id, state: state}
+
+  defp max_steps_per_turn do
+    case Settings.get("objectives.max_steps_per_turn") do
+      {:ok, value} when is_integer(value) and value > 0 -> value
+      _other -> 3
+    end
+  rescue
+    _exception -> 3
+  end
 end
 
 defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
@@ -682,6 +741,42 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
     end
   end
 
+  defp execute(%Objective{} = objective, %Step{kind: "delegate_agent"} = step, params, context) do
+    runner_context =
+      Map.merge(context, %{
+        user_id: objective.user_id,
+        operator_id: objective.user_id,
+        thread_id: objective.source_thread_id,
+        session_id: objective.session_id,
+        objective_id: objective.id,
+        step_id: step.id,
+        trace_id: trace_id(params, context)
+      })
+
+    case Runner.run(
+           "delegate_agent",
+           %{
+             user_id: objective.user_id,
+             objective_id: objective.id,
+             step_id: step.id,
+             delegate_agent_id: step.delegate_agent_id,
+             command: "execute",
+             params: action_params_or_empty(step)
+           },
+           runner_context
+         ) do
+      {:ok, response} ->
+        complete_from_result(
+          objective,
+          step,
+          Map.get(response, :status),
+          response,
+          params,
+          context
+        )
+    end
+  end
+
   defp execute(%Objective{} = objective, %Step{confirmation_id: id} = step, params, context)
        when is_binary(id) and id != "" do
     with {:ok, record} <- Confirmations.read(id),
@@ -850,6 +945,13 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
 
   defp action_params(_step), do: {:error, :invalid_step_action_params}
 
+  defp action_params_or_empty(step) do
+    case action_params(step) do
+      {:ok, params} -> params
+      {:error, _reason} -> %{}
+    end
+  end
+
   defp get_step(id) do
     case Repo.get(Step, id) do
       %Step{} = step -> {:ok, step}
@@ -897,6 +999,7 @@ defmodule AllbertAssist.Objectives.Commands.ObserveStep do
   alias AllbertAssist.Objectives.Evaluator
   alias AllbertAssist.Objectives.{Objective, Step}
   alias AllbertAssist.Repo
+  alias AllbertAssist.Settings
 
   @impl true
   def run(params, context) do
@@ -926,8 +1029,14 @@ defmodule AllbertAssist.Objectives.Commands.ObserveStep do
       preliminary_steps = replace_step(Objectives.list_steps(objective.id), observed_step)
       verdict = Evaluator.evaluate(objective, preliminary_steps)
       completed? = verdict == :met
+      cap_hit? = verdict == :needs_more_steps and loop_count >= max_loop_count()
 
-      objective_status = if completed?, do: "completed", else: "running"
+      objective_status =
+        cond do
+          completed? -> "completed"
+          cap_hit? -> "blocked"
+          true -> "running"
+        end
 
       updated_objective =
         objective
@@ -937,7 +1046,8 @@ defmodule AllbertAssist.Objectives.Commands.ObserveStep do
           loop_count: loop_count,
           last_observation_summary: summary,
           progress_summary: summary,
-          completed_at: completed_at(completed?)
+          completed_at: completed_at(completed?),
+          proposer_hint: updated_proposer_hint(objective.proposer_hint, observed_step, verdict)
         })
         |> unwrap_or_rollback()
 
@@ -974,6 +1084,36 @@ defmodule AllbertAssist.Objectives.Commands.ObserveStep do
           step_id: observed_step.id,
           completed_at: updated_objective.completed_at,
           progress_summary: summary,
+          trace_id: trace_id(params, context)
+        })
+      end
+
+      if cap_hit? do
+        _impasse =
+          Objectives.create_event(%{
+            objective_id: updated_objective.id,
+            kind: "impasse",
+            summary: "max_loop_count reached.",
+            payload: %{
+              cap_hit: :max_loop_count,
+              would_have_continued_verdict: verdict,
+              loop_count: loop_count
+            }
+          })
+          |> unwrap_or_rollback()
+
+        Commands.emit_objective(:impasse, updated_objective, %{
+          stage: :observe_step,
+          step_id: observed_step.id,
+          cap_hit: :max_loop_count,
+          would_have_continued_verdict: verdict,
+          trace_id: trace_id(params, context)
+        })
+
+        Commands.emit_objective(:blocked, updated_objective, %{
+          stage: :observe_step,
+          step_id: observed_step.id,
+          reason: "max_loop_count",
           trace_id: trace_id(params, context)
         })
       end
@@ -1031,6 +1171,50 @@ defmodule AllbertAssist.Objectives.Commands.ObserveStep do
   defp trace_id(params, context) do
     Map.get(params, :trace_id) || Map.get(params, "trace_id") || Map.get(context, :trace_id) ||
       Map.get(context, "trace_id")
+  end
+
+  defp updated_proposer_hint(nil, _step, _verdict), do: nil
+  defp updated_proposer_hint(hint, _step, :met), do: hint
+  defp updated_proposer_hint(hint, _step, :not_met), do: hint
+
+  defp updated_proposer_hint(hint, step, :needs_more_steps) when is_binary(hint) do
+    case Jason.decode(hint) do
+      {:ok, %{} = decoded} -> updated_proposer_hint(decoded, step, :needs_more_steps)
+      _other -> hint
+    end
+  end
+
+  defp updated_proposer_hint(%{"state" => %{} = state} = hint, step, :needs_more_steps) do
+    completed =
+      state
+      |> Map.get("completed_steps", [])
+      |> List.wrap()
+      |> Kernel.++([step.id])
+      |> Enum.uniq()
+
+    put_in(hint, ["state", "completed_steps"], completed)
+  end
+
+  defp updated_proposer_hint(%{state: %{} = state} = hint, step, :needs_more_steps) do
+    completed =
+      state
+      |> Map.get(:completed_steps, [])
+      |> List.wrap()
+      |> Kernel.++([step.id])
+      |> Enum.uniq()
+
+    put_in(hint, [:state, :completed_steps], completed)
+  end
+
+  defp updated_proposer_hint(hint, _step, _verdict), do: hint
+
+  defp max_loop_count do
+    case Settings.get("objectives.max_loop_count") do
+      {:ok, value} when is_integer(value) and value > 0 -> value
+      _other -> 5
+    end
+  rescue
+    _exception -> 5
   end
 end
 
