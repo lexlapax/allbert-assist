@@ -135,6 +135,12 @@ IO, Session.Scratchpad, Memory.Compiler, and Memory.Promotion are plain
 GenServers. New state-bearing modules document their substrate choice in
 the module `@moduledoc` so reviewers can see the reasoning.
 
+Internal `Jido.Action` modules used as commands inside a Jido-backed state
+machine are private implementation details. They are not registered Allbert
+capability actions, not intent candidates, and not permission grants. The
+capability boundary remains `AllbertAssist.Actions.Runner.run/3` plus
+Security Central and confirmations.
+
 ## Subsystem Vision
 
 ### Kernel
