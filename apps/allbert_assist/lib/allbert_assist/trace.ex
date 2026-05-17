@@ -536,6 +536,10 @@ defmodule AllbertAssist.Trace do
       action ->
         metadata = stocksage_action_metadata(action)
 
+        # v0.22 audit closeout (Gap 1 — stub-mode visibility): always render
+        # `Stub:` line so operator trace inspection makes the data source
+        # obvious. `true` means the bridge ran in `force_stub: true` mode
+        # (no real TradingAgents propagate call); `false` means a real run.
         [
           "- Action: run_analysis",
           "- Status: #{Map.get(action, :status)}",
@@ -545,10 +549,20 @@ defmodule AllbertAssist.Trace do
           "- Analysis id: #{stocksage_field(metadata, :analysis_id) || stocksage_field(metadata, :confirmation_id)}",
           "- Bridge duration ms: #{stocksage_field(metadata, :bridge_duration_ms)}",
           "- Truncated: #{stocksage_field(metadata, :truncated)}",
+          "- Stub: #{stocksage_stub_field(metadata)}",
           "- Queue entry id: #{stocksage_field(metadata, :queue_entry_id)}",
           "- Summary: #{bounded_summary(stocksage_field(metadata, :summary))}"
         ]
         |> Enum.join("\n")
+    end
+  end
+
+  defp stocksage_stub_field(metadata) do
+    case stocksage_field(metadata, :stub) do
+      nil -> "false"
+      true -> "true"
+      false -> "false"
+      other -> inspect(other)
     end
   end
 
