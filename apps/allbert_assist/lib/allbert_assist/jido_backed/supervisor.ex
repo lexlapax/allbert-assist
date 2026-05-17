@@ -2,9 +2,8 @@ defmodule AllbertAssist.JidoBacked.Supervisor do
   @moduledoc """
   Supervisor for core JidoBacked coordinators.
 
-  v0.23 starts the confirmation store agent here first. The scheduler agent is
-  added in the scheduler conversion milestone so there is never a double-started
-  scheduler process.
+  v0.23 starts the confirmation store and scheduled-job scheduler agents here
+  so converted coordinators have one shared supervision point.
   """
 
   use Supervisor
@@ -31,6 +30,14 @@ defmodule AllbertAssist.JidoBacked.Supervisor do
       |> Keyword.get(:confirmations, [])
       |> Keyword.put_new(:name, AllbertAssist.Confirmations.Store.Agent)
 
-    [{AllbertAssist.Confirmations.Store.Agent, confirmations_opts}]
+    scheduler_opts =
+      opts
+      |> Keyword.get(:scheduler, [])
+      |> Keyword.put_new(:name, AllbertAssist.Jobs.Scheduler)
+
+    [
+      {AllbertAssist.Confirmations.Store.Agent, confirmations_opts},
+      {AllbertAssist.Jobs.Scheduler.Agent, scheduler_opts}
+    ]
   end
 end

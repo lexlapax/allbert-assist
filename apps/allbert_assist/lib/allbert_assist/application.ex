@@ -21,7 +21,6 @@ defmodule AllbertAssist.Application do
       |> maybe_add_app_supervisor()
       |> maybe_add_jido_backed_supervisor()
       |> maybe_add_session_scratchpad()
-      |> maybe_add_scheduler()
       |> maybe_add_channels_supervisor()
 
     Supervisor.start_link(children, strategy: :one_for_one, name: AllbertAssist.Supervisor)
@@ -49,17 +48,12 @@ defmodule AllbertAssist.Application do
 
   defp maybe_add_jido_backed_supervisor(children) do
     opts = Application.get_env(:allbert_assist, AllbertAssist.JidoBacked.Supervisor, [])
-    children ++ [{AllbertAssist.JidoBacked.Supervisor, opts}]
-  end
+    scheduler_opts = Application.get_env(:allbert_assist, AllbertAssist.Jobs.Scheduler, [])
 
-  defp maybe_add_scheduler(children) do
-    opts = Application.get_env(:allbert_assist, AllbertAssist.Jobs.Scheduler, [])
-
-    if Keyword.get(opts, :enabled?, true) do
-      children ++ [{AllbertAssist.Jobs.Scheduler, opts}]
-    else
-      children
-    end
+    children ++
+      [
+        {AllbertAssist.JidoBacked.Supervisor, opts |> Keyword.put_new(:scheduler, scheduler_opts)}
+      ]
   end
 
   defp maybe_add_channels_supervisor(children) do
