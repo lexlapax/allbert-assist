@@ -37,7 +37,7 @@ the gap:
 3. **v0.20 StockSage queue.** `stocksage_analysis_queue` is already a
    domain-specific objective table with status, queued_at, started_at,
    completed_at, user_id, and thread_id. Without a shared primitive,
-   v0.24/v0.25 native trading agents will either duplicate this
+   v0.24/v0.25 native financial specialist agents will either duplicate this
    pattern or invent something incompatible.
 4. **v0.22 `RunAnalysis` confirmation flow.** A multi-step request
    like "analyze AAPL and compare to MSFT" cannot be represented as
@@ -317,7 +317,7 @@ and is not the v0.24 shape.
 `cancel_objective` transitions objective status to `:cancelled` and
 blocks new step creation. Any in-flight registered action completes
 normally (actions are single-shot). Mid-action interruption is
-deferred until v0.25+ has a clearer story for native trading
+deferred until v0.25+ has a clearer story for native financial specialist
 agents and bridge processes.
 
 ### 8. Coexisting signals
@@ -664,6 +664,15 @@ action/security/final failures `1`. Success, including advisory no-op
 `continue` statuses, exits `0`. Tests inject the halt function so these codes
 are verified without terminating ExUnit.
 
+### A18. v0.25 delegate agents are reusable specialists, not a private graph
+
+ADR 0022 records the first real consumer of the v0.24 delegate-agent substrate:
+StockSage native financial specialist agents. They register in
+`AllbertAssist.Objectives.AgentRegistry`, return advisory report packets, and
+are callable through objective steps by Allbert runtime paths that have the
+right action/permission story. They do not own durable objective state, bypass
+registered actions, or create a StockSage-private agent graph.
+
 ## Consequences
 
 ### What changes
@@ -834,7 +843,7 @@ question stays unanswered.
 
 ### Alternative D: Defer entirely
 
-Reject. By the time pain shows up in v0.25+ native agents and
+Reject. By the time pain shows up in v0.25+ native financial agents and
 workspace shell, those subsystems will have shaped private
 continuation patterns. Later extraction is more expensive than
 inserting the layer now while StockSage is the only proving app.
@@ -902,6 +911,7 @@ advisory; the deterministic acceptance check (against
 - ADR 0015 — Allbert app contract and Surface DSL.
 - ADR 0019 — Cross-surface intent enrichment.
 - ADR 0020 — StockSage Python bridge protocol.
+- ADR 0022 — Native financial specialist agents.
 
 External references (full list in the research note):
 
