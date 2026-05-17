@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.SettingsLive do
 
   alias AllbertAssist.{Actions.Runner, Confirmations}
   alias AllbertAssist.Confirmations.ExternalRequestMetadata
+  alias AllbertAssist.Confirmations.ObjectiveContext
   alias AllbertAssist.Confirmations.OnlineSkillMetadata
   alias AllbertAssist.Confirmations.PackageInstallMetadata
   alias AllbertAssist.Confirmations.ResourceMetadata
@@ -794,7 +795,8 @@ defmodule AllbertAssistWeb.SettingsLive do
   end
 
   defp confirmation_detail_lines(confirmation) do
-    ExternalRequestMetadata.lines(confirmation) ++
+    ObjectiveContext.lines(confirmation) ++
+      ExternalRequestMetadata.lines(confirmation) ++
       ShellCommandMetadata.lines(confirmation) ++
       PackageInstallMetadata.lines(confirmation) ++
       OnlineSkillMetadata.lines(confirmation) ++

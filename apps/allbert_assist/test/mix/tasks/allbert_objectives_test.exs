@@ -48,6 +48,42 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
     assert show_output =~ "StockSage.Actions.RunAnalysis"
   end
 
+  test "cancel requires reason and cancels through registered action" do
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Cancel AAPL",
+               objective: "Stop the analysis.",
+               status: "running"
+             })
+
+    assert_raise Mix.Error, ~r/Usage error \(64\): cancel requires --reason/, fn ->
+      capture_io(fn ->
+        ObjectivesTask.run(["cancel", objective.id, "--user", "alice"])
+      end)
+    end
+
+    Mix.Task.reenable("allbert.objectives")
+
+    output =
+      capture_io(fn ->
+        assert :ok =
+                 ObjectivesTask.run([
+                   "cancel",
+                   objective.id,
+                   "--user",
+                   "alice",
+                   "--reason",
+                   "not needed"
+                 ])
+      end)
+
+    assert output =~ "Objective #{objective.id} cancelled: not needed"
+
+    assert {:ok, cancelled} = Objectives.get_objective(objective.id)
+    assert cancelled.status == "cancelled"
+  end
+
   test "operator alias must match user" do
     assert_raise Mix.Error, ~r/--user and --operator must match/, fn ->
       capture_io(fn ->

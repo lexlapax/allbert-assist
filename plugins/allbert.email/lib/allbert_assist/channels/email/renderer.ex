@@ -2,6 +2,7 @@ defmodule AllbertAssist.Channels.Email.Renderer do
   @moduledoc false
 
   alias AllbertAssist.Intent.ApprovalHandoff
+  alias AllbertAssist.Confirmations.ObjectiveContext
 
   def render_response(runtime_response, opts \\ []) do
     subject = reply_subject(Keyword.get(opts, :subject, "Allbert"))
@@ -25,6 +26,8 @@ defmodule AllbertAssist.Channels.Email.Renderer do
     body =
       [
         "Allbert needs your approval:",
+        "",
+        ObjectiveContext.lines(handoff_data),
         "",
         ApprovalHandoff.lines(handoff_data),
         "",
