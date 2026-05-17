@@ -32,7 +32,9 @@ defmodule StockSage.Plugin do
       StockSage.Actions.QueueAnalysis,
       StockSage.Actions.ListQueue,
       StockSage.Actions.ImportSqlite,
-      StockSage.Actions.RunAnalysis
+      StockSage.Actions.RunAnalysis,
+      StockSage.Actions.Agents.ListAgents,
+      StockSage.Actions.Agents.ShowAgent
     ]
   end
 
@@ -105,6 +107,109 @@ defmodule StockSage.Plugin do
         default: "tradingagents",
         allowed_values: ["tradingagents"],
         description: "Default analysis engine for StockSage RunAnalysis."
+      },
+      %{
+        key: "stocksage.native_engine_enabled",
+        type: :boolean,
+        default: true,
+        description: "Master switch for the StockSage native agent engine."
+      },
+      %{
+        key: "stocksage.native_model_profile",
+        type: :string,
+        default: "fast",
+        description: "Global model profile for StockSage native specialist agents."
+      },
+      %{
+        key: "stocksage.native_model_profile_market_context",
+        type: :string_or_nil,
+        default: nil,
+        description: "Model profile override for the market context specialist."
+      },
+      %{
+        key: "stocksage.native_model_profile_news_sentiment",
+        type: :string_or_nil,
+        default: nil,
+        description: "Model profile override for the news sentiment specialist."
+      },
+      %{
+        key: "stocksage.native_model_profile_fundamentals",
+        type: :string_or_nil,
+        default: nil,
+        description: "Model profile override for the fundamentals specialist."
+      },
+      %{
+        key: "stocksage.native_model_profile_bull_thesis",
+        type: :string_or_nil,
+        default: nil,
+        description: "Model profile override for the bull thesis specialist."
+      },
+      %{
+        key: "stocksage.native_model_profile_bear_thesis",
+        type: :string_or_nil,
+        default: nil,
+        description: "Model profile override for the bear thesis specialist."
+      },
+      %{
+        key: "stocksage.native_model_profile_risk_aggressive",
+        type: :string,
+        default: "slow",
+        description: "Model profile override for the aggressive risk specialist."
+      },
+      %{
+        key: "stocksage.native_model_profile_risk_conservative",
+        type: :string,
+        default: "slow",
+        description: "Model profile override for the conservative risk specialist."
+      },
+      %{
+        key: "stocksage.native_model_profile_risk_neutral",
+        type: :string,
+        default: "slow",
+        description: "Model profile override for the neutral risk specialist."
+      },
+      %{
+        key: "stocksage.native_model_profile_decision_synthesizer",
+        type: :string,
+        default: "slow",
+        description: "Model profile override for the decision synthesizer specialist."
+      },
+      %{
+        key: "stocksage.native_max_debate_rounds",
+        type: :bounded_integer,
+        default: 2,
+        min: 1,
+        max: 5,
+        description: "Maximum bull/bear debate rounds per native analysis."
+      },
+      %{
+        key: "stocksage.native_max_risk_rounds",
+        type: :bounded_integer,
+        default: 1,
+        min: 1,
+        max: 3,
+        description: "Maximum risk debate rounds per native analysis."
+      },
+      %{
+        key: "stocksage.native_evidence_mode",
+        type: :enum,
+        default: "live",
+        allowed_values: ["live", "fixture", "compare"],
+        description: "Evidence posture for StockSage native evidence actions."
+      },
+      %{
+        key: "stocksage.native_parity_variance",
+        type: :bounded_float,
+        default: 0.25,
+        min: 0.0,
+        max: 1.0,
+        description: "Confidence variance threshold for native/python parity checks."
+      },
+      %{
+        key: "stocksage.python_comparison_enabled",
+        type: :boolean,
+        default: true,
+        description: "Allow explicit Python comparison and parity runs."
       }
     ]
   end

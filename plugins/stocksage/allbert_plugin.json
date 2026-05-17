@@ -14,7 +14,9 @@
       "StockSage.Actions.QueueAnalysis",
       "StockSage.Actions.ListQueue",
       "StockSage.Actions.ImportSqlite",
-      "StockSage.Actions.RunAnalysis"
+      "StockSage.Actions.RunAnalysis",
+      "StockSage.Actions.Agents.ListAgents",
+      "StockSage.Actions.Agents.ShowAgent"
     ],
     "skill_paths": ["skills"]
   }
