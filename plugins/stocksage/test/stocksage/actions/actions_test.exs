@@ -66,7 +66,13 @@ defmodule StockSage.ActionsTest do
                user_id: "alice",
                analysis_id: analysis.id,
                section: "technical",
-               content: "trend"
+               content: "trend",
+               payload: %{
+                 "engine" => "tradingagents",
+                 "stub" => false,
+                 "truncated" => false,
+                 "raw_vendor_payload" => "must not leave the action boundary"
+               }
              })
 
     assert {:ok, _bob} =
@@ -86,7 +92,15 @@ defmodule StockSage.ActionsTest do
              Runner.run("show_analysis", %{user_id: "alice", analysis_id: analysis.id}, %{})
 
     assert show_response.analysis.id == analysis.id
-    assert [%{section: "technical"}] = show_response.analysis.details
+    assert [%{section: "technical"} = detail] = show_response.analysis.details
+
+    assert detail.payload == %{
+             "engine" => "tradingagents",
+             "stub" => false,
+             "truncated" => false
+           }
+
+    refute Map.has_key?(detail.payload, "raw_vendor_payload")
 
     assert {:ok, missing_response} =
              Runner.run("show_analysis", %{user_id: "bob", analysis_id: analysis.id}, %{})
