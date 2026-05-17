@@ -10,18 +10,6 @@ defmodule AllbertAssist.Jobs.Scheduler do
   alias AllbertAssist.Jobs.Scheduler.Agent
   alias AllbertAssist.Jobs.Scheduler.Executor
 
-  @doc false
-  @spec child_spec(keyword()) :: Supervisor.child_spec()
-  def child_spec(opts) do
-    %{
-      id: Keyword.get(opts, :child_id, __MODULE__),
-      start: {__MODULE__, :start_link, [opts]},
-      restart: :permanent,
-      shutdown: 5_000,
-      type: :worker
-    }
-  end
-
   @doc "Start the scheduler agent."
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do

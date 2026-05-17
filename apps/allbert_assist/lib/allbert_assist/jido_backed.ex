@@ -160,7 +160,7 @@ defmodule AllbertAssist.JidoBacked do
   defp unwrap_last_result(%{last_result: {:error, reason}}), do: {:error, reason}
   defp unwrap_last_result(%{"last_result" => {:ok, result}}), do: {:ok, result}
   defp unwrap_last_result(%{"last_result" => {:error, reason}}), do: {:error, reason}
-  defp unwrap_last_result(_state), do: {:error, :jido_backed_missing_result}
+  defp unwrap_last_result(_state), do: {:ok, :dispatched}
 
   defp debug_agent_line({agent_module, server}) do
     case Process.whereis(server) do

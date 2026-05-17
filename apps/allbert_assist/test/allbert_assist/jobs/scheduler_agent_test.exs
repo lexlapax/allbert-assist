@@ -146,7 +146,15 @@ defmodule AllbertAssist.Jobs.SchedulerAgentTest do
       interval_ms: 60_000
     ]
 
-    start_supervised!({Scheduler, Keyword.merge(defaults, opts)})
+    scheduler_opts = Keyword.merge(defaults, opts)
+
+    start_supervised!(%{
+      id: name,
+      start: {Scheduler, :start_link, [scheduler_opts]},
+      restart: :permanent,
+      shutdown: 5_000,
+      type: :worker
+    })
   end
 
   defp restore_env(_module, nil), do: :ok

@@ -120,7 +120,10 @@ Later core milestones can append JidoBacked children with the supervisor's
 scheduler agents. Use the full `:children` override only in focused tests.
 
 The scheduler is started only through `JidoBacked.Supervisor`; do not also
-start `AllbertAssist.Jobs.Scheduler` as a separate application child.
+start `AllbertAssist.Jobs.Scheduler` as a separate application child. The
+public `AllbertAssist.Jobs.Scheduler` facade intentionally does not expose
+`child_spec/1`; tests that need an isolated scheduler use an explicit child
+spec or the JidoBacked supervisor.
 
 ## Scheduling
 
@@ -129,6 +132,13 @@ start `AllbertAssist.Jobs.Scheduler` as a separate application child.
 that directive with `Process.send_after/3` inside `Jido.AgentServer`, which is
 acceptable for the local scheduler because SQLite remains authoritative and
 each tick re-reads durable due jobs.
+
+Directive-only commands are valid. If a private command returns an empty state
+patch plus one or more directives, `AllbertAssist.JidoBacked.dispatch/4`
+returns `{:ok, :dispatched}` rather than treating the absence of
+`last_result` as an error. Commands that need to expose a caller result should
+still write `last_result: {:ok, value}` or `last_result: {:error, reason}` in
+their state patch.
 
 ## Debug Trace
 
