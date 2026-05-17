@@ -19,6 +19,7 @@ defmodule AllbertAssist.Application do
       ]
       |> maybe_add_plugin_supervisor()
       |> maybe_add_app_supervisor()
+      |> maybe_add_jido_backed_supervisor()
       |> maybe_add_session_scratchpad()
       |> maybe_add_scheduler()
       |> maybe_add_channels_supervisor()
@@ -44,6 +45,11 @@ defmodule AllbertAssist.Application do
     else
       children ++ [{AllbertAssist.App.Supervisor, Keyword.put(opts, :enabled?, false)}]
     end
+  end
+
+  defp maybe_add_jido_backed_supervisor(children) do
+    opts = Application.get_env(:allbert_assist, AllbertAssist.JidoBacked.Supervisor, [])
+    children ++ [{AllbertAssist.JidoBacked.Supervisor, opts}]
   end
 
   defp maybe_add_scheduler(children) do
