@@ -9,6 +9,7 @@ defmodule StockSage.Agents.Specialist do
     prompt = File.read!(StockSage.Agents.prompt_path(spec))
     name = agent_id |> String.replace(".", "_")
     description = Keyword.get(opts, :description, "StockSage #{role} specialist.")
+    tools = Map.get(spec, :tool_modules, [])
 
     signal_routes = [
       {"allbert.objectives.delegate.execute", StockSage.Agents.Commands.Execute}
@@ -22,7 +23,7 @@ defmodule StockSage.Agents.Specialist do
               name: unquote(name),
               description: unquote(description),
               model: :fast,
-              tools: [],
+              tools: unquote(Macro.escape(tools)),
               plugins: [StockSage.Agents.DelegatePlugin],
               system_prompt: unquote(prompt)
 

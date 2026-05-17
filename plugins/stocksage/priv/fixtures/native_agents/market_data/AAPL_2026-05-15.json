@@ -1,0 +1,1 @@
+{"fixture_version":"v0.25","license":"synthetic","ticker":"AAPL","analysis_date":"2026-05-15","price":{"close":214.42,"currency":"USD"},"indicators":{"rsi_14":57.2,"sma_20":211.8,"sma_50":205.1},"notes":["Synthetic market data for operator smoke tests."]}

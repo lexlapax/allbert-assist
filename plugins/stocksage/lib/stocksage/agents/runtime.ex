@@ -56,7 +56,7 @@ defmodule StockSage.Agents.Runtime do
 
       metadata =
         spec
-        |> Map.take([:role, :prompt_file, :prompt_version, :type, :tool_names])
+        |> Map.take([:role, :prompt_file, :prompt_version, :type, :tool_modules, :tool_names])
         |> Map.put(:app_id, :stocksage)
         |> Map.put(:prompt_path, Agents.prompt_path(spec))
         |> Map.put(:model_profile, model_profile(spec))
