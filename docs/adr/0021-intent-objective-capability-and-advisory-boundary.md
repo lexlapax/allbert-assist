@@ -3,7 +3,9 @@
 ## Status
 
 Proposed. Targeted for acceptance with v0.24 Objective Runtime Foundation
-M1 closeout (2026-05-16+).
+M6 closeout. Amendments below (Section: v0.24 Amendments) enumerate the
+plan-level decisions that crystallized during the third validation pass
+on 2026-05-16.
 
 ## Context
 
@@ -127,11 +129,15 @@ v0.24:
 - `reflect` — propose memory or workflow candidates after a sequence
   of actions; never writes memory itself (the v0.21 review surface
   remains the only writer).
+- `delegate_agent` — **minimal v0.24 implementation** that dispatches
+  a command to a registered specialist agent in
+  `AllbertAssist.Objectives.AgentRegistry`. v0.24 ships the
+  contract and a stub-tested round-trip; v0.25 specialist trading
+  agents are the first real consumers. See v0.24 Amendments below.
 
 Reserved step kinds (named, not implemented in v0.24):
 `capability_inventory`, `capability_gap`, `route`, `span_out`,
-`consolidate`, `evaluation`, `acquisition`, `delegate_agent`,
-`surface`.
+`consolidate`, `evaluation`, `acquisition`, `surface`.
 
 #### Observation
 
@@ -341,29 +347,192 @@ implemented in v0.24:
 - No mid-action interruption.
 - No automatic memory promotion from objective observations.
 
+## v0.24 Amendments (2026-05-16 third validation pass)
+
+The third validation pass on v0.24 plan/flow surfaced a set of
+plan-level decisions that need to live in this ADR so future readers
+do not have to reconstruct them from plan history. Each amendment
+below extends (does not contradict) the Decision section above.
+
+### A1. `:objective_write` permission class
+
+A new Security Central permission class governs the
+cancel/continue lifecycle actions:
+
+- Class name: `:objective_write`
+- Default policy: `:allow` (for objective owner)
+- Safety floor: `:allow`
+- Risk tier: `:low`
+- Settings Central key: `permissions.objective_write` (writable)
+
+Rationale: the permission class exists for symmetry with other
+`_write` classes (`:memory_write`, `:stocksage_write`,
+`:settings_write`) and for future per-objective ACL scoping when
+hosted multi-user lands (v0.31+). It does not contradict Section 4
+(Authority rule): the underlying state mutation
+(`status = :cancelled`, etc.) is engine bookkeeping, not external
+capability work. Any effectful capability triggered as part of
+cancel/continue (e.g., scheduling a follow-up action) still goes
+through its own permission class on `Actions.Runner.run/3`.
+
+### A2. `parent_step_id` populated semantics
+
+The `objective_steps.parent_step_id` column is populated in v0.24's
+two-step "analyze AAPL and compare to MSFT" smoke (step 2's
+`parent_step_id` = step 1.id). This proves the column works
+end-to-end before v0.25 builds on it. Per-app proposers
+(e.g., `StockSage.Proposer`) set the field deterministically when
+returning multi-step proposals.
+
+### A3. Minimal `:delegate_agent` step kind
+
+v0.24 ships the minimal `:delegate_agent` step-kind contract so
+v0.25 specialist trading agents have a binding target on the day
+they start. The contract is:
+
+- `objective_steps.kind = :delegate_agent` accepted by the Step
+  changeset.
+- `objective_steps.delegate_agent_id` populated with the target
+  agent's registry id.
+- Engine's `:execute_step` for `kind: :delegate_agent` looks up the
+  agent in `AllbertAssist.Objectives.AgentRegistry` and dispatches
+  via the new `AllbertAssist.Objectives.Actions.DelegateAgent`
+  registered action.
+- v0.24 ships the contract + a stub-tested round-trip. No specialist
+  agents are registered in v0.24; the registry is empty by default.
+  v0.25 specialist agents register themselves at boot.
+
+This amendment moves `:delegate_agent` from the "reserved" list above
+to the "shipped in v0.24" list (Section 3 — Step). All other reserved
+step kinds remain reserved.
+
+### A4. `objective_id`/`step_id` on `stocksage_analyses`
+
+In addition to the `Consequences > What changes` list below, v0.24
+also adds `objective_id` and `step_id` columns to
+`stocksage_analyses` (not only `stocksage_analysis_queue`), plus a
+btree index on `stocksage_analyses.objective_id`. This enables
+efficient "list analyses for this objective" queries from the v0.24
+LiveView `/objectives/:id` view (and future v0.26 workspace shell)
+without requiring a join through `stocksage_analysis_queue`.
+
+Pre-v0.24 `stocksage_analyses` rows have NULL in both new columns.
+The migration is part of the v0.24 four-sequential-migration set
+(specifically migration 4, which lives in the StockSage plugin's
+`priv/repo/migrations/` directory and runs via
+`mix ecto.migrate.allbert`).
+
+### A5. `:abandoned` objective status
+
+Per v0.24 Rule 10 (eager rehydration), the engine adds an
+`:abandoned` terminal status to the objective status enum (Section 3
+above lists `:open | :running | :blocked | :completed | :cancelled
+| :failed`; v0.24 implementation adds `:abandoned`).
+
+`:abandoned` is set by the boot-time rehydration scan for
+objectives where `updated_at` is older than 1 hour AND status was
+in `[:open, :running, :blocked]` at last write. The row is preserved
+for forensic inspection but is not loaded into the engine's
+in-memory projection.
+
+### A6. Engine rehydration window
+
+The 1-hour rehydration window is currently fixed. A future setting
+(`objectives.rehydrate_window_minutes`) is reserved for operators
+who need a different window; it is not implemented in v0.24.
+
+### A7. Coexisting signal trace_id correlation
+
+For single-step objectives, both
+`allbert.runtime.turn.completed` and `allbert.objective.completed`
+fire and **share the same `trace_id`** so consumers can correlate
+the two without scanning per-turn payload identifiers. This is the
+operator-visible form of the Section 8 ("coexisting signals")
+guarantee.
+
+### A8. Acceptance evaluator vs. `max_loop_count` precedence
+
+When the acceptance evaluator returns `:needs_more_steps` AND
+`loop_count >= max_loop_count`, the cap wins: the objective
+transitions to `:blocked` and records an `allbert.objective.impasse`
+event. The evaluator's verdict (`:needs_more_steps`) is preserved
+in the event's `payload.would_have_continued_verdict` field for
+operator diagnostics, so the impasse is never a black box.
+
+This is the operator-visible form of the Section 3 (Bounded loops)
+guarantee — specifically, "exceeding a cap records an `impasse`
+event, not a silent failure" — now extended with diagnostic verdict
+recording.
+
+### A9. Deterministic per-app proposer dispatcher
+
+The deterministic proposer (Section 3 — Planner/evaluator) is
+implemented as a per-app registration dispatcher
+(`AllbertAssist.Objectives.Proposer`) with per-app modules (e.g.,
+`StockSage.Proposer`) registering themselves at app boot.
+Settings Central does NOT carry proposer rules; proposers are
+Elixir code, not settings data. This keeps proposers reviewable,
+testable, and bounded in surface area.
+
+A future settings-driven layer is reserved (
+`objectives.proposer_overrides` is not currently named in this ADR;
+when a real second proposer per app is needed, that namespace will be
+created via a future ADR).
+
+### A10. Intent.Engine.collect_candidates/2 arity
+
+`AllbertAssist.Intent.Engine.collect_candidates/1` (existing) is
+preserved by delegating to a new `collect_candidates/2` arity that
+accepts an `opts` keyword list. The new arity sniffs `:objective`
+from opts; older callers continue to work without modification.
+
+ADR 0019 is amended separately at v0.24 M2 to register `:objective`
+as a candidate kind under the existing Section 2 invariants.
+
 ## Consequences
 
 ### What changes
 
 - Three new SQLite tables: `objectives`, `objective_steps`,
   `objective_events`.
-- New columns on `confirmations` (`objective_id`, `step_id`), `jobs`
-  (`objective_id`), `stocksage_analysis_queue` and `stocksage_analyses`
-  (`objective_id`, `step_id`). All nullable; pre-v0.24 rows remain
-  valid.
-- New `AllbertAssist.Objectives.*` modules; `Objectives.Engine` as a
-  Jido.Agent under the standard supervision tree.
-- New `:objective_write` permission class in Security Central.
-- New `allbert.objective.*` signal namespace.
-- New `objectives.*` settings keys.
-- New `mix allbert.objectives` CLI commands.
+- New columns on `confirmations` (`objective_id`, `step_id`),
+  `scheduled_jobs` (`objective_id`), `stocksage_analysis_queue`
+  (`objective_id`, `step_id`), and `stocksage_analyses`
+  (`objective_id`, `step_id`, plus btree index on `objective_id` per
+  Amendment A4). All nullable; pre-v0.24 rows remain valid.
+- Four sequential timestamped migrations (per v0.24 plan): three core
+  migrations + one StockSage plugin migration.
+- New `AllbertAssist.Objectives.*` modules; `Objectives.Engine.Agent`
+  as a JidoBacked agent (built on v0.23 `AllbertAssist.JidoBacked`)
+  under `AllbertAssist.JidoBacked.Supervisor`.
+- New `:objective_write` permission class in Security Central
+  (Amendment A1).
+- New `:abandoned` objective status (Amendment A5).
+- New `allbert.objective.*` signal namespace (11 signals); both
+  `allbert.runtime.turn.completed` and `allbert.objective.completed`
+  share `trace_id` for single-step objectives (Amendment A7).
+- New `objectives.*` settings keys (4 implemented; ~15 reserved).
+- New `mix allbert.objectives list|show|cancel|continue` CLI
+  commands; `cancel --reason` is required.
 - New `## Objective` and `## Objective Steps` trace sections.
 - StockSage `RunAnalysis` accepts optional `objective_id`/`step_id`
-  parameters; threaded through confirmation, audit, trace.
-- LiveView `/agent` shows objective badge; `/objectives/:id` renders
-  the objective view.
+  parameters; threaded through confirmation, audit, trace, and the
+  `stocksage_analyses` row.
+- New `StockSage.Proposer` module registered via
+  `AllbertAssist.Objectives.Proposer.register_app_proposer/2` at
+  app boot (Amendment A9).
+- LiveView `/agent` (AgentLive) gains an objective badge component;
+  new `/objectives/:id` (AllbertAssistWeb.ObjectiveLive) renders the
+  objective view with cancel/continue controls.
 - Telegram and email confirmation rendering includes objective
   context when applicable.
+- New `Intent.Engine.collect_candidates/2` arity surfaces
+  `:objective` candidates without breaking the existing `/1` arity
+  (Amendment A10).
+- Minimal `:delegate_agent` step kind contract shipped so v0.25
+  specialist agents have a binding target (Amendment A3).
+- ADR 0019 amended at v0.24 M2 to register `:objective` as a
+  candidate kind.
 
 ### What stays the same
 
@@ -400,13 +569,20 @@ in this ADR. No code is shipped for them in v0.24:
 These are documented in `docs/research/objective-runtime-research.md`
 along with the primary-source citations that motivate each.
 
-### Migration story for v0.20 StockSage queue
+### Migration story for v0.20 StockSage queue and analyses
 
 The v0.20 `stocksage_analysis_queue` records are a domain-specific
 objective table. v0.24 does **not** migrate that data into the new
 `objectives` table. The queue records gain optional `objective_id`
-columns; new queue entries created from objective steps carry the
-parent objective id. Pre-v0.24 queue rows have NULL.
+and `step_id` columns; new queue entries created from objective
+steps carry the parent objective id and step id. Pre-v0.24 queue
+rows have NULL.
+
+Per Amendment A4, `stocksage_analyses` also gains `objective_id` and
+`step_id` columns plus a btree index on `objective_id`. This
+enables efficient "list analyses for this objective" queries
+directly against the analyses table without requiring a join through
+the queue. Pre-v0.24 analyses rows have NULL.
 
 A future milestone may define the queue as a *view* over objectives
 + steps, but that migration is out of scope for v0.24.
