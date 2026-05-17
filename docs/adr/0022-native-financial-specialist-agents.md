@@ -5,7 +5,7 @@
 Proposed. Targeted for acceptance with v0.25 Native Financial
 Specialist Agents M6 closeout. Amendments below (Section: v0.25
 Amendments) enumerate plan-level decisions crystallized during the
-fourth validation pass on 2026-05-17.
+third validation pass on 2026-05-17.
 
 ## Context
 
@@ -122,9 +122,9 @@ agents to execute trades, contact brokers, or provide personalized financial
 advice. They must require evidence references and uncertainty/warnings when
 data is incomplete.
 
-## v0.25 Amendments (2026-05-17 fourth validation pass)
+## v0.25 Amendments (2026-05-17 third validation pass)
 
-The fourth validation pass on v0.25 plan/flow surfaced plan-level
+The third validation pass on v0.25 plan/flow surfaced plan-level
 decisions that need to live in this ADR so future readers do not have
 to reconstruct them from plan history. Each amendment extends (does
 not contradict) the Decision section above.
@@ -214,11 +214,19 @@ deliberate middle ground: finer than 3 broad actions
 (better Resource Access auditability), coarser than 1 action per
 tool (avoids settings/code sprawl in v0.25).
 
-### A5. `--engine both` parallel parity execution
+### A5. Request-scoped Python reference and `--engine both` parity execution
 
-`stocksage.analysis_engine` setting accepts
-`["native", "python", "both", "tradingagents"]` (last is legacy
-alias for `"python"`). Default is `"native"`.
+Engine selection is request-scoped, not Settings Central defaulted.
+Absent an explicit engine parameter, `RunAnalysis` uses the native
+engine. `--engine python` and `--engine both` are available only when
+the operator explicitly requests them and `stocksage.python_comparison_enabled`
+allows Python comparison. The legacy `"tradingagents"` value remains
+only as a persisted-row / old-caller alias for `"python"`.
+
+v0.25 must not extend `stocksage.analysis_engine` into a persistent
+default selector for `"python"` or `"both"`. If the v0.22 compatibility
+key remains in schema, `RunAnalysis` must not read it to choose the
+engine.
 
 When `engine = "both"`, the coordinator runs native and Python
 concurrently via `Task.async/1` under its own task supervisor.
@@ -267,6 +275,11 @@ callable from outside StockSage**. Future Allbert apps
 `stocksage.fundamentals` through the same registry+action path
 without coupling to StockSage modules.
 
+StockSage-specific smoke tasks may add ticker/date/evidence defaults,
+but they must still dispatch through `Actions.Runner.run("delegate_agent", ...)`
+or an equivalent registered-action boundary. Operator-facing smoke
+must not call specialist modules, PIDs, or `execute/1` directly.
+
 ### A8. Hybrid prompt provenance with per-prompt license audit
 
 The Prompt Contract above specifies "license-compatible prompt
@@ -313,8 +326,8 @@ tuning per role without forcing a single profile.
 override via `--evidence-mode` flag.
 
 Fixture mode is a **first-class operator surface, not a test-only
-shortcut**: production operators can switch to fixture mode for
-credential-less smoke without modifying code. Fixtures ship under
+shortcut**: production operators can switch to fixture mode for smoke
+without market-data credentials and without modifying code. Fixtures ship under
 `plugins/stocksage/priv/fixtures/native_agents/` for AAPL, MSFT, NVDA
 at one canonical date (`2026-05-15`). Fixtures are versioned and
 license-clear (synthetic data; no redistribution of Yahoo Finance,
@@ -341,8 +354,9 @@ expand).
   (5 tiered evidence actions per A4 with the new
   `:stocksage_evidence_fetch` permission class).
 - The Python bridge remains useful for comparison, similarity scoring, and
-  regression fixtures, but not for automatic fallback. `--engine both` per A5
-  runs both engines concurrently and persists a parity diff per A6.
+  regression fixtures, but not for automatic fallback or persistent-default
+  engine selection. `--engine both` per A5 runs both engines concurrently and
+  persists a parity diff per A6.
 - Multi-round bull/bear/risk debate is implemented via the v0.24
   objective-step loop (A2), giving operators per-round inspectability via
   `mix allbert.objectives show <id>` without coupling the coordinator to
@@ -355,12 +369,12 @@ expand).
   audit-traceable (verbatim with attribution or Allbert-authored).
 - Per-agent model profile overrides per A9 give operators per-role LLM cost
   + quality control.
-- Fixture mode per A10 is a first-class operator surface for credential-less
-  smoke + license-clear smoke data shipping with v0.25.
-- The Jido.AI agent surface grows from 1 (v0.22 IntentAgent) to 11 (10
-  specialists + 1 coordinator if Jido.AI; coordinator is JidoBacked plain
-  Jido.Agent). This is the v0.25 substrate-pattern proof for v0.27+
-  domain-specific specialist agents.
+- Fixture mode per A10 is a first-class operator surface for smoke without
+  market-data credentials + license-clear smoke data shipping with v0.25.
+- The Jido agent surface grows from the existing IntentAgent to 9 new
+  LLM-backed Jido.AI specialists, 1 deterministic Jido.Agent quality gate,
+  and 1 JidoBacked coordinator. This is the v0.25 substrate-pattern proof
+  for v0.27+ domain-specific specialist agents.
 
 ## Rejected Alternatives
 
