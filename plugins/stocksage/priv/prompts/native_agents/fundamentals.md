@@ -15,6 +15,9 @@ Return a bounded report packet with:
 
 - a concise summary;
 - fundamentals and financial statement observations;
+- valuation context when price/market evidence and EPS/share data are both
+  supplied, including an approximate P/E or a clear statement that valuation
+  cannot be computed;
 - strengths, weaknesses, and missing data;
 - evidence references used;
 - confidence from 0.0 to 1.0;

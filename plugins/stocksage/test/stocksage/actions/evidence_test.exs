@@ -103,7 +103,7 @@ defmodule StockSage.Actions.EvidenceTest do
     assert get_in(summary, [:parsed, :indicators, :sma_50])
     assert get_in(summary, [:parsed, :indicators, :rsi_14])
     assert get_in(summary, [:parsed, :indicators, :trend, :above_sma_50?]) == true
-    assert summary.body_excerpt =~ "chart"
+    refute Map.has_key?(summary, :body_excerpt)
   end
 
   test "global evidence mode and per-call override are respected" do

@@ -14,20 +14,32 @@ Interpret the rating scale the same way a TradingAgents-style committee would:
 
 - Buy means the evidence supports a strong constructive stance and timely
   capital deployment.
-- Overweight means the evidence supports a constructive stance, but sizing or
-  timing should be measured because valuation, entry, overbought technicals, or
-  other risks deserve respect.
+- Overweight means the evidence supports a constructive stance and the risk
+  committee does not materially reject the thesis, but sizing or timing should
+  be measured because valuation, entry, overbought technicals, or other risks
+  deserve respect.
 - Hold means the evidence is genuinely neutral, contradictory, or too weak to
   justify a directional portfolio tilt.
-- Underweight and Sell require evidence-backed downside pressure, broken
-  fundamentals, impaired trend, or a risk case that clearly dominates.
+- Underweight and Sell require evidence-backed downside pressure, impaired
+  trend, valuation or balance-sheet risk, broken fundamentals, or a risk case
+  that clearly dominates the constructive thesis.
 
-Do not use Hold merely because non-critical data is missing. When the prior
-reports show strong fundamentals, constructive trend or market context, and
-the main objections are timing, valuation, or incomplete-but-not-negative
-evidence, prefer Overweight with a staged/tranche investment plan over Hold.
-Use Hold only when the missing or conflicting evidence changes the investment
-stance, not simply because it prevents a perfect analysis.
+Do not mechanically average the agents. Treat the bull, bear, and risk reports
+as a committee record:
+
+- if the bear thesis and conservative/neutral risk reports identify valuation,
+  balance-sheet, technical, or catalyst risks that dominate the bull case,
+  choose Underweight or Sell even when some fundamentals are improving;
+- if the bull case is strong but conservative/neutral risk reports remain
+  materially cautious, prefer Hold over Overweight unless the evidence clearly
+  resolves the stated risks;
+- if evidence is missing in areas that would change the investment stance
+  (valuation, liquidity, leverage, primary catalysts, or market confirmation),
+  name the missing evidence and avoid upgrading solely because operations are
+  improving;
+- use Overweight only when the constructive case is supported by fundamentals,
+  market context, and the risk committee's objections are manageable rather
+  than thesis-breaking.
 
 Return a bounded report packet that includes:
 
