@@ -108,8 +108,13 @@ defmodule AllbertAssist.Workspace.Catalog do
         component: :tile,
         props: %{
           title: title(tile, "Canvas tile"),
-          body: "kind=#{tile.kind}",
-          tile_id: tile.id
+          body: tile_summary(tile),
+          tile_id: tile.id,
+          tile_kind: tile.kind,
+          tile_text: tile_text(tile),
+          editable?: editable_tile?(tile),
+          base_revision_id: Map.get(tile, :current_revision_id),
+          read_only?: Map.get(tile, :read_only, false)
         },
         children: stored_surface_nodes(tile)
       }
@@ -140,6 +145,45 @@ defmodule AllbertAssist.Workspace.Catalog do
   end
 
   defp stored_surface_nodes(_record), do: []
+
+  defp editable_tile?(%{kind: kind, body: body} = tile) when kind in ["text", "markdown"] do
+    not Map.get(tile, :read_only, false) and not fragment_body?(body)
+  end
+
+  defp editable_tile?(_tile), do: false
+
+  defp tile_summary(tile) do
+    case {editable_tile?(tile), tile_text(tile)} do
+      {true, ""} -> "Editable #{tile.kind} tile"
+      {true, text} -> text
+      {false, _text} -> "kind=#{tile.kind}"
+    end
+  end
+
+  defp tile_text(%{body: body, kind: "markdown"}) when is_map(body) do
+    text_value(body, [:markdown, :text, :content, :snapshot])
+  end
+
+  defp tile_text(%{body: body}) when is_map(body) do
+    text_value(body, [:text, :markdown, :content, :snapshot])
+  end
+
+  defp tile_text(_tile), do: ""
+
+  defp text_value(body, keys) do
+    Enum.find_value(keys, "", fn key ->
+      case Map.get(body, key) || Map.get(body, Atom.to_string(key)) do
+        value when is_binary(value) -> value
+        _other -> nil
+      end
+    end)
+  end
+
+  defp fragment_body?(body) when is_map(body) do
+    Map.has_key?(body, :surface) or Map.has_key?(body, "surface")
+  end
+
+  defp fragment_body?(_body), do: false
 
   defp badge_nodes(badges) do
     badges

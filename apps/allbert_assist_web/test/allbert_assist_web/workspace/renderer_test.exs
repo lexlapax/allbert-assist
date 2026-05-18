@@ -85,6 +85,39 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     assert ephemeral_html =~ ~s(id="workspace-component-title-approval-surface-1")
   end
 
+  test "editable text tile keeps only editor body under phx-update ignore" do
+    html =
+      render_component(Renderer,
+        id: "editable-tile-renderer",
+        node: %Node{
+          id: "canvas-tile-editable",
+          component: :tile,
+          props: %{
+            title: "Notes",
+            tile_id: "tile-editable",
+            tile_kind: "markdown",
+            tile_text: "offline notes",
+            editable?: true
+          }
+        },
+        renderer_context:
+          Map.merge(renderer_context(), %{
+            user_id: "local",
+            thread_id: "thread-1",
+            workspace_offline_enabled?: true,
+            workspace_indexeddb_quota_bytes: 1024
+          }),
+        workspace_state: workspace_state()
+      )
+
+    assert html =~ ~s(data-workspace-component="tile")
+    assert html =~ ~s(id="workspace-tile-editor-tile-editable")
+    assert html =~ ~s(phx-hook="WorkspaceTileEditor")
+    assert html =~ ~s(phx-update="ignore")
+    assert html =~ ~s(data-quota-bytes="1024")
+    assert html =~ "offline notes"
+  end
+
   defp sample_props(:header), do: %{title: "Workspace Header", subtitle: "Subheading"}
   defp sample_props(:empty_state), do: %{title: "Empty", body: "Nothing to render yet."}
   defp sample_props(:link), do: %{label: "Open trace", body: "/trace/example"}

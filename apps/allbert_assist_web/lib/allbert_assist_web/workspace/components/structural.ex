@@ -14,9 +14,99 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.Tile do
-  use AllbertAssistWeb.Workspace.Components.Base,
-    component: :tile,
-    description: "Canvas tile"
+  @moduledoc "Workspace renderer for editable and read-only canvas tiles."
+
+  use AllbertAssistWeb, :live_component
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket) do
+    context = Map.get(assigns, :renderer_context, %{})
+
+    {:ok,
+     socket
+     |> Base.assign_defaults(assigns)
+     |> assign(
+       user_id: Map.get(context, :user_id),
+       thread_id: Map.get(context, :thread_id),
+       offline_enabled?: Map.get(context, :workspace_offline_enabled?, true),
+       indexeddb_quota_bytes: Map.get(context, :workspace_indexeddb_quota_bytes, 33_554_432)
+     )}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <section
+      id={"workspace-component-#{@node.id}"}
+      class="rounded border border-base-300 bg-base-100 p-3 text-sm"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      data-workspace-tile-id={Base.prop(@node, :tile_id, nil)}
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 id={Base.component_title_id(@node)} class="text-sm font-semibold leading-6">
+            {Base.title(@node, "Canvas tile")}
+          </h2>
+          <p class="text-xs text-base-content/60">
+            {tile_kind_label(@node)}
+          </p>
+        </div>
+      </div>
+
+      <div
+        :if={editable?(@node, @offline_enabled?)}
+        id={editor_id(@node)}
+        class="workspace-tile-editor mt-3"
+        data-workspace-tile-editor="true"
+        data-tile-id={Base.prop(@node, :tile_id, "")}
+        data-thread-id={@thread_id}
+        data-user-id={@user_id}
+        data-kind={Base.prop(@node, :tile_kind, "text")}
+        data-base-revision-id={Base.prop(@node, :base_revision_id, "")}
+        data-quota-bytes={@indexeddb_quota_bytes}
+        phx-hook="WorkspaceTileEditor"
+        phx-update="ignore"
+      >
+        <label class="sr-only" for={editor_input_id(@node)}>
+          {Base.title(@node, "Canvas tile")}
+        </label>
+        <textarea
+          id={editor_input_id(@node)}
+          class="workspace-tile-editor-input"
+          data-workspace-editor-input="true"
+          spellcheck="true"
+        >{Base.prop(@node, :tile_text, "")}</textarea>
+        <p class="workspace-tile-editor-status" data-workspace-editor-status="true">
+          Saved locally
+        </p>
+      </div>
+
+      <pre :if={!editable?(@node, @offline_enabled?)} class="mt-3 whitespace-pre-wrap text-xs">
+    {Base.summary(@node, "Canvas tile")}
+      </pre>
+    </section>
+    """
+  end
+
+  defp editable?(node, true), do: Base.prop(node, :editable?, false) == true
+  defp editable?(_node, false), do: false
+
+  defp editor_id(node), do: "workspace-tile-editor-#{Base.prop(node, :tile_id, node.id)}"
+
+  defp editor_input_id(node) do
+    "workspace-tile-editor-input-#{Base.prop(node, :tile_id, node.id)}"
+  end
+
+  defp tile_kind_label(node) do
+    node
+    |> Base.prop(:tile_kind, "tile")
+    |> to_string()
+    |> then(&"#{&1} tile")
+  end
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.EphemeralSurface do

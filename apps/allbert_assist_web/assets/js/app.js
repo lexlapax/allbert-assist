@@ -23,6 +23,9 @@ import "phoenix_html"
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/allbert_assist_web"
+import * as Y from "yjs"
+import {IndexeddbPersistence} from "y-indexeddb"
+import {fromUint8Array} from "js-base64"
 import topbar from "../vendor/topbar"
 
 const focusableSelector = [
@@ -78,6 +81,242 @@ const FocusTrap = {
   },
   destroyed() {
     this.el.removeEventListener("keydown", this.handleKeydown)
+  },
+}
+
+const workspaceEditorManifestKey = "allbert.workspace.tile_editors.v1"
+const workspaceEditorOrigin = "allbert-workspace-editor"
+const workspaceEditorBootstrapOrigin = "allbert-workspace-bootstrap"
+
+const workspaceEditorMessages = {
+  synced: "Saved locally",
+  pending: "Saving locally",
+  offline: "Saved locally; will sync when the connection returns.",
+  pushed: "Local update sent to workspace.",
+  rejected: "Local update kept; server sync rejected.",
+  quota_exceeded: "Local draft is over the configured offline quota.",
+  unavailable: "Offline editor unavailable in this browser.",
+}
+
+const readWorkspaceEditorManifest = () => {
+  try {
+    return JSON.parse(window.localStorage?.getItem(workspaceEditorManifestKey) || "{}")
+  } catch (_error) {
+    return {}
+  }
+}
+
+const writeWorkspaceEditorManifest = manifest => {
+  try {
+    window.localStorage?.setItem(workspaceEditorManifestKey, JSON.stringify(manifest))
+  } catch (_error) {
+    // localStorage may be unavailable in hardened browser modes.
+  }
+}
+
+const updateWorkspaceEditorManifest = record => {
+  const manifest = readWorkspaceEditorManifest()
+  manifest[record.docName] = {...manifest[record.docName], ...record, updatedAt: new Date().toISOString()}
+  writeWorkspaceEditorManifest(manifest)
+}
+
+const workspaceEditorDocName = ({userId, threadId, tileId}) => {
+  return ["allbert", "workspace", "tile", userId, threadId, tileId]
+    .map(value => encodeURIComponent(value || "unknown"))
+    .join(":")
+}
+
+const estimateWorkspaceEditorBytes = ({update, stateVector, snapshot}) => {
+  const binaryBytes = Math.ceil(((update || "").length + (stateVector || "").length) * 0.75)
+  return binaryBytes + new TextEncoder().encode(snapshot || "").length
+}
+
+const setWorkspaceEditorState = (root, state) => {
+  root.dataset.syncState = state
+  const status = root.querySelector("[data-workspace-editor-status]")
+  if (status) status.textContent = workspaceEditorMessages[state] || workspaceEditorMessages.synced
+}
+
+const renderWorkspaceOfflineDrafts = async () => {
+  const container = document.getElementById("workspace-offline-drafts")
+  if (!container || container.dataset.loaded === "true") return
+
+  container.dataset.loaded = "true"
+  const manifest = Object.values(readWorkspaceEditorManifest()).sort((left, right) => {
+    return (right.updatedAt || "").localeCompare(left.updatedAt || "")
+  })
+
+  if (manifest.length === 0) {
+    container.textContent = "No local text or markdown drafts are cached on this device."
+    return
+  }
+
+  container.textContent = ""
+
+  await Promise.all(
+    manifest.map(async record => {
+      const doc = new Y.Doc()
+      const provider = new IndexeddbPersistence(record.docName, doc)
+
+      await provider.whenSynced
+      const text = doc.getText("body").toString()
+
+      const article = document.createElement("article")
+      article.className = "workspace-offline-draft"
+      article.dataset.tileId = record.tileId
+
+      const title = document.createElement("h2")
+      title.textContent = record.title || `${record.kind || "text"} tile`
+
+      const body = document.createElement("pre")
+      body.textContent = text || record.snapshot || ""
+
+      article.append(title, body)
+      container.append(article)
+
+      doc.destroy()
+    })
+  )
+}
+
+const WorkspaceTileEditor = {
+  mounted() {
+    this.input = this.el.querySelector("[data-workspace-editor-input]")
+
+    if (!this.input || !("indexedDB" in window)) {
+      setWorkspaceEditorState(this.el, "unavailable")
+      return
+    }
+
+    this.tileId = this.el.dataset.tileId
+    this.threadId = this.el.dataset.threadId
+    this.userId = this.el.dataset.userId
+    this.kind = this.el.dataset.kind || "text"
+    this.baseRevisionId = this.el.dataset.baseRevisionId || null
+    this.quotaBytes = parseInt(this.el.dataset.quotaBytes || "33554432", 10)
+    this.docName = workspaceEditorDocName({
+      userId: this.userId,
+      threadId: this.threadId,
+      tileId: this.tileId,
+    })
+    this.pendingUpdates = []
+    this.ready = false
+    this.pushTimer = null
+    this.doc = new Y.Doc()
+    this.ytext = this.doc.getText("body")
+    this.provider = new IndexeddbPersistence(this.docName, this.doc)
+
+    this.handleInput = () => {
+      const next = this.input.value
+      this.doc.transact(() => {
+        this.ytext.delete(0, this.ytext.length)
+        this.ytext.insert(0, next)
+      }, workspaceEditorOrigin)
+      this.persistSnapshot(next)
+    }
+
+    this.handleOnline = () => {
+      setWorkspaceEditorState(this.el, "pending")
+      this.pushSnapshot("offline_reconnect")
+    }
+
+    this.handleUpdate = (update, origin) => {
+      if (!this.ready || origin !== workspaceEditorOrigin) return
+
+      this.pendingUpdates.push(update)
+      setWorkspaceEditorState(this.el, navigator.onLine ? "pending" : "offline")
+
+      if (navigator.onLine) {
+        this.schedulePush()
+      }
+    }
+
+    this.doc.on("update", this.handleUpdate)
+    this.input.addEventListener("input", this.handleInput)
+    window.addEventListener("online", this.handleOnline)
+
+    this.provider.on("synced", () => {
+      if (this.ytext.length === 0 && this.input.value !== "") {
+        this.doc.transact(() => {
+          this.ytext.insert(0, this.input.value)
+        }, workspaceEditorBootstrapOrigin)
+      } else {
+        this.input.value = this.ytext.toString()
+      }
+
+      this.ready = true
+      this.persistSnapshot(this.input.value)
+      setWorkspaceEditorState(this.el, navigator.onLine ? "synced" : "offline")
+    })
+  },
+
+  destroyed() {
+    clearTimeout(this.pushTimer)
+    this.input?.removeEventListener("input", this.handleInput)
+    window.removeEventListener("online", this.handleOnline)
+
+    if (this.doc && this.handleUpdate) {
+      this.doc.off("update", this.handleUpdate)
+    }
+
+    this.doc?.destroy()
+  },
+
+  persistSnapshot(snapshot) {
+    const record = {
+      docName: this.docName,
+      tileId: this.tileId,
+      threadId: this.threadId,
+      userId: this.userId,
+      kind: this.kind,
+      title: this.el.closest("[data-workspace-component='tile']")?.querySelector("h2")?.textContent?.trim(),
+      snapshot,
+    }
+
+    updateWorkspaceEditorManifest(record)
+    this.provider?.set("snapshot", snapshot)
+  },
+
+  schedulePush() {
+    clearTimeout(this.pushTimer)
+    this.pushTimer = setTimeout(() => this.pushPendingUpdates(), 250)
+  },
+
+  pushPendingUpdates() {
+    if (this.pendingUpdates.length === 0) return
+
+    const update = Y.mergeUpdates(this.pendingUpdates)
+    this.pendingUpdates = []
+    this.pushUpdate(update, "browser")
+  },
+
+  pushSnapshot(origin) {
+    if (!this.doc) return
+
+    this.pushUpdate(Y.encodeStateAsUpdate(this.doc), origin)
+  },
+
+  pushUpdate(update, origin) {
+    const payload = {
+      tile_id: this.tileId,
+      thread_id: this.threadId,
+      user_id: this.userId,
+      kind: this.kind,
+      base_revision_id: this.baseRevisionId,
+      origin,
+      update: fromUint8Array(update),
+      state_vector: fromUint8Array(Y.encodeStateVector(this.doc)),
+      snapshot: this.ytext.toString(),
+    }
+
+    if (estimateWorkspaceEditorBytes(payload) > this.quotaBytes) {
+      setWorkspaceEditorState(this.el, "quota_exceeded")
+      return
+    }
+
+    this.pushEvent("workspace_tile_editor_sync", payload, reply => {
+      setWorkspaceEditorState(this.el, reply.status === "received" ? "pushed" : "rejected")
+    })
   },
 }
 
@@ -165,17 +404,20 @@ const bootstrapWorkspaceOffline = async () => {
 
 window.addEventListener("DOMContentLoaded", () => {
   bootstrapWorkspaceOffline()
+  renderWorkspaceOfflineDrafts()
 })
 window.addEventListener("phx:page-loading-stop", () => {
   bootstrapWorkspaceOffline()
 })
 
-const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-const liveSocket = new LiveSocket("/live", Socket, {
-  longPollFallbackMs: 2500,
-  params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, FocusTrap},
-})
+const csrfToken = document.querySelector("meta[name='csrf-token']")?.getAttribute("content")
+const liveSocket = csrfToken
+  ? new LiveSocket("/live", Socket, {
+      longPollFallbackMs: 2500,
+      params: {_csrf_token: csrfToken},
+      hooks: {...colocatedHooks, FocusTrap, WorkspaceTileEditor},
+    })
+  : null
 
 // Show progress bar on live navigation and form submits
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
@@ -183,13 +425,13 @@ window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
 // connect if there are any LiveViews on the page
-liveSocket.connect()
+liveSocket?.connect()
 
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
-window.liveSocket = liveSocket
+if (liveSocket) window.liveSocket = liveSocket
 
 // The lines below enable quality of life phoenix_live_reload
 // development features:
@@ -197,7 +439,7 @@ window.liveSocket = liveSocket
 //     1. stream server logs to the browser console
 //     2. click on elements to jump to their definitions in your code editor
 //
-if (process.env.NODE_ENV === "development") {
+if (liveSocket && process.env.NODE_ENV === "development") {
   window.addEventListener("phx:live_reload:attached", ({detail: reloader}) => {
     // Enable server log streaming to client.
     // Disable with reloader.disableServerLogs()

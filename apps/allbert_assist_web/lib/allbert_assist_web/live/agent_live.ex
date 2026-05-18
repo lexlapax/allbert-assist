@@ -44,6 +44,7 @@ defmodule AllbertAssistWeb.AgentLive do
         workspace_high_contrast?: workspace_high_contrast?(),
         workspace_mobile_tab: "chat",
         workspace_offline_enabled?: workspace_offline_enabled?(),
+        workspace_indexeddb_quota_bytes: workspace_indexeddb_quota_bytes(),
         active_objectives: active_objectives(user_id),
         prompt: "Hello Allbert. What can you do right now?",
         response: nil,
@@ -116,6 +117,10 @@ defmodule AllbertAssistWeb.AgentLive do
   end
 
   def handle_event("select_workspace_mobile_tab", _params, socket), do: {:noreply, socket}
+
+  def handle_event("workspace_tile_editor_sync", params, socket) do
+    {:reply, workspace_tile_editor_reply(params, socket), socket}
+  end
 
   def handle_event("approve_confirmation", %{"id" => id}, socket) do
     {:noreply, resolve_confirmation(socket, "approve_confirmation", %{id: id})}
@@ -454,6 +459,77 @@ defmodule AllbertAssistWeb.AgentLive do
     end
   end
 
+  defp workspace_indexeddb_quota_bytes do
+    megabytes =
+      case Settings.get("workspace.offline.indexeddb_quota_mb") do
+        {:ok, value} when is_integer(value) -> value
+        _other -> 32
+      end
+
+    megabytes * 1_048_576
+  end
+
+  defp workspace_tile_editor_reply(params, socket) do
+    with true <- socket.assigns.workspace_offline_enabled? || {:error, :offline_disabled},
+         {:ok, tile_id} <- required_param(params, "tile_id"),
+         {:ok, tile} <- Workspace.get_tile(tile_id, socket.assigns.user_id),
+         :ok <- ensure_tile_thread(tile, socket.assigns.thread_id),
+         :ok <- ensure_editable_tile(tile),
+         :ok <-
+           ensure_bounded_editor_payload(params, socket.assigns.workspace_indexeddb_quota_bytes) do
+      %{
+        status: "received",
+        tile_id: tile.id,
+        persistence: "deferred_to_m19",
+        max_bytes: socket.assigns.workspace_indexeddb_quota_bytes
+      }
+    else
+      {:error, reason} ->
+        %{status: "rejected", reason: inspect(reason)}
+    end
+  end
+
+  defp required_param(params, key) do
+    case Map.get(params, key) || Map.get(params, String.to_atom(key)) do
+      value when is_binary(value) and value != "" -> {:ok, value}
+      _other -> {:error, {:missing_required, key}}
+    end
+  end
+
+  defp ensure_tile_thread(%{thread_id: thread_id}, thread_id), do: :ok
+  defp ensure_tile_thread(_tile, _thread_id), do: {:error, :not_found}
+
+  defp ensure_editable_tile(%{kind: kind, body: body, read_only: false})
+       when kind in ["text", "markdown"] do
+    if fragment_body?(body), do: {:error, :read_only_fragment_tile}, else: :ok
+  end
+
+  defp ensure_editable_tile(%{read_only: true}), do: {:error, :thread_completed}
+  defp ensure_editable_tile(_tile), do: {:error, :unsupported_tile_kind}
+
+  defp fragment_body?(body) when is_map(body) do
+    Map.has_key?(body, :surface) or Map.has_key?(body, "surface")
+  end
+
+  defp ensure_bounded_editor_payload(params, max_bytes) do
+    encoded_update = Map.get(params, "update") || ""
+    encoded_state_vector = Map.get(params, "state_vector") || ""
+    snapshot = Map.get(params, "snapshot") || ""
+
+    cond do
+      not is_binary(encoded_update) or not is_binary(encoded_state_vector) or
+          not is_binary(snapshot) ->
+        {:error, :invalid_payload}
+
+      byte_size(encoded_update) + byte_size(encoded_state_vector) + byte_size(snapshot) >
+          max_bytes ->
+        {:error, :payload_too_large}
+
+      true ->
+        :ok
+    end
+  end
+
   defp next_workspace_theme("dark"), do: "light"
   defp next_workspace_theme(_theme), do: "dark"
 
@@ -494,7 +570,9 @@ defmodule AllbertAssistWeb.AgentLive do
       ephemeral_surfaces: assigns.ephemeral_surfaces,
       workspace_badges: assigns.workspace_badges,
       workspace_theme: assigns.workspace_theme,
-      workspace_high_contrast?: assigns.workspace_high_contrast?
+      workspace_high_contrast?: assigns.workspace_high_contrast?,
+      workspace_offline_enabled?: assigns.workspace_offline_enabled?,
+      workspace_indexeddb_quota_bytes: assigns.workspace_indexeddb_quota_bytes
     }
   end
 

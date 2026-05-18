@@ -266,6 +266,67 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     end
   end
 
+  test "renders editable text tiles with a Yjs-backed editor hook", %{conn: conn} do
+    assert {:ok, tile} =
+             Workspace.add_tile(%{
+               user_id: "local",
+               thread_id: "local-default",
+               kind: :text,
+               body: %{text: "offline draft body"}
+             })
+
+    {:ok, view, html} = live(conn, ~p"/agent")
+
+    assert has_element?(
+             view,
+             "#workspace-tile-editor-#{tile.id}[phx-hook='WorkspaceTileEditor'][phx-update='ignore'][data-tile-id='#{tile.id}'][data-thread-id='local-default'][data-user-id='local'][data-quota-bytes='33554432']"
+           )
+
+    assert html =~ "offline draft body"
+
+    render_hook(view, :workspace_tile_editor_sync, %{
+      "tile_id" => tile.id,
+      "thread_id" => "local-default",
+      "user_id" => "local",
+      "kind" => "text",
+      "update" => "AQID",
+      "state_vector" => "BAUG",
+      "snapshot" => "offline draft body"
+    })
+
+    tile_id = tile.id
+
+    assert_reply(view, %{
+      status: "received",
+      tile_id: ^tile_id,
+      persistence: "deferred_to_m19",
+      max_bytes: 33_554_432
+    })
+  end
+
+  test "workspace tile editor hook rejects non-editable tiles", %{conn: conn} do
+    assert {:ok, tile} =
+             Workspace.add_tile(%{
+               user_id: "local",
+               thread_id: "local-default",
+               kind: :analysis_card,
+               body: %{text: "read-only analysis"}
+             })
+
+    {:ok, view, _html} = live(conn, ~p"/agent")
+
+    refute has_element?(view, "#workspace-tile-editor-#{tile.id}")
+
+    render_hook(view, :workspace_tile_editor_sync, %{
+      "tile_id" => tile.id,
+      "update" => "AQID",
+      "state_vector" => "BAUG",
+      "snapshot" => "read-only analysis"
+    })
+
+    assert_reply(view, %{status: "rejected", reason: ":unsupported_tile_kind"})
+  end
+
   test "submits prompts through the runtime boundary", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
 
