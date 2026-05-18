@@ -59,10 +59,21 @@ defmodule AllbertAssist.Workspace.Fragment.Guard do
   def check_rate(emitter_id, user_id, limit)
       when is_binary(emitter_id) and is_binary(user_id) and is_integer(limit) and limit > 0 do
     now = System.monotonic_time(:millisecond)
-    call({:check_rate, emitter_id, user_id, limit, now}, :ok)
+    call({:check_rate, :emitter, emitter_id, user_id, limit, now}, :ok)
   end
 
   def check_rate(_emitter_id, _user_id, _limit), do: {:error, :rate_limited}
+
+  @doc "Check and record one received bus fragment against the receiver rate window."
+  @spec check_receiver_rate(String.t(), String.t(), pos_integer()) ::
+          :ok | {:error, :rate_limited}
+  def check_receiver_rate(emitter_id, user_id, limit)
+      when is_binary(emitter_id) and is_binary(user_id) and is_integer(limit) and limit > 0 do
+    now = System.monotonic_time(:millisecond)
+    call({:check_rate, :receiver, emitter_id, user_id, limit, now}, :ok)
+  end
+
+  def check_receiver_rate(_emitter_id, _user_id, _limit), do: {:error, :rate_limited}
 
   @doc false
   @spec reset_for_test() :: :ok
@@ -91,8 +102,8 @@ defmodule AllbertAssist.Workspace.Fragment.Guard do
     {:reply, allowed?, state}
   end
 
-  def handle_call({:check_rate, emitter_id, user_id, limit, now}, _from, state) do
-    key = {emitter_id, user_id}
+  def handle_call({:check_rate, scope, emitter_id, user_id, limit, now}, _from, state) do
+    key = {scope, emitter_id, user_id}
     counts = prune_rate_counts(state.rate_counts, now)
     window = Map.get(counts, key)
 

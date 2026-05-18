@@ -32,17 +32,23 @@ defmodule AllbertAssist.Workspace.Ephemeral do
   def open(attrs) when is_map(attrs) do
     attrs = normalize_attrs(attrs)
 
-    with {:ok, attrs} <- put_create_defaults(attrs),
-         :ok <- enforce_cap(attrs.user_id, attrs.thread_id),
-         :ok <- BodyStore.write_body(attrs.body_yaml_path, attrs.body) do
-      %Surface{}
-      |> Surface.changeset(Map.delete(attrs, :body))
-      |> Repo.insert()
-      |> load_body_result()
+    with {:ok, attrs} <- put_create_defaults(attrs) do
+      case duplicate_status(attrs) do
+        :insert -> insert_new_surface(attrs)
+        {:ok, %Surface{} = surface} -> {:ok, surface}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
   def open(_attrs), do: {:error, :invalid_ephemeral_attrs}
+
+  defp insert_new_surface(attrs) do
+    with :ok <- enforce_cap(attrs.user_id, attrs.thread_id),
+         :ok <- BodyStore.write_body(attrs.body_yaml_path, attrs.body) do
+      insert_surface(attrs)
+    end
+  end
 
   @spec dismiss(String.t(), String.t(), String.t() | atom()) ::
           {:ok, surface()} | {:error, term()}
@@ -99,6 +105,56 @@ defmodule AllbertAssist.Workspace.Ephemeral do
     case Repo.one(query) do
       %Surface{} = surface -> {:ok, surface}
       nil -> {:error, :not_found}
+    end
+  end
+
+  defp duplicate_status(%{id: id} = attrs) do
+    case Repo.get(Surface, id) do
+      nil -> :insert
+      %Surface{} = surface -> duplicate_surface_result(surface, attrs)
+    end
+  end
+
+  defp insert_surface(attrs) do
+    %Surface{}
+    |> Surface.changeset(Map.delete(attrs, :body))
+    |> Repo.insert()
+    |> case do
+      {:ok, %Surface{} = surface} -> load_body_result({:ok, surface})
+      {:error, %Ecto.Changeset{} = changeset} -> recover_duplicate_insert(changeset, attrs)
+    end
+  end
+
+  defp recover_duplicate_insert(%Ecto.Changeset{} = changeset, attrs) do
+    if Keyword.has_key?(changeset.errors, :id) do
+      case duplicate_status(attrs) do
+        :insert -> {:error, :fragment_id_conflict}
+        result -> result
+      end
+    else
+      {:error, changeset}
+    end
+  end
+
+  defp duplicate_surface_result(%Surface{} = surface, attrs) do
+    if surface.user_id != attrs.user_id or surface.thread_id != attrs.thread_id do
+      {:error, :fragment_id_conflict}
+    else
+      duplicate_body_result(surface, attrs)
+    end
+  end
+
+  defp duplicate_body_result(%Surface{} = surface, attrs) do
+    case load_body(surface) do
+      {:ok, %Surface{} = loaded} ->
+        if loaded.body == BodyStore.normalize_body(attrs.body) do
+          {:ok, loaded}
+        else
+          {:error, :fragment_body_conflict}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
