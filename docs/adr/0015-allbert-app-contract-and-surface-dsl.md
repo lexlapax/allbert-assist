@@ -5,6 +5,11 @@
 Accepted. v0.15 minimal contract implemented. v0.18 full app/surface contract
 implemented on 2026-05-15; memory namespace registration remains deferred to
 v0.29 (formerly v0.27 before the project-direction rethink renumber).
+Amended at v0.26 M1 (2026-05-17, fourth validation pass) to enumerate the
+v0.26 catalog expansion from 12 → 38 components — see the "v0.26 Catalog
+Expansion" subsection under Surface DSL. The catalog expansion is the
+substrate ADR 0023 builds on for the workspace canvas + ephemeral surface
+implementation.
 
 ## Context
 
@@ -150,6 +155,68 @@ Elixir data validated against a known component catalog. The v0.18 initial
 catalog has twelve components: `:route`, `:chat`, `:timeline`, `:composer`,
 `:panel`, `:section`, `:text`, `:list`, `:empty_state`, `:button`,
 `:action_button`, `:status_badge`.
+
+#### v0.26 Catalog Expansion (38 components total)
+
+v0.26 expands the catalog to support the workspace canvas + ephemeral
+surface substrate per ADR 0023. The expansion adds 26 new components
+organized in three groups:
+
+**Workspace structural (10)** — the building blocks of the workspace
+shell itself:
+
+- `:workspace` — the root of the workspace Surface tree
+- `:canvas` — the persistent canvas region
+- `:tile` — a persistent unit inside a canvas
+- `:ephemeral_surface` — a task-scoped overlay
+- `:header` — workspace header region
+- `:badge_strip` — horizontal badge container
+- `:tabs` — tab container
+- `:tab` — single tab entry
+- `:tab_panel` — content panel for an active tab
+- `:diff` — before/after content diff rendering
+
+**Allbert-domain (12)** — non-app-specific UI primitives:
+
+- `:trace_link` — link to a trace markdown file
+- `:trace_viewer` — inline trace markdown viewer
+- `:icon` — bounded icon (allowlisted icon library)
+- `:link` — local-route link
+- `:divider` — horizontal/vertical visual separator
+- `:table` — bounded tabular layout
+- `:row` — table row
+- `:column` — table column
+- `:objective_card` — v0.24 objective summary card
+- `:confirmation_card` — v0.07 confirmation card with v0.24 objective context
+- `:approval_card` — confirmation-approval UI surface
+- `:approval_inspector` — bounded confirmation-approval detail view
+
+**Allbert-app cards (4)** — domain cards for built-in apps:
+
+- `:memory_review_card` — v0.21 memory review surface
+- `:job_card` — v0.13 scheduled-job summary card
+- `:channel_card` — v0.16 channel status card
+- `:settings_card` — Settings Central single-key card
+
+**StockSage analysis cards (4 reserved in v0.26; implemented v0.27)**:
+
+- `:analysis_card` — v0.22/v0.25 analysis summary card
+- `:agent_report_card` — v0.25 specialist agent report card
+- `:parity_card` — v0.25 `--engine both` parity diff card
+- `:debate_round_card` — v0.25 bull/bear/risk debate round card
+
+The 4 StockSage cards are PRESENT in the v0.26 catalog (so emitters
+can target them) but their rendering modules ship as v0.26 stubs that
+display a placeholder + link to the legacy `/stocksage/analysis/:id`
+route until v0.27 ships the real rendering modules.
+
+Total catalog after v0.26: **38 components** (12 v0.18 carryover + 26
+v0.26 additions).
+
+Validation rules (catalog enforcement, secret-key rejection, raw-HTML
+rejection, registered-action-binding enforcement) apply uniformly to
+all 38 components without exception. No component is "internal" or
+"unvalidated."
 
 Model output cannot invent arbitrary HTML, JavaScript, LiveView components,
 actions, permissions, resource identities, scripts, URLs, or secret-bearing
