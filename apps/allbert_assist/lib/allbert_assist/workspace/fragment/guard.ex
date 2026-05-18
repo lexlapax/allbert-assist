@@ -13,6 +13,11 @@ defmodule AllbertAssist.Workspace.Fragment.Guard do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Objectives.AgentRegistry
 
+  @internal_emitters MapSet.new([
+                       "AllbertAssist.Workspace.Canvas",
+                       "workspace_canvas"
+                     ])
+
   @type state :: %{
           required(:action_emitters) => MapSet.t(String.t()),
           required(:rate_counts) => %{
@@ -35,11 +40,12 @@ defmodule AllbertAssist.Workspace.Fragment.Guard do
     {:ok, %{action_emitters: action_emitter_ids(), rate_counts: %{}}}
   end
 
-  @doc "Return true when the emitter is an allowed action or objective delegate."
+  @doc "Return true when the emitter is an allowed action, objective delegate, or workspace system emitter."
   @spec emitter_allowed?(term()) :: boolean()
   def emitter_allowed?(emitter_id) when is_binary(emitter_id) do
     call({:emitter_allowed?, emitter_id}, fn ->
-      action_emitter_id?(emitter_id) or objective_agent_emitter?(emitter_id)
+      internal_emitter_id?(emitter_id) or action_emitter_id?(emitter_id) or
+        objective_agent_emitter?(emitter_id)
     end)
   end
 
@@ -74,7 +80,8 @@ defmodule AllbertAssist.Workspace.Fragment.Guard do
   @impl true
   def handle_call({:emitter_allowed?, emitter_id}, _from, state) do
     allowed? =
-      MapSet.member?(state.action_emitters, emitter_id) or
+      internal_emitter_id?(emitter_id) or
+        MapSet.member?(state.action_emitters, emitter_id) or
         action_emitter_id?(emitter_id) or
         objective_agent_emitter?(emitter_id)
 
@@ -126,6 +133,8 @@ defmodule AllbertAssist.Workspace.Fragment.Guard do
   defp action_emitter_id?(emitter_id) do
     match?({:ok, _module}, ActionsRegistry.resolve(emitter_id))
   end
+
+  defp internal_emitter_id?(emitter_id), do: MapSet.member?(@internal_emitters, emitter_id)
 
   defp objective_agent_emitter?(emitter_id) do
     case AgentRegistry.lookup(emitter_id) do
