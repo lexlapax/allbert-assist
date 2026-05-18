@@ -222,6 +222,27 @@
   box-shadow: inset 0 -3px 0 var(--workspace-accent);
 }
 
+.workspace-offline-banner {
+  margin-bottom: 1rem;
+  border: 1px solid var(--workspace-focus);
+  border-radius: 0.5rem;
+  background: var(--workspace-panel-muted);
+  color: var(--workspace-fg);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.workspace-offline-banner[data-state="offline"],
+.workspace-offline-banner[data-state="unavailable"] {
+  border-color: var(--workspace-focus);
+  box-shadow: inset 4px 0 0 var(--workspace-focus);
+}
+
+.workspace-offline-banner[data-state="disabled"] {
+  border-style: dashed;
+}
+
 @media (min-width: 768px) {
   #workspace-mobile-tabs {
     display: none;

@@ -43,6 +43,7 @@ defmodule AllbertAssistWeb.AgentLive do
         workspace_theme: workspace_theme(),
         workspace_high_contrast?: workspace_high_contrast?(),
         workspace_mobile_tab: "chat",
+        workspace_offline_enabled?: workspace_offline_enabled?(),
         active_objectives: active_objectives(user_id),
         prompt: "Hello Allbert. What can you do right now?",
         response: nil,
@@ -182,9 +183,24 @@ defmodule AllbertAssistWeb.AgentLive do
         data-workspace-theme={@workspace_theme}
         data-high-contrast={bool_attribute(@workspace_high_contrast?)}
         data-mobile-tab={@workspace_mobile_tab}
+        data-offline-enabled={bool_attribute(@workspace_offline_enabled?)}
+        data-service-worker-url={~p"/workspace-sw.js"}
+        data-service-worker-scope="/agent"
+        data-offline-shell-url={~p"/workspace-offline.html"}
         role="region"
         aria-labelledby="workspace-component-title-workspace-header"
       >
+        <div
+          id="workspace-offline-banner"
+          class="workspace-offline-banner"
+          data-state={offline_banner_state(@workspace_offline_enabled?)}
+          role="status"
+          aria-live="polite"
+          hidden={@workspace_offline_enabled?}
+        >
+          {offline_banner_text(@workspace_offline_enabled?)}
+        </div>
+
         <nav
           id="workspace-mobile-tabs"
           class="workspace-mobile-tabs"
@@ -431,6 +447,13 @@ defmodule AllbertAssistWeb.AgentLive do
     end
   end
 
+  defp workspace_offline_enabled? do
+    case Settings.get("workspace.offline.enabled") do
+      {:ok, false} -> false
+      _other -> true
+    end
+  end
+
   defp next_workspace_theme("dark"), do: "light"
   defp next_workspace_theme(_theme), do: "dark"
 
@@ -448,6 +471,15 @@ defmodule AllbertAssistWeb.AgentLive do
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
+
+  defp offline_banner_state(true), do: "online"
+  defp offline_banner_state(false), do: "disabled"
+
+  defp offline_banner_text(true) do
+    "Working offline — your shell is cached and changes will sync when you reconnect."
+  end
+
+  defp offline_banner_text(false), do: "Offline mode disabled."
 
   defp theme_attribute("dark"), do: "dark"
   defp theme_attribute("light"), do: "light"
