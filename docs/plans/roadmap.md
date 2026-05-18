@@ -1233,9 +1233,10 @@ Plan: `docs/plans/v0.25-plan.md`
 Request flow: `docs/plans/v0.25-request-flow.md`
 ADR: `docs/adr/0022-native-financial-specialist-agents.md`
 
-Status: planning-ready after third holistic revisit (2026-05-17). Formerly M-D2c,
-previously planned as v0.19, then v0.23 before the project-direction rethink
-inserted v0.23 Jido State-Machine Convergence and v0.24 Objective Runtime
+Status: implemented through M6 closeout on 2026-05-17; ready for
+operator manual verification. Formerly M-D2c, previously planned as
+v0.19, then v0.23 before the project-direction rethink inserted
+v0.23 Jido State-Machine Convergence and v0.24 Objective Runtime
 Foundation.
 
 Expected direction:
@@ -1254,9 +1255,9 @@ Expected direction:
   `stocksage.decision_synthesizer`, `stocksage.quality_gate`.
   Three risk debaters preserved as distinct agents (per ADR 0022 A1) for
   Python-parity final-decision quality.
-- Multi-round bull/bear and risk debate via the v0.24 hybrid proposer
-  Stage 4 `{:more, hint}` continuation. Each round = one
-  `objective_steps` row of `kind: :delegate_agent`. Bounded by
+- Multi-round bull/bear and risk debate runs inside the plugin-owned
+  native coordinator graph while recording one `objective_steps` row
+  of `kind: :delegate_agent` per specialist turn. Bounded by
   `stocksage.native_max_debate_rounds` (default 2) +
   `stocksage.native_max_risk_rounds` (default 1).
 - Keep native worker supervisors under `StockSage.Supervisor`, contributed
@@ -1295,9 +1296,10 @@ Expected direction:
   python` and `--engine both` are explicit comparison/reference modes
   gated by `stocksage.python_comparison_enabled`. Do not extend
   `stocksage.analysis_engine` into a persistent Python/parity default.
-- ADR 0022 amended at v0.25 M1 to enumerate 10-agent topology, multi-round,
-  parity metric, NativeCoordinator, tiered evidence actions, `mix
-  allbert.delegate` cross-app proof; status moves to Accepted at M6.
+- ADR 0022 is Accepted and records the 10-agent topology, multi-round
+  coordinator graph with objective-step observability, parity metric,
+  NativeCoordinator, tiered evidence actions, and `mix allbert.delegate`
+  cross-app proof.
 
 ## v0.26: Agentic Workspace Surface And Ephemeral UI Substrate
 
@@ -1314,17 +1316,62 @@ Foundation, and v0.25 Native Jido agents are complete.
 Expected direction:
 
 - Upgrade `AllbertAssist.App.CoreApp`'s declared surface from the rudimentary
-  `/agent` prompt into a signal-driven LiveView workspace. v0.26 is `CoreApp`'s
-  surface implementation, not a free-floating shell; it does not redefine the
-  app contract or surface DSL that v0.18 provides.
-- Use `AllbertAssist.App.Registry` for app navigation and
-  `AllbertAssist.Surface` (defined in v0.18) for canvas/task component
-  validation.
-- Render objective state through the workspace shell: open-objective badges,
-  step inspection, cancellation controls, trace links.
-- Define canvas persistence, ephemeral surface lifecycle, provenance,
-  fallback text, redaction, and action-binding constraints.
-- Leave AG-UI/A2UI/MCP Apps interoperability to later adapter work.
+  `/agent` prompt into a **fully-dynamic signal-driven LiveView workspace**.
+  v0.26 is `CoreApp`'s surface implementation, not a free-floating shell; it
+  does not redefine the app contract or surface DSL that v0.18 provides.
+- **The workspace shell IS itself a Surface tree** (per ADR 0023 §2). The
+  renderer walks the tree and dispatches each node's `:component` atom to a
+  LiveComponent via `AllbertAssist.Workspace.Catalog.component_renderer/1`.
+  No hardcoded HEEx layout for regions.
+- **Per-thread Canvas** (persistent tiles bound to v0.12 thread; survives
+  refresh + restart) + **per-thread Ephemeral Surfaces** (task-scoped
+  overlays, shared across tabs of the same thread, GC'd on thread close).
+  Hybrid SQLite-metadata + YAML-body persistence under `<ALLBERT_HOME>/workspace/`.
+- **Catalog expands from 12 → 38 components** (per ADR 0015 v0.26
+  amendment): 12 v0.18 carryover + 10 workspace structural + 12 Allbert-domain
+  + 4 Allbert-app cards + 4 reserved StockSage cards (v0.26 ships stubs;
+  v0.27 implements real rendering).
+- **Strict + HMAC-signed runtime Fragment emission** via
+  `allbert.workspace.fragment.**` SignalBus topic. Any in-BEAM module can
+  emit; `AllbertAssistWeb.SignalBridge` validates (envelope shape +
+  signature + catalog component + emitter allow-list + per-emitter rate
+  limit + payload size) before forwarding to per-user PubSub.
+- **Multi-tab sync** via Phoenix.PubSub for canvas tiles AND ephemeral
+  surfaces. Tabs viewing the same thread see the same state.
+- **UX qualities all first-class**: dark mode + theme toggle, WCAG 2.1 AA
+  accessibility (keyboard nav + ARIA + focus traps + skip-to-content),
+  mobile responsive (two-pane above 768px, single-pane with tab toggle
+  below), full offline canvas editing via service worker + Yjs CRDT with
+  automatic merge on reconnect + conflict-banner UX.
+- **Internal `AllbertAssist.Workspace.AGUI.Bridge`** translates curated
+  Allbert signals to AG-UI event shape for test-only semantic mapping.
+  NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps interop is
+  post-v0.31 (per Future Features Post-v0.31 UI Protocol Interop).
+- **`StockSage.Actions.RunAnalysis`** + objective engine + v0.25 native
+  specialist agents emit Fragments rendering as canvas tiles + ephemeral
+  approval cards. Operator sees the analysis stream in real-time as
+  agents complete.
+- **14 new `workspace.*` settings** (theme, offline, accessibility,
+  mobile breakpoint, fragment rate limits, etc.). **New
+  `:workspace_canvas_write` permission class** for tile-state mutations.
+- **9 new `allbert.workspace.**` signal topics** (`fragment.emitted`,
+  `fragment.dropped`, `tile.added/updated/removed`,
+  `ephemeral.opened/closed`, `canvas.snapshot.requested` reserved no-op,
+  `offline.reconciled`).
+- **`## Workspace` trace section** + inline `### Workspace` subsection
+  per v0.24 inline placement rule.
+- **`mix allbert.workspace canvas|ephemeral|inspect|rotate-signing-secret`**
+  Mix tasks.
+- Sibling routes (`/objectives/:id`, `/jobs`, `/settings`) remain
+  top-level for deep-linking AND are reachable as tiles inside the
+  workspace.
+- ADR 0015 amended at v0.26 M1 (catalog expansion); new ADR 0023
+  (Workspace Canvas And Ephemeral Surface Substrate) reaches Accepted
+  at v0.26 M6 with all binding decisions.
+- Defer to v0.27+: drag-drop tile reordering, real StockSage card
+  rendering. Defer to post-v0.31: multi-user collaborative cursors,
+  plugin-contributed workspace regions, public AG-UI HTTP endpoint,
+  A2UI / MCP Apps interop, canvas snapshot / undo / time-travel.
 
 ## v0.27: StockSage LiveViews
 
