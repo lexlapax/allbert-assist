@@ -5,6 +5,7 @@ defmodule AllbertAssist.Workspace.Canvas do
 
   import Ecto.Query
 
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Workspace.BodyStore
@@ -19,6 +20,7 @@ defmodule AllbertAssist.Workspace.Canvas do
   def tiles_for_thread(thread_id, user_id, opts \\ [])
       when is_binary(thread_id) and is_binary(user_id) do
     include_deleted? = Keyword.get(opts, :include_deleted, false)
+    read_only? = thread_completed?(user_id, thread_id)
 
     Tile
     |> where([tile], tile.thread_id == ^thread_id and tile.user_id == ^user_id)
@@ -26,6 +28,16 @@ defmodule AllbertAssist.Workspace.Canvas do
     |> order_by([tile], asc: tile.position, asc: tile.inserted_at)
     |> Repo.all()
     |> load_bodies()
+    |> mark_read_only_result(read_only?)
+  end
+
+  @spec get_tile(String.t(), String.t(), keyword()) :: {:ok, tile()} | {:error, term()}
+  def get_tile(tile_id, user_id, opts \\ []) when is_binary(tile_id) and is_binary(user_id) do
+    with {:ok, tile} <- get_user_tile(tile_id, user_id, opts) do
+      tile
+      |> load_body()
+      |> mark_read_only_result(thread_completed?(tile.user_id, tile.thread_id))
+    end
   end
 
   @spec add_tile(map()) :: {:ok, tile()} | {:error, term()}
@@ -33,6 +45,7 @@ defmodule AllbertAssist.Workspace.Canvas do
     attrs = normalize_attrs(attrs)
 
     with {:ok, attrs} <- put_create_defaults(attrs),
+         :ok <- ensure_thread_writable(attrs.user_id, attrs.thread_id),
          :ok <- enforce_cap(attrs.user_id, attrs.thread_id),
          :ok <- BodyStore.write_body(attrs.body_yaml_path, attrs.body) do
       %Tile{}
@@ -51,6 +64,7 @@ defmodule AllbertAssist.Workspace.Canvas do
 
     with {:ok, tile} <- get_live_tile(tile_id),
          :ok <- authorize_scope(tile, attrs),
+         :ok <- ensure_thread_writable(tile.user_id, tile.thread_id),
          :ok <- maybe_write_body(tile.body_yaml_path, Map.fetch(attrs, :body)) do
       changed_fields = changed_fields(attrs)
 
@@ -65,6 +79,7 @@ defmodule AllbertAssist.Workspace.Canvas do
   @spec remove_tile(String.t(), String.t()) :: :ok | {:error, term()}
   def remove_tile(tile_id, user_id) when is_binary(tile_id) and is_binary(user_id) do
     with {:ok, tile} <- get_user_tile(tile_id, user_id),
+         :ok <- ensure_thread_writable(tile.user_id, tile.thread_id),
          :ok <- soft_delete(tile, DateTime.utc_now()) do
       Events.tile_removed(tile, :operator_removed)
       :ok
@@ -80,8 +95,9 @@ defmodule AllbertAssist.Workspace.Canvas do
   @spec restore_tile(String.t(), String.t()) :: {:ok, tile()} | {:error, term()}
   def restore_tile(tile_id, user_id) when is_binary(tile_id) and is_binary(user_id) do
     with {:ok, tile} <- get_user_tile(tile_id, user_id, include_deleted: true),
-         {:ok, restored_path} <- restore_body_path(tile),
+         :ok <- ensure_thread_writable(tile.user_id, tile.thread_id),
          :ok <- enforce_cap(tile.user_id, tile.thread_id),
+         {:ok, restored_path} <- restore_body_path(tile),
          position <- next_position(tile.user_id, tile.thread_id) do
       restored_from = tile.current_revision_id || tile.body_yaml_path
 
@@ -94,6 +110,30 @@ defmodule AllbertAssist.Workspace.Canvas do
       |> Repo.update()
       |> load_body_result()
       |> tap_ok(&Events.tile_added(&1, %{restored_from: restored_from}))
+    end
+  end
+
+  @spec purge_deleted_before(String.t(), DateTime.t()) :: {:ok, [tile()]} | {:error, term()}
+  def purge_deleted_before(user_id, %DateTime{} = before) when is_binary(user_id) do
+    Tile
+    |> where(
+      [tile],
+      tile.user_id == ^user_id and not is_nil(tile.deleted_at) and tile.deleted_at < ^before
+    )
+    |> order_by([tile], asc: tile.deleted_at, asc: tile.inserted_at)
+    |> Repo.all()
+    |> Enum.reduce_while([], fn tile, acc ->
+      with :ok <- BodyStore.delete(tile.body_yaml_path),
+           {:ok, _deleted} <- Repo.delete(tile) do
+        Events.tile_removed(tile, :purged)
+        {:cont, [tile | acc]}
+      else
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:error, reason} -> {:error, reason}
+      purged -> {:ok, Enum.reverse(purged)}
     end
   end
 
@@ -253,6 +293,22 @@ defmodule AllbertAssist.Workspace.Canvas do
     end
   end
 
+  defp ensure_thread_writable(user_id, thread_id) do
+    case Conversations.get_thread(user_id, thread_id) do
+      {:ok, %Conversations.Thread{completed_at: nil}} -> :ok
+      {:ok, %Conversations.Thread{}} -> {:error, :thread_completed}
+      {:error, {:thread_not_found, _thread_id}} -> :ok
+    end
+  end
+
+  defp thread_completed?(user_id, thread_id) do
+    case Conversations.get_thread(user_id, thread_id) do
+      {:ok, %Conversations.Thread{completed_at: nil}} -> false
+      {:ok, %Conversations.Thread{}} -> true
+      {:error, {:thread_not_found, _thread_id}} -> false
+    end
+  end
+
   defp load_bodies(tiles) do
     tiles
     |> Enum.reduce_while([], fn tile, acc ->
@@ -269,6 +325,16 @@ defmodule AllbertAssist.Workspace.Canvas do
 
   defp load_body_result({:ok, %Tile{} = tile}), do: load_body(tile)
   defp load_body_result({:error, reason}), do: {:error, reason}
+
+  defp mark_read_only_result({:ok, %Tile{} = tile}, read_only?) do
+    {:ok, %{tile | read_only: read_only?}}
+  end
+
+  defp mark_read_only_result({:ok, tiles}, read_only?) when is_list(tiles) do
+    {:ok, Enum.map(tiles, &%{&1 | read_only: read_only?})}
+  end
+
+  defp mark_read_only_result({:error, reason}, _read_only?), do: {:error, reason}
 
   defp load_body(%Tile{} = tile) do
     with {:ok, body} <- BodyStore.read_body(tile.body_yaml_path) do

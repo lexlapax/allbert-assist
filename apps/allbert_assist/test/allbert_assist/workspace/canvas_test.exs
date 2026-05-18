@@ -1,9 +1,29 @@
 defmodule AllbertAssist.Workspace.CanvasTest do
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Workspace.Canvas
   alias Jido.Signal.Bus
+
+  setup do
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+
+    home =
+      Path.join(System.tmp_dir!(), "allbert-canvas-test-#{System.unique_integer([:positive])}")
+
+    Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+
+    on_exit(fn ->
+      restore_env(Paths, original_paths_config)
+      restore_env(Settings, original_settings_config)
+      File.rm_rf!(home)
+    end)
+
+    :ok
+  end
 
   test "tile CRUD persists metadata and YAML body" do
     thread_id = "thread-canvas-crud"
@@ -35,6 +55,36 @@ defmodule AllbertAssist.Workspace.CanvasTest do
 
     assert updated.size_width == 640
     assert updated.body == %{"text" => "updated"}
+  end
+
+  test "gets live or deleted tiles and purges soft-deleted tiles before a cutoff" do
+    thread_id = "thread-canvas-purge"
+    user_id = "user-canvas-purge"
+
+    assert {:ok, tile} = Canvas.add_tile(tile_attrs(thread_id, user_id, "purge me"))
+
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.tile.removed")
+
+    assert :ok = Canvas.remove_tile(tile.id, user_id)
+    removed_signal = receive_signal("allbert.workspace.tile.removed")
+    assert removed_signal.data.tile_id == tile.id
+    assert removed_signal.data.metadata.removed_reason == :operator_removed
+
+    assert {:error, :not_found} = Canvas.get_tile(tile.id, user_id)
+    assert {:ok, deleted} = Canvas.get_tile(tile.id, user_id, include_deleted: true)
+    assert deleted.body["text"] == "purge me"
+    refute is_nil(deleted.deleted_at)
+
+    assert {:ok, []} = Canvas.purge_deleted_before(user_id, ~U[2000-01-01 00:00:00Z])
+    assert {:ok, [purged]} = Canvas.purge_deleted_before(user_id, ~U[2999-01-01 00:00:00Z])
+    assert purged.id == tile.id
+
+    purged_signal = receive_signal("allbert.workspace.tile.removed")
+    assert purged_signal.data.tile_id == tile.id
+    assert purged_signal.data.metadata.removed_reason == :purged
+
+    assert {:error, :not_found} = Canvas.get_tile(tile.id, user_id, include_deleted: true)
   end
 
   test "remove soft-deletes and restore brings a tile back at the end" do
@@ -172,4 +222,7 @@ defmodule AllbertAssist.Workspace.CanvasTest do
       1_000 -> flunk("expected signal #{type}")
     end
   end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end

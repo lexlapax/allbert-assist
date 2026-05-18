@@ -23,6 +23,7 @@ defmodule AllbertAssist.Workspace.Canvas.Tile do
     field :metadata, :map, default: %{}
     field :deleted_at, :utc_datetime_usec
     field :body, :map, virtual: true, default: %{}
+    field :read_only, :boolean, virtual: true, default: false
 
     timestamps(type: :utc_datetime_usec)
   end

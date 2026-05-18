@@ -66,6 +66,15 @@ defmodule AllbertAssist.Workspace.BodyStore do
     end
   end
 
+  @spec delete(String.t()) :: :ok | {:error, {:body_delete_failed, atom()}}
+  def delete(relative_path) when is_binary(relative_path) do
+    case File.rm(absolute(relative_path)) do
+      :ok -> :ok
+      {:error, :enoent} -> :ok
+      {:error, reason} -> {:error, {:body_delete_failed, reason}}
+    end
+  end
+
   defp absolute(relative_path), do: Path.join(Paths.home(), relative_path)
 
   defp stamp(timestamp) do
