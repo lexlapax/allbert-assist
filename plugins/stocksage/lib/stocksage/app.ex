@@ -17,10 +17,10 @@ defmodule StockSage.App do
   def display_name, do: "StockSage"
 
   @impl true
-  # v0.24 closeout: release-pinned, bumped from "0.22.0" because v0.24
-  # threaded objectives through StockSage analyses and added the proposer path.
+  # v0.25 closeout: release-pinned with the native financial specialist-agent
+  # graph, explicit Python parity, and delegate-agent proof.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.24.0"
+  def version, do: "0.25.0"
 
   @impl true
   def validate(_opts), do: :ok

@@ -137,7 +137,6 @@ defmodule StockSage.Agents do
     }
   ]
 
-  @spec specialists() :: [map()]
   def specialists, do: @specialists
 
   @spec ids() :: [String.t()]

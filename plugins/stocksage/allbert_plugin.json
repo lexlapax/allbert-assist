@@ -2,7 +2,7 @@
   "schema_version": 1,
   "plugin_id": "stocksage",
   "name": "StockSage",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "kind": "app",
   "module": "StockSage.Plugin",
   "contributions": {

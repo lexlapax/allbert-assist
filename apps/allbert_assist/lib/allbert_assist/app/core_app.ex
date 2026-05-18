@@ -18,7 +18,7 @@ defmodule AllbertAssist.App.CoreApp do
   # the app (release-pinned, not semantic-per-app). v0.24 adds the
   # objective runtime, canonical turn signals, and objective surfaces.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.24.0"
+  def version, do: "0.25.0"
 
   @impl true
   def validate(_opts), do: :ok

@@ -46,7 +46,6 @@ defmodule StockSage.Evidence do
     }
   }
 
-  @spec fetch(atom(), map()) :: {:ok, map()} | {:error, term()}
   def fetch(kind, params) when is_atom(kind) and is_map(params) do
     mode = mode(params)
     ticker = ticker(params)
@@ -160,9 +159,6 @@ defmodule StockSage.Evidence do
     else
       {:error, %RequestSpec{} = spec} ->
         {:error, {:resource_access_denied, RequestSpec.summary(spec)}}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 

@@ -10,6 +10,58 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.25 - Native Financial Specialist Agents
+
+Status: implemented through M6 closeout on 2026-05-17 and ready for
+operator manual verification. Version metadata is `0.25.0`.
+
+### Added (v0.25)
+
+- StockSage native financial specialist-agent graph: 9 supervised
+  `Jido.AI` specialists, 1 deterministic quality gate, and the
+  `StockSage.Agents.NativeCoordinator` JidoBacked orchestrator under
+  the StockSage plugin supervisor.
+- Native analysis is now the default `run_analysis` engine. Explicit
+  Python comparison remains available only by request (`--engine python`,
+  `--engine both`, or `--compare-python`) and is gated by
+  `stocksage.python_comparison_enabled`.
+- Five action-backed evidence providers under `StockSage.Actions.Evidence.*`
+  with fixture mode, Resource Access posture, and the
+  `:stocksage_evidence_fetch` permission class.
+- Multi-round bull/bear/risk debate with Settings-bounded caps and one
+  durable `objective_steps` row per specialist turn.
+- `--engine both` parity runs that fan out native + Python comparison,
+  compute 5-point rating agreement plus confidence delta, and persist
+  `parity_diff` JSON on the analysis row.
+- Core `mix allbert.delegate <agent_id>` task, proving any registered
+  objective delegate agent can be invoked through the shared action
+  boundary outside StockSage.
+
+### Changed (v0.25)
+
+- `StockSage.Actions.RunAnalysis` creates native objectives, persists
+  native/parity details, labels explicit Python comparison clearly, and
+  never falls back from native to Python automatically.
+- StockSage agent prompts and prompt provenance live under
+  `plugins/stocksage/priv/prompts/native_agents/` with v0.25 prompt
+  version metadata.
+- StockSage plugin, app, manifest, CoreApp, and umbrella app versions
+  are release-pinned to `0.25.0`.
+- ADR 0022 is Accepted and records the shipped topology, coordinator
+  loop, parity metric, evidence-action posture, and delegate CLI proof.
+
+### Verification (v0.25)
+
+- Focused suites passed for prompt inventory, specialist registry,
+  evidence actions, native coordinator single and multi-round analysis,
+  parity scoring/persistence, `mix allbert.delegate`, and StockSage CLI
+  smoke paths.
+- Final gates passed: `mix format --check-formatted`,
+  `mix compile --warnings-as-errors`, `mix credo --strict`,
+  `mix dialyzer`, `mix precommit`, and `git diff --check`.
+- `mix precommit` passed with 682 core tests, 27 web tests, 158
+  StockSage plugin tests, and 2 delegate task smoke tests.
+
 ## v0.24 - Objective Runtime Foundation
 
 Status: released and tagged as `v0.24` on 2026-05-17 after post-audit

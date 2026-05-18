@@ -2,10 +2,13 @@ defmodule StockSage.Agents.NativeCoordinator do
   @moduledoc """
   JidoBacked coordinator for the StockSage native agent graph.
 
-  v0.25 M2 keeps the coordinator inert: it validates the request shape and
-  returns bounded stub packets. Later milestones replace these stubs with the
-  evidence-action and debate/synthesis loop while keeping this supervised
-  boundary stable for RunAnalysis and cross-app delegation.
+  v0.25 coordinates bounded, stage-local parallelism for independent
+  specialist calls while keeping dependency-bearing stages ordered. Analysts
+  run in parallel, bull/bear rounds remain sequential so each side can respond
+  to the prior stance, risk perspectives run in parallel per round, and
+  explicit parity mode runs native and Python comparison concurrently. Every
+  specialist turn is still recorded as a durable objective step and executes
+  through the monitored AgentRegistry dispatch boundary.
   """
 
   alias AllbertAssist.JidoBacked

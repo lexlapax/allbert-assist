@@ -163,6 +163,15 @@ fundamentals, bull/bear rounds, risk rounds, synthesis, and quality
 gate. The generic v0.24 Objective Engine remains the lifecycle and
 inspection substrate rather than a StockSage-specific graph scheduler.
 
+The graph may run independent advisory calls in parallel, but only at
+bounded stage barriers. v0.25 runs the initial analyst trio in
+parallel, keeps bull/bear sequential so each stance can respond to the
+prior report, and runs the three risk perspectives in parallel per
+risk round. Each specialist dispatch is bounded by
+`stocksage.native_agent_timeout_ms` (default 90 seconds); timeout marks
+that delegate step failed and lets the coordinator continue with a
+warning rather than hanging the objective.
+
 Rationale: specialist debate turns are plugin-owned internal advisory
 turns, not operator-callable top-level action proposals. Keeping the
 round loop inside the coordinator avoids asking the generic Objective
