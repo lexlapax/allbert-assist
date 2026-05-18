@@ -170,6 +170,11 @@
   color: var(--workspace-fg);
 }
 
+#workspace-shell button,
+#workspace-shell a.btn {
+  min-height: 44px;
+}
+
 #workspace-shell .workspace-theme-toggle:hover,
 #workspace-shell .workspace-theme-toggle:focus-visible {
   border-color: var(--workspace-focus);
@@ -190,6 +195,109 @@
 #workspace-shell[data-high-contrast="true"]
   :where(a, button, textarea, input, select, [tabindex]):focus-visible {
   outline-width: 3px;
+}
+
+#workspace-mobile-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+
+.workspace-mobile-tab {
+  min-height: 44px;
+  flex: 1 0 auto;
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.5rem;
+  background: var(--workspace-panel-muted);
+  color: var(--workspace-fg);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.workspace-mobile-tab-active {
+  border-color: var(--workspace-accent);
+  background: var(--workspace-panel);
+  box-shadow: inset 0 -3px 0 var(--workspace-accent);
+}
+
+@media (min-width: 768px) {
+  #workspace-mobile-tabs {
+    display: none;
+  }
+
+  #workspace-node-workspace-root > .workspace-node-children {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.9fr);
+    grid-template-areas:
+      "header header"
+      "badges badges"
+      "chat canvas"
+      "ephemeral ephemeral";
+    gap: 1rem;
+    align-items: start;
+  }
+
+  #workspace-node-workspace-header {
+    grid-area: header;
+  }
+
+  #workspace-node-workspace-objectives {
+    grid-area: badges;
+  }
+
+  #workspace-node-workspace-chat {
+    grid-area: chat;
+  }
+
+  #workspace-node-workspace-canvas-region {
+    grid-area: canvas;
+  }
+
+  #workspace-node-workspace-ephemeral-region {
+    grid-area: ephemeral;
+  }
+}
+
+@media (max-width: 767.98px) {
+  #workspace-shell {
+    padding: 1rem;
+  }
+
+  #workspace-node-workspace-root > .workspace-node-children {
+    display: block;
+  }
+
+  #workspace-node-workspace-header,
+  #workspace-node-workspace-objectives,
+  #workspace-node-workspace-chat,
+  #workspace-node-workspace-canvas-region,
+  #workspace-node-workspace-ephemeral-region {
+    margin-top: 1rem;
+  }
+
+  #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-canvas-region,
+  #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-ephemeral-region,
+  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-chat,
+  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-ephemeral-region,
+  #workspace-shell[data-mobile-tab="ephemeral"] #workspace-node-workspace-chat,
+  #workspace-shell[data-mobile-tab="ephemeral"] #workspace-node-workspace-canvas-region {
+    display: none;
+  }
+
+  #workspace-chat-region {
+    min-height: calc(100dvh - 18rem);
+  }
+
+  #agent-form {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    border-top: 1px solid var(--workspace-border);
+    background: var(--workspace-bg);
+    padding-top: 0.75rem;
+  }
 }
 
 /* Make LiveView wrapper divs transparent for layout */
