@@ -2,6 +2,7 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
   use ExUnit.Case, async: true
 
   @app_js_path Path.expand("../../../assets/js/app.js", __DIR__)
+  @package_json_path Path.expand("../../../assets/package.json", __DIR__)
   @service_worker_path Path.expand("../../../priv/static/workspace-sw.js", __DIR__)
   @offline_shell_path Path.expand("../../../priv/static/workspace-offline.html", __DIR__)
 
@@ -19,6 +20,29 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
     assert app_js =~ "window.addEventListener(\"offline\""
     assert app_js =~ "window.addEventListener(\"online\""
     assert app_js =~ "unregisterWorkspaceServiceWorker"
+  end
+
+  test "workspace tile editor hook uses Yjs, IndexedDB, and bounded LiveView pushes" do
+    app_js = File.read!(@app_js_path)
+    package_json = File.read!(@package_json_path)
+
+    assert package_json =~ ~s("yjs")
+    assert package_json =~ ~s("y-indexeddb")
+    assert package_json =~ ~s("js-base64")
+
+    assert app_js =~ ~s(import * as Y from "yjs")
+    assert app_js =~ ~s(import {IndexeddbPersistence} from "y-indexeddb")
+    assert app_js =~ "new Y.Doc()"
+    assert app_js =~ "this.doc.getText(\"body\")"
+    assert app_js =~ "new IndexeddbPersistence(this.docName, this.doc)"
+    assert app_js =~ "provider.on(\"synced\""
+    assert app_js =~ "this.doc.on(\"update\", this.handleUpdate)"
+    assert app_js =~ "Y.mergeUpdates"
+    assert app_js =~ "Y.encodeStateVector"
+    assert app_js =~ "this.pushEvent(\"workspace_tile_editor_sync\""
+    assert app_js =~ "estimateWorkspaceEditorBytes(payload) > this.quotaBytes"
+    assert app_js =~ "this.doc?.destroy()"
+    assert app_js =~ "hooks: {...colocatedHooks, FocusTrap, WorkspaceTileEditor}"
   end
 
   test "service worker caches shell assets without caching dynamic agent HTML" do
@@ -39,6 +63,8 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
 
     assert offline_shell =~ ~s(id="workspace-offline-shell")
     assert offline_shell =~ ~s(data-offline-shell="true")
+    assert offline_shell =~ ~s(id="workspace-offline-drafts")
+    assert offline_shell =~ ~s(src="/assets/js/app.js")
     assert offline_shell =~ "Working offline"
     assert offline_shell =~ "Runtime data will rehydrate"
   end
