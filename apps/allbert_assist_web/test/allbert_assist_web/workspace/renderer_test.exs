@@ -118,6 +118,41 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     assert html =~ "offline notes"
   end
 
+  test "tile renderer exposes offline conflict revert affordance" do
+    html =
+      render_component(Renderer,
+        id: "conflict-tile-renderer",
+        node: %Node{
+          id: "canvas-tile-conflict",
+          component: :tile,
+          props: %{
+            title: "Notes",
+            tile_id: "tile-conflict",
+            tile_kind: "text",
+            tile_text: "stale offline notes",
+            editable?: true,
+            conflict_summary: %{
+              conflict?: true,
+              conflict_count: 2,
+              revert_revision_id: "rev-before-conflict"
+            }
+          }
+        },
+        renderer_context:
+          Map.merge(renderer_context(), %{
+            user_id: "local",
+            thread_id: "thread-1",
+            workspace_offline_enabled?: true
+          }),
+        workspace_state: workspace_state()
+      )
+
+    assert html =~ ~s(data-workspace-conflict-banner="true")
+    assert html =~ "2 offline edit(s) were merged"
+    assert html =~ ~s(phx-click="revert_tile_revision")
+    assert html =~ ~s(phx-value-revision-id="rev-before-conflict")
+  end
+
   defp sample_props(:header), do: %{title: "Workspace Header", subtitle: "Subheading"}
   defp sample_props(:empty_state), do: %{title: "Empty", body: "Nothing to render yet."}
   defp sample_props(:link), do: %{label: "Open trace", body: "/trace/example"}

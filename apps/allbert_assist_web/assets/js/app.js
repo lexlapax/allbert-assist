@@ -93,6 +93,7 @@ const workspaceEditorMessages = {
   pending: "Saving locally",
   offline: "Saved locally; will sync when the connection returns.",
   pushed: "Local update sent to workspace.",
+  conflict: "Conflict reconciled; review the tile banner.",
   rejected: "Local update kept; server sync rejected.",
   quota_exceeded: "Local draft is over the configured offline quota.",
   unavailable: "Offline editor unavailable in this browser.",
@@ -315,7 +316,15 @@ const WorkspaceTileEditor = {
     }
 
     this.pushEvent("workspace_tile_editor_sync", payload, reply => {
-      setWorkspaceEditorState(this.el, reply.status === "received" ? "pushed" : "rejected")
+      if (reply.current_revision_id) this.baseRevisionId = reply.current_revision_id
+
+      if (reply.status === "received") {
+        setWorkspaceEditorState(this.el, "pushed")
+      } else if (reply.status === "conflict") {
+        setWorkspaceEditorState(this.el, "conflict")
+      } else {
+        setWorkspaceEditorState(this.el, "rejected")
+      }
     })
   },
 }
