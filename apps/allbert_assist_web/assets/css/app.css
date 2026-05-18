@@ -243,6 +243,66 @@
   border-style: dashed;
 }
 
+.workspace-tile-editor {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.workspace-tile-editor-input {
+  min-height: 12rem;
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.5rem;
+  background: var(--workspace-panel-muted);
+  color: var(--workspace-fg);
+  padding: 0.75rem;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.workspace-tile-editor-input:focus-visible {
+  outline: 3px solid var(--workspace-focus);
+  outline-offset: 2px;
+}
+
+.workspace-tile-editor-status {
+  min-height: 1.25rem;
+  color: var(--workspace-muted);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+
+.workspace-tile-editor[data-sync-state="synced"] .workspace-tile-editor-status {
+  color: var(--workspace-muted);
+}
+
+.workspace-tile-editor[data-sync-state="offline"],
+.workspace-tile-editor[data-sync-state="quota_exceeded"],
+.workspace-tile-editor[data-sync-state="unavailable"] {
+  border-left: 4px solid var(--workspace-focus);
+  padding-left: 0.75rem;
+}
+
+.workspace-offline-drafts {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.workspace-offline-draft {
+  border: 1px solid var(--workspace-border, #c8d0d8);
+  border-radius: 0.5rem;
+  background: var(--workspace-panel, #ffffff);
+  padding: 0.75rem;
+}
+
+.workspace-offline-draft pre {
+  margin-top: 0.5rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @media (min-width: 768px) {
   #workspace-mobile-tabs {
     display: none;

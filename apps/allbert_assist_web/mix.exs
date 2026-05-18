@@ -68,7 +68,8 @@ defmodule AllbertAssistWeb.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "assets.setup", "assets.build"],
+      setup: ["deps.get", "assets.npm", "assets.setup", "assets.build"],
+      "assets.npm": [&npm_install/1],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind allbert_assist_web", "esbuild allbert_assist_web"],
@@ -78,5 +79,17 @@ defmodule AllbertAssistWeb.MixProject do
         "phx.digest"
       ]
     ]
+  end
+
+  defp npm_install(_args) do
+    {_, status} =
+      System.cmd("npm", ["ci", "--no-audit", "--no-fund"],
+        cd: Path.expand("assets", __DIR__),
+        into: IO.stream()
+      )
+
+    if status != 0 do
+      Mix.raise("npm ci failed for allbert_assist_web assets")
+    end
   end
 end
