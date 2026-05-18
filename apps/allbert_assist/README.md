@@ -134,9 +134,10 @@ objective steps still execute through registered actions, Security Central,
 resource posture, and durable confirmations. StockSage now threads
 `objective_id` and `step_id` through its analysis flow.
 
-v0.25 adds StockSage native financial specialist agents under the plugin
-supervisor. Native analysis is the default engine; explicit Python comparison
-and `--engine both` parity remain request-scoped reference paths. The core
+v0.25 adds 12 StockSage native financial specialist agents under the plugin
+supervisor: 11 LLM-capable specialists plus a deterministic quality gate.
+Native analysis is the default engine; explicit Python comparison and
+`--engine both` parity remain request-scoped reference paths. The core
 `mix allbert.delegate <agent_id>` task proves registered delegate agents are
 callable outside StockSage through the v0.24 action boundary.
 

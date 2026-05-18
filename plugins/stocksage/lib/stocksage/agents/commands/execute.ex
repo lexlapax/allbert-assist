@@ -244,6 +244,40 @@ defmodule StockSage.Agents.Commands.Execute do
     }
   end
 
+  defp role_report(%{role: :research_manager}, request, _evidence, prior_reports) do
+    ticker = field(request, :ticker, "UNKNOWN")
+    rating = synthesized_rating(prior_reports)
+
+    %{
+      summary: "#{rating} preliminary research decision prepared for #{ticker}.",
+      report:
+        "Research manager for #{ticker}: arbitrates #{map_size(prior_reports)} analyst and " <>
+          "bull/bear report(s) into a preliminary #{rating} advisory stance.",
+      confidence: 0.66,
+      extra: %{final_trade_decision: rating, rating: rating, recommendation: rating}
+    }
+  end
+
+  defp role_report(%{role: :trader_plan}, request, _evidence, prior_reports) do
+    ticker = field(request, :ticker, "UNKNOWN")
+    rating = synthesized_rating(prior_reports)
+
+    %{
+      summary: "#{rating} trader plan prepared for #{ticker}.",
+      report:
+        "Trader plan for #{ticker}: translates #{map_size(prior_reports)} prior report(s) " <>
+          "into a bounded #{rating} advisory plan for risk review.",
+      confidence: 0.64,
+      extra: %{
+        final_trade_decision: rating,
+        rating: rating,
+        recommendation: rating,
+        investment_plan: "Review evidence drift before changing exposure.",
+        trader_investment_plan: "No autonomous order placement. Operator review only."
+      }
+    }
+  end
+
   defp role_report(%{role: :decision_synthesizer}, request, _evidence, prior_reports) do
     ticker = field(request, :ticker, "UNKNOWN")
     rating = synthesized_rating(prior_reports)

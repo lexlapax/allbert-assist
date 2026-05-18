@@ -181,6 +181,18 @@ defmodule StockSage.Plugin do
         description: "Model profile override for the neutral risk specialist."
       },
       %{
+        key: "stocksage.native_model_profile_research_manager",
+        type: :string,
+        default: "slow",
+        description: "Model profile override for the research manager specialist."
+      },
+      %{
+        key: "stocksage.native_model_profile_trader_plan",
+        type: :string,
+        default: "slow",
+        description: "Model profile override for the trader-plan specialist."
+      },
+      %{
         key: "stocksage.native_model_profile_decision_synthesizer",
         type: :string,
         default: "slow",

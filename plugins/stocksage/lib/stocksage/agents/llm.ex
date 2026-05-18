@@ -43,6 +43,7 @@ defmodule StockSage.Agents.LLM do
     alias AllbertAssist.Settings
     alias AllbertAssist.Signals, as: AllbertSignals
     alias StockSage.Agents
+    alias StockSage.Agents.CommitteeContext
 
     @schema %{
       type: "object",
@@ -153,6 +154,8 @@ defmodule StockSage.Agents.LLM do
       Prior reports:
       #{safe_json(prior_report_summary(prior_reports))}
 
+      #{committee_context_section(spec, prior_reports)}
+
       Requirements:
       - Return only the requested structured object.
       - Do not claim to execute trades, contact brokers, or authorize actions.
@@ -192,7 +195,8 @@ defmodule StockSage.Agents.LLM do
 
     defp prior_report_summary(prior_reports) when is_map(prior_reports) do
       prior_reports
-      |> Enum.take(12)
+      |> CommitteeContext.ordered_reports()
+      |> Enum.take(20)
       |> Map.new(fn {agent_id, report} ->
         {agent_id,
          %{
@@ -201,13 +205,22 @@ defmodule StockSage.Agents.LLM do
            report: bounded_text(field(report, :report), 1_800),
            recommendation: field(report, :recommendation) || field(report, :final_trade_decision),
            confidence: field(report, :confidence),
-           warnings: report |> field(:warnings, []) |> Enum.take(3)
+           warnings: report |> field(:warnings, []) |> normalize_list() |> Enum.take(3)
          }
          |> drop_nil_values()}
       end)
     end
 
     defp prior_report_summary(_prior_reports), do: %{}
+
+    defp committee_context_section(%{role: :decision_synthesizer}, prior_reports) do
+      """
+      Committee context:
+      #{safe_json(CommitteeContext.summary(prior_reports))}
+      """
+    end
+
+    defp committee_context_section(_spec, _prior_reports), do: ""
 
     defp prompt_file(spec) do
       spec

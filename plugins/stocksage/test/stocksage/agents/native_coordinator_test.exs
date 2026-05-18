@@ -22,14 +22,14 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
     :ok
   end
 
-  test "runs the single-round ten-agent graph with fixture evidence" do
+  test "runs the single-round twelve-agent graph with fixture evidence" do
     assert {:ok, report} = NativeCoordinator.analyze(@request)
 
     assert report.engine == "native"
     assert report.ticker == "AAPL"
     assert report.status == :ok
     assert report.final_trade_decision in ["Buy", "Overweight", "Hold", "Underweight", "Sell"]
-    assert map_size(report.agent_reports) == 10
+    assert map_size(report.agent_reports) == 12
     assert report.agent_reports["stocksage.market_context"].evidence_used != []
 
     assert get_in(hd(report.agent_reports["stocksage.market_context"].evidence_used), [
@@ -39,6 +39,8 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
            ]) == "AAPL"
 
     assert report.agent_reports["stocksage.decision_synthesizer"].final_trade_decision
+    assert report.agent_reports["stocksage.research_manager"].final_trade_decision
+    assert report.agent_reports["stocksage.trader_plan"].investment_plan
     assert report.agent_reports["stocksage.quality_gate"].quality_status == :passed
   end
 
@@ -108,7 +110,7 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
     assert length(report.debate_rounds) == 3
 
     steps = Objectives.list_steps(objective.id)
-    assert length(steps) == 18
+    assert length(steps) == 20
     assert Enum.count(steps, &(&1.delegate_agent_id == "stocksage.bull_thesis")) == 2
     assert Enum.count(steps, &(&1.delegate_agent_id == "stocksage.bear_thesis")) == 2
     assert Enum.count(steps, &(&1.delegate_agent_id == "stocksage.risk_aggressive")) == 3
@@ -128,7 +130,7 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
                |> Map.put(:max_risk_rounds, 1)
              )
 
-    assert map_size(report.agent_reports) == 10
+    assert map_size(report.agent_reports) == 12
     assert Map.has_key?(report.agent_reports, "stocksage.bull_thesis.round_1")
     refute Map.has_key?(report.agent_reports, "stocksage.bull_thesis.round_2")
     refute Map.has_key?(report.agent_reports, "stocksage.risk_aggressive.round_2")

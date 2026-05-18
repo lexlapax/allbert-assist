@@ -117,6 +117,30 @@ defmodule StockSage.Agents do
       tool_names: []
     },
     %{
+      id: "stocksage.research_manager",
+      module: StockSage.Agents.ResearchManager,
+      role: :research_manager,
+      prompt_file: "research_manager.md",
+      prompt_version: @prompt_version,
+      type: :jido_ai,
+      model_role: :research_manager,
+      default_model_profile: "slow",
+      tool_modules: [],
+      tool_names: []
+    },
+    %{
+      id: "stocksage.trader_plan",
+      module: StockSage.Agents.TraderPlan,
+      role: :trader_plan,
+      prompt_file: "trader_plan.md",
+      prompt_version: @prompt_version,
+      type: :jido_ai,
+      model_role: :trader_plan,
+      default_model_profile: "slow",
+      tool_modules: [],
+      tool_names: []
+    },
+    %{
       id: "stocksage.decision_synthesizer",
       module: StockSage.Agents.DecisionSynthesizer,
       role: :decision_synthesizer,

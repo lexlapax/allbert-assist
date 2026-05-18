@@ -15,6 +15,11 @@ Return a bounded report packet with:
 - a concise conservative-risk summary;
 - key downside scenarios and data gaps;
 - conditions that would make action premature;
+- a conservative-risk stance on the five-point scale. Use Underweight when
+  valuation, liquidity, leverage, per-share earnings, catalyst, or trend risks
+  make reduced exposure more prudent than a neutral Hold, even if some operating
+  or cash-flow metrics are positive. Reserve Sell for stronger avoid/exit
+  evidence.
 - evidence references used;
 - confidence from 0.0 to 1.0;
 - warnings and assumptions.

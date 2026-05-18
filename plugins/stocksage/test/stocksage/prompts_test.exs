@@ -9,9 +9,11 @@ defmodule StockSage.PromptsTest do
     market_context.md
     news_sentiment.md
     quality_gate.md
+    research_manager.md
     risk_aggressive.md
     risk_conservative.md
     risk_neutral.md
+    trader_plan.md
   ]
 
   @recognized_licenses ~w[Apache-2.0 MIT BSD-2-Clause BSD-3-Clause]
