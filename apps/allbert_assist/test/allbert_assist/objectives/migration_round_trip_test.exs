@@ -23,10 +23,12 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     {20_260_517_000_300, AllbertAssist.Repo.Migrations.AddObjectiveColumnsToStockSageTables,
      "plugins/stocksage/priv/repo/migrations/20260517000300_add_objective_columns_to_stocksage_tables.exs"},
     {20_260_517_000_400, AllbertAssist.Repo.Migrations.ExtendStockSageAnalysesForNativeEngine,
-     "plugins/stocksage/priv/repo/migrations/20260517000400_extend_stocksage_analyses_for_native_engine.exs"}
+     "plugins/stocksage/priv/repo/migrations/20260517000400_extend_stocksage_analyses_for_native_engine.exs"},
+    {20_260_518_000_000, AllbertAssist.Repo.Migrations.AddWorkspaceCanvasTables,
+     "apps/allbert_assist/priv/repo/migrations/20260518000000_add_workspace_canvas_tables.exs"}
   ]
 
-  test "v0.24 objective migrations run up and down on an isolated sqlite database" do
+  test "objective and workspace migrations run up and down on an isolated sqlite database" do
     db_path =
       Path.join(
         System.tmp_dir!(),
@@ -60,6 +62,12 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     assert column_exists?("stocksage_analyses", "engine")
     assert column_exists?("stocksage_analyses", "parity_diff")
     assert column_exists?("stocksage_analysis_queue", "step_id")
+    assert table_exists?("workspace_canvas_tiles")
+    assert table_exists?("workspace_canvas_tile_revisions")
+    assert table_exists?("workspace_ephemeral_surfaces")
+    assert column_exists?("workspace_canvas_tiles", "pinned")
+    assert column_exists?("workspace_canvas_tile_revisions", "yjs_update")
+    assert column_exists?("workspace_ephemeral_surfaces", "dismissed_by")
 
     @migrations
     |> Enum.reverse()
@@ -75,6 +83,9 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     refute column_exists?("stocksage_analyses", "engine")
     refute column_exists?("stocksage_analyses", "parity_diff")
     refute column_exists?("stocksage_analysis_queue", "step_id")
+    refute table_exists?("workspace_canvas_tiles")
+    refute table_exists?("workspace_canvas_tile_revisions")
+    refute table_exists?("workspace_ephemeral_surfaces")
   end
 
   defp ensure_migration_modules! do

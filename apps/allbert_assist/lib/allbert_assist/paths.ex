@@ -55,6 +55,10 @@ defmodule AllbertAssist.Paths do
       Path.join(memory_root(), "preferences"),
       Path.join(memory_root(), "traces"),
       Path.join(memory_root(), "skills"),
+      workspace_root(),
+      workspace_canvas_root(),
+      workspace_ephemeral_root(),
+      workspace_secrets_root(),
       Path.dirname(db_path()),
       skills_root(),
       cache_root(),
@@ -170,6 +174,24 @@ defmodule AllbertAssist.Paths do
   def tmp_root do
     first_path([configured(:tmp_root)], Path.join(home(), "tmp"))
   end
+
+  @doc "Return the workspace substrate root."
+  @spec workspace_root() :: String.t()
+  def workspace_root do
+    first_path([configured(:workspace_root)], Path.join(home(), "workspace"))
+  end
+
+  @doc "Return the workspace canvas body root."
+  @spec workspace_canvas_root() :: String.t()
+  def workspace_canvas_root, do: Path.join(workspace_root(), "canvas")
+
+  @doc "Return the workspace ephemeral surface body root."
+  @spec workspace_ephemeral_root() :: String.t()
+  def workspace_ephemeral_root, do: Path.join(workspace_root(), "ephemeral")
+
+  @doc "Return the workspace secret root."
+  @spec workspace_secrets_root() :: String.t()
+  def workspace_secrets_root, do: Path.join(workspace_root(), "secrets")
 
   defp first_path(paths, default) do
     Enum.find(paths, default, &is_binary/1)

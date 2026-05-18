@@ -28,4 +28,9 @@ defmodule AllbertAssist.Workspace.CatalogTest do
              &(&1 in components)
            )
   end
+
+  test "renderer dispatch is present as an M2 stub" do
+    assert {:error, :renderer_not_implemented} = Catalog.component_renderer(:workspace)
+    assert {:error, :unknown_component} = Catalog.component_renderer(:invented)
+  end
 end
