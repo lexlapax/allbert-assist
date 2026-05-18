@@ -4,10 +4,29 @@ defmodule Mix.Tasks.Allbert.ThreadsTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Repo
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Workspace.Ephemeral
   alias Mix.Tasks.Allbert.Threads
 
   setup do
-    on_exit(fn -> Mix.Task.reenable("allbert.threads") end)
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+
+    home =
+      Path.join(System.tmp_dir!(), "allbert-threads-task-#{System.unique_integer([:positive])}")
+
+    Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+
+    on_exit(fn ->
+      Mix.Task.reenable("allbert.threads")
+      restore_env(Paths, original_paths_config)
+      restore_env(Settings, original_settings_config)
+      File.rm_rf!(home)
+    end)
+
     :ok
   end
 
@@ -78,4 +97,38 @@ defmodule Mix.Tasks.Allbert.ThreadsTest do
       Threads.run(["--limit", "0"])
     end
   end
+
+  test "complete marks a thread completed and dismisses active ephemerals" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Close topic")
+
+    assert {:ok, surface} =
+             Ephemeral.open(%{
+               thread_id: thread.id,
+               user_id: thread.user_id,
+               kind: :approval_card,
+               body: %{title: "pending"}
+             })
+
+    output =
+      capture_io(fn ->
+        assert :ok = Threads.run(["complete", thread.id, "--user", "alice"])
+      end)
+
+    assert output =~ "Completed thread: #{thread.id}"
+    assert output =~ "Completed at:"
+
+    completed = Repo.reload!(thread)
+    assert %DateTime{} = completed.completed_at
+
+    assert {:ok, []} = Ephemeral.surfaces_for_thread(thread.id, thread.user_id)
+
+    assert {:ok, [dismissed]} =
+             Ephemeral.surfaces_for_thread(thread.id, thread.user_id, include_dismissed: true)
+
+    assert dismissed.id == surface.id
+    assert dismissed.dismissed_by == "thread_closed"
+  end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end
