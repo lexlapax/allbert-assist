@@ -80,6 +80,7 @@ defmodule StockSage.Actions.RunAnalysis do
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Signals, as: AllbertSignals
+  alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
   alias Jido.Signal
   alias StockSage.Actions
   alias StockSage.Agents.NativeCoordinator
@@ -443,6 +444,8 @@ defmodule StockSage.Actions.RunAnalysis do
       engine: validated.engine,
       evidence_mode: validated.evidence_mode,
       user_id: validated.user_id,
+      thread_id: validated.thread_id,
+      session_id: validated.session_id,
       queue_entry_id: validated.queue_entry_id,
       objective_id: validated.objective_id,
       step_id: validated.step_id,
@@ -536,13 +539,17 @@ defmodule StockSage.Actions.RunAnalysis do
           analysis_date: Date.to_iso8601(validated.analysis_date),
           engine: validated.engine,
           user_id: validated.user_id,
+          thread_id: validated.thread_id || Actions.field(context, :thread_id),
+          session_id: validated.session_id || Actions.field(context, :session_id),
           queue_entry_id: validated.queue_entry_id,
           objective_id: validated.objective_id,
           step_id: validated.step_id,
           duration_ms: duration_ms,
           bridge_duration_ms: if(python_engine?(validated.engine), do: duration_ms, else: nil),
           truncated: truncated?,
-          stub: stub?
+          stub: stub?,
+          summary: summary,
+          native_trace: native_trace_metadata(validated, result)
         })
 
         {:ok,
@@ -638,6 +645,8 @@ defmodule StockSage.Actions.RunAnalysis do
       analysis_date: Date.to_iso8601(validated.analysis_date),
       engine: validated.engine,
       user_id: validated.user_id,
+      thread_id: validated.thread_id || Actions.field(context, :thread_id),
+      session_id: validated.session_id || Actions.field(context, :session_id),
       queue_entry_id: validated.queue_entry_id,
       objective_id: validated.objective_id,
       step_id: validated.step_id,
@@ -1178,7 +1187,8 @@ defmodule StockSage.Actions.RunAnalysis do
       channel: Map.get(context, :channel, :unknown),
       actor: Map.get(context, :actor, validated.user_id),
       user_id: validated.user_id,
-      session_id: Map.get(context, :session_id),
+      thread_id: validated.thread_id || Map.get(context, :thread_id),
+      session_id: validated.session_id || Map.get(context, :session_id),
       surface: Map.get(context, :surface, "action"),
       app_id: :stocksage,
       objective_id: validated.objective_id,
@@ -1237,6 +1247,8 @@ defmodule StockSage.Actions.RunAnalysis do
       analysis_date: Date.to_iso8601(validated.analysis_date),
       engine: validated.engine,
       user_id: validated.user_id,
+      thread_id: validated.thread_id || Actions.field(context, :thread_id),
+      session_id: validated.session_id || Actions.field(context, :session_id),
       queue_entry_id: validated.queue_entry_id,
       objective_id: validated.objective_id,
       step_id: validated.step_id,
@@ -1253,8 +1265,12 @@ defmodule StockSage.Actions.RunAnalysis do
            source: "/allbert/stocksage/run_analysis",
            subject: Map.get(payload, :user_id)
          ) do
-      {:ok, %Signal{} = signal} -> AllbertSignals.log(signal)
-      _other -> :ok
+      {:ok, %Signal{} = signal} ->
+        AllbertSignals.log(signal)
+        WorkspaceEmitters.stocksage_signal(type, payload)
+
+      _other ->
+        :ok
     end
   rescue
     _exception -> :ok

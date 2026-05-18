@@ -18,6 +18,7 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store, as: SettingsStore
   alias AllbertAssist.Settings.YamlCodec
+  alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
 
   @doc false
   def root, do: Paths.confirmations_root()
@@ -52,6 +53,7 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
     with {:ok, record} <- Record.new(attrs, now, ttl_minutes),
          :ok <- write_pending(record),
          {:ok, _path} <- append_audit(record, "requested", now) do
+      WorkspaceEmitters.confirmation_requested(record)
       {:ok, record}
     end
   end
@@ -87,6 +89,7 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
          :ok <- write_resolved(resolved, now),
          :ok <- remove_pending(id),
          {:ok, _path} <- append_audit(resolved, Map.get(resolved, "status"), now) do
+      WorkspaceEmitters.confirmation_resolved(resolved)
       {:ok, resolved}
     end
   end

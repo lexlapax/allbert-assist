@@ -6,6 +6,7 @@ defmodule AllbertAssist.Objectives.Commands do
   alias AllbertAssist.Objectives.Proposer
   alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Signals
+  alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
 
   @doc false
   def finish(command, result, state, opts \\ []) do
@@ -98,6 +99,7 @@ defmodule AllbertAssist.Objectives.Commands do
 
     with {:ok, signal} <- Signals.objective_lifecycle(kind, payload) do
       Signals.log(signal)
+      WorkspaceEmitters.objective_lifecycle(kind, objective, metadata)
     end
   end
 

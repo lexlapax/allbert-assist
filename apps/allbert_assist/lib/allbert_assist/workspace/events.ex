@@ -71,6 +71,34 @@ defmodule AllbertAssist.Workspace.Events do
     :ok
   end
 
+  @spec ephemeral_closed(String.t(), String.t(), String.t(), String.t() | atom(), map()) :: :ok
+  def ephemeral_closed(surface_id, user_id, thread_id, dismissed_by, metadata \\ %{})
+      when is_binary(surface_id) and is_binary(user_id) and is_binary(thread_id) and
+             is_map(metadata) do
+    data =
+      %{
+        surface_id: surface_id,
+        user_id: user_id,
+        thread_id: thread_id,
+        dismissed_by: normalize_field(dismissed_by),
+        metadata: metadata
+      }
+      |> Redactor.redact()
+
+    case Signal.new("allbert.workspace.ephemeral.closed", data,
+           source: "/allbert/workspace/ephemeral/#{surface_id}",
+           subject: user_id
+         ) do
+      {:ok, signal} ->
+        publish(signal)
+
+      {:error, reason} ->
+        Logger.debug("workspace ephemeral close signal skipped reason=#{inspect(reason)}")
+    end
+
+    :ok
+  end
+
   @spec canvas_eviction_badge(Tile.t(), non_neg_integer()) :: :ok
   def canvas_eviction_badge(%Tile{} = tile, archived_count \\ 1) do
     message = "#{archived_count} older tile(s) archived"
