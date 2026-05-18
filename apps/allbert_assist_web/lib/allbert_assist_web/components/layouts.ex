@@ -31,6 +31,11 @@ defmodule AllbertAssistWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
+  attr :content_width, :string,
+    default: "narrow",
+    values: ["narrow", "wide"],
+    doc: "the width of the inner content container"
+
   slot :inner_block, required: true
 
   def app(assigns) do
@@ -71,7 +76,7 @@ defmodule AllbertAssistWeb.Layouts do
     </header>
 
     <main id="main-content" tabindex="-1" class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
+      <div class={content_container_class(@content_width)}>
         {render_slot(@inner_block)}
       </div>
     </main>
@@ -169,4 +174,7 @@ defmodule AllbertAssistWeb.Layouts do
     </div>
     """
   end
+
+  defp content_container_class("wide"), do: "mx-auto max-w-6xl space-y-4"
+  defp content_container_class(_width), do: "mx-auto max-w-2xl space-y-4"
 end

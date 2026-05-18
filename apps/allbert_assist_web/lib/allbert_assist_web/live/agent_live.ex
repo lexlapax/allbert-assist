@@ -42,6 +42,7 @@ defmodule AllbertAssistWeb.AgentLive do
         thread_id: thread_id,
         workspace_theme: workspace_theme(),
         workspace_high_contrast?: workspace_high_contrast?(),
+        workspace_mobile_tab: "chat",
         active_objectives: active_objectives(user_id),
         prompt: "Hello Allbert. What can you do right now?",
         response: nil,
@@ -108,6 +109,13 @@ defmodule AllbertAssistWeb.AgentLive do
     end
   end
 
+  def handle_event("select_workspace_mobile_tab", %{"tab" => tab}, socket)
+      when tab in ["chat", "canvas", "ephemeral"] do
+    {:noreply, assign(socket, :workspace_mobile_tab, tab)}
+  end
+
+  def handle_event("select_workspace_mobile_tab", _params, socket), do: {:noreply, socket}
+
   def handle_event("approve_confirmation", %{"id" => id}, socket) do
     {:noreply, resolve_confirmation(socket, "approve_confirmation", %{id: id})}
   end
@@ -163,7 +171,7 @@ defmodule AllbertAssistWeb.AgentLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} content_width="wide">
       <section
         id="workspace-shell"
         class={[
@@ -173,9 +181,34 @@ defmodule AllbertAssistWeb.AgentLive do
         data-theme={theme_attribute(@workspace_theme)}
         data-workspace-theme={@workspace_theme}
         data-high-contrast={bool_attribute(@workspace_high_contrast?)}
+        data-mobile-tab={@workspace_mobile_tab}
         role="region"
         aria-labelledby="workspace-component-title-workspace-header"
       >
+        <nav
+          id="workspace-mobile-tabs"
+          class="workspace-mobile-tabs"
+          role="tablist"
+          aria-label="Workspace sections"
+        >
+          <button
+            :for={tab <- workspace_mobile_tabs()}
+            id={"workspace-mobile-tab-#{tab.id}"}
+            type="button"
+            class={[
+              "workspace-mobile-tab",
+              @workspace_mobile_tab == tab.id && "workspace-mobile-tab-active"
+            ]}
+            role="tab"
+            aria-selected={bool_attribute(@workspace_mobile_tab == tab.id)}
+            aria-controls={tab.controls}
+            phx-click="select_workspace_mobile_tab"
+            phx-value-tab={tab.id}
+          >
+            {tab.label}
+          </button>
+        </nav>
+
         <.live_component
           module={WorkspaceRenderer}
           id="agent-workspace-renderer"
@@ -400,6 +433,18 @@ defmodule AllbertAssistWeb.AgentLive do
 
   defp next_workspace_theme("dark"), do: "light"
   defp next_workspace_theme(_theme), do: "dark"
+
+  defp workspace_mobile_tabs do
+    [
+      %{id: "chat", label: "Chat", controls: "workspace-node-workspace-chat"},
+      %{id: "canvas", label: "Canvas", controls: "workspace-node-workspace-canvas-region"},
+      %{
+        id: "ephemeral",
+        label: "Ephemeral",
+        controls: "workspace-node-workspace-ephemeral-region"
+      }
+    ]
+  end
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"

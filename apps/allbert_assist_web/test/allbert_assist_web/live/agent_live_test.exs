@@ -88,6 +88,32 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(reloaded, "#workspace-shell[data-theme='dark']")
   end
 
+  test "workspace mobile tab toggle switches active section", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/agent")
+
+    assert has_element?(view, "#workspace-shell[data-mobile-tab='chat']")
+    assert has_element?(view, "#workspace-mobile-tabs[role='tablist']")
+    assert has_element?(view, "#workspace-mobile-tab-chat[aria-selected='true']")
+    assert has_element?(view, "#workspace-mobile-tab-canvas[aria-selected='false']")
+
+    html =
+      view
+      |> element("#workspace-mobile-tab-canvas")
+      |> render_click()
+
+    assert html =~ ~s(data-mobile-tab="canvas")
+    assert has_element?(view, "#workspace-mobile-tab-chat[aria-selected='false']")
+    assert has_element?(view, "#workspace-mobile-tab-canvas[aria-selected='true']")
+
+    html =
+      view
+      |> element("#workspace-mobile-tab-ephemeral")
+      |> render_click()
+
+    assert html =~ ~s(data-mobile-tab="ephemeral")
+    assert has_element?(view, "#workspace-mobile-tab-ephemeral[aria-selected='true']")
+  end
+
   test "mount applies high contrast workspace variant", %{conn: conn} do
     assert {:ok, _setting} = Settings.put("workspace.theme", "dark", %{audit?: false})
 
