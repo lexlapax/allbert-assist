@@ -278,6 +278,7 @@
 }
 
 .workspace-tile-editor[data-sync-state="offline"],
+.workspace-tile-editor[data-sync-state="conflict"],
 .workspace-tile-editor[data-sync-state="quota_exceeded"],
 .workspace-tile-editor[data-sync-state="unavailable"] {
   border-left: 4px solid var(--workspace-focus);
@@ -301,6 +302,16 @@
   margin-top: 0.5rem;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.workspace-conflict-banner {
+  border: 1px solid var(--workspace-focus);
+  border-radius: 0.5rem;
+  background: var(--workspace-panel-muted);
+  box-shadow: inset 4px 0 0 var(--workspace-focus);
+  color: var(--workspace-fg);
+  padding: 0.75rem;
+  font-size: 0.8125rem;
 }
 
 @media (min-width: 768px) {

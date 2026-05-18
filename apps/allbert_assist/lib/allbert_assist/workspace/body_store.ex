@@ -22,6 +22,14 @@ defmodule AllbertAssist.Workspace.BodyStore do
     Path.join(dirname, "#{basename}.deleted.#{stamp(timestamp)}.yml")
   end
 
+  @spec canvas_revision_path(String.t(), String.t()) :: String.t()
+  def canvas_revision_path(canvas_body_path, revision_id)
+      when is_binary(canvas_body_path) and is_binary(revision_id) do
+    dirname = Path.dirname(canvas_body_path)
+    basename = Path.basename(canvas_body_path, ".yml")
+    Path.join(dirname, "#{basename}.revision.#{safe(revision_id)}.yml")
+  end
+
   @spec ephemeral_body_path(String.t(), String.t(), String.t()) :: String.t()
   def ephemeral_body_path(user_id, thread_id, surface_id) do
     Path.join([

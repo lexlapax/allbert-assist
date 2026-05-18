@@ -7,6 +7,7 @@ defmodule AllbertAssist.Workspace.Events do
   alias AllbertAssist.SignalBus
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Workspace.Canvas.Revision
   alias AllbertAssist.Workspace.Canvas.Tile
   alias AllbertAssist.Workspace.Fragment
   alias AllbertAssist.Workspace.Fragment.Envelope
@@ -39,6 +40,35 @@ defmodule AllbertAssist.Workspace.Events do
       |> Map.put(:removed_reason, reason)
 
     publish_tile_signal("allbert.workspace.tile.removed", tile, metadata)
+  end
+
+  @spec offline_reconciled(Tile.t(), Revision.t(), map()) :: :ok
+  def offline_reconciled(%Tile{} = tile, %Revision{} = revision, metadata \\ %{}) do
+    data =
+      %{
+        tile_id: tile.id,
+        user_id: tile.user_id,
+        thread_id: tile.thread_id,
+        revision_id: revision.id,
+        base_revision_id: revision.base_revision_id,
+        origin: revision.origin,
+        conflict_count: revision.conflict_count,
+        metadata: Map.new(metadata)
+      }
+      |> Redactor.redact()
+
+    case Signal.new("allbert.workspace.offline.reconciled", data,
+           source: "/allbert/workspace/offline/#{tile.id}",
+           subject: tile.user_id
+         ) do
+      {:ok, signal} ->
+        publish(signal)
+
+      {:error, reason} ->
+        Logger.debug("workspace offline signal skipped reason=#{inspect(reason)}")
+    end
+
+    :ok
   end
 
   @spec canvas_eviction_badge(Tile.t(), non_neg_integer()) :: :ok

@@ -148,7 +148,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "continue_objective",
              "delegate_agent",
              "registry_health",
-             "trace_summary"
+             "trace_summary",
+             "revert_tile_revision"
            ]
 
     assert Registry.duplicate_names() == []
@@ -222,7 +223,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "continue_objective",
              "delegate_agent",
              "registry_health",
-             "trace_summary"
+             "trace_summary",
+             "revert_tile_revision"
            ]
 
     assert {:ok, append_memory} = Registry.capability("append_memory")
@@ -332,6 +334,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert trace_summary.execution_mode == :read_only
     assert trace_summary.exposure == :internal
     assert trace_summary.confirmation == :not_required
+
+    assert {:ok, revert_tile_revision} = Registry.capability("revert_tile_revision")
+    assert revert_tile_revision.permission == :workspace_canvas_write
+    assert revert_tile_revision.execution_mode == :workspace_canvas_write
+    assert revert_tile_revision.exposure == :internal
+    assert revert_tile_revision.confirmation == :not_required
 
     assert {:ok, explain_intent} = Registry.capability("explain_intent")
     assert explain_intent.permission == :read_only
