@@ -3,7 +3,16 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.{Confirmations, Objectives, Paths, Runtime, Settings, Workspace}
+  alias AllbertAssist.{
+    Confirmations,
+    Conversations,
+    Objectives,
+    Paths,
+    Runtime,
+    Settings,
+    Workspace
+  }
+
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Fragment.Envelope
@@ -25,7 +34,11 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
+    parent = self()
+
     runner = fn _signal, request ->
+      send(parent, {:runtime_request, request})
+
       {:ok,
        %{message: "Runtime LiveView response: #{request.text}", status: :completed, actions: []}}
     end
@@ -43,8 +56,15 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
   test "mount renders workspace shell, chat fallback, and empty canvas placeholder", %{conn: conn} do
     {:ok, view, html} = live(conn, ~p"/agent")
+    thread_id = workspace_thread_id(view)
 
     assert has_element?(view, "#workspace-shell")
+
+    assert has_element?(
+             view,
+             "#workspace-shell[data-user-id='local'][data-thread-id='#{thread_id}']"
+           )
+
     assert has_element?(view, "#agent-workspace-renderer")
     assert has_element?(view, "#workspace-chat-region")
     assert has_element?(view, "#agent-form")
@@ -52,6 +72,15 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(view, "#workspace-component-workspace-canvas-region")
     assert html =~ "canvas"
     refute html =~ "component not implemented"
+  end
+
+  test "mount binds workspace to a real conversation thread", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/agent")
+    thread_id = workspace_thread_id(view)
+
+    assert String.starts_with?(thread_id, "thr_")
+    assert {:ok, thread} = Conversations.get_thread("local", thread_id)
+    assert thread.id == thread_id
   end
 
   test "mount applies workspace theme from settings", %{conn: conn} do
@@ -158,7 +187,13 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
   test "renders emitted canvas fragments through the workspace shell", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
-    envelope = signed_envelope(%{surface: fragment_surface(:text, "Canvas fragment body")})
+    thread_id = workspace_thread_id(view)
+
+    envelope =
+      signed_envelope(%{
+        thread_id: thread_id,
+        surface: fragment_surface(:text, "Canvas fragment body")
+      })
 
     Phoenix.PubSub.broadcast(
       AllbertAssistWeb.PubSub,
@@ -171,15 +206,17 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(view, "#workspace-node-canvas-tile-#{envelope.id}")
     assert html =~ "Canvas fragment body"
 
-    assert {:ok, [tile]} = Workspace.canvas_tiles("local-default", "local")
+    assert {:ok, [tile]} = Workspace.canvas_tiles(thread_id, "local")
     assert tile.id == envelope.id
   end
 
   test "renders emitted ephemeral fragments through the workspace shell", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
+    thread_id = workspace_thread_id(view)
 
     envelope =
       signed_envelope(%{
+        thread_id: thread_id,
         scope: :ephemeral,
         kind: :approval_card,
         surface: fragment_surface(:approval_card, "Approval fragment body")
@@ -196,15 +233,17 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(view, "#workspace-node-ephemeral-surface-#{envelope.id}")
     assert html =~ "Approval fragment body"
 
-    assert {:ok, [surface]} = Workspace.ephemeral_surfaces("local-default", "local")
+    assert {:ok, [surface]} = Workspace.ephemeral_surfaces(thread_id, "local")
     assert surface.id == envelope.id
   end
 
   test "renders canvas-header badge fragments without persisting them as tiles", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
+    thread_id = workspace_thread_id(view)
 
     envelope =
       signed_envelope(%{
+        thread_id: thread_id,
         emitter_id: "AllbertAssist.Workspace.Canvas",
         kind: :badge_strip,
         metadata: %{placement: "canvas_header"},
@@ -221,19 +260,42 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     assert html =~ "Workspace notices"
     assert html =~ "1 older tile(s) archived"
-    assert {:ok, []} = Workspace.canvas_tiles("local-default", "local")
+    assert {:ok, []} = Workspace.canvas_tiles(thread_id, "local")
+  end
+
+  test "ignores fragments for a different thread", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/agent")
+    thread_id = workspace_thread_id(view)
+
+    envelope =
+      signed_envelope(%{
+        thread_id: "thr_other_thread",
+        surface: fragment_surface(:text, "Wrong thread body")
+      })
+
+    Phoenix.PubSub.broadcast(
+      AllbertAssistWeb.PubSub,
+      SignalBridge.topic_for("local"),
+      {:fragment, envelope}
+    )
+
+    html = render(view)
+
+    refute html =~ "Wrong thread body"
+    assert {:ok, []} = Workspace.canvas_tiles(thread_id, "local")
   end
 
   test "workspace tile mutations fan out to a second tab", %{conn: conn} do
     start_workspace_bridge()
 
-    {:ok, _first_tab, _html} = live(conn, ~p"/agent")
-    {:ok, second_tab, _html} = live(conn, ~p"/agent")
+    {:ok, first_tab, _html} = live(conn, ~p"/agent")
+    thread_id = workspace_thread_id(first_tab)
+    {:ok, second_tab, _html} = live(conn, ~p"/agent?thread_id=#{thread_id}")
 
     assert {:ok, tile} =
              Workspace.add_tile(%{
                user_id: "local",
-               thread_id: "local-default",
+               thread_id: thread_id,
                kind: :text,
                body: %{text: "two-tab sync tile"}
              })
@@ -246,16 +308,19 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   test "workspace tile mutations fan out to three tabs", %{conn: conn} do
     start_workspace_bridge()
 
+    {:ok, first_tab, _html} = live(conn, ~p"/agent")
+    thread_id = workspace_thread_id(first_tab)
+
     tabs =
       for _index <- 1..3 do
-        assert {:ok, view, _html} = live(conn, ~p"/agent")
+        assert {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread_id}")
         view
       end
 
     assert {:ok, tile} =
              Workspace.add_tile(%{
                user_id: "local",
-               thread_id: "local-default",
+               thread_id: thread_id,
                kind: :text,
                body: %{text: "three-tab sync tile"}
              })
@@ -267,26 +332,28 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "renders editable text tiles with a Yjs-backed editor hook", %{conn: conn} do
+    thread = create_workspace_thread()
+
     assert {:ok, tile} =
              Workspace.add_tile(%{
                user_id: "local",
-               thread_id: "local-default",
+               thread_id: thread.id,
                kind: :text,
                body: %{text: "offline draft body"}
              })
 
-    {:ok, view, html} = live(conn, ~p"/agent")
+    {:ok, view, html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
 
     assert has_element?(
              view,
-             "#workspace-tile-editor-#{tile.id}[phx-hook='WorkspaceTileEditor'][phx-update='ignore'][data-tile-id='#{tile.id}'][data-thread-id='local-default'][data-user-id='local'][data-quota-bytes='33554432']"
+             "#workspace-tile-editor-#{tile.id}[phx-hook='WorkspaceTileEditor'][phx-update='ignore'][data-tile-id='#{tile.id}'][data-thread-id='#{thread.id}'][data-user-id='local'][data-quota-bytes='33554432']"
            )
 
     assert html =~ "offline draft body"
 
     render_hook(view, :workspace_tile_editor_sync, %{
       "tile_id" => tile.id,
-      "thread_id" => "local-default",
+      "thread_id" => thread.id,
       "user_id" => "local",
       "kind" => "text",
       "update" => "AQID",
@@ -307,19 +374,21 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "workspace tile editor hook reports stale-base conflicts", %{conn: conn} do
+    thread = create_workspace_thread()
+
     assert {:ok, tile} =
              Workspace.add_tile(%{
                user_id: "local",
-               thread_id: "local-default",
+               thread_id: thread.id,
                kind: :text,
                body: %{text: "conflict base"}
              })
 
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
 
     render_hook(view, :workspace_tile_editor_sync, %{
       "tile_id" => tile.id,
-      "thread_id" => "local-default",
+      "thread_id" => thread.id,
       "user_id" => "local",
       "kind" => "text",
       "snapshot" => "first synced edit"
@@ -336,7 +405,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     render_hook(view, :workspace_tile_editor_sync, %{
       "tile_id" => tile.id,
-      "thread_id" => "local-default",
+      "thread_id" => thread.id,
       "user_id" => "local",
       "kind" => "text",
       "base_revision_id" => nil,
@@ -359,15 +428,17 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "workspace tile editor hook rejects non-editable tiles", %{conn: conn} do
+    thread = create_workspace_thread()
+
     assert {:ok, tile} =
              Workspace.add_tile(%{
                user_id: "local",
-               thread_id: "local-default",
+               thread_id: thread.id,
                kind: :analysis_card,
                body: %{text: "read-only analysis"}
              })
 
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
 
     refute has_element?(view, "#workspace-tile-editor-#{tile.id}")
 
@@ -383,6 +454,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
   test "submits prompts through the runtime boundary", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
+    thread_id = workspace_thread_id(view)
 
     view
     |> element("#agent-form")
@@ -390,10 +462,33 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     html = render_async(view, @runtime_async_timeout)
 
+    assert_receive {:runtime_request, request}
+    assert request.thread_id == thread_id
+    assert request.session_id == "web-local"
+    assert request.active_app == :allbert
+
     assert has_element?(view, "#agent-response")
     assert html =~ "Runtime LiveView response: Say hello from the runtime boundary."
     assert html =~ "Status: completed"
     assert has_element?(view, "#agent-signal")
+  end
+
+  test "submits explicit active app context through the runtime boundary", %{conn: conn} do
+    ensure_stocksage_app_registered()
+
+    {:ok, view, _html} = live(conn, ~p"/agent?app_id=stocksage")
+    thread_id = workspace_thread_id(view)
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "analyze AAPL"})
+
+    _html = render_async(view, @runtime_async_timeout)
+
+    assert_receive {:runtime_request, request}
+    assert request.thread_id == thread_id
+    assert request.session_id == "web-local"
+    assert request.active_app == :stocksage
   end
 
   test "renders active objective badge from registered action boundary", %{conn: conn} do
@@ -503,6 +598,32 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     start_supervised!({SignalBridge, name: name})
   end
 
+  defp create_workspace_thread(text \\ "Workspace test thread") do
+    assert {:ok, thread} = Conversations.create_general_thread("local", text)
+    thread
+  end
+
+  defp workspace_thread_id(view) do
+    html = render(view)
+    assert [_, thread_id] = Regex.run(~r/data-thread-id="([^"]+)"/, html)
+    thread_id
+  end
+
+  defp ensure_stocksage_app_registered do
+    registered? = AllbertAssist.App.Registry.known_app_id?(:stocksage)
+
+    unless registered? do
+      assert AllbertAssist.Plugin.Registry.register_module(StockSage.Plugin) in [
+               {:ok, "stocksage"},
+               {:error, {:plugin_id_taken, "stocksage"}}
+             ]
+
+      assert {:ok, :stocksage} = AllbertAssist.App.Registry.register(StockSage.App)
+    end
+
+    on_exit(fn -> unless registered?, do: AllbertAssist.App.Registry.unregister(:stocksage) end)
+  end
+
   defp signed_envelope(attrs) do
     secret = SigningSecret.ensure!()
 
@@ -512,7 +633,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
           surface: fragment_surface(:text, "Fragment body"),
           emitter_id: "AllbertAssist.Actions.Intent.DirectAnswer",
           user_id: "local",
-          thread_id: "local-default",
+          thread_id: "thr_test_default",
           scope: :canvas,
           kind: :text,
           emitted_at: ~U[2026-05-18 00:00:00Z]
