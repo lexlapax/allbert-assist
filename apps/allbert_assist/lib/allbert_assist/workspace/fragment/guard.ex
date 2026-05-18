@@ -14,7 +14,10 @@ defmodule AllbertAssist.Workspace.Fragment.Guard do
   alias AllbertAssist.Objectives.AgentRegistry
 
   @internal_emitters MapSet.new([
+                       "AllbertAssist.Confirmations",
+                       "AllbertAssist.Objectives",
                        "AllbertAssist.Workspace.Canvas",
+                       "StockSage.Actions.RunAnalysis",
                        "workspace_canvas"
                      ])
 

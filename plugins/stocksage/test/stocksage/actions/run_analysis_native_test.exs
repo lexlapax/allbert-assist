@@ -47,25 +47,51 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.Workspace.Fragment.Guard
+  alias Jido.Signal.Bus
   alias StockSage.Analyses
 
   setup do
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+
+    home =
+      Path.join(System.tmp_dir!(), "stocksage-native-test-#{System.unique_integer([:positive])}")
+
+    Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+    Guard.reset_for_test()
+
     put_setting!("stocksage.native_engine_enabled", true)
     put_setting!("stocksage.native_llm_enabled", false)
     put_setting!("stocksage.native_max_debate_rounds", 1)
     put_setting!("stocksage.native_max_risk_rounds", 1)
     put_setting!("permissions.stocksage_analyze", "needs_confirmation")
+
+    on_exit(fn ->
+      Guard.reset_for_test()
+      restore_env(Paths, original_paths_config)
+      restore_env(Settings, original_settings_config)
+      File.rm_rf!(home)
+    end)
+
     :ok
   end
 
   test "approved native run persists native analysis, detail, objective, and delegate steps" do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")
+
     params = %{
       ticker: "AAPL",
       analysis_date: "2026-05-15",
       user_id: "alice",
       engine: "native",
-      evidence_mode: "fixture"
+      evidence_mode: "fixture",
+      thread_id: "thr_native_analysis",
+      session_id: "sess_native_analysis"
     }
 
     context = %{
@@ -104,6 +130,15 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
     assert length(steps) == 12
     assert Enum.all?(steps, &(&1.kind == "delegate_agent"))
     assert Enum.all?(steps, &(&1.status == "completed"))
+
+    kinds =
+      4
+      |> collect_fragment_signals()
+      |> Enum.map(& &1.data.envelope.kind)
+
+    assert :analysis_card in kinds
+    assert :agent_report_card in kinds
+    assert :debate_round_card in kinds
   end
 
   test "native engine is the default when no engine is passed" do
@@ -198,4 +233,23 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")
     end
   end
+
+  defp collect_fragment_signals(count), do: collect_fragment_signals(count, [])
+
+  defp collect_fragment_signals(count, acc) when length(acc) >= count, do: Enum.reverse(acc)
+
+  defp collect_fragment_signals(count, acc) do
+    receive do
+      {:signal, %{type: "allbert.workspace.fragment.emitted"} = signal} ->
+        collect_fragment_signals(count, [signal | acc])
+
+      {:signal, _signal} ->
+        collect_fragment_signals(count, acc)
+    after
+      1_000 -> Enum.reverse(acc)
+    end
+  end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end
