@@ -21,10 +21,10 @@ defmodule AllbertAssist.Workspace.Catalog do
     |> Map.update!(:metadata, &Map.merge(&1 || %{}, workspace_metadata(context)))
   end
 
-  @spec component_renderer(atom()) :: {:ok, :placeholder} | {:error, :unknown_component}
+  @spec component_renderer(atom()) :: {:ok, atom()} | {:error, :unknown_component}
   def component_renderer(component) do
     if component in known_components() do
-      {:ok, :placeholder}
+      {:ok, component}
     else
       {:error, :unknown_component}
     end
