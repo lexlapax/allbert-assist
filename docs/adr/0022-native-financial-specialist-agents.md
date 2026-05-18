@@ -8,7 +8,11 @@ shape that shipped: 10 plugin-owned specialist agents, the
 `StockSage.Agents.NativeCoordinator` JidoBacked orchestrator,
 Settings-bounded multi-round debate with durable objective-step
 observability, explicit Python comparison/parity, and the core
-`mix allbert.delegate` proof.
+`mix allbert.delegate` proof. The post-implementation audit closeout
+clarifies that non-quality native specialists are LLM-capable in v0.25:
+they use Jido.AI for bounded structured advisory packets when
+`stocksage.native_llm_enabled` is true, while fixture/test/operator-disabled
+flows may use deterministic advisory packets with the same report shape.
 
 ## Context
 
@@ -295,19 +299,20 @@ but they must still dispatch through `Actions.Runner.run("delegate_agent", ...)`
 or an equivalent registered-action boundary. Operator-facing smoke
 must not call specialist modules, PIDs, or `execute/1` directly.
 
-### A8. Hybrid prompt provenance with per-prompt license audit
+### A8. License-conservative prompt provenance
 
 The Prompt Contract above specifies "license-compatible prompt
 templates, or prompt-source notes plus Allbert-authored equivalents."
-v0.25 makes this concrete:
+v0.25 ships the conservative branch of that contract: all prompt
+control files are Allbert-authored, with upstream TradingAgents used as
+a behavioral baseline and comparison target rather than copied prompt
+text.
 
-- M1 task: per-prompt license audit against TradingAgents v0.2.5
-  (`https://github.com/TauricResearch/TradingAgents@v0.2.5`).
-- For license-permitted prompts: copy verbatim with `## Attribution:
-  TauricResearch/TradingAgents@<commit> <license>` header.
-- For license-incompatible prompts: Allbert-authored equivalent
-  preserving role intent + output sections + rating scale, with
-  `## Attribution: Allbert-authored (Sandeep Puri, 2026-05-17)`.
+- Prompt files use `## Attribution: Allbert-authored (Sandeep Puri,
+  2026-05-17)`.
+- Verbatim TradingAgents prompt adaptation is not included in v0.25.
+  It requires an explicit future license audit before any upstream
+  text is copied or redistributed.
 - Each prompt file: one role; lives at
   `plugins/stocksage/priv/prompts/native_agents/<role>.md`.
 - Each carries `prompt_version` matching the v0.25 release tag (e.g.,
@@ -320,9 +325,13 @@ OR the literal `Allbert-authored` marker.
 ### A9. Per-agent LLM model profile overrides
 
 `stocksage.native_model_profile` (default `"fast"`) governs all
-specialist agents by default. Each role has a per-agent override
-setting `stocksage.native_model_profile_<role>` that takes
-precedence. Role defaults split:
+specialist agents by default. Each role has a per-agent override setting
+`stocksage.native_model_profile_<role>` that takes precedence. In v0.25,
+the execute command resolves this setting and passes it to
+`Jido.AI.generate_object/3` for non-quality specialists when
+`stocksage.native_llm_enabled` is true.
+
+Role defaults split:
 
 - Analysts (`market_context`, `news_sentiment`, `fundamentals`),
   bull/bear (`bull_thesis`, `bear_thesis`): default `:fast`.
@@ -330,9 +339,17 @@ precedence. Role defaults split:
   `risk_neutral`), `decision_synthesizer`: default `:slow` (deep-think).
 - `quality_gate`: no LLM (deterministic Jido.Agent).
 
-Rationale: matches Python's `deep_think_llm` / `quick_think_llm`
-split. Per-agent overrides give operators cost control + model-quality
-tuning per role without forcing a single profile.
+Rationale: preserves the Python `deep_think_llm` / `quick_think_llm`
+distinction in an operator-visible shape. Per-agent overrides give
+operators cost/quality controls while keeping all output advisory and
+bounded.
+
+`stocksage.native_llm_enabled` defaults to `true`. Tests and explicit
+operator smoke can set it to `false` to exercise deterministic advisory
+packets without provider credentials. That deterministic mode is not a
+hidden fallback from LLM failure; when LLM is enabled and provider
+generation fails, the native graph records a bounded failed advisory
+packet and quality-gate behavior determines whether the analysis fails.
 
 ### A10. Fixture mode as first-class operator surface
 
@@ -382,15 +399,17 @@ expand).
   registered in AgentRegistry; it is called from `StockSage.Actions.RunAnalysis`
   via the v0.23 substrate's `JidoBacked.dispatch/4`.
 - Hybrid prompt provenance per A8 keeps every prompt operator-readable and
-  audit-traceable (verbatim with attribution or Allbert-authored).
-- Per-agent model profile overrides per A9 give operators per-role LLM cost
-  + quality control.
+  audit-traceable using Allbert-authored prompts in v0.25. Verbatim
+  TradingAgents prompt adaptation is deferred until an explicit license
+  audit approves it.
+- Per-agent model profile overrides per A9 are active Jido.AI provider
+  selection inputs when native LLM generation is enabled.
 - Fixture mode per A10 is a first-class operator surface for smoke without
   market-data credentials + license-clear smoke data shipping with v0.25.
 - The Jido agent surface grows from the existing IntentAgent to 9 new
-  LLM-backed Jido.AI specialists, 1 deterministic Jido.Agent quality gate,
-  and 1 JidoBacked coordinator. This is the v0.25 substrate-pattern proof
-  for v0.27+ domain-specific specialist agents.
+  LLM-capable Jido.AI specialists, 1 deterministic Jido.Agent quality
+  gate, and 1 JidoBacked coordinator. This is the v0.25
+  substrate-pattern proof for v0.27+ domain-specific specialist agents.
 
 ## Rejected Alternatives
 

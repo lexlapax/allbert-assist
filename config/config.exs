@@ -87,6 +87,7 @@ config :jido_ai,
   model_aliases: %{
     fast: "anthropic:claude-haiku-4-5",
     capable: "anthropic:claude-sonnet-4-5",
+    slow: "anthropic:claude-sonnet-4-5",
     thinking: "anthropic:claude-opus-4-5",
     gpt: "openai:gpt-4o-mini",
     local: "openai:gemma4:26b"
