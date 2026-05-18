@@ -5,9 +5,9 @@
 Accepted. v0.15 minimal contract implemented. v0.18 full app/surface contract
 implemented on 2026-05-15; memory namespace registration remains deferred to
 v0.29 (formerly v0.27 before the project-direction rethink renumber).
-Amended at v0.26 M1 (2026-05-17, fourth validation pass) to enumerate the
-v0.26 catalog expansion from 12 → 38 components — see the "v0.26 Catalog
-Expansion" subsection under Surface DSL. The catalog expansion is the
+Amended during the v0.26 planning-readiness pass (2026-05-18) to enumerate
+the v0.26 catalog expansion from 12 → 42 components — see the "v0.26
+Catalog Expansion" subsection under Surface DSL. The catalog expansion is the
 substrate ADR 0023 builds on for the workspace canvas + ephemeral surface
 implementation.
 
@@ -156,11 +156,11 @@ catalog has twelve components: `:route`, `:chat`, `:timeline`, `:composer`,
 `:panel`, `:section`, `:text`, `:list`, `:empty_state`, `:button`,
 `:action_button`, `:status_badge`.
 
-#### v0.26 Catalog Expansion (38 components total)
+#### v0.26 Catalog Expansion (42 components total)
 
 v0.26 expands the catalog to support the workspace canvas + ephemeral
-surface substrate per ADR 0023. The expansion adds 26 new components
-organized in three groups:
+surface substrate per ADR 0023. The expansion adds 30 new components
+organized in four groups:
 
 **Workspace structural (10)** — the building blocks of the workspace
 shell itself:
@@ -210,12 +210,12 @@ can target them) but their rendering modules ship as v0.26 stubs that
 display a placeholder + link to the legacy `/stocksage/analysis/:id`
 route until v0.27 ships the real rendering modules.
 
-Total catalog after v0.26: **38 components** (12 v0.18 carryover + 26
+Total catalog after v0.26: **42 components** (12 v0.18 carryover + 30
 v0.26 additions).
 
 Validation rules (catalog enforcement, secret-key rejection, raw-HTML
 rejection, registered-action-binding enforcement) apply uniformly to
-all 38 components without exception. No component is "internal" or
+all 42 components without exception. No component is "internal" or
 "unvalidated."
 
 Model output cannot invent arbitrary HTML, JavaScript, LiveView components,
@@ -304,7 +304,7 @@ added in v0.29 (formerly v0.27) where StockSage polish first consumes it.
 - Dynamic runtime mounting of arbitrary routes or LiveView components from
   untrusted app folders.
 - Hosted marketplace publishing of app skill packs.
-- Canvas component catalog expansion beyond the twelve v0.18 initial components.
+- Canvas component catalog expansion beyond the 42-component v0.26 catalog.
 - Automatic signal subscription wiring from declared `signals/0` metadata.
   v0.18 stores declarations only; Jido signal flow remains the only runtime
   signal path.

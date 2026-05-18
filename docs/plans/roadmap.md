@@ -1244,14 +1244,15 @@ Expected direction:
 - Implement reusable native financial specialist agents behind StockSage
   actions. They are NOT a one-for-one translation of the Python TradingAgents
   graph; they adapt role intent and license-compatible prompt material into
-  9 bounded Jido.AI specialists + 1 deterministic Jido.Agent quality_gate,
+  11 bounded Jido.AI specialists + 1 deterministic Jido.Agent quality_gate,
   plus one JidoBacked `StockSage.Agents.NativeCoordinator` orchestrator.
-- Register 10 specialist agent ids in
+- Register 12 specialist agent ids in
   `AllbertAssist.Objectives.AgentRegistry` at boot:
   `stocksage.market_context`, `stocksage.news_sentiment`,
   `stocksage.fundamentals`, `stocksage.bull_thesis`,
   `stocksage.bear_thesis`, `stocksage.risk_aggressive`,
   `stocksage.risk_conservative`, `stocksage.risk_neutral`,
+  `stocksage.research_manager`, `stocksage.trader_plan`,
   `stocksage.decision_synthesizer`, `stocksage.quality_gate`.
   Three risk debaters preserved as distinct agents (per ADR 0022 A1) for
   Python-parity final-decision quality.
@@ -1327,7 +1328,7 @@ Expected direction:
   refresh + restart) + **per-thread Ephemeral Surfaces** (task-scoped
   overlays, shared across tabs of the same thread, GC'd on thread close).
   Hybrid SQLite-metadata + YAML-body persistence under `<ALLBERT_HOME>/workspace/`.
-- **Catalog expands from 12 → 38 components** (per ADR 0015 v0.26
+- **Catalog expands from 12 → 42 components** (per ADR 0015 v0.26
   amendment): 12 v0.18 carryover + 10 workspace structural + 12 Allbert-domain
   + 4 Allbert-app cards + 4 reserved StockSage cards (v0.26 ships stubs;
   v0.27 implements real rendering).
@@ -1341,8 +1342,9 @@ Expected direction:
 - **UX qualities all first-class**: dark mode + theme toggle, WCAG 2.1 AA
   accessibility (keyboard nav + ARIA + focus traps + skip-to-content),
   mobile responsive (two-pane above 768px, single-pane with tab toggle
-  below), full offline canvas editing via service worker + Yjs CRDT with
-  automatic merge on reconnect + conflict-banner UX.
+  below), offline text/markdown tile editing via service worker +
+  browser-side Yjs + IndexedDB with bounded reconnect sync +
+  conflict-banner UX.
 - **Internal `AllbertAssist.Workspace.AGUI.Bridge`** translates curated
   Allbert signals to AG-UI event shape for test-only semantic mapping.
   NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps interop is
@@ -1365,9 +1367,10 @@ Expected direction:
 - Sibling routes (`/objectives/:id`, `/jobs`, `/settings`) remain
   top-level for deep-linking AND are reachable as tiles inside the
   workspace.
-- ADR 0015 amended at v0.26 M1 (catalog expansion); new ADR 0023
+- ADR 0015 v0.26 planning amendment records the catalog expansion;
+  new ADR 0023
   (Workspace Canvas And Ephemeral Surface Substrate) reaches Accepted
-  at v0.26 M6 with all binding decisions.
+  at v0.26 M20 with all binding decisions.
 - Defer to v0.27+: drag-drop tile reordering, real StockSage card
   rendering. Defer to post-v0.31: multi-user collaborative cursors,
   plugin-contributed workspace regions, public AG-UI HTTP endpoint,
