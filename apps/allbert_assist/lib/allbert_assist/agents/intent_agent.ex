@@ -2,67 +2,13 @@ defmodule AllbertAssist.Agents.IntentAgent do
   @moduledoc """
   Primary v0.01 Allbert intent agent.
 
-  The module is a `Jido.AI.Agent` with explicit tool/action declarations, and
-  it also exposes a deterministic `respond/1` function for the v0.01 runtime path.
-  That keeps the first operator loop fast, testable, and conservative while the
-  supervised Jido agent substrate is in place for later milestones.
+  The module is a lightweight `Jido.Agent`-compatible deterministic router.
+  It exposes `respond/1` for the v0.01 runtime path and keeps the first
+  operator loop fast, testable, and conservative while the supervised Jido
+  agent substrate is in place for later milestones.
   """
 
-  use Jido.AI.Agent,
-    name: "intent_agent",
-    description: "Primary Allbert intent agent for the first local assistant loop.",
-    model: :local,
-    llm_opts: [
-      provider_options: [openai_compatible_backend: :ollama]
-    ],
-    tools: [
-      AllbertAssist.Actions.Intent.DirectAnswer,
-      AllbertAssist.Actions.Intent.AppendMemory,
-      AllbertAssist.Actions.Intent.ReadRecentMemory,
-      AllbertAssist.Actions.Intent.ListSkills,
-      AllbertAssist.Actions.Intent.ReadSkill,
-      AllbertAssist.Actions.Intent.ActivateSkill,
-      AllbertAssist.Actions.Intent.PlanShellCommand,
-      AllbertAssist.Actions.Intent.RunShellCommand,
-      AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow,
-      AllbertAssist.Actions.Intent.ExternalNetworkRequest,
-      AllbertAssist.Actions.Packages.PlanPackageInstall,
-      AllbertAssist.Actions.Skills.SearchOnlineSkills,
-      AllbertAssist.Actions.Skills.ShowOnlineSkill,
-      AllbertAssist.Actions.Settings.ListSettings,
-      AllbertAssist.Actions.Settings.ReadSetting,
-      AllbertAssist.Actions.Settings.UpdateSetting,
-      AllbertAssist.Actions.Settings.ExplainSetting,
-      AllbertAssist.Actions.Settings.ListProviderProfiles,
-      AllbertAssist.Actions.Settings.ListModelProfiles,
-      AllbertAssist.Actions.Settings.SetProviderCredential
-    ],
-    system_prompt: """
-    You are Allbert's primary v0.01 intent agent.
-
-    Keep the runtime small and safe. Select from the named tools when an action
-    is useful. Answer plainly when no action is required.
-
-    Current boundaries:
-    - You may answer directly.
-    - You may list, read, or activate trusted skill declarations.
-    - You may append and read markdown-backed memory for explicit memory
-      requests.
-    - You may append and read markdown-backed memory for low-risk personal
-      identity and preference statements recognized by deterministic
-      heuristics.
-    - You may plan shell commands from free-form prompts.
-    - You may only request local shell execution from structured command specs
-      that go through confirmation; do not claim execution before approval.
-    - You may explain unsupported v0.11-owned resource workflows without
-      fetching, reading, summarizing, crawling, importing, or delegating.
-    - You may recognize external-network and online skill search requests, but
-      confirmed external adapters are required before any network call runs.
-    - You may plan package installation requests, but package managers run only
-      through confirmed v0.10 package install actions.
-    - Sensitive or destructive work must be refused or marked for future
-      confirmation.
-    """
+  @behaviour Jido.Agent
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
@@ -76,14 +22,141 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Skills.ActionPlan
+  alias Jido.Agent, as: JidoAgent
+  alias Jido.Agent.State, as: JidoAgentState
+  alias Jido.Error, as: JidoError
+  alias Jido.Util, as: JidoUtil
+
+  @agent_name "intent_agent"
+  @agent_description "Primary Allbert intent agent for the first local assistant loop."
+  @agent_tags []
+  @agent_schema Zoi.object(%{
+                  __strategy__: Zoi.map() |> Zoi.default(%{}),
+                  model: Zoi.any() |> Zoi.default(:local),
+                  requests: Zoi.map() |> Zoi.default(%{}),
+                  last_request_id: Zoi.string() |> Zoi.optional(),
+                  last_query: Zoi.string() |> Zoi.default(""),
+                  last_answer: Zoi.string() |> Zoi.default(""),
+                  completed: Zoi.boolean() |> Zoi.default(false)
+                })
+
+  @doc "Return the agent name used by app and Jido metadata surfaces."
+  def name, do: @agent_name
+
+  @doc "Return the agent description used by app and Jido metadata surfaces."
+  def description, do: @agent_description
+
+  @doc "IntentAgent is not categorized in the generic Jido catalog."
+  def category, do: nil
+
+  @doc "Return metadata tags for this agent."
+  def tags, do: @agent_tags
+
+  @doc "IntentAgent does not publish an independent version."
+  def vsn, do: nil
+
+  @doc "Return the small state schema used when this module is treated as a Jido agent."
+  def schema, do: @agent_schema
+
+  @doc "Return Jido metadata for discovery-style callers."
+  def __agent_metadata__ do
+    %{
+      module: __MODULE__,
+      name: name(),
+      description: description(),
+      category: category(),
+      tags: tags(),
+      vsn: vsn(),
+      actions: actions(),
+      schema: schema()
+    }
+  end
+
+  @doc "The deterministic runtime does not expose Jido command actions."
+  def actions, do: []
+
+  @impl true
+  def signal_routes, do: []
+
+  @impl true
+  def signal_routes(_ctx), do: signal_routes()
+
+  @doc "Create a lightweight Jido agent struct for discovery and future AgentServer use."
+  def new(opts \\ []) do
+    opts = if is_list(opts), do: Map.new(opts), else: opts
+    id = normalize_id(Map.get(opts, :id))
+    state = Map.merge(default_state(), Map.get(opts, :state, %{}))
+
+    %JidoAgent{
+      id: id,
+      agent_module: __MODULE__,
+      name: name(),
+      description: description(),
+      category: category(),
+      tags: tags(),
+      vsn: vsn(),
+      schema: schema(),
+      state: state
+    }
+  end
+
+  @doc "Merge state into a Jido agent struct."
+  def set(%JidoAgent{} = agent, attrs) do
+    {:ok, %{agent | state: Map.merge(agent.state, Map.new(attrs))}}
+  end
+
+  @doc "Validate a Jido agent struct against the local state schema."
+  def validate(%JidoAgent{} = agent, opts \\ []) do
+    case JidoAgentState.validate(agent.state, agent.schema, opts) do
+      {:ok, validated_state} ->
+        {:ok, %{agent | state: validated_state}}
+
+      {:error, reason} ->
+        {:error, JidoError.validation_error("State validation failed", %{reason: reason})}
+    end
+  end
+
+  @doc "No-op Jido command entrypoint; Allbert runtime uses respond/1 below."
+  def cmd(%JidoAgent{} = agent, _action), do: {agent, []}
+  def cmd(%JidoAgent{} = agent, _action, opts) when is_list(opts), do: {agent, []}
+
+  @impl true
+  def on_before_cmd(%JidoAgent{} = agent, action), do: {:ok, agent, action}
+
+  @impl true
+  def on_after_cmd(%JidoAgent{} = agent, _action, directives), do: {:ok, agent, directives}
+
+  @impl true
+  def checkpoint(%JidoAgent{} = agent, _ctx), do: {:ok, %{id: agent.id, state: agent.state}}
+
+  @impl true
+  def restore(data, _ctx) when is_map(data) do
+    {:ok, new(id: data[:id] || data["id"], state: data[:state] || data["state"] || %{})}
+  end
+
+  defp normalize_id(nil), do: JidoUtil.generate_id()
+  defp normalize_id(""), do: JidoUtil.generate_id()
+  defp normalize_id(id) when is_binary(id), do: id
+  defp normalize_id(id), do: to_string(id)
+
+  defp default_state do
+    %{
+      __strategy__: %{},
+      model: :local,
+      requests: %{},
+      last_query: "",
+      last_answer: "",
+      completed: false
+    }
+  end
 
   @doc """
   Respond to one normalized runtime request.
 
-  v0.01 currently uses deterministic routing over the same named action surface that the
-  `Jido.AI.Agent` exposes as tools. Later milestones can move more of this
-  selection into the supervised agent loop after permissions, memory, and
-  traces are stronger.
+  v0.01 currently uses deterministic routing over the same named action
+  surface registered in Allbert's action registry. Later milestones can move
+  more of this selection into the supervised agent loop after permissions,
+  memory, and traces are stronger.
   """
   @spec respond(map()) :: {:ok, map()} | {:error, term()}
   def respond(%{text: text} = request) when is_binary(text) do
