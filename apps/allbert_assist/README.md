@@ -2,7 +2,7 @@
 
 Core runtime app for Allbert Assist.
 
-The current v0.24 runtime exposes:
+The current v0.25 runtime exposes:
 
 - `AllbertAssist.Runtime.submit_user_input/1`
 - `AllbertAssist.JidoBacked`
@@ -22,6 +22,7 @@ The current v0.24 runtime exposes:
 - `AllbertAssist.Actions.Objectives.CancelObjective`
 - `AllbertAssist.Actions.Objectives.DelegateAgent`
 - `mix allbert.objectives`
+- `mix allbert.delegate`
 - `AllbertAssist.Actions.Registry`
 - `AllbertAssist.Actions.Runner`
 - `AllbertAssist.Intent.Candidate`
@@ -43,6 +44,14 @@ The current v0.24 runtime exposes:
 - `StockSage.Actions.ListQueue`
 - `StockSage.Actions.ImportSqlite`
 - `StockSage.Actions.RunAnalysis`
+- `StockSage.Actions.Agents.ListAgents`
+- `StockSage.Actions.Agents.ShowAgent`
+- `StockSage.Actions.Evidence.FetchMarketData`
+- `StockSage.Actions.Evidence.FetchNews`
+- `StockSage.Actions.Evidence.FetchSentiment`
+- `StockSage.Actions.Evidence.FetchFundamentals`
+- `StockSage.Actions.Evidence.FetchFinancials`
+- `StockSage.Agents.NativeCoordinator`
 - `StockSage.Bridge.Protocol`
 - `StockSage.TraderBridge`
 - `mix stocksage.import_sqlite`
@@ -125,11 +134,18 @@ objective steps still execute through registered actions, Security Central,
 resource posture, and durable confirmations. StockSage now threads
 `objective_id` and `step_id` through its analysis flow.
 
+v0.25 adds StockSage native financial specialist agents under the plugin
+supervisor. Native analysis is the default engine; explicit Python comparison
+and `--engine both` parity remain request-scoped reference paths. The core
+`mix allbert.delegate <agent_id>` task proves registered delegate agents are
+callable outside StockSage through the v0.24 action boundary.
+
 See the umbrella root `README.md`, `docs/plans/v0.20-plan.md`,
 `docs/plans/v0.20-request-flow.md`, `docs/plans/v0.21-plan.md`,
 `docs/plans/v0.21-request-flow.md`, `docs/plans/v0.22-plan.md`,
 `docs/plans/v0.22-request-flow.md`, `docs/plans/v0.23-plan.md`,
 `docs/plans/v0.23-request-flow.md`, `docs/plans/v0.24-plan.md`,
-`docs/plans/v0.24-request-flow.md`, `plugins/stocksage/README.md`, and
+`docs/plans/v0.24-request-flow.md`, `docs/plans/v0.25-plan.md`,
+`docs/plans/v0.25-request-flow.md`, `plugins/stocksage/README.md`, and
 `docs/developer/how-to-create-an-allbert-app.md` for current memory review,
 StockSage, app/surface, intent-routing, and objective-runtime behavior.

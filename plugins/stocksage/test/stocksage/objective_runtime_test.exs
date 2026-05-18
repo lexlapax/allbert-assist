@@ -209,12 +209,17 @@ defmodule StockSage.ObjectiveRuntimeTest do
     assert continue_one.status == :needs_confirmation
     assert is_binary(continue_one.confirmation_id)
 
-    [first_after, second] = Objectives.list_steps(objective.id)
+    all_steps = Objectives.list_steps(objective.id)
+    action_steps = Enum.filter(all_steps, &(&1.kind == "action"))
+    delegate_steps = Enum.filter(all_steps, &(&1.kind == "delegate_agent"))
+
+    [first_after, second] = action_steps
     assert first_after.status == "completed"
     assert second.status == "blocked"
     assert second.parent_step_id == first.id
     assert second.action_params |> Jason.decode!() |> Map.fetch!("ticker") == "MSFT"
     assert second.action_params |> Jason.decode!() |> Map.fetch!("force_stub") == true
+    assert delegate_steps != []
 
     assert {:ok, _approval} =
              Runner.run(

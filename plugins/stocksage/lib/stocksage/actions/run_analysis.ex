@@ -98,6 +98,8 @@ defmodule StockSage.Actions.RunAnalysis do
   # in-flight bridge bound and the persisted detail bound on this single
   # setting per audit feedback.
   @default_detail_max 1_048_576
+  @detail_content_max 16_000
+  @terminal_objective_statuses ~w[abandoned cancelled completed failed]
   @signal_analysis_requested "allbert.stocksage.analysis_requested"
   @signal_analysis_completed "allbert.stocksage.analysis_completed"
   @signal_analysis_failed "allbert.stocksage.analysis_failed"
@@ -151,8 +153,11 @@ defmodule StockSage.Actions.RunAnalysis do
 
   defp dispatch(validated, context, permission_decision) do
     cond do
-      validated.engine == "native" and not native_engine_enabled?() ->
+      native_engine?(validated.engine) and not native_engine_enabled?() ->
         native_disabled(validated, permission_decision)
+
+      python_engine?(validated.engine) and not python_comparison_enabled?() ->
+        python_comparison_disabled(validated, permission_decision)
 
       python_engine?(validated.engine) and not bridge_enabled?() ->
         bridge_disabled(validated, permission_decision)
@@ -264,6 +269,9 @@ defmodule StockSage.Actions.RunAnalysis do
         engine when engine in ["python", "tradingagents"] ->
           run_python_after_approval(validated, context, permission_decision, started_at)
 
+        "both" ->
+          run_parity_after_approval(validated, context, permission_decision, started_at)
+
         engine ->
           persist_failure(
             validated,
@@ -307,6 +315,16 @@ defmodule StockSage.Actions.RunAnalysis do
     end
   end
 
+  defp run_parity_after_approval(validated, context, permission_decision, started_at) do
+    with {:ok, validated, context} <- ensure_native_objective(validated, context),
+         {:ok, result} <- NativeCoordinator.parity_run(native_request(validated, context)) do
+      persist_success(validated, result, context, permission_decision, started_at)
+    else
+      {:error, reason} ->
+        persist_failure(validated, reason, context, permission_decision, started_at)
+    end
+  end
+
   defp ensure_native_objective(%{objective_id: objective_id} = validated, context)
        when is_binary(objective_id) and objective_id != "" do
     {:ok, validated, context}
@@ -343,19 +361,22 @@ defmodule StockSage.Actions.RunAnalysis do
   end
 
   defp native_request(validated, context) do
+    step_ref = objective_step_ref(validated)
+
     %{
       request_id: confirmation_id(context),
       ticker: validated.ticker,
       analysis_date: Date.to_iso8601(validated.analysis_date),
       user_id: validated.user_id,
       operator_id: validated.user_id,
-      objective_id: validated.objective_id,
-      step_id: validated.step_id,
+      objective_id: step_ref.objective_id,
+      step_id: step_ref.step_id,
       thread_id: validated.thread_id || Actions.field(context, :thread_id),
       session_id: validated.session_id || Actions.field(context, :session_id),
       trace_id: Actions.field(context, :trace_id),
       evidence_mode: validated.evidence_mode,
       fixture: validated.evidence_mode == "fixture",
+      force_stub: validated.force_stub,
       parent: %{
         permission: :stocksage_analyze,
         approved?: true,
@@ -364,6 +385,22 @@ defmodule StockSage.Actions.RunAnalysis do
     }
     |> drop_nil_values()
   end
+
+  defp objective_step_ref(%{objective_id: objective_id, user_id: user_id, step_id: step_id})
+       when is_binary(objective_id) and objective_id != "" do
+    case Objectives.get_objective(user_id, objective_id) do
+      {:ok, %{status: status}} when status in @terminal_objective_statuses ->
+        %{objective_id: nil, step_id: nil}
+
+      {:ok, _objective} ->
+        %{objective_id: objective_id, step_id: step_id}
+
+      {:error, :not_found} ->
+        %{objective_id: nil, step_id: nil}
+    end
+  end
+
+  defp objective_step_ref(_validated), do: %{objective_id: nil, step_id: nil}
 
   # `validated.force_stub` is always a boolean (normalized via
   # `normalize_bool/1`), so the only "skip" case is `false`. `nil` is
@@ -467,14 +504,18 @@ defmodule StockSage.Actions.RunAnalysis do
       request_id: confirmation_id(context),
       objective_id: validated.objective_id,
       step_id: validated.step_id,
-      metadata: %{
-        "engine" => validated.engine,
-        "duration_ms" => duration_ms,
-        "truncated" => truncated?,
-        "queue_entry_id" => validated.queue_entry_id,
-        "objective_id" => validated.objective_id,
-        "step_id" => validated.step_id
-      }
+      metadata:
+        %{
+          "engine" => validated.engine,
+          "duration_ms" => duration_ms,
+          "truncated" => truncated?,
+          "queue_entry_id" => validated.queue_entry_id,
+          "objective_id" => validated.objective_id,
+          "step_id" => validated.step_id,
+          "parity_pass" => get_in(result_field(result, :parity_diff, %{}), ["parity_pass"])
+        }
+        |> drop_nil_values(),
+      parity_diff: parity_diff_json(result)
     }
 
     # v0.22 audit closeout (Gap 1 — stub-mode visibility): surface the
@@ -517,6 +558,7 @@ defmodule StockSage.Actions.RunAnalysis do
            summary: summary,
            truncated: truncated?,
            stub: stub?,
+           parity_diff: result_field(result, :parity_diff),
            duration_ms: duration_ms,
            bridge_duration_ms: if(python_engine?(validated.engine), do: duration_ms, else: nil),
            objective_id: validated.objective_id,
@@ -537,6 +579,7 @@ defmodule StockSage.Actions.RunAnalysis do
                    if(python_engine?(validated.engine), do: duration_ms, else: nil),
                  truncated: truncated?,
                  stub: stub?,
+                 parity_diff: result_field(result, :parity_diff),
                  queue_entry_id: validated.queue_entry_id,
                  objective_id: validated.objective_id,
                  step_id: validated.step_id,
@@ -647,14 +690,20 @@ defmodule StockSage.Actions.RunAnalysis do
       user_id: validated.user_id,
       section: "result",
       agent: detail_agent(validated.engine),
-      content: bounded(detail_content(result), persisted_detail_max()),
+      content: bounded(detail_content(result), min(persisted_detail_max(), @detail_content_max)),
       payload:
         %{
           "engine" => validated.engine,
           "truncated" => truncated?,
           "stub" => result_field(result, :stub, false),
           "native_report" =>
-            if(validated.engine == "native", do: redact_native_result(result), else: nil)
+            if(validated.engine in ["native", "both"],
+              do: native_report_payload(validated, result),
+              else: nil
+            ),
+          "python_report" =>
+            if(validated.engine == "both", do: result_field(result, :python_report), else: nil),
+          "parity_diff" => result_field(result, :parity_diff)
         }
         |> drop_nil_values()
     }
@@ -676,19 +725,19 @@ defmodule StockSage.Actions.RunAnalysis do
     _exception -> @default_detail_max
   end
 
-  defp result_field(result, key, default \\ nil)
-
-  defp result_field(result, key, default) when is_map(result) and is_atom(key) do
+  defp result_field(result, key, default \\ nil) when is_map(result) and is_atom(key) do
     Map.get(result, key, Map.get(result, Atom.to_string(key), default))
   end
 
-  defp result_field(result, key, default) when is_map(result) and is_binary(key) do
-    Map.get(result, key, default)
+  defp parity_diff_json(result) do
+    case result_field(result, :parity_diff) do
+      nil -> nil
+      parity_diff -> Jason.encode!(json_safe(parity_diff))
+    end
   end
 
-  defp result_field(_result, _key, default), do: default
-
   defp analysis_source("native"), do: "native"
+  defp analysis_source("both"), do: "native_python_parity"
   defp analysis_source(_engine), do: "python_bridge"
 
   defp persisted_engine("tradingagents"), do: "tradingagents"
@@ -699,13 +748,20 @@ defmodule StockSage.Actions.RunAnalysis do
   defp bridge_engine(engine), do: engine
 
   defp detail_agent("native"), do: "native_coordinator"
+  defp detail_agent("both"), do: "native_python_parity"
   defp detail_agent(_engine), do: "python_bridge"
+
+  defp native_report_payload(%{engine: "both"}, result) do
+    result
+    |> result_field(:native_report)
+    |> json_safe()
+  end
+
+  defp native_report_payload(_validated, result), do: redact_native_result(result)
 
   defp detail_content(result) when is_map(result) do
     result_field(result, :raw) || Jason.encode!(json_safe(result))
   end
-
-  defp detail_content(result), do: inspect(result)
 
   defp redact_native_result(result) when is_map(result) do
     result
@@ -722,6 +778,9 @@ defmodule StockSage.Actions.RunAnalysis do
       :investment_plan,
       :trader_investment_plan,
       :warnings,
+      :native_report,
+      :python_report,
+      :parity_diff,
       :generated_at
     ])
     |> json_safe()
@@ -745,10 +804,11 @@ defmodule StockSage.Actions.RunAnalysis do
 
   defp to_json_safe(value) when is_list(value), do: Enum.map(value, &to_json_safe/1)
   defp to_json_safe(value) when is_tuple(value), do: inspect(value)
-  defp to_json_safe(value) when is_atom(value), do: Atom.to_string(value)
 
   defp to_json_safe(value) when is_binary(value) or is_number(value) or is_boolean(value),
     do: value
+
+  defp to_json_safe(value) when is_atom(value), do: Atom.to_string(value)
 
   defp to_json_safe(nil), do: nil
   defp to_json_safe(value), do: inspect(value, limit: 20, printable_limit: 1_000)
@@ -911,6 +971,30 @@ defmodule StockSage.Actions.RunAnalysis do
      }}
   end
 
+  defp python_comparison_disabled(validated, permission_decision) do
+    {:ok,
+     %{
+       message:
+         "StockSage Python comparison is disabled; explicit Python/parity analysis cannot run.",
+       status: :error,
+       error: :python_comparison_disabled,
+       permission_decision: permission_decision,
+       actions: [
+         Actions.action(
+           "run_analysis",
+           :error,
+           :stocksage_analyze,
+           permission_decision,
+           %{
+             error: :python_comparison_disabled,
+             ticker: validated.ticker,
+             engine: validated.engine
+           }
+         )
+       ]
+     }}
+  end
+
   defp target_execution_mode("native"), do: :native_agent_graph
   defp target_execution_mode("both"), do: :native_python_parity
   defp target_execution_mode(_engine), do: :python_bridge
@@ -941,6 +1025,7 @@ defmodule StockSage.Actions.RunAnalysis do
     end
   end
 
+  defp native_engine?(engine), do: engine in ["native", "both"]
   defp python_engine?(engine), do: engine in ["python", "tradingagents", "both"]
 
   defp invalid(permission_decision, error, message) do
@@ -1051,6 +1136,15 @@ defmodule StockSage.Actions.RunAnalysis do
 
   defp native_engine_enabled? do
     case Settings.get("stocksage.native_engine_enabled") do
+      {:ok, value} when is_boolean(value) -> value
+      _other -> true
+    end
+  rescue
+    _exception -> true
+  end
+
+  defp python_comparison_enabled? do
+    case Settings.get("stocksage.python_comparison_enabled") do
       {:ok, value} when is_boolean(value) -> value
       _other -> true
     end

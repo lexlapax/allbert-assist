@@ -21,6 +21,10 @@ defmodule StockSage.Actions.RunAnalysisTest do
 
   setup do
     put_setting!("stocksage.bridge_enabled", true)
+    put_setting!("stocksage.python_comparison_enabled", true)
+    put_setting!("stocksage.native_engine_enabled", true)
+    put_setting!("stocksage.native_max_debate_rounds", 1)
+    put_setting!("stocksage.native_max_risk_rounds", 1)
     put_setting!("permissions.stocksage_analyze", "needs_confirmation")
     # The plugin supervisor already starts a StockSage.TraderBridge at app
     # boot; if it isn't running (some env disabled it), start one ad-hoc.
@@ -201,6 +205,66 @@ defmodule StockSage.Actions.RunAnalysisTest do
                runs,
                &(&1.status == "completed" and &1.analysis_id == response.analysis_id)
              )
+    end
+
+    test "executes native/python parity and persists a merged completed row" do
+      context = %{confirmation: %{approved?: true, id: "test-parity-confirmation"}}
+
+      params = %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-01",
+        engine: "both",
+        evidence_mode: "fixture",
+        user_id: "alice",
+        force_stub: true
+      }
+
+      assert {:ok, response} = Runner.run("run_analysis", params, context)
+
+      assert response.status == :completed
+      assert response.engine == "both"
+      assert response.stub == true
+      assert is_map(response.parity_diff)
+      assert response.parity_diff["native_status"] == "ok"
+      assert response.parity_diff["python_status"] == "ok"
+      assert is_boolean(response.parity_diff["parity_pass"])
+
+      {:ok, analysis} = Analyses.get_analysis_with_details("alice", response.analysis_id)
+      assert analysis.status == "completed"
+      assert analysis.source == "native_python_parity"
+      assert analysis.engine == "both"
+      assert is_binary(analysis.parity_diff)
+
+      assert {:ok, parity_diff} = Jason.decode(analysis.parity_diff)
+      assert parity_diff["native_status"] == "ok"
+      assert parity_diff["python_status"] == "ok"
+
+      [detail] = analysis.details
+      assert detail.agent == "native_python_parity"
+      assert get_in(detail.payload, ["native_report", "engine"]) == "native"
+      assert get_in(detail.payload, ["python_report", "engine"]) == "tradingagents"
+      assert get_in(detail.payload, ["parity_diff", "native_status"]) == "ok"
+    end
+
+    test "python comparison setting rejects explicit parity before confirmation" do
+      put_setting!("stocksage.python_comparison_enabled", false)
+
+      assert {:ok, response} =
+               Runner.run(
+                 "run_analysis",
+                 %{
+                   ticker: "AAPL",
+                   analysis_date: "2026-05-01",
+                   engine: "both",
+                   user_id: "alice",
+                   force_stub: true
+                 },
+                 %{}
+               )
+
+      assert response.status == :error
+      assert response.error == :python_comparison_disabled
+      refute Map.has_key?(response, :confirmation_id)
     end
 
     test "queue_entry_id not found returns :queue_entry_not_found and writes NO analysis row" do

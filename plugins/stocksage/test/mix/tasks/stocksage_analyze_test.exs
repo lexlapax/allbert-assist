@@ -82,7 +82,7 @@ defmodule Mix.Tasks.Stocksage.AnalyzeTest do
 
     assert_raise Mix.Error, ~r/bridge is disabled/, fn ->
       capture_io(fn ->
-        AnalyzeTask.run(["AAPL", "2026-05-01", "--user", "alice"])
+        AnalyzeTask.run(["AAPL", "2026-05-01", "--user", "alice", "--engine", "tradingagents"])
       end)
     end
   end

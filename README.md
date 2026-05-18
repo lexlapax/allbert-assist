@@ -10,15 +10,13 @@ not the architecture center.
 
 ## Current Status
 
-v0.24 is released and tagged as `v0.24` after post-audit hardening and release
-verification. It adds the Objective Runtime Foundation: durable
-`objectives`, `objective_steps`, and `objective_events`;
-`AllbertAssist.Objectives.Engine.Agent` on the JidoBacked substrate with 10
-private command modules; the `AllbertAssist.Objectives` lifecycle facade;
-objective-aware StockSage analysis flow; objective signals and trace sections;
-confirmation context rendering; and `mix allbert.objectives
-list|show|continue|cancel` with real documented exit codes. Version metadata is
-now `0.24.0`.
+v0.25 is implemented and ready for operator manual verification. It adds
+StockSage native financial specialist agents: 9 supervised Jido.AI
+specialists, 1 deterministic quality gate, a JidoBacked native coordinator,
+action-backed evidence providers, multi-round debate with objective-step
+observability, explicit native/Python parity runs, and the core
+`mix allbert.delegate <agent_id>` cross-app delegate-agent proof. Version
+metadata is now `0.25.0`.
 
 Operator loop:
 
@@ -28,6 +26,9 @@ mix allbert.objectives list --user local
 mix allbert.objectives show <objective_id> --user local
 mix allbert.confirmations approve <confirmation_id> --reason "..."
 mix allbert.objectives continue <objective_id> --user local
+mix stocksage.analyze AAPL 2026-05-15 --user local --engine native --evidence-mode fixture
+mix stocksage.analyze AAPL 2026-05-15 --user local --engine both --evidence-mode fixture --force-stub
+mix allbert.delegate stocksage.market_context '{"ticker":"AAPL","analysis_date":"2026-05-15","evidence_mode":"fixture","fixture":true}' --user local
 ```
 
 v0.23 remains the internal convergence milestone: `Confirmations.Store` and
@@ -201,9 +202,9 @@ Release details live in `CHANGELOG.md`.
 - List/show local StockSage analyses and create/list local StockSage queue
   rows with `mix stocksage.analyses` and `mix stocksage.queue`.
 - Route active StockSage session or one-turn CLI app context toward the safe
-  local StockSage actions contributed by `StockSage.Plugin`, while keeping
-  market-data APIs, StockSage LiveViews, native trading agents, and canvas
-  work in later milestones.
+  local StockSage actions contributed by `StockSage.Plugin`; native
+  financial specialist agents are advisory, action-backed, and bounded by
+  Security Central rather than autonomous trading.
 - Merge app/plugin-contributed settings schema entries into Settings Central
   at read and validation time.
 - Tag registered action capabilities with optional `app_id` when an app claims
@@ -295,10 +296,10 @@ traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.24 release plan: `docs/plans/v0.24-plan.md`
-- v0.24 request flow and manual verification: `docs/plans/v0.24-request-flow.md`
+- v0.25 release plan: `docs/plans/v0.25-plan.md`
+- v0.25 request flow and manual verification: `docs/plans/v0.25-request-flow.md`
 - App authoring guide: `docs/developer/how-to-create-an-allbert-app.md`
-- Next milestone plan: `docs/plans/v0.25-plan.md`
+- Next milestone plan: `docs/plans/v0.26-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development

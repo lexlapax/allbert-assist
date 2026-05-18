@@ -1,23 +1,34 @@
 # StockSage
 
-StockSage is Allbert's first shipped source-tree plugin workspace app.
+StockSage is Allbert's first shipped source-tree plugin workspace app and the
+first proving app for native financial specialist agents.
 
-v0.20 provides the local data foundation only:
+Current v0.25 capabilities:
 
 - `./plugins/stocksage` contributes `StockSage.Plugin`, `StockSage.App`,
-  skills, settings schema entries, four safe operator/skill-facing local
-  actions, and two internal CLI actions that still run through the Allbert
-  action runner.
+  skills, settings schema entries, local domain actions, evidence actions,
+  the supervised Python bridge, and the supervised native agent graph.
 - Plugin-owned Ecto schemas and contexts use `AllbertAssist.Repo` and shared
   SQLite `stocksage_*` tables.
 - `mix stocksage.import_sqlite` imports a representative legacy SQLite file
   read-only and idempotently.
 - `mix stocksage.analyses list/show` and `mix stocksage.queue create/list`
   provide bounded operator inspection and queue creation.
+- `mix stocksage.analyze` runs the native engine by default, creates durable
+  confirmations for `:stocksage_analyze`, and persists native results under
+  `stocksage_analyses`.
+- Explicit `--engine python` and `--engine both` are comparison/reference
+  modes only; Python is never an automatic fallback.
+- `mix stocksage.agents list|show|smoke` inspects or smokes the registered
+  native specialist agents.
+- `mix allbert.delegate <agent_id>` lives in Allbert core and proves
+  StockSage specialists can be called outside StockSage through the shared
+  `delegate_agent` registered action.
 
-v0.20 does not execute Python, call market-data APIs, mount StockSage
-LiveViews, start native trading agents, or promote StockSage memory records to
-markdown Allbert memory.
+The native graph includes market context, news/sentiment, fundamentals,
+bull thesis, bear thesis, three risk perspectives, decision synthesizer, and
+a deterministic quality gate. Multi-round bull/bear/risk debate is bounded by
+Settings Central and each specialist turn is recorded as an objective step.
 
 ## Local Commands
 
@@ -27,7 +38,13 @@ mix stocksage.import_sqlite plugins/stocksage/test/fixtures/stocksage_fixture.db
 mix stocksage.analyses list --user local
 mix stocksage.queue create AAPL --user local
 mix stocksage.queue list --user local
+mix stocksage.analyze AAPL 2026-05-15 --user local --engine native --evidence-mode fixture
+mix stocksage.analyze AAPL 2026-05-15 --user local --engine both --evidence-mode fixture --force-stub
+mix stocksage.agents smoke stocksage.market_context --ticker AAPL --analysis-date 2026-05-15 --fixture --user local
+mix allbert.delegate stocksage.market_context '{"ticker":"AAPL","analysis_date":"2026-05-15","evidence_mode":"fixture","fixture":true}' --user local
 ```
 
 Every read-by-id path is scoped by `user_id`; another user's durable id returns
-not-found. `:stocksage_write` authorizes local StockSage SQLite writes only.
+not-found. `:stocksage_write` authorizes local StockSage SQLite writes only;
+`:stocksage_analyze` remains confirmation-gated; evidence actions flow through
+`:stocksage_evidence_fetch` and Resource Access posture.
