@@ -46,17 +46,21 @@ defmodule StockSage.Agents.LLM do
 
     @schema %{
       type: "object",
+      additionalProperties: false,
       properties: %{
         "summary" => %{type: "string"},
         "report" => %{type: "string"},
         "confidence" => %{type: "number"},
         "warnings" => %{type: "array", items: %{type: "string"}},
-        "data_requests" => %{type: "array", items: %{type: "object"}},
+        "data_requests" => %{type: "array", items: %{type: "string"}},
         "final_trade_decision" => %{
           type: "string",
           enum: ["Buy", "Overweight", "Hold", "Underweight", "Sell"]
         },
-        "rating" => %{type: "string"},
+        "rating" => %{
+          type: "string",
+          enum: ["Buy", "Overweight", "Hold", "Underweight", "Sell"]
+        },
         "recommendation" => %{type: "string"},
         "investment_plan" => %{type: "string"},
         "trader_investment_plan" => %{type: "string"},
@@ -78,7 +82,7 @@ defmodule StockSage.Agents.LLM do
                @schema,
                model: model_option(model_profile),
                system_prompt: prompt_file(spec),
-               max_tokens: 1_200,
+               max_tokens: 2_000,
                temperature: 0.2,
                timeout: timeout_ms()
              ),
@@ -141,13 +145,13 @@ defmodule StockSage.Agents.LLM do
       #{inspect(Map.take(spec, [:id, :role, :prompt_version]), pretty: true)}
 
       Request:
-      #{safe_json(request)}
+      #{safe_json(request_summary(request))}
 
       Evidence summaries:
-      #{safe_json(evidence)}
+      #{safe_json(evidence_summary(evidence))}
 
       Prior reports:
-      #{safe_json(prior_reports)}
+      #{safe_json(prior_report_summary(prior_reports))}
 
       Requirements:
       - Return only the requested structured object.
@@ -158,6 +162,52 @@ defmodule StockSage.Agents.LLM do
         Buy/Overweight/Hold/Underweight/Sell scale.
       """
     end
+
+    defp request_summary(request) do
+      %{
+        ticker: field(request, :ticker),
+        analysis_date: field(request, :analysis_date),
+        stage: field(request, :stage),
+        round_index: field(request, :round_index),
+        evidence_mode: field(request, :evidence_mode)
+      }
+      |> drop_nil_values()
+    end
+
+    defp evidence_summary(evidence) when is_list(evidence) do
+      evidence
+      |> Enum.take(6)
+      |> Enum.map(fn packet ->
+        %{
+          action: field(packet, :action),
+          status: field(packet, :status),
+          message: bounded_text(field(packet, :message), 500),
+          evidence: prompt_value(field(packet, :evidence))
+        }
+        |> drop_nil_values()
+      end)
+    end
+
+    defp evidence_summary(_evidence), do: []
+
+    defp prior_report_summary(prior_reports) when is_map(prior_reports) do
+      prior_reports
+      |> Enum.take(12)
+      |> Map.new(fn {agent_id, report} ->
+        {agent_id,
+         %{
+           status: field(report, :status),
+           summary: bounded_text(field(report, :summary)),
+           report: bounded_text(field(report, :report), 1_800),
+           recommendation: field(report, :recommendation) || field(report, :final_trade_decision),
+           confidence: field(report, :confidence),
+           warnings: report |> field(:warnings, []) |> Enum.take(3)
+         }
+         |> drop_nil_values()}
+      end)
+    end
+
+    defp prior_report_summary(_prior_reports), do: %{}
 
     defp prompt_file(spec) do
       spec
@@ -182,13 +232,22 @@ defmodule StockSage.Agents.LLM do
     defp timeout_ms do
       case Settings.get("stocksage.native_agent_timeout_ms") do
         {:ok, value} when is_integer(value) and value > 0 -> value
-        _other -> 90_000
+        _other -> 180_000
       end
     rescue
-      _exception -> 90_000
+      _exception -> 180_000
     end
 
-    defp field(map, key), do: Map.get(map, key, Map.get(map, known_atom_key(key)))
+    defp field(map, key, default \\ nil)
+
+    defp field(map, key, default) when is_map(map) do
+      string_key = if is_atom(key), do: Atom.to_string(key), else: key
+      atom_key = if is_binary(key), do: known_atom_key(key), else: key
+
+      Map.get(map, key, Map.get(map, string_key, Map.get(map, atom_key, default)))
+    end
+
+    defp field(_map, _key, default), do: default
 
     defp normalize_confidence(value) when is_float(value), do: max(0.0, min(1.0, value))
     defp normalize_confidence(value) when is_integer(value), do: normalize_confidence(value / 1)
@@ -205,6 +264,53 @@ defmodule StockSage.Agents.LLM do
     defp normalize_list(value) when is_list(value), do: value
     defp normalize_list(nil), do: []
     defp normalize_list(value), do: [value]
+
+    defp prompt_value(nil), do: nil
+
+    defp prompt_value(value) when is_map(value) do
+      value
+      |> AllbertSignals.redact()
+      |> compact_prompt_value(0)
+    end
+
+    defp prompt_value(value), do: bounded_text(value, 1_200)
+
+    defp compact_prompt_value(value, depth) when is_map(value) and depth < 5 do
+      value
+      |> Enum.take(40)
+      |> Map.new(fn {key, nested} -> {key, compact_prompt_value(nested, depth + 1)} end)
+    end
+
+    defp compact_prompt_value(value, depth) when is_list(value) and depth < 5 do
+      value
+      |> Enum.take(10)
+      |> Enum.map(&compact_prompt_value(&1, depth + 1))
+    end
+
+    defp compact_prompt_value(value, _depth) when is_binary(value), do: bounded_text(value, 3_500)
+
+    defp compact_prompt_value(value, _depth)
+         when is_number(value) or is_boolean(value) or is_nil(value),
+         do: value
+
+    defp compact_prompt_value(value, _depth) when is_atom(value), do: Atom.to_string(value)
+    defp compact_prompt_value(value, _depth), do: bounded_text(value, 1_200)
+
+    defp bounded_text(value, limit \\ 600)
+    defp bounded_text(nil, _limit), do: nil
+
+    defp bounded_text(value, limit) do
+      value
+      |> AllbertSignals.redact()
+      |> inspect(limit: 12, printable_limit: limit)
+      |> then(fn text ->
+        if byte_size(text) > limit, do: binary_part(text, 0, limit), else: text
+      end)
+    end
+
+    defp drop_nil_values(map) do
+      Map.reject(map, fn {_key, value} -> is_nil(value) end)
+    end
 
     defp atomize_keys(map) do
       map

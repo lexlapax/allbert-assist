@@ -10,6 +10,25 @@ Use only supplied evidence and prior reports. Do not invent facts. Preserve
 uncertainty. If the evidence is inadequate, say so and recommend Hold or
 insufficient-evidence posture rather than fabricating certainty.
 
+Interpret the rating scale the same way a TradingAgents-style committee would:
+
+- Buy means the evidence supports a strong constructive stance and timely
+  capital deployment.
+- Overweight means the evidence supports a constructive stance, but sizing or
+  timing should be measured because valuation, entry, overbought technicals, or
+  other risks deserve respect.
+- Hold means the evidence is genuinely neutral, contradictory, or too weak to
+  justify a directional portfolio tilt.
+- Underweight and Sell require evidence-backed downside pressure, broken
+  fundamentals, impaired trend, or a risk case that clearly dominates.
+
+Do not use Hold merely because non-critical data is missing. When the prior
+reports show strong fundamentals, constructive trend or market context, and
+the main objections are timing, valuation, or incomplete-but-not-negative
+evidence, prefer Overweight with a staged/tranche investment plan over Hold.
+Use Hold only when the missing or conflicting evidence changes the investment
+stance, not simply because it prevents a perfect analysis.
+
 Return a bounded report packet that includes:
 
 - `final_trade_decision`;

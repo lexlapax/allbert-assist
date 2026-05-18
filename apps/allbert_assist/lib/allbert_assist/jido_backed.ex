@@ -109,8 +109,10 @@ defmodule AllbertAssist.JidoBacked do
 
     signal = Signal.new!(signal_type, data, source: source)
 
+    expected_command = Keyword.get(opts, :expected_command)
+
     case AgentServer.call(server, signal, timeout) do
-      {:ok, agent} -> unwrap_last_result(agent.state)
+      {:ok, agent} -> unwrap_last_result(agent.state, expected_command)
       {:error, reason} -> {:error, reason}
     end
   end
@@ -156,11 +158,34 @@ defmodule AllbertAssist.JidoBacked do
     end
   end
 
+  defp unwrap_last_result(state, expected_command) do
+    with :ok <- ensure_expected_command(state, expected_command) do
+      unwrap_last_result(state)
+    end
+  end
+
   defp unwrap_last_result(%{last_result: {:ok, result}}), do: {:ok, result}
   defp unwrap_last_result(%{last_result: {:error, reason}}), do: {:error, reason}
   defp unwrap_last_result(%{"last_result" => {:ok, result}}), do: {:ok, result}
   defp unwrap_last_result(%{"last_result" => {:error, reason}}), do: {:error, reason}
   defp unwrap_last_result(_state), do: {:ok, :dispatched}
+
+  defp ensure_expected_command(_state, nil), do: :ok
+
+  defp ensure_expected_command(state, expected_command) do
+    last_command = state_value(state, :last_command)
+
+    if command_matches?(last_command, expected_command) do
+      :ok
+    else
+      {:error,
+       {:stale_jido_backed_result,
+        %{expected_command: expected_command, last_command: last_command || :unknown}}}
+    end
+  end
+
+  defp command_matches?(command, expected),
+    do: command == expected or command == Atom.to_string(expected)
 
   defp debug_agent_line({agent_module, server}) do
     case Process.whereis(server) do

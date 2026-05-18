@@ -189,7 +189,7 @@ defmodule StockSage.Plugin do
       %{
         key: "stocksage.native_agent_timeout_ms",
         type: :positive_integer,
-        default: 90_000,
+        default: 180_000,
         description: "Per-specialist timeout for StockSage native agent dispatch (milliseconds)."
       },
       %{

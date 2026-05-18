@@ -40,7 +40,7 @@ defmodule StockSage.SettingsSchemaTest do
     assert schema["stocksage.native_model_profile_market_context"].default == nil
     assert schema["stocksage.native_model_profile_risk_aggressive"].default == "slow"
     assert schema["stocksage.native_model_profile_decision_synthesizer"].default == "slow"
-    assert schema["stocksage.native_agent_timeout_ms"].default == 90_000
+    assert schema["stocksage.native_agent_timeout_ms"].default == 180_000
     assert schema["stocksage.native_max_debate_rounds"].min == 1
     assert schema["stocksage.native_max_debate_rounds"].max == 5
     assert schema["stocksage.native_max_risk_rounds"].min == 1
