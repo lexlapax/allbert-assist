@@ -77,7 +77,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
              })
 
     assert response.status == :completed
-    assert response.message == "Open Allbert Chat: /agent"
+    assert response.message == "Open Allbert Workspace: /agent"
     assert response.actions == []
     assert response.decision.intent == :open_surface
     assert Map.get(response.decision, :selected_action) == nil

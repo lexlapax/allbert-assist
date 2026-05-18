@@ -1,6 +1,6 @@
 defmodule AllbertAssistWeb.AgentLive do
   @moduledoc """
-  Demo LiveView for talking to the Allbert runtime boundary.
+  Workspace LiveView for talking to the Allbert runtime boundary.
 
   Routes user prompts through `AllbertAssist.Runtime` asynchronously via
   `start_async/3` so the UI stays responsive.
@@ -10,11 +10,15 @@ defmodule AllbertAssistWeb.AgentLive do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Workspace
+  alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
   alias AllbertAssistWeb.SignalBridge
+  alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
 
   @impl true
   def mount(_params, _session, socket) do
     user_id = "local"
+    thread_id = "local-default"
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for(user_id))
@@ -24,6 +28,11 @@ defmodule AllbertAssistWeb.AgentLive do
     socket =
       assign(socket,
         user_id: user_id,
+        thread_id: thread_id,
+        workspace_surface:
+          WorkspaceCatalog.workspace_tree(user_id: user_id, thread_id: thread_id),
+        canvas_tiles: canvas_tiles(thread_id, user_id),
+        ephemeral_surfaces: ephemeral_surfaces(thread_id, user_id),
         active_objectives: active_objectives(user_id),
         prompt: "Hello Allbert. What can you do right now?",
         response: nil,
@@ -121,120 +130,15 @@ defmodule AllbertAssistWeb.AgentLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <div class="mx-auto max-w-3xl py-10 space-y-6">
-        <header>
-          <h1 class="text-3xl font-bold">Allbert Runtime</h1>
-          <p class="text-base-content/70 mt-2">
-            Routes prompts through <code>AllbertAssist.Runtime</code>
-            using Jido signals and the primary intent agent.
-          </p>
-          <div :if={@active_objectives != []} id="objective-badges" class="mt-3 flex flex-wrap gap-2">
-            <.link
-              :for={objective <- @active_objectives}
-              id={"objective-badge-#{objective.id}"}
-              navigate={~p"/objectives/#{objective.id}"}
-              class="badge badge-outline gap-2"
-            >
-              <span>{objective.status}</span>
-              <span>{objective.title}</span>
-            </.link>
-          </div>
-        </header>
-
-        <form id="agent-form" phx-submit="ask" class="space-y-3">
-          <textarea
-            id="agent-prompt"
-            name="prompt"
-            rows="3"
-            class="textarea textarea-bordered w-full font-mono"
-            placeholder="Ask the agent something..."
-          ><%= @prompt %></textarea>
-
-          <button id="agent-submit" type="submit" class="btn btn-primary" disabled={@asking?}>
-            {if @asking?, do: "Thinking…", else: "Ask Allbert"}
-          </button>
-        </form>
-
-        <%= if @response do %>
-          <section id="agent-response" class="card bg-base-200">
-            <div class="card-body">
-              <h2 class="card-title">Response</h2>
-              <pre class="whitespace-pre-wrap text-sm"><%= @response %></pre>
-              <p :if={@status} id="agent-status" class="text-xs text-base-content/60">
-                Status: {@status}
-              </p>
-              <p :if={@signal_id} id="agent-signal" class="text-xs text-base-content/60">
-                Signal: {@signal_id}
-              </p>
-              <p :if={@trace_id} id="agent-trace" class="text-xs text-base-content/60">
-                Trace: {@trace_id}
-              </p>
-            </div>
-          </section>
-        <% end %>
-
-        <%= if @approval_handoff do %>
-          <section id="approval-handoff" class="border border-base-300 bg-base-100 p-4 space-y-3">
-            <div>
-              <h2 class="font-semibold">Approval Required</h2>
-              <p id="approval-confirmation" class="text-xs text-base-content/60">
-                Confirmation: {approval_confirmation_id(@approval_handoff)}
-              </p>
-            </div>
-
-            <ul class="text-sm space-y-1">
-              <li :for={line <- @approval_lines}>{line}</li>
-            </ul>
-
-            <div class="flex flex-wrap gap-2">
-              <button
-                id="approval-details"
-                type="button"
-                phx-click="toggle_approval_details"
-                class="btn btn-sm"
-              >
-                Details
-              </button>
-              <button
-                id="approval-deny"
-                type="button"
-                phx-click="deny_confirmation"
-                phx-value-id={approval_confirmation_id(@approval_handoff)}
-                class="btn btn-sm btn-error"
-              >
-                Deny
-              </button>
-              <button
-                id="approval-approve"
-                type="button"
-                phx-click="approve_confirmation"
-                phx-value-id={approval_confirmation_id(@approval_handoff)}
-                class="btn btn-sm btn-primary"
-              >
-                Approve
-              </button>
-            </div>
-
-            <pre
-              :if={@show_approval_details?}
-              id="approval-details-data"
-              class="whitespace-pre-wrap text-xs bg-base-200 p-3"
-            ><%= inspect(@approval_handoff, pretty: true) %></pre>
-          </section>
-        <% end %>
-
-        <%= if @approval_result do %>
-          <section id="approval-result" class="alert alert-info">
-            <span>{@approval_result}</span>
-          </section>
-        <% end %>
-
-        <%= if @error do %>
-          <section id="agent-error" class="alert alert-error">
-            <span>{@error}</span>
-          </section>
-        <% end %>
-      </div>
+      <section id="workspace-shell" class="mx-auto max-w-6xl px-4 py-6">
+        <.live_component
+          module={WorkspaceRenderer}
+          id="agent-workspace-renderer"
+          surface={@workspace_surface}
+          renderer_context={renderer_context(assigns)}
+          workspace_state={workspace_state(assigns)}
+        />
+      </section>
     </Layouts.app>
     """
   end
@@ -272,12 +176,6 @@ defmodule AllbertAssistWeb.AgentLive do
     }
   end
 
-  defp approval_confirmation_id(handoff) when is_map(handoff) do
-    Map.get(handoff, :confirmation_id) || Map.get(handoff, "confirmation_id")
-  end
-
-  defp approval_confirmation_id(_handoff), do: nil
-
   defp active_objectives(user_id) do
     case Runner.run(
            "list_objectives",
@@ -291,5 +189,45 @@ defmodule AllbertAssistWeb.AgentLive do
 
   defp refresh_objectives(socket) do
     assign(socket, :active_objectives, active_objectives(socket.assigns.user_id))
+  end
+
+  defp canvas_tiles(thread_id, user_id) do
+    case Workspace.canvas_tiles(thread_id, user_id) do
+      {:ok, tiles} -> tiles
+      {:error, _reason} -> []
+    end
+  end
+
+  defp ephemeral_surfaces(thread_id, user_id) do
+    case Workspace.ephemeral_surfaces(thread_id, user_id) do
+      {:ok, surfaces} -> surfaces
+      {:error, _reason} -> []
+    end
+  end
+
+  defp renderer_context(assigns) do
+    %{
+      user_id: assigns.user_id,
+      thread_id: assigns.thread_id,
+      active_objectives: assigns.active_objectives,
+      canvas_tiles: assigns.canvas_tiles,
+      ephemeral_surfaces: assigns.ephemeral_surfaces
+    }
+  end
+
+  defp workspace_state(assigns) do
+    %{
+      prompt: assigns.prompt,
+      response: assigns.response,
+      error: assigns.error,
+      asking?: assigns.asking?,
+      status: assigns.status,
+      signal_id: assigns.signal_id,
+      trace_id: assigns.trace_id,
+      approval_handoff: assigns.approval_handoff,
+      approval_lines: assigns.approval_lines,
+      approval_result: assigns.approval_result,
+      show_approval_details?: assigns.show_approval_details?
+    }
   end
 end
