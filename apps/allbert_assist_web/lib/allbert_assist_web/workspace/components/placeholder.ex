@@ -1,6 +1,6 @@
 defmodule AllbertAssistWeb.Workspace.Components.Placeholder do
   @moduledoc """
-  Temporary workspace component renderer for catalog entries not implemented yet.
+  Fallback renderer for workspace component atoms outside the catalog.
   """
 
   use AllbertAssistWeb, :live_component
@@ -19,7 +19,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Placeholder do
       data-placeholder-component={@node.component}
     >
       <span class="font-mono">{component_name(@node.component)}</span>
-      <span> component not implemented</span>
+      <span> unknown workspace component</span>
     </div>
     """
   end

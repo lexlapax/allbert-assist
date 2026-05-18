@@ -44,8 +44,8 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     assert Enum.any?(children, &match?(%Node{component: :ephemeral_surface}, &1))
   end
 
-  test "renderer dispatch is web-agnostic placeholder metadata" do
-    assert {:ok, :placeholder} = Catalog.component_renderer(:workspace)
+  test "renderer dispatch is web-agnostic component metadata" do
+    assert {:ok, :workspace} = Catalog.component_renderer(:workspace)
     assert {:error, :unknown_component} = Catalog.component_renderer(:invented)
   end
 end
