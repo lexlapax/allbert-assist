@@ -22,8 +22,10 @@ defmodule StockSage.Actions.AgentsTest do
              })
 
     assert response.status == :completed
-    assert length(response.agents) == 10
+    assert length(response.agents) == 12
     assert Enum.any?(response.agents, &(&1.id == "stocksage.market_context"))
+    assert Enum.any?(response.agents, &(&1.id == "stocksage.research_manager"))
+    assert Enum.any?(response.agents, &(&1.id == "stocksage.trader_plan"))
     assert Enum.all?(response.agents, &(&1.prompt_version == "v0.25.0"))
     assert Enum.all?(response.agents, &(&1.status == :running))
   end

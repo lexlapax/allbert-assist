@@ -67,10 +67,39 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
     {bull_reports, bull_warnings, bull_rounds} =
       run_bull_bear_rounds(request, analyst_reports, debate_round_count(request))
 
+    debate_reports =
+      %{}
+      |> Map.merge(analyst_reports)
+      |> Map.merge(bull_reports)
+
+    {research_reports, research_warnings} =
+      run_sequence(
+        ["stocksage.research_manager"],
+        request,
+        debate_reports,
+        :research_manager,
+        1
+      )
+
+    trader_input = Map.merge(debate_reports, research_reports)
+
+    {trader_reports, trader_warnings} =
+      run_sequence(
+        ["stocksage.trader_plan"],
+        request,
+        trader_input,
+        :trader_plan,
+        1
+      )
+
+    risk_input =
+      trader_input
+      |> Map.merge(trader_reports)
+
     {risk_reports, risk_warnings, risk_rounds} =
       run_risk_rounds(
         request,
-        Map.merge(analyst_reports, bull_reports),
+        risk_input,
         risk_round_count(request)
       )
 
@@ -78,6 +107,8 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
       %{}
       |> Map.merge(analyst_reports)
       |> Map.merge(bull_reports)
+      |> Map.merge(research_reports)
+      |> Map.merge(trader_reports)
       |> Map.merge(risk_reports)
 
     {synth_reports, synth_warnings} =
@@ -110,12 +141,17 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
     quality = Map.get(quality_reports, "stocksage.quality_gate")
 
     warnings =
-      analyst_warnings ++ bull_warnings ++ risk_warnings ++ synth_warnings ++ quality_warnings
+      analyst_warnings ++
+        bull_warnings ++
+        research_warnings ++
+        trader_warnings ++ risk_warnings ++ synth_warnings ++ quality_warnings
 
     report =
       build_report(request, %{
         analyst_reports: analyst_reports,
         bull_reports: bull_reports,
+        research_reports: research_reports,
+        trader_reports: trader_reports,
         risk_reports: risk_reports,
         synth_reports: synth_reports,
         quality_reports: quality_reports,
@@ -355,6 +391,8 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
       %{}
       |> Map.merge(parts.analyst_reports)
       |> Map.merge(parts.bull_reports)
+      |> Map.merge(parts.research_reports)
+      |> Map.merge(parts.trader_reports)
       |> Map.merge(parts.risk_reports)
       |> Map.merge(parts.synth_reports)
       |> Map.merge(parts.quality_reports)

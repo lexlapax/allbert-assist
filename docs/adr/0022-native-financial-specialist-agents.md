@@ -4,7 +4,7 @@
 
 Accepted with v0.25 Native Financial Specialist Agents M6 closeout on
 2026-05-17. Amendments below enumerate the binding implementation
-shape that shipped: 10 plugin-owned specialist agents, the
+shape that shipped: 12 plugin-owned specialist agents, the
 `StockSage.Agents.NativeCoordinator` JidoBacked orchestrator,
 Settings-bounded multi-round debate with durable objective-step
 observability, explicit Python comparison/parity, and the core
@@ -49,8 +49,8 @@ agents are not StockSage-private internals; other Allbert runtime paths may
 call them later through registered objective/action boundaries.
 
 The required initial agent ids (per v0.25 Amendment A1; the original
-7-agent topology was revised to 10 to preserve Python's risk-debate
-quality):
+7-agent topology was revised to 12 to preserve Python's risk-debate and
+research/trader/portfolio handoff quality):
 
 - `stocksage.market_context`
 - `stocksage.news_sentiment`
@@ -60,6 +60,8 @@ quality):
 - `stocksage.risk_aggressive` (multi-round capable; added per A1)
 - `stocksage.risk_conservative` (multi-round capable; added per A1)
 - `stocksage.risk_neutral` (multi-round capable; added per A1)
+- `stocksage.research_manager` (added per A1 after live parity testing)
+- `stocksage.trader_plan` (added per A1 after live parity testing)
 - `stocksage.decision_synthesizer`
 - `stocksage.quality_gate`
 
@@ -136,7 +138,7 @@ decisions that need to live in this ADR so future readers do not have
 to reconstruct them from plan history. Each amendment extends (does
 not contradict) the Decision section above.
 
-### A1. 10-agent topology (3 risk debaters added)
+### A1. 12-agent topology (risk debaters plus research/trader handoffs added)
 
 The original 7-agent topology omitted Python's 3 risk debaters
 (`aggressive_debator`, `conservative_debator`, `neutral_debator`).
@@ -146,6 +148,14 @@ v0.25 retains them as 3 distinct specialist agents:
 final-decision quality and represent distinct reasoning perspectives;
 they default to the `:slow` (deep-think) model profile per Python's
 `max_risk_discuss_rounds` model assignment.
+
+Live parity testing also showed that collapsing Python's research
+manager, trader, and portfolio manager into one final synthesizer made
+native output too neutral on risk-managed Underweight decisions. v0.25
+therefore adds `stocksage.research_manager` and `stocksage.trader_plan`
+as distinct LLM-backed handoffs before risk debate; the existing
+`stocksage.decision_synthesizer` remains the final
+portfolio-manager-style decision.
 
 Rationale: collapsing the 3 risk perspectives into a single agent
 would lose the adversarial-quality property of separate per-stance
@@ -172,7 +182,7 @@ bounded stage barriers. v0.25 runs the initial analyst trio in
 parallel, keeps bull/bear sequential so each stance can respond to the
 prior report, and runs the three risk perspectives in parallel per
 risk round. Each specialist dispatch is bounded by
-`stocksage.native_agent_timeout_ms` (default 90 seconds); timeout marks
+`stocksage.native_agent_timeout_ms` (default 180 seconds); timeout marks
 that delegate step failed and lets the coordinator continue with a
 warning rather than hanging the objective.
 
@@ -336,7 +346,8 @@ Role defaults split:
 - Analysts (`market_context`, `news_sentiment`, `fundamentals`),
   bull/bear (`bull_thesis`, `bear_thesis`): default `:fast`.
 - Risk debaters (`risk_aggressive`, `risk_conservative`,
-  `risk_neutral`), `decision_synthesizer`: default `:slow` (deep-think).
+  `risk_neutral`), `research_manager`, `trader_plan`,
+  `decision_synthesizer`: default `:slow` (deep-think).
 - `quality_gate`: no LLM (deterministic Jido.Agent).
 
 Rationale: preserves the Python `deep_think_llm` / `quick_think_llm`
@@ -372,22 +383,29 @@ expand).
 ## Consequences
 
 - v0.25 proves the v0.24 delegate-agent substrate with real supervised agents
-  (10 specialist agents under StockSage; cross-app callability proven via
+  (12 specialist agents under StockSage; cross-app callability proven via
   `mix allbert.delegate` in Allbert core per A7).
 - Future apps can call the same financial specialists through shared objective
   and action boundaries instead of importing StockSage internals (A7).
 - The StockSage native path can improve beyond the Python baseline without
-  being constrained to every Python role/class boundary (10-agent topology
-  per A1 collapses Python's research_manager + portfolio_manager + trader
-  into a single decision_synthesizer; collapses news_analyst +
-  sentiment_analyst into news_sentiment).
-- The collapsed `decision_synthesizer` must preserve the committee semantics
-  of the upstream shape: it weighs bull, bear, conservative-risk,
-  neutral-risk, and aggressive-risk reports as separate evidence-bearing
-  positions. It may choose Underweight/Sell when valuation, balance-sheet,
-  trend, catalyst, or evidence-completeness risks dominate improving
-  fundamentals; parity work must not use ticker-specific post-processing or
-  deterministic rating floors.
+  being constrained to every Python role/class boundary (12-agent topology
+  per A1 preserves research_manager/trader/final decision handoffs, while
+  still collapsing news_analyst + sentiment_analyst into news_sentiment).
+- The final `decision_synthesizer` must preserve the committee semantics of
+  the upstream shape after the research_manager, trader_plan, and risk reports
+  have all spoken. It may choose Underweight/Sell when valuation,
+  balance-sheet, trend, catalyst, or evidence-completeness risks dominate
+  improving fundamentals; parity work must not use ticker-specific
+  post-processing or deterministic rating floors.
+- The five-point scale is a portfolio-posture scale, not a binary good/bad
+  company classifier. `Underweight` represents reduced or below-benchmark
+  exposure for unfavorable forward risk/reward, while `Sell` is reserved for
+  stronger avoid/exit evidence.
+- Native prompts include an advisory committee-context ledger for the
+  `decision_synthesizer`: ordered stances, rating counts, risk committee
+  summaries, and cautious-report excerpts. The ledger is explainability and
+  prompt structure only; it is not an authority boundary and does not decide
+  the rating outside the LLM-backed specialist.
 - Market-data access becomes more inspectable than the v0.22 Python bridge
   because native evidence is action-backed and Resource Access aware
   (5 tiered evidence actions per A4 with the new

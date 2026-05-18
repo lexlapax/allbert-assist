@@ -39,6 +39,8 @@ defmodule StockSage.SettingsSchemaTest do
     assert schema["stocksage.native_model_profile"].default == "fast"
     assert schema["stocksage.native_model_profile_market_context"].default == nil
     assert schema["stocksage.native_model_profile_risk_aggressive"].default == "slow"
+    assert schema["stocksage.native_model_profile_research_manager"].default == "slow"
+    assert schema["stocksage.native_model_profile_trader_plan"].default == "slow"
     assert schema["stocksage.native_model_profile_decision_synthesizer"].default == "slow"
     assert schema["stocksage.native_agent_timeout_ms"].default == 180_000
     assert schema["stocksage.native_max_debate_rounds"].min == 1
@@ -57,6 +59,8 @@ defmodule StockSage.SettingsSchemaTest do
     assert schema["stocksage.python_comparison_enabled"].default == true
 
     assert Schema.safe_write_key?("stocksage.native_model_profile_market_context")
+    assert Schema.safe_write_key?("stocksage.native_model_profile_research_manager")
+    assert Schema.safe_write_key?("stocksage.native_model_profile_trader_plan")
     assert Schema.safe_write_key?("stocksage.native_llm_enabled")
     assert Schema.safe_write_key?("stocksage.native_agent_timeout_ms")
     assert Schema.safe_write_key?("stocksage.native_evidence_mode")

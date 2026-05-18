@@ -44,6 +44,8 @@ defmodule StockSage.Agents.ModelProfileTest do
              Settings.put("stocksage.native_model_profile", "global-fast", %{audit?: false})
 
     assert ModelProfile.resolve(:risk_aggressive) == "slow"
+    assert ModelProfile.resolve(:research_manager) == "slow"
+    assert ModelProfile.resolve(:trader_plan) == "slow"
     assert ModelProfile.resolve(:market_context) == "fast"
   end
 

@@ -27,10 +27,16 @@ Current v0.25 capabilities:
 
 The native graph includes LLM-capable Jido.AI specialists for market context,
 news/sentiment, fundamentals, bull thesis, bear thesis, three risk
-perspectives, and decision synthesis, plus a deterministic quality gate.
-Multi-round bull/bear/risk debate is bounded by Settings Central and each
-specialist turn is recorded as an objective step. Set
+perspectives, research-manager handoff, trader-plan handoff, and decision
+synthesis, plus a deterministic quality gate. Multi-round bull/bear/risk
+debate is bounded by Settings Central and each specialist turn is recorded as
+an objective step. Set
 `stocksage.native_llm_enabled=false` only for deterministic smoke/tests.
+
+v0.25 parity hardening moved native closer to the Python TradingAgents
+research/trader/portfolio-manager shape, but exact parity is not promised:
+future work should tune evidence-source coverage and agent prompts without
+ticker-specific overrides or deterministic rating floors.
 
 ## Local Commands
 
