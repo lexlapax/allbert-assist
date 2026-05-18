@@ -46,10 +46,15 @@ defmodule StockSage.Agents do
       model_role: :fundamentals,
       default_model_profile: "fast",
       tool_modules: [
+        StockSage.Actions.Evidence.FetchMarketData,
         StockSage.Actions.Evidence.FetchFundamentals,
         StockSage.Actions.Evidence.FetchFinancials
       ],
-      tool_names: ["stocksage_fetch_fundamentals", "stocksage_fetch_financials"]
+      tool_names: [
+        "stocksage_fetch_market_data",
+        "stocksage_fetch_fundamentals",
+        "stocksage_fetch_financials"
+      ]
     },
     %{
       id: "stocksage.bull_thesis",

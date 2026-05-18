@@ -17,13 +17,23 @@ defmodule StockSage.Evidence do
   @string_bytes 1_200
   @map_entries 32
   @list_entries 8
+  @market_data_max_response_bytes 120_000
+  @news_max_response_bytes 80_000
+  @sentiment_max_response_bytes 80_000
+  @fundamentals_max_response_bytes 120_000
+  @financials_max_response_bytes 250_000
   @sec_user_agent "allbert-assist local operator research"
   @sec_max_response_bytes 250_000
 
   @sec_ciks %{
     "AAPL" => "0000320193",
+    "FMCC" => "0001026214",
+    "FNMA" => "0000310522",
+    "GOOG" => "0001652044",
+    "GOOGL" => "0001652044",
     "MSFT" => "0000789019",
-    "NVDA" => "0001045810"
+    "NVDA" => "0001045810",
+    "PLTR" => "0001321655"
   }
 
   @sec_fundamental_concepts [
@@ -184,10 +194,24 @@ defmodule StockSage.Evidence do
   end
 
   defp live(kind, ticker, analysis_date, params) when kind in [:fundamentals, :financials] do
-    case sec_company_concepts(kind, ticker, analysis_date, params) do
-      {:ok, evidence} -> {:ok, evidence}
-      {:error, :unsupported_sec_ticker} -> live_http(kind, ticker, analysis_date, params)
-      {:error, _reason} = error -> error
+    sec = sec_company_concepts(kind, ticker, analysis_date, params)
+    http = live_http(kind, ticker, analysis_date, params)
+
+    case {sec, http} do
+      {{:ok, sec_evidence}, {:ok, http_evidence}} ->
+        {:ok, combined_fundamentals(kind, ticker, analysis_date, sec_evidence, http_evidence)}
+
+      {{:ok, sec_evidence}, {:error, _reason}} ->
+        {:ok, sec_evidence}
+
+      {{:error, _reason}, {:ok, http_evidence}} ->
+        {:ok, http_evidence}
+
+      {{:error, :unsupported_sec_ticker}, {:error, http_reason}} ->
+        {:error, http_reason}
+
+      {{:error, sec_reason}, {:error, _http_reason}} ->
+        {:error, sec_reason}
     end
   end
 
@@ -202,7 +226,8 @@ defmodule StockSage.Evidence do
              method: "GET",
              url: url,
              profile: Actions.field(params, :external_profile) || "default",
-             max_response_bytes: Actions.field(params, :max_response_bytes) || 25_000,
+             max_response_bytes:
+               Actions.field(params, :max_response_bytes) || default_max_response_bytes(kind),
              source_text: "stocksage #{kind} #{ticker}"
            }),
          {:ok, result} <- HttpClient.request(spec) do
@@ -268,6 +293,21 @@ defmodule StockSage.Evidence do
     end
   end
 
+  defp combined_fundamentals(kind, ticker, analysis_date, sec_evidence, http_evidence) do
+    %{
+      kind: kind,
+      mode: "live",
+      source: "sec_plus_external_http",
+      provider: "sec+yahoo_finance",
+      ticker: ticker,
+      analysis_date: analysis_date,
+      payload: %{
+        sec_companyconcept: Map.get(sec_evidence, :payload),
+        quote_summary: prompt_summary(http_evidence)
+      }
+    }
+  end
+
   defp sec_concept(cik, taxonomy, concept, unit, params) do
     url = "https://data.sec.gov/api/xbrl/companyconcept/CIK#{cik}/#{taxonomy}/#{concept}.json"
 
@@ -300,9 +340,6 @@ defmodule StockSage.Evidence do
 
       {:error, %Jason.DecodeError{} = error} ->
         %{concept: concept, error: {:decode_failed, Exception.message(error)}}
-
-      {:error, reason} ->
-        %{concept: concept, error: reason}
     end
   end
 
@@ -371,13 +408,14 @@ defmodule StockSage.Evidence do
     body = Actions.field(result, :body_preview, "")
     decoded = decode_json(body)
     kind = Actions.field(evidence, :kind)
+    parsed = parsed_summary(kind, decoded)
 
     %{
       http_status: Actions.field(result, :http_status),
       response_body_bytes: Actions.field(result, :response_body_bytes),
       truncated?: Actions.field(result, :truncated?),
-      parsed: parsed_summary(kind, decoded),
-      body_excerpt: bounded_string(body, @body_excerpt_bytes)
+      parsed: parsed,
+      body_excerpt: maybe_body_excerpt(parsed, body)
     }
     |> drop_nil_values()
   end
@@ -491,8 +529,6 @@ defmodule StockSage.Evidence do
     |> drop_nil_values()
   end
 
-  defp numeric_series(nil, _key), do: []
-
   defp numeric_series(quote, key) do
     quote
     |> Map.get(key, [])
@@ -538,7 +574,7 @@ defmodule StockSage.Evidence do
 
       cond do
         is_nil(gains) or is_nil(losses) -> nil
-        losses == 0 -> 100.0
+        losses == 0.0 -> 100.0
         true -> 100 - 100 / (1 + gains / losses)
       end
     end)
@@ -642,6 +678,9 @@ defmodule StockSage.Evidence do
 
   defp decode_json(_value), do: nil
 
+  defp maybe_body_excerpt(nil, body), do: bounded_string(body, @body_excerpt_bytes)
+  defp maybe_body_excerpt(_parsed, _body), do: nil
+
   defp compact_value(value), do: compact_value(value, 0)
 
   defp compact_value(value, depth) when is_map(value) and depth < 5 do
@@ -701,6 +740,12 @@ defmodule StockSage.Evidence do
     {:ok,
      "https://query1.finance.yahoo.com/v10/finance/quoteSummary/#{URI.encode(ticker)}?modules=#{modules}"}
   end
+
+  defp default_max_response_bytes(:market_data), do: @market_data_max_response_bytes
+  defp default_max_response_bytes(:news), do: @news_max_response_bytes
+  defp default_max_response_bytes(:sentiment), do: @sentiment_max_response_bytes
+  defp default_max_response_bytes(:fundamentals), do: @fundamentals_max_response_bytes
+  defp default_max_response_bytes(:financials), do: @financials_max_response_bytes
 
   defp ticker(params) do
     params
