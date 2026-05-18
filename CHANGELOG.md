@@ -10,6 +10,74 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.26 - Agentic Workspace Surface And Ephemeral UI Substrate
+
+Status: implemented through M20 closeout on 2026-05-18 and ready for
+operator manual validation. Version metadata is `0.26.0`; the release tag is
+pending operator acceptance.
+
+### Added (v0.26)
+
+- `/agent` is now the Allbert workspace: a `CoreApp` Surface tree rendered by
+  catalog-dispatched LiveComponents rather than a prompt-only page.
+- Per-thread canvas tiles and per-thread ephemeral surfaces backed by SQLite
+  metadata plus YAML bodies under Allbert Home.
+- Runtime Fragment emission through signed, strictly validated
+  `Workspace.Fragment.Envelope` payloads and `allbert.workspace.fragment.**`
+  SignalBus topics.
+- A 42-component workspace catalog: v0.18 carryover components, workspace
+  structural nodes, Allbert-domain cards, app cards, and reserved StockSage
+  card stubs for v0.27 rendering work.
+- Workspace Mix tasks for inspect, canvas list/show/pin/unpin/restore/purge,
+  ephemeral list, and signing-secret rotation.
+- Dark/light workspace theme toggle, high-contrast and reduced-motion support,
+  WCAG-oriented static coverage, mobile tabs, and responsive two-pane layout.
+- Workspace-scoped service worker, offline shell fallback, browser-side Yjs +
+  IndexedDB text/markdown tile editing, bounded reconnect sync, server-side
+  revision snapshots, conflict banner, and `revert_tile_revision`.
+- Internal `AllbertAssist.Workspace.AGUI.Bridge` mappings from curated Allbert
+  signals to AG-UI event shapes for test-only semantic validation.
+
+### Changed (v0.26)
+
+- `AllbertAssist.App.CoreApp.version/0`, umbrella app metadata, and child app
+  metadata are release-pinned to `0.26.0`.
+- `AllbertAssist.App.CoreApp.surfaces/0` now declares the workspace shell at
+  `/agent`; sibling routes remain available for deep links.
+- Trace output includes workspace sections and fragment/tile activity where a
+  runtime turn touches workspace state.
+- ADR 0023 is Accepted and records the shipped workspace canvas and ephemeral
+  surface substrate; ADR 0015's v0.26 catalog amendment is confirmed.
+
+### Safety (v0.26)
+
+- Workspace effects still route through registered actions, `Actions.Runner`,
+  Security Central, confirmations where required, and audit/traces. Surface
+  metadata, fragments, apps, plugins, and generated files do not grant
+  permission.
+- Fragment validation enforces envelope shape, HMAC signature, catalog
+  membership, emitter allow-list, per-emitter rate limit, and payload size
+  before anything renders.
+- Offline tile editing accepts only text/markdown tiles, bounds payload size,
+  stores browser Yjs payloads opaquely, and keeps readable server snapshots.
+- No public AG-UI/A2UI/MCP Apps bridge ships in v0.26.
+
+### Verification (v0.26)
+
+- Milestone-focused suites covered workspace catalog, canvas/ephemeral
+  persistence, Fragment validation/signing, AG-UI bridge mappings, trace
+  integration, CLI tasks, theme/accessibility/responsive behavior, offline
+  editor hooks, reconciliation, and revert action behavior.
+- Disposable-home browser smokes covered the rendered workspace, component
+  catalog, fragment flow, multi-tab sync, theme/a11y/mobile behavior,
+  service-worker offline shell, IndexedDB draft restore, and stale-base
+  conflict/revert behavior.
+- Final gates passed: `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
+  `git diff --check`.
+- Final `mix precommit` passed with 730 core tests, 58 web tests, 165
+  StockSage plugin tests, and 2 channel plugin tests.
+
 ## v0.25 - Native Financial Specialist Agents
 
 Status: implemented through M6 closeout on 2026-05-17 and ready for

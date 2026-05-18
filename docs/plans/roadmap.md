@@ -1306,15 +1306,16 @@ Expected direction:
 
 Plan: `docs/plans/v0.26-plan.md`
 
-Status: planned. Formerly the old v0.17 workspace-surface plan, then v0.27,
-then v0.24 when moved before StockSage LiveViews, then v0.26 after the
-project-direction rethink.
+Status: implemented through M20 closeout on 2026-05-18 and ready for operator
+manual validation before release tag. Version metadata is `0.26.0`. Formerly
+the old v0.17 workspace-surface plan, then v0.27, then v0.24 when moved before
+StockSage LiveViews, then v0.26 after the project-direction rethink.
 
 Prerequisite: v0.18 app/surface contract, v0.19 intent enrichment, v0.21 memory
 review, v0.22 Python bridge, v0.23 Jido Convergence, v0.24 Objective Runtime
 Foundation, and v0.25 Native Jido agents are complete.
 
-Expected direction:
+Shipped direction:
 
 - Upgrade `AllbertAssist.App.CoreApp`'s declared surface from the rudimentary
   `/agent` prompt into a **fully-dynamic signal-driven LiveView workspace**.
