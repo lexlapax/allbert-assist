@@ -78,7 +78,6 @@ defmodule AllbertAssist.Workspace.Fragment.Envelope do
     else
       nil -> {:error, :signature_missing}
       {:error, reason} -> {:error, reason}
-      _other -> {:error, :signature_missing}
     end
   end
 

@@ -5,8 +5,12 @@ defmodule AllbertAssist.Application do
 
   use Application
 
+  alias AllbertAssist.Workspace.Fragment.SigningSecret
+
   @impl true
   def start(_type, _args) do
+    maybe_bootstrap_workspace_signing_secret!()
+
     children =
       [
         AllbertAssist.Repo,
@@ -65,5 +69,18 @@ defmodule AllbertAssist.Application do
   defp skip_migrations?() do
     # By default, sqlite migrations are run when using a release
     System.get_env("RELEASE_NAME") == nil
+  end
+
+  defp maybe_bootstrap_workspace_signing_secret! do
+    opts =
+      Application.get_env(
+        :allbert_assist,
+        SigningSecret,
+        []
+      )
+
+    if Keyword.get(opts, :bootstrap_on_start?, true) do
+      SigningSecret.ensure!()
+    end
   end
 end

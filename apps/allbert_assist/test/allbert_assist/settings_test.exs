@@ -132,6 +132,60 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("objectives.trace_detail", "verbose", %{audit?: false})
   end
 
+  test "workspace settings resolve defaults and validate writes" do
+    assert {:ok, "system"} = Settings.get("workspace.theme")
+    assert {:ok, 64} = Settings.get("workspace.canvas.max_tiles_per_thread")
+    assert {:ok, 65_536} = Settings.get("workspace.canvas.tile_body_max_bytes")
+    assert {:ok, 16} = Settings.get("workspace.ephemeral.max_active_per_thread")
+    assert {:ok, "[REDACTED]"} = Settings.get("workspace.fragment.signing_secret")
+    assert {:ok, 10} = Settings.get("workspace.fragment.rate_limit_per_second")
+    assert {:ok, 65_536} = Settings.get("workspace.fragment.payload_max_bytes")
+    assert {:ok, true} = Settings.get("workspace.offline.enabled")
+    assert {:ok, 32} = Settings.get("workspace.offline.indexeddb_quota_mb")
+    assert {:ok, false} = Settings.get("workspace.accessibility.high_contrast")
+    assert {:ok, false} = Settings.get("workspace.accessibility.reduce_motion")
+    assert {:ok, 768} = Settings.get("workspace.mobile.breakpoint_px")
+    assert {:ok, true} = Settings.get("workspace.agui_bridge.enabled")
+    assert {:ok, true} = Settings.get("workspace.signal_bridge.log_dropped_fragments")
+
+    assert {:ok, theme} = Settings.put("workspace.theme", "dark", %{audit?: false})
+    assert theme.value == "dark"
+
+    assert {:ok, max_tiles} =
+             Settings.put("workspace.canvas.max_tiles_per_thread", 3, %{audit?: false})
+
+    assert max_tiles.value == 3
+
+    assert {:ok, high_contrast} =
+             Settings.put("workspace.accessibility.high_contrast", true, %{audit?: false})
+
+    assert high_contrast.value == true
+
+    assert {:ok, breakpoint} =
+             Settings.put("workspace.mobile.breakpoint_px", 640, %{audit?: false})
+
+    assert breakpoint.value == 640
+
+    assert {:ok, signing_secret} = Settings.explain("workspace.fragment.signing_secret")
+    refute signing_secret.writable?
+    assert signing_secret.sensitive?
+    assert signing_secret.layers == [%{source: :default, value: nil}]
+
+    assert {:error, {:read_only_setting, "workspace.fragment.signing_secret"}} =
+             Settings.put("workspace.fragment.signing_secret", String.duplicate("a", 64), %{
+               audit?: false
+             })
+
+    assert {:error, {:invalid_setting, "workspace.theme", _reason}} =
+             Settings.put("workspace.theme", "sepia", %{audit?: false})
+
+    assert {:error, {:invalid_setting, "workspace.canvas.max_tiles_per_thread", _reason}} =
+             Settings.put("workspace.canvas.max_tiles_per_thread", 0, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "workspace.mobile.breakpoint_px", _reason}} =
+             Settings.put("workspace.mobile.breakpoint_px", 200, %{audit?: false})
+  end
+
   test "memory review settings are writable and validate bounds" do
     assert {:ok, "manual"} = Settings.get("memory.review_cadence")
     assert {:ok, false} = Settings.get("memory.auto_promote_sensitive_entries")

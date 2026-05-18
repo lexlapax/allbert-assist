@@ -25,6 +25,8 @@ config :allbert_assist, AllbertAssist.Mailer, adapter: Swoosh.Adapters.Test
 
 config :allbert_assist, AllbertAssist.Jobs.Scheduler, enabled?: false
 
+config :allbert_assist, AllbertAssist.Workspace.Fragment.SigningSecret, bootstrap_on_start?: false
+
 config :allbert_assist, StockSage.Agents.LLM, enabled?: false
 
 # Disable swoosh api client as it is only required for production adapters

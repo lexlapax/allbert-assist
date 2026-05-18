@@ -17,6 +17,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :skill_script_execute,
              :confirmation_decide,
              :objective_write,
+             :workspace_canvas_write,
              :stocksage_write,
              :stocksage_analyze,
              :stocksage_evidence_fetch,
@@ -49,6 +50,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
           :memory_write,
           :command_plan,
           :objective_write,
+          :workspace_canvas_write,
           :stocksage_write
         ] do
       decision = PermissionGate.authorize(permission, %{})

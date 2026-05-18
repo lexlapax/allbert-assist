@@ -10,7 +10,7 @@ defmodule AllbertAssist.Workspace.Fragment do
 
   @type envelope :: Envelope.t()
 
-  @spec emit(Envelope.t()) :: :ok | {:error, term()}
+  @spec emit(Envelope.t() | term()) :: {:error, :invalid_envelope | :not_implemented}
   def emit(%Envelope{}), do: {:error, :not_implemented}
   def emit(_envelope), do: {:error, :invalid_envelope}
 end
