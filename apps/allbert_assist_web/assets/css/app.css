@@ -177,9 +177,19 @@
   outline-offset: 2px;
 }
 
+#workspace-shell :where(a, button, textarea, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--workspace-focus);
+  outline-offset: 2px;
+}
+
 #workspace-shell[data-high-contrast="true"] .workspace-theme-toggle,
 #workspace-shell[data-high-contrast="true"] [data-workspace-renderer="component"] {
   border-width: 2px;
+}
+
+#workspace-shell[data-high-contrast="true"]
+  :where(a, button, textarea, input, select, [tabindex]):focus-visible {
+  outline-width: 3px;
 }
 
 /* Make LiveView wrapper divs transparent for layout */

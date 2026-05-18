@@ -173,6 +173,8 @@ defmodule AllbertAssistWeb.AgentLive do
         data-theme={theme_attribute(@workspace_theme)}
         data-workspace-theme={@workspace_theme}
         data-high-contrast={bool_attribute(@workspace_high_contrast?)}
+        role="region"
+        aria-labelledby="workspace-component-title-workspace-header"
       >
         <.live_component
           module={WorkspaceRenderer}
