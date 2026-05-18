@@ -289,9 +289,8 @@ Needed before planning:
 
 Source: operator UI discussion, v0.16 channel planning, v0.21 memory review,
 v0.19 intent enrichment, v0.28 (formerly v0.26) security hardening, and
-research into A2UI,
-AG-UI, MCP Apps, ChatGPT Canvas, Claude Artifacts, Google Gemini generative UI,
-BISCUIT, and Athena.
+research into A2UI, AG-UI, MCP Apps, ChatGPT Canvas, Claude Artifacts,
+Google Gemini generative UI, BISCUIT, and Athena.
 
 v0.18, v0.26, and v0.30 (formerly v0.18, v0.24, and v0.28) own the local
 Allbert-native app contract, surface DSL, workspace, ephemeral UI, canvas, and
@@ -299,16 +298,62 @@ StockSage canvas proof. The remaining
 unassigned work is external protocol interoperability and richer generated UI
 interfaces after the local substrate is boring and safe.
 
+**v0.26 status update (2026-05-17 fourth validation pass):** v0.26 ships an
+**internal** `AllbertAssist.Workspace.AGUI.Bridge` (per ADR 0023 §8) that
+translates a curated subset of Allbert SignalBus events to AG-UI event shape
+for test-only semantic mapping validation. The bridge is NOT exposed over
+HTTP / WebSocket / SSE in v0.26; it exists to validate the mapping contract
+early so future external bridge work has a tested foundation. The
+`AllbertAssist.Surface.Encoder.to_a2ui/1` stub remains returning
+`{:error, :not_implemented}`. The MCP Apps sandboxed-iframe model remains
+explicitly out of scope for v0.26 per the "no arbitrary model-generated
+HTML/JS" rule.
+
+The documented v0.26 internal mapping (per ADR 0023 §8):
+
+| Allbert signal | AG-UI event |
+|---|---|
+| `allbert.runtime.turn.started` | `LIFECYCLE_START` |
+| `allbert.runtime.turn.completed` | `LIFECYCLE_END` |
+| `allbert.confirmation.requested` | `INTERRUPT` |
+| `allbert.confirmation.approved` | `INTERRUPT_RESPONSE` (approve) |
+| `allbert.confirmation.denied` | `INTERRUPT_RESPONSE` (reject) |
+| `allbert.objective.observed` | `STATE_DELTA` |
+| `allbert.objective.completed` | `STATE_SNAPSHOT` |
+| `allbert.action.requested` | `TOOL_CALL_START` |
+| `allbert.action.completed` | `TOOL_CALL_END` |
+| `allbert.action.failed` | `TOOL_CALL_ERROR` |
+
 Needed before broader post-v0.29 planning:
 
 - v0.24 local workspace and surface contracts accepted through user testing
+- v0.26 workspace shell + canvas + ephemeral substrate accepted through user
+  testing (ADR 0023 binding decisions, dynamic Surface tree rendering,
+  38-component catalog, signed-envelope fragment emission, full UX
+  qualities including offline CRDT)
 - v0.28 app canvas integration accepted through StockSage user testing
-- v0.26/v0.24 security evals proving generated surfaces cannot invent actions,
-  permissions, resources, scripts, URLs, or secret-bearing output
-- A2UI renderer compatibility assessment
-- AG-UI bridge assessment for agent/frontend event streams
-- MCP Apps sandboxing and third-party UI trust policy
+- v0.26/v0.24 security evals proving generated surfaces cannot invent
+  actions, permissions, resources, scripts, URLs, or secret-bearing output
+- AG-UI public HTTP bridge implementation (v0.26 ships internal-only;
+  public exposure needs auth, rate limits, multi-client coordination, and
+  the inverse direction — AG-UI client emits events into Allbert as
+  registered-action calls)
+- A2UI renderer compatibility assessment (Allbert's `Surface` struct
+  already aligns with A2UI's declarative-component-tree model; the wire
+  format adapter is the missing piece)
+- MCP Apps sandboxing and third-party UI trust policy (Allbert's
+  "declarative + catalog-bound" stance explicitly rejects MCP Apps'
+  sandboxed-iframe model; reconciling the two requires a trust-policy ADR)
 - cross-client fallback, redaction, provenance, and accessibility rules
+  (v0.26 ships fallback text, redaction, accessibility; cross-client
+  provenance for federated workspaces is the post-v0.31 surface)
+- Multi-user collaborative cursors (deferred from v0.26; reserved as
+  "Cursor" vocabulary in ADR 0023 §1)
+- Plugin-contributed workspace regions (deferred from v0.26; "Workspace
+  Hooks" reserved in ADR 0023 §1)
+- Canvas snapshot / undo / time-travel (deferred from v0.26; "Canvas
+  Snapshot" reserved in ADR 0023 §1; signal topic
+  `allbert.workspace.canvas.snapshot.requested` reserved as v0.26 no-op)
 
 ### Browser/Search Capture
 
