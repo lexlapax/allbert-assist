@@ -3,7 +3,12 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.{Confirmations, Objectives, Paths, Runtime, Settings}
+  alias AllbertAssist.{Confirmations, Objectives, Paths, Runtime, Settings, Workspace}
+  alias AllbertAssist.Surface
+  alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Workspace.Fragment.Envelope
+  alias AllbertAssist.Workspace.Fragment.SigningSecret
+  alias AllbertAssistWeb.SignalBridge
 
   @runtime_async_timeout 10_000
 
@@ -55,6 +60,50 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     {:ok, view, _html} = live(conn, ~p"/agent")
 
     assert has_element?(view, "#workspace-shell[data-theme='dark']")
+  end
+
+  test "renders emitted canvas fragments through the workspace shell", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/agent")
+    envelope = signed_envelope(%{surface: fragment_surface(:text, "Canvas fragment body")})
+
+    Phoenix.PubSub.broadcast(
+      AllbertAssistWeb.PubSub,
+      SignalBridge.topic_for("local"),
+      {:fragment, envelope}
+    )
+
+    html = render(view)
+
+    assert has_element?(view, "#workspace-node-canvas-tile-#{envelope.id}")
+    assert html =~ "Canvas fragment body"
+
+    assert {:ok, [tile]} = Workspace.canvas_tiles("local-default", "local")
+    assert tile.id == envelope.id
+  end
+
+  test "renders emitted ephemeral fragments through the workspace shell", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/agent")
+
+    envelope =
+      signed_envelope(%{
+        scope: :ephemeral,
+        kind: :approval_card,
+        surface: fragment_surface(:approval_card, "Approval fragment body")
+      })
+
+    Phoenix.PubSub.broadcast(
+      AllbertAssistWeb.PubSub,
+      SignalBridge.topic_for("local"),
+      {:fragment, envelope}
+    )
+
+    html = render(view)
+
+    assert has_element?(view, "#workspace-node-ephemeral-surface-#{envelope.id}")
+    assert html =~ "Approval fragment body"
+
+    assert {:ok, [surface]} = Workspace.ephemeral_surfaces("local-default", "local")
+    assert surface.id == envelope.id
   end
 
   test "submits prompts through the runtime boundary", %{conn: conn} do
@@ -172,5 +221,45 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     assert {:ok, _setting} =
              Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+  end
+
+  defp signed_envelope(attrs) do
+    secret = SigningSecret.ensure!()
+
+    attrs =
+      Map.merge(
+        %{
+          surface: fragment_surface(:text, "Fragment body"),
+          emitter_id: "AllbertAssist.Actions.Intent.DirectAnswer",
+          user_id: "local",
+          thread_id: "local-default",
+          scope: :canvas,
+          kind: :text,
+          emitted_at: ~U[2026-05-18 00:00:00Z]
+        },
+        attrs
+      )
+
+    assert {:ok, envelope} = Envelope.sign(attrs, secret)
+    envelope
+  end
+
+  defp fragment_surface(component, body) do
+    %Surface{
+      id: :fragment,
+      app_id: :allbert,
+      label: "Fragment",
+      path: "/agent",
+      kind: :canvas,
+      status: :available,
+      nodes: [
+        %Node{
+          id: "fragment-#{component}",
+          component: component,
+          props: %{title: "Fragment", body: body}
+        }
+      ],
+      fallback_text: "Fragment fallback"
+    }
   end
 end

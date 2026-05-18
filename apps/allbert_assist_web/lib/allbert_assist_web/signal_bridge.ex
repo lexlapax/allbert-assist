@@ -11,6 +11,7 @@ defmodule AllbertAssistWeb.SignalBridge do
 
   require Logger
 
+  alias AllbertAssist.Workspace.Fragment.Envelope
   alias Jido.Signal
   alias Jido.Signal.Bus
 
@@ -45,6 +46,9 @@ defmodule AllbertAssistWeb.SignalBridge do
     cond do
       String.starts_with?(signal.type, "allbert.objective.") ->
         broadcast(signal, :objective_event)
+
+      signal.type == "allbert.workspace.fragment.emitted" ->
+        broadcast_fragment(signal)
 
       String.starts_with?(signal.type, "allbert.workspace.") ->
         broadcast(signal, :workspace_event)
@@ -84,4 +88,22 @@ defmodule AllbertAssistWeb.SignalBridge do
   end
 
   defp broadcast(_signal, _event), do: :ok
+
+  defp broadcast_fragment(%Signal{data: data} = signal) when is_map(data) do
+    envelope = Map.get(data, :envelope) || Map.get(data, "envelope")
+
+    case envelope do
+      %Envelope{user_id: user_id} when is_binary(user_id) and user_id != "" ->
+        Phoenix.PubSub.broadcast(
+          AllbertAssistWeb.PubSub,
+          topic_for(user_id),
+          {:fragment, envelope}
+        )
+
+      _other ->
+        broadcast(signal, :workspace_event)
+    end
+  end
+
+  defp broadcast_fragment(signal), do: broadcast(signal, :workspace_event)
 end
