@@ -172,18 +172,20 @@ explicit license-audit milestone.
 final-state field list, not the role prompts; prompt inventory belongs under
 `plugins/stocksage/priv/prompts/native_agents/`.
 
-Native financial agents register 10 stable ids in
+Native financial agents register 12 stable ids in
 `AllbertAssist.Objectives.AgentRegistry` at app boot (per ADR 0022
 Amendment A1):
 
 - `stocksage.market_context` — Jido.AI; tool: FetchMarketData
 - `stocksage.news_sentiment` — Jido.AI; tools: FetchNews, FetchSentiment
-- `stocksage.fundamentals` — Jido.AI; tools: FetchFundamentals, FetchFinancials
+- `stocksage.fundamentals` — Jido.AI; tools: FetchMarketData, FetchFundamentals, FetchFinancials
 - `stocksage.bull_thesis` — Jido.AI; multi-round capable
 - `stocksage.bear_thesis` — Jido.AI; multi-round capable
 - `stocksage.risk_aggressive` — Jido.AI; multi-round capable; slow-profile default
 - `stocksage.risk_conservative` — Jido.AI; multi-round capable; slow-profile default
 - `stocksage.risk_neutral` — Jido.AI; multi-round capable; slow-profile default
+- `stocksage.research_manager` — Jido.AI; preliminary research decision; slow-profile default
+- `stocksage.trader_plan` — Jido.AI; bounded advisory plan; slow-profile default
 - `stocksage.decision_synthesizer` — Jido.AI; slow-profile default
 - `stocksage.quality_gate` — plain Jido.Agent (deterministic; no LLM)
 

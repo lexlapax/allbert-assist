@@ -17,10 +17,13 @@ operator manual verification. Version metadata is `0.25.0`.
 
 ### Added (v0.25)
 
-- StockSage native financial specialist-agent graph: 9 supervised
+- StockSage native financial specialist-agent graph: 11 supervised
   LLM-capable `Jido.AI` specialists, 1 deterministic quality gate, and the
   `StockSage.Agents.NativeCoordinator` JidoBacked orchestrator under
   the StockSage plugin supervisor.
+- Explicit research-manager and trader-plan handoffs in the native graph,
+  preserving the Python TradingAgents research/trader/portfolio-manager
+  sequence more closely than the earlier collapsed synthesizer shape.
 - Native analysis is now the default `run_analysis` engine. Explicit
   Python comparison remains available only by request (`--engine python`,
   `--engine both`, or `--compare-python`) and is gated by
@@ -33,6 +36,9 @@ operator manual verification. Version metadata is `0.25.0`.
 - `--engine both` parity runs that fan out native + Python comparison,
   compute 5-point rating agreement plus confidence delta, and persist
   `parity_diff` JSON on the analysis row.
+- A bounded committee-context ledger for the final decision synthesizer,
+  including ordered specialist stances, rating counts, risk-committee
+  summaries, and cautious-report excerpts.
 - Core `mix allbert.delegate <agent_id>` task, proving any registered
   objective delegate agent can be invoked through the shared action
   boundary outside StockSage.
@@ -48,6 +54,9 @@ operator manual verification. Version metadata is `0.25.0`.
 - `stocksage.native_llm_enabled` controls whether non-quality native
   specialists call Jido.AI or use deterministic advisory packets for
   tests/operator smoke.
+- Native/Python parity tuning is improved but not finished: v0.25 avoids
+  ticker-specific correction logic and deterministic rating floors, and
+  leaves deeper evidence-source and prompt/agent calibration as future work.
 - StockSage plugin, app, manifest, CoreApp, and umbrella app versions
   are release-pinned to `0.25.0`.
 - ADR 0022 is Accepted and records the shipped topology, coordinator
@@ -62,7 +71,7 @@ operator manual verification. Version metadata is `0.25.0`.
 - Final gates passed: `mix format --check-formatted`,
   `mix compile --warnings-as-errors`, `mix credo --strict`,
   `mix dialyzer`, `mix precommit`, and `git diff --check`.
-- `mix precommit` passed with 682 core tests, 27 web tests, 158
+- `mix precommit` passed with 683 core tests, 27 web tests, 165
   StockSage plugin tests, and 2 delegate task smoke tests.
 
 ## v0.24 - Objective Runtime Foundation

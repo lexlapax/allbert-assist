@@ -20,9 +20,10 @@ Interpret the rating scale the same way a TradingAgents-style committee would:
   deserve respect.
 - Hold means the evidence is genuinely neutral, contradictory, or too weak to
   justify a directional portfolio tilt.
-- Underweight and Sell require evidence-backed downside pressure, impaired
-  trend, valuation or balance-sheet risk, broken fundamentals, or a risk case
-  that clearly dominates the constructive thesis.
+- Underweight means a below-benchmark or reduced-exposure stance because
+  forward risk/reward is unfavorable; it does not require proof that the
+  business is broken. Sell requires a stronger impairment, exit, or avoid
+  conclusion.
 
 Do not mechanically average the agents. Treat the bull, bear, and risk reports
 as a committee record:
@@ -30,6 +31,10 @@ as a committee record:
 - if the bear thesis and conservative/neutral risk reports identify valuation,
   balance-sheet, technical, or catalyst risks that dominate the bull case,
   choose Underweight or Sell even when some fundamentals are improving;
+- if the evidence shows weak or negative per-share earnings, unreliable
+  valuation, mixed or impaired trend, and no clear catalyst, Underweight can be
+  the appropriate cautious stance even when cash flow or book equity are
+  positive;
 - if the bull case is strong but conservative/neutral risk reports remain
   materially cautious, prefer Hold over Overweight unless the evidence clearly
   resolves the stated risks;

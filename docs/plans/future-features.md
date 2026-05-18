@@ -268,6 +268,40 @@ Needed before planning:
 - Settings Central schema for provider config and timeouts.
 - Trace/audit shape for advisory output.
 
+### StockSage Native/Python Parity Tuning
+
+Source: v0.25 post-remediation parity runs against Python TradingAgents using
+matched provider/model settings.
+
+v0.25 makes native StockSage the default operational engine and adds explicit
+Python comparison through `--engine python` and `--engine both`. The native
+graph now preserves research-manager, trader-plan, risk-debate, and final
+decision-synthesizer handoffs, and records a parity diff for comparison runs.
+That is enough for operator inspection and v0.26/v0.27 rendering work, but it
+is not a claim of exact rating parity with Python TradingAgents.
+
+Future parity tuning should improve the native graph against a larger stock
+matrix by comparing like-for-like provider/model runs, inspecting evidence
+coverage, and tuning role prompts and agent boundaries. It must avoid
+ticker-specific overrides, deterministic rating floors, silent post-processing
+of final ratings, and automatic native-to-Python fallback. Python remains an
+explicit reference/comparison path, not a hidden recovery engine.
+
+Needed before planning:
+
+- accepted v0.25 native specialist-agent release and operator smoke
+- reproducible comparison harness that records provider, model, evidence mode,
+  run time, final rating, confidence, and per-agent summaries for both native
+  and Python
+- representative ticker matrix, including large-cap, high-growth, OTC/GSE,
+  low-data, and ambiguous/risk-managed names
+- evidence-source parity audit for price, fundamentals, financial statements,
+  news, sentiment, and unavailable-data semantics
+- prompt and role-boundary review focused on portfolio-posture semantics
+  (`Buy`/`Overweight`/`Hold`/`Underweight`/`Sell`)
+- eval policy that distinguishes acceptable stochastic disagreement from
+  native graph defects
+
 ### Full Settings UI Polish
 
 Source: v0.02 non-goals.

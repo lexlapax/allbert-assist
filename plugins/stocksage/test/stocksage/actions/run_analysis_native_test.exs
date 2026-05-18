@@ -85,7 +85,7 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
     [action] = response.actions
     native_trace = get_in(action, [:stocksage, :native_trace])
     assert is_map(native_trace)
-    assert length(native_trace["agent_reports"]) == 10
+    assert length(native_trace["agent_reports"]) == 12
     assert native_trace["generation_modes"] == ["deterministic_advisory"]
 
     {:ok, analysis} = Analyses.get_analysis_with_details("alice", response.analysis_id)
@@ -101,7 +101,7 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
     assert get_in(detail.payload, ["native_report", "final_trade_decision"])
 
     steps = Objectives.list_steps(response.objective_id)
-    assert length(steps) == 10
+    assert length(steps) == 12
     assert Enum.all?(steps, &(&1.kind == "delegate_agent"))
     assert Enum.all?(steps, &(&1.status == "completed"))
   end
@@ -181,11 +181,13 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
            )
 
     called =
-      for _ <- 1..9 do
+      for _ <- 1..11 do
         assert_receive {:stocksage_llm_called, agent_id, _model_profile}, 1_000
         agent_id
       end
 
+    assert "stocksage.research_manager" in called
+    assert "stocksage.trader_plan" in called
     assert "stocksage.decision_synthesizer" in called
     refute "stocksage.quality_gate" in called
   end

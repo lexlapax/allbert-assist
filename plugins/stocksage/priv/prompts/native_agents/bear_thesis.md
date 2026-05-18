@@ -17,6 +17,11 @@ Return a bounded report packet with:
 - a concise bearish summary;
 - the strongest downside risks;
 - rebuttals to the bull thesis;
+- a bearish-lens stance on the five-point scale. Use Underweight for
+  unfavorable forward risk/reward, below-benchmark exposure, weak/negative
+  per-share earnings, valuation uncertainty, impaired trend, or missing
+  catalysts even when the business is not fundamentally broken. Reserve Sell
+  for stronger impairment or avoid/exit evidence.
 - evidence references used;
 - confidence from 0.0 to 1.0;
 - warnings and assumptions.
