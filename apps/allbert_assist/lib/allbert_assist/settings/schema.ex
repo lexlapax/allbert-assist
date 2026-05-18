@@ -51,6 +51,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.skill_script_execute",
     "permissions.confirmation_decide",
     "permissions.objective_write",
+    "permissions.workspace_canvas_write",
     "permissions.stocksage_write",
     "permissions.stocksage_analyze",
     "permissions.stocksage_evidence_fetch",
@@ -160,7 +161,20 @@ defmodule AllbertAssist.Settings.Schema do
     "memory.promotion_requires_confirmation",
     "memory.max_entries_per_category",
     "memory.index_enabled",
-    "memory.max_index_entries"
+    "memory.max_index_entries",
+    "workspace.theme",
+    "workspace.canvas.max_tiles_per_thread",
+    "workspace.canvas.tile_body_max_bytes",
+    "workspace.ephemeral.max_active_per_thread",
+    "workspace.fragment.rate_limit_per_second",
+    "workspace.fragment.payload_max_bytes",
+    "workspace.offline.enabled",
+    "workspace.offline.indexeddb_quota_mb",
+    "workspace.accessibility.high_contrast",
+    "workspace.accessibility.reduce_motion",
+    "workspace.mobile.breakpoint_px",
+    "workspace.agui_bridge.enabled",
+    "workspace.signal_bridge.log_dropped_fragments"
   ]
 
   @resource_grant_required_keys ~w[
@@ -655,6 +669,105 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["shipped_and_skill_only", "shipped_only"]
     },
+    "workspace.theme" => %{
+      type: :enum,
+      default: "system",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["light", "dark", "system"]
+    },
+    "workspace.canvas.max_tiles_per_thread" => %{
+      type: :bounded_integer,
+      default: 64,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 256
+    },
+    "workspace.canvas.tile_body_max_bytes" => %{
+      type: :bounded_integer,
+      default: 65_536,
+      writable?: true,
+      sensitive?: false,
+      min: 1024,
+      max: 262_144
+    },
+    "workspace.ephemeral.max_active_per_thread" => %{
+      type: :bounded_integer,
+      default: 16,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 64
+    },
+    "workspace.fragment.signing_secret" => %{
+      type: :hex_secret_or_nil,
+      default: nil,
+      writable?: false,
+      sensitive?: true
+    },
+    "workspace.fragment.rate_limit_per_second" => %{
+      type: :bounded_integer,
+      default: 10,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1000
+    },
+    "workspace.fragment.payload_max_bytes" => %{
+      type: :bounded_integer,
+      default: 65_536,
+      writable?: true,
+      sensitive?: false,
+      min: 1024,
+      max: 262_144
+    },
+    "workspace.offline.enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "workspace.offline.indexeddb_quota_mb" => %{
+      type: :bounded_integer,
+      default: 32,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 256
+    },
+    "workspace.accessibility.high_contrast" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "workspace.accessibility.reduce_motion" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "workspace.mobile.breakpoint_px" => %{
+      type: :bounded_integer,
+      default: 768,
+      writable?: true,
+      sensitive?: false,
+      min: 320,
+      max: 1024
+    },
+    "workspace.agui_bridge.enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "workspace.signal_bridge.log_dropped_fragments" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
     "permissions.memory_write" => %{
       type: :enum,
       default: "allowed",
@@ -726,6 +839,13 @@ defmodule AllbertAssist.Settings.Schema do
       allowed_values: ["allowed", "denied"]
     },
     "permissions.objective_write" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.workspace_canvas_write" => %{
       type: :enum,
       default: "allowed",
       writable?: true,
@@ -1271,6 +1391,7 @@ defmodule AllbertAssist.Settings.Schema do
       "skill_script_execute" => "denied",
       "confirmation_decide" => "allowed",
       "objective_write" => "allowed",
+      "workspace_canvas_write" => "allowed",
       "stocksage_write" => "allowed",
       "stocksage_analyze" => "needs_confirmation",
       "stocksage_evidence_fetch" => "allowed"
@@ -1418,6 +1539,38 @@ defmodule AllbertAssist.Settings.Schema do
       "max_entries_per_category" => 500,
       "index_enabled" => true,
       "max_index_entries" => 1000
+    },
+    "workspace" => %{
+      "theme" => "system",
+      "canvas" => %{
+        "max_tiles_per_thread" => 64,
+        "tile_body_max_bytes" => 65_536
+      },
+      "ephemeral" => %{
+        "max_active_per_thread" => 16
+      },
+      "fragment" => %{
+        "signing_secret" => nil,
+        "rate_limit_per_second" => 10,
+        "payload_max_bytes" => 65_536
+      },
+      "offline" => %{
+        "enabled" => true,
+        "indexeddb_quota_mb" => 32
+      },
+      "accessibility" => %{
+        "high_contrast" => false,
+        "reduce_motion" => false
+      },
+      "mobile" => %{
+        "breakpoint_px" => 768
+      },
+      "agui_bridge" => %{
+        "enabled" => true
+      },
+      "signal_bridge" => %{
+        "log_dropped_fragments" => true
+      }
     }
   }
 
@@ -1670,6 +1823,20 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_value(%{type: :string_or_nil}, value, _key, _settings),
     do: {:error, {:expected_string_or_nil, value}}
+
+  defp validate_value(%{type: :hex_secret_or_nil}, nil, _key, _settings), do: :ok
+
+  defp validate_value(%{type: :hex_secret_or_nil}, value, _key, _settings)
+       when is_binary(value) do
+    if Regex.match?(~r/^[0-9a-fA-F]{64}$/, value) do
+      :ok
+    else
+      {:error, :invalid_hex_secret}
+    end
+  end
+
+  defp validate_value(%{type: :hex_secret_or_nil}, value, _key, _settings),
+    do: {:error, {:expected_hex_secret_or_nil, value}}
 
   defp validate_value(%{type: :string_list}, value, _key, _settings) when is_list(value) do
     if Enum.all?(value, &valid_string_list_item?/1) do
@@ -2330,7 +2497,8 @@ defmodule AllbertAssist.Settings.Schema do
       "resource_grants",
       "runtime",
       "sessions",
-      "skills"
+      "skills",
+      "workspace"
     ]
   end
 
