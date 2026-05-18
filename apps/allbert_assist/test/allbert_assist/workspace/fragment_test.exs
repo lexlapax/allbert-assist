@@ -1,0 +1,185 @@
+defmodule AllbertAssist.Workspace.FragmentTest do
+  use ExUnit.Case, async: false
+
+  import ExUnit.CaptureLog
+
+  alias AllbertAssist.Objectives.AgentRegistry
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Surface
+  alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Workspace.Fragment
+  alias AllbertAssist.Workspace.Fragment.Envelope
+  alias AllbertAssist.Workspace.Fragment.Guard
+  alias AllbertAssist.Workspace.Fragment.SigningSecret
+  alias Jido.Signal.Bus
+
+  setup do
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+
+    home =
+      Path.join(System.tmp_dir!(), "allbert-fragment-test-#{System.unique_integer([:positive])}")
+
+    Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+    Guard.reset_for_test()
+
+    on_exit(fn ->
+      Guard.reset_for_test()
+      restore_env(Paths, original_paths_config)
+      restore_env(Settings, original_settings_config)
+      File.rm_rf!(home)
+    end)
+
+    {:ok, home: home}
+  end
+
+  test "emits a valid signed fragment envelope" do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")
+
+    envelope = signed_envelope()
+
+    assert :ok = Fragment.emit(envelope)
+
+    assert_receive {:signal, signal}, 1_000
+    assert signal.type == "allbert.workspace.fragment.emitted"
+    assert signal.data.envelope.id == envelope.id
+    assert signal.data.user_id == envelope.user_id
+    assert signal.data.thread_id == envelope.thread_id
+  end
+
+  test "rejects invalid envelope shape and emits a bounded dropped signal" do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.dropped")
+
+    log =
+      capture_log([level: :warning], fn ->
+        assert {:error, :invalid_envelope} = Fragment.emit(%Envelope{})
+      end)
+
+    assert log =~ "workspace fragment dropped"
+    assert log =~ "reason=:invalid_envelope"
+
+    assert_receive {:signal, signal}, 1_000
+    assert signal.type == "allbert.workspace.fragment.dropped"
+    assert signal.data.reason == :invalid_envelope
+    assert signal.data.fragment_id == nil
+  end
+
+  test "rejects unsigned envelopes as signature invalid" do
+    assert {:ok, unsigned} = Envelope.new(valid_attrs())
+
+    assert {:error, :signature_invalid} = Fragment.emit(unsigned)
+  end
+
+  test "rejects envelopes signed with the wrong secret" do
+    assert {:ok, envelope} = Envelope.sign(valid_attrs(), "not-the-runtime-secret")
+
+    assert {:error, :signature_invalid} = Fragment.emit(envelope)
+  end
+
+  test "rejects surfaces with unknown catalog components" do
+    envelope =
+      signed_envelope(%{
+        surface: valid_surface([%Node{id: "bad-node", component: :unknown_component}])
+      })
+
+    assert {:error, :surface_invalid} = Fragment.emit(envelope)
+  end
+
+  test "rejects emitters outside the action and objective-agent allow-list" do
+    envelope = signed_envelope(%{emitter_id: "unknown-emitter"})
+
+    assert {:error, :emitter_not_allowed} = Fragment.emit(envelope)
+  end
+
+  test "allows boot-registered action emitters by module id and action name" do
+    assert MapSet.member?(
+             Guard.action_emitter_ids(),
+             "AllbertAssist.Actions.Intent.DirectAnswer"
+           )
+
+    assert MapSet.member?(Guard.action_emitter_ids(), "direct_answer")
+
+    assert :ok =
+             Fragment.emit(
+               signed_envelope(%{emitter_id: "AllbertAssist.Actions.Intent.DirectAnswer"})
+             )
+
+    assert :ok = Fragment.emit(signed_envelope(%{emitter_id: "direct_answer", user_id: "other"}))
+  end
+
+  test "allows currently registered objective delegate emitters" do
+    id = "objective-agent-#{System.unique_integer([:positive])}"
+    assert {:ok, _entry} = AgentRegistry.register(id, self(), __MODULE__)
+
+    on_exit(fn -> AgentRegistry.unregister(id) end)
+
+    assert :ok = Fragment.emit(signed_envelope(%{emitter_id: id}))
+  end
+
+  test "enforces the configured per-emitter user rate limit" do
+    assert {:ok, _setting} =
+             Settings.put("workspace.fragment.rate_limit_per_second", 1, %{audit?: false})
+
+    envelope = signed_envelope()
+
+    assert :ok = Fragment.emit(envelope)
+    assert {:error, :rate_limited} = Fragment.emit(envelope)
+  end
+
+  test "enforces the configured payload size cap" do
+    assert {:ok, _setting} =
+             Settings.put("workspace.fragment.payload_max_bytes", 1024, %{audit?: false})
+
+    envelope =
+      signed_envelope(%{
+        metadata: %{body: String.duplicate("x", 3_000)}
+      })
+
+    assert {:error, :payload_too_large} = Fragment.emit(envelope)
+  end
+
+  test "returns invalid envelope for non-envelope input" do
+    assert {:error, :invalid_envelope} = Fragment.emit(%{surface: valid_surface()})
+  end
+
+  defp signed_envelope(attrs \\ %{}) do
+    secret = SigningSecret.ensure!()
+    attrs = Map.merge(valid_attrs(), attrs)
+    assert {:ok, envelope} = Envelope.sign(attrs, secret)
+    envelope
+  end
+
+  defp valid_attrs do
+    %{
+      surface: valid_surface(),
+      emitter_id: "AllbertAssist.Actions.Intent.DirectAnswer",
+      user_id: "local",
+      thread_id: "thread-1",
+      scope: :canvas,
+      kind: :text,
+      emitted_at: ~U[2026-05-18 00:00:00Z]
+    }
+  end
+
+  defp valid_surface(
+         nodes \\ [%Node{id: "fragment-text", component: :text, props: %{text: "hello"}}]
+       ) do
+    %Surface{
+      id: :fragment,
+      app_id: :allbert,
+      label: "Fragment",
+      path: "/agent",
+      kind: :canvas,
+      status: :available,
+      nodes: nodes,
+      fallback_text: "Fragment fallback"
+    }
+  end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+end
