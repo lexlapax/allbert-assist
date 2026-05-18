@@ -36,9 +36,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
       id="workspace-chat-region"
       class="mx-auto max-w-3xl py-4 space-y-6"
       data-workspace-component={@node.component}
+      aria-labelledby="workspace-chat-title"
     >
       <header>
-        <h1 class="text-3xl font-bold">Allbert Runtime</h1>
+        <h1 id="workspace-chat-title" class="text-3xl font-bold">Allbert Runtime</h1>
         <p class="text-base-content/70 mt-2">
           Routes prompts through <code>AllbertAssist.Runtime</code>
           using Jido signals and the primary intent agent.
@@ -56,22 +57,37 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         </div>
       </header>
 
-      <form id="agent-form" phx-submit="ask" class="space-y-3">
+      <form
+        id="agent-form"
+        phx-submit="ask"
+        class="space-y-3"
+        aria-busy={bool_attribute(@asking?)}
+      >
+        <label id="agent-prompt-label" for="agent-prompt" class="sr-only">
+          Prompt for Allbert
+        </label>
         <textarea
           id="agent-prompt"
           name="prompt"
           rows="3"
           class="textarea textarea-bordered w-full font-mono"
           placeholder="Ask the agent something..."
+          aria-labelledby="agent-prompt-label"
         ><%= @prompt %></textarea>
 
-        <button id="agent-submit" type="submit" class="btn btn-primary" disabled={@asking?}>
+        <button
+          id="agent-submit"
+          type="submit"
+          class="btn btn-primary"
+          disabled={@asking?}
+          aria-disabled={bool_attribute(@asking?)}
+        >
           {if @asking?, do: "Thinking…", else: "Ask Allbert"}
         </button>
       </form>
 
       <%= if @response do %>
-        <section id="agent-response" class="card bg-base-200">
+        <section id="agent-response" class="card bg-base-200" aria-live="polite">
           <div class="card-body">
             <h2 class="card-title">Response</h2>
             <pre class="whitespace-pre-wrap text-sm"><%= @response %></pre>
@@ -89,9 +105,16 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
       <% end %>
 
       <%= if @approval_handoff do %>
-        <section id="approval-handoff" class="border border-base-300 bg-base-100 p-4 space-y-3">
+        <section
+          id="approval-handoff"
+          class="border border-base-300 bg-base-100 p-4 space-y-3"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="approval-title"
+          phx-hook="FocusTrap"
+        >
           <div>
-            <h2 class="font-semibold">Approval Required</h2>
+            <h2 id="approval-title" class="font-semibold">Approval Required</h2>
             <p id="approval-confirmation" class="text-xs text-base-content/60">
               Confirmation: {approval_confirmation_id(@approval_handoff)}
             </p>
@@ -107,6 +130,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
               type="button"
               phx-click="toggle_approval_details"
               class="btn btn-sm"
+              aria-controls="approval-details-data"
+              aria-expanded={bool_attribute(@show_approval_details?)}
             >
               Details
             </button>
@@ -152,6 +177,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
     </section>
     """
   end
+
+  defp bool_attribute(true), do: "true"
+  defp bool_attribute(false), do: "false"
 
   defp approval_confirmation_id(handoff) when is_map(handoff) do
     Map.get(handoff, :confirmation_id) || Map.get(handoff, "confirmation_id")

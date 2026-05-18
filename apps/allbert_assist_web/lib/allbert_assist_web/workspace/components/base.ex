@@ -55,17 +55,20 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
       class={component_class(@component, @stub?)}
       data-workspace-component={@component}
       data-workspace-renderer="component"
+      aria-labelledby={component_title_id(@node)}
     >
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <h2 class="text-sm font-semibold leading-6">
+          <h2 id={component_title_id(@node)} class="text-sm font-semibold leading-6">
             {title(@node, @component_title)}
           </h2>
           <p class="text-xs text-base-content/60">
             {summary(@node, @component_description)}
           </p>
         </div>
-        <span :if={@stub?} class="badge badge-outline shrink-0">stub</span>
+        <span :if={@stub?} class="badge badge-outline shrink-0" aria-label="Stub renderer">
+          stub
+        </span>
       </div>
       <p :if={metric(@component, @renderer_context)} class="mt-2 text-xs text-base-content/60">
         {metric(@component, @renderer_context)}
@@ -89,6 +92,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
   end
 
   def title(node, fallback), do: prop(node, :title, prop(node, :label, fallback))
+
+  def component_title_id(%{id: node_id}), do: "workspace-component-title-#{node_id}"
 
   def summary(node, fallback) do
     prop(node, :body, prop(node, :text, prop(node, :subtitle, prop(node, :value, fallback))))

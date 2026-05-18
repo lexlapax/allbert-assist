@@ -143,6 +143,10 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
       class="workspace-node space-y-4"
       data-workspace-component={@node.component}
       data-workspace-node={@node.id}
+      role={node_role(@node)}
+      aria-labelledby={node_labelledby(@node)}
+      aria-modal={node_aria_modal(@node)}
+      phx-hook={node_hook(@node)}
     >
       <.live_component
         module={renderer_for(@node.component)}
@@ -168,4 +172,35 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
 
   defp node_renderer_id(parent_id, %Node{id: node_id}), do: "#{parent_id}:#{node_id}:renderer"
   defp node_component_id(parent_id, %Node{id: node_id}), do: "#{parent_id}:#{node_id}:component"
+
+  defp node_role(%Node{component: :tile}), do: "article"
+
+  defp node_role(%Node{component: :ephemeral_surface, children: children}) when children != [],
+    do: "dialog"
+
+  defp node_role(%Node{component: component}) when component in [:canvas, :badge_strip],
+    do: "region"
+
+  defp node_role(_node), do: nil
+
+  defp node_labelledby(%Node{component: component} = node)
+       when component in [:tile, :ephemeral_surface, :canvas, :badge_strip] do
+    component_title_id(node)
+  end
+
+  defp node_labelledby(_node), do: nil
+
+  defp node_aria_modal(%Node{component: :ephemeral_surface, children: children})
+       when children != [],
+       do: "true"
+
+  defp node_aria_modal(_node), do: nil
+
+  defp node_hook(%Node{component: :ephemeral_surface, children: children}) when children != [] do
+    "FocusTrap"
+  end
+
+  defp node_hook(_node), do: nil
+
+  defp component_title_id(%Node{id: node_id}), do: "workspace-component-title-#{node_id}"
 end
