@@ -226,6 +226,10 @@ defmodule AllbertAssist.Trace do
     #{stocksage_analysis_text(response.actions)}
     #{objective_inline(response)}
 
+    ## StockSage Native Analysis
+
+    #{stocksage_native_analysis_text(response.actions)}
+
     ## Objective Steps
 
     #{objective_steps_text(response)}
@@ -583,6 +587,134 @@ defmodule AllbertAssist.Trace do
 
   defp stocksage_action_metadata(action) do
     Map.get(action, :stocksage, %{}) || Map.get(action, "stocksage", %{})
+  end
+
+  defp stocksage_native_analysis_text(actions) do
+    with action when not is_nil(action) <- stocksage_run_analysis_action(actions),
+         metadata <- stocksage_action_metadata(action),
+         engine when engine in ["native", "both"] <- stocksage_field(metadata, :engine),
+         native_trace when is_map(native_trace) <- stocksage_field(metadata, :native_trace) do
+      [
+        stocksage_native_summary(metadata, native_trace),
+        stocksage_native_agent_table(native_trace),
+        stocksage_native_debate_rounds(native_trace),
+        stocksage_native_parity(native_trace)
+      ]
+      |> Enum.reject(&(&1 in [nil, ""]))
+      |> Enum.join("\n\n")
+    else
+      _other -> "none"
+    end
+  end
+
+  defp stocksage_native_summary(metadata, native_trace) do
+    agent_count =
+      native_trace
+      |> map_value(:agent_reports)
+      |> List.wrap()
+      |> length()
+
+    modes =
+      native_trace
+      |> map_value(:generation_modes)
+      |> List.wrap()
+      |> Enum.join(", ")
+      |> case do
+        "" -> "deterministic_advisory"
+        value -> value
+      end
+
+    [
+      "- Engine: #{stocksage_field(metadata, :engine)}",
+      "- Native agents: #{agent_count}",
+      "- Generation mode: #{modes}",
+      "- Execution posture: bounded advisory packets through native specialist agents",
+      "- Analysis id: #{stocksage_field(metadata, :analysis_id)}"
+    ]
+    |> Enum.join("\n")
+  end
+
+  defp stocksage_native_agent_table(native_trace) do
+    rows =
+      native_trace
+      |> map_value(:agent_reports)
+      |> List.wrap()
+      |> Enum.take(12)
+      |> Enum.map(&stocksage_native_agent_row/1)
+
+    case rows do
+      [] ->
+        ""
+
+      rows ->
+        [
+          "| Agent | Status | Confidence | Mode | Summary |",
+          "|---|---:|---:|---|---|"
+          | rows
+        ]
+        |> Enum.join("\n")
+    end
+  end
+
+  defp stocksage_native_agent_row(report) do
+    [
+      map_value(report, :agent_id),
+      map_value(report, :status),
+      map_value(report, :confidence),
+      map_value(report, :generation_mode),
+      bounded_summary(map_value(report, :summary))
+    ]
+    |> Enum.map(&markdown_cell/1)
+    |> then(&"| #{Enum.join(&1, " | ")} |")
+  end
+
+  defp stocksage_native_debate_rounds(native_trace) do
+    rounds =
+      native_trace
+      |> map_value(:debate_rounds)
+      |> List.wrap()
+      |> Enum.take(5)
+
+    case rounds do
+      [] ->
+        ""
+
+      rounds ->
+        [
+          "Debate rounds:"
+          | Enum.map(rounds, fn round ->
+              "- Round #{map_value(round, :round_index) || "?"}: bull=#{bounded_summary(map_value(round, :bull_summary))}; bear=#{bounded_summary(map_value(round, :bear_summary))}; risk_reviews=#{map_value(round, :risk_count) || 0}"
+            end)
+        ]
+        |> Enum.join("\n")
+    end
+  end
+
+  defp stocksage_native_parity(native_trace) do
+    case map_value(native_trace, :parity_diff) do
+      parity when is_map(parity) ->
+        [
+          "Parity diff:",
+          "- Native rating: #{map_value(parity, :native_rating) || "none"}",
+          "- Python rating: #{map_value(parity, :python_rating) || "none"}",
+          "- Rating agreement: #{map_value(parity, :rating_agreement) || "none"}",
+          "- Confidence delta: #{map_value(parity, :confidence_delta) || "none"}",
+          "- Pass: #{map_value(parity, :parity_pass) || false}"
+        ]
+        |> Enum.join("\n")
+
+      _other ->
+        ""
+    end
+  end
+
+  defp markdown_cell(nil), do: "-"
+
+  defp markdown_cell(value) do
+    value
+    |> bounded_summary()
+    |> String.replace("|", "\\|")
+    |> String.replace("\n", " ")
   end
 
   defp stocksage_field(metadata, key) when is_map(metadata) do

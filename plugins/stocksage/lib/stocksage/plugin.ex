@@ -126,6 +126,13 @@ defmodule StockSage.Plugin do
         description: "Global model profile for StockSage native specialist agents."
       },
       %{
+        key: "stocksage.native_llm_enabled",
+        type: :boolean,
+        default: true,
+        description:
+          "Enable Jido.AI provider-backed generation for non-quality StockSage native specialist agents."
+      },
+      %{
         key: "stocksage.native_model_profile_market_context",
         type: :string_or_nil,
         default: nil,

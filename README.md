@@ -11,10 +11,10 @@ not the architecture center.
 ## Current Status
 
 v0.25 is implemented and ready for operator manual verification. It adds
-StockSage native financial specialist agents: 9 supervised Jido.AI
-specialists, 1 deterministic quality gate, a JidoBacked native coordinator,
-action-backed evidence providers, multi-round debate with objective-step
-observability, explicit native/Python parity runs, and the core
+StockSage native financial specialist agents: 9 supervised LLM-capable
+Jido.AI specialists, 1 deterministic quality gate, a JidoBacked native
+coordinator, action-backed evidence providers, multi-round debate with
+objective-step observability, explicit native/Python parity runs, and the core
 `mix allbert.delegate <agent_id>` cross-app delegate-agent proof. Version
 metadata is now `0.25.0`.
 

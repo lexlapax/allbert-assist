@@ -160,6 +160,111 @@ defmodule StockSage.TraceTest do
     refute body =~ "Action: run_analysis"
   end
 
+  test "renders bounded native analysis summary, agent rows, debate rounds, and parity",
+       %{captured: captured} do
+    action = %{
+      name: "run_analysis",
+      status: :completed,
+      permission: :stocksage_analyze,
+      stocksage: %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-01",
+        engine: "both",
+        analysis_id: "analysis_native_trace",
+        bridge_duration_ms: 123,
+        truncated: false,
+        stub: false,
+        summary: "Native/Python parity run completed.",
+        native_trace: %{
+          agent_reports: [
+            %{
+              agent_id: "stocksage.market_context",
+              status: "ok",
+              summary: "Market context prepared for AAPL.",
+              confidence: 0.72,
+              duration_ms: 12,
+              model_profile: "fast",
+              generation_mode: "deterministic_advisory"
+            },
+            %{
+              agent_id: "stocksage.decision_synthesizer",
+              status: "ok",
+              summary: "Hold decision synthesized for AAPL.",
+              confidence: 0.81,
+              duration_ms: 15,
+              model_profile: "slow",
+              generation_mode: "deterministic_advisory"
+            }
+          ],
+          debate_rounds: [
+            %{
+              round_index: 1,
+              bull_summary: "Bull thesis prepared.",
+              bear_summary: "Bear thesis prepared.",
+              risk_count: 3
+            }
+          ],
+          generation_modes: ["deterministic_advisory"],
+          parity_diff: %{
+            "native_rating" => "Hold",
+            "python_rating" => "Overweight",
+            "rating_agreement" => 0.5,
+            "confidence_delta" => 0.12,
+            "parity_pass" => true
+          }
+        }
+      }
+    }
+
+    assert {:ok, _entry} = Trace.record_turn(build_turn([action]))
+
+    [{:last, attrs}] = :ets.lookup(captured, :last)
+    body = attrs.body
+
+    assert body =~ "## StockSage Native Analysis"
+    assert body =~ "Execution posture: bounded advisory packets through native specialist agents"
+
+    assert body =~
+             "| stocksage.market_context | ok | 0.72 | deterministic_advisory | Market context prepared for AAPL. |"
+
+    assert body =~ "Debate rounds:"
+
+    assert body =~
+             "Round 1: bull=Bull thesis prepared.; bear=Bear thesis prepared.; risk_reviews=3"
+
+    assert body =~ "Parity diff:"
+    assert body =~ "Native rating: Hold"
+    assert body =~ "Python rating: Overweight"
+    assert body =~ "Pass: true"
+  end
+
+  test "does not render the native analysis section for Python-only runs", %{captured: captured} do
+    action = %{
+      name: "run_analysis",
+      status: :completed,
+      permission: :stocksage_analyze,
+      stocksage: %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-01",
+        engine: "tradingagents",
+        analysis_id: "analysis_python",
+        bridge_duration_ms: 42,
+        truncated: false,
+        stub: false,
+        summary: "Python bridge summary"
+      }
+    }
+
+    assert {:ok, _entry} = Trace.record_turn(build_turn([action]))
+
+    [{:last, attrs}] = :ets.lookup(captured, :last)
+    body = attrs.body
+
+    assert body =~ "## StockSage Native Analysis"
+    refute body =~ "Execution posture: bounded advisory packets"
+    refute body =~ "| stocksage.market_context |"
+  end
+
   test "redacts raw bridge body, API keys, and secrets from the trace", %{captured: captured} do
     action = %{
       name: "run_analysis",
