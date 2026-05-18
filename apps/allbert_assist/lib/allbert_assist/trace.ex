@@ -14,8 +14,10 @@ defmodule AllbertAssist.Trace do
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Memory
   alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Workspace
 
   @model_alias :local
+  @workspace_recent_limit 5
 
   @type result :: {:ok, Memory.entry()} | {:disabled, :tracing_disabled} | {:error, term()}
 
@@ -36,6 +38,10 @@ defmodule AllbertAssist.Trace do
   end
 
   def record_turn(_turn), do: {:error, :invalid_trace_turn}
+
+  @doc "Render one runtime turn as inspectable markdown trace text."
+  @spec text(map()) :: String.t()
+  def text(turn) when is_map(turn), do: trace_body(turn)
 
   defp do_record_turn(turn) do
     writer().(trace_attrs(turn))
@@ -100,7 +106,7 @@ defmodule AllbertAssist.Trace do
     %{
       category: :traces,
       summary: trace_summary(response, input_signal),
-      body: trace_body(turn),
+      body: text(turn),
       source_signal_id: input_signal.id,
       actor: Map.get(request, :user_id, Map.get(request, :operator_id, "local")),
       agent: inspect(Map.get(turn, :agent, AllbertAssist.Agents.IntentAgent)),
@@ -124,6 +130,7 @@ defmodule AllbertAssist.Trace do
     input_signal = Map.fetch!(turn, :input_signal)
     response_signal = Map.fetch!(turn, :response_signal)
     response = Map.fetch!(turn, :response)
+    workspace = workspace_trace(turn)
 
     """
     ## Runtime Turn
@@ -164,6 +171,7 @@ defmodule AllbertAssist.Trace do
 
     #{response.message}
     #{objective_inline(response)}
+    #{workspace_inline(workspace)}
 
     ## Actions
 
@@ -233,6 +241,10 @@ defmodule AllbertAssist.Trace do
     ## Objective Steps
 
     #{objective_steps_text(response)}
+
+    ## Workspace
+
+    #{workspace_text(workspace)}
 
     ## Diagnostics
 
@@ -945,6 +957,190 @@ defmodule AllbertAssist.Trace do
         "none"
     end
   end
+
+  defp workspace_trace(turn) do
+    request = Map.get(turn, :request, %{})
+    response = Map.get(turn, :response, %{})
+    context = workspace_context(turn, response)
+    user_id = workspace_value(request, :user_id) || workspace_value(request, :operator_id)
+    thread_id = workspace_value(request, :thread_id)
+
+    %{
+      user_id: user_id,
+      thread_id: thread_id,
+      canvas_tiles:
+        context_entries(context, [:canvas_tiles, :tiles]) || load_canvas_tiles(thread_id, user_id),
+      ephemeral_surfaces:
+        context_entries(context, [:ephemeral_surfaces, :ephemerals]) ||
+          load_ephemeral_surfaces(thread_id, user_id),
+      emitted_fragments:
+        context_entries(context, [:recent_emitted_fragments, :emitted_fragments])
+        |> recent_entries(),
+      dropped_fragments:
+        context_entries(context, [:recent_dropped_fragments, :dropped_fragments])
+        |> recent_entries()
+    }
+  end
+
+  defp workspace_context(turn, response) do
+    [
+      workspace_value(turn, :workspace),
+      workspace_value(response, :workspace),
+      response
+      |> workspace_value(:decision)
+      |> workspace_value(:trace_metadata)
+      |> workspace_value(:workspace)
+    ]
+    |> Enum.find(&is_map/1)
+    |> case do
+      nil -> %{}
+      context -> context
+    end
+  end
+
+  defp load_canvas_tiles(thread_id, user_id) when is_binary(thread_id) and is_binary(user_id) do
+    case Workspace.canvas_tiles(thread_id, user_id) do
+      {:ok, tiles} -> tiles
+      {:error, reason} -> [%{id: "unavailable", kind: "error", body: %{reason: inspect(reason)}}]
+    end
+  rescue
+    exception ->
+      [%{id: "unavailable", kind: "error", body: %{reason: Exception.message(exception)}}]
+  catch
+    :exit, reason ->
+      [%{id: "unavailable", kind: "error", body: %{reason: inspect(reason)}}]
+  end
+
+  defp load_canvas_tiles(_thread_id, _user_id), do: []
+
+  defp load_ephemeral_surfaces(thread_id, user_id)
+       when is_binary(thread_id) and is_binary(user_id) do
+    case Workspace.ephemeral_surfaces(thread_id, user_id) do
+      {:ok, surfaces} -> surfaces
+      {:error, reason} -> [%{id: "unavailable", kind: "error", body: %{reason: inspect(reason)}}]
+    end
+  rescue
+    exception ->
+      [%{id: "unavailable", kind: "error", body: %{reason: Exception.message(exception)}}]
+  catch
+    :exit, reason ->
+      [%{id: "unavailable", kind: "error", body: %{reason: inspect(reason)}}]
+  end
+
+  defp load_ephemeral_surfaces(_thread_id, _user_id), do: []
+
+  defp context_entries(context, keys) when is_map(context) do
+    Enum.find_value(keys, fn key ->
+      case workspace_value(context, key) do
+        nil -> nil
+        entries when is_list(entries) -> entries
+        entry -> [entry]
+      end
+    end)
+  end
+
+  defp recent_entries(nil), do: []
+  defp recent_entries(entries), do: entries |> List.wrap() |> Enum.take(@workspace_recent_limit)
+
+  defp workspace_inline(workspace) do
+    """
+    ### Workspace
+
+    - Canvas tiles: #{length(workspace.canvas_tiles)}
+    - Ephemeral surfaces: #{length(workspace.ephemeral_surfaces)}
+    - Recent emitted fragments: #{length(workspace.emitted_fragments)}
+    - Recent dropped fragments: #{length(workspace.dropped_fragments)}
+    """
+  end
+
+  defp workspace_text(workspace) do
+    [
+      "- User: #{workspace_line_value(workspace.user_id)}",
+      "- Thread: #{workspace_line_value(workspace.thread_id)}",
+      "",
+      "Canvas tiles:",
+      workspace_lines(workspace.canvas_tiles, &workspace_tile_line/1),
+      "",
+      "Ephemeral surfaces:",
+      workspace_lines(workspace.ephemeral_surfaces, &workspace_ephemeral_line/1),
+      "",
+      "Recent emitted fragments:",
+      workspace_lines(workspace.emitted_fragments, &workspace_fragment_line/1),
+      "",
+      "Recent dropped fragments:",
+      workspace_lines(workspace.dropped_fragments, &workspace_fragment_line/1)
+    ]
+    |> Enum.join("\n")
+  end
+
+  defp workspace_lines([], _formatter), do: "none"
+
+  defp workspace_lines(entries, formatter) do
+    entries
+    |> Enum.map(formatter)
+    |> Enum.join("\n")
+  end
+
+  defp workspace_tile_line(tile) do
+    width = workspace_value(tile, :size_width) || "?"
+    height = workspace_value(tile, :size_height) || "?"
+
+    "- #{workspace_line_value(workspace_value(tile, :id))} kind=#{workspace_line_value(workspace_value(tile, :kind))} position=#{workspace_line_value(workspace_value(tile, :position))} pinned=#{workspace_line_value(workspace_value(tile, :pinned))} size=#{width}x#{height} body=#{workspace_body_preview(workspace_value(tile, :body))}"
+  end
+
+  defp workspace_ephemeral_line(surface) do
+    "- #{workspace_line_value(workspace_value(surface, :id))} kind=#{workspace_line_value(workspace_value(surface, :kind))} pinned=#{workspace_line_value(workspace_value(surface, :pinned))} opened_at=#{workspace_line_value(workspace_value(surface, :opened_at))} body=#{workspace_body_preview(workspace_value(surface, :body))}"
+  end
+
+  defp workspace_fragment_line(%{type: type, data: data} = signal) when is_binary(type) do
+    "- #{workspace_line_value(workspace_value(data, :fragment_id) || workspace_value(signal, :id))} type=#{type} kind=#{workspace_line_value(workspace_value(data, :kind))} component=#{workspace_line_value(workspace_value(data, :component))} emitter=#{workspace_line_value(workspace_value(data, :emitter_id))} reason=#{workspace_line_value(workspace_value(data, :reason))}"
+  end
+
+  defp workspace_fragment_line(fragment) do
+    "- #{workspace_line_value(workspace_value(fragment, :fragment_id) || workspace_value(fragment, :id))} kind=#{workspace_line_value(workspace_value(fragment, :kind))} component=#{workspace_line_value(fragment_component(fragment))} emitter=#{workspace_line_value(workspace_value(fragment, :emitter_id))} reason=#{workspace_line_value(workspace_value(fragment, :reason))} emitted_at=#{workspace_line_value(workspace_value(fragment, :emitted_at))}"
+  end
+
+  defp fragment_component(fragment) do
+    workspace_value(fragment, :component) ||
+      fragment
+      |> workspace_value(:surface)
+      |> surface_component()
+  end
+
+  defp surface_component(%{nodes: [node | _rest]}), do: workspace_value(node, :component)
+  defp surface_component(_surface), do: nil
+
+  defp workspace_body_preview(nil), do: "empty"
+  defp workspace_body_preview(body) when body == %{}, do: "empty"
+
+  defp workspace_body_preview(body) do
+    body
+    |> Redactor.redact()
+    |> inspect(pretty: false, limit: 20)
+    |> bounded_trace_value(200)
+  end
+
+  defp workspace_line_value(nil), do: "none"
+  defp workspace_line_value(%DateTime{} = value), do: DateTime.to_iso8601(value)
+  defp workspace_line_value(%NaiveDateTime{} = value), do: NaiveDateTime.to_iso8601(value)
+  defp workspace_line_value(value) when is_binary(value), do: value
+  defp workspace_line_value(value) when is_atom(value), do: Atom.to_string(value)
+  defp workspace_line_value(value), do: inspect(value)
+
+  defp workspace_value(map, key) when is_map(map) do
+    case Map.fetch(map, key) do
+      {:ok, value} -> value
+      :error -> Map.get(map, to_string(key))
+    end
+  end
+
+  defp workspace_value(_map, _key), do: nil
+
+  defp bounded_trace_value(value, max_bytes) when byte_size(value) > max_bytes do
+    binary_part(value, 0, max_bytes) <> "..."
+  end
+
+  defp bounded_trace_value(value, _max_bytes), do: value
 
   defp map_value(map, key) when is_map(map) do
     Map.get(map, key) || Map.get(map, to_string(key))
