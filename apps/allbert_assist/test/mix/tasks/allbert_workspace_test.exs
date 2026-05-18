@@ -4,19 +4,23 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
   alias AllbertAssist.Workspace.Fragment.SigningSecret
   alias Mix.Tasks.Allbert.Workspace, as: WorkspaceTask
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     home =
       Path.join(System.tmp_dir!(), "allbert-workspace-task-#{System.unique_integer([:positive])}")
 
     Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
+      restore_env(Settings, original_settings_config)
       Mix.Task.reenable("allbert.workspace")
       File.rm_rf!(home)
     end)
@@ -39,8 +43,24 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
     refute output =~ secret
   end
 
+  test "inspects the resolved workspace surface tree" do
+    assert {:ok, _setting} = Settings.put("workspace.theme", "dark", %{audit?: false})
+
+    output =
+      capture_io(fn ->
+        assert :ok = WorkspaceTask.run(["inspect", "--user", "local", "--thread", "thread-1"])
+      end)
+
+    assert output =~ "Resolved workspace Surface tree"
+    assert output =~ "Surface: :agent /agent kind=workspace"
+    assert output =~ "workspace.theme=dark"
+    assert output =~ "user_id=local thread_id=thread-1"
+    assert output =~ "- workspace-root workspace"
+    assert output =~ "  - workspace-canvas-region canvas"
+  end
+
   test "unknown commands raise usage" do
-    assert_raise Mix.Error, ~r/allbert.workspace rotate-signing-secret/, fn ->
+    assert_raise Mix.Error, ~r/allbert.workspace inspect/, fn ->
       WorkspaceTask.run(["unknown"])
     end
   end
