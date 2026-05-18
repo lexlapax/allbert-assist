@@ -128,6 +128,11 @@ defmodule Mix.Tasks.Stocksage.Analyze do
       Mix.shell().info("Stub: #{response.stub}")
     end
 
+    if is_map(Map.get(response, :parity_diff)) do
+      Mix.shell().info("Parity pass: #{response.parity_diff["parity_pass"]}")
+      Mix.shell().info("Rating agreement: #{response.parity_diff["rating_agreement"]}")
+    end
+
     Mix.shell().info("Summary: #{response.summary}")
   end
 

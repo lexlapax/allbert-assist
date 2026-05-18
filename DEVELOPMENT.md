@@ -366,6 +366,11 @@ Where this gets enforced:
   `"0.24.0"` because v0.24 threads objective context through
   StockSage analysis rows and adds the deterministic StockSage
   proposer path.
+- The v0.25 closeout bumped `AllbertAssist.App.CoreApp.version/0`,
+  `StockSage.App.version/0`, `StockSage.Plugin.version/0`, and
+  `./plugins/stocksage/allbert_plugin.json` to `"0.25.0"` because
+  v0.25 adds the native specialist-agent graph, explicit parity
+  analysis, and the core `mix allbert.delegate` operator surface.
 
 ## Component Substrate: Jido.Agent vs. GenServer
 
@@ -510,6 +515,10 @@ Implementation posture:
   comparison/reference harness. Native failures must stay visible; do not
   automatically retry or recover with Python, and do not introduce a
   persistent Settings Central default that selects Python or parity mode.
+- `mix allbert.delegate <agent_id>` is the generic operator proof for
+  cross-app delegate-agent reuse. Keep new domain-specific smoke tasks
+  behind `Actions.Runner.run("delegate_agent", ...)` or an equivalent
+  registered-action boundary.
 
 ## Elixir And OTP Rules
 

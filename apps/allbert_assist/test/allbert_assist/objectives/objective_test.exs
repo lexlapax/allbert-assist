@@ -39,9 +39,12 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
   end
 
   test "creates, scopes, lists, and abandons objectives" do
+    user = unique_user("objective")
+    other_user = unique_user("other")
+
     assert {:ok, objective} =
              Objectives.create_objective(%{
-               user_id: "alice",
+               user_id: user,
                source_thread_id: "thr_a",
                active_app: "stocksage",
                title: "Analyze AAPL",
@@ -51,12 +54,12 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
 
     assert objective.status == "open"
     assert objective.loop_count == 0
-    assert {:ok, ^objective} = Objectives.get_objective("alice", objective.id)
-    assert {:error, :not_found} = Objectives.get_objective("bob", objective.id)
+    assert {:ok, ^objective} = Objectives.get_objective(user, objective.id)
+    assert {:error, :not_found} = Objectives.get_objective(other_user, objective.id)
 
-    assert [listed] = Objectives.list_objectives("alice", active_app: "stocksage")
+    assert [listed] = Objectives.list_objectives(user, active_app: "stocksage")
     assert listed.id == objective.id
-    assert [] = Objectives.list_objectives("bob")
+    assert [] = Objectives.list_objectives(other_user)
 
     stale = DateTime.add(DateTime.utc_now(), -2, :hour)
 
@@ -71,10 +74,13 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
   end
 
   test "public facade scopes reads and delegates lifecycle transitions to the engine" do
+    user = unique_user("facade")
+    other_user = unique_user("facade_other")
+
     assert {:ok, %{objective: framed}} =
              Objectives.frame(
                %{
-                 user_id: "alice",
+                 user_id: user,
                  thread_id: "thr_facade",
                  session_id: "sess_facade",
                  active_app: :stocksage,
@@ -84,17 +90,17 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
                %{}
              )
 
-    assert framed.user_id == "alice"
+    assert framed.user_id == user
     assert framed.source_thread_id == "thr_facade"
     assert framed.active_app == "stocksage"
 
-    assert {:ok, [listed]} = Objectives.list("alice", %{"active_app" => "stocksage"})
+    assert {:ok, [listed]} = Objectives.list(user, %{"active_app" => "stocksage"})
     assert listed.id == framed.id
-    assert {:ok, ^framed} = Objectives.get("alice", framed.id)
-    assert {:error, :not_found} = Objectives.get("bob", framed.id)
+    assert {:ok, ^framed} = Objectives.get(user, framed.id)
+    assert {:error, :not_found} = Objectives.get(other_user, framed.id)
 
     assert {:ok, %{objective: cancelled}} =
-             Objectives.cancel("alice", framed.id, "facade test complete")
+             Objectives.cancel(user, framed.id, "facade test complete")
 
     assert cancelled.status == "cancelled"
   end
@@ -102,5 +108,9 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
   test "public facade requires explicit user identity when framing" do
     assert {:error, :missing_user_id} =
              Objectives.frame(%{title: "No user", objective: "Do not silently default."}, %{})
+  end
+
+  defp unique_user(prefix) do
+    "#{prefix}_#{System.unique_integer([:positive])}"
   end
 end

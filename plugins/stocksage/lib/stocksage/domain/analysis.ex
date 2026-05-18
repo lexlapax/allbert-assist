@@ -9,7 +9,7 @@ defmodule StockSage.Domain.Analysis do
   alias StockSage.Domain.{AnalysisDetail, Outcome}
 
   @statuses ~w[imported queued completed failed]
-  @sources ~w[legacy_sqlite manual python_bridge native]
+  @sources ~w[legacy_sqlite manual python_bridge native native_python_parity]
   @engines ~w[native python tradingagents both]
 
   @primary_key {:id, :string, autogenerate: false}
