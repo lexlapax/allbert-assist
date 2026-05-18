@@ -44,19 +44,24 @@ defmodule AllbertAssist.Workspace.Canvas do
   def add_tile(attrs) when is_map(attrs) do
     attrs = normalize_attrs(attrs)
 
-    with {:ok, attrs} <- put_create_defaults(attrs),
-         :ok <- ensure_thread_writable(attrs.user_id, attrs.thread_id),
-         :ok <- enforce_cap(attrs.user_id, attrs.thread_id),
-         :ok <- BodyStore.write_body(attrs.body_yaml_path, attrs.body) do
-      %Tile{}
-      |> Tile.changeset(Map.delete(attrs, :body))
-      |> Repo.insert()
-      |> load_body_result()
-      |> tap_ok(&Events.tile_added/1)
+    with {:ok, attrs} <- put_create_defaults(attrs) do
+      case duplicate_status(attrs) do
+        :insert -> insert_new_tile(attrs)
+        {:ok, %Tile{} = tile} -> {:ok, tile}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
   def add_tile(_attrs), do: {:error, :invalid_tile_attrs}
+
+  defp insert_new_tile(attrs) do
+    with :ok <- ensure_thread_writable(attrs.user_id, attrs.thread_id),
+         :ok <- enforce_cap(attrs.user_id, attrs.thread_id),
+         :ok <- BodyStore.write_body(attrs.body_yaml_path, attrs.body) do
+      insert_tile(attrs)
+    end
+  end
 
   @spec update_tile(String.t(), map()) :: {:ok, tile()} | {:error, term()}
   def update_tile(tile_id, attrs) when is_binary(tile_id) and is_map(attrs) do
@@ -151,6 +156,61 @@ defmodule AllbertAssist.Workspace.Canvas do
     case Repo.get(Tile, tile_id) do
       %Tile{deleted_at: nil} = tile -> {:ok, tile}
       _other -> {:error, :not_found}
+    end
+  end
+
+  defp duplicate_status(%{id: id} = attrs) do
+    case Repo.get(Tile, id) do
+      nil -> :insert
+      %Tile{} = tile -> duplicate_tile_result(tile, attrs)
+    end
+  end
+
+  defp insert_tile(attrs) do
+    %Tile{}
+    |> Tile.changeset(Map.delete(attrs, :body))
+    |> Repo.insert()
+    |> case do
+      {:ok, %Tile{} = tile} ->
+        {:ok, tile}
+        |> load_body_result()
+        |> tap_ok(&Events.tile_added/1)
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        recover_duplicate_insert(changeset, attrs)
+    end
+  end
+
+  defp recover_duplicate_insert(%Ecto.Changeset{} = changeset, attrs) do
+    if Keyword.has_key?(changeset.errors, :id) do
+      case duplicate_status(attrs) do
+        :insert -> {:error, :fragment_id_conflict}
+        result -> result
+      end
+    else
+      {:error, changeset}
+    end
+  end
+
+  defp duplicate_tile_result(%Tile{} = tile, attrs) do
+    if tile.user_id != attrs.user_id or tile.thread_id != attrs.thread_id do
+      {:error, :fragment_id_conflict}
+    else
+      duplicate_body_result(tile, attrs)
+    end
+  end
+
+  defp duplicate_body_result(%Tile{} = tile, attrs) do
+    case load_body(tile) do
+      {:ok, %Tile{} = loaded} ->
+        if loaded.body == BodyStore.normalize_body(attrs.body) do
+          {:ok, loaded}
+        else
+          {:error, :fragment_body_conflict}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

@@ -16,7 +16,6 @@ defmodule AllbertAssistWeb.AgentLive do
   alias AllbertAssist.Settings
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
-  alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssistWeb.SignalBridge
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
@@ -402,32 +401,17 @@ defmodule AllbertAssistWeb.AgentLive do
   defp handle_fragment(%Envelope{} = envelope, socket) do
     if envelope.user_id == socket.assigns.user_id and
          envelope.thread_id == socket.assigns.thread_id do
-      apply_workspace_fragment(socket, envelope)
+      refresh_workspace_fragment(socket, envelope)
     else
       socket
     end
   end
 
-  defp apply_workspace_fragment(socket, %Envelope{} = envelope) do
+  defp refresh_workspace_fragment(socket, %Envelope{} = envelope) do
     if header_badge_fragment?(envelope) do
       put_workspace_badge(socket, envelope)
     else
-      persist_workspace_fragment(socket, envelope)
-    end
-  end
-
-  defp persist_workspace_fragment(socket, %Envelope{} = envelope) do
-    case persist_fragment(envelope) do
-      {:ok, _record} -> refresh_workspace(socket)
-      {:error, reason} -> assign(socket, :error, "Workspace fragment skipped: #{inspect(reason)}")
-    end
-  end
-
-  defp persist_fragment(%Envelope{scope: scope} = envelope) do
-    case normalize_scope(scope) do
-      "canvas" -> Workspace.add_tile(fragment_attrs(envelope))
-      "ephemeral" -> Workspace.open_ephemeral(fragment_attrs(envelope))
-      _scope -> {:error, :invalid_scope}
+      refresh_workspace(socket)
     end
   end
 
@@ -447,37 +431,6 @@ defmodule AllbertAssistWeb.AgentLive do
     |> refresh_workspace()
   end
 
-  defp fragment_attrs(%Envelope{} = envelope) do
-    %{
-      id: envelope.id,
-      user_id: envelope.user_id,
-      thread_id: envelope.thread_id,
-      kind: normalize_kind(envelope.kind),
-      metadata: fragment_metadata(envelope),
-      body: FragmentBody.encode(envelope)
-    }
-    |> maybe_put_position(envelope.tile_position)
-  end
-
-  defp fragment_metadata(%Envelope{} = envelope) do
-    %{
-      "fragment_id" => envelope.id,
-      "emitter_id" => envelope.emitter_id,
-      "emitted_at" => emitted_at(envelope.emitted_at),
-      "scope" => normalize_scope(envelope.scope)
-    }
-  end
-
-  defp maybe_put_position(attrs, position) when is_integer(position) and position >= 0 do
-    Map.put(attrs, :position, position)
-  end
-
-  defp maybe_put_position(attrs, _position), do: attrs
-
-  defp normalize_scope(scope) when is_atom(scope), do: Atom.to_string(scope)
-  defp normalize_scope(scope) when is_binary(scope), do: scope
-  defp normalize_scope(scope), do: to_string(scope)
-
   defp normalize_kind(kind) when is_atom(kind), do: Atom.to_string(kind)
   defp normalize_kind(kind) when is_binary(kind), do: kind
   defp normalize_kind(kind), do: to_string(kind)
@@ -487,10 +440,6 @@ defmodule AllbertAssistWeb.AgentLive do
   end
 
   defp metadata_value(_metadata, _key), do: nil
-
-  defp emitted_at(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
-  defp emitted_at(datetime) when is_binary(datetime), do: datetime
-  defp emitted_at(_datetime), do: nil
 
   defp refresh_workspace(socket) do
     assign(

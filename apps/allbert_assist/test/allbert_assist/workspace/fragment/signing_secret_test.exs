@@ -16,7 +16,7 @@ defmodule AllbertAssist.Workspace.Fragment.SigningSecretTest do
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
-      File.rm_rf!(home)
+      File.rm_rf(home)
     end)
 
     {:ok, home: home}
