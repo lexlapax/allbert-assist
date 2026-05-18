@@ -10,6 +10,8 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
   alias Ecto.Adapters.SQL
 
   @migrations [
+    {20_260_513_000_000, AllbertAssist.Repo.Migrations.CreateConversationHistory,
+     "apps/allbert_assist/priv/repo/migrations/20260513000000_create_conversation_history.exs"},
     {20_260_514_000_000, AllbertAssist.Repo.Migrations.CreateScheduledJobs,
      "apps/allbert_assist/priv/repo/migrations/20260514000000_create_scheduled_jobs.exs"},
     {20_260_515_000_000, AllbertAssist.Repo.Migrations.CreateStockSageDomain,
@@ -25,7 +27,9 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     {20_260_517_000_400, AllbertAssist.Repo.Migrations.ExtendStockSageAnalysesForNativeEngine,
      "plugins/stocksage/priv/repo/migrations/20260517000400_extend_stocksage_analyses_for_native_engine.exs"},
     {20_260_518_000_000, AllbertAssist.Repo.Migrations.AddWorkspaceCanvasTables,
-     "apps/allbert_assist/priv/repo/migrations/20260518000000_add_workspace_canvas_tables.exs"}
+     "apps/allbert_assist/priv/repo/migrations/20260518000000_add_workspace_canvas_tables.exs"},
+    {20_260_518_000_100, AllbertAssist.Repo.Migrations.AddCompletedAtToConversationThreads,
+     "apps/allbert_assist/priv/repo/migrations/20260518000100_add_completed_at_to_conversation_threads.exs"}
   ]
 
   test "objective and workspace migrations run up and down on an isolated sqlite database" do
@@ -68,6 +72,7 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     assert column_exists?("workspace_canvas_tiles", "pinned")
     assert column_exists?("workspace_canvas_tile_revisions", "yjs_update")
     assert column_exists?("workspace_ephemeral_surfaces", "dismissed_by")
+    assert column_exists?("conversation_threads", "completed_at")
 
     @migrations
     |> Enum.reverse()
@@ -86,6 +91,7 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     refute table_exists?("workspace_canvas_tiles")
     refute table_exists?("workspace_canvas_tile_revisions")
     refute table_exists?("workspace_ephemeral_surfaces")
+    refute table_exists?("conversation_threads")
   end
 
   defp ensure_migration_modules! do

@@ -13,6 +13,13 @@ defmodule AllbertAssist.Workspace do
   @spec canvas_tiles(String.t(), String.t()) :: {:ok, [Canvas.tile()]} | {:error, term()}
   defdelegate canvas_tiles(thread_id, user_id), to: Canvas, as: :tiles_for_thread
 
+  @spec canvas_tiles(String.t(), String.t(), keyword()) ::
+          {:ok, [Canvas.tile()]} | {:error, term()}
+  defdelegate canvas_tiles(thread_id, user_id, opts), to: Canvas, as: :tiles_for_thread
+
+  @spec get_tile(String.t(), String.t(), keyword()) :: {:ok, Canvas.tile()} | {:error, term()}
+  defdelegate get_tile(tile_id, user_id, opts \\ []), to: Canvas
+
   @spec add_tile(map()) :: {:ok, Canvas.tile()} | {:error, term()}
   defdelegate add_tile(attrs), to: Canvas
 
@@ -31,9 +38,18 @@ defmodule AllbertAssist.Workspace do
   @spec restore_tile(String.t(), String.t()) :: {:ok, Canvas.tile()} | {:error, term()}
   defdelegate restore_tile(tile_id, user_id), to: Canvas
 
+  @spec purge_deleted_tiles(String.t(), DateTime.t()) :: {:ok, [Canvas.tile()]} | {:error, term()}
+  defdelegate purge_deleted_tiles(user_id, before), to: Canvas, as: :purge_deleted_before
+
   @spec ephemeral_surfaces(String.t(), String.t()) ::
           {:ok, [Ephemeral.surface()]} | {:error, term()}
   defdelegate ephemeral_surfaces(thread_id, user_id), to: Ephemeral, as: :surfaces_for_thread
+
+  @spec ephemeral_surfaces(String.t(), String.t(), keyword()) ::
+          {:ok, [Ephemeral.surface()]} | {:error, term()}
+  defdelegate ephemeral_surfaces(thread_id, user_id, opts),
+    to: Ephemeral,
+    as: :surfaces_for_thread
 
   @spec open_ephemeral(map()) :: {:ok, Ephemeral.surface()} | {:error, term()}
   defdelegate open_ephemeral(attrs), to: Ephemeral, as: :open

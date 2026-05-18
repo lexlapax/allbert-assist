@@ -11,6 +11,7 @@ defmodule AllbertAssist.Conversations do
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.Thread
   alias AllbertAssist.Repo
+  alias AllbertAssist.Workspace.Ephemeral
 
   @default_kind "general"
   @default_list_limit 20
@@ -25,7 +26,15 @@ defmodule AllbertAssist.Conversations do
 
     attrs =
       attrs
-      |> atomize_known_keys([:id, :user_id, :title, :kind, :app_id, :last_message_at])
+      |> atomize_known_keys([
+        :id,
+        :user_id,
+        :title,
+        :kind,
+        :app_id,
+        :last_message_at,
+        :completed_at
+      ])
       |> Map.put_new(:id, new_id("thr"))
       |> Map.put_new(:kind, @default_kind)
       |> Map.put_new(:title, title_from_text(Map.get(attrs, :text) || Map.get(attrs, "text")))
@@ -74,6 +83,7 @@ defmodule AllbertAssist.Conversations do
       from thread in Thread,
         where:
           thread.user_id == ^user_id and thread.kind == ^@default_kind and is_nil(thread.app_id),
+        where: is_nil(thread.completed_at),
         order_by: [
           desc: thread.last_message_at,
           desc: thread.updated_at,
@@ -137,6 +147,16 @@ defmodule AllbertAssist.Conversations do
     end
   end
 
+  @doc "Mark a user-scoped thread complete and dismiss its active ephemeral surfaces."
+  @spec complete_thread(String.t(), String.t()) :: thread_result()
+  def complete_thread(user_id, thread_id) do
+    with {:ok, thread} <- get_thread(user_id, thread_id),
+         {:ok, %Thread{} = completed} <-
+           Repo.transaction(fn -> complete_thread_and_dismiss_ephemerals(thread) end) do
+      {:ok, completed}
+    end
+  end
+
   @doc "Count messages in a user-owned thread."
   @spec message_count(Thread.t()) :: non_neg_integer()
   def message_count(%Thread{} = thread) do
@@ -163,26 +183,12 @@ defmodule AllbertAssist.Conversations do
 
   @doc "Append one message and update the parent thread's last-message timestamp."
   @spec append_message(Thread.t(), map()) :: {:ok, Message.t()} | {:error, term()}
+  def append_message(%Thread{completed_at: completed_at}, _attrs) when not is_nil(completed_at),
+    do: {:error, :thread_completed}
+
   def append_message(%Thread{} = thread, attrs) when is_map(attrs) do
     now = utc_now()
-
-    attrs =
-      attrs
-      |> atomize_known_keys([
-        :id,
-        :role,
-        :content,
-        :action_log,
-        :trace_id,
-        :input_signal_id,
-        :response_signal_id,
-        :metadata
-      ])
-      |> Map.put_new(:id, new_id("msg"))
-      |> Map.put(:thread_id, thread.id)
-      |> Map.put(:user_id, thread.user_id)
-      |> Map.put_new(:action_log, %{})
-      |> Map.put_new(:metadata, %{})
+    attrs = message_attrs(thread, attrs)
 
     case Repo.transaction(fn -> insert_message_and_touch_thread(thread, attrs, now) end) do
       {:ok, message} -> {:ok, message}
@@ -246,6 +252,27 @@ defmodule AllbertAssist.Conversations do
     end
   end
 
+  defp complete_thread_and_dismiss_ephemerals(%Thread{completed_at: nil} = thread) do
+    timestamp = utc_now()
+
+    with {:ok, completed} <- Repo.update(Thread.complete_changeset(thread, timestamp)),
+         {:ok, _dismissed} <-
+           Ephemeral.dismiss_for_thread(completed.id, completed.user_id, :thread_closed) do
+      completed
+    else
+      {:error, reason} -> Repo.rollback(reason)
+    end
+  end
+
+  defp complete_thread_and_dismiss_ephemerals(%Thread{} = thread) do
+    with {:ok, _dismissed} <-
+           Ephemeral.dismiss_for_thread(thread.id, thread.user_id, :thread_closed) do
+      thread
+    else
+      {:error, reason} -> Repo.rollback(reason)
+    end
+  end
+
   defp insert_message_and_touch_thread(thread, attrs, timestamp) do
     with {:ok, message} <- Repo.insert(Message.changeset(%Message{}, attrs)),
          {:ok, _thread} <- Repo.update(Thread.last_message_changeset(thread, timestamp)) do
@@ -253,6 +280,25 @@ defmodule AllbertAssist.Conversations do
     else
       {:error, reason} -> Repo.rollback(reason)
     end
+  end
+
+  defp message_attrs(%Thread{} = thread, attrs) do
+    attrs
+    |> atomize_known_keys([
+      :id,
+      :role,
+      :content,
+      :action_log,
+      :trace_id,
+      :input_signal_id,
+      :response_signal_id,
+      :metadata
+    ])
+    |> Map.put_new(:id, new_id("msg"))
+    |> Map.put(:thread_id, thread.id)
+    |> Map.put(:user_id, thread.user_id)
+    |> Map.put_new(:action_log, %{})
+    |> Map.put_new(:metadata, %{})
   end
 
   defp to_attrs(attrs) when is_map(attrs), do: attrs

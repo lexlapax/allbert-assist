@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Allbert.Threads do
       mix allbert.threads --user alice
       mix allbert.threads --user alice --thread THREAD_ID
       mix allbert.threads --operator alice --limit 5
+      mix allbert.threads complete THREAD_ID [--user alice]
   """
 
   use Mix.Task
@@ -35,6 +36,41 @@ defmodule Mix.Tasks.Allbert.Threads do
   def run(args) do
     Mix.Task.run("app.start")
 
+    dispatch(args)
+  end
+
+  defp dispatch(["complete", thread_id | args]) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args, switches: [user: :string, operator: :string], aliases: @aliases)
+
+    if invalid != [] do
+      Mix.raise("Invalid option(s): #{inspect(invalid)}")
+    end
+
+    if rest != [] do
+      Mix.raise("Unexpected argument(s): #{Enum.join(rest, " ")}")
+    end
+
+    user_id = user_id!(opts)
+
+    case Conversations.complete_thread(user_id, thread_id) do
+      {:ok, thread} ->
+        Mix.shell().info("Completed thread: #{thread.id}")
+        Mix.shell().info("Completed at: #{time_text(thread.completed_at)}")
+
+      {:error, {:thread_not_found, _id}} ->
+        Mix.raise("Thread not found")
+
+      {:error, reason} ->
+        Mix.raise("Thread completion failed: #{inspect(reason)}")
+    end
+  end
+
+  defp dispatch(["complete"]) do
+    Mix.raise("complete requires THREAD_ID")
+  end
+
+  defp dispatch(args) do
     {opts, rest, invalid} = OptionParser.parse(args, switches: @switches, aliases: @aliases)
 
     if invalid != [] do
@@ -62,7 +98,7 @@ defmodule Mix.Tasks.Allbert.Threads do
       threads ->
         Enum.each(threads, fn thread ->
           Mix.shell().info(
-            "#{thread.id} user=#{thread.user_id} kind=#{thread.kind} app=#{app_text(thread.app_id)} messages=#{Conversations.message_count(thread)} updated=#{time_text(thread.last_message_at)} title=#{thread.title}"
+            "#{thread.id} user=#{thread.user_id} kind=#{thread.kind} app=#{app_text(thread.app_id)} messages=#{Conversations.message_count(thread)} updated=#{time_text(thread.last_message_at)} completed=#{time_text(thread.completed_at)} title=#{thread.title}"
           )
         end)
     end
@@ -75,6 +111,7 @@ defmodule Mix.Tasks.Allbert.Threads do
         Mix.shell().info("User: #{thread.user_id}")
         Mix.shell().info("Kind: #{thread.kind}")
         Mix.shell().info("App: #{app_text(thread.app_id)}")
+        Mix.shell().info("Completed: #{time_text(thread.completed_at)}")
         Mix.shell().info("")
         Enum.each(messages, &print_message/1)
 
@@ -114,6 +151,7 @@ defmodule Mix.Tasks.Allbert.Threads do
   defp app_text(""), do: "general"
   defp app_text(app_id), do: app_id
 
+  defp time_text(nil), do: "open"
   defp time_text(%DateTime{} = timestamp), do: DateTime.to_iso8601(timestamp)
   defp time_text(%NaiveDateTime{} = timestamp), do: NaiveDateTime.to_iso8601(timestamp)
   defp time_text(timestamp), do: to_string(timestamp)
