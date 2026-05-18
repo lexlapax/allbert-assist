@@ -25,10 +25,12 @@ Current v0.25 capabilities:
   StockSage specialists can be called outside StockSage through the shared
   `delegate_agent` registered action.
 
-The native graph includes market context, news/sentiment, fundamentals,
-bull thesis, bear thesis, three risk perspectives, decision synthesizer, and
-a deterministic quality gate. Multi-round bull/bear/risk debate is bounded by
-Settings Central and each specialist turn is recorded as an objective step.
+The native graph includes LLM-capable Jido.AI specialists for market context,
+news/sentiment, fundamentals, bull thesis, bear thesis, three risk
+perspectives, and decision synthesis, plus a deterministic quality gate.
+Multi-round bull/bear/risk debate is bounded by Settings Central and each
+specialist turn is recorded as an objective step. Set
+`stocksage.native_llm_enabled=false` only for deterministic smoke/tests.
 
 ## Local Commands
 

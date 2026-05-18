@@ -35,6 +35,7 @@ defmodule StockSage.SettingsSchemaTest do
     schema = Schema.runtime_schema()
 
     assert schema["stocksage.native_engine_enabled"].default == true
+    assert schema["stocksage.native_llm_enabled"].default == true
     assert schema["stocksage.native_model_profile"].default == "fast"
     assert schema["stocksage.native_model_profile_market_context"].default == nil
     assert schema["stocksage.native_model_profile_risk_aggressive"].default == "slow"
@@ -56,6 +57,7 @@ defmodule StockSage.SettingsSchemaTest do
     assert schema["stocksage.python_comparison_enabled"].default == true
 
     assert Schema.safe_write_key?("stocksage.native_model_profile_market_context")
+    assert Schema.safe_write_key?("stocksage.native_llm_enabled")
     assert Schema.safe_write_key?("stocksage.native_agent_timeout_ms")
     assert Schema.safe_write_key?("stocksage.native_evidence_mode")
   end

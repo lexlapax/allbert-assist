@@ -76,17 +76,18 @@ Do not load every section by default.
   objective steps/events, canonical runtime turn signal aliases,
   objective signals, SignalBridge, and objective intent candidates.
 - v0.25: Native financial specialist agents for StockSage: 9 reusable
-  supervised Jido.AI delegate specialists (analysts, bull/bear theses,
-  3 risk debaters, decision synthesizer) + 1 deterministic Jido.Agent
-  quality gate + 1 JidoBacked `StockSage.Agents.NativeCoordinator`
-  orchestrator. Multi-round bull/bear/risk debate runs inside the
-  plugin-owned coordinator graph while recording durable v0.24
-  objective steps. 5 tiered evidence actions
+  supervised LLM-capable Jido.AI delegate specialists (analysts,
+  bull/bear theses, 3 risk debaters, decision synthesizer) + 1
+  deterministic Jido.Agent quality gate + 1 JidoBacked
+  `StockSage.Agents.NativeCoordinator` orchestrator. Multi-round
+  bull/bear/risk debate runs inside the plugin-owned coordinator graph
+  while recording durable v0.24 objective steps. 5 tiered evidence actions
   (`StockSage.Actions.Evidence.*`) with new `:stocksage_evidence_fetch`
   permission class. `--engine both` parallel parity runs with 5-point
-  rating-scale agreement metric. Per-agent LLM model profile overrides.
-  Hybrid prompt provenance (verbatim where TradingAgents license
-  permits, Allbert-authored otherwise). New `mix allbert.delegate
+  rating-scale agreement metric. Per-agent model profiles drive Jido.AI
+  generation when `stocksage.native_llm_enabled` is true. Prompt files are
+  Allbert-authored; verbatim TradingAgents prompt adaptation is deferred
+  until an explicit license audit. New `mix allbert.delegate
   <agent_id>` Mix task in Allbert core proves cross-app callability.
   No one-for-one Python graph clone. No automatic native → Python
   fallback, and no persistent Python/parity engine default.
@@ -163,9 +164,11 @@ v0.25 native financial agents are plugin-owned but runtime-callable through
 the shared objective delegate-agent substrate. Read
 `docs/plans/v0.25-plan.md`, `docs/plans/v0.25-request-flow.md`, ADR 0020, ADR
 0021, and ADR 0022 before touching them. The native agents should adapt the
-TradingAgents baseline's role intent, fixtures, result fields, and
-license-compatible prompt material, not clone every Python role/class one for
-one. `plugins/stocksage/priv/python/bridge.py` contains the bridge protocol and
+TradingAgents baseline's role intent, fixtures, and result fields, not clone
+every Python role/class one for one. v0.25 prompt/control files are
+Allbert-authored; verbatim upstream prompt adaptation requires a future
+explicit license-audit milestone.
+`plugins/stocksage/priv/python/bridge.py` contains the bridge protocol and
 final-state field list, not the role prompts; prompt inventory belongs under
 `plugins/stocksage/priv/prompts/native_agents/`.
 
@@ -178,10 +181,10 @@ Amendment A1):
 - `stocksage.fundamentals` — Jido.AI; tools: FetchFundamentals, FetchFinancials
 - `stocksage.bull_thesis` — Jido.AI; multi-round capable
 - `stocksage.bear_thesis` — Jido.AI; multi-round capable
-- `stocksage.risk_aggressive` — Jido.AI; multi-round capable; deep-think default
-- `stocksage.risk_conservative` — Jido.AI; multi-round capable; deep-think default
-- `stocksage.risk_neutral` — Jido.AI; multi-round capable; deep-think default
-- `stocksage.decision_synthesizer` — Jido.AI; deep-think default
+- `stocksage.risk_aggressive` — Jido.AI; multi-round capable; slow-profile default
+- `stocksage.risk_conservative` — Jido.AI; multi-round capable; slow-profile default
+- `stocksage.risk_neutral` — Jido.AI; multi-round capable; slow-profile default
+- `stocksage.decision_synthesizer` — Jido.AI; slow-profile default
 - `stocksage.quality_gate` — plain Jido.Agent (deterministic; no LLM)
 
 Plus one supervised JidoBacked orchestrator NOT registered in
