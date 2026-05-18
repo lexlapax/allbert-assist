@@ -130,6 +130,48 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert {:ok, []} = Workspace.canvas_tiles("local-default", "local")
   end
 
+  test "workspace tile mutations fan out to a second tab", %{conn: conn} do
+    start_workspace_bridge()
+
+    {:ok, _first_tab, _html} = live(conn, ~p"/agent")
+    {:ok, second_tab, _html} = live(conn, ~p"/agent")
+
+    assert {:ok, tile} =
+             Workspace.add_tile(%{
+               user_id: "local",
+               thread_id: "local-default",
+               kind: :text,
+               body: %{text: "two-tab sync tile"}
+             })
+
+    html = render_until(second_tab, tile.id)
+
+    assert html =~ "canvas-tile-#{tile.id}"
+  end
+
+  test "workspace tile mutations fan out to three tabs", %{conn: conn} do
+    start_workspace_bridge()
+
+    tabs =
+      for _index <- 1..3 do
+        assert {:ok, view, _html} = live(conn, ~p"/agent")
+        view
+      end
+
+    assert {:ok, tile} =
+             Workspace.add_tile(%{
+               user_id: "local",
+               thread_id: "local-default",
+               kind: :text,
+               body: %{text: "three-tab sync tile"}
+             })
+
+    for view <- tabs do
+      html = render_until(view, tile.id)
+      assert html =~ "canvas-tile-#{tile.id}"
+    end
+  end
+
   test "submits prompts through the runtime boundary", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
 
@@ -247,6 +289,11 @@ defmodule AllbertAssistWeb.AgentLiveTest do
              Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
   end
 
+  defp start_workspace_bridge do
+    name = :"agent_live_sync_bridge_#{System.unique_integer([:positive])}"
+    start_supervised!({SignalBridge, name: name})
+  end
+
   defp signed_envelope(attrs) do
     secret = SigningSecret.ensure!()
 
@@ -285,5 +332,24 @@ defmodule AllbertAssistWeb.AgentLiveTest do
       ],
       fallback_text: "Fragment fallback"
     }
+  end
+
+  defp render_until(view, text, attempts \\ 20)
+
+  defp render_until(view, text, attempts) when attempts > 0 do
+    html = render(view)
+
+    if html =~ text do
+      html
+    else
+      Process.sleep(50)
+      render_until(view, text, attempts - 1)
+    end
+  end
+
+  defp render_until(view, text, 0) do
+    html = render(view)
+    assert html =~ text
+    html
   end
 end

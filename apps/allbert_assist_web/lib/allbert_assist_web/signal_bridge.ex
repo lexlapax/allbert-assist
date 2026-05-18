@@ -18,9 +18,15 @@ defmodule AllbertAssistWeb.SignalBridge do
   @objective_pattern "allbert.objective.**"
   @workspace_pattern "allbert.workspace.**"
   @topic_prefix "objectives:"
+  @workspace_topic_prefix "workspace:"
 
   @spec topic_for(String.t()) :: String.t()
   def topic_for(user_id) when is_binary(user_id), do: @topic_prefix <> user_id
+
+  @spec workspace_topic_for(String.t(), String.t()) :: String.t()
+  def workspace_topic_for(user_id, thread_id) when is_binary(user_id) and is_binary(thread_id) do
+    @workspace_topic_prefix <> user_id <> ":" <> thread_id
+  end
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
@@ -51,7 +57,7 @@ defmodule AllbertAssistWeb.SignalBridge do
         broadcast_fragment(signal)
 
       String.starts_with?(signal.type, "allbert.workspace.") ->
-        broadcast(signal, :workspace_event)
+        broadcast_workspace(signal)
 
       true ->
         :ok
@@ -89,6 +95,23 @@ defmodule AllbertAssistWeb.SignalBridge do
 
   defp broadcast(_signal, _event), do: :ok
 
+  defp broadcast_workspace(%Signal{data: data} = signal) when is_map(data) do
+    user_id = Map.get(data, :user_id) || Map.get(data, "user_id")
+    thread_id = Map.get(data, :thread_id) || Map.get(data, "thread_id")
+
+    if is_binary(user_id) and user_id != "" and is_binary(thread_id) and thread_id != "" do
+      Phoenix.PubSub.broadcast(
+        AllbertAssistWeb.PubSub,
+        workspace_topic_for(user_id, thread_id),
+        {:workspace_event, signal}
+      )
+    else
+      broadcast(signal, :workspace_event)
+    end
+  end
+
+  defp broadcast_workspace(signal), do: broadcast(signal, :workspace_event)
+
   defp broadcast_fragment(%Signal{data: data} = signal) when is_map(data) do
     envelope = Map.get(data, :envelope) || Map.get(data, "envelope")
 
@@ -101,9 +124,9 @@ defmodule AllbertAssistWeb.SignalBridge do
         )
 
       _other ->
-        broadcast(signal, :workspace_event)
+        broadcast_workspace(signal)
     end
   end
 
-  defp broadcast_fragment(signal), do: broadcast(signal, :workspace_event)
+  defp broadcast_fragment(signal), do: broadcast_workspace(signal)
 end
