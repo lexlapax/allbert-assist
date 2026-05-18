@@ -6,8 +6,11 @@ defmodule StockSage.Actions.RunAnalysisTest do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.Workspace.Fragment.Guard
   alias Mix.Tasks.Allbert.Confirmations, as: ConfirmationsTask
+  alias Jido.Signal.Bus
   alias StockSage.Analyses
   alias StockSage.Queue
   alias StockSage.TraderBridge
@@ -20,6 +23,19 @@ defmodule StockSage.Actions.RunAnalysisTest do
   end
 
   setup do
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "stocksage-run-analysis-test-#{System.unique_integer([:positive])}"
+      )
+
+    Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+    Guard.reset_for_test()
+
     put_setting!("stocksage.bridge_enabled", true)
     put_setting!("stocksage.python_comparison_enabled", true)
     put_setting!("stocksage.native_engine_enabled", true)
@@ -37,20 +53,31 @@ defmodule StockSage.Actions.RunAnalysisTest do
         :ok
     end
 
-    on_exit(fn -> Mix.Task.reenable("allbert.confirmations") end)
+    on_exit(fn ->
+      Mix.Task.reenable("allbert.confirmations")
+      Guard.reset_for_test()
+      restore_env(Paths, original_paths_config)
+      restore_env(Settings, original_settings_config)
+      File.rm_rf!(home)
+    end)
 
     %{}
   end
 
   describe "initial call" do
     test "creates a confirmation record and returns :needs_confirmation" do
+      assert {:ok, _subscription_id} =
+               Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")
+
       params = %{
         ticker: "AAPL",
         analysis_date: "2026-05-01",
         engine: "python",
         user_id: "alice",
         objective_id: "obj_run_analysis_test",
-        step_id: "step_run_analysis_test"
+        step_id: "step_run_analysis_test",
+        thread_id: "thr_run_analysis_test",
+        session_id: "sess_run_analysis_test"
       }
 
       assert {:ok, response} =
@@ -72,6 +99,14 @@ defmodule StockSage.Actions.RunAnalysisTest do
       assert record["params_summary"]["objective_title"] == "Analyze AAPL"
       assert record["params_summary"]["objective_status"] == "running"
       assert record["params_summary"]["disclosure"] =~ "TradingAgents"
+
+      signal = receive_signal("allbert.workspace.fragment.emitted")
+      envelope = signal.data.envelope
+
+      assert envelope.id == "confirmation_#{response.confirmation_id}"
+      assert envelope.kind == :approval_card
+      assert envelope.user_id == "alice"
+      assert envelope.thread_id == "thr_run_analysis_test"
     end
 
     test "rejects invalid ticker before creating a confirmation" do
@@ -569,4 +604,16 @@ defmodule StockSage.Actions.RunAnalysisTest do
   catch
     :exit, _reason -> :ok
   end
+
+  defp receive_signal(type) do
+    receive do
+      {:signal, %{type: ^type} = signal} -> signal
+      {:signal, _signal} -> receive_signal(type)
+    after
+      1_000 -> flunk("expected signal #{type}")
+    end
+  end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end
