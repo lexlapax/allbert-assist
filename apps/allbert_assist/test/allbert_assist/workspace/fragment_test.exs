@@ -1,5 +1,5 @@
 defmodule AllbertAssist.Workspace.FragmentTest do
-  use ExUnit.Case, async: false
+  use AllbertAssist.DataCase, async: false
 
   import ExUnit.CaptureLog
 
@@ -8,6 +8,7 @@ defmodule AllbertAssist.Workspace.FragmentTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Fragment
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.Guard
@@ -29,7 +30,7 @@ defmodule AllbertAssist.Workspace.FragmentTest do
       Guard.reset_for_test()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
-      File.rm_rf!(home)
+      File.rm_rf(home)
     end)
 
     {:ok, home: home}
@@ -48,6 +49,43 @@ defmodule AllbertAssist.Workspace.FragmentTest do
     assert signal.data.envelope.id == envelope.id
     assert signal.data.user_id == envelope.user_id
     assert signal.data.thread_id == envelope.thread_id
+
+    assert {:ok, [tile]} = Workspace.canvas_tiles(envelope.thread_id, envelope.user_id)
+    assert tile.id == envelope.id
+  end
+
+  test "duplicate same-body fragments are idempotent" do
+    envelope = signed_envelope(%{id: "frag_duplicate_same"})
+
+    assert :ok = Fragment.emit(envelope)
+    assert :ok = Fragment.emit(envelope)
+
+    assert {:ok, [tile]} = Workspace.canvas_tiles(envelope.thread_id, envelope.user_id)
+    assert tile.id == envelope.id
+  end
+
+  test "duplicate different-body fragments fail without overwriting stored body" do
+    first =
+      signed_envelope(%{
+        id: "frag_duplicate_different",
+        surface:
+          valid_surface([%Node{id: "fragment-text", component: :text, props: %{text: "first"}}])
+      })
+
+    second =
+      signed_envelope(%{
+        id: first.id,
+        user_id: first.user_id,
+        thread_id: first.thread_id,
+        surface:
+          valid_surface([%Node{id: "fragment-text", component: :text, props: %{text: "second"}}])
+      })
+
+    assert :ok = Fragment.emit(first)
+    assert {:error, :fragment_body_conflict} = Fragment.emit(second)
+
+    assert {:ok, [tile]} = Workspace.canvas_tiles(first.thread_id, first.user_id)
+    assert tile.body["surface"]["nodes"] |> List.first() |> get_in(["props", "text"]) == "first"
   end
 
   test "rejects invalid envelope shape and emits a bounded dropped signal" do
@@ -157,8 +195,8 @@ defmodule AllbertAssist.Workspace.FragmentTest do
     %{
       surface: valid_surface(),
       emitter_id: "AllbertAssist.Actions.Intent.DirectAnswer",
-      user_id: "local",
-      thread_id: "thread-1",
+      user_id: "user-#{System.unique_integer([:positive])}",
+      thread_id: "thread-#{System.unique_integer([:positive])}",
       scope: :canvas,
       kind: :text,
       emitted_at: ~U[2026-05-18 00:00:00Z]

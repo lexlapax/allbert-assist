@@ -18,7 +18,7 @@ defmodule AllbertAssist.Workspace.EphemeralTest do
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
-      File.rm_rf!(home)
+      File.rm_rf(home)
     end)
 
     :ok

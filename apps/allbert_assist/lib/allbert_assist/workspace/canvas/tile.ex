@@ -69,6 +69,7 @@ defmodule AllbertAssist.Workspace.Canvas.Tile do
     |> validate_length(:body_yaml_path, min: 1, max: 512)
     |> validate_length(:current_revision_id, max: 80)
     |> validate_metadata()
+    |> unique_constraint(:id, name: "workspace_canvas_tiles_id_index")
   end
 
   defp known_kinds, do: Enum.map(Catalog.known_components(), &Atom.to_string/1)

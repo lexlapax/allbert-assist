@@ -1,12 +1,37 @@
 defmodule AllbertAssistWeb.SignalBridgeTest do
   use AllbertAssistWeb.ConnCase, async: false
 
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
   alias AllbertAssist.Signals
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Fragment.Envelope
+  alias AllbertAssist.Workspace.Fragment.Guard
+  alias AllbertAssist.Workspace.Fragment.SigningSecret
   alias AllbertAssistWeb.SignalBridge
   alias Jido.Signal
+
+  setup do
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+
+    home =
+      Path.join(System.tmp_dir!(), "signal-bridge-test-#{System.unique_integer([:positive])}")
+
+    Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+    Guard.reset_for_test()
+
+    on_exit(fn ->
+      Guard.reset_for_test()
+      restore_env(Paths, original_paths_config)
+      restore_env(Settings, original_settings_config)
+      File.rm_rf(home)
+    end)
+
+    :ok
+  end
 
   test "subscribes to objective and workspace signal patterns" do
     parent = self()
@@ -66,6 +91,9 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
     assert received_fragment.id == envelope.id
     assert received_fragment.thread_id == "thread-signal-bridge"
 
+    assert_receive {:workspace_event, tile_signal}, 1_000
+    assert tile_signal.type == "allbert.workspace.tile.added"
+
     assert {:ok, workspace_signal} =
              Signal.new(
                "allbert.workspace.fragment.dropped",
@@ -75,7 +103,7 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
 
     :ok = Signals.log(workspace_signal)
 
-    assert_receive {:workspace_event, received_workspace}, 1_000
+    received_workspace = receive_workspace_event("allbert.workspace.fragment.dropped")
     assert received_workspace.type == "allbert.workspace.fragment.dropped"
     assert received_workspace.data.reason == :surface_invalid
 
@@ -102,8 +130,7 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
 
     :ok = Signals.log(signal)
 
-    assert_receive {:workspace_event, received_workspace}, 1_000
-    assert received_workspace.type == "allbert.workspace.fragment.emitted"
+    refute_receive {:workspace_event, %{type: "allbert.workspace.fragment.emitted"}}, 100
     refute_receive {:fragment, _envelope}, 100
   end
 
@@ -123,25 +150,46 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
   end
 
   defp envelope do
-    %Envelope{
-      id: "frag_signal_bridge",
-      surface: %Surface{
-        id: :fragment,
-        app_id: :allbert,
-        label: "Fragment",
-        path: "/agent",
-        kind: :canvas,
-        status: :available,
-        nodes: [%Node{id: "fragment-text", component: :text, props: %{text: "hello"}}],
-        fallback_text: "Fragment fallback"
-      },
-      emitter_id: "AllbertAssist.Actions.Intent.DirectAnswer",
-      user_id: "alice",
-      thread_id: "thread-signal-bridge",
-      scope: :canvas,
-      kind: :text,
-      emitted_at: ~U[2026-05-18 00:00:00Z],
-      signature: "already-validated"
-    }
+    secret = SigningSecret.ensure!()
+
+    assert {:ok, envelope} =
+             Envelope.sign(
+               %{
+                 id: "frag_signal_bridge",
+                 surface: %Surface{
+                   id: :fragment,
+                   app_id: :allbert,
+                   label: "Fragment",
+                   path: "/agent",
+                   kind: :canvas,
+                   status: :available,
+                   nodes: [
+                     %Node{id: "fragment-text", component: :text, props: %{text: "hello"}}
+                   ],
+                   fallback_text: "Fragment fallback"
+                 },
+                 emitter_id: "AllbertAssist.Actions.Intent.DirectAnswer",
+                 user_id: "alice",
+                 thread_id: "thread-signal-bridge",
+                 scope: :canvas,
+                 kind: :text,
+                 emitted_at: ~U[2026-05-18 00:00:00Z]
+               },
+               secret
+             )
+
+    envelope
+  end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp receive_workspace_event(type) do
+    receive do
+      {:workspace_event, %{type: ^type} = signal} -> signal
+      {:workspace_event, _signal} -> receive_workspace_event(type)
+    after
+      1_000 -> flunk("expected workspace event #{type}")
+    end
   end
 end
