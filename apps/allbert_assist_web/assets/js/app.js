@@ -25,11 +25,67 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/allbert_assist_web"
 import topbar from "../vendor/topbar"
 
+const focusableSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  "textarea:not([disabled])",
+  "input:not([disabled]):not([type='hidden'])",
+  "select:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",")
+
+const focusableElements = root => {
+  return Array.from(root.querySelectorAll(focusableSelector)).filter(element => {
+    return element.getAttribute("aria-hidden") !== "true" && element.offsetParent !== null
+  })
+}
+
+const FocusTrap = {
+  mounted() {
+    if (!this.el.hasAttribute("tabindex")) {
+      this.el.setAttribute("tabindex", "-1")
+    }
+
+    this.handleKeydown = event => {
+      if (event.key !== "Tab") return
+
+      const elements = focusableElements(this.el)
+
+      if (elements.length === 0) {
+        event.preventDefault()
+        this.el.focus({preventScroll: true})
+        return
+      }
+
+      const first = elements[0]
+      const last = elements[elements.length - 1]
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    this.el.addEventListener("keydown", this.handleKeydown)
+
+    requestAnimationFrame(() => {
+      const [first] = focusableElements(this.el)
+      ;(first || this.el).focus({preventScroll: true})
+    })
+  },
+  destroyed() {
+    this.el.removeEventListener("keydown", this.handleKeydown)
+  },
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks},
+  hooks: {...colocatedHooks, FocusTrap},
 })
 
 // Show progress bar on live navigation and form submits
@@ -80,4 +136,3 @@ if (process.env.NODE_ENV === "development") {
     window.liveReloader = reloader
   })
 }
-

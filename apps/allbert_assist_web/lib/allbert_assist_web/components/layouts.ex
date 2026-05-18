@@ -35,14 +35,22 @@ defmodule AllbertAssistWeb.Layouts do
 
   def app(assigns) do
     ~H"""
+    <a
+      id="skip-to-content"
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-base-100 focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:outline-2 focus:outline-offset-2 focus:outline-base-content"
+    >
+      Skip to content
+    </a>
+
     <header class="navbar px-4 sm:px-6 lg:px-8">
       <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
+        <a href="/" class="flex-1 flex w-fit items-center gap-2" aria-label="Allbert home">
+          <img src={~p"/images/logo.svg"} width="36" alt="Allbert" />
           <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
         </a>
       </div>
-      <div class="flex-none">
+      <nav class="flex-none" aria-label="Primary">
         <ul class="flex flex-column px-1 space-x-4 items-center">
           <li>
             <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
@@ -59,10 +67,10 @@ defmodule AllbertAssistWeb.Layouts do
             </a>
           </li>
         </ul>
-      </div>
+      </nav>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
+    <main id="main-content" tabindex="-1" class="px-4 py-20 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-2xl space-y-4">
         {render_slot(@inner_block)}
       </div>
@@ -122,13 +130,19 @@ defmodule AllbertAssistWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
+    <div
+      class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full"
+      role="group"
+      aria-label="Site theme"
+    >
       <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
 
       <button
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="system"
+        aria-label="Use system theme"
+        title="Use system theme"
       >
         <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
@@ -137,6 +151,8 @@ defmodule AllbertAssistWeb.Layouts do
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="light"
+        aria-label="Use light theme"
+        title="Use light theme"
       >
         <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
@@ -145,6 +161,8 @@ defmodule AllbertAssistWeb.Layouts do
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="dark"
+        aria-label="Use dark theme"
+        title="Use dark theme"
       >
         <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>

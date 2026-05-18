@@ -50,6 +50,41 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     refute html =~ "component not implemented"
   end
 
+  test "tile and ephemeral nodes expose semantic accessibility roles" do
+    tile_html =
+      render_component(Renderer,
+        id: "tile-renderer",
+        node: %Node{
+          id: "tile-1",
+          component: :tile,
+          props: %{title: "Decision summary", body: "Pinned result"}
+        }
+      )
+
+    assert tile_html =~ ~s(role="article")
+    assert tile_html =~ ~s(aria-labelledby="workspace-component-title-tile-1")
+    assert tile_html =~ ~s(id="workspace-component-title-tile-1")
+
+    ephemeral_html =
+      render_component(Renderer,
+        id: "ephemeral-renderer",
+        node: %Node{
+          id: "approval-surface-1",
+          component: :ephemeral_surface,
+          props: %{title: "Approval surface", body: "Needs confirmation"},
+          children: [
+            %Node{id: "approval-card-1", component: :approval_card, props: %{title: "Approve"}}
+          ]
+        }
+      )
+
+    assert ephemeral_html =~ ~s(role="dialog")
+    assert ephemeral_html =~ ~s(aria-modal="true")
+    assert ephemeral_html =~ ~s(phx-hook="FocusTrap")
+    assert ephemeral_html =~ ~s(aria-labelledby="workspace-component-title-approval-surface-1")
+    assert ephemeral_html =~ ~s(id="workspace-component-title-approval-surface-1")
+  end
+
   defp sample_props(:header), do: %{title: "Workspace Header", subtitle: "Subheading"}
   defp sample_props(:empty_state), do: %{title: "Empty", body: "Nothing to render yet."}
   defp sample_props(:link), do: %{label: "Open trace", body: "/trace/example"}

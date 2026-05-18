@@ -53,9 +53,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
       class="workspace-header flex items-start justify-between gap-3 rounded border border-base-300 bg-base-100 p-3 text-sm"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
     >
       <div class="min-w-0">
-        <h2 class="text-sm font-semibold leading-6">
+        <h2 id={Base.component_title_id(@node)} class="text-sm font-semibold leading-6">
           {Base.prop(@node, :title, "Allbert Workspace")}
         </h2>
         <p class="text-xs text-base-content/60">
