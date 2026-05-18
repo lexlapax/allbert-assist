@@ -332,7 +332,7 @@ StockSage canvas proof. The remaining
 unassigned work is external protocol interoperability and richer generated UI
 interfaces after the local substrate is boring and safe.
 
-**v0.26 status update (2026-05-17 fourth validation pass):** v0.26 ships an
+**v0.26 status update (2026-05-18 fifth validation pass):** v0.26 ships an
 **internal** `AllbertAssist.Workspace.AGUI.Bridge` (per ADR 0023 §8) that
 translates a curated subset of Allbert SignalBus events to AG-UI event shape
 for test-only semantic mapping validation. The bridge is NOT exposed over
@@ -363,8 +363,8 @@ Needed before broader post-v0.29 planning:
 - v0.24 local workspace and surface contracts accepted through user testing
 - v0.26 workspace shell + canvas + ephemeral substrate accepted through user
   testing (ADR 0023 binding decisions, dynamic Surface tree rendering,
-  38-component catalog, signed-envelope fragment emission, full UX
-  qualities including offline CRDT)
+  42-component catalog, signed-envelope fragment emission, full UX
+  qualities including browser-side Yjs + IndexedDB offline editing)
 - v0.28 app canvas integration accepted through StockSage user testing
 - v0.26/v0.24 security evals proving generated surfaces cannot invent
   actions, permissions, resources, scripts, URLs, or secret-bearing output
@@ -388,6 +388,9 @@ Needed before broader post-v0.29 planning:
 - Canvas snapshot / undo / time-travel (deferred from v0.26; "Canvas
   Snapshot" reserved in ADR 0023 §1; signal topic
   `allbert.workspace.canvas.snapshot.requested` reserved as v0.26 no-op)
+- Server-side CRDT interpretation, compaction, or Rust/NIF-backed Yjs
+  reconciliation. v0.26 deliberately keeps Yjs in the browser and stores
+  opaque bounded update blobs plus readable snapshots server-side.
 
 ### Browser/Search Capture
 

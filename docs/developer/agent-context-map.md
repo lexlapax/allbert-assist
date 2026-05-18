@@ -98,7 +98,7 @@ Do not load every section by default.
   v0.12 thread; survives refresh + restart) and per-thread Ephemeral
   Surfaces (task-scoped overlays, shared across tabs of same thread,
   GC'd on thread close). Hybrid SQLite-metadata + YAML-body
-  persistence. Catalog expands from 12 → 38 components (10 workspace
+  persistence. Catalog expands from 12 → 42 components (10 workspace
   structural + 12 Allbert-domain + 4 Allbert-app cards + 4 reserved
   StockSage cards rendered as stubs + 12 v0.18 carryover). Strict +
   HMAC-signed `FragmentEnvelope` emission via
@@ -108,8 +108,9 @@ Do not load every section by default.
   via PubSub. WCAG 2.1 AA accessibility (keyboard nav + ARIA + focus
   traps + skip-to-content). Dark mode + theme toggle. Mobile
   responsive (two-pane above 768px, single-pane with tab toggle
-  below). Full offline canvas editing via service worker + Yjs
-  CRDT with automatic merge on reconnect + conflict banner UX.
+  below). Offline text/markdown tile editing via service worker +
+  browser-side Yjs + IndexedDB with bounded reconnect sync +
+  conflict banner UX.
   Internal `AllbertAssist.Workspace.AGUI.Bridge` translates curated
   Allbert signals to AG-UI event shape for test-only semantic
   mapping (NOT exposed over HTTP). 14 new `workspace.*` settings.
@@ -253,7 +254,7 @@ LiveView to the **agentic workspace shell**:
   payload size) and forwards valid envelopes to per-user PubSub
   topic `workspace_fragments:<user_id>`. Invalid envelopes drop
   with bounded log + `allbert.workspace.fragment.dropped` signal.
-- 38-component catalog (per ADR 0015 v0.26 amendment): 12 v0.18
+- 42-component catalog (per ADR 0015 v0.26 amendment): 12 v0.18
   carryover + 10 workspace structural + 12 Allbert-domain + 4
   Allbert-app cards + 4 reserved StockSage cards. StockSage card
   rendering ships in v0.27; v0.26 ships stubs.
@@ -261,8 +262,10 @@ LiveView to the **agentic workspace shell**:
   mobile breakpoint, fragment rate limits, etc.). New
   `:workspace_canvas_write` permission class.
 - Full UX qualities first-class in v0.26: dark mode + WCAG 2.1 AA
-  accessibility + mobile responsive + offline editing via Yjs CRDT
-  with automatic merge on reconnect + conflict-banner UX.
+  accessibility + mobile responsive + offline text/markdown editing
+  via browser-side Yjs + IndexedDB with bounded reconnect sync +
+  conflict-banner UX. v0.26 does not add a server-side Rust NIF or
+  server-side CRDT interpreter.
 - Internal `AllbertAssist.Workspace.AGUI.Bridge` translates curated
   Allbert signals to AG-UI event shape for test-only semantic
   mapping; NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps

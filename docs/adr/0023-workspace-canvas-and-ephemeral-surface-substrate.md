@@ -3,7 +3,7 @@
 ## Status
 
 Proposed. Targeted for acceptance with v0.26 Agentic Workspace Surface
-And Ephemeral UI Substrate M6 closeout. This ADR pins the binding
+And Ephemeral UI Substrate M20 closeout. This ADR pins the binding
 decisions for v0.26 — the foundational UI layer that turns
 `AllbertAssist.App.CoreApp`'s declared `/agent` surface into a
 signal-driven, declaratively-rendered workspace with a per-thread
@@ -46,7 +46,7 @@ ephemeral surfaces lifecycle, who can emit runtime fragments, how
 they're validated, and how the workspace itself self-describes —
 needs an ADR.
 
-The user's framing for v0.26 (2026-05-17, fourth validation pass) is
+The user's framing for v0.26 (2026-05-18, fifth validation pass) is
 explicit: "this is a crucial, foundational, first stage of the UI
 layer ... it needs to be a canvas that can dynamically change ...
 don't defer things we can do."
@@ -109,9 +109,12 @@ node restart, and tab switches. Storage is hybrid:
   (tile_id, thread_id, user_id, kind, position, size, created_at,
   updated_at, deleted_at, current_revision_id). Indexed by
   thread_id + user_id.
-- **SQLite**: `workspace_canvas_tile_revisions` table holds CRDT
-  state per tile body (`tile_id`, `revision_id`, `crdt_state` BLOB,
-  `created_at`). Supports offline edit reconciliation (see §7).
+- **SQLite**: `workspace_canvas_tile_revisions` table holds bounded
+  browser-originated offline update metadata (`tile_id`,
+  `base_revision_id`, opaque `yjs_update` BLOB, optional
+  `state_vector` BLOB, text snapshot, origin, conflict count,
+  `created_at`). Supports offline edit reconciliation (see §7)
+  without requiring Elixir to interpret the Yjs binary format.
 - **YAML**: tile body content (the "human-meaningful payload" of a
   tile, e.g., markdown text, structured field map) lives at
   `<ALLBERT_HOME>/workspace/canvas/<user_id>/<thread_id>/<tile_id>.yml`.
@@ -186,7 +189,7 @@ inbound signal:
    recoverable via `mix allbert.workspace rotate-signing-secret`.
 3. **Surface validation**: the wrapped Surface validates via
    `AllbertAssist.Surface.validate_surface/1` against the catalog
-   (v0.26 expanded to 38 components per the v0.26 plan).
+   (v0.26 expanded to 42 components per the v0.26 plan).
 4. **Emitter authentication**: emitter_id MUST be in a known
    emitter allow-list (registered action module names, the
    objective engine module name, registered delegate agent ids).
@@ -214,10 +217,10 @@ catalog mismatch, unknown emitter, rate limit, oversize) is
 captured in trace metadata for the originating turn so operators
 can debug.
 
-### 6. v0.26 catalog expansion to 38 components (per amended ADR 0015)
+### 6. v0.26 catalog expansion to 42 components (per amended ADR 0015)
 
 v0.18's 12 components are insufficient for a workspace shell. v0.26
-expands the catalog to 38 components in three categories:
+expands the catalog to 42 components in four categories:
 
 **Workspace structural (10)**: `:workspace`, `:canvas`, `:tile`,
 `:ephemeral_surface`, `:header`, `:badge_strip`, `:tabs`, `:tab`,
@@ -238,38 +241,44 @@ rendering modules are stubs in v0.26 (render a placeholder + link
 to the legacy `/stocksage/analysis/:id` route until v0.27 ships
 real cards).
 
+StockSage is a proving plugin, not a workspace dependency. Core
+workspace rendering, fragment validation, canvas persistence,
+ephemeral surfaces, and offline text editing must pass with the
+StockSage plugin disabled.
+
 v0.18 carryover (12): `:route`, `:chat`, `:timeline`, `:composer`,
 `:panel`, `:section`, `:text`, `:list`, `:empty_state`, `:button`,
 `:action_button`, `:status_badge`.
 
-ADR 0015 is amended in v0.26 M1 to enumerate the full 38-component
+ADR 0015's v0.26 amendment enumerates the full 42-component
 catalog. The amendment also pins the contract that the workspace
 shell renders any component in the catalog via a uniform dispatch
 table; no component is "internal" — all are catalog-resolvable so
 plugins can target any of them via Surface declarations.
 
-### 7. Offline editing via service worker + per-tile CRDT (full)
+### 7. Offline editing via service worker + browser-side Yjs
 
 The workspace canvas supports operator editing while the LiveView
 is disconnected (loss of network, browser tab put to sleep). The
 implementation:
 
 - **Service worker**: registered at `/agent`. Caches the workspace
-  shell assets (JS, CSS, fonts). Intercepts API calls. Provides
-  the offline detection signal to the LiveView.
-- **Per-tile CRDT state**: tile body content is represented as a
-  Yjs document. Updates produce CRDT-encoded deltas. Deltas
-  persist locally (IndexedDB) while offline; sync to SQLite
-  `workspace_canvas_tile_revisions` on reconnect.
-- **Automatic merge**: on reconnect, the client sends accumulated
-  local deltas; the server applies them through Yjs merge; the
-  resulting state broadcasts to all subscribed tabs via the
-  workspace_fragments PubSub topic.
-- **Conflict UX**: when Yjs merge produces a non-trivial reconcile
-  (multiple offline tabs edited the same tile), a `Conflict
-  reconciled` banner appears on each affected tile with an
-  inspector showing the merge history. Operator can revert any
-  reconciled change.
+  shell assets (JS, CSS, fonts, offline shell fallback). It does
+  not treat cached authenticated HTML as durable truth; runtime data
+  rehydrates from SQLite/YAML when the LiveView reconnects.
+- **Per-tile browser state**: editable text/markdown tile body
+  content is represented as a browser-owned Yjs document. Updates
+  persist locally through IndexedDB while offline.
+- **Reconnect sync**: on reconnect, the browser sends base revision,
+  state vector, bounded Yjs update blob(s), and the latest
+  text/markdown snapshot. Elixir validates user/thread/tile
+  ownership, payload bounds, base revision, and editable tile kind,
+  then stores the opaque update blob and snapshot in
+  `workspace_canvas_tile_revisions` and the YAML body store.
+- **Conflict UX**: when base revisions diverge or multiple offline
+  origins edited the same tile, a `Conflict reconciled` banner
+  appears on each affected tile with an inspector showing the merge
+  history. Operator can revert any reconciled change.
 
 Scope bound for v0.26:
 
@@ -283,11 +292,13 @@ Scope bound for v0.26:
   route). Sibling routes (`/objectives/:id`, `/jobs`, `/settings`)
   remain online-only in v0.26.
 
-CRDT library: ship Yjs (BSD-licensed) bundled in the asset
-pipeline. Server-side Yjs interop via a Rust NIF (`y-crdt` Rust
-binding) wrapped as `AllbertAssist.Workspace.Offline.Yjs` —
-verified at v0.26 M5 implementation; fall back to a pure-Elixir
-shim if NIF integration proves brittle.
+CRDT library: ship Yjs (BSD-licensed) and `y-indexeddb` in the web
+asset pipeline. v0.26 explicitly does **not** add a server-side Rust
+NIF or server-side CRDT interpreter. The server-side module
+`AllbertAssist.Workspace.Offline` stores opaque update blobs,
+readable snapshots, and conflict metadata; a future milestone may
+add server-side compaction or interpretation if an operator-visible
+need emerges.
 
 ### 8. AG-UI INTERRUPT semantic-mapping bridge (internal, test-only)
 
@@ -346,7 +357,8 @@ not in the v0.18 catalog. ADR 0015's invariants hold.
   two-pane (chat + canvas) with split bar. Below 768px: single-pane
   with tab toggle between chat and canvas; ephemerals stack as
   full-screen overlays.
-- **Offline editing**: full per-tile CRDT per §7.
+- **Offline editing**: browser-side text/markdown tile editing per
+  §7.
 
 All four are first-class v0.26 deliverables (operator-runnable per
 the milestone smokes); no deferral.
@@ -383,7 +395,7 @@ Schema section):
 - `workspace.fragment.rate_limit_per_second` — int 1..1000; default 10
 - `workspace.fragment.payload_max_bytes` — int 1024..262144; default 65536 (64 KB)
 - `workspace.offline.enabled` — boolean; default true
-- `workspace.offline.crdt_local_storage_quota_mb` — int 1..256; default 32
+- `workspace.offline.indexeddb_quota_mb` — int 1..256; default 32
 - `workspace.accessibility.high_contrast` — boolean; default false
 - `workspace.accessibility.reduce_motion` — boolean; default false
 - `workspace.mobile.breakpoint_px` — int 320..1024; default 768
@@ -404,7 +416,7 @@ v0.26 reserves the `allbert.workspace.**` namespace on SignalBus:
 | `allbert.workspace.ephemeral.opened` | Ephemeral surface persisted | surface_id, thread_id, user_id, kind, opened_at, trace_id |
 | `allbert.workspace.ephemeral.closed` | Ephemeral surface dismissed (operator or GC) | surface_id, thread_id, user_id, dismissed_at, dismissed_by, trace_id |
 | `allbert.workspace.canvas.snapshot.requested` | Operator requests a canvas snapshot (reserved; no-op in v0.26) | thread_id, user_id, requested_at, trace_id |
-| `allbert.workspace.offline.reconciled` | CRDT merge applied accumulated offline deltas | tile_id, thread_id, user_id, delta_count, conflict_count, reconciled_at, trace_id |
+| `allbert.workspace.offline.reconciled` | Offline updates accepted and reconciled | tile_id, thread_id, user_id, update_count, conflict_count, reconciled_at, trace_id |
 
 All payloads pass through `AllbertAssist.Security.Redactor.redact/1`
 before emission. The v0.22 sensitive-key fragments allowlist
@@ -454,8 +466,9 @@ The v0.24 PubSub topic shape (`<namespace>:<user_id>`) extends:
 - New web-side `AllbertAssistWeb.Workspace.*` LiveView + LiveComponent
   modules; transforms `AllbertAssistWeb.AgentLive` into the new
   workspace shell.
-- v0.18 catalog expands from 12 to 38 components (ADR 0015 amended).
-- Two new SQLite tables (`workspace_canvas_tiles`,
+- v0.18 catalog expands from 12 to 42 components (ADR 0015 amended
+  during v0.26 planning).
+- Three new SQLite tables (`workspace_canvas_tiles`,
   `workspace_canvas_tile_revisions`,
   `workspace_ephemeral_surfaces`); one migration in v0.26 M1.
 - YAML tile body storage under
@@ -467,8 +480,8 @@ The v0.24 PubSub topic shape (`<namespace>:<user_id>`) extends:
   workspace topics).
 - New `## Workspace` trace section + inline `### Workspace`
   subsections.
-- Service worker registered at `/agent`; Yjs CRDT library bundled
-  in asset pipeline.
+- Service worker registered for the `/agent` workspace; browser-side
+  Yjs + IndexedDB offline editor bundled in the asset pipeline.
 - Internal AG-UI bridge (test-only; no HTTP exposure).
 - Workspace shell is itself a Surface tree (dynamic dispatch
   through LiveComponents).
@@ -549,9 +562,10 @@ v0.31+ multi-process / multi-node will need to enforce.
 
 ### Minimal offline (read-only + banner)
 
-Rejected per user's explicit "don't defer things we can do." Full
-CRDT offline is large but necessary for the workspace to be the
-operator's actual workspace (not a stale viewer).
+Rejected per user's explicit "don't defer things we can do." v0.26
+ships real offline text/markdown tile editing. The scope is bounded:
+browser-side Yjs + IndexedDB with server persistence of opaque
+updates/snapshots, not a server-side CRDT runtime.
 
 ### Single ADR for workspace + offline + AGUI + catalog expansion
 
@@ -588,7 +602,7 @@ when StockSage LiveViews provide a real driver.
 - ADR 0006 — Security Central
 - ADR 0007 — Jido-Native Internal Runtime Boundaries (substrate)
 - ADR 0008 — Durable Confirmation Requests
-- ADR 0015 — Allbert App Contract And Surface DSL (amended in v0.26 M1 for catalog expansion)
+- ADR 0015 — Allbert App Contract And Surface DSL (v0.26 catalog expansion amendment)
 - ADR 0017 — Allbert Plugin Contract
 - ADR 0019 — Cross-Surface Intent Enrichment
 - ADR 0021 — Intent, Objective, Capability, And Advisory Boundary
