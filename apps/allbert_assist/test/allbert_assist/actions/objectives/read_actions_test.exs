@@ -6,9 +6,12 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
   alias AllbertAssist.Objectives
 
   test "list_objectives is user scoped and goes through action runner metadata" do
+    user = unique_user("read_actions")
+    other_user = unique_user("read_actions_other")
+
     assert {:ok, objective} =
              Objectives.create_objective(%{
-               user_id: "alice",
+               user_id: user,
                title: "Analyze AAPL",
                objective: "Complete one analysis for AAPL.",
                active_app: "stocksage"
@@ -16,12 +19,12 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
 
     assert {:ok, _bob} =
              Objectives.create_objective(%{
-               user_id: "bob",
+               user_id: other_user,
                title: "Analyze MSFT",
                objective: "Complete one analysis for MSFT."
              })
 
-    assert {:ok, response} = Runner.run("list_objectives", %{user_id: "alice"}, %{})
+    assert {:ok, response} = Runner.run("list_objectives", %{user_id: user}, %{})
 
     assert response.status == :completed
     assert [%{id: id, title: "Analyze AAPL"}] = response.objectives
@@ -30,9 +33,12 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
   end
 
   test "show_objective returns details and rejects cross-user reads" do
+    user = unique_user("show_objective")
+    other_user = unique_user("show_objective_other")
+
     assert {:ok, objective} =
              Objectives.create_objective(%{
-               user_id: "alice",
+               user_id: user,
                title: "Analyze AAPL",
                objective: "Complete one analysis for AAPL.",
                active_app: "stocksage"
@@ -57,7 +63,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
              })
 
     assert {:ok, response} =
-             Runner.run("show_objective", %{id: objective.id, user_id: "alice"}, %{})
+             Runner.run("show_objective", %{id: objective.id, user_id: user}, %{})
 
     assert response.status == :completed
     assert response.objective.id == objective.id
@@ -66,7 +72,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     assert [%{kind: "step_proposed"}] = response.events
 
     assert {:ok, missing} =
-             Runner.run("show_objective", %{id: objective.id, user_id: "bob"}, %{})
+             Runner.run("show_objective", %{id: objective.id, user_id: other_user}, %{})
 
     assert missing.status == :not_found
   end
@@ -79,9 +85,11 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
   end
 
   test "cancel_objective transitions objective and pending steps cooperatively" do
+    user = unique_user("cancel_objective")
+
     assert {:ok, objective} =
              Objectives.create_objective(%{
-               user_id: "alice",
+               user_id: user,
                title: "Analyze AAPL",
                objective: "Complete one analysis for AAPL.",
                status: "blocked"
@@ -100,8 +108,8 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     assert {:ok, response} =
              Runner.run(
                "cancel_objective",
-               %{id: objective.id, user_id: "alice", reason: "operator changed plan"},
-               %{user_id: "alice", operator_id: "alice", actor: "alice"}
+               %{id: objective.id, user_id: user, reason: "operator changed plan"},
+               %{user_id: user, operator_id: user, actor: user}
              )
 
     assert response.status == :cancelled
@@ -120,9 +128,12 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
   end
 
   test "continue_objective returns advisory statuses for pending and terminal objectives" do
+    user = unique_user("continue_objective")
+    confirmation_id = unique_id("conf_continue_pending")
+
     assert {:ok, objective} =
              Objectives.create_objective(%{
-               user_id: "alice",
+               user_id: user,
                title: "Blocked objective",
                objective: "Wait for approval.",
                status: "blocked"
@@ -135,15 +146,15 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                status: "blocked",
                stage: "authorize_step",
                candidate_action: "StockSage.Actions.RunAnalysis",
-               confirmation_id: "conf_continue_pending"
+               confirmation_id: confirmation_id
              })
 
     assert {:ok, _objective} = Objectives.update_objective(objective, %{current_step_id: step.id})
 
     assert {:ok, _confirmation} =
              Confirmations.create(%{
-               id: "conf_continue_pending",
-               origin: %{actor: "alice", channel: "test", surface: "objective-action-test"},
+               id: confirmation_id,
+               origin: %{actor: user, channel: "test", surface: "objective-action-test"},
                target_action: %{name: "run_analysis"},
                target_permission: :stocksage_analyze,
                target_execution_mode: :external_market_data,
@@ -155,39 +166,47 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
              })
 
     assert {:ok, blocked} =
-             Runner.run("continue_objective", %{id: objective.id, user_id: "alice"}, %{
-               user_id: "alice",
-               operator_id: "alice",
-               actor: "alice"
+             Runner.run("continue_objective", %{id: objective.id, user_id: user}, %{
+               user_id: user,
+               operator_id: user,
+               actor: user
              })
 
     assert blocked.status == :still_blocked
-    assert blocked.reason =~ "Confirmation conf_continue_pending is still pending"
+    assert blocked.reason =~ "Confirmation #{confirmation_id} is still pending"
 
     assert {:ok, abandoned} =
              Objectives.create_objective(%{
-               user_id: "alice",
+               user_id: user,
                title: "Abandoned objective",
                objective: "Already abandoned.",
                status: "abandoned"
              })
 
     assert {:ok, terminal} =
-             Runner.run("continue_objective", %{id: abandoned.id, user_id: "alice"}, %{
-               user_id: "alice",
-               operator_id: "alice",
-               actor: "alice"
+             Runner.run("continue_objective", %{id: abandoned.id, user_id: user}, %{
+               user_id: user,
+               operator_id: user,
+               actor: user
              })
 
     assert terminal.status == :objective_abandoned
 
     assert {:ok, missing} =
-             Runner.run("continue_objective", %{id: "obj_missing", user_id: "alice"}, %{
-               user_id: "alice",
-               operator_id: "alice",
-               actor: "alice"
+             Runner.run("continue_objective", %{id: "obj_missing", user_id: user}, %{
+               user_id: user,
+               operator_id: user,
+               actor: user
              })
 
     assert missing.status == :not_found
+  end
+
+  defp unique_user(prefix) do
+    "#{prefix}_#{System.unique_integer([:positive])}"
+  end
+
+  defp unique_id(prefix) do
+    "#{prefix}_#{System.unique_integer([:positive])}"
   end
 end

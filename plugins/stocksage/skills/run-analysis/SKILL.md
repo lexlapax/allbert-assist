@@ -1,10 +1,10 @@
 ---
 name: run-analysis
-description: Run a StockSage analysis for a ticker through the supervised Python bridge.
+description: Run a StockSage analysis for a ticker through the native engine or explicit Python comparison.
 allowed-tools: allbert:action:run_analysis
 metadata:
   allbert.kind: native_action
-  allbert.version: "0.22.0"
+  allbert.version: "0.25.0"
   allbert.actions: run_analysis
   allbert.permissions: stocksage_analyze
   allbert.confirmation: required
@@ -21,16 +21,19 @@ examples:
 2. Evaluate `:stocksage_analyze` through Security Central.
 3. When confirmation is required (the default), create a durable confirmation
    record and stop. Do not call the bridge yet.
-4. On the approved resume path, call `StockSage.TraderBridge.analyze/1` with the
-   validated params and persist the analysis result.
-5. When a queue entry id is provided, update the queue entry status and record
+4. On the approved resume path, run the native StockSage specialist-agent graph
+   by default. Only call the Python bridge when the operator explicitly
+   requested `engine: "python"` or `engine: "both"`.
+5. Persist the returned analysis in the local StockSage domain tables, including
+   parity diff JSON for explicit `engine: "both"` requests.
+6. When a queue entry id is provided, update the queue entry status and record
    a queue run row linking it to the analysis.
 
 ## Safety
 
-- The Python bridge makes external market-data API calls. The operator
-  confirmation covers analysis as a whole; per-source confirmations arrive in
-  v0.28 (formerly v0.26 before the project-direction rethink renumber).
+- Native evidence actions and explicit Python bridge runs may make external
+  market-data API calls. The operator confirmation covers analysis as a whole;
+  evidence calls still preserve Resource Access posture.
 - Raw TradingAgents output is never surfaced in traces, CLI list summaries, or
   signals. Only bounded structured metadata is shown.
 - `:stocksage_analyze` has a `needs_confirmation` safety floor; no setting can

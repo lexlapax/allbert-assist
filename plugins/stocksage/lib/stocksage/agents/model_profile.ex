@@ -8,20 +8,31 @@ defmodule StockSage.Agents.ModelProfile do
   def resolve(role) do
     spec = Agents.spec!(role)
 
-    spec
-    |> per_agent_setting_key()
-    |> settings_value()
-    |> blank_to_nil()
-    |> case do
-      nil ->
-        role_default(spec) ||
-          "stocksage.native_model_profile"
-          |> settings_value()
-          |> blank_to_nil() ||
-          "fast"
+    resolved =
+      spec
+      |> per_agent_setting_key()
+      |> settings_value()
+      |> blank_to_nil()
+      |> case do
+        nil ->
+          role_default(spec) ||
+            "stocksage.native_model_profile"
+            |> settings_value()
+            |> blank_to_nil()
 
-      value ->
-        value
+        value ->
+          value
+      end
+
+    case resolved do
+      value when is_binary(value) ->
+        case String.trim(value) do
+          "" -> "fast"
+          trimmed -> trimmed
+        end
+
+      _other ->
+        "fast"
     end
   end
 

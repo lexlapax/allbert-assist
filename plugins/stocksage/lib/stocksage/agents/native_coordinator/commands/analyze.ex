@@ -18,6 +18,8 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
   alias Jido.Signal
   alias StockSage.Agents
 
+  @default_agent_timeout_ms 90_000
+
   @impl true
   def run(params, _context) do
     request = normalize_request(params)
@@ -48,7 +50,8 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
     end
   end
 
-  defp analyze(request) do
+  @doc false
+  def analyze(request) do
     emit_native("allbert.stocksage.native.analysis_started", request, %{})
 
     {analyst_reports, analyst_warnings} =
@@ -151,7 +154,8 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
     |> Task.async_stream(
       fn agent_id -> dispatch_agent(agent_id, request, prior_reports, stage, round_index) end,
       max_concurrency: length(agent_ids),
-      timeout: :infinity
+      timeout: dispatch_timeout_ms(request) + 1_000,
+      on_timeout: :kill_task
     )
     |> Enum.map(fn
       {:ok, result} -> result
@@ -259,7 +263,7 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
         |> Map.put(:stage, stage)
         |> Map.put(:prior_reports, prior_reports)
 
-      case AgentRegistry.dispatch(agent_id, :execute, params, timeout: :infinity) do
+      case dispatch_registered_agent(agent_id, params, dispatch_timeout_ms(request)) do
         {:ok, %{state: %{last_result: {:ok, report}}}} ->
           complete_step(step, report)
           emit_completed(request, agent_id, round_index, report)
@@ -513,14 +517,40 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
     _exception -> default
   end
 
+  defp dispatch_registered_agent(agent_id, params, timeout_ms) do
+    AgentRegistry.dispatch(agent_id, :execute, params, timeout: timeout_ms)
+  catch
+    :exit, reason -> {:error, {:agent_dispatch_exit, reason}}
+  end
+
+  defp dispatch_timeout_ms(request) do
+    request
+    |> field(:timeout_ms)
+    |> bounded_timeout_setting()
+  end
+
+  defp bounded_timeout_setting(value) when is_integer(value) and value > 0, do: value
+
+  defp bounded_timeout_setting(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {parsed, ""} -> bounded_timeout_setting(parsed)
+      _other -> bounded_timeout_setting(nil)
+    end
+  end
+
+  defp bounded_timeout_setting(_value) do
+    case Settings.get("stocksage.native_agent_timeout_ms") do
+      {:ok, value} when is_integer(value) and value > 0 -> value
+      _other -> @default_agent_timeout_ms
+    end
+  rescue
+    _exception -> @default_agent_timeout_ms
+  end
+
   defp field(map, key, default \\ nil)
 
   defp field(map, key, default) when is_map(map) and is_atom(key) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(map, key, default) when is_map(map) and is_binary(key) do
-    Map.get(map, key, default)
   end
 
   defp field(_map, _key, default), do: default

@@ -15,7 +15,7 @@ defmodule StockSage.Plugin do
   def display_name, do: "StockSage"
 
   @impl true
-  def version, do: "0.22.0"
+  def version, do: "0.25.0"
 
   @impl true
   def validate(_opts), do: :ok
@@ -178,6 +178,12 @@ defmodule StockSage.Plugin do
         type: :string,
         default: "slow",
         description: "Model profile override for the decision synthesizer specialist."
+      },
+      %{
+        key: "stocksage.native_agent_timeout_ms",
+        type: :positive_integer,
+        default: 90_000,
+        description: "Per-specialist timeout for StockSage native agent dispatch (milliseconds)."
       },
       %{
         key: "stocksage.native_max_debate_rounds",

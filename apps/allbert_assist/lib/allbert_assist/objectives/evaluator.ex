@@ -28,7 +28,7 @@ defmodule AllbertAssist.Objectives.Evaluator do
   end
 
   def evaluate(nil, steps) when is_list(steps) do
-    if completed_count(steps) > 0, do: :met, else: :not_met
+    if Enum.any?(steps, &completed_step?/1), do: :met, else: :not_met
   end
 
   def evaluate(%{} = criteria, steps) when is_list(steps) do
@@ -50,7 +50,7 @@ defmodule AllbertAssist.Objectives.Evaluator do
   def evaluate(_criteria, _steps), do: :not_met
 
   defp min_completed_met?(criteria, steps) do
-    completed_count(steps) >= integer(criteria, "min_completed_steps", 0)
+    completed_acceptance_count(steps) >= integer(criteria, "min_completed_steps", 0)
   end
 
   defp required_met?(criteria, steps) do
@@ -72,7 +72,7 @@ defmodule AllbertAssist.Objectives.Evaluator do
   end
 
   defp clause_met?(%{"kind" => "completed_step_count_below"} = clause, steps) do
-    completed_count(steps) < integer(clause, "value", 1)
+    completed_acceptance_count(steps) < integer(clause, "value", 1)
   end
 
   defp clause_met?(%{"kind" => "step_completed_with_action"} = clause, steps) do
@@ -99,7 +99,11 @@ defmodule AllbertAssist.Objectives.Evaluator do
 
   defp clause_met?(_clause, _steps), do: false
 
-  defp completed_count(steps), do: Enum.count(steps, &completed_step?/1)
+  defp completed_acceptance_count(steps), do: Enum.count(steps, &completed_acceptance_step?/1)
+
+  defp completed_acceptance_step?(step) do
+    completed_step?(step) and field(step, :kind) not in ["delegate_agent", :delegate_agent]
+  end
 
   defp completed_step?(step), do: field(step, :status) in ["completed", :completed]
 

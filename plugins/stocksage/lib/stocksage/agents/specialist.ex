@@ -44,6 +44,12 @@ defmodule StockSage.Agents.Specialist do
       end
 
     quote location: :keep do
+      @dialyzer {:nowarn_function, __agent_metadata__: 0}
+      @dialyzer {:nowarn_function, actions: 0}
+      @dialyzer {:nowarn_function, signal_routes: 0}
+      @dialyzer {:nowarn_function, signal_routes: 1}
+      @dialyzer {:nowarn_function, validate: 2}
+
       unquote(agent_use)
 
       @agent_id unquote(agent_id)
@@ -52,7 +58,7 @@ defmodule StockSage.Agents.Specialist do
       @spec agent_id() :: String.t()
       def agent_id, do: @agent_id
 
-      @spec role() :: atom()
+      @spec role() :: unquote(role)
       def role, do: @role
 
       @spec metadata() :: map()
@@ -64,7 +70,6 @@ defmodule StockSage.Agents.Specialist do
       @spec prompt_version() :: String.t()
       def prompt_version, do: StockSage.Agents.prompt_version()
 
-      @spec execute(map()) :: {:ok, map()} | {:error, term()}
       def execute(request) when is_map(request) do
         {:ok, StockSage.Agents.Commands.Execute.report_for(@agent_id, request)}
       end

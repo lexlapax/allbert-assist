@@ -403,7 +403,9 @@ workflow:
   objective/delegate-agent contract. They adapt the Python baseline's role
   intent, result fields, fixtures, and prompt material where license-compatible,
   but they are designed as Elixir/OTP/Jido agents callable by the wider Allbert
-  runtime, not as a one-for-one TradingAgents class graph.
+  runtime, not as a one-for-one TradingAgents class graph. v0.25 ships the
+  plugin-owned coordinator graph, records each specialist turn as an objective
+  step, and keeps Python only as explicit comparison/parity reference.
 - Web surfaces: workspace, analysis, queue, and trends LiveViews mounted
   through the app contract, setting `active_app: :stocksage` when the user is
   in StockSage context.
@@ -473,7 +475,8 @@ historical aliases only and remain in old reference notes for continuity.
   advisory provider boundaries. Inserted by the project-direction rethink.
 - v0.25: native financial specialist agents, consuming objective state from day
   one through the delegate-agent path; Python bridge remains available only for
-  explicit comparison/reference runs and is never automatic fallback.
+  explicit comparison/reference runs and is never automatic fallback. `mix
+  allbert.delegate` proves cross-app delegate-agent reuse.
 - v0.26: upgrades `CoreApp`'s declared `/agent` surface (from v0.18) into a
   signal-driven workspace shell; canvas and ephemeral UI are additive. Built
   after both analysis engines, objective state, memory review, and intent

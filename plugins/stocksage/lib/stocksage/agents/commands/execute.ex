@@ -43,12 +43,10 @@ defmodule StockSage.Agents.Commands.Execute do
      }}
   end
 
-  @spec report_for(String.t(), map()) :: map()
   def report_for(agent_id, request) when is_binary(agent_id) and is_map(request) do
     report_for(agent_id, request, %{})
   end
 
-  @spec report_for(String.t(), map(), map()) :: map()
   def report_for(agent_id, request, context) when is_binary(agent_id) and is_map(request) do
     spec = Agents.spec!(agent_id)
     model_profile = if spec.role == :quality_gate, do: nil, else: ModelProfile.resolve(spec.role)
