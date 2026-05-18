@@ -34,7 +34,37 @@ defmodule AllbertAssist.Surface do
     :empty_state,
     :button,
     :action_button,
-    :status_badge
+    :status_badge,
+    :workspace,
+    :canvas,
+    :tile,
+    :ephemeral_surface,
+    :header,
+    :badge_strip,
+    :tabs,
+    :tab,
+    :tab_panel,
+    :diff,
+    :trace_link,
+    :trace_viewer,
+    :icon,
+    :link,
+    :divider,
+    :table,
+    :row,
+    :column,
+    :objective_card,
+    :confirmation_card,
+    :approval_card,
+    :approval_inspector,
+    :memory_review_card,
+    :job_card,
+    :channel_card,
+    :settings_card,
+    :analysis_card,
+    :agent_report_card,
+    :parity_card,
+    :debate_round_card
   ]
 
   @known_kinds [:route, :chat, :workspace, :analysis, :canvas, :settings]
@@ -66,6 +96,36 @@ defmodule AllbertAssist.Surface do
           | :button
           | :action_button
           | :status_badge
+          | :workspace
+          | :canvas
+          | :tile
+          | :ephemeral_surface
+          | :header
+          | :badge_strip
+          | :tabs
+          | :tab
+          | :tab_panel
+          | :diff
+          | :trace_link
+          | :trace_viewer
+          | :icon
+          | :link
+          | :divider
+          | :table
+          | :row
+          | :column
+          | :objective_card
+          | :confirmation_card
+          | :approval_card
+          | :approval_inspector
+          | :memory_review_card
+          | :job_card
+          | :channel_card
+          | :settings_card
+          | :analysis_card
+          | :agent_report_card
+          | :parity_card
+          | :debate_round_card
 
   @type t :: %__MODULE__{
           id: atom(),
