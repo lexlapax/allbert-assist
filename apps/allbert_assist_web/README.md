@@ -17,18 +17,31 @@ http://localhost:4000/agent
 http://localhost:4000/settings
 ```
 
-The `/agent` LiveView uses the same `AllbertAssist.Runtime.submit_user_input/1`
-boundary as the CLI and displays response status, signal id, and trace path
-when tracing is enabled. The `/settings` LiveView uses Settings Central for
-operator settings, provider profile status, skill trust settings, and editable
-permission defaults. Its Security & Permissions section reads effective
-Security Central status through the registered `security_status` action.
-v0.06 action-backed skill behavior remains in the shared runtime/action
-boundary, so LiveView skill prompts use the same selected-skill, contract,
-Security Central, and trace metadata as the CLI.
+The `/agent` LiveView is the v0.26 Allbert workspace. It renders
+`AllbertAssist.App.CoreApp`'s Surface tree through catalog-dispatched
+LiveComponents: chat, persistent per-thread canvas tiles, task-scoped
+ephemeral surfaces, objective/status badges, trace cards, confirmation cards,
+theme controls, mobile tabs, and offline text/markdown tile editors.
+Workspace effects still cross the same runtime/action boundary as the CLI:
+registered actions, `Actions.Runner.run/3`, Security Central, Settings
+Central, traces, and Allbert Home remain authoritative.
+
+The `/settings` LiveView uses Settings Central for operator settings,
+provider profile status, skill trust settings, and editable permission
+defaults. Its Security & Permissions section reads effective Security Central
+status through the registered `security_status` action. v0.06 action-backed
+skill behavior remains in the shared runtime/action boundary, so LiveView skill
+prompts use the same selected-skill, contract, Security Central, and trace
+metadata as the CLI.
 
 v0.23 is an internal Jido state-machine convergence release. It does not add a
 new web surface: `/agent`, `/settings`, and `/jobs` continue to call the same
 runtime, settings, security, confirmation, and jobs boundaries. Default trace
 output remains unchanged; `## Jido Debug` appears only when
 `allbert.jido.debug_trace` is explicitly enabled.
+
+v0.26 keeps that rule while making `/agent` substantially richer: the page owns
+rendering and browser APIs, not runtime authority. The browser-side Yjs +
+IndexedDB editor stores local drafts and sends bounded snapshots to the
+workspace facade; server-side reconciliation records canvas revisions and
+surfaces conflict/revert UI.

@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed. Targeted for acceptance with v0.26 Agentic Workspace Surface
-And Ephemeral UI Substrate M20 closeout. This ADR pins the binding
-decisions for v0.26 — the foundational UI layer that turns
+Accepted on 2026-05-18 with v0.26 Agentic Workspace Surface And
+Ephemeral UI Substrate M20 closeout. This ADR pins the binding
+decisions shipped in v0.26 — the foundational UI layer that turns
 `AllbertAssist.App.CoreApp`'s declared `/agent` surface into a
 signal-driven, declaratively-rendered workspace with a per-thread
 canvas of persistent tiles and per-thread ephemeral surfaces.

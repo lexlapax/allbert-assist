@@ -332,7 +332,7 @@ StockSage canvas proof. The remaining
 unassigned work is external protocol interoperability and richer generated UI
 interfaces after the local substrate is boring and safe.
 
-**v0.26 status update (2026-05-18 fifth validation pass):** v0.26 ships an
+**v0.26 status update (2026-05-18 M20 closeout):** v0.26 ships an
 **internal** `AllbertAssist.Workspace.AGUI.Bridge` (per ADR 0023 §8) that
 translates a curated subset of Allbert SignalBus events to AG-UI event shape
 for test-only semantic mapping validation. The bridge is NOT exposed over
@@ -341,7 +341,10 @@ early so future external bridge work has a tested foundation. The
 `AllbertAssist.Surface.Encoder.to_a2ui/1` stub remains returning
 `{:error, :not_implemented}`. The MCP Apps sandboxed-iframe model remains
 explicitly out of scope for v0.26 per the "no arbitrary model-generated
-HTML/JS" rule.
+HTML/JS" rule. The shipped workspace substrate also confirms the local
+Surface-tree renderer, signed Fragment pipeline, browser-side Yjs/IndexedDB
+offline editing, and conflict/revert UX that future protocol adapters must
+preserve.
 
 The documented v0.26 internal mapping (per ADR 0023 §8):
 
