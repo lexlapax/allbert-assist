@@ -17,6 +17,7 @@ defmodule AllbertAssistWeb.AgentLive do
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssistWeb.SignalBridge
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
+  alias Jido.Signal
 
   @impl true
   def mount(_params, _session, socket) do
@@ -25,6 +26,12 @@ defmodule AllbertAssistWeb.AgentLive do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for(user_id))
+
+      Phoenix.PubSub.subscribe(
+        AllbertAssistWeb.PubSub,
+        SignalBridge.workspace_topic_for(user_id, thread_id)
+      )
+
       Process.send_after(self(), :refresh_objectives, 5_000)
     end
 
@@ -106,8 +113,8 @@ defmodule AllbertAssistWeb.AgentLive do
     {:noreply, handle_fragment(envelope, socket)}
   end
 
-  def handle_info({:workspace_event, _signal}, socket) do
-    {:noreply, socket}
+  def handle_info({:workspace_event, %Signal{} = signal}, socket) do
+    {:noreply, handle_workspace_event(signal, socket)}
   end
 
   def handle_info(:refresh_objectives, socket) do
@@ -204,6 +211,17 @@ defmodule AllbertAssistWeb.AgentLive do
 
   defp refresh_objectives(socket) do
     assign(socket, :active_objectives, active_objectives(socket.assigns.user_id))
+  end
+
+  defp handle_workspace_event(%Signal{} = signal, socket) do
+    data = signal.data || %{}
+
+    if metadata_value(data, :user_id) == socket.assigns.user_id and
+         metadata_value(data, :thread_id) == socket.assigns.thread_id do
+      refresh_workspace(socket)
+    else
+      socket
+    end
   end
 
   defp handle_fragment(%Envelope{} = envelope, socket) do
