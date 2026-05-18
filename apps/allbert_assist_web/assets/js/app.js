@@ -81,6 +81,95 @@ const FocusTrap = {
   },
 }
 
+const workspaceOfflineMessages = {
+  online: "Workspace shell cached for offline use.",
+  offline: "Working offline — your shell is cached and changes will sync when you reconnect.",
+  unavailable: "Offline mode unavailable in this environment.",
+  disabled: "Offline mode disabled.",
+}
+
+const setWorkspaceOfflineBanner = state => {
+  const banner = document.getElementById("workspace-offline-banner")
+  if (!banner) return
+
+  banner.dataset.state = state
+  banner.textContent = workspaceOfflineMessages[state] || workspaceOfflineMessages.unavailable
+  banner.hidden = state === "online"
+}
+
+const workspaceShellAssets = shell => {
+  const assets = [
+    shell.dataset.offlineShellUrl,
+    document.querySelector("link[rel='stylesheet']")?.href,
+    document.querySelector("script[src*='/assets/js/app.js']")?.src,
+    new URL("/images/logo.svg", window.location.origin).href,
+    new URL("/favicon.ico", window.location.origin).href,
+  ]
+
+  return assets.filter(Boolean)
+}
+
+const unregisterWorkspaceServiceWorker = async serviceWorkerUrl => {
+  const registrations = await navigator.serviceWorker.getRegistrations()
+
+  await Promise.all(
+    registrations
+      .filter(registration => registration.active?.scriptURL.includes(serviceWorkerUrl))
+      .map(registration => registration.unregister())
+  )
+}
+
+const postWorkspaceShellAssets = (registration, assets) => {
+  const worker = registration.active || registration.waiting || registration.installing
+  if (!worker) return
+
+  worker.postMessage({
+    type: "ALLBERT_WORKSPACE_CACHE_ASSETS",
+    assets,
+  })
+}
+
+const bootstrapWorkspaceOffline = async () => {
+  const shell = document.getElementById("workspace-shell")
+  if (!shell || shell.dataset.offlineBootstrapped === "true") return
+
+  shell.dataset.offlineBootstrapped = "true"
+
+  if (!("serviceWorker" in navigator)) {
+    setWorkspaceOfflineBanner("unavailable")
+    return
+  }
+
+  const serviceWorkerUrl = shell.dataset.serviceWorkerUrl || "/workspace-sw.js"
+
+  if (shell.dataset.offlineEnabled !== "true") {
+    await unregisterWorkspaceServiceWorker(serviceWorkerUrl)
+    setWorkspaceOfflineBanner("disabled")
+    return
+  }
+
+  window.addEventListener("offline", () => setWorkspaceOfflineBanner("offline"))
+  window.addEventListener("online", () => setWorkspaceOfflineBanner("online"))
+
+  try {
+    const registration = await navigator.serviceWorker.register(serviceWorkerUrl, {
+      scope: shell.dataset.serviceWorkerScope || "/agent",
+    })
+
+    postWorkspaceShellAssets(registration, workspaceShellAssets(shell))
+    setWorkspaceOfflineBanner(navigator.onLine ? "online" : "offline")
+  } catch (_error) {
+    setWorkspaceOfflineBanner("unavailable")
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  bootstrapWorkspaceOffline()
+})
+window.addEventListener("phx:page-loading-stop", () => {
+  bootstrapWorkspaceOffline()
+})
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

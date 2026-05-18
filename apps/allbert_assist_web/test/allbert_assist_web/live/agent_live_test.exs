@@ -114,6 +114,29 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(view, "#workspace-mobile-tab-ephemeral[aria-selected='true']")
   end
 
+  test "mount configures workspace offline service worker", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/agent")
+
+    assert has_element?(
+             view,
+             "#workspace-shell[data-offline-enabled='true'][data-service-worker-url='/workspace-sw.js'][data-service-worker-scope='/agent'][data-offline-shell-url='/workspace-offline.html']"
+           )
+
+    assert has_element?(view, "#workspace-offline-banner[hidden][data-state='online']")
+  end
+
+  test "offline disabled setting shows disabled workspace banner", %{conn: conn} do
+    assert {:ok, _setting} =
+             Settings.put("workspace.offline.enabled", false, %{audit?: false})
+
+    {:ok, view, html} = live(conn, ~p"/agent")
+
+    assert has_element?(view, "#workspace-shell[data-offline-enabled='false']")
+    assert has_element?(view, "#workspace-offline-banner[data-state='disabled']")
+    refute has_element?(view, "#workspace-offline-banner[hidden]")
+    assert html =~ "Offline mode disabled."
+  end
+
   test "mount applies high contrast workspace variant", %{conn: conn} do
     assert {:ok, _setting} = Settings.put("workspace.theme", "dark", %{audit?: false})
 
