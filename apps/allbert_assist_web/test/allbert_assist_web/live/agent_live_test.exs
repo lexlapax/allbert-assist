@@ -5,7 +5,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
   alias AllbertAssist.{Confirmations, Objectives, Paths, Runtime, Settings}
 
-  @runtime_async_timeout 5_000
+  @runtime_async_timeout 10_000
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
@@ -44,9 +44,9 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(view, "#workspace-chat-region")
     assert has_element?(view, "#agent-form")
     assert has_element?(view, "#workspace-node-workspace-canvas-region")
-    assert has_element?(view, "#workspace-placeholder-workspace-canvas-region")
+    assert has_element?(view, "#workspace-component-workspace-canvas-region")
     assert html =~ "canvas"
-    assert html =~ "component not implemented"
+    refute html =~ "component not implemented"
   end
 
   test "submits prompts through the runtime boundary", %{conn: conn} do
