@@ -29,8 +29,10 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
     name = :"signal_bridge_#{System.unique_integer([:positive])}"
     start_supervised!({SignalBridge, name: name})
 
-    topic = SignalBridge.topic_for("alice")
-    Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, topic)
+    user_topic = SignalBridge.topic_for("alice")
+    workspace_topic = SignalBridge.workspace_topic_for("alice", "thread-signal-bridge")
+    Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, user_topic)
+    Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, workspace_topic)
 
     assert {:ok, signal} =
              Signals.objective_lifecycle(:created, %{
@@ -88,7 +90,7 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
     name = :"signal_bridge_malformed_#{System.unique_integer([:positive])}"
     start_supervised!({SignalBridge, name: name})
 
-    topic = SignalBridge.topic_for("alice")
+    topic = SignalBridge.workspace_topic_for("alice", "thread-signal-bridge")
     Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, topic)
 
     assert {:ok, signal} =
