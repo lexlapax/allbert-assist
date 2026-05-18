@@ -99,6 +99,89 @@
 /* Use the data attribute for dark mode  */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
+/* Workspace-local theme tokens. The global layout theme remains independent;
+   these tokens keep /agent readable when the workspace setting changes. */
+#workspace-shell {
+  --workspace-bg: oklch(98% 0.006 247);
+  --workspace-panel: oklch(100% 0 0);
+  --workspace-panel-muted: oklch(96% 0.008 247);
+  --workspace-border: oklch(84% 0.018 255);
+  --workspace-fg: oklch(24% 0.025 260);
+  --workspace-muted: oklch(47% 0.03 260);
+  --workspace-accent: oklch(62% 0.16 175);
+  --workspace-focus: oklch(66% 0.19 48);
+  background: var(--workspace-bg);
+  color: var(--workspace-fg);
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.5rem;
+}
+
+#workspace-shell[data-theme="dark"] {
+  --workspace-bg: oklch(19% 0.024 260);
+  --workspace-panel: oklch(25% 0.026 257);
+  --workspace-panel-muted: oklch(30% 0.03 252);
+  --workspace-border: oklch(44% 0.036 255);
+  --workspace-fg: oklch(96% 0.012 247);
+  --workspace-muted: oklch(77% 0.026 248);
+  --workspace-accent: oklch(72% 0.14 178);
+  --workspace-focus: oklch(74% 0.19 57);
+}
+
+#workspace-shell[data-high-contrast="true"] {
+  --workspace-bg: oklch(100% 0 0);
+  --workspace-panel: oklch(98% 0 0);
+  --workspace-panel-muted: oklch(94% 0 0);
+  --workspace-border: oklch(0% 0 0);
+  --workspace-fg: oklch(0% 0 0);
+  --workspace-muted: oklch(22% 0 0);
+  --workspace-accent: oklch(45% 0.18 145);
+  --workspace-focus: oklch(58% 0.22 35);
+  border-width: 2px;
+}
+
+#workspace-shell[data-theme="dark"][data-high-contrast="true"] {
+  --workspace-bg: oklch(0% 0 0);
+  --workspace-panel: oklch(10% 0 0);
+  --workspace-panel-muted: oklch(16% 0 0);
+  --workspace-border: oklch(100% 0 0);
+  --workspace-fg: oklch(100% 0 0);
+  --workspace-muted: oklch(88% 0 0);
+  --workspace-accent: oklch(86% 0.2 145);
+  --workspace-focus: oklch(86% 0.21 82);
+}
+
+#workspace-shell .workspace-header,
+#workspace-shell [data-workspace-renderer="component"],
+#workspace-shell #agent-response,
+#workspace-shell #approval-handoff {
+  background: var(--workspace-panel);
+  border-color: var(--workspace-border);
+  color: var(--workspace-fg);
+}
+
+#workspace-shell .text-base-content\/60,
+#workspace-shell .text-base-content\/70 {
+  color: var(--workspace-muted);
+}
+
+#workspace-shell .workspace-theme-toggle {
+  background: var(--workspace-panel-muted);
+  border-color: var(--workspace-border);
+  color: var(--workspace-fg);
+}
+
+#workspace-shell .workspace-theme-toggle:hover,
+#workspace-shell .workspace-theme-toggle:focus-visible {
+  border-color: var(--workspace-focus);
+  outline: 2px solid var(--workspace-focus);
+  outline-offset: 2px;
+}
+
+#workspace-shell[data-high-contrast="true"] .workspace-theme-toggle,
+#workspace-shell[data-high-contrast="true"] [data-workspace-renderer="component"] {
+  border-width: 2px;
+}
+
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 

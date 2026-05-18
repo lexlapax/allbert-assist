@@ -41,6 +41,7 @@ defmodule AllbertAssistWeb.AgentLive do
         user_id: user_id,
         thread_id: thread_id,
         workspace_theme: workspace_theme(),
+        workspace_high_contrast?: workspace_high_contrast?(),
         active_objectives: active_objectives(user_id),
         prompt: "Hello Allbert. What can you do right now?",
         response: nil,
@@ -90,6 +91,21 @@ defmodule AllbertAssistWeb.AgentLive do
 
   def handle_event("toggle_approval_details", _params, socket) do
     {:noreply, update(socket, :show_approval_details?, &(!&1))}
+  end
+
+  def handle_event("toggle_workspace_theme", _params, socket) do
+    next_theme = next_workspace_theme(socket.assigns.workspace_theme)
+
+    case Settings.put("workspace.theme", next_theme, %{
+           actor: socket.assigns.user_id,
+           channel: :live_view
+         }) do
+      {:ok, _setting} ->
+        {:noreply, assign(socket, :workspace_theme, next_theme)}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, :error, "Workspace theme update failed: #{inspect(reason)}")}
+    end
   end
 
   def handle_event("approve_confirmation", %{"id" => id}, socket) do
@@ -150,8 +166,13 @@ defmodule AllbertAssistWeb.AgentLive do
     <Layouts.app flash={@flash}>
       <section
         id="workspace-shell"
-        class="mx-auto max-w-6xl px-4 py-6"
+        class={[
+          "workspace-shell mx-auto max-w-6xl px-4 py-6",
+          @workspace_high_contrast? && "workspace-high-contrast"
+        ]}
         data-theme={theme_attribute(@workspace_theme)}
+        data-workspace-theme={@workspace_theme}
+        data-high-contrast={bool_attribute(@workspace_high_contrast?)}
       >
         <.live_component
           module={WorkspaceRenderer}
@@ -368,6 +389,19 @@ defmodule AllbertAssistWeb.AgentLive do
     end
   end
 
+  defp workspace_high_contrast? do
+    case Settings.get("workspace.accessibility.high_contrast") do
+      {:ok, true} -> true
+      _other -> false
+    end
+  end
+
+  defp next_workspace_theme("dark"), do: "light"
+  defp next_workspace_theme(_theme), do: "dark"
+
+  defp bool_attribute(true), do: "true"
+  defp bool_attribute(false), do: "false"
+
   defp theme_attribute("dark"), do: "dark"
   defp theme_attribute("light"), do: "light"
   defp theme_attribute(_theme), do: nil
@@ -379,7 +413,9 @@ defmodule AllbertAssistWeb.AgentLive do
       active_objectives: assigns.active_objectives,
       canvas_tiles: assigns.canvas_tiles,
       ephemeral_surfaces: assigns.ephemeral_surfaces,
-      workspace_badges: assigns.workspace_badges
+      workspace_badges: assigns.workspace_badges,
+      workspace_theme: assigns.workspace_theme,
+      workspace_high_contrast?: assigns.workspace_high_contrast?
     }
   end
 

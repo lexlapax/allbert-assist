@@ -62,6 +62,51 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(view, "#workspace-shell[data-theme='dark']")
   end
 
+  test "workspace theme toggle persists dark mode across reload", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/agent")
+
+    assert has_element?(
+             view,
+             "#workspace-theme-toggle[data-current-theme='system'][data-next-theme='dark']"
+           )
+
+    html =
+      view
+      |> element("#workspace-theme-toggle")
+      |> render_click()
+
+    assert html =~ ~s(data-workspace-theme="dark")
+    assert {:ok, "dark"} = Settings.get("workspace.theme")
+    assert has_element?(view, "#workspace-shell[data-theme='dark'][data-workspace-theme='dark']")
+
+    assert has_element?(
+             view,
+             "#workspace-theme-toggle[data-current-theme='dark'][data-next-theme='light']"
+           )
+
+    {:ok, reloaded, _html} = live(conn, ~p"/agent")
+    assert has_element?(reloaded, "#workspace-shell[data-theme='dark']")
+  end
+
+  test "mount applies high contrast workspace variant", %{conn: conn} do
+    assert {:ok, _setting} = Settings.put("workspace.theme", "dark", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.accessibility.high_contrast", true, %{audit?: false})
+
+    {:ok, view, html} = live(conn, ~p"/agent")
+
+    assert html =~ "workspace-high-contrast"
+    assert html =~ ~s(data-high-contrast="true")
+
+    assert has_element?(
+             view,
+             "#workspace-shell.workspace-high-contrast[data-theme='dark'][data-high-contrast='true']"
+           )
+
+    assert has_element?(view, "#workspace-theme-toggle[data-high-contrast='true']")
+  end
+
   test "renders emitted canvas fragments through the workspace shell", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
     envelope = signed_envelope(%{surface: fragment_surface(:text, "Canvas fragment body")})
