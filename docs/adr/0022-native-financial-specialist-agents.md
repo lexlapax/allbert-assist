@@ -2,10 +2,13 @@
 
 ## Status
 
-Proposed. Targeted for acceptance with v0.25 Native Financial
-Specialist Agents M6 closeout. Amendments below (Section: v0.25
-Amendments) enumerate plan-level decisions crystallized during the
-third validation pass on 2026-05-17.
+Accepted with v0.25 Native Financial Specialist Agents M6 closeout on
+2026-05-17. Amendments below enumerate the binding implementation
+shape that shipped: 10 plugin-owned specialist agents, the
+`StockSage.Agents.NativeCoordinator` JidoBacked orchestrator,
+Settings-bounded multi-round debate with durable objective-step
+observability, explicit Python comparison/parity, and the core
+`mix allbert.delegate` proof.
 
 ## Context
 
@@ -145,7 +148,7 @@ would lose the adversarial-quality property of separate per-stance
 LLM calls. Keeping them distinct also matches the Python rating-scale
 parity metric's "5-point" granularity (see A6).
 
-### A2. Multi-round debate via objective-step loop
+### A2. Multi-round debate with objective-step observability
 
 Bull/bear and risk debaters support multiple debate rounds bounded by
 two settings: `stocksage.native_max_debate_rounds` (default 2 for
@@ -154,16 +157,18 @@ for risk-debate cycles). Each round = one `objective_steps` row of
 `kind: :delegate_agent` with the round's `round_index` in the request
 packet and prior rounds' reports in `prior_reports`.
 
-The coordinator does NOT loop internally. It uses the v0.24
-Objectives.Engine.Agent hybrid proposer Stage 4
-(`{:ok, [steps], {:more, hint}}` continuation) to schedule the next
-round. This makes every round a durable, inspectable `objective_step`
-row that operators can trace via `mix allbert.objectives show`.
+The coordinator owns the StockSage-specific internal graph loop. It is
+the only module that decides the fixed M5 stage order for market/news/
+fundamentals, bull/bear rounds, risk rounds, synthesis, and quality
+gate. The generic v0.24 Objective Engine remains the lifecycle and
+inspection substrate rather than a StockSage-specific graph scheduler.
 
-Loop-cap precedence per ADR 0021 §3 (Bounded loops) applies: if a
-debate would exceed `objectives.max_loop_count`, the v0.24 engine
-records `:impasse` with `would_have_continued_verdict`; the
-operator can raise the cap and continue.
+Rationale: specialist debate turns are plugin-owned internal advisory
+turns, not operator-callable top-level action proposals. Keeping the
+round loop inside the coordinator avoids asking the generic Objective
+Engine to know StockSage's graph grammar while still recording every
+turn as a durable, inspectable `objective_step` row that operators can
+trace via `mix allbert.objectives show`.
 
 ### A3. `StockSage.Agents.NativeCoordinator` JidoBacked orchestrator
 
@@ -183,10 +188,10 @@ under `StockSage.Supervisor`, called from
 each specialist agent via the v0.24 `DelegateAgent` registered action
 through `Actions.Runner.run/3` — the registry boundary stays intact.
 
-The coordinator's projection state is a cache. SQLite (objective +
-step rows) remains authoritative. `rebuild_state/1` rehydrates from
-in-flight objectives where `status in [:open, :running, :blocked]`
-and step `kind: :delegate_agent` exists.
+The coordinator's projection state is a cache. SQLite objective/step
+rows and StockSage domain rows remain authoritative for operator
+inspection and persistence; coordinator restarts do not become a
+separate durable task graph.
 
 ### A4. 5 tiered evidence actions
 
@@ -229,7 +234,8 @@ key remains in schema, `RunAnalysis` must not read it to choose the
 engine.
 
 When `engine = "both"`, the coordinator runs native and Python
-concurrently via `Task.async/1` under its own task supervisor.
+concurrently with bounded `Task.async/1` fan-out and the same
+`stocksage.bridge_timeout_ms` timeout posture.
 Results merge into ONE `stocksage_analyses` row with both engines'
 final-state fields populated under namespaced JSON keys in the
 details row (`native_report`, `python_report`, `parity_diff`).
@@ -357,10 +363,11 @@ expand).
   regression fixtures, but not for automatic fallback or persistent-default
   engine selection. `--engine both` per A5 runs both engines concurrently and
   persists a parity diff per A6.
-- Multi-round bull/bear/risk debate is implemented via the v0.24
-  objective-step loop (A2), giving operators per-round inspectability via
-  `mix allbert.objectives show <id>` without coupling the coordinator to
-  internal debate-state management.
+- Multi-round bull/bear/risk debate is implemented inside the
+  StockSage coordinator with durable objective-step observability (A2),
+  giving operators per-round inspectability via
+  `mix allbert.objectives show <id>` without coupling the generic
+  Objective Engine to StockSage-specific graph grammar.
 - A new JidoBacked orchestrator (`StockSage.Agents.NativeCoordinator`) per A3
   composes the agents into the analysis flow. The coordinator is not
   registered in AgentRegistry; it is called from `StockSage.Actions.RunAnalysis`
@@ -421,11 +428,10 @@ neutral) into a single agent would lose the adversarial-quality property of
 separate per-stance LLM calls. v0.25 keeps them distinct as 3 specialist
 agents to preserve Python's final-decision quality.
 
-### Internal coordinator loop (rejected per A2)
+### Hidden internal coordinator loop
 
-Rejected. A coordinator that loops internally for multi-round debate would
-hide rounds from the v0.24 objective-step trace. Each round must be a
-durable, inspectable `objective_step` row. The coordinator therefore uses
-the v0.24 hybrid proposer Stage 4 `{:more, hint}` continuation to schedule
-the next round, keeping every round visible in `mix allbert.objectives
-show`.
+Rejected. The shipped coordinator owns the StockSage graph loop, but it
+does not hide the loop. Every specialist turn is persisted as a durable
+`objective_step` row with `round_index` metadata. A private loop that
+only returned a final report without objective-step observability remains
+rejected.
