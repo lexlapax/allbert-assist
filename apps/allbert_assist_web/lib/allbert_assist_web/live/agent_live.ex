@@ -45,7 +45,8 @@ defmodule AllbertAssistWeb.AgentLive do
         approval_handoff: nil,
         approval_lines: [],
         approval_result: nil,
-        show_approval_details?: false
+        show_approval_details?: false,
+        workspace_badges: []
       )
       |> assign(workspace_assigns(user_id, thread_id))
 
@@ -208,15 +209,24 @@ defmodule AllbertAssistWeb.AgentLive do
   defp handle_fragment(%Envelope{} = envelope, socket) do
     if envelope.user_id == socket.assigns.user_id and
          envelope.thread_id == socket.assigns.thread_id do
-      case persist_fragment(envelope) do
-        {:ok, _record} ->
-          refresh_workspace(socket)
-
-        {:error, reason} ->
-          assign(socket, :error, "Workspace fragment skipped: #{inspect(reason)}")
-      end
+      apply_workspace_fragment(socket, envelope)
     else
       socket
+    end
+  end
+
+  defp apply_workspace_fragment(socket, %Envelope{} = envelope) do
+    if header_badge_fragment?(envelope) do
+      put_workspace_badge(socket, envelope)
+    else
+      persist_workspace_fragment(socket, envelope)
+    end
+  end
+
+  defp persist_workspace_fragment(socket, %Envelope{} = envelope) do
+    case persist_fragment(envelope) do
+      {:ok, _record} -> refresh_workspace(socket)
+      {:error, reason} -> assign(socket, :error, "Workspace fragment skipped: #{inspect(reason)}")
     end
   end
 
@@ -226,6 +236,22 @@ defmodule AllbertAssistWeb.AgentLive do
       "ephemeral" -> Workspace.open_ephemeral(fragment_attrs(envelope))
       _scope -> {:error, :invalid_scope}
     end
+  end
+
+  defp header_badge_fragment?(%Envelope{kind: kind, metadata: metadata}) do
+    normalize_kind(kind) == "badge_strip" and
+      metadata_value(metadata, :placement) == "canvas_header"
+  end
+
+  defp put_workspace_badge(socket, %Envelope{} = envelope) do
+    badges =
+      [envelope | socket.assigns.workspace_badges]
+      |> Enum.uniq_by(& &1.id)
+      |> Enum.take(5)
+
+    socket
+    |> assign(:workspace_badges, badges)
+    |> refresh_workspace()
   end
 
   defp fragment_attrs(%Envelope{} = envelope) do
@@ -263,6 +289,12 @@ defmodule AllbertAssistWeb.AgentLive do
   defp normalize_kind(kind) when is_binary(kind), do: kind
   defp normalize_kind(kind), do: to_string(kind)
 
+  defp metadata_value(metadata, key) when is_map(metadata) do
+    Map.get(metadata, key) || Map.get(metadata, Atom.to_string(key))
+  end
+
+  defp metadata_value(_metadata, _key), do: nil
+
   defp emitted_at(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
   defp emitted_at(datetime) when is_binary(datetime), do: datetime
   defp emitted_at(_datetime), do: nil
@@ -270,23 +302,29 @@ defmodule AllbertAssistWeb.AgentLive do
   defp refresh_workspace(socket) do
     assign(
       socket,
-      workspace_assigns(socket.assigns.user_id, socket.assigns.thread_id)
+      workspace_assigns(
+        socket.assigns.user_id,
+        socket.assigns.thread_id,
+        socket.assigns.workspace_badges
+      )
     )
   end
 
-  defp workspace_assigns(user_id, thread_id) do
+  defp workspace_assigns(user_id, thread_id, workspace_badges \\ []) do
     tiles = canvas_tiles(thread_id, user_id)
     surfaces = ephemeral_surfaces(thread_id, user_id)
 
     %{
       canvas_tiles: tiles,
       ephemeral_surfaces: surfaces,
+      workspace_badges: workspace_badges,
       workspace_surface:
         WorkspaceCatalog.workspace_tree(
           user_id: user_id,
           thread_id: thread_id,
           canvas_tiles: tiles,
-          ephemeral_surfaces: surfaces
+          ephemeral_surfaces: surfaces,
+          workspace_badges: workspace_badges
         )
     }
   end
@@ -322,7 +360,8 @@ defmodule AllbertAssistWeb.AgentLive do
       thread_id: assigns.thread_id,
       active_objectives: assigns.active_objectives,
       canvas_tiles: assigns.canvas_tiles,
-      ephemeral_surfaces: assigns.ephemeral_surfaces
+      ephemeral_surfaces: assigns.ephemeral_surfaces,
+      workspace_badges: assigns.workspace_badges
     }
   end
 

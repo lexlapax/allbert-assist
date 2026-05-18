@@ -106,6 +106,30 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert surface.id == envelope.id
   end
 
+  test "renders canvas-header badge fragments without persisting them as tiles", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/agent")
+
+    envelope =
+      signed_envelope(%{
+        emitter_id: "AllbertAssist.Workspace.Canvas",
+        kind: :badge_strip,
+        metadata: %{placement: "canvas_header"},
+        surface: fragment_surface(:status_badge, "1 older tile(s) archived")
+      })
+
+    Phoenix.PubSub.broadcast(
+      AllbertAssistWeb.PubSub,
+      SignalBridge.topic_for("local"),
+      {:fragment, envelope}
+    )
+
+    html = render(view)
+
+    assert html =~ "Workspace notices"
+    assert html =~ "1 older tile(s) archived"
+    assert {:ok, []} = Workspace.canvas_tiles("local-default", "local")
+  end
+
   test "submits prompts through the runtime boundary", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
 
