@@ -8,8 +8,11 @@ defmodule AllbertAssistWeb.AgentLive do
   use AllbertAssistWeb, :live_view
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Session
   alias AllbertAssist.Settings
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
@@ -19,10 +22,15 @@ defmodule AllbertAssistWeb.AgentLive do
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
   alias Jido.Signal
 
+  @default_user_id "local"
+  @default_session_id "web-local"
+
   @impl true
-  def mount(_params, _session, socket) do
-    user_id = "local"
-    thread_id = "local-default"
+  def mount(params, _session, socket) do
+    user_id = @default_user_id
+    session_id = @default_session_id
+    {thread_id, mount_error} = resolve_workspace_thread(params, user_id)
+    active_app = resolve_workspace_active_app(params, user_id, session_id)
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for(user_id))
@@ -40,6 +48,8 @@ defmodule AllbertAssistWeb.AgentLive do
       |> assign(
         user_id: user_id,
         thread_id: thread_id,
+        session_id: session_id,
+        active_app: active_app,
         workspace_theme: workspace_theme(),
         workspace_high_contrast?: workspace_high_contrast?(),
         workspace_mobile_tab: "chat",
@@ -48,7 +58,7 @@ defmodule AllbertAssistWeb.AgentLive do
         active_objectives: active_objectives(user_id),
         prompt: "Hello Allbert. What can you do right now?",
         response: nil,
-        error: nil,
+        error: mount_error,
         asking?: false,
         status: nil,
         signal_id: nil,
@@ -66,6 +76,16 @@ defmodule AllbertAssistWeb.AgentLive do
 
   @impl true
   def handle_event("ask", %{"prompt" => prompt}, socket) do
+    runtime_request = %{
+      text: prompt,
+      channel: :live_view,
+      user_id: socket.assigns.user_id,
+      operator_id: socket.assigns.user_id,
+      thread_id: socket.assigns.thread_id,
+      session_id: socket.assigns.session_id,
+      active_app: socket.assigns.active_app
+    }
+
     socket =
       socket
       |> assign(
@@ -82,11 +102,7 @@ defmodule AllbertAssistWeb.AgentLive do
         show_approval_details?: false
       )
       |> start_async(:ask, fn ->
-        Runtime.submit_user_input(%{
-          text: prompt,
-          channel: :live_view,
-          operator_id: "local"
-        })
+        Runtime.submit_user_input(runtime_request)
       end)
 
     {:noreply, socket}
@@ -197,6 +213,10 @@ defmodule AllbertAssistWeb.AgentLive do
         ]}
         data-theme={theme_attribute(@workspace_theme)}
         data-workspace-theme={@workspace_theme}
+        data-user-id={@user_id}
+        data-thread-id={@thread_id}
+        data-session-id={@session_id}
+        data-active-app={active_app_attribute(@active_app)}
         data-high-contrast={bool_attribute(@workspace_high_contrast?)}
         data-mobile-tab={@workspace_mobile_tab}
         data-offline-enabled={bool_attribute(@workspace_offline_enabled?)}
@@ -299,6 +319,73 @@ defmodule AllbertAssistWeb.AgentLive do
 
   defp refresh_objectives(socket) do
     assign(socket, :active_objectives, active_objectives(socket.assigns.user_id))
+  end
+
+  defp resolve_workspace_thread(params, user_id) do
+    attrs = %{
+      user_id: user_id,
+      thread_id: param(params, "thread_id"),
+      text: "Workspace session"
+    }
+
+    case Conversations.resolve_thread(attrs) do
+      {:ok, thread} ->
+        {thread.id, nil}
+
+      {:error, reason} ->
+        case Conversations.resolve_thread(%{user_id: user_id, text: "Workspace session"}) do
+          {:ok, thread} ->
+            {thread.id, "Workspace thread fallback: #{inspect(reason)}"}
+
+          {:error, fallback_reason} ->
+            raise "failed to resolve workspace thread: #{inspect(fallback_reason)}"
+        end
+    end
+  end
+
+  defp resolve_workspace_active_app(params, user_id, session_id) do
+    requested_app = param(params, "app_id") || param(params, "active_app")
+
+    case requested_app do
+      app_id when is_binary(app_id) and app_id != "" ->
+        maybe_persist_known_active_app(user_id, session_id, app_id)
+        app_id
+
+      _other ->
+        session_active_app(user_id, session_id) || :allbert
+    end
+  end
+
+  defp maybe_persist_known_active_app(user_id, session_id, app_id) do
+    case AppRegistry.normalize_app_id(app_id) do
+      {:ok, nil} ->
+        _ = Session.clear_active_app(user_id, session_id)
+        :ok
+
+      {:ok, normalized} ->
+        _ = Session.set_active_app(user_id, session_id, normalized)
+        :ok
+
+      {:error, :unknown_app} ->
+        :ok
+    end
+  catch
+    :exit, _reason -> :ok
+  end
+
+  defp session_active_app(user_id, session_id) do
+    case Session.get(user_id, session_id, touch?: true) do
+      {:ok, %{active_app: active_app}} -> active_app
+      _other -> nil
+    end
+  end
+
+  defp param(params, key) when is_map(params) do
+    case Map.get(params, key) || Map.get(params, String.to_atom(key)) do
+      value when is_binary(value) -> String.trim(value)
+      value when is_atom(value) -> Atom.to_string(value)
+      _other -> nil
+    end
   end
 
   defp handle_workspace_event(%Signal{} = signal, socket) do
@@ -535,6 +622,10 @@ defmodule AllbertAssistWeb.AgentLive do
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
+
+  defp active_app_attribute(app) when is_atom(app), do: Atom.to_string(app)
+  defp active_app_attribute(app) when is_binary(app), do: app
+  defp active_app_attribute(_app), do: ""
 
   defp offline_banner_state(true), do: "online"
   defp offline_banner_state(false), do: "disabled"
