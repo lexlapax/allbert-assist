@@ -12,7 +12,8 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
       step_id: [type: :string, required: true],
       delegate_agent_id: [type: :string, required: true],
       command: [type: :string, required: false],
-      params: [type: :map, required: false]
+      params: [type: :map, required: false],
+      timeout_ms: [type: :integer, required: false]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -30,7 +31,10 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
     with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
          {:ok, agent_id} <- agent_id(params),
          {:ok, command} <- command(params),
-         {:ok, result} <- AgentRegistry.dispatch(agent_id, command, field(params, :params, %{})) do
+         {:ok, result} <-
+           AgentRegistry.dispatch(agent_id, command, field(params, :params, %{}),
+             timeout: delegate_timeout_ms(params)
+           ) do
       {:ok,
        %{
          message: "Delegated objective step to #{agent_id}.",
@@ -74,6 +78,13 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
 
       true ->
         {:error, :invalid_delegate_command}
+    end
+  end
+
+  defp delegate_timeout_ms(params) do
+    case field(params, :timeout_ms) do
+      value when is_integer(value) and value > 0 -> min(value, 900_000)
+      _other -> 180_000
     end
   end
 

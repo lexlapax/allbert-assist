@@ -163,6 +163,24 @@ defmodule AllbertAssist.JidoBackedTest do
              JidoBacked.dispatch(name, "test.directive_single", %{}, source: "/test")
   end
 
+  test "dispatch can reject stale last_result for commands that require a fresh result" do
+    name = :"stale_result_agent_#{System.unique_integer([:positive])}"
+
+    start_supervised!(
+      {DirectiveOnlyAgent,
+       name: name,
+       initial_state: %{mode: :directive_only, last_command: :rebuild, last_result: {:ok, :stale}}}
+    )
+
+    assert {:error,
+            {:stale_jido_backed_result,
+             %{expected_command: :directive_list, last_command: :rebuild}}} =
+             JidoBacked.dispatch(name, "test.directive_list", %{},
+               source: "/test",
+               expected_command: :directive_list
+             )
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end

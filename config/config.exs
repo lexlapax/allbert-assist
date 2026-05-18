@@ -98,6 +98,13 @@ config :jido_ai,
     stream: %{model: :fast, temperature: 0.2, max_tokens: 1024, timeout: 30_000}
   }
 
+# Native objective and StockSage specialist coordinator actions can legally
+# orchestrate multiple ordered stages of bounded LLM/provider calls. Keep
+# Jido.Action's outer execution budget above the sum of the per-specialist
+# `stocksage.native_agent_timeout_ms` defaults so the coordinator owns timeout
+# semantics instead of being killed by the generic action runner first.
+config :jido_action, default_timeout: 900_000
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

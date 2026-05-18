@@ -4,53 +4,29 @@ defmodule StockSage.Agents.Specialist do
   defmacro __using__(opts) do
     agent_id = Keyword.fetch!(opts, :agent_id)
     role = Keyword.fetch!(opts, :role)
-    type = Keyword.get(opts, :type, :jido_ai)
-    spec = StockSage.Agents.spec!(agent_id)
-    prompt = File.read!(StockSage.Agents.prompt_path(spec))
     name = agent_id |> String.replace(".", "_")
     description = Keyword.get(opts, :description, "StockSage #{role} specialist.")
-    tools = Map.get(spec, :tool_modules, [])
 
     signal_routes = [
       {"allbert.objectives.delegate.execute", StockSage.Agents.Commands.Execute}
     ]
 
-    agent_use =
-      case type do
-        :jido_ai ->
-          quote do
-            use Jido.AI.Agent,
-              name: unquote(name),
-              description: unquote(description),
-              model: :fast,
-              tools: unquote(Macro.escape(tools)),
-              plugins: [StockSage.Agents.DelegatePlugin],
-              system_prompt: unquote(prompt)
-
-            @impl true
-            def signal_routes, do: unquote(Macro.escape(signal_routes))
-
-            @impl true
-            def signal_routes(_ctx), do: signal_routes()
-          end
-
-        :jido ->
-          quote do
-            use Jido.Agent,
-              name: unquote(name),
-              description: unquote(description),
-              signal_routes: unquote(Macro.escape(signal_routes))
-          end
-      end
-
     quote location: :keep do
       @dialyzer {:nowarn_function, __agent_metadata__: 0}
       @dialyzer {:nowarn_function, actions: 0}
       @dialyzer {:nowarn_function, signal_routes: 0}
-      @dialyzer {:nowarn_function, signal_routes: 1}
       @dialyzer {:nowarn_function, validate: 2}
 
-      unquote(agent_use)
+      # The OTP process is a deterministic Jido signal router. The LLM
+      # boundary lives inside `StockSage.Agents.Commands.Execute`, which calls
+      # `Jido.AI.generate_object/3` with bounded schemas and settings-driven
+      # model profiles. Keeping the process as `Jido.Agent` preserves
+      # `AgentServer.call/3` signal-route semantics while still letting
+      # non-quality specialists use Jido.AI for report generation.
+      use Jido.Agent,
+        name: unquote(name),
+        description: unquote(description),
+        signal_routes: unquote(Macro.escape(signal_routes))
 
       @agent_id unquote(agent_id)
       @role unquote(role)

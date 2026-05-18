@@ -31,6 +31,13 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
     assert report.final_trade_decision in ["Buy", "Overweight", "Hold", "Underweight", "Sell"]
     assert map_size(report.agent_reports) == 10
     assert report.agent_reports["stocksage.market_context"].evidence_used != []
+
+    assert get_in(hd(report.agent_reports["stocksage.market_context"].evidence_used), [
+             :evidence,
+             :payload,
+             "ticker"
+           ]) == "AAPL"
+
     assert report.agent_reports["stocksage.decision_synthesizer"].final_trade_decision
     assert report.agent_reports["stocksage.quality_gate"].quality_status == :passed
   end
