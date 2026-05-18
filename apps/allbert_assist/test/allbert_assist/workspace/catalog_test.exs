@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Workspace.CatalogTest do
   use ExUnit.Case, async: true
 
+  alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Catalog
 
   test "known components returns the 42-component v0.26 allow-list" do
@@ -29,8 +30,22 @@ defmodule AllbertAssist.Workspace.CatalogTest do
            )
   end
 
-  test "renderer dispatch is present as an M2 stub" do
-    assert {:error, :renderer_not_implemented} = Catalog.component_renderer(:workspace)
+  test "workspace tree returns the v0.26 core /agent surface" do
+    surface = Catalog.workspace_tree(user_id: "local", thread_id: "thread-1")
+
+    assert surface.id == :agent
+    assert surface.path == "/agent"
+    assert surface.kind == :workspace
+    assert surface.metadata.workspace == %{user_id: "local", thread_id: "thread-1"}
+
+    assert [%Node{component: :workspace, children: children}] = surface.nodes
+    assert Enum.any?(children, &match?(%Node{component: :chat}, &1))
+    assert Enum.any?(children, &match?(%Node{component: :canvas}, &1))
+    assert Enum.any?(children, &match?(%Node{component: :ephemeral_surface}, &1))
+  end
+
+  test "renderer dispatch is web-agnostic placeholder metadata" do
+    assert {:ok, :placeholder} = Catalog.component_renderer(:workspace)
     assert {:error, :unknown_component} = Catalog.component_renderer(:invented)
   end
 end
