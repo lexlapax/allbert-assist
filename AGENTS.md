@@ -95,8 +95,9 @@ Use these as starting points, then narrow further from the active task:
   the objective runtime, not a one-for-one Python TradingAgents graph clone.
   Python bridge calls after v0.25 are explicit comparison/reference runs only,
   never automatic fallback or a persistent default.
-- Workspace shell, ephemeral UI, canvas, or app surfaces: read ADR 0015 and the
-  active workspace/surface milestone plan.
+- Workspace shell, ephemeral UI, canvas, offline editing, Fragments, or app
+  surfaces: read ADR 0015, ADR 0023, `docs/plans/v0.26-plan.md`, and
+  `docs/plans/v0.26-request-flow.md`.
 
 ## Non-Negotiables
 
@@ -128,6 +129,9 @@ Use these as starting points, then narrow further from the active task:
 - Runtime-facing action invocation should resolve through
   `AllbertAssist.Actions.Registry` and execute through
   `AllbertAssist.Actions.Runner.run/3`.
+- Workspace canvas, ephemeral surface, Fragment, and offline-edit behavior
+  belongs behind `AllbertAssist.Workspace`, signals, and registered actions;
+  LiveViews render and dispatch but do not own workspace authority.
 - Security decisions and permission checks belong at the action boundary.
   Skills, model output, app metadata, plugin metadata, YAML declarations, and
   generated files never grant permission by themselves.

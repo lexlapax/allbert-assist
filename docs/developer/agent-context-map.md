@@ -91,7 +91,8 @@ Do not load every section by default.
   <agent_id>` Mix task in Allbert core proves cross-app callability.
   No one-for-one Python graph clone. No automatic native → Python
   fallback, and no persistent Python/parity engine default.
-- v0.26: Agentic Workspace Surface And Ephemeral UI Substrate. The
+- v0.26: Agentic Workspace Surface And Ephemeral UI Substrate (implemented
+  2026-05-18; release tag pending operator acceptance). The
   `/agent` LiveView becomes a fully-dynamic workspace shell rendered
   by walking a Surface tree composed of regions, tiles, and
   ephemeral surfaces. Per-thread Canvas (persistent tiles bound to
@@ -231,7 +232,7 @@ declared through `AllbertAssist.App.SurfaceProvider` and validated by
 routes dynamically without an explicit plan.
 
 v0.26 expands the Surface DSL substrate from a single chat-only `/agent`
-LiveView to the **agentic workspace shell**:
+LiveView to the shipped **agentic workspace shell**:
 
 - The workspace shell IS itself a Surface tree (per ADR 0023 §2 + the
   v0.26 design choice). `CoreApp.surfaces/0` declares the workspace

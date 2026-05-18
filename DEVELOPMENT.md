@@ -128,7 +128,8 @@ git diff --check
 
 - `apps/allbert_assist/`: core OTP app, runtime, agents, actions, memory,
   security, settings, execution policy/specs, and Mix tasks.
-- `apps/allbert_assist_web/`: Phoenix web app and LiveView operator surfaces.
+- `apps/allbert_assist_web/`: Phoenix web app and LiveView operator surfaces,
+  including the v0.26 `/agent` workspace shell.
 - `config/`: Phoenix, repo, release, and bootstrap configuration.
 - `docs/plans/`: roadmap and implementation-ready milestone plans.
 - `docs/adr/`: architectural decisions.
@@ -167,6 +168,9 @@ Core rules:
 - CLI tasks, LiveViews, jobs, and future channel adapters should call runtime,
   signal, agent, or action boundaries rather than owning domain semantics
   directly.
+- Workspace canvas, ephemeral surface, Fragment, and offline-edit behavior
+  lives behind `AllbertAssist.Workspace` and registered actions; LiveViews
+  render and dispatch, but do not own workspace authority.
 - Permission checks happen at the action boundary.
 - Local command execution is Level 1 policy-bounded host execution in v0.08,
   not OS isolation. Shell execution must enter only through registered actions,
@@ -371,6 +375,10 @@ Where this gets enforced:
   `./plugins/stocksage/allbert_plugin.json` to `"0.25.0"` because
   v0.25 adds the native specialist-agent graph, explicit parity
   analysis, and the core `mix allbert.delegate` operator surface.
+- The v0.26 closeout bumped `AllbertAssist.App.CoreApp.version/0`,
+  umbrella metadata, and child app metadata to `"0.26.0"` because
+  `/agent` became the workspace shell with canvas, ephemeral surfaces,
+  signed Fragments, offline editing, and workspace Mix tasks.
 
 ## Component Substrate: Jido.Agent vs. GenServer
 

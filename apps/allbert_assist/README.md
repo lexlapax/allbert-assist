@@ -2,7 +2,7 @@
 
 Core runtime app for Allbert Assist.
 
-The current v0.25 runtime exposes:
+The current v0.26 runtime exposes:
 
 - `AllbertAssist.Runtime.submit_user_input/1`
 - `AllbertAssist.JidoBacked`
@@ -16,6 +16,13 @@ The current v0.25 runtime exposes:
 - `AllbertAssist.Objectives.Event`
 - `AllbertAssist.Objectives.Engine.Agent`
 - `AllbertAssist.Objectives.AgentRegistry`
+- `AllbertAssist.Workspace`
+- `AllbertAssist.Workspace.Canvas`
+- `AllbertAssist.Workspace.Ephemeral`
+- `AllbertAssist.Workspace.Fragment`
+- `AllbertAssist.Workspace.Offline`
+- `AllbertAssist.Workspace.AGUI.Bridge`
+- `AllbertAssist.Actions.Workspace.RevertTileRevision`
 - `AllbertAssist.Actions.Objectives.ListObjectives`
 - `AllbertAssist.Actions.Objectives.ShowObjective`
 - `AllbertAssist.Actions.Objectives.ContinueObjective`
@@ -23,6 +30,7 @@ The current v0.25 runtime exposes:
 - `AllbertAssist.Actions.Objectives.DelegateAgent`
 - `mix allbert.objectives`
 - `mix allbert.delegate`
+- `mix allbert.workspace`
 - `AllbertAssist.Actions.Registry`
 - `AllbertAssist.Actions.Runner`
 - `AllbertAssist.Intent.Candidate`
@@ -141,12 +149,21 @@ Native analysis is the default engine; explicit Python comparison and
 `mix allbert.delegate <agent_id>` task proves registered delegate agents are
 callable outside StockSage through the v0.24 action boundary.
 
+v0.26 adds the workspace substrate. `AllbertAssist.Workspace` is the public
+facade for per-thread canvas tiles, per-thread ephemeral surfaces, signed
+runtime Fragments, browser/offline reconciliation, and internal AG-UI semantic
+mappings. Workspace mutations use the same registered action, Security
+Central, Settings Central, trace, and Allbert Home boundaries as the rest of
+the runtime.
+
 See the umbrella root `README.md`, `docs/plans/v0.20-plan.md`,
 `docs/plans/v0.20-request-flow.md`, `docs/plans/v0.21-plan.md`,
 `docs/plans/v0.21-request-flow.md`, `docs/plans/v0.22-plan.md`,
 `docs/plans/v0.22-request-flow.md`, `docs/plans/v0.23-plan.md`,
 `docs/plans/v0.23-request-flow.md`, `docs/plans/v0.24-plan.md`,
 `docs/plans/v0.24-request-flow.md`, `docs/plans/v0.25-plan.md`,
-`docs/plans/v0.25-request-flow.md`, `plugins/stocksage/README.md`, and
+`docs/plans/v0.25-request-flow.md`, `docs/plans/v0.26-plan.md`,
+`docs/plans/v0.26-request-flow.md`, `plugins/stocksage/README.md`, and
 `docs/developer/how-to-create-an-allbert-app.md` for current memory review,
-StockSage, app/surface, intent-routing, and objective-runtime behavior.
+StockSage, workspace, app/surface, intent-routing, and objective-runtime
+behavior.

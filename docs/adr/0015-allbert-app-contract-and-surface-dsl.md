@@ -9,7 +9,7 @@ Amended during the v0.26 planning-readiness pass (2026-05-18) to enumerate
 the v0.26 catalog expansion from 12 → 42 components — see the "v0.26
 Catalog Expansion" subsection under Surface DSL. The catalog expansion is the
 substrate ADR 0023 builds on for the workspace canvas + ephemeral surface
-implementation.
+implementation, and was confirmed in place during v0.26 M20 closeout.
 
 ## Context
 

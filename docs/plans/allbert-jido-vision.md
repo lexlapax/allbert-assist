@@ -358,15 +358,17 @@ signals into the bus. They should not become a second private runtime.
 
 ### Agentic Workspace Surface
 
-The Phoenix surface should evolve from a prompt box plus settings page into a
-signal-driven operator workspace. LiveView should render runtime state,
-approval handoffs, traces, memory review, jobs, and channel context without
-owning agent logic, security policy, execution, or memory semantics.
+As of v0.26, the Phoenix `/agent` surface has evolved from a prompt box into a
+signal-driven operator workspace. LiveView renders runtime state, approval
+handoffs, traces, memory review, jobs, canvas tiles, and ephemeral surfaces
+without owning agent logic, security policy, execution, or memory semantics.
 
 Canvas is the persistent work surface for artifacts, traces, approvals, memory
 review, and active tasks. Ephemeral UI is the task-scoped surface Allbert can
 open when text is too thin: a validated, declarative interface generated from
-runtime state and discarded when it is no longer useful.
+runtime state and discarded when it is no longer useful. v0.26 ships the
+per-thread canvas/ephemeral substrate, signed Fragment emission, offline
+text/markdown editing, and internal AG-UI semantic mappings.
 
 The boundary is important. Allbert should prefer declarative surface data,
 known component catalogs, provenance, redaction, fallback text, and registered
@@ -481,10 +483,10 @@ historical aliases only and remain in old reference notes for continuity.
   one through the delegate-agent path; Python bridge remains available only for
   explicit comparison/reference runs and is never automatic fallback. `mix
   allbert.delegate` proves cross-app delegate-agent reuse.
-- v0.26: upgrades `CoreApp`'s declared `/agent` surface (from v0.18) into a
-  signal-driven workspace shell; canvas and ephemeral UI are additive. Built
-  after both analysis engines, objective state, memory review, and intent
-  enrichment are in place.
+- v0.26: shipped the upgrade of `CoreApp`'s declared `/agent` surface (from
+  v0.18) into a signal-driven workspace shell; canvas and ephemeral UI are
+  additive. Built after both analysis engines, objective state, memory review,
+  and intent enrichment are in place.
 - v0.27: StockSage LiveViews built on `AllbertAssist.App.SurfaceProvider`
   from day one; component catalog declared as the foundation for v0.30 canvas;
   renders objective state for StockSage analyses.

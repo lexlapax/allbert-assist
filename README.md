@@ -10,18 +10,18 @@ not the architecture center.
 
 ## Current Status
 
-v0.25 is implemented and ready for operator manual verification. It adds
-StockSage native financial specialist agents: 11 supervised LLM-capable
-Jido.AI specialists, 1 deterministic quality gate, a JidoBacked native
-coordinator, action-backed evidence providers, multi-round debate with
-objective-step observability, explicit native/Python parity runs, and the core
-`mix allbert.delegate <agent_id>` cross-app delegate-agent proof. Version
-metadata is now `0.25.0`.
+v0.26 is implemented and ready for operator manual validation. It upgrades
+`/agent` into the Allbert workspace: a Surface-tree LiveView shell with
+per-thread canvas tiles, per-thread ephemeral surfaces, signed runtime
+Fragments, a 42-component catalog, multi-tab sync, theme/accessibility/mobile
+polish, a service-worker offline shell, browser-side Yjs + IndexedDB
+text/markdown editing, server-side revision snapshots, conflict banners, and
+the `revert_tile_revision` action. Version metadata is now `0.26.0`.
 
-Post-remediation parity tuning added explicit research-manager and trader-plan
-handoffs plus a committee-context ledger for the final synthesizer. Exact
-native/Python rating parity is not guaranteed; deeper evidence-source and
-prompt/agent calibration remains future work.
+v0.25 remains the native-financial-specialist release. It adds StockSage
+native agents, action-backed evidence providers, multi-round debate with
+objective-step observability, explicit native/Python parity runs, and the core
+`mix allbert.delegate <agent_id>` cross-app delegate-agent proof.
 
 Operator loop:
 
@@ -34,6 +34,8 @@ mix allbert.objectives continue <objective_id> --user local
 mix stocksage.analyze AAPL 2026-05-15 --user local --engine native --evidence-mode fixture
 mix stocksage.analyze AAPL 2026-05-15 --user local --engine both --evidence-mode fixture --force-stub
 mix allbert.delegate stocksage.market_context '{"ticker":"AAPL","analysis_date":"2026-05-15","evidence_mode":"fixture","fixture":true}' --user local
+mix allbert.workspace inspect
+mix allbert.workspace canvas list
 ```
 
 v0.23 remains the internal convergence milestone: `Confirmations.Store` and
@@ -189,8 +191,16 @@ Release details live in `CHANGELOG.md`.
 - Let apps declare provider surfaces through
   `AllbertAssist.App.SurfaceProvider` and validated
   `AllbertAssist.Surface` nodes.
-- Treat `/agent` as the built-in `CoreApp` chat surface while leaving the
-  reviewed Phoenix route implementation in place.
+- Treat `/agent` as the built-in `CoreApp` workspace surface: a validated
+  Surface tree rendered through the workspace catalog.
+- Persist per-thread canvas tiles and per-thread ephemeral surfaces under
+  Allbert Home with SQLite metadata and YAML bodies.
+- Emit and validate signed workspace Fragments, render them as tiles or
+  ephemeral surfaces, and inspect workspace state through
+  `mix allbert.workspace`.
+- Edit text and markdown tiles offline through the browser Yjs/IndexedDB
+  editor, then reconcile bounded snapshots back to the server with conflict
+  banners and revert support.
 - Default runtime turns with no known app context to `active_app: allbert` and
   record that context in signals, traces, responses, and conversation metadata.
 - Collect bounded intent candidates from registered actions, trusted skills,
