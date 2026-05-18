@@ -17,6 +17,7 @@ defmodule AllbertAssist.Security.Policy do
     skill_script_execute: "permissions.skill_script_execute",
     confirmation_decide: "permissions.confirmation_decide",
     objective_write: "permissions.objective_write",
+    workspace_canvas_write: "permissions.workspace_canvas_write",
     stocksage_write: "permissions.stocksage_write",
     stocksage_analyze: "permissions.stocksage_analyze",
     stocksage_evidence_fetch: "permissions.stocksage_evidence_fetch"
@@ -35,6 +36,7 @@ defmodule AllbertAssist.Security.Policy do
     skill_script_execute: :denied,
     confirmation_decide: :allowed,
     objective_write: :allowed,
+    workspace_canvas_write: :allowed,
     stocksage_write: :allowed,
     stocksage_analyze: :needs_confirmation,
     stocksage_evidence_fetch: :allowed,
@@ -57,6 +59,7 @@ defmodule AllbertAssist.Security.Policy do
           | :skill_script_execute
           | :confirmation_decide
           | :objective_write
+          | :workspace_canvas_write
           | :stocksage_write
           | :stocksage_analyze
           | :stocksage_evidence_fetch
@@ -79,6 +82,7 @@ defmodule AllbertAssist.Security.Policy do
       :skill_script_execute,
       :confirmation_decide,
       :objective_write,
+      :workspace_canvas_write,
       :stocksage_write,
       :stocksage_analyze,
       :stocksage_evidence_fetch,
@@ -262,6 +266,12 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:objective_write, :denied, _configured, _floor, _context),
     do: "Objective lifecycle writes are denied by current policy."
+
+  defp reason(:workspace_canvas_write, :allowed, _configured, _floor, _context),
+    do: "Workspace canvas writes are allowed through registered workspace actions."
+
+  defp reason(:workspace_canvas_write, :denied, _configured, _floor, _context),
+    do: "Workspace canvas writes are denied by current policy."
 
   defp reason(:stocksage_write, :allowed, _configured, _floor, _context),
     do: "Local StockSage domain writes are allowed through registered StockSage actions."

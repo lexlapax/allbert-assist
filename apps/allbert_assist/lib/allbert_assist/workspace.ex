@@ -35,6 +35,6 @@ defmodule AllbertAssist.Workspace do
           {:ok, [Ephemeral.surface()]} | {:error, term()}
   defdelegate ephemeral_surfaces(thread_id, user_id), to: Ephemeral, as: :surfaces_for_thread
 
-  @spec emit_fragment(Fragment.Envelope.t()) :: :ok | {:error, term()}
+  @spec emit_fragment(Fragment.Envelope.t()) :: {:error, term()}
   defdelegate emit_fragment(envelope), to: Fragment, as: :emit
 end

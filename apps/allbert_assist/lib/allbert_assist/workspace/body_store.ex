@@ -5,6 +5,11 @@ defmodule AllbertAssist.Workspace.BodyStore do
   alias AllbertAssist.Settings.Store, as: SettingsStore
   alias AllbertAssist.Settings.YamlCodec
 
+  @type write_error ::
+          {:body_write_failed, {module(), String.t()}}
+          | {:settings_write_failed, {term(), term()}}
+  @type read_error :: {:settings_parse_failed, String.t() | {:expected_map, term()}}
+
   @spec canvas_body_path(String.t(), String.t(), String.t()) :: String.t()
   def canvas_body_path(user_id, thread_id, tile_id) do
     Path.join(["workspace", "canvas", safe(user_id), safe(thread_id), "#{safe(tile_id)}.yml"])
@@ -28,7 +33,7 @@ defmodule AllbertAssist.Workspace.BodyStore do
     ])
   end
 
-  @spec write_body(String.t(), map()) :: :ok | {:error, term()}
+  @spec write_body(String.t(), map()) :: :ok | {:error, write_error()}
   def write_body(relative_path, body) when is_binary(relative_path) and is_map(body) do
     relative_path
     |> absolute()
@@ -38,13 +43,12 @@ defmodule AllbertAssist.Workspace.BodyStore do
       {:error, {:body_write_failed, {exception.__struct__, Exception.message(exception)}}}
   end
 
-  @spec read_body(String.t() | nil) :: {:ok, map()} | {:error, term()}
+  @spec read_body(String.t() | nil) :: {:ok, map()} | {:error, read_error()}
   def read_body(nil), do: {:ok, %{}}
 
   def read_body(relative_path) when is_binary(relative_path) do
     case YamlCodec.read_file(absolute(relative_path)) do
       {:ok, %{} = body} -> {:ok, body}
-      {:ok, other} -> {:error, {:invalid_body, other}}
       {:error, reason} -> {:error, reason}
     end
   end
