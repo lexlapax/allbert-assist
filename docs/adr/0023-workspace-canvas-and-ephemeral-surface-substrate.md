@@ -133,6 +133,30 @@ Tiles are soft-deleted (`deleted_at`) for forensic recovery; hard
 delete is a follow-up operator command (`mix allbert.workspace
 canvas purge --before <date>`).
 
+**Cap-exceeded policy: FIFO eviction with pinning.** When a tile
+emission would push the per-thread tile count above
+`workspace.canvas.max_tiles_per_thread`, the Canvas store evicts
+the oldest non-pinned tile (FIFO by `inserted_at`). Eviction is a
+soft-delete: SQLite `deleted_at` is set and the body YAML moves to
+`<tile-id>.deleted.<ts>.yml` under the same canvas directory; body
+content is never destroyed. The `pinned: boolean` column on
+`workspace_canvas_tiles` (default `false`) marks tiles exempt from
+FIFO eviction. If every tile in the thread is pinned and the cap is
+exceeded, `Canvas.add_tile/1` returns `{:error,
+:canvas_cap_exceeded}` and the emitter receives the error through
+Fragment validation. Each eviction emits
+`allbert.workspace.tile.removed` with `removed_reason:
+:cap_evicted` and a `:badge_strip` Fragment to the canvas header
+("N older tile(s) archived"). Operators recover via
+`Workspace.restore_tile/2` (and the CLI mirror
+`mix allbert.workspace canvas restore <tile-id>`), which clears
+`deleted_at`, moves the YAML back, and places the tile at the end
+of the position order.
+
+This makes the cap a soft boundary: operator-visible, recoverable,
+discoverable through the canvas header badge, and operator-
+controllable via pinning.
+
 ### 4. Per-thread ephemeral surfaces, shared across tabs
 
 Ephemeral surfaces are bound to a v0.12 thread, NOT to a LiveView
