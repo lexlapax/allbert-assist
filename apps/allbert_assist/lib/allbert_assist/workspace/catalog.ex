@@ -10,4 +10,13 @@ defmodule AllbertAssist.Workspace.Catalog do
 
   @spec known_components() :: [AllbertAssist.Surface.component(), ...]
   def known_components, do: AllbertAssist.Surface.known_components()
+
+  @spec component_renderer(atom()) :: {:error, :renderer_not_implemented | :unknown_component}
+  def component_renderer(component) do
+    if component in known_components() do
+      {:error, :renderer_not_implemented}
+    else
+      {:error, :unknown_component}
+    end
+  end
 end
