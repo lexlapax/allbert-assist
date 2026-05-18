@@ -50,6 +50,7 @@ defmodule AllbertAssist.Workspace.Ephemeral.Surface do
     |> validate_length(:kind, min: 1, max: 64)
     |> validate_length(:body_yaml_path, min: 1, max: 512)
     |> validate_metadata()
+    |> unique_constraint(:id, name: "workspace_ephemeral_surfaces_id_index")
   end
 
   def dismissed_by, do: @dismissed_by

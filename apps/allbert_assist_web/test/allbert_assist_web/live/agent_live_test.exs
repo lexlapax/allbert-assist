@@ -195,13 +195,9 @@ defmodule AllbertAssistWeb.AgentLiveTest do
         surface: fragment_surface(:text, "Canvas fragment body")
       })
 
-    Phoenix.PubSub.broadcast(
-      AllbertAssistWeb.PubSub,
-      SignalBridge.topic_for("local"),
-      {:fragment, envelope}
-    )
+    assert :ok = Workspace.emit_fragment(envelope)
 
-    html = render(view)
+    html = render_until(view, "Canvas fragment body")
 
     assert has_element?(view, "#workspace-node-canvas-tile-#{envelope.id}")
     assert html =~ "Canvas fragment body"
@@ -222,13 +218,9 @@ defmodule AllbertAssistWeb.AgentLiveTest do
         surface: fragment_surface(:approval_card, "Approval fragment body")
       })
 
-    Phoenix.PubSub.broadcast(
-      AllbertAssistWeb.PubSub,
-      SignalBridge.topic_for("local"),
-      {:fragment, envelope}
-    )
+    assert :ok = Workspace.emit_fragment(envelope)
 
-    html = render(view)
+    html = render_until(view, "Approval fragment body")
 
     assert has_element?(view, "#workspace-node-ephemeral-surface-#{envelope.id}")
     assert html =~ "Approval fragment body"
@@ -250,13 +242,9 @@ defmodule AllbertAssistWeb.AgentLiveTest do
         surface: fragment_surface(:status_badge, "1 older tile(s) archived")
       })
 
-    Phoenix.PubSub.broadcast(
-      AllbertAssistWeb.PubSub,
-      SignalBridge.topic_for("local"),
-      {:fragment, envelope}
-    )
+    assert :ok = Workspace.emit_fragment(envelope)
 
-    html = render(view)
+    html = render_until(view, "1 older tile(s) archived")
 
     assert html =~ "Workspace notices"
     assert html =~ "1 older tile(s) archived"
@@ -273,11 +261,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
         surface: fragment_surface(:text, "Wrong thread body")
       })
 
-    Phoenix.PubSub.broadcast(
-      AllbertAssistWeb.PubSub,
-      SignalBridge.topic_for("local"),
-      {:fragment, envelope}
-    )
+    assert :ok = Workspace.emit_fragment(envelope)
 
     html = render(view)
 

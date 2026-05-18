@@ -11,6 +11,7 @@ defmodule AllbertAssistWeb.SignalBridge do
 
   require Logger
 
+  alias AllbertAssist.Workspace.Fragment
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias Jido.Signal
   alias Jido.Signal.Bus
@@ -113,8 +114,19 @@ defmodule AllbertAssistWeb.SignalBridge do
   defp broadcast_workspace(signal), do: broadcast(signal, :workspace_event)
 
   defp broadcast_fragment(%Signal{data: data} = signal) when is_map(data) do
-    envelope = Map.get(data, :envelope) || Map.get(data, "envelope")
+    case Fragment.validate_received(signal) do
+      {:ok, envelope} ->
+        broadcast_validated_fragment(envelope)
 
+      {:error, reason} ->
+        Logger.debug("workspace fragment receive skipped reason=#{inspect(reason)}")
+        :ok
+    end
+  end
+
+  defp broadcast_fragment(signal), do: broadcast_workspace(signal)
+
+  defp broadcast_validated_fragment(envelope) do
     case envelope do
       %Envelope{user_id: user_id} when is_binary(user_id) and user_id != "" ->
         Phoenix.PubSub.broadcast(
@@ -124,9 +136,7 @@ defmodule AllbertAssistWeb.SignalBridge do
         )
 
       _other ->
-        broadcast_workspace(signal)
+        :ok
     end
   end
-
-  defp broadcast_fragment(signal), do: broadcast_workspace(signal)
 end

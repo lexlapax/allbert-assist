@@ -45,11 +45,15 @@ defmodule AllbertAssist.Workspace.BodyStore do
   def write_body(relative_path, body) when is_binary(relative_path) and is_map(body) do
     relative_path
     |> absolute()
-    |> SettingsStore.write_atomic(YamlCodec.encode!(stringify(body)))
+    |> SettingsStore.write_atomic(YamlCodec.encode!(normalize_body(body)))
   rescue
     exception ->
       {:error, {:body_write_failed, {exception.__struct__, Exception.message(exception)}}}
   end
+
+  @doc false
+  @spec normalize_body(map()) :: map()
+  def normalize_body(body) when is_map(body), do: stringify(body)
 
   @spec read_body(String.t() | nil) :: {:ok, map()} | {:error, read_error()}
   def read_body(nil), do: {:ok, %{}}
@@ -106,5 +110,7 @@ defmodule AllbertAssist.Workspace.BodyStore do
   end
 
   defp stringify(list) when is_list(list), do: Enum.map(list, &stringify/1)
+  defp stringify(value) when is_boolean(value) or is_nil(value), do: value
+  defp stringify(value) when is_atom(value), do: Atom.to_string(value)
   defp stringify(value), do: value
 end
