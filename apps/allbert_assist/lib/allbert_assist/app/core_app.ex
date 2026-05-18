@@ -40,34 +40,77 @@ defmodule AllbertAssist.App.CoreApp do
       %Surface{
         id: :agent,
         app_id: :allbert,
-        label: "Allbert Chat",
+        label: "Allbert Workspace",
         path: "/agent",
-        kind: :chat,
+        kind: :workspace,
         status: :available,
-        nodes: [
-          %Node{
-            id: "chat-root",
-            component: :chat,
-            children: [
-              %Node{id: "chat-timeline", component: :timeline},
-              %Node{id: "chat-composer", component: :composer}
-            ]
-          }
-        ],
-        fallback_text: "Allbert chat is available at /agent."
+        nodes: workspace_nodes(),
+        fallback_text: "Allbert workspace is available at /agent."
       }
     ]
   end
 
   def surface_catalog do
-    [
-      %{component: :chat, allowed_props: [], allowed_bindings: []},
-      %{component: :timeline, allowed_props: [], allowed_bindings: []},
-      %{component: :composer, allowed_props: [], allowed_bindings: []}
-    ]
+    Enum.map(Surface.known_components(), fn component ->
+      %{component: component, allowed_props: [], allowed_bindings: []}
+    end)
   end
 
-  def fallback_surface(:agent), do: {:ok, "Allbert chat is available at /agent."}
+  def fallback_surface(:agent), do: {:ok, "Allbert workspace is available at /agent."}
 
   def fallback_surface(_surface_id), do: {:error, :not_found}
+
+  defp workspace_nodes do
+    [
+      %Node{
+        id: "workspace-root",
+        component: :workspace,
+        props: %{layout: "agent_shell"},
+        children: [
+          %Node{
+            id: "workspace-header",
+            component: :header,
+            props: %{
+              title: "Allbert Workspace",
+              subtitle: "Runtime chat, canvas, and ephemeral surfaces."
+            }
+          },
+          %Node{
+            id: "workspace-objectives",
+            component: :badge_strip,
+            props: %{source: "objectives"}
+          },
+          %Node{
+            id: "workspace-chat",
+            component: :chat,
+            props: %{region: "fallback_chat"},
+            children: [
+              %Node{id: "workspace-chat-timeline", component: :timeline},
+              %Node{id: "workspace-chat-composer", component: :composer}
+            ]
+          },
+          %Node{
+            id: "workspace-canvas-region",
+            component: :canvas,
+            props: %{empty?: true, region: "canvas"},
+            children: [
+              %Node{
+                id: "workspace-empty-canvas",
+                component: :empty_state,
+                props: %{
+                  title: "No canvas tiles yet",
+                  body: "Workspace tiles will appear here as runtime fragments land."
+                }
+              }
+            ]
+          },
+          %Node{
+            id: "workspace-ephemeral-region",
+            component: :ephemeral_surface,
+            props: %{empty?: true, region: "ephemeral"}
+          }
+        ]
+      }
+    ]
+  end
 end

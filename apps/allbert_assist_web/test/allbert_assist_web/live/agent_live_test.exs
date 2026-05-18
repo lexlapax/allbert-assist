@@ -36,6 +36,19 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     end)
   end
 
+  test "mount renders workspace shell, chat fallback, and empty canvas placeholder", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/agent")
+
+    assert has_element?(view, "#workspace-shell")
+    assert has_element?(view, "#agent-workspace-renderer")
+    assert has_element?(view, "#workspace-chat-region")
+    assert has_element?(view, "#agent-form")
+    assert has_element?(view, "#workspace-node-workspace-canvas-region")
+    assert has_element?(view, "#workspace-placeholder-workspace-canvas-region")
+    assert html =~ "canvas"
+    assert html =~ "component not implemented"
+  end
+
   test "submits prompts through the runtime boundary", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
 
