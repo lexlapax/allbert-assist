@@ -381,6 +381,13 @@ expand).
   per A1 collapses Python's research_manager + portfolio_manager + trader
   into a single decision_synthesizer; collapses news_analyst +
   sentiment_analyst into news_sentiment).
+- The collapsed `decision_synthesizer` must preserve the committee semantics
+  of the upstream shape: it weighs bull, bear, conservative-risk,
+  neutral-risk, and aggressive-risk reports as separate evidence-bearing
+  positions. It may choose Underweight/Sell when valuation, balance-sheet,
+  trend, catalyst, or evidence-completeness risks dominate improving
+  fundamentals; parity work must not use ticker-specific post-processing or
+  deterministic rating floors.
 - Market-data access becomes more inspectable than the v0.22 Python bridge
   because native evidence is action-backed and Resource Access aware
   (5 tiered evidence actions per A4 with the new
@@ -407,7 +414,8 @@ expand).
 - Fixture mode per A10 is a first-class operator surface for smoke without
   market-data credentials + license-clear smoke data shipping with v0.25.
 - The Jido agent surface grows from the existing IntentAgent to 9 new
-  LLM-capable Jido.AI specialists, 1 deterministic Jido.Agent quality
+  LLM-capable `Jido.Agent` specialist signal routers whose delegate
+  execute command calls Jido.AI, 1 deterministic Jido.Agent quality
   gate, and 1 JidoBacked coordinator. This is the v0.25
   substrate-pattern proof for v0.27+ domain-specific specialist agents.
 

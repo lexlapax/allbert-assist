@@ -21,7 +21,9 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     {20_260_517_000_200, AllbertAssist.Repo.Migrations.AddObjectiveColumnsToScheduledJobs,
      "apps/allbert_assist/priv/repo/migrations/20260517000200_add_objective_columns_to_scheduled_jobs.exs"},
     {20_260_517_000_300, AllbertAssist.Repo.Migrations.AddObjectiveColumnsToStockSageTables,
-     "plugins/stocksage/priv/repo/migrations/20260517000300_add_objective_columns_to_stocksage_tables.exs"}
+     "plugins/stocksage/priv/repo/migrations/20260517000300_add_objective_columns_to_stocksage_tables.exs"},
+    {20_260_517_000_400, AllbertAssist.Repo.Migrations.ExtendStockSageAnalysesForNativeEngine,
+     "plugins/stocksage/priv/repo/migrations/20260517000400_extend_stocksage_analyses_for_native_engine.exs"}
   ]
 
   test "v0.24 objective migrations run up and down on an isolated sqlite database" do
@@ -55,6 +57,8 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     assert table_exists?("objective_events")
     assert column_exists?("scheduled_jobs", "objective_id")
     assert column_exists?("stocksage_analyses", "objective_id")
+    assert column_exists?("stocksage_analyses", "engine")
+    assert column_exists?("stocksage_analyses", "parity_diff")
     assert column_exists?("stocksage_analysis_queue", "step_id")
 
     @migrations
@@ -68,6 +72,8 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     refute table_exists?("objective_events")
     refute column_exists?("scheduled_jobs", "objective_id")
     refute column_exists?("stocksage_analyses", "objective_id")
+    refute column_exists?("stocksage_analyses", "engine")
+    refute column_exists?("stocksage_analyses", "parity_diff")
     refute column_exists?("stocksage_analysis_queue", "step_id")
   end
 

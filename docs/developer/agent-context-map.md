@@ -76,9 +76,9 @@ Do not load every section by default.
   objective steps/events, canonical runtime turn signal aliases,
   objective signals, SignalBridge, and objective intent candidates.
 - v0.25: Native financial specialist agents for StockSage: 9 reusable
-  supervised LLM-capable Jido.AI delegate specialists (analysts,
-  bull/bear theses, 3 risk debaters, decision synthesizer) + 1
-  deterministic Jido.Agent quality gate + 1 JidoBacked
+  supervised LLM-capable `Jido.Agent` delegate specialists whose execute
+  command calls Jido.AI (analysts, bull/bear theses, 3 risk debaters,
+  decision synthesizer) + 1 deterministic Jido.Agent quality gate + 1 JidoBacked
   `StockSage.Agents.NativeCoordinator` orchestrator. Multi-round
   bull/bear/risk debate runs inside the plugin-owned coordinator graph
   while recording durable v0.24 objective steps. 5 tiered evidence actions
