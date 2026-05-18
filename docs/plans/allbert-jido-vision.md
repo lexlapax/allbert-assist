@@ -16,10 +16,12 @@ restartable components.
 The project is already shaped as a Phoenix umbrella with the runtime in
 `allbert_assist` and the web surface in `allbert_assist_web`. The application
 starts `AllbertAssist.Jido`, a `Jido.Signal.Bus`, Phoenix PubSub, and the repo
-under OTP supervision. There is also a sample `Jido.AI.Agent` wired to a
-validated `Jido.Action`, plus model aliases in config so agent code can speak in
-terms like `:fast`, `:capable`, and `:thinking` instead of hard-coding provider
-model names.
+under OTP supervision. `AllbertAssist.Agents.IntentAgent` is a lightweight
+`Jido.Agent`-compatible deterministic router over the registered Allbert action
+surface, while dedicated runtime coordinators use `Jido.Agent` through the
+shared `AllbertAssist.JidoBacked` substrate. Model aliases remain in config so
+future AI-backed agent code can speak in terms like `:fast`, `:capable`, and
+`:thinking` instead of hard-coding provider model names.
 
 The Jido versions in this foundation are:
 
