@@ -18,7 +18,8 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
   alias Jido.Signal
   alias StockSage.Agents
 
-  @default_agent_timeout_ms 90_000
+  @default_agent_timeout_ms 180_000
+  @ratings ["Buy", "Overweight", "Hold", "Underweight", "Sell"]
 
   @impl true
   def run(params, _context) do
@@ -371,8 +372,8 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
       agent_ids: Agents.ids(),
       agent_reports: agent_reports,
       debate_rounds: parts.debate_rounds,
-      final_trade_decision: field(synthesis, :final_trade_decision) || "Hold",
-      recommendation: field(synthesis, :recommendation) || field(synthesis, :rating) || "Hold",
+      final_trade_decision: recommendation_from(synthesis),
+      recommendation: recommendation_from(synthesis),
       confidence: field(synthesis, :confidence, 0.5),
       investment_plan: field(synthesis, :investment_plan),
       trader_investment_plan: field(synthesis, :trader_investment_plan),
@@ -470,6 +471,27 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
   defp warning(agent_id, reason) do
     "#{agent_id}: #{inspect(reason, limit: 20, printable_limit: 240)}"
   end
+
+  defp recommendation_from(synthesis) do
+    [
+      field(synthesis, :final_trade_decision),
+      field(synthesis, :rating),
+      field(synthesis, :recommendation)
+    ]
+    |> Enum.find_value(&normalize_rating/1)
+    |> Kernel.||("Hold")
+  end
+
+  defp normalize_rating(value) when is_binary(value) do
+    normalized = value |> String.trim() |> String.downcase()
+
+    Enum.find(@ratings, fn rating ->
+      String.downcase(rating) == normalized or
+        Regex.match?(~r/\b#{Regex.escape(String.downcase(rating))}\b/, normalized)
+    end)
+  end
+
+  defp normalize_rating(_value), do: nil
 
   defp merge_rounds(bull_rounds, risk_rounds) do
     max_rounds = max(length(bull_rounds), length(risk_rounds))

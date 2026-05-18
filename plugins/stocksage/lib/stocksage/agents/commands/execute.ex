@@ -16,6 +16,7 @@ defmodule StockSage.Agents.Commands.Execute do
 
   alias AllbertAssist.Actions.Runner
   alias StockSage.Agents
+  alias StockSage.Evidence
   alias StockSage.Agents.LLM
   alias StockSage.Agents.ModelProfile
 
@@ -340,11 +341,7 @@ defmodule StockSage.Agents.Commands.Execute do
   defp drop_nil(map), do: Map.reject(map, fn {_key, value} -> is_nil(value) end)
 
   defp bound_evidence(%{evidence: evidence} = summary) when is_map(evidence) do
-    Map.put(
-      summary,
-      :evidence,
-      Map.take(evidence, [:kind, :mode, :ticker, :analysis_date, :source])
-    )
+    Map.put(summary, :evidence, Evidence.prompt_summary(evidence))
   end
 
   defp bound_evidence(summary), do: summary

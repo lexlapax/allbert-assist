@@ -41,6 +41,69 @@ defmodule StockSage.Actions.EvidenceTest do
     assert response.evidence.mode == "fixture"
     assert response.evidence.payload["license"] == "synthetic"
     assert hd(response.resource_access).mode == "fixture"
+
+    summary = Evidence.prompt_summary(response.evidence)
+    assert summary.payload["ticker"] == "AAPL"
+    assert summary.payload["license"] == "synthetic"
+  end
+
+  test "live prompt summary includes bounded response content, not only fetch metadata" do
+    closes = Enum.map(1..210, &(100.0 + &1 / 2))
+    highs = Enum.map(closes, &(&1 + 1.0))
+    lows = Enum.map(closes, &(&1 - 1.0))
+    opens = Enum.map(closes, &(&1 - 0.5))
+    volumes = Enum.map(1..210, &(1_000 + &1))
+
+    body =
+      Jason.encode!(%{
+        "chart" => %{
+          "result" => [
+            %{
+              "meta" => %{
+                "symbol" => "AAPL",
+                "regularMarketPrice" => 211.26,
+                "previousClose" => 210.02,
+                "currency" => "USD"
+              },
+              "timestamp" => Enum.to_list(1..210),
+              "indicators" => %{
+                "quote" => [
+                  %{
+                    "open" => opens,
+                    "high" => highs,
+                    "low" => lows,
+                    "close" => closes,
+                    "volume" => volumes
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      })
+
+    summary =
+      Evidence.prompt_summary(%{
+        kind: :market_data,
+        mode: "live",
+        source: "external_http",
+        ticker: "AAPL",
+        analysis_date: "2026-05-15",
+        result: %{
+          http_status: 200,
+          response_body_bytes: byte_size(body),
+          body_preview: body,
+          truncated?: false
+        }
+      })
+
+    assert summary.http_status == 200
+    assert get_in(summary, [:parsed, :meta, "regularMarketPrice"]) == 211.26
+    assert get_in(summary, [:parsed, :latest_quote, :close]) == List.last(closes)
+    assert get_in(summary, [:parsed, :indicators, :sma_50])
+    assert get_in(summary, [:parsed, :indicators, :rsi_14])
+    assert get_in(summary, [:parsed, :indicators, :trend, :above_sma_50?]) == true
+    assert summary.body_excerpt =~ "chart"
   end
 
   test "global evidence mode and per-call override are respected" do

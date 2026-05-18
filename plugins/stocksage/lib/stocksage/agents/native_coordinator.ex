@@ -49,18 +49,19 @@ defmodule StockSage.Agents.NativeCoordinator do
 
   @spec analyze(GenServer.server(), map()) :: {:ok, map()} | {:error, term()}
   def analyze(server \\ __MODULE__, params) when is_map(params) do
-    dispatch(server, @analyze, params)
+    dispatch(server, @analyze, params, :analyze)
   end
 
   @spec parity_run(GenServer.server(), map()) :: {:ok, map()} | {:error, term()}
   def parity_run(server \\ __MODULE__, params) when is_map(params) do
-    dispatch(server, @parity_run, params)
+    dispatch(server, @parity_run, params, :parity_run)
   end
 
-  defp dispatch(server, signal_type, params) do
+  defp dispatch(server, signal_type, params, expected_command) do
     JidoBacked.dispatch(server, signal_type, params,
       source: "/stocksage/native_coordinator",
-      timeout: :infinity
+      timeout: :infinity,
+      expected_command: expected_command
     )
   end
 end
