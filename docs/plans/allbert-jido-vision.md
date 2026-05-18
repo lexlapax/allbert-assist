@@ -401,11 +401,13 @@ workflow:
   existing TradingAgents baseline.
 - Native agents: reusable financial specialist agents under the v0.24
   objective/delegate-agent contract. They adapt the Python baseline's role
-  intent, result fields, fixtures, and prompt material where license-compatible,
-  but they are designed as Elixir/OTP/Jido agents callable by the wider Allbert
-  runtime, not as a one-for-one TradingAgents class graph. v0.25 ships the
-  plugin-owned coordinator graph, records each specialist turn as an objective
-  step, and keeps Python only as explicit comparison/parity reference.
+  intent, result fields, and fixtures, but they are designed as Elixir/OTP/Jido
+  agents callable by the wider Allbert runtime, not as a one-for-one
+  TradingAgents class graph. v0.25 ships LLM-capable Jido.AI specialist
+  packets through the plugin-owned coordinator graph, records each specialist
+  turn as an objective step, and keeps Python only as explicit
+  comparison/parity reference. Deterministic advisory mode remains available
+  for tests/operator smoke when native LLM generation is explicitly disabled.
 - Web surfaces: workspace, analysis, queue, and trends LiveViews mounted
   through the app contract, setting `active_app: :stocksage` when the user is
   in StockSage context.

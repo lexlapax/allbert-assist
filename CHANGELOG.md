@@ -18,7 +18,7 @@ operator manual verification. Version metadata is `0.25.0`.
 ### Added (v0.25)
 
 - StockSage native financial specialist-agent graph: 9 supervised
-  `Jido.AI` specialists, 1 deterministic quality gate, and the
+  LLM-capable `Jido.AI` specialists, 1 deterministic quality gate, and the
   `StockSage.Agents.NativeCoordinator` JidoBacked orchestrator under
   the StockSage plugin supervisor.
 - Native analysis is now the default `run_analysis` engine. Explicit
@@ -45,6 +45,9 @@ operator manual verification. Version metadata is `0.25.0`.
 - StockSage agent prompts and prompt provenance live under
   `plugins/stocksage/priv/prompts/native_agents/` with v0.25 prompt
   version metadata.
+- `stocksage.native_llm_enabled` controls whether non-quality native
+  specialists call Jido.AI or use deterministic advisory packets for
+  tests/operator smoke.
 - StockSage plugin, app, manifest, CoreApp, and umbrella app versions
   are release-pinned to `0.25.0`.
 - ADR 0022 is Accepted and records the shipped topology, coordinator

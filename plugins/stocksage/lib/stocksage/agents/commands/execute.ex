@@ -16,6 +16,7 @@ defmodule StockSage.Agents.Commands.Execute do
 
   alias AllbertAssist.Actions.Runner
   alias StockSage.Agents
+  alias StockSage.Agents.LLM
   alias StockSage.Agents.ModelProfile
 
   @impl true
@@ -53,7 +54,7 @@ defmodule StockSage.Agents.Commands.Execute do
     started_at = System.monotonic_time(:millisecond)
     evidence = evidence_for(spec, request, context)
     prior_reports = prior_reports(request)
-    role_report = role_report(spec, request, evidence, prior_reports)
+    role_report = report_packet(spec, request, evidence, prior_reports, model_profile)
     duration_ms = System.monotonic_time(:millisecond) - started_at
 
     %{
@@ -93,6 +94,44 @@ defmodule StockSage.Agents.Commands.Execute do
   end
 
   defp evidence_for(_spec, _request, _context), do: []
+
+  defp report_packet(
+         %{role: :quality_gate} = spec,
+         request,
+         evidence,
+         prior_reports,
+         _model_profile
+       ),
+       do: role_report(spec, request, evidence, prior_reports)
+
+  defp report_packet(spec, request, evidence, prior_reports, model_profile) do
+    if LLM.enabled?() do
+      case LLM.generate_report(spec, request, evidence, prior_reports, model_profile) do
+        {:ok, report} ->
+          report
+
+        {:error, reason} ->
+          llm_error_report(spec, request, reason)
+      end
+    else
+      role_report(spec, request, evidence, prior_reports)
+    end
+  end
+
+  defp llm_error_report(spec, request, reason) do
+    ticker = field(request, :ticker, "UNKNOWN")
+
+    %{
+      status: :error,
+      summary: "Jido.AI generation failed for #{spec.id}.",
+      report:
+        "Jido.AI generation failed for #{spec.id} while analyzing #{ticker}: " <>
+          inspect(reason, limit: 20, printable_limit: 500),
+      confidence: 0.0,
+      warnings: ["jido_ai_generation_failed"],
+      generation_mode: "jido_ai_error"
+    }
+  end
 
   defp evidence_params(request) do
     %{

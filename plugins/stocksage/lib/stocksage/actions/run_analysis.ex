@@ -580,6 +580,7 @@ defmodule StockSage.Actions.RunAnalysis do
                  truncated: truncated?,
                  stub: stub?,
                  parity_diff: result_field(result, :parity_diff),
+                 native_trace: native_trace_metadata(validated, result),
                  queue_entry_id: validated.queue_entry_id,
                  objective_id: validated.objective_id,
                  step_id: validated.step_id,
@@ -725,9 +726,13 @@ defmodule StockSage.Actions.RunAnalysis do
     _exception -> @default_detail_max
   end
 
-  defp result_field(result, key, default \\ nil) when is_map(result) and is_atom(key) do
+  defp result_field(result, key, default \\ nil)
+
+  defp result_field(result, key, default) when is_map(result) and is_atom(key) do
     Map.get(result, key, Map.get(result, Atom.to_string(key), default))
   end
+
+  defp result_field(_result, _key, default), do: default
 
   defp parity_diff_json(result) do
     case result_field(result, :parity_diff) do
@@ -758,6 +763,80 @@ defmodule StockSage.Actions.RunAnalysis do
   end
 
   defp native_report_payload(_validated, result), do: redact_native_result(result)
+
+  defp native_trace_metadata(%{engine: engine}, result) when engine in ["native", "both"] do
+    report =
+      case engine do
+        "both" -> result_field(result, :native_report, %{})
+        "native" -> result
+      end
+
+    %{
+      agent_reports: native_trace_agent_reports(report),
+      debate_rounds: native_trace_debate_rounds(report),
+      parity_diff: result_field(result, :parity_diff),
+      generation_modes: native_trace_generation_modes(report)
+    }
+    |> drop_nil_values()
+    |> json_safe()
+  end
+
+  defp native_trace_metadata(_validated, _result), do: nil
+
+  defp native_trace_agent_reports(report) when is_map(report) do
+    report
+    |> result_field(:agent_reports, %{})
+    |> case do
+      reports when is_map(reports) ->
+        reports
+        |> Enum.map(fn {agent_id, packet} ->
+          %{
+            agent_id: agent_id,
+            role: result_field(packet, :role),
+            status: result_field(packet, :status),
+            summary: bounded(result_field(packet, :summary), 180),
+            confidence: result_field(packet, :confidence),
+            duration_ms: result_field(packet, :duration_ms),
+            model_profile: result_field(packet, :model_profile),
+            generation_mode: result_field(packet, :generation_mode)
+          }
+          |> drop_nil_values()
+        end)
+        |> Enum.sort_by(&Map.get(&1, :agent_id, ""))
+
+      _other ->
+        []
+    end
+  end
+
+  defp native_trace_agent_reports(_report), do: []
+
+  defp native_trace_debate_rounds(report) when is_map(report) do
+    report
+    |> result_field(:debate_rounds, [])
+    |> List.wrap()
+    |> Enum.map(fn round ->
+      %{
+        round_index: result_field(round, :round_index),
+        bull_summary: round |> result_field(:bull, %{}) |> result_field(:summary),
+        bear_summary: round |> result_field(:bear, %{}) |> result_field(:summary),
+        risk_count: round |> result_field(:risks, []) |> List.wrap() |> length()
+      }
+      |> drop_nil_values()
+    end)
+  end
+
+  defp native_trace_debate_rounds(_report), do: []
+
+  defp native_trace_generation_modes(report) when is_map(report) do
+    report
+    |> native_trace_agent_reports()
+    |> Enum.map(&Map.get(&1, :generation_mode))
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp native_trace_generation_modes(_report), do: []
 
   defp detail_content(result) when is_map(result) do
     result_field(result, :raw) || Jason.encode!(json_safe(result))
