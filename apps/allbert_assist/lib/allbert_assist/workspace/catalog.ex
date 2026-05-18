@@ -114,7 +114,8 @@ defmodule AllbertAssist.Workspace.Catalog do
           tile_text: tile_text(tile),
           editable?: editable_tile?(tile),
           base_revision_id: Map.get(tile, :current_revision_id),
-          read_only?: Map.get(tile, :read_only, false)
+          read_only?: Map.get(tile, :read_only, false),
+          conflict_summary: conflict_summary(tile)
         },
         children: stored_surface_nodes(tile)
       }
@@ -184,6 +185,27 @@ defmodule AllbertAssist.Workspace.Catalog do
   end
 
   defp fragment_body?(_body), do: false
+
+  defp conflict_summary(%{metadata: metadata}) when is_map(metadata) do
+    offline = Map.get(metadata, "offline") || Map.get(metadata, :offline) || %{}
+
+    %{
+      conflict?: offline_value(offline, :conflict, false),
+      conflict_count: offline_value(offline, :conflict_count, 0),
+      latest_revision_id: offline_value(offline, :latest_revision_id),
+      revert_revision_id: offline_value(offline, :revert_revision_id),
+      previous_revision_id: offline_value(offline, :previous_revision_id),
+      reconciled_at: offline_value(offline, :reconciled_at)
+    }
+  end
+
+  defp conflict_summary(_tile) do
+    %{conflict?: false, conflict_count: 0}
+  end
+
+  defp offline_value(offline, key, fallback \\ nil) do
+    Map.get(offline, Atom.to_string(key)) || Map.get(offline, key) || fallback
+  end
 
   defp badge_nodes(badges) do
     badges

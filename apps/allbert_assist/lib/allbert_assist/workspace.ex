@@ -9,6 +9,7 @@ defmodule AllbertAssist.Workspace do
   alias AllbertAssist.Workspace.Canvas
   alias AllbertAssist.Workspace.Ephemeral
   alias AllbertAssist.Workspace.Fragment
+  alias AllbertAssist.Workspace.Offline
 
   @spec canvas_tiles(String.t(), String.t()) :: {:ok, [Canvas.tile()]} | {:error, term()}
   defdelegate canvas_tiles(thread_id, user_id), to: Canvas, as: :tiles_for_thread
@@ -56,4 +57,20 @@ defmodule AllbertAssist.Workspace do
 
   @spec emit_fragment(Fragment.Envelope.t()) :: :ok | {:error, Fragment.error_reason()}
   defdelegate emit_fragment(envelope), to: Fragment, as: :emit
+
+  @spec record_offline_update(map()) ::
+          {:ok, Offline.record_result()} | {:error, term()}
+  defdelegate record_offline_update(attrs), to: Offline, as: :record_client_update
+
+  @spec latest_offline_snapshot(String.t(), String.t()) :: {:ok, String.t()} | {:error, term()}
+  defdelegate latest_offline_snapshot(tile_id, user_id), to: Offline, as: :latest_snapshot
+
+  @spec pending_offline_conflict_summary(String.t(), String.t()) ::
+          {:ok, Offline.conflict_summary()} | {:error, term()}
+  defdelegate pending_offline_conflict_summary(tile_id, user_id),
+    to: Offline,
+    as: :pending_conflict_summary
+
+  @spec revert_tile_revision(map()) :: {:ok, Offline.record_result()} | {:error, term()}
+  defdelegate revert_tile_revision(attrs), to: Offline, as: :revert_to_revision
 end

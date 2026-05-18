@@ -76,6 +76,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Skills.ShowOnlineSkill
   alias AllbertAssist.Actions.Skills.ValidateSkill
   alias AllbertAssist.Actions.Trace.RecordTrace
+  alias AllbertAssist.Actions.Workspace.RevertTileRevision
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
 
@@ -150,7 +151,8 @@ defmodule AllbertAssist.Actions.Registry do
     ContinueObjective,
     DelegateAgent,
     RegistryHealth,
-    TraceSummary
+    TraceSummary,
+    RevertTileRevision
   ]
 
   @actions @agent_actions ++ @internal_actions
@@ -663,6 +665,13 @@ defmodule AllbertAssist.Actions.Registry do
       permission: :read_only,
       exposure: :internal,
       execution_mode: :read_only,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    RevertTileRevision => %{
+      permission: :workspace_canvas_write,
+      exposure: :internal,
+      execution_mode: :workspace_canvas_write,
       skill_backed?: false,
       confirmation: :not_required
     }

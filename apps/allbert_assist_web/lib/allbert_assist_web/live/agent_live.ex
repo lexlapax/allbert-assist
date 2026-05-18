@@ -122,6 +122,17 @@ defmodule AllbertAssistWeb.AgentLive do
     {:reply, workspace_tile_editor_reply(params, socket), socket}
   end
 
+  def handle_event(
+        "revert_tile_revision",
+        %{"tile-id" => tile_id, "revision-id" => revision_id},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> revert_tile_revision(tile_id, revision_id)
+     |> refresh_workspace()}
+  end
+
   def handle_event("approve_confirmation", %{"id" => id}, socket) do
     {:noreply, resolve_confirmation(socket, "approve_confirmation", %{id: id})}
   end
@@ -471,16 +482,20 @@ defmodule AllbertAssistWeb.AgentLive do
 
   defp workspace_tile_editor_reply(params, socket) do
     with true <- socket.assigns.workspace_offline_enabled? || {:error, :offline_disabled},
-         {:ok, tile_id} <- required_param(params, "tile_id"),
-         {:ok, tile} <- Workspace.get_tile(tile_id, socket.assigns.user_id),
-         :ok <- ensure_tile_thread(tile, socket.assigns.thread_id),
-         :ok <- ensure_editable_tile(tile),
-         :ok <-
-           ensure_bounded_editor_payload(params, socket.assigns.workspace_indexeddb_quota_bytes) do
+         {:ok, result} <-
+           Workspace.record_offline_update(
+             Map.merge(params, %{
+               "user_id" => socket.assigns.user_id,
+               "thread_id" => socket.assigns.thread_id,
+               "max_bytes" => socket.assigns.workspace_indexeddb_quota_bytes
+             })
+           ) do
       %{
-        status: "received",
-        tile_id: tile.id,
-        persistence: "deferred_to_m19",
+        status: if(result.conflict?, do: "conflict", else: "received"),
+        tile_id: result.tile.id,
+        revision_id: result.revision.id,
+        current_revision_id: result.tile.current_revision_id,
+        conflict_count: result.conflict_count,
         max_bytes: socket.assigns.workspace_indexeddb_quota_bytes
       }
     else
@@ -489,44 +504,17 @@ defmodule AllbertAssistWeb.AgentLive do
     end
   end
 
-  defp required_param(params, key) do
-    case Map.get(params, key) || Map.get(params, String.to_atom(key)) do
-      value when is_binary(value) and value != "" -> {:ok, value}
-      _other -> {:error, {:missing_required, key}}
-    end
-  end
+  defp revert_tile_revision(socket, tile_id, revision_id) do
+    case Runner.run(
+           "revert_tile_revision",
+           %{tile_id: tile_id, revision_id: revision_id, user_id: socket.assigns.user_id},
+           %{actor: socket.assigns.user_id, user_id: socket.assigns.user_id, channel: :live_view}
+         ) do
+      {:ok, %{status: :completed}} ->
+        socket
 
-  defp ensure_tile_thread(%{thread_id: thread_id}, thread_id), do: :ok
-  defp ensure_tile_thread(_tile, _thread_id), do: {:error, :not_found}
-
-  defp ensure_editable_tile(%{kind: kind, body: body, read_only: false})
-       when kind in ["text", "markdown"] do
-    if fragment_body?(body), do: {:error, :read_only_fragment_tile}, else: :ok
-  end
-
-  defp ensure_editable_tile(%{read_only: true}), do: {:error, :thread_completed}
-  defp ensure_editable_tile(_tile), do: {:error, :unsupported_tile_kind}
-
-  defp fragment_body?(body) when is_map(body) do
-    Map.has_key?(body, :surface) or Map.has_key?(body, "surface")
-  end
-
-  defp ensure_bounded_editor_payload(params, max_bytes) do
-    encoded_update = Map.get(params, "update") || ""
-    encoded_state_vector = Map.get(params, "state_vector") || ""
-    snapshot = Map.get(params, "snapshot") || ""
-
-    cond do
-      not is_binary(encoded_update) or not is_binary(encoded_state_vector) or
-          not is_binary(snapshot) ->
-        {:error, :invalid_payload}
-
-      byte_size(encoded_update) + byte_size(encoded_state_vector) + byte_size(snapshot) >
-          max_bytes ->
-        {:error, :payload_too_large}
-
-      true ->
-        :ok
+      {:ok, response} ->
+        assign(socket, :error, Map.get(response, :message, inspect(response)))
     end
   end
 

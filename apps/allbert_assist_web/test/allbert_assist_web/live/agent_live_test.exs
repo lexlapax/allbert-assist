@@ -299,9 +299,63 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert_reply(view, %{
       status: "received",
       tile_id: ^tile_id,
-      persistence: "deferred_to_m19",
+      revision_id: revision_id,
+      current_revision_id: revision_id,
+      conflict_count: 0,
       max_bytes: 33_554_432
     })
+  end
+
+  test "workspace tile editor hook reports stale-base conflicts", %{conn: conn} do
+    assert {:ok, tile} =
+             Workspace.add_tile(%{
+               user_id: "local",
+               thread_id: "local-default",
+               kind: :text,
+               body: %{text: "conflict base"}
+             })
+
+    {:ok, view, _html} = live(conn, ~p"/agent")
+
+    render_hook(view, :workspace_tile_editor_sync, %{
+      "tile_id" => tile.id,
+      "thread_id" => "local-default",
+      "user_id" => "local",
+      "kind" => "text",
+      "snapshot" => "first synced edit"
+    })
+
+    tile_id = tile.id
+
+    assert_reply(view, %{
+      status: "received",
+      tile_id: ^tile_id,
+      current_revision_id: first_revision_id,
+      conflict_count: 0
+    })
+
+    render_hook(view, :workspace_tile_editor_sync, %{
+      "tile_id" => tile.id,
+      "thread_id" => "local-default",
+      "user_id" => "local",
+      "kind" => "text",
+      "base_revision_id" => nil,
+      "origin" => "offline_reconnect",
+      "snapshot" => "stale offline edit"
+    })
+
+    assert_reply(view, %{
+      status: "conflict",
+      tile_id: ^tile_id,
+      current_revision_id: current_revision_id,
+      conflict_count: 1
+    })
+
+    assert current_revision_id != first_revision_id
+
+    html = render_until(view, "Conflict reconciled.")
+    assert html =~ "1 offline edit(s) were merged"
+    assert html =~ "revert_tile_revision"
   end
 
   test "workspace tile editor hook rejects non-editable tiles", %{conn: conn} do

@@ -88,6 +88,28 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
       <pre :if={!editable?(@node, @offline_enabled?)} class="mt-3 whitespace-pre-wrap text-xs">
     {Base.summary(@node, "Canvas tile")}
       </pre>
+
+      <div
+        :if={conflict?(@node)}
+        class="workspace-conflict-banner mt-3"
+        data-workspace-conflict-banner="true"
+        role="status"
+      >
+        <p>
+          Conflict reconciled. {conflict_count(@node)} offline edit(s) were merged into this
+          tile.
+        </p>
+        <button
+          :if={revert_revision_id(@node)}
+          type="button"
+          class="btn btn-xs btn-outline mt-2"
+          phx-click="revert_tile_revision"
+          phx-value-tile-id={Base.prop(@node, :tile_id, "")}
+          phx-value-revision-id={revert_revision_id(@node)}
+        >
+          Revert
+        </button>
+      </div>
     </section>
     """
   end
@@ -106,6 +128,20 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
     |> Base.prop(:tile_kind, "tile")
     |> to_string()
     |> then(&"#{&1} tile")
+  end
+
+  defp conflict?(node), do: conflict_value(node, :conflict?, false) == true
+  defp conflict_count(node), do: conflict_value(node, :conflict_count, 0)
+  defp revert_revision_id(node), do: conflict_value(node, :revert_revision_id, nil)
+
+  defp conflict_value(node, key, fallback) do
+    case Base.prop(node, :conflict_summary, %{}) do
+      summary when is_map(summary) ->
+        Map.get(summary, key) || Map.get(summary, Atom.to_string(key)) || fallback
+
+      _other ->
+        fallback
+    end
   end
 end
 
