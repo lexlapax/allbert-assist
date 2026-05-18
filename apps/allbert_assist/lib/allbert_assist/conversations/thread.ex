@@ -19,6 +19,7 @@ defmodule AllbertAssist.Conversations.Thread do
     field :kind, :string, default: "general"
     field :app_id, :string
     field :last_message_at, :utc_datetime_usec
+    field :completed_at, :utc_datetime_usec
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -28,7 +29,7 @@ defmodule AllbertAssist.Conversations.Thread do
   @doc false
   def changeset(thread, attrs) do
     thread
-    |> cast(attrs, [:id, :user_id, :title, :kind, :app_id, :last_message_at])
+    |> cast(attrs, [:id, :user_id, :title, :kind, :app_id, :last_message_at, :completed_at])
     |> validate_required([:id, :user_id, :title, :kind, :last_message_at])
     |> validate_length(:id, min: 5)
     |> validate_length(:user_id, min: 1, max: 128)
@@ -41,5 +42,12 @@ defmodule AllbertAssist.Conversations.Thread do
     thread
     |> change(last_message_at: timestamp)
     |> validate_required([:last_message_at])
+  end
+
+  @doc false
+  def complete_changeset(thread, timestamp) do
+    thread
+    |> change(completed_at: timestamp)
+    |> validate_required([:completed_at])
   end
 end
