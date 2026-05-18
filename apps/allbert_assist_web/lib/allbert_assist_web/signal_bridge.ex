@@ -1,9 +1,10 @@
 defmodule AllbertAssistWeb.SignalBridge do
   @moduledoc """
-  Bridges objective lifecycle signals from Jido.Signal.Bus to Phoenix.PubSub.
+  Bridges objective and workspace lifecycle signals from Jido.Signal.Bus to
+  Phoenix.PubSub.
 
-  The bridge is web-only. Headless CLI deployments do not need it; objective
-  signals still publish normally through the core signal bus.
+  The bridge is web-only. Headless CLI deployments do not need it; signals
+  still publish normally through the core signal bus.
   """
 
   use GenServer
@@ -14,6 +15,7 @@ defmodule AllbertAssistWeb.SignalBridge do
   alias Jido.Signal.Bus
 
   @objective_pattern "allbert.objective.**"
+  @workspace_pattern "allbert.workspace.**"
   @topic_prefix "objectives:"
 
   @spec topic_for(String.t()) :: String.t()
@@ -27,20 +29,28 @@ defmodule AllbertAssistWeb.SignalBridge do
   def init(opts) do
     subscribe_fun = Keyword.get(opts, :subscribe_fun, &Bus.subscribe/2)
 
-    case subscribe_fun.(AllbertAssist.SignalBus, @objective_pattern) do
-      {:ok, subscription_id} ->
-        {:ok, %{subscription_id: subscription_id}}
+    subscription_ids =
+      %{
+        objective: @objective_pattern,
+        workspace: @workspace_pattern
+      }
+      |> Enum.map(fn {kind, pattern} -> {kind, subscribe(kind, pattern, subscribe_fun)} end)
+      |> Map.new()
 
-      {:error, reason} ->
-        Logger.warning("objective signal bridge subscription failed: #{inspect(reason)}")
-        {:ok, %{subscription_id: nil}}
-    end
+    {:ok, %{subscription_ids: subscription_ids}}
   end
 
   @impl true
   def handle_info({:signal, %Signal{} = signal}, state) do
-    if String.starts_with?(signal.type, "allbert.objective.") do
-      broadcast(signal)
+    cond do
+      String.starts_with?(signal.type, "allbert.objective.") ->
+        broadcast(signal, :objective_event)
+
+      String.starts_with?(signal.type, "allbert.workspace.") ->
+        broadcast(signal, :workspace_event)
+
+      true ->
+        :ok
     end
 
     {:noreply, state}
@@ -48,13 +58,24 @@ defmodule AllbertAssistWeb.SignalBridge do
 
   def handle_info(_message, state), do: {:noreply, state}
 
-  defp broadcast(%Signal{data: data} = signal) when is_map(data) do
+  defp subscribe(kind, pattern, subscribe_fun) do
+    case subscribe_fun.(AllbertAssist.SignalBus, pattern) do
+      {:ok, subscription_id} ->
+        subscription_id
+
+      {:error, reason} ->
+        Logger.warning("#{kind} signal bridge subscription failed: #{inspect(reason)}")
+        nil
+    end
+  end
+
+  defp broadcast(%Signal{data: data} = signal, event) when is_map(data) do
     case Map.get(data, :user_id) || Map.get(data, "user_id") do
       user_id when is_binary(user_id) and user_id != "" ->
         Phoenix.PubSub.broadcast(
           AllbertAssistWeb.PubSub,
           topic_for(user_id),
-          {:objective_event, signal}
+          {event, signal}
         )
 
       _other ->
@@ -62,5 +83,5 @@ defmodule AllbertAssistWeb.SignalBridge do
     end
   end
 
-  defp broadcast(_signal), do: :ok
+  defp broadcast(_signal, _event), do: :ok
 end
