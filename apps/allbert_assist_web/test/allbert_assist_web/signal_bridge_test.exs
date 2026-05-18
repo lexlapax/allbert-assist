@@ -3,8 +3,26 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
 
   alias AllbertAssist.Signals
   alias AllbertAssistWeb.SignalBridge
+  alias Jido.Signal
 
-  test "broadcasts objective signals to user topics and ignores non-objective signals" do
+  test "subscribes to objective and workspace signal patterns" do
+    parent = self()
+    name = :"signal_bridge_patterns_#{System.unique_integer([:positive])}"
+
+    start_supervised!(
+      {SignalBridge,
+       name: name,
+       subscribe_fun: fn AllbertAssist.SignalBus, pattern ->
+         send(parent, {:subscribed, pattern})
+         {:ok, pattern}
+       end}
+    )
+
+    assert_receive {:subscribed, "allbert.objective.**"}
+    assert_receive {:subscribed, "allbert.workspace.**"}
+  end
+
+  test "broadcasts objective and workspace signals to user topics" do
     name = :"signal_bridge_#{System.unique_integer([:positive])}"
     start_supervised!({SignalBridge, name: name})
 
@@ -24,6 +42,19 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
     assert received.type == "allbert.objective.created"
     assert received.data.objective_id == "obj_signal_bridge"
 
+    assert {:ok, workspace_signal} =
+             Signal.new(
+               "allbert.workspace.fragment.emitted",
+               %{user_id: "alice", thread_id: "thread-signal-bridge"},
+               source: "/allbert/workspace/test"
+             )
+
+    :ok = Signals.log(workspace_signal)
+
+    assert_receive {:workspace_event, received_workspace}, 1_000
+    assert received_workspace.type == "allbert.workspace.fragment.emitted"
+    assert received_workspace.data.thread_id == "thread-signal-bridge"
+
     assert {:ok, runtime_signal} =
              Signals.runtime_turn_started(%{user_id: "alice", trace_id: "trace_signal_bridge"})
 
@@ -38,7 +69,7 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
       start_supervised!(
         {SignalBridge,
          name: name,
-         subscribe_fun: fn AllbertAssist.SignalBus, "allbert.objective.**" ->
+         subscribe_fun: fn AllbertAssist.SignalBus, _pattern ->
            {:error, :bus_unavailable}
          end}
       )

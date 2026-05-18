@@ -49,6 +49,14 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     refute html =~ "component not implemented"
   end
 
+  test "mount applies workspace theme from settings", %{conn: conn} do
+    assert {:ok, _setting} = Settings.put("workspace.theme", "dark", %{audit?: false})
+
+    {:ok, view, _html} = live(conn, ~p"/agent")
+
+    assert has_element?(view, "#workspace-shell[data-theme='dark']")
+  end
+
   test "submits prompts through the runtime boundary", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
 

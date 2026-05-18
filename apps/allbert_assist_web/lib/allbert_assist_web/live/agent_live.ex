@@ -10,6 +10,7 @@ defmodule AllbertAssistWeb.AgentLive do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Settings
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
   alias AllbertAssistWeb.SignalBridge
@@ -31,6 +32,7 @@ defmodule AllbertAssistWeb.AgentLive do
         thread_id: thread_id,
         workspace_surface:
           WorkspaceCatalog.workspace_tree(user_id: user_id, thread_id: thread_id),
+        workspace_theme: workspace_theme(),
         canvas_tiles: canvas_tiles(thread_id, user_id),
         ephemeral_surfaces: ephemeral_surfaces(thread_id, user_id),
         active_objectives: active_objectives(user_id),
@@ -99,6 +101,10 @@ defmodule AllbertAssistWeb.AgentLive do
     {:noreply, refresh_objectives(socket)}
   end
 
+  def handle_info({:workspace_event, _signal}, socket) do
+    {:noreply, socket}
+  end
+
   def handle_info(:refresh_objectives, socket) do
     if connected?(socket), do: Process.send_after(self(), :refresh_objectives, 5_000)
     {:noreply, refresh_objectives(socket)}
@@ -130,7 +136,11 @@ defmodule AllbertAssistWeb.AgentLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <section id="workspace-shell" class="mx-auto max-w-6xl px-4 py-6">
+      <section
+        id="workspace-shell"
+        class="mx-auto max-w-6xl px-4 py-6"
+        data-theme={theme_attribute(@workspace_theme)}
+      >
         <.live_component
           module={WorkspaceRenderer}
           id="agent-workspace-renderer"
@@ -204,6 +214,17 @@ defmodule AllbertAssistWeb.AgentLive do
       {:error, _reason} -> []
     end
   end
+
+  defp workspace_theme do
+    case Settings.get("workspace.theme") do
+      {:ok, theme} when theme in ["dark", "light", "system"] -> theme
+      _other -> "system"
+    end
+  end
+
+  defp theme_attribute("dark"), do: "dark"
+  defp theme_attribute("light"), do: "light"
+  defp theme_attribute(_theme), do: nil
 
   defp renderer_context(assigns) do
     %{
