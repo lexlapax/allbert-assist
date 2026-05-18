@@ -78,6 +78,24 @@ defmodule AllbertAssist.Workspace.Catalog do
     end
   end
 
+  defp inject_runtime_node(%Node{component: :badge_strip} = node, context) do
+    badges = Map.get(context, :workspace_badges, [])
+
+    if badges == [] do
+      node
+    else
+      %{
+        node
+        | props:
+            Map.merge(node.props || %{}, %{
+              title: "Workspace notices",
+              body: "#{length(badges)} active notice(s)"
+            }),
+          children: badge_nodes(badges)
+      }
+    end
+  end
+
   defp inject_runtime_node(%Node{children: children} = node, context) do
     %{node | children: inject_runtime_nodes(children, context)}
   end
@@ -122,6 +140,31 @@ defmodule AllbertAssist.Workspace.Catalog do
   end
 
   defp stored_surface_nodes(_record), do: []
+
+  defp badge_nodes(badges) do
+    badges
+    |> Enum.flat_map(&badge_surface_nodes/1)
+  end
+
+  defp badge_surface_nodes(%{id: id, surface: %Surface{nodes: nodes}}) do
+    Enum.map(nodes, fn %Node{} = node ->
+      %{node | id: "workspace-badge-#{safe_id(id)}-#{safe_id(node.id)}"}
+    end)
+  end
+
+  defp badge_surface_nodes(badge) do
+    [
+      %Node{
+        id: "workspace-badge-#{safe_id(Map.get(badge, :id) || Map.get(badge, "id") || "notice")}",
+        component: :status_badge,
+        props: %{
+          title: Map.get(badge, :title) || Map.get(badge, "title") || "Workspace notice",
+          body: Map.get(badge, :body) || Map.get(badge, "body") || "Workspace notice",
+          status: Map.get(badge, :status) || Map.get(badge, "status") || "info"
+        }
+      }
+    ]
+  end
 
   defp title(%{body: body, id: id}, fallback) when is_map(body) do
     body

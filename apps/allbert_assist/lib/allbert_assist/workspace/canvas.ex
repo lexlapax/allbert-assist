@@ -9,6 +9,7 @@ defmodule AllbertAssist.Workspace.Canvas do
   alias AllbertAssist.Settings
   alias AllbertAssist.Workspace.BodyStore
   alias AllbertAssist.Workspace.Canvas.Tile
+  alias AllbertAssist.Workspace.Events
 
   @default_max_tiles 64
 
@@ -38,6 +39,7 @@ defmodule AllbertAssist.Workspace.Canvas do
       |> Tile.changeset(Map.delete(attrs, :body))
       |> Repo.insert()
       |> load_body_result()
+      |> tap_ok(&Events.tile_added/1)
     end
   end
 
@@ -50,10 +52,13 @@ defmodule AllbertAssist.Workspace.Canvas do
     with {:ok, tile} <- get_live_tile(tile_id),
          :ok <- authorize_scope(tile, attrs),
          :ok <- maybe_write_body(tile.body_yaml_path, Map.fetch(attrs, :body)) do
+      changed_fields = changed_fields(attrs)
+
       tile
       |> Tile.changeset(Map.drop(attrs, [:body, :user_id, :thread_id]))
       |> Repo.update()
       |> load_body_result()
+      |> tap_ok(&Events.tile_updated(&1, changed_fields))
     end
   end
 
@@ -61,6 +66,7 @@ defmodule AllbertAssist.Workspace.Canvas do
   def remove_tile(tile_id, user_id) when is_binary(tile_id) and is_binary(user_id) do
     with {:ok, tile} <- get_user_tile(tile_id, user_id),
          :ok <- soft_delete(tile, DateTime.utc_now()) do
+      Events.tile_removed(tile, :operator_removed)
       :ok
     end
   end
@@ -77,6 +83,8 @@ defmodule AllbertAssist.Workspace.Canvas do
          {:ok, restored_path} <- restore_body_path(tile),
          :ok <- enforce_cap(tile.user_id, tile.thread_id),
          position <- next_position(tile.user_id, tile.thread_id) do
+      restored_from = tile.current_revision_id || tile.body_yaml_path
+
       tile
       |> Tile.changeset(%{
         body_yaml_path: restored_path,
@@ -85,6 +93,7 @@ defmodule AllbertAssist.Workspace.Canvas do
       })
       |> Repo.update()
       |> load_body_result()
+      |> tap_ok(&Events.tile_added(&1, %{restored_from: restored_from}))
     end
   end
 
@@ -94,6 +103,7 @@ defmodule AllbertAssist.Workspace.Canvas do
       |> Tile.changeset(%{pinned: pinned?})
       |> Repo.update()
       |> load_body_result()
+      |> tap_ok(&Events.tile_updated(&1, [:pinned]))
     end
   end
 
@@ -175,8 +185,15 @@ defmodule AllbertAssist.Workspace.Canvas do
       |> Repo.one()
 
     case tile do
-      %Tile{} -> soft_delete(tile, DateTime.utc_now())
-      nil -> {:error, :canvas_cap_exceeded}
+      %Tile{} ->
+        with :ok <- soft_delete(tile, DateTime.utc_now()) do
+          Events.tile_removed(tile, :cap_evicted)
+          Events.canvas_eviction_badge(tile, 1)
+          :ok
+        end
+
+      nil ->
+        {:error, :canvas_cap_exceeded}
     end
   end
 
@@ -208,6 +225,20 @@ defmodule AllbertAssist.Workspace.Canvas do
   defp maybe_write_body(_path, :error), do: :ok
   defp maybe_write_body(path, {:ok, body}) when is_map(body), do: BodyStore.write_body(path, body)
   defp maybe_write_body(_path, {:ok, _body}), do: {:error, :invalid_body}
+
+  defp tap_ok({:ok, %Tile{} = tile}, fun) when is_function(fun, 1) do
+    fun.(tile)
+    {:ok, tile}
+  end
+
+  defp tap_ok(result, _fun), do: result
+
+  defp changed_fields(attrs) do
+    attrs
+    |> Map.drop([:user_id, :thread_id])
+    |> Map.keys()
+    |> Enum.sort()
+  end
 
   defp authorize_scope(tile, attrs) do
     cond do
