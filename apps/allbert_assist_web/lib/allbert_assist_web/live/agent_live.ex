@@ -529,6 +529,7 @@ defmodule AllbertAssistWeb.AgentLive do
     %{
       canvas_tiles: tiles,
       ephemeral_surfaces: surfaces,
+      conversation_messages: conversation_messages(thread_id, user_id),
       workspace_badges: workspace_badges,
       workspace_surface:
         WorkspaceCatalog.workspace_tree(
@@ -552,6 +553,14 @@ defmodule AllbertAssistWeb.AgentLive do
     case Workspace.ephemeral_surfaces(thread_id, user_id) do
       {:ok, surfaces} -> surfaces
       {:error, _reason} -> []
+    end
+  end
+
+  defp conversation_messages(thread_id, user_id) do
+    with {:ok, thread} <- Conversations.get_thread(user_id, thread_id) do
+      Conversations.list_messages(thread, limit: 12)
+    else
+      _error -> []
     end
   end
 
@@ -692,6 +701,7 @@ defmodule AllbertAssistWeb.AgentLive do
       user_id: assigns.user_id,
       thread_id: assigns.thread_id,
       active_objectives: assigns.active_objectives,
+      conversation_messages: assigns.conversation_messages,
       canvas_tiles: assigns.canvas_tiles,
       ephemeral_surfaces: assigns.ephemeral_surfaces,
       workspace_badges: assigns.workspace_badges,

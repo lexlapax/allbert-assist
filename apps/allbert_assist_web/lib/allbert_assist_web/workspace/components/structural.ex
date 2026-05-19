@@ -207,7 +207,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
         </p>
       </div>
 
-      <pre :if={!editable?(@node, @offline_enabled?)} class="workspace-tile-readonly">
+      <pre :if={readonly_summary?(@node, @offline_enabled?)} class="workspace-tile-readonly">
     {Base.summary(@node, "Canvas tile")}
       </pre>
 
@@ -247,6 +247,11 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
 
   defp editable?(node, true), do: Base.prop(node, :editable?, false) == true
   defp editable?(_node, false), do: false
+
+  defp readonly_summary?(node, offline_enabled?) do
+    !editable?(node, offline_enabled?) and node.children == [] and
+      Base.present?(Base.summary(node, nil))
+  end
 
   defp editor_id(node), do: "workspace-tile-editor-#{Base.prop(node, :tile_id, node.id)}"
 

@@ -112,6 +112,26 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     refute html =~ ~s({:thread_not_found, "nil"})
   end
 
+  test "chat pane renders persisted thread messages when available", %{conn: conn} do
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Analyze AAPL")
+
+    assert {:ok, _message} =
+             Conversations.append_user_message(thread, "analyze AAPL", %{channel: :live_view})
+
+    assert {:ok, _message} =
+             Conversations.append_assistant_message(thread, "Started the AAPL analysis.", %{
+               channel: :live_view
+             })
+
+    {:ok, view, html} = live(conn, ~p"/agent?thread_id=#{thread.id}&app_id=stocksage")
+
+    assert workspace_thread_id(view) == thread.id
+    assert html =~ "analyze AAPL"
+    assert html =~ "Started the AAPL analysis."
+    assert html =~ "Allbert"
+    refute html =~ "Prompt draft"
+  end
+
   test "mount treats empty and null thread query params as absent", %{conn: conn} do
     for query <- ["thread_id=", "thread_id=null"] do
       {:ok, view, html} = live(conn, "/agent?#{query}")
