@@ -760,6 +760,10 @@ defmodule AllbertAssistWeb.AgentLiveTest do
       |> render_click()
 
     assert deny_html =~ "Confirmation #{pending["id"]} is denied."
+    refute has_element?(view, "#approval-handoff")
+    refute has_element?(view, "#approval-approve")
+    refute has_element?(view, "#approval-deny")
+    assert has_element?(view, "#approval-result")
     assert {:ok, denied} = Confirmations.read(pending["id"])
     assert denied["status"] == "denied"
   end
