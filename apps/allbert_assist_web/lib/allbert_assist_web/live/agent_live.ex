@@ -51,6 +51,7 @@ defmodule AllbertAssistWeb.AgentLive do
         active_app: active_app,
         workspace_theme: workspace_theme(),
         workspace_high_contrast?: workspace_high_contrast?(),
+        workspace_reduce_motion?: workspace_reduce_motion?(),
         workspace_mobile_tab: "chat",
         workspace_offline_enabled?: workspace_offline_enabled?(),
         workspace_indexeddb_quota_bytes: workspace_indexeddb_quota_bytes(),
@@ -220,7 +221,8 @@ defmodule AllbertAssistWeb.AgentLive do
         id="workspace-shell"
         class={[
           "workspace-shell mx-auto max-w-6xl px-4 py-6",
-          @workspace_high_contrast? && "workspace-high-contrast"
+          @workspace_high_contrast? && "workspace-high-contrast",
+          @workspace_reduce_motion? && "workspace-reduce-motion"
         ]}
         data-theme={theme_attribute(@workspace_theme)}
         data-workspace-theme={@workspace_theme}
@@ -229,6 +231,7 @@ defmodule AllbertAssistWeb.AgentLive do
         data-session-id={@session_id}
         data-active-app={active_app_attribute(@active_app)}
         data-high-contrast={bool_attribute(@workspace_high_contrast?)}
+        data-reduce-motion={bool_attribute(@workspace_reduce_motion?)}
         data-mobile-tab={@workspace_mobile_tab}
         data-offline-enabled={bool_attribute(@workspace_offline_enabled?)}
         data-service-worker-url={~p"/workspace-sw.js"}
@@ -511,6 +514,13 @@ defmodule AllbertAssistWeb.AgentLive do
     end
   end
 
+  defp workspace_reduce_motion? do
+    case Settings.get("workspace.accessibility.reduce_motion") do
+      {:ok, true} -> true
+      _other -> false
+    end
+  end
+
   defp workspace_offline_enabled? do
     case Settings.get("workspace.offline.enabled") do
       {:ok, false} -> false
@@ -625,6 +635,7 @@ defmodule AllbertAssistWeb.AgentLive do
       workspace_badges: assigns.workspace_badges,
       workspace_theme: assigns.workspace_theme,
       workspace_high_contrast?: assigns.workspace_high_contrast?,
+      workspace_reduce_motion?: assigns.workspace_reduce_motion?,
       workspace_offline_enabled?: assigns.workspace_offline_enabled?,
       workspace_indexeddb_quota_bytes: assigns.workspace_indexeddb_quota_bytes
     }

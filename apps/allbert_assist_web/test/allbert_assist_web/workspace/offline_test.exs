@@ -41,8 +41,22 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
     assert app_js =~ "Y.encodeStateVector"
     assert app_js =~ "this.pushEvent(\"workspace_tile_editor_sync\""
     assert app_js =~ "estimateWorkspaceEditorBytes(payload) > this.quotaBytes"
+    assert app_js =~ "this.markRecovery(\"quota_exceeded\")"
+    assert app_js =~ "this.markRecovery(reply.reason || \"server_rejected\")"
     assert app_js =~ "this.doc?.destroy()"
     assert app_js =~ "hooks: {...colocatedHooks, FocusTrap, WorkspaceTileEditor}"
+  end
+
+  test "offline recovery keeps rejected drafts addressable from the fallback shell" do
+    app_js = File.read!(@app_js_path)
+
+    assert app_js =~ "workspaceEditorManifestKey"
+    assert app_js =~ "workspaceEditorCorruptManifestKey"
+    assert app_js =~ "rawManifest"
+    assert app_js =~ "workspace-offline-draft-recovery"
+    assert app_js =~ "Recovery available:"
+    assert app_js =~ "server_rejected"
+    refute app_js =~ "indexedDB.deleteDatabase"
   end
 
   test "service worker caches shell assets without caching dynamic agent HTML" do

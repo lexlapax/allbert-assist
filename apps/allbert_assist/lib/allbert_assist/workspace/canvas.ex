@@ -13,6 +13,7 @@ defmodule AllbertAssist.Workspace.Canvas do
   alias AllbertAssist.Workspace.Events
 
   @default_max_tiles 64
+  @default_tile_body_max_bytes 65_536
 
   @type tile :: Tile.t()
 
@@ -58,6 +59,7 @@ defmodule AllbertAssist.Workspace.Canvas do
   defp insert_new_tile(attrs) do
     with :ok <- ensure_thread_writable(attrs.user_id, attrs.thread_id),
          :ok <- enforce_cap(attrs.user_id, attrs.thread_id),
+         :ok <- ensure_body_size(attrs.body),
          :ok <- BodyStore.write_body(attrs.body_yaml_path, attrs.body) do
       insert_tile(attrs)
     end
@@ -323,8 +325,20 @@ defmodule AllbertAssist.Workspace.Canvas do
   end
 
   defp maybe_write_body(_path, :error), do: :ok
-  defp maybe_write_body(path, {:ok, body}) when is_map(body), do: BodyStore.write_body(path, body)
+
+  defp maybe_write_body(path, {:ok, body}) when is_map(body) do
+    with :ok <- ensure_body_size(body) do
+      BodyStore.write_body(path, body)
+    end
+  end
+
   defp maybe_write_body(_path, {:ok, _body}), do: {:error, :invalid_body}
+
+  defp ensure_body_size(body) when is_map(body) do
+    if BodyStore.body_size_bytes(body) <= tile_body_max_bytes(),
+      do: :ok,
+      else: {:error, :tile_body_too_large}
+  end
 
   defp tap_ok({:ok, %Tile{} = tile}, fun) when is_function(fun, 1) do
     fun.(tile)
@@ -423,6 +437,13 @@ defmodule AllbertAssist.Workspace.Canvas do
     case Settings.get("workspace.canvas.max_tiles_per_thread") do
       {:ok, value} when is_integer(value) -> value
       _other -> @default_max_tiles
+    end
+  end
+
+  defp tile_body_max_bytes do
+    case Settings.get("workspace.canvas.tile_body_max_bytes") do
+      {:ok, value} when is_integer(value) -> value
+      _other -> @default_tile_body_max_bytes
     end
   end
 

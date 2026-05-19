@@ -57,6 +57,24 @@ defmodule AllbertAssist.Workspace.CanvasTest do
     assert updated.body == %{"text" => "updated"}
   end
 
+  test "tile body size setting rejects oversized canvas writes" do
+    thread_id = "thread-canvas-body-limit"
+    user_id = "user-canvas-body-limit"
+
+    set_tile_body_limit(1024)
+
+    assert {:error, :tile_body_too_large} =
+             Canvas.add_tile(tile_attrs(thread_id, user_id, String.duplicate("x", 2_000)))
+
+    assert {:ok, tile} = Canvas.add_tile(tile_attrs(thread_id, user_id, "small"))
+
+    assert {:error, :tile_body_too_large} =
+             Canvas.update_tile(tile.id, %{body: %{text: String.duplicate("x", 2_000)}})
+
+    assert {:ok, loaded} = Canvas.get_tile(tile.id, user_id)
+    assert loaded.body["text"] == "small"
+  end
+
   test "gets live or deleted tiles and purges soft-deleted tiles before a cutoff" do
     thread_id = "thread-canvas-purge"
     user_id = "user-canvas-purge"
@@ -211,6 +229,15 @@ defmodule AllbertAssist.Workspace.CanvasTest do
 
     on_exit(fn ->
       Settings.put("workspace.canvas.max_tiles_per_thread", 64, %{audit?: false})
+    end)
+  end
+
+  defp set_tile_body_limit(value) do
+    assert {:ok, _setting} =
+             Settings.put("workspace.canvas.tile_body_max_bytes", value, %{audit?: false})
+
+    on_exit(fn ->
+      Settings.put("workspace.canvas.tile_body_max_bytes", 65_536, %{audit?: false})
     end)
   end
 
