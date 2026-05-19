@@ -204,6 +204,34 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert response.runner_metadata.selected_skill == "list-skills"
   end
 
+  test "does not treat scheduled job prose that starts with run as shell execution" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "Run from browser validation.",
+               channel: :job,
+               operator_id: "local"
+             })
+
+    assert response.status == :completed
+    assert response.decision.selected_action == "direct_answer"
+
+    assert [%{name: "direct_answer", permission_decision: %{decision: :allowed}}] =
+             response.actions
+
+    assert {:ok, shell_response} =
+             IntentAgent.respond(%{
+               text: "shell pwd",
+               channel: :job,
+               operator_id: "local"
+             })
+
+    assert shell_response.status == :denied
+    assert shell_response.decision.selected_action == "run_shell_command"
+
+    assert [%{name: "run_shell_command", permission_decision: %{decision: :denied}}] =
+             shell_response.actions
+  end
+
   test "routes activation prompts to the read-only activate action" do
     assert {:ok, response} =
              IntentAgent.respond(%{
