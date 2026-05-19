@@ -7,6 +7,7 @@ defmodule AllbertAssist.Workspace.ThreadGCTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Workspace.Canvas
   alias AllbertAssist.Workspace.Ephemeral
+  alias Jido.Signal.Bus
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -44,8 +45,16 @@ defmodule AllbertAssist.Workspace.ThreadGCTest do
                body: %{text: "keep this"}
              })
 
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.ephemeral.closed")
+
     assert {:ok, completed} = Conversations.complete_thread(thread.user_id, thread.id)
     assert %DateTime{} = completed.completed_at
+
+    closed = receive_signal("allbert.workspace.ephemeral.closed")
+    assert closed.data.surface_id == surface.id
+    assert closed.data.thread_id == thread.id
+    assert closed.data.dismissed_by == :thread_closed
 
     assert {:ok, []} = Ephemeral.surfaces_for_thread(thread.id, thread.user_id)
 
@@ -74,4 +83,13 @@ defmodule AllbertAssist.Workspace.ThreadGCTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp receive_signal(type) do
+    receive do
+      {:signal, %{type: ^type} = signal} -> signal
+      {:signal, _signal} -> receive_signal(type)
+    after
+      1_000 -> flunk("expected signal #{type}")
+    end
+  end
 end
