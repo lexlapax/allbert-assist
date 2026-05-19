@@ -162,7 +162,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   def respond(%{text: text} = request) when is_binary(text) do
     text = String.trim(text)
     context = %{request: request, agent: __MODULE__}
-    route = text |> route() |> execution_route(text)
+    route = text |> route(context) |> execution_route(text)
 
     case decision_for_route(route, text, context) do
       {:ok, decision} ->
@@ -188,22 +188,26 @@ defmodule AllbertAssist.Agents.IntentAgent do
   def respond(_request), do: {:error, :missing_text}
 
   defp engine_request(request, route, %Decision{} = decision) do
-    request = Map.put(request, :route_hint, route_hint(route))
+    force_direct_answer? = route == :direct_answer and job_channel?(%{request: request})
+    request = Map.put(request, :route_hint, route_hint(route, force_direct_answer?))
 
-    if route == :direct_answer do
+    if route == :direct_answer and not force_direct_answer? do
       request
     else
       Map.put(request, :route_decision, decision)
     end
   end
 
-  defp route_hint(route) do
+  defp route_hint(route, force_direct_answer?) do
     %{
       route: route_name(route),
-      explicit?: route != :direct_answer,
-      source: :intent_agent_predicates
+      explicit?: route != :direct_answer or force_direct_answer?,
+      source: route_hint_source(force_direct_answer?)
     }
   end
+
+  defp route_hint_source(true), do: :job_runtime_prompt_guard
+  defp route_hint_source(false), do: :intent_agent_predicates
 
   defp route_name(route) when is_atom(route), do: route
   defp route_name({route, _value}), do: route
@@ -268,7 +272,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
     Registry.agent_modules()
   end
 
-  defp route(text) do
+  defp route(text, context) do
     normalized = String.downcase(text)
 
     [
@@ -279,7 +283,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       fn -> online_skill_route(text, normalized) end,
       fn -> uri_consumer_route(text, normalized) end,
       fn -> unsupported_resource_workflow_route(text, normalized) end,
-      fn -> command_route(normalized) end,
+      fn -> command_route(normalized, context) end,
       fn -> external_network_route(normalized) end,
       fn -> explicit_memory_route(normalized) end,
       fn -> personal_memory_route(text) end,
@@ -290,7 +294,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
     |> Enum.find_value(:direct_answer, & &1.())
   end
 
-  defp command_route(text), do: if(command_request?(text), do: :run_shell_command)
+  defp command_route(text, context),
+    do: if(command_request?(text, context), do: :run_shell_command)
 
   defp external_network_route(text),
     do: if(external_network_request?(text), do: :external_network_request)
@@ -1678,12 +1683,37 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp refusal_reason(%Decision{permission: permission}, _permission_decision), do: permission
 
+  defp command_request?(text, context) do
+    if job_channel?(context) do
+      explicit_shell_command_request?(text)
+    else
+      command_request?(text)
+    end
+  end
+
   defp command_request?(text) do
     Regex.match?(~r/^\s*(run|execute|exec|shell|terminal)\b/, text) ||
       String.contains?(text, " shell command") ||
       String.contains?(text, " command line") ||
       Regex.match?(~r/\brm\s+-/, text)
   end
+
+  defp explicit_shell_command_request?(text) do
+    Regex.match?(~r/^\s*(shell|terminal)\b/, text) ||
+      String.contains?(text, " shell command") ||
+      String.contains?(text, " command line") ||
+      Regex.match?(~r/\brm\s+-/, text)
+  end
+
+  defp job_channel?(%{request: request}) when is_map(request) do
+    case Map.get(request, :channel) || Map.get(request, "channel") do
+      :job -> true
+      "job" -> true
+      _other -> false
+    end
+  end
+
+  defp job_channel?(_context), do: false
 
   defp unsupported_resource_workflow_route(text, normalized) do
     cond do

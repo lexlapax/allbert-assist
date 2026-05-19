@@ -359,6 +359,25 @@ defmodule AllbertAssist.JobsTest do
       assert Enum.map(messages, & &1.role) == ["user", "assistant"]
     end
 
+    test "runtime prompt jobs treat leading run prose as chat unless explicitly shell-shaped" do
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "browser validation prompt",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Run from browser validation."},
+                 schedule: %{kind: "manual"},
+                 user_id: "alice"
+               })
+
+      assert {:ok, %{run: run, response: response}} = Runner.run_now(job)
+
+      assert run.status == "completed"
+      assert response.status == :completed
+      assert response.decision.selected_action == "direct_answer"
+      assert [%{name: "direct_answer"}] = response.actions
+      refute inspect(run.action_log["actions"]) =~ "run_shell_command"
+    end
+
     test "runtime prompt jobs inherit active app context from session scratchpad" do
       user = "job-session-#{System.unique_integer([:positive])}"
       session_id = "sess-1"
