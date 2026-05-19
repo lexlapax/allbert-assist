@@ -3,6 +3,10 @@ defmodule AllbertAssistWeb.PageControllerTest do
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Peace of mind from prototype to production"
+    html = html_response(conn, 200)
+
+    assert html =~ "Signal-driven assistant workspace"
+    assert html =~ "Open workspace"
+    refute html =~ "Phoenix Framework"
   end
 end
