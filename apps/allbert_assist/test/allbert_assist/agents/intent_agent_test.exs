@@ -185,7 +185,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              })
 
     assert response.status == :completed
-    assert response.message =~ "v0.01-safe capabilities"
+    assert response.message =~ "read-only capabilities"
     assert [%{name: "list_skills", permission_decision: %{decision: :allowed}}] = response.actions
     assert response.runner_metadata.selected_skill == "list-skills"
   end
