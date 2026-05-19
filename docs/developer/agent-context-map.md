@@ -244,29 +244,31 @@ LiveView to the shipped **agentic workspace shell**:
   YAML body under `<ALLBERT_HOME>/workspace/canvas/<user_id>/<thread_id>/`.
   Per-thread Ephemeral Surfaces live in SQLite + YAML under
   `<ALLBERT_HOME>/workspace/ephemeral/<user_id>/<thread_id>/`. Both
-  shared across browser tabs viewing the same thread via PubSub
-  topics `workspace_tiles:<user_id>:<thread_id>` +
-  `workspace_ephemerals:<user_id>:<thread_id>`.
+  are shared across browser tabs viewing the same thread via the
+  `SignalBridge.workspace_topic_for/2` PubSub topic
+  `workspace:<user_id>:<thread_id>`.
 - Runtime Fragment emission is signal-topic-driven: any in-BEAM
   module publishes a HMAC-signed `%Workspace.Fragment.Envelope{}` to
   `allbert.workspace.fragment.**`; `AllbertAssistWeb.SignalBridge`
   (extends v0.24) validates strictly (envelope shape + signature +
   catalog component + emitter allow-list + per-emitter rate limit +
-  payload size) and forwards valid envelopes to per-user PubSub
-  topic `workspace_fragments:<user_id>`. Invalid envelopes drop
-  with bounded log + `allbert.workspace.fragment.dropped` signal.
+  payload size) and forwards valid envelopes to the per-user
+  `SignalBridge.topic_for/1` PubSub topic `objectives:<user_id>`.
+  Invalid envelopes drop with bounded log +
+  `allbert.workspace.fragment.dropped` signal.
 - 42-component catalog (per ADR 0015 v0.26 amendment): 12 v0.18
   carryover + 10 workspace structural + 12 Allbert-domain + 4
   Allbert-app cards + 4 reserved StockSage cards. StockSage card
   rendering ships in v0.27; v0.26 ships stubs.
 - 14 new `workspace.*` settings (theme, offline, accessibility,
-  mobile breakpoint, fragment rate limits, etc.). New
+  fixed read-only mobile breakpoint, fragment rate limits, etc.). New
   `:workspace_canvas_write` permission class.
-- Full UX qualities first-class in v0.26: dark mode + WCAG 2.1 AA
-  accessibility + mobile responsive + offline text/markdown editing
-  via browser-side Yjs + IndexedDB with bounded reconnect sync +
-  conflict-banner UX. v0.26 does not add a server-side Rust NIF or
-  server-side CRDT interpreter.
+- UX qualities are first-class in v0.26: dark mode, high contrast,
+  reduced motion, structural accessibility coverage, mobile responsive
+  layout, and offline text/markdown editing via browser-side Yjs +
+  IndexedDB with bounded reconnect sync + conflict-banner UX. v0.26
+  does not add a server-side Rust NIF or server-side CRDT interpreter;
+  manual axe/screen-reader validation remains the release gate.
 - Internal `AllbertAssist.Workspace.AGUI.Bridge` translates curated
   Allbert signals to AG-UI event shape for test-only semantic
   mapping; NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps
@@ -274,10 +276,11 @@ LiveView to the shipped **agentic workspace shell**:
   Interop).
 
 Sibling routes (`/objectives/:id`, `/jobs`, `/settings`) remain
-top-level for deep-linking AND are reachable as tiles inside the
-workspace. Plugins do NOT contribute workspace regions in v0.26
-(post-v0.31 work); plugins MAY emit Fragments via the SignalBus
-topic (existing v0.26 emission path).
+top-level for deep-linking. The workspace can render catalog-backed
+summary tiles for those domains, but it does not replace the sibling
+routes in v0.26. Plugins do NOT contribute workspace regions in
+v0.26 (post-v0.31 work); plugins MAY emit Fragments via the
+SignalBus topic (existing v0.26 emission path).
 
 ### Jido.Agent vs. GenServer Substrate (v0.23)
 

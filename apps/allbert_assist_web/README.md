@@ -25,6 +25,8 @@ theme controls, mobile tabs, and offline text/markdown tile editors.
 Workspace effects still cross the same runtime/action boundary as the CLI:
 registered actions, `Actions.Runner.run/3`, Security Central, Settings
 Central, traces, and Allbert Home remain authoritative.
+The mobile breakpoint is fixed at 768px in v0.26; the Settings key is
+read-only until a dynamic media-query strategy is implemented honestly.
 
 The `/settings` LiveView uses Settings Central for operator settings,
 provider profile status, skill trust settings, and editable permission
@@ -44,4 +46,5 @@ v0.26 keeps that rule while making `/agent` substantially richer: the page owns
 rendering and browser APIs, not runtime authority. The browser-side Yjs +
 IndexedDB editor stores local drafts and sends bounded snapshots to the
 workspace facade; server-side reconciliation records canvas revisions and
-surfaces conflict/revert UI.
+surfaces conflict/revert UI. Rejected or corrupt local drafts are retained in
+browser storage with fallback-shell recovery metadata rather than discarded.
