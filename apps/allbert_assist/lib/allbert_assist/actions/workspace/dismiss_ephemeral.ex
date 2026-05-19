@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.Workspace.DismissEphemeral do
     schema: [
       surface_id: [type: :string, required: true],
       user_id: [type: :string, required: false],
+      thread_id: [type: :string, required: false],
       dismissed_by: [type: :string, required: false]
     ],
     output_schema: [
@@ -24,12 +25,14 @@ defmodule AllbertAssist.Actions.Workspace.DismissEphemeral do
   def run(params, context) when is_map(params) do
     permission_decision = PermissionGate.authorize(:workspace_canvas_write, context)
     user_id = field(params, :user_id) || field(context, :user_id) || field(context, :actor)
+    thread_id = field(params, :thread_id) || field(context, :thread_id)
     dismissed_by = field(params, :dismissed_by, "operator")
 
     with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
          user_id when is_binary(user_id) and user_id != "" <- user_id,
          {:ok, surface_id} <- required_string(params, :surface_id),
-         {:ok, surface} <- Workspace.dismiss_ephemeral(surface_id, user_id, dismissed_by) do
+         {:ok, surface} <-
+           Workspace.dismiss_ephemeral(surface_id, user_id, dismissed_by, thread_id: thread_id) do
       {:ok, completed(surface, permission_decision)}
     else
       {:allowed, false} ->

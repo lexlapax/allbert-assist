@@ -147,6 +147,10 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
       aria-labelledby={node_labelledby(@node)}
       aria-modal={node_aria_modal(@node)}
       phx-hook={node_hook(@node)}
+      phx-click-away={node_dismiss_event(@node)}
+      phx-window-keydown={node_dismiss_event(@node)}
+      phx-key={node_dismiss_key(@node)}
+      phx-value-surface-id={node_surface_id(@node)}
     >
       <.live_component
         module={renderer_for(@node.component)}
@@ -201,6 +205,33 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
   end
 
   defp node_hook(_node), do: nil
+
+  defp node_dismiss_event(%Node{} = node) do
+    if dismissible_ephemeral?(node), do: "dismiss_workspace_ephemeral"
+  end
+
+  defp node_dismiss_key(%Node{} = node) do
+    if dismissible_ephemeral?(node), do: "escape"
+  end
+
+  defp node_surface_id(%Node{} = node) do
+    if dismissible_ephemeral?(node), do: prop(node, :surface_id)
+  end
+
+  defp dismissible_ephemeral?(%Node{component: :ephemeral_surface, children: children} = node)
+       when children != [] do
+    prop(node, :dismissible?, true) != false and is_binary(prop(node, :surface_id))
+  end
+
+  defp dismissible_ephemeral?(_node), do: false
+
+  defp prop(node, key, fallback \\ nil)
+
+  defp prop(%Node{props: props}, key, fallback) when is_map(props) do
+    Map.get(props, key) || Map.get(props, Atom.to_string(key), fallback)
+  end
+
+  defp prop(_node, _key, fallback), do: fallback
 
   defp component_title_id(%Node{id: node_id}), do: "workspace-component-title-#{node_id}"
 end

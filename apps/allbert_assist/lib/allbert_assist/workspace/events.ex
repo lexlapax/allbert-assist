@@ -9,6 +9,7 @@ defmodule AllbertAssist.Workspace.Events do
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Canvas.Revision
   alias AllbertAssist.Workspace.Canvas.Tile
+  alias AllbertAssist.Workspace.Ephemeral.Surface, as: EphemeralSurface
   alias AllbertAssist.Workspace.Fragment
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.SigningSecret
@@ -66,6 +67,33 @@ defmodule AllbertAssist.Workspace.Events do
 
       {:error, reason} ->
         Logger.debug("workspace offline signal skipped reason=#{inspect(reason)}")
+    end
+
+    :ok
+  end
+
+  @spec ephemeral_opened(EphemeralSurface.t(), map()) :: :ok
+  def ephemeral_opened(%EphemeralSurface{} = surface, metadata \\ %{}) when is_map(metadata) do
+    data =
+      %{
+        surface_id: surface.id,
+        user_id: surface.user_id,
+        thread_id: surface.thread_id,
+        kind: surface.kind,
+        body_yaml_path: surface.body_yaml_path,
+        metadata: metadata
+      }
+      |> Redactor.redact()
+
+    case Signal.new("allbert.workspace.ephemeral.opened", data,
+           source: "/allbert/workspace/ephemeral/#{surface.id}",
+           subject: surface.user_id
+         ) do
+      {:ok, signal} ->
+        publish(signal)
+
+      {:error, reason} ->
+        Logger.debug("workspace ephemeral open signal skipped reason=#{inspect(reason)}")
     end
 
     :ok
