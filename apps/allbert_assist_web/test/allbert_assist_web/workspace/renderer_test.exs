@@ -85,6 +85,39 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     assert ephemeral_html =~ ~s(id="workspace-component-title-approval-surface-1")
   end
 
+  test "tile with semantic child card does not expose raw tile body" do
+    html =
+      render_component(Renderer,
+        id: "objective-tile-renderer",
+        node: %Node{
+          id: "objective-tile",
+          component: :tile,
+          props: %{
+            title: "Objective Progress",
+            body: "kind=objective_card",
+            tile_kind: "objective_card"
+          },
+          children: [
+            %Node{
+              id: "objective-card",
+              component: :objective_card,
+              props: %{
+                title: "Analyze AAPL",
+                body: "Complete a StockSage analysis for AAPL."
+              }
+            }
+          ]
+        },
+        renderer_context: renderer_context(),
+        workspace_state: workspace_state()
+      )
+
+    assert html =~ "Objective Progress"
+    assert html =~ "Analyze AAPL"
+    refute html =~ "workspace-tile-readonly"
+    refute html =~ "kind=objective_card"
+  end
+
   test "editable text tile keeps only editor body under phx-update ignore" do
     html =
       render_component(Renderer,
