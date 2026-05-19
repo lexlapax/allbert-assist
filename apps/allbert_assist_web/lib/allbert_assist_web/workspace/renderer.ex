@@ -2,9 +2,8 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
   @moduledoc """
   Dispatches declarative workspace Surface nodes to web components.
 
-  The core catalog stays web-agnostic. M4 wires the dispatcher and keeps most
-  components on a placeholder renderer; later milestones replace those
-  placeholders with concrete component modules.
+  The core catalog stays web-agnostic. The web renderer owns only visual
+  dispatch, layout wrappers, and client-side shell affordances.
   """
 
   use AllbertAssistWeb, :live_component
@@ -120,7 +119,7 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
     ~H"""
     <div
       id={@id}
-      class="workspace-renderer space-y-4"
+      class="workspace-renderer"
       data-workspace-renderer="surface"
       data-workspace-surface={@surface.id}
     >
@@ -140,7 +139,7 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
     ~H"""
     <div
       id={"workspace-node-#{@node.id}"}
-      class="workspace-node space-y-4"
+      class={["workspace-node", node_class(@node)]}
       data-workspace-component={@node.component}
       data-workspace-node={@node.id}
       role={node_role(@node)}
@@ -160,15 +159,33 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
         workspace_state={@workspace_state}
       />
 
-      <div :if={@node.children != []} class="workspace-node-children space-y-4">
-        <.live_component
-          :for={child <- @node.children}
-          module={__MODULE__}
-          id={node_renderer_id(@id, child)}
-          node={child}
-          renderer_context={@renderer_context}
-          workspace_state={@workspace_state}
-        />
+      <div :if={@node.children != []} class={children_class(@node)}>
+        <%= for child <- @node.children do %>
+          <.live_component
+            module={__MODULE__}
+            id={node_renderer_id(@id, child)}
+            node={child}
+            renderer_context={@renderer_context}
+            workspace_state={@workspace_state}
+          />
+          <div
+            :if={workspace_split_after?(@node, child)}
+            id="workspace-split-resizer"
+            class="workspace-split-resizer"
+            role="separator"
+            tabindex="0"
+            aria-label="Resize chat and canvas panes"
+            aria-orientation="vertical"
+            aria-valuemin="35"
+            aria-valuemax="70"
+            aria-valuenow="55"
+            aria-controls="workspace-node-workspace-chat workspace-node-workspace-canvas-region"
+            data-default-value="55"
+            phx-hook="WorkspaceSplitResizer"
+          >
+            <span aria-hidden="true" />
+          </div>
+        <% end %>
       </div>
     </div>
     """
@@ -177,10 +194,46 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
   defp node_renderer_id(parent_id, %Node{id: node_id}), do: "#{parent_id}:#{node_id}:renderer"
   defp node_component_id(parent_id, %Node{id: node_id}), do: "#{parent_id}:#{node_id}:component"
 
+  defp node_class(%Node{component: :workspace}), do: "workspace-root-node"
+  defp node_class(%Node{component: :chat}), do: "workspace-chat-node"
+  defp node_class(%Node{component: :canvas}), do: "workspace-canvas-node"
+
+  defp node_class(%Node{component: :ephemeral_surface, children: []}),
+    do: "workspace-ephemeral-node-empty"
+
+  defp node_class(%Node{component: :ephemeral_surface}), do: "workspace-ephemeral-node"
+  defp node_class(%Node{component: :badge_strip, children: []}), do: "workspace-badges-node-empty"
+  defp node_class(%Node{component: :badge_strip}), do: "workspace-badges-node"
+  defp node_class(%Node{component: :tile}), do: "workspace-tile-node"
+  defp node_class(%Node{component: :tabs}), do: "workspace-tabs-node"
+  defp node_class(_node), do: nil
+
+  defp children_class(%Node{component: :workspace}),
+    do: "workspace-node-children workspace-root-grid"
+
+  defp children_class(%Node{component: :canvas}),
+    do: "workspace-node-children workspace-canvas-tiles"
+
+  defp children_class(%Node{component: :ephemeral_surface}),
+    do: "workspace-node-children workspace-ephemeral-content"
+
+  defp children_class(%Node{component: :badge_strip}),
+    do: "workspace-node-children workspace-badge-row"
+
+  defp children_class(%Node{component: :tabs}),
+    do: "workspace-node-children workspace-tabs-children"
+
+  defp children_class(_node), do: "workspace-node-children workspace-stack"
+
+  defp workspace_split_after?(%Node{component: :workspace}, %Node{component: :chat}), do: true
+  defp workspace_split_after?(_parent, _child), do: false
+
   defp node_role(%Node{component: :tile}), do: "article"
 
   defp node_role(%Node{component: :ephemeral_surface, children: children}) when children != [],
     do: "dialog"
+
+  defp node_role(%Node{component: :tabs}), do: "tablist"
 
   defp node_role(%Node{component: component}) when component in [:canvas, :badge_strip],
     do: "region"
@@ -204,6 +257,7 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
     "FocusTrap"
   end
 
+  defp node_hook(%Node{component: :tabs}), do: "WorkspaceTabs"
   defp node_hook(_node), do: nil
 
   defp node_dismiss_event(%Node{} = node) do
@@ -228,7 +282,10 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
   defp prop(node, key, fallback \\ nil)
 
   defp prop(%Node{props: props}, key, fallback) when is_map(props) do
-    Map.get(props, key) || Map.get(props, Atom.to_string(key), fallback)
+    case Map.fetch(props, key) do
+      {:ok, value} -> value
+      :error -> Map.get(props, Atom.to_string(key), fallback)
+    end
   end
 
   defp prop(_node, _key, fallback), do: fallback
