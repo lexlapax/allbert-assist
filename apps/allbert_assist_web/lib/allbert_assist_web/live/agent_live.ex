@@ -414,7 +414,11 @@ defmodule AllbertAssistWeb.AgentLive do
         {thread.id, nil, false}
 
       {:error, reason} ->
-        case Conversations.resolve_thread(%{user_id: user_id, text: "Workspace session"}) do
+        case Conversations.resolve_thread(%{
+               user_id: user_id,
+               text: "Workspace session",
+               new_thread: true
+             }) do
           {:ok, thread} ->
             {thread.id, thread_recovery_notice(reason, requested_thread_id),
              explicit_thread_id?(requested_thread_id)}
@@ -448,7 +452,7 @@ defmodule AllbertAssistWeb.AgentLive do
 
   defp maybe_sync_thread_url(socket, true, thread_id, active_app) do
     if connected?(socket) do
-      send(self(), {:sync_workspace_thread_url, thread_id, active_app})
+      Process.send_after(self(), {:sync_workspace_thread_url, thread_id, active_app}, 0)
     end
 
     socket
