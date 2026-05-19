@@ -168,6 +168,12 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
      socket
      |> Base.assign_defaults(assigns)
      |> assign(
+       active_app: Map.get(context, :active_app, :allbert),
+       thread_id: Map.get(context, :thread_id),
+       active_objectives: Map.get(context, :active_objectives, []),
+       canvas_tiles: Map.get(context, :canvas_tiles, []),
+       ephemeral_surfaces: Map.get(context, :ephemeral_surfaces, []),
+       workspace_badges: Map.get(context, :workspace_badges, []),
        workspace_theme: Map.get(context, :workspace_theme, "system"),
        workspace_high_contrast?: Map.get(context, :workspace_high_contrast?, false)
      )}
@@ -177,35 +183,76 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
   def render(assigns) do
     ~H"""
     <header
-      id={"workspace-component-#{@node.id}"}
-      class="workspace-header flex items-start justify-between gap-3 rounded border border-base-300 bg-base-100 p-3 text-sm"
+      id="allbert-appbar"
+      class="workspace-header allbert-appbar"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
       aria-labelledby={Base.component_title_id(@node)}
     >
-      <div class="min-w-0">
-        <h2 id={Base.component_title_id(@node)} class="text-sm font-semibold leading-6">
-          {Base.prop(@node, :title, "Allbert Workspace")}
-        </h2>
-        <p class="text-xs text-base-content/60">
-          {Base.prop(@node, :subtitle, "Runtime chat, canvas, and ephemeral surfaces.")}
-        </p>
+      <div class="allbert-appbar-brand">
+        <span class="allbert-brand-icon" aria-hidden="true">
+          <.icon name="hero-sparkles-mini" class="size-5" />
+        </span>
+        <div class="min-w-0">
+          <h1 id={Base.component_title_id(@node)} class="allbert-appbar-title">
+            Allbert Assist
+          </h1>
+          <p class="allbert-appbar-subtitle">
+            Runtime, canvas, and ephemeral workspace.
+          </p>
+        </div>
       </div>
 
-      <button
-        id="workspace-theme-toggle"
-        type="button"
-        class="workspace-theme-toggle btn btn-sm btn-circle shrink-0"
-        phx-click="toggle_workspace_theme"
-        aria-label={theme_toggle_label(@workspace_theme)}
-        title={theme_toggle_label(@workspace_theme)}
-        data-current-theme={@workspace_theme}
-        data-next-theme={next_workspace_theme(@workspace_theme)}
-        data-high-contrast={bool_attribute(@workspace_high_contrast?)}
-      >
-        <.icon name={theme_toggle_icon(@workspace_theme)} class="size-4" />
-        <span class="sr-only">{theme_toggle_label(@workspace_theme)}</span>
-      </button>
+      <div class="allbert-appbar-center" aria-label="Workspace context">
+        <span id="workspace-thread-chip" class="allbert-chip allbert-chip-mono" title={@thread_id}>
+          <.icon name="hero-chat-bubble-left-right-micro" class="size-4" />
+          {short_thread_id(@thread_id)}
+        </span>
+        <span id="workspace-active-app-chip" class="allbert-chip">
+          <.icon name="hero-squares-2x2-micro" class="size-4" />
+          {active_app_label(@active_app)}
+        </span>
+        <span id="workspace-objective-count-chip" class="allbert-chip">
+          <.icon name="hero-flag-micro" class="size-4" />
+          {count_label(@active_objectives, "objective")}
+        </span>
+        <span id="workspace-tile-count-chip" class="allbert-chip">
+          <.icon name="hero-rectangle-stack-micro" class="size-4" />
+          {count_label(@canvas_tiles, "tile")}
+        </span>
+        <span id="workspace-ephemeral-count-chip" class="allbert-chip">
+          <.icon name="hero-bolt-micro" class="size-4" />
+          {count_label(@ephemeral_surfaces, "ephemeral")}
+        </span>
+      </div>
+
+      <div class="allbert-appbar-actions">
+        <button
+          id="workspace-theme-toggle"
+          type="button"
+          class="workspace-theme-toggle allbert-icon-button"
+          phx-click="toggle_workspace_theme"
+          aria-label={theme_toggle_label(@workspace_theme)}
+          title={theme_toggle_label(@workspace_theme)}
+          data-current-theme={@workspace_theme}
+          data-next-theme={next_workspace_theme(@workspace_theme)}
+          data-high-contrast={bool_attribute(@workspace_high_contrast?)}
+        >
+          <.icon name={theme_toggle_icon(@workspace_theme)} class="size-4" />
+          <span class="sr-only">{theme_toggle_label(@workspace_theme)}</span>
+        </button>
+        <button
+          id="workspace-overflow-menu"
+          type="button"
+          class="allbert-icon-button"
+          aria-label="Workspace menu"
+          title="Workspace menu"
+          aria-disabled="true"
+          disabled
+        >
+          <.icon name="hero-ellipsis-horizontal-micro" class="size-5" />
+        </button>
+      </div>
     </header>
     """
   end
@@ -218,6 +265,32 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
 
   defp theme_toggle_label("dark"), do: "Switch workspace theme to light"
   defp theme_toggle_label(_theme), do: "Switch workspace theme to dark"
+
+  defp active_app_label(app) when is_atom(app), do: Atom.to_string(app)
+  defp active_app_label(app) when is_binary(app), do: app
+  defp active_app_label(_app), do: "allbert"
+
+  defp short_thread_id(nil), do: "thread"
+
+  defp short_thread_id(thread_id) when is_binary(thread_id) do
+    if String.length(thread_id) > 15 do
+      String.slice(thread_id, 0, 11) <> "..."
+    else
+      thread_id
+    end
+  end
+
+  defp count_label(items, label) when is_list(items) do
+    count = length(items)
+    "#{count} #{pluralize(label, count)}"
+  end
+
+  defp count_label(_items, label), do: "0 #{pluralize(label, 0)}"
+
+  defp pluralize("ephemeral", 1), do: "ephemeral"
+  defp pluralize("ephemeral", _count), do: "ephemerals"
+  defp pluralize(label, 1), do: label
+  defp pluralize(label, _count), do: "#{label}s"
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"

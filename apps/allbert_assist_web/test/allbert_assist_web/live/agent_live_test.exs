@@ -9,6 +9,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     Objectives,
     Paths,
     Runtime,
+    Session,
     Settings,
     Workspace
   }
@@ -46,8 +47,10 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     end
 
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
+    _ = Session.clear_active_app("local", "web-local")
 
     on_exit(fn ->
+      _ = Session.clear_active_app("local", "web-local")
       restore_env(Confirmations, original_confirmations_config)
       restore_env(Paths, original_paths_config)
       restore_env(Runtime, original_config)
@@ -68,6 +71,9 @@ defmodule AllbertAssistWeb.AgentLiveTest do
            )
 
     assert has_element?(view, "#agent-workspace-renderer")
+    assert has_element?(view, "#allbert-appbar")
+    assert has_element?(view, "#workspace-active-app-chip")
+    assert has_element?(view, "#workspace-thread-chip")
     assert has_element?(view, "#workspace-chat-region")
     assert has_element?(view, "#agent-form")
     assert has_element?(view, "#workspace-node-workspace-canvas-region")
@@ -94,6 +100,35 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert thread.id == thread_id
     refute html =~ "Workspace thread fallback"
     refute html =~ ~s({:thread_not_found, "nil"})
+  end
+
+  test "mount treats empty and null thread query params as absent", %{conn: conn} do
+    for query <- ["thread_id=", "thread_id=null"] do
+      {:ok, view, html} = live(conn, "/agent?#{query}")
+      thread_id = workspace_thread_id(view)
+
+      assert String.starts_with?(thread_id, "thr_")
+      assert {:ok, thread} = Conversations.get_thread("local", thread_id)
+      assert thread.id == thread_id
+      refute html =~ "Workspace thread fallback"
+      refute html =~ "workspace-thread-notice"
+    end
+  end
+
+  test "mount recovers stale explicit thread query params quietly", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/agent?thread_id=thr_missing_manual")
+    thread_id = workspace_thread_id(view)
+
+    assert String.starts_with?(thread_id, "thr_")
+    assert thread_id != "thr_missing_manual"
+    assert {:ok, thread} = Conversations.get_thread("local", thread_id)
+    assert thread.id == thread_id
+    assert has_element?(view, "#workspace-thread-notice[role='status']")
+    assert html =~ "Started a new workspace thread"
+    assert html =~ "thr_missing_manual"
+    refute has_element?(view, "#agent-error")
+    refute html =~ "Workspace thread fallback"
+    refute html =~ ~s({:thread_not_found, "thr_missing_manual"})
   end
 
   test "mount applies workspace theme from settings", %{conn: conn} do

@@ -18,6 +18,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
        prompt: Map.get(state, :prompt, ""),
        response: Map.get(state, :response),
        error: Map.get(state, :error),
+       thread_notice: Map.get(state, :thread_notice),
        asking?: Map.get(state, :asking?, false),
        status: Map.get(state, :status),
        signal_id: Map.get(state, :signal_id),
@@ -85,6 +86,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           {if @asking?, do: "Thinking…", else: "Ask Allbert"}
         </button>
       </form>
+
+      <%= if @thread_notice do %>
+        <section id="workspace-thread-notice" class="workspace-thread-notice" role="status">
+          <.icon name="hero-information-circle-micro" class="size-4 shrink-0" />
+          <span>{@thread_notice}</span>
+        </section>
+      <% end %>
 
       <%= if @response do %>
         <section id="agent-response" class="card bg-base-200" aria-live="polite">
