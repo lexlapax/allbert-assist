@@ -1306,10 +1306,11 @@ Expected direction:
 
 Plan: `docs/plans/v0.26-plan.md`
 
-Status: implemented through M20 closeout on 2026-05-18 and ready for operator
-manual validation before release tag. Version metadata is `0.26.0`. Formerly
-the old v0.17 workspace-surface plan, then v0.27, then v0.24 when moved before
-StockSage LiveViews, then v0.26 after the project-direction rethink.
+Status: implemented through M27 post-review remediation on 2026-05-18 and
+ready for operator manual validation before release tag. Version metadata is
+`0.26.0`. Formerly the old v0.17 workspace-surface plan, then v0.27, then
+v0.24 when moved before StockSage LiveViews, then v0.26 after the
+project-direction rethink.
 
 Prerequisite: v0.18 app/surface contract, v0.19 intent enrichment, v0.21 memory
 review, v0.22 Python bridge, v0.23 Jido Convergence, v0.24 Objective Runtime
@@ -1340,12 +1341,13 @@ Shipped direction:
   limit + payload size) before forwarding to per-user PubSub.
 - **Multi-tab sync** via Phoenix.PubSub for canvas tiles AND ephemeral
   surfaces. Tabs viewing the same thread see the same state.
-- **UX qualities all first-class**: dark mode + theme toggle, WCAG 2.1 AA
-  accessibility (keyboard nav + ARIA + focus traps + skip-to-content),
-  mobile responsive (two-pane above 768px, single-pane with tab toggle
-  below), offline text/markdown tile editing via service worker +
-  browser-side Yjs + IndexedDB with bounded reconnect sync +
-  conflict-banner UX.
+- **UX qualities all first-class**: dark mode + theme toggle, high contrast,
+  reduced motion, WCAG-oriented structural accessibility (keyboard nav +
+  ARIA + focus traps + skip-to-content), mobile responsive layout (two-pane
+  above fixed 768px, single-pane with tab toggle below), offline text/markdown
+  tile editing via service worker + browser-side Yjs + IndexedDB with bounded
+  reconnect sync + conflict-banner UX. Manual axe and screen-reader validation
+  remain the operator release gate.
 - **Internal `AllbertAssist.Workspace.AGUI.Bridge`** translates curated
   Allbert signals to AG-UI event shape for test-only semantic mapping.
   NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps interop is
@@ -1355,7 +1357,7 @@ Shipped direction:
   approval cards. Operator sees the analysis stream in real-time as
   agents complete.
 - **14 new `workspace.*` settings** (theme, offline, accessibility,
-  mobile breakpoint, fragment rate limits, etc.). **New
+  fixed read-only mobile breakpoint, fragment rate limits, etc.). **New
   `:workspace_canvas_write` permission class** for tile-state mutations.
 - **9 new `allbert.workspace.**` signal topics** (`fragment.emitted`,
   `fragment.dropped`, `tile.added/updated/removed`,
@@ -1366,8 +1368,9 @@ Shipped direction:
 - **`mix allbert.workspace canvas|ephemeral|inspect|rotate-signing-secret`**
   Mix tasks.
 - Sibling routes (`/objectives/:id`, `/jobs`, `/settings`) remain
-  top-level for deep-linking AND are reachable as tiles inside the
-  workspace.
+  top-level for deep-linking. The workspace can render
+  catalog-backed summary tiles for those domains without replacing
+  the sibling routes in v0.26.
 - ADR 0015 v0.26 planning amendment records the catalog expansion;
   new ADR 0023
   (Workspace Canvas And Ephemeral Surface Substrate) reaches Accepted

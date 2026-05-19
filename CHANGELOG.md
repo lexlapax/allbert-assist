@@ -12,9 +12,9 @@ changelog entries or release notes.
 
 ## v0.26 - Agentic Workspace Surface And Ephemeral UI Substrate
 
-Status: implemented through M20 closeout on 2026-05-18 and ready for
-operator manual validation. Version metadata is `0.26.0`; the release tag is
-pending operator acceptance.
+Status: implemented through M27 post-review remediation on 2026-05-18 and
+ready for operator manual validation. Version metadata is `0.26.0`; the
+release tag is pending operator acceptance.
 
 ### Added (v0.26)
 
@@ -31,7 +31,8 @@ pending operator acceptance.
 - Workspace Mix tasks for inspect, canvas list/show/pin/unpin/restore/purge,
   ephemeral list, and signing-secret rotation.
 - Dark/light workspace theme toggle, high-contrast and reduced-motion support,
-  WCAG-oriented static coverage, mobile tabs, and responsive two-pane layout.
+  WCAG-oriented structural coverage, mobile tabs, and responsive two-pane
+  layout. The mobile breakpoint is fixed at 768px and read-only in v0.26.
 - Workspace-scoped service worker, offline shell fallback, browser-side Yjs +
   IndexedDB text/markdown tile editing, bounded reconnect sync, server-side
   revision snapshots, conflict banner, and `revert_tile_revision`.
@@ -48,6 +49,12 @@ pending operator acceptance.
   runtime turn touches workspace state.
 - ADR 0023 is Accepted and records the shipped workspace canvas and ephemeral
   surface substrate; ADR 0015's v0.26 catalog amendment is confirmed.
+- M21-M26 post-review remediation bound `/agent` to real conversation
+  threads, emitted runtime/objective Fragments, moved Fragment persistence out
+  of LiveView, routed workspace writes through registered actions, synced
+  ephemeral lifecycle events across tabs, enforced tile body limits, made
+  reduced-motion effective, and made the unsupported dynamic mobile breakpoint
+  read-only.
 
 ### Safety (v0.26)
 
@@ -59,7 +66,9 @@ pending operator acceptance.
   membership, emitter allow-list, per-emitter rate limit, and payload size
   before anything renders.
 - Offline tile editing accepts only text/markdown tiles, bounds payload size,
-  stores browser Yjs payloads opaquely, and keeps readable server snapshots.
+  enforces canvas tile-body limits for snapshots, stores browser Yjs payloads
+  opaquely, keeps readable server snapshots, and preserves rejected/corrupt
+  local drafts for fallback-shell recovery instead of silently deleting them.
 - No public AG-UI/A2UI/MCP Apps bridge ships in v0.26.
 
 ### Verification (v0.26)
@@ -75,7 +84,7 @@ pending operator acceptance.
 - Final gates passed: `mix compile --warnings-as-errors`,
   `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
   `git diff --check`.
-- Final `mix precommit` passed with 730 core tests, 58 web tests, 165
+- Final `mix precommit` passed with 743 core tests, 67 web tests, 165
   StockSage plugin tests, and 2 channel plugin tests.
 
 ## v0.25 - Native Financial Specialist Agents
