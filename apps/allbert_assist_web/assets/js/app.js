@@ -84,6 +84,145 @@ const FocusTrap = {
   },
 }
 
+const workspaceSplitKey = "allbert.workspace.split_ratio.v1"
+
+const clampWorkspaceSplit = value => {
+  const numeric = Number.parseInt(value, 10)
+  if (Number.isNaN(numeric)) return 55
+  return Math.min(70, Math.max(35, numeric))
+}
+
+const WorkspaceSplitResizer = {
+  mounted() {
+    this.root = document.getElementById("workspace-node-workspace-root")
+    this.grid = this.root?.querySelector(":scope > .workspace-root-grid")
+    this.value = clampWorkspaceSplit(window.localStorage?.getItem(workspaceSplitKey) || this.el.dataset.defaultValue)
+
+    this.applyValue(this.value)
+
+    this.handlePointerMove = event => {
+      if (!this.dragging || !this.grid) return
+
+      const rect = this.grid.getBoundingClientRect()
+      const next = ((event.clientX - rect.left) / rect.width) * 100
+      this.applyValue(next)
+    }
+
+    this.handlePointerUp = () => {
+      if (!this.dragging) return
+
+      this.dragging = false
+      this.el.releasePointerCapture?.(this.pointerId)
+      this.persistValue()
+    }
+
+    this.handlePointerDown = event => {
+      if (!this.grid || window.matchMedia("(max-width: 767.98px)").matches) return
+
+      this.dragging = true
+      this.pointerId = event.pointerId
+      this.el.setPointerCapture?.(event.pointerId)
+      this.handlePointerMove(event)
+      event.preventDefault()
+    }
+
+    this.handleKeydown = event => {
+      const step = event.shiftKey ? 5 : 2
+      const keys = {
+        ArrowLeft: -step,
+        ArrowRight: step,
+        Home: 35 - this.value,
+        End: 70 - this.value,
+      }
+
+      if (!(event.key in keys)) return
+
+      this.applyValue(this.value + keys[event.key])
+      this.persistValue()
+      event.preventDefault()
+    }
+
+    this.el.addEventListener("pointerdown", this.handlePointerDown)
+    this.el.addEventListener("keydown", this.handleKeydown)
+    window.addEventListener("pointermove", this.handlePointerMove)
+    window.addEventListener("pointerup", this.handlePointerUp)
+  },
+
+  destroyed() {
+    this.el.removeEventListener("pointerdown", this.handlePointerDown)
+    this.el.removeEventListener("keydown", this.handleKeydown)
+    window.removeEventListener("pointermove", this.handlePointerMove)
+    window.removeEventListener("pointerup", this.handlePointerUp)
+  },
+
+  applyValue(next) {
+    this.value = clampWorkspaceSplit(next)
+    this.root?.style.setProperty("--workspace-chat-ratio", `${this.value}%`)
+    this.el.setAttribute("aria-valuenow", String(this.value))
+  },
+
+  persistValue() {
+    try {
+      window.localStorage?.setItem(workspaceSplitKey, String(this.value))
+    } catch (_error) {
+      // localStorage may be unavailable in hardened browser modes.
+    }
+  },
+}
+
+const WorkspaceTabs = {
+  mounted() {
+    this.tabs = () => Array.from(this.el.querySelectorAll("[role='tab']"))
+
+    this.activate = tab => {
+      for (const current of this.tabs()) {
+        const selected = current === tab
+        current.setAttribute("aria-selected", selected ? "true" : "false")
+        current.setAttribute("tabindex", selected ? "0" : "-1")
+
+        const panelId = current.getAttribute("aria-controls")
+        const panel = panelId ? document.getElementById(panelId) : null
+        if (panel) panel.hidden = !selected
+      }
+
+      tab.focus({preventScroll: true})
+    }
+
+    this.handleClick = event => {
+      const tab = event.target.closest("[role='tab']")
+      if (tab && this.el.contains(tab)) this.activate(tab)
+    }
+
+    this.handleKeydown = event => {
+      const tabs = this.tabs()
+      const index = tabs.indexOf(document.activeElement)
+      if (index === -1) return
+
+      const nextIndex = {
+        ArrowRight: (index + 1) % tabs.length,
+        ArrowDown: (index + 1) % tabs.length,
+        ArrowLeft: (index - 1 + tabs.length) % tabs.length,
+        ArrowUp: (index - 1 + tabs.length) % tabs.length,
+        Home: 0,
+        End: tabs.length - 1,
+      }[event.key]
+
+      if (nextIndex === undefined) return
+
+      this.activate(tabs[nextIndex])
+      event.preventDefault()
+    }
+
+    this.el.addEventListener("click", this.handleClick)
+    this.el.addEventListener("keydown", this.handleKeydown)
+  },
+
+  destroyed() {
+    this.el.removeEventListener("click", this.handleClick)
+    this.el.removeEventListener("keydown", this.handleKeydown)
+  },
+}
+
 const workspaceEditorManifestKey = "allbert.workspace.tile_editors.v1"
 const workspaceEditorCorruptManifestKey = "allbert.workspace.tile_editors.corrupt.v1"
 const workspaceEditorOrigin = "allbert-workspace-editor"
@@ -372,7 +511,7 @@ const WorkspaceTileEditor = {
 }
 
 const workspaceOfflineMessages = {
-  online: "Workspace shell cached for offline use.",
+  online: "Workspace cached for offline use.",
   offline: "Working offline — your shell is cached and changes will sync when you reconnect.",
   unavailable: "Offline mode unavailable in this environment.",
   disabled: "Offline mode disabled.",
@@ -466,7 +605,7 @@ const liveSocket = csrfToken
   ? new LiveSocket("/live", Socket, {
       longPollFallbackMs: 2500,
       params: {_csrf_token: csrfToken},
-      hooks: {...colocatedHooks, FocusTrap, WorkspaceTileEditor},
+      hooks: {...colocatedHooks, FocusTrap, WorkspaceSplitResizer, WorkspaceTabs, WorkspaceTileEditor},
     })
   : null
 

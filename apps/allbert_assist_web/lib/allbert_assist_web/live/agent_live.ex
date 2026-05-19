@@ -55,6 +55,7 @@ defmodule AllbertAssistWeb.AgentLive do
         workspace_mobile_tab: "chat",
         workspace_offline_enabled?: workspace_offline_enabled?(),
         workspace_indexeddb_quota_bytes: workspace_indexeddb_quota_bytes(),
+        workspace_canvas_max_tiles_per_thread: workspace_canvas_max_tiles_per_thread(),
         active_objectives: active_objectives(user_id),
         prompt: "Hello Allbert. What can you do right now?",
         response: nil,
@@ -592,6 +593,13 @@ defmodule AllbertAssistWeb.AgentLive do
     megabytes * 1_048_576
   end
 
+  defp workspace_canvas_max_tiles_per_thread do
+    case Settings.get("workspace.canvas.max_tiles_per_thread") do
+      {:ok, value} when is_integer(value) -> value
+      _other -> 64
+    end
+  end
+
   defp workspace_tile_editor_reply(params, socket) do
     with true <- socket.assigns.workspace_offline_enabled? || {:error, :offline_disabled},
          {:ok, %{status: status, result: result}}
@@ -692,6 +700,7 @@ defmodule AllbertAssistWeb.AgentLive do
       workspace_reduce_motion?: assigns.workspace_reduce_motion?,
       workspace_offline_enabled?: assigns.workspace_offline_enabled?,
       workspace_indexeddb_quota_bytes: assigns.workspace_indexeddb_quota_bytes,
+      workspace_canvas_max_tiles_per_thread: assigns.workspace_canvas_max_tiles_per_thread,
       active_app: assigns.active_app
     }
   end
