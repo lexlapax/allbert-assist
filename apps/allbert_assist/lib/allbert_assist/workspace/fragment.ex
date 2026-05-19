@@ -127,13 +127,23 @@ defmodule AllbertAssist.Workspace.Fragment do
   end
 
   defp verify_signature(%Envelope{} = envelope) do
-    with {:ok, secret} <- SigningSecret.ensure(),
-         :ok <- Envelope.verify(envelope, secret) do
+    with {:ok, secrets} <- SigningSecret.verification_secrets(),
+         :ok <- verify_with_any_secret(envelope, secrets) do
       :ok
     else
       {:error, :signature_missing} -> {:error, :signature_invalid}
       {:error, :signature_invalid} -> {:error, :signature_invalid}
       {:error, _reason} -> {:error, :signature_invalid}
+    end
+  end
+
+  defp verify_with_any_secret(_envelope, []), do: {:error, :signature_invalid}
+
+  defp verify_with_any_secret(envelope, [secret | rest]) do
+    case Envelope.verify(envelope, secret) do
+      :ok -> :ok
+      {:error, :signature_invalid} -> verify_with_any_secret(envelope, rest)
+      {:error, reason} -> {:error, reason}
     end
   end
 

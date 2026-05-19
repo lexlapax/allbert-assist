@@ -139,6 +139,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 16} = Settings.get("workspace.ephemeral.max_active_per_thread")
     assert {:ok, "[REDACTED]"} = Settings.get("workspace.fragment.signing_secret")
     assert {:ok, 10} = Settings.get("workspace.fragment.rate_limit_per_second")
+    assert {:ok, 10} = Settings.get("workspace.fragment.receiver_rate_limit_per_second")
     assert {:ok, 65_536} = Settings.get("workspace.fragment.payload_max_bytes")
     assert {:ok, true} = Settings.get("workspace.offline.enabled")
     assert {:ok, 32} = Settings.get("workspace.offline.indexeddb_quota_mb")
@@ -163,6 +164,16 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:ok, breakpoint} = Settings.explain("workspace.mobile.breakpoint_px")
     refute breakpoint.writable?
+    assert Settings.schema()["workspace.mobile.breakpoint_px"].type == :positive_integer
+    refute Map.has_key?(Settings.schema()["workspace.mobile.breakpoint_px"], :min)
+    refute Map.has_key?(Settings.schema()["workspace.mobile.breakpoint_px"], :max)
+
+    assert {:ok, receiver_rate_limit} =
+             Settings.put("workspace.fragment.receiver_rate_limit_per_second", 3, %{
+               audit?: false
+             })
+
+    assert receiver_rate_limit.value == 3
 
     assert {:error, {:read_only_setting, "workspace.mobile.breakpoint_px"}} =
              Settings.put("workspace.mobile.breakpoint_px", 640, %{audit?: false})

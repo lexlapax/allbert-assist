@@ -40,14 +40,47 @@ defmodule AllbertAssist.Workspace.Fragment.SigningSecretTest do
 
     result = SigningSecret.rotate!()
 
-    assert %{fingerprint: fingerprint, path: path, rotated_at: %DateTime{}} = result
+    assert %{
+             fingerprint: fingerprint,
+             path: path,
+             previous_fingerprint: previous_fingerprint,
+             previous_expires_at: %DateTime{} = previous_expires_at,
+             overlap_seconds: 60,
+             rotated_at: %DateTime{}
+           } = result
+
     assert path == SigningSecret.path()
     assert byte_size(fingerprint) == 12
+    assert byte_size(previous_fingerprint) == 12
+    assert DateTime.compare(previous_expires_at, DateTime.utc_now()) == :gt
 
     {:ok, new_secret} = SigningSecret.read()
     assert SigningSecret.valid?(new_secret)
     refute new_secret == old_secret
     refute inspect(result) =~ new_secret
+    refute inspect(result) =~ old_secret
+
+    assert {:ok, verification_secrets} = SigningSecret.verification_secrets()
+    assert verification_secrets == [new_secret, old_secret]
+    assert File.exists?(SigningSecret.previous_path())
+    assert (File.stat!(SigningSecret.previous_path()).mode &&& 0o777) == 0o600
+  end
+
+  test "expired previous secrets are ignored and cleaned up" do
+    old_secret = SigningSecret.ensure!()
+    new_secret = String.duplicate("a", 64)
+    File.write!(SigningSecret.path(), new_secret <> "\n")
+
+    File.write!(
+      SigningSecret.previous_path(),
+      Jason.encode!(%{
+        "secret" => old_secret,
+        "expires_at" => DateTime.utc_now() |> DateTime.add(-1, :second) |> DateTime.to_iso8601()
+      })
+    )
+
+    assert {:ok, [^new_secret]} = SigningSecret.verification_secrets()
+    refute File.exists?(SigningSecret.previous_path())
   end
 
   test "rejects malformed existing secret files" do
