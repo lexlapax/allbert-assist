@@ -54,7 +54,7 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
     assert {:ok, response} = ListSkills.run(%{}, %{})
 
     assert response.status == :completed
-    assert response.message =~ "v0.01-safe capabilities"
+    assert response.message =~ "read-only capabilities"
     assert response.permission_decision.decision == :allowed
     assert append_memory = Enum.find(response.skills, &(&1.name == "append-memory"))
     assert append_memory.capability_contract.validation_status == :valid
@@ -203,7 +203,7 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
              PlanShellCommand.run(%{command: "rm -rf /tmp/example"}, %{})
 
     assert response.status == :denied
-    assert response.message =~ "I will not execute shell commands"
+    assert response.message =~ "I will not execute shell commands from this planning response."
     assert response.permission_decision.decision == :denied
 
     assert [

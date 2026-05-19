@@ -64,11 +64,11 @@ defmodule AllbertAssist.Actions.Intent.PlanShellCommand do
       if destructive? do
         "This looks destructive, so it is explicitly blocked."
       else
-        "Command execution is not available in v0.01."
+        "This planning action does not execute commands. Confirmed shell execution must route through the registered run_shell_command action and Security Central."
       end
 
     """
-    I will not execute shell commands from this milestone.
+    I will not execute shell commands from this planning response.
 
     Requested command/task:
     #{command}
