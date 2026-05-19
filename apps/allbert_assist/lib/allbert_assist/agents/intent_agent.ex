@@ -1713,8 +1713,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
-  defp job_channel?(_context), do: false
-
   defp unsupported_resource_workflow_route(text, normalized) do
     cond do
       unsupported_uri_scheme_request?(normalized) ->
