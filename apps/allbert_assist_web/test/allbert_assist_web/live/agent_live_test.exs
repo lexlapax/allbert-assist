@@ -146,16 +146,27 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "mount recovers stale explicit thread query params quietly", %{conn: conn} do
+    assert {:ok, recent_thread} =
+             Conversations.create_general_thread("local", "Existing workspace thread")
+
+    assert {:ok, _message} =
+             Conversations.append_user_message(recent_thread, "do not reuse this thread", %{
+               channel: :live_view
+             })
+
     {:ok, view, html} = live(conn, ~p"/agent?thread_id=thr_missing_manual")
     thread_id = workspace_thread_id(view)
 
     assert String.starts_with?(thread_id, "thr_")
     assert thread_id != "thr_missing_manual"
+    assert thread_id != recent_thread.id
     assert {:ok, thread} = Conversations.get_thread("local", thread_id)
     assert thread.id == thread_id
     assert has_element?(view, "#workspace-thread-notice[role='status']")
     assert html =~ "Started a new workspace thread"
     assert html =~ "thr_missing_manual"
+    refute html =~ "do not reuse this thread"
+    assert_patch(view, "/agent?app_id=allbert&thread_id=#{thread_id}")
     refute has_element?(view, "#agent-error")
     refute html =~ "Workspace thread fallback"
     refute html =~ ~s({:thread_not_found, "thr_missing_manual"})
