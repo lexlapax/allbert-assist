@@ -52,6 +52,15 @@ defmodule AllbertAssist.Workspace.BodyStore do
   end
 
   @doc false
+  @spec body_size_bytes(map()) :: non_neg_integer()
+  def body_size_bytes(body) when is_map(body) do
+    body
+    |> normalize_body()
+    |> YamlCodec.encode!()
+    |> byte_size()
+  end
+
+  @doc false
   @spec normalize_body(map()) :: map()
   def normalize_body(body) when is_map(body), do: stringify(body)
 
