@@ -15,6 +15,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
      |> assign(assigns)
      |> assign(
        active_objectives: Map.get(context, :active_objectives, []),
+       conversation_messages: Map.get(context, :conversation_messages, []),
        prompt: Map.get(state, :prompt, ""),
        response: Map.get(state, :response),
        error: Map.get(state, :error),
@@ -65,15 +66,42 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
       <% end %>
 
       <div id="workspace-chat-timeline" class="workspace-chat-timeline" aria-live="polite">
-        <article class="workspace-message workspace-message-user">
-          <div class="workspace-message-avatar" aria-hidden="true">You</div>
-          <div class="workspace-message-body">
-            <p class="workspace-message-label">Prompt draft</p>
-            <pre>{@prompt}</pre>
-          </div>
-        </article>
+        <%= if @conversation_messages == [] do %>
+          <article class="workspace-message workspace-message-user">
+            <div class="workspace-message-avatar" aria-hidden="true">You</div>
+            <div class="workspace-message-body">
+              <p class="workspace-message-label">Prompt draft</p>
+              <pre>{@prompt}</pre>
+            </div>
+          </article>
+        <% else %>
+          <article
+            :for={message <- @conversation_messages}
+            id={"workspace-message-#{message_id(message)}"}
+            class={["workspace-message", message_class(message)]}
+          >
+            <div class="workspace-message-avatar" aria-hidden="true">
+              {message_avatar(message)}
+            </div>
+            <div class="workspace-message-body">
+              <p class="workspace-message-label">{message_label(message)}</p>
+              <pre>{message_content(message)}</pre>
+              <time
+                :if={message_time(message)}
+                class="workspace-message-time"
+                datetime={message_time(message)}
+              >
+                {message_time(message)}
+              </time>
+            </div>
+          </article>
+        <% end %>
 
-        <article :if={@response} id="agent-response" class="workspace-message workspace-message-agent">
+        <article
+          :if={show_runtime_response?(@conversation_messages, @response)}
+          id="agent-response"
+          class="workspace-message workspace-message-agent"
+        >
           <div class="workspace-message-avatar" aria-hidden="true">A</div>
           <div class="workspace-message-body">
             <p class="workspace-message-label">Allbert</p>
@@ -95,7 +123,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           </div>
         </article>
 
-        <section :if={!@response} class="workspace-chat-empty">
+        <section
+          :if={@conversation_messages == [] and !@response}
+          class="workspace-chat-empty"
+        >
           <span class="workspace-empty-state-icon" aria-hidden="true">
             <.icon name="hero-sparkles-mini" class="size-5" />
           </span>
@@ -214,6 +245,46 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
+
+  defp message_id(%{id: id}) when is_binary(id), do: id
+  defp message_id(_message), do: System.unique_integer([:positive])
+
+  defp message_class(message), do: "workspace-message-#{message_role(message)}"
+
+  defp message_avatar(message) do
+    case message_role(message) do
+      "assistant" -> "A"
+      _role -> "You"
+    end
+  end
+
+  defp message_label(message) do
+    case message_role(message) do
+      "assistant" -> "Allbert"
+      _role -> "You"
+    end
+  end
+
+  defp message_role(%{role: role}) when is_binary(role) do
+    if role == "assistant", do: "assistant", else: "user"
+  end
+
+  defp message_role(_message), do: "user"
+
+  defp message_content(%{content: content}) when is_binary(content), do: content
+  defp message_content(_message), do: ""
+
+  defp message_time(%{inserted_at: %DateTime{} = inserted_at}) do
+    DateTime.to_iso8601(inserted_at)
+  end
+
+  defp message_time(_message), do: nil
+
+  defp show_runtime_response?(_messages, response) when response in [nil, ""], do: false
+
+  defp show_runtime_response?(messages, response) do
+    !Enum.any?(messages, &(message_role(&1) == "assistant" and message_content(&1) == response))
+  end
 
   defp approval_confirmation_id(handoff) when is_map(handoff) do
     Map.get(handoff, :confirmation_id) || Map.get(handoff, "confirmation_id")

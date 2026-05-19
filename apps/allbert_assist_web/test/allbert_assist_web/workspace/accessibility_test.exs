@@ -65,6 +65,11 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
     assert_all_buttons_named(html)
     assert_all_images_have_alt(html)
     assert_all_labelledby_refs_exist(html)
+
+    css = File.read!(@css_path)
+    assert css =~ "width: 2.75rem;"
+    assert css =~ "min-width: 2.75rem;"
+    assert css =~ "height: 2.75rem;"
   end
 
   test "reduce-motion setting renders root state and stylesheet suppression", %{conn: conn} do
