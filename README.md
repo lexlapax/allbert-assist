@@ -10,15 +10,15 @@ not the architecture center.
 
 ## Current Status
 
-v0.26 is implemented through post-review remediation and ready for operator
-manual validation. It upgrades `/agent` into the Allbert workspace: a
-Surface-tree LiveView shell with per-thread canvas tiles, per-thread ephemeral
-surfaces, signed runtime Fragments, a 42-component catalog, multi-tab sync,
-theme/high-contrast/reduced-motion/mobile polish, a service-worker offline
-shell, browser-side Yjs + IndexedDB text/markdown editing, server-side
-revision snapshots, conflict banners, and the `revert_tile_revision` action.
-Version metadata is now `0.26.0`; the release tag remains pending operator
-acceptance.
+v0.26 is implemented through the UI release closeout and ready for operator
+manual validation. It upgrades `/agent` into the Allbert workspace: an
+Allbert Assist AppBar, a Surface-tree LiveView shell, per-thread canvas
+tiles, per-thread ephemeral surfaces, signed runtime Fragments, a
+42-component catalog, multi-tab sync, theme/high-contrast/reduced-motion/mobile
+polish, a client-side chat/canvas split bar, a service-worker offline shell,
+browser-side Yjs + IndexedDB text/markdown editing, server-side revision
+snapshots, conflict banners, and the `revert_tile_revision` action. Version
+metadata is now `0.26.0`; the release tag remains pending operator acceptance.
 
 v0.25 remains the native-financial-specialist release. It adds StockSage
 native agents, action-backed evidence providers, multi-round debate with
