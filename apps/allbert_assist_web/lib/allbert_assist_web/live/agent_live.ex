@@ -9,6 +9,16 @@ defmodule AllbertAssistWeb.AgentLive do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Confirmations
+
+  alias AllbertAssist.Confirmations.{
+    ExternalRequestMetadata,
+    OnlineSkillMetadata,
+    PackageInstallMetadata,
+    ShellCommandMetadata,
+    SkillScriptMetadata
+  }
+
   alias AllbertAssist.Conversations
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
@@ -304,18 +314,60 @@ defmodule AllbertAssistWeb.AgentLive do
   defp resolve_confirmation(socket, action_name, params) do
     case Runner.run(action_name, params, approval_context(socket)) do
       {:ok, %{status: :completed, confirmation: confirmation} = response} ->
-        assign(socket,
-          approval_result: response.message,
-          approval_handoff: update_handoff_status(socket.assigns.approval_handoff, confirmation),
-          approval_lines:
-            socket.assigns.approval_handoff
-            |> update_handoff_status(confirmation)
-            |> ApprovalHandoff.lines()
-        )
+        handoff = update_handoff_status(socket.assigns.approval_handoff, confirmation)
+
+        socket =
+          if pending_confirmation?(confirmation) do
+            assign(socket,
+              approval_result: approval_resolution_message(response, confirmation),
+              approval_handoff: handoff,
+              approval_lines: ApprovalHandoff.lines(handoff)
+            )
+          else
+            assign(socket,
+              approval_result: approval_resolution_message(response, confirmation),
+              approval_handoff: nil,
+              approval_lines: [],
+              show_approval_details?: false
+            )
+          end
+
+        socket
+        |> refresh_objectives()
+        |> refresh_workspace()
 
       {:ok, response} ->
         assign(socket, approval_result: Map.get(response, :message, inspect(response)))
     end
+  end
+
+  defp pending_confirmation?(confirmation), do: confirmation_status(confirmation) == "pending"
+
+  defp confirmation_status(confirmation) when is_map(confirmation) do
+    confirmation
+    |> Map.get("status", Map.get(confirmation, :status))
+    |> to_string()
+  end
+
+  defp approval_resolution_message(response, confirmation) do
+    message =
+      Map.get(response, :message) ||
+        if(is_map(confirmation), do: Confirmations.status_message(confirmation), else: nil) ||
+        "Confirmation resolved."
+
+    external_details =
+      confirmation
+      |> ExternalRequestMetadata.result_details()
+      |> Enum.reject(&String.starts_with?(&1, "Body preview:"))
+
+    details =
+      external_details ++
+        ShellCommandMetadata.result_details(confirmation) ++
+        PackageInstallMetadata.result_details(confirmation) ++
+        OnlineSkillMetadata.lines(confirmation) ++
+        SkillScriptMetadata.result_details(confirmation)
+
+    if details == [], do: message, else: "#{message} #{Enum.join(details, " · ")}"
   end
 
   defp update_handoff_status(nil, _confirmation), do: nil

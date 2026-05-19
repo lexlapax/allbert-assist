@@ -224,7 +224,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
             :if={@show_approval_details?}
             id="approval-details-data"
             class="workspace-approval-details"
-          ><%= inspect(@approval_handoff, pretty: true) %></pre>
+          ><%= approval_detail_text(@approval_lines) %></pre>
         </section>
       <% end %>
 
@@ -291,4 +291,16 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   end
 
   defp approval_confirmation_id(_handoff), do: nil
+
+  defp approval_detail_text(lines) when is_list(lines) do
+    lines
+    |> Enum.map(&to_string/1)
+    |> Enum.reject(&(String.trim(&1) == ""))
+    |> case do
+      [] -> "No additional approval details."
+      details -> Enum.join(details, "\n")
+    end
+  end
+
+  defp approval_detail_text(_lines), do: "No additional approval details."
 end
