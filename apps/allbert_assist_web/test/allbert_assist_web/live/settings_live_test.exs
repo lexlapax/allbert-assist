@@ -58,7 +58,7 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
     assert has_element?(view, "#security-permission-defaults")
     assert has_element?(view, "#security-safety-floors")
     assert has_element?(view, "#security-skill-trust-summary")
-    assert has_element?(view, "#security-v010-capabilities")
+    assert has_element?(view, "#security-execution-capabilities")
     assert has_element?(view, "#security-secret-status")
     assert has_element?(view, "#security-redaction-posture")
     assert has_element?(view, "#security-future-boundaries")
@@ -355,7 +355,7 @@ defmodule AllbertAssistWeb.SettingsLiveTest do
 
     {:ok, view, html} = live(conn, ~p"/settings")
 
-    assert html =~ "v0.10 Capabilities"
+    assert html =~ "Execution Capabilities"
     assert html =~ "External services:"
     assert has_element?(view, "#confirmation-result-#{external_id}")
     assert html =~ "Method: GET"

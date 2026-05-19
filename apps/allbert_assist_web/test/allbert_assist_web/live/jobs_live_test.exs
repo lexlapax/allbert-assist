@@ -81,6 +81,7 @@ defmodule AllbertAssistWeb.JobsLiveTest do
     html = render(view)
     assert html =~ "status=completed"
     assert html =~ "trigger=manual"
+    refute html =~ "Approval:  status= target="
 
     view
     |> element("#pause-#{job.id}")
