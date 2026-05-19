@@ -85,6 +85,17 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert thread.id == thread_id
   end
 
+  test "mount treats nil thread query params as absent", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/agent?thread_id=nil")
+    thread_id = workspace_thread_id(view)
+
+    assert String.starts_with?(thread_id, "thr_")
+    assert {:ok, thread} = Conversations.get_thread("local", thread_id)
+    assert thread.id == thread_id
+    refute html =~ "Workspace thread fallback"
+    refute html =~ ~s({:thread_not_found, "nil"})
+  end
+
   test "mount applies workspace theme from settings", %{conn: conn} do
     assert {:ok, _setting} = Settings.put("workspace.theme", "dark", %{audit?: false})
 
