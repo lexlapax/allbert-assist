@@ -115,6 +115,11 @@ defmodule AllbertAssist.Workspace.Catalog do
           editable?: editable_tile?(tile),
           base_revision_id: Map.get(tile, :current_revision_id),
           read_only?: Map.get(tile, :read_only, false),
+          pinned?: Map.get(tile, :pinned, false),
+          deleted?: not is_nil(Map.get(tile, :deleted_at)),
+          deleted_at: time_value(Map.get(tile, :deleted_at)),
+          updated_at: time_value(Map.get(tile, :updated_at)),
+          emitter_id: fragment_value(tile, :emitter_id),
           conflict_summary: conflict_summary(tile)
         },
         children: stored_surface_nodes(tile)
@@ -132,6 +137,9 @@ defmodule AllbertAssist.Workspace.Catalog do
           title: title(surface, "Ephemeral surface"),
           body: "kind=#{surface.kind}",
           surface_id: surface.id,
+          pinned?: Map.get(surface, :pinned, false),
+          opened_at: time_value(Map.get(surface, :opened_at)),
+          emitter_id: fragment_value(surface, :emitter_id),
           dismissible?: dismissible_surface?(surface)
         },
         children: stored_surface_nodes(surface)
@@ -186,6 +194,19 @@ defmodule AllbertAssist.Workspace.Catalog do
   end
 
   defp fragment_body?(_body), do: false
+
+  defp fragment_value(%{body: body}, key) when is_map(body) do
+    fragment = Map.get(body, :fragment) || Map.get(body, "fragment") || %{}
+    Map.get(fragment, key) || Map.get(fragment, Atom.to_string(key))
+  end
+
+  defp fragment_value(_record, _key), do: nil
+
+  defp time_value(nil), do: nil
+  defp time_value(%DateTime{} = time), do: DateTime.to_iso8601(time)
+  defp time_value(%NaiveDateTime{} = time), do: NaiveDateTime.to_iso8601(time)
+  defp time_value(time) when is_binary(time), do: time
+  defp time_value(time), do: to_string(time)
 
   defp conflict_summary(%{metadata: metadata}) when is_map(metadata) do
     offline = Map.get(metadata, "offline") || Map.get(metadata, :offline) || %{}

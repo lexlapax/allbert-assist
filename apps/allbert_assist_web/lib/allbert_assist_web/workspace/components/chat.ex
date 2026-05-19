@@ -35,33 +35,80 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
     ~H"""
     <section
       id="workspace-chat-region"
-      class="mx-auto max-w-3xl py-4 space-y-6"
+      class="workspace-chat-pane"
       data-workspace-component={@node.component}
       aria-labelledby="workspace-chat-title"
     >
-      <header>
-        <h1 id="workspace-chat-title" class="text-3xl font-bold">Allbert Runtime</h1>
-        <p class="text-base-content/70 mt-2">
-          Routes prompts through <code>AllbertAssist.Runtime</code>
-          using Jido signals and the primary intent agent.
-        </p>
-        <div :if={@active_objectives != []} id="objective-badges" class="mt-3 flex flex-wrap gap-2">
+      <header class="workspace-pane-header workspace-chat-header">
+        <div class="workspace-pane-title-block">
+          <h2 id="workspace-chat-title" class="workspace-pane-title">Chat</h2>
+          <p class="workspace-pane-subtitle">Runtime conversation</p>
+        </div>
+        <div :if={@active_objectives != []} id="objective-badges" class="workspace-objective-badges">
           <.link
             :for={objective <- @active_objectives}
             id={"objective-badge-#{objective.id}"}
             navigate={~p"/objectives/#{objective.id}"}
-            class="badge badge-outline gap-2"
+            class="allbert-chip"
           >
+            <.icon name="hero-flag-micro" class="size-4" />
             <span>{objective.status}</span>
-            <span>{objective.title}</span>
           </.link>
         </div>
       </header>
 
+      <%= if @thread_notice do %>
+        <section id="workspace-thread-notice" class="workspace-thread-notice" role="status">
+          <.icon name="hero-information-circle-micro" class="size-4 shrink-0" />
+          <span>{@thread_notice}</span>
+        </section>
+      <% end %>
+
+      <div id="workspace-chat-timeline" class="workspace-chat-timeline" aria-live="polite">
+        <article class="workspace-message workspace-message-user">
+          <div class="workspace-message-avatar" aria-hidden="true">You</div>
+          <div class="workspace-message-body">
+            <p class="workspace-message-label">Prompt draft</p>
+            <pre>{@prompt}</pre>
+          </div>
+        </article>
+
+        <article :if={@response} id="agent-response" class="workspace-message workspace-message-agent">
+          <div class="workspace-message-avatar" aria-hidden="true">A</div>
+          <div class="workspace-message-body">
+            <p class="workspace-message-label">Allbert</p>
+            <pre><%= @response %></pre>
+            <dl class="workspace-runtime-meta">
+              <div :if={@status} id="agent-status">
+                <dt>Status</dt>
+                <dd>{@status}</dd>
+              </div>
+              <div :if={@signal_id} id="agent-signal">
+                <dt>Signal</dt>
+                <dd class="workspace-mono">{@signal_id}</dd>
+              </div>
+              <div :if={@trace_id} id="agent-trace">
+                <dt>Trace</dt>
+                <dd class="workspace-mono">{@trace_id}</dd>
+              </div>
+            </dl>
+          </div>
+        </article>
+
+        <section :if={!@response} class="workspace-chat-empty">
+          <span class="workspace-empty-state-icon" aria-hidden="true">
+            <.icon name="hero-sparkles-mini" class="size-5" />
+          </span>
+          <p>
+            Ask Allbert to start a runtime turn. Canvas tiles and approvals appear beside the chat.
+          </p>
+        </section>
+      </div>
+
       <form
         id="agent-form"
         phx-submit="ask"
-        class="space-y-3"
+        class="workspace-composer"
         aria-busy={bool_attribute(@asking?)}
       >
         <label id="agent-prompt-label" for="agent-prompt" class="sr-only">
@@ -71,73 +118,52 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           id="agent-prompt"
           name="prompt"
           rows="3"
-          class="textarea textarea-bordered w-full font-mono"
+          class="workspace-composer-input"
           placeholder="Ask the agent something..."
           aria-labelledby="agent-prompt-label"
         ><%= @prompt %></textarea>
 
-        <button
-          id="agent-submit"
-          type="submit"
-          class="btn btn-primary"
-          disabled={@asking?}
-          aria-disabled={bool_attribute(@asking?)}
-        >
-          {if @asking?, do: "Thinking…", else: "Ask Allbert"}
-        </button>
+        <div class="workspace-composer-footer">
+          <span class="workspace-composer-hint">Enter submits. Shift+Enter adds a line.</span>
+          <button
+            id="agent-submit"
+            type="submit"
+            class="workspace-button workspace-button-primary"
+            disabled={@asking?}
+            aria-disabled={bool_attribute(@asking?)}
+          >
+            <.icon name="hero-paper-airplane-micro" class="size-4" />
+            {if @asking?, do: "Thinking", else: "Ask"}
+          </button>
+        </div>
       </form>
-
-      <%= if @thread_notice do %>
-        <section id="workspace-thread-notice" class="workspace-thread-notice" role="status">
-          <.icon name="hero-information-circle-micro" class="size-4 shrink-0" />
-          <span>{@thread_notice}</span>
-        </section>
-      <% end %>
-
-      <%= if @response do %>
-        <section id="agent-response" class="card bg-base-200" aria-live="polite">
-          <div class="card-body">
-            <h2 class="card-title">Response</h2>
-            <pre class="whitespace-pre-wrap text-sm"><%= @response %></pre>
-            <p :if={@status} id="agent-status" class="text-xs text-base-content/60">
-              Status: {@status}
-            </p>
-            <p :if={@signal_id} id="agent-signal" class="text-xs text-base-content/60">
-              Signal: {@signal_id}
-            </p>
-            <p :if={@trace_id} id="agent-trace" class="text-xs text-base-content/60">
-              Trace: {@trace_id}
-            </p>
-          </div>
-        </section>
-      <% end %>
 
       <%= if @approval_handoff do %>
         <section
           id="approval-handoff"
-          class="border border-base-300 bg-base-100 p-4 space-y-3"
+          class="workspace-approval-inline"
           role="dialog"
           aria-modal="true"
           aria-labelledby="approval-title"
           phx-hook="FocusTrap"
         >
           <div>
-            <h2 id="approval-title" class="font-semibold">Approval Required</h2>
-            <p id="approval-confirmation" class="text-xs text-base-content/60">
+            <h2 id="approval-title" class="workspace-card-title">Approval Required</h2>
+            <p id="approval-confirmation" class="workspace-card-summary workspace-mono">
               Confirmation: {approval_confirmation_id(@approval_handoff)}
             </p>
           </div>
 
-          <ul class="text-sm space-y-1">
+          <ul class="workspace-approval-lines">
             <li :for={line <- @approval_lines}>{line}</li>
           </ul>
 
-          <div class="flex flex-wrap gap-2">
+          <div class="workspace-approval-actions">
             <button
               id="approval-details"
               type="button"
               phx-click="toggle_approval_details"
-              class="btn btn-sm"
+              class="workspace-button workspace-button-secondary"
               aria-controls="approval-details-data"
               aria-expanded={bool_attribute(@show_approval_details?)}
             >
@@ -148,7 +174,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
               type="button"
               phx-click="deny_confirmation"
               phx-value-id={approval_confirmation_id(@approval_handoff)}
-              class="btn btn-sm btn-error"
+              class="workspace-button workspace-button-danger"
             >
               Deny
             </button>
@@ -157,7 +183,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
               type="button"
               phx-click="approve_confirmation"
               phx-value-id={approval_confirmation_id(@approval_handoff)}
-              class="btn btn-sm btn-primary"
+              class="workspace-button workspace-button-primary"
             >
               Approve
             </button>
@@ -166,19 +192,19 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           <pre
             :if={@show_approval_details?}
             id="approval-details-data"
-            class="whitespace-pre-wrap text-xs bg-base-200 p-3"
+            class="workspace-approval-details"
           ><%= inspect(@approval_handoff, pretty: true) %></pre>
         </section>
       <% end %>
 
       <%= if @approval_result do %>
-        <section id="approval-result" class="alert alert-info">
+        <section id="approval-result" class="workspace-status-callout">
           <span>{@approval_result}</span>
         </section>
       <% end %>
 
       <%= if @error do %>
-        <section id="agent-error" class="alert alert-error">
+        <section id="agent-error" class="workspace-error-callout">
           <span>{@error}</span>
         </section>
       <% end %>

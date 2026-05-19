@@ -76,9 +76,19 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(view, "#workspace-thread-chip")
     assert has_element?(view, "#workspace-chat-region")
     assert has_element?(view, "#agent-form")
+
+    assert has_element?(
+             view,
+             "#workspace-split-resizer[role='separator'][aria-orientation='vertical']"
+           )
+
     assert has_element?(view, "#workspace-node-workspace-canvas-region")
     assert has_element?(view, "#workspace-component-workspace-canvas-region")
+    assert has_element?(view, "#workspace-canvas-cap-chip")
     assert html =~ "canvas"
+    refute html =~ "Workspace shell"
+    refute html =~ "Prompt composer"
+    refute html =~ "Runtime response timeline"
     refute html =~ "component not implemented"
   end
 
@@ -383,7 +393,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     html = render_until(view, "1 older tile(s) archived")
 
-    assert html =~ "Workspace notices"
+    assert has_element?(view, "#workspace-component-workspace-objectives")
     assert html =~ "1 older tile(s) archived"
     assert {:ok, []} = Workspace.canvas_tiles(thread_id, "local")
   end
@@ -620,7 +630,8 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     assert has_element?(view, "#agent-response")
     assert html =~ "Runtime LiveView response: Say hello from the runtime boundary."
-    assert html =~ "Status: completed"
+    assert has_element?(view, "#agent-status")
+    assert html =~ "completed"
     assert has_element?(view, "#agent-signal")
   end
 
@@ -672,7 +683,8 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(view, "#agent-response")
     assert html =~ "## Skill Context"
     assert html =~ "Name: append-memory"
-    assert html =~ "Status: completed"
+    assert has_element?(view, "#agent-status")
+    assert html =~ "completed"
   end
 
   test "default runtime renders URL summarization approval through LiveView", %{conn: conn} do
@@ -689,7 +701,8 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     assert has_element?(view, "#agent-response")
     assert html =~ "External network request is ready"
-    assert html =~ "Status: needs_confirmation"
+    assert has_element?(view, "#agent-status")
+    assert html =~ "needs_confirmation"
     assert html =~ "Resource remote_url summarize_url summarize"
     assert html =~ "consumer=url_summarizer"
     assert has_element?(view, "#approval-handoff")
