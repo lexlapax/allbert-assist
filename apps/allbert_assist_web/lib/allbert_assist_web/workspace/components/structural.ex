@@ -14,9 +14,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.Tile do
-  @moduledoc "Workspace renderer for editable and read-only canvas tiles."
-
-  use AllbertAssistWeb, :live_component
+  use AllbertAssistWeb.Workspace.Components.Base,
+    component: :tile,
+    description: "Editable and read-only canvas tile",
+    custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
 
@@ -152,9 +153,10 @@ defmodule AllbertAssistWeb.Workspace.Components.EphemeralSurface do
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.Header do
-  @moduledoc "Workspace renderer for the `:header` catalog component."
-
-  use AllbertAssistWeb, :live_component
+  use AllbertAssistWeb.Workspace.Components.Base,
+    component: :header,
+    description: "Workspace header",
+    custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
 

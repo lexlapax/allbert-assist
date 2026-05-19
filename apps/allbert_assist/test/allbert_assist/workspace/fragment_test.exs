@@ -13,6 +13,7 @@ defmodule AllbertAssist.Workspace.FragmentTest do
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.Guard
   alias AllbertAssist.Workspace.Fragment.SigningSecret
+  alias Jido.Signal
   alias Jido.Signal.Bus
 
   setup do
@@ -168,6 +169,30 @@ defmodule AllbertAssist.Workspace.FragmentTest do
     assert {:error, :rate_limited} = Fragment.emit(envelope)
   end
 
+  test "enforces the configured receiver rate limit independently" do
+    assert {:ok, _setting} =
+             Settings.put("workspace.fragment.receiver_rate_limit_per_second", 1, %{
+               audit?: false
+             })
+
+    envelope = signed_envelope()
+    assert {:ok, signal} = fragment_signal(envelope)
+
+    assert {:ok, ^envelope} = Fragment.validate_received(signal)
+    assert {:error, :rate_limited} = Fragment.validate_received(signal)
+  end
+
+  test "accepts fragments signed with the previous secret during rotation overlap" do
+    envelope = signed_envelope()
+
+    %{previous_fingerprint: previous_fingerprint, previous_expires_at: previous_expires_at} =
+      SigningSecret.rotate!()
+
+    assert is_binary(previous_fingerprint)
+    assert DateTime.compare(previous_expires_at, DateTime.utc_now()) == :gt
+    assert :ok = Fragment.emit(envelope)
+  end
+
   test "enforces the configured payload size cap" do
     assert {:ok, _setting} =
              Settings.put("workspace.fragment.payload_max_bytes", 1024, %{audit?: false})
@@ -189,6 +214,18 @@ defmodule AllbertAssist.Workspace.FragmentTest do
     attrs = Map.merge(valid_attrs(), attrs)
     assert {:ok, envelope} = Envelope.sign(attrs, secret)
     envelope
+  end
+
+  defp fragment_signal(envelope) do
+    Signal.new(
+      "allbert.workspace.fragment.emitted",
+      %{
+        user_id: envelope.user_id,
+        thread_id: envelope.thread_id,
+        envelope: envelope
+      },
+      source: "/allbert/workspace/test"
+    )
   end
 
   defp valid_attrs do

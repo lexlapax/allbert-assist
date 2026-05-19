@@ -238,11 +238,17 @@ defmodule Mix.Tasks.Allbert.Workspace do
     end)
   end
 
-  defp print_result({:ok, result}) do
+  defp print_result({:ok, result}) when is_map(result) do
     Mix.shell().info("Rotated workspace fragment signing secret.")
     Mix.shell().info("Path: #{result.path}")
     Mix.shell().info("Fingerprint: #{result.fingerprint}")
     Mix.shell().info("Rotated at: #{DateTime.to_iso8601(result.rotated_at)}")
+
+    Mix.shell().info(
+      "Previous secret accepted until: #{DateTime.to_iso8601(result.previous_expires_at)}"
+    )
+
+    Mix.shell().info("Overlap seconds: #{result.overlap_seconds}")
   end
 
   defp print_result({:error, reason}) do

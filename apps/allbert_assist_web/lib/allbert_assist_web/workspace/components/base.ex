@@ -10,12 +10,14 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
     title = Keyword.get(opts, :title, titleize(component))
     description = Keyword.get(opts, :description, default_description(component))
     stub? = Keyword.get(opts, :stub?, false)
+    custom? = Keyword.get(opts, :custom?, false)
 
     quote bind_quoted: [
             component: component,
             title: title,
             description: description,
-            stub?: stub?
+            stub?: stub?,
+            custom?: custom?
           ] do
       @moduledoc "Workspace renderer for the `#{inspect(component)}` catalog component."
 
@@ -28,22 +30,24 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
       @workspace_description description
       @workspace_stub? stub?
 
-      @impl true
-      def update(assigns, socket) do
-        {:ok, Base.assign_defaults(socket, assigns)}
-      end
+      unless custom? do
+        @impl true
+        def update(assigns, socket) do
+          {:ok, Base.assign_defaults(socket, assigns)}
+        end
 
-      @impl true
-      def render(assigns) do
-        assigns =
-          assign(assigns,
-            component: @workspace_component,
-            component_title: @workspace_title,
-            component_description: @workspace_description,
-            stub?: @workspace_stub?
-          )
+        @impl true
+        def render(assigns) do
+          assigns =
+            assign(assigns,
+              component: @workspace_component,
+              component_title: @workspace_title,
+              component_description: @workspace_description,
+              stub?: @workspace_stub?
+            )
 
-        Base.render_simple(assigns)
+          Base.render_simple(assigns)
+        end
       end
     end
   end

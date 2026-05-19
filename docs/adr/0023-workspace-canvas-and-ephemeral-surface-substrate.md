@@ -211,6 +211,9 @@ inbound signal:
    secret (`workspace.fragment.signing_secret`). Signing secret
    default-generated at app boot and persisted in Allbert Home;
    recoverable via `mix allbert.workspace rotate-signing-secret`.
+   Rotation keeps the previous key only for a short printed overlap
+   window so in-flight Fragments can drain without accepting stale
+   signatures indefinitely.
 3. **Surface validation**: the wrapped Surface validates via
    `AllbertAssist.Surface.validate_surface/1` against the catalog
    (v0.26 expanded to 42 components per the v0.26 plan).
@@ -417,12 +420,13 @@ Schema section):
 - `workspace.ephemeral.max_active_per_thread` — int 1..64; default 16
 - `workspace.fragment.signing_secret` — string (system-managed; rotatable)
 - `workspace.fragment.rate_limit_per_second` — int 1..1000; default 10
+- `workspace.fragment.receiver_rate_limit_per_second` — int 1..1000; default 10
 - `workspace.fragment.payload_max_bytes` — int 1024..262144; default 65536 (64 KB)
 - `workspace.offline.enabled` — boolean; default true
 - `workspace.offline.indexeddb_quota_mb` — int 1..256; default 32
 - `workspace.accessibility.high_contrast` — boolean; default false
 - `workspace.accessibility.reduce_motion` — boolean; default false
-- `workspace.mobile.breakpoint_px` — int 320..1024; default 768
+- `workspace.mobile.breakpoint_px` — read-only positive int; default 768
 - `workspace.agui_bridge.enabled` — boolean; default true (internal only; no HTTP exposure)
 - `workspace.signal_bridge.log_dropped_fragments` — boolean; default true
 
@@ -498,7 +502,7 @@ The v0.24 PubSub topic shape (`<namespace>:<user_id>`) extends:
 - YAML tile body storage under
   `<ALLBERT_HOME>/workspace/canvas/<user_id>/<thread_id>/`.
 - New `:workspace_canvas_write` permission class.
-- 14 new `workspace.*` settings keys.
+- 15 new `workspace.*` settings keys.
 - 9 new `allbert.workspace.**` signal topics.
 - Extended `AllbertAssistWeb.SignalBridge` (forward objective +
   workspace topics).
