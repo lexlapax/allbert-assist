@@ -10,12 +10,27 @@ defmodule AllbertAssist.Workspace.Fragment.SigningSecret do
   alias AllbertAssist.Paths
 
   @file_name "signing_secret"
+  @previous_file_name "signing_secret.previous"
   @secret_bytes 32
   @file_mode 0o600
+  @previous_secret_grace_seconds 60
+
+  @type rotation_result :: %{
+          required(:fingerprint) => String.t(),
+          required(:previous_fingerprint) => String.t(),
+          required(:previous_expires_at) => DateTime.t(),
+          required(:overlap_seconds) => pos_integer(),
+          required(:path) => String.t(),
+          required(:rotated_at) => DateTime.t()
+        }
 
   @doc "Return the canonical signing-secret path."
   @spec path() :: String.t()
   def path, do: Path.join(Paths.workspace_secrets_root(), @file_name)
+
+  @doc false
+  @spec previous_path() :: String.t()
+  def previous_path, do: Path.join(Paths.workspace_secrets_root(), @previous_file_name)
 
   @doc "Ensure a signing secret exists and return the raw 32-byte hex secret."
   @spec ensure!() :: String.t()
@@ -57,25 +72,49 @@ defmodule AllbertAssist.Workspace.Fragment.SigningSecret do
   end
 
   @doc "Replace the signing secret with fresh key material."
-  @spec rotate!() :: %{fingerprint: String.t(), path: String.t(), rotated_at: DateTime.t()}
+  @spec rotate!() :: rotation_result()
   def rotate! do
     secret_path = path()
     File.mkdir_p!(Path.dirname(secret_path))
+    old_secret = ensure!()
+    rotated_at = DateTime.utc_now()
+    previous_expires_at = DateTime.add(rotated_at, @previous_secret_grace_seconds, :second)
     secret = write_new_secret!(secret_path)
+    write_previous_secret!(previous_path(), old_secret, previous_expires_at)
 
     %{
       fingerprint: fingerprint(secret),
+      previous_fingerprint: fingerprint(old_secret),
+      previous_expires_at: previous_expires_at,
+      overlap_seconds: @previous_secret_grace_seconds,
       path: secret_path,
-      rotated_at: DateTime.utc_now()
+      rotated_at: rotated_at
     }
   end
 
   @doc "Replace the signing secret without raising."
-  @spec rotate() ::
-          {:ok, %{fingerprint: String.t(), path: String.t(), rotated_at: DateTime.t()}}
-          | {:error, term()}
+  @spec rotate() :: {:ok, rotation_result()} | {:error, term()}
   def rotate do
     {:ok, rotate!()}
+  rescue
+    exception -> {:error, {exception.__struct__, Exception.message(exception)}}
+  end
+
+  @doc """
+  Return active verification secrets, including the previous secret while its
+  rotation grace window is still open.
+  """
+  @spec verification_secrets() :: {:ok, [String.t()]} | {:error, term()}
+  def verification_secrets do
+    current = ensure!()
+
+    secrets =
+      case read_previous_secret(DateTime.utc_now()) do
+        {:ok, previous} when previous != current -> [current, previous]
+        _other -> [current]
+      end
+
+    {:ok, secrets}
   rescue
     exception -> {:error, {exception.__struct__, Exception.message(exception)}}
   end
@@ -112,6 +151,50 @@ defmodule AllbertAssist.Workspace.Fragment.SigningSecret do
     chmod_secret!(secret_path)
 
     secret
+  end
+
+  defp write_previous_secret!(path, secret, expires_at) do
+    payload =
+      Jason.encode!(%{
+        "secret" => secret,
+        "expires_at" => DateTime.to_iso8601(expires_at)
+      })
+
+    tmp_path = "#{path}.tmp-#{System.unique_integer([:positive])}"
+
+    File.write!(tmp_path, payload <> "\n")
+    chmod_secret!(tmp_path)
+    File.rename!(tmp_path, path)
+    chmod_secret!(path)
+  end
+
+  defp read_previous_secret(now) do
+    with {:ok, contents} <- File.read(previous_path()),
+         {:ok, %{"secret" => secret, "expires_at" => expires_at}} <- Jason.decode(contents),
+         true <- valid?(secret),
+         {:ok, expires_at, _offset} <- DateTime.from_iso8601(expires_at) do
+      if DateTime.compare(expires_at, now) == :gt do
+        {:ok, secret}
+      else
+        cleanup_previous_secret()
+        :expired
+      end
+    else
+      {:error, :enoent} ->
+        :missing
+
+      _other ->
+        cleanup_previous_secret()
+        :invalid
+    end
+  end
+
+  defp cleanup_previous_secret do
+    case File.rm(previous_path()) do
+      :ok -> :ok
+      {:error, :enoent} -> :ok
+      {:error, _reason} -> :ok
+    end
   end
 
   defp new_secret do

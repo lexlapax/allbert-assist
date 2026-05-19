@@ -40,6 +40,8 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
 
     assert output =~ "Rotated workspace fragment signing secret."
     assert output =~ "Fingerprint:"
+    assert output =~ "Previous secret accepted until:"
+    assert output =~ "Overlap seconds: 60"
     assert output =~ Path.join([home, "workspace", "secrets", "signing_secret"])
 
     {:ok, secret} = SigningSecret.read()
@@ -77,6 +79,8 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
 
     assert {:ok, _subscription_id} =
              Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.tile.**")
+
+    drain_signals()
 
     list_output =
       capture_io(fn ->
@@ -252,6 +256,14 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
       {:signal, _signal} -> receive_signal(type)
     after
       1_000 -> flunk("expected signal #{type}")
+    end
+  end
+
+  defp drain_signals do
+    receive do
+      {:signal, _signal} -> drain_signals()
+    after
+      0 -> :ok
     end
   end
 end
