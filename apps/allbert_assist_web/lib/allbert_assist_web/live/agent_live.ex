@@ -28,7 +28,7 @@ defmodule AllbertAssistWeb.AgentLive do
   def mount(params, _session, socket) do
     user_id = @default_user_id
     session_id = @default_session_id
-    {thread_id, mount_error} = resolve_workspace_thread(params, user_id)
+    {thread_id, thread_notice, sync_thread_url?} = resolve_workspace_thread(params, user_id)
     active_app = resolve_workspace_active_app(params, user_id, session_id)
 
     if connected?(socket) do
@@ -58,7 +58,8 @@ defmodule AllbertAssistWeb.AgentLive do
         active_objectives: active_objectives(user_id),
         prompt: "Hello Allbert. What can you do right now?",
         response: nil,
-        error: mount_error,
+        error: nil,
+        thread_notice: thread_notice,
         asking?: false,
         status: nil,
         signal_id: nil,
@@ -70,9 +71,13 @@ defmodule AllbertAssistWeb.AgentLive do
         workspace_badges: []
       )
       |> assign(workspace_assigns(user_id, thread_id))
+      |> maybe_sync_thread_url(sync_thread_url?, thread_id, active_app)
 
     {:ok, socket}
   end
+
+  @impl true
+  def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("ask", %{"prompt" => prompt}, socket) do
@@ -191,6 +196,14 @@ defmodule AllbertAssistWeb.AgentLive do
     {:noreply, refresh_objectives(socket)}
   end
 
+  def handle_info({:sync_workspace_thread_url, thread_id, active_app}, socket) do
+    {:noreply,
+     push_patch(socket,
+       to: ~p"/agent?#{[thread_id: thread_id, app_id: active_app_attribute(active_app)]}",
+       replace: true
+     )}
+  end
+
   @impl true
   def handle_async(:ask, {:ok, {:ok, response}}, socket) do
     {:noreply,
@@ -216,11 +229,11 @@ defmodule AllbertAssistWeb.AgentLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} content_width="wide">
+    <Layouts.app flash={@flash} content_width="full">
       <section
         id="workspace-shell"
         class={[
-          "workspace-shell mx-auto max-w-6xl px-4 py-6",
+          "workspace-shell min-h-screen px-4 py-4 sm:px-6 lg:px-8",
           @workspace_high_contrast? && "workspace-high-contrast",
           @workspace_reduce_motion? && "workspace-reduce-motion"
         ]}
@@ -336,26 +349,60 @@ defmodule AllbertAssistWeb.AgentLive do
   end
 
   defp resolve_workspace_thread(params, user_id) do
+    requested_thread_id = param(params, "thread_id")
+
     attrs = %{
       user_id: user_id,
-      thread_id: param(params, "thread_id"),
+      thread_id: requested_thread_id,
       text: "Workspace session"
     }
 
     case Conversations.resolve_thread(attrs) do
       {:ok, thread} ->
-        {thread.id, nil}
+        {thread.id, nil, false}
 
       {:error, reason} ->
         case Conversations.resolve_thread(%{user_id: user_id, text: "Workspace session"}) do
           {:ok, thread} ->
-            {thread.id, "Workspace thread fallback: #{inspect(reason)}"}
+            {thread.id, thread_recovery_notice(reason, requested_thread_id),
+             explicit_thread_id?(requested_thread_id)}
 
           {:error, fallback_reason} ->
             raise "failed to resolve workspace thread: #{inspect(fallback_reason)}"
         end
     end
   end
+
+  defp explicit_thread_id?(thread_id) when is_binary(thread_id), do: true
+  defp explicit_thread_id?(_thread_id), do: false
+
+  defp thread_recovery_notice({:thread_not_found, thread_id}, requested_thread_id) do
+    "Started a new workspace thread because #{short_thread_id(thread_id || requested_thread_id)} was not found."
+  end
+
+  defp thread_recovery_notice(_reason, requested_thread_id) do
+    "Started a new workspace thread because #{short_thread_id(requested_thread_id)} could not be opened."
+  end
+
+  defp short_thread_id(nil), do: "the requested thread"
+
+  defp short_thread_id(thread_id) when is_binary(thread_id) do
+    if String.length(thread_id) > 18 do
+      String.slice(thread_id, 0, 14) <> "..."
+    else
+      thread_id
+    end
+  end
+
+  defp maybe_sync_thread_url(socket, true, thread_id, active_app) do
+    if connected?(socket) do
+      send(self(), {:sync_workspace_thread_url, thread_id, active_app})
+    end
+
+    socket
+  end
+
+  defp maybe_sync_thread_url(socket, _sync?, _thread_id, _active_app), do: socket
 
   defp resolve_workspace_active_app(params, user_id, session_id) do
     requested_app = param(params, "app_id") || param(params, "active_app")
@@ -397,7 +444,7 @@ defmodule AllbertAssistWeb.AgentLive do
   defp param(params, key) when is_map(params) do
     case Map.get(params, key) || Map.get(params, String.to_atom(key)) do
       value when is_binary(value) -> normalize_param(value)
-      value when is_atom(value) -> Atom.to_string(value)
+      value when is_atom(value) and not is_nil(value) -> Atom.to_string(value)
       _other -> nil
     end
   end
@@ -644,7 +691,8 @@ defmodule AllbertAssistWeb.AgentLive do
       workspace_high_contrast?: assigns.workspace_high_contrast?,
       workspace_reduce_motion?: assigns.workspace_reduce_motion?,
       workspace_offline_enabled?: assigns.workspace_offline_enabled?,
-      workspace_indexeddb_quota_bytes: assigns.workspace_indexeddb_quota_bytes
+      workspace_indexeddb_quota_bytes: assigns.workspace_indexeddb_quota_bytes,
+      active_app: assigns.active_app
     }
   end
 
@@ -653,6 +701,7 @@ defmodule AllbertAssistWeb.AgentLive do
       prompt: assigns.prompt,
       response: assigns.response,
       error: assigns.error,
+      thread_notice: assigns.thread_notice,
       asking?: assigns.asking?,
       status: assigns.status,
       signal_id: assigns.signal_id,

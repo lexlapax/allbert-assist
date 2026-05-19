@@ -41,14 +41,18 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
 
     assert has_element?(view, "#skip-to-content[href='#main-content']")
     assert has_element?(view, "main#main-content[tabindex='-1']")
-    assert has_element?(view, "nav[aria-label='Primary']")
-    assert has_element?(view, "img[alt='Allbert']")
-    assert has_element?(view, "[role='group'][aria-label='Site theme']")
-    assert has_element?(view, "button[aria-label='Use system theme']")
-    assert has_element?(view, "button[aria-label='Use light theme']")
-    assert has_element?(view, "button[aria-label='Use dark theme']")
+    refute html =~ "Phoenix Framework"
+    refute html =~ "Website"
+    refute html =~ "GitHub"
+    refute html =~ "Get Started"
+    assert has_element?(view, "#allbert-appbar")
+    assert has_element?(view, "#workspace-thread-chip")
+    assert has_element?(view, "#workspace-active-app-chip")
+    assert has_element?(view, "#workspace-objective-count-chip")
+    assert has_element?(view, "#workspace-tile-count-chip")
     assert has_element?(view, "#workspace-shell[role='region']")
     assert has_element?(view, "#workspace-theme-toggle[aria-label]")
+    assert has_element?(view, "#workspace-overflow-menu[aria-label='Workspace menu']")
     assert has_element?(view, "label#agent-prompt-label[for='agent-prompt']")
     assert has_element?(view, "#agent-prompt[aria-labelledby='agent-prompt-label']")
     assert has_element?(view, "#agent-form[aria-busy='false']")

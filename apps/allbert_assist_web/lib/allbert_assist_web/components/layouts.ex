@@ -33,7 +33,7 @@ defmodule AllbertAssistWeb.Layouts do
 
   attr :content_width, :string,
     default: "narrow",
-    values: ["narrow", "wide"],
+    values: ["narrow", "wide", "full"],
     doc: "the width of the inner content container"
 
   slot :inner_block, required: true
@@ -48,34 +48,7 @@ defmodule AllbertAssistWeb.Layouts do
       Skip to content
     </a>
 
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2" aria-label="Allbert home">
-          <img src={~p"/images/logo.svg"} width="36" alt="Allbert" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <nav class="flex-none" aria-label="Primary">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
-          </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://hexdocs.pm/phoenix/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
-          </li>
-        </ul>
-      </nav>
-    </header>
-
-    <main id="main-content" tabindex="-1" class="px-4 py-20 sm:px-6 lg:px-8">
+    <main id="main-content" tabindex="-1" class={main_class(@content_width)}>
       <div class={content_container_class(@content_width)}>
         {render_slot(@inner_block)}
       </div>
@@ -128,53 +101,10 @@ defmodule AllbertAssistWeb.Layouts do
     """
   end
 
-  @doc """
-  Provides dark vs light theme toggle based on themes defined in app.css.
+  defp main_class("full"), do: "min-h-screen bg-base-100"
+  defp main_class(_width), do: "min-h-screen bg-base-100 px-4 py-8 sm:px-6 lg:px-8"
 
-  See <head> in root.html.heex which applies the theme before page load.
-  """
-  def theme_toggle(assigns) do
-    ~H"""
-    <div
-      class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full"
-      role="group"
-      aria-label="Site theme"
-    >
-      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="system"
-        aria-label="Use system theme"
-        title="Use system theme"
-      >
-        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="light"
-        aria-label="Use light theme"
-        title="Use light theme"
-      >
-        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="dark"
-        aria-label="Use dark theme"
-        title="Use dark theme"
-      >
-        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-    </div>
-    """
-  end
-
+  defp content_container_class("full"), do: "w-full"
   defp content_container_class("wide"), do: "mx-auto max-w-6xl space-y-4"
   defp content_container_class(_width), do: "mx-auto max-w-2xl space-y-4"
 end
