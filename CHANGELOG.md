@@ -12,9 +12,9 @@ changelog entries or release notes.
 
 ## v0.26 - Agentic Workspace Surface And Ephemeral UI Substrate
 
-Status: implemented through M27 post-review remediation on 2026-05-18 and
-ready for operator manual validation. Version metadata is `0.26.0`; the
-release tag is pending operator acceptance.
+Status: implemented through M30 UI release closeout on 2026-05-19 and ready
+for operator manual validation. Version metadata is `0.26.0`; the release tag
+is pending operator acceptance.
 
 ### Added (v0.26)
 
@@ -33,6 +33,9 @@ release tag is pending operator acceptance.
 - Dark/light workspace theme toggle, high-contrast and reduced-motion support,
   WCAG-oriented structural coverage, mobile tabs, and responsive two-pane
   layout. The mobile breakpoint is fixed at 768px and read-only in v0.26.
+- Allbert-owned `/agent` chrome: AppBar identity, thread/active-app/status
+  chips, slate-blue workspace tokens, soft stale-thread recovery notices, and
+  a client-side-only chat/canvas split bar with pointer and keyboard support.
 - Workspace-scoped service worker, offline shell fallback, browser-side Yjs +
   IndexedDB text/markdown tile editing, bounded reconnect sync, server-side
   revision snapshots, conflict banner, and `revert_tile_revision`.
@@ -55,6 +58,11 @@ release tag is pending operator acceptance.
   ephemeral lifecycle events across tabs, enforced tile body limits, made
   reduced-motion effective, and made the unsupported dynamic mobile breakpoint
   read-only.
+- M28-M29 replaced Phoenix scaffold leftovers and placeholder/debug-card
+  renderers with Allbert Assist chrome, operator chat/canvas panes, polished
+  tile shells, hidden empty badge/ephemeral regions, useful catalog cards,
+  accessible tabs, and the browser-local split separator. This is visual
+  polish over the existing v0.26 substrate; it does not add security authority.
 
 ### Safety (v0.26)
 
@@ -84,14 +92,19 @@ release tag is pending operator acceptance.
 - Final gates passed: `mix compile --warnings-as-errors`,
   `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
   `git diff --check`.
-- Final `mix precommit` passed with 746 core tests, 68 web tests, 165
-  StockSage plugin tests, and 2 channel plugin tests.
+- Final M30 `mix precommit` passed with 746 core tests, 71 web tests,
+  165 StockSage plugin tests, and 2 channel plugin tests.
 - Post-review fixes added the registered
   `workspace.fragment.receiver_rate_limit_per_second` setting, a short
   previous-secret verification overlap for workspace Fragment signing-key
   rotation, explicit release-gate wording that `mix precommit` includes
   plugin tests while bare `mix test` does not, and removed vestigial
   min/max bounds from the read-only `workspace.mobile.breakpoint_px` schema.
+- M30 adds manual UI validation instructions for desktop, mobile, theme,
+  stale-thread recovery, StockSage active-app routing, canvas/tile states,
+  ephemeral overlays, offline behavior, resize behavior, accessibility, and
+  cross-browser smoke. The release tag remains blocked only on that operator
+  validation.
 
 ## v0.25 - Native Financial Specialist Agents
 
