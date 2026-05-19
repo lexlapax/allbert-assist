@@ -114,15 +114,12 @@ defmodule AllbertAssistWeb.AgentLive do
   def handle_event("toggle_workspace_theme", _params, socket) do
     next_theme = next_workspace_theme(socket.assigns.workspace_theme)
 
-    case Settings.put("workspace.theme", next_theme, %{
-           actor: socket.assigns.user_id,
-           channel: :live_view
-         }) do
-      {:ok, _setting} ->
-        {:noreply, assign(socket, :workspace_theme, next_theme)}
+    case run_workspace_action(socket, "set_workspace_theme", %{theme: next_theme}) do
+      {:ok, %{status: :completed, theme: theme}} ->
+        {:noreply, assign(socket, :workspace_theme, theme)}
 
-      {:error, reason} ->
-        {:noreply, assign(socket, :error, "Workspace theme update failed: #{inspect(reason)}")}
+      {:ok, response} ->
+        {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
     end
   end
 
@@ -135,6 +132,21 @@ defmodule AllbertAssistWeb.AgentLive do
 
   def handle_event("workspace_tile_editor_sync", params, socket) do
     {:reply, workspace_tile_editor_reply(params, socket), socket}
+  end
+
+  def handle_event("dismiss_workspace_ephemeral", params, socket) do
+    surface_id = Map.get(params, "surface-id") || Map.get(params, "surface_id")
+
+    case run_workspace_action(socket, "dismiss_workspace_ephemeral", %{
+           surface_id: surface_id,
+           dismissed_by: "operator"
+         }) do
+      {:ok, %{status: :completed}} ->
+        {:noreply, refresh_workspace(socket)}
+
+      {:ok, response} ->
+        {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
+    end
   end
 
   def handle_event(
@@ -518,10 +530,12 @@ defmodule AllbertAssistWeb.AgentLive do
 
   defp workspace_tile_editor_reply(params, socket) do
     with true <- socket.assigns.workspace_offline_enabled? || {:error, :offline_disabled},
-         {:ok, result} <-
-           Workspace.record_offline_update(
+         {:ok, %{status: status, result: result}}
+         when status in [:completed, :conflict] <-
+           run_workspace_action(
+             socket,
+             "record_workspace_offline_update",
              Map.merge(params, %{
-               "user_id" => socket.assigns.user_id,
                "thread_id" => socket.assigns.thread_id,
                "max_bytes" => socket.assigns.workspace_indexeddb_quota_bytes
              })
@@ -537,14 +551,26 @@ defmodule AllbertAssistWeb.AgentLive do
     else
       {:error, reason} ->
         %{status: "rejected", reason: inspect(reason)}
+
+      {:ok, response} ->
+        %{status: "rejected", reason: inspect(Map.get(response, :reason, response.status))}
     end
   end
 
+  defp run_workspace_action(socket, action_name, params) do
+    Runner.run(action_name, params, %{
+      actor: socket.assigns.user_id,
+      user_id: socket.assigns.user_id,
+      thread_id: socket.assigns.thread_id,
+      channel: :live_view
+    })
+  end
+
   defp revert_tile_revision(socket, tile_id, revision_id) do
-    case Runner.run(
+    case run_workspace_action(
+           socket,
            "revert_tile_revision",
-           %{tile_id: tile_id, revision_id: revision_id, user_id: socket.assigns.user_id},
-           %{actor: socket.assigns.user_id, user_id: socket.assigns.user_id, channel: :live_view}
+           %{tile_id: tile_id, revision_id: revision_id}
          ) do
       {:ok, %{status: :completed}} ->
         socket

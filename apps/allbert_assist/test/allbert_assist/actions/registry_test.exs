@@ -149,7 +149,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "delegate_agent",
              "registry_health",
              "trace_summary",
-             "revert_tile_revision"
+             "revert_tile_revision",
+             "record_workspace_offline_update",
+             "dismiss_workspace_ephemeral",
+             "set_workspace_theme"
            ]
 
     assert Registry.duplicate_names() == []
@@ -224,7 +227,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "delegate_agent",
              "registry_health",
              "trace_summary",
-             "revert_tile_revision"
+             "revert_tile_revision",
+             "record_workspace_offline_update",
+             "dismiss_workspace_ephemeral",
+             "set_workspace_theme"
            ]
 
     assert {:ok, append_memory} = Registry.capability("append_memory")
@@ -340,6 +346,28 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert revert_tile_revision.execution_mode == :workspace_canvas_write
     assert revert_tile_revision.exposure == :internal
     assert revert_tile_revision.confirmation == :not_required
+
+    assert {:ok, record_workspace_offline_update} =
+             Registry.capability("record_workspace_offline_update")
+
+    assert record_workspace_offline_update.permission == :workspace_canvas_write
+    assert record_workspace_offline_update.execution_mode == :workspace_canvas_write
+    assert record_workspace_offline_update.exposure == :internal
+    assert record_workspace_offline_update.confirmation == :not_required
+
+    assert {:ok, dismiss_workspace_ephemeral} =
+             Registry.capability("dismiss_workspace_ephemeral")
+
+    assert dismiss_workspace_ephemeral.permission == :workspace_canvas_write
+    assert dismiss_workspace_ephemeral.execution_mode == :workspace_canvas_write
+    assert dismiss_workspace_ephemeral.exposure == :internal
+    assert dismiss_workspace_ephemeral.confirmation == :not_required
+
+    assert {:ok, set_workspace_theme} = Registry.capability("set_workspace_theme")
+    assert set_workspace_theme.permission == :settings_write
+    assert set_workspace_theme.execution_mode == :settings_write
+    assert set_workspace_theme.exposure == :internal
+    assert set_workspace_theme.confirmation == :not_required
 
     assert {:ok, explain_intent} = Registry.capability("explain_intent")
     assert explain_intent.permission == :read_only
