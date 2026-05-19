@@ -28,7 +28,7 @@ objective-step observability, explicit native/Python parity runs, and the core
 Operator loop:
 
 ```sh
-mix allbert.ask "analyze AAPL and compare to MSFT" --user local
+mix allbert.ask --user local --active-app stocksage "analyze AAPL and compare to MSFT"
 mix allbert.objectives list --user local
 mix allbert.objectives show <objective_id> --user local
 mix allbert.confirmations approve <confirmation_id> --reason "..."
