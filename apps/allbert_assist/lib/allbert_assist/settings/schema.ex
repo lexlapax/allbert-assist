@@ -167,6 +167,7 @@ defmodule AllbertAssist.Settings.Schema do
     "workspace.canvas.tile_body_max_bytes",
     "workspace.ephemeral.max_active_per_thread",
     "workspace.fragment.rate_limit_per_second",
+    "workspace.fragment.receiver_rate_limit_per_second",
     "workspace.fragment.payload_max_bytes",
     "workspace.offline.enabled",
     "workspace.offline.indexeddb_quota_mb",
@@ -713,6 +714,14 @@ defmodule AllbertAssist.Settings.Schema do
       min: 1,
       max: 1000
     },
+    "workspace.fragment.receiver_rate_limit_per_second" => %{
+      type: :bounded_integer,
+      default: 10,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1000
+    },
     "workspace.fragment.payload_max_bytes" => %{
       type: :bounded_integer,
       default: 65_536,
@@ -748,12 +757,10 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false
     },
     "workspace.mobile.breakpoint_px" => %{
-      type: :bounded_integer,
+      type: :positive_integer,
       default: 768,
       writable?: false,
-      sensitive?: false,
-      min: 320,
-      max: 1024
+      sensitive?: false
     },
     "workspace.agui_bridge.enabled" => %{
       type: :boolean,
@@ -1551,6 +1558,7 @@ defmodule AllbertAssist.Settings.Schema do
       "fragment" => %{
         "signing_secret" => nil,
         "rate_limit_per_second" => 10,
+        "receiver_rate_limit_per_second" => 10,
         "payload_max_bytes" => 65_536
       },
       "offline" => %{

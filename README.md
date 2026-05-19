@@ -333,6 +333,10 @@ Run the project gate:
 mix precommit
 ```
 
+`mix precommit` is the release gate because it runs the umbrella tests plus
+the StockSage and channel plugin suites. Bare `mix test` is useful for fast
+umbrella feedback, but it does not cover plugin tests outside `apps/`.
+
 Start Phoenix:
 
 ```sh

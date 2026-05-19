@@ -84,8 +84,14 @@ release tag is pending operator acceptance.
 - Final gates passed: `mix compile --warnings-as-errors`,
   `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
   `git diff --check`.
-- Final `mix precommit` passed with 743 core tests, 67 web tests, 165
+- Final `mix precommit` passed with 746 core tests, 68 web tests, 165
   StockSage plugin tests, and 2 channel plugin tests.
+- Post-review fixes added the registered
+  `workspace.fragment.receiver_rate_limit_per_second` setting, a short
+  previous-secret verification overlap for workspace Fragment signing-key
+  rotation, explicit release-gate wording that `mix precommit` includes
+  plugin tests while bare `mix test` does not, and removed vestigial
+  min/max bounds from the read-only `workspace.mobile.breakpoint_px` schema.
 
 ## v0.25 - Native Financial Specialist Agents
 
