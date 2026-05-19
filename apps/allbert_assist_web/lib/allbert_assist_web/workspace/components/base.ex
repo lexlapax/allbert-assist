@@ -5,6 +5,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
 
   use Phoenix.Component
 
+  import AllbertAssistWeb.CoreComponents, only: [icon: 1]
+
   defmacro __using__(opts) do
     component = Keyword.fetch!(opts, :component)
     title = Keyword.get(opts, :title, titleize(component))
@@ -54,30 +56,34 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
 
   def render_simple(assigns) do
     ~H"""
-    <section
+    <article
       id={"workspace-component-#{@node.id}"}
       class={component_class(@component, @stub?)}
       data-workspace-component={@component}
       data-workspace-renderer="component"
       aria-labelledby={component_title_id(@node)}
     >
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <h2 id={component_title_id(@node)} class="text-sm font-semibold leading-6">
+      <header class="workspace-card-header">
+        <span class="workspace-card-icon" aria-hidden="true">
+          <.icon name={component_icon(@component)} class="size-4" />
+        </span>
+        <div class="min-w-0 flex-1">
+          <h2 id={component_title_id(@node)} class="workspace-card-title">
             {title(@node, @component_title)}
           </h2>
-          <p class="text-xs text-base-content/60">
+          <p :if={present?(summary(@node, @component_description))} class="workspace-card-summary">
             {summary(@node, @component_description)}
           </p>
         </div>
-        <span :if={@stub?} class="badge badge-outline shrink-0" aria-label="Stub renderer">
-          stub
+        <span :if={@stub?} class="workspace-status-pill workspace-status-neutral">
+          v0.26 stub
         </span>
-      </div>
-      <p :if={metric(@component, @renderer_context)} class="mt-2 text-xs text-base-content/60">
-        {metric(@component, @renderer_context)}
-      </p>
-    </section>
+      </header>
+
+      <footer :if={metric(@component, @renderer_context)} class="workspace-card-footer">
+        <span>{metric(@component, @renderer_context)}</span>
+      </footer>
+    </article>
     """
   end
 
@@ -88,11 +94,11 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
   end
 
   def component_class(_component, true) do
-    "rounded border border-dashed border-base-300 bg-base-100 p-3 text-sm"
+    "workspace-card workspace-card-stub"
   end
 
   def component_class(_component, false) do
-    "rounded border border-base-300 bg-base-100 p-3 text-sm"
+    "workspace-card"
   end
 
   def title(node, fallback), do: prop(node, :title, prop(node, :label, fallback))
@@ -112,10 +118,38 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
   def metric(_component, _context), do: nil
 
   def prop(%{props: props}, key, fallback) when is_map(props) do
-    Map.get(props, key) || Map.get(props, Atom.to_string(key)) || fallback
+    case Map.fetch(props, key) do
+      {:ok, value} ->
+        value
+
+      :error ->
+        Map.get(props, Atom.to_string(key), fallback)
+    end
   end
 
   def prop(_node, _key, fallback), do: fallback
+
+  def present?(value) when value in [nil, ""], do: false
+  def present?(_value), do: true
+
+  def component_icon(:trace_link), do: "hero-link-micro"
+  def component_icon(:trace_viewer), do: "hero-document-text-micro"
+  def component_icon(:objective_card), do: "hero-flag-micro"
+  def component_icon(:confirmation_card), do: "hero-shield-check-micro"
+  def component_icon(:approval_card), do: "hero-check-circle-micro"
+  def component_icon(:approval_inspector), do: "hero-magnifying-glass-micro"
+  def component_icon(:memory_review_card), do: "hero-book-open-micro"
+  def component_icon(:job_card), do: "hero-clock-micro"
+  def component_icon(:channel_card), do: "hero-inbox-micro"
+  def component_icon(:settings_card), do: "hero-adjustments-horizontal-micro"
+  def component_icon(:analysis_card), do: "hero-chart-bar-micro"
+  def component_icon(:agent_report_card), do: "hero-document-chart-bar-micro"
+  def component_icon(:parity_card), do: "hero-scale-micro"
+  def component_icon(:debate_round_card), do: "hero-chat-bubble-left-right-micro"
+  def component_icon(:button), do: "hero-play-micro"
+  def component_icon(:action_button), do: "hero-bolt-micro"
+  def component_icon(:status_badge), do: "hero-signal-micro"
+  def component_icon(_component), do: "hero-squares-2x2-micro"
 
   defp count_metric(context, key, label) do
     count =

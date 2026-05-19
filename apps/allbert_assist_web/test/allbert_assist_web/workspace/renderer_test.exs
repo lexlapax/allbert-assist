@@ -153,6 +153,42 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     assert html =~ ~s(phx-value-revision-id="rev-before-conflict")
   end
 
+  test "tabs render accessible tablist, tabs, and panels" do
+    html =
+      render_component(Renderer,
+        id: "tabs-renderer",
+        node: %Node{
+          id: "tabs-1",
+          component: :tabs,
+          props: %{title: "Inspector tabs"},
+          children: [
+            %Node{
+              id: "tab-overview",
+              component: :tab,
+              props: %{
+                title: "Overview",
+                selected?: true,
+                panel_id: "workspace-component-panel-overview"
+              }
+            },
+            %Node{
+              id: "panel-overview",
+              component: :tab_panel,
+              props: %{title: "Overview panel", tab_id: "workspace-component-tab-overview"}
+            }
+          ]
+        },
+        renderer_context: renderer_context(),
+        workspace_state: workspace_state()
+      )
+
+    assert html =~ ~s(role="tablist")
+    assert html =~ ~s(phx-hook="WorkspaceTabs")
+    assert html =~ ~s(role="tab")
+    assert html =~ ~s(aria-selected="true")
+    assert html =~ ~s(role="tabpanel")
+  end
+
   defp sample_props(:header), do: %{title: "Workspace Header", subtitle: "Subheading"}
   defp sample_props(:empty_state), do: %{title: "Empty", body: "Nothing to render yet."}
   defp sample_props(:link), do: %{label: "Open trace", body: "/trace/example"}

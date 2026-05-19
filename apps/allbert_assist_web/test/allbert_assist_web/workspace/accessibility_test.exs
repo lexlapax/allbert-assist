@@ -53,9 +53,14 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
     assert has_element?(view, "#workspace-shell[role='region']")
     assert has_element?(view, "#workspace-theme-toggle[aria-label]")
     assert has_element?(view, "#workspace-overflow-menu[aria-label='Workspace menu']")
+    assert has_element?(view, "#workspace-split-resizer[role='separator'][tabindex='0']")
+    assert has_element?(view, "#workspace-split-resizer[aria-valuemin='35'][aria-valuemax='70']")
+    assert has_element?(view, "#workspace-canvas-cap-chip")
     assert has_element?(view, "label#agent-prompt-label[for='agent-prompt']")
     assert has_element?(view, "#agent-prompt[aria-labelledby='agent-prompt-label']")
     assert has_element?(view, "#agent-form[aria-busy='false']")
+    refute html =~ "Workspace shell"
+    refute html =~ "Prompt composer"
 
     assert_all_buttons_named(html)
     assert_all_images_have_alt(html)

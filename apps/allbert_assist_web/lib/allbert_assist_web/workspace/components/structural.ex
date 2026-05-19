@@ -4,13 +4,94 @@
 defmodule AllbertAssistWeb.Workspace.Components.Workspace do
   use AllbertAssistWeb.Workspace.Components.Base,
     component: :workspace,
-    description: "Workspace shell"
+    description: "Workspace container",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <div
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-root-sentinel"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <h2 id={Base.component_title_id(@node)} class="sr-only">
+        Allbert workspace
+      </h2>
+    </div>
+    """
+  end
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.Canvas do
   use AllbertAssistWeb.Workspace.Components.Base,
     component: :canvas,
-    description: "Persistent per-thread canvas"
+    description: "Persistent per-thread canvas",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket) do
+    context = Map.get(assigns, :renderer_context, %{})
+
+    {:ok,
+     socket
+     |> Base.assign_defaults(assigns)
+     |> assign(
+       canvas_tiles: Map.get(context, :canvas_tiles, []),
+       max_tiles: Map.get(context, :workspace_canvas_max_tiles_per_thread, 64),
+       workspace_badges: Map.get(context, :workspace_badges, [])
+     )}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <section
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-pane-header workspace-canvas-header"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <div class="workspace-pane-title-block">
+        <h2 id={Base.component_title_id(@node)} class="workspace-pane-title">
+          Canvas
+        </h2>
+        <p class="workspace-pane-subtitle">
+          Persistent workspace output for this thread.
+        </p>
+      </div>
+      <div class="workspace-pane-actions" aria-label="Canvas state">
+        <span
+          id="workspace-canvas-cap-chip"
+          class={["allbert-chip", near_canvas_cap?(@canvas_tiles, @max_tiles) && "allbert-chip-warn"]}
+        >
+          <.icon name="hero-rectangle-stack-micro" class="size-4" />
+          {length(@canvas_tiles)}/{@max_tiles} tiles
+        </span>
+        <span :if={@workspace_badges != []} class="allbert-chip allbert-chip-warn">
+          <.icon name="hero-exclamation-triangle-micro" class="size-4" />
+          {length(@workspace_badges)} notice(s)
+        </span>
+      </div>
+    </section>
+    """
+  end
+
+  defp near_canvas_cap?(tiles, max_tiles) when is_list(tiles) and is_integer(max_tiles) do
+    max_tiles > 0 and length(tiles) / max_tiles >= 0.8
+  end
+
+  defp near_canvas_cap?(_tiles, _max_tiles), do: false
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.Tile do
@@ -41,27 +122,67 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
     ~H"""
     <section
       id={"workspace-component-#{@node.id}"}
-      class="rounded border border-base-300 bg-base-100 p-3 text-sm"
+      class={[
+        "workspace-tile",
+        Base.prop(@node, :pinned?, false) && "workspace-tile-pinned",
+        Base.prop(@node, :deleted?, false) && "workspace-tile-deleted"
+      ]}
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
       data-workspace-tile-id={Base.prop(@node, :tile_id, nil)}
+      data-workspace-tile-kind={Base.prop(@node, :tile_kind, "tile")}
+      data-workspace-tile-pinned={bool_attribute(Base.prop(@node, :pinned?, false))}
+      data-workspace-tile-deleted={bool_attribute(Base.prop(@node, :deleted?, false))}
       aria-labelledby={Base.component_title_id(@node)}
     >
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <h2 id={Base.component_title_id(@node)} class="text-sm font-semibold leading-6">
+      <header class="workspace-tile-header">
+        <span class="workspace-tile-kind-icon" aria-hidden="true">
+          <.icon name={tile_icon(@node)} class="size-4" />
+        </span>
+        <div class="workspace-tile-title-block">
+          <h2 id={Base.component_title_id(@node)} class="workspace-tile-title">
             {Base.title(@node, "Canvas tile")}
           </h2>
-          <p class="text-xs text-base-content/60">
-            {tile_kind_label(@node)}
+          <p class="workspace-tile-meta">
+            <span>{tile_kind_label(@node)}</span>
+            <span :if={tile_id(@node)} class="workspace-mono">{short_id(tile_id(@node))}</span>
           </p>
         </div>
-      </div>
+        <div class="workspace-tile-actions">
+          <span :if={Base.prop(@node, :pinned?, false)} class="workspace-status-pill">
+            <.icon name="hero-bookmark-micro" class="size-4" /> pinned
+          </span>
+          <span
+            :if={Base.prop(@node, :deleted?, false)}
+            class="workspace-status-pill workspace-status-warn"
+          >
+            deleted
+          </span>
+          <button
+            type="button"
+            class="allbert-icon-button workspace-tile-action"
+            aria-label={"Pin #{Base.title(@node, "canvas tile")}"}
+            title="Pin tile"
+            disabled
+          >
+            <.icon name="hero-bookmark-micro" class="size-4" />
+          </button>
+          <button
+            type="button"
+            class="allbert-icon-button workspace-tile-action"
+            aria-label={"Open #{Base.title(@node, "canvas tile")} menu"}
+            title="Tile menu"
+            disabled
+          >
+            <.icon name="hero-ellipsis-horizontal-micro" class="size-4" />
+          </button>
+        </div>
+      </header>
 
       <div
         :if={editable?(@node, @offline_enabled?)}
         id={editor_id(@node)}
-        class="workspace-tile-editor mt-3"
+        class="workspace-tile-editor"
         data-workspace-tile-editor="true"
         data-tile-id={Base.prop(@node, :tile_id, "")}
         data-thread-id={@thread_id}
@@ -86,13 +207,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
         </p>
       </div>
 
-      <pre :if={!editable?(@node, @offline_enabled?)} class="mt-3 whitespace-pre-wrap text-xs">
+      <pre :if={!editable?(@node, @offline_enabled?)} class="workspace-tile-readonly">
     {Base.summary(@node, "Canvas tile")}
       </pre>
 
       <div
         :if={conflict?(@node)}
-        class="workspace-conflict-banner mt-3"
+        class="workspace-conflict-banner"
         data-workspace-conflict-banner="true"
         role="status"
       >
@@ -103,7 +224,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
         <button
           :if={revert_revision_id(@node)}
           type="button"
-          class="btn btn-xs btn-outline mt-2"
+          class="workspace-button workspace-button-secondary mt-2"
           phx-click="revert_tile_revision"
           phx-value-tile-id={Base.prop(@node, :tile_id, "")}
           phx-value-revision-id={revert_revision_id(@node)}
@@ -111,6 +232,15 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
           Revert
         </button>
       </div>
+
+      <footer class="workspace-tile-footer">
+        <span class="workspace-mono">
+          emitter {Base.prop(@node, :emitter_id, "workspace")}
+        </span>
+        <time :if={Base.prop(@node, :updated_at, nil)} datetime={Base.prop(@node, :updated_at, nil)}>
+          {Base.prop(@node, :updated_at, nil)}
+        </time>
+      </footer>
     </section>
     """
   end
@@ -131,6 +261,29 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
     |> then(&"#{&1} tile")
   end
 
+  defp tile_icon(node) do
+    case Base.prop(node, :tile_kind, "tile") |> to_string() do
+      "text" -> "hero-document-text-micro"
+      "markdown" -> "hero-document-text-micro"
+      "approval_card" -> "hero-check-circle-micro"
+      "confirmation_card" -> "hero-shield-check-micro"
+      "objective_card" -> "hero-flag-micro"
+      "analysis_card" -> "hero-chart-bar-micro"
+      _other -> "hero-squares-2x2-micro"
+    end
+  end
+
+  defp tile_id(node), do: Base.prop(node, :tile_id, nil)
+
+  defp short_id(nil), do: nil
+
+  defp short_id(id) when is_binary(id) do
+    if String.length(id) > 16, do: String.slice(id, 0, 12) <> "...", else: id
+  end
+
+  defp bool_attribute(true), do: "true"
+  defp bool_attribute(false), do: "false"
+
   defp conflict?(node), do: conflict_value(node, :conflict?, false) == true
   defp conflict_count(node), do: conflict_value(node, :conflict_count, 0)
   defp revert_revision_id(node), do: conflict_value(node, :revert_revision_id, nil)
@@ -149,7 +302,58 @@ end
 defmodule AllbertAssistWeb.Workspace.Components.EphemeralSurface do
   use AllbertAssistWeb.Workspace.Components.Base,
     component: :ephemeral_surface,
-    description: "Shared ephemeral surface"
+    description: "Shared ephemeral surface",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket) do
+    context = Map.get(assigns, :renderer_context, %{})
+
+    {:ok,
+     socket
+     |> Base.assign_defaults(assigns)
+     |> assign(ephemeral_surfaces: Map.get(context, :ephemeral_surfaces, []))}
+  end
+
+  @impl true
+  def render(%{node: %{children: []}} = assigns) do
+    ~H"""
+    <section
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-ephemeral-empty"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <h2 id={Base.component_title_id(@node)} class="sr-only">Ephemeral surfaces</h2>
+    </section>
+    """
+  end
+
+  def render(assigns) do
+    ~H"""
+    <section
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-ephemeral-shell"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <div>
+        <h2 id={Base.component_title_id(@node)} class="workspace-pane-title">
+          {Base.title(@node, "Ephemeral surface")}
+        </h2>
+        <p class="workspace-pane-subtitle">Task-scoped overlay</p>
+      </div>
+      <span class="allbert-chip">
+        <.icon name="hero-bolt-micro" class="size-4" />
+        {length(@ephemeral_surfaces)} active
+      </span>
+    </section>
+    """
+  end
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.Header do
@@ -299,29 +503,189 @@ end
 defmodule AllbertAssistWeb.Workspace.Components.BadgeStrip do
   use AllbertAssistWeb.Workspace.Components.Base,
     component: :badge_strip,
-    description: "Status and objective badges"
+    description: "Status and objective badges",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket) do
+    context = Map.get(assigns, :renderer_context, %{})
+
+    {:ok,
+     socket
+     |> Base.assign_defaults(assigns)
+     |> assign(
+       active_objectives: Map.get(context, :active_objectives, []),
+       workspace_badges: Map.get(context, :workspace_badges, [])
+     )}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <section
+      id={"workspace-component-#{@node.id}"}
+      class={["workspace-badge-strip", empty?(@active_objectives, @workspace_badges) && "hidden"]}
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <h2 id={Base.component_title_id(@node)} class="sr-only">Workspace status</h2>
+      <span :for={objective <- @active_objectives} class="allbert-chip">
+        <.icon name="hero-flag-micro" class="size-4" />
+        {objective.status}: {objective.title}
+      </span>
+      <span :for={_badge <- @workspace_badges} class="allbert-chip allbert-chip-warn">
+        <.icon name="hero-exclamation-triangle-micro" class="size-4" /> workspace notice
+      </span>
+    </section>
+    """
+  end
+
+  defp empty?([], []), do: true
+  defp empty?(_objectives, _badges), do: false
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.Tabs do
   use AllbertAssistWeb.Workspace.Components.Base,
     component: :tabs,
-    description: "Workspace tabs"
+    description: "Workspace tabs",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <div
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-tabs-label"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <span id={Base.component_title_id(@node)} class="sr-only">
+        {Base.title(@node, "Workspace tabs")}
+      </span>
+    </div>
+    """
+  end
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.Tab do
   use AllbertAssistWeb.Workspace.Components.Base,
     component: :tab,
-    description: "Workspace tab"
+    description: "Workspace tab",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    selected? = Base.prop(assigns.node, :selected?, false) == true
+    panel_id = Base.prop(assigns.node, :panel_id, "workspace-tab-panel-#{assigns.node.id}")
+
+    assigns =
+      assign(assigns,
+        selected?: selected?,
+        panel_id: panel_id
+      )
+
+    ~H"""
+    <button
+      id={"workspace-component-#{@node.id}"}
+      type="button"
+      class="workspace-tab"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      role="tab"
+      aria-selected={bool_attribute(@selected?)}
+      aria-controls={@panel_id}
+      tabindex={if @selected?, do: "0", else: "-1"}
+    >
+      {Base.title(@node, "Tab")}
+    </button>
+    """
+  end
+
+  defp bool_attribute(true), do: "true"
+  defp bool_attribute(false), do: "false"
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.TabPanel do
   use AllbertAssistWeb.Workspace.Components.Base,
     component: :tab_panel,
-    description: "Workspace tab panel"
+    description: "Workspace tab panel",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    hidden? = Base.prop(assigns.node, :hidden?, false) == true
+
+    assigns = assign(assigns, hidden?: hidden?)
+
+    ~H"""
+    <section
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-tab-panel"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      role="tabpanel"
+      hidden={@hidden?}
+      aria-labelledby={Base.prop(@node, :tab_id, nil)}
+    >
+      <h2 class="sr-only">{Base.title(@node, "Tab panel")}</h2>
+      <p :if={Base.present?(Base.summary(@node, ""))}>
+        {Base.summary(@node, "")}
+      </p>
+    </section>
+    """
+  end
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.Diff do
   use AllbertAssistWeb.Workspace.Components.Base,
     component: :diff,
-    description: "Diff viewer"
+    description: "Diff viewer",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <section
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-diff"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <header class="workspace-card-header">
+        <span class="workspace-card-icon" aria-hidden="true">
+          <.icon name="hero-code-bracket-square-micro" class="size-4" />
+        </span>
+        <h2 id={Base.component_title_id(@node)} class="workspace-card-title">
+          {Base.title(@node, "Diff")}
+        </h2>
+      </header>
+      <pre class="workspace-diff-body"><code>{Base.summary(@node, "")}</code></pre>
+    </section>
+    """
+  end
 end

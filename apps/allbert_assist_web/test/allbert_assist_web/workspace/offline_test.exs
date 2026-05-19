@@ -44,7 +44,10 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
     assert app_js =~ "this.markRecovery(\"quota_exceeded\")"
     assert app_js =~ "this.markRecovery(reply.reason || \"server_rejected\")"
     assert app_js =~ "this.doc?.destroy()"
-    assert app_js =~ "hooks: {...colocatedHooks, FocusTrap, WorkspaceTileEditor}"
+    assert app_js =~ "FocusTrap"
+    assert app_js =~ "WorkspaceSplitResizer"
+    assert app_js =~ "WorkspaceTabs"
+    assert app_js =~ "WorkspaceTileEditor"
   end
 
   test "offline recovery keeps rejected drafts addressable from the fallback shell" do
