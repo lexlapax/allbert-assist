@@ -317,8 +317,11 @@ defmodule AllbertAssistWeb.SettingsLive do
                 </div>
               </div>
 
-              <div id="security-v010-capabilities" class="rounded border border-base-300 p-3 text-sm">
-                <h3 class="font-medium">v0.10 Capabilities</h3>
+              <div
+                id="security-execution-capabilities"
+                class="rounded border border-base-300 p-3 text-sm"
+              >
+                <h3 class="font-medium">Execution Capabilities</h3>
                 <div>
                   External services: {@security_status.capability_boundaries.external_services.enabled} · hosts {@security_status.capability_boundaries.external_services.allowed_hosts_count} · profiles {@security_status.capability_boundaries.external_services.profiles_count} · retry {@security_status.capability_boundaries.external_services.retry_policy}
                 </div>

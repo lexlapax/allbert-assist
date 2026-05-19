@@ -209,7 +209,26 @@ defmodule AllbertAssistWeb.JobsLive do
   defp thread_text(%Job{thread_mode: "new_thread_per_run"}), do: "new_per_run"
   defp thread_text(_job), do: "recent"
 
-  defp handoff_lines(%Run{approval_handoff: handoff}), do: ApprovalHandoff.lines(handoff)
+  defp handoff_lines(%Run{approval_handoff: handoff}) do
+    if blank_handoff?(handoff) do
+      []
+    else
+      handoff
+      |> ApprovalHandoff.lines()
+      |> Enum.reject(&blank_handoff_line?/1)
+    end
+  end
+
+  defp blank_handoff?(nil), do: true
+  defp blank_handoff?(handoff) when is_map(handoff), do: map_size(handoff) == 0
+  defp blank_handoff?(_handoff), do: false
+
+  defp blank_handoff_line?(line) do
+    line
+    |> to_string()
+    |> String.trim()
+    |> String.match?(~r/^Approval:\s*status=\s*target=$/)
+  end
 
   defp datetime_text(nil), do: "none"
   defp datetime_text(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
