@@ -396,9 +396,16 @@ defmodule AllbertAssistWeb.AgentLive do
 
   defp param(params, key) when is_map(params) do
     case Map.get(params, key) || Map.get(params, String.to_atom(key)) do
-      value when is_binary(value) -> String.trim(value)
+      value when is_binary(value) -> normalize_param(value)
       value when is_atom(value) -> Atom.to_string(value)
       _other -> nil
+    end
+  end
+
+  defp normalize_param(value) do
+    case String.trim(value) do
+      value when value in ["", "nil", "null"] -> nil
+      value -> value
     end
   end
 
