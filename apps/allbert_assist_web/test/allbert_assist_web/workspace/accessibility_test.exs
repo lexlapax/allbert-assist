@@ -116,6 +116,9 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
       |> render_click()
 
     assert html =~ ~s(id="approval-details-data")
+    assert html =~ "Approval:"
+    refute html =~ "%AllbertAssist.Intent.ApprovalHandoff"
+    refute html =~ "render_hints:"
     assert has_element?(view, "#approval-details[aria-expanded='true']")
     assert_all_buttons_named(html)
     assert_all_labelledby_refs_exist(html)
