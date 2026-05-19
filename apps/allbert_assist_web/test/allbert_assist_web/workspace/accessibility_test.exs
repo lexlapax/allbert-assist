@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
 
   alias AllbertAssist.{Confirmations, Paths, Runtime, Settings}
 
+  @css_path Path.expand("../../../assets/css/app.css", __DIR__)
   @runtime_async_timeout 10_000
 
   setup do
@@ -55,6 +56,20 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
     assert_all_buttons_named(html)
     assert_all_images_have_alt(html)
     assert_all_labelledby_refs_exist(html)
+  end
+
+  test "reduce-motion setting renders root state and stylesheet suppression", %{conn: conn} do
+    assert {:ok, _setting} =
+             Settings.put("workspace.accessibility.reduce_motion", true, %{audit?: false})
+
+    {:ok, view, _html} = live(conn, ~p"/agent")
+    css = File.read!(@css_path)
+
+    assert has_element?(view, "#workspace-shell[data-reduce-motion='true']")
+    assert css =~ ~s(#workspace-shell[data-reduce-motion="true"])
+    assert css =~ "transition-duration: 0.001ms !important"
+    assert css =~ "animation-duration: 0.001ms !important"
+    assert css =~ "scroll-behavior: auto !important"
   end
 
   test "approval handoff is a labelled focus-trapped dialog", %{conn: conn} do

@@ -122,6 +122,26 @@ defmodule AllbertAssist.Workspace.OfflineTest do
     assert Repo.aggregate(Revision, :count, :id) == 0
   end
 
+  test "rejects offline snapshots that exceed the canvas tile body limit" do
+    assert {:ok, _setting} =
+             Settings.put("workspace.canvas.tile_body_max_bytes", 1024, %{audit?: false})
+
+    assert {:ok, tile} =
+             Canvas.add_tile(tile_attrs("thread-body-limit", "user-body-limit", "base"))
+
+    assert {:error, :tile_body_too_large} =
+             Offline.record_client_update(%{
+               tile_id: tile.id,
+               user_id: tile.user_id,
+               thread_id: tile.thread_id,
+               snapshot: String.duplicate("x", 2_000),
+               max_bytes: 16_384
+             })
+
+    assert Repo.aggregate(Revision, :count, :id) == 0
+    assert {:ok, "base"} = Offline.latest_snapshot(tile.id, tile.user_id)
+  end
+
   test "registered offline update action respects workspace write denial" do
     assert {:ok, tile} = Canvas.add_tile(tile_attrs("thread-denied", "user-denied", "base"))
 

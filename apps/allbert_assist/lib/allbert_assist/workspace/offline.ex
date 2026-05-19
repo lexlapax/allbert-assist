@@ -7,6 +7,7 @@ defmodule AllbertAssist.Workspace.Offline do
   """
 
   alias AllbertAssist.Repo
+  alias AllbertAssist.Settings
   alias AllbertAssist.Workspace.BodyStore
   alias AllbertAssist.Workspace.Canvas
   alias AllbertAssist.Workspace.Canvas.Revision
@@ -15,6 +16,7 @@ defmodule AllbertAssist.Workspace.Offline do
 
   @editable_kinds ~w[text markdown]
   @default_max_bytes 33_554_432
+  @default_tile_body_max_bytes 65_536
   @attr_keys %{
     "tile_id" => :tile_id,
     "user_id" => :user_id,
@@ -59,6 +61,7 @@ defmodule AllbertAssist.Workspace.Offline do
          {:ok, update} <- optional_base64(attrs, :update),
          {:ok, state_vector} <- optional_base64(attrs, :state_vector),
          :ok <- ensure_bounded(update, state_vector, snapshot, max_bytes(attrs)),
+         :ok <- ensure_tile_body_size(tile, snapshot),
          {:ok, origin} <- origin(attrs, :browser) do
       record_snapshot(tile, %{
         base_revision_id: blank_to_nil(Map.get(attrs, :base_revision_id)),
@@ -335,10 +338,23 @@ defmodule AllbertAssist.Workspace.Offline do
     if size <= max_bytes, do: :ok, else: {:error, :payload_too_large}
   end
 
+  defp ensure_tile_body_size(%Tile{} = tile, snapshot) do
+    if tile |> snapshot_body(snapshot) |> BodyStore.body_size_bytes() <= tile_body_max_bytes(),
+      do: :ok,
+      else: {:error, :tile_body_too_large}
+  end
+
   defp max_bytes(attrs) do
     case Map.get(attrs, :max_bytes) do
       value when is_integer(value) and value > 0 -> value
       _other -> @default_max_bytes
+    end
+  end
+
+  defp tile_body_max_bytes do
+    case Settings.get("workspace.canvas.tile_body_max_bytes") do
+      {:ok, value} when is_integer(value) -> value
+      _other -> @default_tile_body_max_bytes
     end
   end
 

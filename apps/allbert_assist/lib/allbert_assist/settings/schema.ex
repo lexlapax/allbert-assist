@@ -172,7 +172,6 @@ defmodule AllbertAssist.Settings.Schema do
     "workspace.offline.indexeddb_quota_mb",
     "workspace.accessibility.high_contrast",
     "workspace.accessibility.reduce_motion",
-    "workspace.mobile.breakpoint_px",
     "workspace.agui_bridge.enabled",
     "workspace.signal_bridge.log_dropped_fragments"
   ]
@@ -751,7 +750,7 @@ defmodule AllbertAssist.Settings.Schema do
     "workspace.mobile.breakpoint_px" => %{
       type: :bounded_integer,
       default: 768,
-      writable?: true,
+      writable?: false,
       sensitive?: false,
       min: 320,
       max: 1024

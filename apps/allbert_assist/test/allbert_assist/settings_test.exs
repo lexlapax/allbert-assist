@@ -161,10 +161,11 @@ defmodule AllbertAssist.SettingsTest do
 
     assert high_contrast.value == true
 
-    assert {:ok, breakpoint} =
-             Settings.put("workspace.mobile.breakpoint_px", 640, %{audit?: false})
+    assert {:ok, breakpoint} = Settings.explain("workspace.mobile.breakpoint_px")
+    refute breakpoint.writable?
 
-    assert breakpoint.value == 640
+    assert {:error, {:read_only_setting, "workspace.mobile.breakpoint_px"}} =
+             Settings.put("workspace.mobile.breakpoint_px", 640, %{audit?: false})
 
     assert {:ok, signing_secret} = Settings.explain("workspace.fragment.signing_secret")
     refute signing_secret.writable?
@@ -182,7 +183,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:error, {:invalid_setting, "workspace.canvas.max_tiles_per_thread", _reason}} =
              Settings.put("workspace.canvas.max_tiles_per_thread", 0, %{audit?: false})
 
-    assert {:error, {:invalid_setting, "workspace.mobile.breakpoint_px", _reason}} =
+    assert {:error, {:read_only_setting, "workspace.mobile.breakpoint_px"}} =
              Settings.put("workspace.mobile.breakpoint_px", 200, %{audit?: false})
   end
 

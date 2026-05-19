@@ -191,6 +191,21 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(view, "#workspace-theme-toggle[data-high-contrast='true']")
   end
 
+  test "mount applies reduce-motion workspace variant", %{conn: conn} do
+    assert {:ok, _setting} =
+             Settings.put("workspace.accessibility.reduce_motion", true, %{audit?: false})
+
+    {:ok, view, html} = live(conn, ~p"/agent")
+
+    assert html =~ "workspace-reduce-motion"
+    assert html =~ ~s(data-reduce-motion="true")
+
+    assert has_element?(
+             view,
+             "#workspace-shell.workspace-reduce-motion[data-reduce-motion='true']"
+           )
+  end
+
   test "renders emitted canvas fragments through the workspace shell", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
     thread_id = workspace_thread_id(view)
