@@ -1,11 +1,11 @@
 defmodule AllbertAssist.Actions.Intent.ListSkills do
   @moduledoc """
-  Lists the static v0.01 skill declarations.
+  Lists registered skill declarations and read-only capability context.
   """
 
   use Jido.Action,
     name: "list_skills",
-    description: "List the v0.01-safe capabilities available to the intent agent.",
+    description: "List the read-only capabilities available to the intent agent.",
     category: "intent",
     tags: ["intent", "skills", "read_only"],
     schema: [],
@@ -53,7 +53,7 @@ defmodule AllbertAssist.Actions.Intent.ListSkills do
       |> Enum.join("\n")
 
     """
-    Right now I can inspect these registry-backed v0.03 skills and v0.01-safe capabilities:
+    Right now I can inspect these registry-backed skills and read-only capabilities:
 
     #{skill_lines}
 

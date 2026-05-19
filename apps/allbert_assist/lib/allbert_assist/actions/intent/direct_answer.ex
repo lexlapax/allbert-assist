@@ -42,11 +42,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
   defp message(text) do
     """
-    I can answer that from the current v0.01 local assistant loop.
+    I can answer from the current v0.26 Allbert runtime.
 
     You said: #{text}
 
-    I will keep this turn side-effect-free unless you ask for one of the explicit v0.01 capabilities.
+    I will keep this turn side-effect-free unless you ask for a registered capability that requires confirmation or execution.
     """
     |> String.trim()
   end
