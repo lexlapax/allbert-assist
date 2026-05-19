@@ -18,6 +18,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.SigningSecret
   alias AllbertAssistWeb.SignalBridge
+  alias Jido.Signal.Bus
 
   @runtime_async_timeout 10_000
 
@@ -93,6 +94,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
   test "workspace theme toggle persists dark mode across reload", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
+    subscribe_actions()
 
     assert has_element?(
              view,
@@ -105,6 +107,9 @@ defmodule AllbertAssistWeb.AgentLiveTest do
       |> render_click()
 
     assert html =~ ~s(data-workspace-theme="dark")
+    action_signal = receive_action_completed("set_workspace_theme")
+    assert action_signal.data.status == :completed
+    assert action_signal.data.permission_decision.permission == :settings_write
     assert {:ok, "dark"} = Settings.get("workspace.theme")
     assert has_element?(view, "#workspace-shell[data-theme='dark'][data-workspace-theme='dark']")
 
@@ -229,6 +234,29 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert surface.id == envelope.id
   end
 
+  test "workspace ephemeral dismissal routes through the action boundary", %{conn: conn} do
+    thread = create_workspace_thread()
+
+    assert {:ok, surface} =
+             Workspace.open_ephemeral(%{
+               user_id: "local",
+               thread_id: thread.id,
+               kind: :approval_card,
+               body: %{title: "Dismiss me"}
+             })
+
+    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    assert has_element?(view, "#workspace-node-ephemeral-surface-#{surface.id}")
+    subscribe_actions()
+
+    render_hook(view, :dismiss_workspace_ephemeral, %{"surface-id" => surface.id})
+
+    action_signal = receive_action_completed("dismiss_workspace_ephemeral")
+    assert action_signal.data.status == :completed
+    assert action_signal.data.permission_decision.permission == :workspace_canvas_write
+    assert {:ok, []} = Workspace.ephemeral_surfaces(thread.id, "local")
+  end
+
   test "renders canvas-header badge fragments without persisting them as tiles", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
     thread_id = workspace_thread_id(view)
@@ -327,6 +355,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
              })
 
     {:ok, view, html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    subscribe_actions()
 
     assert has_element?(
              view,
@@ -346,6 +375,9 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     })
 
     tile_id = tile.id
+    action_signal = receive_action_completed("record_workspace_offline_update")
+    assert action_signal.data.status == :completed
+    assert action_signal.data.permission_decision.permission == :workspace_canvas_write
 
     assert_reply(view, %{
       status: "received",
@@ -355,6 +387,32 @@ defmodule AllbertAssistWeb.AgentLiveTest do
       conflict_count: 0,
       max_bytes: 33_554_432
     })
+  end
+
+  test "workspace tile editor hook respects workspace write denial", %{conn: conn} do
+    thread = create_workspace_thread()
+
+    assert {:ok, tile} =
+             Workspace.add_tile(%{
+               user_id: "local",
+               thread_id: thread.id,
+               kind: :text,
+               body: %{text: "permission base"}
+             })
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.workspace_canvas_write", "denied", %{audit?: false})
+
+    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+
+    render_hook(view, :workspace_tile_editor_sync, %{
+      "tile_id" => tile.id,
+      "thread_id" => thread.id,
+      "snapshot" => "blocked edit"
+    })
+
+    assert_reply(view, %{status: "rejected", reason: ":permission_denied"})
+    assert {:ok, "permission base"} = Workspace.latest_offline_snapshot(tile.id, "local")
   end
 
   test "workspace tile editor hook reports stale-base conflicts", %{conn: conn} do
@@ -580,6 +638,23 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   defp start_workspace_bridge do
     name = :"agent_live_sync_bridge_#{System.unique_integer([:positive])}"
     start_supervised!({SignalBridge, name: name})
+  end
+
+  defp subscribe_actions do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.action.completed")
+  end
+
+  defp receive_action_completed(action_name) do
+    receive do
+      {:signal, %{type: "allbert.action.completed", data: %{action_name: ^action_name}} = signal} ->
+        signal
+
+      {:signal, %{type: "allbert.action.completed"}} ->
+        receive_action_completed(action_name)
+    after
+      1_000 -> flunk("expected action completion for #{action_name}")
+    end
   end
 
   defp create_workspace_thread(text \\ "Workspace test thread") do

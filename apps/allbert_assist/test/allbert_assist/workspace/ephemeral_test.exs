@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Workspace.EphemeralTest do
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Workspace.Ephemeral
@@ -85,6 +86,34 @@ defmodule AllbertAssist.Workspace.EphemeralTest do
     assert {:ok, []} = Ephemeral.surfaces_for_thread(thread_id, user_id)
     assert {:ok, [still_active]} = Ephemeral.surfaces_for_thread("other-thread", user_id)
     assert still_active.id == other_thread.id
+  end
+
+  test "registered dismissal action dismisses through workspace write permission metadata" do
+    thread_id = "thread-eph-action"
+    user_id = "user-eph-action"
+
+    assert {:ok, surface} =
+             Ephemeral.open(%{
+               thread_id: thread_id,
+               user_id: user_id,
+               kind: :approval_card,
+               body: %{title: "Approval"}
+             })
+
+    assert {:ok, response} =
+             Runner.run(
+               "dismiss_workspace_ephemeral",
+               %{surface_id: surface.id, user_id: user_id, dismissed_by: "operator"},
+               %{actor: user_id, user_id: user_id, channel: :test}
+             )
+
+    assert response.status == :completed
+    assert response.surface_id == surface.id
+    assert response.runner_metadata.action_name == "dismiss_workspace_ephemeral"
+    assert response.runner_metadata.permission_decision.permission == :workspace_canvas_write
+    assert response.actions |> List.first() |> Map.fetch!(:permission) == :workspace_canvas_write
+
+    assert {:ok, []} = Ephemeral.surfaces_for_thread(thread_id, user_id)
   end
 
   test "cap enforcement dismisses oldest non-pinned surface" do
