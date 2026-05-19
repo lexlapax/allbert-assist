@@ -85,6 +85,7 @@ const FocusTrap = {
 }
 
 const workspaceEditorManifestKey = "allbert.workspace.tile_editors.v1"
+const workspaceEditorCorruptManifestKey = "allbert.workspace.tile_editors.corrupt.v1"
 const workspaceEditorOrigin = "allbert-workspace-editor"
 const workspaceEditorBootstrapOrigin = "allbert-workspace-bootstrap"
 
@@ -100,9 +101,24 @@ const workspaceEditorMessages = {
 }
 
 const readWorkspaceEditorManifest = () => {
+  const rawManifest = window.localStorage?.getItem(workspaceEditorManifestKey) || "{}"
+
   try {
-    return JSON.parse(window.localStorage?.getItem(workspaceEditorManifestKey) || "{}")
-  } catch (_error) {
+    return JSON.parse(rawManifest)
+  } catch (error) {
+    try {
+      window.localStorage?.setItem(
+        workspaceEditorCorruptManifestKey,
+        JSON.stringify({
+          preservedAt: new Date().toISOString(),
+          reason: error.message,
+          rawManifest,
+        })
+      )
+    } catch (_storageError) {
+      // localStorage may be unavailable in hardened browser modes.
+    }
+
     return {}
   }
 }
@@ -169,10 +185,17 @@ const renderWorkspaceOfflineDrafts = async () => {
       const title = document.createElement("h2")
       title.textContent = record.title || `${record.kind || "text"} tile`
 
+      const recovery = document.createElement("p")
+      recovery.className = "workspace-offline-draft-recovery"
+      recovery.hidden = !record.recovery
+      recovery.textContent = record.recovery
+        ? `Recovery available: ${record.recovery.reason || "local draft kept"}`
+        : ""
+
       const body = document.createElement("pre")
       body.textContent = text || record.snapshot || ""
 
-      article.append(title, body)
+      article.append(title, recovery, body)
       container.append(article)
 
       doc.destroy()
@@ -272,10 +295,27 @@ const WorkspaceTileEditor = {
       kind: this.kind,
       title: this.el.closest("[data-workspace-component='tile']")?.querySelector("h2")?.textContent?.trim(),
       snapshot,
+      recovery: null,
     }
 
     updateWorkspaceEditorManifest(record)
     this.provider?.set("snapshot", snapshot)
+  },
+
+  markRecovery(reason) {
+    updateWorkspaceEditorManifest({
+      docName: this.docName,
+      tileId: this.tileId,
+      threadId: this.threadId,
+      userId: this.userId,
+      kind: this.kind,
+      title: this.el.closest("[data-workspace-component='tile']")?.querySelector("h2")?.textContent?.trim(),
+      snapshot: this.ytext.toString(),
+      recovery: {
+        reason: reason || "server_rejected",
+        retainedAt: new Date().toISOString(),
+      },
+    })
   },
 
   schedulePush() {
@@ -311,6 +351,7 @@ const WorkspaceTileEditor = {
     }
 
     if (estimateWorkspaceEditorBytes(payload) > this.quotaBytes) {
+      this.markRecovery("quota_exceeded")
       setWorkspaceEditorState(this.el, "quota_exceeded")
       return
     }
@@ -323,6 +364,7 @@ const WorkspaceTileEditor = {
       } else if (reply.status === "conflict") {
         setWorkspaceEditorState(this.el, "conflict")
       } else {
+        this.markRecovery(reply.reason || "server_rejected")
         setWorkspaceEditorState(this.el, "rejected")
       }
     })
