@@ -352,8 +352,7 @@ defmodule AllbertAssistWeb.AgentLive do
   defp approval_resolution_message(response, confirmation) do
     message =
       Map.get(response, :message) ||
-        if(is_map(confirmation), do: Confirmations.status_message(confirmation), else: nil) ||
-        "Confirmation resolved."
+        Confirmations.status_message(confirmation)
 
     external_details =
       confirmation
