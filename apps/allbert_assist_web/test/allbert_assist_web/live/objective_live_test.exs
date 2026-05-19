@@ -42,6 +42,11 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
     assert has_element?(view, "#objective-events")
     assert has_element?(view, "#objective-cancel-button")
     assert has_element?(view, "#objective-continue-button")
+    assert html =~ "Min Completed Steps:"
+    assert html =~ ">1<"
+    assert html =~ "Current step: blocked action #{step.id}"
+    refute html =~ ~s(%{"min_completed_steps" => 1})
+    refute html =~ "Current step: none"
 
     view
     |> element("#objective-cancel-button")

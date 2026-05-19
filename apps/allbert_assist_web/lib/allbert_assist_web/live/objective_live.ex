@@ -105,7 +105,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
             <div class="grid gap-2 text-sm text-base-content/60 md:grid-cols-2">
               <p>User: {@objective.user_id}</p>
               <p>Active app: {@objective[:active_app] || "none"}</p>
-              <p>Current step: {@objective[:current_step_id] || "none"}</p>
+              <p>Current step: {current_step_text(@objective, @steps)}</p>
               <p>Loop count: {@objective[:loop_count] || 0}</p>
             </div>
           </section>
@@ -159,7 +159,15 @@ defmodule AllbertAssistWeb.ObjectiveLive do
 
           <section id="objective-acceptance" class="rounded border border-base-300 p-4">
             <h2 class="font-medium">Acceptance</h2>
-            <pre class="mt-2 whitespace-pre-wrap text-xs"><%= inspect(@objective[:acceptance_criteria], pretty: true) %></pre>
+            <dl class="mt-2 grid gap-2 text-sm">
+              <div
+                :for={{label, value} <- acceptance_lines(@objective[:acceptance_criteria])}
+                class="flex flex-wrap gap-x-2"
+              >
+                <dt class="font-medium text-base-content/70">{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            </dl>
           </section>
 
           <section class="space-y-3">
@@ -248,4 +256,55 @@ defmodule AllbertAssistWeb.ObjectiveLive do
       response_target: socket.id
     }
   end
+
+  defp current_step_text(objective, steps) do
+    case objective[:current_step_id] || objective["current_step_id"] do
+      value when is_binary(value) and value != "" ->
+        value
+
+      _missing ->
+        step =
+          Enum.find(steps, &(step_status(&1) in ["blocked", "running", "open"])) ||
+            List.first(steps)
+
+        step_summary(step)
+    end
+  end
+
+  defp step_summary(nil), do: "none"
+
+  defp step_summary(step) do
+    [step_status(step), step_kind(step), step.id]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(" ")
+  end
+
+  defp step_status(step), do: Map.get(step, :status) || Map.get(step, "status")
+  defp step_kind(step), do: Map.get(step, :kind) || Map.get(step, "kind")
+
+  defp acceptance_lines(criteria) when is_map(criteria) and map_size(criteria) > 0 do
+    criteria
+    |> Enum.sort_by(fn {key, _value} -> to_string(key) end)
+    |> Enum.map(fn {key, value} -> {humanize_key(key), format_value(value)} end)
+  end
+
+  defp acceptance_lines(_criteria), do: [{"Criteria", "None recorded"}]
+
+  defp humanize_key(key) do
+    key
+    |> to_string()
+    |> String.replace("_", " ")
+    |> String.split()
+    |> Enum.map_join(" ", &String.capitalize/1)
+    |> then(&(&1 <> ":"))
+  end
+
+  defp format_value(value) when is_binary(value), do: value
+  defp format_value(value) when is_integer(value), do: Integer.to_string(value)
+  defp format_value(value) when is_float(value), do: Float.to_string(value)
+  defp format_value(value) when is_boolean(value), do: to_string(value)
+  defp format_value(value) when is_list(value), do: Enum.map_join(value, ", ", &format_value/1)
+  defp format_value(value) when is_map(value), do: inspect(value, pretty: false, limit: 10)
+  defp format_value(nil), do: "none"
+  defp format_value(value), do: to_string(value)
 end
