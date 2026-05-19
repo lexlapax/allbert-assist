@@ -101,10 +101,12 @@ defmodule AllbertAssist.Workspace.FragmentTest do
     assert log =~ "workspace fragment dropped"
     assert log =~ "reason=:invalid_envelope"
 
-    assert_receive {:signal, signal}, 1_000
-    assert signal.type == "allbert.workspace.fragment.dropped"
-    assert signal.data.reason == :invalid_envelope
-    assert signal.data.fragment_id == nil
+    assert_receive {:signal,
+                    %Signal{
+                      type: "allbert.workspace.fragment.dropped",
+                      data: %{reason: :invalid_envelope, fragment_id: nil}
+                    }},
+                   1_000
   end
 
   test "rejects unsigned envelopes as signature invalid" do
