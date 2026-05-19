@@ -122,6 +122,65 @@ defmodule AllbertAssist.Workspace.OfflineTest do
     assert Repo.aggregate(Revision, :count, :id) == 0
   end
 
+  test "registered offline update action respects workspace write denial" do
+    assert {:ok, tile} = Canvas.add_tile(tile_attrs("thread-denied", "user-denied", "base"))
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.workspace_canvas_write", "denied", %{audit?: false})
+
+    assert {:ok, response} =
+             Runner.run(
+               "record_workspace_offline_update",
+               %{
+                 tile_id: tile.id,
+                 user_id: tile.user_id,
+                 thread_id: tile.thread_id,
+                 snapshot: "denied edit"
+               },
+               %{actor: tile.user_id, user_id: tile.user_id, channel: :test}
+             )
+
+    assert response.status == :denied
+    assert response.reason == :permission_denied
+    assert response.runner_metadata.permission_decision.permission == :workspace_canvas_write
+    assert response.runner_metadata.permission_decision.decision == :denied
+    assert Repo.aggregate(Revision, :count, :id) == 0
+  end
+
+  test "registered offline update action records a revision and broadcasts normally" do
+    assert {:ok, tile} = Canvas.add_tile(tile_attrs("thread-action", "user-action", "base"))
+
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.**")
+
+    assert {:ok, response} =
+             Runner.run(
+               "record_workspace_offline_update",
+               %{
+                 tile_id: tile.id,
+                 user_id: tile.user_id,
+                 thread_id: tile.thread_id,
+                 update: Base.encode64("opaque-yjs-update"),
+                 state_vector: Base.encode64("opaque-state-vector"),
+                 snapshot: "action snapshot",
+                 origin: "browser"
+               },
+               %{actor: tile.user_id, user_id: tile.user_id, channel: :test}
+             )
+
+    assert response.status == :completed
+    assert response.result.revision.text_snapshot == "action snapshot"
+    assert response.actions |> List.first() |> Map.fetch!(:permission) == :workspace_canvas_write
+    assert response.runner_metadata.action_name == "record_workspace_offline_update"
+
+    reconciled = receive_signal("allbert.workspace.offline.reconciled")
+    assert reconciled.data.tile_id == tile.id
+    assert reconciled.data.revision_id == response.result.revision.id
+
+    updated = receive_signal("allbert.workspace.tile.updated")
+    assert updated.data.metadata.revision_id == response.result.revision.id
+  end
+
   test "registered revert action restores a prior snapshot through the action boundary" do
     assert {:ok, tile} = Canvas.add_tile(tile_attrs("thread-revert", "user-revert", "base"))
 
