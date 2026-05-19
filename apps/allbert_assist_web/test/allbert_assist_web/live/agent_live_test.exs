@@ -15,6 +15,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.SigningSecret
   alias AllbertAssistWeb.SignalBridge
@@ -234,27 +235,74 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert surface.id == envelope.id
   end
 
-  test "workspace ephemeral dismissal routes through the action boundary", %{conn: conn} do
+  test "workspace ephemeral dismissal routes Escape through the action boundary", %{conn: conn} do
     thread = create_workspace_thread()
 
-    assert {:ok, surface} =
-             Workspace.open_ephemeral(%{
-               user_id: "local",
-               thread_id: thread.id,
-               kind: :approval_card,
-               body: %{title: "Dismiss me"}
-             })
+    envelope =
+      signed_envelope(%{
+        thread_id: thread.id,
+        scope: :ephemeral,
+        kind: :approval_card,
+        surface: fragment_surface(:approval_card, "Dismiss me")
+      })
+
+    assert :ok = Workspace.emit_fragment(envelope)
 
     {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
-    assert has_element?(view, "#workspace-node-ephemeral-surface-#{surface.id}")
+    assert has_element?(view, "#workspace-node-ephemeral-surface-#{envelope.id}")
+
+    assert has_element?(
+             view,
+             "#workspace-node-ephemeral-surface-#{envelope.id}[phx-key='escape']"
+           )
+
     subscribe_actions()
 
-    render_hook(view, :dismiss_workspace_ephemeral, %{"surface-id" => surface.id})
+    view
+    |> element("#workspace-node-ephemeral-surface-#{envelope.id}")
+    |> render_keydown(%{"key" => "Escape"})
 
     action_signal = receive_action_completed("dismiss_workspace_ephemeral")
     assert action_signal.data.status == :completed
     assert action_signal.data.permission_decision.permission == :workspace_canvas_write
     assert {:ok, []} = Workspace.ephemeral_surfaces(thread.id, "local")
+  end
+
+  test "ephemeral lifecycle events fan out open and close to sibling tabs", %{conn: conn} do
+    start_workspace_bridge()
+    thread = create_workspace_thread()
+
+    {:ok, first_tab, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    {:ok, second_tab, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+
+    envelope =
+      signed_envelope(%{
+        thread_id: thread.id,
+        scope: :ephemeral,
+        kind: :approval_card,
+        surface: fragment_surface(:approval_card, "Synced approval")
+      })
+
+    assert {:ok, surface} =
+             Workspace.open_ephemeral(%{
+               id: envelope.id,
+               user_id: "local",
+               thread_id: thread.id,
+               kind: :approval_card,
+               body: FragmentBody.encode(envelope)
+             })
+
+    render_until(first_tab, "ephemeral-surface-#{surface.id}")
+    render_until(second_tab, "ephemeral-surface-#{surface.id}")
+    subscribe_actions()
+
+    render_hook(first_tab, :dismiss_workspace_ephemeral, %{"surface-id" => surface.id})
+
+    action_signal = receive_action_completed("dismiss_workspace_ephemeral")
+    assert action_signal.data.status == :completed
+
+    render_until_missing(first_tab, "#workspace-node-ephemeral-surface-#{surface.id}")
+    render_until_missing(second_tab, "#workspace-node-ephemeral-surface-#{surface.id}")
   end
 
   test "renders canvas-header badge fragments without persisting them as tiles", %{conn: conn} do
@@ -740,5 +788,21 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     html = render(view)
     assert html =~ text
     html
+  end
+
+  defp render_until_missing(view, selector, attempts \\ 20)
+
+  defp render_until_missing(view, selector, attempts) when attempts > 0 do
+    if has_element?(view, selector) do
+      Process.sleep(50)
+      render_until_missing(view, selector, attempts - 1)
+    else
+      render(view)
+    end
+  end
+
+  defp render_until_missing(view, selector, 0) do
+    refute has_element?(view, selector)
+    render(view)
   end
 end

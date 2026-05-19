@@ -5,6 +5,7 @@ defmodule AllbertAssist.Workspace.EphemeralTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Workspace.Ephemeral
+  alias Jido.Signal.Bus
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -51,6 +52,33 @@ defmodule AllbertAssist.Workspace.EphemeralTest do
     assert historical.id == surface.id
   end
 
+  test "open and dismiss emit lifecycle signals" do
+    thread_id = "thread-eph-events"
+    user_id = "user-eph-events"
+
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.ephemeral.**")
+
+    assert {:ok, surface} =
+             Ephemeral.open(%{
+               thread_id: thread_id,
+               user_id: user_id,
+               kind: :approval_card,
+               body: %{title: "Approval"}
+             })
+
+    opened = receive_signal("allbert.workspace.ephemeral.opened")
+    assert opened.data.surface_id == surface.id
+    assert opened.data.user_id == user_id
+    assert opened.data.thread_id == thread_id
+
+    assert {:ok, dismissed} = Ephemeral.dismiss(surface.id, user_id, :operator)
+
+    closed = receive_signal("allbert.workspace.ephemeral.closed")
+    assert closed.data.surface_id == dismissed.id
+    assert closed.data.dismissed_by == :operator
+  end
+
   test "dismiss_for_thread dismisses every active surface for a user thread" do
     thread_id = "thread-eph-close"
     user_id = "user-eph-close"
@@ -86,6 +114,28 @@ defmodule AllbertAssist.Workspace.EphemeralTest do
     assert {:ok, []} = Ephemeral.surfaces_for_thread(thread_id, user_id)
     assert {:ok, [still_active]} = Ephemeral.surfaces_for_thread("other-thread", user_id)
     assert still_active.id == other_thread.id
+  end
+
+  test "dismiss is idempotent for an already dismissed surface in the same thread" do
+    thread_id = "thread-eph-idempotent"
+    user_id = "user-eph-idempotent"
+
+    assert {:ok, surface} =
+             Ephemeral.open(%{
+               thread_id: thread_id,
+               user_id: user_id,
+               kind: :approval_card,
+               body: %{title: "Approval"}
+             })
+
+    assert {:ok, first} = Ephemeral.dismiss(surface.id, user_id, :operator, thread_id: thread_id)
+    assert {:ok, second} = Ephemeral.dismiss(surface.id, user_id, :operator, thread_id: thread_id)
+
+    assert second.id == first.id
+    assert second.dismissed_by == "operator"
+
+    assert {:error, :not_found} =
+             Ephemeral.dismiss(surface.id, user_id, :operator, thread_id: "other-thread")
   end
 
   test "registered dismissal action dismisses through workspace write permission metadata" do
@@ -154,4 +204,13 @@ defmodule AllbertAssist.Workspace.EphemeralTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp receive_signal(type) do
+    receive do
+      {:signal, %{type: ^type} = signal} -> signal
+      {:signal, _signal} -> receive_signal(type)
+    after
+      1_000 -> flunk("expected signal #{type}")
+    end
+  end
 end

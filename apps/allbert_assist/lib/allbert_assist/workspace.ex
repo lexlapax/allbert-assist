@@ -55,9 +55,9 @@ defmodule AllbertAssist.Workspace do
   @spec open_ephemeral(map()) :: {:ok, Ephemeral.surface()} | {:error, term()}
   defdelegate open_ephemeral(attrs), to: Ephemeral, as: :open
 
-  @spec dismiss_ephemeral(String.t(), String.t(), String.t() | atom()) ::
+  @spec dismiss_ephemeral(String.t(), String.t(), String.t() | atom(), keyword()) ::
           {:ok, Ephemeral.surface()} | {:error, term()}
-  defdelegate dismiss_ephemeral(surface_id, user_id, dismissed_by \\ "operator"),
+  defdelegate dismiss_ephemeral(surface_id, user_id, dismissed_by \\ "operator", opts \\ []),
     to: Ephemeral,
     as: :dismiss
 

@@ -131,7 +131,8 @@ defmodule AllbertAssist.Workspace.Catalog do
         props: %{
           title: title(surface, "Ephemeral surface"),
           body: "kind=#{surface.kind}",
-          surface_id: surface.id
+          surface_id: surface.id,
+          dismissible?: dismissible_surface?(surface)
         },
         children: stored_surface_nodes(surface)
       }
@@ -206,6 +207,13 @@ defmodule AllbertAssist.Workspace.Catalog do
   defp offline_value(offline, key, fallback \\ nil) do
     Map.get(offline, Atom.to_string(key)) || Map.get(offline, key) || fallback
   end
+
+  defp dismissible_surface?(%{metadata: metadata}) when is_map(metadata) do
+    Map.get(metadata, "dismissible?", Map.get(metadata, :dismissible?, true)) != false and
+      Map.get(metadata, "dismissible", Map.get(metadata, :dismissible, true)) != false
+  end
+
+  defp dismissible_surface?(_surface), do: true
 
   defp badge_nodes(badges) do
     badges

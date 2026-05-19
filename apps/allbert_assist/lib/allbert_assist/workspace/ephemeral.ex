@@ -9,6 +9,7 @@ defmodule AllbertAssist.Workspace.Ephemeral do
   alias AllbertAssist.Settings
   alias AllbertAssist.Workspace.BodyStore
   alias AllbertAssist.Workspace.Ephemeral.Surface
+  alias AllbertAssist.Workspace.Events
 
   @default_max_active 16
 
@@ -50,15 +51,15 @@ defmodule AllbertAssist.Workspace.Ephemeral do
     end
   end
 
-  @spec dismiss(String.t(), String.t(), String.t() | atom()) ::
+  @spec dismiss(String.t(), String.t(), String.t() | atom(), keyword()) ::
           {:ok, surface()} | {:error, term()}
-  def dismiss(surface_id, user_id, dismissed_by \\ "operator")
-      when is_binary(surface_id) and is_binary(user_id) do
-    with {:ok, surface} <- get_user_surface(surface_id, user_id) do
-      surface
-      |> dismiss_changeset(dismissed_by, DateTime.utc_now())
-      |> Repo.update()
-      |> load_body_result()
+  def dismiss(surface_id, user_id, dismissed_by \\ "operator", opts \\ [])
+      when is_binary(surface_id) and is_binary(user_id) and is_list(opts) do
+    thread_id = Keyword.get(opts, :thread_id)
+
+    with {:ok, dismissed_by} <- dismissed_by(dismissed_by),
+         {:ok, surface} <- get_user_surface(surface_id, user_id, thread_id) do
+      dismiss_surface(surface, dismissed_by)
     end
   end
 
@@ -83,8 +84,18 @@ defmodule AllbertAssist.Workspace.Ephemeral do
       |> Repo.update()
       |> load_body_result()
       |> case do
-        {:ok, dismissed} -> {:cont, [dismissed | acc]}
-        {:error, reason} -> {:halt, {:error, reason}}
+        {:ok, dismissed} ->
+          Events.ephemeral_closed(
+            dismissed.id,
+            dismissed.user_id,
+            dismissed.thread_id,
+            dismissed.dismissed_by
+          )
+
+          {:cont, [dismissed | acc]}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
       end
     end)
     |> case do
@@ -93,20 +104,26 @@ defmodule AllbertAssist.Workspace.Ephemeral do
     end
   end
 
-  defp get_user_surface(surface_id, user_id) do
+  defp get_user_surface(surface_id, user_id, thread_id) do
     query =
       Surface
       |> where(
         [surface],
-        surface.id == ^surface_id and surface.user_id == ^user_id and
-          is_nil(surface.dismissed_at)
+        surface.id == ^surface_id and surface.user_id == ^user_id
       )
+      |> maybe_thread(thread_id)
 
     case Repo.one(query) do
       %Surface{} = surface -> {:ok, surface}
       nil -> {:error, :not_found}
     end
   end
+
+  defp maybe_thread(query, thread_id) when is_binary(thread_id) and thread_id != "" do
+    where(query, [surface], surface.thread_id == ^thread_id)
+  end
+
+  defp maybe_thread(query, _thread_id), do: query
 
   defp duplicate_status(%{id: id} = attrs) do
     case Repo.get(Surface, id) do
@@ -120,8 +137,54 @@ defmodule AllbertAssist.Workspace.Ephemeral do
     |> Surface.changeset(Map.delete(attrs, :body))
     |> Repo.insert()
     |> case do
-      {:ok, %Surface{} = surface} -> load_body_result({:ok, surface})
-      {:error, %Ecto.Changeset{} = changeset} -> recover_duplicate_insert(changeset, attrs)
+      {:ok, %Surface{} = surface} ->
+        {:ok, surface}
+        |> load_body_result()
+        |> tap_ok(&Events.ephemeral_opened/1)
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        recover_duplicate_insert(changeset, attrs)
+    end
+  end
+
+  defp dismiss_surface(%Surface{dismissed_at: %DateTime{}} = surface, _dismissed_by) do
+    load_body(surface)
+  end
+
+  defp dismiss_surface(%Surface{} = surface, dismissed_by) do
+    now = DateTime.utc_now()
+
+    {dismissed_count, _records} =
+      Surface
+      |> where(
+        [record],
+        record.id == ^surface.id and record.user_id == ^surface.user_id and
+          is_nil(record.dismissed_at)
+      )
+      |> Repo.update_all(set: [dismissed_at: now, dismissed_by: dismissed_by])
+
+    case dismissed_count do
+      1 ->
+        surface.id
+        |> get_user_surface(surface.user_id, surface.thread_id)
+        |> load_body_result()
+        |> tap_ok(fn dismissed ->
+          Events.ephemeral_closed(
+            dismissed.id,
+            dismissed.user_id,
+            dismissed.thread_id,
+            dismissed.dismissed_by
+          )
+        end)
+
+      0 ->
+        surface.id
+        |> get_user_surface(surface.user_id, surface.thread_id)
+        |> case do
+          {:ok, %Surface{dismissed_at: %DateTime{}} = dismissed} -> load_body(dismissed)
+          {:ok, %Surface{}} -> {:error, :dismiss_conflict}
+          {:error, reason} -> {:error, reason}
+        end
     end
   end
 
@@ -261,6 +324,13 @@ defmodule AllbertAssist.Workspace.Ephemeral do
     end
   end
 
+  defp tap_ok({:ok, %Surface{} = surface}, fun) when is_function(fun, 1) do
+    fun.(surface)
+    {:ok, surface}
+  end
+
+  defp tap_ok(result, _fun), do: result
+
   defp maybe_active_only(query, true), do: query
   defp maybe_active_only(query, false), do: where(query, [record], is_nil(record.dismissed_at))
 
@@ -285,6 +355,16 @@ defmodule AllbertAssist.Workspace.Ephemeral do
   defp normalize_dismissed_by(value) when is_atom(value), do: Atom.to_string(value)
   defp normalize_dismissed_by(value) when is_binary(value), do: value
   defp normalize_dismissed_by(value), do: to_string(value)
+
+  defp dismissed_by(value) do
+    dismissed_by = normalize_dismissed_by(value)
+
+    if dismissed_by in Surface.dismissed_by() do
+      {:ok, dismissed_by}
+    else
+      {:error, {:invalid_dismissed_by, dismissed_by}}
+    end
+  end
 
   defp required_string(attrs, key) do
     case Map.get(attrs, key) do
