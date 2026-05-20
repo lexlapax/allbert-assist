@@ -157,6 +157,7 @@ defmodule AllbertAssist.Confirmations.Record do
       "target_resumed?" => value(attrs, :target_resumed?),
       "target_status" => stringify(value(attrs, :target_status)),
       "target_result" => target_result(value(attrs, :target_result)),
+      "target_async?" => value(attrs, :target_async?),
       "remembered_grants" => redacted_value(value(attrs, :remembered_grants)),
       "adapter_unavailable?" => value(attrs, :adapter_unavailable?)
     }

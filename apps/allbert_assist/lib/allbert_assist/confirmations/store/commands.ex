@@ -96,6 +96,22 @@ defmodule AllbertAssist.Confirmations.Store.Commands.Resolve do
   end
 end
 
+defmodule AllbertAssist.Confirmations.Store.Commands.AnnotateResolution do
+  @moduledoc false
+
+  use Jido.Action,
+    name: "allbert_confirmations_store_annotate_resolution",
+    description: "Private confirmation-store resolved-record annotation command."
+
+  alias AllbertAssist.Confirmations.Store.Commands
+  alias AllbertAssist.Confirmations.Store.Persistence
+
+  @impl true
+  def run(%{id: id, attrs: attrs, opts: opts}, _context) do
+    Commands.finish(:annotate_resolution, Persistence.annotate_resolution(id, attrs, opts))
+  end
+end
+
 defmodule AllbertAssist.Confirmations.Store.Commands.Expire do
   @moduledoc false
 

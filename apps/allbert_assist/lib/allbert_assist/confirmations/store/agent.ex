@@ -16,6 +16,7 @@ defmodule AllbertAssist.Confirmations.Store.Agent do
   @read "allbert.confirmations.store.read"
   @list "allbert.confirmations.store.list"
   @resolve "allbert.confirmations.store.resolve"
+  @annotate_resolution "allbert.confirmations.store.annotate_resolution"
   @expire "allbert.confirmations.store.expire"
   @rebuild "allbert.confirmations.store.rebuild"
 
@@ -27,6 +28,7 @@ defmodule AllbertAssist.Confirmations.Store.Agent do
       {@read, Commands.Read},
       {@list, Commands.List},
       {@resolve, Commands.Resolve},
+      {@annotate_resolution, Commands.AnnotateResolution},
       {@expire, Commands.Expire},
       {@rebuild, Commands.Rebuild}
     ]
@@ -45,6 +47,7 @@ defmodule AllbertAssist.Confirmations.Store.Agent do
       Commands.Read,
       Commands.List,
       Commands.Resolve,
+      Commands.AnnotateResolution,
       Commands.Expire,
       Commands.Rebuild
     ]
@@ -73,6 +76,16 @@ defmodule AllbertAssist.Confirmations.Store.Agent do
       id: id,
       status: status,
       resolution_attrs: resolution_attrs,
+      opts: opts
+    })
+  end
+
+  @doc false
+  def annotate_resolution(id, attrs, opts \\ [])
+      when is_binary(id) and is_map(attrs) and is_list(opts) do
+    dispatch(@annotate_resolution, %{
+      id: id,
+      attrs: attrs,
       opts: opts
     })
   end

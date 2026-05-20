@@ -16,6 +16,7 @@ defmodule AllbertAssist.Confirmations do
   defdelegate read(id), to: Store
   defdelegate list(opts \\ []), to: Store
   defdelegate resolve(id, status, resolution_attrs \\ %{}, opts \\ []), to: Store
+  defdelegate annotate_resolution(id, attrs, opts \\ []), to: Store
   defdelegate expire(opts \\ []), to: Store
 
   @doc "Return the operator-facing explanation for adapter-unavailable approvals."
