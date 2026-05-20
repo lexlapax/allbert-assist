@@ -15,6 +15,7 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
   alias AllbertAssist.Paths
+  alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store, as: SettingsStore
   alias AllbertAssist.Settings.YamlCodec
@@ -104,7 +105,7 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
          updated_resolution <-
            resolution
            |> Map.merge(stringify_resolution_attrs(attrs))
-           |> AllbertAssist.Security.Redactor.redact(),
+           |> Redactor.redact(),
          updated <- Map.put(record, "operator_resolution", updated_resolution),
          :ok <- Record.validate(updated),
          :ok <- write_record(path, updated),
