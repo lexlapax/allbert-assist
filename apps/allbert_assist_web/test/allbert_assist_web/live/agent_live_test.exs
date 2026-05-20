@@ -370,6 +370,53 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert {:ok, []} = Workspace.ephemeral_surfaces(thread.id, "local")
   end
 
+  test "canvas tile controls route through the workspace action boundary", %{conn: conn} do
+    thread = create_workspace_thread()
+
+    assert {:ok, tile} =
+             Workspace.add_tile(%{
+               user_id: "local",
+               thread_id: thread.id,
+               kind: :text,
+               body: %{text: "operator tile controls"}
+             })
+
+    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    subscribe_actions()
+
+    assert has_element?(view, "#workspace-tile-action-#{tile.id}:not([disabled])")
+    assert has_element?(view, "#workspace-tile-menu-button-#{tile.id}:not([disabled])")
+
+    view
+    |> element("#workspace-tile-action-#{tile.id}")
+    |> render_click()
+
+    action_signal = receive_action_completed("manage_workspace_tile")
+    assert action_signal.data.status == :completed
+    assert action_signal.data.permission_decision.permission == :workspace_canvas_write
+    assert {:ok, pinned} = Workspace.get_tile(tile.id, "local")
+    assert pinned.pinned == true
+
+    menu_html =
+      view
+      |> element("#workspace-tile-menu-button-#{tile.id}")
+      |> render_click()
+
+    assert menu_html =~ "Remove tile"
+
+    view
+    |> element("#workspace-tile-menu-#{tile.id} [phx-value-operation='remove']")
+    |> render_click()
+
+    remove_signal = receive_action_completed("manage_workspace_tile")
+    assert remove_signal.data.status == :completed
+    assert [remove_action] = remove_signal.data.response.actions
+    assert remove_action.workspace_metadata.operation == :remove
+    assert {:ok, []} = Workspace.canvas_tiles(thread.id, "local")
+    assert {:ok, [deleted]} = Workspace.canvas_tiles(thread.id, "local", include_deleted: true)
+    refute is_nil(deleted.deleted_at)
+  end
+
   test "ephemeral lifecycle events fan out open and close to sibling tabs", %{conn: conn} do
     start_workspace_bridge()
     thread = create_workspace_thread()
@@ -737,7 +784,33 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert html =~ "Resource remote_url summarize_url summarize"
     assert html =~ "consumer=url_summarizer"
     assert has_element?(view, "#approval-handoff")
+    assert has_element?(view, "#approval-approve:not([disabled])")
     assert [_pending] = Confirmations.list(status: :pending)
+  end
+
+  test "StockSage approval handoff keeps approve action enabled in agent UI", %{conn: conn} do
+    Application.delete_env(:allbert_assist, Runtime)
+    ensure_stocksage_app_registered()
+
+    {:ok, view, _html} = live(conn, ~p"/agent?app_id=stocksage")
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "analyze AAPL"})
+
+    html = render_async(view, @runtime_async_timeout)
+
+    assert has_element?(view, "#approval-handoff")
+    assert has_element?(view, "#approval-approve:not([disabled])")
+    assert has_element?(view, "#approval-deny:not([disabled])")
+    assert html =~ "run_analysis"
+
+    pending =
+      Confirmations.list(status: :pending)
+      |> Enum.find(&(&1["target_action"]["name"] == "run_analysis"))
+
+    assert pending
+    assert pending["params_summary"]["ticker"] == "AAPL"
   end
 
   test "default runtime renders approval handoff and resolves denial through actions", %{
@@ -758,7 +831,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert html =~ "Approval Required"
     assert html =~ "external_network_request"
     assert html =~ "Resource remote_url external_service_request fetch"
-    assert has_element?(view, "#approval-approve")
+    assert has_element?(view, "#approval-approve:not([disabled])")
     assert has_element?(view, "#approval-deny")
     assert has_element?(view, "#approval-details")
 
@@ -826,18 +899,25 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   defp ensure_stocksage_app_registered do
-    registered? = AllbertAssist.App.Registry.known_app_id?(:stocksage)
+    plugin_registered? =
+      match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup("stocksage"))
 
-    unless registered? do
+    unless plugin_registered? do
       assert AllbertAssist.Plugin.Registry.register_module(StockSage.Plugin) in [
                {:ok, "stocksage"},
                {:error, {:plugin_id_taken, "stocksage"}}
              ]
+    end
 
+    app_registered? = AllbertAssist.App.Registry.known_app_id?(:stocksage)
+
+    unless app_registered? do
       assert {:ok, :stocksage} = AllbertAssist.App.Registry.register(StockSage.App)
     end
 
-    on_exit(fn -> unless registered?, do: AllbertAssist.App.Registry.unregister(:stocksage) end)
+    on_exit(fn ->
+      unless app_registered?, do: AllbertAssist.App.Registry.unregister(:stocksage)
+    end)
   end
 
   defp signed_envelope(attrs) do
