@@ -386,6 +386,12 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     assert has_element?(view, "#workspace-tile-action-#{tile.id}:not([disabled])")
     assert has_element?(view, "#workspace-tile-menu-button-#{tile.id}:not([disabled])")
+    assert has_element?(view, "#workspace-tile-action-#{tile.id}[phx-disable-with]")
+
+    assert has_element?(
+             view,
+             "#workspace-tile-menu-button-#{tile.id}[aria-haspopup='menu'][aria-expanded='false']"
+           )
 
     view
     |> element("#workspace-tile-action-#{tile.id}")
@@ -403,6 +409,11 @@ defmodule AllbertAssistWeb.AgentLiveTest do
       |> render_click()
 
     assert menu_html =~ "Remove tile"
+
+    assert has_element?(
+             view,
+             "#workspace-tile-menu-button-#{tile.id}[aria-haspopup='menu'][aria-expanded='true']"
+           )
 
     view
     |> element("#workspace-tile-menu-#{tile.id} [phx-value-operation='remove']")
@@ -785,6 +796,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert html =~ "consumer=url_summarizer"
     assert has_element?(view, "#approval-handoff")
     assert has_element?(view, "#approval-approve:not([disabled])")
+    assert has_element?(view, "#approval-approve[phx-disable-with='Approving']")
     assert [_pending] = Confirmations.list(status: :pending)
   end
 
@@ -802,7 +814,9 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     assert has_element?(view, "#approval-handoff")
     assert has_element?(view, "#approval-approve:not([disabled])")
+    assert has_element?(view, "#approval-approve[phx-disable-with='Approving']")
     assert has_element?(view, "#approval-deny:not([disabled])")
+    assert has_element?(view, "#approval-deny[phx-disable-with='Denying']")
     assert html =~ "run_analysis"
 
     pending =
@@ -834,6 +848,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(view, "#approval-approve:not([disabled])")
     assert has_element?(view, "#approval-deny")
     assert has_element?(view, "#approval-details")
+    assert has_element?(view, "#approval-approve[phx-disable-with='Approving']")
 
     [pending] = Confirmations.list(status: :pending)
     assert pending["target_action"]["name"] == "external_network_request"
