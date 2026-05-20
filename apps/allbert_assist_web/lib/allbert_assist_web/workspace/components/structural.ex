@@ -168,6 +168,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
             phx-click="manage_workspace_tile"
             phx-value-tile-id={tile_id(@node)}
             phx-value-operation={tile_primary_operation(@node)}
+            phx-disable-with
             disabled={tile_action_disabled?(@node)}
           >
             <.icon name={tile_action_icon(@node)} class="size-4" />
@@ -178,6 +179,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
             class="allbert-icon-button workspace-tile-action"
             aria-label={"Open #{Base.title(@node, "canvas tile")} menu"}
             title="Tile menu"
+            aria-haspopup="menu"
             aria-expanded={bool_attribute(tile_menu_open?(@node, @open_tile_menu_id))}
             aria-controls={tile_menu_id(@node)}
             phx-click="toggle_workspace_tile_menu"
@@ -201,6 +203,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
               phx-click="manage_workspace_tile"
               phx-value-tile-id={tile_id(@node)}
               phx-value-operation={tile_primary_operation(@node)}
+              phx-disable-with
             >
               <.icon name={tile_action_icon(@node)} class="size-4" />
               {tile_menu_primary_label(@node)}
@@ -213,6 +216,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
               phx-click="manage_workspace_tile"
               phx-value-tile-id={tile_id(@node)}
               phx-value-operation="remove"
+              phx-disable-with
             >
               <.icon name="hero-trash-micro" class="size-4" /> Remove tile
             </button>
