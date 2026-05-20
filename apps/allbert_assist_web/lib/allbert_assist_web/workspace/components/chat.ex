@@ -162,6 +162,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
             class="workspace-button workspace-button-primary"
             disabled={@asking?}
             aria-disabled={bool_attribute(@asking?)}
+            phx-disable-with="Thinking"
           >
             <.icon name="hero-paper-airplane-micro" class="size-4" />
             {if @asking?, do: "Thinking", else: "Ask"}
@@ -206,6 +207,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
               phx-click="deny_confirmation"
               phx-value-id={approval_confirmation_id(@approval_handoff)}
               class="workspace-button workspace-button-danger"
+              phx-disable-with="Denying"
             >
               Deny
             </button>
@@ -215,6 +217,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
               phx-click="approve_confirmation"
               phx-value-id={approval_confirmation_id(@approval_handoff)}
               class="workspace-button workspace-button-primary"
+              phx-disable-with="Approving"
             >
               Approve
             </button>

@@ -107,4 +107,10 @@ defmodule AllbertAssistWeb.Layouts do
   defp content_container_class("full"), do: "w-full"
   defp content_container_class("wide"), do: "mx-auto max-w-6xl space-y-4"
   defp content_container_class(_width), do: "mx-auto max-w-2xl space-y-4"
+
+  defp static_asset_version do
+    :allbert_assist_web
+    |> Application.spec(:vsn)
+    |> to_string()
+  end
 end

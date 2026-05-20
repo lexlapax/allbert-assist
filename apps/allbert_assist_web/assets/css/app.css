@@ -106,6 +106,7 @@
   --allbert-text-soft: #475569;
   --allbert-line: #d7e0ea;
   --allbert-accent: #3b5b7a;
+  --allbert-accent-contrast: #ffffff;
   --allbert-accent-soft: #e8f0f7;
   --allbert-warn: #b45309;
   --allbert-warn-soft: #fffbeb;
@@ -138,6 +139,7 @@
   --allbert-text-soft: #94a3b8;
   --allbert-line: #263244;
   --allbert-accent: #8fb3d9;
+  --allbert-accent-contrast: #0b1220;
   --allbert-accent-soft: #17324a;
   --allbert-warn: #fbbf24;
   --allbert-warn-soft: #422006;
@@ -153,6 +155,7 @@
   --allbert-text-soft: #111827;
   --allbert-line: #000000;
   --allbert-accent: #123a5a;
+  --allbert-accent-contrast: #ffffff;
   --allbert-accent-soft: #dbeafe;
   border-width: 2px;
 }
@@ -165,6 +168,7 @@
   --allbert-text-soft: #f4f4f5;
   --allbert-line: #ffffff;
   --allbert-accent: #bfdbfe;
+  --allbert-accent-contrast: #000000;
   --allbert-accent-soft: #172554;
 }
 
@@ -291,11 +295,24 @@
   border: 1px solid var(--workspace-border);
   border-radius: 0.5rem;
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .allbert-icon-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.allbert-icon-button:not(:disabled):hover,
+.allbert-icon-button:not(:disabled):focus-visible {
+  border-color: var(--workspace-focus);
+  background: var(--allbert-accent-soft);
+  color: var(--workspace-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--workspace-focus) 35%, transparent);
 }
 
 #workspace-shell button,
@@ -847,11 +864,37 @@
   font-size: 0.875rem;
   font-weight: 700;
   line-height: 1rem;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.workspace-button:disabled,
+.workspace-button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.workspace-button.phx-click-loading,
+.workspace-button.phx-submit-loading {
+  cursor: wait;
+  opacity: 0.78;
 }
 
 .workspace-button-primary {
   background: var(--workspace-accent);
-  color: var(--color-primary-content, #ffffff);
+  color: var(--allbert-accent-contrast);
+}
+
+.workspace-button-primary:not(:disabled):hover,
+.workspace-button-primary:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--workspace-accent) 88%, #000000);
+  color: var(--allbert-accent-contrast);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--workspace-focus) 28%, transparent);
 }
 
 .workspace-button-secondary {
@@ -860,9 +903,22 @@
   color: var(--workspace-fg);
 }
 
+.workspace-button-secondary:not(:disabled):hover,
+.workspace-button-secondary:not(:disabled):focus-visible {
+  border-color: var(--workspace-focus);
+  background: var(--allbert-accent-soft);
+  color: var(--workspace-accent);
+}
+
 .workspace-button-danger {
   background: var(--allbert-danger);
   color: #ffffff;
+}
+
+.workspace-button-danger:not(:disabled):hover,
+.workspace-button-danger:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--allbert-danger) 88%, #000000);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--allbert-danger) 28%, transparent);
 }
 
 .workspace-canvas-node {
@@ -929,6 +985,7 @@
   gap: 0.375rem;
   margin-left: auto;
   position: relative;
+  z-index: 3;
 }
 
 .workspace-tile-action {
@@ -941,7 +998,7 @@
   position: absolute;
   top: calc(100% + 0.375rem);
   right: 0;
-  z-index: 5;
+  z-index: 30;
   display: grid;
   min-width: 12rem;
   overflow: hidden;
