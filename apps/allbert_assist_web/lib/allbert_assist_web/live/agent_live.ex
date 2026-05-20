@@ -79,6 +79,7 @@ defmodule AllbertAssistWeb.AgentLive do
         approval_lines: [],
         approval_result: nil,
         show_approval_details?: false,
+        open_tile_menu_id: nil,
         workspace_badges: []
       )
       |> assign(workspace_assigns(user_id, thread_id))
@@ -175,6 +176,50 @@ defmodule AllbertAssistWeb.AgentLive do
      socket
      |> revert_tile_revision(tile_id, revision_id)
      |> refresh_workspace()}
+  end
+
+  def handle_event("toggle_workspace_tile_menu", %{"tile-id" => tile_id}, socket)
+      when is_binary(tile_id) and tile_id != "" do
+    next_tile_id =
+      if socket.assigns.open_tile_menu_id == tile_id do
+        nil
+      else
+        tile_id
+      end
+
+    {:noreply, assign(socket, :open_tile_menu_id, next_tile_id)}
+  end
+
+  def handle_event("toggle_workspace_tile_menu", _params, socket), do: {:noreply, socket}
+
+  def handle_event(
+        "manage_workspace_tile",
+        %{"tile-id" => tile_id, "operation" => operation},
+        socket
+      )
+      when is_binary(tile_id) and tile_id != "" and
+             operation in ["pin", "unpin", "remove", "restore"] do
+    case run_workspace_action(socket, "manage_workspace_tile", %{
+           tile_id: tile_id,
+           operation: operation
+         }) do
+      {:ok, %{status: :completed}} ->
+        {:noreply,
+         socket
+         |> assign(error: nil, open_tile_menu_id: nil)
+         |> refresh_workspace()}
+
+      {:ok, response} ->
+        {:noreply,
+         assign(socket,
+           error: Map.get(response, :message, inspect(response)),
+           open_tile_menu_id: nil
+         )}
+    end
+  end
+
+  def handle_event("manage_workspace_tile", _params, socket) do
+    {:noreply, assign(socket, :error, "Invalid workspace tile action.")}
   end
 
   def handle_event("approve_confirmation", %{"id" => id}, socket) do
@@ -377,8 +422,12 @@ defmodule AllbertAssistWeb.AgentLive do
   end
 
   defp approval_context(socket) do
+    user_id = socket.assigns.user_id
+
     %{
-      actor: "local",
+      actor: user_id,
+      user_id: user_id,
+      operator_id: user_id,
       channel: :live_view,
       surface: "AllbertAssistWeb.AgentLive",
       response_target: socket.id
@@ -766,6 +815,7 @@ defmodule AllbertAssistWeb.AgentLive do
       workspace_offline_enabled?: assigns.workspace_offline_enabled?,
       workspace_indexeddb_quota_bytes: assigns.workspace_indexeddb_quota_bytes,
       workspace_canvas_max_tiles_per_thread: assigns.workspace_canvas_max_tiles_per_thread,
+      open_tile_menu_id: assigns.open_tile_menu_id,
       active_app: assigns.active_app
     }
   end

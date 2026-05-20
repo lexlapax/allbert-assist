@@ -77,6 +77,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Skills.ValidateSkill
   alias AllbertAssist.Actions.Trace.RecordTrace
   alias AllbertAssist.Actions.Workspace.DismissEphemeral
+  alias AllbertAssist.Actions.Workspace.ManageTile
   alias AllbertAssist.Actions.Workspace.RecordOfflineUpdate
   alias AllbertAssist.Actions.Workspace.RevertTileRevision
   alias AllbertAssist.Actions.Workspace.SetTheme
@@ -155,6 +156,7 @@ defmodule AllbertAssist.Actions.Registry do
     DelegateAgent,
     RegistryHealth,
     TraceSummary,
+    ManageTile,
     RevertTileRevision,
     RecordOfflineUpdate,
     DismissEphemeral,
@@ -671,6 +673,13 @@ defmodule AllbertAssist.Actions.Registry do
       permission: :read_only,
       exposure: :internal,
       execution_mode: :read_only,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    ManageTile => %{
+      permission: :workspace_canvas_write,
+      exposure: :internal,
+      execution_mode: :workspace_canvas_write,
       skill_backed?: false,
       confirmation: :not_required
     },
