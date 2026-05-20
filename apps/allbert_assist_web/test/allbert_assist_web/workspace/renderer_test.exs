@@ -149,6 +149,40 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     assert html =~ ~s(phx-update="ignore")
     assert html =~ ~s(data-quota-bytes="1024")
     assert html =~ "offline notes"
+    assert html =~ ~s(id="workspace-tile-action-tile-editable")
+    assert html =~ ~s(phx-click="manage_workspace_tile")
+    assert html =~ ~s(phx-value-operation="pin")
+    assert html =~ ~s(id="workspace-tile-menu-button-tile-editable")
+    refute html =~ ~s(id="workspace-tile-action-tile-editable" disabled)
+  end
+
+  test "tile renderer opens operator action menu from renderer context" do
+    html =
+      render_component(Renderer,
+        id: "tile-menu-renderer",
+        node: %Node{
+          id: "canvas-tile-menu",
+          component: :tile,
+          props: %{
+            title: "Analysis",
+            body: "kind=analysis_card",
+            tile_id: "tile-menu",
+            tile_kind: "analysis_card",
+            pinned?: true
+          }
+        },
+        renderer_context:
+          Map.merge(renderer_context(), %{
+            open_tile_menu_id: "tile-menu"
+          }),
+        workspace_state: workspace_state()
+      )
+
+    assert html =~ ~s(id="workspace-tile-menu-tile-menu")
+    assert html =~ ~s(role="menu")
+    assert html =~ "Unpin tile"
+    assert html =~ "Remove tile"
+    assert html =~ ~s(phx-value-operation="remove")
   end
 
   test "tile renderer exposes offline conflict revert affordance" do
