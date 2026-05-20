@@ -24,5 +24,6 @@ defmodule AllbertAssist.Confirmations.Store do
   defdelegate read(id), to: Agent
   defdelegate list(opts \\ []), to: Agent
   defdelegate resolve(id, status, resolution_attrs \\ %{}, opts \\ []), to: Agent
+  defdelegate annotate_resolution(id, attrs, opts \\ []), to: Agent
   defdelegate expire(opts \\ []), to: Agent
 end

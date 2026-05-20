@@ -24,6 +24,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
@@ -556,61 +557,263 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       |> target_context(context)
       |> put_in([:confirmation, :approved?], true)
 
-    case Runner.run("run_analysis", Map.get(record, "resume_params_ref", %{}), target_context) do
-      {:ok, %{status: status} = response} when status in [:completed, :failed] ->
-        # v0.22 third-validation closeout (MED/LOW): include :stub so the
-        # resumed target_result preserves the bridge-mode flag. Without
-        # this, operators inspecting the confirmation record after
-        # approval cannot tell whether the analysis came from the
-        # deterministic stub path or a real TradingAgents propagate
-        # call — even though the underlying RunAnalysis response carries
-        # the field. The same fields are surfaced in the CLI approve
-        # output by `print_target_result_summary/1`.
-        target_result =
-          Map.get(response, :result) ||
-            Map.take(response, [
-              :analysis_id,
-              :ticker,
-              :analysis_date,
-              :engine,
-              :bridge_duration_ms,
-              :truncated,
-              :stub,
-              :status,
-              :summary,
-              :error,
-              :objective_id,
-              :step_id
-            ])
+    resume_params = Map.get(record, "resume_params_ref", %{})
+    confirmation_id = Map.fetch!(record, "id")
 
-        resolve_status(record, :approved, reason, context, permission_decision, %{
-          target_policy_decision: target_decision,
-          target_resumed?: true,
-          target_status: status,
-          target_result: target_result
+    initial_metadata = %{
+      target_policy_decision: target_decision,
+      target_resumed?: true,
+      target_status: :running,
+      target_result: run_analysis_start_result(record, resume_params),
+      target_async?: live_view_async_run_analysis?(resume_params, context)
+    }
+
+    case resolve_status(record, :approved, reason, context, permission_decision, initial_metadata) do
+      {:ok, approval} ->
+        mark_run_analysis_step_running(record, resume_params, context)
+
+        if live_view_async_run_analysis?(resume_params, context) do
+          start_run_analysis_resume_task(
+            confirmation_id,
+            record,
+            resume_params,
+            target_context,
+            context
+          )
+
+          {:ok, approval}
+        else
+          response = run_analysis_resume(resume_params, target_context)
+          metadata = final_run_analysis_metadata(response)
+
+          updated_record =
+            case Confirmations.annotate_resolution(confirmation_id, metadata) do
+              {:ok, record} -> record
+              {:error, _reason} -> Map.get(approval, :confirmation)
+            end
+
+          mark_run_analysis_step_finished(record, response, context)
+          {:ok, put_run_analysis_approval_metadata(approval, metadata, updated_record)}
+        end
+
+      other ->
+        other
+    end
+  end
+
+  defp live_view_async_run_analysis?(resume_params, context) do
+    channel_key(channel(context)) == "live_view" and
+      !truthy?(param_value(resume_params, "force_stub")) and
+      run_analysis_engine(resume_params) == "native"
+  end
+
+  defp start_run_analysis_resume_task(
+         confirmation_id,
+         record,
+         resume_params,
+         target_context,
+         context
+       ) do
+    task = fn ->
+      response = run_analysis_resume(resume_params, target_context)
+      metadata = final_run_analysis_metadata(response)
+
+      _ =
+        Confirmations.annotate_resolution(
+          confirmation_id,
+          Map.put(metadata, :target_async?, true)
+        )
+
+      mark_run_analysis_step_finished(record, response, context)
+    end
+
+    case Process.whereis(AllbertAssist.TaskSupervisor) do
+      nil -> Task.start(task)
+      _pid -> Task.Supervisor.start_child(AllbertAssist.TaskSupervisor, task)
+    end
+  end
+
+  defp run_analysis_resume(resume_params, target_context) do
+    {:ok, response} = Runner.run("run_analysis", resume_params, target_context)
+    response
+  end
+
+  defp run_analysis_start_result(record, resume_params) do
+    %{
+      status: :running,
+      ticker: param_value(resume_params, "ticker"),
+      analysis_date: param_value(resume_params, "analysis_date"),
+      engine: run_analysis_engine(resume_params),
+      stub: truthy?(param_value(resume_params, "force_stub")),
+      objective_id: objective_id(record),
+      step_id: step_id(record)
+    }
+    |> drop_nil_values()
+  end
+
+  defp final_run_analysis_metadata(%{status: status} = response) do
+    %{
+      target_resumed?: true,
+      target_status: status,
+      target_result: run_analysis_target_result(response)
+    }
+  end
+
+  defp final_run_analysis_metadata(response) when is_map(response) do
+    status = Map.get(response, :status, Map.get(response, "status", :failed))
+
+    %{
+      target_resumed?: true,
+      target_status: status,
+      target_result: run_analysis_target_result(response)
+    }
+  end
+
+  defp run_analysis_target_result(response) when is_map(response) do
+    result =
+      Map.get(response, :result) ||
+        Map.take(response, [
+          :analysis_id,
+          :ticker,
+          :analysis_date,
+          :engine,
+          :bridge_duration_ms,
+          :truncated,
+          :stub,
+          :status,
+          :summary,
+          :error,
+          :objective_id,
+          :step_id
+        ])
+
+    ensure_target_status(result, response)
+  end
+
+  defp ensure_target_status(result, response) do
+    Map.put_new(result, :status, Map.get(response, :status, :failed))
+  end
+
+  defp put_run_analysis_approval_metadata(
+         %{actions: [action | rest]} = approval,
+         metadata,
+         confirmation
+       ) do
+    updated_action =
+      Map.update(action, :confirmation_metadata, metadata, fn existing ->
+        Map.merge(existing, metadata)
+      end)
+
+    approval
+    |> Map.put(:actions, [updated_action | rest])
+    |> Map.put(:confirmation, confirmation)
+  end
+
+  defp put_run_analysis_approval_metadata(approval, _metadata, _confirmation), do: approval
+
+  defp mark_run_analysis_step_running(record, resume_params, context) do
+    mark_run_analysis_step(record, :running, %{
+      result_summary:
+        "Approved; StockSage #{run_analysis_engine(resume_params)} analysis is running.",
+      trace_id: Map.get(context, :trace_id)
+    })
+  end
+
+  defp mark_run_analysis_step_finished(record, %{status: status} = response, context) do
+    completed? = status == :completed or status == "completed"
+    step_status = if completed?, do: :completed, else: :failed
+    result = run_analysis_target_result(response)
+
+    mark_run_analysis_step(record, step_status, %{
+      result_summary: run_analysis_result_summary(result),
+      trace_id: Map.get(context, :trace_id)
+    })
+  end
+
+  defp mark_run_analysis_step_finished(record, response, context) do
+    mark_run_analysis_step_finished(record, Map.put(response, :status, :failed), context)
+  end
+
+  defp mark_run_analysis_step(record, status, attrs) do
+    with objective_id when is_binary(objective_id) and objective_id != "" <- objective_id(record),
+         step_id when is_binary(step_id) and step_id != "" <- step_id(record),
+         {:ok, objective} <- Objectives.get_objective(objective_id),
+         false <- terminal_objective?(objective),
+         step when not is_nil(step) <- find_objective_step(objective_id, step_id),
+         false <- terminal_step?(step) do
+      _ = Objectives.transition_step(step, status, attrs)
+
+      _ =
+        Objectives.update_objective(objective, %{
+          status: objective_status_for_step(status),
+          current_step_id: step.id,
+          progress_summary: Map.get(attrs, :result_summary)
         })
 
-      {:ok, response} ->
-        target_result =
-          Map.get(response, :result, %{status: Map.get(response, :status)})
+      _ =
+        Objectives.create_event(%{
+          objective_id: objective.id,
+          step_id: step.id,
+          kind: objective_event_kind_for_step(status),
+          summary: Map.get(attrs, :result_summary),
+          payload: %{status: status}
+        })
 
-        target_status = Map.get(target_result, :status, Map.get(response, :status, :denied))
-
-        resolve_status(
-          record,
-          :denied,
-          reason || "run_analysis target did not run: #{inspect(target_status)}",
-          context,
-          permission_decision,
-          %{
-            target_policy_decision: target_decision,
-            target_resumed?: false,
-            target_status: target_status,
-            target_result: target_result,
-            blocked_by_policy?: Map.get(response, :status) == :denied
-          }
-        )
+      :ok
+    else
+      _other -> :ok
     end
+  end
+
+  defp find_objective_step(objective_id, step_id) do
+    objective_id
+    |> Objectives.list_steps()
+    |> Enum.find(&(&1.id == step_id))
+  end
+
+  defp terminal_objective?(%{status: status}),
+    do: status in ["cancelled", "completed", "failed", "abandoned"]
+
+  defp terminal_step?(%{status: status}), do: status in ["cancelled", "completed", "failed"]
+
+  defp objective_status_for_step(:failed), do: "failed"
+  defp objective_status_for_step("failed"), do: "failed"
+  defp objective_status_for_step(_status), do: "running"
+
+  defp objective_event_kind_for_step(:running), do: "step_running"
+  defp objective_event_kind_for_step("running"), do: "step_running"
+  defp objective_event_kind_for_step(:completed), do: "step_completed"
+  defp objective_event_kind_for_step("completed"), do: "step_completed"
+  defp objective_event_kind_for_step(_status), do: "step_failed"
+
+  defp run_analysis_result_summary(result) when is_map(result) do
+    result
+    |> then(fn result ->
+      Map.get(result, :summary) ||
+        Map.get(result, "summary") ||
+        Map.get(result, :error) ||
+        Map.get(result, "error") ||
+        "StockSage analysis #{Map.get(result, :status, Map.get(result, "status", "finished"))}."
+    end)
+    |> stringify_summary()
+  end
+
+  defp run_analysis_engine(resume_params) do
+    param_value(resume_params, "engine") || "native"
+  end
+
+  defp param_value(map, key) when is_map(map) and is_binary(key) do
+    Map.get(map, key) || Map.get(map, String.to_atom(key))
+  end
+
+  defp truthy?(value) when value in [true, "true", "1", 1], do: true
+  defp truthy?(_value), do: false
+
+  defp stringify_summary(value) when is_binary(value), do: value
+  defp stringify_summary(value), do: inspect(value, limit: 20, printable_limit: 500)
+
+  defp drop_nil_values(map) do
+    Map.reject(map, fn {_key, value} -> is_nil(value) end)
   end
 
   defp resolution_metadata(metadata) do
@@ -618,6 +821,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       :target_resumed?,
       :target_status,
       :target_result,
+      :target_async?,
       :remembered_grants,
       :adapter_unavailable?
     ])
