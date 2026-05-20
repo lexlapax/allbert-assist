@@ -95,6 +95,28 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
   end
 
   @doc false
+  def annotate_resolution(id, attrs, opts \\ [])
+      when is_binary(id) and is_map(attrs) and is_list(opts) do
+    now = Keyword.get(opts, :now, DateTime.utc_now())
+
+    with {:ok, record, path} <- read_resolved_with_path(id),
+         resolution when is_map(resolution) <- Map.get(record, "operator_resolution", %{}),
+         updated_resolution <-
+           resolution
+           |> Map.merge(stringify_resolution_attrs(attrs))
+           |> AllbertAssist.Security.Redactor.redact(),
+         updated <- Map.put(record, "operator_resolution", updated_resolution),
+         :ok <- Record.validate(updated),
+         :ok <- write_record(path, updated),
+         {:ok, _path} <- append_audit(updated, "updated", now) do
+      {:ok, updated}
+    else
+      nil -> {:error, {:confirmation_resolution_missing, id}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc false
   def expire(opts \\ []) when is_list(opts) do
     now = Keyword.get(opts, :now, DateTime.utc_now())
     resolution_attrs = Keyword.get(opts, :resolution_attrs, %{})
@@ -161,14 +183,25 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
   end
 
   defp read_resolved(id) do
+    with {:ok, record, _path} <- read_resolved_with_path(id) do
+      {:ok, record}
+    end
+  end
+
+  defp read_resolved_with_path(id) do
     resolved_root()
     |> Path.join("*")
     |> Path.join("#{id}.yml")
     |> Path.wildcard()
     |> List.first()
     |> case do
-      nil -> {:error, {:confirmation_not_found, id}}
-      path -> read_record(path)
+      nil ->
+        {:error, {:confirmation_not_found, id}}
+
+      path ->
+        with {:ok, record} <- read_record(path) do
+          {:ok, record, path}
+        end
     end
   end
 
@@ -203,6 +236,27 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
 
   defp write_record(path, record) do
     SettingsStore.write_atomic(path, YamlCodec.encode!(record))
+  end
+
+  defp stringify_resolution_attrs(attrs) do
+    attrs
+    |> Enum.map(fn {key, value} -> {to_string(key), stringify_resolution_value(value)} end)
+    |> Map.new()
+  end
+
+  defp stringify_resolution_value(value) when is_boolean(value), do: value
+  defp stringify_resolution_value(value) when is_atom(value), do: Atom.to_string(value)
+  defp stringify_resolution_value(value) when is_map(value), do: stringify_keys_deep(value)
+
+  defp stringify_resolution_value(value) when is_list(value),
+    do: Enum.map(value, &stringify_resolution_value/1)
+
+  defp stringify_resolution_value(value), do: value
+
+  defp stringify_keys_deep(map) do
+    map
+    |> Enum.map(fn {key, value} -> {to_string(key), stringify_resolution_value(value)} end)
+    |> Map.new()
   end
 
   defp remove_pending(id) do
