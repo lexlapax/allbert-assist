@@ -149,6 +149,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "delegate_agent",
              "registry_health",
              "trace_summary",
+             "manage_workspace_tile",
              "revert_tile_revision",
              "record_workspace_offline_update",
              "dismiss_workspace_ephemeral",
@@ -227,6 +228,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "delegate_agent",
              "registry_health",
              "trace_summary",
+             "manage_workspace_tile",
              "revert_tile_revision",
              "record_workspace_offline_update",
              "dismiss_workspace_ephemeral",
@@ -340,6 +342,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert trace_summary.execution_mode == :read_only
     assert trace_summary.exposure == :internal
     assert trace_summary.confirmation == :not_required
+
+    assert {:ok, manage_workspace_tile} = Registry.capability("manage_workspace_tile")
+    assert manage_workspace_tile.permission == :workspace_canvas_write
+    assert manage_workspace_tile.execution_mode == :workspace_canvas_write
+    assert manage_workspace_tile.exposure == :internal
+    assert manage_workspace_tile.confirmation == :not_required
 
     assert {:ok, revert_tile_revision} = Registry.capability("revert_tile_revision")
     assert revert_tile_revision.permission == :workspace_canvas_write

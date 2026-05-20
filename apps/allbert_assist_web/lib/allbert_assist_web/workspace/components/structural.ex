@@ -113,7 +113,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
        user_id: Map.get(context, :user_id),
        thread_id: Map.get(context, :thread_id),
        offline_enabled?: Map.get(context, :workspace_offline_enabled?, true),
-       indexeddb_quota_bytes: Map.get(context, :workspace_indexeddb_quota_bytes, 33_554_432)
+       indexeddb_quota_bytes: Map.get(context, :workspace_indexeddb_quota_bytes, 33_554_432),
+       open_tile_menu_id: Map.get(context, :open_tile_menu_id)
      )}
   end
 
@@ -160,22 +161,62 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
           </span>
           <button
             type="button"
+            id={tile_action_id(@node)}
             class="allbert-icon-button workspace-tile-action"
-            aria-label={"Pin #{Base.title(@node, "canvas tile")}"}
-            title="Pin tile"
-            disabled
+            aria-label={tile_action_label(@node, Base.title(@node, "canvas tile"))}
+            title={tile_action_title(@node)}
+            phx-click="manage_workspace_tile"
+            phx-value-tile-id={tile_id(@node)}
+            phx-value-operation={tile_primary_operation(@node)}
+            disabled={tile_action_disabled?(@node)}
           >
-            <.icon name="hero-bookmark-micro" class="size-4" />
+            <.icon name={tile_action_icon(@node)} class="size-4" />
           </button>
           <button
             type="button"
+            id={tile_menu_button_id(@node)}
             class="allbert-icon-button workspace-tile-action"
             aria-label={"Open #{Base.title(@node, "canvas tile")} menu"}
             title="Tile menu"
-            disabled
+            aria-expanded={bool_attribute(tile_menu_open?(@node, @open_tile_menu_id))}
+            aria-controls={tile_menu_id(@node)}
+            phx-click="toggle_workspace_tile_menu"
+            phx-value-tile-id={tile_id(@node)}
+            disabled={tile_action_disabled?(@node)}
           >
             <.icon name="hero-ellipsis-horizontal-micro" class="size-4" />
           </button>
+
+          <div
+            :if={tile_menu_open?(@node, @open_tile_menu_id)}
+            id={tile_menu_id(@node)}
+            class="workspace-tile-menu"
+            role="menu"
+            aria-labelledby={tile_menu_button_id(@node)}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              class="workspace-tile-menu-item"
+              phx-click="manage_workspace_tile"
+              phx-value-tile-id={tile_id(@node)}
+              phx-value-operation={tile_primary_operation(@node)}
+            >
+              <.icon name={tile_action_icon(@node)} class="size-4" />
+              {tile_menu_primary_label(@node)}
+            </button>
+            <button
+              :if={!deleted?(@node)}
+              type="button"
+              role="menuitem"
+              class="workspace-tile-menu-item workspace-tile-menu-item-danger"
+              phx-click="manage_workspace_tile"
+              phx-value-tile-id={tile_id(@node)}
+              phx-value-operation="remove"
+            >
+              <.icon name="hero-trash-micro" class="size-4" /> Remove tile
+            </button>
+          </div>
         </div>
       </header>
 
@@ -279,6 +320,63 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
   end
 
   defp tile_id(node), do: Base.prop(node, :tile_id, nil)
+
+  defp pinned?(node), do: Base.prop(node, :pinned?, false) == true
+  defp deleted?(node), do: Base.prop(node, :deleted?, false) == true
+
+  defp tile_action_disabled?(node), do: is_nil(tile_id(node))
+
+  defp tile_primary_operation(node) do
+    cond do
+      deleted?(node) -> "restore"
+      pinned?(node) -> "unpin"
+      true -> "pin"
+    end
+  end
+
+  defp tile_action_label(node, title) do
+    case tile_primary_operation(node) do
+      "restore" -> "Restore #{title}"
+      "unpin" -> "Unpin #{title}"
+      "pin" -> "Pin #{title}"
+    end
+  end
+
+  defp tile_action_title(node) do
+    case tile_primary_operation(node) do
+      "restore" -> "Restore tile"
+      "unpin" -> "Unpin tile"
+      "pin" -> "Pin tile"
+    end
+  end
+
+  defp tile_menu_primary_label(node) do
+    case tile_primary_operation(node) do
+      "restore" -> "Restore tile"
+      "unpin" -> "Unpin tile"
+      "pin" -> "Pin tile"
+    end
+  end
+
+  defp tile_action_icon(node) do
+    case tile_primary_operation(node) do
+      "restore" -> "hero-arrow-path-micro"
+      "unpin" -> "hero-bookmark-slash-micro"
+      "pin" -> "hero-bookmark-micro"
+    end
+  end
+
+  defp tile_action_id(node), do: dom_id("workspace-tile-action", tile_id(node))
+  defp tile_menu_button_id(node), do: dom_id("workspace-tile-menu-button", tile_id(node))
+  defp tile_menu_id(node), do: dom_id("workspace-tile-menu", tile_id(node))
+
+  defp tile_menu_open?(node, open_tile_menu_id) do
+    id = tile_id(node)
+    is_binary(id) and id == open_tile_menu_id
+  end
+
+  defp dom_id(_prefix, nil), do: nil
+  defp dom_id(prefix, id), do: "#{prefix}-#{id}"
 
   defp short_id(nil), do: nil
 
