@@ -568,36 +568,33 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       target_async?: live_view_async_run_analysis?(resume_params, context)
     }
 
-    case resolve_status(record, :approved, reason, context, permission_decision, initial_metadata) do
-      {:ok, approval} ->
-        mark_run_analysis_step_running(record, resume_params, context)
+    {:ok, approval} =
+      resolve_status(record, :approved, reason, context, permission_decision, initial_metadata)
 
-        if live_view_async_run_analysis?(resume_params, context) do
-          start_run_analysis_resume_task(
-            confirmation_id,
-            record,
-            resume_params,
-            target_context,
-            context
-          )
+    mark_run_analysis_step_running(record, resume_params, context)
 
-          {:ok, approval}
-        else
-          response = run_analysis_resume(resume_params, target_context)
-          metadata = final_run_analysis_metadata(response)
+    if live_view_async_run_analysis?(resume_params, context) do
+      start_run_analysis_resume_task(
+        confirmation_id,
+        record,
+        resume_params,
+        target_context,
+        context
+      )
 
-          updated_record =
-            case Confirmations.annotate_resolution(confirmation_id, metadata) do
-              {:ok, record} -> record
-              {:error, _reason} -> Map.get(approval, :confirmation)
-            end
+      {:ok, approval}
+    else
+      response = run_analysis_resume(resume_params, target_context)
+      metadata = final_run_analysis_metadata(response)
 
-          mark_run_analysis_step_finished(record, response, context)
-          {:ok, put_run_analysis_approval_metadata(approval, metadata, updated_record)}
+      updated_record =
+        case Confirmations.annotate_resolution(confirmation_id, metadata) do
+          {:ok, record} -> record
+          {:error, _reason} -> Map.get(approval, :confirmation)
         end
 
-      other ->
-        other
+      mark_run_analysis_step_finished(record, response, context)
+      {:ok, put_run_analysis_approval_metadata(approval, metadata, updated_record)}
     end
   end
 
@@ -709,8 +706,6 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     |> Map.put(:confirmation, confirmation)
   end
 
-  defp put_run_analysis_approval_metadata(approval, _metadata, _confirmation), do: approval
-
   defp mark_run_analysis_step_running(record, resume_params, context) do
     mark_run_analysis_step(record, :running, %{
       result_summary:
@@ -777,13 +772,10 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   defp terminal_step?(%{status: status}), do: status in ["cancelled", "completed", "failed"]
 
   defp objective_status_for_step(:failed), do: "failed"
-  defp objective_status_for_step("failed"), do: "failed"
   defp objective_status_for_step(_status), do: "running"
 
   defp objective_event_kind_for_step(:running), do: "step_running"
-  defp objective_event_kind_for_step("running"), do: "step_running"
   defp objective_event_kind_for_step(:completed), do: "step_completed"
-  defp objective_event_kind_for_step("completed"), do: "step_completed"
   defp objective_event_kind_for_step(_status), do: "step_failed"
 
   defp run_analysis_result_summary(result) when is_map(result) do
