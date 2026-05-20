@@ -75,6 +75,8 @@ defmodule AllbertAssist.Umbrella.MixProject do
     [
       # run `mix setup` in all child apps
       setup: ["cmd mix setup"],
+      "ecto.migrate": ["do --app allbert_assist cmd mix ecto.migrate.allbert"],
+      "ecto.migrate.allbert": ["do --app allbert_assist cmd mix ecto.migrate.allbert"],
       precommit: [
         "compile --warnings-as-errors",
         "deps.unlock --unused",
