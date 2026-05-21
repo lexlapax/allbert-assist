@@ -134,6 +134,37 @@ defmodule AllbertAssist.Workspace.EmittersTest do
     assert :parity_card in kinds
   end
 
+  test "StockSage failure emits visible analysis failure reason" do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")
+
+    reason = "native_llm_unavailable: provider credential missing for anthropic"
+
+    assert :ok =
+             Emitters.stocksage_signal("allbert.stocksage.analysis_failed", %{
+               analysis_id: "analysis_failed_m22",
+               ticker: "AAPL",
+               analysis_date: "2026-05-18",
+               engine: "native",
+               user_id: "alice",
+               thread_id: "thr_stocksage_failed",
+               error: reason
+             })
+
+    signal = receive_signal("allbert.workspace.fragment.emitted")
+    envelope = signal.data.envelope
+
+    assert envelope.id == "stocksage_analysis_failed_analysis_failed_m22"
+    assert envelope.scope == :canvas
+    assert envelope.kind == :analysis_card
+    assert envelope.thread_id == "thr_stocksage_failed"
+    assert envelope.surface.fallback_text == reason
+
+    [node] = envelope.surface.nodes
+    assert node.props.body == reason
+    assert node.props.status == "failed"
+  end
+
   defp confirmation_attrs do
     %{
       origin: %{

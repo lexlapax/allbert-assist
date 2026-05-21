@@ -75,6 +75,8 @@ defmodule StockSage.Agents.Commands.Execute do
       prompt_version: spec.prompt_version,
       generation_mode: Map.get(role_report, :generation_mode, "deterministic_advisory")
     }
+    |> maybe_put(:failure_reason, Map.get(role_report, :failure_reason))
+    |> maybe_put(:error, Map.get(role_report, :error))
     |> Map.merge(Map.get(role_report, :extra, %{}))
   end
 
@@ -121,16 +123,19 @@ defmodule StockSage.Agents.Commands.Execute do
 
   defp llm_error_report(spec, request, reason) do
     ticker = field(request, :ticker, "UNKNOWN")
+    failure_reason = LLM.failure_reason(reason)
 
     %{
       status: :error,
-      summary: "Jido.AI generation failed for #{spec.id}.",
+      summary: failure_reason,
       report:
-        "Jido.AI generation failed for #{spec.id} while analyzing #{ticker}: " <>
-          inspect(reason, limit: 20, printable_limit: 500),
+        "#{failure_reason} while #{spec.id} was analyzing #{ticker}. " <>
+          "Raw provider detail: #{inspect(reason, limit: 20, printable_limit: 500)}",
       confidence: 0.0,
-      warnings: ["jido_ai_generation_failed"],
-      generation_mode: "jido_ai_error"
+      warnings: ["jido_ai_generation_failed", failure_reason],
+      generation_mode: "jido_ai_error",
+      failure_reason: failure_reason,
+      error: failure_reason
     }
   end
 
@@ -373,6 +378,9 @@ defmodule StockSage.Agents.Commands.Execute do
   end
 
   defp drop_nil(map), do: Map.reject(map, fn {_key, value} -> is_nil(value) end)
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp bound_evidence(%{evidence: evidence} = summary) when is_map(evidence) do
     Map.put(summary, :evidence, Evidence.prompt_summary(evidence))
