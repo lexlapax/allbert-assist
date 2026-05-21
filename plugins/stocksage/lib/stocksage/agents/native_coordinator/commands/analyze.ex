@@ -176,13 +176,14 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
 
       _other ->
         failed_clauses = field(quality || %{}, :failed_clauses, [])
+        failure_reason = quality_gate_failure_reason(failed_clauses, warnings, quality)
 
         emit_native("allbert.stocksage.native.quality_gate.rejected", request, %{
-          rejection_reason: field(quality || %{}, :summary) || "quality gate rejected output",
+          rejection_reason: failure_reason_text(failure_reason),
           failed_clauses: failed_clauses
         })
 
-        {:error, {:quality_gate_rejected, failed_clauses}, %{report | status: :failed}}
+        {:error, failure_reason, %{report | status: :failed}}
     end
   end
 
@@ -302,14 +303,10 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
 
       case dispatch_registered_agent(agent_id, params, dispatch_timeout_ms(request)) do
         {:ok, %{state: %{last_result: {:ok, report}}}} ->
-          complete_step(step, report)
-          emit_completed(request, agent_id, round_index, report)
-          {:ok, agent_id, report}
+          handle_agent_report(request, agent_id, round_index, step, report)
 
         {:ok, %{state: %{"last_result" => {:ok, report}}}} ->
-          complete_step(step, report)
-          emit_completed(request, agent_id, round_index, report)
-          {:ok, agent_id, report}
+          handle_agent_report(request, agent_id, round_index, step, report)
 
         {:ok, %{state: state}} ->
           reason = {:missing_agent_result, Map.take(state, [:last_error, "last_error"])}
@@ -322,6 +319,20 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
           emit_failed(request, agent_id, round_index, reason)
           {:error, agent_id, reason}
       end
+    end
+  end
+
+  defp handle_agent_report(request, agent_id, round_index, step, report) do
+    case failed_report_reason(report) do
+      nil ->
+        complete_step(step, report)
+        emit_completed(request, agent_id, round_index, report)
+        {:ok, agent_id, report}
+
+      reason ->
+        fail_step(step, reason)
+        emit_failed(request, agent_id, round_index, reason)
+        {:error, agent_id, reason}
     end
   end
 
@@ -509,6 +520,60 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
   defp warning(agent_id, reason) do
     "#{agent_id}: #{inspect(reason, limit: 20, printable_limit: 240)}"
   end
+
+  defp failed_report_reason(report) when is_map(report) do
+    failure_reason = field(report, :failure_reason) || field(report, :error)
+    status = field(report, :status)
+
+    cond do
+      is_binary(failure_reason) and failure_reason != "" ->
+        failure_reason
+
+      status in [:error, "error", :failed, "failed"] ->
+        field(report, :summary) || "native specialist failed"
+
+      true ->
+        nil
+    end
+  end
+
+  defp failed_report_reason(_report), do: nil
+
+  defp quality_gate_failure_reason(failed_clauses, warnings, quality) do
+    case root_warning_reason(warnings) || failed_report_reason(quality || %{}) do
+      reason when is_binary(reason) and reason != "" ->
+        "#{reason}; quality gate rejected output: #{failed_clause_summary(failed_clauses)}"
+
+      _other ->
+        {:quality_gate_rejected, failed_clauses}
+    end
+  end
+
+  defp root_warning_reason(warnings) when is_list(warnings) do
+    Enum.find_value(warnings, fn warning ->
+      warning = to_string(warning)
+
+      if String.contains?(warning, "native_llm_unavailable") do
+        warning
+      end
+    end)
+  end
+
+  defp root_warning_reason(_warnings), do: nil
+
+  defp failed_clause_summary([]), do: "unknown"
+
+  defp failed_clause_summary(clauses) when is_list(clauses) do
+    clauses
+    |> Enum.map(&to_string/1)
+    |> Enum.join(", ")
+  end
+
+  defp failed_clause_summary(clauses), do: inspect(clauses, limit: 20, printable_limit: 240)
+
+  defp failure_reason_text(reason) when is_binary(reason), do: reason
+
+  defp failure_reason_text(reason), do: inspect(reason, limit: 20, printable_limit: 500)
 
   defp recommendation_from(synthesis) do
     [

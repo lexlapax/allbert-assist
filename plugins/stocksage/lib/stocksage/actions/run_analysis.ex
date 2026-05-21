@@ -83,6 +83,7 @@ defmodule StockSage.Actions.RunAnalysis do
   alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
   alias Jido.Signal
   alias StockSage.Actions
+  alias StockSage.Agents.LLM
   alias StockSage.Agents.NativeCoordinator
   alias StockSage.Analyses
   alias StockSage.Bridge.Protocol
@@ -290,6 +291,7 @@ defmodule StockSage.Actions.RunAnalysis do
 
   defp run_native_after_approval(validated, context, permission_decision, started_at) do
     with {:ok, validated, context} <- ensure_native_objective(validated, context),
+         :ok <- LLM.preflight(),
          {:ok, result} <- NativeCoordinator.analyze(native_request(validated, context)) do
       persist_success(validated, result, context, permission_decision, started_at)
     else
@@ -665,7 +667,7 @@ defmodule StockSage.Actions.RunAnalysis do
        ticker: validated.ticker,
        analysis_date: Date.to_iso8601(validated.analysis_date),
        engine: validated.engine,
-       error: reason,
+       error: Protocol.bounded_reason(reason),
        persistence_error: persistence_error,
        duration_ms: duration_ms,
        bridge_duration_ms: if(python_engine?(validated.engine), do: duration_ms, else: nil),
