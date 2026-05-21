@@ -21,6 +21,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
   alias Jido.Agent, as: JidoAgent
   alias Jido.Agent.State, as: JidoAgentState
@@ -358,8 +359,18 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp setting_write_route(text) do
-    if Regex.match?(~r/^\s*set\s+my\s+communication\s+style\s+to\s+.+/i, text) do
-      {:update_setting, "operator.communication_style", value_after_to(text)}
+    cond do
+      Regex.match?(~r/^\s*set\s+my\s+communication\s+style\s+to\s+.+/i, text) ->
+        {:update_setting, "operator.communication_style", value_after_to(text)}
+
+      provider_secret_setting_write?(text) ->
+        {:set_provider_credential, provider_from_secret_setting_write(text), :raw_prompt_secret}
+
+      match = generic_setting_write(text) ->
+        match
+
+      true ->
+        nil
     end
   end
 
@@ -377,6 +388,76 @@ defmodule AllbertAssist.Agents.IntentAgent do
       true ->
         nil
     end
+  end
+
+  defp generic_setting_write(text) do
+    case Regex.named_captures(
+           ~r/^\s*(?:set|change)\s+(?:setting\s+)?(?<key>[a-z0-9_]+(?:\.[a-z0-9_]+)+)\s*(?:to|=)\s*(?<value>.+?)\s*$/i,
+           text
+         ) do
+      %{"key" => key, "value" => value} ->
+        key = String.downcase(key)
+
+        if setting_route_key?(key) and not sensitive_setting_key?(key) do
+          {:update_setting, key, normalize_setting_value(value)}
+        end
+
+      _other ->
+        nil
+    end
+  end
+
+  defp provider_secret_setting_write?(text) do
+    case generic_setting_write_parts(text) do
+      {key, _value} -> sensitive_setting_key?(key)
+      nil -> false
+    end
+  end
+
+  defp provider_from_secret_setting_write(text) do
+    case generic_setting_write_parts(text) do
+      {key, _value} ->
+        case Regex.run(~r/^providers\.([a-z0-9_-]+)\./, key) do
+          [_match, provider] -> provider
+          _other -> "provider"
+        end
+
+      nil ->
+        "provider"
+    end
+  end
+
+  defp generic_setting_write_parts(text) do
+    case Regex.named_captures(
+           ~r/^\s*(?:set|change)\s+(?:setting\s+)?(?<key>[a-z0-9_]+(?:\.[a-z0-9_]+)+)\s*(?:to|=)\s*(?<value>.+?)\s*$/i,
+           text
+         ) do
+      %{"key" => key, "value" => value} ->
+        {String.downcase(key), normalize_setting_value(value)}
+
+      _other ->
+        nil
+    end
+  end
+
+  defp setting_route_key?(key) do
+    key in Settings.safe_write_keys() or Map.has_key?(Settings.schema(), key)
+  rescue
+    _exception -> false
+  end
+
+  defp sensitive_setting_key?(key) do
+    Regex.match?(~r/(api[_-]?key|secret|credential|password|token)/i, key)
+  end
+
+  defp normalize_setting_value(value) do
+    value
+    |> String.trim()
+    |> String.trim_trailing(".")
+    |> String.trim_leading("\"")
+    |> String.trim_trailing("\"")
+    |> String.trim_leading("'")
+    |> String.trim_trailing("'")
   end
 
   defp execution_route(:run_shell_command, text) do
