@@ -9,6 +9,11 @@ defmodule StockSage.Agents.LLM do
   """
 
   alias AllbertAssist.Settings
+  alias StockSage.Agents
+  alias StockSage.Agents.ModelProfile
+
+  @failure_reason_max 500
+
   @spec enabled?() :: boolean()
   def enabled? do
     case Keyword.fetch(config(), :enabled?) do
@@ -31,11 +36,103 @@ defmodule StockSage.Agents.LLM do
     provider().generate_report(spec, request, evidence, prior_reports, model_profile)
   end
 
+  @spec preflight() :: :ok | {:error, String.t()}
+  def preflight do
+    if enabled?() do
+      provider = provider()
+      profiles = native_model_profiles()
+
+      cond do
+        function_exported?(provider, :preflight, 1) ->
+          provider.preflight(profiles) |> normalize_preflight_result()
+
+        function_exported?(provider, :preflight, 0) ->
+          provider.preflight() |> normalize_preflight_result()
+
+        true ->
+          :ok
+      end
+    else
+      :ok
+    end
+  end
+
+  @spec failure_reason(term()) :: String.t()
+  def failure_reason("native_llm_unavailable:" <> _rest = reason), do: bounded(reason)
+
+  def failure_reason({:provider_credential_missing, provider, :configured}) do
+    "native_llm_unavailable: provider credential is configured for #{provider} " <>
+      "but is not available to ReqLLM"
+  end
+
+  def failure_reason({:provider_credential_missing, provider, _status}) do
+    "native_llm_unavailable: provider credential missing for #{provider}"
+  end
+
+  def failure_reason({:provider_credential_missing, provider}) do
+    "native_llm_unavailable: provider credential missing for #{provider}"
+  end
+
+  def failure_reason(:jido_ai_unavailable), do: "native_llm_unavailable: Jido.AI is unavailable"
+
+  def failure_reason({:invalid_model_profile, reason}) do
+    "native_llm_unavailable: invalid model profile #{bounded(reason, 220)}"
+  end
+
+  def failure_reason({:invalid_model_provider, model}) do
+    "native_llm_unavailable: invalid model provider for #{bounded(model, 220)}"
+  end
+
+  def failure_reason(reason) do
+    reason
+    |> inspect(limit: 20, printable_limit: 400)
+    |> then(fn text ->
+      case provider_from_key_error(text) do
+        nil -> "native_llm_unavailable: provider error #{text}"
+        provider -> "native_llm_unavailable: provider credential missing for #{provider}"
+      end
+    end)
+    |> bounded()
+  end
+
   defp provider do
     Keyword.get(config(), :provider, __MODULE__.JidoAI)
   end
 
   defp config, do: Application.get_env(:allbert_assist, __MODULE__, [])
+
+  defp native_model_profiles do
+    Agents.ids()
+    |> Enum.map(&Agents.spec!/1)
+    |> Enum.reject(&(&1.role == :quality_gate))
+    |> Enum.map(&ModelProfile.resolve(&1.role))
+    |> Enum.uniq()
+  rescue
+    _exception -> ["fast"]
+  end
+
+  defp normalize_preflight_result(:ok), do: :ok
+  defp normalize_preflight_result({:error, reason}), do: {:error, failure_reason(reason)}
+  defp normalize_preflight_result(other), do: {:error, failure_reason(other)}
+
+  defp provider_from_key_error(text) do
+    cond do
+      match = Regex.run(~r/config :req_llm, :([a-z0-9_]+)_api_key/i, text) ->
+        match |> List.last() |> String.downcase()
+
+      match = Regex.run(~r/\b([A-Z0-9_]+)_API_KEY\b/, text) ->
+        match |> List.last() |> String.downcase()
+
+      true ->
+        nil
+    end
+  end
+
+  defp bounded(value, limit \\ @failure_reason_max)
+  defp bounded(value, limit) when is_binary(value), do: String.slice(value, 0, limit)
+
+  defp bounded(value, limit),
+    do: value |> inspect(limit: 20, printable_limit: limit) |> bounded(limit)
 
   defmodule JidoAI do
     @moduledoc false
@@ -98,12 +195,76 @@ defmodule StockSage.Agents.LLM do
       :exit, reason -> {:error, reason}
     end
 
+    @spec preflight([String.t()]) :: :ok | {:error, term()}
+    def preflight(model_profiles) when is_list(model_profiles) do
+      with :ok <- ensure_jido_ai!(),
+           {:ok, providers} <- providers_for_profiles(model_profiles),
+           :ok <- ensure_provider_credentials(providers) do
+        :ok
+      end
+    end
+
     defp ensure_jido_ai! do
       if Code.ensure_loaded?(Jido.AI) do
         :ok
       else
         {:error, :jido_ai_unavailable}
       end
+    end
+
+    defp providers_for_profiles(model_profiles) do
+      Enum.reduce_while(model_profiles, {:ok, MapSet.new()}, fn profile, {:ok, providers} ->
+        case provider_for_profile(profile) do
+          {:ok, provider} -> {:cont, {:ok, MapSet.put(providers, provider)}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+      |> case do
+        {:ok, providers} -> {:ok, MapSet.to_list(providers)}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+
+    defp provider_for_profile(profile) do
+      with resolved <- profile |> model_option() |> Jido.AI.resolve_model(),
+           {:ok, model} <- ReqLLM.model(resolved),
+           provider when is_atom(provider) <- Map.get(model, :provider) do
+        {:ok, provider}
+      else
+        {:error, reason} -> {:error, {:invalid_model_profile, inspect(reason)}}
+        _other -> {:error, {:invalid_model_provider, inspect(profile)}}
+      end
+    rescue
+      exception -> {:error, {:invalid_model_profile, Exception.message(exception)}}
+    end
+
+    defp ensure_provider_credentials(providers) do
+      Enum.find_value(providers, :ok, fn provider ->
+        case ReqLLM.Keys.get(provider, []) do
+          {:ok, _key, _source} ->
+            false
+
+          {:error, _reason} ->
+            {:error,
+             {:provider_credential_missing, provider, settings_credential_status(provider)}}
+        end
+      end)
+    end
+
+    defp settings_credential_status(provider) do
+      provider = Atom.to_string(provider)
+
+      case Settings.list_provider_profiles() do
+        {:ok, profiles} ->
+          profiles
+          |> Enum.find(%{}, &(Map.get(&1, :name) == provider))
+          |> Map.get(:credential_status, :missing)
+
+        _other ->
+          :unknown
+      end
+    rescue
+      _exception -> :unknown
     end
 
     defp response_object(%ReqLLM.Response{} = response) do
