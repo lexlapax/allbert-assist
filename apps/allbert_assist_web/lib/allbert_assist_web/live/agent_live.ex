@@ -81,7 +81,8 @@ defmodule AllbertAssistWeb.AgentLive do
         show_approval_details?: false,
         open_tile_menu_id: nil,
         workspace_badges: [],
-        composer_max_bytes: workspace_canvas_tile_body_max_bytes()
+        composer_max_bytes: workspace_canvas_tile_body_max_bytes(),
+        workspace_overflow_open?: false
       )
       |> assign(workspace_assigns(user_id, thread_id))
       |> maybe_sync_thread_url(sync_thread_url?, thread_id, active_app)
@@ -140,6 +141,12 @@ defmodule AllbertAssistWeb.AgentLive do
   end
 
   def handle_event("composer_change", _params, socket), do: {:noreply, socket}
+
+  # v0.26a M34: AppBar overflow menu open/close. Same shape as the tile
+  # kebab — purely UI state, no authority change.
+  def handle_event("toggle_workspace_overflow_menu", _params, socket) do
+    {:noreply, update(socket, :workspace_overflow_open?, &(!&1))}
+  end
 
   def handle_event("toggle_workspace_theme", _params, socket) do
     next_theme = next_workspace_theme(socket.assigns.workspace_theme)
@@ -792,7 +799,13 @@ defmodule AllbertAssistWeb.AgentLive do
     end
   end
 
+  # v0.26a M34: theme cycles system → dark → light → system so operators
+  # reach all three workspace.theme values from the AppBar without dropping
+  # to `mix allbert.settings`. Default boot starts at "system" → dark to
+  # preserve the prior light↔dark first-click semantics.
+  defp next_workspace_theme("system"), do: "dark"
   defp next_workspace_theme("dark"), do: "light"
+  defp next_workspace_theme("light"), do: "system"
   defp next_workspace_theme(_theme), do: "dark"
 
   defp workspace_mobile_tabs do
@@ -844,7 +857,8 @@ defmodule AllbertAssistWeb.AgentLive do
       workspace_canvas_max_tiles_per_thread: assigns.workspace_canvas_max_tiles_per_thread,
       open_tile_menu_id: assigns.open_tile_menu_id,
       active_app: assigns.active_app,
-      composer_max_bytes: assigns.composer_max_bytes
+      composer_max_bytes: assigns.composer_max_bytes,
+      workspace_overflow_open?: assigns.workspace_overflow_open?
     }
   end
 
