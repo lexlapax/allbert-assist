@@ -79,6 +79,14 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     assert has_element?(
              view,
+             "#agent-prompt[placeholder='Hello Allbert. What can you do right now?']"
+           )
+
+    refute html =~ "Prompt draft"
+    refute html =~ ~r/<textarea[^>]*>\s*Hello Allbert/
+
+    assert has_element?(
+             view,
              "#workspace-split-resizer[role='separator'][aria-orientation='vertical']"
            )
 
