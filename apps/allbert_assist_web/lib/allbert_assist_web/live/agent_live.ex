@@ -33,6 +33,7 @@ defmodule AllbertAssistWeb.AgentLive do
 
   @default_user_id "local"
   @default_session_id "web-local"
+  @default_prompt_placeholder "Hello Allbert. What can you do right now?"
 
   @impl true
   def mount(params, _session, socket) do
@@ -67,7 +68,8 @@ defmodule AllbertAssistWeb.AgentLive do
         workspace_indexeddb_quota_bytes: workspace_indexeddb_quota_bytes(),
         workspace_canvas_max_tiles_per_thread: workspace_canvas_max_tiles_per_thread(),
         active_objectives: active_objectives(user_id),
-        prompt: "Hello Allbert. What can you do right now?",
+        prompt: "",
+        prompt_placeholder: @default_prompt_placeholder,
         response: nil,
         error: nil,
         thread_notice: thread_notice,
@@ -823,6 +825,7 @@ defmodule AllbertAssistWeb.AgentLive do
   defp workspace_state(assigns) do
     %{
       prompt: assigns.prompt,
+      prompt_placeholder: assigns.prompt_placeholder,
       response: assigns.response,
       error: assigns.error,
       thread_notice: assigns.thread_notice,
