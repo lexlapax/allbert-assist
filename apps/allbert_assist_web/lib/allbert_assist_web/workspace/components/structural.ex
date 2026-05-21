@@ -486,6 +486,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
   @impl true
   def update(assigns, socket) do
     context = Map.get(assigns, :renderer_context, %{})
+    state = Map.get(assigns, :workspace_state, %{})
 
     {:ok,
      socket
@@ -498,7 +499,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
        ephemeral_surfaces: Map.get(context, :ephemeral_surfaces, []),
        workspace_badges: Map.get(context, :workspace_badges, []),
        workspace_theme: Map.get(context, :workspace_theme, "system"),
-       workspace_high_contrast?: Map.get(context, :workspace_high_contrast?, false)
+       workspace_high_contrast?: Map.get(context, :workspace_high_contrast?, false),
+       workspace_overflow_open?: Map.get(state, :workspace_overflow_open?, false)
      )}
   end
 
@@ -527,26 +529,49 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
       </div>
 
       <div class="allbert-appbar-center" aria-label="Workspace context">
-        <span id="workspace-thread-chip" class="allbert-chip allbert-chip-mono" title={@thread_id}>
+        <span
+          id="workspace-thread-chip"
+          class="allbert-chip allbert-chip-mono workspace-copy-target"
+          title={"Copy thread id: #{@thread_id}"}
+          phx-hook="CopyToClipboard"
+          data-copy-value={@thread_id}
+          role="button"
+          tabindex="0"
+        >
           <.icon name="hero-chat-bubble-left-right-micro" class="size-4" />
           {short_thread_id(@thread_id)}
         </span>
-        <span id="workspace-active-app-chip" class="allbert-chip">
+        <span id="workspace-active-app-chip" class="allbert-chip" title="Active app">
           <.icon name="hero-squares-2x2-micro" class="size-4" />
           {active_app_label(@active_app)}
         </span>
-        <span id="workspace-objective-count-chip" class="allbert-chip">
+        <.link
+          id="workspace-objective-count-chip"
+          navigate="/objectives"
+          class="allbert-chip allbert-chip-link"
+          title="Open objectives"
+        >
           <.icon name="hero-flag-micro" class="size-4" />
           {count_label(@active_objectives, "objective")}
-        </span>
-        <span id="workspace-tile-count-chip" class="allbert-chip">
+        </.link>
+        <a
+          id="workspace-tile-count-chip"
+          href="#workspace-node-workspace-canvas-region"
+          class="allbert-chip allbert-chip-link"
+          title="Jump to canvas"
+        >
           <.icon name="hero-rectangle-stack-micro" class="size-4" />
           {count_label(@canvas_tiles, "tile")}
-        </span>
-        <span id="workspace-ephemeral-count-chip" class="allbert-chip">
+        </a>
+        <a
+          id="workspace-ephemeral-count-chip"
+          href="#workspace-node-workspace-ephemeral-region"
+          class="allbert-chip allbert-chip-link"
+          title="Jump to ephemerals"
+        >
           <.icon name="hero-bolt-micro" class="size-4" />
           {count_label(@ephemeral_surfaces, "ephemeral")}
-        </span>
+        </a>
       </div>
 
       <div class="allbert-appbar-actions">
@@ -564,30 +589,79 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
           <.icon name={theme_toggle_icon(@workspace_theme)} class="size-4" />
           <span class="sr-only">{theme_toggle_label(@workspace_theme)}</span>
         </button>
-        <button
-          id="workspace-overflow-menu"
-          type="button"
-          class="allbert-icon-button"
-          aria-label="Workspace menu"
-          title="Workspace menu"
-          aria-disabled="true"
-          disabled
-        >
-          <.icon name="hero-ellipsis-horizontal-micro" class="size-5" />
-        </button>
+        <div class="allbert-overflow-wrap">
+          <button
+            id="workspace-overflow-menu"
+            type="button"
+            class="allbert-icon-button"
+            aria-label="Workspace menu"
+            title="Workspace menu"
+            aria-haspopup="menu"
+            aria-controls="workspace-overflow-menu-items"
+            aria-expanded={bool_attribute(@workspace_overflow_open?)}
+            phx-click="toggle_workspace_overflow_menu"
+          >
+            <.icon name="hero-ellipsis-horizontal-micro" class="size-5" />
+          </button>
+          <div
+            :if={@workspace_overflow_open?}
+            id="workspace-overflow-menu-items"
+            class="workspace-overflow-menu"
+            role="menu"
+            aria-labelledby="workspace-overflow-menu"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              class="workspace-tile-menu-item"
+              phx-click="toggle_workspace_theme"
+            >
+              <.icon name={theme_toggle_icon(@workspace_theme)} class="size-4" />
+              {theme_toggle_label(@workspace_theme)}
+            </button>
+            <.link
+              role="menuitem"
+              class="workspace-tile-menu-item"
+              navigate="/settings"
+            >
+              <.icon name="hero-adjustments-horizontal-micro" class="size-4" /> Workspace settings
+            </.link>
+            <.link
+              role="menuitem"
+              class="workspace-tile-menu-item"
+              navigate="/jobs"
+            >
+              <.icon name="hero-clock-micro" class="size-4" /> Scheduled jobs
+            </.link>
+            <.link
+              role="menuitem"
+              class="workspace-tile-menu-item"
+              navigate="/objectives"
+            >
+              <.icon name="hero-flag-micro" class="size-4" /> Objectives
+            </.link>
+          </div>
+        </div>
       </div>
     </header>
     """
   end
 
+  # v0.26a M34: 3-state theme cycle (system → dark → light → system) kept
+  # in sync with the parallel next_workspace_theme/1 in agent_live.ex.
+  defp next_workspace_theme("system"), do: "dark"
   defp next_workspace_theme("dark"), do: "light"
+  defp next_workspace_theme("light"), do: "system"
   defp next_workspace_theme(_theme), do: "dark"
 
   defp theme_toggle_icon("dark"), do: "hero-sun-micro"
+  defp theme_toggle_icon("light"), do: "hero-computer-desktop-micro"
   defp theme_toggle_icon(_theme), do: "hero-moon-micro"
 
-  defp theme_toggle_label("dark"), do: "Switch workspace theme to light"
-  defp theme_toggle_label(_theme), do: "Switch workspace theme to dark"
+  defp theme_toggle_label("system"), do: "Theme: system (switch to dark)"
+  defp theme_toggle_label("dark"), do: "Theme: dark (switch to light)"
+  defp theme_toggle_label("light"), do: "Theme: light (switch to system)"
+  defp theme_toggle_label(_theme), do: "Switch workspace theme"
 
   defp active_app_label(app) when is_atom(app), do: Atom.to_string(app)
   defp active_app_label(app) when is_binary(app), do: app
