@@ -299,6 +299,8 @@ defmodule AllbertAssist.Conversations do
     |> Map.put(:user_id, thread.user_id)
     |> Map.put_new(:action_log, %{})
     |> Map.put_new(:metadata, %{})
+    |> Map.update!(:action_log, &json_safe/1)
+    |> Map.update!(:metadata, &json_safe/1)
   end
 
   defp to_attrs(attrs) when is_map(attrs), do: attrs
@@ -335,6 +337,29 @@ defmodule AllbertAssist.Conversations do
   defp field(attrs, key) do
     Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
   end
+
+  defp json_safe(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
+  defp json_safe(%NaiveDateTime{} = datetime), do: NaiveDateTime.to_iso8601(datetime)
+  defp json_safe(%Date{} = date), do: Date.to_iso8601(date)
+  defp json_safe(%Time{} = time), do: Time.to_iso8601(time)
+
+  defp json_safe(%{} = map) do
+    Map.new(map, fn {key, value} -> {json_safe_key(key), json_safe(value)} end)
+  end
+
+  defp json_safe(list) when is_list(list), do: Enum.map(list, &json_safe/1)
+
+  defp json_safe(value)
+       when is_binary(value) or is_number(value) or is_boolean(value) or is_nil(value),
+       do: value
+
+  defp json_safe(tuple) when is_tuple(tuple), do: inspect(tuple)
+  defp json_safe(atom) when is_atom(atom), do: Atom.to_string(atom)
+  defp json_safe(value), do: inspect(value)
+
+  defp json_safe_key(key) when is_atom(key), do: Atom.to_string(key)
+  defp json_safe_key(key) when is_binary(key), do: key
+  defp json_safe_key(key), do: inspect(key)
 
   defp new_id(prefix), do: "#{prefix}_#{Ecto.UUID.generate()}"
 
