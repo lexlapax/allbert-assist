@@ -117,11 +117,11 @@ defmodule AllbertAssist.ConversationsTest do
       assert String.starts_with?(user_message.id, "msg_")
       assert user_message.role == "user"
       assert user_message.input_signal_id == "sig-in"
-      assert user_message.metadata == %{client: "cli"}
+      assert user_message.metadata == %{"client" => "cli"}
 
       assert String.starts_with?(assistant_message.id, "msg_")
       assert assistant_message.role == "assistant"
-      assert assistant_message.action_log == %{status: "completed"}
+      assert assistant_message.action_log == %{"status" => "completed"}
       assert assistant_message.trace_id == "trace.md"
 
       messages = Conversations.list_messages(thread)
@@ -158,6 +158,33 @@ defmodule AllbertAssist.ConversationsTest do
       assert List.first(context).content == "message 2"
       assert List.last(context).content == "message 13"
       refute Enum.any?(context, &(&1.content == "message 14"))
+    end
+
+    test "normalizes action logs and metadata before map persistence", %{thread: thread} do
+      assert {:ok, assistant_message} =
+               Conversations.append_assistant_message(thread, "Denied.",
+                 action_log: %{
+                   status: :denied,
+                   request: %{
+                     denial_reason: {:host_not_allowlisted, "wikipedia.com"},
+                     query?: false,
+                     checked_at: ~U[2026-05-21 09:30:00Z]
+                   }
+                 },
+                 metadata: %{active_app: :allbert}
+               )
+
+      assert Jason.encode!(assistant_message.action_log)
+      assert Jason.encode!(assistant_message.metadata)
+
+      assert assistant_message.action_log["status"] == "denied"
+
+      assert assistant_message.action_log["request"]["denial_reason"] ==
+               "{:host_not_allowlisted, \"wikipedia.com\"}"
+
+      assert assistant_message.action_log["request"]["query?"] == false
+      assert assistant_message.action_log["request"]["checked_at"] == "2026-05-21T09:30:00Z"
+      assert assistant_message.metadata["active_app"] == "allbert"
     end
   end
 
