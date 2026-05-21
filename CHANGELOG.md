@@ -10,6 +10,96 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.26a - Workspace UX/UI Substrate Pass
+
+Status: implemented through M35 closeout on 2026-05-21. Version metadata is
+`0.26.1`. Fast-follow visual + interaction layer on top of the v0.26
+workspace substrate; the substrate itself (catalog, schema, signals,
+settings, permission classes, fragment validation, AGUI bridge, offline
+editor) is unchanged.
+
+Plan: `docs/plans/v0.26a-ui-plan.md`.
+
+### Added (v0.26a)
+
+- Live chat history accumulates without navigation. `handle_async(:ask, ok)`
+  refreshes `conversation_messages`, `canvas_tiles`, and
+  `ephemeral_surfaces` so prior turns stay visible as new turns land (M28).
+- Composer clears on submit; Enter submits and Shift+Enter newlines via a
+  new `ComposerEnter` JS hook that respects IME composition and modifier
+  keys. Character counter mirrored from
+  `workspace.canvas.tile_body_max_bytes` flips to a warn color at 90% of
+  cap (M29).
+- `ChatAutoScroll` JS hook pins the chat timeline to the bottom on append
+  unless the operator has scrolled away.
+- `CopyToClipboard` JS hook reused across the AppBar thread chip, runtime
+  signal / trace ids, the approval modal confirmation id, every card
+  footer's external-id chip, and the tile kebab "Copy tile id" entry.
+- Sticky AppBar plus independently scrolling chat / canvas panes — the
+  workspace shell is now a `100dvh` flex column rather than a normal-flow
+  page (M30).
+- Mobile tab strip stays sticky just below the AppBar at `< 768px` so the
+  toggle is reachable while reading long chat history. Pane heights
+  retightened to `calc(100dvh - 9rem)` to suit the sticky chrome (M31).
+- Approval handoff renders as a centered modal overlay with a translucent
+  backdrop scrim, dark-mode and reduce-motion variants, and a copy chip
+  on the confirmation id. Authority is unchanged (approve / deny still
+  route through registered actions) (M32).
+- Every catalog card derived from `Base.render_simple/1` renders a status
+  pill driven by `prop(:status)` / `prop(:lifecycle_kind)` / `prop(:state)`
+  using `workspace-status-success` / `-info` / `-warn` / `-danger` /
+  `-neutral` variants. Card footers carry an external-id chip
+  (objective / confirmation / analysis / tile) that copies to clipboard
+  on click (M33).
+- AppBar overflow `…` is no longer disabled. Clicking opens a popup menu
+  with the theme cycle, Workspace settings, Scheduled jobs, and Objectives
+  links; uses LiveView state, no JS hook required.
+- AppBar chips now navigate: thread chip copies the full thread id;
+  objective chip links to `/objectives`; tile chip jumps to the canvas
+  anchor; ephemeral chip jumps to the ephemeral anchor.
+- 3-state theme cycle (system → dark → light → system) with the icon and
+  label updating per state (M34).
+
+### Changed (v0.26a)
+
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, and child app
+  metadata bumped to `0.26.1`.
+- `Workspace.Fragment.emit/1` now logs the exception struct + message when
+  the persistence rescue trips, so the bounded `:exception` drop reason
+  becomes actionable. (The previous lack of detail made a test-suite
+  sandbox connection-ownership leak look identical to a production bug.)
+- Composer placeholder rewritten from `"Ask the agent something..."` to
+  `"Ask Allbert anything…"`.
+- Timeline timestamps render as relative time
+  (`just now / 2m ago / Mar 04 14:32`) with full ISO retained on the
+  `<time datetime>` attribute for accessibility.
+
+### Verification (v0.26a)
+
+- `mix test apps/allbert_assist_web/`: 79 tests, 0 failures (includes the
+  new responsive + agent_live + composer assertions).
+- `mix format --check-formatted`, `mix credo --strict`,
+  `mix compile --warnings-as-errors`: all clean on commit.
+- Browser-driven smoke (Claude in Chrome) confirmed the pre-M28 audit
+  findings reproduced cleanly under the old code and that M28–M34 fixes
+  resolved them. The full M35 visual walkthrough is deferred to the
+  operator-acceptance pass.
+
+### Bugs flagged for separate triage (NOT v0.26a scope)
+
+- H1 (runtime): the intent agent falls through to `direct_answer` for
+  clearly setting-shaped prompts (`"Set workspace.theme to dark"`) when
+  no LLM API key is configured. The deterministic fallback should
+  pattern-match `set <key> to <value>` and route to `update_setting`.
+- H2 (stocksage): native StockSage analysis transitions silently to
+  `:failed` when no LLM key is configured. The failure reason should
+  surface in the chat or via an ephemeral.
+- H3 (runtime): the default LiveView prompt placeholder used to be content
+  copy; M28 moved it into the empty-state callout, but CLI surfaces
+  should follow.
+
+---
+
 ## v0.26 - Agentic Workspace Surface And Ephemeral UI Substrate
 
 Status: implemented through M30 UI release closeout on 2026-05-19 and ready

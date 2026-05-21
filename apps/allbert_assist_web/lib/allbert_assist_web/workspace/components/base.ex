@@ -142,19 +142,20 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
 
   def short_external_id(_value), do: ""
 
+  @status_classes %{
+    "completed" => "workspace-status-success",
+    "running" => "workspace-status-info",
+    "open" => "workspace-status-info",
+    "blocked" => "workspace-status-warn",
+    "needs_confirmation" => "workspace-status-warn",
+    "impasse" => "workspace-status-warn",
+    "failed" => "workspace-status-danger",
+    "denied" => "workspace-status-danger",
+    "abandoned" => "workspace-status-neutral"
+  }
+
   def status_class(status) when is_binary(status) do
-    case String.downcase(status) do
-      "completed" -> "workspace-status-success"
-      "running" -> "workspace-status-info"
-      "open" -> "workspace-status-info"
-      "blocked" -> "workspace-status-warn"
-      "needs_confirmation" -> "workspace-status-warn"
-      "impasse" -> "workspace-status-warn"
-      "failed" -> "workspace-status-danger"
-      "denied" -> "workspace-status-danger"
-      "abandoned" -> "workspace-status-neutral"
-      _other -> "workspace-status-neutral"
-    end
+    Map.get(@status_classes, String.downcase(status), "workspace-status-neutral")
   end
 
   def status_class(status) when is_atom(status) and not is_nil(status) do
