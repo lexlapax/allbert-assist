@@ -1268,4 +1268,69 @@
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
+/* ---- v0.26a M30: sticky AppBar + independent pane scroll ---------------- */
+/* Constrain the workspace shell to the viewport so the AppBar stays put and
+   each pane scrolls in its own region instead of the whole page scrolling. */
+#workspace-shell.workspace-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+#workspace-shell #workspace-node-workspace-root {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  #workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    align-items: stretch;
+    min-height: 0;
+  }
+
+  /* Each pane fills its grid track and scrolls inside itself, not the page. */
+  #workspace-shell #workspace-node-workspace-root .workspace-chat-pane,
+  #workspace-shell #workspace-node-workspace-root .workspace-canvas-node {
+    min-height: 0;
+    max-height: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
+/* The AppBar is rendered as the first grid row inside workspace-root. Mark
+   it sticky so chrome stays anchored even on small / portrait viewports
+   where the grid collapses into a stacked column. */
+#workspace-shell .allbert-appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--workspace-panel);
+  backdrop-filter: saturate(160%) blur(6px);
+}
+
+/* ---- v0.26a M29: composer character counter ----------------------------- */
+.workspace-composer-counter {
+  color: var(--workspace-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  padding: 0 0.5rem;
+}
+
+.workspace-composer-counter[data-near-limit="true"] {
+  color: var(--allbert-warn);
+  font-weight: 600;
+}
+
+.workspace-composer-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.workspace-composer-footer .workspace-composer-hint {
+  flex: 1 1 auto;
+}
+
 /* This file is for your main application CSS */
