@@ -27,7 +27,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
        approval_handoff: Map.get(state, :approval_handoff),
        approval_lines: Map.get(state, :approval_lines, []),
        approval_result: Map.get(state, :approval_result),
-       show_approval_details?: Map.get(state, :show_approval_details?, false)
+       show_approval_details?: Map.get(state, :show_approval_details?, false),
+       composer_max_bytes: Map.get(context, :composer_max_bytes, 65_536)
      )}
   end
 
@@ -65,37 +66,69 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         </section>
       <% end %>
 
-      <div id="workspace-chat-timeline" class="workspace-chat-timeline" aria-live="polite">
-        <%= if @conversation_messages == [] do %>
-          <article class="workspace-message workspace-message-user">
-            <div class="workspace-message-avatar" aria-hidden="true">You</div>
-            <div class="workspace-message-body">
-              <p class="workspace-message-label">Prompt draft</p>
-              <pre>{@prompt}</pre>
-            </div>
-          </article>
-        <% else %>
-          <article
-            :for={message <- @conversation_messages}
-            id={"workspace-message-#{message_id(message)}"}
-            class={["workspace-message", message_class(message)]}
-          >
-            <div class="workspace-message-avatar" aria-hidden="true">
-              {message_avatar(message)}
-            </div>
-            <div class="workspace-message-body">
-              <p class="workspace-message-label">{message_label(message)}</p>
-              <pre>{message_content(message)}</pre>
-              <time
-                :if={message_time(message)}
-                class="workspace-message-time"
-                datetime={message_time(message)}
-              >
-                {message_time(message)}
-              </time>
-            </div>
-          </article>
-        <% end %>
+      <div
+        id="workspace-chat-timeline"
+        class="workspace-chat-timeline"
+        aria-live="polite"
+        phx-hook="ChatAutoScroll"
+      >
+        <% latest_assistant_id = latest_assistant_message_id(@conversation_messages) %>
+        <article
+          :for={message <- @conversation_messages}
+          id={timeline_message_dom_id(message, latest_assistant_id)}
+          class={["workspace-message", message_class(message)]}
+        >
+          <div class="workspace-message-avatar" aria-hidden="true">
+            {message_avatar(message)}
+          </div>
+          <div class="workspace-message-body">
+            <p class="workspace-message-label">{message_label(message)}</p>
+            <pre>{message_content(message)}</pre>
+            <time
+              :if={message_time(message)}
+              class="workspace-message-time"
+              datetime={message_time(message)}
+            >
+              {relative_time(message_time(message))}
+            </time>
+            <%= if message_id(message) == latest_assistant_id do %>
+              <dl class="workspace-runtime-meta">
+                <div :if={@status} id="agent-status">
+                  <dt>Status</dt>
+                  <dd>{@status}</dd>
+                </div>
+                <div :if={@signal_id} id="agent-signal">
+                  <dt>Signal</dt>
+                  <dd
+                    class="workspace-mono workspace-copy-target"
+                    phx-hook="CopyToClipboard"
+                    id={"agent-signal-copy-#{@signal_id}"}
+                    data-copy-value={@signal_id}
+                    role="button"
+                    tabindex="0"
+                    title="Copy signal id"
+                  >
+                    {@signal_id}
+                  </dd>
+                </div>
+                <div :if={@trace_id} id="agent-trace">
+                  <dt>Trace</dt>
+                  <dd
+                    class="workspace-mono workspace-copy-target"
+                    phx-hook="CopyToClipboard"
+                    id={"agent-trace-copy-#{@trace_id}"}
+                    data-copy-value={@trace_id}
+                    role="button"
+                    tabindex="0"
+                    title="Copy trace id"
+                  >
+                    {@trace_id}
+                  </dd>
+                </div>
+              </dl>
+            <% end %>
+          </div>
+        </article>
 
         <article
           :if={show_runtime_response?(@conversation_messages, @response)}
@@ -139,6 +172,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
       <form
         id="agent-form"
         phx-submit="ask"
+        phx-change="composer_change"
         class="workspace-composer"
         aria-busy={bool_attribute(@asking?)}
       >
@@ -150,12 +184,24 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           name="prompt"
           rows="3"
           class="workspace-composer-input"
-          placeholder="Ask the agent something..."
+          placeholder="Ask Allbert anything…"
           aria-labelledby="agent-prompt-label"
+          aria-describedby="agent-prompt-counter"
+          phx-hook="ComposerEnter"
+          data-submit-form="agent-form"
+          maxlength={@composer_max_bytes}
         ><%= @prompt %></textarea>
 
         <div class="workspace-composer-footer">
           <span class="workspace-composer-hint">Enter submits. Shift+Enter adds a line.</span>
+          <span
+            id="agent-prompt-counter"
+            class="workspace-composer-counter workspace-mono"
+            data-near-limit={bool_attribute(composer_near_limit?(@prompt, @composer_max_bytes))}
+            aria-live="polite"
+          >
+            {composer_counter_text(@prompt, @composer_max_bytes)}
+          </span>
           <button
             id="agent-submit"
             type="submit"
@@ -289,6 +335,49 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
     !Enum.any?(messages, &(message_role(&1) == "assistant" and message_content(&1) == response))
   end
 
+  defp latest_assistant_message_id(messages) when is_list(messages) do
+    messages
+    |> Enum.reverse()
+    |> Enum.find(&(message_role(&1) == "assistant"))
+    |> case do
+      nil -> nil
+      message -> message_id(message)
+    end
+  end
+
+  defp latest_assistant_message_id(_messages), do: nil
+
+  defp timeline_message_dom_id(message, latest_assistant_id) do
+    if message_id(message) == latest_assistant_id and message_role(message) == "assistant" do
+      "agent-response"
+    else
+      "workspace-message-#{message_id(message)}"
+    end
+  end
+
+  defp relative_time(iso_string) when is_binary(iso_string) do
+    with {:ok, dt, _offset} <- DateTime.from_iso8601(iso_string) do
+      relative_time_string(DateTime.utc_now(), dt)
+    else
+      _error -> iso_string
+    end
+  end
+
+  defp relative_time(_value), do: ""
+
+  defp relative_time_string(now, then) do
+    diff = DateTime.diff(now, then, :second)
+
+    cond do
+      diff < 0 -> Calendar.strftime(then, "%H:%M")
+      diff < 10 -> "just now"
+      diff < 60 -> "#{diff}s ago"
+      diff < 3600 -> "#{div(diff, 60)}m ago"
+      diff < 86_400 -> "#{div(diff, 3600)}h ago"
+      true -> Calendar.strftime(then, "%b %d %H:%M")
+    end
+  end
+
   defp approval_confirmation_id(handoff) when is_map(handoff) do
     Map.get(handoff, :confirmation_id) || Map.get(handoff, "confirmation_id")
   end
@@ -306,4 +395,20 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   end
 
   defp approval_detail_text(_lines), do: "No additional approval details."
+
+  defp composer_byte_length(prompt) when is_binary(prompt), do: byte_size(prompt)
+  defp composer_byte_length(_prompt), do: 0
+
+  defp composer_counter_text(prompt, max_bytes) when is_integer(max_bytes) do
+    used = composer_byte_length(prompt)
+    "#{used} / #{max_bytes}"
+  end
+
+  defp composer_counter_text(prompt, _max_bytes), do: "#{composer_byte_length(prompt)}"
+
+  defp composer_near_limit?(prompt, max_bytes) when is_integer(max_bytes) and max_bytes > 0 do
+    composer_byte_length(prompt) >= div(max_bytes * 9, 10)
+  end
+
+  defp composer_near_limit?(_prompt, _max_bytes), do: false
 end
