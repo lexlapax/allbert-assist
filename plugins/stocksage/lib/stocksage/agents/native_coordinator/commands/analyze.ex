@@ -549,7 +549,7 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
     end
   end
 
-  defp root_warning_reason(warnings) when is_list(warnings) do
+  defp root_warning_reason(warnings) do
     Enum.find_value(warnings, fn warning ->
       warning = to_string(warning)
 
@@ -558,8 +558,6 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
       end
     end)
   end
-
-  defp root_warning_reason(_warnings), do: nil
 
   defp failed_clause_summary([]), do: "unknown"
 

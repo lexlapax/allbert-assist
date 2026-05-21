@@ -41,8 +41,8 @@ ticker-specific overrides or deterministic rating floors.
 ## Local Commands
 
 ```sh
-mix stocksage.import_sqlite plugins/stocksage/test/fixtures/stocksage_fixture.db --user local --dry-run
-mix stocksage.import_sqlite plugins/stocksage/test/fixtures/stocksage_fixture.db --user local
+mix stocksage.import_sqlite path/to/legacy_stocksage.db --user local --dry-run
+mix stocksage.import_sqlite path/to/legacy_stocksage.db --user local
 mix stocksage.analyses list --user local
 mix stocksage.queue create AAPL --user local
 mix stocksage.queue list --user local

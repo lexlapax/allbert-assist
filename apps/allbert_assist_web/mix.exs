@@ -57,6 +57,7 @@ defmodule AllbertAssistWeb.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},
+      {:swoosh, "~> 1.16"},
       {:allbert_assist, in_umbrella: true},
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"}
