@@ -17,6 +17,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
        active_objectives: Map.get(context, :active_objectives, []),
        conversation_messages: Map.get(context, :conversation_messages, []),
        prompt: Map.get(state, :prompt, ""),
+       prompt_placeholder: Map.get(state, :prompt_placeholder, "Ask the agent something..."),
        response: Map.get(state, :response),
        error: Map.get(state, :error),
        thread_notice: Map.get(state, :thread_notice),
@@ -66,7 +67,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
       <% end %>
 
       <div id="workspace-chat-timeline" class="workspace-chat-timeline" aria-live="polite">
-        <%= if @conversation_messages == [] do %>
+        <%= if show_prompt_draft?(@conversation_messages, @prompt) do %>
           <article class="workspace-message workspace-message-user">
             <div class="workspace-message-avatar" aria-hidden="true">You</div>
             <div class="workspace-message-body">
@@ -124,7 +125,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         </article>
 
         <section
-          :if={@conversation_messages == [] and !@response}
+          :if={@conversation_messages == [] and !@response and !prompt_present?(@prompt)}
           class="workspace-chat-empty"
         >
           <span class="workspace-empty-state-icon" aria-hidden="true">
@@ -150,7 +151,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           name="prompt"
           rows="3"
           class="workspace-composer-input"
-          placeholder="Ask the agent something..."
+          placeholder={@prompt_placeholder}
           aria-labelledby="agent-prompt-label"
         ><%= @prompt %></textarea>
 
@@ -248,6 +249,12 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
+
+  defp show_prompt_draft?([], prompt), do: prompt_present?(prompt)
+  defp show_prompt_draft?(_messages, _prompt), do: false
+
+  defp prompt_present?(prompt) when is_binary(prompt), do: String.trim(prompt) != ""
+  defp prompt_present?(_prompt), do: false
 
   defp message_id(%{id: id}) when is_binary(id), do: id
   defp message_id(_message), do: System.unique_integer([:positive])
