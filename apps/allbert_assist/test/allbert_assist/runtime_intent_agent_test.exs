@@ -193,6 +193,35 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert ref["downstream_consumer"] == "url_summarizer"
   end
 
+  test "default runtime persists denied URL summarization without crashing" do
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Please check https://wikipedia.com/report and summarize it",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :denied
+    assert response.message =~ "External network request was denied"
+
+    assert {:ok, %{messages: [_user_message, assistant_message]}} =
+             Conversations.show_thread("local", response.thread_id)
+
+    assert Jason.encode!(assistant_message.action_log)
+    assert action_log_value(assistant_message.action_log, "status") == "denied"
+
+    denial_reason =
+      get_in(assistant_message.action_log, [
+        "actions",
+        Access.at(0),
+        "request",
+        "denial_reason"
+      ])
+
+    assert denial_reason =~ "host_not_allowlisted"
+    assert denial_reason =~ "wikipedia.com"
+  end
+
   test "default runtime trace includes confirmation metadata for external network requests", %{
     root: root
   } do
