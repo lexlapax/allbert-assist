@@ -1250,11 +1250,32 @@
   .allbert-appbar-center {
     grid-column: 1 / -1;
     justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+    padding-bottom: 0.125rem;
   }
 
+  /* v0.26a M31: the mobile pane fills the viewport remainder under the
+     sticky AppBar (≈56px) and the mobile tab strip (≈60px including
+     margin). The timeline / tile list inside still scrolls
+     independently. */
   .workspace-chat-pane,
   .workspace-canvas-node {
-    min-height: calc(100dvh - 14rem);
+    min-height: calc(100dvh - 9rem);
+    max-height: calc(100dvh - 9rem);
+  }
+
+  /* v0.26a M31: the mobile tab toggle is sticky just below the AppBar so
+     operators can switch between chat / canvas / ephemerals without
+     scrolling back to the top. */
+  #workspace-mobile-tabs {
+    position: sticky;
+    top: 3.5rem;
+    z-index: 15;
+    background: var(--workspace-bg);
+    padding: 0.5rem 0;
+    margin-bottom: 0.5rem;
   }
 
   .workspace-composer-footer,
@@ -1262,6 +1283,10 @@
   .workspace-tile-footer {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .workspace-composer-counter {
+    align-self: flex-end;
   }
 }
 
