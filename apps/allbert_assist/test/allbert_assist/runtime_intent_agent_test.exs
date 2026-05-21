@@ -84,6 +84,37 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert response.decision.trace_metadata.surface_target.path == "/agent"
   end
 
+  test "default runtime routes generic setting-shaped prompts to update_setting" do
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Set workspace.theme to dark",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "Updated workspace.theme"
+    assert response.decision.selected_action == "update_setting"
+    assert response.decision.trace_metadata.intent_candidates.selected.id == "update_setting"
+    assert [%{name: "update_setting"}] = response.actions
+    assert {:ok, "dark"} = Settings.get("workspace.theme")
+  end
+
+  test "default runtime refuses generic secret-shaped setting prompts without echoing value" do
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Set providers.openai.api_key_ref to sk-test",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :denied
+    assert response.message =~ "will not store provider credentials"
+    refute response.message =~ "sk-test"
+    assert response.decision.selected_action == "set_provider_credential"
+    assert [%{name: "set_provider_credential"}] = response.actions
+  end
+
   test "default runtime refuses command execution" do
     assert {:ok, response} =
              Runtime.submit_user_input(%{
