@@ -82,7 +82,8 @@ defmodule AllbertAssist.Umbrella.MixProject do
         "deps.unlock --unused",
         "format --check-formatted",
         "credo --strict",
-        "test",
+        "do --app allbert_assist cmd mix test",
+        "do --app allbert_assist_web cmd mix test",
         "do --app allbert_assist cmd mix test ../../plugins/stocksage/test/stocksage ../../plugins/stocksage/test/mix",
         "do --app allbert_assist cmd mix test ../../plugins/allbert.telegram/test ../../plugins/allbert.email/test"
       ],

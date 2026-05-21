@@ -61,6 +61,7 @@ defmodule AllbertAssist.MixProject do
       {:swoosh, "~> 1.16"},
       {:gen_smtp, "~> 1.0"},
       {:req, "~> 0.5"},
+      {:plug, "~> 1.19", only: :test},
       {:tzdata, "~> 1.1"},
       {:yaml_elixir, "~> 2.12"},
       {:ymlr, "~> 5.0"},

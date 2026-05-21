@@ -31,8 +31,11 @@ defmodule StockSage.Import.SqliteImporterTest do
     assert length(Memory.list_entries("alice")) == 3
   end
 
-  test "committed smoke fixture imports successfully" do
+  test "representative smoke fixture imports successfully", %{path: path} do
     fixture_path = Path.expand("../../fixtures/stocksage_fixture.db", __DIR__)
+
+    fixture_path =
+      if File.exists?(fixture_path), do: fixture_path, else: LegacyFixture.create!(path)
 
     assert {:ok, result} = SqliteImporter.import(fixture_path, user_id: "alice")
 
