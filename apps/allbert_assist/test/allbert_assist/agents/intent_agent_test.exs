@@ -136,6 +136,31 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert update_response.message =~ "Updated operator.communication_style"
     assert [%{name: "update_setting"}] = update_response.actions
 
+    assert {:ok, generic_update} =
+             IntentAgent.respond(%{
+               text: "Set workspace.theme to dark",
+               channel: :test,
+               operator_id: "local",
+               input_signal_id: "sig-generic-setting"
+             })
+
+    assert generic_update.status == :completed
+    assert generic_update.message =~ "Updated workspace.theme"
+    assert [%{name: "update_setting"}] = generic_update.actions
+    assert {:ok, "dark"} = Settings.get("workspace.theme")
+
+    assert {:ok, read_only_update} =
+             IntentAgent.respond(%{
+               text: "Set workspace.mobile.breakpoint_px to 900",
+               channel: :test,
+               operator_id: "local",
+               input_signal_id: "sig-read-only-setting"
+             })
+
+    assert read_only_update.status == :denied
+    assert read_only_update.message =~ "read_only_setting"
+    assert [%{name: "update_setting"}] = read_only_update.actions
+
     assert {:ok, guidance} =
              IntentAgent.respond(%{
                text: "configure my OpenAI API key",
@@ -157,6 +182,19 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
 
     assert refused.status == :denied
     assert refused.message =~ "will not store provider credentials"
+
+    assert {:ok, dotted_refused} =
+             IntentAgent.respond(%{
+               text: "Set providers.openai.api_key_ref to sk-test",
+               channel: :test,
+               operator_id: "local",
+               input_signal_id: "sig-provider-key-ref"
+             })
+
+    assert dotted_refused.status == :denied
+    assert dotted_refused.message =~ "will not store provider credentials"
+    refute dotted_refused.message =~ "sk-test"
+    assert [%{name: "set_provider_credential"}] = dotted_refused.actions
   end
 
   test "answers capability prompts with safe v0.01 capabilities" do
