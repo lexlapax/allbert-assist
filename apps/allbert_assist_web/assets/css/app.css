@@ -713,6 +713,50 @@
   color: var(--allbert-warn);
 }
 
+/* v0.26a M34: chips rendered as anchors / links pick up interactive
+   affordance — hover ring + accent text + pointer cursor — so the
+   AppBar surfaces them as real navigation rather than inert labels. */
+a.allbert-chip-link,
+a.allbert-chip-link:visited,
+.allbert-chip-link {
+  text-decoration: none;
+  cursor: pointer;
+  color: var(--workspace-fg);
+}
+
+a.allbert-chip-link:hover,
+a.allbert-chip-link:focus-visible,
+.allbert-chip-link:hover,
+.allbert-chip-link:focus-visible {
+  border-color: var(--workspace-accent);
+  background: var(--allbert-accent-soft);
+  color: var(--workspace-accent);
+}
+
+/* v0.26a M34: AppBar overflow menu positioning + chrome. Anchored to
+   the trigger via the wrapping div; clicks outside don't auto-close
+   (LiveView state owns open/close) but Escape will collapse it once
+   FocusTrap exits. */
+.allbert-overflow-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.workspace-overflow-menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 30;
+  min-width: 16rem;
+  display: grid;
+  gap: 0.125rem;
+  padding: 0.375rem;
+  background: var(--workspace-panel);
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 12px 24px -8px rgb(0 0 0 / 25%);
+}
+
 .workspace-status-danger {
   border-color: var(--allbert-danger);
   color: var(--allbert-danger);
