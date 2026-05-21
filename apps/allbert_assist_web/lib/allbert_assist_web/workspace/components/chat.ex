@@ -217,64 +217,84 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
       </form>
 
       <%= if @approval_handoff do %>
-        <section
-          id="approval-handoff"
-          class="workspace-approval-inline"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="approval-title"
-          phx-hook="FocusTrap"
+        <div
+          id="approval-handoff-overlay"
+          class="workspace-approval-overlay"
+          data-state="open"
+          aria-hidden="false"
         >
-          <div>
-            <h2 id="approval-title" class="workspace-card-title">Approval Required</h2>
-            <p id="approval-confirmation" class="workspace-card-summary workspace-mono">
-              Confirmation: {approval_confirmation_id(@approval_handoff)}
-            </p>
-          </div>
+          <section
+            id="approval-handoff"
+            class="workspace-approval-inline workspace-approval-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="approval-title"
+            aria-describedby="approval-confirmation"
+            phx-hook="FocusTrap"
+            tabindex="-1"
+          >
+            <div>
+              <p class="workspace-approval-eyebrow">Approval Required</p>
+              <h2 id="approval-title" class="workspace-card-title">
+                {approval_target_summary(@approval_handoff, @approval_lines)}
+              </h2>
+              <p
+                id="approval-confirmation"
+                class="workspace-card-summary workspace-mono workspace-copy-target"
+                phx-hook="CopyToClipboard"
+                data-copy-value={approval_confirmation_id(@approval_handoff)}
+                role="button"
+                tabindex="0"
+                title="Copy confirmation id"
+              >
+                {approval_confirmation_id(@approval_handoff)}
+              </p>
+            </div>
 
-          <ul class="workspace-approval-lines">
-            <li :for={line <- @approval_lines}>{line}</li>
-          </ul>
+            <ul class="workspace-approval-lines">
+              <li :for={line <- @approval_lines}>{line}</li>
+            </ul>
 
-          <div class="workspace-approval-actions">
-            <button
-              id="approval-details"
-              type="button"
-              phx-click="toggle_approval_details"
-              class="workspace-button workspace-button-secondary"
-              aria-controls="approval-details-data"
-              aria-expanded={bool_attribute(@show_approval_details?)}
-            >
-              Details
-            </button>
-            <button
-              id="approval-deny"
-              type="button"
-              phx-click="deny_confirmation"
-              phx-value-id={approval_confirmation_id(@approval_handoff)}
-              class="workspace-button workspace-button-danger"
-              phx-disable-with="Denying"
-            >
-              Deny
-            </button>
-            <button
-              id="approval-approve"
-              type="button"
-              phx-click="approve_confirmation"
-              phx-value-id={approval_confirmation_id(@approval_handoff)}
-              class="workspace-button workspace-button-primary"
-              phx-disable-with="Approving"
-            >
-              Approve
-            </button>
-          </div>
+            <div class="workspace-approval-actions">
+              <button
+                id="approval-details"
+                type="button"
+                phx-click="toggle_approval_details"
+                class="workspace-button workspace-button-secondary"
+                aria-controls="approval-details-data"
+                aria-expanded={bool_attribute(@show_approval_details?)}
+              >
+                {if @show_approval_details?, do: "Hide details", else: "Details"}
+              </button>
+              <button
+                id="approval-deny"
+                type="button"
+                phx-click="deny_confirmation"
+                phx-value-id={approval_confirmation_id(@approval_handoff)}
+                class="workspace-button workspace-button-danger"
+                phx-disable-with="Denying"
+              >
+                Deny
+              </button>
+              <button
+                id="approval-approve"
+                type="button"
+                phx-click="approve_confirmation"
+                phx-value-id={approval_confirmation_id(@approval_handoff)}
+                class="workspace-button workspace-button-primary"
+                phx-disable-with="Approving"
+              >
+                Approve
+              </button>
+            </div>
 
-          <pre
-            :if={@show_approval_details?}
-            id="approval-details-data"
-            class="workspace-approval-details"
-          ><%= approval_detail_text(@approval_lines) %></pre>
-        </section>
+            <pre
+              :if={@show_approval_details?}
+              id="approval-details-data"
+              class="workspace-approval-details"
+            ><%= approval_detail_text(@approval_lines) %></pre>
+          </section>
+        </div>
       <% end %>
 
       <%= if @approval_result do %>
@@ -395,6 +415,21 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   end
 
   defp approval_detail_text(_lines), do: "No additional approval details."
+
+  # v0.26a M32: derive a short human-readable target summary for the modal
+  # title — operators want to see WHAT they are approving before reading the
+  # full approval lines. Falls back to the first approval line, then to a
+  # neutral phrase if nothing is available yet.
+  defp approval_target_summary(handoff, lines) do
+    Map.get(handoff || %{}, :target) ||
+      Map.get(handoff || %{}, "target") ||
+      first_line(lines) ||
+      "Approve runtime action"
+  end
+
+  defp first_line([]), do: nil
+  defp first_line([first | _rest]), do: to_string(first)
+  defp first_line(_lines), do: nil
 
   defp composer_byte_length(prompt) when is_binary(prompt), do: byte_size(prompt)
   defp composer_byte_length(_prompt), do: 0

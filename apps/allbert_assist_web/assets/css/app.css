@@ -1179,6 +1179,56 @@
   box-shadow: inset 4px 0 0 var(--allbert-warn);
 }
 
+/* v0.26a M32: promote the approval handoff into a modal overlay so the
+   blocking approval flow commands attention. The FocusTrap hook on the
+   inner section keeps Tab cycling within the modal; the overlay div
+   provides the backdrop + centered viewport positioning. */
+.workspace-approval-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgb(15 23 42 / 55%);
+  backdrop-filter: saturate(140%) blur(2px);
+}
+
+#workspace-shell[data-theme="dark"] .workspace-approval-overlay {
+  background: rgb(0 0 0 / 70%);
+}
+
+.workspace-approval-modal {
+  width: 100%;
+  max-width: 36rem;
+  max-height: 80dvh;
+  overflow-y: auto;
+  background: var(--workspace-panel);
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 25%);
+  outline: none;
+}
+
+.workspace-approval-modal:focus-visible {
+  outline: 3px solid var(--workspace-focus);
+  outline-offset: 2px;
+}
+
+.workspace-approval-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--allbert-warn);
+  margin-bottom: 0.25rem;
+}
+
+#workspace-shell[data-reduce-motion="true"] .workspace-approval-overlay {
+  backdrop-filter: none;
+}
+
 .workspace-approval-lines {
   display: grid;
   gap: 0.25rem;
