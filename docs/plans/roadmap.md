@@ -1380,6 +1380,39 @@ Shipped direction:
   plugin-contributed workspace regions, public AG-UI HTTP endpoint,
   A2UI / MCP Apps interop, canvas snapshot / undo / time-travel.
 
+## v0.26a: Workspace UX/UI Substrate Pass
+
+Plan: `docs/plans/v0.26a-ui-plan.md`
+
+Status: implemented through M35 closeout on 2026-05-21. Version metadata
+is `0.26.1`. Fast-follow visual + interaction polish on top of v0.26;
+substrate (catalog, schema, signals, settings, fragment validation, AGUI
+bridge, offline editor) untouched.
+
+- Live chat history accumulates without navigation (M28).
+- Composer clears on submit; Enter submits + Shift+Enter newlines + live
+  char counter against `workspace.canvas.tile_body_max_bytes` (M29).
+- Sticky AppBar + independently scrolling chat / canvas panes; full
+  `100dvh` flex-column shell (M30).
+- Mobile tab strip becomes sticky just below the AppBar; pane heights
+  retightened to suit the new chrome (M31).
+- Approval handoff renders as a centered modal overlay with backdrop
+  scrim, dark-mode and reduce-motion variants, and copy chip on the
+  confirmation id. Authority unchanged (M32).
+- Every catalog card renders a status pill driven by emitter
+  `prop(:status)` and a copy chip for its external id; tile kebab gains
+  "Copy tile id" (M33).
+- AppBar chips wire real interactions (objective → /objectives, tile →
+  canvas anchor, ephemeral → ephemeral anchor); 3-state theme cycle
+  (system → dark → light); overflow menu opens with theme cycle +
+  workspace settings + jobs + objectives links (M34).
+- Bumped `App.CoreApp.version/0` + umbrella + child app metadata to
+  `0.26.1`; CHANGELOG entry + this roadmap row.
+- Defer to a follow-up: real tile inspector modal (M33 footed at "expand
+  to inspect"), thread switcher dropdown (current AppBar thread chip
+  copies the id), real-time turn streaming, multi-tab sync screenshot
+  verification.
+
 ## v0.27: StockSage LiveViews
 
 Plan: `docs/plans/v0.27-plan.md`
