@@ -80,7 +80,8 @@ defmodule AllbertAssistWeb.AgentLive do
         approval_result: nil,
         show_approval_details?: false,
         open_tile_menu_id: nil,
-        workspace_badges: []
+        workspace_badges: [],
+        composer_max_bytes: workspace_canvas_tile_body_max_bytes()
       )
       |> assign(workspace_assigns(user_id, thread_id))
       |> maybe_sync_thread_url(sync_thread_url?, thread_id, active_app)
@@ -128,6 +129,17 @@ defmodule AllbertAssistWeb.AgentLive do
   def handle_event("toggle_approval_details", _params, socket) do
     {:noreply, update(socket, :show_approval_details?, &(!&1))}
   end
+
+  # v0.26a M29: keep `assigns.prompt` in sync as the operator types so the
+  # composer reset on submit (and the live character counter) work without
+  # re-rendering the entire timeline. The text is bounded server-side by the
+  # textarea's `maxlength` attribute (mirrored from
+  # `workspace.canvas.tile_body_max_bytes`).
+  def handle_event("composer_change", %{"prompt" => prompt}, socket) when is_binary(prompt) do
+    {:noreply, assign(socket, :prompt, prompt)}
+  end
+
+  def handle_event("composer_change", _params, socket), do: {:noreply, socket}
 
   def handle_event("toggle_workspace_theme", _params, socket) do
     next_theme = next_workspace_theme(socket.assigns.workspace_theme)
@@ -262,16 +274,24 @@ defmodule AllbertAssistWeb.AgentLive do
 
   @impl true
   def handle_async(:ask, {:ok, {:ok, response}}, socket) do
-    {:noreply,
-     assign(socket,
-       asking?: false,
-       response: response.message,
-       status: response.status,
-       signal_id: response.signal_id,
-       trace_id: Map.get(response, :trace_id),
-       approval_handoff: Map.get(response, :approval_handoff),
-       approval_lines: ApprovalHandoff.lines(Map.get(response, :approval_handoff))
-     )}
+    socket =
+      socket
+      |> assign(
+        asking?: false,
+        response: response.message,
+        status: response.status,
+        signal_id: response.signal_id,
+        trace_id: Map.get(response, :trace_id),
+        approval_handoff: Map.get(response, :approval_handoff),
+        approval_lines: ApprovalHandoff.lines(Map.get(response, :approval_handoff)),
+        # v0.26a M29: clear composer after a successful turn.
+        prompt: ""
+      )
+      # v0.26a M28: refresh conversation_messages + tiles + ephemerals so the
+      # chat timeline accumulates the just-completed turn without a navigation.
+      |> refresh_workspace()
+
+    {:noreply, socket}
   end
 
   def handle_async(:ask, {:ok, {:error, reason}}, socket) do
@@ -713,6 +733,13 @@ defmodule AllbertAssistWeb.AgentLive do
     end
   end
 
+  defp workspace_canvas_tile_body_max_bytes do
+    case Settings.get("workspace.canvas.tile_body_max_bytes") do
+      {:ok, value} when is_integer(value) and value > 0 -> value
+      _other -> 65_536
+    end
+  end
+
   defp workspace_tile_editor_reply(params, socket) do
     with true <- socket.assigns.workspace_offline_enabled? || {:error, :offline_disabled},
          {:ok, %{status: status, result: result}}
@@ -816,7 +843,8 @@ defmodule AllbertAssistWeb.AgentLive do
       workspace_indexeddb_quota_bytes: assigns.workspace_indexeddb_quota_bytes,
       workspace_canvas_max_tiles_per_thread: assigns.workspace_canvas_max_tiles_per_thread,
       open_tile_menu_id: assigns.open_tile_menu_id,
-      active_app: assigns.active_app
+      active_app: assigns.active_app,
+      composer_max_bytes: assigns.composer_max_bytes
     }
   end
 
