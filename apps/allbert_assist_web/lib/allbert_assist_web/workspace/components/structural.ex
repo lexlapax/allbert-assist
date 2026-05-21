@@ -209,6 +209,18 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
               {tile_menu_primary_label(@node)}
             </button>
             <button
+              :if={tile_id(@node)}
+              type="button"
+              role="menuitem"
+              class="workspace-tile-menu-item"
+              id={"workspace-tile-copy-id-#{@node.id}"}
+              phx-hook="CopyToClipboard"
+              data-copy-value={tile_id(@node)}
+              title="Copy tile id"
+            >
+              <.icon name="hero-clipboard-document-micro" class="size-4" /> Copy tile id
+            </button>
+            <button
               :if={!deleted?(@node)}
               type="button"
               role="menuitem"
