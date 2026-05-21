@@ -6,6 +6,13 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Settings
   alias StockSage.Agents.NativeCoordinator
+  alias StockSage.Agents.NativeCoordinator.Commands.Analyze
+
+  defmodule ErrorLLMProvider do
+    def generate_report(spec, _request, _evidence, _prior_reports, _model_profile) do
+      {:error, {:credential_missing, spec.id}}
+    end
+  end
 
   @request %{
     ticker: "AAPL",
@@ -83,6 +90,28 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
     refute Map.has_key?(report.agent_reports, "stocksage.market_context")
     assert Enum.any?(report.warnings, &String.contains?(&1, "stocksage.market_context"))
     assert report.agent_reports["stocksage.quality_gate"].quality_status == :passed
+  end
+
+  test "LLM specialist failures preserve a visible failure reason" do
+    original = Application.get_env(:allbert_assist, StockSage.Agents.LLM, [])
+
+    Application.put_env(:allbert_assist, StockSage.Agents.LLM,
+      provider: ErrorLLMProvider,
+      enabled?: true
+    )
+
+    on_exit(fn -> Application.put_env(:allbert_assist, StockSage.Agents.LLM, original) end)
+
+    put_setting!("stocksage.native_llm_enabled", true)
+
+    assert {:error, reason, partial_report} = Analyze.analyze(@request)
+
+    assert is_binary(reason)
+    assert reason =~ "native_llm_unavailable: provider error"
+    assert reason =~ "quality gate rejected output"
+    assert partial_report.status == :failed
+    assert Enum.any?(partial_report.warnings, &String.contains?(&1, "native_llm_unavailable"))
+    refute Map.has_key?(partial_report.agent_reports, "stocksage.market_context")
   end
 
   test "configured debate and risk rounds create one objective step per agent turn" do

@@ -46,6 +46,8 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
   end
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Confirmations
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
@@ -168,6 +170,126 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
     refute Map.has_key?(response, :confirmation_id)
   end
 
+  test "approved native run surfaces missing LLM credential failure reason" do
+    with_missing_anthropic_key(fn ->
+      assert {:ok, _subscription_id} =
+               Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")
+
+      put_setting!("stocksage.native_llm_enabled", true)
+
+      params = %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-15",
+        user_id: "alice",
+        engine: "native",
+        evidence_mode: "fixture",
+        thread_id: "thr_native_missing_key",
+        session_id: "sess_native_missing_key"
+      }
+
+      context = %{
+        confirmation: %{approved?: true, id: "native-missing-key-confirmation"},
+        trace_id: "trace-native-missing-key"
+      }
+
+      assert {:ok, response} = Runner.run("run_analysis", params, context)
+
+      reason = "native_llm_unavailable: provider credential missing for anthropic"
+
+      assert response.status == :failed
+      assert response.error == reason
+      assert response.message =~ reason
+      assert response.actions |> hd() |> get_in([:stocksage, :error]) == reason
+
+      {:ok, analysis} = Analyses.get_analysis_with_details("alice", response.analysis_id)
+      assert analysis.status == "failed"
+      assert analysis.summary == reason
+      assert analysis.metadata["error"] == reason
+
+      signal =
+        5
+        |> collect_fragment_signals()
+        |> Enum.find(&String.starts_with?(&1.data.envelope.id, "stocksage_analysis_failed_"))
+
+      refute is_nil(signal)
+      envelope = signal.data.envelope
+      assert envelope.kind == :analysis_card
+      assert envelope.thread_id == "thr_native_missing_key"
+      assert envelope.surface.fallback_text == reason
+
+      [node] = envelope.surface.nodes
+      assert node.props.body == reason
+    end)
+  end
+
+  test "async LiveView approval appends failed native result to the conversation" do
+    with_missing_anthropic_key(fn ->
+      put_setting!("stocksage.native_llm_enabled", true)
+
+      assert {:ok, thread} = Conversations.create_general_thread("alice", "Run StockSage")
+
+      params = %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-15",
+        user_id: "alice",
+        engine: "native",
+        evidence_mode: "fixture",
+        thread_id: thread.id,
+        session_id: "sess_native_async_missing_key"
+      }
+
+      assert {:ok, pending} =
+               Runner.run("run_analysis", params, %{
+                 channel: :live_view,
+                 user_id: "alice",
+                 operator_id: "alice",
+                 thread_id: thread.id,
+                 session_id: "sess_native_async_missing_key"
+               })
+
+      assert pending.status == :needs_confirmation
+
+      assert {:ok, approval} =
+               Runner.run("approve_confirmation", %{id: pending.confirmation_id}, %{
+                 actor: "alice",
+                 user_id: "alice",
+                 operator_id: "alice",
+                 channel: :live_view,
+                 thread_id: thread.id,
+                 session_id: "sess_native_async_missing_key"
+               })
+
+      assert approval.status == :completed
+      assert approval.actions |> hd() |> get_in([:confirmation_metadata, :target_async?])
+
+      reason = "native_llm_unavailable: provider credential missing for anthropic"
+
+      record =
+        wait_until(fn ->
+          {:ok, record} = Confirmations.read(pending.confirmation_id)
+
+          if record |> get_in(["operator_resolution", "target_status"]) |> to_string() ==
+               "failed" do
+            record
+          end
+        end)
+
+      target_result = get_in(record, ["operator_resolution", "target_result"])
+      assert target_result["error"] == reason
+
+      message =
+        wait_until(fn ->
+          thread
+          |> Conversations.list_messages()
+          |> Enum.find(&(&1.role == "assistant" and String.contains?(&1.content, reason)))
+        end)
+
+      assert message.action_log["confirmation_id"] == pending.confirmation_id
+      assert message.action_log["target_status"] == "failed"
+      assert message.action_log["target_result"]["error"] == reason
+    end)
+  end
+
   test "approved native run can use Jido.AI provider-backed specialist generation" do
     original = Application.get_env(:allbert_assist, StockSage.Agents.LLM, [])
 
@@ -252,4 +374,46 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp with_missing_anthropic_key(fun) do
+    original_llm = Application.get_env(:allbert_assist, StockSage.Agents.LLM, [])
+    original_req_llm_key = Application.get_env(:req_llm, :anthropic_api_key)
+    original_env_key = System.get_env("ANTHROPIC_API_KEY")
+
+    try do
+      Application.put_env(:allbert_assist, StockSage.Agents.LLM, enabled?: true)
+      Application.delete_env(:req_llm, :anthropic_api_key)
+      System.delete_env("ANTHROPIC_API_KEY")
+
+      fun.()
+    after
+      Application.put_env(:allbert_assist, StockSage.Agents.LLM, original_llm)
+      restore_req_llm_key(:anthropic_api_key, original_req_llm_key)
+      restore_system_env("ANTHROPIC_API_KEY", original_env_key)
+    end
+  end
+
+  defp restore_req_llm_key(key, nil), do: Application.delete_env(:req_llm, key)
+  defp restore_req_llm_key(key, value), do: Application.put_env(:req_llm, key, value)
+
+  defp restore_system_env(key, nil), do: System.delete_env(key)
+  defp restore_system_env(key, value), do: System.put_env(key, value)
+
+  defp wait_until(fun, attempts \\ 50)
+  defp wait_until(_fun, 0), do: flunk("condition was not met")
+
+  defp wait_until(fun, attempts) do
+    case fun.() do
+      nil ->
+        Process.sleep(20)
+        wait_until(fun, attempts - 1)
+
+      false ->
+        Process.sleep(20)
+        wait_until(fun, attempts - 1)
+
+      value ->
+        value
+    end
+  end
 end

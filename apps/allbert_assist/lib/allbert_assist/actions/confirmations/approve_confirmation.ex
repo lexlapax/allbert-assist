@@ -24,6 +24,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Security.PermissionGate
@@ -622,6 +623,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
         )
 
       mark_run_analysis_step_finished(record, response, context)
+      append_run_analysis_async_message(record, response, context, confirmation_id, metadata)
     end
 
     case Process.whereis(AllbertAssist.TaskSupervisor) do
@@ -792,6 +794,65 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
   defp run_analysis_engine(resume_params) do
     param_value(resume_params, "engine") || "native"
+  end
+
+  defp append_run_analysis_async_message(record, response, context, confirmation_id, metadata) do
+    with user_id when is_binary(user_id) and user_id != "" <-
+           run_analysis_message_user_id(record, context),
+         thread_id when is_binary(thread_id) and thread_id != "" <-
+           run_analysis_message_thread_id(record, response, context),
+         {:ok, thread} <- Conversations.get_thread(user_id, thread_id) do
+      _ =
+        Conversations.append_assistant_message(
+          thread,
+          run_analysis_async_message(response),
+          %{
+            trace_id: Map.get(context, :trace_id),
+            action_log: %{
+              confirmation_id: confirmation_id,
+              target_status: Map.get(metadata, :target_status),
+              target_result: Map.get(metadata, :target_result)
+            },
+            metadata: %{
+              source: "run_analysis_async_resume",
+              confirmation_id: confirmation_id
+            }
+          }
+        )
+
+      :ok
+    else
+      _other -> :ok
+    end
+  end
+
+  defp run_analysis_message_user_id(record, context) do
+    resume_params = Map.get(record, "resume_params_ref", %{})
+
+    param_value(resume_params, "user_id") ||
+      get_in(record, ["origin", "user_id"]) ||
+      Map.get(context, :user_id) ||
+      Map.get(context, :operator_id) ||
+      Map.get(context, :actor)
+  end
+
+  defp run_analysis_message_thread_id(record, response, context) do
+    resume_params = Map.get(record, "resume_params_ref", %{})
+
+    Map.get(response, :thread_id) ||
+      Map.get(response, "thread_id") ||
+      param_value(resume_params, "thread_id") ||
+      get_in(record, ["origin", "thread_id"]) ||
+      Map.get(context, :thread_id)
+  end
+
+  defp run_analysis_async_message(%{message: message}) when is_binary(message) do
+    String.slice(message, 0, 1_000)
+  end
+
+  defp run_analysis_async_message(response) when is_map(response) do
+    status = Map.get(response, :status, Map.get(response, "status", :failed))
+    "StockSage analysis #{status}."
   end
 
   defp param_value(map, key) when is_map(map) and is_binary(key) do
