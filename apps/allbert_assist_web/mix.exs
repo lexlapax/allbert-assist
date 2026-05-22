@@ -30,8 +30,14 @@ defmodule AllbertAssistWeb.MixProject do
   end
 
   # Specifies which paths to compile per environment.
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
+  defp elixirc_paths(:test), do: ["lib" | shipped_plugin_web_paths()] ++ ["test/support"]
+  defp elixirc_paths(_), do: ["lib" | shipped_plugin_web_paths()]
+
+  defp shipped_plugin_web_paths do
+    [
+      Path.expand("../../plugins/stocksage/lib/stocksage_web", __DIR__)
+    ]
+  end
 
   # Specifies your project dependencies.
   #

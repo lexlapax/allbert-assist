@@ -8,6 +8,7 @@ defmodule StockSage.PluginTest do
   alias AllbertAssist.Plugin.ChildSupervisor
   alias AllbertAssist.Plugin.Discovery
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Surface
 
   setup do
     plugin_registry = :"stocksage_plugin_registry_#{System.unique_integer([:positive])}"
@@ -140,9 +141,26 @@ defmodule StockSage.PluginTest do
 
   test "StockSage app validates against the v0.18 surface provider contract" do
     assert :ok = StockSage.App.validate([])
-    assert {:ok, %{app_id: :stocksage}} = AppValidator.validate(StockSage.App)
-    assert StockSage.App.surfaces() == []
-    assert StockSage.App.surface_catalog() == []
+    assert {:ok, attrs} = AppValidator.validate(StockSage.App)
+    assert attrs.app_id == :stocksage
+    assert attrs.provider_surfaces == StockSage.App.surfaces()
+    assert attrs.surfaces == []
+
+    assert Enum.map(attrs.provider_surfaces, & &1.path) == [
+             "/stocksage",
+             "/stocksage/analyses",
+             "/stocksage/queue",
+             "/stocksage/trends"
+           ]
+
+    assert Enum.all?(attrs.provider_surfaces, &match?(%Surface{app_id: :stocksage}, &1))
+
+    assert Enum.map(attrs.surface_catalog, & &1.component) == [
+             :analysis_card,
+             :agent_report_card,
+             :parity_card,
+             :debate_round_card
+           ]
   end
 
   defp assert_eventually(fun, attempts \\ 20)
