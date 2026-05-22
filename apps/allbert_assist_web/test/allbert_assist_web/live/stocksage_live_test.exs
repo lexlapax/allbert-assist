@@ -6,6 +6,7 @@ defmodule StockSageWeb.LiveTest do
   alias AllbertAssist.{App, Confirmations, Objectives, Paths, Plugin, Session, Settings}
   alias StockSage.Analyses
   alias StockSage.Progress
+  alias StockSage.Queue
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -39,7 +40,9 @@ defmodule StockSageWeb.LiveTest do
       {:ok, view, html} = live(conn, path)
 
       assert has_element?(view, root_id)
+      assert has_element?(view, "#stocksage-nav")
       assert html =~ ~s(data-active-app="stocksage")
+      assert html =~ "focus-visible:ring"
     end
 
     assert {:ok, %{active_app: :stocksage}} = Session.get("local", "web-local")
@@ -71,6 +74,60 @@ defmodule StockSageWeb.LiveTest do
     assert has_element?(view, "#stocksage-disabled")
     assert html =~ "StockSage web surfaces are disabled"
     assert {:ok, %{active_app: :stocksage}} = Session.get("local", "web-local")
+  end
+
+  test "workspace, queue, and trends render local app-flow state", %{conn: conn} do
+    %{analysis: analysis} = create_analysis_detail_fixture()
+
+    assert {:ok, queue_entry} =
+             Queue.create_entry(%{
+               user_id: "local",
+               symbol: "MSFT",
+               priority: "high",
+               requested_for: ~D[2026-05-22]
+             })
+
+    assert {:ok, outcome} =
+             Analyses.create_outcome(%{
+               user_id: "local",
+               symbol: "AAPL",
+               label: "win",
+               horizon_days: 30,
+               observed_on: ~D[2026-05-22],
+               return_pct: Decimal.new("4.2")
+             })
+
+    {:ok, workspace_view, workspace_html} = live(conn, ~p"/stocksage")
+    assert has_element?(workspace_view, "#stocksage-workspace-summary")
+    assert workspace_html =~ ~s(id="stocksage-workspace-analysis-#{analysis.id}")
+
+    {:ok, queue_view, _queue_html} = live(conn, ~p"/stocksage/queue")
+    assert has_element?(queue_view, "#stocksage-queue-entry-#{queue_entry.id}")
+    assert render(queue_view) =~ "MSFT"
+
+    {:ok, trends_view, _trends_html} = live(conn, ~p"/stocksage/trends")
+    assert has_element?(trends_view, "#stocksage-trend-win")
+    assert has_element?(trends_view, "#stocksage-outcome-#{outcome.id}")
+    assert render(trends_view) =~ "4.2"
+  end
+
+  test "empty app-flow states render without data", %{conn: conn} do
+    {:ok, analysis_view, _html} = live(conn, ~p"/stocksage/analyses")
+    assert has_element?(analysis_view, "#stocksage-analysis-index-empty")
+
+    {:ok, queue_view, _html} = live(conn, ~p"/stocksage/queue")
+    assert has_element?(queue_view, "#stocksage-queue-empty")
+
+    {:ok, trends_view, _html} = live(conn, ~p"/stocksage/trends")
+    assert has_element?(trends_view, "#stocksage-trends-empty")
+  end
+
+  test "missing analysis renders bounded error state", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/stocksage/analyses/ana_missing")
+
+    assert has_element?(view, "#stocksage-analysis-error")
+    assert html =~ "Analysis unavailable"
+    assert html =~ "ana_missing"
   end
 
   test "analysis detail uses StockSage-owned card renderers", %{conn: conn} do

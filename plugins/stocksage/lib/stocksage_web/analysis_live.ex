@@ -10,6 +10,7 @@ defmodule StockSageWeb.AnalysisLive do
   alias StockSage.Analyses
   alias StockSage.Progress
   alias StockSage.SurfaceNodes
+  alias StockSageWeb.Components.AppShell
   alias StockSageWeb.Components.SurfaceRenderer
   alias StockSageWeb.Live
 
@@ -59,28 +60,41 @@ defmodule StockSageWeb.AnalysisLive do
     ~H"""
     <main
       id="stocksage-analyses"
-      class="min-h-screen bg-zinc-950 px-6 py-6 text-zinc-100"
+      class="min-h-screen overflow-x-hidden bg-zinc-950 px-4 py-6 text-zinc-100 sm:px-6"
       data-active-app={@active_app}
       data-analysis-id={@analysis_id}
       data-surface={@stocksage_surface}
     >
-      <.disabled_state :if={!@web_enabled?} />
+      <a
+        href="#stocksage-main-content"
+        class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-emerald-300 focus:px-3 focus:py-2 focus:text-zinc-950"
+      >
+        Skip to StockSage content
+      </a>
+      <AppShell.disabled_state :if={!@web_enabled?} />
       <section :if={@web_enabled?} class="mx-auto flex max-w-6xl flex-col gap-5">
-        <header class="border-b border-zinc-800 pb-4">
-          <p class="text-sm font-semibold uppercase text-emerald-300">StockSage</p>
-          <h1 class="text-3xl font-semibold tracking-normal">
-            {if @analysis_id, do: "Analysis #{@analysis_id}", else: "Analyses"}
-          </h1>
+        <header
+          id="stocksage-main-content"
+          class="flex flex-col gap-3 border-b border-zinc-800 pb-4 md:flex-row md:items-end md:justify-between"
+          tabindex="-1"
+        >
+          <div class="min-w-0">
+            <p class="text-sm font-semibold uppercase text-emerald-300">StockSage</p>
+            <h1 class="break-words text-3xl font-semibold tracking-normal">
+              {if @analysis_id, do: "Analysis #{@analysis_id}", else: "Analyses"}
+            </h1>
+          </div>
+          <AppShell.nav current={:analyses} />
         </header>
-        <section
+
+        <AppShell.state_panel
           :if={@load_error}
           id="stocksage-analysis-error"
-          class="rounded border border-red-500/40 bg-red-500/10 p-5"
+          title="Analysis unavailable"
+          body={@load_error}
+          tone={:error}
           role="alert"
-        >
-          <h2 class="text-lg font-semibold">Analysis unavailable</h2>
-          <p class="mt-2 text-sm text-red-100">{@load_error}</p>
-        </section>
+        />
 
         <section
           :if={!@analysis_id}
@@ -92,7 +106,7 @@ defmodule StockSageWeb.AnalysisLive do
             <li :for={analysis <- @analyses} class="py-3">
               <.link
                 navigate={~p"/stocksage/analyses/#{analysis.id}"}
-                class="font-medium text-emerald-200 hover:text-emerald-100"
+                class="font-medium text-emerald-200 hover:text-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
               >
                 {analysis.symbol || analysis.id}
               </.link>
@@ -101,21 +115,24 @@ defmodule StockSageWeb.AnalysisLive do
               </p>
             </li>
           </ul>
-          <p :if={@analyses == []} class="mt-2 max-w-2xl text-sm text-zinc-300">
-            No StockSage analyses have been persisted for this user yet.
-          </p>
         </section>
 
-        <section
+        <AppShell.state_panel
+          :if={!@analysis_id && @analyses == []}
+          id="stocksage-analysis-index-empty"
+          title="No persisted analyses"
+          body="Completed or failed StockSage analyses will appear here after they are recorded."
+          tone={:muted}
+        />
+
+        <AppShell.state_panel
           :if={@analysis_id && is_nil(@analysis) && is_nil(@load_error)}
           id="stocksage-analysis-empty"
-          class="rounded border border-zinc-800 bg-zinc-900 p-5"
-        >
-          <h2 class="text-lg font-semibold">Analysis renderer pending content</h2>
-          <p class="mt-2 max-w-2xl text-sm text-zinc-300">
-            Loading persisted StockSage analysis detail.
-          </p>
-        </section>
+          title="Loading analysis"
+          body="Persisted StockSage analysis detail is loading."
+          tone={:muted}
+          role="status"
+        />
         <section
           :if={@surface_nodes != []}
           id="stocksage-analysis-surface-nodes"
@@ -126,7 +143,7 @@ defmodule StockSageWeb.AnalysisLive do
         </section>
 
         <section
-          :if={@analysis_id}
+          :if={@analysis_id && is_nil(@load_error)}
           id="stocksage-progress"
           class="rounded border border-zinc-800 bg-zinc-900 p-5"
           aria-label="StockSage analysis progress"
@@ -178,7 +195,7 @@ defmodule StockSageWeb.AnalysisLive do
           <div class="mt-4 flex flex-wrap gap-2">
             <.link
               navigate={~p"/objectives/#{@objective.id}"}
-              class="rounded border border-zinc-700 px-3 py-2 text-sm hover:border-emerald-400"
+              class="rounded border border-zinc-700 px-3 py-2 text-sm hover:border-emerald-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
             >
               Open objective
             </.link>
@@ -188,7 +205,7 @@ defmodule StockSageWeb.AnalysisLive do
               type="button"
               phx-click="cancel_objective"
               phx-value-objective-id={@objective.id}
-              class="rounded border border-red-500/60 px-3 py-2 text-sm text-red-200 hover:border-red-300"
+              class="rounded border border-red-500/60 px-3 py-2 text-sm text-red-200 hover:border-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
             >
               Cancel objective
             </button>
@@ -216,7 +233,10 @@ defmodule StockSageWeb.AnalysisLive do
           <h2 class="text-lg font-semibold text-amber-100">Pending confirmations</h2>
           <ul class="mt-3 space-y-2 text-sm text-amber-50">
             <li :for={confirmation <- @pending_confirmations}>
-              <.link navigate={~p"/settings"} class="underline underline-offset-4">
+              <.link
+                navigate={~p"/settings"}
+                class="underline underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
+              >
                 Review confirmation {confirmation["id"]}
               </.link>
             </li>
@@ -224,21 +244,6 @@ defmodule StockSageWeb.AnalysisLive do
         </section>
       </section>
     </main>
-    """
-  end
-
-  defp disabled_state(assigns) do
-    ~H"""
-    <section
-      id="stocksage-disabled"
-      class="mx-auto max-w-3xl rounded border border-zinc-800 bg-zinc-900 p-5"
-      role="status"
-    >
-      <h1 class="text-xl font-semibold">StockSage web surfaces are disabled</h1>
-      <p class="mt-2 text-sm text-zinc-300">
-        Enable stocksage.web.enabled in Settings Central to use this app surface.
-      </p>
-    </section>
     """
   end
 

@@ -5,6 +5,7 @@
 @source "../css";
 @source "../js";
 @source "../../lib/allbert_assist_web";
+@source "../../../../plugins/stocksage/lib/stocksage_web";
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */
