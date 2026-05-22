@@ -223,7 +223,8 @@ Only bounded summaries and structured metadata are surfaced.
   changing the permission, confirmation, or persistence shape.
 - `StockSage.Bridge.Protocol` encodes and decodes the JSON envelope. This
   module is the test seam for bridge protocol correctness.
-- v0.27 (formerly v0.25) StockSage LiveViews render results from
+- v0.27 (formerly v0.25) App Surface Contract - StockSage LiveViews render
+  results from
   `stocksage_analyses` and `stocksage_analysis_details`; the table schema
   established in v0.22 must not change shape in v0.27 without a migration.
 - v0.28 (formerly v0.26) security hardening adds individual Resource Access

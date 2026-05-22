@@ -282,7 +282,8 @@ parity diff:
 
 The diff is persisted in `stocksage_analyses.parity_diff` JSON
 column (new in v0.25) and surfaced via `mix stocksage.analyses show`,
-the future v0.26 workspace shell, and v0.27 StockSage LiveViews.
+the future v0.26 workspace shell, and v0.27 App Surface Contract - StockSage
+LiveViews.
 
 Rationale: rating-scale agreement is the operator-meaningful primary
 signal; confidence delta is a quantitative secondary check. Token

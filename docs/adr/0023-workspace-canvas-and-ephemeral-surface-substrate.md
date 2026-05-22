@@ -617,8 +617,17 @@ for v0.26. Future work tracks the trust-policy questions.
 
 Rejected. Tile reordering requires JS hooks (HTML5 drag-drop or
 SortableJS) and per-tab UI coordination. v0.26 ships resize-bar only
-between the chat + canvas regions; tile rearrange is v0.27+ work
-when StockSage LiveViews provide a real driver.
+between the chat + canvas regions; tile rearrange is v0.27+ work.
+
+### StockSage renderer vs. durable canvas emission
+
+Clarification from the post-v0.26 roadmap reconciliation: v0.27 and v0.30 are
+different contracts. v0.27 renders real StockSage components in
+StockSage-owned `/stocksage/...` LiveViews, replacing the v0.26 reserved-card
+stubs and validating `RunAnalysis` Surface-node output. v0.30 emits those
+proven components into durable `/agent` workspace canvas tiles through
+`canvas_ops` and the v0.26/v0.28-audited Fragment/canvas mechanism. This ADR's
+v0.26 canvas substrate contract does not change.
 
 ## References
 
