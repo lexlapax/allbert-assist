@@ -74,6 +74,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
         analysis_date: "2026-05-01",
         engine: "python",
         user_id: "alice",
+        source_analysis_id: "analysis_source_1",
         objective_id: "obj_run_analysis_test",
         step_id: "step_run_analysis_test",
         thread_id: "thr_run_analysis_test",
@@ -100,6 +101,8 @@ defmodule StockSage.Actions.RunAnalysisTest do
       assert record["step_id"] == "step_run_analysis_test"
       assert record["params_summary"]["ticker"] == "AAPL"
       assert record["params_summary"]["analysis_date"] == "2026-05-01"
+      assert record["params_summary"]["source_analysis_id"] == "analysis_source_1"
+      assert record["resume_params_ref"]["source_analysis_id"] == "analysis_source_1"
       assert record["params_summary"]["objective_title"] == "Analyze AAPL"
       assert record["params_summary"]["objective_status"] == "running"
       assert record["params_summary"]["disclosure"] =~ "TradingAgents"
