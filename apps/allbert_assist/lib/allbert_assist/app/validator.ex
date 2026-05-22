@@ -345,8 +345,8 @@ defmodule AllbertAssist.App.Validator do
 
   defp validate_surface_provider(module, app_id) do
     if surface_provider?(module) do
-      with {:ok, provider_surfaces} <- validate_provider_surfaces(module, app_id),
-           {:ok, catalog} <- validate_provider_catalog(module) do
+      with {:ok, catalog} <- validate_provider_catalog(module),
+           {:ok, provider_surfaces} <- validate_provider_surfaces(module, app_id, catalog) do
         {:ok, %{provider?: true, module: module, surfaces: provider_surfaces, catalog: catalog}}
       end
     else
@@ -371,9 +371,10 @@ defmodule AllbertAssist.App.Validator do
     _exception -> false
   end
 
-  defp validate_provider_surfaces(module, app_id) do
+  defp validate_provider_surfaces(module, app_id, catalog) do
     with surfaces when is_list(surfaces) <- module.surfaces(),
          {:ok, validated} <- validate_surface_list(surfaces),
+         :ok <- validate_surface_catalogs(validated, catalog),
          :ok <- validate_provider_surface_app_ids(validated, app_id),
          :ok <- validate_unique_provider_surface_ids(validated) do
       {:ok, validated}
@@ -381,6 +382,15 @@ defmodule AllbertAssist.App.Validator do
       {:error, reason} -> {:error, reason}
       _other -> {:error, {:invalid_surface_provider, module}}
     end
+  end
+
+  defp validate_surface_catalogs(surfaces, catalog) do
+    Enum.reduce_while(surfaces, :ok, fn surface, :ok ->
+      case AllbertAssist.Surface.validate_surface_catalog(surface, catalog) do
+        :ok -> {:cont, :ok}
+        {:error, diagnostics} -> {:halt, {:error, {:invalid_surface_provider, diagnostics}}}
+      end
+    end)
   end
 
   defp validate_surface_list(surfaces) do
