@@ -48,7 +48,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
      |> assign(
        canvas_tiles: Map.get(context, :canvas_tiles, []),
        max_tiles: Map.get(context, :workspace_canvas_max_tiles_per_thread, 64),
-       workspace_badges: Map.get(context, :workspace_badges, [])
+       workspace_badges: Map.get(context, :workspace_badges, []),
+       maximized_pane: Map.get(context, :workspace_maximized_pane)
      )}
   end
 
@@ -82,10 +83,35 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
           <.icon name="hero-exclamation-triangle-micro" class="size-4" />
           {length(@workspace_badges)} notice(s)
         </span>
+        <button
+          id="workspace-canvas-maximize"
+          type="button"
+          class="allbert-icon-button workspace-pane-maximize"
+          phx-click="toggle_workspace_maximize"
+          phx-value-pane="canvas"
+          aria-pressed={bool_attribute(@maximized_pane == "canvas")}
+          aria-label={maximize_label(@maximized_pane)}
+          title={maximize_label(@maximized_pane)}
+        >
+          <.icon
+            name={
+              if @maximized_pane == "canvas",
+                do: "hero-arrows-pointing-in-micro",
+                else: "hero-arrows-pointing-out-micro"
+            }
+            class="size-4"
+          />
+        </button>
       </div>
     </section>
     """
   end
+
+  defp maximize_label("canvas"), do: "Restore split view"
+  defp maximize_label(_other), do: "Maximize canvas"
+
+  defp bool_attribute(true), do: "true"
+  defp bool_attribute(false), do: "false"
 
   defp near_canvas_cap?(tiles, max_tiles) when is_list(tiles) and is_integer(max_tiles) do
     max_tiles > 0 and length(tiles) / max_tiles >= 0.8
