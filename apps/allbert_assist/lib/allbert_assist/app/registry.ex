@@ -374,21 +374,19 @@ defmodule AllbertAssist.App.Registry do
   defp ensure_memory_namespace_available(%{memory_namespace: %{namespace: namespace}}, state) do
     state
     |> entries_in_order()
-    |> Enum.find_value(fn entry ->
-      case Map.get(entry, :memory_namespace) do
-        %{namespace: existing} ->
-          if namespace_conflict?(namespace, existing),
-            do: {:error, {:memory_namespace_taken, namespace, existing}}
-
-        _other ->
-          nil
-      end
-    end)
+    |> Enum.find_value(&memory_namespace_conflict(namespace, &1))
     |> case do
       nil -> :ok
       error -> error
     end
   end
+
+  defp memory_namespace_conflict(namespace, %{memory_namespace: %{namespace: existing}}) do
+    if namespace_conflict?(namespace, existing),
+      do: {:error, {:memory_namespace_taken, namespace, existing}}
+  end
+
+  defp memory_namespace_conflict(_namespace, _entry), do: nil
 
   defp namespace_conflict?(left, right) do
     left = Atom.to_string(left)

@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Security.ResourceExecutionEvalTest do
   use AllbertAssist.SecurityEvalCase, async: false
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Packages.Audit, as: PackageAudit
   alias AllbertAssist.Paths
@@ -54,7 +55,7 @@ defmodule AllbertAssist.Security.ResourceExecutionEvalTest do
     eval =
       run_eval(
         Map.merge(fixture, %{
-          boundary: {AllbertAssist.Actions.Runner, "plan_shell_command"},
+          boundary: {Runner, "plan_shell_command"},
           input: %{
             params: %{
               command: "rm -rf /tmp/example",
@@ -79,7 +80,7 @@ defmodule AllbertAssist.Security.ResourceExecutionEvalTest do
         Map.merge(fixture, %{
           run: fn fixture ->
             {:ok, response} =
-              AllbertAssist.Actions.Runner.run(
+              Runner.run(
                 "external_network_request",
                 %{url: "http://169.254.169.254/latest/meta-data"},
                 context()
@@ -102,7 +103,10 @@ defmodule AllbertAssist.Security.ResourceExecutionEvalTest do
     assert_denied(eval)
     assert_trace_records(eval, [:resource_decision, :denial_reason])
     assert_fixture_transport_calls(eval, :external_network, 0)
-    assert eval.result.actions |> hd() |> Map.fetch!(:denial_reason) == {:private_host_denied, "169.254.169.254"}
+
+    assert eval.result.actions |> hd() |> Map.fetch!(:denial_reason) ==
+             {:private_host_denied, "169.254.169.254"}
+
     assert Confirmations.list(status: :pending) == []
   end
 
@@ -113,7 +117,7 @@ defmodule AllbertAssist.Security.ResourceExecutionEvalTest do
     denied_eval =
       run_eval(
         Map.merge(fixture, %{
-          boundary: {AllbertAssist.Actions.Runner, "run_package_install"},
+          boundary: {Runner, "run_package_install"},
           input: %{
             params: %{
               manager: "npm",
@@ -127,12 +131,14 @@ defmodule AllbertAssist.Security.ResourceExecutionEvalTest do
 
     assert_denied(denied_eval)
     assert denied_eval.result.actions |> hd() |> Map.fetch!(:execution) == :not_started
-    assert denied_eval.result.actions |> hd() |> Map.fetch!(:denial_reason) == {:unsafe_package_spec, "https://evil.example/left-pad.tgz"}
+
+    assert denied_eval.result.actions |> hd() |> Map.fetch!(:denial_reason) ==
+             {:unsafe_package_spec, "https://evil.example/left-pad.tgz"}
 
     planned_eval =
       run_eval(
         Map.merge(fixture, %{
-          boundary: {AllbertAssist.Actions.Runner, "run_package_install"},
+          boundary: {Runner, "run_package_install"},
           input: %{
             params: %{manager: "npm", package: "left-pad@1.3.0", project_root: workspace},
             context: context()
@@ -141,7 +147,10 @@ defmodule AllbertAssist.Security.ResourceExecutionEvalTest do
       )
 
     assert_needs_confirmation(planned_eval)
-    assert planned_eval.result.package_install.execution_argv_preview |> Enum.join(" ") =~ "--ignore-scripts"
+
+    assert planned_eval.result.package_install.execution_argv_preview |> Enum.join(" ") =~
+             "--ignore-scripts"
+
     assert Confirmations.list(status: :pending) |> length() == 1
     refute package_audit() =~ "succeeded"
   end
@@ -154,7 +163,7 @@ defmodule AllbertAssist.Security.ResourceExecutionEvalTest do
     eval =
       run_eval(
         Map.merge(fixture, %{
-          boundary: {AllbertAssist.Actions.Runner, "run_package_install"},
+          boundary: {Runner, "run_package_install"},
           input: %{
             params: %{manager: "npm", package: "left-pad@1.3.0", project_root: outside},
             context: context()
@@ -164,7 +173,10 @@ defmodule AllbertAssist.Security.ResourceExecutionEvalTest do
 
     assert_denied(eval)
     assert eval.result.actions |> hd() |> Map.fetch!(:execution) == :not_started
-    assert {:target_root_outside_allowed_roots, ^outside} = eval.result.actions |> hd() |> Map.fetch!(:denial_reason)
+
+    assert {:target_root_outside_allowed_roots, ^outside} =
+             eval.result.actions |> hd() |> Map.fetch!(:denial_reason)
+
     assert Confirmations.list(status: :pending) == []
   end
 
@@ -176,7 +188,7 @@ defmodule AllbertAssist.Security.ResourceExecutionEvalTest do
         Map.merge(fixture, %{
           run: fn fixture ->
             {:ok, response} =
-              AllbertAssist.Actions.Runner.run(
+              Runner.run(
                 "external_network_request",
                 %{
                   url: "https://example.com/report?token=super-secret-token",
