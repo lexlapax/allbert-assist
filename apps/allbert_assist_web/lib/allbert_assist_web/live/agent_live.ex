@@ -28,6 +28,7 @@ defmodule AllbertAssistWeb.AgentLive do
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssistWeb.SignalBridge
+  alias AllbertAssistWeb.Workspace.Components.TileInspector
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
   alias Jido.Signal
 
@@ -82,6 +83,7 @@ defmodule AllbertAssistWeb.AgentLive do
         approval_result: nil,
         show_approval_details?: false,
         open_tile_menu_id: nil,
+        open_tile_inspector_id: nil,
         workspace_badges: [],
         composer_max_bytes: workspace_canvas_tile_body_max_bytes(),
         workspace_overflow_open?: false,
@@ -232,6 +234,21 @@ defmodule AllbertAssistWeb.AgentLive do
 
   def handle_event("toggle_workspace_tile_menu", _params, socket), do: {:noreply, socket}
 
+  def handle_event("open_tile_inspector", %{"tile-id" => tile_id}, socket)
+      when is_binary(tile_id) and tile_id != "" do
+    if tile_by_id(socket.assigns.canvas_tiles, tile_id) do
+      {:noreply, assign(socket, open_tile_inspector_id: tile_id, open_tile_menu_id: nil)}
+    else
+      {:noreply, assign(socket, :error, "Tile #{tile_id} is no longer available.")}
+    end
+  end
+
+  def handle_event("open_tile_inspector", _params, socket), do: {:noreply, socket}
+
+  def handle_event("close_tile_inspector", _params, socket) do
+    {:noreply, assign(socket, :open_tile_inspector_id, nil)}
+  end
+
   def handle_event(
         "manage_workspace_tile",
         %{"tile-id" => tile_id, "operation" => operation},
@@ -246,7 +263,7 @@ defmodule AllbertAssistWeb.AgentLive do
       {:ok, %{status: :completed}} ->
         {:noreply,
          socket
-         |> assign(error: nil, open_tile_menu_id: nil)
+         |> assign(error: nil, open_tile_menu_id: nil, open_tile_inspector_id: nil)
          |> refresh_workspace()}
 
       {:ok, response} ->
@@ -332,6 +349,13 @@ defmodule AllbertAssistWeb.AgentLive do
 
   @impl true
   def render(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :open_tile_inspector_tile,
+        tile_by_id(assigns.canvas_tiles, assigns.open_tile_inspector_id)
+      )
+
     ~H"""
     <Layouts.app flash={@flash} content_width="full">
       <section
@@ -399,6 +423,13 @@ defmodule AllbertAssistWeb.AgentLive do
           surface={@workspace_surface}
           renderer_context={renderer_context(assigns)}
           workspace_state={workspace_state(assigns)}
+        />
+
+        <.live_component
+          :if={@open_tile_inspector_tile}
+          module={TileInspector}
+          id="workspace-tile-inspector-component"
+          tile={@open_tile_inspector_tile}
         />
       </section>
     </Layouts.app>
@@ -716,6 +747,12 @@ defmodule AllbertAssistWeb.AgentLive do
       _error -> []
     end
   end
+
+  defp tile_by_id(tiles, tile_id) when is_list(tiles) and is_binary(tile_id) do
+    Enum.find(tiles, &(Map.get(&1, :id) == tile_id || Map.get(&1, "id") == tile_id))
+  end
+
+  defp tile_by_id(_tiles, _tile_id), do: nil
 
   defp workspace_theme do
     case Settings.get("workspace.theme") do

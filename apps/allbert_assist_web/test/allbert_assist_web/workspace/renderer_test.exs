@@ -180,7 +180,10 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
 
     assert html =~ ~s(id="workspace-tile-menu-tile-menu")
     assert html =~ ~s(role="menu")
+    assert html =~ ~s(id="workspace-tile-inspect-tile-menu")
+    assert html =~ ~s(phx-click="open_tile_inspector")
     assert html =~ "Unpin tile"
+    assert html =~ "Inspect"
     assert html =~ "Remove tile"
     assert html =~ ~s(phx-value-operation="remove")
   end
