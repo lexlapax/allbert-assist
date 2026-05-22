@@ -43,9 +43,13 @@ defmodule AllbertAssist.Actions.Runner do
       |> Signals.action_requested(action_module, params, context)
       |> log_signal()
 
+    runner_context = runner_context(context, action_module, requested_signal)
+
     response =
-      action_module
-      |> safe_run(params, runner_context(context, action_module, requested_signal))
+      case app_scope_check(action_module, runner_context) do
+        :ok -> safe_run(action_module, params, runner_context)
+        {:denied, response} -> {:ok, response}
+      end
       |> normalize_response(action_name)
 
     duration_ms = System.monotonic_time(:millisecond) - started_at
@@ -210,6 +214,89 @@ defmodule AllbertAssist.Actions.Runner do
         {:ok, capability} -> Capability.summary(capability)
         {:error, _reason} -> nil
       end
+  end
+
+  defp app_scope_check(action_module, context) do
+    case Registry.capability(action_module) do
+      {:ok, %{app_id: expected_app}} when not is_nil(expected_app) ->
+        check_active_app_scope(action_module, expected_app, active_app(context))
+
+      _other ->
+        :ok
+    end
+  end
+
+  defp check_active_app_scope(_action_module, _expected_app, nil), do: :ok
+
+  defp check_active_app_scope(action_module, expected_app, raw_active_app) do
+    case normalize_active_app(raw_active_app) do
+      {:ok, ^expected_app} ->
+        :ok
+
+      {:ok, nil} ->
+        :ok
+
+      {:ok, normalized_active_app} ->
+        {:denied, app_scope_denied(action_module, expected_app, normalized_active_app)}
+
+      {:error, reason} ->
+        {:denied, app_scope_denied(action_module, expected_app, raw_active_app, reason)}
+    end
+  end
+
+  defp active_app(context) do
+    Map.get(context, :active_app) ||
+      Map.get(context, "active_app") ||
+      get_in(context, [:request, :active_app]) ||
+      get_in(context, ["request", "active_app"])
+  end
+
+  defp normalize_active_app(nil), do: {:ok, nil}
+  defp normalize_active_app(""), do: {:ok, nil}
+  defp normalize_active_app("none"), do: {:ok, nil}
+  defp normalize_active_app("general"), do: {:ok, nil}
+
+  defp normalize_active_app(app_id) when is_atom(app_id), do: {:ok, app_id}
+
+  defp normalize_active_app(app_id) when is_binary(app_id) do
+    normalized =
+      app_id
+      |> String.trim()
+      |> String.downcase()
+
+    cond do
+      normalized in ["", "none", "general"] ->
+        {:ok, nil}
+
+      Regex.match?(~r/^[a-z][a-z0-9_]*$/, normalized) ->
+        {:ok, String.to_existing_atom(normalized)}
+
+      true ->
+        {:error, :unknown_app}
+    end
+  rescue
+    ArgumentError -> {:error, :unknown_app}
+  end
+
+  defp normalize_active_app(_app_id), do: {:error, :unknown_app}
+
+  defp app_scope_denied(action_module, expected_app, active_app, reason \\ :app_scope_mismatch) do
+    action_name = action_module.name()
+
+    %{
+      message:
+        "Action #{action_name} is scoped to #{inspect(expected_app)} and cannot run from #{inspect(active_app)}.",
+      status: :denied,
+      error: {:app_scope_denied, reason},
+      actions: [
+        %{
+          name: action_name,
+          status: :denied,
+          error: {:app_scope_denied, reason},
+          app_scope: %{expected_app: expected_app, active_app: active_app}
+        }
+      ]
+    }
   end
 
   defp log_signal({:ok, %Signal{} = signal}) do
