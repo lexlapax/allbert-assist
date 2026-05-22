@@ -64,11 +64,12 @@ defmodule AllbertAssist.Packages.InstallSpec do
   def summary(%__MODULE__{} = spec) do
     dry_run_argv = if spec.dry_run_args == [], do: [], else: argv(spec, spec.dry_run_args)
     install_argv = if spec.install_args == [], do: [], else: argv(spec, spec.install_args)
+    packages = Enum.map(spec.packages, &package_spec/1)
 
     summary = %{
       manager: manager_name(spec.manager),
-      packages: Enum.map(spec.packages, & &1.spec),
-      package_details: spec.packages,
+      packages: packages,
+      package_details: Enum.map(spec.packages, &package_detail/1),
       target_root: spec.target_root,
       resolved_target_root: spec.resolved_target_root,
       save_mode: spec.save_mode,
@@ -357,6 +358,13 @@ defmodule AllbertAssist.Packages.InstallSpec do
     do: Enum.flat_map(value, &split_package_values/1)
 
   defp split_package_values(_value), do: []
+
+  defp package_spec(%{spec: spec}) when is_binary(spec), do: spec
+  defp package_spec(package) when is_binary(package), do: package
+  defp package_spec(package), do: inspect(package)
+
+  defp package_detail(%{} = package), do: package
+  defp package_detail(package), do: %{spec: package_spec(package), parse_status: :unparsed}
 
   defp maybe_apply_version([package], :npm, version) when is_binary(version) do
     if unpinned_npm?(package), do: [package <> "@" <> String.trim(version)], else: [package]
