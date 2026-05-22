@@ -1439,15 +1439,17 @@ beyond `0.26.1`.
 Plan: `docs/plans/v0.26c-ux-closeout-plan.md`
 Request flow: `docs/plans/v0.26c-request-flow.md`
 
-Status: planned as a small `0.26.2` point release. This is not a new platform
+Status: implemented as a small `0.26.2` point release; release gate passed and
+operator manual verification/tagging is pending. This is not a new platform
 contract and not a StockSage milestone.
 
-Expected direction:
+Shipped:
 
-- Add the real tile inspector modal deferred from the `0.26.1` closeout.
-- Add the AppBar thread switcher dropdown; the current thread chip only copies
-  the id.
-- Verify same-thread multi-tab sync with screenshots or browser-smoke notes.
+- Real tile inspector modal deferred from the `0.26.1` closeout.
+- AppBar thread switcher dropdown with recent-thread navigation, new-thread
+  creation through `Conversations.resolve_thread/1`, and copy-thread-id.
+- Same-thread multi-tab sync verification recorded in the request-flow doc with
+  Chrome browser-smoke notes.
 - Leave progress streaming to v0.27, where StockSage analysis progress is the
   real app-flow driver.
 - No schema, catalog, settings, signal, permission, Security Central, or

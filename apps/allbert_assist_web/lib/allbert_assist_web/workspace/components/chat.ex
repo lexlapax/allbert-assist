@@ -339,10 +339,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   defp prompt_present?(prompt) when is_binary(prompt), do: String.trim(prompt) != ""
   defp prompt_present?(_prompt), do: false
 
-  defp maximize_label("chat", "chat"), do: "Restore split view"
-  defp maximize_label("chat", _other), do: "Maximize chat"
-  defp maximize_label("canvas", "canvas"), do: "Restore split view"
-  defp maximize_label("canvas", _other), do: "Maximize canvas"
+  defp maximize_label("chat", maximized) do
+    if maximized == "chat", do: "Restore split view", else: "Maximize chat"
+  end
+
   defp maximize_label(_pane, _maximized), do: "Maximize pane"
 
   defp message_id(%{id: id}) when is_binary(id), do: id
