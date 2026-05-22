@@ -1306,11 +1306,10 @@ Expected direction:
 
 Plan: `docs/plans/v0.26-plan.md`
 
-Status: implemented through M27 post-review remediation on 2026-05-18 and
-ready for operator manual validation before release tag. Version metadata is
-`0.26.0`. Formerly the old v0.17 workspace-surface plan, then v0.27, then
-v0.24 when moved before StockSage LiveViews, then v0.26 after the
-project-direction rethink.
+Status: implemented through M30 UI release closeout on 2026-05-19, then
+accepted with the v0.26a/v0.26b `0.26.1` closeout on 2026-05-22. Formerly
+the old v0.17 workspace-surface plan, then v0.27, then v0.24 when moved before
+StockSage LiveViews, then v0.26 after the project-direction rethink.
 
 Prerequisite: v0.18 app/surface contract, v0.19 intent enrichment, v0.21 memory
 review, v0.22 Python bridge, v0.23 Jido Convergence, v0.24 Objective Runtime
@@ -1412,6 +1411,24 @@ bridge, offline editor) untouched.
   to inspect"), thread switcher dropdown (current AppBar thread chip
   copies the id), real-time turn streaming, multi-tab sync screenshot
   verification.
+
+## v0.26b: Backend Runtime Bugfix Pass
+
+Plan: `docs/plans/v0.26b-backend-plan.md`
+
+Status: implemented and merged into the `0.26.1` release on 2026-05-22.
+No new schema, security authority, public protocol surface, or version bump
+beyond `0.26.1`.
+
+- H1: generic safe setting-shaped prompts route through `update_setting`
+  without requiring LLM credentials; unsafe/secret/read-only setting prompts
+  remain bounded by Settings Central and registered actions.
+- H2: native StockSage LLM credential/preflight failures surface bounded
+  `native_llm_unavailable: ...` reasons through the action result, persisted
+  analysis metadata, analysis-failed signal, and workspace-fragment metadata.
+- H3: fresh `/agent` composer state is empty with neutral placeholder copy.
+- `mix precommit` on merged `main` passed: 754 core tests, 79 web tests, 168
+  StockSage plugin tests, and 2 channel plugin tests, all 0 failures.
 
 ## v0.27: StockSage LiveViews
 
