@@ -239,6 +239,17 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
               type="button"
               role="menuitem"
               class="workspace-tile-menu-item"
+              id={"workspace-tile-inspect-#{tile_id(@node)}"}
+              phx-click="open_tile_inspector"
+              phx-value-tile-id={tile_id(@node)}
+            >
+              <.icon name="hero-magnifying-glass-micro" class="size-4" /> Inspect
+            </button>
+            <button
+              :if={tile_id(@node)}
+              type="button"
+              role="menuitem"
+              class="workspace-tile-menu-item"
               id={"workspace-tile-copy-id-#{@node.id}"}
               phx-hook="CopyToClipboard"
               data-copy-value={tile_id(@node)}
