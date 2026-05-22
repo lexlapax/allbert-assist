@@ -42,6 +42,9 @@ Current v0.29 capabilities:
 - `resolve_outcomes`, `generate_reflection`, and StockSage trends/calibration
   support resolved outcome review, local reflections, rating calibration, and
   symbol leaderboards.
+- `/stocksage/analyses/:id` exposes explicit Native, Python, and Parity rerun
+  controls. Reruns reuse `run_analysis`, queue the normal confirmation, and
+  carry `source_analysis_id` so new runs remain linked to the source analysis.
 - `StockSage.App.memory_namespace/0` is writable in v0.29, but Allbert
   markdown memory writes only happen through the registered
   `sync_app_lesson` action and an explicit confirmation resume. The

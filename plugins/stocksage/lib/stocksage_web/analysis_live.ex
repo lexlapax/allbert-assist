@@ -32,6 +32,8 @@ defmodule StockSageWeb.AnalysisLive do
      |> assign(:reflection_entries, [])
      |> assign(:reflection_error, nil)
      |> assign(:reflection_notice, nil)
+     |> assign(:rerun_error, nil)
+     |> assign(:rerun_notice, nil)
      |> assign(:sync_error, nil)
      |> assign(:sync_notice, nil)
      |> assign(:surface_nodes, [])
@@ -94,6 +96,51 @@ defmodule StockSageWeb.AnalysisLive do
            Map.get(response, :message) || "Could not generate reflection."
          )
          |> load_analysis_state(socket.assigns.analysis_id)}
+    end
+  end
+
+  @impl true
+  def handle_event("rerun_analysis", %{"engine" => engine}, socket) do
+    with %{id: _analysis_id} = analysis <- socket.assigns.analysis,
+         {:ok, params} <- rerun_params(analysis, engine),
+         {:ok, response} <- Runner.run("run_analysis", params, rerun_context(socket)) do
+      case response do
+        %{status: :needs_confirmation, confirmation_id: confirmation_id} ->
+          {:noreply,
+           socket
+           |> assign(
+             :rerun_notice,
+             "Rerun confirmation #{confirmation_id} queued for #{analysis.symbol} using #{rerun_label(engine)}."
+           )
+           |> assign(:rerun_error, nil)
+           |> load_analysis_state(socket.assigns.analysis_id)}
+
+        %{status: :completed, analysis_id: new_analysis_id} ->
+          {:noreply,
+           socket
+           |> assign(:rerun_notice, "Rerun completed as analysis #{new_analysis_id}.")
+           |> assign(:rerun_error, nil)
+           |> load_analysis_state(socket.assigns.analysis_id)}
+
+        response ->
+          {:noreply,
+           socket
+           |> assign(:rerun_notice, nil)
+           |> assign(:rerun_error, Map.get(response, :message) || "Could not rerun analysis.")
+           |> load_analysis_state(socket.assigns.analysis_id)}
+      end
+    else
+      nil ->
+        {:noreply,
+         socket
+         |> assign(:rerun_notice, nil)
+         |> assign(:rerun_error, "No analysis is loaded to rerun.")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:rerun_notice, nil)
+         |> assign(:rerun_error, "Could not rerun analysis: #{inspect(reason)}.")}
     end
   end
 
@@ -252,6 +299,24 @@ defmodule StockSageWeb.AnalysisLive do
         />
 
         <AppShell.state_panel
+          :if={@rerun_notice}
+          id="stocksage-rerun-notice"
+          title="Rerun queued"
+          body={@rerun_notice}
+          tone={:success}
+          role="status"
+        />
+
+        <AppShell.state_panel
+          :if={@rerun_error}
+          id="stocksage-rerun-error"
+          title="Rerun unavailable"
+          body={@rerun_error}
+          tone={:error}
+          role="alert"
+        />
+
+        <AppShell.state_panel
           :if={@sync_notice}
           id="stocksage-sync-notice"
           title="Lesson sync queued"
@@ -268,6 +333,45 @@ defmodule StockSageWeb.AnalysisLive do
           tone={:error}
           role="alert"
         />
+
+        <section
+          :if={@analysis}
+          id="stocksage-analysis-rerun"
+          class="rounded border border-zinc-800 bg-zinc-900 p-5"
+        >
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <h2 class="text-lg font-semibold">Rerun</h2>
+            <div class="flex flex-wrap gap-2">
+              <button
+                id="stocksage-rerun-native"
+                type="button"
+                phx-click="rerun_analysis"
+                phx-value-engine="native"
+                class="rounded border border-emerald-500/60 px-3 py-2 text-sm text-emerald-100 hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              >
+                Native
+              </button>
+              <button
+                id="stocksage-rerun-python"
+                type="button"
+                phx-click="rerun_analysis"
+                phx-value-engine="python"
+                class="rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              >
+                Python
+              </button>
+              <button
+                id="stocksage-rerun-both"
+                type="button"
+                phx-click="rerun_analysis"
+                phx-value-engine="both"
+                class="rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              >
+                Parity
+              </button>
+            </div>
+          </div>
+        </section>
 
         <section
           :if={@analysis && @analysis.outcomes != []}
@@ -539,12 +643,12 @@ defmodule StockSageWeb.AnalysisLive do
   defp pending_confirmations(analysis, objective) do
     objective_id = (objective && objective.id) || analysis.objective_id
 
-    if is_binary(objective_id) and objective_id != "" do
-      Confirmations.list(status: :pending)
-      |> Enum.filter(&(confirmation_objective_id(&1) == objective_id))
-    else
-      []
-    end
+    Confirmations.list(status: :pending)
+    |> Enum.filter(fn confirmation ->
+      (is_binary(objective_id) and objective_id != "" and
+         confirmation_objective_id(confirmation) == objective_id) or
+        get_in(confirmation, ["params_summary", "source_analysis_id"]) == analysis.id
+    end)
   rescue
     _exception -> []
   end
@@ -563,6 +667,77 @@ defmodule StockSageWeb.AnalysisLive do
   rescue
     _exception -> []
   end
+
+  defp rerun_context(socket) do
+    %{
+      active_app: :stocksage,
+      user_id: socket.assigns.user_id,
+      actor: socket.assigns.user_id,
+      channel: :live_view,
+      session_id: socket.assigns.session_id,
+      thread_id: Map.get(socket.assigns, :thread_id),
+      surface: "stocksage_analysis",
+      request: %{
+        active_app: :stocksage,
+        user_id: socket.assigns.user_id,
+        operator_id: socket.assigns.user_id,
+        channel: :live_view,
+        source: :stocksage_live
+      }
+    }
+  end
+
+  defp rerun_params(analysis, engine) do
+    with {:ok, engine} <- rerun_engine(engine),
+         {:ok, ticker} <- rerun_ticker(analysis),
+         {:ok, analysis_date} <- rerun_analysis_date(analysis) do
+      {:ok,
+       %{
+         user_id: analysis.user_id,
+         ticker: ticker,
+         analysis_date: analysis_date,
+         engine: engine,
+         evidence_mode: rerun_evidence_mode(analysis),
+         thread_id: analysis.thread_id,
+         session_id: analysis.session_id,
+         source_analysis_id: analysis.id
+       }}
+    end
+  end
+
+  defp rerun_engine(engine) when engine in ["native", "python", "both"], do: {:ok, engine}
+  defp rerun_engine(_engine), do: {:error, :invalid_rerun_engine}
+
+  defp rerun_ticker(%{symbol: symbol}) when is_binary(symbol) do
+    case String.trim(symbol) do
+      "" -> {:error, :missing_ticker}
+      ticker -> {:ok, ticker}
+    end
+  end
+
+  defp rerun_ticker(_analysis), do: {:error, :missing_ticker}
+
+  defp rerun_analysis_date(%{analysis_date: %Date{} = date}), do: {:ok, Date.to_iso8601(date)}
+
+  defp rerun_analysis_date(%{analysis_date: date}) when is_binary(date) do
+    case String.trim(date) do
+      "" -> {:ok, Date.utc_today() |> Date.to_iso8601()}
+      date -> {:ok, date}
+    end
+  end
+
+  defp rerun_analysis_date(_analysis), do: {:ok, Date.utc_today() |> Date.to_iso8601()}
+
+  defp rerun_evidence_mode(%{metadata: %{"evidence_mode" => mode}})
+       when mode in ["live", "fixture", "compare"],
+       do: mode
+
+  defp rerun_evidence_mode(_analysis), do: nil
+
+  defp rerun_label("native"), do: "native"
+  defp rerun_label("python"), do: "Python comparison"
+  defp rerun_label("both"), do: "parity"
+  defp rerun_label(engine), do: engine
 
   defp sync_lesson_context(socket) do
     %{
