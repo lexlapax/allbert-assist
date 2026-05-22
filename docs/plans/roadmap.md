@@ -1481,9 +1481,11 @@ Expected direction:
   proof; v0.30 is durable `/agent` canvas-emission proof.
 - Render objective state for StockSage analyses: which objective an analysis
   belongs to, multi-step "analyze and compare" flows, cancellation.
-- Declare StockSage component catalog entries (`:analysis_card`,
-  `:queue_entry`, `:trend_summary`) so `RunAnalysis` results carry validated
-  Surface nodes from day one. Canvas tile emission remains v0.30.
+- Declare StockSage component catalog entries for the four v0.26-reserved
+  StockSage card atoms so `RunAnalysis` results carry validated Surface nodes
+  from day one. Queue and trend pages render with existing Surface primitives in
+  v0.27 unless ADR 0015 and the global component catalog are explicitly amended.
+  Canvas tile emission remains v0.30.
 - Add app memory namespace declaration/registration and have `StockSage.App`
   declare its namespace. No memory sync, reflection, lesson promotion, or
   markdown-memory write lands in v0.27.
