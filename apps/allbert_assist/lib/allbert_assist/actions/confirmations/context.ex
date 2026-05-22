@@ -53,16 +53,16 @@ defmodule AllbertAssist.Actions.Confirmations.Context do
      }}
   end
 
-  defp actor(%{request: %{operator_id: actor}}), do: actor
-  defp actor(%{request: %{"operator_id" => actor}}), do: actor
   defp actor(%{actor: actor}), do: actor
   defp actor(%{"actor" => actor}), do: actor
+  defp actor(%{request: %{operator_id: actor}}), do: actor
+  defp actor(%{request: %{"operator_id" => actor}}), do: actor
   defp actor(_context), do: "local"
 
-  defp channel(%{request: %{channel: channel}}), do: channel
-  defp channel(%{request: %{"channel" => channel}}), do: channel
   defp channel(%{channel: channel}), do: channel
   defp channel(%{"channel" => channel}), do: channel
+  defp channel(%{request: %{channel: channel}}), do: channel
+  defp channel(%{request: %{"channel" => channel}}), do: channel
   defp channel(_context), do: :unknown
 
   defp surface(%{surface: surface}), do: surface
