@@ -69,6 +69,38 @@ defmodule AllbertAssist.Surface do
 
   @known_kinds [:route, :chat, :workspace, :analysis, :canvas, :settings]
   @known_statuses [:available, :placeholder, :disabled]
+  @primitive_components [
+    :route,
+    :chat,
+    :timeline,
+    :composer,
+    :panel,
+    :section,
+    :text,
+    :list,
+    :empty_state,
+    :button,
+    :action_button,
+    :status_badge,
+    :workspace,
+    :canvas,
+    :tile,
+    :ephemeral_surface,
+    :header,
+    :badge_strip,
+    :tabs,
+    :tab,
+    :tab_panel,
+    :diff,
+    :trace_link,
+    :trace_viewer,
+    :icon,
+    :link,
+    :divider,
+    :table,
+    :row,
+    :column
+  ]
   @secret_key_regex ~r/(^|_)(key|secret|token|password|credential|api_key)$/i
 
   @type diagnostic :: %{
@@ -175,6 +207,52 @@ defmodule AllbertAssist.Surface do
 
   def validate_catalog(_catalog),
     do: {:error, [diagnostic(:invalid_catalog, "Surface catalog must be a list.")]}
+
+  @doc """
+  Validate that non-primitive nodes on a surface are declared by the app catalog.
+
+  Surface primitives are shared substrate components. App-owned card and domain
+  components must be declared by the provider catalog before they can render or
+  cross a Fragment boundary.
+  """
+  @spec validate_surface_catalog(t(), [catalog_entry()]) :: :ok | {:error, [diagnostic()]}
+  def validate_surface_catalog(%__MODULE__{} = surface, catalog) do
+    with {:ok, catalog} <- validate_catalog(catalog) do
+      allowed = catalog |> Enum.map(&catalog_component/1) |> MapSet.new()
+
+      diagnostics =
+        surface.nodes
+        |> flatten_nodes()
+        |> Enum.reduce([], fn
+          %Node{} = node, acc ->
+            if node.component in @primitive_components or MapSet.member?(allowed, node.component) do
+              acc
+            else
+              [
+                diagnostic(
+                  :component_not_in_app_catalog,
+                  "Surface component is not declared by the app catalog.",
+                  %{
+                    node_id: node.id,
+                    component: node.component,
+                    app_id: surface.app_id
+                  }
+                )
+                | acc
+              ]
+            end
+
+          _node, acc ->
+            acc
+        end)
+
+      if diagnostics == [], do: :ok, else: {:error, Enum.reverse(diagnostics)}
+    end
+  end
+
+  def validate_surface_catalog(_surface, _catalog),
+    do:
+      {:error, [diagnostic(:invalid_surface, "Surface must be an AllbertAssist.Surface struct.")]}
 
   defp validate_surface_shape(diagnostics, surface) do
     diagnostics
@@ -407,7 +485,7 @@ defmodule AllbertAssist.Surface do
   end
 
   defp catalog_entry_diagnostics(%{} = entry, index) do
-    component = Map.get(entry, :component, Map.get(entry, "component"))
+    component = catalog_component(entry)
     allowed_props = Map.get(entry, :allowed_props, Map.get(entry, "allowed_props", []))
     allowed_bindings = Map.get(entry, :allowed_bindings, Map.get(entry, "allowed_bindings", []))
 
@@ -420,6 +498,8 @@ defmodule AllbertAssist.Surface do
 
   defp catalog_entry_diagnostics(_entry, index),
     do: [diagnostic(:invalid_catalog_entry, "Catalog entry must be a map.", %{index: index})]
+
+  defp catalog_component(entry), do: Map.get(entry, :component, Map.get(entry, "component"))
 
   defp validate_path(diagnostics, path) when is_binary(path) do
     cond do

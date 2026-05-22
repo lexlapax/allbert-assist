@@ -12,6 +12,7 @@ defmodule AllbertAssist.Workspace.Fragment do
   alias AllbertAssist.Settings
   alias AllbertAssist.SignalBus
   alias AllbertAssist.Signals
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Surface
   alias AllbertAssist.Workspace.Canvas
   alias AllbertAssist.Workspace.Ephemeral
@@ -158,13 +159,25 @@ defmodule AllbertAssist.Workspace.Fragment do
   end
 
   defp validate_surface(%Surface{} = surface) do
-    case Surface.validate_surface(surface) do
-      {:ok, _surface} -> :ok
+    with {:ok, surface} <- Surface.validate_surface(surface),
+         :ok <- validate_app_surface_catalog(surface) do
+      :ok
+    else
       {:error, _diagnostics} -> {:error, :surface_invalid}
     end
   end
 
   defp validate_surface(_surface), do: {:error, :surface_invalid}
+
+  defp validate_app_surface_catalog(%Surface{} = surface) do
+    case AppRegistry.lookup(surface.app_id) do
+      {:ok, %{surface_catalog: catalog}} ->
+        Surface.validate_surface_catalog(surface, catalog)
+
+      {:error, :not_found} ->
+        :ok
+    end
+  end
 
   defp validate_emitter(emitter_id) do
     if Guard.emitter_allowed?(emitter_id), do: :ok, else: {:error, :emitter_not_allowed}
