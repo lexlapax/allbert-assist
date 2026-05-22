@@ -88,6 +88,16 @@ defmodule AllbertAssist.App.RegistryTest do
     end
 
     @impl true
+    def memory_namespace do
+      %{
+        app_id: :provider_app,
+        namespace: :provider_app,
+        writable: false,
+        description: "Provider fixture namespace."
+      }
+    end
+
+    @impl true
     def surfaces do
       [
         %Surface{
@@ -276,6 +286,7 @@ defmodule AllbertAssist.App.RegistryTest do
     assert EmptyApp.signals() == %{emits: [], subscribes: []}
     assert EmptyApp.skill_paths() == []
     assert EmptyApp.settings_schema() == []
+    assert EmptyApp.memory_namespace() == nil
     assert EmptyApp.surfaces() == []
     assert EmptyApp.child_spec([]) == :ignore
   end
@@ -321,6 +332,7 @@ defmodule AllbertAssist.App.RegistryTest do
     assert entry.agents == [AllbertAssist.Agents.IntentAgent]
     assert entry.signals.emits == ["provider.app.started"]
     assert [%{key: "apps.provider_app.enabled"}] = entry.settings_schema
+    assert %{namespace: :provider_app, writable: false} = entry.memory_namespace
     assert entry.surface_provider == ProviderApp
     assert [%Surface{id: :home}] = entry.provider_surfaces
 
@@ -332,6 +344,9 @@ defmodule AllbertAssist.App.RegistryTest do
 
     assert [%{app_id: :provider_app, key: "apps.provider_app.enabled"}] =
              Registry.registered_settings_schema(opts)
+
+    assert [%{app_id: :provider_app, namespace: :provider_app, writable: false}] =
+             Registry.registered_memory_namespaces(opts)
 
     assert [%{app_id: :provider_app, module: ProviderApp, surfaces: [%Surface{id: :home}]}] =
              Registry.registered_surface_providers(opts)

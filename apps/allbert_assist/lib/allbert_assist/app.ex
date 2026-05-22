@@ -35,6 +35,13 @@ defmodule AllbertAssist.App do
           required(:subscribes) => [String.t()]
         }
 
+  @type memory_namespace_declaration :: %{
+          required(:app_id) => atom(),
+          required(:namespace) => atom(),
+          required(:writable) => boolean(),
+          optional(:description) => String.t()
+        }
+
   @callback app_id() :: atom()
   @callback display_name() :: String.t()
   @callback version() :: String.t()
@@ -45,7 +52,9 @@ defmodule AllbertAssist.App do
   @callback signals() :: signal_declarations()
   @callback skill_paths() :: [Path.t()]
   @callback settings_schema() :: [schema_entry()]
+  @callback memory_namespace() :: memory_namespace_declaration() | nil
   @callback surfaces() :: [surface_entry() | AllbertAssist.Surface.t()]
+  @optional_callbacks memory_namespace: 0
 
   defmacro __using__(_opts) do
     quote do
@@ -70,6 +79,9 @@ defmodule AllbertAssist.App do
       def settings_schema, do: []
 
       @impl AllbertAssist.App
+      def memory_namespace, do: nil
+
+      @impl AllbertAssist.App
       def surfaces, do: []
 
       defoverridable child_spec: 1,
@@ -78,6 +90,7 @@ defmodule AllbertAssist.App do
                      signals: 0,
                      skill_paths: 0,
                      settings_schema: 0,
+                     memory_namespace: 0,
                      surfaces: 0
     end
   end

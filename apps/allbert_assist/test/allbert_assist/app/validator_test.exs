@@ -348,6 +348,16 @@ defmodule AllbertAssist.App.ValidatorTest do
     end
 
     @impl true
+    def memory_namespace do
+      %{
+        app_id: :valid_provider_app,
+        namespace: :valid_provider_app,
+        writable: false,
+        description: "Fixture namespace declaration."
+      }
+    end
+
+    @impl true
     def surfaces do
       [
         %Surface{
@@ -412,6 +422,29 @@ defmodule AllbertAssist.App.ValidatorTest do
 
     @impl true
     def settings_schema, do: [%{key: "apps.other.enabled", type: :boolean, default: false}]
+  end
+
+  defmodule InvalidMemoryNamespaceApp do
+    use AllbertAssist.App.ValidatorTest.ValidAppCase
+
+    @impl true
+    def app_id, do: :invalid_memory_namespace_app
+
+    @impl true
+    def display_name, do: "Invalid Memory Namespace"
+
+    @impl true
+    def version, do: "0.27.0"
+
+    @impl true
+    def memory_namespace do
+      %{
+        app_id: :other_app,
+        namespace: :invalid_memory_namespace_app,
+        writable: false,
+        description: "Mismatched owner."
+      }
+    end
   end
 
   defmodule InvalidProviderApp do
@@ -491,6 +524,7 @@ defmodule AllbertAssist.App.ValidatorTest do
     assert attrs.actions == [DirectAnswer]
     assert attrs.signals.emits == ["valid_provider.analysis.started"]
     assert [%{key: "apps.valid_provider_app.enabled"}] = attrs.settings_schema
+    assert %{namespace: :valid_provider_app, writable: false} = attrs.memory_namespace
     assert attrs.surface_provider == ValidProviderApp
     assert [%Surface{id: :home}] = attrs.provider_surfaces
     assert [%{component: :route}] = attrs.surface_catalog
@@ -500,6 +534,7 @@ defmodule AllbertAssist.App.ValidatorTest do
     assert_error(InvalidAgentApp, {:invalid_agents, InvalidAgentApp})
     assert_error(InvalidSignalsApp, {:invalid_signals, :topic})
     assert_error(InvalidSettingsSchemaApp, {:invalid_settings_schema, :key})
+    assert_error(InvalidMemoryNamespaceApp, {:invalid_memory_namespace, :app_id})
 
     assert {:error, {:invalid_surface_provider, _diagnostics},
             [%{kind: :invalid_surface_provider}]} =
