@@ -150,6 +150,7 @@ const CopyToClipboard = {
   mounted() {
     this.handleClick = async event => {
       event.preventDefault()
+      event.stopPropagation()
       const value = this.el.dataset.copyValue || this.el.textContent || ""
       try {
         await navigator.clipboard.writeText(value.trim())
