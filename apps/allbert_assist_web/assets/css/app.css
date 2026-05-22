@@ -713,6 +713,50 @@
   color: var(--allbert-warn);
 }
 
+/* v0.26a M34: chips rendered as anchors / links pick up interactive
+   affordance — hover ring + accent text + pointer cursor — so the
+   AppBar surfaces them as real navigation rather than inert labels. */
+a.allbert-chip-link,
+a.allbert-chip-link:visited,
+.allbert-chip-link {
+  text-decoration: none;
+  cursor: pointer;
+  color: var(--workspace-fg);
+}
+
+a.allbert-chip-link:hover,
+a.allbert-chip-link:focus-visible,
+.allbert-chip-link:hover,
+.allbert-chip-link:focus-visible {
+  border-color: var(--workspace-accent);
+  background: var(--allbert-accent-soft);
+  color: var(--workspace-accent);
+}
+
+/* v0.26a M34: AppBar overflow menu positioning + chrome. Anchored to
+   the trigger via the wrapping div; clicks outside don't auto-close
+   (LiveView state owns open/close) but Escape will collapse it once
+   FocusTrap exits. */
+.allbert-overflow-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.workspace-overflow-menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 30;
+  min-width: 16rem;
+  display: grid;
+  gap: 0.125rem;
+  padding: 0.375rem;
+  background: var(--workspace-panel);
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 12px 24px -8px rgb(0 0 0 / 25%);
+}
+
 .workspace-status-danger {
   border-color: var(--allbert-danger);
   color: var(--allbert-danger);
@@ -721,6 +765,71 @@
 .workspace-status-success {
   border-color: var(--allbert-success);
   color: var(--allbert-success);
+}
+
+/* v0.26a M33: status pill variants driven by emitter-supplied status props
+   (running / open / blocked / completed / failed / impasse / abandoned). */
+.workspace-status-info {
+  border-color: var(--workspace-accent);
+  color: var(--workspace-accent);
+}
+
+.workspace-status-neutral {
+  border-color: var(--workspace-border);
+  color: var(--workspace-muted);
+}
+
+/* v0.26a M33: workspace-card-footer rendered as a flex row so the mono
+   external-id copy chip aligns to the right next to the metric. */
+.workspace-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.workspace-card-footer > :first-child {
+  flex: 1 1 auto;
+}
+
+/* v0.26a M33: copy-on-click affordances. The chip looks like a borderless
+   pill of mono text; hovering surfaces a subtle ring. Successful copies
+   render the "Copied" status from CopyToClipboard via the data-copy-status
+   attribute. */
+.workspace-copy-target {
+  position: relative;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  padding: 0.0625rem 0.25rem;
+  transition: background-color 120ms ease;
+}
+
+.workspace-copy-target:hover,
+.workspace-copy-target:focus-visible {
+  background: var(--workspace-panel-muted);
+}
+
+.workspace-copy-target::after {
+  content: attr(data-copy-status);
+  position: absolute;
+  bottom: calc(100% + 0.25rem);
+  right: 0;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--workspace-fg);
+  background: var(--workspace-panel-muted);
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.25rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  white-space: nowrap;
+}
+
+.workspace-copy-target[data-copy-status]:not([data-copy-status=""])::after {
+  opacity: 1;
 }
 
 .workspace-mono {
@@ -1179,6 +1288,56 @@
   box-shadow: inset 4px 0 0 var(--allbert-warn);
 }
 
+/* v0.26a M32: promote the approval handoff into a modal overlay so the
+   blocking approval flow commands attention. The FocusTrap hook on the
+   inner section keeps Tab cycling within the modal; the overlay div
+   provides the backdrop + centered viewport positioning. */
+.workspace-approval-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgb(15 23 42 / 55%);
+  backdrop-filter: saturate(140%) blur(2px);
+}
+
+#workspace-shell[data-theme="dark"] .workspace-approval-overlay {
+  background: rgb(0 0 0 / 70%);
+}
+
+.workspace-approval-modal {
+  width: 100%;
+  max-width: 36rem;
+  max-height: 80dvh;
+  overflow-y: auto;
+  background: var(--workspace-panel);
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 25%);
+  outline: none;
+}
+
+.workspace-approval-modal:focus-visible {
+  outline: 3px solid var(--workspace-focus);
+  outline-offset: 2px;
+}
+
+.workspace-approval-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--allbert-warn);
+  margin-bottom: 0.25rem;
+}
+
+#workspace-shell[data-reduce-motion="true"] .workspace-approval-overlay {
+  backdrop-filter: none;
+}
+
 .workspace-approval-lines {
   display: grid;
   gap: 0.25rem;
@@ -1250,11 +1409,32 @@
   .allbert-appbar-center {
     grid-column: 1 / -1;
     justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+    padding-bottom: 0.125rem;
   }
 
+  /* v0.26a M31: the mobile pane fills the viewport remainder under the
+     sticky AppBar (≈56px) and the mobile tab strip (≈60px including
+     margin). The timeline / tile list inside still scrolls
+     independently. */
   .workspace-chat-pane,
   .workspace-canvas-node {
-    min-height: calc(100dvh - 14rem);
+    min-height: calc(100dvh - 9rem);
+    max-height: calc(100dvh - 9rem);
+  }
+
+  /* v0.26a M31: the mobile tab toggle is sticky just below the AppBar so
+     operators can switch between chat / canvas / ephemerals without
+     scrolling back to the top. */
+  #workspace-mobile-tabs {
+    position: sticky;
+    top: 3.5rem;
+    z-index: 15;
+    background: var(--workspace-bg);
+    padding: 0.5rem 0;
+    margin-bottom: 0.5rem;
   }
 
   .workspace-composer-footer,
@@ -1263,9 +1443,144 @@
     align-items: stretch;
     flex-direction: column;
   }
+
+  .workspace-composer-counter {
+    align-self: flex-end;
+  }
 }
 
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
+
+/* ---- v0.26a M30: sticky AppBar + independent pane scroll ---------------- */
+/* Constrain the workspace shell to a FIXED viewport height (not min-height —
+   min-height lets the shell grow to content height, which is exactly the bug
+   that made the whole page scroll while the chat pane only bounced). The
+   id+class selector overrides the Tailwind `min-h-screen` utility on the
+   <section>. overflow:hidden contains the children so only the inner pane
+   lists scroll. */
+#workspace-shell.workspace-shell {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The WorkspaceRenderer live_component renders a `.workspace-renderer` wrapper
+   div between the shell and the root node. It is a direct flex child of the
+   shell but defaults to display:block / flex:0 1 auto, so it sized to content
+   (3500px+) and broke the height chain — the panes never received a bounded
+   parent. Make it a flex column that fills the remaining shell height. */
+#workspace-shell > .workspace-renderer {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* workspace-root is the renderer's root node. It must be a flex column so its
+   single grid child can be height-constrained to the remaining space. It was
+   display:block, which let the grid size to content regardless of the parent
+   height — the second half of the scroll bug. */
+#workspace-shell #workspace-node-workspace-root {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  #workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
+    /* The chat/canvas row takes the remaining height; header + badges +
+       ephemeral rows stay auto-sized. */
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    align-items: stretch;
+  }
+
+  /* Each pane fills its grid track and scrolls inside itself, not the page. */
+  #workspace-shell #workspace-node-workspace-root .workspace-chat-pane,
+  #workspace-shell #workspace-node-workspace-root .workspace-canvas-node {
+    min-height: 0;
+    max-height: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* v0.26a M30 follow-up: maximize / restore a pane. The maximized pane
+     spans all three grid columns; the sibling pane and the resize bar are
+     hidden. Toggling off restores the split. */
+  #workspace-shell[data-maximized-pane="chat"] #workspace-node-workspace-canvas-region,
+  #workspace-shell[data-maximized-pane="chat"] #workspace-split-resizer {
+    display: none;
+  }
+
+  #workspace-shell[data-maximized-pane="chat"] #workspace-node-workspace-chat {
+    grid-column: 1 / -1;
+  }
+
+  #workspace-shell[data-maximized-pane="canvas"] #workspace-node-workspace-chat,
+  #workspace-shell[data-maximized-pane="canvas"] #workspace-split-resizer {
+    display: none;
+  }
+
+  #workspace-shell[data-maximized-pane="canvas"] #workspace-node-workspace-canvas-region {
+    grid-column: 1 / -1;
+  }
+}
+
+/* v0.26a M30 follow-up: the maximize button sits at the right edge of each
+   pane header. Pressed state (pane currently maximized) gets the accent
+   treatment so the toggle is legible. */
+.workspace-pane-maximize {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.workspace-pane-maximize[aria-pressed="true"] {
+  border-color: var(--workspace-accent);
+  color: var(--workspace-accent);
+  background: var(--allbert-accent-soft);
+}
+
+/* The AppBar is rendered as the first grid row inside workspace-root. Mark
+   it sticky so chrome stays anchored even on small / portrait viewports
+   where the grid collapses into a stacked column. */
+#workspace-shell .allbert-appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--workspace-panel);
+  backdrop-filter: saturate(160%) blur(6px);
+}
+
+/* ---- v0.26a M29: composer character counter ----------------------------- */
+.workspace-composer-counter {
+  color: var(--workspace-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  padding: 0 0.5rem;
+}
+
+.workspace-composer-counter[data-near-limit="true"] {
+  color: var(--allbert-warn);
+  font-weight: 600;
+}
+
+.workspace-composer-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.workspace-composer-footer .workspace-composer-hint {
+  flex: 1 1 auto;
+}
 
 /* This file is for your main application CSS */
