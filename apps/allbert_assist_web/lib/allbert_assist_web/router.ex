@@ -24,6 +24,16 @@ defmodule AllbertAssistWeb.Router do
     live "/settings", SettingsLive
   end
 
+  scope "/" do
+    pipe_through :browser
+
+    live "/stocksage", StockSageWeb.WorkspaceLive, :index
+    live "/stocksage/analyses", StockSageWeb.AnalysisLive, :index
+    live "/stocksage/analyses/:id", StockSageWeb.AnalysisLive, :show
+    live "/stocksage/queue", StockSageWeb.QueueLive, :index
+    live "/stocksage/trends", StockSageWeb.TrendsLive, :index
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", AllbertAssistWeb do
   #   pipe_through :api

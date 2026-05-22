@@ -38,7 +38,8 @@ defmodule AllbertAssist.MixProject do
     [
       Path.expand("../../plugins/allbert.telegram/lib", __DIR__),
       Path.expand("../../plugins/allbert.email/lib", __DIR__),
-      Path.expand("../../plugins/stocksage/lib", __DIR__)
+      Path.expand("../../plugins/stocksage/lib/stocksage", __DIR__),
+      Path.expand("../../plugins/stocksage/lib/mix", __DIR__)
     ]
   end
 
