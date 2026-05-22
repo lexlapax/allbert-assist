@@ -45,6 +45,8 @@ const focusableElements = root => {
 
 const FocusTrap = {
   mounted() {
+    this.previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+
     if (!this.el.hasAttribute("tabindex")) {
       this.el.setAttribute("tabindex", "-1")
     }
@@ -81,6 +83,9 @@ const FocusTrap = {
   },
   destroyed() {
     this.el.removeEventListener("keydown", this.handleKeydown)
+    if (this.previouslyFocused?.isConnected) {
+      this.previouslyFocused.focus({preventScroll: true})
+    }
   },
 }
 
