@@ -184,6 +184,31 @@ defmodule StockSageWeb.LiveTest do
     assert has_element?(view, ~s(#stocksage-progress-stream [data-stage="synthesis"]))
   end
 
+  test "analysis detail queues explicit reruns through run_analysis confirmation", %{conn: conn} do
+    %{analysis: analysis} = create_analysis_detail_fixture()
+
+    {:ok, view, _html} = live(conn, ~p"/stocksage/analyses/#{analysis.id}")
+    assert has_element?(view, "#stocksage-analysis-rerun")
+    assert length(Analyses.list_analyses("local")) == 1
+
+    view
+    |> element("#stocksage-rerun-native")
+    |> render_click()
+
+    assert has_element?(view, "#stocksage-rerun-notice")
+    assert render(view) =~ "Rerun confirmation"
+    assert length(Analyses.list_analyses("local")) == 1
+
+    assert Enum.any?(
+             Confirmations.list(status: :pending),
+             &(get_in(&1, ["target_action", "name"]) == "run_analysis" and
+                 get_in(&1, ["params_summary", "source_analysis_id"]) == analysis.id and
+                 get_in(&1, ["params_summary", "engine"]) == "native")
+           )
+
+    assert has_element?(view, "#stocksage-confirmation-links")
+  end
+
   test "analysis detail generates and renders StockSage-local reflections", %{conn: conn} do
     %{analysis: analysis, outcome: outcome} = create_analysis_detail_fixture()
 

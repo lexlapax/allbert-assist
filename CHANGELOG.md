@@ -35,6 +35,8 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
   stamps advisory context before initial memory-write authorization.
 - StockSage analysis-detail `Sync lesson` control, which queues lesson-sync
   confirmation and writes no Allbert markdown memory until approval.
+- StockSage analysis-detail rerun controls for native, Python comparison, and
+  parity reruns, backed by the existing `run_analysis` confirmation flow.
 
 ### Changed (v0.29.0 In Progress)
 
@@ -43,6 +45,9 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
   resume.
 - StockSage reflections remain local advisory memory until an operator queues
   and approves lesson sync.
+- `run_analysis` carries optional `source_analysis_id` through confirmations,
+  resume params, action metadata, signals, and persisted analysis metadata so
+  reruns are distinguishable from their source analysis.
 
 ### Verification (v0.29.0 In Progress)
 
@@ -61,6 +66,14 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
   confirmation, the reflection moved to `Allbert sync pending`, no sync error
   rendered, no StockSage console errors appeared, and no Allbert markdown
   memory file existed before approval.
+- M5 focused tests passed for `run_analysis` source-analysis provenance and the
+  StockSage analysis-detail rerun confirmation flow.
+- M5 Chrome verification passed against a disposable Allbert Home: rerun
+  controls rendered on an existing analysis, `Native` rerun queued a normal
+  `run_analysis` confirmation, pending-confirmation links appeared on the
+  source analysis page, no rerun error or StockSage console errors appeared,
+  and the analysis list still contained only the source analysis before
+  approval.
 
 ## v0.28.0 - Security Hardening And Evals
 

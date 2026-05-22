@@ -59,6 +59,7 @@ defmodule StockSage.Actions.RunAnalysis do
       evidence_mode: [type: :string, required: false],
       user_id: [type: :string, required: false],
       queue_entry_id: [type: :string, required: false],
+      source_analysis_id: [type: :string, required: false],
       objective_id: [type: :string, required: false],
       step_id: [type: :string, required: false],
       thread_id: [type: :string, required: false],
@@ -133,6 +134,7 @@ defmodule StockSage.Actions.RunAnalysis do
         evidence_mode: normalize_evidence_mode(Actions.field(params, :evidence_mode)),
         user_id: user_id,
         queue_entry_id: blank(Actions.field(params, :queue_entry_id)),
+        source_analysis_id: blank(Actions.field(params, :source_analysis_id)),
         objective_id:
           blank(Actions.field(params, :objective_id) || Actions.field(context, :objective_id)),
         step_id: blank(Actions.field(params, :step_id) || Actions.field(context, :step_id)),
@@ -204,6 +206,7 @@ defmodule StockSage.Actions.RunAnalysis do
              evidence_mode: validated.evidence_mode,
              user_id: validated.user_id,
              queue_entry_id: validated.queue_entry_id,
+             source_analysis_id: validated.source_analysis_id,
              objective_id: validated.objective_id,
              step_id: validated.step_id,
              objective_title: get_in(context, [:objective, :title]),
@@ -218,6 +221,7 @@ defmodule StockSage.Actions.RunAnalysis do
              evidence_mode: validated.evidence_mode,
              user_id: validated.user_id,
              queue_entry_id: validated.queue_entry_id,
+             source_analysis_id: validated.source_analysis_id,
              objective_id: validated.objective_id,
              step_id: validated.step_id,
              thread_id: validated.thread_id,
@@ -248,6 +252,7 @@ defmodule StockSage.Actions.RunAnalysis do
                  evidence_mode: validated.evidence_mode,
                  user_id: validated.user_id,
                  queue_entry_id: validated.queue_entry_id,
+                 source_analysis_id: validated.source_analysis_id,
                  objective_id: validated.objective_id,
                  step_id: validated.step_id,
                  risk_tier: :high
@@ -451,6 +456,7 @@ defmodule StockSage.Actions.RunAnalysis do
       thread_id: validated.thread_id,
       session_id: validated.session_id,
       queue_entry_id: validated.queue_entry_id,
+      source_analysis_id: validated.source_analysis_id,
       objective_id: validated.objective_id,
       step_id: validated.step_id,
       error: queue_reason_to_string(reason)
@@ -476,6 +482,7 @@ defmodule StockSage.Actions.RunAnalysis do
              analysis_date: Date.to_iso8601(validated.analysis_date),
              engine: validated.engine,
              queue_entry_id: validated.queue_entry_id,
+             source_analysis_id: validated.source_analysis_id,
              objective_id: validated.objective_id,
              step_id: validated.step_id,
              reason: queue_reason_to_string(reason)
@@ -517,6 +524,7 @@ defmodule StockSage.Actions.RunAnalysis do
           "duration_ms" => duration_ms,
           "truncated" => truncated?,
           "queue_entry_id" => validated.queue_entry_id,
+          "source_analysis_id" => validated.source_analysis_id,
           "objective_id" => validated.objective_id,
           "step_id" => validated.step_id,
           "parity_pass" => get_in(result_field(result, :parity_diff, %{}), ["parity_pass"])
@@ -557,6 +565,7 @@ defmodule StockSage.Actions.RunAnalysis do
               thread_id: validated.thread_id || Actions.field(context, :thread_id),
               session_id: validated.session_id || Actions.field(context, :session_id),
               queue_entry_id: validated.queue_entry_id,
+              source_analysis_id: validated.source_analysis_id,
               objective_id: validated.objective_id,
               step_id: validated.step_id,
               duration_ms: duration_ms,
@@ -615,6 +624,7 @@ defmodule StockSage.Actions.RunAnalysis do
                      parity_diff: result_field(result, :parity_diff),
                      native_trace: native_trace_metadata(validated, result),
                      queue_entry_id: validated.queue_entry_id,
+                     source_analysis_id: validated.source_analysis_id,
                      objective_id: validated.objective_id,
                      step_id: validated.step_id,
                      summary: summary
@@ -656,6 +666,7 @@ defmodule StockSage.Actions.RunAnalysis do
         "duration_ms" => duration_ms,
         "error" => Protocol.bounded_reason(reason),
         "queue_entry_id" => validated.queue_entry_id,
+        "source_analysis_id" => validated.source_analysis_id,
         "objective_id" => validated.objective_id,
         "step_id" => validated.step_id
       }
@@ -686,6 +697,7 @@ defmodule StockSage.Actions.RunAnalysis do
           thread_id: validated.thread_id || Actions.field(context, :thread_id),
           session_id: validated.session_id || Actions.field(context, :session_id),
           queue_entry_id: validated.queue_entry_id,
+          source_analysis_id: validated.source_analysis_id,
           objective_id: validated.objective_id,
           step_id: validated.step_id,
           duration_ms: duration_ms,
@@ -734,6 +746,7 @@ defmodule StockSage.Actions.RunAnalysis do
                    if(python_engine?(validated.engine), do: duration_ms, else: nil),
                  error: Protocol.bounded_reason(reason),
                  queue_entry_id: validated.queue_entry_id,
+                 source_analysis_id: validated.source_analysis_id,
                  objective_id: validated.objective_id,
                  step_id: validated.step_id
                }
@@ -1302,6 +1315,7 @@ defmodule StockSage.Actions.RunAnalysis do
       thread_id: validated.thread_id || Actions.field(context, :thread_id),
       session_id: validated.session_id || Actions.field(context, :session_id),
       queue_entry_id: validated.queue_entry_id,
+      source_analysis_id: validated.source_analysis_id,
       objective_id: validated.objective_id,
       step_id: validated.step_id,
       confirmation_id: confirmation_id(context),
