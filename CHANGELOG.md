@@ -10,6 +10,63 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.26.2 - Workspace UX Closeout
+
+Status: implemented and ready for operator manual verification. Version
+metadata is `0.26.2`; release tag `v0.26.2` is pending operator acceptance.
+
+Plan: `docs/plans/v0.26c-ux-closeout-plan.md`.
+Request flow: `docs/plans/v0.26c-request-flow.md`.
+
+### Added (v0.26.2)
+
+- Real workspace tile inspector modal for existing canvas tiles. The Inspect
+  action opens a focus-trapped dialog with tile metadata, body content,
+  provenance, optional trace affordance, and copy controls.
+- AppBar thread switcher dropdown replacing the copy-only thread chip. The
+  menu lists recent local-user threads, creates a new thread through
+  `Conversations.resolve_thread/1`, switches back to prior threads, and keeps
+  copy-thread-id available in the menu.
+
+### Changed (v0.26.2)
+
+- `CopyToClipboard` stops click propagation so copy actions inside click-away
+  menus can complete without closing their parent menu first.
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, and child app
+  metadata bumped to `0.26.2`.
+
+### Verification (v0.26.2)
+
+- Focused tests passed:
+  `agent_live_test.exs` (35 tests), `renderer_test.exs` (9 tests), and
+  `tile_inspector_test.exs` (1 test).
+- Release gate passed: `mix format --check-formatted`,
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  and `mix precommit`. The final `mix precommit` run reported 754 core tests,
+  82 web tests, 168 StockSage plugin tests, and 2 channel plugin tests, all
+  with 0 failures.
+- Chrome browser smoke used two tabs on the same `/agent` thread. A pending
+  approval ephemeral created in tab 1 appeared in tab 2 without reload; a
+  StockSage objective canvas tile created in tab 1 appeared in tab 2 without
+  reload; the inspector opened/closed on that real tile; the thread switcher
+  copied the id, created a new thread, and switched back; Chrome console errors
+  were empty.
+
+### Manual Verification (v0.26.2)
+
+Use a disposable Allbert Home, run migrations, start Phoenix, then open
+`/agent` in Chrome:
+
+1. Create a canvas tile, open the tile kebab, choose Inspect, verify focus
+   enters `#workspace-tile-inspector`, provenance/body/copy controls render,
+   and Escape closes it.
+2. Open the thread switcher, copy the thread id, create a new thread, and
+   switch back to the original thread.
+3. Open the same thread in a second tab and confirm tile plus ephemeral updates
+   converge without reload.
+
+---
+
 ## v0.26.1 - Workspace UX/UI + Backend Runtime Closeout
 
 Status: released and tagged as `v0.26.1` on 2026-05-22. This release

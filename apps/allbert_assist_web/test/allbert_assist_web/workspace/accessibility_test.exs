@@ -46,7 +46,7 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
     refute html =~ "GitHub"
     refute html =~ "Get Started"
     assert has_element?(view, "#allbert-appbar")
-    assert has_element?(view, "#workspace-thread-chip")
+    assert has_element?(view, "#workspace-thread-switcher-toggle[aria-haspopup='menu']")
     assert has_element?(view, "#workspace-active-app-chip")
     assert has_element?(view, "#workspace-objective-count-chip")
     assert has_element?(view, "#workspace-tile-count-chip")

@@ -18,7 +18,7 @@ defmodule AllbertAssist.App.CoreApp do
   # the app (release-pinned, not semantic-per-app). v0.26 upgrades
   # `/agent` into the workspace canvas and ephemeral surface shell.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.26.1"
+  def version, do: "0.26.2"
 
   @impl true
   def validate(_opts), do: :ok
