@@ -263,7 +263,7 @@ defmodule StockSage.ActionsTest do
     assert Enum.any?(all, fn candidate ->
              Map.get(candidate, :action_name) == "run_analysis"
            end),
-           "run_analysis not in candidates: #{inspect(Enum.map(all, & &1.action_name))}"
+           "run_analysis not in candidates: #{inspect(Enum.map(all, &Map.get(&1, :action_name)))}"
   end
 
   # v0.22 audit closeout (gap 2): the original test above only asserted

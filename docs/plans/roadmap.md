@@ -1460,9 +1460,10 @@ Shipped:
 Plan: `docs/plans/v0.27-plan.md`
 Request flow: `docs/plans/v0.27-request-flow.md`
 
-Status: planned. Formerly M-D3a, previously planned as v0.24, then v0.25
-before the project-direction rethink. Redesigned to build on the v0.18
-app/surface contract and Surface DSL from day one. Renamed after the
+Status: implemented through M8 closeout on 2026-05-22 and ready for operator
+manual verification before release tag. Formerly M-D3a, previously planned as
+v0.24, then v0.25 before the project-direction rethink. Redesigned to build on
+the v0.18 app/surface contract and Surface DSL from day one. Renamed after the
 post-v0.26 roadmap reconciliation to make the platform contract explicit:
 StockSage is the reference implementation, not a special-case app.
 
@@ -1471,18 +1472,20 @@ Objective Runtime Foundation, v0.25 Native Jido agents, and v0.26 workspace
 surface are complete so both analysis engines, objective state, and the
 workspace shell are available from the start.
 
-Expected direction:
+Shipped:
 
 - Add StockSage workspace, analysis, queue, and trends LiveViews in
   plugin-owned StockSage web surface modules.
 - Implement `AllbertAssist.App.SurfaceProvider` on `StockSage.App` and declare
-  StockSage surfaces through the `AllbertAssist.Surface` DSL. No static route
-  mounting to migrate later.
+  StockSage surfaces through real `%AllbertAssist.Surface{}` structs validated
+  by the app registry. Static route mounts live in the host router; provider
+  metadata drives navigation and validation.
 - Replace the reserved v0.26 StockSage card stubs with real renderers in
   StockSage-owned `/stocksage/...` LiveViews. This is renderer/app-surface
   proof; v0.30 is durable `/agent` canvas-emission proof.
 - Render objective state for StockSage analyses: which objective an analysis
-  belongs to, multi-step "analyze and compare" flows, cancellation.
+  belongs to, delegated specialist steps, pending confirmation links, and
+  cancellation affordance.
 - Declare StockSage component catalog entries for the four v0.26-reserved
   StockSage card atoms so `RunAnalysis` results carry validated Surface nodes
   from day one. Queue and trend pages render with existing Surface primitives in
@@ -1494,6 +1497,8 @@ Expected direction:
 - Use PubSub/streams for live progress, set `active_app: :stocksage` when
   navigating under `/stocksage/`, and cover app-flow empty/loading/error,
   keyboard/focus, and mobile behavior.
+- Configure Tailwind to scan `plugins/stocksage/lib/stocksage_web` so
+  plugin-owned responsive classes ship with the host asset build.
 
 ## v0.28: Security Hardening And Evals
 

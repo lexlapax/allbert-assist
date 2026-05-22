@@ -3,7 +3,7 @@
 StockSage is Allbert's first shipped source-tree plugin workspace app and the
 first proving app for native financial specialist agents.
 
-Current v0.25 capabilities:
+Current v0.27 capabilities:
 
 - `./plugins/stocksage` contributes `StockSage.Plugin`, `StockSage.App`,
   skills, settings schema entries, local domain actions, evidence actions,
@@ -24,6 +24,21 @@ Current v0.25 capabilities:
 - `mix allbert.delegate <agent_id>` lives in Allbert core and proves
   StockSage specialists can be called outside StockSage through the shared
   `delegate_agent` registered action.
+- `/stocksage`, `/stocksage/analyses`, `/stocksage/analyses/:id`,
+  `/stocksage/queue`, and `/stocksage/trends` are plugin-owned LiveView
+  surfaces mounted by the host router and declared by `StockSage.App.surfaces/0`.
+- `StockSage.App.surface_catalog/0` declares the four v0.26-reserved StockSage
+  app card atoms: `:analysis_card`, `:agent_report_card`, `:parity_card`, and
+  `:debate_round_card`.
+- StockSage-owned card renderers display persisted native, bridge, and parity
+  analysis output inside `/stocksage/*`; the v0.26 workspace stubs remain a
+  separate `/agent` canvas concern until v0.30.
+- `StockSage.App.memory_namespace/0` declares namespace ownership with
+  `writable: false`. v0.27 does not sync lessons, reflections, or analyses into
+  Allbert markdown memory.
+- `StockSage.Progress` streams bounded analysis progress over Phoenix.PubSub on
+  `stocksage_progress:<user_id>:<analysis_id>` and catches up from persisted
+  objective/analysis state on reconnect.
 
 The native graph includes LLM-capable Jido.AI specialists for market context,
 news/sentiment, fundamentals, bull thesis, bear thesis, three risk
@@ -50,9 +65,23 @@ mix stocksage.analyze AAPL 2026-05-15 --user local --engine native --evidence-mo
 mix stocksage.analyze AAPL 2026-05-15 --user local --engine both --evidence-mode fixture --force-stub
 mix stocksage.agents smoke stocksage.market_context --ticker AAPL --analysis-date 2026-05-15 --fixture --user local
 mix allbert.delegate stocksage.market_context '{"ticker":"AAPL","analysis_date":"2026-05-15","evidence_mode":"fixture","fixture":true}' --user local
+mix allbert.validate_app StockSage.App
+```
+
+Local web smoke:
+
+```sh
+export ALLBERT_HOME=$(mktemp -d /tmp/allbert-v027-web.XXXXXX)
+mix ecto.migrate.allbert
+mix phx.server
+# Browse /stocksage, /stocksage/analyses, /stocksage/queue, and /stocksage/trends.
 ```
 
 Every read-by-id path is scoped by `user_id`; another user's durable id returns
 not-found. `:stocksage_write` authorizes local StockSage SQLite writes only;
 `:stocksage_analyze` remains confirmation-gated; evidence actions flow through
 `:stocksage_evidence_fetch` and Resource Access posture.
+
+v0.27 intentionally stops at the app-surface contract. Memory sync and lesson
+promotion land in v0.29, and durable `/agent` canvas tile emission through
+`canvas_ops` lands in v0.30.
