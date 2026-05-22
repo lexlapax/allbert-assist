@@ -57,11 +57,12 @@ defmodule StockSage.Security.StockSageMarketDataEvalTest do
                 "stocksage_fetch_market_data",
                 %{ticker: "AAPL", analysis_date: "2026-05-22", evidence_mode: "live"},
                 %{
+                  active_app: :stocksage,
                   actor: "alice",
                   user_id: "alice",
                   channel: :test,
                   resource_grants: [generic_grant],
-                  request: %{operator_id: "alice", channel: :test}
+                  request: %{active_app: :stocksage, operator_id: "alice", channel: :test}
                 }
               )
 

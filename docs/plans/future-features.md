@@ -346,6 +346,11 @@ Surface-tree renderer, signed Fragment pipeline, browser-side Yjs/IndexedDB
 offline editing, and conflict/revert UX that future protocol adapters must
 preserve.
 
+**v0.28 pre-tag note:** the current `to_a2ui/1` security eval is a tripwire
+that asserts the encoder remains unimplemented. The first milestone that turns
+on real A2UI/protocol encoding must replace that tripwire with positive
+redaction coverage before exposing encoded fields.
+
 The documented v0.26 internal mapping (per ADR 0023 §8):
 
 | Allbert signal | AG-UI event |

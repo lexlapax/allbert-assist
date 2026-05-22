@@ -957,9 +957,16 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       step_id: step_id(record),
       trace_id: Map.get(record, "source_trace_id") || Map.get(context, :trace_id),
       action_capability: Map.get(record, "capability_contract", %{}),
+      active_app: target_active_app(record),
       selected_skill: selected_skill,
       skill_metadata: skill_metadata
     })
+  end
+
+  defp target_active_app(record) do
+    get_in(record, ["origin", "app_id"]) ||
+      get_in(record, ["resume_params_ref", "app_id"]) ||
+      get_in(record, ["params_summary", "app_id"])
   end
 
   defp objective_id(record) do

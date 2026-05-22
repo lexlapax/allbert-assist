@@ -488,6 +488,35 @@ defmodule AllbertAssist.JobsTest do
       assert response.runner_metadata.action_name == "direct_answer"
     end
 
+    test "registered action jobs pass explicit app scope to app-owned actions" do
+      ensure_stocksage_app!()
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "stocksage scoped direct job",
+                 target_type: "registered_action",
+                 target: %{
+                   action_name: "run_analysis",
+                   params: %{
+                     "ticker" => "AAPL",
+                     "analysis_date" => "2026-05-22",
+                     "user_id" => "alice",
+                     "force_stub" => true
+                   }
+                 },
+                 schedule: %{kind: "manual"},
+                 user_id: "alice",
+                 app_id: "stocksage"
+               })
+
+      assert {:ok, %{run: run, response: response}} = Runner.run_now(job)
+
+      assert response.status == :needs_confirmation
+      assert run.status == "needs_confirmation"
+      assert run.action_log["runner_metadata"]["action_name"] == "run_analysis"
+      refute Map.get(response, :error) == {:app_scope_denied, :missing_active_app_scope}
+    end
+
     test "persists failed runtime runs without losing the run record" do
       Application.put_env(:allbert_assist, Runtime,
         agent_runner: fn _signal, _request -> {:error, :boom} end
@@ -779,14 +808,25 @@ defmodule AllbertAssist.JobsTest do
   end
 
   defp ensure_stocksage_app! do
+    ensure_stocksage_plugin!()
+
     case AppRegistry.lookup(:stocksage) do
       {:ok, _entry} ->
         :ok
 
       {:error, :not_found} ->
-        PluginRegistry.register_module(StockSage.Plugin)
         assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
         on_exit(fn -> AppRegistry.unregister(:stocksage) end)
+    end
+  end
+
+  defp ensure_stocksage_plugin! do
+    case PluginRegistry.lookup("stocksage") do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, :not_found} ->
+        assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
     end
   end
 

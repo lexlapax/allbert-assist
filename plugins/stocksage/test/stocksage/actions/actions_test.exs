@@ -84,13 +84,19 @@ defmodule StockSage.ActionsTest do
                source: "manual"
              })
 
-    assert {:ok, list_response} = Runner.run("list_analyses", %{user_id: "alice"}, %{})
+    assert {:ok, list_response} =
+             Runner.run("list_analyses", %{user_id: "alice"}, stocksage_context())
+
     assert [%{id: analysis_id}] = list_response.analyses
     assert analysis_id == analysis.id
     assert list_response.runner_metadata.action_capability.app_id == :stocksage
 
     assert {:ok, show_response} =
-             Runner.run("show_analysis", %{user_id: "alice", analysis_id: analysis.id}, %{})
+             Runner.run(
+               "show_analysis",
+               %{user_id: "alice", analysis_id: analysis.id},
+               stocksage_context()
+             )
 
     assert show_response.analysis.id == analysis.id
     assert [%{section: "technical"} = detail] = show_response.analysis.details
@@ -104,7 +110,11 @@ defmodule StockSage.ActionsTest do
     refute Map.has_key?(detail.payload, "raw_vendor_payload")
 
     assert {:ok, missing_response} =
-             Runner.run("show_analysis", %{user_id: "bob", analysis_id: analysis.id}, %{})
+             Runner.run(
+               "show_analysis",
+               %{user_id: "bob", analysis_id: analysis.id},
+               stocksage_context()
+             )
 
     assert missing_response.status == :not_found
   end
@@ -126,7 +136,7 @@ defmodule StockSage.ActionsTest do
                label: "win"
              })
 
-    assert {:ok, response} = Runner.run("get_trends", %{user_id: "alice"}, %{})
+    assert {:ok, response} = Runner.run("get_trends", %{user_id: "alice"}, stocksage_context())
 
     assert response.status == :completed
     assert response.trends.counts == %{"win" => 1}
@@ -144,7 +154,7 @@ defmodule StockSage.ActionsTest do
                  objective_id: "obj_queue_test",
                  step_id: "step_queue_test"
                },
-               %{session_id: "session_1"}
+               stocksage_context(%{session_id: "session_1"})
              )
 
     assert response.status == :completed
@@ -157,7 +167,7 @@ defmodule StockSage.ActionsTest do
   end
 
   test "actions require explicit user context at the action boundary" do
-    assert {:ok, response} = Runner.run("queue_analysis", %{symbol: "AAPL"}, %{})
+    assert {:ok, response} = Runner.run("queue_analysis", %{symbol: "AAPL"}, stocksage_context())
 
     assert response.status == :error
     assert response.error == :missing_user_id
@@ -167,7 +177,7 @@ defmodule StockSage.ActionsTest do
   test "list_queue reads rows through the runner" do
     assert {:ok, entry} = Queue.create_entry(%{user_id: "alice", symbol: "aapl"})
 
-    assert {:ok, response} = Runner.run("list_queue", %{user_id: "alice"}, %{})
+    assert {:ok, response} = Runner.run("list_queue", %{user_id: "alice"}, stocksage_context())
 
     assert response.status == :completed
     assert [%{id: id, symbol: "AAPL"}] = response.queue_entries
@@ -188,7 +198,7 @@ defmodule StockSage.ActionsTest do
              Runner.run(
                "import_stocksage_sqlite",
                %{user_id: "alice", path: path, dry_run: true},
-               %{}
+               stocksage_context()
              )
 
     assert response.status == :completed
@@ -202,7 +212,11 @@ defmodule StockSage.ActionsTest do
              })
 
     assert {:ok, denied} =
-             Runner.run("import_stocksage_sqlite", %{user_id: "alice", path: path}, %{})
+             Runner.run(
+               "import_stocksage_sqlite",
+               %{user_id: "alice", path: path},
+               stocksage_context()
+             )
 
     assert denied.status == :denied
     assert [] = Analyses.list_analyses("alice")
@@ -214,11 +228,19 @@ defmodule StockSage.ActionsTest do
                "permissions" => %{"stocksage_write" => "denied"}
              })
 
-    assert {:ok, denied} = Runner.run("queue_analysis", %{user_id: "alice", symbol: "AAPL"}, %{})
+    assert {:ok, denied} =
+             Runner.run(
+               "queue_analysis",
+               %{user_id: "alice", symbol: "AAPL"},
+               stocksage_context()
+             )
+
     assert denied.status == :denied
     assert [] = Queue.list_entries("alice")
 
-    assert {:ok, allowed} = Runner.run("list_analyses", %{user_id: "alice"}, %{})
+    assert {:ok, allowed} =
+             Runner.run("list_analyses", %{user_id: "alice"}, stocksage_context())
+
     assert allowed.status == :completed
   end
 
@@ -356,4 +378,6 @@ defmodule StockSage.ActionsTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp stocksage_context(attrs \\ %{}), do: Map.merge(%{active_app: :stocksage}, attrs)
 end

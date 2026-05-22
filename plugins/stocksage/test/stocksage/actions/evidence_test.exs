@@ -33,7 +33,15 @@ defmodule StockSage.Actions.EvidenceTest do
              Runner.run(
                "stocksage_fetch_market_data",
                %{ticker: "AAPL", analysis_date: "2026-05-15", evidence_mode: "fixture"},
-               %{request: %{channel: :test, user_id: "alice", operator_id: "alice"}}
+               %{
+                 active_app: :stocksage,
+                 request: %{
+                   active_app: :stocksage,
+                   channel: :test,
+                   user_id: "alice",
+                   operator_id: "alice"
+                 }
+               }
              )
 
     assert response.status == :completed
@@ -120,7 +128,15 @@ defmodule StockSage.Actions.EvidenceTest do
              Runner.run(
                "stocksage_fetch_news",
                %{ticker: "AAPL", analysis_date: "2026-05-15", evidence_mode: "live"},
-               %{request: %{channel: :test, user_id: "alice", operator_id: "alice"}}
+               %{
+                 active_app: :stocksage,
+                 request: %{
+                   active_app: :stocksage,
+                   channel: :test,
+                   user_id: "alice",
+                   operator_id: "alice"
+                 }
+               }
              )
 
     assert response.status == :needs_confirmation
