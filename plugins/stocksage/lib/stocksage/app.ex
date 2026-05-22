@@ -20,10 +20,10 @@ defmodule StockSage.App do
   def display_name, do: "StockSage"
 
   @impl true
-  # v0.25 closeout: release-pinned with the native financial specialist-agent
-  # graph, explicit Python parity, and delegate-agent proof.
+  # v0.27 closeout: release-pinned with StockSage-owned LiveView surfaces,
+  # real card renderers, progress streaming, and namespace declaration.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.25.0"
+  def version, do: "0.27.0"
 
   @impl true
   def validate(_opts), do: :ok

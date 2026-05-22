@@ -10,17 +10,16 @@ not the architecture center.
 
 ## Current Status
 
-v0.26.1 is the current release. It upgrades `/agent` into the Allbert
-workspace: an Allbert Assist AppBar, a Surface-tree LiveView shell,
-per-thread canvas tiles, per-thread ephemeral surfaces, signed runtime
-Fragments, a 42-component catalog, multi-tab sync,
-theme/high-contrast/reduced-motion/mobile polish, a client-side chat/canvas
-split bar, a service-worker offline shell, browser-side Yjs + IndexedDB
-text/markdown editing, server-side revision snapshots, conflict banners, and
-the `revert_tile_revision` action. The v0.26.1 closeout also includes the
-v0.26b backend fixes for setting-shaped intent fallback, visible native
-StockSage LLM failure reasons, and empty `/agent` composer state. Version
-metadata is now `0.26.1`; the release tag is `v0.26.1`.
+v0.27.0 is the current implementation-ready release. It proves the plugin app
+surface contract through StockSage-owned LiveViews at `/stocksage/*`: real
+StockSage card renderers, validated `RunAnalysis` Surface nodes, app memory
+namespace declaration, objective/confirmation rendering, bounded progress
+streaming, and focused app-flow UX. Version metadata is now `0.27.0`; the
+release tag is pending operator acceptance.
+
+v0.26.2 remains the workspace UX closeout for `/agent`: tile inspector modal,
+thread switcher dropdown, and multi-tab sync verification on top of the v0.26
+canvas/ephemeral substrate.
 
 v0.25 remains the native-financial-specialist release. It adds StockSage
 native agents, action-backed evidence providers, multi-round debate with
@@ -38,6 +37,7 @@ mix allbert.objectives continue <objective_id> --user local
 mix stocksage.analyze AAPL 2026-05-15 --user local --engine native --evidence-mode fixture
 mix stocksage.analyze AAPL 2026-05-15 --user local --engine both --evidence-mode fixture --force-stub
 mix allbert.delegate stocksage.market_context '{"ticker":"AAPL","analysis_date":"2026-05-15","evidence_mode":"fixture","fixture":true}' --user local
+mix allbert.validate_app StockSage.App
 mix allbert.workspace inspect
 mix allbert.workspace canvas list
 ```
@@ -315,10 +315,10 @@ traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.25 release plan: `docs/plans/v0.25-plan.md`
-- v0.25 request flow and manual verification: `docs/plans/v0.25-request-flow.md`
+- v0.27 release plan: `docs/plans/v0.27-plan.md`
+- v0.27 request flow and manual verification: `docs/plans/v0.27-request-flow.md`
 - App authoring guide: `docs/developer/how-to-create-an-allbert-app.md`
-- Next milestone plan: `docs/plans/v0.27-plan.md`
+- Next milestone plan: `docs/plans/v0.28-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development

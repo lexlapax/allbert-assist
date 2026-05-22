@@ -14,6 +14,10 @@ Open:
 
 ```text
 http://localhost:4000/agent
+http://localhost:4000/stocksage
+http://localhost:4000/stocksage/analyses
+http://localhost:4000/stocksage/queue
+http://localhost:4000/stocksage/trends
 http://localhost:4000/settings
 ```
 
@@ -48,3 +52,11 @@ IndexedDB editor stores local drafts and sends bounded snapshots to the
 workspace facade; server-side reconciliation records canvas revisions and
 surfaces conflict/revert UI. Rejected or corrupt local drafts are retained in
 browser storage with fallback-shell recovery metadata rather than discarded.
+
+v0.27 adds plugin-owned StockSage app surfaces under `/stocksage/*`. The host
+router mounts reviewed `StockSageWeb.*Live` modules, while
+`StockSage.App.surfaces/0` remains the provider metadata source validated by
+the app registry. These routes render real StockSage cards, objective and
+confirmation state, progress streaming, queue rows, and trends in the
+StockSage app surface. They do not emit durable `/agent` canvas tiles; that
+contract is deferred to v0.30.
