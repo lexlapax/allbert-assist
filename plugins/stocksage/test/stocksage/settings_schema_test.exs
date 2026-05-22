@@ -17,9 +17,24 @@ defmodule StockSage.SettingsSchemaTest do
     assert schema["stocksage.import.unknown_tables_as_warnings"].default == true
     assert schema["stocksage.list.max_results"].default == 50
     assert schema["stocksage.queue.default_priority"].allowed_values == ["low", "normal", "high"]
+    assert schema["stocksage.outcomes.default_holding_period_days"].default == 30
+    assert schema["stocksage.outcomes.resolver_cadence"].default == "manual"
+
+    assert schema["stocksage.outcomes.resolver_cadence"].allowed_values == [
+             "manual",
+             "daily",
+             "weekly"
+           ]
+
+    assert schema["stocksage.outcomes.neutral_return_threshold_pct"].default == 0.5
+    assert schema["stocksage.outcomes.neutral_return_threshold_pct"].min == 0.0
+    assert schema["stocksage.outcomes.neutral_return_threshold_pct"].max == 10.0
     assert schema["stocksage.web.enabled"].default == true
     assert schema["stocksage.web.progress_stream_enabled"].default == true
     assert Schema.safe_write_key?("stocksage.queue.default_priority")
+    assert Schema.safe_write_key?("stocksage.outcomes.default_holding_period_days")
+    assert Schema.safe_write_key?("stocksage.outcomes.resolver_cadence")
+    assert Schema.safe_write_key?("stocksage.outcomes.neutral_return_threshold_pct")
     assert Schema.safe_write_key?("stocksage.web.enabled")
     assert Schema.safe_write_key?("stocksage.web.progress_stream_enabled")
   end
