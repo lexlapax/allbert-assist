@@ -45,6 +45,7 @@ defmodule StockSage.PluginTest do
              StockSage.Actions.ShowAnalysis,
              StockSage.Actions.GetTrends,
              StockSage.Actions.ResolveOutcomes,
+             StockSage.Actions.GenerateReflection,
              StockSage.Actions.QueueAnalysis,
              StockSage.Actions.ListQueue,
              StockSage.Actions.ImportSqlite,

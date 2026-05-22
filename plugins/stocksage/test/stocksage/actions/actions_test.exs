@@ -40,6 +40,7 @@ defmodule StockSage.ActionsTest do
           {"show_analysis", :read_only, :agent},
           {"get_trends", :read_only, :agent},
           {"resolve_outcomes", :stocksage_write, :internal},
+          {"generate_reflection", :stocksage_write, :internal},
           {"queue_analysis", :stocksage_write, :agent},
           {"list_queue", :read_only, :internal},
           {"import_stocksage_sqlite", :stocksage_write, :internal}
@@ -183,6 +184,38 @@ defmodule StockSage.ActionsTest do
 
     assert [updated] = Analyses.list_outcomes_for_analysis("alice", analysis.id)
     assert updated.label == "win"
+  end
+
+  test "generate_reflection writes a StockSage-local reflection through the runner" do
+    assert {:ok, analysis} =
+             Analyses.create_analysis(%{
+               user_id: "alice",
+               symbol: "aapl",
+               status: "completed",
+               source: "manual",
+               recommendation: "Buy"
+             })
+
+    assert {:ok, outcome} =
+             Analyses.create_outcome(%{
+               user_id: "alice",
+               analysis_id: analysis.id,
+               symbol: "aapl",
+               label: "win",
+               horizon_days: 30,
+               return_pct: Decimal.new("8.0")
+             })
+
+    assert {:ok, response} =
+             Runner.run(
+               "generate_reflection",
+               %{user_id: "alice", outcome_id: outcome.id},
+               stocksage_context()
+             )
+
+    assert response.status == :completed
+    assert response.reflection.outcome_id == outcome.id
+    assert response.reflection.promoted_to_allbert_memory == false
   end
 
   test "queue_analysis writes one local queue row and starts no execution worker" do

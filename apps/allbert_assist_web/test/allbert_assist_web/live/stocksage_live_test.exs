@@ -5,6 +5,7 @@ defmodule StockSageWeb.LiveTest do
 
   alias AllbertAssist.{App, Confirmations, Objectives, Paths, Plugin, Session, Settings}
   alias StockSage.Analyses
+  alias StockSage.Memory, as: StockSageMemory
   alias StockSage.Progress
   alias StockSage.Queue
 
@@ -180,6 +181,28 @@ defmodule StockSageWeb.LiveTest do
     assert has_element?(view, ~s(#stocksage-progress-stream [data-stage="synthesis"]))
   end
 
+  test "analysis detail generates and renders StockSage-local reflections", %{conn: conn} do
+    %{analysis: analysis, outcome: outcome} = create_analysis_detail_fixture()
+
+    {:ok, view, html} = live(conn, ~p"/stocksage/analyses/#{analysis.id}")
+
+    assert has_element?(view, "#stocksage-outcome-reflection-actions")
+    assert html =~ ~s(id="stocksage-generate-reflection-#{outcome.id}")
+
+    view
+    |> element("#stocksage-generate-reflection-#{outcome.id}")
+    |> render_click()
+
+    assert has_element?(view, "#stocksage-reflection-notice")
+    assert has_element?(view, "#stocksage-reflections")
+    assert render(view) =~ "not durable Allbert markdown memory"
+
+    assert [entry] =
+             StockSageMemory.list_entries("local", kind: "reflection", analysis_id: analysis.id)
+
+    refute entry.promoted_to_allbert_memory
+  end
+
   defp ensure_stocksage_registered do
     plugin_registered? = match?({:ok, _entry}, Plugin.Registry.lookup("stocksage"))
 
@@ -231,6 +254,17 @@ defmodule StockSageWeb.LiveTest do
                objective_id: objective.id,
                thread_id: "thr_stocksage_live",
                session_id: "web-local"
+             })
+
+    assert {:ok, outcome} =
+             Analyses.create_outcome(%{
+               user_id: "local",
+               analysis_id: analysis.id,
+               symbol: "AAPL",
+               label: "win",
+               horizon_days: 30,
+               observed_on: ~D[2026-05-22],
+               return_pct: Decimal.new("4.2")
              })
 
     assert {:ok, _detail} =
@@ -286,7 +320,12 @@ defmodule StockSageWeb.LiveTest do
                params_summary: %{objective_id: objective.id, ticker: "AAPL"}
              })
 
-    %{analysis: analysis, objective: objective, confirmation_id: confirmation_id}
+    %{
+      analysis: analysis,
+      objective: objective,
+      outcome: outcome,
+      confirmation_id: confirmation_id
+    }
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
