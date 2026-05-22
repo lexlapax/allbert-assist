@@ -13,6 +13,7 @@ defmodule StockSage.Analyses do
 
   @default_limit 50
   @max_limit 100
+  @resolved_labels ~w[win loss neutral unknown]
 
   @doc "Creates an analysis row."
   def create_analysis(attrs) when is_map(attrs) do
@@ -186,7 +187,10 @@ defmodule StockSage.Analyses do
   end
 
   def summarize_trends(user_id, opts \\ []) do
-    outcomes = list_outcomes(user_id, opts)
+    outcomes =
+      user_id
+      |> list_outcomes(opts)
+      |> Repo.preload(:analysis)
 
     counts =
       Enum.reduce(outcomes, %{}, fn outcome, acc ->
@@ -198,6 +202,9 @@ defmodule StockSage.Analyses do
       symbol: opts |> Keyword.get(:symbol) |> Domain.normalize_symbol(),
       returned: length(outcomes),
       counts: counts,
+      accuracy: accuracy_summary(outcomes),
+      rating_calibration: rating_calibration(outcomes),
+      leaderboard: leaderboard(outcomes),
       outcomes: outcomes
     }
   end
@@ -263,4 +270,152 @@ defmodule StockSage.Analyses do
   defp maybe_filter_symbol(query, symbol) do
     where(query, [record], record.symbol == ^symbol)
   end
+
+  defp accuracy_summary(outcomes) do
+    resolved = resolved_outcomes(outcomes)
+    wins = count_label(resolved, "win")
+    losses = count_label(resolved, "loss")
+    neutral = count_label(resolved, "neutral")
+    unknown = count_label(resolved, "unknown")
+
+    %{
+      resolved: length(resolved),
+      wins: wins,
+      losses: losses,
+      neutral: neutral,
+      unknown: unknown,
+      win_rate: percent(wins, length(resolved)),
+      avg_return_pct: average_return(resolved),
+      return_basis: :realized_return_no_benchmark
+    }
+  end
+
+  defp rating_calibration(outcomes) do
+    outcomes
+    |> resolved_outcomes()
+    |> Enum.group_by(&rating_for/1)
+    |> Enum.map(fn {rating, rating_outcomes} ->
+      wins = count_label(rating_outcomes, "win")
+      losses = count_label(rating_outcomes, "loss")
+      neutral = count_label(rating_outcomes, "neutral")
+      unknown = count_label(rating_outcomes, "unknown")
+
+      %{
+        rating: rating,
+        resolved: length(rating_outcomes),
+        wins: wins,
+        losses: losses,
+        neutral: neutral,
+        unknown: unknown,
+        win_rate: percent(wins, length(rating_outcomes)),
+        avg_return_pct: average_return(rating_outcomes)
+      }
+    end)
+    |> Enum.sort_by(&{sort_rate(&1.win_rate), &1.resolved, &1.rating}, :desc)
+  end
+
+  defp leaderboard(outcomes) do
+    outcomes
+    |> resolved_outcomes()
+    |> Enum.group_by(& &1.symbol)
+    |> Enum.map(fn {symbol, symbol_outcomes} ->
+      wins = count_label(symbol_outcomes, "win")
+      losses = count_label(symbol_outcomes, "loss")
+      neutral = count_label(symbol_outcomes, "neutral")
+      unknown = count_label(symbol_outcomes, "unknown")
+
+      %{
+        symbol: symbol,
+        resolved: length(symbol_outcomes),
+        wins: wins,
+        losses: losses,
+        neutral: neutral,
+        unknown: unknown,
+        win_rate: percent(wins, length(symbol_outcomes)),
+        avg_return_pct: average_return(symbol_outcomes),
+        best_return_pct: best_return(symbol_outcomes),
+        worst_return_pct: worst_return(symbol_outcomes)
+      }
+    end)
+    |> Enum.sort_by(
+      &{sort_rate(&1.win_rate), decimal_sort(&1.avg_return_pct), &1.resolved},
+      :desc
+    )
+    |> Enum.take(10)
+  end
+
+  defp resolved_outcomes(outcomes) do
+    Enum.filter(outcomes, &(&1.label in @resolved_labels))
+  end
+
+  defp count_label(outcomes, label), do: Enum.count(outcomes, &(&1.label == label))
+
+  defp rating_for(%Outcome{analysis: %Analysis{recommendation: recommendation}}) do
+    case recommendation do
+      value when is_binary(value) ->
+        value
+        |> String.trim()
+        |> case do
+          "" -> "unrated"
+          rating -> rating
+        end
+
+      _other ->
+        "unrated"
+    end
+  end
+
+  defp rating_for(_outcome), do: "unrated"
+
+  defp percent(_count, 0), do: 0.0
+
+  defp percent(count, total) do
+    count
+    |> Kernel./(total)
+    |> Kernel.*(100)
+    |> Float.round(2)
+  end
+
+  defp average_return(outcomes) do
+    outcomes
+    |> return_values()
+    |> case do
+      [] ->
+        nil
+
+      values ->
+        values
+        |> Enum.reduce(Decimal.new(0), &Decimal.add/2)
+        |> Decimal.div(Decimal.new(length(values)))
+        |> Decimal.round(4)
+    end
+  end
+
+  defp best_return(outcomes) do
+    outcomes
+    |> return_values()
+    |> Enum.reduce(nil, fn value, acc ->
+      if is_nil(acc) or Decimal.compare(value, acc) == :gt, do: value, else: acc
+    end)
+  end
+
+  defp worst_return(outcomes) do
+    outcomes
+    |> return_values()
+    |> Enum.reduce(nil, fn value, acc ->
+      if is_nil(acc) or Decimal.compare(value, acc) == :lt, do: value, else: acc
+    end)
+  end
+
+  defp return_values(outcomes) do
+    outcomes
+    |> Enum.map(& &1.return_pct)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp sort_rate(nil), do: -1.0
+  defp sort_rate(rate), do: rate
+
+  defp decimal_sort(nil), do: Decimal.new("-999999")
+  defp decimal_sort(%Decimal{} = value), do: Decimal.to_float(value)
 end

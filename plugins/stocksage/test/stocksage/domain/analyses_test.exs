@@ -124,5 +124,80 @@ defmodule StockSage.Domain.AnalysesTest do
       assert %{counts: %{"win" => 1}, returned: 1} = Analyses.summarize_trends("alice")
       assert %{counts: %{}, returned: 0} = Analyses.summarize_trends("bob")
     end
+
+    test "summarize_trends includes accuracy, rating calibration, and leaderboard" do
+      assert {:ok, buy_aapl} =
+               Analyses.create_analysis(%{
+                 user_id: "alice",
+                 symbol: "aapl",
+                 source: "manual",
+                 status: "completed",
+                 recommendation: "Buy"
+               })
+
+      assert {:ok, sell_msft} =
+               Analyses.create_analysis(%{
+                 user_id: "alice",
+                 symbol: "msft",
+                 source: "manual",
+                 status: "completed",
+                 recommendation: "Sell"
+               })
+
+      assert {:ok, _aapl_win} =
+               Analyses.create_outcome(%{
+                 user_id: "alice",
+                 analysis_id: buy_aapl.id,
+                 symbol: "aapl",
+                 label: "win",
+                 return_pct: Decimal.new("8.0")
+               })
+
+      assert {:ok, _aapl_loss} =
+               Analyses.create_outcome(%{
+                 user_id: "alice",
+                 analysis_id: buy_aapl.id,
+                 symbol: "aapl",
+                 label: "loss",
+                 return_pct: Decimal.new("-4.0")
+               })
+
+      assert {:ok, _msft_win} =
+               Analyses.create_outcome(%{
+                 user_id: "alice",
+                 analysis_id: sell_msft.id,
+                 symbol: "msft",
+                 label: "win",
+                 return_pct: Decimal.new("-6.0")
+               })
+
+      assert {:ok, _pending} =
+               Analyses.create_outcome(%{
+                 user_id: "alice",
+                 analysis_id: sell_msft.id,
+                 symbol: "msft",
+                 label: "pending"
+               })
+
+      trends = Analyses.summarize_trends("alice")
+
+      assert trends.returned == 4
+      assert trends.counts == %{"loss" => 1, "pending" => 1, "win" => 2}
+      assert trends.accuracy.resolved == 3
+      assert trends.accuracy.wins == 2
+      assert trends.accuracy.losses == 1
+      assert trends.accuracy.win_rate == 66.67
+      assert Decimal.equal?(trends.accuracy.avg_return_pct, Decimal.new("-0.6667"))
+
+      assert [
+               %{rating: "Sell", resolved: 1, wins: 1, win_rate: 100.0},
+               %{rating: "Buy", resolved: 2, wins: 1, losses: 1, win_rate: 50.0}
+             ] = trends.rating_calibration
+
+      assert [
+               %{symbol: "MSFT", resolved: 1, wins: 1, win_rate: 100.0},
+               %{symbol: "AAPL", resolved: 2, wins: 1, losses: 1, win_rate: 50.0}
+             ] = trends.leaderboard
+    end
   end
 end
