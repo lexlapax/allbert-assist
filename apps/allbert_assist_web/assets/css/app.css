@@ -1453,24 +1453,55 @@ a.allbert-chip-link:focus-visible,
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* ---- v0.26a M30: sticky AppBar + independent pane scroll ---------------- */
-/* Constrain the workspace shell to the viewport so the AppBar stays put and
-   each pane scrolls in its own region instead of the whole page scrolling. */
+/* Constrain the workspace shell to a FIXED viewport height (not min-height —
+   min-height lets the shell grow to content height, which is exactly the bug
+   that made the whole page scroll while the chat pane only bounced). The
+   id+class selector overrides the Tailwind `min-h-screen` utility on the
+   <section>. overflow:hidden contains the children so only the inner pane
+   lists scroll. */
 #workspace-shell.workspace-shell {
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
+/* The WorkspaceRenderer live_component renders a `.workspace-renderer` wrapper
+   div between the shell and the root node. It is a direct flex child of the
+   shell but defaults to display:block / flex:0 1 auto, so it sized to content
+   (3500px+) and broke the height chain — the panes never received a bounded
+   parent. Make it a flex column that fills the remaining shell height. */
+#workspace-shell > .workspace-renderer {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* workspace-root is the renderer's root node. It must be a flex column so its
+   single grid child can be height-constrained to the remaining space. It was
+   display:block, which let the grid size to content regardless of the parent
+   height — the second half of the scroll bug. */
 #workspace-shell #workspace-node-workspace-root {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
   flex: 1 1 auto;
   min-height: 0;
 }
 
 @media (min-width: 768px) {
   #workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
+    /* The chat/canvas row takes the remaining height; header + badges +
+       ephemeral rows stay auto-sized. */
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     align-items: stretch;
-    min-height: 0;
   }
 
   /* Each pane fills its grid track and scrolls inside itself, not the page. */
