@@ -31,6 +31,43 @@ defmodule StockSage.Domain.MemoryTest do
       assert [] = Memory.list_entries("bob")
     end
 
+    test "filters by analysis id" do
+      assert {:ok, aapl} =
+               StockSage.Analyses.create_analysis(%{
+                 user_id: "alice",
+                 symbol: "aapl",
+                 status: "completed",
+                 source: "manual"
+               })
+
+      assert {:ok, msft} =
+               StockSage.Analyses.create_analysis(%{
+                 user_id: "alice",
+                 symbol: "msft",
+                 status: "completed",
+                 source: "manual"
+               })
+
+      assert {:ok, reflection} =
+               Memory.create_entry(%{
+                 user_id: "alice",
+                 analysis_id: aapl.id,
+                 content: "reflection",
+                 kind: "reflection"
+               })
+
+      assert {:ok, _other} =
+               Memory.create_entry(%{
+                 user_id: "alice",
+                 analysis_id: msft.id,
+                 content: "other",
+                 kind: "reflection"
+               })
+
+      assert [listed] = Memory.list_entries("alice", kind: "reflection", analysis_id: aapl.id)
+      assert listed.id == reflection.id
+    end
+
     test "upserts by legacy provenance" do
       attrs = %{
         user_id: "alice",

@@ -29,12 +29,18 @@ defmodule StockSage.SettingsSchemaTest do
     assert schema["stocksage.outcomes.neutral_return_threshold_pct"].default == 0.5
     assert schema["stocksage.outcomes.neutral_return_threshold_pct"].min == 0.0
     assert schema["stocksage.outcomes.neutral_return_threshold_pct"].max == 10.0
+    assert schema["stocksage.reflections.enabled"].default == true
+    assert schema["stocksage.reflections.max_chars"].default == 1_200
+    assert schema["stocksage.reflections.max_chars"].min == 200
+    assert schema["stocksage.reflections.max_chars"].max == 4_000
     assert schema["stocksage.web.enabled"].default == true
     assert schema["stocksage.web.progress_stream_enabled"].default == true
     assert Schema.safe_write_key?("stocksage.queue.default_priority")
     assert Schema.safe_write_key?("stocksage.outcomes.default_holding_period_days")
     assert Schema.safe_write_key?("stocksage.outcomes.resolver_cadence")
     assert Schema.safe_write_key?("stocksage.outcomes.neutral_return_threshold_pct")
+    assert Schema.safe_write_key?("stocksage.reflections.enabled")
+    assert Schema.safe_write_key?("stocksage.reflections.max_chars")
     assert Schema.safe_write_key?("stocksage.web.enabled")
     assert Schema.safe_write_key?("stocksage.web.progress_stream_enabled")
   end

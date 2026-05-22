@@ -30,6 +30,7 @@ defmodule StockSage.Plugin do
       StockSage.Actions.ShowAnalysis,
       StockSage.Actions.GetTrends,
       StockSage.Actions.ResolveOutcomes,
+      StockSage.Actions.GenerateReflection,
       StockSage.Actions.QueueAnalysis,
       StockSage.Actions.ListQueue,
       StockSage.Actions.ImportSqlite,
@@ -115,6 +116,20 @@ defmodule StockSage.Plugin do
         min: 0.0,
         max: 10.0,
         description: "Absolute return percentage treated as neutral during outcome resolution."
+      },
+      %{
+        key: "stocksage.reflections.enabled",
+        type: :boolean,
+        default: true,
+        description: "Enable StockSage-local outcome reflection generation."
+      },
+      %{
+        key: "stocksage.reflections.max_chars",
+        type: :bounded_integer,
+        default: 1_200,
+        min: 200,
+        max: 4_000,
+        description: "Maximum characters retained for a StockSage-local reflection."
       },
       %{
         key: "stocksage.bridge_enabled",

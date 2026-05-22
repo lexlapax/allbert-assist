@@ -186,6 +186,18 @@ defmodule StockSage.Analyses do
     |> Repo.all()
   end
 
+  def get_outcome(user_id, outcome_id) do
+    normalized_user_id = Domain.normalize_user_id(user_id)
+
+    Outcome
+    |> where([outcome], outcome.user_id == ^normalized_user_id and outcome.id == ^outcome_id)
+    |> Repo.one()
+    |> case do
+      nil -> {:error, :not_found}
+      outcome -> {:ok, Repo.preload(outcome, :analysis)}
+    end
+  end
+
   def summarize_trends(user_id, opts \\ []) do
     outcomes =
       user_id
