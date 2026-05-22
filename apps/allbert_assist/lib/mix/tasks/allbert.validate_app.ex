@@ -77,6 +77,7 @@ defmodule Mix.Tasks.Allbert.ValidateApp do
     Mix.shell().info("skills: #{length(attrs.skill_paths)}")
     Mix.shell().info("agents: #{length(attrs.agents)}")
     Mix.shell().info("settings_schema: #{length(attrs.settings_schema)}")
+    Mix.shell().info("memory_namespace: #{memory_namespace_value(attrs.memory_namespace)}")
 
     Mix.shell().info(
       "signals: emits=#{length(attrs.signals.emits)} subscribes=#{length(attrs.signals.subscribes)}"
@@ -102,5 +103,11 @@ defmodule Mix.Tasks.Allbert.ValidateApp do
     surfaces
     |> Enum.map(&"#{inspect(&1.id)}:#{&1.path}")
     |> Enum.join(", ")
+  end
+
+  defp memory_namespace_value(nil), do: "(none)"
+
+  defp memory_namespace_value(namespace) do
+    "#{inspect(namespace.namespace)} writable=#{namespace.writable}"
   end
 end
