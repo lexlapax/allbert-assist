@@ -89,6 +89,47 @@ defmodule StockSage.SurfaceNodesTest do
     assert props.summary == "provider unavailable"
   end
 
+  test "persisted analyses rehydrate card nodes from details" do
+    analysis = %{
+      id: "ana_persisted_surface",
+      symbol: "AAPL",
+      status: "completed",
+      engine: "native",
+      recommendation: "Overweight",
+      summary: "Persisted summary.",
+      objective_id: "obj_persisted_surface",
+      details: [
+        %{
+          payload: %{
+            "native_report" => %{
+              "agent_reports" => %{
+                "stocksage.market_context" => %{
+                  "role" => "analyst",
+                  "status" => "completed",
+                  "summary" => "Persisted report."
+                }
+              },
+              "debate_rounds" => [
+                %{
+                  "round_index" => 1,
+                  "bull" => %{"status" => "completed", "summary" => "Bull persisted."}
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+
+    assert {:ok, nodes} = SurfaceNodes.from_analysis(analysis)
+
+    assert Enum.map(nodes, & &1.component) == [
+             :analysis_card,
+             :agent_report_card,
+             :debate_round_card
+           ]
+  end
+
   test "rejects components not declared by the StockSage surface catalog" do
     assert {:error,
             [%{kind: :undeclared_surface_component, detail: %{components: [:queue_entry]}}]} =
