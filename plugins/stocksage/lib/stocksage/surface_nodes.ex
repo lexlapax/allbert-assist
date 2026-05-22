@@ -87,7 +87,6 @@ defmodule StockSage.SurfaceNodes do
       {:ok, surface.nodes}
     else
       {:error, diagnostics} when is_list(diagnostics) -> {:error, diagnostics}
-      {:error, reason} -> {:error, [diagnostic(:invalid_surface_nodes, inspect(reason))]}
     end
   end
 

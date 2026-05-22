@@ -120,6 +120,16 @@ Do not load every section by default.
   section + inline `### Workspace` subsection. `mix
   allbert.workspace canvas|ephemeral|inspect|rotate-signing-secret`
   Mix tasks. Per ADR 0023.
+- v0.27: App Surface Contract - StockSage LiveViews. StockSage now has
+  plugin-owned `StockSageWeb.WorkspaceLive`, `AnalysisLive`, `QueueLive`, and
+  `TrendsLive` mounted by the host router at `/stocksage/*` and declared
+  through `StockSage.App.surfaces/0`. It ships real StockSage-owned renderers
+  for `:analysis_card`, `:agent_report_card`, `:parity_card`, and
+  `:debate_round_card`, `RunAnalysis` validated `surface_nodes`, objective and
+  confirmation state on analysis pages, PubSub progress streaming, and an inert
+  `StockSage.App.memory_namespace/0` declaration with `writable: false`.
+  v0.27 does not write markdown memory and does not emit durable `/agent`
+  canvas tiles; those contracts remain v0.29 and v0.30 respectively.
 
 ## Area Notes
 
@@ -258,8 +268,9 @@ LiveView to the shipped **agentic workspace shell**:
   `allbert.workspace.fragment.dropped` signal.
 - 42-component catalog (per ADR 0015 v0.26 amendment): 12 v0.18
   carryover + 10 workspace structural + 12 Allbert-domain + 4
-  Allbert-app cards + 4 reserved StockSage cards. StockSage card
-  rendering ships in v0.27; v0.26 ships stubs.
+  Allbert-app cards + 4 reserved StockSage cards. v0.27 ships real
+  StockSage-owned app-surface renderers for those cards under `/stocksage/*`;
+  durable `/agent` canvas tile rendering for StockSage remains v0.30 work.
 - 14 new `workspace.*` settings (theme, offline, accessibility,
   fixed read-only mobile breakpoint, fragment rate limits, etc.). New
   `:workspace_canvas_write` permission class.

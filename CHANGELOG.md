@@ -10,6 +10,83 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.27.0 - App Surface Contract: StockSage LiveViews
+
+Status: implemented and ready for operator manual verification. Version
+metadata is `0.27.0`; release tag `v0.27.0` is pending operator acceptance.
+
+Plan: `docs/plans/v0.27-plan.md`.
+Request flow: `docs/plans/v0.27-request-flow.md`.
+
+### Added (v0.27.0)
+
+- StockSage-owned `/stocksage`, `/stocksage/analyses`,
+  `/stocksage/analyses/:id`, `/stocksage/queue`, and `/stocksage/trends`
+  LiveViews mounted through the host router and declared by
+  `StockSage.App.surfaces/0`.
+- Real StockSage renderers for the four v0.26-reserved app card atoms:
+  `:analysis_card`, `:agent_report_card`, `:parity_card`, and
+  `:debate_round_card`.
+- `RunAnalysis` completed/failed responses now include validated
+  `surface_nodes` for StockSage-owned app surfaces while preserving existing
+  action fields and workspace fragment emission.
+- StockSage memory namespace declaration/registration with `writable: false`;
+  v0.27 claims ownership only and does not add memory sync or lesson
+  promotion.
+- Analysis detail pages render persisted cards, objective state, delegate
+  steps, pending confirmation links, and cancel affordances.
+- Bounded progress streaming via Phoenix.PubSub topic
+  `stocksage_progress:<user_id>:<analysis_id>`, with reconnect catch-up from
+  persisted objective/analysis state.
+- Shared StockSage app navigation, empty/error/loading states, focus-visible
+  affordances, and local workspace/queue/trends list rendering.
+
+### Changed (v0.27.0)
+
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app metadata,
+  `StockSage.App.version/0`, `StockSage.Plugin.version/0`, and
+  `plugins/stocksage/allbert_plugin.json` are bumped to `0.27.0`.
+- Tailwind now scans `plugins/stocksage/lib/stocksage_web`, so plugin-owned
+  LiveView modules receive generated responsive utility classes.
+- `stocksage.web.enabled=false` keeps routes mounted but renders the bounded
+  disabled state after Settings Central checks.
+
+### Verification (v0.27.0)
+
+- Milestone-focused tests passed after each implementation checkpoint:
+  StockSage provider/settings tests, namespace registry tests, card renderer
+  tests, `RunAnalysis` surface-node tests, objective/confirmation rendering
+  tests, progress streaming tests, and StockSage LiveView app-flow tests.
+- M7 Chrome extension verification covered `/stocksage`,
+  `/stocksage/analyses`, `/stocksage/analyses/ana_missing`,
+  `/stocksage/queue`, and `/stocksage/trends`; the pass caught and fixed the
+  missing Tailwind plugin source path and a stale progress panel on missing
+  analysis pages.
+- Final release gate passed: `mix format --check-formatted`,
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  and `mix precommit`.
+- M8 release-gate cleanup removed an unreachable generic error branch from
+  `StockSage.SurfaceNodes.validate_nodes/1` and updated an intent-candidate
+  test diagnostic to handle v0.27 surface candidates alongside action
+  candidates.
+
+### Manual Verification (v0.27.0)
+
+Use a disposable Allbert Home:
+
+1. Run `ALLBERT_HOME="$SMOKE_HOME" mix ecto.migrate.allbert`, then
+   `ALLBERT_HOME="$SMOKE_HOME" mix phx.server`.
+2. Browse `/stocksage`, `/stocksage/analyses`, `/stocksage/queue`, and
+   `/stocksage/trends`; verify navigation, empty states, and disabled-state
+   behavior by setting `stocksage.web.enabled=false`.
+3. Run a fixture StockSage analysis, approve the confirmation, open
+   `/stocksage/analyses/<analysis_id>`, and verify real cards, objective
+   state, confirmation/cancel affordances, and progress rows.
+4. Refresh the analysis detail page and verify persisted progress and final
+   state catch up without relying on live PubSub history.
+
+---
+
 ## v0.26.2 - Workspace UX Closeout
 
 Status: implemented and ready for operator manual verification. Version
