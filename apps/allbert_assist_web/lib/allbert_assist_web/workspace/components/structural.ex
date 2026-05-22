@@ -531,13 +531,15 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
      |> assign(
        active_app: Map.get(context, :active_app, :allbert),
        thread_id: Map.get(context, :thread_id),
+       recent_threads: Map.get(context, :recent_threads, []),
        active_objectives: Map.get(context, :active_objectives, []),
        canvas_tiles: Map.get(context, :canvas_tiles, []),
        ephemeral_surfaces: Map.get(context, :ephemeral_surfaces, []),
        workspace_badges: Map.get(context, :workspace_badges, []),
        workspace_theme: Map.get(context, :workspace_theme, "system"),
        workspace_high_contrast?: Map.get(context, :workspace_high_contrast?, false),
-       workspace_overflow_open?: Map.get(state, :workspace_overflow_open?, false)
+       workspace_overflow_open?: Map.get(state, :workspace_overflow_open?, false),
+       thread_switcher_open?: Map.get(state, :thread_switcher_open?, false)
      )}
   end
 
@@ -566,18 +568,74 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
       </div>
 
       <div class="allbert-appbar-center" aria-label="Workspace context">
-        <span
-          id="workspace-thread-chip"
-          class="allbert-chip allbert-chip-mono workspace-copy-target"
-          title={"Copy thread id: #{@thread_id}"}
-          phx-hook="CopyToClipboard"
-          data-copy-value={@thread_id}
-          role="button"
-          tabindex="0"
+        <div
+          class="allbert-thread-switcher-wrap"
+          phx-click-away="close_thread_switcher"
+          phx-window-keydown="close_thread_switcher"
+          phx-key="escape"
         >
-          <.icon name="hero-chat-bubble-left-right-micro" class="size-4" />
-          {short_thread_id(@thread_id)}
-        </span>
+          <button
+            id="workspace-thread-switcher-toggle"
+            type="button"
+            class="allbert-chip allbert-chip-mono"
+            title={"Switch thread: #{@thread_id}"}
+            aria-haspopup="menu"
+            aria-controls="workspace-thread-switcher-menu"
+            aria-expanded={bool_attribute(@thread_switcher_open?)}
+            phx-click="toggle_thread_switcher"
+          >
+            <.icon name="hero-chat-bubble-left-right-micro" class="size-4" />
+            {short_thread_id(@thread_id)}
+            <.icon name="hero-chevron-down-micro" class="size-3" />
+          </button>
+          <div
+            :if={@thread_switcher_open?}
+            id="workspace-thread-switcher-menu"
+            class="workspace-thread-switcher-menu"
+            role="menu"
+            aria-labelledby="workspace-thread-switcher-toggle"
+          >
+            <button
+              :for={thread <- @recent_threads}
+              id={"workspace-thread-item-#{thread.id}"}
+              type="button"
+              role="menuitem"
+              class={[
+                "workspace-thread-switcher-item",
+                thread.id == @thread_id && "workspace-thread-switcher-item-active"
+              ]}
+              phx-click="switch_workspace_thread"
+              phx-value-thread-id={thread.id}
+            >
+              <span class="workspace-thread-switcher-title">{thread.title}</span>
+              <span class="workspace-thread-switcher-meta">
+                {short_thread_id(thread.id)}
+                <span :if={thread.id == @thread_id}>current</span>
+              </span>
+            </button>
+            <button
+              id="workspace-thread-new"
+              type="button"
+              role="menuitem"
+              class="workspace-thread-switcher-item"
+              phx-click="new_thread"
+            >
+              <.icon name="hero-plus-micro" class="size-4" />
+              <span class="workspace-thread-switcher-title">New thread</span>
+            </button>
+            <button
+              id="workspace-thread-copy-id"
+              type="button"
+              role="menuitem"
+              class="workspace-thread-switcher-item workspace-copy-target"
+              phx-hook="CopyToClipboard"
+              data-copy-value={@thread_id}
+            >
+              <.icon name="hero-clipboard-document-micro" class="size-4" />
+              <span class="workspace-thread-switcher-title">Copy thread id</span>
+            </button>
+          </div>
+        </div>
         <span id="workspace-active-app-chip" class="allbert-chip" title="Active app">
           <.icon name="hero-squares-2x2-micro" class="size-4" />
           {active_app_label(@active_app)}
