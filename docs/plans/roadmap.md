@@ -155,16 +155,19 @@ Dependency order from here:
 24. Workspace shell upgrade: `CoreApp`'s surface transitions from the
     rudimentary `/agent` prompt to a signal-driven LiveView workspace with
     canvas and ephemeral UI substrate.
-25. StockSage LiveViews built on the Surface DSL, proving the plugin-contributed
-    app surface pattern on top of the workspace shell.
-26. Security hardening and evals after real execution, import, channel, job,
+25. Workspace UX closeout for the few core `/agent` polish items deferred from
+    `0.26.1`, without changing the workspace contract.
+26. App Surface Contract: StockSage LiveViews built on the Surface DSL, proving
+    the plugin-contributed app surface pattern on top of the workspace shell.
+    StockSage is the reference implementation, not a special case.
+27. Security hardening and evals after real execution, import, channel, job,
     memory, intent, app, workspace, surface, objective, and financial-
     analysis behavior exists.
-27. StockSage polish, outcomes, trends, and memory namespace registration as
-    the final deferred layer of the app/surface contract.
-28. StockSage canvas integration wiring existing components into the workspace
-    catalog.
-29. Plugin and app generator encoding only the shape already proven end to end.
+28. App Memory + Outcomes Contract: StockSage polish, outcomes, trends, and
+    explicit memory sync through the namespace declared before security evals.
+29. App Canvas Contract: StockSage canvas integration wiring proven components
+    into durable `/agent` tiles through the audited workspace canvas mechanism.
+30. Plugin and app generator encoding only the shape already proven end to end.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -953,14 +956,15 @@ Status: implemented through M6 closeout on 2026-05-15. Formerly M-AppContract-Fu
 then v0.21. Moved before StockSage so v0.20 implements the app/surface contract
 from day one and v0.27 (formerly v0.25) LiveViews build on
 `AllbertAssist.App.SurfaceProvider` without any stepping-stone migration.
-Memory namespace registration is the final deferred app-contract layer in
-v0.29 (formerly v0.27).
+Later roadmap reconciliation split the final deferred memory namespace layer:
+namespace declaration lands in v0.27, and namespace-consuming memory sync lands
+in v0.29.
 
 Expected direction:
 
 - Expand the app contract into identity/OTP, agents/actions/signals, skills,
-  UI surface, and data/settings layers. Memory namespace registration is
-  deferred to v0.29 (formerly v0.27).
+  UI surface, and data/settings layers. Memory namespace declaration is
+  deferred to v0.27; namespace-consuming memory sync is deferred to v0.29.
 - Add `AllbertAssist.App.SurfaceProvider`, `AllbertAssist.Surface` DSL with
   catalog validation, and `AllbertAssist.Surface.Encoder.to_a2ui/1` as the
   typed AG-UI adaptation stub.
@@ -1430,13 +1434,35 @@ beyond `0.26.1`.
 - `mix precommit` on merged `main` passed: 754 core tests, 79 web tests, 168
   StockSage plugin tests, and 2 channel plugin tests, all 0 failures.
 
-## v0.27: StockSage LiveViews
+## v0.26c: Workspace UX Closeout
+
+Plan: `docs/plans/v0.26c-ux-closeout-plan.md`
+Request flow: `docs/plans/v0.26c-request-flow.md`
+
+Status: planned as a small `0.26.2` point release. This is not a new platform
+contract and not a StockSage milestone.
+
+Expected direction:
+
+- Add the real tile inspector modal deferred from the `0.26.1` closeout.
+- Add the AppBar thread switcher dropdown; the current thread chip only copies
+  the id.
+- Verify same-thread multi-tab sync with screenshots or browser-smoke notes.
+- Leave progress streaming to v0.27, where StockSage analysis progress is the
+  real app-flow driver.
+- No schema, catalog, settings, signal, permission, Security Central, or
+  StockSage card changes.
+
+## v0.27: App Surface Contract - StockSage LiveViews
 
 Plan: `docs/plans/v0.27-plan.md`
+Request flow: `docs/plans/v0.27-request-flow.md`
 
 Status: planned. Formerly M-D3a, previously planned as v0.24, then v0.25
 before the project-direction rethink. Redesigned to build on the v0.18
-app/surface contract and Surface DSL from day one.
+app/surface contract and Surface DSL from day one. Renamed after the
+post-v0.26 roadmap reconciliation to make the platform contract explicit:
+StockSage is the reference implementation, not a special-case app.
 
 Prerequisite: v0.18 app/surface contract, v0.22 Python bridge, v0.24
 Objective Runtime Foundation, v0.25 Native Jido agents, and v0.26 workspace
@@ -1450,17 +1476,25 @@ Expected direction:
 - Implement `AllbertAssist.App.SurfaceProvider` on `StockSage.App` and declare
   StockSage surfaces through the `AllbertAssist.Surface` DSL. No static route
   mounting to migrate later.
+- Replace the reserved v0.26 StockSage card stubs with real renderers in
+  StockSage-owned `/stocksage/...` LiveViews. This is renderer/app-surface
+  proof; v0.30 is durable `/agent` canvas-emission proof.
 - Render objective state for StockSage analyses: which objective an analysis
   belongs to, multi-step "analyze and compare" flows, cancellation.
 - Declare StockSage component catalog entries (`:analysis_card`,
   `:queue_entry`, `:trend_summary`) so `RunAnalysis` results carry validated
-  Surface nodes from day one. Canvas tile registration is v0.30.
-- Use PubSub/streams for live progress and set `active_app: :stocksage` when
-  navigating under `/stocksage/`.
+  Surface nodes from day one. Canvas tile emission remains v0.30.
+- Add app memory namespace declaration/registration and have `StockSage.App`
+  declare its namespace. No memory sync, reflection, lesson promotion, or
+  markdown-memory write lands in v0.27.
+- Use PubSub/streams for live progress, set `active_app: :stocksage` when
+  navigating under `/stocksage/`, and cover app-flow empty/loading/error,
+  keyboard/focus, and mobile behavior.
 
 ## v0.28: Security Hardening And Evals
 
 Plan: `docs/plans/v0.28-plan.md`
+Request flow: `docs/plans/v0.28-request-flow.md`
 
 Status: planned. Formerly v0.16, previously planned as v0.25, then v0.26
 before the project-direction rethink.
@@ -1483,50 +1517,60 @@ Expected direction:
   injection, cross-app component type theft, and `to_a2ui/1` redaction-bypass
   attempts. v0.18 app/surface contract is complete; app-registration evals are
   required, not conditional.
+- Add namespace claim abuse and namespace isolation evals before v0.29 adds
+  memory writes through StockSage's declared namespace.
 - Require StockSage external market-data calls to flow through Resource Access
   Security Posture and confirmations.
 
-## v0.29: StockSage Polish, Outcomes, And Trends
+## v0.29: App Memory + Outcomes Contract - StockSage Polish
 
 Plan: `docs/plans/v0.29-plan.md`
+Request flow: `docs/plans/v0.29-request-flow.md`
 
 Status: planned. Formerly M-D3b, previously planned as v0.27 before the
-project-direction rethink.
+project-direction rethink. Renamed after the post-v0.26 roadmap reconciliation
+to make the platform contract explicit.
 
 Expected direction:
 
-- Add memory namespace registration to `AllbertAssist.App.Registry` as the
-  final deferred layer of the v0.18 app contract.
+- Consume the v0.27 StockSage memory namespace through explicit, traceable
+  memory sync actions after v0.28 audits namespace ownership and isolation.
 - Add outcome resolver, trend metrics, rating calibration, reruns, empty/error
   states, and responsive polish.
+- Keep the tested invariant that completed analyses are not automatically
+  promoted into markdown memory.
 - Replicate Python StockSage 0.0.2 user-facing behavior in Elixir, with Python
   remaining only as an explicitly requested comparison/reference harness.
 
-## v0.30: StockSage Canvas Integration
+## v0.30: App Canvas Contract - StockSage Canvas Integration
 
 Plan: `docs/plans/v0.30-plan.md`
+Request flow: `docs/plans/v0.30-request-flow.md`
 
 Status: planned. Formerly M-Canvas, previously planned as v0.28 before the
-project-direction rethink.
+project-direction rethink. Renamed after the post-v0.26 roadmap reconciliation
+to make the platform contract explicit.
 
 Expected direction:
 
 - Register StockSage chart and analysis-card components with the v0.26 canvas
-  catalog. Component types were declared in v0.27; v0.30 is wiring, not format
-  migration.
-- Let StockSage analysis responses emit canvas operations for durable tiles.
-- Add no new StockSage domain model or analysis behavior.
+  catalog. Component types and real renderers were proven in v0.27; v0.30 is
+  durable `/agent` canvas-emission wiring, not format migration.
+- Let StockSage analysis responses emit `canvas_ops` for durable tiles through
+  the v0.26/v0.28-audited canvas mechanism.
+- Add no new StockSage domain model, analysis behavior, or renderer contract.
 
 ## v0.31: Allbert Plugin And App Generator
 
 Plan: `docs/plans/v0.31-plan.md`
+Request flow: `docs/plans/v0.31-request-flow.md`
 
 Status: research (unstarted). Previously planned as v0.29 before the
 project-direction rethink.
 
-Prerequisite: StockSage proves the plugin/app path in v0.20, SurfaceProvider
-LiveViews in v0.27, memory namespace completion in v0.29, and canvas
-integration in v0.30.
+Prerequisite: StockSage proves the plugin/app path in v0.20, the app surface
+contract in v0.27, the app memory/outcomes contract in v0.29, and the app
+canvas contract in v0.30.
 
 Expected direction:
 
@@ -1538,7 +1582,8 @@ Expected direction:
 - Generated app-plugin output includes a plugin module, app module, app
   supervision wiring, sample Jido action, sample `SKILL.md`, sample surface
   provider or surface node, sample Ecto domain stub, optional objective
-  scaffolding for multi-step capabilities, and validation docs.
+  scaffolding for multi-step capabilities, canvas wiring stub, and validation
+  docs.
 - `mix allbert.validate_app MyApp` passes on first run.
 - Generated code is inert by default: no automatic compile-path changes,
   trust, skill enablement, publishing, permission grants, or execution

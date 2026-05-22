@@ -836,11 +836,10 @@ Objective-Runtime insertion — see Decisions Locked In):
   built on top of the Convergence.
 - v0.25: Native Jido Trading Agents, formerly v0.23 in the roadmap.
 - v0.26: Agentic Workspace Surface And Ephemeral UI, formerly v0.24.
-- v0.27: StockSage LiveViews, formerly v0.25.
+- v0.27: App Surface Contract - StockSage LiveViews, formerly v0.25.
 - v0.28: Security Hardening And Evals, formerly v0.26.
-- v0.29: StockSage Polish, Outcomes, Trends, Memory Namespaces,
-  formerly v0.27.
-- v0.30: StockSage Canvas Integration, formerly v0.28.
+- v0.29: App Memory + Outcomes Contract - StockSage Polish, formerly v0.27.
+- v0.30: App Canvas Contract - StockSage Canvas Integration, formerly v0.28.
 - v0.31: Plugin And App Generator, formerly v0.29.
 
 ## Proposed v0.23 Scope (decision-grade for minimum slice; exploratory for reserved)

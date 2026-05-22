@@ -22,7 +22,8 @@ The surrounding decisions are already established:
 - ADR 0017 defines plugins as the package/discovery boundary, not authority.
 - `allbert-jido-vision.md` keeps SQLite as the local default and defers
   PostgreSQL, hosted auth, Oban-as-hard-dependency, Python bridge execution,
-  native trading agents, and StockSage LiveViews to later milestones.
+  native trading agents, and App Surface Contract - StockSage LiveViews to
+  later milestones.
 
 Without a binding decision, v0.20 could accidentally create a second database
 boundary, run Python during import, bypass the plugin registry, or make
@@ -104,7 +105,7 @@ through the real app.
 - Python bridge execution and `StockSage.Actions.RunAnalysis`.
 - Native trading agents.
 - Market-data API calls.
-- StockSage LiveViews, route mounts, concrete StockSage surface navigation,
+- StockSage app-surface LiveViews, route mounts, concrete StockSage surface navigation,
   canvas components, or `canvas_ops`. The v0.18 Surface DSL contract itself is
   already available and `StockSage.App` implements the provider behaviour with
   no live surfaces in v0.20. Later LiveView code remains plugin-owned and must
