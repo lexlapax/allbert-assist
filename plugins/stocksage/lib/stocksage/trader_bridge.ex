@@ -30,6 +30,19 @@ defmodule StockSage.TraderBridge do
   @default_timeout_ms 600_000
   @default_max_output_bytes 1_048_576
   @line_max_bytes 16_384
+  @ticker_pattern ~r/^[A-Za-z0-9._-]{1,10}$/
+  @valid_engines ~w(tradingagents python)
+  @allowed_config_keys MapSet.new(~w[
+    checkpoint_enabled
+    data_vendors
+    deep_think_llm
+    max_debate_rounds
+    max_recur_limit
+    max_risk_discuss_rounds
+    online_tools
+    output_language
+    quick_think_llm
+  ])
 
   @type analyze_params :: %{
           required(:ticker) => String.t(),
@@ -114,15 +127,19 @@ defmodule StockSage.TraderBridge do
   end
 
   def handle_call({:analyze, params}, from, state) do
-    case ensure_port(state) do
-      %{status: :disabled} = state ->
-        {:reply, {:error, :bridge_disabled}, state}
+    with {:ok, request} <- build_analyze_request(params) do
+      case ensure_port(state) do
+        %{status: :disabled} = state ->
+          {:reply, {:error, :bridge_disabled}, state}
 
-      %{status: :running, port: port} = state when not is_nil(port) ->
-        send_request(state, build_analyze_request(params), from)
+        %{status: :running, port: port} = state when not is_nil(port) ->
+          send_request(state, request, from)
 
-      state ->
-        {:reply, {:error, :bridge_crashed}, state}
+        state ->
+          {:reply, {:error, :bridge_crashed}, state}
+      end
+    else
+      {:error, reason} -> {:reply, {:error, reason}, state}
     end
   end
 
@@ -287,19 +304,28 @@ defmodule StockSage.TraderBridge do
   end
 
   defp build_analyze_request(params) do
-    base = %{
-      action: "run_analysis",
-      ticker: Map.get(params, :ticker) || Map.get(params, "ticker"),
-      analysis_date: Map.get(params, :analysis_date) || Map.get(params, "analysis_date"),
-      engine: Map.get(params, :engine) || Map.get(params, "engine") || "tradingagents"
-    }
+    with {:ok, ticker} <- normalize_ticker(Map.get(params, :ticker) || Map.get(params, "ticker")),
+         {:ok, analysis_date} <-
+           normalize_analysis_date(
+             Map.get(params, :analysis_date) || Map.get(params, "analysis_date")
+           ),
+         {:ok, engine} <- normalize_engine(Map.get(params, :engine) || Map.get(params, "engine")),
+         {:ok, config} <- normalize_config(Map.get(params, :config) || Map.get(params, "config")) do
+      base = %{
+        action: "run_analysis",
+        ticker: ticker,
+        analysis_date: analysis_date,
+        engine: engine
+      }
 
-    base
-    |> put_optional_bool(
-      :force_stub,
-      Map.get(params, :force_stub) || Map.get(params, "force_stub")
-    )
-    |> put_optional_map(:config, Map.get(params, :config) || Map.get(params, "config"))
+      base
+      |> put_optional_bool(
+        :force_stub,
+        Map.get(params, :force_stub) || Map.get(params, "force_stub")
+      )
+      |> put_optional_map(:config, config)
+      |> then(&{:ok, &1})
+    end
   end
 
   defp put_optional_bool(map, _key, nil), do: map
@@ -309,6 +335,64 @@ defmodule StockSage.TraderBridge do
   defp put_optional_map(map, _key, nil), do: map
   defp put_optional_map(map, key, value) when is_map(value), do: Map.put(map, key, value)
   defp put_optional_map(map, _key, _other), do: map
+
+  defp normalize_ticker(value) when is_binary(value) do
+    ticker = String.trim(value)
+
+    if Regex.match?(@ticker_pattern, ticker) do
+      {:ok, String.upcase(ticker)}
+    else
+      {:error, :invalid_bridge_ticker}
+    end
+  end
+
+  defp normalize_ticker(_value), do: {:error, :invalid_bridge_ticker}
+
+  defp normalize_analysis_date(value) when is_binary(value) do
+    value
+    |> String.trim()
+    |> Date.from_iso8601()
+    |> case do
+      {:ok, date} -> {:ok, Date.to_iso8601(date)}
+      {:error, _reason} -> {:error, :invalid_bridge_analysis_date}
+    end
+  end
+
+  defp normalize_analysis_date(%Date{} = date), do: {:ok, Date.to_iso8601(date)}
+  defp normalize_analysis_date(_value), do: {:error, :invalid_bridge_analysis_date}
+
+  defp normalize_engine(nil), do: {:ok, "tradingagents"}
+
+  defp normalize_engine(value) when is_binary(value) do
+    engine = String.trim(value)
+
+    if engine in @valid_engines do
+      {:ok, if(engine == "python", do: "tradingagents", else: engine)}
+    else
+      {:error, {:invalid_bridge_engine, engine}}
+    end
+  end
+
+  defp normalize_engine(_value), do: {:error, :invalid_bridge_engine}
+
+  defp normalize_config(nil), do: {:ok, nil}
+
+  defp normalize_config(%{} = config) do
+    invalid_key =
+      Enum.find(Map.keys(config), fn key ->
+        key
+        |> to_string()
+        |> then(&(not MapSet.member?(@allowed_config_keys, &1)))
+      end)
+
+    if invalid_key do
+      {:error, {:invalid_bridge_config_key, to_string(invalid_key)}}
+    else
+      {:ok, config}
+    end
+  end
+
+  defp normalize_config(_config), do: {:error, :invalid_bridge_config}
 
   defp generate_id do
     16

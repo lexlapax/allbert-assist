@@ -21,6 +21,7 @@ defmodule AllbertAssist.Security.Context do
       parent: parent(context),
       skill: skill(context),
       resource: resource(context),
+      advisory: advisory(context),
       secret_status: secret_status(context),
       external_content: external_content(context)
     }
@@ -192,6 +193,20 @@ defmodule AllbertAssist.Security.Context do
       kind: map_value(resource, :kind),
       path: map_value(resource, :path),
       external_uri: map_value(resource, :external_uri)
+    }
+  end
+
+  defp advisory(context) do
+    advisory = Map.get(context, :advisory) || Map.get(context, "advisory") || %{}
+    output = Map.get(context, :advisory_output) || Map.get(context, "advisory_output")
+    source = map_value(advisory, :source) || map_value(output, :source)
+
+    %{
+      present?:
+        source != nil or output != nil or map_value(advisory, :present?) == true or
+          map_value(context, :advisory_output?) == true,
+      source: source,
+      provider: map_value(advisory, :provider) || map_value(output, :provider)
     }
   end
 

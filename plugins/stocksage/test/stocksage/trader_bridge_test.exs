@@ -61,16 +61,25 @@ defmodule StockSage.TraderBridgeTest do
       assert reason =~ "tradingagents_import_failed"
     end
 
-    test "analyze rejects an invalid ticker via bridge.py validation", %{name: name} do
+    test "analyze rejects an invalid ticker before bridge dispatch", %{name: name} do
       params = %{ticker: "bad$ticker!", analysis_date: "2026-05-01"}
-      assert {:error, {:bridge_error, reason}} = TraderBridge.analyze(params, name)
-      assert reason =~ "invalid_ticker"
+      assert {:error, :invalid_bridge_ticker} = TraderBridge.analyze(params, name)
     end
 
-    test "analyze rejects an invalid analysis_date", %{name: name} do
+    test "analyze rejects an invalid analysis_date before bridge dispatch", %{name: name} do
       params = %{ticker: "AAPL", analysis_date: "not-a-date"}
-      assert {:error, {:bridge_error, reason}} = TraderBridge.analyze(params, name)
-      assert reason =~ "invalid_analysis_date"
+      assert {:error, :invalid_bridge_analysis_date} = TraderBridge.analyze(params, name)
+    end
+
+    test "analyze rejects config keys outside the bounded bridge allowlist", %{name: name} do
+      params = %{
+        ticker: "AAPL",
+        analysis_date: "2026-05-01",
+        config: %{"results_dir" => "../../private"}
+      }
+
+      assert {:error, {:invalid_bridge_config_key, "results_dir"}} =
+               TraderBridge.analyze(params, name)
     end
   end
 
