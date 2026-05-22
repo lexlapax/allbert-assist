@@ -28,7 +28,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
        approval_lines: Map.get(state, :approval_lines, []),
        approval_result: Map.get(state, :approval_result),
        show_approval_details?: Map.get(state, :show_approval_details?, false),
-       composer_max_bytes: Map.get(context, :composer_max_bytes, 65_536)
+       composer_max_bytes: Map.get(context, :composer_max_bytes, 65_536),
+       maximized_pane: Map.get(context, :workspace_maximized_pane)
      )}
   end
 
@@ -57,6 +58,25 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
             <span>{objective.status}</span>
           </.link>
         </div>
+        <button
+          id="workspace-chat-maximize"
+          type="button"
+          class="allbert-icon-button workspace-pane-maximize"
+          phx-click="toggle_workspace_maximize"
+          phx-value-pane="chat"
+          aria-pressed={bool_attribute(@maximized_pane == "chat")}
+          aria-label={maximize_label("chat", @maximized_pane)}
+          title={maximize_label("chat", @maximized_pane)}
+        >
+          <.icon
+            name={
+              if @maximized_pane == "chat",
+                do: "hero-arrows-pointing-in-micro",
+                else: "hero-arrows-pointing-out-micro"
+            }
+            class="size-4"
+          />
+        </button>
       </header>
 
       <%= if @thread_notice do %>
@@ -314,6 +334,12 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
+
+  defp maximize_label("chat", "chat"), do: "Restore split view"
+  defp maximize_label("chat", _other), do: "Maximize chat"
+  defp maximize_label("canvas", "canvas"), do: "Restore split view"
+  defp maximize_label("canvas", _other), do: "Maximize canvas"
+  defp maximize_label(_pane, _maximized), do: "Maximize pane"
 
   defp message_id(%{id: id}) when is_binary(id), do: id
   defp message_id(_message), do: System.unique_integer([:positive])

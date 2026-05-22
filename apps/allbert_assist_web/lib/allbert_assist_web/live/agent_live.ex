@@ -82,7 +82,8 @@ defmodule AllbertAssistWeb.AgentLive do
         open_tile_menu_id: nil,
         workspace_badges: [],
         composer_max_bytes: workspace_canvas_tile_body_max_bytes(),
-        workspace_overflow_open?: false
+        workspace_overflow_open?: false,
+        workspace_maximized_pane: nil
       )
       |> assign(workspace_assigns(user_id, thread_id))
       |> maybe_sync_thread_url(sync_thread_url?, thread_id, active_app)
@@ -147,6 +148,24 @@ defmodule AllbertAssistWeb.AgentLive do
   def handle_event("toggle_workspace_overflow_menu", _params, socket) do
     {:noreply, update(socket, :workspace_overflow_open?, &(!&1))}
   end
+
+  # v0.26a M30 follow-up: maximize / restore a workspace pane. Clicking the
+  # maximize control on a pane gives it the full grid width and hides the
+  # sibling pane; clicking again (or the other pane's control) restores the
+  # split. Purely UI state — no authority change.
+  def handle_event("toggle_workspace_maximize", %{"pane" => pane}, socket)
+      when pane in ["chat", "canvas"] do
+    next =
+      if socket.assigns.workspace_maximized_pane == pane do
+        nil
+      else
+        pane
+      end
+
+    {:noreply, assign(socket, :workspace_maximized_pane, next)}
+  end
+
+  def handle_event("toggle_workspace_maximize", _params, socket), do: {:noreply, socket}
 
   def handle_event("toggle_workspace_theme", _params, socket) do
     next_theme = next_workspace_theme(socket.assigns.workspace_theme)
@@ -329,6 +348,7 @@ defmodule AllbertAssistWeb.AgentLive do
         data-high-contrast={bool_attribute(@workspace_high_contrast?)}
         data-reduce-motion={bool_attribute(@workspace_reduce_motion?)}
         data-mobile-tab={@workspace_mobile_tab}
+        data-maximized-pane={@workspace_maximized_pane}
         data-offline-enabled={bool_attribute(@workspace_offline_enabled?)}
         data-service-worker-url={~p"/workspace-sw.js"}
         data-service-worker-scope="/agent"
@@ -858,7 +878,8 @@ defmodule AllbertAssistWeb.AgentLive do
       open_tile_menu_id: assigns.open_tile_menu_id,
       active_app: assigns.active_app,
       composer_max_bytes: assigns.composer_max_bytes,
-      workspace_overflow_open?: assigns.workspace_overflow_open?
+      workspace_overflow_open?: assigns.workspace_overflow_open?,
+      workspace_maximized_pane: assigns.workspace_maximized_pane
     }
   end
 
