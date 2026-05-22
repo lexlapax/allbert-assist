@@ -180,6 +180,7 @@ defmodule AllbertAssist.App.Registry do
   def handle_call({:register, module, opts}, _from, state) do
     with {:ok, attrs} <- validate(module, opts),
          :ok <- ensure_available(attrs.app_id, state),
+         :ok <- ensure_memory_namespace_available(attrs, state),
          {:ok, child_id, child_pid} <- start_child(module, opts, state) do
       entry =
         attrs
@@ -361,6 +362,35 @@ defmodule AllbertAssist.App.Registry do
     end
   end
 
+  defp ensure_memory_namespace_available(%{memory_namespace: nil}, _state), do: :ok
+
+  defp ensure_memory_namespace_available(%{memory_namespace: %{namespace: namespace}}, state) do
+    state
+    |> entries_in_order()
+    |> Enum.find_value(fn entry ->
+      case Map.get(entry, :memory_namespace) do
+        %{namespace: existing} ->
+          if namespace_conflict?(namespace, existing),
+            do: {:error, {:memory_namespace_taken, namespace, existing}}
+
+        _other ->
+          nil
+      end
+    end)
+    |> case do
+      nil -> :ok
+      error -> error
+    end
+  end
+
+  defp namespace_conflict?(left, right) do
+    left = Atom.to_string(left)
+    right = Atom.to_string(right)
+
+    left == right or String.starts_with?(left, right <> "_") or
+      String.starts_with?(right, left <> "_")
+  end
+
   defp start_child(module, opts, state) do
     case module.child_spec(opts) do
       :ignore ->
@@ -530,4 +560,16 @@ defmodule AllbertAssist.App.Registry do
 
   defp diagnostic({kind, _detail} = reason) when is_atom(kind),
     do: %{kind: kind, message: inspect(reason), detail: %{reason: inspect(reason)}}
+
+  defp diagnostic(reason) when is_tuple(reason) do
+    kind =
+      reason
+      |> elem(0)
+      |> case do
+        atom when is_atom(atom) -> atom
+        _other -> :error
+      end
+
+    %{kind: kind, message: inspect(reason), detail: %{reason: inspect(reason)}}
+  end
 end
