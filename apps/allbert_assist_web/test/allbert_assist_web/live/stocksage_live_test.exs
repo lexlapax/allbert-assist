@@ -68,6 +68,15 @@ defmodule StockSageWeb.LiveTest do
     assert {:ok, %{active_app: :stocksage}} = Session.get("local", "web-local")
   end
 
+  test "analysis detail uses StockSage-owned card renderers", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/stocksage/analyses/ana_m3_renderer")
+
+    assert has_element?(view, "#stocksage-analysis-surface-nodes")
+    assert html =~ ~s(data-stocksage-component="analysis_card")
+    assert html =~ "Analysis ana_m3_renderer"
+    refute html =~ "v0.26 stub"
+  end
+
   defp ensure_stocksage_registered do
     plugin_registered? = match?({:ok, _entry}, Plugin.Registry.lookup("stocksage"))
 
