@@ -1512,6 +1512,41 @@ a.allbert-chip-link:focus-visible,
     height: 100%;
     overflow: hidden;
   }
+
+  /* v0.26a M30 follow-up: maximize / restore a pane. The maximized pane
+     spans all three grid columns; the sibling pane and the resize bar are
+     hidden. Toggling off restores the split. */
+  #workspace-shell[data-maximized-pane="chat"] #workspace-node-workspace-canvas-region,
+  #workspace-shell[data-maximized-pane="chat"] #workspace-split-resizer {
+    display: none;
+  }
+
+  #workspace-shell[data-maximized-pane="chat"] #workspace-node-workspace-chat {
+    grid-column: 1 / -1;
+  }
+
+  #workspace-shell[data-maximized-pane="canvas"] #workspace-node-workspace-chat,
+  #workspace-shell[data-maximized-pane="canvas"] #workspace-split-resizer {
+    display: none;
+  }
+
+  #workspace-shell[data-maximized-pane="canvas"] #workspace-node-workspace-canvas-region {
+    grid-column: 1 / -1;
+  }
+}
+
+/* v0.26a M30 follow-up: the maximize button sits at the right edge of each
+   pane header. Pressed state (pane currently maximized) gets the accent
+   treatment so the toggle is legible. */
+.workspace-pane-maximize {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.workspace-pane-maximize[aria-pressed="true"] {
+  border-color: var(--workspace-accent);
+  color: var(--workspace-accent);
+  background: var(--allbert-accent-soft);
 }
 
 /* The AppBar is rendered as the first grid row inside workspace-root. Mark
