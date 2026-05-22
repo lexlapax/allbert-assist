@@ -33,14 +33,15 @@ defmodule AllbertAssist.Security.Context do
   defp actor(request, context) do
     %{
       id:
-        request_value(request, context, :operator_id) || request_value(request, context, :actor) ||
+        trusted_context_value(context, :operator_id) || trusted_context_value(context, :actor) ||
+          map_value(request, :operator_id) || map_value(request, :actor) ||
           "local",
       kind: :operator
     }
   end
 
   defp channel(request, context) do
-    name = request_value(request, context, :channel) || :unknown
+    name = trusted_context_value(context, :channel) || map_value(request, :channel) || :unknown
 
     %{
       name: name,
@@ -50,11 +51,13 @@ defmodule AllbertAssist.Security.Context do
 
   defp session(request, context) do
     %{
-      id: request_value(request, context, :session_id),
+      id: trusted_context_value(context, :session_id) || map_value(request, :session_id),
       source_signal_id:
-        request_value(request, context, :input_signal_id) ||
-          request_value(request, context, :runner_requested_signal_id),
-      request_id: request_value(request, context, :request_id)
+        trusted_context_value(context, :input_signal_id) ||
+          trusted_context_value(context, :runner_requested_signal_id) ||
+          map_value(request, :input_signal_id) ||
+          map_value(request, :runner_requested_signal_id),
+      request_id: trusted_context_value(context, :request_id) || map_value(request, :request_id)
     }
   end
 
@@ -211,15 +214,19 @@ defmodule AllbertAssist.Security.Context do
     }
   end
 
-  defp request_value(request, context, key) do
-    map_value(request, key) || map_value(context, key)
-  end
-
   defp map_value(map, key) when is_map(map) do
     Map.get(map, key) || Map.get(map, to_string(key))
   end
 
   defp map_value(_map, _key), do: nil
+
+  defp trusted_context_value(context, key) when is_map(context) do
+    context
+    |> Map.drop([:request, "request"])
+    |> map_value(key)
+  end
+
+  defp trusted_context_value(_context, _key), do: nil
 
   defp metadata_name(metadata) do
     map_value(metadata, :name) || map_value(metadata, :action_name)
