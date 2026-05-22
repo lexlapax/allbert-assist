@@ -51,11 +51,11 @@ existing plan.
 
 ### Autonomous Skill Creation
 
-Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, and v0.29
-generator planning.
+Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, and v0.31
+(formerly v0.29) generator planning.
 
 Allbert should eventually help create new skills from traces, repeated tasks,
-corrections, or explicit user requests. v0.29 covers manual plugin/app
+corrections, or explicit user requests. v0.31 covers manual plugin/app
 scaffolding only: it may generate ordinary source files, sample actions, sample
 skills, and validation docs, but it does not autonomously infer, trust, enable,
 publish, or activate new capabilities from traces.
@@ -77,7 +77,7 @@ Source: v0.03/v0.06 execution-boundary clarification and v0.31 (formerly
 v0.29) generator planning.
 
 Allbert should not auto-generate, compile, or load Elixir modules from
-arbitrary plugin, app, or skill folders. v0.29 may scaffold ordinary source
+arbitrary plugin, app, or skill folders. v0.31 may scaffold ordinary source
 files into the project for review, compile, and validation, but runtime module
 loading from untrusted plugin/app/skill folders remains unplanned.
 
@@ -361,15 +361,15 @@ The documented v0.26 internal mapping (per ADR 0023 §8):
 | `allbert.action.completed` | `TOOL_CALL_END` |
 | `allbert.action.failed` | `TOOL_CALL_ERROR` |
 
-Needed before broader post-v0.29 planning:
+Needed before broader post-v0.31 planning:
 
 - v0.24 local workspace and surface contracts accepted through user testing
 - v0.26 workspace shell + canvas + ephemeral substrate accepted through user
   testing (ADR 0023 binding decisions, dynamic Surface tree rendering,
   42-component catalog, signed-envelope fragment emission, full UX
   qualities including browser-side Yjs + IndexedDB offline editing)
-- v0.28 app canvas integration accepted through StockSage user testing
-- v0.26/v0.24 security evals proving generated surfaces cannot invent
+- v0.30 app canvas integration accepted through StockSage user testing
+- v0.28 security evals proving generated surfaces cannot invent
   actions, permissions, resources, scripts, URLs, or secret-bearing output
 - AG-UI public HTTP bridge implementation (v0.26 ships internal-only;
   public exposure needs auth, rate limits, multi-client coordination, and
