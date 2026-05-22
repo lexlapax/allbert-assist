@@ -67,7 +67,11 @@ defmodule AllbertAssist.Plugin.Registry do
   end
 
   @spec registered_plugins(keyword()) :: [Entry.t()]
-  def registered_plugins(opts \\ []), do: call(opts, :registered_plugins, [])
+  def registered_plugins(opts \\ []) do
+    opts
+    |> call(:registered_plugins, [])
+    |> Enum.filter(&(&1.status == :enabled))
+  end
 
   @spec lookup(String.t(), keyword()) :: {:ok, Entry.t()} | {:error, :not_found}
   def lookup(plugin_id, opts \\ [])
