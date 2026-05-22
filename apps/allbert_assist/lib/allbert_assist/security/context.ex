@@ -241,8 +241,6 @@ defmodule AllbertAssist.Security.Context do
     |> map_value(key)
   end
 
-  defp trusted_context_value(_context, _key), do: nil
-
   defp metadata_name(metadata) do
     map_value(metadata, :name) || map_value(metadata, :action_name)
   end

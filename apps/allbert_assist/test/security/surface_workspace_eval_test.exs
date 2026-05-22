@@ -4,6 +4,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface
@@ -255,6 +256,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
     app_registry: app_registry
   } do
     fixture = EvalInventory.row!("namespace-claim-001")
+    ensure_stocksage_plugin!()
     assert {:ok, :stocksage} = AppRegistry.register(StockSage.App, server: app_registry)
 
     eval =
@@ -353,6 +355,16 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
       fallback_text: Keyword.get(opts, :fallback_text, "Fragment fallback"),
       metadata: Keyword.get(opts, :metadata, %{})
     }
+  end
+
+  defp ensure_stocksage_plugin! do
+    case PluginRegistry.lookup("stocksage") do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, :not_found} ->
+        assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
+    end
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

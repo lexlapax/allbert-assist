@@ -23,7 +23,7 @@ defmodule StockSage.App do
   # v0.27 closeout: release-pinned with StockSage-owned LiveView surfaces,
   # real card renderers, progress streaming, and namespace declaration.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.27.0"
+  def version, do: "0.28.0"
 
   @impl true
   def validate(_opts), do: :ok

@@ -100,22 +100,7 @@ defmodule AllbertAssist.Security.Policy do
     context_denial = context_denial(permission, context)
 
     final_effective =
-      cond do
-        context_denial ->
-          :denied
-
-        advisory_memory_write?(permission, context) and configured.decision != :denied ->
-          :needs_confirmation
-
-        approved_parent_analysis?(permission, context) and configured.decision != :denied ->
-          :allowed
-
-        fixture_evidence?(permission, context) and configured.decision != :denied ->
-          :allowed
-
-        true ->
-          effective
-      end
+      effective_decision(permission, context, configured, effective, context_denial)
 
     %{
       permission: permission,
@@ -130,6 +115,23 @@ defmodule AllbertAssist.Security.Policy do
       reason: context_denial || reason(permission, final_effective, configured, floor, context)
     }
   end
+
+  defp effective_decision(_permission, _context, _configured, _effective, context_denial)
+       when is_binary(context_denial),
+       do: :denied
+
+  defp effective_decision(permission, context, %{decision: decision}, effective, _context_denial)
+       when decision != :denied do
+    cond do
+      advisory_memory_write?(permission, context) -> :needs_confirmation
+      approved_parent_analysis?(permission, context) -> :allowed
+      fixture_evidence?(permission, context) -> :allowed
+      true -> effective
+    end
+  end
+
+  defp effective_decision(_permission, _context, _configured, effective, _context_denial),
+    do: effective
 
   @doc "Return configured and effective policies for status surfaces."
   @spec permission_policies(map()) :: [map()]
