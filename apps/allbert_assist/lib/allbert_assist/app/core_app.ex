@@ -15,10 +15,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.26 upgrades
-  # `/agent` into the workspace canvas and ephemeral surface shell.
+  # the app (release-pinned, not semantic-per-app). v0.27 proves plugin-owned
+  # app surfaces through StockSage while preserving `/agent` authority.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.26.2"
+  def version, do: "0.27.0"
 
   @impl true
   def validate(_opts), do: :ok
