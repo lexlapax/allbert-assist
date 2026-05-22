@@ -334,7 +334,6 @@ defmodule StockSage.TraderBridge do
 
   defp put_optional_map(map, _key, nil), do: map
   defp put_optional_map(map, key, value) when is_map(value), do: Map.put(map, key, value)
-  defp put_optional_map(map, _key, _other), do: map
 
   defp normalize_ticker(value) when is_binary(value) do
     ticker = String.trim(value)

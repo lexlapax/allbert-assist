@@ -1505,8 +1505,9 @@ Shipped:
 Plan: `docs/plans/v0.28-plan.md`
 Request flow: `docs/plans/v0.28-request-flow.md`
 
-Status: planned. Formerly v0.16, previously planned as v0.25, then v0.26
-before the project-direction rethink.
+Status: implemented and ready for operator manual verification. Formerly
+v0.16, previously planned as v0.25, then v0.26 before the project-direction
+rethink.
 
 Expected direction:
 
@@ -1530,6 +1531,34 @@ Expected direction:
   memory writes through StockSage's declared namespace.
 - Require StockSage external market-data calls to flow through Resource Access
   Security Posture and confirmations.
+
+Implemented closeout:
+
+- Added a shared security eval harness and concrete M2-M7 eval rows for
+  resource/execution, identity/context, plugin/app registry,
+  surface/workspace/namespace, objective/financial/bridge, and operator review
+  surfaces.
+- Hardened trusted context normalization, app-scoped action routing, disabled
+  plugin exposure, app surface catalog ownership, namespace claim isolation,
+  advisory-origin memory writes, StockSage bridge argument validation, and
+  workspace fragment emergency disable behavior.
+- Added `mix allbert.security review --recent` plus emergency switches for
+  external services, StockSage bridge calls, plugin registration, app registry
+  registration, and workspace fragment emission.
+
+Risk reassessment for the next contracts:
+
+- v0.29 memory sync can proceed only through explicit registered actions behind
+  the StockSage namespace declared in v0.27 and audited in v0.28. The tested
+  invariant remains: completing an analysis, resolving an outcome, or producing
+  a reflection does not automatically write markdown memory.
+- v0.30 canvas work should reuse the v0.26/v0.28-audited fragment and canvas
+  mechanism. It should not introduce a new renderer contract, bypass app
+  surface catalogs, or persist unaudited component atoms.
+- v0.31 generator scaffolding should emit inert-by-default SurfaceProvider,
+  memory namespace, action/objective, and canvas stubs only because the
+  contracts were manually proven first. Generated files and metadata still do
+  not grant permission.
 
 ## v0.29: App Memory + Outcomes Contract - StockSage Polish
 

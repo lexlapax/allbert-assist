@@ -10,6 +10,85 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.28.0 - Security Hardening And Evals
+
+Status: implemented and ready for operator manual verification. Version
+metadata is `0.28.0`; release tag `v0.28.0` is pending operator acceptance.
+
+Plan: `docs/plans/v0.28-plan.md`.
+Request flow: `docs/plans/v0.28-request-flow.md`.
+Operator hardening notes: `docs/operator/security-hardening.md`.
+
+### Added (v0.28.0)
+
+- Shared v0.28 security eval harness plus concrete adversarial eval modules for
+  resource/execution, identity/context, plugin/app registry,
+  surface/workspace/namespace, objective/financial/bridge, StockSage
+  market-data authorization, and operator review flows.
+- `mix allbert.security review --recent [--limit N]`, backed by the
+  read-only `security_review` action, for recent confirmations, denials,
+  imports, external calls, redaction-applied records, and emergency switch
+  state.
+- Settings Central emergency switches for plugin registration,
+  app-registry registration, and workspace fragment emission:
+  `plugins.registration_enabled`, `app_registry.registration_enabled`, and
+  `workspace.fragment.emission_enabled`.
+- Operator security hardening notes covering deployment posture, channel
+  pairing, exposed services, file permissions, and emergency switches.
+
+### Changed (v0.28.0)
+
+- Security Central trusted context normalization now treats top-level runtime
+  actor/channel/session metadata as authoritative over nested request metadata.
+- App-owned actions with explicit mismatched `active_app` are denied before the
+  action body can create confirmations or side effects.
+- Disabled plugin entries remain inspectable by lookup but contribute no
+  runtime apps/actions/channels/skills/children.
+- App surface validation now enforces provider catalog ownership for
+  non-primitive components, and workspace Fragment receivers check registered
+  app catalogs before persistence.
+- Memory namespace registration rejects exact and overlapping namespace claims
+  before v0.29 adds namespace-consuming memory writes.
+- Advisory-origin memory writes require confirmation, and `append_memory` no
+  longer writes durable markdown when Security Central returns a non-allowed
+  decision.
+- StockSage bridge argument validation rejects invalid ticker/date/engine/config
+  inputs before Port dispatch.
+- Workspace fragment emission and receiver persistence can be disabled through
+  `workspace.fragment.emission_enabled=false`.
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app metadata,
+  `StockSage.App.version/0`, `StockSage.Plugin.version/0`, and
+  `plugins/stocksage/allbert_plugin.json` are bumped to `0.28.0`.
+
+### Verification (v0.28.0)
+
+- Milestone-focused tests passed after each checkpoint from M1 through M7.
+- Full security eval suite through M7 passed:
+  `mix do --app allbert_assist cmd mix test test/security ../../plugins/stocksage/test/security/stocksage_market_data_eval_test.exs`.
+- Final release gate passed: `mix format --check-formatted`,
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  and `mix precommit`. The final `mix precommit` run reported 787 core tests,
+  94 web tests, 178 StockSage plugin tests, and 2 channel plugin tests, all
+  with 0 failures.
+
+### Manual Verification (v0.28.0)
+
+Use a disposable Allbert Home:
+
+1. Run `ALLBERT_HOME="$SMOKE_HOME" mix ecto.migrate.allbert`.
+2. Run `ALLBERT_HOME="$SMOKE_HOME" mix allbert.security status` and verify no
+   raw `secret://` values are printed.
+3. Seed or create at least one confirmation, then run
+   `ALLBERT_HOME="$SMOKE_HOME" mix allbert.security review --recent` and verify
+   recent confirmations, denials/imports/external calls when present, redaction
+   incidents, and emergency switches render.
+4. Flip one emergency switch, for example
+   `ALLBERT_HOME="$SMOKE_HOME" mix allbert.settings set workspace.fragment.emission_enabled false`,
+   then re-run `mix allbert.security review --recent` and verify the switch is
+   shown as hard-disabled.
+
+---
+
 ## v0.27.0 - App Surface Contract: StockSage LiveViews
 
 Status: implemented and ready for operator manual verification. Version

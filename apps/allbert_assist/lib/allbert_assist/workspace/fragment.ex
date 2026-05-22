@@ -9,10 +9,10 @@ defmodule AllbertAssist.Workspace.Fragment do
 
   require Logger
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.SignalBus
   alias AllbertAssist.Signals
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Surface
   alias AllbertAssist.Workspace.Canvas
   alias AllbertAssist.Workspace.Ephemeral
