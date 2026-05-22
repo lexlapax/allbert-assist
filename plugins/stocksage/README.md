@@ -3,7 +3,7 @@
 StockSage is Allbert's first shipped source-tree plugin workspace app and the
 first proving app for native financial specialist agents.
 
-Current v0.27 capabilities:
+Current v0.29 capabilities:
 
 - `./plugins/stocksage` contributes `StockSage.Plugin`, `StockSage.App`,
   skills, settings schema entries, local domain actions, evidence actions,
@@ -34,11 +34,19 @@ Current v0.27 capabilities:
   analysis output inside `/stocksage/*`; the v0.26 workspace stubs remain a
   separate `/agent` canvas concern until v0.30.
 - `StockSage.App.memory_namespace/0` declares namespace ownership with
-  `writable: false`. v0.27 does not sync lessons, reflections, or analyses into
-  Allbert markdown memory.
+  `writable: true`; Allbert markdown memory writes still require explicit
+  `sync_app_lesson` confirmation.
 - `StockSage.Progress` streams bounded analysis progress over Phoenix.PubSub on
   `stocksage_progress:<user_id>:<analysis_id>` and catches up from persisted
   objective/analysis state on reconnect.
+- `resolve_outcomes`, `generate_reflection`, and StockSage trends/calibration
+  support resolved outcome review, local reflections, rating calibration, and
+  symbol leaderboards.
+- `StockSage.App.memory_namespace/0` is writable in v0.29, but Allbert
+  markdown memory writes only happen through the registered
+  `sync_app_lesson` action and an explicit confirmation resume. The
+  `/stocksage/analyses/:id` reflection card exposes `Sync lesson` to queue that
+  confirmation; generating reflections never promotes memory automatically.
 
 The native graph includes LLM-capable Jido.AI specialists for market context,
 news/sentiment, fundamentals, bull thesis, bear thesis, three risk
@@ -82,6 +90,5 @@ not-found. `:stocksage_write` authorizes local StockSage SQLite writes only;
 `:stocksage_analyze` remains confirmation-gated; evidence actions flow through
 `:stocksage_evidence_fetch` and Resource Access posture.
 
-v0.27 intentionally stops at the app-surface contract. Memory sync and lesson
-promotion land in v0.29, and durable `/agent` canvas tile emission through
-`canvas_ops` lands in v0.30.
+v0.29 consumes the v0.27 memory namespace through explicit lesson sync. Durable
+`/agent` canvas tile emission through `canvas_ops` still lands in v0.30.

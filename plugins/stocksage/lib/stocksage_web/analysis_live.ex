@@ -6,6 +6,7 @@ defmodule StockSageWeb.AnalysisLive do
   use AllbertAssistWeb, :live_view
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Memory, as: AllbertMemory
   alias AllbertAssist.{Confirmations, Objectives}
   alias AllbertAssist.Surface.Node
   alias StockSage.Analyses
@@ -31,6 +32,8 @@ defmodule StockSageWeb.AnalysisLive do
      |> assign(:reflection_entries, [])
      |> assign(:reflection_error, nil)
      |> assign(:reflection_notice, nil)
+     |> assign(:sync_error, nil)
+     |> assign(:sync_notice, nil)
      |> assign(:surface_nodes, [])
      |> assign(:progress_topic, nil)
      |> stream(:progress, [])}
@@ -90,6 +93,50 @@ defmodule StockSageWeb.AnalysisLive do
            :reflection_error,
            Map.get(response, :message) || "Could not generate reflection."
          )
+         |> load_analysis_state(socket.assigns.analysis_id)}
+    end
+  end
+
+  @impl true
+  def handle_event("sync_lesson", %{"entry-id" => entry_id}, socket) do
+    with {:ok, entry} <- StockSageMemory.get_entry(socket.assigns.user_id, entry_id),
+         {:ok, params} <- sync_lesson_params(socket.assigns.user_id, entry),
+         {:ok, response} <- Runner.run("sync_app_lesson", params, sync_lesson_context(socket)) do
+      case response do
+        %{status: :completed, memory: memory} ->
+          update_synced_reflection(entry, memory)
+
+          {:noreply,
+           socket
+           |> assign(:sync_notice, "Synced lesson to Allbert markdown memory.")
+           |> assign(:sync_error, nil)
+           |> load_analysis_state(socket.assigns.analysis_id)}
+
+        %{status: :needs_confirmation, confirmation_id: confirmation_id} ->
+          mark_pending_reflection(entry, response)
+
+          {:noreply,
+           socket
+           |> assign(
+             :sync_notice,
+             "Lesson sync requires confirmation #{confirmation_id}. No Allbert markdown memory was written."
+           )
+           |> assign(:sync_error, nil)
+           |> load_analysis_state(socket.assigns.analysis_id)}
+
+        response ->
+          {:noreply,
+           socket
+           |> assign(:sync_notice, nil)
+           |> assign(:sync_error, Map.get(response, :message) || "Could not sync lesson.")
+           |> load_analysis_state(socket.assigns.analysis_id)}
+      end
+    else
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:sync_notice, nil)
+         |> assign(:sync_error, "Could not sync lesson: #{inspect(reason)}.")
          |> load_analysis_state(socket.assigns.analysis_id)}
     end
   end
@@ -204,6 +251,24 @@ defmodule StockSageWeb.AnalysisLive do
           role="alert"
         />
 
+        <AppShell.state_panel
+          :if={@sync_notice}
+          id="stocksage-sync-notice"
+          title="Lesson sync queued"
+          body={@sync_notice}
+          tone={:success}
+          role="status"
+        />
+
+        <AppShell.state_panel
+          :if={@sync_error}
+          id="stocksage-sync-error"
+          title="Lesson sync unavailable"
+          body={@sync_error}
+          tone={:error}
+          role="alert"
+        />
+
         <section
           :if={@analysis && @analysis.outcomes != []}
           id="stocksage-outcome-reflection-actions"
@@ -262,10 +327,22 @@ defmodule StockSageWeb.AnalysisLive do
             <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
               <span class="font-medium text-emerald-200">{entry.tags["symbol"] || entry.kind}</span>
               <span class="text-xs text-zinc-500">
-                {entry.tags["label"] || "outcome"} · StockSage local
+                {entry.tags["label"] || "outcome"} · {reflection_memory_label(entry)}
               </span>
             </div>
             <p class="mt-3 whitespace-pre-line text-zinc-300">{entry.content}</p>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button
+                id={"stocksage-sync-lesson-#{entry.id}"}
+                type="button"
+                phx-click="sync_lesson"
+                phx-value-entry-id={entry.id}
+                disabled={entry.promoted_to_allbert_memory or sync_pending?(entry)}
+                class="rounded border border-amber-400/70 px-3 py-2 text-sm text-amber-100 hover:border-amber-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:text-zinc-500"
+              >
+                {sync_button_label(entry)}
+              </button>
+            </div>
           </article>
         </section>
 
@@ -480,10 +557,158 @@ defmodule StockSageWeb.AnalysisLive do
   end
 
   defp reflection_entries(user_id, analysis_id) do
-    StockSageMemory.list_entries(user_id, kind: "reflection", analysis_id: analysis_id, limit: 10)
+    user_id
+    |> StockSageMemory.list_entries(kind: "reflection", analysis_id: analysis_id, limit: 10)
+    |> Enum.map(&refresh_sync_state(user_id, &1))
   rescue
     _exception -> []
   end
+
+  defp sync_lesson_context(socket) do
+    %{
+      active_app: :stocksage,
+      user_id: socket.assigns.user_id,
+      actor: socket.assigns.user_id,
+      channel: :live_view,
+      session_id: socket.assigns.session_id,
+      thread_id: Map.get(socket.assigns, :thread_id),
+      objective_id: socket.assigns.objective && socket.assigns.objective.id,
+      surface: "stocksage_analysis",
+      request: %{
+        active_app: :stocksage,
+        user_id: socket.assigns.user_id,
+        operator_id: socket.assigns.user_id,
+        channel: :live_view,
+        source: :stocksage_live
+      }
+    }
+  end
+
+  defp sync_lesson_params(user_id, entry) do
+    with {:ok, outcome_id} <- metadata_required(entry, "outcome_id"),
+         {:ok, outcome} <- Analyses.get_outcome(user_id, outcome_id),
+         {:ok, holding_period_days} <- positive_horizon(outcome.horizon_days) do
+      {:ok,
+       %{
+         user_id: user_id,
+         app_id: "stocksage",
+         namespace: "stocksage",
+         analysis_id: outcome.analysis_id,
+         outcome_id: outcome.id,
+         objective_id: analysis_field(outcome.analysis, :objective_id),
+         ticker: outcome.symbol,
+         rating: analysis_recommendation(outcome.analysis),
+         realized_return: decimal_value(outcome.return_pct),
+         holding_period_days: holding_period_days,
+         lesson_text: entry.content,
+         source: "stocksage_reflection",
+         resolved_at: date_value(outcome.observed_on)
+       }}
+    end
+  end
+
+  defp update_synced_reflection(entry, memory) do
+    metadata =
+      entry.metadata
+      |> Map.put("allbert_memory_path", Map.get(memory, :path))
+      |> Map.put("allbert_memory_idempotency_key", Map.get(memory, :idempotency_key))
+      |> Map.delete("pending_allbert_confirmation_id")
+
+    StockSageMemory.update_entry(entry, %{
+      promoted_to_allbert_memory: true,
+      allbert_memory_path: Map.get(memory, :path),
+      metadata: metadata
+    })
+  end
+
+  defp mark_pending_reflection(entry, response) do
+    action = response |> Map.get(:actions, []) |> List.first() || %{}
+
+    metadata =
+      entry.metadata
+      |> Map.put("pending_allbert_confirmation_id", Map.get(response, :confirmation_id))
+      |> Map.put("allbert_memory_idempotency_key", Map.get(action, :idempotency_key))
+
+    StockSageMemory.update_entry(entry, %{metadata: metadata})
+  end
+
+  defp refresh_sync_state(user_id, entry) do
+    cond do
+      entry.promoted_to_allbert_memory ->
+        entry
+
+      sync_key = entry.metadata["allbert_memory_idempotency_key"] ->
+        case AllbertMemory.list_entries(
+               user_id: user_id,
+               app_id: :stocksage,
+               namespace: :stocksage,
+               idempotency_key: sync_key,
+               limit: 1
+             ) do
+          {:ok, [memory_entry | _rest]} ->
+            case update_synced_reflection(entry, %{
+                   path: memory_entry.path,
+                   idempotency_key: memory_entry.idempotency_key
+                 }) do
+              {:ok, updated} -> updated
+              {:error, _reason} -> entry
+            end
+
+          _other ->
+            entry
+        end
+
+      true ->
+        entry
+    end
+  end
+
+  defp metadata_required(entry, key) do
+    entry.metadata
+    |> Map.get(key)
+    |> case do
+      value when is_binary(value) and value != "" -> {:ok, value}
+      _value -> {:error, {:missing_reflection_metadata, key}}
+    end
+  end
+
+  defp positive_horizon(value) when is_integer(value) and value > 0, do: {:ok, value}
+  defp positive_horizon(_value), do: {:error, :missing_holding_period_days}
+
+  defp reflection_memory_label(%{promoted_to_allbert_memory: true}), do: "Allbert memory synced"
+
+  defp reflection_memory_label(%{metadata: %{"pending_allbert_confirmation_id" => id}})
+       when is_binary(id) and id != "",
+       do: "Allbert sync pending"
+
+  defp reflection_memory_label(_entry), do: "StockSage local"
+
+  defp sync_button_label(%{promoted_to_allbert_memory: true}), do: "Synced"
+
+  defp sync_button_label(%{metadata: %{"pending_allbert_confirmation_id" => id}})
+       when is_binary(id) and id != "",
+       do: "Sync pending"
+
+  defp sync_button_label(_entry), do: "Sync lesson"
+
+  defp sync_pending?(%{metadata: %{"pending_allbert_confirmation_id" => id}})
+       when is_binary(id) and id != "",
+       do: true
+
+  defp sync_pending?(_entry), do: false
+
+  defp analysis_recommendation(%{recommendation: recommendation})
+       when is_binary(recommendation) do
+    case String.trim(recommendation) do
+      "" -> "unrated"
+      rating -> rating
+    end
+  end
+
+  defp analysis_recommendation(_analysis), do: "unrated"
+
+  defp analysis_field(nil, _field), do: nil
+  defp analysis_field(analysis, field), do: Map.get(analysis, field)
 
   defp detail_surface_nodes(nil), do: []
 
