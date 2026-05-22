@@ -5,6 +5,7 @@ defmodule StockSageWeb.LiveTest do
 
   alias AllbertAssist.{App, Confirmations, Objectives, Paths, Plugin, Session, Settings}
   alias StockSage.Analyses
+  alias StockSage.Progress
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -101,6 +102,25 @@ defmodule StockSageWeb.LiveTest do
     assert has_element?(view, "#stocksage-confirmation-links")
     assert html =~ objective.title
     assert html =~ confirmation_id
+  end
+
+  test "analysis detail catches up from persisted progress and appends live rows", %{conn: conn} do
+    %{analysis: analysis} = create_analysis_detail_fixture()
+
+    {:ok, view, html} = live(conn, ~p"/stocksage/analyses/#{analysis.id}")
+
+    assert has_element?(view, "#stocksage-progress-stream")
+    assert html =~ "Market context completed."
+    assert html =~ "AAPL native analysis completed."
+
+    Progress.broadcast("local", analysis.id, %{
+      stage: "synthesis",
+      status: "running",
+      summary: "Synthesizing final decision."
+    })
+
+    assert render(view) =~ "Synthesizing final decision."
+    assert has_element?(view, ~s(#stocksage-progress-stream [data-stage="synthesis"]))
   end
 
   defp ensure_stocksage_registered do

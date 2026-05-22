@@ -18,8 +18,10 @@ defmodule StockSage.SettingsSchemaTest do
     assert schema["stocksage.list.max_results"].default == 50
     assert schema["stocksage.queue.default_priority"].allowed_values == ["low", "normal", "high"]
     assert schema["stocksage.web.enabled"].default == true
+    assert schema["stocksage.web.progress_stream_enabled"].default == true
     assert Schema.safe_write_key?("stocksage.queue.default_priority")
     assert Schema.safe_write_key?("stocksage.web.enabled")
+    assert Schema.safe_write_key?("stocksage.web.progress_stream_enabled")
   end
 
   test "v0.22 bridge settings register with their defaults" do
