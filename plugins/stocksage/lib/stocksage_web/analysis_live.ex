@@ -5,16 +5,27 @@ defmodule StockSageWeb.AnalysisLive do
 
   use AllbertAssistWeb, :live_view
 
+  alias AllbertAssist.Surface.Node
+  alias StockSageWeb.Components.SurfaceRenderer
   alias StockSageWeb.Live
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, Live.assign_context(socket, :stocksage_analyses)}
+    {:ok,
+     socket
+     |> Live.assign_context(:stocksage_analyses)
+     |> assign(:analysis_id, nil)
+     |> assign(:surface_nodes, [])}
   end
 
   @impl true
   def handle_params(params, _uri, socket) do
-    {:noreply, assign(socket, :analysis_id, Map.get(params, "id"))}
+    analysis_id = Map.get(params, "id")
+
+    {:noreply,
+     socket
+     |> assign(:analysis_id, analysis_id)
+     |> assign(:surface_nodes, detail_surface_nodes(analysis_id))}
   end
 
   @impl true
@@ -41,6 +52,14 @@ defmodule StockSageWeb.AnalysisLive do
             v0.27 M1 mounts the real route. Later v0.27 milestones fill this surface with StockSage card renderers and validated Surface nodes.
           </p>
         </section>
+        <section
+          :if={@surface_nodes != []}
+          id="stocksage-analysis-surface-nodes"
+          class="grid gap-4"
+          aria-label="StockSage analysis cards"
+        >
+          <SurfaceRenderer.node :for={node <- @surface_nodes} node={node} />
+        </section>
       </section>
     </main>
     """
@@ -59,5 +78,30 @@ defmodule StockSageWeb.AnalysisLive do
       </p>
     </section>
     """
+  end
+
+  defp detail_surface_nodes(nil), do: []
+
+  defp detail_surface_nodes(analysis_id) do
+    [
+      %Node{
+        id: "analysis-card-#{safe_dom_id(analysis_id)}",
+        component: :analysis_card,
+        props: %{
+          analysis_id: analysis_id,
+          title: "Analysis #{analysis_id}",
+          status: "loading",
+          summary: "Loading persisted StockSage analysis detail.",
+          engine: "native"
+        }
+      }
+    ]
+  end
+
+  defp safe_dom_id(value) do
+    value
+    |> to_string()
+    |> String.replace(~r/[^a-zA-Z0-9_-]/, "-")
+    |> String.slice(0, 64)
   end
 end
