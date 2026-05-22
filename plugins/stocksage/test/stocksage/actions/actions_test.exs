@@ -134,13 +134,18 @@ defmodule StockSage.ActionsTest do
                user_id: "alice",
                analysis_id: analysis.id,
                symbol: "aapl",
-               label: "win"
+               label: "win",
+               return_pct: Decimal.new("7.5")
              })
 
     assert {:ok, response} = Runner.run("get_trends", %{user_id: "alice"}, stocksage_context())
 
     assert response.status == :completed
     assert response.trends.counts == %{"win" => 1}
+    assert response.trends.accuracy.resolved == 1
+    assert response.trends.accuracy.win_rate == 100.0
+    assert [%{rating: "unrated", wins: 1}] = response.trends.rating_calibration
+    assert [%{symbol: "AAPL", wins: 1}] = response.trends.leaderboard
     assert [%{label: "win"}] = response.trends.outcomes
   end
 
