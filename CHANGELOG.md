@@ -10,6 +10,43 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.26.1 - Workspace UX/UI + Backend Runtime Closeout
+
+Status: released and tagged as `v0.26.1` on 2026-05-22. This release
+combines the v0.26a workspace UX/UI substrate pass with the v0.26b backend
+runtime bugfix pass. Version metadata is `0.26.1`.
+
+Plans:
+
+- `docs/plans/v0.26a-ui-plan.md`
+- `docs/plans/v0.26b-backend-plan.md`
+
+### Fixed (v0.26b)
+
+- Runtime intent fallback now recognizes generic safe setting-shaped prompts
+  such as `set workspace.theme to dark` and routes them through
+  `update_setting` even when no LLM key is configured.
+- Secret-shaped, unsafe, and read-only setting prompts do not leak raw values;
+  the existing Settings Central schema/action boundary owns validation and
+  refusal.
+- Native StockSage LLM preflight failures now surface bounded
+  `native_llm_unavailable: ...` reasons through the native analysis failure
+  path, persisted analysis metadata, action result, signal payload, and
+  workspace fragment metadata.
+- Disabling `stocksage.native_llm_enabled` still preserves deterministic
+  fixture/smoke paths; v0.26b does not add automatic Python fallback.
+- Fresh `/agent` composer state starts empty and uses neutral placeholder copy
+  (`"Ask Allbert anything…"`).
+
+### Verification (v0.26.1)
+
+- `mix precommit` on merged `main`: 754 core tests, 79 web tests, 168
+  StockSage plugin tests, and 2 channel plugin tests, all 0 failures.
+- `mix credo --strict`, `mix compile --warnings-as-errors`, and formatter
+  checks passed as part of the precommit gate.
+
+---
+
 ## v0.26a - Workspace UX/UI Substrate Pass
 
 Status: implemented through M35 closeout on 2026-05-21. Version metadata is
@@ -80,31 +117,34 @@ Plan: `docs/plans/v0.26a-ui-plan.md`.
   new responsive + agent_live + composer assertions).
 - `mix format --check-formatted`, `mix credo --strict`,
   `mix compile --warnings-as-errors`: all clean on commit.
-- Browser-driven smoke (Claude in Chrome) confirmed the pre-M28 audit
+- Browser-driven smoke confirmed the pre-M28 audit
   findings reproduced cleanly under the old code and that M28–M34 fixes
-  resolved them. The full M35 visual walkthrough is deferred to the
-  operator-acceptance pass.
+  resolved them. The v0.26.1 closeout records the final merged-main gate.
 
-### Bugs flagged for separate triage (NOT v0.26a scope)
+### Bugs flagged for separate triage (resolved by v0.26b)
 
 - H1 (runtime): the intent agent falls through to `direct_answer` for
   clearly setting-shaped prompts (`"Set workspace.theme to dark"`) when
   no LLM API key is configured. The deterministic fallback should
   pattern-match `set <key> to <value>` and route to `update_setting`.
+  Resolved in v0.26b.
 - H2 (stocksage): native StockSage analysis transitions silently to
   `:failed` when no LLM key is configured. The failure reason should
-  surface in the chat or via an ephemeral.
+  surface in the chat or via an ephemeral. Resolved in v0.26b through the
+  native failure/action/signal/workspace-fragment path.
 - H3 (runtime): the default LiveView prompt placeholder used to be content
   copy; M28 moved it into the empty-state callout, but CLI surfaces
-  should follow.
+  should follow. Resolved in v0.26b for the `/agent` composer state and
+  placeholder.
 
 ---
 
 ## v0.26 - Agentic Workspace Surface And Ephemeral UI Substrate
 
-Status: implemented through M30 UI release closeout on 2026-05-19 and ready
-for operator manual validation. Version metadata is `0.26.0`; the release tag
-is pending operator acceptance.
+Status: implemented through M30 UI release closeout on 2026-05-19 and
+superseded by the accepted `v0.26.1` closeout. Version metadata was `0.26.0`
+for the base workspace release and moved to `0.26.1` in the v0.26a/v0.26b
+follow-up.
 
 ### Added (v0.26)
 
@@ -193,8 +233,7 @@ is pending operator acceptance.
 - M30 adds manual UI validation instructions for desktop, mobile, theme,
   stale-thread recovery, StockSage active-app routing, canvas/tile states,
   ephemeral overlays, offline behavior, resize behavior, accessibility, and
-  cross-browser smoke. The release tag remains blocked only on that operator
-  validation.
+  cross-browser smoke. The v0.26.1 closeout is the accepted release tag.
 
 ## v0.25 - Native Financial Specialist Agents
 
