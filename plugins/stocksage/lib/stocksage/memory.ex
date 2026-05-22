@@ -64,10 +64,12 @@ defmodule StockSage.Memory do
     normalized_user_id = Domain.normalize_user_id(user_id)
     limit = Domain.normalize_limit(Keyword.get(opts, :limit), @default_limit, @max_limit)
     kind = Keyword.get(opts, :kind)
+    analysis_id = Keyword.get(opts, :analysis_id)
 
     MemoryEntry
     |> where([entry], entry.user_id == ^normalized_user_id)
     |> maybe_filter_kind(kind)
+    |> maybe_filter_analysis(analysis_id)
     |> order_by([entry], desc: entry.updated_at)
     |> limit(^limit)
     |> Repo.all()
@@ -113,5 +115,12 @@ defmodule StockSage.Memory do
 
   defp maybe_filter_kind(query, kind) do
     where(query, [entry], entry.kind == ^kind)
+  end
+
+  defp maybe_filter_analysis(query, nil), do: query
+  defp maybe_filter_analysis(query, ""), do: query
+
+  defp maybe_filter_analysis(query, analysis_id) do
+    where(query, [entry], entry.analysis_id == ^analysis_id)
   end
 end
