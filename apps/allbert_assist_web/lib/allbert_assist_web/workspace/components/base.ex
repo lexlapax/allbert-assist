@@ -61,6 +61,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
       class={component_class(@component, @stub?)}
       data-workspace-component={@component}
       data-workspace-renderer="component"
+      data-status={card_status(@node)}
       aria-labelledby={component_title_id(@node)}
     >
       <header class="workspace-card-header">
@@ -75,17 +76,107 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
             {summary(@node, @component_description)}
           </p>
         </div>
+        <span
+          :if={present?(card_status(@node))}
+          class={["workspace-status-pill", status_class(card_status(@node))]}
+        >
+          {humanize_status(card_status(@node))}
+        </span>
         <span :if={@stub?} class="workspace-status-pill workspace-status-neutral">
           v0.26 stub
         </span>
       </header>
 
-      <footer :if={metric(@component, @renderer_context)} class="workspace-card-footer">
-        <span>{metric(@component, @renderer_context)}</span>
+      <footer class="workspace-card-footer">
+        <span :if={metric(@component, @renderer_context)}>
+          {metric(@component, @renderer_context)}
+        </span>
+        <span
+          :if={present?(card_external_id(@node))}
+          class="workspace-mono workspace-copy-target workspace-card-id"
+          id={"workspace-card-id-#{@node.id}"}
+          phx-hook="CopyToClipboard"
+          data-copy-value={card_external_id(@node)}
+          role="button"
+          tabindex="0"
+          title="Copy id"
+        >
+          {short_external_id(card_external_id(@node))}
+        </span>
       </footer>
     </article>
     """
   end
+
+  # v0.26a M33: derive a status string from the most common prop names so
+  # every card automatically renders a status pill when emitters set one.
+  def card_status(node) do
+    prop(node, :status, prop(node, :lifecycle_kind, prop(node, :state, nil)))
+  end
+
+  # The tile id (or objective_id, confirmation_id, analysis_id) is a useful
+  # mono token to surface for copy-to-clipboard. Tile and ephemeral renderers
+  # already expose `tile_id` / `confirmation_id` / `objective_id` props on
+  # the catalog node; pick the first one present.
+  def card_external_id(node) do
+    prop(
+      node,
+      :objective_id,
+      prop(
+        node,
+        :confirmation_id,
+        prop(node, :analysis_id, prop(node, :tile_id, prop(node, :external_id, nil)))
+      )
+    )
+  end
+
+  def short_external_id(value) when is_binary(value) do
+    case String.split(value, "_", parts: 2) do
+      [prefix, rest] when byte_size(rest) > 8 ->
+        "#{prefix}_#{String.slice(rest, 0, 8)}…"
+
+      _ ->
+        if byte_size(value) > 12, do: "#{String.slice(value, 0, 12)}…", else: value
+    end
+  end
+
+  def short_external_id(_value), do: ""
+
+  @status_classes %{
+    "completed" => "workspace-status-success",
+    "running" => "workspace-status-info",
+    "open" => "workspace-status-info",
+    "blocked" => "workspace-status-warn",
+    "needs_confirmation" => "workspace-status-warn",
+    "impasse" => "workspace-status-warn",
+    "failed" => "workspace-status-danger",
+    "denied" => "workspace-status-danger",
+    "abandoned" => "workspace-status-neutral"
+  }
+
+  def status_class(status) when is_binary(status) do
+    Map.get(@status_classes, String.downcase(status), "workspace-status-neutral")
+  end
+
+  def status_class(status) when is_atom(status) and not is_nil(status) do
+    status_class(Atom.to_string(status))
+  end
+
+  def status_class(_status), do: "workspace-status-neutral"
+
+  def humanize_status(value) when is_binary(value) do
+    value
+    |> String.replace("_", " ")
+    |> String.trim()
+  end
+
+  def humanize_status(value) when is_atom(value) and not is_nil(value) do
+    value
+    |> Atom.to_string()
+    |> humanize_status()
+  end
+
+  def humanize_status(_value), do: ""
 
   def assign_defaults(socket, assigns) do
     Phoenix.Component.assign(socket, assigns)
