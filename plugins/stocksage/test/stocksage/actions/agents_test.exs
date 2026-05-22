@@ -14,11 +14,13 @@ defmodule StockSage.Actions.AgentsTest do
     assert {:ok, response} =
              Runner.run("list_stocksage_agents", %{}, %{
                request: %{
+                 active_app: :stocksage,
                  channel: :test,
                  user_id: "alice",
                  operator_id: "alice",
                  app_id: :stocksage
-               }
+               },
+               active_app: :stocksage
              })
 
     assert response.status == :completed
@@ -34,11 +36,13 @@ defmodule StockSage.Actions.AgentsTest do
     assert {:ok, response} =
              Runner.run("show_stocksage_agent", %{agent_id: "stocksage.quality_gate"}, %{
                request: %{
+                 active_app: :stocksage,
                  channel: :test,
                  user_id: "alice",
                  operator_id: "alice",
                  app_id: :stocksage
-               }
+               },
+               active_app: :stocksage
              })
 
     assert response.status == :completed
@@ -49,11 +53,13 @@ defmodule StockSage.Actions.AgentsTest do
     assert {:ok, missing} =
              Runner.run("show_stocksage_agent", %{agent_id: "stocksage.nope"}, %{
                request: %{
+                 active_app: :stocksage,
                  channel: :test,
                  user_id: "alice",
                  operator_id: "alice",
                  app_id: :stocksage
-               }
+               },
+               active_app: :stocksage
              })
 
     assert missing.status == :not_found

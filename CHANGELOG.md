@@ -25,6 +25,9 @@ Operator hardening notes: `docs/operator/security-hardening.md`.
   resource/execution, identity/context, plugin/app registry,
   surface/workspace/namespace, objective/financial/bridge, StockSage
   market-data authorization, and operator review flows.
+- Pre-tag `app-scope-missing-001` eval coverage for direct Runner calls and
+  registered-action jobs that attempt StockSage actions without explicit
+  StockSage app scope.
 - `mix allbert.security review --recent [--limit N]`, backed by the
   read-only `security_review` action, for recent confirmations, denials,
   imports, external calls, redaction-applied records, and emergency switch
@@ -42,6 +45,9 @@ Operator hardening notes: `docs/operator/security-hardening.md`.
   actor/channel/session metadata as authoritative over nested request metadata.
 - App-owned actions with explicit mismatched `active_app` are denied before the
   action body can create confirmations or side effects.
+- App-owned actions now also deny missing, nil, `"none"`, or `"general"`
+  `active_app` scope; registered-action jobs and objective step execution pass
+  trusted app scope explicitly when invoking app-owned actions.
 - Disabled plugin entries remain inspectable by lookup but contribute no
   runtime apps/actions/channels/skills/children.
 - App surface validation now enforces provider catalog ownership for
@@ -65,11 +71,16 @@ Operator hardening notes: `docs/operator/security-hardening.md`.
 - Milestone-focused tests passed after each checkpoint from M1 through M7.
 - Full security eval suite through M7 passed:
   `mix do --app allbert_assist cmd mix test test/security ../../plugins/stocksage/test/security/stocksage_market_data_eval_test.exs`.
-- Final release gate passed: `mix format --check-formatted`,
+- Pre-tag final release gate passed: `mix format --check-formatted`,
   `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
-  and `mix precommit`. The final `mix precommit` run reported 787 core tests,
+  and `mix precommit`. The final `mix precommit` run reported 790 core tests,
   94 web tests, 178 StockSage plugin tests, and 2 channel plugin tests, all
   with 0 failures.
+- Disposable-home operator smoke passed on 2026-05-22:
+  `mix ecto.migrate.allbert`, `mix allbert.security status`,
+  `mix allbert.security review --recent`, emergency switch flip for
+  `workspace.fragment.emission_enabled=false`, and a second security review
+  showing `workspace_fragments` hard-disabled.
 
 ### Manual Verification (v0.28.0)
 

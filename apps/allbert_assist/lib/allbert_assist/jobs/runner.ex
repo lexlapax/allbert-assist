@@ -136,7 +136,8 @@ defmodule AllbertAssist.Jobs.Runner do
         operator_id: job.operator_id,
         thread_id: job.thread_id,
         session_id: job.session_id,
-        app_id: job.app_id
+        app_id: job.app_id,
+        active_app: job.app_id
       },
       channel: :job,
       job_id: job.id,
@@ -146,6 +147,7 @@ defmodule AllbertAssist.Jobs.Runner do
       thread_id: job.thread_id,
       session_id: job.session_id,
       app_id: job.app_id,
+      active_app: job.app_id,
       agent: __MODULE__
     }
   end

@@ -226,15 +226,13 @@ defmodule AllbertAssist.Actions.Runner do
     end
   end
 
-  defp check_active_app_scope(_action_module, _expected_app, nil), do: :ok
-
   defp check_active_app_scope(action_module, expected_app, raw_active_app) do
     case normalize_active_app(raw_active_app) do
       {:ok, ^expected_app} ->
         :ok
 
       {:ok, nil} ->
-        :ok
+        {:denied, app_scope_denied(action_module, expected_app, nil, :missing_active_app_scope)}
 
       {:ok, normalized_active_app} ->
         {:denied, app_scope_denied(action_module, expected_app, normalized_active_app)}
