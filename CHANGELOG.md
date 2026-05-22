@@ -10,6 +10,58 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.29.0 - App Memory + Outcomes Contract - StockSage Polish
+
+Status: in progress. Milestones M1-M4 are implemented; rerun/product polish and
+closeout remain before release readiness.
+
+Plan: `docs/plans/v0.29-plan.md`.
+Request flow: `docs/plans/v0.29-request-flow.md`.
+
+### Added (v0.29.0 In Progress)
+
+- StockSage outcome resolver (`resolve_outcomes`) with idempotent fixture-backed
+  post-holding-period returns, outcome provenance metadata, and resolver
+  settings.
+- StockSage trend calibration metrics: resolved-count accuracy, realized-return
+  basis, rating calibration, symbol leaderboard, and raw outcome rendering.
+- StockSage-local deterministic reflections through `generate_reflection`, with
+  bounded/redacted content and analysis-detail rendering.
+- Namespaced app-memory metadata on `AllbertAssist.Memory.Entry`:
+  `app_id`, `namespace`, `kind`, `idempotency_key`, and `source_ref`.
+- `AllbertAssist.Memory.upsert_app_entry/1`, validating writable app namespaces
+  and idempotently updating matching app-memory entries.
+- `sync_app_lesson`, a confirmation-required registered action that centrally
+  stamps advisory context before initial memory-write authorization.
+- StockSage analysis-detail `Sync lesson` control, which queues lesson-sync
+  confirmation and writes no Allbert markdown memory until approval.
+
+### Changed (v0.29.0 In Progress)
+
+- `StockSage.App.memory_namespace/0` is now `writable: true`; the only v0.29
+  Allbert markdown write path remains explicit `sync_app_lesson` confirmation
+  resume.
+- StockSage reflections remain local advisory memory until an operator queues
+  and approves lesson sync.
+
+### Verification (v0.29.0 In Progress)
+
+- M1 focused tests passed for `StockSage.Outcomes`, `resolve_outcomes`, plugin
+  registration, and settings schema.
+- M2 focused tests passed for trend/calibration domain and action coverage;
+  Chrome verification passed for the trends UI sections.
+- M3 focused tests passed for reflections, StockSage actions, StockSage memory,
+  plugin registration, settings schema, and analysis-detail LiveView rendering;
+  Chrome verification passed for generating a reflection.
+- M4 focused tests passed for core memory metadata/upsert behavior, app lesson
+  sync confirmation/resume, StockSage plugin registration, StockSage
+  reflections/actions/memory, and the analysis-detail LiveView sync control.
+- M4 Chrome verification passed against a disposable Allbert Home: StockSage
+  analysis detail rendered a local reflection, `Sync lesson` queued
+  confirmation, the reflection moved to `Allbert sync pending`, no sync error
+  rendered, no StockSage console errors appeared, and no Allbert markdown
+  memory file existed before approval.
+
 ## v0.28.0 - Security Hardening And Evals
 
 Status: implemented and ready for operator manual verification. Version

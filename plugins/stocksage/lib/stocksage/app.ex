@@ -39,8 +39,9 @@ defmodule StockSage.App do
     %{
       app_id: :stocksage,
       namespace: :stocksage,
-      writable: false,
-      description: "StockSage-owned analysis memory namespace; writes begin in v0.29."
+      writable: true,
+      description:
+        "StockSage-owned analysis memory namespace; v0.29 writes require explicit lesson sync confirmation."
     }
   end
 
