@@ -104,6 +104,9 @@ defmodule AllbertAssist.Security.Policy do
         context_denial ->
           :denied
 
+        advisory_memory_write?(permission, context) and configured.decision != :denied ->
+          :needs_confirmation
+
         approved_parent_analysis?(permission, context) and configured.decision != :denied ->
           :allowed
 
@@ -204,6 +207,9 @@ defmodule AllbertAssist.Security.Policy do
 
   defp context_denial(_permission, _context), do: nil
 
+  defp advisory_memory_write?(:memory_write, %{advisory: %{present?: true}}), do: true
+  defp advisory_memory_write?(_permission, _context), do: false
+
   defp approved_parent_analysis?(:stocksage_evidence_fetch, %{parent: parent})
        when is_map(parent) do
     Map.get(parent, :permission) in [:stocksage_analyze, "stocksage_analyze"] and
@@ -223,6 +229,12 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:memory_write, :allowed, _configured, _floor, _context),
     do: "Memory-write intent is allowed for markdown memory."
+
+  defp reason(:memory_write, :needs_confirmation, _configured, _floor, %{
+         advisory: %{present?: true}
+       }),
+       do:
+         "Advisory provider output requires explicit operator confirmation before durable memory writes."
 
   defp reason(:command_plan, :allowed, _configured, _floor, _context),
     do: "Planning shell work is allowed when no command executes."
