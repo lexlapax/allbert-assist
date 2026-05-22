@@ -73,7 +73,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert has_element?(view, "#agent-workspace-renderer")
     assert has_element?(view, "#allbert-appbar")
     assert has_element?(view, "#workspace-active-app-chip")
-    assert has_element?(view, "#workspace-thread-chip")
+    assert has_element?(view, "#workspace-thread-switcher-toggle")
     assert has_element?(view, "#workspace-chat-region")
     assert has_element?(view, "#agent-form")
 
@@ -242,6 +242,54 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     assert html =~ ~s(data-mobile-tab="ephemeral")
     assert has_element?(view, "#workspace-mobile-tab-ephemeral[aria-selected='true']")
+  end
+
+  test "thread switcher lists, copies, switches, and creates threads", %{conn: conn} do
+    current_thread = create_workspace_thread("Current workspace thread")
+    other_thread = create_workspace_thread("Other workspace thread")
+
+    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{current_thread.id}")
+
+    menu_html =
+      view
+      |> element("#workspace-thread-switcher-toggle")
+      |> render_click()
+
+    assert menu_html =~ "Current workspace thread"
+    assert menu_html =~ "Other workspace thread"
+
+    assert has_element?(
+             view,
+             "#workspace-thread-switcher-toggle[aria-haspopup='menu'][aria-expanded='true']"
+           )
+
+    assert has_element?(view, "#workspace-thread-switcher-menu[role='menu']")
+    assert has_element?(view, "#workspace-thread-item-#{other_thread.id}")
+    assert has_element?(view, "#workspace-thread-new[phx-click='new_thread']")
+    assert has_element?(view, "#workspace-thread-copy-id[data-copy-value='#{current_thread.id}']")
+
+    view
+    |> element("#workspace-thread-item-#{other_thread.id}")
+    |> render_click()
+
+    assert_redirect(view, "/agent?app_id=allbert&thread_id=#{other_thread.id}")
+
+    {:ok, new_view, _html} = live(conn, ~p"/agent?thread_id=#{current_thread.id}")
+
+    new_view
+    |> element("#workspace-thread-switcher-toggle")
+    |> render_click()
+
+    new_view
+    |> element("#workspace-thread-new")
+    |> render_click()
+
+    {redirected_to, _flash} = assert_redirect(new_view)
+    assert redirected_to =~ "/agent?app_id=allbert&thread_id="
+    [_, new_thread_id] = Regex.run(~r/thread_id=([^&]+)/, redirected_to)
+    assert new_thread_id != current_thread.id
+    assert {:ok, thread} = Conversations.get_thread("local", new_thread_id)
+    assert thread.id == new_thread_id
   end
 
   test "mount configures workspace offline service worker", %{conn: conn} do

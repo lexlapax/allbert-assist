@@ -84,6 +84,7 @@ defmodule AllbertAssistWeb.AgentLive do
         show_approval_details?: false,
         open_tile_menu_id: nil,
         open_tile_inspector_id: nil,
+        thread_switcher_open?: false,
         workspace_badges: [],
         composer_max_bytes: workspace_canvas_tile_body_max_bytes(),
         workspace_overflow_open?: false,
@@ -150,7 +151,48 @@ defmodule AllbertAssistWeb.AgentLive do
   # v0.26a M34: AppBar overflow menu open/close. Same shape as the tile
   # kebab — purely UI state, no authority change.
   def handle_event("toggle_workspace_overflow_menu", _params, socket) do
-    {:noreply, update(socket, :workspace_overflow_open?, &(!&1))}
+    {:noreply,
+     socket
+     |> assign(:thread_switcher_open?, false)
+     |> update(:workspace_overflow_open?, &(!&1))}
+  end
+
+  def handle_event("toggle_thread_switcher", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:workspace_overflow_open?, false)
+     |> update(:thread_switcher_open?, &(!&1))}
+  end
+
+  def handle_event("close_thread_switcher", _params, socket) do
+    {:noreply, assign(socket, :thread_switcher_open?, false)}
+  end
+
+  def handle_event("switch_workspace_thread", %{"thread-id" => thread_id}, socket)
+      when is_binary(thread_id) and thread_id != "" do
+    {:noreply,
+     socket
+     |> assign(:thread_switcher_open?, false)
+     |> push_navigate(to: agent_path(thread_id, socket.assigns.active_app))}
+  end
+
+  def handle_event("switch_workspace_thread", _params, socket), do: {:noreply, socket}
+
+  def handle_event("new_thread", _params, socket) do
+    case Conversations.resolve_thread(%{
+           user_id: socket.assigns.user_id,
+           text: "Workspace session",
+           new_thread: true
+         }) do
+      {:ok, thread} ->
+        {:noreply,
+         socket
+         |> assign(:thread_switcher_open?, false)
+         |> push_navigate(to: agent_path(thread.id, socket.assigns.active_app))}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, :error, "Could not start a new thread: #{inspect(reason)}")}
+    end
   end
 
   # v0.26a M30 follow-up: maximize / restore a workspace pane. Clicking the
@@ -714,6 +756,7 @@ defmodule AllbertAssistWeb.AgentLive do
       canvas_tiles: tiles,
       ephemeral_surfaces: surfaces,
       conversation_messages: conversation_messages(thread_id, user_id),
+      recent_threads: recent_threads(user_id),
       workspace_badges: workspace_badges,
       workspace_surface:
         WorkspaceCatalog.workspace_tree(
@@ -746,6 +789,10 @@ defmodule AllbertAssistWeb.AgentLive do
     else
       _error -> []
     end
+  end
+
+  defp recent_threads(user_id) do
+    Conversations.list_threads(user_id, limit: 8)
   end
 
   defp tile_by_id(tiles, tile_id) when is_list(tiles) and is_binary(tile_id) do
@@ -905,6 +952,7 @@ defmodule AllbertAssistWeb.AgentLive do
       thread_id: assigns.thread_id,
       active_objectives: assigns.active_objectives,
       conversation_messages: assigns.conversation_messages,
+      recent_threads: assigns.recent_threads,
       canvas_tiles: assigns.canvas_tiles,
       ephemeral_surfaces: assigns.ephemeral_surfaces,
       workspace_badges: assigns.workspace_badges,
@@ -936,7 +984,12 @@ defmodule AllbertAssistWeb.AgentLive do
       approval_handoff: assigns.approval_handoff,
       approval_lines: assigns.approval_lines,
       approval_result: assigns.approval_result,
-      show_approval_details?: assigns.show_approval_details?
+      show_approval_details?: assigns.show_approval_details?,
+      thread_switcher_open?: assigns.thread_switcher_open?
     }
+  end
+
+  defp agent_path(thread_id, active_app) do
+    ~p"/agent?#{[thread_id: thread_id, app_id: active_app_attribute(active_app)]}"
   end
 end
