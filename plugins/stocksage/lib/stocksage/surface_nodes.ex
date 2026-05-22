@@ -55,6 +55,31 @@ defmodule StockSage.SurfaceNodes do
     ])
   end
 
+  @spec from_analysis(map()) :: {:ok, [Node.t()]} | {:error, [map()]}
+  def from_analysis(analysis) when is_map(analysis) do
+    nodes =
+      [
+        node("analysis-#{safe_id(Map.get(analysis, :id))}", :analysis_card, %{
+          analysis_id: Map.get(analysis, :id),
+          ticker: Map.get(analysis, :symbol),
+          symbol: Map.get(analysis, :symbol),
+          analysis_date: date_value(Map.get(analysis, :analysis_date)),
+          engine: Map.get(analysis, :engine),
+          status: Map.get(analysis, :status),
+          rating: Map.get(analysis, :recommendation),
+          recommendation: Map.get(analysis, :recommendation),
+          summary: bounded(Map.get(analysis, :summary), @max_summary),
+          objective_id: Map.get(analysis, :objective_id),
+          step_id: Map.get(analysis, :step_id),
+          trace_id: Map.get(analysis, :trace_id),
+          route: analysis_route(Map.get(analysis, :id))
+        })
+      ] ++
+        persisted_detail_nodes(Map.get(analysis, :details, []), Map.get(analysis, :parity_diff))
+
+    validate_nodes(nodes)
+  end
+
   @spec validate_nodes([Node.t()]) :: {:ok, [Node.t()]} | {:error, [map()]}
   def validate_nodes(nodes) when is_list(nodes) do
     with :ok <- validate_declared_components(nodes),
@@ -168,6 +193,45 @@ defmodule StockSage.SurfaceNodes do
   end
 
   defp parity_nodes(_validated, _result), do: []
+
+  defp persisted_detail_nodes(details, parity_diff_json) do
+    details
+    |> List.wrap()
+    |> Enum.flat_map(fn detail ->
+      payload = Map.get(detail, :payload) || %{}
+      native_report = result_field(payload, :native_report, %{})
+
+      agent_report_nodes(%{engine: "native"}, native_report) ++
+        debate_round_nodes(%{engine: "native"}, native_report) ++
+        persisted_parity_nodes(payload, parity_diff_json)
+    end)
+  end
+
+  defp persisted_parity_nodes(payload, parity_diff_json) do
+    parity_diff =
+      result_field(payload, :parity_diff) ||
+        decode_json_map(parity_diff_json)
+
+    case parity_diff do
+      parity_diff when is_map(parity_diff) ->
+        [
+          node("parity-persisted", :parity_card, %{
+            status: "completed",
+            native_status: result_field(parity_diff, :native_status),
+            python_status: result_field(parity_diff, :python_status),
+            native_rating: result_field(parity_diff, :native_rating),
+            python_rating: result_field(parity_diff, :python_rating),
+            rating_agreement: result_field(parity_diff, :rating_agreement),
+            confidence_delta: result_field(parity_diff, :confidence_delta),
+            parity_pass: result_field(parity_diff, :parity_pass),
+            summary: "Native/Python parity metadata recorded."
+          })
+        ]
+
+      _other ->
+        []
+    end
+  end
 
   defp round_nodes(round) when is_map(round) do
     round_index = result_field(round, :round_index, 1)
@@ -312,6 +376,18 @@ defmodule StockSage.SurfaceNodes do
 
   defp analysis_route(nil), do: nil
   defp analysis_route(analysis_id), do: "/stocksage/analyses/#{safe_id(analysis_id)}"
+
+  defp date_value(%Date{} = date), do: Date.to_iso8601(date)
+  defp date_value(value), do: value
+
+  defp decode_json_map(value) when is_binary(value) do
+    case Jason.decode(value) do
+      {:ok, %{} = map} -> map
+      _other -> nil
+    end
+  end
+
+  defp decode_json_map(_value), do: nil
 
   defp safe_id(nil), do: "unknown"
 
