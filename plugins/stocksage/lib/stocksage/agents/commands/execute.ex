@@ -154,11 +154,14 @@ defmodule StockSage.Agents.Commands.Execute do
     user_id = field(request, :user_id) || get_in_field(context, [:request, :user_id]) || "local"
 
     %{
+      active_app: :stocksage,
+      app_id: :stocksage,
       request: %{
         channel: :objective_agent,
         user_id: user_id,
         operator_id: field(request, :operator_id) || user_id,
-        app_id: :stocksage
+        app_id: :stocksage,
+        active_app: :stocksage
       },
       parent: field(request, :parent) || field(context, :parent, %{})
     }

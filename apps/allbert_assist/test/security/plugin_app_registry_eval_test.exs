@@ -4,8 +4,11 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Jobs
+  alias AllbertAssist.Jobs.Runner, as: JobsRunner
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.SecurityFixtures.EvalInventory
+  alias AllbertAssist.Settings
 
   defmodule ForeignStockSageApp do
     use AllbertAssist.App
@@ -165,6 +168,104 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
            }
 
     assert eval.trace.confirmations_created == 0
+  end
+
+  test "app-scope-missing-001: StockSage RunAnalysis requires explicit StockSage app scope" do
+    fixture = EvalInventory.row!("app-scope-missing-001")
+
+    params = %{
+      ticker: "AAPL",
+      analysis_date: "2026-05-22",
+      user_id: "alice",
+      force_stub: true
+    }
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            {:ok, missing_response} = Runner.run("run_analysis", params, %{actor: "alice"})
+
+            {:ok, general_response} =
+              Runner.run("run_analysis", params, %{active_app: "general", actor: "alice"})
+
+            {:ok, job} =
+              Jobs.create_job(%{
+                name: "missing app scope stocksage action",
+                target_type: "registered_action",
+                target: %{
+                  action_name: "run_analysis",
+                  params: Map.new(params, fn {key, value} -> {Atom.to_string(key), value} end)
+                },
+                schedule: %{kind: "manual"},
+                user_id: "alice"
+              })
+
+            {:ok, %{run: run, response: job_response}} = JobsRunner.run_now(job)
+
+            %{
+              decision:
+                if(
+                  missing_response.status == :denied and general_response.status == :denied and
+                    job_response.status == :denied,
+                  do: :denied,
+                  else: :allowed
+                ),
+              result: %{
+                missing_response: missing_response,
+                general_response: general_response,
+                job_response: job_response,
+                job_run_status: run.status
+              },
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :runner_app_scope,
+                missing_error: missing_response.error,
+                general_error: general_response.error,
+                job_error: job_response.error,
+                job_run_status: run.status,
+                confirmations_created: Confirmations.list(status: :pending) |> length()
+              }
+            }
+          end
+        })
+      )
+
+    assert_denied(eval)
+    assert eval.result.missing_response.error == {:app_scope_denied, :missing_active_app_scope}
+    assert eval.result.general_response.error == {:app_scope_denied, :missing_active_app_scope}
+    assert eval.result.job_response.error == {:app_scope_denied, :missing_active_app_scope}
+    assert eval.result.job_run_status == "failed"
+    assert eval.trace.confirmations_created == 0
+  end
+
+  test "StockSage-scoped registered action jobs reach normal confirmation" do
+    put_setting!("stocksage.native_engine_enabled", true)
+    put_setting!("permissions.stocksage_analyze", "needs_confirmation")
+
+    params = %{
+      "ticker" => "AAPL",
+      "analysis_date" => "2026-05-22",
+      "user_id" => "alice",
+      "force_stub" => true
+    }
+
+    assert {:ok, job} =
+             Jobs.create_job(%{
+               name: "stocksage scoped analysis job",
+               target_type: "registered_action",
+               target: %{action_name: "run_analysis", params: params},
+               schedule: %{kind: "manual"},
+               user_id: "alice",
+               app_id: "stocksage"
+             })
+
+    assert {:ok, %{run: run, response: response}} = JobsRunner.run_now(job)
+
+    assert response.status == :needs_confirmation
+    assert run.status == "needs_confirmation"
+    assert run.action_log["runner_metadata"]["action_name"] == "run_analysis"
+    refute Map.get(response, :error) == {:app_scope_denied, :missing_active_app_scope}
   end
 
   test "disabled-plugin-001: disabled plugin entries expose no runtime contributions", %{
@@ -330,6 +431,13 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
 
       {:error, :not_found} ->
         assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
+    end
+  end
+
+  defp put_setting!(key, value) do
+    case Settings.put(key, value, %{actor: "security_eval", audit?: false}) do
+      {:ok, _setting} -> :ok
+      {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")
     end
   end
 
