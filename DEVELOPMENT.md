@@ -379,6 +379,11 @@ Where this gets enforced:
   umbrella metadata, and child app metadata to `"0.26.0"` because
   `/agent` became the workspace shell with canvas, ephemeral surfaces,
   signed Fragments, offline editing, and workspace Mix tasks.
+- The v0.26.1 closeout bumped `AllbertAssist.App.CoreApp.version/0`,
+  umbrella metadata, and child app metadata to `"0.26.1"` because
+  v0.26a added the workspace UX/UI substrate pass and v0.26b fixed
+  setting-shaped intent fallback, visible native StockSage LLM failure
+  reasons, and empty `/agent` composer state.
 
 ## Component Substrate: Jido.Agent vs. GenServer
 
