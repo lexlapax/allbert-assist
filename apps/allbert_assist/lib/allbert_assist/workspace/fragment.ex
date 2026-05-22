@@ -25,7 +25,8 @@ defmodule AllbertAssist.Workspace.Fragment do
 
   @type envelope :: Envelope.t()
   @type error_reason ::
-          :emitter_not_allowed
+          :emission_disabled
+          | :emitter_not_allowed
           | :invalid_envelope
           | :invalid_metadata
           | :invalid_scope
@@ -127,7 +128,8 @@ defmodule AllbertAssist.Workspace.Fragment do
   end
 
   defp validate(%Envelope{} = envelope, rate_scope) do
-    with :ok <- Envelope.validate_shape(envelope),
+    with :ok <- ensure_emission_enabled(),
+         :ok <- Envelope.validate_shape(envelope),
          :ok <- verify_signature(envelope),
          :ok <- validate_surface(envelope.surface),
          :ok <- validate_emitter(envelope.emitter_id),
@@ -135,6 +137,15 @@ defmodule AllbertAssist.Workspace.Fragment do
          :ok <- check_size(envelope) do
       :ok
     end
+  end
+
+  defp ensure_emission_enabled do
+    case Settings.get("workspace.fragment.emission_enabled") do
+      {:ok, false} -> {:error, :emission_disabled}
+      _other -> :ok
+    end
+  rescue
+    _exception -> :ok
   end
 
   defp verify_signature(%Envelope{} = envelope) do

@@ -110,6 +110,8 @@ defmodule AllbertAssist.Settings.Schema do
     "plugins.scan_paths",
     "plugins.trusted_project_roots",
     "plugins.load_policy",
+    "plugins.registration_enabled",
+    "app_registry.registration_enabled",
     "confirmations.default_ttl_minutes",
     "confirmations.auto_expire_on_startup",
     "confirmations.require_reason_for_denial",
@@ -166,6 +168,7 @@ defmodule AllbertAssist.Settings.Schema do
     "workspace.canvas.max_tiles_per_thread",
     "workspace.canvas.tile_body_max_bytes",
     "workspace.ephemeral.max_active_per_thread",
+    "workspace.fragment.emission_enabled",
     "workspace.fragment.rate_limit_per_second",
     "workspace.fragment.receiver_rate_limit_per_second",
     "workspace.fragment.payload_max_bytes",
@@ -669,6 +672,18 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["shipped_and_skill_only", "shipped_only"]
     },
+    "plugins.registration_enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "app_registry.registration_enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
     "workspace.theme" => %{
       type: :enum,
       default: "system",
@@ -705,6 +720,12 @@ defmodule AllbertAssist.Settings.Schema do
       default: nil,
       writable?: false,
       sensitive?: true
+    },
+    "workspace.fragment.emission_enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
     },
     "workspace.fragment.rate_limit_per_second" => %{
       type: :bounded_integer,
@@ -1407,7 +1428,11 @@ defmodule AllbertAssist.Settings.Schema do
       "disabled" => [],
       "scan_paths" => ["./plugins", "<ALLBERT_HOME>/plugins"],
       "trusted_project_roots" => [],
-      "load_policy" => "shipped_and_skill_only"
+      "load_policy" => "shipped_and_skill_only",
+      "registration_enabled" => true
+    },
+    "app_registry" => %{
+      "registration_enabled" => true
     },
     "execution" => %{
       "local" => %{
@@ -1557,6 +1582,7 @@ defmodule AllbertAssist.Settings.Schema do
       },
       "fragment" => %{
         "signing_secret" => nil,
+        "emission_enabled" => true,
         "rate_limit_per_second" => 10,
         "receiver_rate_limit_per_second" => 10,
         "payload_max_bytes" => 65_536
