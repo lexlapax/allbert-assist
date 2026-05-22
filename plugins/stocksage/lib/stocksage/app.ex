@@ -35,6 +35,16 @@ defmodule StockSage.App do
   def skill_paths, do: StockSage.Plugin.skill_paths()
 
   @impl AllbertAssist.App
+  def memory_namespace do
+    %{
+      app_id: :stocksage,
+      namespace: :stocksage,
+      writable: false,
+      description: "StockSage-owned analysis memory namespace; writes begin in v0.29."
+    }
+  end
+
+  @impl AllbertAssist.App
   def surfaces do
     [
       %Surface{

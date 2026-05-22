@@ -65,6 +65,7 @@ defmodule AllbertAssist.App.Validator do
          {:ok, signals} <- validate_signals(module),
          {:ok, skill_paths} <- validate_skill_paths(module),
          {:ok, settings_schema} <- validate_settings_schema(module, app_id),
+         {:ok, memory_namespace} <- validate_memory_namespace(module, app_id),
          {:ok, surface_provider} <- validate_surface_provider(module, app_id),
          {:ok, surfaces} <- validate_surfaces(module, app_id, surface_provider.provider?) do
       {:ok,
@@ -78,6 +79,7 @@ defmodule AllbertAssist.App.Validator do
          signals: signals,
          skill_paths: skill_paths,
          settings_schema: settings_schema,
+         memory_namespace: memory_namespace,
          surfaces: surfaces,
          surface_provider: surface_provider.module,
          provider_surfaces: surface_provider.surfaces,
@@ -288,6 +290,58 @@ defmodule AllbertAssist.App.Validator do
 
   defp normalize_settings_schema(_schema, _app_id, _acc),
     do: {:error, {:invalid_settings_schema, :entry}}
+
+  defp validate_memory_namespace(module, app_id) do
+    if function_exported?(module, :memory_namespace, 0) do
+      case module.memory_namespace() do
+        nil -> {:ok, nil}
+        %{} = declaration -> normalize_memory_namespace(declaration, app_id)
+        _other -> {:error, {:invalid_memory_namespace, module}}
+      end
+    else
+      {:ok, nil}
+    end
+  rescue
+    _exception -> {:error, {:invalid_memory_namespace, module}}
+  end
+
+  defp normalize_memory_namespace(declaration, app_id) do
+    namespace_app_id = field(declaration, :app_id)
+    namespace = field(declaration, :namespace)
+    writable? = field(declaration, :writable)
+    description = normalize_optional_string(field(declaration, :description)) || ""
+
+    cond do
+      namespace_app_id != app_id ->
+        {:error, {:invalid_memory_namespace, :app_id}}
+
+      not valid_memory_namespace?(namespace) ->
+        {:error, {:invalid_memory_namespace, :namespace}}
+
+      not is_boolean(writable?) ->
+        {:error, {:invalid_memory_namespace, :writable}}
+
+      byte_size(description) > 256 ->
+        {:error, {:invalid_memory_namespace, :description}}
+
+      true ->
+        {:ok,
+         %{
+           app_id: app_id,
+           namespace: namespace,
+           writable: writable?,
+           description: description
+         }}
+    end
+  end
+
+  defp valid_memory_namespace?(namespace) when is_atom(namespace) and not is_nil(namespace) do
+    string = Atom.to_string(namespace)
+
+    namespace not in @reserved_nil_aliases and Regex.match?(@app_id_regex, string)
+  end
+
+  defp valid_memory_namespace?(_namespace), do: false
 
   defp validate_surface_provider(module, app_id) do
     if surface_provider?(module) do

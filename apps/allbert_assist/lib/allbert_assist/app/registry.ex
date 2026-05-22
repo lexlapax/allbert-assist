@@ -97,6 +97,13 @@ defmodule AllbertAssist.App.Registry do
     call(opts, :registered_settings_schema, [])
   end
 
+  @spec registered_memory_namespaces(keyword()) :: [
+          AllbertAssist.App.memory_namespace_declaration()
+        ]
+  def registered_memory_namespaces(opts \\ []) do
+    call(opts, :registered_memory_namespaces, [])
+  end
+
   @spec registered_surface_providers(keyword()) :: [
           %{
             app_id: atom(),
@@ -267,6 +274,20 @@ defmodule AllbertAssist.App.Registry do
       |> Enum.flat_map(&Map.get(&1, :settings_schema, []))
 
     {:reply, schema, state}
+  end
+
+  def handle_call(:registered_memory_namespaces, _from, state) do
+    namespaces =
+      state
+      |> entries_in_order()
+      |> Enum.flat_map(fn entry ->
+        case Map.get(entry, :memory_namespace) do
+          nil -> []
+          namespace -> [namespace]
+        end
+      end)
+
+    {:reply, namespaces, state}
   end
 
   def handle_call(:registered_surface_providers, _from, state) do
