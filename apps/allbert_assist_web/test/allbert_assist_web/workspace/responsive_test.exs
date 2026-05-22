@@ -26,7 +26,9 @@ defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
     assert css =~ "#workspace-shell .allbert-appbar"
     assert css =~ ~r/#workspace-shell\.workspace-shell\s*\{[^}]*100dvh/m
     assert css =~ ~r/#workspace-shell\.workspace-shell\s*\{[^}]*display:\s*flex/m
-    assert css =~ ~r/\.workspace-chat-pane[^{}]*\.workspace-canvas-node\s*\{[^}]*overflow:\s*hidden/m
+
+    assert css =~
+             ~r/\.workspace-chat-pane[^{}]*\.workspace-canvas-node\s*\{[^}]*overflow:\s*hidden/m
   end
 
   # v0.26a M31: the mobile tab strip stays accessible just below the
@@ -36,7 +38,9 @@ defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
 
     assert css =~ ~r/@media \(max-width: 767\.98px\)/
     assert css =~ ~r/#workspace-mobile-tabs\s*\{[^}]*position:\s*sticky/m
-    assert css =~ ~r/\.workspace-chat-pane[^{}]*\.workspace-canvas-node\s*\{[^}]*max-height:\s*calc\(100dvh - 9rem\)/m
+
+    assert css =~
+             ~r/\.workspace-chat-pane[^{}]*\.workspace-canvas-node\s*\{[^}]*max-height:\s*calc\(100dvh - 9rem\)/m
   end
 
   # v0.26a M29: the composer counter exists in the stylesheet so the warning
@@ -45,6 +49,8 @@ defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
     css = File.read!(@css_path)
 
     assert css =~ ".workspace-composer-counter"
-    assert css =~ ~r/\.workspace-composer-counter\[data-near-limit="true"\]\s*\{[^}]*color:\s*var\(--allbert-warn\)/m
+
+    assert css =~
+             ~r/\.workspace-composer-counter\[data-near-limit="true"\]\s*\{[^}]*color:\s*var\(--allbert-warn\)/m
   end
 end
