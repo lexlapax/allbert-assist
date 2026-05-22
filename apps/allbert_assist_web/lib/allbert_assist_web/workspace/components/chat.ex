@@ -28,7 +28,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
        approval_handoff: Map.get(state, :approval_handoff),
        approval_lines: Map.get(state, :approval_lines, []),
        approval_result: Map.get(state, :approval_result),
-       show_approval_details?: Map.get(state, :show_approval_details?, false)
+       show_approval_details?: Map.get(state, :show_approval_details?, false),
+       composer_max_bytes: Map.get(context, :composer_max_bytes, 65_536),
+       maximized_pane: Map.get(context, :workspace_maximized_pane)
      )}
   end
 
@@ -57,6 +59,25 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
             <span>{objective.status}</span>
           </.link>
         </div>
+        <button
+          id="workspace-chat-maximize"
+          type="button"
+          class="allbert-icon-button workspace-pane-maximize"
+          phx-click="toggle_workspace_maximize"
+          phx-value-pane="chat"
+          aria-pressed={bool_attribute(@maximized_pane == "chat")}
+          aria-label={maximize_label("chat", @maximized_pane)}
+          title={maximize_label("chat", @maximized_pane)}
+        >
+          <.icon
+            name={
+              if @maximized_pane == "chat",
+                do: "hero-arrows-pointing-in-micro",
+                else: "hero-arrows-pointing-out-micro"
+            }
+            class="size-4"
+          />
+        </button>
       </header>
 
       <%= if @thread_notice do %>
@@ -66,37 +87,69 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         </section>
       <% end %>
 
-      <div id="workspace-chat-timeline" class="workspace-chat-timeline" aria-live="polite">
-        <%= if show_prompt_draft?(@conversation_messages, @prompt) do %>
-          <article class="workspace-message workspace-message-user">
-            <div class="workspace-message-avatar" aria-hidden="true">You</div>
-            <div class="workspace-message-body">
-              <p class="workspace-message-label">Prompt draft</p>
-              <pre>{@prompt}</pre>
-            </div>
-          </article>
-        <% else %>
-          <article
-            :for={message <- @conversation_messages}
-            id={"workspace-message-#{message_id(message)}"}
-            class={["workspace-message", message_class(message)]}
-          >
-            <div class="workspace-message-avatar" aria-hidden="true">
-              {message_avatar(message)}
-            </div>
-            <div class="workspace-message-body">
-              <p class="workspace-message-label">{message_label(message)}</p>
-              <pre>{message_content(message)}</pre>
-              <time
-                :if={message_time(message)}
-                class="workspace-message-time"
-                datetime={message_time(message)}
-              >
-                {message_time(message)}
-              </time>
-            </div>
-          </article>
-        <% end %>
+      <div
+        id="workspace-chat-timeline"
+        class="workspace-chat-timeline"
+        aria-live="polite"
+        phx-hook="ChatAutoScroll"
+      >
+        <% latest_assistant_id = latest_assistant_message_id(@conversation_messages) %>
+        <article
+          :for={message <- @conversation_messages}
+          id={timeline_message_dom_id(message, latest_assistant_id)}
+          class={["workspace-message", message_class(message)]}
+        >
+          <div class="workspace-message-avatar" aria-hidden="true">
+            {message_avatar(message)}
+          </div>
+          <div class="workspace-message-body">
+            <p class="workspace-message-label">{message_label(message)}</p>
+            <pre>{message_content(message)}</pre>
+            <time
+              :if={message_time(message)}
+              class="workspace-message-time"
+              datetime={message_time(message)}
+            >
+              {relative_time(message_time(message))}
+            </time>
+            <%= if message_id(message) == latest_assistant_id do %>
+              <dl class="workspace-runtime-meta">
+                <div :if={@status} id="agent-status">
+                  <dt>Status</dt>
+                  <dd>{@status}</dd>
+                </div>
+                <div :if={@signal_id} id="agent-signal">
+                  <dt>Signal</dt>
+                  <dd
+                    class="workspace-mono workspace-copy-target"
+                    phx-hook="CopyToClipboard"
+                    id={"agent-signal-copy-#{@signal_id}"}
+                    data-copy-value={@signal_id}
+                    role="button"
+                    tabindex="0"
+                    title="Copy signal id"
+                  >
+                    {@signal_id}
+                  </dd>
+                </div>
+                <div :if={@trace_id} id="agent-trace">
+                  <dt>Trace</dt>
+                  <dd
+                    class="workspace-mono workspace-copy-target"
+                    phx-hook="CopyToClipboard"
+                    id={"agent-trace-copy-#{@trace_id}"}
+                    data-copy-value={@trace_id}
+                    role="button"
+                    tabindex="0"
+                    title="Copy trace id"
+                  >
+                    {@trace_id}
+                  </dd>
+                </div>
+              </dl>
+            <% end %>
+          </div>
+        </article>
 
         <article
           :if={show_runtime_response?(@conversation_messages, @response)}
@@ -140,6 +193,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
       <form
         id="agent-form"
         phx-submit="ask"
+        phx-change="composer_change"
         class="workspace-composer"
         aria-busy={bool_attribute(@asking?)}
       >
@@ -153,10 +207,22 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           class="workspace-composer-input"
           placeholder={@prompt_placeholder}
           aria-labelledby="agent-prompt-label"
+          aria-describedby="agent-prompt-counter"
+          phx-hook="ComposerEnter"
+          data-submit-form="agent-form"
+          maxlength={@composer_max_bytes}
         ><%= @prompt %></textarea>
 
         <div class="workspace-composer-footer">
           <span class="workspace-composer-hint">Enter submits. Shift+Enter adds a line.</span>
+          <span
+            id="agent-prompt-counter"
+            class="workspace-composer-counter workspace-mono"
+            data-near-limit={bool_attribute(composer_near_limit?(@prompt, @composer_max_bytes))}
+            aria-live="polite"
+          >
+            {composer_counter_text(@prompt, @composer_max_bytes)}
+          </span>
           <button
             id="agent-submit"
             type="submit"
@@ -172,64 +238,84 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
       </form>
 
       <%= if @approval_handoff do %>
-        <section
-          id="approval-handoff"
-          class="workspace-approval-inline"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="approval-title"
-          phx-hook="FocusTrap"
+        <div
+          id="approval-handoff-overlay"
+          class="workspace-approval-overlay"
+          data-state="open"
+          aria-hidden="false"
         >
-          <div>
-            <h2 id="approval-title" class="workspace-card-title">Approval Required</h2>
-            <p id="approval-confirmation" class="workspace-card-summary workspace-mono">
-              Confirmation: {approval_confirmation_id(@approval_handoff)}
-            </p>
-          </div>
+          <section
+            id="approval-handoff"
+            class="workspace-approval-inline workspace-approval-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="approval-title"
+            aria-describedby="approval-confirmation"
+            phx-hook="FocusTrap"
+            tabindex="-1"
+          >
+            <div>
+              <p class="workspace-approval-eyebrow">Approval Required</p>
+              <h2 id="approval-title" class="workspace-card-title">
+                {approval_target_summary(@approval_handoff, @approval_lines)}
+              </h2>
+              <p
+                id="approval-confirmation"
+                class="workspace-card-summary workspace-mono workspace-copy-target"
+                phx-hook="CopyToClipboard"
+                data-copy-value={approval_confirmation_id(@approval_handoff)}
+                role="button"
+                tabindex="0"
+                title="Copy confirmation id"
+              >
+                {approval_confirmation_id(@approval_handoff)}
+              </p>
+            </div>
 
-          <ul class="workspace-approval-lines">
-            <li :for={line <- @approval_lines}>{line}</li>
-          </ul>
+            <ul class="workspace-approval-lines">
+              <li :for={line <- @approval_lines}>{line}</li>
+            </ul>
 
-          <div class="workspace-approval-actions">
-            <button
-              id="approval-details"
-              type="button"
-              phx-click="toggle_approval_details"
-              class="workspace-button workspace-button-secondary"
-              aria-controls="approval-details-data"
-              aria-expanded={bool_attribute(@show_approval_details?)}
-            >
-              Details
-            </button>
-            <button
-              id="approval-deny"
-              type="button"
-              phx-click="deny_confirmation"
-              phx-value-id={approval_confirmation_id(@approval_handoff)}
-              class="workspace-button workspace-button-danger"
-              phx-disable-with="Denying"
-            >
-              Deny
-            </button>
-            <button
-              id="approval-approve"
-              type="button"
-              phx-click="approve_confirmation"
-              phx-value-id={approval_confirmation_id(@approval_handoff)}
-              class="workspace-button workspace-button-primary"
-              phx-disable-with="Approving"
-            >
-              Approve
-            </button>
-          </div>
+            <div class="workspace-approval-actions">
+              <button
+                id="approval-details"
+                type="button"
+                phx-click="toggle_approval_details"
+                class="workspace-button workspace-button-secondary"
+                aria-controls="approval-details-data"
+                aria-expanded={bool_attribute(@show_approval_details?)}
+              >
+                {if @show_approval_details?, do: "Hide details", else: "Details"}
+              </button>
+              <button
+                id="approval-deny"
+                type="button"
+                phx-click="deny_confirmation"
+                phx-value-id={approval_confirmation_id(@approval_handoff)}
+                class="workspace-button workspace-button-danger"
+                phx-disable-with="Denying"
+              >
+                Deny
+              </button>
+              <button
+                id="approval-approve"
+                type="button"
+                phx-click="approve_confirmation"
+                phx-value-id={approval_confirmation_id(@approval_handoff)}
+                class="workspace-button workspace-button-primary"
+                phx-disable-with="Approving"
+              >
+                Approve
+              </button>
+            </div>
 
-          <pre
-            :if={@show_approval_details?}
-            id="approval-details-data"
-            class="workspace-approval-details"
-          ><%= approval_detail_text(@approval_lines) %></pre>
-        </section>
+            <pre
+              :if={@show_approval_details?}
+              id="approval-details-data"
+              class="workspace-approval-details"
+            ><%= approval_detail_text(@approval_lines) %></pre>
+          </section>
+        </div>
       <% end %>
 
       <%= if @approval_result do %>
@@ -250,11 +336,14 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
 
-  defp show_prompt_draft?([], prompt), do: prompt_present?(prompt)
-  defp show_prompt_draft?(_messages, _prompt), do: false
-
   defp prompt_present?(prompt) when is_binary(prompt), do: String.trim(prompt) != ""
   defp prompt_present?(_prompt), do: false
+
+  defp maximize_label("chat", "chat"), do: "Restore split view"
+  defp maximize_label("chat", _other), do: "Maximize chat"
+  defp maximize_label("canvas", "canvas"), do: "Restore split view"
+  defp maximize_label("canvas", _other), do: "Maximize canvas"
+  defp maximize_label(_pane, _maximized), do: "Maximize pane"
 
   defp message_id(%{id: id}) when is_binary(id), do: id
   defp message_id(_message), do: System.unique_integer([:positive])
@@ -296,6 +385,49 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
     !Enum.any?(messages, &(message_role(&1) == "assistant" and message_content(&1) == response))
   end
 
+  defp latest_assistant_message_id(messages) when is_list(messages) do
+    messages
+    |> Enum.reverse()
+    |> Enum.find(&(message_role(&1) == "assistant"))
+    |> case do
+      nil -> nil
+      message -> message_id(message)
+    end
+  end
+
+  defp latest_assistant_message_id(_messages), do: nil
+
+  defp timeline_message_dom_id(message, latest_assistant_id) do
+    if message_id(message) == latest_assistant_id and message_role(message) == "assistant" do
+      "agent-response"
+    else
+      "workspace-message-#{message_id(message)}"
+    end
+  end
+
+  defp relative_time(iso_string) when is_binary(iso_string) do
+    with {:ok, dt, _offset} <- DateTime.from_iso8601(iso_string) do
+      relative_time_string(DateTime.utc_now(), dt)
+    else
+      _error -> iso_string
+    end
+  end
+
+  defp relative_time(_value), do: ""
+
+  defp relative_time_string(now, then) do
+    diff = DateTime.diff(now, then, :second)
+
+    cond do
+      diff < 0 -> Calendar.strftime(then, "%H:%M")
+      diff < 10 -> "just now"
+      diff < 60 -> "#{diff}s ago"
+      diff < 3600 -> "#{div(diff, 60)}m ago"
+      diff < 86_400 -> "#{div(diff, 3600)}h ago"
+      true -> Calendar.strftime(then, "%b %d %H:%M")
+    end
+  end
+
   defp approval_confirmation_id(handoff) when is_map(handoff) do
     Map.get(handoff, :confirmation_id) || Map.get(handoff, "confirmation_id")
   end
@@ -313,4 +445,35 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   end
 
   defp approval_detail_text(_lines), do: "No additional approval details."
+
+  # v0.26a M32: derive a short human-readable target summary for the modal
+  # title — operators want to see WHAT they are approving before reading the
+  # full approval lines. Falls back to the first approval line, then to a
+  # neutral phrase if nothing is available yet.
+  defp approval_target_summary(handoff, lines) do
+    Map.get(handoff || %{}, :target) ||
+      Map.get(handoff || %{}, "target") ||
+      first_line(lines) ||
+      "Approve runtime action"
+  end
+
+  defp first_line([]), do: nil
+  defp first_line([first | _rest]), do: to_string(first)
+  defp first_line(_lines), do: nil
+
+  defp composer_byte_length(prompt) when is_binary(prompt), do: byte_size(prompt)
+  defp composer_byte_length(_prompt), do: 0
+
+  defp composer_counter_text(prompt, max_bytes) when is_integer(max_bytes) do
+    used = composer_byte_length(prompt)
+    "#{used} / #{max_bytes}"
+  end
+
+  defp composer_counter_text(prompt, _max_bytes), do: "#{composer_byte_length(prompt)}"
+
+  defp composer_near_limit?(prompt, max_bytes) when is_integer(max_bytes) and max_bytes > 0 do
+    composer_byte_length(prompt) >= div(max_bytes * 9, 10)
+  end
+
+  defp composer_near_limit?(_prompt, _max_bytes), do: false
 end

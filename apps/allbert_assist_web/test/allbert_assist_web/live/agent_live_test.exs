@@ -79,7 +79,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     assert has_element?(
              view,
-             "#agent-prompt[placeholder='Hello Allbert. What can you do right now?']"
+             "#agent-prompt[placeholder='Ask Allbert anything…']"
            )
 
     refute html =~ "Prompt draft"

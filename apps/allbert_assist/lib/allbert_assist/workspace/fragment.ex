@@ -100,6 +100,16 @@ defmodule AllbertAssist.Workspace.Fragment do
     end
   rescue
     exception ->
+      # v0.26a M32: surface enough exception detail for operators to debug
+      # why a fragment dropped without leaking redactable user payload. The
+      # exception struct + message land in the bounded log and the dropped
+      # signal carries the struct name in its reason tuple.
+      Logger.warning(
+        "workspace fragment exception emitter=#{inspect(envelope.emitter_id)} " <>
+          "kind=#{inspect(envelope.kind)} fragment_id=#{inspect(envelope.id)} " <>
+          "exception=#{inspect(exception.__struct__)} message=#{Exception.message(exception)}"
+      )
+
       publish_dropped(envelope, {:exception, exception.__struct__})
       {:error, :persistence_failed}
   catch

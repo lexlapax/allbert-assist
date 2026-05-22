@@ -33,7 +33,7 @@ defmodule AllbertAssistWeb.AgentLive do
 
   @default_user_id "local"
   @default_session_id "web-local"
-  @default_prompt_placeholder "Hello Allbert. What can you do right now?"
+  @default_prompt_placeholder "Ask Allbert anything…"
 
   @impl true
   def mount(params, _session, socket) do
@@ -82,7 +82,10 @@ defmodule AllbertAssistWeb.AgentLive do
         approval_result: nil,
         show_approval_details?: false,
         open_tile_menu_id: nil,
-        workspace_badges: []
+        workspace_badges: [],
+        composer_max_bytes: workspace_canvas_tile_body_max_bytes(),
+        workspace_overflow_open?: false,
+        workspace_maximized_pane: nil
       )
       |> assign(workspace_assigns(user_id, thread_id))
       |> maybe_sync_thread_url(sync_thread_url?, thread_id, active_app)
@@ -130,6 +133,41 @@ defmodule AllbertAssistWeb.AgentLive do
   def handle_event("toggle_approval_details", _params, socket) do
     {:noreply, update(socket, :show_approval_details?, &(!&1))}
   end
+
+  # v0.26a M29: keep `assigns.prompt` in sync as the operator types so the
+  # composer reset on submit (and the live character counter) work without
+  # re-rendering the entire timeline. The text is bounded server-side by the
+  # textarea's `maxlength` attribute (mirrored from
+  # `workspace.canvas.tile_body_max_bytes`).
+  def handle_event("composer_change", %{"prompt" => prompt}, socket) when is_binary(prompt) do
+    {:noreply, assign(socket, :prompt, prompt)}
+  end
+
+  def handle_event("composer_change", _params, socket), do: {:noreply, socket}
+
+  # v0.26a M34: AppBar overflow menu open/close. Same shape as the tile
+  # kebab — purely UI state, no authority change.
+  def handle_event("toggle_workspace_overflow_menu", _params, socket) do
+    {:noreply, update(socket, :workspace_overflow_open?, &(!&1))}
+  end
+
+  # v0.26a M30 follow-up: maximize / restore a workspace pane. Clicking the
+  # maximize control on a pane gives it the full grid width and hides the
+  # sibling pane; clicking again (or the other pane's control) restores the
+  # split. Purely UI state — no authority change.
+  def handle_event("toggle_workspace_maximize", %{"pane" => pane}, socket)
+      when pane in ["chat", "canvas"] do
+    next =
+      if socket.assigns.workspace_maximized_pane == pane do
+        nil
+      else
+        pane
+      end
+
+    {:noreply, assign(socket, :workspace_maximized_pane, next)}
+  end
+
+  def handle_event("toggle_workspace_maximize", _params, socket), do: {:noreply, socket}
 
   def handle_event("toggle_workspace_theme", _params, socket) do
     next_theme = next_workspace_theme(socket.assigns.workspace_theme)
@@ -264,16 +302,24 @@ defmodule AllbertAssistWeb.AgentLive do
 
   @impl true
   def handle_async(:ask, {:ok, {:ok, response}}, socket) do
-    {:noreply,
-     assign(socket,
-       asking?: false,
-       response: response.message,
-       status: response.status,
-       signal_id: response.signal_id,
-       trace_id: Map.get(response, :trace_id),
-       approval_handoff: Map.get(response, :approval_handoff),
-       approval_lines: ApprovalHandoff.lines(Map.get(response, :approval_handoff))
-     )}
+    socket =
+      socket
+      |> assign(
+        asking?: false,
+        response: response.message,
+        status: response.status,
+        signal_id: response.signal_id,
+        trace_id: Map.get(response, :trace_id),
+        approval_handoff: Map.get(response, :approval_handoff),
+        approval_lines: ApprovalHandoff.lines(Map.get(response, :approval_handoff)),
+        # v0.26a M29: clear composer after a successful turn.
+        prompt: ""
+      )
+      # v0.26a M28: refresh conversation_messages + tiles + ephemerals so the
+      # chat timeline accumulates the just-completed turn without a navigation.
+      |> refresh_workspace()
+
+    {:noreply, socket}
   end
 
   def handle_async(:ask, {:ok, {:error, reason}}, socket) do
@@ -304,6 +350,7 @@ defmodule AllbertAssistWeb.AgentLive do
         data-high-contrast={bool_attribute(@workspace_high_contrast?)}
         data-reduce-motion={bool_attribute(@workspace_reduce_motion?)}
         data-mobile-tab={@workspace_mobile_tab}
+        data-maximized-pane={@workspace_maximized_pane}
         data-offline-enabled={bool_attribute(@workspace_offline_enabled?)}
         data-service-worker-url={~p"/workspace-sw.js"}
         data-service-worker-scope="/agent"
@@ -715,6 +762,13 @@ defmodule AllbertAssistWeb.AgentLive do
     end
   end
 
+  defp workspace_canvas_tile_body_max_bytes do
+    case Settings.get("workspace.canvas.tile_body_max_bytes") do
+      {:ok, value} when is_integer(value) and value > 0 -> value
+      _other -> 65_536
+    end
+  end
+
   defp workspace_tile_editor_reply(params, socket) do
     with true <- socket.assigns.workspace_offline_enabled? || {:error, :offline_disabled},
          {:ok, %{status: status, result: result}}
@@ -767,7 +821,13 @@ defmodule AllbertAssistWeb.AgentLive do
     end
   end
 
+  # v0.26a M34: theme cycles system → dark → light → system so operators
+  # reach all three workspace.theme values from the AppBar without dropping
+  # to `mix allbert.settings`. Default boot starts at "system" → dark to
+  # preserve the prior light↔dark first-click semantics.
+  defp next_workspace_theme("system"), do: "dark"
   defp next_workspace_theme("dark"), do: "light"
+  defp next_workspace_theme("light"), do: "system"
   defp next_workspace_theme(_theme), do: "dark"
 
   defp workspace_mobile_tabs do
@@ -818,7 +878,10 @@ defmodule AllbertAssistWeb.AgentLive do
       workspace_indexeddb_quota_bytes: assigns.workspace_indexeddb_quota_bytes,
       workspace_canvas_max_tiles_per_thread: assigns.workspace_canvas_max_tiles_per_thread,
       open_tile_menu_id: assigns.open_tile_menu_id,
-      active_app: assigns.active_app
+      active_app: assigns.active_app,
+      composer_max_bytes: assigns.composer_max_bytes,
+      workspace_overflow_open?: assigns.workspace_overflow_open?,
+      workspace_maximized_pane: assigns.workspace_maximized_pane
     }
   end
 
