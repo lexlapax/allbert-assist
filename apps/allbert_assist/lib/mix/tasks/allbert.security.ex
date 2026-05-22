@@ -5,6 +5,7 @@ defmodule Mix.Tasks.Allbert.Security do
   ## Usage
 
       mix allbert.security status
+      mix allbert.security review --recent [--limit N]
   """
 
   use Mix.Task
@@ -28,14 +29,21 @@ defmodule Mix.Tasks.Allbert.Security do
     end
   end
 
+  defp dispatch(["review", "--recent" | opts]) do
+    with {:ok, response} <- completed_action("security_review", %{limit: parse_limit(opts)}) do
+      {:ok, {:review, response.security_review}}
+    end
+  end
+
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
       mix allbert.security status
+      mix allbert.security review --recent [--limit N]
     """)
   end
 
-  defp print_result({:ok, status}) do
+  defp print_result({:ok, status}) when is_map(status) do
     Mix.shell().info("Security Central")
     Mix.shell().info("Permissions:")
 
@@ -62,6 +70,19 @@ defmodule Mix.Tasks.Allbert.Security do
     end)
   end
 
+  defp print_result({:ok, {:review, review}}) do
+    Mix.shell().info("Security Review")
+    Mix.shell().info("Generated: #{review.generated_at}")
+    Mix.shell().info("Limit: #{review.limit}")
+
+    print_review_section("Recent confirmations", review.confirmations)
+    print_review_section("Recent denials", review.denials)
+    print_review_section("Recent imports", review.imports)
+    print_review_section("Recent external calls", review.external_calls)
+    print_redaction_incidents(review.redaction_incidents)
+    print_emergency_switches(review.emergency_switches)
+  end
+
   defp print_result({:error, reason}) do
     Mix.raise("Security command failed: #{inspect(reason)}")
   end
@@ -75,6 +96,47 @@ defmodule Mix.Tasks.Allbert.Security do
 
   defp response_error(%{error: error}), do: error
   defp response_error(%{message: message}), do: message
+
+  defp parse_limit(["--limit", value | _rest]), do: value
+  defp parse_limit([]), do: 10
+
+  defp parse_limit(other) do
+    Mix.raise("Unknown security review option(s): #{Enum.join(other, " ")}")
+  end
+
+  defp print_review_section(title, []), do: Mix.shell().info("#{title}: none")
+
+  defp print_review_section(title, items) do
+    Mix.shell().info("#{title}:")
+
+    Enum.each(items, fn item ->
+      Mix.shell().info(
+        "- #{item.id} status=#{item.status} action=#{Map.get(item, :target_action, "unknown")} permission=#{Map.get(item, :target_permission, "unknown")} decision=#{get_in(item, [:security_decision, :decision]) || "unknown"}"
+      )
+    end)
+  end
+
+  defp print_redaction_incidents([]), do: Mix.shell().info("Redaction incidents: none")
+
+  defp print_redaction_incidents(items) do
+    Mix.shell().info("Redaction incidents:")
+
+    Enum.each(items, fn item ->
+      Mix.shell().info(
+        "- #{item.category} id=#{item.id} status=#{item.status} action=#{Map.get(item, :target_action, "unknown")}"
+      )
+    end)
+  end
+
+  defp print_emergency_switches(switches) do
+    Mix.shell().info("Emergency switches:")
+
+    Enum.each(switches, fn switch ->
+      Mix.shell().info(
+        "- #{switch.key} value=#{inspect(switch.value)} hard_disabled=#{switch.hard_disabled?} boundary=#{switch.boundary}"
+      )
+    end)
+  end
 
   defp context do
     %{actor: "local", channel: :cli}

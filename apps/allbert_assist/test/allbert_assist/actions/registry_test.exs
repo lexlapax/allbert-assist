@@ -116,6 +116,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "import_remote_skill",
              "import_local_skill",
              "security_status",
+             "security_review",
              "list_confirmations",
              "show_confirmation",
              "approve_confirmation",
@@ -171,6 +172,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert "list_plugins" in agent_action_names
     assert "show_plugin" in agent_action_names
     refute "security_status" in agent_action_names
+    refute "security_review" in agent_action_names
     refute "record_trace" in agent_action_names
   end
 
@@ -195,6 +197,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "import_remote_skill",
              "import_local_skill",
              "security_status",
+             "security_review",
              "list_confirmations",
              "show_confirmation",
              "approve_confirmation",

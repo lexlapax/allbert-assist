@@ -105,6 +105,17 @@ defmodule AllbertAssist.Security.Status do
         max_listing_results: setting("skills.online_import.max_listing_results", nil),
         max_download_bytes: setting("skills.online_import.max_download_bytes", nil),
         trust_after_import: setting("skills.online_import.trust_after_import", false)
+      },
+      plugin_app_registration: %{
+        plugins_registration_enabled: setting("plugins.registration_enabled", true),
+        app_registry_registration_enabled: setting("app_registry.registration_enabled", true)
+      },
+      workspace_fragments: %{
+        emission_enabled: setting("workspace.fragment.emission_enabled", true),
+        rate_limit_per_second: setting("workspace.fragment.rate_limit_per_second", nil),
+        receiver_rate_limit_per_second:
+          setting("workspace.fragment.receiver_rate_limit_per_second", nil),
+        payload_max_bytes: setting("workspace.fragment.payload_max_bytes", nil)
       }
     }
   end

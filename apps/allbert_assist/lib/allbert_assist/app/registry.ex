@@ -6,6 +6,7 @@ defmodule AllbertAssist.App.Registry do
   use GenServer
 
   alias AllbertAssist.App.Validator
+  alias AllbertAssist.Settings
 
   @default_table :allbert_app_registry
   @nil_aliases ["", "none", "general"]
@@ -28,7 +29,13 @@ defmodule AllbertAssist.App.Registry do
   @impl true
   def init(opts) do
     table_name = Keyword.get(opts, :table_name, configured(:table_name, @default_table))
-    enabled? = Keyword.get(opts, :enabled?, configured(:enabled?, true))
+
+    enabled? =
+      Keyword.get(
+        opts,
+        :enabled?,
+        configured(:enabled?, setting_enabled?("app_registry.registration_enabled"))
+      )
 
     dynamic_supervisor =
       Keyword.get(opts, :dynamic_supervisor, AllbertAssist.App.DynamicSupervisor)
@@ -556,6 +563,15 @@ defmodule AllbertAssist.App.Registry do
     :allbert_assist
     |> Application.get_env(__MODULE__, [])
     |> Keyword.get(key, default)
+  end
+
+  defp setting_enabled?(key) do
+    case Settings.get(key) do
+      {:ok, value} when is_boolean(value) -> value
+      _other -> true
+    end
+  rescue
+    _exception -> true
   end
 
   defp diagnostic({kind, _detail} = reason) when is_atom(kind),
