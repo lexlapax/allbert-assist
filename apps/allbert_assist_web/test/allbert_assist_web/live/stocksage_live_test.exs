@@ -3,7 +3,7 @@ defmodule StockSageWeb.LiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.{App, Confirmations, Objectives, Paths, Plugin, Session, Settings}
+  alias AllbertAssist.{App, Confirmations, Memory, Objectives, Paths, Plugin, Session, Settings}
   alias StockSage.Analyses
   alias StockSage.Memory, as: StockSageMemory
   alias StockSage.Progress
@@ -12,10 +12,12 @@ defmodule StockSageWeb.LiveTest do
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     root = Path.join(System.tmp_dir!(), "stocksage-live-#{System.unique_integer([:positive])}")
 
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+    Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
 
     ensure_stocksage_registered()
     _ = Session.clear_active_app("local", "web-local")
@@ -24,6 +26,7 @@ defmodule StockSageWeb.LiveTest do
       _ = Session.clear_active_app("local", "web-local")
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
+      restore_env(Confirmations, original_confirmations_config)
       File.rm_rf!(root)
     end)
 
@@ -201,6 +204,23 @@ defmodule StockSageWeb.LiveTest do
              StockSageMemory.list_entries("local", kind: "reflection", analysis_id: analysis.id)
 
     refute entry.promoted_to_allbert_memory
+
+    view
+    |> element("#stocksage-sync-lesson-#{entry.id}")
+    |> render_click()
+
+    assert has_element?(view, "#stocksage-sync-notice")
+    synced_html = render(view)
+    assert synced_html =~ "No Allbert markdown memory was written"
+    assert synced_html =~ "Allbert sync pending"
+    assert synced_html =~ "Sync pending"
+
+    assert Enum.any?(
+             Confirmations.list(status: :pending),
+             &(get_in(&1, ["target_action", "name"]) == "sync_app_lesson")
+           )
+
+    assert {:ok, []} = Memory.list_entries(user_id: "local", app_id: :stocksage)
   end
 
   defp ensure_stocksage_registered do
