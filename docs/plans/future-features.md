@@ -38,7 +38,7 @@ homes:
 - Objective Runtime Foundation (durable multi-step work substrate): v0.24.
 - Native Jido trading agents: v0.25 (formerly v0.23 before the project-direction rethink).
 - Agentic workspace surface and local ephemeral UI substrate: v0.26 (formerly v0.24).
-- StockSage LiveViews: v0.27 (formerly v0.25).
+- App Surface Contract - StockSage LiveViews: v0.27 (formerly v0.25).
 - Security hardening and evals: v0.28 (formerly v0.26).
 - StockSage polish, outcomes, and trends: v0.29 (formerly v0.27).
 - StockSage canvas integration: v0.30 (formerly v0.28).

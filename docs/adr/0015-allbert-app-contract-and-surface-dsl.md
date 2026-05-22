@@ -3,8 +3,9 @@
 ## Status
 
 Accepted. v0.15 minimal contract implemented. v0.18 full app/surface contract
-implemented on 2026-05-15; memory namespace registration remains deferred to
-v0.29 (formerly v0.27 before the project-direction rethink renumber).
+implemented on 2026-05-15; memory namespace registration is split after the
+post-v0.26 roadmap reconciliation: namespace declaration/registration lands in
+v0.27, while namespace-consuming memory sync lands in v0.29.
 Amended during the v0.26 planning-readiness pass (2026-05-18) to enumerate
 the v0.26 catalog expansion from 12 → 42 components — see the "v0.26
 Catalog Expansion" subsection under Surface DSL. The catalog expansion is the
@@ -64,8 +65,10 @@ data only; they do not mount routes, load LiveViews, or define canvas nodes.
 ### v0.18 Full Contract
 
 The v0.18 full contract, formerly M-AppContract-Full, expands the app/surface
-contract through these layers, with memory namespace registration explicitly
-deferred to v0.29 (formerly v0.27):
+contract through these layers. The post-v0.26 roadmap reconciliation splits
+memory namespaces into declaration and consumption: apps declare namespaces in
+v0.27, and v0.29 is the first StockSage milestone that writes through that
+namespace.
 
 - Identity and OTP lifecycle: validation, child specs, and workspace config
   injection.
@@ -80,8 +83,9 @@ deferred to v0.29 (formerly v0.27):
 - UI surface: `surfaces/0` kept as the legacy navigation summary; interactive
   surfaces declared through `AllbertAssist.App.SurfaceProvider`; the native
   `AllbertAssist.Surface` DSL validates nodes and action bindings.
-- Memory namespaces the app may write through existing Allbert boundaries are
-  deferred to v0.29.
+- Memory namespace declaration records the namespaces an app may later write
+  through existing Allbert boundaries. Declaration lands in v0.27 so v0.28 can
+  audit ownership/isolation before v0.29 adds namespace-consuming writes.
 
 ### Registry
 
@@ -208,7 +212,10 @@ shell itself:
 The 4 StockSage cards are PRESENT in the v0.26 catalog (so emitters
 can target them) but their rendering modules ship as v0.26 stubs that
 display a placeholder + link to the legacy `/stocksage/analysis/:id`
-route until v0.27 ships the real rendering modules.
+route until v0.27 ships the real rendering modules in StockSage-owned
+`/stocksage/...` LiveViews. v0.30 later wires those proven renderers into
+durable `/agent` canvas tiles through the workspace canvas mechanism; v0.30
+does not introduce a second component shape.
 
 Total catalog after v0.26: **42 components** (12 v0.18 carryover + 30
 v0.26 additions).
@@ -264,8 +271,9 @@ implements `StockSage.App` with the v0.18 app/surface contract from day one —
 there is no lite-to-full migration. v0.27 (formerly v0.25) builds all
 StockSage LiveViews on `AllbertAssist.App.SurfaceProvider` from day one;
 there is no stepping-stone static route mounting that later migrates to the
-surface contract. Memory namespace registration is the one deferred layer,
-added in v0.29 (formerly v0.27) where StockSage polish first consumes it.
+surface contract. v0.27 also adds app memory namespace declaration so v0.28
+can audit namespace ownership before v0.29 consumes the namespace through
+explicit StockSage lesson/memory sync.
 
 ## Consequences
 
@@ -293,12 +301,13 @@ added in v0.29 (formerly v0.27) where StockSage polish first consumes it.
 
 ## Deferred
 
-- Memory namespace registration in `AllbertAssist.App.Registry`, deferred to
-  v0.29 (formerly v0.27) where StockSage polish first consumes it.
+- Namespace-consuming app memory sync, deferred to v0.29. Namespace
+  declaration/registration itself lands in v0.27 so ownership is security-
+  auditable before writes exist.
 - `mix allbert.gen.plugin` and `mix allbert.gen.app` scaffolding, until
   StockSage proves the plugin/app contract, StockSage SurfaceProvider
-  LiveViews, memory namespace completion, and canvas path through v0.30
-  (formerly v0.28). Planned for v0.31 (formerly v0.29).
+  LiveViews, memory namespace declaration plus consumption, and canvas path
+  through v0.30 (formerly v0.28). Planned for v0.31 (formerly v0.29).
 - AG-UI streaming endpoints, A2UI renderer compatibility, MCP Apps, and
   third-party remote UI execution.
 - Dynamic runtime mounting of arbitrary routes or LiveView components from

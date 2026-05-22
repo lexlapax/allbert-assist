@@ -271,8 +271,9 @@ without reaching around Allbert's public boundaries.
 
 The minimal app contract registers identity, actions, skills, child specs, and
 navigation. The full contract adds signal subscriptions, settings/schema
-validation, memory namespaces, `AllbertAssist.App.SurfaceProvider`, and the
-native `AllbertAssist.Surface` DSL. App registration never grants permission:
+validation, memory namespace declaration, `AllbertAssist.App.SurfaceProvider`,
+and the native `AllbertAssist.Surface` DSL. Namespace-consuming memory writes
+remain explicit app actions. App registration never grants permission:
 registered actions still run through the action runner, Security Central,
 confirmation workflow, traces, and audits.
 
@@ -382,10 +383,11 @@ signals or registered action results. AG-UI, A2UI, MCP Apps, and similar
 protocols are research references and future adapters, not hard dependencies
 for the first local LiveView substrate.
 
-StockSage LiveViews start as standard app surfaces. After the core canvas
-substrate exists, StockSage can register chart and analysis-card components
-with the catalog so an analysis result can produce canvas operations without
-changing the StockSage domain model.
+StockSage LiveViews start as standard app surfaces. v0.27 proves real
+StockSage renderers in StockSage-owned `/stocksage/...` surfaces. After the
+core canvas substrate has been audited, v0.30 can emit those same proven
+components into durable `/agent` canvas tiles without changing the StockSage
+domain model.
 
 ### StockSage
 
@@ -414,9 +416,12 @@ workflow:
   for tests/operator smoke when native LLM generation is explicitly disabled.
 - Web surfaces: workspace, analysis, queue, and trends LiveViews mounted
   through the app contract, setting `active_app: :stocksage` when the user is
-  in StockSage context.
+  in StockSage context. v0.27 replaces reserved-card stubs with real renderers
+  in StockSage-owned surfaces.
+- Memory namespace: v0.27 declares the StockSage namespace so v0.28 can audit
+  ownership before v0.29 adds explicit lesson/reflection sync.
 - Canvas integration: chart and analysis tiles only after the Allbert canvas
-  substrate and full app contract are proven.
+  substrate, StockSage renderers, and security posture are proven.
 
 Financial workflows are security-sensitive. Market-data API calls must flow
 through Resource Access Security Posture and confirmations; a remembered grant
@@ -453,9 +458,9 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.15: minimal app registration contract.
 - v0.16: Telegram/email channel adapters and channel foundation.
 - v0.17: plugin contract and shipped source-tree channel plugins.
-- v0.18: app/surface contract and `AllbertAssist.Surface` DSL, with memory
-  namespace registration deferred to v0.29 (formerly v0.27); `CoreApp`
-  becomes the first
+- v0.18: app/surface contract and `AllbertAssist.Surface` DSL; the remaining
+  memory namespace layer is split so declaration lands in v0.27 and
+  namespace-consuming writes land in v0.29. `CoreApp` becomes the first
   `SurfaceProvider` (declaring `/agent` as the built-in chat surface), runtime
   turns default to `active_app: :allbert` when no known app context exists, and
   v0.20 StockSage implements the same app/surface contract from day one as the
@@ -487,15 +492,20 @@ historical aliases only and remain in old reference notes for continuity.
   v0.18) into a signal-driven workspace shell; canvas and ephemeral UI are
   additive. Built after both analysis engines, objective state, memory review,
   and intent enrichment are in place.
-- v0.27: StockSage LiveViews built on `AllbertAssist.App.SurfaceProvider`
-  from day one; component catalog declared as the foundation for v0.30 canvas;
-  renders objective state for StockSage analyses.
+- v0.26c: workspace UX closeout for deferred `0.26.1` polish only: tile
+  inspector, thread switcher, and multi-tab verification. No new platform
+  contract.
+- v0.27: App Surface Contract - StockSage LiveViews built on
+  `AllbertAssist.App.SurfaceProvider` from day one; real StockSage renderers
+  replace v0.26 stubs in `/stocksage/...`; `RunAnalysis` emits validated
+  Surface nodes; and StockSage declares its memory namespace for later audit.
 - v0.28: security hardening and evals, including cross-user/thread leakage,
   app-scoped routing, objective-scope coverage, Surface DSL/SurfaceProvider
-  coverage, bridge safety, and financial authorization.
-- v0.29: StockSage polish, outcomes, and trends; completes memory namespace
-  registration as the final deferred layer of the v0.18 app contract.
-- v0.30: StockSage canvas integration.
+  coverage, namespace ownership, bridge safety, and financial authorization.
+- v0.29: App Memory + Outcomes Contract - StockSage polish, outcomes, trends,
+  reflections, reruns, and explicit namespace-scoped memory sync.
+- v0.30: App Canvas Contract - StockSage canvas integration; proven v0.27
+  components become durable `/agent` canvas tiles through audited canvas ops.
 - v0.31: Allbert plugin and app generator.
 
 ## Deferred Until The Foundation Settles
