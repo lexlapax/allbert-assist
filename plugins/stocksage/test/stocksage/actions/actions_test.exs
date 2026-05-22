@@ -39,6 +39,7 @@ defmodule StockSage.ActionsTest do
           {"list_analyses", :read_only, :agent},
           {"show_analysis", :read_only, :agent},
           {"get_trends", :read_only, :agent},
+          {"resolve_outcomes", :stocksage_write, :internal},
           {"queue_analysis", :stocksage_write, :agent},
           {"list_queue", :read_only, :internal},
           {"import_stocksage_sqlite", :stocksage_write, :internal}
@@ -141,6 +142,42 @@ defmodule StockSage.ActionsTest do
     assert response.status == :completed
     assert response.trends.counts == %{"win" => 1}
     assert [%{label: "win"}] = response.trends.outcomes
+  end
+
+  test "resolve_outcomes resolves due local outcomes through the runner" do
+    assert {:ok, analysis} =
+             Analyses.create_analysis(%{
+               user_id: "alice",
+               symbol: "aapl",
+               analysis_date: ~D[2026-05-01],
+               status: "completed",
+               source: "manual",
+               recommendation: "Buy"
+             })
+
+    assert {:ok, _outcome} =
+             Analyses.create_outcome(%{
+               user_id: "alice",
+               analysis_id: analysis.id,
+               symbol: "aapl",
+               horizon_days: 5,
+               start_price: Decimal.new("100.00"),
+               label: "pending"
+             })
+
+    assert {:ok, response} =
+             Runner.run(
+               "resolve_outcomes",
+               %{user_id: "alice", as_of: "2026-05-10", prices: %{"AAPL" => "105.25"}},
+               stocksage_context()
+             )
+
+    assert response.status == :completed
+    assert response.outcome_resolution.resolved == 1
+    assert [%{label: "win"}] = response.outcome_resolution.outcomes
+
+    assert [updated] = Analyses.list_outcomes_for_analysis("alice", analysis.id)
+    assert updated.label == "win"
   end
 
   test "queue_analysis writes one local queue row and starts no execution worker" do

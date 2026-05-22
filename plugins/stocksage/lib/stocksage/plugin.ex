@@ -29,6 +29,7 @@ defmodule StockSage.Plugin do
       StockSage.Actions.ListAnalyses,
       StockSage.Actions.ShowAnalysis,
       StockSage.Actions.GetTrends,
+      StockSage.Actions.ResolveOutcomes,
       StockSage.Actions.QueueAnalysis,
       StockSage.Actions.ListQueue,
       StockSage.Actions.ImportSqlite,
@@ -93,6 +94,27 @@ defmodule StockSage.Plugin do
         default: "normal",
         allowed_values: ["low", "normal", "high"],
         description: "Default priority for new StockSage queue entries."
+      },
+      %{
+        key: "stocksage.outcomes.default_holding_period_days",
+        type: :positive_integer,
+        default: 30,
+        description: "Default StockSage outcome holding period for manual resolution flows."
+      },
+      %{
+        key: "stocksage.outcomes.resolver_cadence",
+        type: :enum,
+        default: "manual",
+        allowed_values: ["manual", "daily", "weekly"],
+        description: "Operator cadence hint for StockSage outcome resolution."
+      },
+      %{
+        key: "stocksage.outcomes.neutral_return_threshold_pct",
+        type: :bounded_float,
+        default: 0.5,
+        min: 0.0,
+        max: 10.0,
+        description: "Absolute return percentage treated as neutral during outcome resolution."
       },
       %{
         key: "stocksage.bridge_enabled",
