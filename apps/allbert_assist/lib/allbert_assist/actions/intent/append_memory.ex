@@ -29,39 +29,65 @@ defmodule AllbertAssist.Actions.Intent.AppendMemory do
     permission_decision = PermissionGate.authorize(:memory_write, context)
     request = Map.get(context, :request, %{})
 
-    case Memory.append(%{
-           category: category_for(memory),
-           body: memory,
-           summary: memory,
-           source_signal_id: Map.get(request, :input_signal_id, "unknown"),
-           actor: Map.get(request, :operator_id, "local"),
-           agent: inspect(Map.get(context, :agent, AllbertAssist.Agents.IntentAgent)),
-           channel: Map.get(request, :channel, "unknown")
-         }) do
-      {:ok, entry} ->
-        {:ok,
-         %{
-           message: message(entry),
-           status: PermissionGate.response_status(permission_decision),
-           permission_decision: permission_decision,
-           memory: entry,
-           actions: [
-             %{
-               name: "append_memory",
-               status: :completed,
-               permission: :memory_write,
-               permission_decision: permission_decision,
-               durable: true,
-               memory_path: entry.path,
-               memory_category: entry.category,
-               input: %{memory: memory, source_text: Map.get(params, :source_text)}
-             }
-           ]
-         }}
+    if PermissionGate.allowed?(permission_decision) do
+      case Memory.append(%{
+             category: category_for(memory),
+             body: memory,
+             summary: memory,
+             source_signal_id: Map.get(request, :input_signal_id, "unknown"),
+             actor: Map.get(request, :operator_id, "local"),
+             agent: inspect(Map.get(context, :agent, AllbertAssist.Agents.IntentAgent)),
+             channel: Map.get(request, :channel, "unknown")
+           }) do
+        {:ok, entry} ->
+          {:ok,
+           %{
+             message: message(entry),
+             status: :completed,
+             permission_decision: permission_decision,
+             memory: entry,
+             actions: [
+               %{
+                 name: "append_memory",
+                 status: :completed,
+                 permission: :memory_write,
+                 permission_decision: permission_decision,
+                 durable: true,
+                 memory_path: entry.path,
+                 memory_category: entry.category,
+                 input: %{memory: memory, source_text: Map.get(params, :source_text)}
+               }
+             ]
+           }}
 
-      {:error, reason} ->
-        {:error, {:memory_append_failed, reason}}
+        {:error, reason} ->
+          {:error, {:memory_append_failed, reason}}
+      end
+    else
+      {:ok, blocked(memory, params, permission_decision)}
     end
+  end
+
+  defp blocked(memory, params, permission_decision) do
+    status = PermissionGate.response_status(permission_decision)
+
+    %{
+      message: permission_decision.reason,
+      status: status,
+      permission_decision: permission_decision,
+      memory: %{},
+      actions: [
+        %{
+          name: "append_memory",
+          status: status,
+          permission: :memory_write,
+          permission_decision: permission_decision,
+          durable: false,
+          execution: :not_started,
+          input: %{memory: memory, source_text: Map.get(params, :source_text)}
+        }
+      ]
+    }
   end
 
   defp category_for(memory) do
