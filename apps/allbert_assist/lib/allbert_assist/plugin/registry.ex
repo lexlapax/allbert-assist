@@ -7,6 +7,7 @@ defmodule AllbertAssist.Plugin.Registry do
 
   alias AllbertAssist.Plugin.Entry
   alias AllbertAssist.Plugin.Validator
+  alias AllbertAssist.Settings
 
   @default_table :allbert_plugin_registry
   @control_opts [:server]
@@ -25,7 +26,13 @@ defmodule AllbertAssist.Plugin.Registry do
   @impl true
   def init(opts) do
     table_name = Keyword.get(opts, :table_name, configured(:table_name, @default_table))
-    enabled? = Keyword.get(opts, :enabled?, configured(:enabled?, true))
+
+    enabled? =
+      Keyword.get(
+        opts,
+        :enabled?,
+        configured(:enabled?, setting_enabled?("plugins.registration_enabled"))
+      )
 
     table =
       if enabled? do
@@ -282,5 +289,14 @@ defmodule AllbertAssist.Plugin.Registry do
     :allbert_assist
     |> Application.get_env(__MODULE__, [])
     |> Keyword.get(key, default)
+  end
+
+  defp setting_enabled?(key) do
+    case Settings.get(key) do
+      {:ok, value} when is_boolean(value) -> value
+      _other -> true
+    end
+  rescue
+    _exception -> true
   end
 end
