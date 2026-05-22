@@ -122,6 +122,16 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.PluginAppRegistryEvalTest"
     },
     %{
+      id: "app-scope-missing-001",
+      milestone: :m4,
+      surface: :plugin_app_registry,
+      scenario: "StockSage RunAnalysis invoked without explicit StockSage active_app scope",
+      boundary: :runner_app_scope,
+      expected: :denied,
+      assert: [:denied, :missing_active_app_scope],
+      test_module: "AllbertAssist.Security.PluginAppRegistryEvalTest"
+    },
+    %{
       id: "disabled-plugin-001",
       milestone: :m4,
       surface: :plugin_app_registry,

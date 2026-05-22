@@ -81,10 +81,14 @@ defmodule StockSage.Actions.RunAnalysisTest do
       }
 
       assert {:ok, response} =
-               Runner.run("run_analysis", params, %{
-                 objective: %{title: "Analyze AAPL", status: "running"},
-                 trace_id: "trace_run_analysis_test"
-               })
+               Runner.run(
+                 "run_analysis",
+                 params,
+                 stocksage_context(%{
+                   objective: %{title: "Analyze AAPL", status: "running"},
+                   trace_id: "trace_run_analysis_test"
+                 })
+               )
 
       assert response.status == :needs_confirmation
       assert is_binary(response.confirmation_id)
@@ -114,7 +118,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
                Runner.run(
                  "run_analysis",
                  %{ticker: "bad ticker!", analysis_date: "2026-05-01", user_id: "alice"},
-                 %{}
+                 stocksage_context()
                )
 
       assert response.status == :error
@@ -127,7 +131,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
                Runner.run(
                  "run_analysis",
                  %{ticker: "AAPL", analysis_date: "tomorrow", user_id: "alice"},
-                 %{}
+                 stocksage_context()
                )
 
       assert response.status == :error
@@ -146,7 +150,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
                    engine: "python",
                    user_id: "alice"
                  },
-                 %{}
+                 stocksage_context()
                )
 
       assert response.status == :error
@@ -159,7 +163,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
 
   describe "approved resume" do
     test "executes the bridge and persists a completed analysis row" do
-      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+      context = stocksage_context(%{confirmation: %{approved?: true, id: "test-confirmation"}})
 
       # force_stub: true so the bridge uses the deterministic stub path
       # (the test environment doesn't have TradingAgents installed). The
@@ -217,7 +221,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
           priority: "normal"
         })
 
-      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+      context = stocksage_context(%{confirmation: %{approved?: true, id: "test-confirmation"}})
 
       params = %{
         ticker: "TSLA",
@@ -243,7 +247,8 @@ defmodule StockSage.Actions.RunAnalysisTest do
     end
 
     test "executes native/python parity and persists a merged completed row" do
-      context = %{confirmation: %{approved?: true, id: "test-parity-confirmation"}}
+      context =
+        stocksage_context(%{confirmation: %{approved?: true, id: "test-parity-confirmation"}})
 
       params = %{
         ticker: "AAPL",
@@ -294,7 +299,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
                    user_id: "alice",
                    force_stub: true
                  },
-                 %{}
+                 stocksage_context()
                )
 
       assert response.status == :error
@@ -306,7 +311,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       # v0.22 audit closeout (gap 3): before the fix, an invalid queue_entry_id
       # silently no-opped in update_queue/5 but the bridge was already called
       # and the analysis row already persisted, polluting the test DB.
-      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+      context = stocksage_context(%{confirmation: %{approved?: true, id: "test-confirmation"}})
 
       params = %{
         ticker: "AAPL",
@@ -341,7 +346,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
           priority: "normal"
         })
 
-      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+      context = stocksage_context(%{confirmation: %{approved?: true, id: "test-confirmation"}})
 
       params = %{
         ticker: "TSLA",
@@ -372,7 +377,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
       # Pre-consume the entry.
       {:ok, _consumed} = Queue.update_entry_status(entry, "completed")
 
-      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+      context = stocksage_context(%{confirmation: %{approved?: true, id: "test-confirmation"}})
 
       params = %{
         ticker: "MSFT",
@@ -390,7 +395,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
     end
 
     test "writes a failed row when the bridge returns an error" do
-      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+      context = stocksage_context(%{confirmation: %{approved?: true, id: "test-confirmation"}})
 
       # The bridge rejects bad tickers before they reach TradingAgents — but our
       # Elixir-side validation also rejects them, so failure is exercised via a
@@ -428,7 +433,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
     end
 
     test "fires analysis_requested and analysis_completed on the happy path" do
-      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+      context = stocksage_context(%{confirmation: %{approved?: true, id: "test-confirmation"}})
 
       params = %{
         ticker: "AAPL",
@@ -455,7 +460,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
     end
 
     test "fires analysis_failed when queue validation rejects before bridge call" do
-      context = %{confirmation: %{approved?: true, id: "test-confirmation"}}
+      context = stocksage_context(%{confirmation: %{approved?: true, id: "test-confirmation"}})
 
       params = %{
         ticker: "AAPL",
@@ -493,7 +498,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
         force_stub: true
       }
 
-      {:ok, response} = Runner.run("run_analysis", params, %{})
+      {:ok, response} = Runner.run("run_analysis", params, stocksage_context())
       assert response.status == :needs_confirmation
       confirmation_id = response.confirmation_id
 
@@ -534,7 +539,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
         force_stub: true
       }
 
-      {:ok, response} = Runner.run("run_analysis", params, %{})
+      {:ok, response} = Runner.run("run_analysis", params, stocksage_context())
       assert response.status == :needs_confirmation
       confirmation_id = response.confirmation_id
 
@@ -575,7 +580,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
         force_stub: true
       }
 
-      {:ok, response} = Runner.run("run_analysis", params, %{})
+      {:ok, response} = Runner.run("run_analysis", params, stocksage_context())
       assert response.status == :needs_confirmation
 
       output =
@@ -604,6 +609,8 @@ defmodule StockSage.Actions.RunAnalysisTest do
   catch
     :exit, _reason -> :ok
   end
+
+  defp stocksage_context(attrs \\ %{}), do: Map.merge(%{active_app: :stocksage}, attrs)
 
   defp receive_signal(type) do
     receive do

@@ -714,7 +714,7 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
       operator_id: objective.user_id,
       thread_id: objective.source_thread_id,
       session_id: objective.session_id,
-      active_app: objective.active_app && String.to_existing_atom(objective.active_app),
+      active_app: objective.active_app,
       objective_id: objective.id,
       step_id: step.id,
       trace_id: trace_id(params, context),
@@ -724,18 +724,6 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
         status: objective.status
       }
     })
-  rescue
-    ArgumentError ->
-      Map.merge(context, %{
-        user_id: objective.user_id,
-        operator_id: objective.user_id,
-        thread_id: objective.source_thread_id,
-        session_id: objective.session_id,
-        objective_id: objective.id,
-        step_id: step.id,
-        trace_id: trace_id(params, context),
-        objective: %{id: objective.id, title: objective.title, status: objective.status}
-      })
   end
 
   defp resolve_action(%Step{candidate_action: action}) when is_binary(action) do
@@ -839,16 +827,7 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
   end
 
   defp execute(%Objective{} = objective, %Step{kind: "delegate_agent"} = step, params, context) do
-    runner_context =
-      Map.merge(context, %{
-        user_id: objective.user_id,
-        operator_id: objective.user_id,
-        thread_id: objective.source_thread_id,
-        session_id: objective.session_id,
-        objective_id: objective.id,
-        step_id: step.id,
-        trace_id: trace_id(params, context)
-      })
+    runner_context = runner_context(objective, step, params, context)
 
     case Runner.run(
            "delegate_agent",
@@ -887,16 +866,7 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
   defp execute(%Objective{} = objective, %Step{} = step, params, context) do
     with {:ok, action} <- resolve_action(step),
          {:ok, action_params} <- action_params(step) do
-      runner_context =
-        Map.merge(context, %{
-          user_id: objective.user_id,
-          operator_id: objective.user_id,
-          thread_id: objective.source_thread_id,
-          session_id: objective.session_id,
-          objective_id: objective.id,
-          step_id: step.id,
-          trace_id: trace_id(params, context)
-        })
+      runner_context = runner_context(objective, step, params, context)
 
       case Runner.run(action, action_params, runner_context) do
         {:ok, %{status: :needs_confirmation} = response} ->
@@ -1004,6 +974,24 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
 
   defp unwrap_or_rollback({:ok, value}), do: value
   defp unwrap_or_rollback({:error, reason}), do: Repo.rollback(reason)
+
+  defp runner_context(objective, step, params, context) do
+    Map.merge(context, %{
+      user_id: objective.user_id,
+      operator_id: objective.user_id,
+      thread_id: objective.source_thread_id,
+      session_id: objective.session_id,
+      active_app: objective.active_app,
+      objective_id: objective.id,
+      step_id: step.id,
+      trace_id: trace_id(params, context),
+      objective: %{
+        id: objective.id,
+        title: objective.title,
+        status: objective.status
+      }
+    })
+  end
 
   defp resolve_action(%Step{candidate_action: action}) when is_binary(action) do
     action

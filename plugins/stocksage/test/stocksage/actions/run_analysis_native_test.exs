@@ -98,10 +98,11 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
       session_id: "sess_native_analysis"
     }
 
-    context = %{
-      confirmation: %{approved?: true, id: "native-confirmation"},
-      trace_id: "trace-native-analysis"
-    }
+    context =
+      stocksage_context(%{
+        confirmation: %{approved?: true, id: "native-confirmation"},
+        trace_id: "trace-native-analysis"
+      })
 
     assert {:ok, response} = Runner.run("run_analysis", params, context)
 
@@ -157,7 +158,7 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
              Runner.run(
                "run_analysis",
                %{ticker: "MSFT", analysis_date: "2026-05-15", user_id: "alice"},
-               %{}
+               stocksage_context()
              )
 
     assert response.status == :needs_confirmation
@@ -171,7 +172,7 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
              Runner.run(
                "run_analysis",
                %{ticker: "NVDA", analysis_date: "2026-05-15", user_id: "alice"},
-               %{}
+               stocksage_context()
              )
 
     assert response.status == :error
@@ -196,10 +197,11 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
         session_id: "sess_native_missing_key"
       }
 
-      context = %{
-        confirmation: %{approved?: true, id: "native-missing-key-confirmation"},
-        trace_id: "trace-native-missing-key"
-      }
+      context =
+        stocksage_context(%{
+          confirmation: %{approved?: true, id: "native-missing-key-confirmation"},
+          trace_id: "trace-native-missing-key"
+        })
 
       assert {:ok, response} = Runner.run("run_analysis", params, context)
 
@@ -253,6 +255,7 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
 
       assert {:ok, pending} =
                Runner.run("run_analysis", params, %{
+                 active_app: :stocksage,
                  channel: :live_view,
                  user_id: "alice",
                  operator_id: "alice",
@@ -328,10 +331,11 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
       evidence_mode: "fixture"
     }
 
-    context = %{
-      confirmation: %{approved?: true, id: "native-llm-confirmation"},
-      trace_id: "trace-native-llm-analysis"
-    }
+    context =
+      stocksage_context(%{
+        confirmation: %{approved?: true, id: "native-llm-confirmation"},
+        trace_id: "trace-native-llm-analysis"
+      })
 
     assert {:ok, response} = Runner.run("run_analysis", params, context)
 
@@ -368,6 +372,8 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")
     end
   end
+
+  defp stocksage_context(attrs \\ %{}), do: Map.merge(%{active_app: :stocksage}, attrs)
 
   defp collect_fragment_signals(count), do: collect_fragment_signals(count, [])
 

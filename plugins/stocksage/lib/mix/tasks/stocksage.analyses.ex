@@ -67,7 +67,17 @@ defmodule Mix.Tasks.Stocksage.Analyses do
   end
 
   defp context(user_id) do
-    %{request: %{channel: :cli, user_id: user_id, operator_id: user_id, app_id: :stocksage}}
+    %{
+      active_app: :stocksage,
+      app_id: :stocksage,
+      request: %{
+        channel: :cli,
+        user_id: user_id,
+        operator_id: user_id,
+        app_id: :stocksage,
+        active_app: :stocksage
+      }
+    }
   end
 
   defp print_result({:ok, {:list, user_id, analyses}}) do

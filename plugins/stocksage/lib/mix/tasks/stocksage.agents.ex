@@ -103,8 +103,10 @@ defmodule Mix.Tasks.Stocksage.Agents do
       channel: :cli,
       actor: user_id,
       surface: "cli",
-      app_id: :stocksage
+      app_id: :stocksage,
+      active_app: :stocksage
     }
+    |> put_in([:request, :active_app], :stocksage)
   end
 
   defp print_result({:ok, {:list, agents}}) do

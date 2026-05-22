@@ -70,11 +70,18 @@ defmodule Mix.Tasks.Stocksage.Analyze do
 
   defp context(user_id) do
     %{
-      request: %{channel: :cli, user_id: user_id, operator_id: user_id, app_id: :stocksage},
+      request: %{
+        channel: :cli,
+        user_id: user_id,
+        operator_id: user_id,
+        app_id: :stocksage,
+        active_app: :stocksage
+      },
       channel: :cli,
       actor: user_id,
       surface: "cli",
-      app_id: :stocksage
+      app_id: :stocksage,
+      active_app: :stocksage
     }
   end
 
