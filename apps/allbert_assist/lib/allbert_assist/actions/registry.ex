@@ -55,6 +55,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Resources.RememberResourceGrant
   alias AllbertAssist.Actions.Resources.RevokeResourceGrant
   alias AllbertAssist.Actions.Resources.ShowResourceGrant
+  alias AllbertAssist.Actions.Security.Review, as: SecurityReview
   alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
   alias AllbertAssist.Actions.Session.ClearActiveApp
   alias AllbertAssist.Actions.Session.SetActiveApp
@@ -123,6 +124,7 @@ defmodule AllbertAssist.Actions.Registry do
     ImportRemoteSkill,
     ImportLocalSkill,
     SecurityStatus,
+    SecurityReview,
     ListConfirmations,
     ShowConfirmation,
     ApproveConfirmation,
@@ -435,6 +437,13 @@ defmodule AllbertAssist.Actions.Registry do
         "Imports a local skill directory into the disabled, untrusted cache after confirmation."
     },
     SecurityStatus => %{
+      permission: :read_only,
+      exposure: :internal,
+      execution_mode: :security_status,
+      skill_backed?: false,
+      confirmation: :not_required
+    },
+    SecurityReview => %{
       permission: :read_only,
       exposure: :internal,
       execution_mode: :security_status,
