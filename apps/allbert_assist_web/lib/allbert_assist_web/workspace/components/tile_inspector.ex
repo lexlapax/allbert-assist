@@ -208,20 +208,18 @@ defmodule AllbertAssistWeb.Workspace.Components.TileInspector do
   defp trace_node(%{} = node) do
     component = nested_value(node, [:component])
 
-    cond do
-      component in [:trace_link, "trace_link"] ->
-        props = nested_value(node, [:props]) || %{}
+    if component in [:trace_link, "trace_link"] do
+      props = nested_value(node, [:props]) || %{}
 
-        %{
-          href: nested_value(props, [:href]),
-          label: nested_value(props, [:body]) || nested_value(props, [:label])
-        }
-
-      true ->
-        node
-        |> nested_value([:children])
-        |> List.wrap()
-        |> Enum.find_value(&trace_node/1)
+      %{
+        href: nested_value(props, [:href]),
+        label: nested_value(props, [:body]) || nested_value(props, [:label])
+      }
+    else
+      node
+      |> nested_value([:children])
+      |> List.wrap()
+      |> Enum.find_value(&trace_node/1)
     end
   end
 
