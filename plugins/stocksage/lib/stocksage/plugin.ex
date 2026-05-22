@@ -58,6 +58,12 @@ defmodule StockSage.Plugin do
         description: "Master switch for the StockSage LiveView app surfaces."
       },
       %{
+        key: "stocksage.web.progress_stream_enabled",
+        type: :boolean,
+        default: true,
+        description: "Enable live progress streaming on StockSage analysis detail surfaces."
+      },
+      %{
         key: "stocksage.import.default_user",
         type: :string,
         default: "local",

@@ -8,6 +8,7 @@ defmodule StockSageWeb.AnalysisLive do
   alias AllbertAssist.{Confirmations, Objectives}
   alias AllbertAssist.Surface.Node
   alias StockSage.Analyses
+  alias StockSage.Progress
   alias StockSage.SurfaceNodes
   alias StockSageWeb.Components.SurfaceRenderer
   alias StockSageWeb.Live
@@ -24,7 +25,9 @@ defmodule StockSageWeb.AnalysisLive do
      |> assign(:objective, nil)
      |> assign(:objective_steps, [])
      |> assign(:pending_confirmations, [])
-     |> assign(:surface_nodes, [])}
+     |> assign(:surface_nodes, [])
+     |> assign(:progress_topic, nil)
+     |> stream(:progress, [])}
   end
 
   @impl true
@@ -34,7 +37,8 @@ defmodule StockSageWeb.AnalysisLive do
     {:noreply,
      socket
      |> assign(:analysis_id, analysis_id)
-     |> load_analysis_state(analysis_id)}
+     |> load_analysis_state(analysis_id)
+     |> maybe_subscribe_progress(analysis_id)}
   end
 
   @impl true
@@ -43,6 +47,11 @@ defmodule StockSageWeb.AnalysisLive do
       Objectives.cancel(socket.assigns.user_id, objective_id, "Cancelled from StockSage surface.")
 
     {:noreply, load_analysis_state(socket, socket.assigns.analysis_id)}
+  end
+
+  @impl true
+  def handle_info({:stocksage_progress, payload}, socket) do
+    {:noreply, stream_insert(socket, :progress, Progress.normalize_payload(payload), at: -1)}
   end
 
   @impl true
@@ -114,6 +123,38 @@ defmodule StockSageWeb.AnalysisLive do
           aria-label="StockSage analysis cards"
         >
           <SurfaceRenderer.node :for={node <- @surface_nodes} node={node} />
+        </section>
+
+        <section
+          :if={@analysis_id}
+          id="stocksage-progress"
+          class="rounded border border-zinc-800 bg-zinc-900 p-5"
+          aria-label="StockSage analysis progress"
+        >
+          <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+            <h2 class="text-lg font-semibold">Progress</h2>
+          </div>
+          <div
+            id="stocksage-progress-stream"
+            class="mt-4 space-y-2"
+            phx-update="stream"
+            role="list"
+          >
+            <article
+              :for={{dom_id, progress} <- @streams.progress}
+              id={dom_id}
+              class="rounded border border-zinc-800 bg-zinc-950 p-3 text-sm"
+              role="listitem"
+              data-stage={progress.stage}
+              data-status={progress.status}
+            >
+              <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                <span class="font-medium text-emerald-200">{progress.stage}</span>
+                <span class="text-xs text-zinc-400">{progress.status} · {progress.at}</span>
+              </div>
+              <p :if={progress.summary} class="mt-1 text-zinc-300">{progress.summary}</p>
+            </article>
+          </div>
         </section>
 
         <section
@@ -210,12 +251,14 @@ defmodule StockSageWeb.AnalysisLive do
     |> assign(:objective_steps, [])
     |> assign(:pending_confirmations, [])
     |> assign(:surface_nodes, [])
+    |> stream(:progress, [], reset: true)
   end
 
   defp load_analysis_state(socket, analysis_id) do
     case Analyses.get_analysis_with_details(socket.assigns.user_id, analysis_id) do
       {:ok, analysis} ->
         {objective, steps} = objective_state(socket.assigns.user_id, analysis.objective_id)
+        progress_items = Progress.persisted_items(analysis, steps)
 
         surface_nodes =
           case SurfaceNodes.from_analysis(analysis) do
@@ -231,6 +274,7 @@ defmodule StockSageWeb.AnalysisLive do
         |> assign(:objective_steps, steps)
         |> assign(:pending_confirmations, pending_confirmations(analysis, objective))
         |> assign(:surface_nodes, surface_nodes)
+        |> stream(:progress, progress_items, reset: true)
 
       {:error, :not_found} ->
         socket
@@ -241,7 +285,33 @@ defmodule StockSageWeb.AnalysisLive do
         |> assign(:objective_steps, [])
         |> assign(:pending_confirmations, [])
         |> assign(:surface_nodes, [])
+        |> stream(:progress, [], reset: true)
     end
+  end
+
+  defp maybe_subscribe_progress(socket, nil) do
+    socket.assigns.progress_topic
+    |> Progress.unsubscribe_topic()
+
+    assign(socket, :progress_topic, nil)
+  end
+
+  defp maybe_subscribe_progress(socket, "") do
+    maybe_subscribe_progress(socket, nil)
+  end
+
+  defp maybe_subscribe_progress(socket, analysis_id) do
+    next_topic = Progress.topic(socket.assigns.user_id, analysis_id)
+    previous_topic = socket.assigns.progress_topic
+
+    if connected?(socket) and socket.assigns.web_enabled? do
+      if previous_topic != next_topic do
+        Progress.unsubscribe_topic(previous_topic)
+        Progress.subscribe(socket.assigns.user_id, analysis_id)
+      end
+    end
+
+    assign(socket, :progress_topic, next_topic)
   end
 
   defp objective_state(_user_id, nil), do: {nil, []}

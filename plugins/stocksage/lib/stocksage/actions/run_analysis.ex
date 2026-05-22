@@ -87,6 +87,7 @@ defmodule StockSage.Actions.RunAnalysis do
   alias StockSage.Agents.NativeCoordinator
   alias StockSage.Analyses
   alias StockSage.Bridge.Protocol
+  alias StockSage.Progress
   alias StockSage.Queue
   alias StockSage.SurfaceNodes
   alias StockSage.TraderBridge
@@ -567,6 +568,14 @@ defmodule StockSage.Actions.RunAnalysis do
               native_trace: native_trace_metadata(validated, result)
             })
 
+            Progress.broadcast(validated.user_id, analysis.id, %{
+              objective_id: validated.objective_id,
+              stage: "completed",
+              status: "completed",
+              summary: summary,
+              at: DateTime.utc_now()
+            })
+
             {:ok,
              %{
                message:
@@ -682,6 +691,14 @@ defmodule StockSage.Actions.RunAnalysis do
           duration_ms: duration_ms,
           bridge_duration_ms: if(python_engine?(validated.engine), do: duration_ms, else: nil),
           error: Protocol.bounded_reason(reason)
+        })
+
+        Progress.broadcast(validated.user_id, analysis_id, %{
+          objective_id: validated.objective_id,
+          stage: "failed",
+          status: "failed",
+          summary: summary,
+          at: DateTime.utc_now()
         })
 
         {:ok,
