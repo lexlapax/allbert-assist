@@ -436,6 +436,66 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     refute is_nil(deleted.deleted_at)
   end
 
+  test "tile inspector opens from the tile menu and closes by Escape or button", %{conn: conn} do
+    thread = create_workspace_thread()
+
+    assert {:ok, tile} =
+             Workspace.add_tile(%{
+               user_id: "local",
+               thread_id: thread.id,
+               kind: :text,
+               body: %{text: "operator tile inspector body"},
+               metadata: %{"emitter_id" => "AllbertAssist.TestEmitter"}
+             })
+
+    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+
+    menu_html =
+      view
+      |> element("#workspace-tile-menu-button-#{tile.id}")
+      |> render_click()
+
+    assert menu_html =~ "Inspect"
+
+    assert has_element?(
+             view,
+             "#workspace-tile-inspect-#{tile.id}[phx-click='open_tile_inspector']"
+           )
+
+    inspector_html =
+      view
+      |> element("#workspace-tile-inspect-#{tile.id}")
+      |> render_click()
+
+    assert inspector_html =~ "Tile inspector"
+    assert inspector_html =~ "operator tile inspector body"
+    assert inspector_html =~ "AllbertAssist.TestEmitter"
+    assert has_element?(view, "#workspace-tile-inspector[role='dialog'][phx-hook='FocusTrap']")
+    assert has_element?(view, "#workspace-tile-inspector-copy-id[data-copy-value='#{tile.id}']")
+    assert has_element?(view, "#workspace-tile-inspector-copy-body")
+    refute has_element?(view, "#workspace-tile-menu-#{tile.id}")
+
+    view
+    |> element("#workspace-tile-inspector")
+    |> render_keydown(%{"key" => "Escape"})
+
+    refute has_element?(view, "#workspace-tile-inspector")
+
+    view
+    |> element("#workspace-tile-menu-button-#{tile.id}")
+    |> render_click()
+
+    view
+    |> element("#workspace-tile-inspect-#{tile.id}")
+    |> render_click()
+
+    view
+    |> element("#workspace-tile-inspector-close")
+    |> render_click()
+
+    refute has_element?(view, "#workspace-tile-inspector")
+  end
+
   test "ephemeral lifecycle events fan out open and close to sibling tabs", %{conn: conn} do
     start_workspace_bridge()
     thread = create_workspace_thread()
