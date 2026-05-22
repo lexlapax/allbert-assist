@@ -51,9 +51,11 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Fragment.Guard
   alias Jido.Signal.Bus
   alias StockSage.Analyses
+  alias StockSage.SurfaceNodes
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -109,6 +111,13 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
     assert is_binary(response.analysis_id)
     assert is_binary(response.objective_id)
     assert response.summary =~ "decision synthesized"
+    assert [%Node{} | _] = response.surface_nodes
+    assert {:ok, _validated_nodes} = SurfaceNodes.validate_nodes(response.surface_nodes)
+
+    surface_components = Enum.map(response.surface_nodes, & &1.component)
+    assert :analysis_card in surface_components
+    assert :agent_report_card in surface_components
+    assert :debate_round_card in surface_components
 
     [action] = response.actions
     native_trace = get_in(action, [:stocksage, :native_trace])
@@ -199,6 +208,10 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
       assert response.status == :failed
       assert response.error == reason
       assert response.message =~ reason
+      assert [%Node{component: :analysis_card, props: failed_props}] = response.surface_nodes
+      assert failed_props.status == "failed"
+      assert failed_props.summary == reason
+      assert {:ok, _validated_nodes} = SurfaceNodes.validate_nodes(response.surface_nodes)
       assert response.actions |> hd() |> get_in([:stocksage, :error]) == reason
 
       {:ok, analysis} = Analyses.get_analysis_with_details("alice", response.analysis_id)
