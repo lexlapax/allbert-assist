@@ -52,6 +52,12 @@ defmodule StockSage.Plugin do
   def settings_schema do
     [
       %{
+        key: "stocksage.web.enabled",
+        type: :boolean,
+        default: true,
+        description: "Master switch for the StockSage LiveView app surfaces."
+      },
+      %{
         key: "stocksage.import.default_user",
         type: :string,
         default: "local",
