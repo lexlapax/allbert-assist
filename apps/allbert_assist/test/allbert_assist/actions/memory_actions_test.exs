@@ -10,7 +10,10 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
   alias AllbertAssist.Actions.Memory.SearchMemory
   alias AllbertAssist.Actions.Memory.SummarizeMemoryCategory
+  alias AllbertAssist.Actions.Memory.SyncAppLesson
   alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
@@ -192,6 +195,71 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert delete_setting == true
   end
 
+  test "sync_app_lesson requires confirmation before writing namespaced app memory" do
+    ensure_stocksage_registered()
+    params = app_lesson_params()
+
+    assert {:ok, pending} = Runner.run("sync_app_lesson", params, app_lesson_context())
+    assert pending.status == :needs_confirmation
+    assert pending.confirmation_id
+    assert pending.message =~ "No Allbert markdown memory was written"
+
+    assert {:ok, []} =
+             Memory.list_entries(user_id: "alice", app_id: :stocksage, namespace: :stocksage)
+
+    assert {:ok, approved} =
+             ApproveConfirmation.run(
+               %{id: pending.confirmation_id, reason: "operator reviewed"},
+               %{
+                 user_id: "alice",
+                 actor: "alice",
+                 channel: :test
+               }
+             )
+
+    assert approved.status == :completed
+    assert approved.confirmation["status"] == "approved"
+
+    assert {:ok, [entry]} =
+             Memory.list_entries(
+               user_id: "alice",
+               app_id: :stocksage,
+               namespace: :stocksage,
+               kind: :stocksage_lesson
+             )
+
+    assert entry.body =~ "Boundary: StockSage reflection reviewed by operator."
+    assert entry.idempotency_key == "stocksage:analysis-aapl:30d"
+    assert entry.source_ref == "stocksage:analysis:analysis-aapl"
+
+    assert {:ok, updated} =
+             SyncAppLesson.run(
+               %{params | lesson_text: "Updated lesson after review."},
+               Map.put(app_lesson_context(), :confirmation, %{approved?: true})
+             )
+
+    assert updated.status == :completed
+
+    assert {:ok, [updated_entry]} =
+             Memory.list_entries(user_id: "alice", app_id: "stocksage", namespace: "stocksage")
+
+    assert updated_entry.path == entry.path
+    assert updated_entry.body =~ "Updated lesson after review."
+  end
+
+  test "sync_app_lesson rejects undeclared app namespaces even after approval" do
+    ensure_stocksage_registered()
+
+    assert {:ok, response} =
+             SyncAppLesson.run(
+               %{app_lesson_params() | namespace: "unclaimed"},
+               Map.put(app_lesson_context(), :confirmation, %{approved?: true})
+             )
+
+    assert response.status == :error
+    assert response.error == {:unknown_memory_namespace, :unclaimed}
+  end
+
   test "compile_memory_index, search_memory, and summarize_memory_category use derived artifacts" do
     assert {:ok, entry} = append("alice", "Alice prefers compact release notes.")
 
@@ -228,6 +296,43 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
       channel: :test,
       source_signal_id: "sig"
     })
+  end
+
+  defp app_lesson_params do
+    %{
+      user_id: "alice",
+      app_id: "stocksage",
+      namespace: "stocksage",
+      analysis_id: "analysis-aapl",
+      outcome_id: "outcome-aapl",
+      objective_id: "objective-aapl",
+      ticker: "AAPL",
+      rating: "buy",
+      realized_return: "4.2",
+      holding_period_days: 30,
+      lesson_text: "Boundary: StockSage reflection reviewed by operator.",
+      source: "stocksage_reflection",
+      resolved_at: "2026-05-22"
+    }
+  end
+
+  defp app_lesson_context do
+    %{
+      user_id: "alice",
+      actor: "alice",
+      channel: :test,
+      active_app: :stocksage,
+      request: %{user_id: "alice", operator_id: "alice", channel: :test, active_app: :stocksage}
+    }
+  end
+
+  defp ensure_stocksage_registered do
+    unless AppRegistry.known_app_id?(:stocksage) do
+      assert AppRegistry.register(StockSage.App) in [
+               {:ok, :stocksage},
+               {:error, {:app_id_taken, :stocksage}}
+             ]
+    end
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

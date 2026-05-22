@@ -10,6 +10,7 @@ defmodule AllbertAssist.Memory do
   @recall_categories [:notes, :preferences, :skills]
   @default_limit 5
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Memory.Entry
   alias AllbertAssist.Memory.Review
   alias AllbertAssist.Paths
@@ -25,6 +26,11 @@ defmodule AllbertAssist.Memory do
           actor: String.t(),
           agent: String.t(),
           channel: String.t(),
+          app_id: String.t() | nil,
+          namespace: String.t() | nil,
+          kind: String.t() | nil,
+          idempotency_key: String.t() | nil,
+          source_ref: String.t() | nil,
           summary: String.t(),
           body: String.t(),
           review_status: Entry.review_status(),
@@ -78,6 +84,54 @@ defmodule AllbertAssist.Memory do
 
   def append(_attrs), do: {:error, :invalid_memory_attrs}
 
+  @doc """
+  Append or update a namespaced app memory entry.
+
+  Namespaced writes validate the app namespace declared through the app
+  registry and are idempotent by `{actor, app_id, namespace, idempotency_key}`.
+  """
+  @spec upsert_app_entry(map()) :: {:ok, Entry.t()} | {:error, term()}
+  def upsert_app_entry(attrs) when is_map(attrs) do
+    with {:ok, app_id} <- normalize_app_id(Map.get(attrs, :app_id, Map.get(attrs, "app_id"))),
+         {:ok, namespace} <-
+           normalize_namespace(Map.get(attrs, :namespace, Map.get(attrs, "namespace"))),
+         :ok <- validate_writable_namespace(app_id, namespace),
+         {:ok, kind} <- required_string(attrs, :kind),
+         {:ok, idempotency_key} <- required_string(attrs, :idempotency_key),
+         {:ok, source_ref} <- required_string(attrs, :source_ref),
+         {:ok, body} <- normalize_body(Map.get(attrs, :body, Map.get(attrs, "body"))) do
+      actor = attrs |> value(:actor, "local") |> to_string()
+      summary = value(attrs, :summary, body)
+
+      case find_app_entry(actor, app_id, namespace, idempotency_key) do
+        {:ok, %Entry{} = entry} ->
+          update_entry(entry.path, %{summary: summary, body: body}, user_id: actor)
+
+        {:error, :not_found} ->
+          append(%{
+            category: value(attrs, :category, :notes),
+            summary: summary,
+            body: body,
+            actor: actor,
+            agent: value(attrs, :agent, "AllbertAssist.AppMemory"),
+            channel: value(attrs, :channel, "app"),
+            source_signal_id: value(attrs, :source_signal_id, "unknown"),
+            app_id: app_id,
+            namespace: namespace,
+            kind: kind,
+            idempotency_key: idempotency_key,
+            source_ref: source_ref
+          })
+          |> case do
+            {:ok, entry} -> read_entry(entry.path, user_id: actor)
+            error -> error
+          end
+      end
+    end
+  end
+
+  def upsert_app_entry(_attrs), do: {:error, :invalid_app_memory_attrs}
+
   @doc "Read recent markdown memory entries, optionally ranked by query terms."
   @spec recent(keyword()) :: {:ok, [entry()]}
   def recent(opts \\ []) when is_list(opts) do
@@ -103,6 +157,10 @@ defmodule AllbertAssist.Memory do
     review_status = Keyword.get(opts, :review_status)
     since = Keyword.get(opts, :since)
     user_id = Keyword.get(opts, :user_id)
+    app_id = Keyword.get(opts, :app_id)
+    namespace = Keyword.get(opts, :namespace)
+    kind = Keyword.get(opts, :kind)
+    idempotency_key = Keyword.get(opts, :idempotency_key)
     categories = categories_for_filter(category)
 
     entries =
@@ -111,6 +169,10 @@ defmodule AllbertAssist.Memory do
       |> Enum.flat_map(&read_entry_file/1)
       |> Enum.map(&Entry.from_map/1)
       |> filter_by_user(user_id)
+      |> filter_by_app_id(app_id)
+      |> filter_by_namespace(namespace)
+      |> filter_by_kind(kind)
+      |> filter_by_idempotency_key(idempotency_key)
       |> filter_by_review_status(review_status)
       |> filter_since(since)
       |> Enum.sort_by(&{&1.timestamp, &1.path}, :desc)
@@ -253,6 +315,11 @@ defmodule AllbertAssist.Memory do
     agent = Map.get(attrs, :agent, "AllbertAssist.Agents.IntentAgent") |> to_string()
     source_signal_id = Map.get(attrs, :source_signal_id, "unknown") |> to_string()
     channel = Map.get(attrs, :channel, "unknown") |> to_string()
+    app_id = optional_metadata(attrs, :app_id)
+    namespace = optional_metadata(attrs, :namespace)
+    kind = optional_metadata(attrs, :kind)
+    idempotency_key = optional_metadata(attrs, :idempotency_key)
+    source_ref = optional_metadata(attrs, :source_ref)
     path = entry_path(category, timestamp, summary)
 
     {:ok,
@@ -264,6 +331,11 @@ defmodule AllbertAssist.Memory do
        actor: actor,
        agent: agent,
        channel: channel,
+       app_id: app_id,
+       namespace: namespace,
+       kind: kind,
+       idempotency_key: idempotency_key,
+       source_ref: source_ref,
        summary: summary,
        body: body,
        review_status: :unreviewed,
@@ -282,6 +354,17 @@ defmodule AllbertAssist.Memory do
   end
 
   defp render_entry(entry) do
+    app_metadata =
+      [
+        {"App ID", entry.app_id},
+        {"Namespace", entry.namespace},
+        {"Kind", entry.kind},
+        {"Idempotency key", entry.idempotency_key},
+        {"Source ref", entry.source_ref}
+      ]
+      |> Enum.reject(fn {_key, value} -> blank?(value) end)
+      |> Enum.map_join("\n", fn {key, value} -> "- #{key}: #{value}" end)
+
     """
     # Memory: #{entry.summary}
 
@@ -291,6 +374,7 @@ defmodule AllbertAssist.Memory do
     - Actor: #{entry.actor}
     - Agent: #{entry.agent}
     - Channel: #{entry.channel}
+    #{app_metadata}
 
     ## Body
 
@@ -341,6 +425,11 @@ defmodule AllbertAssist.Memory do
       actor: metadata(content, "Actor"),
       agent: metadata(content, "Agent"),
       channel: metadata(content, "Channel"),
+      app_id: metadata(content, "App ID"),
+      namespace: metadata(content, "Namespace"),
+      kind: metadata(content, "Kind"),
+      idempotency_key: metadata(content, "Idempotency key"),
+      source_ref: metadata(content, "Source ref"),
       summary: summary_from_content(content),
       body: body_from_content(content),
       content: content,
@@ -459,6 +548,139 @@ defmodule AllbertAssist.Memory do
       })
     end
   end
+
+  defp filter_by_app_id(entries, nil), do: entries
+
+  defp filter_by_app_id(entries, app_id) do
+    case normalize_app_id(app_id) do
+      {:ok, app_id} -> Enum.filter(entries, &(&1.app_id == Atom.to_string(app_id)))
+      {:error, _reason} -> []
+    end
+  end
+
+  defp filter_by_namespace(entries, nil), do: entries
+
+  defp filter_by_namespace(entries, namespace) do
+    case normalize_namespace(namespace) do
+      {:ok, namespace} -> Enum.filter(entries, &(&1.namespace == Atom.to_string(namespace)))
+      {:error, _reason} -> []
+    end
+  end
+
+  defp filter_by_kind(entries, nil), do: entries
+  defp filter_by_kind(entries, ""), do: entries
+
+  defp filter_by_kind(entries, kind) do
+    kind = metadata_value(kind)
+    Enum.filter(entries, &(&1.kind == kind))
+  end
+
+  defp filter_by_idempotency_key(entries, nil), do: entries
+  defp filter_by_idempotency_key(entries, ""), do: entries
+
+  defp filter_by_idempotency_key(entries, idempotency_key) do
+    idempotency_key = metadata_value(idempotency_key)
+    Enum.filter(entries, &(&1.idempotency_key == idempotency_key))
+  end
+
+  defp find_app_entry(actor, app_id, namespace, idempotency_key) do
+    list_entries(
+      user_id: actor,
+      app_id: app_id,
+      namespace: namespace,
+      idempotency_key: idempotency_key,
+      limit: 1
+    )
+    |> case do
+      {:ok, [%Entry{} = entry | _rest]} -> {:ok, entry}
+      {:ok, []} -> {:error, :not_found}
+    end
+  end
+
+  defp normalize_app_id(app_id) do
+    case AppRegistry.normalize_app_id(app_id) do
+      {:ok, nil} -> {:error, :missing_app_id}
+      {:ok, app_id} -> {:ok, app_id}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp normalize_namespace(namespace) when is_atom(namespace) and not is_nil(namespace),
+    do: {:ok, namespace}
+
+  defp normalize_namespace(namespace) when is_binary(namespace) do
+    normalized =
+      namespace
+      |> String.trim()
+      |> String.downcase()
+
+    cond do
+      normalized == "" ->
+        {:error, :missing_namespace}
+
+      Regex.match?(~r/^[a-z][a-z0-9_]*$/, normalized) ->
+        {:ok, String.to_existing_atom(normalized)}
+
+      true ->
+        {:error, :unknown_namespace}
+    end
+  rescue
+    ArgumentError -> {:error, :unknown_namespace}
+  end
+
+  defp normalize_namespace(_namespace), do: {:error, :missing_namespace}
+
+  defp validate_writable_namespace(app_id, namespace) do
+    AppRegistry.registered_memory_namespaces()
+    |> Enum.find(fn declaration ->
+      declaration.app_id == app_id and declaration.namespace == namespace
+    end)
+    |> case do
+      %{writable: true} -> :ok
+      %{writable: false} -> {:error, {:memory_namespace_not_writable, namespace}}
+      nil -> {:error, {:unknown_memory_namespace, namespace}}
+    end
+  end
+
+  defp required_string(attrs, key) do
+    case value(attrs, key, nil) do
+      value when is_binary(value) ->
+        case String.trim(value) do
+          "" -> {:error, {:missing_required, key}}
+          trimmed -> {:ok, trimmed}
+        end
+
+      value when is_atom(value) and not is_nil(value) ->
+        {:ok, Atom.to_string(value)}
+
+      value when is_integer(value) or is_float(value) ->
+        {:ok, to_string(value)}
+
+      _value ->
+        {:error, {:missing_required, key}}
+    end
+  end
+
+  defp optional_metadata(attrs, key) do
+    attrs
+    |> value(key, nil)
+    |> metadata_value()
+    |> case do
+      "" -> nil
+      value -> value
+    end
+  end
+
+  defp metadata_value(nil), do: ""
+  defp metadata_value(value) when is_binary(value), do: String.trim(value)
+  defp metadata_value(value) when is_atom(value), do: Atom.to_string(value)
+  defp metadata_value(value), do: value |> to_string() |> String.trim()
+
+  defp value(map, key, default) when is_map(map) do
+    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+  end
+
+  defp value(_map, _key, default), do: default
 
   defp blank?(value), do: not is_binary(value) or String.trim(value) == ""
 

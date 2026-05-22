@@ -112,7 +112,7 @@ defmodule StockSage.PluginTest do
     assert {:ok, entry} = AppRegistry.lookup(:stocksage, server: app_registry)
     assert entry.module == StockSage.App
 
-    assert [%{namespace: :stocksage, writable: false}] =
+    assert [%{namespace: :stocksage, writable: true}] =
              AppRegistry.registered_memory_namespaces(server: app_registry)
 
     assert {:ok, :stocksage} = AppRegistry.normalize_app_id("stocksage", server: app_registry)
@@ -153,11 +153,13 @@ defmodule StockSage.PluginTest do
     assert attrs.memory_namespace == %{
              app_id: :stocksage,
              namespace: :stocksage,
-             writable: false,
-             description: "StockSage-owned analysis memory namespace; writes begin in v0.29."
+             writable: true,
+             description:
+               "StockSage-owned analysis memory namespace; v0.29 writes require explicit lesson sync confirmation."
            }
 
     refute Code.ensure_loaded?(StockSage.Actions.SyncAppLesson)
+    assert Code.ensure_loaded?(AllbertAssist.Actions.Memory.SyncAppLesson)
 
     assert attrs.provider_surfaces == StockSage.App.surfaces()
     assert attrs.surfaces == []

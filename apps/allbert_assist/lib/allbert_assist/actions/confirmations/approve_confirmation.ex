@@ -164,7 +164,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       when action_name in [
              "delete_memory_entry",
              "prune_memory_entries",
-             "promote_conversation_turn"
+             "promote_conversation_turn",
+             "sync_app_lesson"
            ] ->
         resume_memory_action(
           record,

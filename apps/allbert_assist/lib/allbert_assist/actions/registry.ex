@@ -41,6 +41,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
   alias AllbertAssist.Actions.Memory.SearchMemory
   alias AllbertAssist.Actions.Memory.SummarizeMemoryCategory
+  alias AllbertAssist.Actions.Memory.SyncAppLesson
   alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
   alias AllbertAssist.Actions.Objectives.CancelObjective
   alias AllbertAssist.Actions.Objectives.ContinueObjective
@@ -151,6 +152,7 @@ defmodule AllbertAssist.Actions.Registry do
     SummarizeMemoryCategory,
     ListMemoryCategorySummary,
     PromoteConversationTurn,
+    SyncAppLesson,
     ListObjectives,
     ShowObjective,
     CancelObjective,
@@ -635,6 +637,16 @@ defmodule AllbertAssist.Actions.Registry do
       skill_backed?: false,
       confirmation: :required,
       resumable?: true
+    },
+    SyncAppLesson => %{
+      permission: :memory_write,
+      exposure: :internal,
+      execution_mode: :app_memory_sync,
+      skill_backed?: false,
+      confirmation: :required,
+      resumable?: true,
+      notes:
+        "Writes one explicitly confirmed app lesson through a declared writable app memory namespace."
     },
     ListObjectives => %{
       permission: :read_only,
