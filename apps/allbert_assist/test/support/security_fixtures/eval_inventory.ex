@@ -24,7 +24,11 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       scenario: "external_network_request redirect targets metadata endpoint",
       boundary: :resource_access,
       expected: :denied,
-      assert: [:denied, {:trace_records, [:resource_decision]}, {:fixture_transport_calls, :external_network, 0}],
+      assert: [
+        :denied,
+        {:trace_records, [:resource_decision]},
+        {:fixture_transport_calls, :external_network, 0}
+      ],
       test_module: "AllbertAssist.Security.ResourceExecutionEvalTest"
     },
     %{

@@ -223,28 +223,7 @@ defmodule AllbertAssist.Surface do
       diagnostics =
         surface.nodes
         |> flatten_nodes()
-        |> Enum.reduce([], fn
-          %Node{} = node, acc ->
-            if node.component in @primitive_components or MapSet.member?(allowed, node.component) do
-              acc
-            else
-              [
-                diagnostic(
-                  :component_not_in_app_catalog,
-                  "Surface component is not declared by the app catalog.",
-                  %{
-                    node_id: node.id,
-                    component: node.component,
-                    app_id: surface.app_id
-                  }
-                )
-                | acc
-              ]
-            end
-
-          _node, acc ->
-            acc
-        end)
+        |> Enum.reduce([], &catalog_node_diagnostics(&1, &2, allowed, surface.app_id))
 
       if diagnostics == [], do: :ok, else: {:error, Enum.reverse(diagnostics)}
     end
@@ -253,6 +232,27 @@ defmodule AllbertAssist.Surface do
   def validate_surface_catalog(_surface, _catalog),
     do:
       {:error, [diagnostic(:invalid_surface, "Surface must be an AllbertAssist.Surface struct.")]}
+
+  defp catalog_node_diagnostics(%Node{} = node, acc, allowed, app_id) do
+    if node.component in @primitive_components or MapSet.member?(allowed, node.component) do
+      acc
+    else
+      [
+        diagnostic(
+          :component_not_in_app_catalog,
+          "Surface component is not declared by the app catalog.",
+          %{
+            node_id: node.id,
+            component: node.component,
+            app_id: app_id
+          }
+        )
+        | acc
+      ]
+    end
+  end
+
+  defp catalog_node_diagnostics(_node, acc, _allowed, _app_id), do: acc
 
   defp validate_surface_shape(diagnostics, surface) do
     diagnostics

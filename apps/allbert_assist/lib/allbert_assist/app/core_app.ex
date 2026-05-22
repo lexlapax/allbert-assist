@@ -18,7 +18,7 @@ defmodule AllbertAssist.App.CoreApp do
   # the app (release-pinned, not semantic-per-app). v0.27 proves plugin-owned
   # app surfaces through StockSage while preserving `/agent` authority.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.27.0"
+  def version, do: "0.28.0"
 
   @impl true
   def validate(_opts), do: :ok

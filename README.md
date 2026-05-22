@@ -10,12 +10,19 @@ not the architecture center.
 
 ## Current Status
 
-v0.27.0 is the current implementation-ready release. It proves the plugin app
-surface contract through StockSage-owned LiveViews at `/stocksage/*`: real
-StockSage card renderers, validated `RunAnalysis` Surface nodes, app memory
-namespace declaration, objective/confirmation rendering, bounded progress
-streaming, and focused app-flow UX. Version metadata is now `0.27.0`; the
-release tag is pending operator acceptance.
+v0.28.0 is the current implementation-ready release. It hardens Security
+Central after the app surface and workspace substrate work: adversarial evals
+now cover resource execution, identity context, plugin/app registration,
+surface/workspace/catalog boundaries, objective runtime behavior, StockSage
+bridge and market-data authorization, operator review, and emergency disable
+switches. Version metadata is now `0.28.0`; the release tag is pending
+operator acceptance.
+
+v0.27.0 remains the plugin app surface contract release. It proves
+StockSage-owned LiveViews at `/stocksage/*`, real card renderers, validated
+`RunAnalysis` Surface nodes, app memory namespace declaration,
+objective/confirmation rendering, bounded progress streaming, and focused
+app-flow UX.
 
 v0.26.2 remains the workspace UX closeout for `/agent`: tile inspector modal,
 thread switcher dropdown, and multi-tab sync verification on top of the v0.26
@@ -315,10 +322,10 @@ traces, and audits.
 - Development guide: `DEVELOPMENT.md`
 - Roadmap: `docs/plans/roadmap.md`
 - Vision: `docs/plans/allbert-jido-vision.md`
-- v0.27 release plan: `docs/plans/v0.27-plan.md`
-- v0.27 request flow and manual verification: `docs/plans/v0.27-request-flow.md`
+- v0.28 release plan: `docs/plans/v0.28-plan.md`
+- v0.28 request flow and manual verification: `docs/plans/v0.28-request-flow.md`
 - App authoring guide: `docs/developer/how-to-create-an-allbert-app.md`
-- Next milestone plan: `docs/plans/v0.28-plan.md`
+- Next milestone plan: `docs/plans/v0.29-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development

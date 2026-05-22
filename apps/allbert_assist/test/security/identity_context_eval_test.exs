@@ -2,6 +2,7 @@ defmodule AllbertAssist.Security.IdentityContextEvalTest do
   use AllbertAssist.SecurityEvalCase, async: false
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Jobs
@@ -23,9 +24,13 @@ defmodule AllbertAssist.Security.IdentityContextEvalTest do
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
+    stocksage_app_registered? = AppRegistry.known_app_id?(:stocksage)
+    unless stocksage_app_registered?, do: AppRegistry.register(StockSage.App)
+
     on_exit(fn ->
       restore_env(Confirmations, original_confirmations_config)
       restore_env(Settings, original_settings_config)
+      unless stocksage_app_registered?, do: AppRegistry.unregister(:stocksage)
       File.rm_rf!(root)
     end)
 

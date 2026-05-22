@@ -9,6 +9,8 @@ defmodule AllbertAssist.SecurityEvalCase do
 
   use ExUnit.CaseTemplate
 
+  alias AllbertAssist.Actions.Runner
+
   using opts do
     quote do
       use AllbertAssist.DataCase, async: unquote(Keyword.get(opts, :async, false))
@@ -36,12 +38,12 @@ defmodule AllbertAssist.SecurityEvalCase do
     normalize_eval(result, fixture)
   end
 
-  def run_eval(%{boundary: {AllbertAssist.Actions.Runner, action}, input: input} = fixture) do
+  def run_eval(%{boundary: {Runner, action}, input: input} = fixture) do
     params = Map.get(input, :params, %{})
     context = Map.get(input, :context, %{})
 
     action
-    |> AllbertAssist.Actions.Runner.run(params, context)
+    |> Runner.run(params, context)
     |> normalize_eval(fixture)
   end
 
@@ -167,7 +169,9 @@ defmodule AllbertAssist.SecurityEvalCase do
   defp contains_value?(value, needle) when is_binary(value), do: String.contains?(value, needle)
 
   defp contains_value?(value, needle) when is_map(value) do
-    Enum.any?(value, fn {key, val} -> contains_value?(key, needle) or contains_value?(val, needle) end)
+    Enum.any?(value, fn {key, val} ->
+      contains_value?(key, needle) or contains_value?(val, needle)
+    end)
   end
 
   defp contains_value?(value, needle) when is_list(value) do
