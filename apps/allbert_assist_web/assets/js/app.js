@@ -84,6 +84,90 @@ const FocusTrap = {
   },
 }
 
+// v0.26a M29: Enter submits the composer form; Shift+Enter inserts a newline.
+// IME composition (CJK / accents) is respected — only commit on Enter when
+// `event.isComposing` is false. Modifier keys (Cmd/Ctrl/Alt) defer to default
+// browser behavior so accessibility shortcuts keep working.
+const ComposerEnter = {
+  mounted() {
+    this.handleKeydown = event => {
+      if (event.key !== "Enter") return
+      if (event.isComposing || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return
+
+      const formId = this.el.dataset.submitForm
+      const form = formId ? document.getElementById(formId) : this.el.closest("form")
+      if (!form) return
+
+      event.preventDefault()
+
+      if (typeof form.requestSubmit === "function") {
+        form.requestSubmit()
+      } else {
+        form.dispatchEvent(new Event("submit", {bubbles: true, cancelable: true}))
+      }
+    }
+
+    this.el.addEventListener("keydown", this.handleKeydown)
+  },
+  destroyed() {
+    this.el.removeEventListener("keydown", this.handleKeydown)
+  },
+}
+
+// v0.26a M28: keep the chat timeline pinned to the latest message after
+// LiveView re-renders, unless the operator has scrolled away from the bottom
+// (in which case respect their position).
+const ChatAutoScroll = {
+  mounted() {
+    this.stickyBottom = true
+    this.handleScroll = () => {
+      const distanceFromBottom = this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight
+      this.stickyBottom = distanceFromBottom < 64
+    }
+    this.el.addEventListener("scroll", this.handleScroll, {passive: true})
+    this.scrollToBottom()
+  },
+  updated() {
+    if (this.stickyBottom) this.scrollToBottom()
+  },
+  destroyed() {
+    this.el.removeEventListener("scroll", this.handleScroll)
+  },
+  scrollToBottom() {
+    this.el.scrollTop = this.el.scrollHeight
+  },
+}
+
+// v0.26a M33: small copy-to-clipboard helper used for mono ids, paths, signal
+// ids etc. The target text comes from `data-copy-value`; falls back to the
+// element's text content. Emits a transient "Copied" affordance via aria-live.
+const CopyToClipboard = {
+  mounted() {
+    this.handleClick = async event => {
+      event.preventDefault()
+      const value = this.el.dataset.copyValue || this.el.textContent || ""
+      try {
+        await navigator.clipboard.writeText(value.trim())
+        this.flashStatus("Copied")
+      } catch (_error) {
+        this.flashStatus("Copy failed")
+      }
+    }
+    this.el.addEventListener("click", this.handleClick)
+  },
+  destroyed() {
+    this.el.removeEventListener("click", this.handleClick)
+  },
+  flashStatus(text) {
+    const previous = this.el.getAttribute("data-copy-status") || ""
+    this.el.setAttribute("data-copy-status", text)
+    window.clearTimeout(this.statusTimer)
+    this.statusTimer = window.setTimeout(() => {
+      this.el.setAttribute("data-copy-status", previous)
+    }, 1200)
+  },
+}
+
 const workspaceSplitKey = "allbert.workspace.split_ratio.v1"
 
 const clampWorkspaceSplit = value => {
@@ -605,7 +689,16 @@ const liveSocket = csrfToken
   ? new LiveSocket("/live", Socket, {
       longPollFallbackMs: 2500,
       params: {_csrf_token: csrfToken},
-      hooks: {...colocatedHooks, FocusTrap, WorkspaceSplitResizer, WorkspaceTabs, WorkspaceTileEditor},
+      hooks: {
+        ...colocatedHooks,
+        FocusTrap,
+        WorkspaceSplitResizer,
+        WorkspaceTabs,
+        WorkspaceTileEditor,
+        ComposerEnter,
+        ChatAutoScroll,
+        CopyToClipboard,
+      },
     })
   : null
 
