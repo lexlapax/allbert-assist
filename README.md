@@ -10,15 +10,17 @@ not the architecture center.
 
 ## Current Status
 
-v0.26 is implemented through the UI release closeout and ready for operator
-manual validation. It upgrades `/agent` into the Allbert workspace: an
-Allbert Assist AppBar, a Surface-tree LiveView shell, per-thread canvas
-tiles, per-thread ephemeral surfaces, signed runtime Fragments, a
-42-component catalog, multi-tab sync, theme/high-contrast/reduced-motion/mobile
-polish, a client-side chat/canvas split bar, a service-worker offline shell,
-browser-side Yjs + IndexedDB text/markdown editing, server-side revision
-snapshots, conflict banners, and the `revert_tile_revision` action. Version
-metadata is now `0.26.0`; the release tag remains pending operator acceptance.
+v0.26.1 is the current release. It upgrades `/agent` into the Allbert
+workspace: an Allbert Assist AppBar, a Surface-tree LiveView shell,
+per-thread canvas tiles, per-thread ephemeral surfaces, signed runtime
+Fragments, a 42-component catalog, multi-tab sync,
+theme/high-contrast/reduced-motion/mobile polish, a client-side chat/canvas
+split bar, a service-worker offline shell, browser-side Yjs + IndexedDB
+text/markdown editing, server-side revision snapshots, conflict banners, and
+the `revert_tile_revision` action. The v0.26.1 closeout also includes the
+v0.26b backend fixes for setting-shaped intent fallback, visible native
+StockSage LLM failure reasons, and empty `/agent` composer state. Version
+metadata is now `0.26.1`; the release tag is `v0.26.1`.
 
 v0.25 remains the native-financial-specialist release. It adds StockSage
 native agents, action-backed evidence providers, multi-round debate with
@@ -316,7 +318,7 @@ traces, and audits.
 - v0.25 release plan: `docs/plans/v0.25-plan.md`
 - v0.25 request flow and manual verification: `docs/plans/v0.25-request-flow.md`
 - App authoring guide: `docs/developer/how-to-create-an-allbert-app.md`
-- Next milestone plan: `docs/plans/v0.26-plan.md`
+- Next milestone plan: `docs/plans/v0.27-plan.md`
 - Architecture decisions: `docs/adr/`
 
 ## Local Development
