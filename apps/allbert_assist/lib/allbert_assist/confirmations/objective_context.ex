@@ -8,7 +8,7 @@ defmodule AllbertAssist.Confirmations.ObjectiveContext do
   """
 
   alias AllbertAssist.Objectives
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
 
   @max_title 200
 

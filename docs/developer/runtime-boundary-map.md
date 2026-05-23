@@ -42,8 +42,8 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | Milestone | Planned facade | Replaces or wraps |
 |---|---|---|
 | M1 | `AllbertAssist.Boundary` | New machine-readable inventory only. |
-| M3 | `AllbertAssist.Runtime.Paths` | Wraps `AllbertAssist.Paths` without changing paths. |
-| M3 | `AllbertAssist.Runtime.Redactor` | Wraps current redaction policy without weakening output. |
+| M3 | `AllbertAssist.Runtime.Paths` | Implemented wrapper over `AllbertAssist.Paths` without changing paths. |
+| M3 | `AllbertAssist.Runtime.Redactor` | Implemented runtime-facing facade over current redaction policy without weakening output. |
 | M4 | `AllbertAssist.Runtime.Audit` | Shared audit facade over existing audit writers. |
 | M4 | `AllbertAssist.Runtime.Persistence` | Shared persistence facade for hybrid metadata/body stores. |
 | M5 | `AllbertAssist.Action` | Thin Allbert-facing wrapper over `Jido.Action`. |
@@ -66,6 +66,10 @@ membership probe. Workspace component membership remains available through
 `AllbertAssist.Workspace.Catalog.known_components/0`; renderer dispatch remains
 in `AllbertAssistWeb.Workspace.Renderer` until M7 moves dispatch into
 `AllbertAssist.Surface.Catalog`.
+
+M3 added the runtime-facing `AllbertAssist.Runtime.Paths` and
+`AllbertAssist.Runtime.Redactor` facades. Existing compatibility modules remain
+callable, but new runtime-facing code should target the `Runtime.*` facades.
 
 ## Internal Modules
 

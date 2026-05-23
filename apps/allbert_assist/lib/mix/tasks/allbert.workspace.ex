@@ -17,7 +17,7 @@ defmodule Mix.Tasks.Allbert.Workspace do
 
   use Mix.Task
 
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace

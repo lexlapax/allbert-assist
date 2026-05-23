@@ -4,7 +4,7 @@ defmodule AllbertAssist.Objectives.Commands do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Proposer
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Signals
   alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
 

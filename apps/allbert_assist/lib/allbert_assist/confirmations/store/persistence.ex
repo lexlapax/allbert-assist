@@ -15,7 +15,7 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
   alias AllbertAssist.Paths
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store, as: SettingsStore
   alias AllbertAssist.Settings.YamlCodec

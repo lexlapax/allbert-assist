@@ -171,7 +171,9 @@ Do not load every section by default.
   action DSL, typed runtime responses, shared paths/redaction/audit/persistence
   facades, unified Surface catalog/renderer path, unified extension registry,
   and settings fragments. Behavior-preserving: no route removals, theming,
-  dynamic code, generator, domain behavior, or migrations. Per ADR 0026-0031.
+  dynamic code, generator, domain behavior, or migrations. M3 adds
+  `AllbertAssist.Runtime.Paths` and `AllbertAssist.Runtime.Redactor` for new
+  runtime-facing path/redaction work. Per ADR 0026-0031.
 - v0.32 (planned): Workspace-Only App UI And Settings Central. Makes
   `/workspace` the operator home; removes `/agent`, `/settings`, and
   `/stocksage/*` without compatibility redirects; adds `:panel` surfaces into

@@ -16,7 +16,7 @@ defmodule AllbertAssist.Jobs.Runner do
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
 
   @type run_result :: %{
           job: Job.t(),

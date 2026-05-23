@@ -4,7 +4,7 @@ defmodule AllbertAssist.Security.Context do
   """
 
   alias AllbertAssist.Actions.Registry
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Skills
 
   @doc "Normalize runtime context into the categories Security Central needs."
