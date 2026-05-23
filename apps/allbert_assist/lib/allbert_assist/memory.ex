@@ -108,29 +108,41 @@ defmodule AllbertAssist.Memory do
           update_entry(entry.path, %{summary: summary, body: body}, user_id: actor)
 
         {:error, :not_found} ->
-          append(%{
-            category: value(attrs, :category, :notes),
-            summary: summary,
-            body: body,
-            actor: actor,
-            agent: value(attrs, :agent, "AllbertAssist.AppMemory"),
-            channel: value(attrs, :channel, "app"),
-            source_signal_id: value(attrs, :source_signal_id, "unknown"),
+          insert_app_entry(attrs, actor, %{
             app_id: app_id,
             namespace: namespace,
             kind: kind,
             idempotency_key: idempotency_key,
-            source_ref: source_ref
+            source_ref: source_ref,
+            summary: summary,
+            body: body
           })
-          |> case do
-            {:ok, entry} -> read_entry(entry.path, user_id: actor)
-            error -> error
-          end
       end
     end
   end
 
   def upsert_app_entry(_attrs), do: {:error, :invalid_app_memory_attrs}
+
+  defp insert_app_entry(attrs, actor, entry_attrs) do
+    append(%{
+      category: value(attrs, :category, :notes),
+      summary: entry_attrs.summary,
+      body: entry_attrs.body,
+      actor: actor,
+      agent: value(attrs, :agent, "AllbertAssist.AppMemory"),
+      channel: value(attrs, :channel, "app"),
+      source_signal_id: value(attrs, :source_signal_id, "unknown"),
+      app_id: entry_attrs.app_id,
+      namespace: entry_attrs.namespace,
+      kind: entry_attrs.kind,
+      idempotency_key: entry_attrs.idempotency_key,
+      source_ref: entry_attrs.source_ref
+    })
+    |> app_entry_result(actor)
+  end
+
+  defp app_entry_result({:ok, entry}, actor), do: read_entry(entry.path, user_id: actor)
+  defp app_entry_result(error, _actor), do: error
 
   @doc "Read recent markdown memory entries, optionally ranked by query terms."
   @spec recent(keyword()) :: {:ok, [entry()]}
@@ -679,8 +691,6 @@ defmodule AllbertAssist.Memory do
   defp value(map, key, default) when is_map(map) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
-
-  defp value(_map, _key, default), do: default
 
   defp blank?(value), do: not is_binary(value) or String.trim(value) == ""
 

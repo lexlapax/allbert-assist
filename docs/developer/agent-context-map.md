@@ -20,23 +20,25 @@ Do not load every section by default.
 | Area | Start With | Released History |
 | --- | --- | --- |
 | Runtime, signals, agents, action runner | ADR 0001, ADR 0007, active plan | v0.01, v0.04, v0.06 |
-| Security Central, permissions, trust, redaction | ADR 0006, ADR 0007, active plan | v0.05, v0.06 |
+| Security Central, permissions, trust, redaction, eval harness | ADR 0006, ADR 0007, ADR 0012, `docs/plans/v0.28-plan.md`, `docs/plans/v0.28-request-flow.md` | v0.05, v0.06, v0.11, v0.28 |
 | Confirmations and approval resume | ADR 0008, active plan | v0.07 |
 | Local execution, scripts, packages, external services | ADR 0009, ADR 0010, ADR 0011, ADR 0012, ADR 0013 | v0.08-v0.11 |
 | Local identity, users, threads, conversation history | ADR 0014 | v0.12 |
 | Scheduled jobs | ADR 0008, ADR 0012, ADR 0014 | v0.13 |
 | Session scratchpad and active app context | ADR 0014 | v0.14 |
-| App registration and surfaces | ADR 0015 | v0.15, v0.18 |
+| App registration, surfaces, app-scoped routing | ADR 0015, `docs/plans/v0.27-plan.md`, `docs/plans/v0.28-plan.md` | v0.15, v0.18, v0.27, v0.28 |
 | Channels and external identity mapping | ADR 0016 | v0.16 |
 | Plugins and plugin-contributed apps/actions/skills/channels | ADR 0017 | v0.17 |
 | Intent candidates, active app routing, classifier hooks | ADR 0019 | v0.19 |
-| StockSage plugin app and domain | ADR 0018, ADR 0017, ADR 0015 | v0.20 |
-| Markdown memory review, promotion, index, retrieval | ADR 0014, ADR 0019 | v0.21 |
+| StockSage plugin app, domain, outcomes, reflections, reruns | ADR 0018, ADR 0017, ADR 0015, `docs/plans/v0.29-plan.md`, `docs/plans/v0.29-request-flow.md` | v0.20, v0.27, v0.29 |
+| Markdown memory review, promotion, index, retrieval, app memory sync | ADR 0014, ADR 0019, `docs/plans/v0.21-plan.md`, `docs/plans/v0.29-plan.md` | v0.21, v0.29 |
 | Jido.Agent vs GenServer substrate (pragmatic rule) | ADR 0007, vision "Jido.Agent vs GenServer", v0.23 plan | v0.23 |
 | Objectives, steps, events, advisory providers, world models | ADR 0021, ADR 0019, v0.24 plan/request-flow, research note | v0.24 |
 | StockSage Python bridge | `docs/plans/v0.22-plan.md`, ADR 0020 | v0.22 |
 | StockSage native financial specialist agents (10 + coordinator) | `docs/plans/v0.25-plan.md`, `docs/plans/v0.25-request-flow.md`, ADR 0022 | v0.25 |
-| StockSage LiveViews, native-agent rendering, canvas | Active StockSage milestone plan | v0.27, v0.29, v0.30 |
+| StockSage LiveViews and app-flow UX | `docs/plans/v0.27-plan.md`, `docs/plans/v0.27-request-flow.md`, ADR 0015, ADR 0018 | v0.27 |
+| StockSage security posture and adversarial evals | `docs/plans/v0.28-plan.md`, `docs/plans/v0.28-request-flow.md`, ADR 0015, ADR 0023 | v0.28 |
+| StockSage app memory, outcomes, reflection sync, reruns | `docs/plans/v0.29-plan.md`, `docs/plans/v0.29-request-flow.md`, ADR 0015, ADR 0018, ADR 0022 | v0.29 |
 | Workspace shell, canvas, ephemeral UI substrate | ADR 0015 (catalog), ADR 0023 (workspace substrate), `docs/plans/v0.26-plan.md`, `docs/plans/v0.26-request-flow.md` | v0.26 |
 | StockSage canvas integration, workspace plugin contributions | Active StockSage milestone plan | v0.30 |
 | Plugin/app generator | ADR 0017, ADR 0015, v0.31 plan | v0.31 |
@@ -130,6 +132,27 @@ Do not load every section by default.
   `StockSage.App.memory_namespace/0` declaration with `writable: false`.
   v0.27 does not write markdown memory and does not emit durable `/agent`
   canvas tiles; those contracts remain v0.29 and v0.30 respectively.
+- v0.28: Security Hardening And Evals. This is the security routing anchor
+  after v0.26 workspace surfaces and v0.27 real StockSage app surfaces. It
+  adds the shared security eval harness under `apps/allbert_assist/test/security`,
+  adversarial fixtures, Resource Access trace assertions, app-scoped action
+  routing coverage, disabled-plugin and registry-boundary coverage, surface
+  catalog injection coverage, workspace fragment/canvas substrate coverage,
+  objective and advisory-provider coverage, bridge/native StockSage coverage,
+  namespace claim/isolation coverage before memory writes, and operator-facing
+  security review/status tasks. Pre-tag hardening makes app-owned actions fail
+  closed when `active_app` is missing, neutral, or wrong; jobs and objective
+  execution propagate explicit active-app context instead of relying on
+  `app_id` as authority.
+- v0.29: App Memory + Outcomes Contract - StockSage Polish. StockSage now has
+  outcome resolution through registered actions, due-outcome resolution,
+  trend/calibration summaries, deterministic local reflection generation,
+  explicit confirmation-gated lesson sync, app-memory metadata on
+  `Memory.Entry`, idempotent namespaced memory upsert behind
+  `sync_app_lesson`, no-auto-promotion tests, source-analysis-aware reruns,
+  and polished app-flow UX for run context, empty/error states, and mobile-safe
+  StockSage surfaces. v0.29 consumes the namespace declared in v0.27 and
+  audited in v0.28; it still does not emit durable `/agent` canvas tiles.
 
 ## Area Notes
 
@@ -149,12 +172,32 @@ plugin metadata, YAML declarations, and generated files never grant authority.
 Resource grants are operation-scoped; a grant for one operation class must not
 authorize another.
 
+For security work after v0.28, start with `docs/plans/v0.28-plan.md`,
+`docs/plans/v0.28-request-flow.md`, and the eval modules under
+`apps/allbert_assist/test/security/`. v0.28 hardened the app-scope boundary:
+app-owned actions require explicit matching `active_app`, missing or neutral
+scope fails closed, and non-interactive jobs/objectives must propagate trusted
+active-app context before reaching `Actions.Runner.run/3`.
+
+The `to_a2ui` redaction eval is a stub tripwire until protocol emission is
+implemented after v0.31; do not treat it as full redaction coverage. Advisory
+or proposer-origin memory writes must be stamped centrally by the objective or
+memory-sync boundary, not by scattered callers.
+
 ### Memory
 
 Markdown memory is the long-term, inspectable source of truth. SQLite
 conversation history is separate local workspace context and is not
 auto-promoted. v0.21 added review, correction, archive, prune, promotion,
 derived indexes/summaries, and metadata-only memory intent candidates.
+
+v0.29 adds explicit app-memory sync for StockSage without changing the
+no-auto-promotion rule. Namespaced app-memory writes go through the registered
+`sync_app_lesson` action, durable confirmation, and `Memory.upsert_app_entry/1`.
+`Memory.Entry` carries app namespace metadata and an idempotency key so markdown
+render/parse, filters, and review flows preserve app ownership. Completing an
+analysis, resolving an outcome, or generating a reflection must not write memory
+unless the operator explicitly approves the sync.
 
 ### Plugins And Apps
 
@@ -171,6 +214,25 @@ It uses `AllbertAssist.Repo` and `stocksage_*` tables. Do not create
 `apps/stocksage`, `apps/stocksage_web`, or a separate `StockSage.Repo`.
 Permission for local domain writes does not authorize financial API calls or
 analysis execution.
+
+For StockSage surface work, read `docs/plans/v0.27-plan.md` and
+`docs/plans/v0.27-request-flow.md` first. v0.27 owns `/stocksage/*`
+LiveViews, real StockSage card renderers, validated `RunAnalysis`
+`surface_nodes`, progress streaming, and the inert memory namespace
+declaration. It does not write markdown memory and does not emit durable
+workspace canvas tiles.
+
+For StockSage security work, read v0.28 before editing runtime boundaries.
+v0.28 added app-scope, registry, surface/catalog, namespace, Resource Access,
+bridge/native, objective, and workspace-fragment evals around the StockSage
+surface. The security posture assumes StockSage actions run only with explicit
+`active_app: :stocksage` and normal confirmation/resource checks.
+
+For StockSage memory/outcomes/rerun work, read `docs/plans/v0.29-plan.md`
+and `docs/plans/v0.29-request-flow.md`. v0.29 owns outcome resolution,
+trend calibration, deterministic reflections, explicit app-memory lesson sync,
+source-analysis-aware reruns, and app-flow polish. It consumes the namespace
+declared in v0.27 and audited in v0.28.
 
 v0.25 native financial agents are plugin-owned but runtime-callable through
 the shared objective delegate-agent substrate. Read
@@ -240,6 +302,13 @@ Apps may have reviewed Phoenix LiveViews and routes, but web surfaces must be
 declared through `AllbertAssist.App.SurfaceProvider` and validated by
 `AllbertAssist.Surface`. Surface metadata is not authority and must not create
 routes dynamically without an explicit plan.
+
+v0.28 is the security reference for this substrate: catalog bypass, component
+injection, fragment replay/tampering, emitter allow-list, app-scope routing,
+and workspace/canvas hard-disable behavior all have named eval coverage. v0.29
+does not add StockSage `/agent` canvas emission. v0.30 is the milestone that
+wires v0.27-proven StockSage components into durable workspace canvas tiles
+through the v0.26/v0.28-audited mechanism.
 
 v0.26 expands the Surface DSL substrate from a single chat-only `/agent`
 LiveView to the shipped **agentic workspace shell**:

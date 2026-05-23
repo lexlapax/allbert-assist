@@ -314,13 +314,10 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
   end
 
   defp field(map, key) when is_map(map), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
-  defp field(_map, _key), do: nil
 
   defp context_value(map, key, default) when is_map(map) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
-
-  defp context_value(_map, _key, default), do: default
 
   defp redact_lesson(text), do: String.replace(text, ~r/secret:\/\/[^\s]+/, "[SECRET_REF]")
 
