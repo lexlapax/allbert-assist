@@ -39,3 +39,12 @@ and inspection path, not an authority grant.
 - No metadata-granted permission.
 - No dynamic route creation.
 - No runtime loading of home-plugin Elixir modules.
+
+## Relates To
+
+- Unifies surfaces declared under ADR 0015 (app/surface DSL) and ADR 0023
+  (workspace canvas/catalog).
+- Under: ADR 0026 facade discipline.
+- Distinct from ADR 0027's action registry (see ADR 0027 "Terminology").
+- Enables: ADR 0024 (v0.32 panels/zones extend this one catalog/registry path)
+  and the v0.35 generator contribution shape.

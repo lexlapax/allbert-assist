@@ -38,3 +38,10 @@ rendering the same CLI and LiveView behavior that operators see today.
 - No copy rewrite unless implementation records a specific request-flow update.
 - No permission change.
 - No transport protocol change.
+
+## Relates To
+
+- Builds on: ADR 0007 (action runner result/lifecycle metadata).
+- Under: ADR 0026 facade discipline.
+- Consumed by: ADR 0030 (panels render action/objective status), ADR 0033
+  (sandbox-trial structured diagnostics); v0.32, v0.34, and v0.35.

@@ -1720,8 +1720,10 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 Status: research (unstarted). Graduated from
 `docs/plans/future-features.md` with a bounded sandbox architecture.
 
-Prerequisite: v0.31 consolidated runtime substrates, v0.32 workspace Settings
-Central/panels, and v0.33 Allbert Home theming/layout roots.
+Prerequisite: v0.24 objective runtime and v0.31 consolidated runtime substrates
+(hard dependencies), plus a concrete OS-level sandbox backend (ADR 0032 and the
+parked Level-2/Level-3 execution-sandbox work). v0.32 and v0.33 precede v0.34 in
+order but are sequencing context, not hard technical prerequisites.
 
 Expected direction:
 

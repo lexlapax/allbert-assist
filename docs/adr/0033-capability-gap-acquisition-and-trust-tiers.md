@@ -47,3 +47,15 @@ skill enablement, child supervision, or core-node module loading.
 - No automatic capability acquisition.
 - No approval from model/advisory output.
 - No bypass of existing confirmation or Resource Access policy.
+
+## Relates To
+
+- Implements: ADR 0021 reserved capability-inventory / gap / acquisition-option
+  vocabulary.
+- Paired with: ADR 0032 (dynamic generation and sandboxed loading).
+- Depends on: ADR 0029 (typed responses for structured trial diagnostics), ADR
+  0026-0031 (v0.31 facades), and the objective runtime (ADR 0021).
+- Constrained by: ADR 0006 (Security Central) and existing confirmation /
+  Resource Access policy.
+- Hands off to: v0.35 generator, which may consume promotion-candidate drafts as
+  review input.

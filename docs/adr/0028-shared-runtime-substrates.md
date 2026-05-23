@@ -40,3 +40,12 @@ separate migration plan is accepted.
 - No migration.
 - No weakening of redaction.
 - No new sandbox backend by itself.
+
+## Relates To
+
+- Applies ADR 0026's facade discipline to five named substrates: paths,
+  redaction, audit, trace, and persistence.
+- Builds on: the Allbert Home / `AllbertAssist.Paths` model and ADR 0006
+  (Security Central redaction).
+- Enables: ADR 0032 / ADR 0033 (v0.34 sandbox-trial paths, redaction, and audit)
+  and v0.32 / v0.33 reuse of one path and redaction model.
