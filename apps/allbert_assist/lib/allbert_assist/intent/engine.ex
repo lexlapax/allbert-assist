@@ -48,7 +48,13 @@ defmodule AllbertAssist.Intent.Engine do
     {classifier_candidate, classifier_diagnostic} = classifier_candidate(candidates, request)
 
     attrs =
-      descriptor_decision_attrs(candidates, request, app_context, classifier_diagnostic) ||
+      descriptor_decision_attrs(
+        candidates,
+        request,
+        app_context,
+        classifier_diagnostic,
+        classifier_candidate
+      ) ||
         case selected_route_candidate(classifier_candidate, candidates, request) do
           nil ->
             direct_answer_attrs(request, app_context, classifier_diagnostic)
@@ -247,7 +253,7 @@ defmodule AllbertAssist.Intent.Engine do
          app_context,
          classifier_diagnostic
        ) do
-    descriptor_decision_attrs([candidate], request, app_context, classifier_diagnostic) ||
+    descriptor_decision_attrs([candidate], request, app_context, classifier_diagnostic, candidate) ||
       direct_answer_attrs(request, app_context, classifier_diagnostic)
   end
 
@@ -459,10 +465,17 @@ defmodule AllbertAssist.Intent.Engine do
     :exit, _reason -> []
   end
 
-  defp descriptor_decision_attrs(candidates, request, app_context, classifier_diagnostic) do
+  defp descriptor_decision_attrs(
+         candidates,
+         request,
+         app_context,
+         classifier_diagnostic,
+         classifier_candidate
+       ) do
     with true <- descriptors_enabled?(),
          true <- neutral_app?(app_context.active_app),
-         [%{} = top | _rest] <- descriptor_candidates_for_decision(candidates),
+         [%{} = top | _rest] <-
+           descriptor_candidates_for_decision(candidates, classifier_candidate),
          score <- Ranker.score(top),
          true <- score >= clarify_floor(),
          {:ok, handoff} <-
@@ -496,11 +509,33 @@ defmodule AllbertAssist.Intent.Engine do
     end
   end
 
-  defp descriptor_candidates_for_decision(candidates) do
-    candidates
-    |> Enum.filter(&(field(&1, :kind) == :app_intent))
-    |> Enum.sort_by(&Ranker.score/1, :desc)
+  defp descriptor_candidates_for_decision(candidates, classifier_candidate \\ nil) do
+    descriptors =
+      candidates
+      |> Enum.filter(&(field(&1, :kind) == :app_intent))
+      |> Enum.sort_by(&Ranker.score/1, :desc)
+
+    case descriptor_selected_by_classifier(descriptors, classifier_candidate) do
+      nil ->
+        descriptors
+
+      selected ->
+        [selected | Enum.reject(descriptors, &(field(&1, :id) == field(selected, :id)))]
+    end
   end
+
+  defp descriptor_selected_by_classifier(descriptors, %{kind: :app_intent} = candidate) do
+    Enum.find(descriptors, &(field(&1, :id) == field(candidate, :id)))
+  end
+
+  defp descriptor_selected_by_classifier(descriptors, %{kind: :action} = candidate) do
+    Enum.find(descriptors, fn descriptor ->
+      field(descriptor, :app_id) == field(candidate, :app_id) and
+        field(descriptor, :action_name) == field(candidate, :action_name)
+    end)
+  end
+
+  defp descriptor_selected_by_classifier(_descriptors, _candidate), do: nil
 
   defp descriptor_decision_kind(candidate, candidates) do
     missing_slots = get_in_trace(candidate, :missing_slots) || []

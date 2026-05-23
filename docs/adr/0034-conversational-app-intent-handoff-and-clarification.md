@@ -94,6 +94,13 @@ through `dismiss_workspace_ephemeral`. Dismissed ephemeral proposal ids may be
 re-opened in the same user/thread so a repeated prompt after decline can show a
 fresh handoff instead of being blocked as a body conflict.
 
+M4 implementation on 2026-05-23 extended the existing model-assist classifier
+with bounded descriptor/handoff summaries and active-app context. Classifier
+output remains advisory: only already-collected candidates that pass confidence
+validation are accepted, app descriptor selections still produce handoff or
+clarification rather than execution, and rejected/unknown proposals fall back to
+deterministic routing. Raw classifier prompts and completions are not traced.
+
 ## References
 
 - Amazon Lex Intent Disambiguation:
