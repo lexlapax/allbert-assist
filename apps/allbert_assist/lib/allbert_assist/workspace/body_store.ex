@@ -1,5 +1,10 @@
 defmodule AllbertAssist.Workspace.BodyStore do
-  @moduledoc false
+  @moduledoc """
+  Workspace YAML body-store implementation.
+
+  v0.31 keeps this module as the internal storage implementation. New
+  runtime-facing code should call `AllbertAssist.Runtime.Persistence`.
+  """
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings.Store, as: SettingsStore

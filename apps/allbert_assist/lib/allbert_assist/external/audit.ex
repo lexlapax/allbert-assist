@@ -1,6 +1,9 @@
 defmodule AllbertAssist.External.Audit do
   @moduledoc """
   Markdown audit records for confirmed external HTTP/service requests.
+
+  v0.31 keeps this module as the external-request audit writer. New
+  runtime-facing code should call `AllbertAssist.Runtime.Audit`.
   """
 
   alias AllbertAssist.External.RequestSpec

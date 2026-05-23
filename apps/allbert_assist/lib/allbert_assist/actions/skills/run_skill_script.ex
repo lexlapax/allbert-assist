@@ -40,9 +40,9 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
-  alias AllbertAssist.Execution.SkillScriptAudit
   alias AllbertAssist.Execution.SkillScriptRunner
   alias AllbertAssist.Execution.SkillScriptSpec
+  alias AllbertAssist.Runtime.Audit
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -105,7 +105,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
     result = no_run_result(spec, reason)
 
     _audit =
-      SkillScriptAudit.append(denial_event(reason), spec, permission_decision, %{
+      Audit.append(:skill_script, denial_event(reason), spec, permission_decision, %{
         result: result,
         denial_reason: reason
       })
@@ -151,7 +151,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
     case Confirmations.create(attrs) do
       {:ok, confirmation} ->
         _audit =
-          SkillScriptAudit.append(:requested, spec, permission_decision, %{
+          Audit.append(:skill_script, :requested, spec, permission_decision, %{
             confirmation_id: confirmation_id(confirmation)
           })
 
@@ -204,7 +204,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
     confirmation_id = get_in(context, [:confirmation, :id])
 
     _approved_audit =
-      SkillScriptAudit.append(:approved, spec, permission_decision, %{
+      Audit.append(:skill_script, :approved, spec, permission_decision, %{
         confirmation_id: confirmation_id
       })
 
@@ -212,7 +212,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
       result_summary = result_summary(result, spec, confirmation_id)
 
       _result_audit =
-        SkillScriptAudit.append(result_event(result), spec, permission_decision, %{
+        Audit.append(:skill_script, result_event(result), spec, permission_decision, %{
           confirmation_id: confirmation_id,
           result: result_summary
         })

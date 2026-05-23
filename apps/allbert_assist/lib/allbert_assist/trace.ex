@@ -5,6 +5,9 @@ defmodule AllbertAssist.Trace do
   M6 keeps traces plain and inspectable. The trace store writes markdown through
   `AllbertAssist.Memory` so the user can read, move, or delete trace files with
   ordinary filesystem tools.
+
+  v0.31 keeps this module as the trace writer. New runtime-facing code should
+  call `AllbertAssist.Runtime.Trace`.
   """
 
   alias AllbertAssist.Confirmations.ExternalRequestMetadata
