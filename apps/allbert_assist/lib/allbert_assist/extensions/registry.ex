@@ -8,6 +8,7 @@ defmodule AllbertAssist.Extensions.Registry do
   """
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
 
   @type contribution_summary :: %{
@@ -15,6 +16,7 @@ defmodule AllbertAssist.Extensions.Registry do
           plugins: [map()],
           surfaces: [map()],
           surface_providers: [surface_provider()],
+          intent_descriptors: [map()],
           actions: [map()],
           skill_paths: [skill_path()],
           settings_schema: [map()],
@@ -47,6 +49,7 @@ defmodule AllbertAssist.Extensions.Registry do
       plugins: registered_plugins(opts),
       surfaces: registered_surfaces(opts),
       surface_providers: registered_surface_providers(opts),
+      intent_descriptors: registered_intent_descriptors(opts),
       actions: registered_actions(opts),
       skill_paths: registered_skill_paths(opts),
       settings_schema: registered_settings_schema(opts),
@@ -72,6 +75,14 @@ defmodule AllbertAssist.Extensions.Registry do
   @spec registered_surface_providers(Keyword.t()) :: [surface_provider()]
   def registered_surface_providers(opts \\ []),
     do: AppRegistry.registered_surface_providers(app_opts(opts))
+
+  @spec registered_intent_descriptors(Keyword.t()) :: [Descriptor.t()]
+  def registered_intent_descriptors(opts \\ []) do
+    opts
+    |> intent_descriptor_sources()
+    |> Enum.flat_map(&descriptors_from_source/1)
+    |> Enum.uniq_by(&{&1.app_id, &1.action_name})
+  end
 
   @spec registered_actions(Keyword.t()) :: [map()]
   def registered_actions(opts \\ []) do
@@ -101,6 +112,67 @@ defmodule AllbertAssist.Extensions.Registry do
       end)
 
     app_actions ++ plugin_actions
+  end
+
+  defp intent_descriptor_sources(opts) do
+    app_sources =
+      opts
+      |> registered_apps()
+      |> Enum.map(fn app ->
+        %{
+          app_id: app.app_id,
+          module: app.module,
+          source: :app
+        }
+      end)
+
+    plugin_sources =
+      opts
+      |> plugin_opts()
+      |> PluginRegistry.registered_plugins()
+      |> Enum.flat_map(fn plugin ->
+        Enum.map(plugin.apps, fn module ->
+          %{
+            app_id: app_id_for_module(module),
+            module: module,
+            plugin_id: plugin.plugin_id,
+            source: :plugin
+          }
+        end)
+      end)
+
+    app_sources ++ plugin_sources
+  end
+
+  defp descriptors_from_source(%{module: module} = source) when is_atom(module) do
+    if Code.ensure_loaded?(module) and function_exported?(module, :intent_descriptors, 0) do
+      module
+      |> apply(:intent_descriptors, [])
+      |> Descriptor.normalize_many(
+        app_id: source.app_id,
+        source: source.source,
+        source_module: module
+      )
+      |> Map.fetch!(:descriptors)
+    else
+      []
+    end
+  rescue
+    _exception -> []
+  catch
+    :exit, _reason -> []
+  end
+
+  defp descriptors_from_source(_source), do: []
+
+  defp app_id_for_module(module) do
+    if Code.ensure_loaded?(module) and function_exported?(module, :app_id, 0) do
+      apply(module, :app_id, [])
+    end
+  rescue
+    _exception -> nil
+  catch
+    :exit, _reason -> nil
   end
 
   @spec registered_skill_paths(Keyword.t()) :: [skill_path()]

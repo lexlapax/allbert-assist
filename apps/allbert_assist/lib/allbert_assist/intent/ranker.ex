@@ -43,6 +43,7 @@ defmodule AllbertAssist.Intent.Ranker do
   defp score_candidate(candidate, context) do
     candidate
     |> apply_active_app_affinity(context)
+    |> apply_descriptor_text_match(context)
     |> apply_surface_text_match(context)
     |> apply_action_text_match(context)
     |> apply_active_app_keyword(context)
@@ -64,6 +65,21 @@ defmodule AllbertAssist.Intent.Ranker do
   end
 
   defp apply_active_app_affinity(candidate, _context), do: candidate
+
+  defp apply_descriptor_text_match(candidate, %{text: text}) when is_binary(text) do
+    if field(candidate, :kind) == :app_intent and descriptor_text_match?(candidate, text) do
+      boost(
+        candidate,
+        0.45,
+        :descriptor_text_match,
+        "Request text matched an app intent descriptor."
+      )
+    else
+      candidate
+    end
+  end
+
+  defp apply_descriptor_text_match(candidate, _context), do: candidate
 
   # v0.22 audit closeout (gap 2): when the candidate's `app_id` matches the
   # session's `active_app` AND the request text matches an app-specific
@@ -196,6 +212,40 @@ defmodule AllbertAssist.Intent.Ranker do
   end
 
   defp surface_text_match?(_candidate, _text), do: false
+
+  defp descriptor_text_match?(candidate, text) when is_binary(text) do
+    descriptor = get_in_trace(candidate, :descriptor) || %{}
+
+    values =
+      [
+        field(candidate, :label),
+        field(descriptor, :label),
+        field(descriptor, :action_name)
+      ] ++ field(descriptor, :examples, []) ++ field(descriptor, :synonyms, [])
+
+    Enum.any?(values, &descriptor_phrase_match?(text, &1))
+  end
+
+  defp descriptor_phrase_match?(text, value) when is_binary(value) do
+    normalized_text = normalize_text(text)
+    normalized_value = normalize_text(value)
+
+    cond do
+      normalized_value == "" ->
+        false
+
+      String.contains?(normalized_text, normalized_value) ->
+        true
+
+      true ->
+        normalized_value
+        |> String.split(" ", trim: true)
+        |> Enum.reject(&(String.length(&1) < 4))
+        |> Enum.any?(&String.contains?(normalized_text, &1))
+    end
+  end
+
+  defp descriptor_phrase_match?(_text, _value), do: false
 
   defp action_text_match?(candidate, text) when is_binary(text) do
     Enum.any?(

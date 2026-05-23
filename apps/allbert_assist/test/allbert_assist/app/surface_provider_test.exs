@@ -27,6 +27,10 @@ defmodule AllbertAssist.App.SurfaceProviderTest do
     assert {:error, :not_found} = DefaultProvider.fallback_surface(:missing)
   end
 
+  test "default intent_descriptors returns no descriptors" do
+    assert [] = DefaultProvider.intent_descriptors()
+  end
+
   test "fallback_surface can be overridden" do
     assert {:ok, "Home fallback."} = OverrideProvider.fallback_surface(:home)
     assert {:error, :not_found} = OverrideProvider.fallback_surface(:other)
