@@ -42,7 +42,8 @@ homes:
 - Security hardening and evals: v0.28 (formerly v0.26).
 - StockSage polish, outcomes, and trends: v0.29 (formerly v0.27).
 - StockSage canvas integration: v0.30 (formerly v0.28).
-- Allbert plugin and app generator: v0.31 (formerly v0.29).
+- Workspace-native plugin UI, named workspace zones, and user theming: v0.31.
+- Allbert plugin and app generator: v0.32 (formerly v0.29, then v0.31).
 
 Do not duplicate those here unless the future feature is broader than the
 existing plan.
@@ -62,8 +63,8 @@ publish, or activate new capabilities from traces.
 
 Needed before planning:
 
-- v0.31 (formerly v0.29) manual plugin/app generator accepted through user
-  testing
+- v0.32 (formerly v0.29, then v0.31) manual plugin/app generator accepted
+  through user testing
 - review and trust workflow
 - trace-to-skill draft workflow
 - explicit operator approval before enabling
@@ -91,7 +92,8 @@ Needed before planning:
 
 ### Remote Plugin Marketplace And Code-Bearing Plugin Distribution
 
-Source: v0.17 plugin substrate and v0.31 (formerly v0.29) generator planning.
+Source: v0.17 plugin substrate and v0.32 (formerly v0.29, then v0.31) generator
+planning.
 
 v0.17 creates local plugin discovery and ships Telegram/email as source-tree
 plugins under `./plugins`, but it does not install remote plugins, resolve
@@ -106,7 +108,8 @@ Needed before planning:
 
 - v0.17 plugin registry accepted through user testing
 - v0.26 plugin-boundary security evals accepted
-- v0.31 (formerly v0.29) plugin/app generator accepted through user testing
+- v0.32 (formerly v0.29, then v0.31) plugin/app generator accepted through user
+  testing
 - dependency install/update policy
 - plugin signing, provenance, versioning, and rollback model
 - clear trust tiers for skill-only, compiled local, third-party source, and
@@ -391,8 +394,10 @@ Needed before broader post-v0.31 planning:
   provenance for federated workspaces is the post-v0.31 surface)
 - Multi-user collaborative cursors (deferred from v0.26; reserved as
   "Cursor" vocabulary in ADR 0023 §1)
-- Plugin-contributed workspace regions (deferred from v0.26; "Workspace
-  Hooks" reserved in ADR 0023 §1)
+- Plugin-contributed workspace regions — graduated to v0.31 (ADR 0024);
+  formerly "Workspace Hooks" reserved in ADR 0023 §1. User theming/layout
+  override (tokens, sanitized snippets, layout config) also landed in v0.31
+  (ADR 0025)
 - Canvas snapshot / undo / time-travel (deferred from v0.26; "Canvas
   Snapshot" reserved in ADR 0023 §1; signal topic
   `allbert.workspace.canvas.snapshot.requested` reserved as v0.26 no-op)

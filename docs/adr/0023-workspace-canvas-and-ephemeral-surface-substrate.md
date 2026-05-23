@@ -68,7 +68,8 @@ Reserved (named, not implemented in v0.26):
 
 - **Canvas Snapshot** (versioned canvas state for time-travel / undo) — reserved
 - **Cursor** (multi-user collaborative cursor) — post-v0.31
-- **Workspace Hooks** (plugin-contributed workspace extensions) — post-v0.31
+- **Workspace Hooks** (plugin-contributed workspace extensions) — graduated in
+  v0.31 as panel surfaces + host-owned named zones; see ADR 0024
 
 ### 2. Workspace shell IS a Surface tree (fully dynamic)
 
@@ -96,7 +97,8 @@ Implications:
 - Adding a new region requires only a catalog entry + a LiveComponent
   module that knows how to render it. No HEEx layout edit.
 - Plugins can contribute regions via `SurfaceProvider.surfaces/0`
-  (future work, post-v0.31).
+  (graduated in v0.31 as `:panel` surfaces targeting host-owned named zones;
+  see ADR 0024).
 - The workspace shell is itself inspectable — `mix
   allbert.workspace inspect` (M2) dumps the resolved Surface tree.
 
@@ -537,7 +539,7 @@ The v0.24 PubSub topic shape (`<namespace>:<user_id>`) extends:
 - Drag-drop tile reordering — deferred to v0.27+.
 - Multi-canvas-per-thread — deferred.
 - Cursor (multi-user collaborative cursors) — post-v0.31.
-- Plugin-contributed workspace regions — post-v0.31.
+- Plugin-contributed workspace regions — graduated in v0.31 (ADR 0024).
 - Public AG-UI HTTP endpoint — post-v0.31.
 - A2UI / MCP Apps interop — post-v0.31.
 - Offline editing of non-text tile kinds (confirmation card edits,

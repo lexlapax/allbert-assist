@@ -11,6 +11,10 @@ the v0.26 catalog expansion from 12 → 42 components — see the "v0.26
 Catalog Expansion" subsection under Surface DSL. The catalog expansion is the
 substrate ADR 0023 builds on for the workspace canvas + ephemeral surface
 implementation, and was confirmed in place during v0.26 M20 closeout.
+Extended by ADR 0024 (v0.31): the Surface DSL gains a `:panel` surface kind
+contributed into host-owned workspace zones, the `/apps/<app_id>` page-route
+convention, and the `:nav_rail`/`:thread_list`/`:app_launcher` structural
+catalog atoms for the ChatGPT-style workspace shell.
 
 ## Context
 

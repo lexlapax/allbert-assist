@@ -75,9 +75,13 @@ manually proven first.
 
 Near-term milestones:
 
-- `v0.31`: plugin/app generator, scaffolding the surface, memory, action,
+- `v0.31`: workspace-native plugin UI — apps contribute panels into the dynamic
+  `/agent` workspace, dedicated routes move under `/apps/<app_id>`, and operators
+  retheme/re-lay-out the UI from `~/.allbert` (tokens, sanitized CSS snippets,
+  layout config).
+- `v0.32`: plugin/app generator, scaffolding the surface, memory, action,
   objective, and canvas contracts after they have been proven manually.
-- Post-`v0.31`: broader UI protocol interop, richer generated app workflows,
+- Post-`v0.32`: broader UI protocol interop, richer generated app workflows,
   and additional reviewed app/plugin surfaces.
 
 ## Start Here
