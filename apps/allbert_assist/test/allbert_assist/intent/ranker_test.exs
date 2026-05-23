@@ -66,18 +66,18 @@ defmodule AllbertAssist.Intent.RankerTest do
     surface =
       EvalFixtures.candidate(
         kind: :surface,
-        id: "allbert:agent",
+        id: "allbert:workspace",
         label: "Allbert Chat",
         source: :app,
         status: :candidate,
         selected?: false,
         score: 0.1,
         app_id: :allbert,
-        surface_id: :agent,
-        trace_metadata: %{path: "/agent"}
+        surface_id: :workspace,
+        trace_metadata: %{path: "/workspace"}
       )
 
-    assert [%{kind: :surface, id: "allbert:agent"} = ranked] =
+    assert [%{kind: :surface, id: "allbert:workspace"} = ranked] =
              Ranker.rank([surface], %{text: "Open Allbert chat"})
 
     assert ranked.score > surface.score

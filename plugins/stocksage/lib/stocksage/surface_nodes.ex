@@ -306,7 +306,7 @@ defmodule StockSage.SurfaceNodes do
       id: :stocksage_run_analysis_result,
       app_id: :stocksage,
       label: "StockSage Analysis Result",
-      path: "/stocksage/analyses",
+      path: "/workspace",
       kind: :analysis,
       status: :available,
       fallback_text: "StockSage analysis result.",
@@ -374,7 +374,7 @@ defmodule StockSage.SurfaceNodes do
   end
 
   defp analysis_route(nil), do: nil
-  defp analysis_route(analysis_id), do: "/stocksage/analyses/#{safe_id(analysis_id)}"
+  defp analysis_route(analysis_id), do: "/apps/stocksage/analyses/#{safe_id(analysis_id)}"
 
   defp date_value(%Date{} = date), do: Date.to_iso8601(date)
   defp date_value(value), do: value

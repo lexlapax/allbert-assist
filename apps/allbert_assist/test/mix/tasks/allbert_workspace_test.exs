@@ -58,7 +58,7 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
       end)
 
     assert output =~ "Resolved workspace Surface tree"
-    assert output =~ "Surface: :agent /agent kind=workspace"
+    assert output =~ "Surface: :workspace /workspace kind=workspace"
     assert output =~ "workspace.theme=dark"
     assert output =~ "user_id=local thread_id=thread-1"
     assert output =~ "- workspace-root workspace"

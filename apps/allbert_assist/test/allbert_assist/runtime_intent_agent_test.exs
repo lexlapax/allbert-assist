@@ -77,11 +77,11 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
              })
 
     assert response.status == :completed
-    assert response.message == "Open Allbert Workspace: /agent"
+    assert response.message == "Open Allbert Workspace: /workspace"
     assert response.actions == []
     assert response.decision.intent == :open_surface
     assert Map.get(response.decision, :selected_action) == nil
-    assert response.decision.trace_metadata.surface_target.path == "/agent"
+    assert response.decision.trace_metadata.surface_target.path == "/workspace"
   end
 
   test "default runtime routes generic setting-shaped prompts to update_setting" do

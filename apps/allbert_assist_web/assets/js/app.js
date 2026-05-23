@@ -672,7 +672,7 @@ const bootstrapWorkspaceOffline = async () => {
 
   try {
     const registration = await navigator.serviceWorker.register(serviceWorkerUrl, {
-      scope: shell.dataset.serviceWorkerScope || "/agent",
+      scope: shell.dataset.serviceWorkerScope || "/workspace",
     })
 
     postWorkspaceShellAssets(registration, workspaceShellAssets(shell))

@@ -15,10 +15,10 @@ defmodule AllbertAssist.SurfaceTest do
           id: :agent,
           app_id: :allbert,
           label: "Allbert Chat",
-          path: "/agent",
+          path: "/workspace",
           kind: :chat,
           status: :available,
-          fallback_text: "Allbert chat is available at /agent.",
+          fallback_text: "Allbert chat is available at /workspace.",
           nodes: [
             %Node{
               id: "chat-root",

@@ -67,10 +67,10 @@ defmodule StockSageWeb.WorkspaceLive do
           <.summary_tile
             label="Analyses"
             value={length(@recent_analyses)}
-            href={~p"/stocksage/analyses"}
+            href={~p"/workspace"}
           />
-          <.summary_tile label="Queue" value={length(@queue_entries)} href={~p"/stocksage/queue"} />
-          <.summary_tile label="Outcomes" value={@trends.returned} href={~p"/stocksage/trends"} />
+          <.summary_tile label="Queue" value={length(@queue_entries)} href={~p"/workspace"} />
+          <.summary_tile label="Outcomes" value={@trends.returned} href={~p"/workspace"} />
         </section>
 
         <section
@@ -98,7 +98,7 @@ defmodule StockSageWeb.WorkspaceLive do
               class="py-3"
             >
               <.link
-                navigate={~p"/stocksage/analyses/#{analysis.id}"}
+                navigate={~p"/apps/stocksage/analyses/#{analysis.id}"}
                 class="font-medium text-emerald-200 hover:text-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
               >
                 {analysis.symbol || analysis.id}

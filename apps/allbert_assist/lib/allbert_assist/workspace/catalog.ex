@@ -24,7 +24,7 @@ defmodule AllbertAssist.Workspace.Catalog do
   def workspace_tree(context \\ %{}) do
     context = context_map(context)
 
-    :agent
+    :workspace
     |> core_surface!()
     |> Map.update!(:metadata, &Map.merge(&1 || %{}, workspace_metadata(context)))
     |> Map.update!(:nodes, &inject_runtime_nodes(&1, context))

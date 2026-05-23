@@ -247,7 +247,7 @@ defmodule StockSageWeb.AnalysisLive do
           <ul :if={@analyses != []} class="mt-4 divide-y divide-zinc-800">
             <li :for={analysis <- @analyses} class="py-3">
               <.link
-                navigate={~p"/stocksage/analyses/#{analysis.id}"}
+                navigate={~p"/apps/stocksage/analyses/#{analysis.id}"}
                 class="font-medium text-emerald-200 hover:text-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
               >
                 {analysis.symbol || analysis.id}
@@ -604,7 +604,7 @@ defmodule StockSageWeb.AnalysisLive do
           <ul class="mt-3 space-y-2 text-sm text-amber-50">
             <li :for={confirmation <- @pending_confirmations}>
               <.link
-                navigate={~p"/settings"}
+                navigate={~p"/workspace"}
                 class="underline underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
               >
                 Review confirmation {confirmation["id"]}

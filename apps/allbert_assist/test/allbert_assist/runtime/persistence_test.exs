@@ -81,7 +81,7 @@ defmodule AllbertAssist.Runtime.PersistenceTest do
       id: :analysis,
       app_id: :stocksage,
       label: "Analysis",
-      path: "/stocksage/analyses/test",
+      path: "/apps/workspace/test",
       kind: :analysis,
       status: :available,
       nodes: [

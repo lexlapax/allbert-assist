@@ -13,6 +13,7 @@ defmodule AllbertAssist.Extensions.RegistryTest do
     app_registered? = AppRegistry.known_app_id?(:stocksage)
 
     unless app_registered? do
+      Enum.each(StockSage.Plugin.actions(), &Code.ensure_loaded!/1)
       assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
     end
 

@@ -90,7 +90,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
     ~H"""
     <Layouts.app flash={@flash}>
       <div class="mx-auto max-w-4xl py-10 space-y-6">
-        <.link navigate={~p"/agent"} class="text-sm link">Back to agent</.link>
+        <.link navigate={~p"/workspace"} class="text-sm link">Back to workspace</.link>
 
         <%= if @objective do %>
           <section id="objective-header" class="space-y-3">

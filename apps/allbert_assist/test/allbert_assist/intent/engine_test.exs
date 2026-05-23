@@ -364,9 +364,9 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.intent == :open_surface
     assert decision.selected_action == nil
     assert decision.selected_skill == nil
-    assert decision.trace_metadata.surface_target.path == "/agent"
+    assert decision.trace_metadata.surface_target.path == "/workspace"
     assert decision.trace_metadata.intent_candidates.selected.kind == :surface
-    assert decision.trace_metadata.intent_candidates.selected.surface_id == "agent"
+    assert decision.trace_metadata.intent_candidates.selected.surface_id == "workspace"
   end
 
   test "unknown active app falls back to allbert without creating atoms" do

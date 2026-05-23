@@ -71,6 +71,7 @@ defmodule AllbertAssist.Channels.EmailTest do
       Path.join(System.tmp_dir!(), "allbert-email-test-#{System.unique_integer([:positive])}")
 
     System.put_env("ALLBERT_HOME", home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
 
     on_exit(fn ->
       File.rm_rf!(home)

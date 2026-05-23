@@ -311,7 +311,7 @@ defmodule AllbertAssist.Security.OperatorReviewTest do
       id: :fragment,
       app_id: :allbert,
       label: "Fragment",
-      path: "/agent",
+      path: "/workspace",
       kind: :canvas,
       status: :available,
       nodes: [%Node{id: "fragment-text", component: :text, props: %{text: "hello"}}],

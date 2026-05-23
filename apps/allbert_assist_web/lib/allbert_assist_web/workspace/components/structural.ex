@@ -717,7 +717,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
             <.link
               role="menuitem"
               class="workspace-tile-menu-item"
-              navigate="/settings"
+              navigate="/workspace"
             >
               <.icon name="hero-adjustments-horizontal-micro" class="size-4" /> Workspace settings
             </.link>
@@ -743,7 +743,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
   end
 
   # v0.26a M34: 3-state theme cycle (system → dark → light → system) kept
-  # in sync with the parallel next_workspace_theme/1 in agent_live.ex.
+  # in sync with the parallel next_workspace_theme/1 in workspace_live.ex.
   defp next_workspace_theme("system"), do: "dark"
   defp next_workspace_theme("dark"), do: "light"
   defp next_workspace_theme("light"), do: "system"
