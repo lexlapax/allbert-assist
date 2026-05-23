@@ -10,6 +10,69 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.31.0 - Runtime And UI-Substrate Consolidation
+
+Status: implemented and ready for operator manual verification before the
+release tag. Version metadata is `0.31.0`.
+
+Plan: `docs/plans/v0.31-plan.md`.
+Request flow: `docs/plans/v0.31-request-flow.md`.
+
+### Added (v0.31.0)
+
+- `AllbertAssist.Boundary` and `docs/developer/runtime-boundary-map.md` as the
+  runtime/UI public-facade inventory.
+- `AllbertAssist.Runtime.Paths`, `AllbertAssist.Runtime.Redactor`,
+  `AllbertAssist.Runtime.Audit`, `AllbertAssist.Runtime.Persistence`, and
+  `AllbertAssist.Runtime.Trace` as behavior-preserving runtime substrate
+  facades.
+- `AllbertAssist.Action` as the Allbert-facing wrapper for registered
+  runtime capability actions, with capability metadata derived from action
+  modules.
+- `AllbertAssist.Runtime.Response` as the shared completed,
+  confirmation-needed, denied, advisory, error, unsupported, and unavailable
+  response helper.
+- `AllbertAssist.Surface.Catalog`, `AllbertAssistWeb.Surface.Renderer`, and
+  `AllbertAssist.Extensions.Registry` as the unified Surface catalog/renderer
+  and app/plugin contribution discovery path.
+- `AllbertAssist.Settings.Fragment` and `AllbertAssist.Settings.Fragments` as
+  the settings schema-fragment contract and composition facade.
+
+### Changed (v0.31.0)
+
+- Registered core and StockSage actions now use `use AllbertAssist.Action`;
+  private/test-only Jido command modules remain private and unregistered.
+- Settings schema/default/safe-write assembly now flows through registered
+  core/app/plugin fragments while `AllbertAssist.Settings.Schema` remains the
+  public compatibility facade.
+- Workspace and StockSage app-surface rendering now dispatch through the same
+  catalog-backed renderer path. The v0.30 StockSage pass-through workspace card
+  adapters and `StockSageWeb.Components.SurfaceRenderer` were removed.
+- `AllbertAssist.Security.PermissionGate` remains a compatibility shim over
+  Security Central for existing live callers; deletion is deferred to a future
+  parity pass.
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app
+  metadata, `StockSage.App.version/0`, `StockSage.Plugin.version/0`,
+  `plugins/stocksage/allbert_plugin.json`, and the `run-analysis` skill
+  metadata are bumped to `0.31.0`.
+
+### Verification (v0.31.0)
+
+- M1-M8 were implemented, focused-tested, committed, and pushed as separate
+  milestones.
+- M7 full gate passed after the renderer/catalog consolidation: `mix format
+  --check-formatted`, `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
+  `git diff --check`.
+- M8 full gate passed after settings fragments: `mix format
+  --check-formatted`, `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
+  `git diff --check`.
+- M9 final release gate passed: focused identity-context eval regression,
+  `mix format --check-formatted`, `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
+  `git diff --check`.
+
 ## v0.30.0 - App Canvas Contract - StockSage Canvas Integration
 
 Status: released. Version metadata is `0.30.0`; release tag `v0.30.0` was

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for v0.31 Runtime And UI-Substrate Consolidation
+Accepted in v0.31 Runtime And UI-Substrate Consolidation
 (`docs/plans/v0.31-plan.md`).
 
 ## Context
@@ -27,6 +27,10 @@ subsystems before moving code. Each consolidation milestone starts by naming:
 This ADR does not make OTP supervision, BEAM processes, or child processes a
 security boundary. Authority still comes from registered actions, Security
 Central, Settings Central, confirmations, and audited runtime contexts.
+
+Implementation note: v0.31 introduced `AllbertAssist.Boundary` and
+`docs/developer/runtime-boundary-map.md`, then moved each consolidation seam
+behind the public facades named by ADR 0027-0031.
 
 ## Consequences
 
