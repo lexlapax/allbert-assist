@@ -10,6 +10,71 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.30.0 - App Canvas Contract - StockSage Canvas Integration
+
+Status: implemented and ready for operator manual verification. Version
+metadata is `0.30.0`; release tag `v0.30.0` should be created after operator
+manual verification is accepted.
+
+Plan: `docs/plans/v0.30-plan.md`.
+Request flow: `docs/plans/v0.30-request-flow.md`.
+
+### Added (v0.30.0)
+
+- `/agent` workspace canvas rendering for the four StockSage card atoms already
+  reserved in v0.26 and proven in v0.27: `:analysis_card`,
+  `:agent_report_card`, `:parity_card`, and `:debate_round_card`.
+- Thin workspace LiveComponent adapters that delegate those four atoms to the
+  existing `StockSageWeb.Components.Cards` renderers, removing the v0.26 stub
+  marker from durable StockSage canvas tiles.
+- Durable StockSage canvas emission through
+  `AllbertAssist.Workspace.Emitters.stocksage_signal/2`,
+  `%AllbertAssist.Workspace.Fragment.Envelope{}`, and the existing
+  `workspace_canvas_tiles` + YAML body store.
+- Focused coverage proving approved `RunAnalysis` calls with `thread_id`
+  create durable StockSage canvas tiles with encoded Surface bodies and
+  provenance metadata.
+- Fragment idempotency for same-semantic-body re-emission when only the
+  volatile Fragment `emitted_at` value changes.
+
+### Changed (v0.30.0)
+
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app metadata,
+  `StockSage.App.version/0`, `StockSage.Plugin.version/0`,
+  `plugins/stocksage/allbert_plugin.json`, and the `run-analysis` skill
+  metadata are bumped to `0.30.0`.
+- StockSage canvas integration deliberately does not add `:stock_chart`, a new
+  migration, a new workspace setting, new domain behavior, or a private
+  StockSage canvas-write path.
+
+### Verification (v0.30.0)
+
+- M0 implementation preflight committed concrete API shapes for the existing
+  emitter path, no-new-atom decision, module adapters, focused tests, and
+  manual verification handles.
+- M1 focused tests passed for workspace renderer dispatch and StockSage card
+  rendering without v0.26 stub output.
+- M2/M3 focused tests passed for workspace emitters, Fragment persistence,
+  durable StockSage tile rows, encoded bodies, provenance metadata,
+  no-context no-op behavior, and approved native `RunAnalysis` canvas
+  emission.
+- M4 focused LiveView tests passed for `/agent` durable StockSage tile rendering
+  and independent `/stocksage/*` app-surface rendering.
+- M4 Chrome extension verification passed against disposable
+  `ALLBERT_HOME=/private/tmp/allbert-v030-chrome`: `/agent` rendered the
+  seeded StockSage `analysis_card` tile with real
+  `data-stocksage-component="analysis_card"` markup, tile menu controls, no
+  v0.26 stub marker, and no horizontal overflow at the available desktop
+  viewport.
+- M4 narrow Chrome extension verification passed at a 430px viewport: the
+  mobile Canvas tab opened, the StockSage tile was visible, tile menu controls
+  remained reachable, and there was no horizontal overflow.
+- M5 focused memory regressions passed after replacing an old fake StockSage
+  registration test helper with the real `StockSage.App` registry contract.
+- M5 full gate passed: `mix format --check-formatted`,
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+
 ## v0.29.0 - App Memory + Outcomes Contract - StockSage Polish
 
 Status: released. Version metadata is `0.29.0`; release tag `v0.29.0` was

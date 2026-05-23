@@ -40,7 +40,7 @@ Do not load every section by default.
 | StockSage security posture and adversarial evals | `docs/plans/v0.28-plan.md`, `docs/plans/v0.28-request-flow.md`, ADR 0015, ADR 0023 | v0.28 |
 | StockSage app memory, outcomes, reflection sync, reruns | `docs/plans/v0.29-plan.md`, `docs/plans/v0.29-request-flow.md`, ADR 0015, ADR 0018, ADR 0022 | v0.29 |
 | Workspace shell, canvas, ephemeral UI substrate | ADR 0015 (catalog), ADR 0023 (workspace substrate), `docs/plans/v0.26-plan.md`, `docs/plans/v0.26-request-flow.md` | v0.26 |
-| StockSage canvas integration, workspace plugin contributions | Active StockSage milestone plan | v0.30 |
+| StockSage canvas integration, workspace plugin contributions | `docs/plans/v0.30-plan.md`, `docs/plans/v0.30-request-flow.md`, ADR 0015, ADR 0023 | v0.30 |
 | Plugin/app generator | ADR 0017, ADR 0015, v0.31 plan | v0.31 |
 
 ## Version Map
@@ -153,6 +153,15 @@ Do not load every section by default.
   and polished app-flow UX for run context, empty/error states, and mobile-safe
   StockSage surfaces. v0.29 consumes the namespace declared in v0.27 and
   audited in v0.28; it still does not emit durable `/agent` canvas tiles.
+- v0.30: App Canvas Contract - StockSage Canvas Integration. `/agent` now
+  renders durable StockSage canvas tiles with the v0.27
+  `StockSageWeb.Components.Cards` renderers instead of v0.26 stubs.
+  `RunAnalysis` lifecycle signals flow through
+  `AllbertAssist.Workspace.Emitters.stocksage_signal/2`, signed
+  `Workspace.Fragment.Envelope` validation, and the existing
+  `workspace_canvas_tiles` + YAML body store. v0.30 adds no `:stock_chart`
+  atom, no migration, no new StockSage domain behavior, and no private
+  canvas-write path.
 
 ## Area Notes
 
@@ -305,10 +314,10 @@ routes dynamically without an explicit plan.
 
 v0.28 is the security reference for this substrate: catalog bypass, component
 injection, fragment replay/tampering, emitter allow-list, app-scope routing,
-and workspace/canvas hard-disable behavior all have named eval coverage. v0.29
-does not add StockSage `/agent` canvas emission. v0.30 is the milestone that
+and workspace/canvas hard-disable behavior all have named eval coverage. v0.30
 wires v0.27-proven StockSage components into durable workspace canvas tiles
-through the v0.26/v0.28-audited mechanism.
+through the v0.26/v0.28-audited mechanism; future app canvas work should reuse
+that same signed Fragment path unless a new ADR changes the substrate.
 
 v0.26 expands the Surface DSL substrate from a single chat-only `/agent`
 LiveView to the shipped **agentic workspace shell**:
@@ -339,7 +348,8 @@ LiveView to the shipped **agentic workspace shell**:
   carryover + 10 workspace structural + 12 Allbert-domain + 4
   Allbert-app cards + 4 reserved StockSage cards. v0.27 ships real
   StockSage-owned app-surface renderers for those cards under `/stocksage/*`;
-  durable `/agent` canvas tile rendering for StockSage remains v0.30 work.
+  v0.30 wires those same renderers into durable `/agent` canvas tiles without
+  adding a new `:stock_chart` atom.
 - 14 new `workspace.*` settings (theme, offline, accessibility,
   fixed read-only mobile breakpoint, fragment rate limits, etc.). New
   `:workspace_canvas_write` permission class.

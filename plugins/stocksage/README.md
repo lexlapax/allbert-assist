@@ -3,7 +3,7 @@
 StockSage is Allbert's first shipped source-tree plugin workspace app and the
 first proving app for native financial specialist agents.
 
-Current v0.29 capabilities:
+Current v0.30 capabilities:
 
 - `./plugins/stocksage` contributes `StockSage.Plugin`, `StockSage.App`,
   skills, settings schema entries, local domain actions, evidence actions,
@@ -31,8 +31,8 @@ Current v0.29 capabilities:
   app card atoms: `:analysis_card`, `:agent_report_card`, `:parity_card`, and
   `:debate_round_card`.
 - StockSage-owned card renderers display persisted native, bridge, and parity
-  analysis output inside `/stocksage/*`; the v0.26 workspace stubs remain a
-  separate `/agent` canvas concern until v0.30.
+  analysis output inside `/stocksage/*` and durable `/agent` workspace canvas
+  tiles.
 - `StockSage.App.memory_namespace/0` declares namespace ownership with
   `writable: true`; Allbert markdown memory writes still require explicit
   `sync_app_lesson` confirmation.
@@ -95,5 +95,7 @@ not-found. `:stocksage_write` authorizes local StockSage SQLite writes only;
 `:stocksage_analyze` remains confirmation-gated; evidence actions flow through
 `:stocksage_evidence_fetch` and Resource Access posture.
 
-v0.29 consumes the v0.27 memory namespace through explicit lesson sync. Durable
-`/agent` canvas tile emission through `canvas_ops` still lands in v0.30.
+v0.29 consumes the v0.27 memory namespace through explicit lesson sync. v0.30
+emits durable `/agent` canvas tiles through the audited
+`AllbertAssist.Workspace.Fragment` path; StockSage does not write workspace
+canvas tables directly.

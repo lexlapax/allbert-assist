@@ -1587,18 +1587,26 @@ Expected direction:
 Plan: `docs/plans/v0.30-plan.md`
 Request flow: `docs/plans/v0.30-request-flow.md`
 
-Status: planned. Formerly M-Canvas, previously planned as v0.28 before the
+Status: implemented. Formerly M-Canvas, previously planned as v0.28 before the
 project-direction rethink. Renamed after the post-v0.26 roadmap reconciliation
-to make the platform contract explicit.
+to make the platform contract explicit. Version metadata is `0.30.0`; release
+tag `v0.30.0` is ready after operator acceptance.
 
-Expected direction:
+Implemented:
 
-- Register StockSage chart and analysis-card components with the v0.26 canvas
-  catalog. Component types and real renderers were proven in v0.27; v0.30 is
-  durable `/agent` canvas-emission wiring, not format migration.
-- Let StockSage analysis responses emit `canvas_ops` for durable tiles through
-  the v0.26/v0.28-audited canvas mechanism.
-- Add no new StockSage domain model, analysis behavior, or renderer contract.
+- No new `:stock_chart` atom. v0.30 reuses the four v0.26-reserved and
+  v0.27-proven StockSage card atoms: `:analysis_card`, `:agent_report_card`,
+  `:parity_card`, and `:debate_round_card`.
+- `/agent` workspace rendering adapts those four atoms to the existing
+  `StockSageWeb.Components.Cards` renderers instead of the v0.26 stubs.
+- `RunAnalysis` lifecycle signals emit durable StockSage canvas tiles through
+  `AllbertAssist.Workspace.Emitters.stocksage_signal/2`, signed
+  `Workspace.Fragment.Envelope` validation, and the v0.26/v0.28-audited
+  Fragment/canvas persistence path.
+- Duplicate same-semantic-body Fragment emission remains idempotent when only
+  the volatile Fragment `emitted_at` value changes.
+- No new StockSage domain model, analysis behavior, migration, renderer
+  contract, or workspace setting was added.
 
 ## v0.31: Allbert Plugin And App Generator
 
