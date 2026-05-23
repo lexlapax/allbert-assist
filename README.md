@@ -23,8 +23,8 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is the `v0.32.0` release candidate. `/workspace`
-is the only operator home: the old `/agent`, `/settings`, and `/stocksage/*`
+The current implementation is the released `v0.32.0`. `/workspace` is the
+only operator home: the old `/agent`, `/settings`, and `/stocksage/*`
 operator routes are removed without compatibility redirects. Settings Central
 now lives inside the workspace utility drawer, CoreApp domain cards compose as
 workspace panels, and StockSage dashboard/recent/queue/trends render as
