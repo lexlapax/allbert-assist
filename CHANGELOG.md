@@ -12,9 +12,8 @@ changelog entries or release notes.
 
 ## v0.30.0 - App Canvas Contract - StockSage Canvas Integration
 
-Status: implemented and ready for operator manual verification. Version
-metadata is `0.30.0`; release tag `v0.30.0` should be created after operator
-manual verification is accepted.
+Status: released. Version metadata is `0.30.0`; release tag `v0.30.0` was
+created after operator manual verification was accepted.
 
 Plan: `docs/plans/v0.30-plan.md`.
 Request flow: `docs/plans/v0.30-request-flow.md`.
@@ -74,6 +73,8 @@ Request flow: `docs/plans/v0.30-request-flow.md`.
 - M5 full gate passed: `mix format --check-formatted`,
   `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
+- Operator manual verification was accepted for the release smoke in
+  `docs/plans/v0.30-request-flow.md`.
 
 ## v0.29.0 - App Memory + Outcomes Contract - StockSage Polish
 
