@@ -51,6 +51,26 @@ existing plan.
 
 ## Unassigned Future Features
 
+
+### Dynamic Elixir Code Generation Or Module Loading
+
+Source: v0.03/v0.06 execution-boundary clarification and v0.33 generator
+planning.
+
+Allbert should not auto-generate, compile, or load Elixir modules from
+arbitrary plugin, app, or skill folders. v0.33 may scaffold ordinary source
+files into the project for review, compile, and validation, but runtime module
+loading from untrusted plugin/app/skill folders remains unplanned.
+
+Needed before planning:
+
+- separate ADR for code-generation boundaries
+- v0.33 scaffold/review/compile/test workflow proven
+- explicit distinction between generating source and enabling capability
+- rollback and migration story
+- policy for generated migrations, dependency additions, and operator review
+
+
 ### Autonomous Skill Creation
 
 Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, and v0.33
@@ -71,50 +91,6 @@ Needed before planning:
 - explicit operator approval before enabling
 - evals for generated skill quality and unsafe capability requests
 - policy for instruction-only drafts versus generated app/action code
-
-
-### Dynamic Elixir Code Generation Or Module Loading
-
-Source: v0.03/v0.06 execution-boundary clarification and v0.33 generator
-planning.
-
-Allbert should not auto-generate, compile, or load Elixir modules from
-arbitrary plugin, app, or skill folders. v0.33 may scaffold ordinary source
-files into the project for review, compile, and validation, but runtime module
-loading from untrusted plugin/app/skill folders remains unplanned.
-
-Needed before planning:
-
-- separate ADR for code-generation boundaries
-- v0.33 scaffold/review/compile/test workflow proven
-- explicit distinction between generating source and enabling capability
-- rollback and migration story
-- policy for generated migrations, dependency additions, and operator review
-
-### Remote Plugin Marketplace And Code-Bearing Plugin Distribution
-
-Source: v0.17 plugin substrate and v0.33 generator planning.
-
-v0.17 creates local plugin discovery and ships Telegram/email as source-tree
-plugins under `./plugins`, but it does not install remote plugins, resolve
-dependencies, automatically compile arbitrary `./plugins/*/lib` directories,
-compile code from `<ALLBERT_HOME>/plugins`, hot-reload code-bearing plugins,
-or sandbox untrusted plugin execution. v0.33 may scaffold
-plugin source for
-developer review, compile, and test, but marketplace distribution and
-arbitrary runtime loading remain parked here.
-
-Needed before planning:
-
-- v0.17 plugin registry accepted through user testing
-- v0.26 plugin-boundary security evals accepted
-- v0.33 plugin/app generator accepted through user
-  testing
-- dependency install/update policy
-- plugin signing, provenance, versioning, and rollback model
-- clear trust tiers for skill-only, compiled local, third-party source, and
-  remote binary/plugin packages
-- sandbox or review posture for code-bearing third-party plugins
 
 ### Additional Remote Channel Adapters
 
@@ -154,56 +130,6 @@ Needed before planning:
 - clear decision on whether a provider starts as inbound-only, response-only,
   or full request/response with confirmation callbacks
 
-### Remote Secrets Manager
-
-Source: v0.02 non-goals.
-
-v0.02 uses an encrypted local Settings Central secret store. A future milestone
-may add an adapter for an OS keychain, cloud secret manager, or enterprise
-vault.
-
-Needed before planning:
-
-- local secret store stability
-- provider abstraction for secret backends
-- migration/export policy
-- offline behavior
-- redaction and audit consistency across backends
-- v0.28 (formerly v0.26) security evals covering secret redaction regressions
-
-### Remote Sync And Profile Export/Import
-
-Source: v0.02 non-goals and ADR 0005 consequences.
-
-Allbert Home gives a clear local boundary for backup and migration, but there
-is no remote sync or full profile import/export plan yet.
-
-Needed before planning:
-
-- stable Allbert Home layout
-- schema/version metadata for settings, memory, skills, cache, and database
-- SQLite conversation and app data export policy after v0.12/v0.20
-- encrypted secret migration policy
-- conflict resolution policy
-- operator-visible dry run and rollback
-
-### Hosted Multi-User Authorization Model
-
-Source: v0.02, v0.07, and v0.12 non-goals.
-
-Allbert's near-term identity model is local string `user_id`. Hosted accounts,
-roles, teams, auth sessions, API keys, and cross-user authorization remain
-future work for shared workspaces, team channels, or hosted deployments.
-
-Needed before planning:
-
-- v0.12 string identity and thread isolation accepted
-- v0.26 cross-user/thread leakage evals accepted
-- hosted deployment posture and threat model
-- operator/user/admin role model
-- per-user Settings Central scope
-- per-user memory and channel policy
-- audit and confirmation ownership
 
 ### Intents vs Objective for agent tasks (graduated)
 
@@ -509,6 +435,81 @@ Needed before planning:
 - confirmation handoff behavior
 - packaging/release approach
 
+### Remote Secrets Manager
+
+Source: v0.02 non-goals.
+
+v0.02 uses an encrypted local Settings Central secret store. A future milestone
+may add an adapter for an OS keychain, cloud secret manager, or enterprise
+vault.
+
+Needed before planning:
+
+- local secret store stability
+- provider abstraction for secret backends
+- migration/export policy
+- offline behavior
+- redaction and audit consistency across backends
+- v0.28 (formerly v0.26) security evals covering secret redaction regressions
+
+### Remote Sync And Profile Export/Import
+
+Source: v0.02 non-goals and ADR 0005 consequences.
+
+Allbert Home gives a clear local boundary for backup and migration, but there
+is no remote sync or full profile import/export plan yet.
+
+Needed before planning:
+
+- stable Allbert Home layout
+- schema/version metadata for settings, memory, skills, cache, and database
+- SQLite conversation and app data export policy after v0.12/v0.20
+- encrypted secret migration policy
+- conflict resolution policy
+- operator-visible dry run and rollback
+
+### Hosted Multi-User Authorization Model
+
+Source: v0.02, v0.07, and v0.12 non-goals.
+
+Allbert's near-term identity model is local string `user_id`. Hosted accounts,
+roles, teams, auth sessions, API keys, and cross-user authorization remain
+future work for shared workspaces, team channels, or hosted deployments.
+
+Needed before planning:
+
+- v0.12 string identity and thread isolation accepted
+- v0.26 cross-user/thread leakage evals accepted
+- hosted deployment posture and threat model
+- operator/user/admin role model
+- per-user Settings Central scope
+- per-user memory and channel policy
+- audit and confirmation ownership
+
+### Remote Plugin Marketplace And Code-Bearing Plugin Distribution
+
+Source: v0.17 plugin substrate and v0.33 generator planning.
+
+v0.17 creates local plugin discovery and ships Telegram/email as source-tree
+plugins under `./plugins`, but it does not install remote plugins, resolve
+dependencies, automatically compile arbitrary `./plugins/*/lib` directories,
+compile code from `<ALLBERT_HOME>/plugins`, hot-reload code-bearing plugins,
+or sandbox untrusted plugin execution. v0.33 may scaffold
+plugin source for
+developer review, compile, and test, but marketplace distribution and
+arbitrary runtime loading remain parked here.
+
+Needed before planning:
+
+- v0.17 plugin registry accepted through user testing
+- v0.26 plugin-boundary security evals accepted
+- v0.33 plugin/app generator accepted through user
+  testing
+- dependency install/update policy
+- plugin signing, provenance, versioning, and rollback model
+- clear trust tiers for skill-only, compiled local, third-party source, and
+  remote binary/plugin packages
+- sandbox or review posture for code-bearing third-party plugins
 
 ### Scripting Engine Interface
 
