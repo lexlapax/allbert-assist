@@ -1,7 +1,14 @@
 defmodule StockSage.Actions.GenerateReflection do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :stocksage_write,
+    exposure: :internal,
+    execution_mode: :local_domain,
+    skill_backed?: true,
+    confirmation: :not_required,
+    app_id: :stocksage,
+    plugin_id: "stocksage",
     name: "generate_reflection",
     description: "Generate a StockSage-local reflection for a resolved outcome.",
     category: "stocksage",

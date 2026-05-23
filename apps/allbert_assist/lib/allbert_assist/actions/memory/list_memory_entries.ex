@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Memory.ListMemoryEntries do
   @moduledoc "Lists markdown-backed memory entries through the action boundary."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :memory_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "list_memory_entries",
     description: "List markdown memory entries for one local user.",
     category: "memory",

@@ -3,7 +3,14 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
   Confirmed online skill detail fetch over a configured source profile.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :external_network,
+    exposure: :agent,
+    execution_mode: :online_skill_detail,
+    skill_backed?: true,
+    confirmation: :required,
+    resumable?: true,
+    notes: "Fetches online skill details only after external-network confirmation.",
     name: "show_online_skill",
     description: "Fetch or display details for a configured online skill source result.",
     category: "skills",

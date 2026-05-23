@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Session.ClearActiveApp do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :settings_write,
+    exposure: :internal,
+    execution_mode: :settings_write,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "clear_active_app",
     description: "Clear the active app for an existing volatile local session.",
     category: "session",

@@ -46,7 +46,15 @@ defmodule StockSage.Actions.RunAnalysis do
   rather than tightening it now.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :stocksage_analyze,
+    exposure: :agent,
+    execution_mode: :native_agent_graph,
+    skill_backed?: true,
+    confirmation: :required,
+    app_id: :stocksage,
+    plugin_id: "stocksage",
+    resumable?: true,
     name: "run_analysis",
     description: "Run a StockSage analysis for a ticker.",
     category: "stocksage",

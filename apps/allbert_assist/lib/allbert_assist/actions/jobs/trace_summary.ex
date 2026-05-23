@@ -3,7 +3,12 @@ defmodule AllbertAssist.Actions.Jobs.TraceSummary do
   Read-only trace and job-run summary for scheduled job templates.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :read_only,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "trace_summary",
     description: "Summarize recent trace files and scheduled job run counts.",
     category: "jobs",

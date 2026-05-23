@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Confirmations.DenyConfirmation do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :confirmation_decide,
+    exposure: :internal,
+    execution_mode: :confirmation_decision,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "deny_confirmation",
     description: "Deny a durable confirmation request without running the target action.",
     category: "confirmations",

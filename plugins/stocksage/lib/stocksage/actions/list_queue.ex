@@ -1,7 +1,14 @@
 defmodule StockSage.Actions.ListQueue do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :local_domain,
+    skill_backed?: false,
+    confirmation: :not_required,
+    app_id: :stocksage,
+    plugin_id: "stocksage",
     name: "list_queue",
     description: "List bounded local StockSage queue entries for the current user.",
     category: "stocksage",

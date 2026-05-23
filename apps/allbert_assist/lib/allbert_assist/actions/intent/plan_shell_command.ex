@@ -7,7 +7,12 @@ defmodule AllbertAssist.Actions.Intent.PlanShellCommand do
   taking hidden side effects.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :command_plan,
+    exposure: :agent,
+    execution_mode: :command_plan_only,
+    skill_backed?: true,
+    confirmation: :not_required,
     name: "plan_shell_command",
     description: "Draft a shell-command plan or safety note without executing anything.",
     category: "intent",

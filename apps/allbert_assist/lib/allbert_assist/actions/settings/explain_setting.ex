@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Settings.ExplainSetting do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :settings_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "explain_setting",
     description: "Explain one Settings Central value and source layers.",
     category: "settings",

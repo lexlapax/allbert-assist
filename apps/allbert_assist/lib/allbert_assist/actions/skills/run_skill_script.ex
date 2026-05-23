@@ -7,7 +7,15 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
   name.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :skill_script_execute,
+    exposure: :internal,
+    execution_mode: :skill_script_process,
+    skill_backed?: true,
+    confirmation: :required,
+    resumable?: true,
+    notes:
+      "v0.09 trusted resource-gated skill script execution; M2 resolves inert specs before M3 confirmations and M4 running.",
     name: "run_skill_script",
     description: "Run a confirmed trusted Agent Skill script resource.",
     category: "skills",

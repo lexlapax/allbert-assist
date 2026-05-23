@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Objectives.ListObjectives do
   @moduledoc "List durable objectives for one local user."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :objectives_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "list_objectives",
     description: "List bounded objective summaries for a local user.",
     category: "objectives",

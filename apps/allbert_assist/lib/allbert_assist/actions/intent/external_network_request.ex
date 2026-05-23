@@ -7,7 +7,14 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   this action with an approved confirmation context.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :external_network,
+    exposure: :agent,
+    execution_mode: :req_http,
+    skill_backed?: true,
+    confirmation: :required,
+    resumable?: true,
+    notes: "v0.10 confirmed Req HTTP execution; creates a durable confirmation before running.",
     name: "external_network_request",
     description: "Create or resume a confirmed external HTTP/service request.",
     category: "intent",

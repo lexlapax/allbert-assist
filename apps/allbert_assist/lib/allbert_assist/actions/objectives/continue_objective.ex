@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
   @moduledoc "Advance a blocked objective when its blocker has changed."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :objective_write,
+    exposure: :internal,
+    execution_mode: :objective_engine,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "continue_objective",
     description: "Continue a durable objective after approval or operator intervention.",
     category: "objectives",

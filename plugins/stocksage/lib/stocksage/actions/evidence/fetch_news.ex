@@ -1,7 +1,14 @@
 defmodule StockSage.Actions.Evidence.FetchNews do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :stocksage_evidence_fetch,
+    exposure: :internal,
+    execution_mode: :req_http,
+    skill_backed?: false,
+    confirmation: :required,
+    app_id: :stocksage,
+    plugin_id: "stocksage",
     name: "stocksage_fetch_news",
     description: "Fetch bounded news evidence for StockSage native agents.",
     category: "stocksage",

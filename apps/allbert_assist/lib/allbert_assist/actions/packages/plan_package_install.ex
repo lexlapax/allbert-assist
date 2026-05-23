@@ -3,7 +3,13 @@ defmodule AllbertAssist.Actions.Packages.PlanPackageInstall do
   Builds a package-install request plan without invoking a package manager.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :package_install_plan,
+    skill_backed?: true,
+    confirmation: :not_required,
+    notes: "Plans package work only; package managers must run through run_package_install.",
     name: "plan_package_install",
     description: "Plan a package installation without executing a package manager.",
     category: "packages",

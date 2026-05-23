@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Objectives.ShowObjective do
   @moduledoc "Show a durable objective with proposed steps and recent events."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :objectives_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "show_objective",
     description: "Show objective details, steps, and recent events for a local user.",
     category: "objectives",

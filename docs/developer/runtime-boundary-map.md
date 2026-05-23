@@ -47,7 +47,7 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | M4 | `AllbertAssist.Runtime.Audit` | Implemented shared audit facade over existing audit writers and Security Central audit metadata. |
 | M4 | `AllbertAssist.Runtime.Persistence` | Implemented shared persistence facade for hybrid metadata/body stores and Fragment body codecs. |
 | M4 | `AllbertAssist.Runtime.Trace` | Implemented shared trace facade over the existing markdown trace writer. |
-| M5 | `AllbertAssist.Action` | Thin Allbert-facing wrapper over `Jido.Action`. |
+| M5 | `AllbertAssist.Action` | Implemented thin Allbert-facing wrapper over `Jido.Action`; registered action modules now declare capability metadata directly. |
 | M6 | `AllbertAssist.Runtime.Response` | Typed runtime response helpers. |
 | M7 | `AllbertAssist.Extensions.Registry` | Unified compiled plugin/app contribution facade. |
 | M7 | `AllbertAssist.Surface.Catalog` | Single Surface component/catalog/renderer authority. |
@@ -77,6 +77,13 @@ and `AllbertAssist.Runtime.Trace`. Runtime-facing audit writers, Security
 Central audit metadata, trace recording, workspace body persistence, and
 Fragment body decoding now route through the runtime facades while preserving
 the existing markdown/YAML/SQLite formats.
+
+M5 added `AllbertAssist.Action` and migrated registered runtime-facing core and
+StockSage action modules from raw `use Jido.Action` to
+`use AllbertAssist.Action`. The action registry now derives capability metadata
+from modules instead of a duplicate central map. Raw `Jido.Action` remains
+allowed for unregistered/private/test-only commands such as the `Multiply`
+fixture.
 
 ## Internal Modules
 

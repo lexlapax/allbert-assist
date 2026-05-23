@@ -3,7 +3,12 @@ defmodule AllbertAssist.Actions.Security.Status do
   Read-only Security Central status action for operator surfaces.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :security_status,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "security_status",
     description: "Show effective Security Central status and settings-backed permission posture.",
     category: "security",
