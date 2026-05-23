@@ -72,7 +72,17 @@ defmodule AllbertAssist.Actions.AppActionsTest do
     assert response.app.agent_names == []
     assert response.app.skill_paths == []
     assert response.app.surfaces == []
-    assert [%{id: :workspace, path: "/workspace"}] = response.app.provider_surfaces
+
+    assert Enum.any?(
+             response.app.provider_surfaces,
+             &match?(%{id: :workspace, path: "/workspace"}, &1)
+           )
+
+    assert Enum.any?(
+             response.app.provider_surfaces,
+             &match?(%{id: :core_jobs_panel, kind: :panel}, &1)
+           )
+
     assert response.app.surface_catalog_count == 49
     refute inspect(response.app) =~ "child_pid"
     refute inspect(response.app) =~ "chat-root"

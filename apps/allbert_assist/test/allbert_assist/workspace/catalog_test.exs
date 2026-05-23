@@ -56,7 +56,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     assert %Node{component: :utility_drawer, children: utility_children} =
              Enum.find(children, &match?(%Node{component: :utility_drawer}, &1))
 
-    assert Enum.any?(utility_children, &match?(%Node{component: :settings_panel}, &1))
+    assert find_node(utility_children, :settings_panel, :core_settings_panel)
     assert Enum.any?(children, &match?(%Node{component: :ephemeral_surface}, &1))
   end
 
@@ -112,6 +112,56 @@ defmodule AllbertAssist.Workspace.CatalogTest do
            } = Enum.find(canvas_children, &(&1.props[:surface_id] == :fixture_panel))
 
     refute Map.has_key?(surface.metadata, :panel_diagnostics)
+  end
+
+  test "workspace tree composes CoreApp cards through panel surfaces" do
+    surface = Catalog.workspace_tree(user_id: "local", thread_id: "thread-1")
+
+    assert [%Node{component: :workspace_shell, children: children}] = surface.nodes
+
+    assert %Node{component: :badge_strip, children: context_children} =
+             Enum.find(children, &(&1.component == :badge_strip))
+
+    assert %Node{component: :objective_card} =
+             find_node(context_children, :objective_card, :core_objectives_panel)
+
+    assert %Node{component: :utility_drawer, children: utility_children} =
+             Enum.find(children, &(&1.component == :utility_drawer))
+
+    assert find_node(utility_children, :job_card, :core_jobs_panel)
+    assert find_node(utility_children, :confirmation_card, :core_confirmations_panel)
+    assert find_node(utility_children, :settings_card, :core_security_panel)
+    assert find_node(utility_children, :settings_panel, :core_settings_panel)
+    refute Map.has_key?(surface.metadata, :panel_diagnostics)
+  end
+
+  test "workspace tree filters active-app panels by explicit app context" do
+    hidden =
+      Catalog.workspace_tree(
+        active_app: :allbert,
+        panel_surfaces: [
+          panel_surface(%{
+            id: :stocksage_fixture_panel,
+            app_id: :stocksage,
+            metadata: %{visible_when: :selected_app, order: 10}
+          })
+        ]
+      )
+
+    shown =
+      Catalog.workspace_tree(
+        active_app: :stocksage,
+        panel_surfaces: [
+          panel_surface(%{
+            id: :stocksage_fixture_panel,
+            app_id: :stocksage,
+            metadata: %{visible_when: :selected_app, order: 10}
+          })
+        ]
+      )
+
+    refute canvas_panel?(hidden, :stocksage_fixture_panel)
+    assert canvas_panel?(shown, :stocksage_fixture_panel)
   end
 
   test "workspace tree drops invalid panel surfaces with bounded diagnostics" do
@@ -184,5 +234,38 @@ defmodule AllbertAssist.Workspace.CatalogTest do
         attrs
       )
     )
+  end
+
+  defp canvas_panel?(%Surface{nodes: [%Node{children: children}]}, surface_id) do
+    children
+    |> Enum.find(&(&1.component == :canvas))
+    |> Map.get(:children, [])
+    |> Enum.any?(&(&1.props[:surface_id] == surface_id))
+  end
+
+  defp find_node(nodes, component, surface_id) do
+    Enum.find_value(nodes, fn
+      %Node{props: %{surface_id: ^surface_id}} = node ->
+        find_component([node], component)
+
+      %Node{children: children} ->
+        find_node(children, component, surface_id)
+
+      _node ->
+        nil
+    end)
+  end
+
+  defp find_component(nodes, component) do
+    Enum.find_value(nodes, fn
+      %Node{component: ^component} = node ->
+        node
+
+      %Node{children: children} ->
+        find_component(children, component)
+
+      _node ->
+        nil
+    end)
   end
 end

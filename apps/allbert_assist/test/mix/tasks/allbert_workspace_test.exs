@@ -63,7 +63,9 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
     assert output =~ "user_id=local thread_id=thread-1"
     assert output =~ "- workspace-root workspace_shell"
     assert output =~ "  - workspace-canvas-region canvas"
-    assert output =~ "    - workspace-settings-panel settings_panel"
+
+    assert output =~
+             "    - workspace-panel-allbert-core_settings_panel-settings-central settings_panel"
   end
 
   test "canvas CLI lists shows pins restores and purges tiles" do
