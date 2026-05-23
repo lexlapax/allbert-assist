@@ -76,6 +76,14 @@ recognition and app-owned action execution.
 - Future app/plugin generator work must scaffold app intent descriptors only
   as inert proposal metadata.
 
+## Implementation Notes
+
+The v0.33 M0 preflight on 2026-05-23 confirmed that the descriptor/handoff
+contract can use the existing v0.32 `/workspace` route, session active-app
+actions, and v0.26 ephemeral surface renderer. The implementation should add
+descriptor discovery and handoff/clarification data without adding a new
+Surface catalog atom or changing ADR 0030.
+
 ## References
 
 - Amazon Lex Intent Disambiguation:
