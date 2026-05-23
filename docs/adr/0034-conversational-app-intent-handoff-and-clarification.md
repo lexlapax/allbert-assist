@@ -46,8 +46,9 @@ recognition and app-owned action execution.
    the descriptor/handoff contract as the first app consumer.
 8. The direct-answer model call is Settings Central-gated (operator-decided
    default, following the bounded `Intent.Classifier` precedent rather than being
-   implicitly on), redacted and traced per ADR 0019, and grants no Resource
-   Access escalation. When the model is disabled or unavailable it returns a
+   implicitly on), requires the referenced provider profile to be enabled,
+   redacted and traced per ADR 0019, and grants no Resource Access escalation.
+   When the model or provider is disabled or unavailable it returns a
    deterministic bounded fallback.
 9. Descriptor candidates are collected through `AllbertAssist.Extensions.Registry`
    from an optional `SurfaceProvider.intent_descriptors/0` callback and validated
