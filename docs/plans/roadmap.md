@@ -1338,9 +1338,10 @@ Shipped direction:
   v0.26 is `CoreApp`'s surface implementation, not a free-floating shell; it
   does not redefine the app contract or surface DSL that v0.18 provides.
 - **The workspace shell IS itself a Surface tree** (per ADR 0023 §2). The
-  renderer walks the tree and dispatches each node's `:component` atom to a
-  LiveComponent via `AllbertAssist.Workspace.Catalog.component_renderer/1`.
-  No hardcoded HEEx layout for regions.
+  web renderer walks the tree and dispatches each node's `:component` atom to
+  a LiveComponent through `AllbertAssistWeb.Workspace.Renderer`; v0.31 M7 moves
+  that dispatch table into the unified `AllbertAssist.Surface.Catalog`. No
+  hardcoded HEEx layout for regions.
 - **Per-thread Canvas** (persistent tiles bound to v0.12 thread; survives
   refresh + restart) + **per-thread Ephemeral Surfaces** (task-scoped
   overlays, shared across tabs of the same thread, GC'd on thread close).

@@ -275,15 +275,6 @@ defmodule AllbertAssist.Boundary do
       notes: "Split into registered fragments without changing keys/defaults."
     },
     %{
-      id: :workspace_catalog_renderer_probe,
-      role: :compatibility_shim,
-      subsystem: :surface,
-      module: AllbertAssist.Workspace.Catalog,
-      target: AllbertAssist.Surface.Catalog,
-      milestone: :m7,
-      notes: "component_renderer/1 is a catalog-membership probe until M7."
-    },
-    %{
       id: :stocksage_app_surface_renderer,
       role: :compatibility_shim,
       subsystem: :surface,

@@ -30,15 +30,6 @@ defmodule AllbertAssist.Workspace.Catalog do
     |> Map.update!(:nodes, &inject_runtime_nodes(&1, context))
   end
 
-  @spec component_renderer(atom()) :: {:ok, atom()} | {:error, :unknown_component}
-  def component_renderer(component) do
-    if component in known_components() do
-      {:ok, component}
-    else
-      {:error, :unknown_component}
-    end
-  end
-
   defp core_surface!(surface_id) do
     Enum.find(CoreApp.surfaces(), &(&1.id == surface_id)) ||
       raise ArgumentError, "unknown core workspace surface: #{inspect(surface_id)}"

@@ -58,9 +58,14 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 |---|---|---|
 | `AllbertAssist.Security.PermissionGate` | M8 | All runtime-facing callers use `AllbertAssist.Security` directly and security eval parity is explicit. |
 | `AllbertAssist.Settings.Schema` monolith | M8 | Every key is owned by registered fragments with unchanged defaults, validation, secret handling, and safe-write policy. |
-| `AllbertAssist.Workspace.Catalog.component_renderer/1` | M7 | Component membership and renderer dispatch flow through `AllbertAssist.Surface.Catalog`. |
 | `StockSageWeb.Components.SurfaceRenderer` | M7 | StockSage app surfaces dispatch through the shared catalog/renderer path. |
 | `AllbertAssistWeb.Workspace.Components.*Card` StockSage adapters | M7 | Workspace renderer dispatches StockSage card renderers directly through the shared catalog. |
+
+M2 removed the obsolete `AllbertAssist.Workspace.Catalog.component_renderer/1`
+membership probe. Workspace component membership remains available through
+`AllbertAssist.Workspace.Catalog.known_components/0`; renderer dispatch remains
+in `AllbertAssistWeb.Workspace.Renderer` until M7 moves dispatch into
+`AllbertAssist.Surface.Catalog`.
 
 ## Internal Modules
 

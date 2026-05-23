@@ -79,11 +79,6 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     assert ephemeral_child.props.body == "Approval text"
   end
 
-  test "renderer dispatch is web-agnostic component metadata" do
-    assert {:ok, :workspace} = Catalog.component_renderer(:workspace)
-    assert {:error, :unknown_component} = Catalog.component_renderer(:invented)
-  end
-
   defp fragment_body(component, body) do
     FragmentBody.encode(%Envelope{
       id: "frag-catalog",
