@@ -15,11 +15,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.30 wires proven
-  # StockSage cards into durable `/agent` canvas tiles while preserving
-  # workspace authority in the audited Fragment path.
+  # the app (release-pinned, not semantic-per-app). v0.31 consolidates the
+  # runtime/UI substrate while preserving v0.30 operator behavior.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.30.0"
+  def version, do: "0.31.0"
 
   @impl true
   def validate(_opts), do: :ok

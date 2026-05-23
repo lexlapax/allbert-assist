@@ -20,10 +20,10 @@ defmodule StockSage.App do
   def display_name, do: "StockSage"
 
   @impl true
-  # v0.30 closeout: release-pinned with StockSage durable `/agent` canvas
-  # emission through the audited workspace Fragment path.
+  # v0.31 closeout: release-pinned after StockSage app and workspace cards
+  # moved onto the shared Surface catalog/renderer path.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.30.0"
+  def version, do: "0.31.0"
 
   @impl true
   def validate(_opts), do: :ok

@@ -167,7 +167,8 @@ Do not load every section by default.
   `workspace_canvas_tiles` + YAML body store. v0.30 adds no `:stock_chart`
   atom, no migration, no new StockSage domain behavior, and no private
   canvas-write path.
-- v0.31 (in progress): Runtime And UI-Substrate Consolidation. Consolidates the
+- v0.31 (implemented; pending operator manual verification): Runtime And
+  UI-Substrate Consolidation. Consolidates the
   action DSL, typed runtime responses, shared paths/redaction/audit/persistence
   facades, unified Surface catalog/renderer path, unified extension registry,
   and settings fragments. Behavior-preserving: no route removals, theming,

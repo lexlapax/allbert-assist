@@ -79,6 +79,8 @@ defmodule AllbertAssist.Security.IdentityContextEvalTest do
   test "scratchpad-bleed-001: session lookup is scoped by user and session id" do
     fixture = EvalInventory.row!("scratchpad-bleed-001")
     session_id = "shared-looking-session"
+    ensure_stocksage_registered!()
+
     assert {:ok, _entry} = Session.set_active_app("alice", session_id, :stocksage)
     assert {:ok, _entry} = Session.merge_working_memory("alice", session_id, %{pane: "alpha"})
 
@@ -215,4 +217,10 @@ defmodule AllbertAssist.Security.IdentityContextEvalTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp ensure_stocksage_registered! do
+    unless AppRegistry.known_app_id?(:stocksage) do
+      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+    end
+  end
 end
