@@ -10,6 +10,63 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.32.0 - Workspace-Only App UI And Settings Central
+
+Status: implemented and ready for operator manual verification before the
+release tag. Version metadata is `0.32.0`.
+
+Plan: `docs/plans/v0.32-plan.md`.
+Request flow: `docs/plans/v0.32-request-flow.md`.
+
+### Added (v0.32.0)
+
+- `/workspace` as the canonical operator home with host-owned nav, chat,
+  canvas/panel, and utility zones.
+- Catalog-validated `:panel` surfaces with fixed zones:
+  `:nav_apps`, `:context_rail`, `:canvas_panels`, `:utility_drawer`, and
+  `:ephemeral`.
+- Workspace app launcher selection that sets active app context through the
+  registered session action boundary instead of manual URL editing.
+- Settings Central inside the workspace utility drawer, preserving settings,
+  provider-key, confirmation, remembered-grant, redaction, audit, and security
+  action boundaries.
+- CoreApp objective, jobs, confirmations, security/status, and Settings
+  Central cards as panels through the same composition path used by app
+  providers.
+- StockSage dashboard, recent analyses, queue, and trends as hydrated
+  workspace panels backed by existing StockSage read contexts.
+
+### Changed (v0.32.0)
+
+- `/agent`, `/settings`, and `/stocksage/*` operator routes are removed without
+  redirects or compatibility pages.
+- `StockSageWeb.WorkspaceLive`, `QueueLive`, and `TrendsLive` were removed;
+  `StockSageWeb.AnalysisLive` remains at `/apps/stocksage/analyses/:id` for
+  long-form detail flows and no longer renders private StockSage nav chrome.
+- Durable StockSage canvas tiles continue to render through the v0.30 signed
+  Fragment/canvas path and the real v0.27 StockSage card renderers.
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app
+  metadata, `StockSage.App.version/0`, `StockSage.Plugin.version/0`,
+  `plugins/stocksage/allbert_plugin.json`, and the StockSage `run-analysis`
+  skill metadata are bumped to `0.32.0`.
+
+### Verification (v0.32.0)
+
+- M1-M6 were implemented, focused-tested, committed, and pushed as separate
+  milestones.
+- Security eval coverage includes panel catalog bypass, zone injection,
+  settings action bypass, workspace direct-mutation denial, and app-scope
+  preservation; web tests cover removed `/agent`, `/settings`, and
+  `/stocksage/*` routes.
+- Chrome extension verification passed for the workspace shell, app launcher,
+  Settings Central drawer, CoreApp panels, and StockSage panels with no
+  horizontal overflow or browser warnings/errors in the verified desktop
+  view. The pass caught and fixed a StockSage dark-card title contrast
+  regression.
+- Final M7 gate passed: `mix format --check-formatted`,
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+
 ## v0.31.0 - Runtime And UI-Substrate Consolidation
 
 Status: implemented and ready for operator manual verification before the
