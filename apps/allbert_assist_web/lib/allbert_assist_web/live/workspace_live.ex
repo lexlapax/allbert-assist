@@ -97,6 +97,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   @impl true
+  def handle_params(%{"tab" => tab}, _uri, socket)
+      when tab in ["nav", "chat", "canvas", "utility", "ephemeral"] do
+    {:noreply, assign(socket, :workspace_mobile_tab, tab)}
+  end
+
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
   @impl true
@@ -997,6 +1002,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       conversation_messages: assigns.conversation_messages,
       recent_threads: assigns.recent_threads,
       registered_apps: assigns.registered_apps,
+      workspace_mobile_tab: assigns.workspace_mobile_tab,
       canvas_tiles: assigns.canvas_tiles,
       ephemeral_surfaces: assigns.ephemeral_surfaces,
       workspace_badges: assigns.workspace_badges,

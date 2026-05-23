@@ -83,13 +83,14 @@ defmodule AllbertAssist.SurfaceTest do
   end
 
   test "known components include the v0.32 workspace catalog" do
-    assert Surface.known_components() |> length() == 48
+    assert Surface.known_components() |> length() == 49
     assert :chat in Surface.known_components()
     assert :route in Surface.known_components()
     assert :action_button in Surface.known_components()
     assert :workspace_shell in Surface.known_components()
     assert :app_launcher in Surface.known_components()
     assert :utility_drawer in Surface.known_components()
+    assert :settings_panel in Surface.known_components()
     assert :workspace in Surface.known_components()
     assert :canvas in Surface.known_components()
     assert :approval_card in Surface.known_components()
