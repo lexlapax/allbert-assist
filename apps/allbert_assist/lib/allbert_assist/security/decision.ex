@@ -3,8 +3,8 @@ defmodule AllbertAssist.Security.Decision do
   Canonical Security Central decision construction.
   """
 
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.Audit
-  alias AllbertAssist.Security.Redactor
 
   @doc "Build a canonical decision map with compatibility fields."
   @spec build(map()) :: map()

@@ -8,7 +8,7 @@ defmodule AllbertAssist.Signals do
 
   require Logger
 
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias Jido.Signal
   alias Jido.Signal.Bus
 

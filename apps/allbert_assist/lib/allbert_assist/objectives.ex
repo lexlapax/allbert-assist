@@ -11,7 +11,7 @@ defmodule AllbertAssist.Objectives do
 
   alias AllbertAssist.Objectives.{AcceptanceCriteria, Event, Objective, Step}
   alias AllbertAssist.Repo
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
 
   @active_statuses ~w[open running blocked]
   @default_list_limit 50

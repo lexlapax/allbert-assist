@@ -77,6 +77,20 @@ defmodule AllbertAssist.BoundaryTest do
     end
   end
 
+  test "implemented M3 runtime substrate facades load" do
+    m3_modules =
+      Boundary.planned_facades()
+      |> Enum.filter(&(&1.milestone == :m3))
+      |> Boundary.modules()
+
+    assert AllbertAssist.Runtime.Paths in m3_modules
+    assert AllbertAssist.Runtime.Redactor in m3_modules
+
+    for module <- m3_modules do
+      assert Code.ensure_loaded?(module)
+    end
+  end
+
   test "compatibility shims and deletion candidates have owner milestones" do
     for entry <- Boundary.compatibility_shims() ++ Boundary.deletion_candidates() do
       assert entry.role in [:compatibility_shim, :deletion_candidate]

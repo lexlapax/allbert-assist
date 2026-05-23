@@ -3,8 +3,8 @@ defmodule AllbertAssist.Security.Status do
   Read-only Security Central status summaries for operator surfaces.
   """
 
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.Policy
-  alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Settings
 
   @future_boundaries [

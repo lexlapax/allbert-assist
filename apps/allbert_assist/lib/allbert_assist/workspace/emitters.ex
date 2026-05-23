@@ -9,7 +9,7 @@ defmodule AllbertAssist.Workspace.Emitters do
 
   require Logger
 
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Events

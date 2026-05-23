@@ -26,7 +26,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.ResourceAccess
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Session
   alias AllbertAssist.Signals
   alias Jido.Signal
