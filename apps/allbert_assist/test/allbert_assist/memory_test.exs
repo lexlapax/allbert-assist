@@ -3,6 +3,7 @@ defmodule AllbertAssist.MemoryTest do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Memory
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
 
   setup do
     original_config = Application.get_env(:allbert_assist, Memory)
@@ -182,6 +183,11 @@ defmodule AllbertAssist.MemoryTest do
   end
 
   defp ensure_stocksage_registered do
+    assert PluginRegistry.register_module(StockSage.Plugin) in [
+             {:ok, "stocksage"},
+             {:error, {:plugin_id_taken, "stocksage"}}
+           ]
+
     unless AppRegistry.known_app_id?(:stocksage) do
       assert AppRegistry.register(StockSage.App) in [
                {:ok, :stocksage},

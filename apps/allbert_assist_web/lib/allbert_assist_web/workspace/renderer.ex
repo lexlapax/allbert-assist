@@ -4,6 +4,10 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
 
   The core catalog stays web-agnostic. The web renderer owns only visual
   dispatch, layout wrappers, and client-side shell affordances.
+
+  v0.31 M7 will move renderer registration behind the shared Surface catalog.
+  Until then this module remains the web dispatch facade for workspace
+  rendering.
   """
 
   use AllbertAssistWeb, :live_component

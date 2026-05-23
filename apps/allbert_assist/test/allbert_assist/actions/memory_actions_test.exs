@@ -17,6 +17,7 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
 
   setup do
@@ -356,6 +357,11 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   end
 
   defp ensure_stocksage_registered do
+    assert PluginRegistry.register_module(StockSage.Plugin) in [
+             {:ok, "stocksage"},
+             {:error, {:plugin_id_taken, "stocksage"}}
+           ]
+
     unless AppRegistry.known_app_id?(:stocksage) do
       assert AppRegistry.register(StockSage.App) in [
                {:ok, :stocksage},

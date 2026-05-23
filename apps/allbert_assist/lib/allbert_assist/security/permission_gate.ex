@@ -4,6 +4,10 @@ defmodule AllbertAssist.Security.PermissionGate do
 
   v0.05 keeps this module as the stable action-facing entrypoint while
   delegating decision construction to Security Central.
+
+  v0.31 marks this as a compatibility shim in `AllbertAssist.Boundary`.
+  M8 retires it only after direct `AllbertAssist.Security` callers have parity
+  tests and security eval coverage.
   """
 
   alias AllbertAssist.Security
