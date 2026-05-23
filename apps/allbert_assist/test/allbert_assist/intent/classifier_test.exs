@@ -119,12 +119,98 @@ defmodule AllbertAssist.Intent.ClassifierTest do
 
     assert length(summary) <= 20
 
-    assert Enum.all?(
-             summary,
-             &(Map.keys(&1) |> Enum.sort() == [:id, :kind, :label, :reason, :score, :source])
-           )
+    assert Enum.all?(summary, fn candidate_summary ->
+             Enum.all?([:id, :kind, :label, :reason, :score, :source], fn key ->
+               Map.has_key?(candidate_summary, key)
+             end)
+           end)
 
     refute inspect(summary) =~ "secret"
+  end
+
+  test "candidate summary includes bounded descriptor handoff metadata" do
+    candidates = Engine.collect_candidates(EvalFixtures.request(text: "analyze CIEN"))
+    summary = Classifier.candidate_summary(candidates)
+
+    assert descriptor =
+             Enum.find(summary, &(&1.kind == :app_intent and &1.id == "stocksage:run_analysis"))
+
+    assert descriptor.app_id == :stocksage
+    assert descriptor.action_name == "run_analysis"
+    assert descriptor.confirmation == :required
+    assert descriptor.intent_descriptor.required_slots == [:ticker]
+    assert descriptor.intent_descriptor.missing_slots == []
+    assert descriptor.intent_descriptor.extracted_slots == %{ticker: "CIEN"}
+    assert "analyze CIEN" in descriptor.intent_descriptor.examples
+    refute inspect(descriptor) =~ "secret"
+  end
+
+  test "classifier-selected app descriptor remains an explicit handoff" do
+    enable_fake_classifier!()
+
+    FakeClassifier.put_result(
+      {:ok,
+       %{
+         selected_kind: :app_intent,
+         selected_id: "stocksage:run_analysis",
+         confidence: 0.95,
+         reason: "Operator asked for financial analysis."
+       }}
+    )
+
+    assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: "analyze CIEN"))
+
+    assert decision.intent == :app_handoff
+    assert decision.selected_action == nil
+    assert decision.trace_metadata.intent_handoff.action_name == "run_analysis"
+    assert decision.trace_metadata.classifier.status == :used
+    assert decision.trace_metadata.classifier.selected_kind == :app_intent
+    assert decision.trace_metadata.classifier.selected_id == "stocksage:run_analysis"
+  end
+
+  test "classifier app action proposal that is not collected cannot bypass handoff" do
+    enable_fake_classifier!()
+
+    FakeClassifier.put_result(
+      {:ok,
+       %{
+         selected_kind: :action,
+         selected_id: "run_analysis",
+         confidence: 0.95,
+         reason: "Operator asked for financial analysis."
+       }}
+    )
+
+    assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: "analyze CIEN"))
+
+    assert decision.intent == :app_handoff
+    assert decision.selected_action == nil
+    assert decision.trace_metadata.intent_handoff.app_id == :stocksage
+    assert decision.trace_metadata.intent_handoff.action_name == "run_analysis"
+    assert decision.trace_metadata.classifier.status == :unknown_candidate
+    assert decision.trace_metadata.classifier.selected_kind == :action
+  end
+
+  test "classifier cannot invent an app intent candidate" do
+    enable_fake_classifier!()
+
+    FakeClassifier.put_result(
+      {:ok,
+       %{
+         selected_kind: :app_intent,
+         selected_id: "stocksage:not_real",
+         confidence: 0.95,
+         reason: "bad proposal"
+       }}
+    )
+
+    assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: "analyze CIEN"))
+
+    assert decision.intent == :app_handoff
+    assert decision.trace_metadata.intent_handoff.action_name == "run_analysis"
+    assert decision.trace_metadata.classifier.status == :unknown_candidate
+    assert decision.trace_metadata.classifier.selected_kind == :app_intent
+    assert decision.trace_metadata.classifier.selected_id == "stocksage:not_real"
   end
 
   defp enable_fake_classifier! do
