@@ -4,6 +4,9 @@ defmodule AllbertAssist.Security.Audit do
 
   v0.05 records audit-shaped metadata with decisions. Durable security audit
   persistence can build on this shape later.
+
+  v0.31 keeps this module as the compatibility implementation. New
+  runtime-facing code should call `AllbertAssist.Runtime.Audit`.
   """
 
   alias AllbertAssist.Runtime.Redactor

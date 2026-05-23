@@ -10,13 +10,13 @@ defmodule AllbertAssist.Workspace.Fragment do
   require Logger
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Runtime.Persistence
   alias AllbertAssist.Settings
   alias AllbertAssist.SignalBus
   alias AllbertAssist.Signals
   alias AllbertAssist.Surface
   alias AllbertAssist.Workspace.Canvas
   alias AllbertAssist.Workspace.Ephemeral
-  alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.Guard
   alias AllbertAssist.Workspace.Fragment.SigningSecret
@@ -256,7 +256,7 @@ defmodule AllbertAssist.Workspace.Fragment do
       thread_id: envelope.thread_id,
       kind: normalize_kind(envelope.kind),
       metadata: fragment_metadata(envelope),
-      body: FragmentBody.encode(envelope)
+      body: Persistence.encode_fragment_body(envelope)
     }
     |> maybe_put_position(envelope.tile_position)
   end

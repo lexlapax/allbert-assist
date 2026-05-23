@@ -35,6 +35,15 @@ separate migration plan is accepted.
 - Audit and trace behavior becomes easier to test consistently.
 - Data format changes remain out of scope for the consolidation release.
 
+## v0.31 Implementation Notes
+
+- M3 introduced `AllbertAssist.Runtime.Paths` and
+  `AllbertAssist.Runtime.Redactor` as behavior-preserving facades.
+- M4 introduced `AllbertAssist.Runtime.Audit`,
+  `AllbertAssist.Runtime.Persistence`, and `AllbertAssist.Runtime.Trace`.
+  Existing audit markdown, trace markdown, workspace YAML bodies, Fragment
+  body codecs, and SQLite metadata formats remain unchanged.
+
 ## Non-Goals
 
 - No migration.

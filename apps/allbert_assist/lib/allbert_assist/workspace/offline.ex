@@ -7,8 +7,8 @@ defmodule AllbertAssist.Workspace.Offline do
   """
 
   alias AllbertAssist.Repo
+  alias AllbertAssist.Runtime.Persistence
   alias AllbertAssist.Settings
-  alias AllbertAssist.Workspace.BodyStore
   alias AllbertAssist.Workspace.Canvas
   alias AllbertAssist.Workspace.Canvas.Revision
   alias AllbertAssist.Workspace.Canvas.Tile
@@ -121,7 +121,7 @@ defmodule AllbertAssist.Workspace.Offline do
 
   defp record_snapshot(%Tile{} = tile, attrs) do
     revision_id = new_id("rev")
-    snapshot_path = BodyStore.canvas_revision_path(tile.body_yaml_path, revision_id)
+    snapshot_path = Persistence.canvas_revision_path(tile.body_yaml_path, revision_id)
     conflict? = conflict?(tile.current_revision_id, attrs.base_revision_id)
     conflict_count = if conflict?, do: 1, else: 0
     body = snapshot_body(tile, attrs.text_snapshot)
@@ -136,8 +136,8 @@ defmodule AllbertAssist.Workspace.Offline do
 
     tile_metadata = tile_metadata(tile, revision_attrs, conflict?)
 
-    with :ok <- BodyStore.write_body(snapshot_path, revision_body(revision_attrs)),
-         :ok <- BodyStore.write_body(tile.body_yaml_path, body),
+    with :ok <- Persistence.write_body(snapshot_path, revision_body(revision_attrs)),
+         :ok <- Persistence.write_body(tile.body_yaml_path, body),
          {:ok, result} <-
            Repo.transaction(fn ->
              revision =
@@ -187,7 +187,7 @@ defmodule AllbertAssist.Workspace.Offline do
   end
 
   defp revision_snapshot(%Revision{snapshot_yaml_path: path}) when is_binary(path) do
-    with {:ok, body} <- BodyStore.read_body(path),
+    with {:ok, body} <- Persistence.read_body(path),
          snapshot when is_binary(snapshot) <- Map.get(body, "text_snapshot") do
       {:ok, snapshot}
     else
@@ -339,7 +339,7 @@ defmodule AllbertAssist.Workspace.Offline do
   end
 
   defp ensure_tile_body_size(%Tile{} = tile, snapshot) do
-    if tile |> snapshot_body(snapshot) |> BodyStore.body_size_bytes() <= tile_body_max_bytes(),
+    if tile |> snapshot_body(snapshot) |> Persistence.body_size_bytes() <= tile_body_max_bytes(),
       do: :ok,
       else: {:error, :tile_body_too_large}
   end

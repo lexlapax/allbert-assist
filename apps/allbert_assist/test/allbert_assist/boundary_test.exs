@@ -31,6 +31,7 @@ defmodule AllbertAssist.BoundaryTest do
     AllbertAssist.Runtime.Redactor,
     AllbertAssist.Runtime.Audit,
     AllbertAssist.Runtime.Persistence,
+    AllbertAssist.Runtime.Trace,
     AllbertAssist.Extensions.Registry,
     AllbertAssist.Surface.Catalog,
     AllbertAssist.Settings.Fragment
@@ -87,6 +88,21 @@ defmodule AllbertAssist.BoundaryTest do
     assert AllbertAssist.Runtime.Redactor in m3_modules
 
     for module <- m3_modules do
+      assert Code.ensure_loaded?(module)
+    end
+  end
+
+  test "implemented M4 runtime substrate facades load" do
+    m4_modules =
+      Boundary.planned_facades()
+      |> Enum.filter(&(&1.milestone == :m4))
+      |> Boundary.modules()
+
+    assert AllbertAssist.Runtime.Audit in m4_modules
+    assert AllbertAssist.Runtime.Persistence in m4_modules
+    assert AllbertAssist.Runtime.Trace in m4_modules
+
+    for module <- m4_modules do
       assert Code.ensure_loaded?(module)
     end
   end

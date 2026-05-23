@@ -5,6 +5,9 @@ defmodule AllbertAssist.Workspace.Fragment.Body do
   The canvas and ephemeral stores persist plain maps in YAML. This module keeps
   the declarative Surface tree recoverable without making the stores know about
   fragment provenance or Surface internals.
+
+  v0.31 keeps this module as the internal fragment-body codec. New
+  runtime-facing code should call `AllbertAssist.Runtime.Persistence`.
   """
 
   alias AllbertAssist.Surface

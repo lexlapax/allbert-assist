@@ -30,9 +30,9 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
-  alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Execution.CommandSpec
   alias AllbertAssist.Execution.LocalRunner
+  alias AllbertAssist.Runtime.Audit
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -92,7 +92,8 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
   end
 
   defp denied_response(spec, permission_decision, reason) do
-    _audit = Audit.append(:denied, spec, permission_decision, %{denial_reason: reason})
+    _audit =
+      Audit.append(:shell_command, :denied, spec, permission_decision, %{denial_reason: reason})
 
     {:ok,
      %{
@@ -133,7 +134,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
     case Confirmations.create(attrs) do
       {:ok, confirmation} ->
         _audit =
-          Audit.append(:requested, spec, permission_decision, %{
+          Audit.append(:shell_command, :requested, spec, permission_decision, %{
             confirmation_id: confirmation_id(confirmation)
           })
 
@@ -187,12 +188,12 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
 
     with {:ok, result} <- LocalRunner.run(spec) do
       _approved_audit =
-        Audit.append(:approved, spec, permission_decision, %{
+        Audit.append(:shell_command, :approved, spec, permission_decision, %{
           confirmation_id: confirmation_id
         })
 
       _result_audit =
-        Audit.append(result_event(result), spec, permission_decision, %{
+        Audit.append(:shell_command, result_event(result), spec, permission_decision, %{
           confirmation_id: confirmation_id,
           result: result_summary(result)
         })
