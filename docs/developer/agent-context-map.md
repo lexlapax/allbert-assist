@@ -187,7 +187,7 @@ Do not load every section by default.
   core/app/plugin fragments. `PermissionGate` remains a compatibility shim over
   Security Central pending a later caller-migration parity pass. Per ADR
   0026-0031.
-- v0.32 (implemented; pending operator manual verification): Workspace-Only
+- v0.32 (released): Workspace-Only
   App UI And Settings Central. Makes
   `/workspace` the operator home; removes `/agent`, `/settings`, and
   `/stocksage/*` without compatibility redirects; adds `:panel` surfaces into
@@ -198,12 +198,13 @@ Do not load every section by default.
   StockSage analysis detail as `/apps/stocksage/analyses/:id`. Per ADR 0024.
   No new domain behavior, theming system, neutral app-intent inference, or
   model-generated UI.
-- v0.33 (planned): Conversational App Intent Handoff And Direct Answer
+- v0.33 (released): Conversational App Intent Handoff And Direct Answer
   Foundation. Replaces the static direct-answer fallback with a real
   side-effect-free answer path, adds app-contributed intent descriptors,
   proposes explicit app handoff from neutral workspace context, asks targeted
-  clarification when slots are missing or candidates are close, and preserves
-  app-scope denial until a handoff is accepted. Per ADR 0034.
+  clarification when slots are missing or candidates are close, uses the
+  classifier only as advisory selection over collected candidates, and
+  preserves app-scope denial until a handoff is accepted. Per ADR 0034.
 - v0.34 (planned): User Theming And Layout Overrides. Adds Allbert Home theme
   roots, token YAML, opt-in sanitized CSS snippets, validated workspace layout
   YAML, Settings Central keys, and CSP regression coverage for `/workspace`.

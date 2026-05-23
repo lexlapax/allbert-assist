@@ -55,6 +55,13 @@ defmodule AllbertAssist.Intent.Engine do
         classifier_diagnostic,
         classifier_candidate
       ) ||
+        descriptor_action_attrs(
+          candidates,
+          request,
+          app_context,
+          classifier_diagnostic,
+          classifier_candidate
+        ) ||
         case selected_route_candidate(classifier_candidate, candidates, request) do
           nil ->
             direct_answer_attrs(request, app_context, classifier_diagnostic)
@@ -506,6 +513,104 @@ defmodule AllbertAssist.Intent.Engine do
       }
     else
       _no_descriptor_handoff -> nil
+    end
+  end
+
+  defp descriptor_action_attrs(
+         candidates,
+         request,
+         app_context,
+         classifier_diagnostic,
+         classifier_candidate
+       ) do
+    with true <- descriptors_enabled?(),
+         false <- neutral_app?(app_context.active_app),
+         [%{} = top | _rest] <-
+           descriptor_candidates_for_decision(candidates, classifier_candidate),
+         true <- field(top, :app_id) == app_context.active_app,
+         true <- get_in_trace(top, :ranking_reason) == :descriptor_text_match,
+         score <- Ranker.score(top),
+         true <- score >= clarify_floor() do
+      case descriptor_decision_kind(top, candidates) do
+        :app_handoff ->
+          descriptor_registry_action_attrs(top, request, app_context, classifier_diagnostic)
+
+        :clarify_intent ->
+          descriptor_clarification_attrs(
+            top,
+            candidates,
+            request,
+            app_context,
+            classifier_diagnostic
+          )
+      end
+    else
+      _no_descriptor_action -> nil
+    end
+  end
+
+  defp descriptor_registry_action_attrs(candidate, request, app_context, classifier_diagnostic) do
+    trace_metadata = field(candidate, :trace_metadata, %{})
+    descriptor = field(trace_metadata, :descriptor, %{})
+
+    %{
+      intent: :registry_action,
+      confidence: Ranker.score(candidate),
+      reason: "Request matched #{field(candidate, :label)} in the active app context.",
+      selected_action: field(candidate, :action_name),
+      active_app: app_context.active_app,
+      diagnostics: app_context.diagnostics,
+      trace_metadata:
+        %{
+          source_text: field(request, :text),
+          app_id: field(candidate, :app_id),
+          candidate_kind: :app_intent,
+          descriptor: descriptor,
+          descriptor_candidate_id: field(candidate, :id),
+          extracted_slots: get_in_trace(candidate, :extracted_slots) || %{},
+          missing_slots: get_in_trace(candidate, :missing_slots) || [],
+          classifier_selected?: not is_nil(classifier_diagnostic)
+        }
+        |> put_classifier(classifier_diagnostic),
+      context: %{request: request}
+    }
+  end
+
+  defp descriptor_clarification_attrs(
+         candidate,
+         candidates,
+         request,
+         app_context,
+         classifier_diagnostic
+       ) do
+    with {:ok, handoff} <-
+           Handoff.new(
+             handoff_attrs(
+               :clarify_intent,
+               candidate,
+               request,
+               descriptor_margin(candidate, candidates)
+             )
+           ) do
+      %{
+        intent: :clarify_intent,
+        confidence: handoff.confidence,
+        reason: handoff.reason,
+        selected_action: nil,
+        active_app: app_context.active_app,
+        diagnostics: app_context.diagnostics,
+        trace_metadata:
+          %{
+            source_text: field(request, :text),
+            candidate_kind: :app_intent,
+            intent_handoff: Handoff.to_map(handoff),
+            classifier_selected?: not is_nil(classifier_diagnostic)
+          }
+          |> put_classifier(classifier_diagnostic),
+        context: %{request: request}
+      }
+    else
+      _reason -> nil
     end
   end
 

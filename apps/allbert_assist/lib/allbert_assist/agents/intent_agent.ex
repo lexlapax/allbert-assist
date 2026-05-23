@@ -231,9 +231,11 @@ defmodule AllbertAssist.Agents.IntentAgent do
         |> attach_decision(decision, context)
 
       true ->
+        execution_context = Map.put(context, :decision, decision)
+
         route
         |> execution_route_for_decision(decision)
-        |> run_route(text, context)
+        |> run_route(text, execution_context)
         |> attach_decision(decision, context)
     end
   end
@@ -949,26 +951,18 @@ defmodule AllbertAssist.Agents.IntentAgent do
     Runner.run(action_name, params, runner_context)
   end
 
-  defp registry_action_params(action_name, text, %{request: request}) do
+  defp registry_action_params(action_name, text, %{request: request} = context) do
     %{}
     |> maybe_put_param(:user_id, Map.get(request, :user_id))
     |> maybe_put_param(:thread_id, Map.get(request, :thread_id))
     |> maybe_put_param(:session_id, Map.get(request, :session_id))
-    |> maybe_put_analysis_params(action_name, text)
+    |> Map.merge(descriptor_params(action_name, context))
     |> maybe_put_symbol(action_name, text)
   end
 
   defp maybe_put_param(params, _key, nil), do: params
   defp maybe_put_param(params, _key, ""), do: params
   defp maybe_put_param(params, key, value), do: Map.put(params, key, value)
-
-  defp maybe_put_analysis_params(params, "run_analysis", text) do
-    params
-    |> maybe_put_param(:ticker, stock_symbol_from_text(text))
-    |> maybe_put_param(:analysis_date, Date.utc_today() |> Date.to_iso8601())
-  end
-
-  defp maybe_put_analysis_params(params, _action_name, _text), do: params
 
   defp maybe_put_symbol(params, action_name, text)
        when action_name in ["get_trends", "queue_analysis"] do
@@ -979,6 +973,35 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp maybe_put_symbol(params, _action_name, _text), do: params
+
+  defp descriptor_params(action_name, request) do
+    request
+    |> Map.get(:decision)
+    |> descriptor_params_from_decision(action_name)
+  end
+
+  defp descriptor_params_from_decision(
+         %Decision{selected_action: action_name, trace_metadata: trace_metadata},
+         action_name
+       ) do
+    trace_metadata
+    |> Map.get(:extracted_slots, %{})
+    |> Map.new(fn {key, value} -> {normalize_param_key(key), value} end)
+  end
+
+  defp descriptor_params_from_decision(_decision, _action_name), do: %{}
+
+  defp normalize_param_key(key) when is_atom(key), do: key
+
+  defp normalize_param_key(key) when is_binary(key) do
+    try do
+      String.to_existing_atom(key)
+    rescue
+      ArgumentError -> key
+    end
+  end
+
+  defp normalize_param_key(key), do: key
 
   defp stock_symbol_from_text(text) do
     ~r/\b[A-Z]{1,5}\b/

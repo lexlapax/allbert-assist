@@ -363,11 +363,9 @@ defmodule StockSage.ActionsTest do
            "run_analysis not in candidates: #{inspect(Enum.map(all, &Map.get(&1, :action_name)))}"
   end
 
-  # v0.22 audit closeout (gap 2): the original test above only asserted
-  # candidate presence. The audit found that even when run_analysis is a
-  # high-scoring candidate, the engine selected `direct_answer`. This
-  # selection test enforces that the active-app boost + run_analysis
-  # keyword match actually result in `run_analysis` being chosen.
+  # v0.33 keeps the v0.22 active-app selection invariant, but the recognition
+  # now comes from StockSage's intent descriptor instead of a core StockSage
+  # keyword branch.
   test "Engine.decide selects run_analysis for analyze + active_app stocksage" do
     assert {:ok, decision} =
              Engine.decide(%{
@@ -380,6 +378,9 @@ defmodule StockSage.ActionsTest do
            "expected selected_action=run_analysis, got #{inspect(decision.selected_action)}; " <>
              "intent=#{inspect(decision.intent)}; " <>
              "selected=#{inspect(decision.trace_metadata.intent_candidates.selected)}"
+
+    assert decision.trace_metadata.candidate_kind == :app_intent
+    assert decision.trace_metadata.descriptor_candidate_id == "stocksage:run_analysis"
   end
 
   test "Engine.decide does NOT select run_analysis when active_app is not stocksage" do
