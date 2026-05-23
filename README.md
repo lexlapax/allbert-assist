@@ -23,12 +23,14 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is the `v0.31.0` release candidate. It completes
-the runtime and UI-substrate consolidation: action metadata, runtime response
-helpers, paths, redaction, audit, persistence, trace, Surface catalog/renderer
-dispatch, extension discovery, and settings schema fragments now have
-documented facades. Operator behavior remains the same as `v0.30.0`; the
-workspace route reset is still planned for `v0.32`.
+The current implementation is the `v0.32.0` release candidate. `/workspace`
+is the only operator home: the old `/agent`, `/settings`, and `/stocksage/*`
+operator routes are removed without compatibility redirects. Settings Central
+now lives inside the workspace utility drawer, CoreApp domain cards compose as
+workspace panels, and StockSage dashboard/recent/queue/trends render as
+catalog-validated panels after explicit app selection. The retained StockSage
+analysis detail page is the rare page-shaped route at
+`/apps/stocksage/analyses/:id`.
 
 Recent platform contracts now in place:
 
@@ -41,17 +43,19 @@ Recent platform contracts now in place:
   tiles in `/agent`.
 - `v0.31.0`: runtime and UI-substrate consolidation before the workspace UI,
   theming, dynamic draft, and generator arc.
+- `v0.32.0`: workspace-only app UI and Settings Central, with app UI composed
+  through host-owned panel zones in `/workspace`.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
 
 ## What It Can Do Today
 
-Allbert can accept operator input through CLI and Phoenix LiveView, route
-effectful work through registered Jido actions, require durable confirmations,
-store local conversation history, run scheduled jobs, frame cross-turn
-objectives, inspect traces, review markdown memory, and host reviewed plugin
-apps.
+Allbert can accept operator input through CLI and the `/workspace` Phoenix
+LiveView, route effectful work through registered Jido actions, require durable
+confirmations, store local conversation history, run scheduled jobs, frame
+cross-turn objectives, inspect traces, review markdown memory, and host
+reviewed plugin apps through workspace panels.
 
 StockSage is the reference plugin app. It exercises the app, objective,
 security, native-agent, LiveView surface, memory-sync, and canvas contracts
@@ -82,9 +86,9 @@ Near-term milestones:
 - `v0.31`: runtime and UI-substrate consolidation — action DSL, unified
   surface/catalog/registry paths, settings fragments, typed responses, and
   shared path/redaction/audit/persistence facades.
-- `v0.32`: workspace-only app UI — `/workspace` becomes the operator home,
-  Settings Central moves into the workspace, and apps contribute panels instead
-  of separate app shells.
+- `v0.32`: workspace-only app UI — implemented as the current release
+  candidate; `/workspace` is the operator home, Settings Central is in the
+  workspace, and apps contribute panels instead of separate app shells.
 - `v0.33`: conversational app intent handoff and direct-answer foundation —
   neutral workspace prompts can propose app handoff or clarification without
   silently executing app-owned actions.
@@ -109,10 +113,10 @@ Near-term milestones:
   milestones.
 - [CHANGELOG.md](CHANGELOG.md): released-history details.
 - [docs/adr](docs/adr): architectural decisions.
-- [docs/plans/v0.31-plan.md](docs/plans/v0.31-plan.md): current implemented
+- [docs/plans/v0.32-plan.md](docs/plans/v0.32-plan.md): current implemented
   milestone plan.
-- [docs/plans/v0.31-request-flow.md](docs/plans/v0.31-request-flow.md):
-  request flows and manual verification notes for `v0.31.0`.
+- [docs/plans/v0.32-request-flow.md](docs/plans/v0.32-request-flow.md):
+  request flows and manual verification notes for `v0.32.0`.
 
 ## Local Development
 
