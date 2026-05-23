@@ -143,6 +143,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "summarize_memory_category",
              "list_memory_category_summary",
              "promote_conversation_turn",
+             "sync_app_lesson",
              "list_objectives",
              "show_objective",
              "cancel_objective",
@@ -224,6 +225,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "summarize_memory_category",
              "list_memory_category_summary",
              "promote_conversation_turn",
+             "sync_app_lesson",
              "list_objectives",
              "show_objective",
              "cancel_objective",
@@ -311,6 +313,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert delete_memory_entry.execution_mode == :memory_archive
     assert delete_memory_entry.confirmation == :required
     assert delete_memory_entry.resumable?
+
+    assert {:ok, sync_app_lesson} = Registry.capability("sync_app_lesson")
+    assert sync_app_lesson.permission == :memory_write
+    assert sync_app_lesson.execution_mode == :app_memory_sync
+    assert sync_app_lesson.exposure == :internal
+    assert sync_app_lesson.confirmation == :required
+    assert sync_app_lesson.resumable?
 
     assert {:ok, search_online_skills} = Registry.capability("search_online_skills")
     assert search_online_skills.permission == :external_network
