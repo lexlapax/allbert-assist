@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Settings.ReadSetting do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :settings_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "read_setting",
     description: "Read one Settings Central value.",
     category: "settings",

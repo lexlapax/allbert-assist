@@ -1,7 +1,14 @@
 defmodule StockSage.Actions.ResolveOutcomes do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :stocksage_write,
+    exposure: :internal,
+    execution_mode: :local_domain,
+    skill_backed?: true,
+    confirmation: :not_required,
+    app_id: :stocksage,
+    plugin_id: "stocksage",
     name: "resolve_outcomes",
     description: "Resolve due StockSage outcomes from already-recorded prices.",
     category: "stocksage",

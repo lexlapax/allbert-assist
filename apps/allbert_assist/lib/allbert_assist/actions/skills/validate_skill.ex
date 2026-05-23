@@ -3,7 +3,13 @@ defmodule AllbertAssist.Actions.Skills.ValidateSkill do
   Validate a local Agent Skill directory without trusting or executing it.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :skill_validation,
+    skill_backed?: false,
+    confirmation: :not_required,
+    notes: "Operator helper; validates local skill folders without trusting or executing them.",
     name: "validate_skill",
     description: "Validate a local SKILL.md directory and Allbert action contract.",
     category: "skills",

@@ -7,7 +7,15 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
   namespace declaration and the Security Central memory-write boundary.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :memory_write,
+    exposure: :internal,
+    execution_mode: :app_memory_sync,
+    skill_backed?: false,
+    confirmation: :required,
+    resumable?: true,
+    notes:
+      "Writes one explicitly confirmed app lesson through a declared writable app memory namespace.",
     name: "sync_app_lesson",
     description: "Sync one reviewed app lesson into namespaced Allbert markdown memory.",
     category: "memory",

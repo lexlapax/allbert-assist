@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Intent.ExplainIntent do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :read_only,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "explain_intent",
     description: "Explain the registry-aware intent decision for text without executing it.",
     category: "intent",

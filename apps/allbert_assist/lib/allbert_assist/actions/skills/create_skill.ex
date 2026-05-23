@@ -3,7 +3,13 @@ defmodule AllbertAssist.Actions.Skills.CreateSkill do
   Create a local standard `SKILL.md` wrapper for an existing registered action.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :skill_write,
+    exposure: :internal,
+    execution_mode: :skill_write,
+    skill_backed?: false,
+    confirmation: :not_required,
+    notes: "Operator helper; writes standard SKILL.md scaffolds only.",
     name: "create_skill",
     description: "Create a local Agent Skill wrapper for a registered Allbert action.",
     category: "skills",

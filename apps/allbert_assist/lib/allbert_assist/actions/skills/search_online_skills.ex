@@ -3,7 +3,14 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
   Confirmed online skill search over a configured source profile.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :external_network,
+    exposure: :agent,
+    execution_mode: :online_skill_search,
+    skill_backed?: true,
+    confirmation: :required,
+    resumable?: true,
+    notes: "Searches online skill source profiles only after external-network confirmation.",
     name: "search_online_skills",
     description: "Search a configured online skill source after confirmation.",
     category: "skills",

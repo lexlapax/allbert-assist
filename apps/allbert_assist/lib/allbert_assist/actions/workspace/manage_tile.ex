@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Workspace.ManageTile do
   @moduledoc "Manage a workspace canvas tile through Security Central."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :workspace_canvas_write,
+    exposure: :internal,
+    execution_mode: :workspace_canvas_write,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "manage_workspace_tile",
     description: "Pin, unpin, remove, or restore a workspace canvas tile.",
     category: "workspace",

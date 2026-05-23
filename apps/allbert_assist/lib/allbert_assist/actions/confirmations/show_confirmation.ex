@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Confirmations.ShowConfirmation do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :confirmation_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "show_confirmation",
     description: "Show one durable confirmation request.",
     category: "confirmations",

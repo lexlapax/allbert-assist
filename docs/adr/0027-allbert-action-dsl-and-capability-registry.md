@@ -37,6 +37,15 @@ and must not appear in the Allbert action registry or intent candidates.
 - Security Central remains the authority; metadata declares intent but never
   grants permission.
 
+## v0.31 Implementation Notes
+
+- M5 introduced `AllbertAssist.Action` as the wrapper macro and migrated
+  registered core plus StockSage actions to `use AllbertAssist.Action`.
+- `AllbertAssist.Actions.Registry` now derives capability metadata from action
+  modules instead of a duplicate central map.
+- Raw `Jido.Action` remains valid for unregistered private/test-only commands;
+  those modules are not runtime capabilities unless explicitly registered.
+
 ## Non-Goals
 
 - No replacement of Jido.

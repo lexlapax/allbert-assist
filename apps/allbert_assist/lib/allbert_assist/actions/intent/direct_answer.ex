@@ -3,7 +3,12 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   Side-effect-free response action for plain assistant prompts.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :read_only,
+    skill_backed?: true,
+    confirmation: :not_required,
     name: "direct_answer",
     description: "Answer a plain prompt without reading, writing, or executing anything.",
     category: "intent",

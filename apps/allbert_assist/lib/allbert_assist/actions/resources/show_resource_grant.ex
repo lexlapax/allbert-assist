@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Resources.ShowResourceGrant do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :resource_grant_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "show_resource_grant",
     description: "Show a remembered resource grant.",
     category: "resources",

@@ -3,7 +3,12 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
   Reads one static v0.01 skill declaration.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :read_only,
+    skill_backed?: true,
+    confirmation: :not_required,
     name: "read_skill",
     description: "Read one v0.01 skill declaration by name.",
     category: "intent",

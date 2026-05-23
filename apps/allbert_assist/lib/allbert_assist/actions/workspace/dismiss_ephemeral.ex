@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Workspace.DismissEphemeral do
   @moduledoc "Dismiss a workspace ephemeral surface through Security Central."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :workspace_canvas_write,
+    exposure: :internal,
+    execution_mode: :workspace_canvas_write,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "dismiss_workspace_ephemeral",
     description: "Dismiss an active workspace ephemeral surface.",
     category: "workspace",

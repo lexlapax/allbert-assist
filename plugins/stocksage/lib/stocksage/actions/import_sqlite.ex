@@ -1,7 +1,14 @@
 defmodule StockSage.Actions.ImportSqlite do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :stocksage_write,
+    exposure: :internal,
+    execution_mode: :local_domain,
+    skill_backed?: false,
+    confirmation: :not_required,
+    app_id: :stocksage,
+    plugin_id: "stocksage",
     name: "import_stocksage_sqlite",
     description: "Import a reviewed local legacy StockSage SQLite database.",
     category: "stocksage",

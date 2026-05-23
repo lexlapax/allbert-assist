@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Workspace.SetTheme do
   @moduledoc "Set the workspace theme through the registered action boundary."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :settings_write,
+    exposure: :internal,
+    execution_mode: :settings_write,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "set_workspace_theme",
     description: "Set the operator workspace theme preference.",
     category: "workspace",

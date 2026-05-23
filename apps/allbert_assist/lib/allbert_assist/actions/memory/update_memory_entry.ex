@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Memory.UpdateMemoryEntry do
   @moduledoc "Corrects a markdown memory entry in place."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :memory_write,
+    exposure: :internal,
+    execution_mode: :memory_write,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "update_memory_entry",
     description: "Update the summary or body for one markdown memory entry.",
     category: "memory",
