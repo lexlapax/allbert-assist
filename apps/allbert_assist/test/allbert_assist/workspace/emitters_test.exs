@@ -5,6 +5,7 @@ defmodule AllbertAssist.Workspace.EmittersTest do
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Emitters
   alias AllbertAssist.Workspace.Fragment.Guard
   alias Jido.Signal.Bus
@@ -104,24 +105,25 @@ defmodule AllbertAssist.Workspace.EmittersTest do
     assert node.props.body == "Evidence gathered."
   end
 
-  test "StockSage completion emits analysis and native progress card stubs" do
+  test "StockSage completion emits durable analysis and native progress canvas tiles" do
     assert {:ok, _subscription_id} =
              Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")
 
-    assert :ok =
-             Emitters.stocksage_signal("allbert.stocksage.analysis_completed", %{
-               analysis_id: "analysis_m22",
-               ticker: "AAPL",
-               analysis_date: "2026-05-18",
-               engine: "both",
-               user_id: "alice",
-               thread_id: "thr_stocksage",
-               native_trace: %{
-                 "agent_reports" => [%{"agent_id" => "stocksage.market_context"}],
-                 "debate_rounds" => [%{"round_index" => 1}],
-                 "parity_diff" => %{"parity_pass" => true}
-               }
-             })
+    payload = %{
+      analysis_id: "analysis_m22",
+      ticker: "AAPL",
+      analysis_date: "2026-05-18",
+      engine: "both",
+      user_id: "alice",
+      thread_id: "thr_stocksage",
+      native_trace: %{
+        "agent_reports" => [%{"agent_id" => "stocksage.market_context"}],
+        "debate_rounds" => [%{"round_index" => 1}],
+        "parity_diff" => %{"parity_pass" => true}
+      }
+    }
+
+    assert :ok = Emitters.stocksage_signal("allbert.stocksage.analysis_completed", payload)
 
     kinds =
       4
@@ -132,6 +134,34 @@ defmodule AllbertAssist.Workspace.EmittersTest do
     assert :agent_report_card in kinds
     assert :debate_round_card in kinds
     assert :parity_card in kinds
+
+    assert {:ok, tiles} = Workspace.canvas_tiles("thr_stocksage", "alice")
+    assert length(tiles) == 4
+
+    tile_kinds = Enum.map(tiles, & &1.kind)
+    assert "analysis_card" in tile_kinds
+    assert "agent_report_card" in tile_kinds
+    assert "debate_round_card" in tile_kinds
+    assert "parity_card" in tile_kinds
+
+    analysis_tile = Enum.find(tiles, &(&1.kind == "analysis_card"))
+    assert analysis_tile.id == "stocksage_analysis_analysis_m22"
+    assert analysis_tile.metadata["emitter_id"] == "StockSage.Actions.RunAnalysis"
+    assert analysis_tile.metadata["scope"] == "canvas"
+    assert is_binary(analysis_tile.metadata["emitted_at"])
+
+    assert get_in(analysis_tile.body, ["fragment", "emitter_id"]) ==
+             "StockSage.Actions.RunAnalysis"
+
+    assert get_in(analysis_tile.body, ["surface", "app_id"]) == "stocksage"
+
+    assert get_in(analysis_tile.body, ["surface", "nodes", Access.at(0), "component"]) ==
+             "analysis_card"
+
+    assert :ok = Emitters.stocksage_signal("allbert.stocksage.analysis_completed", payload)
+    assert 4 |> collect_fragment_signals() |> length() == 4
+    assert {:ok, tiles_after_reemit} = Workspace.canvas_tiles("thr_stocksage", "alice")
+    assert length(tiles_after_reemit) == 4
   end
 
   test "StockSage failure emits visible analysis failure reason" do
@@ -163,6 +193,23 @@ defmodule AllbertAssist.Workspace.EmittersTest do
     [node] = envelope.surface.nodes
     assert node.props.body == reason
     assert node.props.status == "failed"
+  end
+
+  test "StockSage signals without workspace context do not emit durable tiles" do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")
+
+    assert :ok =
+             Emitters.stocksage_signal("allbert.stocksage.analysis_completed", %{
+               analysis_id: "analysis_no_thread",
+               ticker: "AAPL",
+               analysis_date: "2026-05-18",
+               engine: "native",
+               user_id: "alice"
+             })
+
+    refute_receive {:signal, %{type: "allbert.workspace.fragment.emitted"}}, 100
+    assert {:ok, []} = Workspace.canvas_tiles("missing-thread", "alice")
   end
 
   defp confirmation_attrs do
