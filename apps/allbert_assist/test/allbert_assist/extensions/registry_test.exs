@@ -49,6 +49,12 @@ defmodule AllbertAssist.Extensions.RegistryTest do
     assert Enum.any?(contributions.apps, &(&1.app_id == :stocksage))
     assert Enum.any?(contributions.plugins, &(&1.plugin_id == "m7.example"))
     assert Enum.any?(contributions.surface_providers, &(&1.app_id == :stocksage))
+
+    assert Enum.any?(
+             contributions.intent_descriptors,
+             &(&1.app_id == :stocksage and &1.action_name == "run_analysis")
+           )
+
     assert Enum.any?(contributions.surfaces, &(&1.app_id == :stocksage))
     assert contributions.diagnostics.apps |> is_map()
     assert contributions.diagnostics.plugins |> is_map()

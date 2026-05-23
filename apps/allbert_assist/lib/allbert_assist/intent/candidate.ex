@@ -11,7 +11,7 @@ defmodule AllbertAssist.Intent.Candidate do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Runtime.Redactor
 
-  @kinds ~w[action skill surface job channel memory objective refusal direct_answer]a
+  @kinds ~w[action skill surface job channel memory objective refusal app_intent direct_answer]a
   @sources ~w[deterministic registry app plugin job channel memory objective trace model]a
   @statuses ~w[selected candidate rejected unavailable]a
   @max_string_bytes 240
@@ -23,7 +23,8 @@ defmodule AllbertAssist.Intent.Candidate do
     job: 10,
     channel: 10,
     memory: 10,
-    objective: 5
+    objective: 5,
+    app_intent: 20
   }
 
   defstruct [
