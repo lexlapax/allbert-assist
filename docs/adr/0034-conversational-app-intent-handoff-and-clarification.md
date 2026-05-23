@@ -44,6 +44,11 @@ recognition and app-owned action execution.
    candidates, change permissions, set app context, or bypass confirmation.
 7. Core routing must not grow StockSage-specific core predicates. StockSage proves
    the descriptor/handoff contract as the first app consumer.
+8. The direct-answer model call is Settings Central-gated (operator-decided
+   default, following the bounded `Intent.Classifier` precedent rather than being
+   implicitly on), redacted and traced per ADR 0019, and grants no Resource
+   Access escalation. When the model is disabled or unavailable it returns a
+   deterministic bounded fallback.
 
 ## Consequences
 
