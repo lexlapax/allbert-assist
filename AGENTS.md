@@ -137,6 +137,9 @@ Use these as starting points, then narrow further from the active task:
   generated files never grant permission by themselves.
 - Do not auto-generate, compile, or load Elixir modules from arbitrary skill,
   plugin, YAML, or user-created folders.
+  v0.34 / ADR 0032 is planned to define a narrow sandboxed exception for
+  generated local plugin/app drafts compiled and tried out of node; until that
+  implementation ships, this rule remains fully in force.
 - Do not execute skill scripts, shell commands, external installs, network
   adapters, bridge processes, or provider calls unless a plan explicitly adds
   the permission, confirmation, sandbox, and trace story.

@@ -67,9 +67,9 @@ don't defer things we can do."
 Reserved (named, not implemented in v0.26):
 
 - **Canvas Snapshot** (versioned canvas state for time-travel / undo) — reserved
-- **Cursor** (multi-user collaborative cursor) — post-v0.33
+- **Cursor** (multi-user collaborative cursor) — post-v0.35
 - **Workspace Hooks** (plugin-contributed workspace extensions) — graduated in
-  v0.31 as panel surfaces + host-owned named zones; see ADR 0024
+  v0.32 as panel surfaces + host-owned named zones; see ADR 0024
 
 ### 2. Workspace shell IS a Surface tree (fully dynamic)
 
@@ -97,7 +97,7 @@ Implications:
 - Adding a new region requires only a catalog entry + a LiveComponent
   module that knows how to render it. No HEEx layout edit.
 - Plugins can contribute regions via `SurfaceProvider.surfaces/0`
-  (graduated in v0.31 as `:panel` surfaces targeting host-owned `/workspace`
+  (graduated in v0.32 as `:panel` surfaces targeting host-owned `/workspace`
   zones; see ADR 0024).
 - The workspace shell is itself inspectable — `mix
   allbert.workspace inspect` (M2) dumps the resolved Surface tree.
@@ -342,7 +342,7 @@ AG-UI event-shape JSON.
 Scope bound for v0.26:
 
 - Bridge is internal-only. NOT exposed over HTTP / WebSocket /
-  SSE in v0.26. (Public AG-UI endpoints are post-v0.33 work.)
+  SSE in v0.26. (Public AG-UI endpoints are post-v0.35 work.)
 - Used for two purposes: (1) test the semantic mapping early so
   future external bridge work has a validated contract; (2)
   internal observability — the workspace LiveView can subscribe
@@ -352,7 +352,7 @@ Scope bound for v0.26:
   map to which AG-UI events. The mapping is the binding artifact;
   the code is implementation detail.
 
-Future work (post-v0.33, parked in `docs/plans/future-features.md`):
+Future work (post-v0.35, parked in `docs/plans/future-features.md`):
 expose the bridge over SSE or WebSocket; add the inverse direction
 (AG-UI client emits events into Allbert as registered-action
 calls); validate against an A2UI client.
@@ -408,7 +408,7 @@ go through a new Security Central permission class:
 
 The class exists for symmetry with other `_write` classes and to
 provide a future per-user / per-thread ACL hook when hosted
-multi-user lands (post-v0.33).
+multi-user lands (post-v0.35).
 
 ### 12. Settings keys (workspace.*)
 
@@ -530,7 +530,7 @@ The v0.24 PubSub topic shape (`<namespace>:<user_id>`) extends:
 - Sibling routes (`/objectives/:id`, `/jobs`, `/settings`) stay
   reachable as top-level routes for deep-linking; also become
   reachable as tiles inside the workspace.
-- v0.31 supersedes the `/agent` and `/settings` route shape: `/workspace`
+- v0.32 supersedes the `/agent` and `/settings` route shape: `/workspace`
   becomes the canonical operator route and Settings Central moves into the
   workspace utility drawer. This is an additive planning amendment to ADR 0023;
   the v0.26 substrate contract remains historical as shipped.
@@ -542,10 +542,10 @@ The v0.24 PubSub topic shape (`<namespace>:<user_id>`) extends:
 - Canvas Snapshot (versioned undo / time-travel) — reserved name only.
 - Drag-drop tile reordering — deferred to v0.27+.
 - Multi-canvas-per-thread — deferred.
-- Cursor (multi-user collaborative cursors) — post-v0.33.
-- Plugin-contributed workspace regions — graduated in v0.31 (ADR 0024).
-- Public AG-UI HTTP endpoint — post-v0.33.
-- A2UI / MCP Apps interop — post-v0.33.
+- Cursor (multi-user collaborative cursors) — post-v0.35.
+- Plugin-contributed workspace regions — graduated in v0.32 (ADR 0024).
+- Public AG-UI HTTP endpoint — post-v0.35.
+- A2UI / MCP Apps interop — post-v0.35.
 - Offline editing of non-text tile kinds (confirmation card edits,
   trace inspector annotations) — post-v0.27.
 
@@ -609,7 +609,7 @@ target in v0.27+). Two ADRs let each contract evolve independently.
 
 ### Public AG-UI HTTP endpoint in v0.26
 
-Rejected. Post-v0.33 work (per Future Features Post-v0.33 UI Protocol
+Rejected. Post-v0.35 work (per Future Features UI Protocol
 Interop). v0.26 ships the internal bridge contract; external
 exposure waits for a real consumer.
 
@@ -632,7 +632,7 @@ different contracts. v0.27 renders real StockSage components in
 StockSage-owned `/stocksage/...` LiveViews, replacing the v0.26 reserved-card
 stubs and validating `RunAnalysis` Surface-node output. v0.30 emits those
 proven components into durable `/agent` workspace canvas tiles through
-`canvas_ops` and the v0.26/v0.28-audited Fragment/canvas mechanism. v0.31 then
+`canvas_ops` and the v0.26/v0.28-audited Fragment/canvas mechanism. v0.32 then
 moves StockSage dashboard/list/queue/trend UI into `/workspace` panels and
 removes `/stocksage/*` operator routes. This ADR's v0.26 canvas substrate
 contract does not change.
@@ -643,7 +643,7 @@ contract does not change.
 - `docs/plans/v0.26-request-flow.md` (this milestone's runtime/user flow)
 - `docs/plans/allbert-jido-vision.md` L359–379 (workspace + canvas + ephemeral vision)
 - `docs/plans/project-direction-rethink-01.md` L517–520 (surfaces render, do not own state)
-- `docs/plans/future-features.md` Post-v0.33 UI Protocol Interop section
+- `docs/plans/future-features.md` UI Protocol Interop section
 - ADR 0006 — Security Central
 - ADR 0007 — Jido-Native Internal Runtime Boundaries (substrate)
 - ADR 0008 — Durable Confirmation Requests

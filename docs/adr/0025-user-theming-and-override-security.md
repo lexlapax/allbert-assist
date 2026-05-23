@@ -2,12 +2,13 @@
 
 ## Status
 
-Proposed for v0.32 User Theming And Layout Overrides
-(`docs/plans/v0.32-plan.md`). This ADR pins how operators retheme and
+Proposed for v0.33 User Theming And Layout Overrides
+(`docs/plans/v0.33-plan.md`). This ADR pins how operators retheme and
 re-lay-out the Allbert UI from `<ALLBERT_HOME>` without editing core code, and
 the security posture for serving operator-supplied styling. It pairs with ADR
 0024, which owns the `/workspace` route, workspace zones, and utility drawer
-that the layout-override layer reorders. ADR 0025 does not block v0.31.
+that the layout-override layer reorders. ADR 0025 does not block v0.31 or
+v0.32.
 
 ## Context
 
@@ -37,9 +38,10 @@ CSS injection, PortSwigger inline-style exfiltration). Jupyter's opt-in
 
 ### 1. Three override layers under `<ALLBERT_HOME>`
 
-A new `AllbertAssist.Paths.themes_root/0` → `<ALLBERT_HOME>/themes` (and
-`themes_snippets_root/0` → `<ALLBERT_HOME>/themes/snippets`), both created by
-`ensure_home!/0`, hold operator styling. A new
+A new `AllbertAssist.Runtime.Paths.themes_root/0` →
+`<ALLBERT_HOME>/themes` (and `themes_snippets_root/0` →
+`<ALLBERT_HOME>/themes/snippets`), both created by `ensure_home!/0`, hold
+operator styling. A new
 `AllbertAssistWeb.ThemeController` serves it (because `Plug.Static` cannot reach
 the home dir). Each layer is gated by Settings Central `workspace.theme.*`:
 
@@ -93,14 +95,14 @@ per-key with bounded warnings, never a crash. Theming reads only
   served route surface (`/theme/*`) are added; both are covered by v0.28 eval
   additions (sanitizer bypass, CSP regression, exfiltration attempts).
 - A future milestone may add a file watcher for live reload and an OS-keychain/
-  remote theme source; v0.32 recomputes on request with a version stamp.
+  remote theme source; v0.33 recomputes on request with a version stamp.
 
 ## Relates To
 
 - Pairs with: ADR 0024 (App UI Contribution And Workspace Zones) — the
   layout-override layer reorders the zones ADR 0024 defines.
 - Builds on: ADR 0023 (workspace substrate, `#workspace-shell` token scope), the
-  Allbert Home / `AllbertAssist.Paths` precedence model, and Settings Central.
+  Allbert Home / v0.31 runtime path precedence model, and Settings Central.
 - Constrained by: ADR 0006 (Security Central) redaction/audit posture and the
   "no arbitrary model-generated HTML/JS" rule from ADR 0023.
 - New net work: not previously parked in `docs/plans/future-features.md`.

@@ -387,9 +387,10 @@ StockSage LiveViews start as standard app surfaces. v0.27 proves real
 StockSage renderers in StockSage-owned `/stocksage/...` surfaces. After the
 core canvas substrate has been audited, v0.30 can emit those same proven
 components into durable `/agent` canvas tiles without changing the StockSage
-domain model. v0.31 then collapses operator navigation into `/workspace`, where
-StockSage dashboards, queues, trends, and Settings Central render as
-host-composed panels instead of separate app shells.
+domain model. v0.31 consolidates the runtime/UI substrate first, then v0.32
+collapses operator navigation into `/workspace`, where StockSage dashboards,
+queues, trends, and Settings Central render as host-composed panels instead of
+separate app shells.
 
 ### StockSage
 
@@ -418,7 +419,7 @@ workflow:
   for tests/operator smoke when native LLM generation is explicitly disabled.
 - Web surfaces: v0.27 starts with workspace, analysis, queue, and trends
   LiveViews mounted through the app contract, setting `active_app: :stocksage`
-  when the user is in StockSage context. v0.31 moves dashboard/list/queue/trend
+  when the user is in StockSage context. v0.32 moves dashboard/list/queue/trend
   workflows into `/workspace` panels and reserves `/apps/stocksage/...` only
   for page-shaped detail flows that genuinely need a route.
 - Memory namespace: v0.27 declares the StockSage namespace so v0.28 can audit
@@ -509,15 +510,23 @@ historical aliases only and remain in old reference notes for continuity.
   reflections, reruns, and explicit namespace-scoped memory sync.
 - v0.30: App Canvas Contract - StockSage canvas integration; proven v0.27
   components become durable `/agent` canvas tiles through audited canvas ops.
-- v0.31: Workspace-Only App UI And Settings Central — `/workspace` becomes the
+- v0.31: Runtime And UI-Substrate Consolidation — action DSL, typed runtime
+  responses, shared path/redaction/audit/persistence facades, unified Surface
+  catalog and extension registry, and settings fragments. Behavior-preserving;
+  it changes substrates before the UI and generation arc.
+- v0.32: Workspace-Only App UI And Settings Central — `/workspace` becomes the
   operator home, old operator routes are removed without compatibility
   redirects, apps contribute panels into host-owned zones, StockSage becomes
   panel-based inside the workspace, and Settings Central moves into the
   workspace utility drawer.
-- v0.32: User Theming And Layout Overrides — operators retheme and re-layout
+- v0.33: User Theming And Layout Overrides — operators retheme and re-layout
   `/workspace` from Allbert Home using token YAML, opt-in sanitized CSS
   snippets, and validated layout data.
-- v0.33: Allbert plugin and app generator.
+- v0.34: Dynamic Plugin/App Generation And Sandboxed Module Loading — Allbert
+  can generate inert local plugin/app drafts for objective-owned capability
+  gaps, compile and try them only in an out-of-node sandbox, and report
+  redacted results without loading generated modules into the core node.
+- v0.35: Allbert plugin and app generator.
 
 ## Deferred Until The Foundation Settles
 
