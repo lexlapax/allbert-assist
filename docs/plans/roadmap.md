@@ -1698,9 +1698,8 @@ Plan: `docs/plans/v0.32-plan.md`
 Request flow: `docs/plans/v0.32-request-flow.md`
 ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
 
-Status: implemented and ready for operator manual verification before release
-tag. Shifted from v0.31 after the consolidation insert and completed as
-`v0.32.0`.
+Status: released. Shifted from v0.31 after the consolidation insert and
+completed as `v0.32.0`; release tag `v0.32.0` exists.
 
 Prerequisite: v0.31 consolidated action, catalog, registry, response, path,
 redaction, audit, persistence, and settings-fragment substrates.
