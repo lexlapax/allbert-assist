@@ -2,11 +2,12 @@
 
 ## Status
 
-Proposed for v0.31 Workspace-Native Plugin UI And User Theming
-(`docs/plans/v0.31-plan.md`). This ADR pins how operators retheme and
+Proposed for v0.32 User Theming And Layout Overrides
+(`docs/plans/v0.32-plan.md`). This ADR pins how operators retheme and
 re-lay-out the Allbert UI from `<ALLBERT_HOME>` without editing core code, and
 the security posture for serving operator-supplied styling. It pairs with ADR
-0024, which owns the workspace zones the layout-override layer reorders.
+0024, which owns the `/workspace` route, workspace zones, and utility drawer
+that the layout-override layer reorders. ADR 0025 does not block v0.31.
 
 ## Context
 
@@ -92,7 +93,7 @@ per-key with bounded warnings, never a crash. Theming reads only
   served route surface (`/theme/*`) are added; both are covered by v0.28 eval
   additions (sanitizer bypass, CSP regression, exfiltration attempts).
 - A future milestone may add a file watcher for live reload and an OS-keychain/
-  remote theme source; v0.31 recomputes on request with a version stamp.
+  remote theme source; v0.32 recomputes on request with a version stamp.
 
 ## Relates To
 

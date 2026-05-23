@@ -167,7 +167,12 @@ Dependency order from here:
     explicit memory sync through the namespace declared before security evals.
 29. App Canvas Contract: StockSage canvas integration wiring proven components
     into durable `/agent` tiles through the audited workspace canvas mechanism.
-30. Plugin and app generator encoding only the shape already proven end to end.
+30. Workspace-only app UI: `/workspace` becomes the operator home, app UI moves
+    into host-owned workspace panels, and Settings Central becomes a workspace
+    utility panel.
+31. User theming and layout overrides from Allbert Home after the workspace
+    panel/zone contract is proven.
+32. Plugin and app generator encoding only the shape already proven end to end.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -1355,7 +1360,7 @@ Shipped direction:
 - **Internal `AllbertAssist.Workspace.AGUI.Bridge`** translates curated
   Allbert signals to AG-UI event shape for test-only semantic mapping.
   NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps interop is
-  post-v0.31 (per Future Features Post-v0.31 UI Protocol Interop).
+  post-v0.33 (per Future Features Post-v0.33 UI Protocol Interop).
 - **`StockSage.Actions.RunAnalysis`** + objective engine + v0.25 native
   specialist agents emit Fragments rendering as canvas tiles + ephemeral
   approval cards. Operator sees the analysis stream in real-time as
@@ -1381,7 +1386,7 @@ Shipped direction:
   at v0.26 M20 with all binding decisions.
 - Defer to v0.27+: drag-drop tile reordering, real StockSage card
   rendering. Plugin-contributed workspace regions graduated to v0.31
-  (ADR 0024). Defer to post-v0.31: multi-user collaborative cursors,
+  (ADR 0024). Defer to post-v0.33: multi-user collaborative cursors,
   public AG-UI HTTP endpoint, A2UI / MCP Apps interop, canvas snapshot /
   undo / time-travel.
 
@@ -1557,7 +1562,7 @@ Risk reassessment for the next contracts:
 - v0.30 canvas work should reuse the v0.26/v0.28-audited fragment and canvas
   mechanism. It should not introduce a new renderer contract, bypass app
   surface catalogs, or persist unaudited component atoms.
-- v0.32 generator scaffolding should emit inert-by-default SurfaceProvider,
+- v0.33 generator scaffolding should emit inert-by-default SurfaceProvider,
   memory namespace, action/objective, and canvas stubs only because the
   contracts were manually proven first. Generated files and metadata still do
   not grant permission.
@@ -1609,16 +1614,15 @@ Implemented:
 - No new StockSage domain model, analysis behavior, migration, renderer
   contract, or workspace setting was added.
 
-## v0.31: Workspace-Native Plugin UI And User Theming
+## v0.31: Workspace-Only App UI And Settings Central
 
 Plan: `docs/plans/v0.31-plan.md`
 Request flow: `docs/plans/v0.31-request-flow.md`
 ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
-ADR: `docs/adr/0025-user-theming-and-override-security.md`
 
-Status: research (unstarted). Inserted after v0.30; the Plugin And App
-Generator that previously held this slot moved to v0.32 so it can scaffold the
-shape this release proves.
+Status: research (unstarted). Inserted after v0.30; theming moved to v0.32 and
+the Plugin And App Generator moved to v0.33 so each generated layer is proven
+manually first.
 
 Prerequisite: v0.26 workspace shell, v0.27 StockSage renderers, v0.28 security
 evals, and v0.30 canvas emission.
@@ -1628,35 +1632,65 @@ Expected direction:
 - Add a two-tier app UI contribution model: rare `page` surfaces (own route,
   now under `/apps/<app_id>`) and default `:panel` surfaces composed into
   host-owned named workspace zones (`:nav_apps`, `:context_rail`,
-  `:canvas_panels`, `:ephemeral`). Graduates the "Workspace Hooks" reservation
-  from ADR 0023 §1.
-- Rebuild `/agent` into a ChatGPT-style three-zone shell: left rail
-  (new-chat + thread history + app launcher) + center chat + right canvas, with
-  new `:nav_rail`/`:thread_list`/`:app_launcher` catalog atoms and existing
-  offline/a11y/mobile behaviors preserved.
+  `:canvas_panels`, `:utility_drawer`, `:ephemeral`). Graduates the
+  "Workspace Hooks" reservation from ADR 0023 §1.
+- Make `/workspace` the only operator home. `/agent`, `/settings`, and
+  `/stocksage/*` are removed rather than redirected.
+- Rebuild the workspace into a ChatGPT-style shell: left rail (new-chat +
+  thread history + app launcher) + center chat + right canvas + utility drawer,
+  with new structural catalog atoms and existing offline/a11y/mobile behaviors
+  preserved.
+- Move Settings Central into the workspace utility drawer while preserving
+  existing action/security boundaries.
 - Move StockSage dashboard/recent/queue/trends into workspace panels and reduce
-  StockSage to a single page route, `/apps/stocksage/analyses/:id`. Migrate
-  CoreApp domain cards to the same panel-zone path so built-in and plugin apps
-  share one mechanism.
-- Add user theming/override from `<ALLBERT_HOME>` with no rebuild and no core
-  edits: design tokens (default), opt-in sanitized CSS snippets
-  (strip-and-warn), and validated layout override config, served by a new theme
-  controller behind a CSP. Per ADR 0024 and ADR 0025.
+  StockSage to a panel-based workspace app; keep `/apps/stocksage/analyses/:id`
+  only if analysis detail genuinely needs page-level focus. Migrate CoreApp
+  domain cards to the same panel-zone path so built-in and plugin apps share
+  one mechanism.
 - Add no new domain behavior, analysis engine, execution authority, dynamic
-  routing, arbitrary model-generated UI, or external UI protocol bridge.
+  routing, arbitrary model-generated UI, theming system, or external UI
+  protocol bridge.
 
-## v0.32: Allbert Plugin And App Generator
+## v0.32: User Theming And Layout Overrides
 
 Plan: `docs/plans/v0.32-plan.md`
 Request flow: `docs/plans/v0.32-request-flow.md`
+ADR: `docs/adr/0025-user-theming-and-override-security.md`
+
+Status: research (unstarted). Split out of the prior v0.31 plan so workspace
+composition lands before operator theming/layout overrides.
+
+Prerequisite: v0.31 workspace-only app UI, host-owned zones, panel surfaces,
+and Settings Central inside `/workspace`.
+
+Expected direction:
+
+- Add Allbert Home theme roots under `<ALLBERT_HOME>/themes` and
+  `<ALLBERT_HOME>/themes/snippets`.
+- Add token YAML themes served as `/theme/user.css`, linked after app CSS with
+  no asset rebuild.
+- Add opt-in sanitized CSS snippets with reject/strip/warn behavior for remote
+  fetch and import constructs.
+- Add validated `<ALLBERT_HOME>/workspace/layout.yaml` for zone ordering,
+  hiding, and panel pins.
+- Add Settings Central keys for theme selection, snippets, and layout override;
+  expose them inside the workspace Settings Central panel.
+- Add CSP regression coverage and Chrome verification for desktop/narrow
+  workspace retinting, snippet blocking, and layout fallback behavior.
+
+## v0.33: Allbert Plugin And App Generator
+
+Plan: `docs/plans/v0.33-plan.md`
+Request flow: `docs/plans/v0.33-request-flow.md`
 
 Status: research (unstarted). Previously planned as v0.29 before the
-project-direction rethink, then v0.31; moved to v0.32 when v0.31 was reassigned
-to Workspace-Native Plugin UI And User Theming.
+project-direction rethink, then v0.31, then v0.32; moved to v0.33 so v0.31
+workspace panels and v0.32 theming/layout hooks are proven before scaffolding.
 
 Prerequisite: StockSage proves the plugin/app path in v0.20, the app surface
 contract in v0.27, the app memory/outcomes contract in v0.29, the app canvas
-contract in v0.30, and the workspace-panel/theming contract in v0.31.
+contract in v0.30, the workspace-panel/settings contract in v0.31, and the
+theming/layout contract in v0.32.
 
 Expected direction:
 
@@ -1664,20 +1698,21 @@ Expected direction:
   manifest, plugin module, sample skill root, diagnostics, validation docs,
   and explicit compile-path/project-integration instructions.
 - `mix allbert.gen.app MyApp` scaffolds an app plugin that includes the
-  app/surface contract layers, including a memory namespace stub.
+  app/surface contract layers, including panel surface stubs, Settings Central
+  schema stub, and a memory namespace stub.
 - Generated app-plugin output includes a plugin module, app module, app
-  supervision wiring, sample Jido action, sample `SKILL.md`, sample surface
-  provider or surface node, sample Ecto domain stub, optional objective
-  scaffolding for multi-step capabilities, canvas wiring stub, and validation
-  docs.
+  supervision wiring, sample Jido action, sample `SKILL.md`, sample panel
+  surface, optional page surface notes, sample Ecto domain stub, optional
+  objective scaffolding for multi-step capabilities, canvas wiring stub,
+  theming/layout docs, and validation docs.
 - `mix allbert.validate_app MyApp` passes on first run.
 - Generated code is inert by default: no automatic compile-path changes,
-  trust, skill enablement, publishing, permission grants, or execution
-  authority.
+  trust, skill enablement, publishing, route authority, permission grants, or
+  execution authority.
 - Optionally add `mix allbert.publish_skills` for publishing app `SKILL.md`
   files to agentskills.io after the local app contract is proven.
 
-Post-v0.31 candidates remain in `docs/plans/future-features.md` until
+Post-v0.33 candidates remain in `docs/plans/future-features.md` until
 promoted.
 
 ## Future: Distillation And Self-Improvement
