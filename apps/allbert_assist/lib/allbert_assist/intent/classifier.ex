@@ -35,6 +35,7 @@ defmodule AllbertAssist.Intent.Classifier do
          {:ok, proposal} <-
            classifier(opts).classify(candidate_summary(candidates), %{
              text: bounded_text(field(request, :text)),
+             active_app: field(request, :active_app) || field(request, :app_id),
              model_profile: profile,
              timeout_ms: timeout_ms,
              min_confidence: min_confidence
@@ -84,6 +85,12 @@ defmodule AllbertAssist.Intent.Classifier do
         source: field(candidate, :source),
         reason: bounded_text(field(candidate, :reason))
       }
+      |> maybe_put(:app_id, field(candidate, :app_id))
+      |> maybe_put(:action_name, field(candidate, :action_name))
+      |> maybe_put(:confirmation, field(candidate, :confirmation))
+      |> maybe_put(:execution_mode, field(candidate, :execution_mode))
+      |> maybe_put(:permission, field(candidate, :permission))
+      |> maybe_put_descriptor_summary(candidate)
       |> Redactor.redact()
     end)
   end
@@ -178,6 +185,43 @@ defmodule AllbertAssist.Intent.Classifier do
     |> Map.merge(attrs)
     |> Redactor.redact()
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, _key, ""), do: map
+  defp maybe_put(map, _key, []), do: map
+  defp maybe_put(map, _key, value) when is_map(value) and map_size(value) == 0, do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp maybe_put_descriptor_summary(map, candidate) do
+    if field(candidate, :kind) == :app_intent do
+      trace_metadata = field(candidate, :trace_metadata, %{})
+      descriptor = field(trace_metadata, :descriptor, %{})
+
+      descriptor_summary =
+        %{
+          required_slots: field(descriptor, :required_slots, []),
+          missing_slots: field(trace_metadata, :missing_slots, []),
+          extracted_slots: field(trace_metadata, :extracted_slots, %{}),
+          handoff_required?: field(trace_metadata, :handoff_required?),
+          examples: bounded_list(field(descriptor, :examples, [])),
+          synonyms: bounded_list(field(descriptor, :synonyms, []))
+        }
+        |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+        |> Map.new()
+
+      maybe_put(map, :intent_descriptor, descriptor_summary)
+    else
+      map
+    end
+  end
+
+  defp bounded_list(values) when is_list(values) do
+    values
+    |> Enum.map(&bounded_text/1)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp bounded_list(_values), do: []
 
   defp bounded_text(nil), do: nil
 
