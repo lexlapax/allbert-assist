@@ -1237,8 +1237,9 @@ Plan: `docs/plans/v0.25-plan.md`
 Request flow: `docs/plans/v0.25-request-flow.md`
 ADR: `docs/adr/0022-native-financial-specialist-agents.md`
 
-Status: implemented through M6 closeout on 2026-05-17; ready for
-operator manual verification. Formerly M-D2c, previously planned as
+Status: released. Implemented through M6 closeout on 2026-05-17; release tag
+`v0.25.0` reconciled during the v0.29 release closeout. Formerly M-D2c,
+previously planned as
 v0.19, then v0.23 before the project-direction rethink inserted
 v0.23 Jido State-Machine Convergence and v0.24 Objective Runtime
 Foundation.
@@ -1460,12 +1461,12 @@ Shipped:
 Plan: `docs/plans/v0.27-plan.md`
 Request flow: `docs/plans/v0.27-request-flow.md`
 
-Status: implemented through M8 closeout on 2026-05-22 and ready for operator
-manual verification before release tag. Formerly M-D3a, previously planned as
-v0.24, then v0.25 before the project-direction rethink. Redesigned to build on
-the v0.18 app/surface contract and Surface DSL from day one. Renamed after the
-post-v0.26 roadmap reconciliation to make the platform contract explicit:
-StockSage is the reference implementation, not a special-case app.
+Status: released. Implemented through M8 closeout on 2026-05-22; release tag
+`v0.27.0` exists. Formerly M-D3a, previously planned as v0.24, then v0.25
+before the project-direction rethink. Redesigned to build on the v0.18
+app/surface contract and Surface DSL from day one. Renamed after the post-v0.26
+roadmap reconciliation to make the platform contract explicit: StockSage is the
+reference implementation, not a special-case app.
 
 Prerequisite: v0.18 app/surface contract, v0.22 Python bridge, v0.24
 Objective Runtime Foundation, v0.25 Native Jido agents, and v0.26 workspace
@@ -1505,9 +1506,9 @@ Shipped:
 Plan: `docs/plans/v0.28-plan.md`
 Request flow: `docs/plans/v0.28-request-flow.md`
 
-Status: implemented and ready for operator manual verification. Formerly
-v0.16, previously planned as v0.25, then v0.26 before the project-direction
-rethink.
+Status: released. Release tag `v0.28.0` reconciled during the v0.29 release
+closeout. Formerly v0.16, previously planned as v0.25, then v0.26 before the
+project-direction rethink.
 
 Expected direction:
 
@@ -1565,11 +1566,10 @@ Risk reassessment for the next contracts:
 Plan: `docs/plans/v0.29-plan.md`
 Request flow: `docs/plans/v0.29-request-flow.md`
 
-Status: implemented and ready for operator manual verification. Formerly
-M-D3b, previously planned as v0.27 before the project-direction rethink.
-Renamed after the post-v0.26 roadmap reconciliation to make the platform
-contract explicit. Version metadata is `0.29.0`; release tag `v0.29.0` is
-pending operator acceptance.
+Status: released. Formerly M-D3b, previously planned as v0.27 before the
+project-direction rethink. Renamed after the post-v0.26 roadmap reconciliation
+to make the platform contract explicit. Version metadata is `0.29.0`; release
+tag `v0.29.0` created after the full gate and operator smoke passed.
 
 Expected direction:
 

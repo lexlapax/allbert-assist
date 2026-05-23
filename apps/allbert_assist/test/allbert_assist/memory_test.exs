@@ -4,6 +4,32 @@ defmodule AllbertAssist.MemoryTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Memory
 
+  defmodule StocksageMemoryNamespaceApp do
+    use AllbertAssist.App
+
+    @impl AllbertAssist.App
+    def app_id, do: :stocksage
+
+    @impl AllbertAssist.App
+    def display_name, do: "StockSage Test Memory Namespace"
+
+    @impl AllbertAssist.App
+    def version, do: "0.29.0"
+
+    @impl AllbertAssist.App
+    def validate(_opts), do: :ok
+
+    @impl AllbertAssist.App
+    def memory_namespace do
+      %{
+        app_id: :stocksage,
+        namespace: :stocksage,
+        writable: true,
+        description: "Test StockSage memory namespace."
+      }
+    end
+  end
+
   setup do
     original_config = Application.get_env(:allbert_assist, Memory)
 
@@ -183,7 +209,7 @@ defmodule AllbertAssist.MemoryTest do
 
   defp ensure_stocksage_registered do
     unless AppRegistry.known_app_id?(:stocksage) do
-      assert AppRegistry.register(StockSage.App) in [
+      assert AppRegistry.register(StocksageMemoryNamespaceApp) in [
                {:ok, :stocksage},
                {:error, {:app_id_taken, :stocksage}}
              ]
