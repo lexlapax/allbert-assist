@@ -67,8 +67,10 @@ Use these as starting points, then narrow further from the active task:
   guide when relevant.
 - Channels and external identity mapping: read ADR 0016, the active plan, and
   latest channel-related changelog entries.
-- Intent ranking, active app routing, classifier hooks, or intent traces: read
-  ADR 0019, the active plan, and latest intent-related changelog entries.
+- Intent ranking, active app routing, classifier hooks, intent traces, app
+  intent descriptors, conversational app handoff, or clarification: read
+  ADR 0019, ADR 0034, the active plan, and latest intent-related changelog
+  entries.
 - Objectives, objective steps, objective events, advisory providers, world
   models, capability inventory, or any multi-step / cross-turn work: read
   ADR 0021, `docs/plans/v0.24-plan.md`, `docs/plans/v0.24-request-flow.md`,
