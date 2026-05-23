@@ -12,6 +12,13 @@ defmodule StockSage.App do
 
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias StockSage.{Analyses, Queue, SurfaceNodes}
+
+  @default_user_id "local"
+  @dashboard_panel_id :stocksage_dashboard_panel
+  @recent_panel_id :stocksage_recent_analyses_panel
+  @queue_panel_id :stocksage_queue_panel
+  @trends_panel_id :stocksage_trends_panel
 
   @impl true
   def app_id, do: :stocksage
@@ -20,10 +27,10 @@ defmodule StockSage.App do
   def display_name, do: "StockSage"
 
   @impl true
-  # v0.31 closeout: release-pinned after StockSage app and workspace cards
-  # moved onto the shared Surface catalog/renderer path.
+  # v0.32 M6 moves StockSage dashboard/list/queue/trend UI into the shared
+  # workspace panel substrate.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.31.0"
+  def version, do: "0.32.0"
 
   @impl true
   def validate(_opts), do: :ok
@@ -48,97 +55,45 @@ defmodule StockSage.App do
   @impl AllbertAssist.App
   def surfaces do
     [
-      %Surface{
-        id: :stocksage_workspace,
-        app_id: :stocksage,
-        label: "StockSage",
-        path: "/stocksage",
-        kind: :workspace,
-        status: :available,
-        nodes: [
-          %Node{
-            id: "stocksage-workspace-root",
-            component: :workspace,
-            props: %{app: "stocksage", region: "workspace"},
-            children: [
-              %Node{
-                id: "stocksage-workspace-header",
-                component: :header,
-                props: %{title: "StockSage", subtitle: "Financial analysis workspace"}
-              },
-              %Node{
-                id: "stocksage-workspace-nav",
-                component: :tabs,
-                props: %{tabs: ["analyses", "queue", "trends"]}
-              }
-            ]
-          }
-        ],
-        fallback_text: "StockSage workspace is available at /stocksage.",
-        metadata: %{nav_order: 10, live_view: "StockSageWeb.WorkspaceLive"}
-      },
-      %Surface{
-        id: :stocksage_analyses,
-        app_id: :stocksage,
-        label: "StockSage Analyses",
-        path: "/stocksage/analyses",
-        kind: :analysis,
-        status: :available,
-        nodes: [
-          %Node{
-            id: "stocksage-analyses-root",
-            component: :section,
-            props: %{region: "analyses"},
-            children: [
-              %Node{
-                id: "stocksage-analyses-empty",
-                component: :empty_state,
-                props: %{
-                  title: "No analyses selected",
-                  body: "StockSage analyses will render here."
-                }
-              }
-            ]
-          }
-        ],
-        fallback_text: "StockSage analyses are available at /stocksage/analyses.",
-        metadata: %{nav_order: 20, live_view: "StockSageWeb.AnalysisLive"}
-      },
-      %Surface{
-        id: :stocksage_queue,
-        app_id: :stocksage,
-        label: "StockSage Queue",
-        path: "/stocksage/queue",
-        kind: :analysis,
-        status: :available,
-        nodes: [
-          %Node{
-            id: "stocksage-queue-root",
-            component: :list,
-            props: %{region: "queue", empty?: true}
-          }
-        ],
-        fallback_text: "StockSage queue is available at /stocksage/queue.",
-        metadata: %{nav_order: 30, live_view: "StockSageWeb.QueueLive"}
-      },
-      %Surface{
-        id: :stocksage_trends,
-        app_id: :stocksage,
-        label: "StockSage Trends",
-        path: "/stocksage/trends",
-        kind: :analysis,
-        status: :available,
-        nodes: [
-          %Node{
-            id: "stocksage-trends-root",
-            component: :table,
-            props: %{region: "trends", empty?: true}
-          }
-        ],
-        fallback_text: "StockSage trends are available at /stocksage/trends.",
-        metadata: %{nav_order: 40, live_view: "StockSageWeb.TrendsLive"}
-      }
+      dashboard_panel([dashboard_card(0, 0, 0)]),
+      recent_analyses_panel([
+        empty_state("recent-empty", "No recent analyses", recent_empty_body())
+      ]),
+      queue_panel([empty_state("queue-empty", "No queued analyses", queue_empty_body())]),
+      trends_panel([empty_state("trends-empty", "No outcome trends", trends_empty_body())])
     ]
+  end
+
+  @doc """
+  Returns StockSage panels hydrated from existing read contexts.
+
+  The host workspace calls this optional provider callback with the current
+  runtime scope. The returned surfaces are still catalog validated by the host
+  before rendering.
+  """
+  def workspace_panel_surfaces(context) when is_map(context) do
+    user_id = context_value(context, :user_id) || @default_user_id
+    analyses = Analyses.list_analyses(user_id, limit: 5)
+    queue_entries = Queue.list_entries(user_id, limit: 5)
+    trends = Analyses.summarize_trends(user_id, limit: 5)
+
+    [
+      dashboard_panel([dashboard_card(length(analyses), length(queue_entries), trends.returned)]),
+      recent_analyses_panel(recent_analysis_nodes(analyses)),
+      queue_panel(queue_nodes(queue_entries)),
+      trends_panel(trend_nodes(trends))
+    ]
+  rescue
+    exception ->
+      [
+        dashboard_panel([
+          error_card(
+            "stocksage-panel-error",
+            "StockSage panels unavailable",
+            Exception.message(exception)
+          )
+        ])
+      ]
   end
 
   def surface_catalog do
@@ -148,5 +103,222 @@ defmodule StockSage.App do
       %{component: :parity_card, allowed_props: [], allowed_bindings: []},
       %{component: :debate_round_card, allowed_props: [], allowed_bindings: []}
     ]
+  end
+
+  defp dashboard_panel(children),
+    do: panel(@dashboard_panel_id, "StockSage dashboard", :context_rail, 100, children)
+
+  defp recent_analyses_panel(children),
+    do: panel(@recent_panel_id, "Recent analyses", :canvas_panels, 110, children)
+
+  defp queue_panel(children),
+    do: panel(@queue_panel_id, "Analysis queue", :canvas_panels, 120, children)
+
+  defp trends_panel(children),
+    do: panel(@trends_panel_id, "Outcome trends", :canvas_panels, 130, children)
+
+  defp panel(id, label, zone, order, children) do
+    %Surface{
+      id: id,
+      app_id: :stocksage,
+      label: label,
+      path: "/workspace",
+      kind: :panel,
+      zone: zone,
+      status: :available,
+      nodes: [
+        %Node{
+          id: panel_root_id(id),
+          component: :panel,
+          props: %{title: label, body: "StockSage #{zone_label(zone)} panel", status: "ready"},
+          children: children
+        }
+      ],
+      fallback_text: "#{label} is available from the StockSage workspace panels.",
+      metadata: %{zone: zone, visible_when: :selected_app, order: order}
+    }
+  end
+
+  defp dashboard_card(analysis_count, queued_count, outcome_count) do
+    node("dashboard-summary", :analysis_card, %{
+      title: "StockSage dashboard",
+      ticker: "PORTFOLIO",
+      symbol: "PORTFOLIO",
+      engine: "workspace",
+      status: "ready",
+      recommendation: "review",
+      summary:
+        "#{analysis_count} recent analyses, #{queued_count} queued runs, #{outcome_count} observed outcomes."
+    })
+  end
+
+  defp recent_analysis_nodes([]),
+    do: [empty_state("recent-empty", "No recent analyses", recent_empty_body())]
+
+  defp recent_analysis_nodes(analyses) do
+    analyses
+    |> Enum.flat_map(&analysis_preview_nodes/1)
+    |> case do
+      [] -> [empty_state("recent-empty", "No renderable analyses", recent_empty_body())]
+      nodes -> nodes
+    end
+  end
+
+  defp analysis_preview_nodes(analysis) do
+    case SurfaceNodes.from_analysis(analysis) do
+      {:ok, nodes} ->
+        nodes
+        |> Enum.filter(&match?(%Node{component: :analysis_card}, &1))
+        |> Enum.map(&with_analysis_title(&1, analysis))
+
+      {:error, _diagnostics} ->
+        [
+          error_card(
+            "analysis-error-#{safe_id(value(analysis, :id) || "unknown")}",
+            "Analysis preview unavailable",
+            "StockSage could not render this persisted analysis summary."
+          )
+        ]
+    end
+  end
+
+  defp with_analysis_title(%Node{} = node, analysis) do
+    symbol = value(analysis, :symbol) || "StockSage"
+    %{node | props: Map.put(node.props || %{}, :title, "#{symbol} analysis")}
+  end
+
+  defp queue_nodes([]), do: [empty_state("queue-empty", "No queued analyses", queue_empty_body())]
+
+  defp queue_nodes(entries) do
+    Enum.map(entries, fn entry ->
+      symbol = value(entry, :symbol) || "UNKNOWN"
+
+      node("queue-#{safe_id(value(entry, :id))}", :analysis_card, %{
+        title: "#{symbol} queued analysis",
+        ticker: symbol,
+        symbol: symbol,
+        engine: "queue",
+        status: value(entry, :status) || "queued",
+        recommendation: value(entry, :priority) || "normal",
+        summary: queue_summary(entry),
+        trace_id: value(entry, :trace_id)
+      })
+    end)
+  end
+
+  defp trend_nodes(%{returned: 0}),
+    do: [empty_state("trends-empty", "No outcome trends", trends_empty_body())]
+
+  defp trend_nodes(trends) when is_map(trends) do
+    [
+      node("trends-summary", :analysis_card, %{
+        title: "StockSage outcome trends",
+        ticker: "PORTFOLIO",
+        symbol: "PORTFOLIO",
+        engine: "outcomes",
+        status: "observed",
+        recommendation: trend_rating(trends),
+        summary: trends_summary(trends)
+      })
+    ]
+  end
+
+  defp empty_state(id, title, body) do
+    node(id, :empty_state, %{title: title, body: body})
+  end
+
+  defp error_card(id, title, reason) do
+    node(id, :analysis_card, %{
+      title: title,
+      ticker: "STOCKSAGE",
+      symbol: "STOCKSAGE",
+      engine: "workspace",
+      status: "failed",
+      recommendation: "retry",
+      summary: safe_text(reason, 500)
+    })
+  end
+
+  defp node(id, component, props) do
+    %Node{id: id, component: component, props: props}
+  end
+
+  defp queue_summary(entry) do
+    requested_for =
+      case value(entry, :requested_for) do
+        %Date{} = date -> Date.to_iso8601(date)
+        nil -> "unscheduled"
+        requested_for -> to_string(requested_for)
+      end
+
+    "priority=#{value(entry, :priority) || "normal"} requested_for=#{requested_for}"
+  end
+
+  defp trends_summary(trends) do
+    counts =
+      trends
+      |> Map.get(:counts, %{})
+      |> Enum.sort_by(fn {label, _count} -> label end)
+      |> Enum.map_join(", ", fn {label, count} -> "#{label}=#{count}" end)
+
+    accuracy = Map.get(trends, :accuracy, %{})
+    win_rate = Map.get(accuracy, :win_rate, 0.0)
+    average_return = Map.get(accuracy, :avg_return_pct)
+
+    "returned=#{Map.get(trends, :returned, 0)} win_rate=#{win_rate}% avg_return=#{average_return || "n/a"} counts=#{counts}"
+  end
+
+  defp trend_rating(trends) do
+    case get_in(trends, [:accuracy, :win_rate]) do
+      win_rate when is_number(win_rate) -> "#{win_rate}% win rate"
+      _win_rate -> "pending"
+    end
+  end
+
+  defp recent_empty_body,
+    do: "Completed or failed analyses appear here after StockSage records them."
+
+  defp queue_empty_body, do: "Queued StockSage runs appear here after they are requested."
+
+  defp trends_empty_body,
+    do: "Resolved outcomes appear here after StockSage records observations."
+
+  defp panel_root_id(@dashboard_panel_id), do: "dashboard"
+  defp panel_root_id(@recent_panel_id), do: "recent"
+  defp panel_root_id(@queue_panel_id), do: "queue"
+  defp panel_root_id(@trends_panel_id), do: "trends"
+
+  defp zone_label(:context_rail), do: "context"
+  defp zone_label(:canvas_panels), do: "canvas"
+
+  defp context_value(context, key),
+    do: Map.get(context, key) || Map.get(context, Atom.to_string(key))
+
+  defp value(map, key) when is_map(map) and is_atom(key),
+    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+
+  defp value(_map, _key), do: nil
+
+  defp safe_text(value, max) do
+    value
+    |> to_string()
+    |> String.replace_prefix("<", " ")
+    |> String.replace_prefix("http://", "URL ")
+    |> String.replace_prefix("https://", "URL ")
+    |> String.slice(0, max)
+  end
+
+  defp safe_id(nil), do: "unknown"
+
+  defp safe_id(value) do
+    value
+    |> to_string()
+    |> String.replace(~r/[^a-zA-Z0-9_-]+/, "-")
+    |> String.trim("-")
+    |> String.slice(0, 48)
+    |> case do
+      "" -> "unknown"
+      id -> id
+    end
   end
 end

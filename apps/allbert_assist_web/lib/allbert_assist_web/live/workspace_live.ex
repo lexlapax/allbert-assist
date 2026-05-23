@@ -779,7 +779,14 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp workspace_assigns(user_id, thread_id, workspace_badges, active_app) do
     tiles = canvas_tiles(thread_id, user_id)
     surfaces = ephemeral_surfaces(thread_id, user_id)
-    surface_context = registered_surface_context()
+
+    surface_context =
+      registered_surface_context(%{
+        user_id: user_id,
+        thread_id: thread_id,
+        session_id: @default_session_id,
+        active_app: active_app
+      })
 
     %{
       canvas_tiles: tiles,
@@ -845,11 +852,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
-  defp registered_surface_context do
+  defp registered_surface_context(context) do
     providers = registered_surface_providers()
 
     %{
-      panel_surfaces: Enum.flat_map(providers, &provider_panel_surfaces/1),
+      panel_surfaces: Enum.flat_map(providers, &provider_panel_surfaces(&1, context)),
       surface_catalogs:
         providers
         |> Enum.map(&{Map.get(&1, :app_id), Map.get(&1, :catalog, [])})
@@ -883,11 +890,39 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     }
   end
 
-  defp provider_panel_surfaces(provider) do
+  defp provider_panel_surfaces(provider, context) do
+    provider
+    |> hydrated_panel_surfaces(context)
+    |> panel_surface_list(provider)
+  end
+
+  defp hydrated_panel_surfaces(%{module: module}, context)
+       when is_atom(module) and not is_nil(module) do
+    if function_exported?(module, :workspace_panel_surfaces, 1) do
+      module.workspace_panel_surfaces(context)
+    end
+  rescue
+    _exception -> nil
+  catch
+    :exit, _reason -> nil
+  end
+
+  defp hydrated_panel_surfaces(_provider, _context), do: nil
+
+  defp panel_surface_list({:ok, surfaces}, provider), do: panel_surface_list(surfaces, provider)
+
+  defp panel_surface_list(surfaces, _provider) when is_list(surfaces),
+    do: filter_panel_surfaces(surfaces)
+
+  defp panel_surface_list(_surfaces, provider), do: provider_static_panel_surfaces(provider)
+
+  defp provider_static_panel_surfaces(provider) do
     provider
     |> Map.get(:surfaces, [])
-    |> Enum.filter(&match?(%{kind: :panel}, &1))
+    |> filter_panel_surfaces()
   end
+
+  defp filter_panel_surfaces(surfaces), do: Enum.filter(surfaces, &match?(%{kind: :panel}, &1))
 
   defp tile_by_id(tiles, tile_id) when is_list(tiles) and is_binary(tile_id) do
     Enum.find(tiles, &(Map.get(&1, :id) == tile_id || Map.get(&1, "id") == tile_id))

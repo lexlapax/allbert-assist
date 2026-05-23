@@ -21,7 +21,7 @@ defmodule StockSageWeb.Components.Cards do
     ~H"""
     <article
       id={"stocksage-card-#{@node.id}"}
-      class="rounded border border-zinc-800 bg-zinc-900 p-4 shadow-sm"
+      class="rounded border border-zinc-800 bg-zinc-900 p-4 text-zinc-100 shadow-sm"
       data-stocksage-component="analysis_card"
       aria-labelledby={title_id(@node)}
     >
@@ -76,7 +76,7 @@ defmodule StockSageWeb.Components.Cards do
     ~H"""
     <article
       id={"stocksage-card-#{@node.id}"}
-      class="rounded border border-zinc-800 bg-zinc-900 p-4 shadow-sm"
+      class="rounded border border-zinc-800 bg-zinc-900 p-4 text-zinc-100 shadow-sm"
       data-stocksage-component="agent_report_card"
       aria-labelledby={title_id(@node)}
     >
@@ -120,7 +120,7 @@ defmodule StockSageWeb.Components.Cards do
     ~H"""
     <article
       id={"stocksage-card-#{@node.id}"}
-      class="rounded border border-zinc-800 bg-zinc-900 p-4 shadow-sm"
+      class="rounded border border-zinc-800 bg-zinc-900 p-4 text-zinc-100 shadow-sm"
       data-stocksage-component="parity_card"
       aria-labelledby={title_id(@node)}
     >
@@ -169,7 +169,7 @@ defmodule StockSageWeb.Components.Cards do
     ~H"""
     <article
       id={"stocksage-card-#{@node.id}"}
-      class="rounded border border-zinc-800 bg-zinc-900 p-4 shadow-sm"
+      class="rounded border border-zinc-800 bg-zinc-900 p-4 text-zinc-100 shadow-sm"
       data-stocksage-component="debate_round_card"
       aria-labelledby={title_id(@node)}
     >
