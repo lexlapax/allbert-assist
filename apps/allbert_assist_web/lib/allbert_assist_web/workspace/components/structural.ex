@@ -287,13 +287,29 @@ defmodule AllbertAssistWeb.Workspace.Components.UtilityDrawer do
         <.link navigate="/jobs" class="workspace-utility-link">
           <.icon name="hero-clock-micro" class="size-4" /> Jobs
         </.link>
-        <.link navigate="/objectives" class="workspace-utility-link">
+        <.link
+          :if={first_objective_id(@active_objectives)}
+          navigate={~p"/objectives/#{first_objective_id(@active_objectives)}"}
+          class="workspace-utility-link"
+        >
           <.icon name="hero-flag-micro" class="size-4" /> Objectives
         </.link>
+        <span
+          :if={!first_objective_id(@active_objectives)}
+          class="workspace-utility-link workspace-utility-link-disabled"
+        >
+          <.icon name="hero-flag-micro" class="size-4" /> Objectives
+        </span>
       </div>
     </aside>
     """
   end
+
+  defp first_objective_id([%{id: id} | _rest]) when is_binary(id), do: id
+  defp first_objective_id([%{"id" => id} | _rest]) when is_binary(id), do: id
+  defp first_objective_id([%{objective_id: id} | _rest]) when is_binary(id), do: id
+  defp first_objective_id([%{"objective_id" => id} | _rest]) when is_binary(id), do: id
+  defp first_objective_id(_objectives), do: nil
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.WorkspacePanel do

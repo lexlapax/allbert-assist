@@ -14,6 +14,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     Workspace
   }
 
+  alias AllbertAssist.Resources.{Grants, ResourceURI, Scope}
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
@@ -262,6 +263,135 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert html =~ ~s(data-mobile-tab="ephemeral")
     assert has_element?(view, "#workspace-mobile-tab-ephemeral[aria-selected='true']")
+  end
+
+  test "workspace utility drawer renders Settings Central and updates a safe setting through actions",
+       %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    html =
+      view
+      |> element("#workspace-mobile-tab-utility")
+      |> render_click()
+
+    assert html =~ "Settings Central"
+    assert has_element?(view, "#workspace-settings-panel")
+    assert has_element?(view, "#settings-list")
+    assert has_element?(view, "#settings-form")
+    assert has_element?(view, "#security-status")
+    assert has_element?(view, "#confirmation-requests")
+    assert has_element?(view, "#remembered-resource-grants")
+    assert has_element?(view, "#provider-key-form")
+
+    subscribe_actions()
+
+    html =
+      view
+      |> element("#settings-form")
+      |> render_submit(%{
+        "setting" => %{
+          "key" => "operator.communication_style",
+          "value" => "concise"
+        }
+      })
+
+    assert html =~ "Setting saved."
+    assert html =~ "settings-audit"
+    assert {:ok, "concise"} = Settings.get("operator.communication_style")
+
+    action_signal = receive_action_completed("update_setting")
+    assert action_signal.data.status == :completed
+    assert action_signal.data.permission_decision.permission == :settings_write
+  end
+
+  test "workspace Settings Central stores provider keys without exposing the secret", %{
+    conn: conn
+  } do
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    view
+    |> element("#workspace-mobile-tab-utility")
+    |> render_click()
+
+    subscribe_actions()
+
+    html =
+      view
+      |> element("#provider-key-form")
+      |> render_submit(%{
+        "provider" => %{
+          "provider" => "openai",
+          "api_key" => "sk-workspace-secret"
+        }
+      })
+
+    assert html =~ "Provider credential saved."
+    refute html =~ "sk-workspace-secret"
+
+    action_signal = receive_action_completed("set_provider_credential")
+    assert action_signal.data.status == :completed
+    assert action_signal.data.permission_decision.permission == :settings_secret_write
+  end
+
+  test "workspace Settings Central approves, denies, and revokes through registered actions",
+       %{conn: conn} do
+    assert {:ok, approve_candidate} =
+             Confirmations.create(confirmation_attrs("conf_workspace_settings_approve"))
+
+    assert {:ok, deny_candidate} =
+             Confirmations.create(confirmation_attrs("conf_workspace_settings_deny"))
+
+    assert {:ok, grant} =
+             Grants.remember(external_ref("https://example.com/settings-central"),
+               id: "grant_workspace_settings",
+               reason: "workspace settings test",
+               audit?: false
+             )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    html =
+      view
+      |> element("#workspace-mobile-tab-utility")
+      |> render_click()
+
+    assert html =~ approve_candidate["id"]
+    assert html =~ deny_candidate["id"]
+    assert html =~ grant["id"]
+
+    subscribe_actions()
+
+    view
+    |> element("#approve-confirmation-#{approve_candidate["id"]}")
+    |> render_click()
+
+    approve_signal = receive_action_completed("approve_confirmation")
+    assert approve_signal.data.status == :completed
+    assert {:ok, approved} = Confirmations.read(approve_candidate["id"])
+    refute approved["status"] == "pending"
+
+    view
+    |> element("#deny-confirmation-#{deny_candidate["id"]}-form")
+    |> render_submit(%{
+      "confirmation" => %{"id" => deny_candidate["id"], "reason" => "not needed"}
+    })
+
+    deny_signal = receive_action_completed("deny_confirmation")
+    assert deny_signal.data.status == :completed
+    assert {:ok, denied} = Confirmations.read(deny_candidate["id"])
+    assert denied["status"] == "denied"
+
+    view
+    |> element("#revoke-resource-grant-#{grant["id"]}")
+    |> render_click()
+
+    revoke_signal = receive_action_completed("revoke_resource_grant")
+    assert revoke_signal.data.status == :completed
+
+    assert {:error, {:grant_revoked, "grant_workspace_settings"}} =
+             Grants.find_applicable(external_ref("https://example.com/settings-central"),
+               permission: :external_network
+             )
   end
 
   test "thread switcher lists, copies, switches, and creates threads", %{conn: conn} do
@@ -1125,6 +1255,33 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     on_exit(fn ->
       unless app_registered?, do: AllbertAssist.App.Registry.unregister(:stocksage)
     end)
+  end
+
+  defp confirmation_attrs(id) do
+    %{
+      id: id,
+      origin: %{actor: "local", channel: :live_view, surface: "/workspace"},
+      target_action: %{name: "external_network_request"},
+      target_permission: :external_network,
+      target_execution_mode: :external_network_unavailable,
+      security_decision: %{permission: :external_network, decision: :needs_confirmation},
+      params_summary: %{
+        url: "https://example.com/settings-central",
+        resource_refs: [external_ref("https://example.com/settings-central")]
+      }
+    }
+  end
+
+  defp external_ref(url) do
+    %{
+      resource_uri: ResourceURI.url!(url),
+      origin_kind: :remote_url,
+      canonical_id: url,
+      operation_class: :external_service_request,
+      access_mode: :fetch,
+      scope: Scope.to_map(Scope.exact_url(url)),
+      downstream_consumer: :req_http
+    }
   end
 
   defp signed_envelope(attrs) do

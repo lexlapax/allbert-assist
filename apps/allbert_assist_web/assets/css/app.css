@@ -1741,6 +1741,10 @@ a.allbert-chip-link:focus-visible,
   overflow: hidden;
 }
 
+.workspace-utility-drawer-node {
+  flex-direction: column;
+}
+
 .workspace-rail-stack {
   display: flex;
   flex-direction: column;
@@ -1812,6 +1816,78 @@ a.allbert-chip-link:focus-visible,
   background: var(--workspace-panel-muted);
 }
 
+.workspace-utility-link-disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.workspace-utility-drawer-node > .workspace-node-children {
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: auto;
+}
+
+.workspace-utility-drawer-node > .workspace-node-children > .workspace-node {
+  min-width: 0;
+}
+
+.workspace-settings-panel {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.workspace-settings-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.workspace-settings-panel-body {
+  max-height: min(70vh, 54rem);
+  min-width: 0;
+  overflow: auto;
+  padding-right: 0.15rem;
+}
+
+.workspace-settings-panel-body > .grid {
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace-settings-panel-body > .grid > * {
+  min-width: 0;
+}
+
+.workspace-settings-panel #settings-list {
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.workspace-settings-panel #settings-list button,
+.workspace-settings-panel form {
+  width: 100%;
+  min-width: 0;
+}
+
+.workspace-settings-panel pre,
+.workspace-settings-panel .text-xs,
+.workspace-settings-panel .text-sm {
+  overflow-wrap: anywhere;
+}
+
+.workspace-settings-panel input,
+.workspace-settings-panel select,
+.workspace-settings-panel textarea {
+  width: 100%;
+  min-width: 0;
+}
+
 .workspace-rail-item-active {
   border-color: var(--workspace-accent);
   background: var(--allbert-accent-soft);
@@ -1880,7 +1956,7 @@ a.allbert-chip-link:focus-visible,
       minmax(20rem, var(--workspace-chat-ratio))
       12px
       minmax(22rem, 1fr)
-      minmax(11rem, 14rem);
+      minmax(18rem, 22rem);
     grid-template-areas:
       "header header header header header"
       "badges badges badges badges badges"
@@ -1898,6 +1974,30 @@ a.allbert-chip-link:focus-visible,
   #workspace-shell[data-maximized-pane] #workspace-node-workspace-nav-rail,
   #workspace-shell[data-maximized-pane] #workspace-node-workspace-utility-drawer {
     display: none;
+  }
+
+  #workspace-shell[data-mobile-tab="utility"]
+    #workspace-node-workspace-root
+    > .workspace-root-grid {
+    grid-template-columns:
+      minmax(11rem, 14rem)
+      minmax(18rem, var(--workspace-chat-ratio))
+      12px
+      minmax(28rem, 1fr);
+    grid-template-areas:
+      "header header header header"
+      "badges badges badges badges"
+      "nav chat resizer utility"
+      "ephemeral ephemeral ephemeral ephemeral";
+  }
+
+  #workspace-shell[data-mobile-tab="utility"] #workspace-node-workspace-canvas-region {
+    display: none;
+  }
+
+  #workspace-shell[data-mobile-tab="utility"] #workspace-node-workspace-utility-drawer {
+    display: flex;
+    grid-area: utility;
   }
 }
 

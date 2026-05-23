@@ -1,9 +1,9 @@
-defmodule AllbertAssistWeb.SettingsLive do
+defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   @moduledoc """
-  Operator Settings Central surface.
+  Settings Central workspace utility panel.
   """
 
-  use AllbertAssistWeb, :live_view
+  use AllbertAssistWeb, :live_component
 
   alias AllbertAssist.{Actions.Runner, Confirmations}
   alias AllbertAssist.Confirmations.ExternalRequestMetadata
@@ -17,8 +17,26 @@ defmodule AllbertAssistWeb.SettingsLive do
   @default_key "operator.communication_style"
 
   @impl true
-  def mount(_params, _session, socket) do
-    {:ok, refresh(socket, @default_key)}
+  def update(assigns, socket) do
+    selected_key = Map.get(assigns, :selected_key, @default_key)
+    context = Map.get(assigns, :renderer_context, %{})
+
+    open? =
+      Map.get(socket.assigns, :settings_panel_open?, false) ||
+        Map.get(context, :workspace_mobile_tab) == "utility"
+
+    socket =
+      socket
+      |> assign(assigns)
+      |> assign_new(:node, fn -> nil end)
+      |> assign_new(:settings_notice, fn -> "" end)
+      |> assign(:settings_panel_open?, open?)
+
+    if open? do
+      {:ok, refresh(socket, selected_key)}
+    else
+      {:ok, socket}
+    end
   end
 
   @impl true
@@ -31,13 +49,14 @@ defmodule AllbertAssistWeb.SettingsLive do
       case completed_action("update_setting", %{key: key, value: value}) do
         {:ok, response} ->
           socket
-          |> put_flash(:info, "Setting saved.")
+          |> assign(:settings_notice, "Setting saved.")
           |> assign(:diagnostics, "")
           |> assign(:last_audit_path, action_audit_path(response))
           |> refresh(key)
 
         {:error, reason} ->
           socket
+          |> assign(:settings_notice, "")
           |> assign(:diagnostics, inspect(reason))
           |> refresh_forms(key, value)
       end
@@ -54,13 +73,14 @@ defmodule AllbertAssistWeb.SettingsLive do
       case completed_action("update_setting", %{key: key, value: value}) do
         {:ok, response} ->
           socket
-          |> put_flash(:info, "Permission setting saved.")
+          |> assign(:settings_notice, "Permission setting saved.")
           |> assign(:diagnostics, "")
           |> assign(:last_audit_path, action_audit_path(response))
           |> refresh(key)
 
         {:error, reason} ->
           socket
+          |> assign(:settings_notice, "")
           |> assign(:diagnostics, inspect(reason))
           |> refresh(socket.assigns.selected_key)
       end
@@ -81,13 +101,14 @@ defmodule AllbertAssistWeb.SettingsLive do
            }) do
         {:ok, response} ->
           socket
-          |> put_flash(:info, "Provider credential saved.")
+          |> assign(:settings_notice, "Provider credential saved.")
           |> assign(:diagnostics, "")
           |> assign(:last_audit_path, action_audit_path(response))
           |> refresh(socket.assigns.selected_key)
 
         {:error, reason} ->
           socket
+          |> assign(:settings_notice, "")
           |> assign(:diagnostics, inspect(reason))
           |> refresh_forms(socket.assigns.selected_key, socket.assigns.selected_value)
       end
@@ -100,12 +121,13 @@ defmodule AllbertAssistWeb.SettingsLive do
       case completed_action("approve_confirmation", %{id: id}) do
         {:ok, response} ->
           socket
-          |> put_flash(:info, confirmation_flash_message(response.confirmation))
+          |> assign(:settings_notice, confirmation_flash_message(response.confirmation))
           |> assign(:diagnostics, "")
           |> refresh(socket.assigns.selected_key)
 
         {:error, reason} ->
           socket
+          |> assign(:settings_notice, "")
           |> assign(:diagnostics, inspect(reason))
           |> refresh(socket.assigns.selected_key)
       end
@@ -127,12 +149,13 @@ defmodule AllbertAssistWeb.SettingsLive do
       case completed_action("approve_confirmation", approve_params) do
         {:ok, response} ->
           socket
-          |> put_flash(:info, confirmation_flash_message(response.confirmation))
+          |> assign(:settings_notice, confirmation_flash_message(response.confirmation))
           |> assign(:diagnostics, "")
           |> refresh(socket.assigns.selected_key)
 
         {:error, reason} ->
           socket
+          |> assign(:settings_notice, "")
           |> assign(:diagnostics, inspect(reason))
           |> refresh(socket.assigns.selected_key)
       end
@@ -151,12 +174,13 @@ defmodule AllbertAssistWeb.SettingsLive do
       case completed_action("deny_confirmation", params) do
         {:ok, response} ->
           socket
-          |> put_flash(:info, "Confirmation #{response.confirmation["status"]}.")
+          |> assign(:settings_notice, "Confirmation #{response.confirmation["status"]}.")
           |> assign(:diagnostics, "")
           |> refresh(socket.assigns.selected_key)
 
         {:error, reason} ->
           socket
+          |> assign(:settings_notice, "")
           |> assign(:diagnostics, inspect(reason))
           |> refresh(socket.assigns.selected_key)
       end
@@ -172,12 +196,13 @@ defmodule AllbertAssistWeb.SettingsLive do
            }) do
         {:ok, _response} ->
           socket
-          |> put_flash(:info, "Resource grant revoked.")
+          |> assign(:settings_notice, "Resource grant revoked.")
           |> assign(:diagnostics, "")
           |> refresh(socket.assigns.selected_key)
 
         {:error, reason} ->
           socket
+          |> assign(:settings_notice, "")
           |> assign(:diagnostics, inspect(reason))
           |> refresh(socket.assigns.selected_key)
       end
@@ -188,18 +213,42 @@ defmodule AllbertAssistWeb.SettingsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
-      <div class="mx-auto max-w-6xl px-6 py-8">
-        <header class="mb-6">
-          <h1 class="text-2xl font-semibold">Settings Central</h1>
-        </header>
+    <section
+      id="workspace-settings-panel"
+      class="workspace-settings-panel"
+      data-workspace-component="settings_panel"
+      data-workspace-renderer="component"
+      aria-labelledby="workspace-settings-panel-title"
+    >
+      <header class="workspace-settings-panel-header">
+        <h2 id="workspace-settings-panel-title" class="workspace-rail-title">Settings Central</h2>
+      </header>
 
-        <div class="grid gap-6 lg:grid-cols-[minmax(220px,320px)_1fr]">
+      <p :if={@settings_notice != ""} id="settings-notice" class="text-sm text-success">
+        {@settings_notice}
+      </p>
+
+      <div :if={!@settings_panel_open?} class="workspace-settings-panel-preview">
+        <p class="text-sm text-base-content/60">
+          Settings, provider keys, confirmations, and grants.
+        </p>
+        <a
+          id="workspace-settings-open"
+          class="workspace-utility-link"
+          href={workspace_settings_path(@renderer_context)}
+        >
+          <.icon name="hero-adjustments-horizontal-micro" class="size-4" /> Open settings
+        </a>
+      </div>
+
+      <div :if={@settings_panel_open?} class="workspace-settings-panel-body">
+        <div class="grid gap-6">
           <section id="settings-list" class="space-y-2">
             <button
               :for={setting <- @settings}
               type="button"
               phx-click="select_setting"
+              phx-target={@myself}
               phx-value-key={setting.key}
               class={[
                 "block w-full rounded border px-3 py-2 text-left text-sm transition",
@@ -218,6 +267,7 @@ defmodule AllbertAssistWeb.SettingsLive do
                 for={@setting_form}
                 id="settings-form"
                 phx-submit="save_setting"
+                phx-target={@myself}
                 class="space-y-3"
               >
                 <.input field={@setting_form[:key]} id="settings-key" type="text" label="Key" />
@@ -265,6 +315,7 @@ defmodule AllbertAssistWeb.SettingsLive do
                       for={permission_form(policy)}
                       id={"permission-#{permission_dom_id(policy.permission)}-form"}
                       phx-submit="save_permission_setting"
+                      phx-target={@myself}
                       class="flex items-center gap-2"
                     >
                       <input type="hidden" name="permission[key]" value={policy.setting_key} />
@@ -418,6 +469,7 @@ defmodule AllbertAssistWeb.SettingsLive do
                         id={"approve-confirmation-#{confirmation["id"]}"}
                         type="button"
                         phx-click="approve_confirmation"
+                        phx-target={@myself}
                         phx-value-id={confirmation["id"]}
                         class="btn btn-primary btn-sm"
                         disabled={!@liveview_confirmation_approval?}
@@ -430,6 +482,7 @@ defmodule AllbertAssistWeb.SettingsLive do
                         id={"approve-confirmation-#{confirmation["id"]}-remember-exact"}
                         type="button"
                         phx-click="approve_confirmation_remember"
+                        phx-target={@myself}
                         phx-value-id={confirmation["id"]}
                         phx-value-scope="exact"
                         phx-value-resource-index="0"
@@ -444,6 +497,7 @@ defmodule AllbertAssistWeb.SettingsLive do
                         id={"approve-confirmation-#{confirmation["id"]}-remember-all"}
                         type="button"
                         phx-click="approve_confirmation_remember"
+                        phx-target={@myself}
                         phx-value-id={confirmation["id"]}
                         phx-value-scope="exact"
                         phx-value-remember-all="true"
@@ -457,6 +511,7 @@ defmodule AllbertAssistWeb.SettingsLive do
                         for={confirmation_form(confirmation)}
                         id={"deny-confirmation-#{confirmation["id"]}-form"}
                         phx-submit="deny_confirmation"
+                        phx-target={@myself}
                         class="flex gap-2"
                       >
                         <input type="hidden" name="confirmation[id]" value={confirmation["id"]} />
@@ -571,6 +626,7 @@ defmodule AllbertAssistWeb.SettingsLive do
                     id={"revoke-resource-grant-#{grant["id"]}"}
                     type="button"
                     phx-click="revoke_resource_grant"
+                    phx-target={@myself}
                     phx-value-id={grant["id"]}
                     class="btn btn-secondary btn-sm"
                     disabled={grant_status(grant) == "revoked"}
@@ -606,6 +662,7 @@ defmodule AllbertAssistWeb.SettingsLive do
                 for={@provider_form}
                 id="provider-key-form"
                 phx-submit="save_provider_key"
+                phx-target={@myself}
                 class="space-y-3"
               >
                 <.input field={@provider_form[:provider]} type="text" label="Provider" />
@@ -616,7 +673,7 @@ defmodule AllbertAssistWeb.SettingsLive do
           </main>
         </div>
       </div>
-    </Layouts.app>
+    </section>
     """
   end
 
@@ -651,6 +708,7 @@ defmodule AllbertAssistWeb.SettingsLive do
     |> assign(:selected_key, setting.key)
     |> assign(:selected_value, setting.value)
     |> assign(:explanation, explanation(setting))
+    |> assign_new(:settings_notice, fn -> "" end)
     |> assign_new(:diagnostics, fn -> "" end)
     |> assign_new(:last_audit_path, fn -> nil end)
     |> refresh_forms(setting.key, setting.value)
@@ -749,6 +807,23 @@ defmodule AllbertAssistWeb.SettingsLive do
   defp context do
     %{actor: "local", channel: :live_view, surface: "/workspace"}
   end
+
+  defp workspace_settings_path(context) do
+    params =
+      [
+        app_id: app_id(Map.get(context, :active_app, :allbert)),
+        tab: "utility"
+      ]
+      |> maybe_put_param(:thread_id, Map.get(context, :thread_id))
+
+    ~p"/workspace?#{params}"
+  end
+
+  defp maybe_put_param(params, _key, value) when value in [nil, ""], do: params
+  defp maybe_put_param(params, key, value), do: Keyword.put(params, key, value)
+
+  defp app_id(nil), do: "allbert"
+  defp app_id(app_id), do: to_string(app_id)
 
   defp confirmation_form(confirmation) do
     to_form(%{"id" => confirmation["id"], "reason" => ""}, as: :confirmation)

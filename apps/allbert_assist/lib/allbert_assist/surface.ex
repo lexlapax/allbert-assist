@@ -60,6 +60,7 @@ defmodule AllbertAssist.Surface do
           | :app_launcher
           | :utility_drawer
           | :workspace_panel
+          | :settings_panel
           | :workspace
           | :canvas
           | :tile
