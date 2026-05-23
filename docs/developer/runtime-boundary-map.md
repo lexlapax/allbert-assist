@@ -44,8 +44,9 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | M1 | `AllbertAssist.Boundary` | New machine-readable inventory only. |
 | M3 | `AllbertAssist.Runtime.Paths` | Implemented wrapper over `AllbertAssist.Paths` without changing paths. |
 | M3 | `AllbertAssist.Runtime.Redactor` | Implemented runtime-facing facade over current redaction policy without weakening output. |
-| M4 | `AllbertAssist.Runtime.Audit` | Shared audit facade over existing audit writers. |
-| M4 | `AllbertAssist.Runtime.Persistence` | Shared persistence facade for hybrid metadata/body stores. |
+| M4 | `AllbertAssist.Runtime.Audit` | Implemented shared audit facade over existing audit writers and Security Central audit metadata. |
+| M4 | `AllbertAssist.Runtime.Persistence` | Implemented shared persistence facade for hybrid metadata/body stores and Fragment body codecs. |
+| M4 | `AllbertAssist.Runtime.Trace` | Implemented shared trace facade over the existing markdown trace writer. |
 | M5 | `AllbertAssist.Action` | Thin Allbert-facing wrapper over `Jido.Action`. |
 | M6 | `AllbertAssist.Runtime.Response` | Typed runtime response helpers. |
 | M7 | `AllbertAssist.Extensions.Registry` | Unified compiled plugin/app contribution facade. |
@@ -70,6 +71,12 @@ in `AllbertAssistWeb.Workspace.Renderer` until M7 moves dispatch into
 M3 added the runtime-facing `AllbertAssist.Runtime.Paths` and
 `AllbertAssist.Runtime.Redactor` facades. Existing compatibility modules remain
 callable, but new runtime-facing code should target the `Runtime.*` facades.
+
+M4 added `AllbertAssist.Runtime.Audit`, `AllbertAssist.Runtime.Persistence`,
+and `AllbertAssist.Runtime.Trace`. Runtime-facing audit writers, Security
+Central audit metadata, trace recording, workspace body persistence, and
+Fragment body decoding now route through the runtime facades while preserving
+the existing markdown/YAML/SQLite formats.
 
 ## Internal Modules
 

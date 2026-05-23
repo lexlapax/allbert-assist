@@ -7,8 +7,8 @@ defmodule AllbertAssist.Workspace.Canvas do
 
   alias AllbertAssist.Conversations
   alias AllbertAssist.Repo
+  alias AllbertAssist.Runtime.Persistence
   alias AllbertAssist.Settings
-  alias AllbertAssist.Workspace.BodyStore
   alias AllbertAssist.Workspace.Canvas.Tile
   alias AllbertAssist.Workspace.Events
 
@@ -60,7 +60,7 @@ defmodule AllbertAssist.Workspace.Canvas do
     with :ok <- ensure_thread_writable(attrs.user_id, attrs.thread_id),
          :ok <- enforce_cap(attrs.user_id, attrs.thread_id),
          :ok <- ensure_body_size(attrs.body),
-         :ok <- BodyStore.write_body(attrs.body_yaml_path, attrs.body) do
+         :ok <- Persistence.write_body(attrs.body_yaml_path, attrs.body) do
       insert_tile(attrs)
     end
   end
@@ -130,7 +130,7 @@ defmodule AllbertAssist.Workspace.Canvas do
     |> order_by([tile], asc: tile.deleted_at, asc: tile.inserted_at)
     |> Repo.all()
     |> Enum.reduce_while([], fn tile, acc ->
-      with :ok <- BodyStore.delete(tile.body_yaml_path),
+      with :ok <- Persistence.delete(tile.body_yaml_path),
            {:ok, _deleted} <- Repo.delete(tile) do
         Events.tile_removed(tile, :purged)
         {:cont, [tile | acc]}
@@ -205,7 +205,7 @@ defmodule AllbertAssist.Workspace.Canvas do
   defp duplicate_body_result(%Tile{} = tile, attrs) do
     case load_body(tile) do
       {:ok, %Tile{} = loaded} ->
-        if semantic_body(loaded.body) == semantic_body(BodyStore.normalize_body(attrs.body)) do
+        if semantic_body(loaded.body) == semantic_body(Persistence.normalize_body(attrs.body)) do
           {:ok, loaded}
         else
           {:error, :fragment_body_conflict}
@@ -265,7 +265,7 @@ defmodule AllbertAssist.Workspace.Canvas do
     |> Map.put_new(:pinned, false)
     |> Map.put_new(:metadata, %{})
     |> Map.put_new(:body, %{})
-    |> Map.put_new(:body_yaml_path, BodyStore.canvas_body_path(user_id, thread_id, id))
+    |> Map.put_new(:body_yaml_path, Persistence.canvas_body_path(user_id, thread_id, id))
   end
 
   defp enforce_cap(user_id, thread_id) do
@@ -310,9 +310,9 @@ defmodule AllbertAssist.Workspace.Canvas do
   end
 
   defp soft_delete(%Tile{} = tile, timestamp) do
-    deleted_path = BodyStore.deleted_canvas_body_path(tile.body_yaml_path, timestamp)
+    deleted_path = Persistence.deleted_canvas_body_path(tile.body_yaml_path, timestamp)
 
-    with :ok <- BodyStore.move(tile.body_yaml_path, deleted_path),
+    with :ok <- Persistence.move(tile.body_yaml_path, deleted_path),
          {:ok, _tile} <-
            tile
            |> Tile.changeset(%{deleted_at: timestamp, body_yaml_path: deleted_path})
@@ -327,9 +327,9 @@ defmodule AllbertAssist.Workspace.Canvas do
          user_id: user_id,
          thread_id: thread_id
        }) do
-    restored_path = BodyStore.canvas_body_path(user_id, thread_id, id)
+    restored_path = Persistence.canvas_body_path(user_id, thread_id, id)
 
-    with :ok <- BodyStore.move(path, restored_path) do
+    with :ok <- Persistence.move(path, restored_path) do
       {:ok, restored_path}
     end
   end
@@ -338,14 +338,14 @@ defmodule AllbertAssist.Workspace.Canvas do
 
   defp maybe_write_body(path, {:ok, body}) when is_map(body) do
     with :ok <- ensure_body_size(body) do
-      BodyStore.write_body(path, body)
+      Persistence.write_body(path, body)
     end
   end
 
   defp maybe_write_body(_path, {:ok, _body}), do: {:error, :invalid_body}
 
   defp ensure_body_size(body) when is_map(body) do
-    if BodyStore.body_size_bytes(body) <= tile_body_max_bytes(),
+    if Persistence.body_size_bytes(body) <= tile_body_max_bytes(),
       do: :ok,
       else: {:error, :tile_body_too_large}
   end
@@ -421,7 +421,7 @@ defmodule AllbertAssist.Workspace.Canvas do
   defp mark_read_only_result({:error, reason}, _read_only?), do: {:error, reason}
 
   defp load_body(%Tile{} = tile) do
-    with {:ok, body} <- BodyStore.read_body(tile.body_yaml_path) do
+    with {:ok, body} <- Persistence.read_body(tile.body_yaml_path) do
       {:ok, %{tile | body: body}}
     end
   end

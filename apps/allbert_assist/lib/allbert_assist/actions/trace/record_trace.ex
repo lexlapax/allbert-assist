@@ -13,8 +13,8 @@ defmodule AllbertAssist.Actions.Trace.RecordTrace do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Runtime.Trace
   alias AllbertAssist.Security.PermissionGate
-  alias AllbertAssist.Trace
 
   @impl true
   def run(%{turn: turn}, context) when is_map(turn) do

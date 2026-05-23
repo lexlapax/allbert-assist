@@ -1632,9 +1632,9 @@ ADRs: `docs/adr/0026-runtime-public-facades-and-boundaries.md`,
 `docs/adr/0030-unified-surface-catalog-renderer-and-extension-registry.md`,
 `docs/adr/0031-settings-schema-fragments-and-authority.md`
 
-Status: research (unstarted). Inserted after v0.30 so the workspace UI,
+Status: implementation in progress. Inserted after v0.30 so the workspace UI,
 theming, dynamic plugin trials, and generator build on one consolidated
-runtime/UI substrate instead of encoding duplicated seams.
+runtime/UI substrate instead of encoding duplicated seams. M1-M4 are complete.
 
 Prerequisite: v0.26 workspace shell, v0.27 StockSage renderers, v0.28 security
 evals, v0.29 memory/outcomes, and v0.30 canvas emission.
@@ -1652,6 +1652,21 @@ Expected direction:
   and plugin/app contribution discovery.
 - Split Settings Central schema into registered fragments while preserving
   keys, defaults, validation, secret handling, and action-backed writes.
+
+Implemented so far:
+
+- M1: `AllbertAssist.Boundary` and `docs/developer/runtime-boundary-map.md`
+  inventory the v0.31 public facades, compatibility shims, and retirement
+  owners.
+- M2: removed the obsolete `AllbertAssist.Workspace.Catalog.component_renderer/1`
+  compatibility probe.
+- M3: added `AllbertAssist.Runtime.Paths` and
+  `AllbertAssist.Runtime.Redactor`; runtime-facing redaction callers now use
+  the facade.
+- M4: added `AllbertAssist.Runtime.Audit`,
+  `AllbertAssist.Runtime.Persistence`, and `AllbertAssist.Runtime.Trace`;
+  audit, trace, workspace body persistence, and Fragment body decoding route
+  through the runtime facades without changing durable formats.
 
 ## v0.32: Workspace-Only App UI And Settings Central
 

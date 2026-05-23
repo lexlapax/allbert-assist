@@ -1,6 +1,9 @@
 defmodule AllbertAssist.Packages.Audit do
   @moduledoc """
   Markdown audit records for v0.10 package-manager requests and runs.
+
+  v0.31 keeps this module as the package-install audit writer. New
+  runtime-facing code should call `AllbertAssist.Runtime.Audit`.
   """
 
   alias AllbertAssist.Packages.InstallSpec
