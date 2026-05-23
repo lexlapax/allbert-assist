@@ -37,7 +37,7 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
   end
 
   test "workspace shell renders named landmarks and controls", %{conn: conn} do
-    {:ok, view, html} = live(conn, ~p"/agent")
+    {:ok, view, html} = live(conn, ~p"/workspace")
 
     assert has_element?(view, "#skip-to-content[href='#main-content']")
     assert has_element?(view, "main#main-content[tabindex='-1']")
@@ -76,7 +76,7 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
     assert {:ok, _setting} =
              Settings.put("workspace.accessibility.reduce_motion", true, %{audit?: false})
 
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
     css = File.read!(@css_path)
 
     assert has_element?(view, "#workspace-shell[data-reduce-motion='true']")
@@ -90,7 +90,7 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
     Application.delete_env(:allbert_assist, Runtime)
     configure_external()
 
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
 
     view
     |> element("#agent-form")

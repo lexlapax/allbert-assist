@@ -10,18 +10,18 @@ defmodule StockSageWeb.Components.AppShell do
   def nav(assigns) do
     assigns =
       assign(assigns, :items, [
-        %{id: :workspace, label: "Home", path: ~p"/stocksage", icon: "hero-squares-2x2-micro"},
+        %{id: :workspace, label: "Home", path: ~p"/workspace", icon: "hero-squares-2x2-micro"},
         %{
           id: :analyses,
           label: "Analyses",
-          path: ~p"/stocksage/analyses",
+          path: ~p"/workspace",
           icon: "hero-chart-bar-micro"
         },
-        %{id: :queue, label: "Queue", path: ~p"/stocksage/queue", icon: "hero-list-bullet-micro"},
+        %{id: :queue, label: "Queue", path: ~p"/workspace", icon: "hero-list-bullet-micro"},
         %{
           id: :trends,
           label: "Trends",
-          path: ~p"/stocksage/trends",
+          path: ~p"/workspace",
           icon: "hero-arrow-trending-up-micro"
         }
       ])

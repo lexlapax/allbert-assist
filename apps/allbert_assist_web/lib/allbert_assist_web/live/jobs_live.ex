@@ -63,7 +63,9 @@ defmodule AllbertAssistWeb.JobsLive do
           <h1 class="text-2xl font-semibold">Scheduled Jobs</h1>
           <p class="text-sm text-zinc-600">User {@user_id}</p>
         </div>
-        <a class="text-sm font-medium text-blue-700 hover:text-blue-900" href="/settings">Settings</a>
+        <a class="text-sm font-medium text-blue-700 hover:text-blue-900" href="/workspace">
+          Workspace
+        </a>
       </header>
 
       <p

@@ -1,4 +1,4 @@
-defmodule AllbertAssistWeb.AgentLive do
+defmodule AllbertAssistWeb.WorkspaceLive do
   @moduledoc """
   Workspace LiveView for talking to the Allbert runtime boundary.
 
@@ -173,7 +173,7 @@ defmodule AllbertAssistWeb.AgentLive do
     {:noreply,
      socket
      |> assign(:thread_switcher_open?, false)
-     |> push_navigate(to: agent_path(thread_id, socket.assigns.active_app))}
+     |> push_navigate(to: workspace_path(thread_id, socket.assigns.active_app))}
   end
 
   def handle_event("switch_workspace_thread", _params, socket), do: {:noreply, socket}
@@ -188,7 +188,7 @@ defmodule AllbertAssistWeb.AgentLive do
         {:noreply,
          socket
          |> assign(:thread_switcher_open?, false)
-         |> push_navigate(to: agent_path(thread.id, socket.assigns.active_app))}
+         |> push_navigate(to: workspace_path(thread.id, socket.assigns.active_app))}
 
       {:error, reason} ->
         {:noreply, assign(socket, :error, "Could not start a new thread: #{inspect(reason)}")}
@@ -354,7 +354,7 @@ defmodule AllbertAssistWeb.AgentLive do
   def handle_info({:sync_workspace_thread_url, thread_id, active_app}, socket) do
     {:noreply,
      push_patch(socket,
-       to: ~p"/agent?#{[thread_id: thread_id, app_id: active_app_attribute(active_app)]}",
+       to: ~p"/workspace?#{[thread_id: thread_id, app_id: active_app_attribute(active_app)]}",
        replace: true
      )}
   end
@@ -419,7 +419,7 @@ defmodule AllbertAssistWeb.AgentLive do
         data-maximized-pane={@workspace_maximized_pane}
         data-offline-enabled={bool_attribute(@workspace_offline_enabled?)}
         data-service-worker-url={~p"/workspace-sw.js"}
-        data-service-worker-scope="/agent"
+        data-service-worker-scope="/workspace"
         data-offline-shell-url={~p"/workspace-offline.html"}
         role="region"
         aria-labelledby="workspace-component-title-workspace-header"
@@ -461,7 +461,7 @@ defmodule AllbertAssistWeb.AgentLive do
 
         <.live_component
           module={WorkspaceRenderer}
-          id="agent-workspace-renderer"
+          id="workspace-renderer"
           surface={@workspace_surface}
           renderer_context={renderer_context(assigns)}
           workspace_state={workspace_state(assigns)}
@@ -551,7 +551,7 @@ defmodule AllbertAssistWeb.AgentLive do
       user_id: user_id,
       operator_id: user_id,
       channel: :live_view,
-      surface: "AllbertAssistWeb.AgentLive",
+      surface: "AllbertAssistWeb.WorkspaceLive",
       response_target: socket.id
     }
   end
@@ -989,7 +989,7 @@ defmodule AllbertAssistWeb.AgentLive do
     }
   end
 
-  defp agent_path(thread_id, active_app) do
-    ~p"/agent?#{[thread_id: thread_id, app_id: active_app_attribute(active_app)]}"
+  defp workspace_path(thread_id, active_app) do
+    ~p"/workspace?#{[thread_id: thread_id, app_id: active_app_attribute(active_app)]}"
   end
 end

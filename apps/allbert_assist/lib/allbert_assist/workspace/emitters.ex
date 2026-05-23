@@ -146,7 +146,7 @@ defmodule AllbertAssist.Workspace.Emitters do
       :workspace_confirmation_approval,
       :allbert,
       "Approval Required",
-      "/agent",
+      "/workspace",
       :workspace,
       body,
       [
@@ -176,7 +176,7 @@ defmodule AllbertAssist.Workspace.Emitters do
       :workspace_objective_card,
       :allbert,
       "Objective Progress",
-      "/agent",
+      "/workspace",
       :workspace,
       body,
       [
@@ -323,7 +323,7 @@ defmodule AllbertAssist.Workspace.Emitters do
       stocksage_surface_id(kind),
       :stocksage,
       "StockSage Analysis",
-      "/stocksage",
+      "/workspace",
       :analysis,
       spec.props.body,
       [
@@ -449,7 +449,7 @@ defmodule AllbertAssist.Workspace.Emitters do
   end
 
   defp analysis_route(nil), do: nil
-  defp analysis_route(analysis_id), do: "/stocksage/analyses/#{safe_id(analysis_id)}"
+  defp analysis_route(analysis_id), do: "/apps/stocksage/analyses/#{safe_id(analysis_id)}"
 
   defp stocksage_surface_id(:analysis_card), do: :stocksage_analysis_card
   defp stocksage_surface_id(:agent_report_card), do: :stocksage_agent_report_card

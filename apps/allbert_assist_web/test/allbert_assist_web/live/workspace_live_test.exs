@@ -1,4 +1,4 @@
-defmodule AllbertAssistWeb.AgentLiveTest do
+defmodule AllbertAssistWeb.WorkspaceLiveTest do
   use AllbertAssistWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
@@ -59,8 +59,15 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     end)
   end
 
+  test "old operator home routes are absent", %{conn: conn} do
+    for path <- ["/agent", "/settings"] do
+      conn = conn |> recycle() |> get(path)
+      assert html_response(conn, 404) == "Not Found"
+    end
+  end
+
   test "mount renders workspace shell, chat fallback, and empty canvas placeholder", %{conn: conn} do
-    {:ok, view, html} = live(conn, ~p"/agent")
+    {:ok, view, html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)
 
     assert has_element?(view, "#workspace-shell")
@@ -70,7 +77,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
              "#workspace-shell[data-user-id='local'][data-thread-id='#{thread_id}']"
            )
 
-    assert has_element?(view, "#agent-workspace-renderer")
+    assert has_element?(view, "#workspace-renderer")
     assert has_element?(view, "#allbert-appbar")
     assert has_element?(view, "#workspace-active-app-chip")
     assert has_element?(view, "#workspace-thread-switcher-toggle")
@@ -101,7 +108,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "mount binds workspace to a real conversation thread", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)
 
     assert String.starts_with?(thread_id, "thr_")
@@ -110,7 +117,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "mount treats nil thread query params as absent", %{conn: conn} do
-    {:ok, view, html} = live(conn, ~p"/agent?thread_id=nil")
+    {:ok, view, html} = live(conn, ~p"/workspace?thread_id=nil")
     thread_id = workspace_thread_id(view)
 
     assert String.starts_with?(thread_id, "thr_")
@@ -131,7 +138,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
                channel: :live_view
              })
 
-    {:ok, view, html} = live(conn, ~p"/agent?thread_id=#{thread.id}&app_id=stocksage")
+    {:ok, view, html} = live(conn, ~p"/workspace?thread_id=#{thread.id}&app_id=stocksage")
 
     assert workspace_thread_id(view) == thread.id
     assert html =~ "analyze AAPL"
@@ -142,7 +149,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
   test "mount treats empty and null thread query params as absent", %{conn: conn} do
     for query <- ["thread_id=", "thread_id=null"] do
-      {:ok, view, html} = live(conn, "/agent?#{query}")
+      {:ok, view, html} = live(conn, "/workspace?#{query}")
       thread_id = workspace_thread_id(view)
 
       assert String.starts_with?(thread_id, "thr_")
@@ -162,7 +169,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
                channel: :live_view
              })
 
-    {:ok, view, html} = live(conn, ~p"/agent?thread_id=thr_missing_manual")
+    {:ok, view, html} = live(conn, ~p"/workspace?thread_id=thr_missing_manual")
     thread_id = workspace_thread_id(view)
 
     assert String.starts_with?(thread_id, "thr_")
@@ -174,7 +181,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert html =~ "Started a new workspace thread"
     assert html =~ "thr_missing_manual"
     refute html =~ "do not reuse this thread"
-    assert_patch(view, "/agent?app_id=allbert&thread_id=#{thread_id}")
+    assert_patch(view, "/workspace?app_id=allbert&thread_id=#{thread_id}")
     refute has_element?(view, "#agent-error")
     refute html =~ "Workspace thread fallback"
     refute html =~ ~s({:thread_not_found, "thr_missing_manual"})
@@ -183,13 +190,13 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   test "mount applies workspace theme from settings", %{conn: conn} do
     assert {:ok, _setting} = Settings.put("workspace.theme", "dark", %{audit?: false})
 
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
 
     assert has_element?(view, "#workspace-shell[data-theme='dark']")
   end
 
   test "workspace theme toggle persists dark mode across reload", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
     subscribe_actions()
 
     assert has_element?(
@@ -214,12 +221,12 @@ defmodule AllbertAssistWeb.AgentLiveTest do
              "#workspace-theme-toggle[data-current-theme='dark'][data-next-theme='light']"
            )
 
-    {:ok, reloaded, _html} = live(conn, ~p"/agent")
+    {:ok, reloaded, _html} = live(conn, ~p"/workspace")
     assert has_element?(reloaded, "#workspace-shell[data-theme='dark']")
   end
 
   test "workspace mobile tab toggle switches active section", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
 
     assert has_element?(view, "#workspace-shell[data-mobile-tab='chat']")
     assert has_element?(view, "#workspace-mobile-tabs[role='tablist']")
@@ -248,7 +255,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     current_thread = create_workspace_thread("Current workspace thread")
     other_thread = create_workspace_thread("Other workspace thread")
 
-    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{current_thread.id}")
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{current_thread.id}")
 
     menu_html =
       view
@@ -272,9 +279,9 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     |> element("#workspace-thread-item-#{other_thread.id}")
     |> render_click()
 
-    assert_redirect(view, "/agent?app_id=allbert&thread_id=#{other_thread.id}")
+    assert_redirect(view, "/workspace?app_id=allbert&thread_id=#{other_thread.id}")
 
-    {:ok, new_view, _html} = live(conn, ~p"/agent?thread_id=#{current_thread.id}")
+    {:ok, new_view, _html} = live(conn, ~p"/workspace?thread_id=#{current_thread.id}")
 
     new_view
     |> element("#workspace-thread-switcher-toggle")
@@ -285,7 +292,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     |> render_click()
 
     {redirected_to, _flash} = assert_redirect(new_view)
-    assert redirected_to =~ "/agent?app_id=allbert&thread_id="
+    assert redirected_to =~ "/workspace?app_id=allbert&thread_id="
     [_, new_thread_id] = Regex.run(~r/thread_id=([^&]+)/, redirected_to)
     assert new_thread_id != current_thread.id
     assert {:ok, thread} = Conversations.get_thread("local", new_thread_id)
@@ -293,11 +300,11 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "mount configures workspace offline service worker", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
 
     assert has_element?(
              view,
-             "#workspace-shell[data-offline-enabled='true'][data-service-worker-url='/workspace-sw.js'][data-service-worker-scope='/agent'][data-offline-shell-url='/workspace-offline.html']"
+             "#workspace-shell[data-offline-enabled='true'][data-service-worker-url='/workspace-sw.js'][data-service-worker-scope='/workspace'][data-offline-shell-url='/workspace-offline.html']"
            )
 
     assert has_element?(view, "#workspace-offline-banner[hidden][data-state='online']")
@@ -307,7 +314,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert {:ok, _setting} =
              Settings.put("workspace.offline.enabled", false, %{audit?: false})
 
-    {:ok, view, html} = live(conn, ~p"/agent")
+    {:ok, view, html} = live(conn, ~p"/workspace")
 
     assert has_element?(view, "#workspace-shell[data-offline-enabled='false']")
     assert has_element?(view, "#workspace-offline-banner[data-state='disabled']")
@@ -321,7 +328,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert {:ok, _setting} =
              Settings.put("workspace.accessibility.high_contrast", true, %{audit?: false})
 
-    {:ok, view, html} = live(conn, ~p"/agent")
+    {:ok, view, html} = live(conn, ~p"/workspace")
 
     assert html =~ "workspace-high-contrast"
     assert html =~ ~s(data-high-contrast="true")
@@ -338,7 +345,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert {:ok, _setting} =
              Settings.put("workspace.accessibility.reduce_motion", true, %{audit?: false})
 
-    {:ok, view, html} = live(conn, ~p"/agent")
+    {:ok, view, html} = live(conn, ~p"/workspace")
 
     assert html =~ "workspace-reduce-motion"
     assert html =~ ~s(data-reduce-motion="true")
@@ -350,7 +357,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "renders emitted canvas fragments through the workspace shell", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)
 
     envelope =
@@ -371,7 +378,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "renders emitted ephemeral fragments through the workspace shell", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)
 
     envelope =
@@ -406,7 +413,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     assert :ok = Workspace.emit_fragment(envelope)
 
-    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
     assert has_element?(view, "#workspace-node-ephemeral-surface-#{envelope.id}")
 
     assert has_element?(
@@ -437,7 +444,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
                body: %{text: "operator tile controls"}
              })
 
-    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
     subscribe_actions()
 
     assert has_element?(view, "#workspace-tile-action-#{tile.id}:not([disabled])")
@@ -496,7 +503,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
                metadata: %{"emitter_id" => "AllbertAssist.TestEmitter"}
              })
 
-    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
 
     menu_html =
       view
@@ -548,8 +555,8 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     start_workspace_bridge()
     thread = create_workspace_thread()
 
-    {:ok, first_tab, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
-    {:ok, second_tab, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    {:ok, first_tab, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+    {:ok, second_tab, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
 
     envelope =
       signed_envelope(%{
@@ -582,7 +589,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "renders canvas-header badge fragments without persisting them as tiles", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)
 
     envelope =
@@ -604,7 +611,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "ignores fragments for a different thread", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)
 
     envelope =
@@ -624,9 +631,9 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   test "workspace tile mutations fan out to a second tab", %{conn: conn} do
     start_workspace_bridge()
 
-    {:ok, first_tab, _html} = live(conn, ~p"/agent")
+    {:ok, first_tab, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(first_tab)
-    {:ok, second_tab, _html} = live(conn, ~p"/agent?thread_id=#{thread_id}")
+    {:ok, second_tab, _html} = live(conn, ~p"/workspace?thread_id=#{thread_id}")
 
     assert {:ok, tile} =
              Workspace.add_tile(%{
@@ -644,12 +651,12 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   test "workspace tile mutations fan out to three tabs", %{conn: conn} do
     start_workspace_bridge()
 
-    {:ok, first_tab, _html} = live(conn, ~p"/agent")
+    {:ok, first_tab, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(first_tab)
 
     tabs =
       for _index <- 1..3 do
-        assert {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread_id}")
+        assert {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread_id}")
         view
       end
 
@@ -678,7 +685,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
                body: %{text: "offline draft body"}
              })
 
-    {:ok, view, html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    {:ok, view, html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
     subscribe_actions()
 
     assert has_element?(
@@ -727,7 +734,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert {:ok, _setting} =
              Settings.put("permissions.workspace_canvas_write", "denied", %{audit?: false})
 
-    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
 
     render_hook(view, :workspace_tile_editor_sync, %{
       "tile_id" => tile.id,
@@ -750,7 +757,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
                body: %{text: "conflict base"}
              })
 
-    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
 
     render_hook(view, :workspace_tile_editor_sync, %{
       "tile_id" => tile.id,
@@ -804,7 +811,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
                body: %{text: "read-only analysis"}
              })
 
-    {:ok, view, _html} = live(conn, ~p"/agent?thread_id=#{thread.id}")
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
 
     refute has_element?(view, "#workspace-tile-editor-#{tile.id}")
 
@@ -835,7 +842,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
 
     assert :ok = Workspace.emit_fragment(envelope)
 
-    {:ok, view, html} = live(conn, ~p"/agent?thread_id=#{thread.id}&app_id=stocksage")
+    {:ok, view, html} = live(conn, ~p"/workspace?thread_id=#{thread.id}&app_id=stocksage")
 
     assert has_element?(view, ~s([data-stocksage-component="analysis_card"]))
     assert has_element?(view, "#workspace-tile-menu-button-stocksage_analysis_ana_live_canvas")
@@ -846,7 +853,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   test "submits prompts through the runtime boundary", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)
 
     view
@@ -870,7 +877,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   test "submits explicit active app context through the runtime boundary", %{conn: conn} do
     ensure_stocksage_app_registered()
 
-    {:ok, view, _html} = live(conn, ~p"/agent?app_id=stocksage")
+    {:ok, view, _html} = live(conn, ~p"/workspace?app_id=stocksage")
     thread_id = workspace_thread_id(view)
 
     view
@@ -895,7 +902,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
                active_app: "stocksage"
              })
 
-    {:ok, view, html} = live(conn, ~p"/agent")
+    {:ok, view, html} = live(conn, ~p"/workspace")
 
     assert html =~ "Analyze AAPL"
     assert has_element?(view, "#objective-badge-#{objective.id}")
@@ -904,7 +911,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   test "default runtime can activate a skill through LiveView", %{conn: conn} do
     Application.delete_env(:allbert_assist, Runtime)
 
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
 
     view
     |> element("#agent-form")
@@ -923,7 +930,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     Application.delete_env(:allbert_assist, Runtime)
     configure_external()
 
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
 
     view
     |> element("#agent-form")
@@ -947,7 +954,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     Application.delete_env(:allbert_assist, Runtime)
     ensure_stocksage_app_registered()
 
-    {:ok, view, _html} = live(conn, ~p"/agent?app_id=stocksage")
+    {:ok, view, _html} = live(conn, ~p"/workspace?app_id=stocksage")
 
     view
     |> element("#agent-form")
@@ -976,7 +983,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     Application.delete_env(:allbert_assist, Runtime)
     configure_external()
 
-    {:ok, view, _html} = live(conn, ~p"/agent")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
 
     view
     |> element("#agent-form")
@@ -1024,7 +1031,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
   end
 
   defp start_workspace_bridge do
-    name = :"agent_live_sync_bridge_#{System.unique_integer([:positive])}"
+    name = :"workspace_live_sync_bridge_#{System.unique_integer([:positive])}"
     start_supervised!({SignalBridge, name: name})
   end
 
@@ -1104,7 +1111,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
       id: :fragment,
       app_id: :allbert,
       label: "Fragment",
-      path: "/agent",
+      path: "/workspace",
       kind: :canvas,
       status: :available,
       nodes: [
@@ -1123,7 +1130,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
       id: :stocksage_analysis_card,
       app_id: :stocksage,
       label: "StockSage Analysis",
-      path: "/stocksage/analyses/#{analysis_id}",
+      path: "/apps/stocksage/analyses/#{analysis_id}",
       kind: :analysis,
       status: :available,
       nodes: [
@@ -1142,7 +1149,7 @@ defmodule AllbertAssistWeb.AgentLiveTest do
             recommendation: "Overweight",
             confidence: 0.82,
             summary: "Constructive setup.",
-            route: "/stocksage/analyses/#{analysis_id}"
+            route: "/apps/stocksage/analyses/#{analysis_id}"
           }
         }
       ],

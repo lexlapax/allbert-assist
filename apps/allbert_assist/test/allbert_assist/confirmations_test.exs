@@ -76,7 +76,7 @@ defmodule AllbertAssist.ConfirmationsTest do
                %{
                  resolver_actor: "local",
                  resolver_channel: :liveview,
-                 resolver_surface: "/settings",
+                 resolver_surface: "/workspace",
                  resolution_reason: "not needed",
                  same_channel?: false
                },
@@ -92,7 +92,7 @@ defmodule AllbertAssist.ConfirmationsTest do
     assert {:ok, ^resolved} = Confirmations.read(id)
 
     audit = File.read!(Path.join([home, "confirmations", "audit", "2026-05.md"]))
-    assert audit =~ "resolver_surface: /settings"
+    assert audit =~ "resolver_surface: /workspace"
     assert audit =~ "same_channel: false"
     assert audit =~ "resolution_reason: not needed"
   end

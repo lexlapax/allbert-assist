@@ -15,7 +15,7 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
     app_js = File.read!(@app_js_path)
 
     assert app_js =~ "navigator.serviceWorker.register"
-    assert app_js =~ "scope: shell.dataset.serviceWorkerScope || \"/agent\""
+    assert app_js =~ "scope: shell.dataset.serviceWorkerScope || \"/workspace\""
     assert app_js =~ "ALLBERT_WORKSPACE_CACHE_ASSETS"
     assert app_js =~ "window.addEventListener(\"offline\""
     assert app_js =~ "window.addEventListener(\"online\""
@@ -68,11 +68,11 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
     assert service_worker =~ "const CACHE_NAME"
     assert service_worker =~ "/workspace-offline.html"
     assert service_worker =~ "request.mode === \"navigate\""
-    assert service_worker =~ "url.pathname.startsWith(\"/agent\")"
+    assert service_worker =~ "url.pathname.startsWith(\"/workspace\")"
     assert service_worker =~ "fetch(request).catch(() => caches.match(OFFLINE_SHELL_URL))"
     assert service_worker =~ "isShellAsset(url)"
     assert service_worker =~ "cache.put(request, copy)"
-    refute service_worker =~ "\"/agent\","
+    refute service_worker =~ "\"/workspace\","
   end
 
   test "offline fallback shell contains operator-facing offline banner" do

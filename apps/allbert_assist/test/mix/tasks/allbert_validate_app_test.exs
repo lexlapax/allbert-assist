@@ -58,7 +58,7 @@ defmodule Mix.Tasks.Allbert.ValidateAppTest do
 
     assert output =~ "Validation: ok"
     assert output =~ "app_id: allbert"
-    assert output =~ "provider_surfaces: :agent:/agent"
+    assert output =~ "provider_surfaces: :workspace:/workspace"
     refute output =~ "chat-root"
     refute output =~ "bot_token"
     refute output =~ "password"

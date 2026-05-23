@@ -268,7 +268,7 @@ defmodule AllbertAssist.Workspace.FragmentTest do
       id: :fragment,
       app_id: :allbert,
       label: "Fragment",
-      path: "/agent",
+      path: "/workspace",
       kind: :canvas,
       status: :available,
       nodes: nodes,

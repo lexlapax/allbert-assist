@@ -58,7 +58,7 @@ defmodule AllbertAssist.Intent.ClassifierTest do
       {:ok,
        %{
          selected_kind: :surface,
-         selected_id: "allbert:agent",
+         selected_id: "allbert:workspace",
          confidence: 0.95,
          reason: "Operator asked for the chat surface."
        }}
@@ -68,7 +68,7 @@ defmodule AllbertAssist.Intent.ClassifierTest do
 
     assert decision.intent == :open_surface
     assert decision.trace_metadata.classifier.status == :used
-    assert decision.trace_metadata.surface_target.path == "/agent"
+    assert decision.trace_metadata.surface_target.path == "/workspace"
   end
 
   test "unknown classifier proposal falls back to deterministic ranking" do
@@ -95,7 +95,7 @@ defmodule AllbertAssist.Intent.ClassifierTest do
     enable_fake_classifier!()
 
     for result <- [
-          {:ok, %{selected_kind: :surface, selected_id: "allbert:agent", confidence: 0.1}},
+          {:ok, %{selected_kind: :surface, selected_id: "allbert:workspace", confidence: 0.1}},
           {:ok, "not json"},
           {:error, :timeout}
         ] do
