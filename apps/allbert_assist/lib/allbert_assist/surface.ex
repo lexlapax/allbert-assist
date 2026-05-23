@@ -54,6 +54,12 @@ defmodule AllbertAssist.Surface do
           | :button
           | :action_button
           | :status_badge
+          | :workspace_shell
+          | :nav_rail
+          | :thread_list
+          | :app_launcher
+          | :utility_drawer
+          | :workspace_panel
           | :workspace
           | :canvas
           | :tile

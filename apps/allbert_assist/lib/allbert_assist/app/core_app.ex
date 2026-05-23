@@ -64,7 +64,7 @@ defmodule AllbertAssist.App.CoreApp do
     [
       %Node{
         id: "workspace-root",
-        component: :workspace,
+        component: :workspace_shell,
         props: %{layout: "workspace_shell"},
         children: [
           %Node{
@@ -79,6 +79,23 @@ defmodule AllbertAssist.App.CoreApp do
             id: "workspace-objectives",
             component: :badge_strip,
             props: %{source: "objectives"}
+          },
+          %Node{
+            id: "workspace-nav-rail",
+            component: :nav_rail,
+            props: %{zone: "nav_apps"},
+            children: [
+              %Node{
+                id: "workspace-thread-list",
+                component: :thread_list,
+                props: %{title: "Threads"}
+              },
+              %Node{
+                id: "workspace-app-launcher",
+                component: :app_launcher,
+                props: %{title: "Apps"}
+              }
+            ]
           },
           %Node{
             id: "workspace-chat",
@@ -103,6 +120,11 @@ defmodule AllbertAssist.App.CoreApp do
                 }
               }
             ]
+          },
+          %Node{
+            id: "workspace-utility-drawer",
+            component: :utility_drawer,
+            props: %{zone: "utility_drawer"}
           },
           %Node{
             id: "workspace-ephemeral-region",

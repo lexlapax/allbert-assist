@@ -73,7 +73,7 @@ defmodule AllbertAssist.Actions.AppActionsTest do
     assert response.app.skill_paths == []
     assert response.app.surfaces == []
     assert [%{id: :workspace, path: "/workspace"}] = response.app.provider_surfaces
-    assert response.app.surface_catalog_count == 42
+    assert response.app.surface_catalog_count == 48
     refute inspect(response.app) =~ "child_pid"
     refute inspect(response.app) =~ "chat-root"
   end

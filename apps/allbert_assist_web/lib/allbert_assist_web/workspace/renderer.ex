@@ -119,8 +119,11 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
   defp node_component_id(parent_id, %Node{id: node_id}), do: "#{parent_id}:#{node_id}:component"
 
   defp node_class(%Node{component: :workspace}), do: "workspace-root-node"
+  defp node_class(%Node{component: :workspace_shell}), do: "workspace-root-node"
   defp node_class(%Node{component: :chat}), do: "workspace-chat-node"
   defp node_class(%Node{component: :canvas}), do: "workspace-canvas-node"
+  defp node_class(%Node{component: :nav_rail}), do: "workspace-nav-rail-node"
+  defp node_class(%Node{component: :utility_drawer}), do: "workspace-utility-drawer-node"
 
   defp node_class(%Node{component: :ephemeral_surface, children: []}),
     do: "workspace-ephemeral-node-empty"
@@ -134,6 +137,12 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
 
   defp children_class(%Node{component: :workspace}),
     do: "workspace-node-children workspace-root-grid"
+
+  defp children_class(%Node{component: :workspace_shell}),
+    do: "workspace-node-children workspace-root-grid"
+
+  defp children_class(%Node{component: :nav_rail}),
+    do: "workspace-node-children workspace-rail-stack"
 
   defp children_class(%Node{component: :canvas}),
     do: "workspace-node-children workspace-canvas-tiles"
@@ -150,6 +159,10 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
   defp children_class(_node), do: "workspace-node-children workspace-stack"
 
   defp workspace_split_after?(%Node{component: :workspace}, %Node{component: :chat}), do: true
+
+  defp workspace_split_after?(%Node{component: :workspace_shell}, %Node{component: :chat}),
+    do: true
+
   defp workspace_split_after?(_parent, _child), do: false
 
   defp node_role(%Node{component: :tile}), do: "article"
@@ -158,6 +171,9 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
     do: "dialog"
 
   defp node_role(%Node{component: :tabs}), do: "tablist"
+
+  defp node_role(%Node{component: :nav_rail}), do: "navigation"
+  defp node_role(%Node{component: :utility_drawer}), do: "complementary"
 
   defp node_role(%Node{component: component}) when component in [:canvas, :badge_strip],
     do: "region"

@@ -61,7 +61,7 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
     assert output =~ "Surface: :workspace /workspace kind=workspace"
     assert output =~ "workspace.theme=dark"
     assert output =~ "user_id=local thread_id=thread-1"
-    assert output =~ "- workspace-root workspace"
+    assert output =~ "- workspace-root workspace_shell"
     assert output =~ "  - workspace-canvas-region canvas"
   end
 
