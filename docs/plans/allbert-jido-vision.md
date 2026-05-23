@@ -387,7 +387,9 @@ StockSage LiveViews start as standard app surfaces. v0.27 proves real
 StockSage renderers in StockSage-owned `/stocksage/...` surfaces. After the
 core canvas substrate has been audited, v0.30 can emit those same proven
 components into durable `/agent` canvas tiles without changing the StockSage
-domain model.
+domain model. v0.31 then collapses operator navigation into `/workspace`, where
+StockSage dashboards, queues, trends, and Settings Central render as
+host-composed panels instead of separate app shells.
 
 ### StockSage
 
@@ -414,10 +416,11 @@ workflow:
   turn as an objective step, and keeps Python only as explicit
   comparison/parity reference. Deterministic advisory mode remains available
   for tests/operator smoke when native LLM generation is explicitly disabled.
-- Web surfaces: workspace, analysis, queue, and trends LiveViews mounted
-  through the app contract, setting `active_app: :stocksage` when the user is
-  in StockSage context. v0.27 replaces reserved-card stubs with real renderers
-  in StockSage-owned surfaces.
+- Web surfaces: v0.27 starts with workspace, analysis, queue, and trends
+  LiveViews mounted through the app contract, setting `active_app: :stocksage`
+  when the user is in StockSage context. v0.31 moves dashboard/list/queue/trend
+  workflows into `/workspace` panels and reserves `/apps/stocksage/...` only
+  for page-shaped detail flows that genuinely need a route.
 - Memory namespace: v0.27 declares the StockSage namespace so v0.28 can audit
   ownership before v0.29 adds explicit lesson/reflection sync.
 - Canvas integration: chart and analysis tiles only after the Allbert canvas
@@ -506,11 +509,15 @@ historical aliases only and remain in old reference notes for continuity.
   reflections, reruns, and explicit namespace-scoped memory sync.
 - v0.30: App Canvas Contract - StockSage canvas integration; proven v0.27
   components become durable `/agent` canvas tiles through audited canvas ops.
-- v0.31: Workspace-native plugin UI — apps contribute panels into the dynamic
-  `/agent` workspace, dedicated routes move under `/apps/<app_id>`, and operators
-  retheme/re-lay-out the UI from `~/.allbert` (tokens, sanitized CSS snippets,
-  layout config).
-- v0.32: Allbert plugin and app generator.
+- v0.31: Workspace-Only App UI And Settings Central — `/workspace` becomes the
+  operator home, old operator routes are removed without compatibility
+  redirects, apps contribute panels into host-owned zones, StockSage becomes
+  panel-based inside the workspace, and Settings Central moves into the
+  workspace utility drawer.
+- v0.32: User Theming And Layout Overrides — operators retheme and re-layout
+  `/workspace` from Allbert Home using token YAML, opt-in sanitized CSS
+  snippets, and validated layout data.
+- v0.33: Allbert plugin and app generator.
 
 ## Deferred Until The Foundation Settles
 

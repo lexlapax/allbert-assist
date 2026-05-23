@@ -41,8 +41,9 @@ Do not load every section by default.
 | StockSage app memory, outcomes, reflection sync, reruns | `docs/plans/v0.29-plan.md`, `docs/plans/v0.29-request-flow.md`, ADR 0015, ADR 0018, ADR 0022 | v0.29 |
 | Workspace shell, canvas, ephemeral UI substrate | ADR 0015 (catalog), ADR 0023 (workspace substrate), `docs/plans/v0.26-plan.md`, `docs/plans/v0.26-request-flow.md` | v0.26 |
 | StockSage canvas integration, workspace plugin contributions | `docs/plans/v0.30-plan.md`, `docs/plans/v0.30-request-flow.md`, ADR 0015, ADR 0023 | v0.30 |
-| Workspace-native plugin UI, panel surfaces, named zones, user theming | ADR 0024, ADR 0025, ADR 0015, ADR 0023, `docs/plans/v0.31-plan.md` | v0.31 |
-| Plugin/app generator | ADR 0017, ADR 0015, `docs/plans/v0.32-plan.md` | v0.32 |
+| Workspace-only plugin UI, panel surfaces, named zones, workspace Settings Central | ADR 0024, ADR 0015, ADR 0023, `docs/plans/v0.31-plan.md` | v0.31 |
+| User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.32-plan.md` | v0.32 |
+| Plugin/app generator | ADR 0017, ADR 0015, ADR 0024, ADR 0025, `docs/plans/v0.33-plan.md` | v0.33 |
 
 ## Version Map
 
@@ -164,23 +165,23 @@ Do not load every section by default.
   `workspace_canvas_tiles` + YAML body store. v0.30 adds no `:stock_chart`
   atom, no migration, no new StockSage domain behavior, and no private
   canvas-write path.
-- v0.31 (planned): Workspace-Native Plugin UI And User Theming. Adds a two-tier
-  app UI contribution model — rare `page` surfaces under `/apps/<app_id>` and
-  default `:panel` surfaces composed into host-owned named workspace zones
-  (`:nav_apps`, `:context_rail`, `:canvas_panels`, `:ephemeral`) — graduating
-  ADR 0023's reserved "Workspace Hooks". Rebuilds `/agent` into a ChatGPT-style
-  three-zone shell (left rail with threads + app launcher, center chat, right
-  canvas) with new `:nav_rail`/`:thread_list`/`:app_launcher` catalog atoms.
-  Moves StockSage dashboard/recent/queue/trends into workspace panels (only
-  `/apps/stocksage/analyses/:id` keeps a route) and migrates CoreApp domain
-  cards to the same panel-zone path. Adds user theming/override from
-  `<ALLBERT_HOME>`: design tokens, opt-in strip-and-warn CSS snippets, and
-  validated layout config, served by a new theme controller behind a CSP. Per
-  ADR 0024 and ADR 0025. No new domain behavior, dynamic routing, or
+- v0.31 (planned): Workspace-Only App UI And Settings Central. Makes
+  `/workspace` the operator home; removes `/agent`, `/settings`, and
+  `/stocksage/*` without compatibility redirects; adds `:panel` surfaces into
+  host-owned zones (`:nav_apps`, `:context_rail`, `:canvas_panels`,
+  `:utility_drawer`, `:ephemeral`); moves Settings Central into the workspace
+  utility drawer; moves StockSage dashboard/recent/queue/trends into workspace
+  panels; and migrates CoreApp domain cards to the same panel-zone path. Per
+  ADR 0024. No new domain behavior, theming system, dynamic routing, or
   model-generated UI.
-- v0.32 (planned): Allbert Plugin And App Generator (formerly v0.31). Scaffolds
-  the proven plugin/app shape, now including panel surfaces, named zones, the
-  `/apps/<app_id>` route convention, and theming wiring.
+- v0.32 (planned): User Theming And Layout Overrides. Adds Allbert Home theme
+  roots, token YAML, opt-in sanitized CSS snippets, validated workspace layout
+  YAML, Settings Central keys, and CSP regression coverage for `/workspace`.
+  Per ADR 0025.
+- v0.33 (planned): Allbert Plugin And App Generator. Scaffolds the proven
+  plugin/app shape, now including panel surfaces, named zones, workspace
+  settings hooks, the `/apps/<app_id>` route convention for rare pages,
+  memory/action/objective/canvas stubs, and v0.32 theming docs.
 
 ## Area Notes
 
@@ -381,14 +382,14 @@ LiveView to the shipped **agentic workspace shell**:
 - Internal `AllbertAssist.Workspace.AGUI.Bridge` translates curated
   Allbert signals to AG-UI event shape for test-only semantic
   mapping; NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps
-  interop is post-v0.31 (per Future Features Post-v0.31 UI Protocol
+  interop is post-v0.33 (per Future Features Post-v0.33 UI Protocol
   Interop).
 
 Sibling routes (`/objectives/:id`, `/jobs`, `/settings`) remain
 top-level for deep-linking. The workspace can render catalog-backed
 summary tiles for those domains, but it does not replace the sibling
 routes in v0.26. Plugins do NOT contribute workspace regions in
-v0.26 (post-v0.31 work); plugins MAY emit Fragments via the
+v0.26 (graduated in v0.31 as workspace panels); plugins MAY emit Fragments via the
 SignalBus topic (existing v0.26 emission path).
 
 ### Jido.Agent vs. GenServer Substrate (v0.23)
