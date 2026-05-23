@@ -20,6 +20,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
@@ -1086,10 +1087,9 @@ defmodule AllbertAssist.Agents.IntentAgent do
     else
       false ->
         {:ok,
-         %{
-           message: "Objective creation is not permitted for this request.",
-           status: PermissionGate.response_status(permission_decision),
+         Response.denied("Objective creation is not permitted for this request.",
            error: :permission_denied,
+           permission_decision: permission_decision,
            actions: [
              %{
                name: "frame_objective",
@@ -1099,17 +1099,14 @@ defmodule AllbertAssist.Agents.IntentAgent do
              }
            ],
            diagnostics: []
-         }}
+         )}
 
       {:error, reason} ->
         {:ok,
-         %{
-           message: "Unable to start objective: #{inspect(reason)}",
-           status: :error,
-           error: reason,
+         Response.error("Unable to start objective: #{inspect(reason)}", reason,
            actions: [],
            diagnostics: [%{source: :objectives, error: inspect(reason)}]
-         }}
+         )}
     end
   end
 

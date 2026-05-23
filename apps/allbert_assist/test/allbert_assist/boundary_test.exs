@@ -107,6 +107,16 @@ defmodule AllbertAssist.BoundaryTest do
     end
   end
 
+  test "implemented M6 response facade loads" do
+    m6_modules =
+      Boundary.planned_facades()
+      |> Enum.filter(&(&1.milestone == :m6))
+      |> Boundary.modules()
+
+    assert AllbertAssist.Runtime.Response in m6_modules
+    assert Code.ensure_loaded?(AllbertAssist.Runtime.Response)
+  end
+
   test "compatibility shims and deletion candidates have owner milestones" do
     for entry <- Boundary.compatibility_shims() ++ Boundary.deletion_candidates() do
       assert entry.role in [:compatibility_shim, :deletion_candidate]
