@@ -3,7 +3,7 @@
 StockSage is Allbert's first shipped source-tree plugin workspace app and the
 first proving app for native financial specialist agents.
 
-Current v0.30 capabilities:
+Current v0.32 capabilities:
 
 - `./plugins/stocksage` contributes `StockSage.Plugin`, `StockSage.App`,
   skills, settings schema entries, local domain actions, evidence actions,
@@ -24,14 +24,18 @@ Current v0.30 capabilities:
 - `mix allbert.delegate <agent_id>` lives in Allbert core and proves
   StockSage specialists can be called outside StockSage through the shared
   `delegate_agent` registered action.
-- `/stocksage`, `/stocksage/analyses`, `/stocksage/analyses/:id`,
-  `/stocksage/queue`, and `/stocksage/trends` are plugin-owned LiveView
-  surfaces mounted by the host router and declared by `StockSage.App.surfaces/0`.
+- `StockSage.App.surfaces/0` declares dashboard, recent analyses, queue, and
+  trends as catalog-validated `/workspace` panel surfaces. The old
+  `/stocksage`, `/stocksage/analyses`, `/stocksage/queue`, and
+  `/stocksage/trends` routes are intentionally absent.
+- `/apps/stocksage/analyses/:id` remains the retained page-shaped analysis
+  detail route for long-form review, progress, rerun controls, reflections,
+  and explicit lesson-sync confirmation.
 - `StockSage.App.surface_catalog/0` declares the four v0.26-reserved StockSage
   app card atoms: `:analysis_card`, `:agent_report_card`, `:parity_card`, and
   `:debate_round_card`.
 - StockSage-owned card renderers display persisted native, bridge, and parity
-  analysis output inside `/stocksage/*` and durable `/agent` workspace canvas
+  analysis output inside `/workspace` panels and durable `/workspace` canvas
   tiles.
 - `StockSage.App.memory_namespace/0` declares namespace ownership with
   `writable: true`; Allbert markdown memory writes still require explicit
@@ -42,16 +46,18 @@ Current v0.30 capabilities:
 - `resolve_outcomes`, `generate_reflection`, and StockSage trends/calibration
   support resolved outcome review, local reflections, rating calibration, and
   symbol leaderboards.
-- `/stocksage/analyses/:id` exposes explicit Native, Python, and Parity rerun
-  controls. Reruns reuse `run_analysis`, queue the normal confirmation, and
-  carry `source_analysis_id` so new runs remain linked to the source analysis.
+- `/apps/stocksage/analyses/:id` exposes explicit Native, Python, and Parity
+  rerun controls. Reruns reuse `run_analysis`, queue the normal confirmation,
+  and carry `source_analysis_id` so new runs remain linked to the source
+  analysis.
 - The analysis detail surface renders native/Python/parity run-context
   affordances and bounded empty states for outcomes, reflections, and progress.
 - `StockSage.App.memory_namespace/0` is writable in v0.29, but Allbert
   markdown memory writes only happen through the registered
   `sync_app_lesson` action and an explicit confirmation resume. The
-  `/stocksage/analyses/:id` reflection card exposes `Sync lesson` to queue that
-  confirmation; generating reflections never promotes memory automatically.
+  `/apps/stocksage/analyses/:id` reflection card exposes `Sync lesson` to queue
+  that confirmation; generating reflections never promotes memory
+  automatically.
 
 The native graph includes LLM-capable Jido.AI specialists for market context,
 news/sentiment, fundamentals, bull thesis, bear thesis, three risk
@@ -84,10 +90,11 @@ mix allbert.validate_app StockSage.App
 Local web smoke:
 
 ```sh
-export ALLBERT_HOME=$(mktemp -d /tmp/allbert-v027-web.XXXXXX)
+export ALLBERT_HOME=$(mktemp -d /tmp/allbert-v032-web.XXXXXX)
 mix ecto.migrate.allbert
 mix phx.server
-# Browse /stocksage, /stocksage/analyses, /stocksage/queue, and /stocksage/trends.
+# Browse /workspace?app_id=stocksage.
+# Open /apps/stocksage/analyses/<analysis_id> for retained detail review.
 ```
 
 Every read-by-id path is scoped by `user_id`; another user's durable id returns
@@ -96,6 +103,7 @@ not-found. `:stocksage_write` authorizes local StockSage SQLite writes only;
 `:stocksage_evidence_fetch` and Resource Access posture.
 
 v0.29 consumes the v0.27 memory namespace through explicit lesson sync. v0.30
-emits durable `/agent` canvas tiles through the audited
-`AllbertAssist.Workspace.Fragment` path; StockSage does not write workspace
-canvas tables directly.
+emits durable canvas tiles through the audited
+`AllbertAssist.Workspace.Fragment` path; v0.32 renders those tiles and the
+StockSage dashboard/recent/queue/trends panels inside `/workspace`. StockSage
+does not write workspace canvas tables directly.

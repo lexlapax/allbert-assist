@@ -1067,6 +1067,75 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert request.active_app == :stocksage
   end
 
+  test "app launcher selection renders hydrated StockSage workspace panels", %{conn: conn} do
+    ensure_stocksage_app_registered()
+
+    assert {:ok, analysis} =
+             StockSage.Analyses.create_analysis(%{
+               user_id: "local",
+               symbol: "aapl",
+               source: "manual",
+               status: "completed",
+               engine: "native",
+               recommendation: "Buy",
+               summary: "Constructive setup."
+             })
+
+    assert {:ok, _queue_entry} =
+             StockSage.Queue.create_entry(%{
+               user_id: "local",
+               symbol: "msft",
+               priority: "high",
+               requested_for: ~D[2026-05-23]
+             })
+
+    assert {:ok, _outcome} =
+             StockSage.Analyses.create_outcome(%{
+               user_id: "local",
+               analysis_id: analysis.id,
+               symbol: "aapl",
+               label: "win",
+               return_pct: Decimal.new("4.2")
+             })
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    view
+    |> element("#workspace-app-launcher-stocksage")
+    |> render_click()
+
+    assert has_element?(view, "#workspace-shell[data-active-app='stocksage']")
+
+    assert has_element?(
+             view,
+             "#workspace-node-workspace-panel-stocksage-stocksage_dashboard_panel-dashboard"
+           )
+
+    assert has_element?(
+             view,
+             "#workspace-node-workspace-panel-stocksage-stocksage_recent_analyses_panel-recent"
+           )
+
+    assert has_element?(
+             view,
+             "#workspace-node-workspace-panel-stocksage-stocksage_queue_panel-queue"
+           )
+
+    assert has_element?(
+             view,
+             "#workspace-node-workspace-panel-stocksage-stocksage_trends_panel-trends"
+           )
+
+    assert has_element?(view, ~s([data-stocksage-component="analysis_card"]))
+
+    html = render(view)
+    assert html =~ "AAPL analysis"
+    assert html =~ "Constructive setup."
+    assert html =~ "MSFT queued analysis"
+    assert html =~ "StockSage outcome trends"
+    refute html =~ "stocksage-nav"
+  end
+
   test "renders active objective badge from registered action boundary", %{conn: conn} do
     assert {:ok, objective} =
              Objectives.create_objective(%{

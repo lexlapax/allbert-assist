@@ -167,3 +167,8 @@ See the umbrella root `README.md`, `docs/plans/v0.20-plan.md`,
 `docs/developer/how-to-create-an-allbert-app.md` for current memory review,
 StockSage, workspace, app/surface, intent-routing, and objective-runtime
 behavior.
+
+v0.32 makes `/workspace` the only operator home. Settings Central and
+StockSage dashboard/recent/queue/trend UI render there as catalog-validated
+workspace panels; `/agent`, `/settings`, and `/stocksage/*` are absent. The
+retained StockSage analysis detail route is `/apps/stocksage/analyses/:id`.
