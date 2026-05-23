@@ -465,6 +465,7 @@ defmodule AllbertAssist.App.Registry do
 
     existing_paths =
       existing_surfaces
+      |> Enum.filter(&route_surface?/1)
       |> MapSet.new(& &1.path)
 
     entry_surfaces = entry_surfaces(entry)
@@ -483,6 +484,7 @@ defmodule AllbertAssist.App.Registry do
 
     duplicate_path_diagnostics =
       entry_surfaces
+      |> Enum.filter(&route_surface?/1)
       |> Enum.filter(&MapSet.member?(existing_paths, &1.path))
       |> Enum.map(fn surface ->
         %{
@@ -527,6 +529,9 @@ defmodule AllbertAssist.App.Registry do
   defp surface_summary(%{} = surface) do
     Map.put_new(surface, :provider?, false)
   end
+
+  defp route_surface?(%{kind: :panel}), do: false
+  defp route_surface?(_surface), do: true
 
   defp put_diagnostics(state, _key, []), do: state
 

@@ -26,6 +26,20 @@ defmodule AllbertAssist.Surface.CatalogTest do
     end
   end
 
+  test "workspace zones are catalog-owned" do
+    assert Catalog.known_zones() == [
+             :nav_apps,
+             :context_rail,
+             :canvas_panels,
+             :utility_drawer,
+             :ephemeral
+           ]
+
+    assert Surface.known_zones() == Catalog.known_zones()
+    assert Catalog.known_zone?(:canvas_panels)
+    refute Catalog.known_zone?(:invented_zone)
+  end
+
   test "renderer descriptors cover every known component" do
     for component <- Catalog.known_components() do
       assert Catalog.renderer_for(component) !=
