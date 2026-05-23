@@ -12,9 +12,11 @@ Catalog Expansion" subsection under Surface DSL. The catalog expansion is the
 substrate ADR 0023 builds on for the workspace canvas + ephemeral surface
 implementation, and was confirmed in place during v0.26 M20 closeout.
 Extended by ADR 0024 (v0.31): the Surface DSL gains a `:panel` surface kind
-contributed into host-owned workspace zones, the `/apps/<app_id>` page-route
-convention, and the `:nav_rail`/`:thread_list`/`:app_launcher` structural
-catalog atoms for the ChatGPT-style workspace shell.
+contributed into host-owned `/workspace` zones, the `/apps/<app_id>` page-route
+convention for rare app pages, and host structural catalog atoms for the
+workspace shell, app launcher, utility drawer, and workspace panels. ADR 0024
+also makes `/workspace` the canonical operator route and removes `/agent`,
+`/settings`, and `/stocksage/*` compatibility.
 
 ## Context
 

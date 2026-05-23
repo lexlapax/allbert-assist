@@ -149,8 +149,7 @@ app registry. ADR 0018 owns StockSage's local domain and persistence boundary.
   compilation, and tests before they can participate in runtime behavior.
 - v0.18 app/surface work can build on the plugin layer instead of broadening
   app registration into a catch-all extension registry.
-- v0.32 (formerly v0.29, then v0.31) generator work should generate plugin
-  scaffolds, not only app modules.
+- v0.33 generator work should generate plugin scaffolds, not only app modules.
 
 ## Deferred
 

@@ -75,13 +75,15 @@ manually proven first.
 
 Near-term milestones:
 
-- `v0.31`: workspace-native plugin UI — apps contribute panels into the dynamic
-  `/agent` workspace, dedicated routes move under `/apps/<app_id>`, and operators
-  retheme/re-lay-out the UI from `~/.allbert` (tokens, sanitized CSS snippets,
-  layout config).
-- `v0.32`: plugin/app generator, scaffolding the surface, memory, action,
-  objective, and canvas contracts after they have been proven manually.
-- Post-`v0.32`: broader UI protocol interop, richer generated app workflows,
+- `v0.31`: workspace-only app UI — `/workspace` becomes the operator home,
+  Settings Central moves into the workspace, and apps contribute panels instead
+  of separate app shells.
+- `v0.32`: user theming and layout overrides from `~/.allbert`, with token
+  themes, opt-in sanitized CSS snippets, and validated workspace layout data.
+- `v0.33`: plugin/app generator, scaffolding the surface, panel, settings,
+  memory, action, objective, canvas, and theming contracts after they have been
+  proven manually.
+- Post-`v0.33`: broader UI protocol interop, richer generated app workflows,
   and additional reviewed app/plugin surfaces.
 
 ## Start Here
