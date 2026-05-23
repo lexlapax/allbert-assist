@@ -10,10 +10,11 @@ defmodule AllbertAssist.Extensions.RegistryTest do
     original_plugins = PluginRegistry.registered_plugins()
     PluginRegistry.clear()
 
+    assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
+
     app_registered? = AppRegistry.known_app_id?(:stocksage)
 
     unless app_registered? do
-      Enum.each(StockSage.Plugin.actions(), &Code.ensure_loaded!/1)
       assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
     end
 

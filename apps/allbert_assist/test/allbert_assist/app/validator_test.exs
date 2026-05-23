@@ -557,8 +557,21 @@ defmodule AllbertAssist.App.ValidatorTest do
   test "accepts valid app modules and built-in reserved-id owners" do
     assert {:ok, %{app_id: :validator_valid_app}} = Validator.validate(ValidApp, [])
 
-    assert {:ok, %{app_id: :allbert, provider_surfaces: [%Surface{id: :workspace}]}} =
+    assert {:ok, %{app_id: :allbert, provider_surfaces: core_surfaces}} =
              Validator.validate(AllbertAssist.App.CoreApp, [])
+
+    assert Enum.any?(core_surfaces, &match?(%Surface{id: :workspace, kind: :workspace}, &1))
+
+    assert [
+             :core_objectives_panel,
+             :core_jobs_panel,
+             :core_confirmations_panel,
+             :core_security_panel,
+             :core_settings_panel
+           ] ==
+             core_surfaces
+             |> Enum.filter(&match?(%Surface{kind: :panel}, &1))
+             |> Enum.map(& &1.id)
 
     assert {:ok, %{app_id: :stocksage}} = Validator.validate(StockSage.App, [])
   end

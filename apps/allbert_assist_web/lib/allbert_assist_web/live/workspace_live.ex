@@ -8,6 +8,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   use AllbertAssistWeb, :live_view
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.App.CoreApp
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
 
@@ -90,7 +91,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         workspace_overflow_open?: false,
         workspace_maximized_pane: nil
       )
-      |> assign(workspace_assigns(user_id, thread_id))
+      |> assign(workspace_assigns(user_id, thread_id, [], active_app))
       |> maybe_sync_thread_url(sync_thread_url?, thread_id, active_app)
 
     {:ok, socket}
@@ -248,6 +249,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         {:noreply,
          socket
          |> assign(active_app: active_app, workspace_mobile_tab: "chat")
+         |> refresh_workspace()
          |> push_patch(to: workspace_path(socket.assigns.thread_id, active_app))}
 
       {:ok, response} ->
@@ -768,14 +770,16 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       workspace_assigns(
         socket.assigns.user_id,
         socket.assigns.thread_id,
-        socket.assigns.workspace_badges
+        socket.assigns.workspace_badges,
+        socket.assigns.active_app
       )
     )
   end
 
-  defp workspace_assigns(user_id, thread_id, workspace_badges \\ []) do
+  defp workspace_assigns(user_id, thread_id, workspace_badges, active_app) do
     tiles = canvas_tiles(thread_id, user_id)
     surfaces = ephemeral_surfaces(thread_id, user_id)
+    surface_context = registered_surface_context()
 
     %{
       canvas_tiles: tiles,
@@ -790,7 +794,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           thread_id: thread_id,
           canvas_tiles: tiles,
           ephemeral_surfaces: surfaces,
-          workspace_badges: workspace_badges
+          workspace_badges: workspace_badges,
+          active_app: active_app,
+          panel_surfaces: surface_context.panel_surfaces,
+          surface_catalogs: surface_context.surface_catalogs
         )
     }
   end
@@ -836,6 +843,50 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     else
       [%{app_id: :allbert, display_name: "Allbert"} | apps]
     end
+  end
+
+  defp registered_surface_context do
+    providers = registered_surface_providers()
+
+    %{
+      panel_surfaces: Enum.flat_map(providers, &provider_panel_surfaces/1),
+      surface_catalogs:
+        providers
+        |> Enum.map(&{Map.get(&1, :app_id), Map.get(&1, :catalog, [])})
+        |> Map.new()
+    }
+  end
+
+  defp registered_surface_providers do
+    case AppRegistry.registered_surface_providers() do
+      [] -> [core_surface_provider()]
+      providers -> ensure_core_surface_provider(providers)
+    end
+  catch
+    :exit, _reason -> [core_surface_provider()]
+  end
+
+  defp ensure_core_surface_provider(providers) do
+    if Enum.any?(providers, &(Map.get(&1, :app_id) == :allbert)) do
+      providers
+    else
+      [core_surface_provider() | providers]
+    end
+  end
+
+  defp core_surface_provider do
+    %{
+      app_id: :allbert,
+      module: CoreApp,
+      surfaces: CoreApp.surfaces(),
+      catalog: CoreApp.surface_catalog()
+    }
+  end
+
+  defp provider_panel_surfaces(provider) do
+    provider
+    |> Map.get(:surfaces, [])
+    |> Enum.filter(&match?(%{kind: :panel}, &1))
   end
 
   defp tile_by_id(tiles, tile_id) when is_list(tiles) and is_binary(tile_id) do

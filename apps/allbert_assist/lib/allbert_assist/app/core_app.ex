@@ -15,10 +15,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.31 consolidates the
-  # runtime/UI substrate while preserving v0.30 operator behavior.
+  # the app (release-pinned, not semantic-per-app). v0.32 moves CoreApp
+  # domain cards into the shared workspace panel path.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.31.0"
+  def version, do: "0.32.0"
 
   @impl true
   def validate(_opts), do: :ok
@@ -36,18 +36,7 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl AllbertAssist.App
   def surfaces do
-    [
-      %Surface{
-        id: :workspace,
-        app_id: :allbert,
-        label: "Allbert Workspace",
-        path: "/workspace",
-        kind: :workspace,
-        status: :available,
-        nodes: workspace_nodes(),
-        fallback_text: "Allbert workspace is available at /workspace."
-      }
-    ]
+    [workspace_surface() | core_panel_surfaces()]
   end
 
   def surface_catalog do
@@ -59,6 +48,102 @@ defmodule AllbertAssist.App.CoreApp do
   def fallback_surface(:workspace), do: {:ok, "Allbert workspace is available at /workspace."}
 
   def fallback_surface(_surface_id), do: {:error, :not_found}
+
+  defp workspace_surface do
+    %Surface{
+      id: :workspace,
+      app_id: :allbert,
+      label: "Allbert Workspace",
+      path: "/workspace",
+      kind: :workspace,
+      status: :available,
+      nodes: workspace_nodes(),
+      fallback_text: "Allbert workspace is available at /workspace."
+    }
+  end
+
+  defp core_panel_surfaces do
+    [
+      panel_surface(:core_objectives_panel, "Objectives", :context_rail, 10, [
+        panel_node("core-objectives", "Objectives", "Active work and next steps.", [
+          %Node{
+            id: "objective-card",
+            component: :objective_card,
+            props: %{title: "Objectives", body: "Active objectives and blockers.", status: "open"}
+          }
+        ])
+      ]),
+      panel_surface(:core_jobs_panel, "Jobs", :utility_drawer, 20, [
+        panel_node("core-jobs", "Jobs", "Scheduled and manual runtime work.", [
+          %Node{
+            id: "job-card",
+            component: :job_card,
+            props: %{title: "Jobs", body: "Scheduled jobs and run history."}
+          },
+          %Node{
+            id: "jobs-link",
+            component: :link,
+            props: %{title: "Open jobs", href: "/jobs"}
+          }
+        ])
+      ]),
+      panel_surface(:core_confirmations_panel, "Confirmations", :utility_drawer, 30, [
+        panel_node("core-confirmations", "Confirmations", "Pending operator decisions.", [
+          %Node{
+            id: "confirmation-card",
+            component: :confirmation_card,
+            props: %{
+              title: "Confirmations",
+              body: "Review pending confirmations in Settings Central.",
+              status: "needs_confirmation"
+            }
+          }
+        ])
+      ]),
+      panel_surface(:core_security_panel, "Security", :utility_drawer, 40, [
+        panel_node("core-security", "Security", "Settings, grants, and policy status.", [
+          %Node{
+            id: "security-card",
+            component: :settings_card,
+            props: %{title: "Security", body: "Review permission policy and remembered grants."}
+          }
+        ])
+      ]),
+      panel_surface(:core_settings_panel, "Settings Central", :utility_drawer, 50, [
+        panel_node("core-settings", "Settings Central", "Workspace settings and credentials.", [
+          %Node{
+            id: "settings-central",
+            component: :settings_panel,
+            props: %{zone: "utility_drawer", title: "Settings Central"}
+          }
+        ])
+      ])
+    ]
+  end
+
+  defp panel_surface(id, label, zone, order, nodes) do
+    %Surface{
+      id: id,
+      app_id: :allbert,
+      label: label,
+      path: "/workspace",
+      kind: :panel,
+      zone: zone,
+      status: :available,
+      nodes: nodes,
+      fallback_text: "#{label} is available in the workspace.",
+      metadata: %{visible_when: :always, order: order}
+    }
+  end
+
+  defp panel_node(id, title, body, children) do
+    %Node{
+      id: id,
+      component: :panel,
+      props: %{title: title, body: body},
+      children: children
+    }
+  end
 
   defp workspace_nodes do
     [
@@ -124,14 +209,7 @@ defmodule AllbertAssist.App.CoreApp do
           %Node{
             id: "workspace-utility-drawer",
             component: :utility_drawer,
-            props: %{zone: "utility_drawer"},
-            children: [
-              %Node{
-                id: "workspace-settings-panel",
-                component: :settings_panel,
-                props: %{zone: "utility_drawer", title: "Settings Central"}
-              }
-            ]
+            props: %{zone: "utility_drawer"}
           },
           %Node{
             id: "workspace-ephemeral-region",

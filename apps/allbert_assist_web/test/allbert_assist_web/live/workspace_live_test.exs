@@ -276,6 +276,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert html =~ "Settings Central"
     assert has_element?(view, "#workspace-settings-panel")
+    assert has_element?(view, "[data-workspace-component='job_card']")
+    assert has_element?(view, "[data-workspace-component='confirmation_card']")
+    assert has_element?(view, "[data-workspace-component='settings_card']")
     assert has_element?(view, "#settings-list")
     assert has_element?(view, "#settings-form")
     assert has_element?(view, "#security-status")
