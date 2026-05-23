@@ -23,10 +23,10 @@ to generate and reuse.
 
 ## Current State
 
-The current release candidate is `v0.29.0`. It completes the StockSage app
-memory and outcomes contract: outcome resolution, trend calibration, local
-reflections, explicit confirmation-gated lesson sync, analysis reruns, and
-polished StockSage app-flow UX. The release tag is pending operator acceptance.
+The current release is `v0.29.0`. It completes the StockSage app memory and
+outcomes contract: outcome resolution, trend calibration, local reflections,
+explicit confirmation-gated lesson sync, analysis reruns, and polished
+StockSage app-flow UX.
 
 Recent platform contracts now in place:
 

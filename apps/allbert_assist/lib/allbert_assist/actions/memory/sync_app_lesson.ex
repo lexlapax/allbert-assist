@@ -43,6 +43,8 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
   alias AllbertAssist.Security.PermissionGate
 
   @kind "stocksage_lesson"
+  @max_lesson_text_length 4_000
+  @truncation_notice "\n\n[Lesson text truncated to 4000 characters before memory sync.]"
 
   @impl true
   def run(params, context) when is_map(params) and is_map(context) do
@@ -202,7 +204,7 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
         rating: optional(params, :rating) || "unrated",
         realized_return: optional(params, :realized_return) || "unknown",
         holding_period_days: holding_period_days,
-        lesson_text: redact_lesson(lesson_text),
+        lesson_text: normalize_lesson_text(lesson_text),
         source: optional(params, :source) || "app_lesson_sync",
         resolved_at: optional(params, :resolved_at) || now_iso8601()
       }
@@ -317,6 +319,25 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
 
   defp context_value(map, key, default) when is_map(map) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+  end
+
+  defp normalize_lesson_text(text) do
+    text
+    |> redact_lesson()
+    |> String.trim()
+    |> bound_lesson_text()
+  end
+
+  defp bound_lesson_text(text) do
+    if String.length(text) <= @max_lesson_text_length do
+      text
+    else
+      slice_length = @max_lesson_text_length - String.length(@truncation_notice)
+
+      text
+      |> String.slice(0, slice_length)
+      |> Kernel.<>(@truncation_notice)
+    end
   end
 
   defp redact_lesson(text), do: String.replace(text, ~r/secret:\/\/[^\s]+/, "[SECRET_REF]")

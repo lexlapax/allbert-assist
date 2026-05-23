@@ -260,6 +260,35 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert response.error == {:unknown_memory_namespace, :unclaimed}
   end
 
+  test "sync_app_lesson caps and redacts oversized lesson text before writing" do
+    ensure_stocksage_registered()
+
+    long_lesson =
+      String.duplicate("A", 4_500) <>
+        " TAIL_SHOULD_NOT_BE_WRITTEN secret://stocksage-token"
+
+    assert {:ok, response} =
+             SyncAppLesson.run(
+               %{app_lesson_params() | lesson_text: long_lesson},
+               Map.put(app_lesson_context(), :confirmation, %{approved?: true})
+             )
+
+    assert response.status == :completed
+
+    assert {:ok, [entry]} =
+             Memory.list_entries(
+               user_id: "alice",
+               app_id: :stocksage,
+               namespace: :stocksage,
+               kind: :stocksage_lesson
+             )
+
+    assert entry.body =~ "[Lesson text truncated to 4000 characters before memory sync.]"
+    refute entry.body =~ "TAIL_SHOULD_NOT_BE_WRITTEN"
+    refute entry.body =~ "secret://stocksage-token"
+    assert String.length(entry.body) < 4_600
+  end
+
   test "compile_memory_index, search_memory, and summarize_memory_category use derived artifacts" do
     assert {:ok, entry} = append("alice", "Alice prefers compact release notes.")
 
