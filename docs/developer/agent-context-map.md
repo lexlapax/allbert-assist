@@ -41,7 +41,7 @@ Do not load every section by default.
 | StockSage app memory, outcomes, reflection sync, reruns | `docs/plans/v0.29-plan.md`, `docs/plans/v0.29-request-flow.md`, ADR 0015, ADR 0018, ADR 0022 | v0.29 |
 | Workspace shell, canvas, ephemeral UI substrate | ADR 0015 (catalog), ADR 0023 (workspace substrate), `docs/plans/v0.26-plan.md`, `docs/plans/v0.26-request-flow.md` | v0.26 |
 | StockSage canvas integration, workspace plugin contributions | `docs/plans/v0.30-plan.md`, `docs/plans/v0.30-request-flow.md`, ADR 0015, ADR 0023 | v0.30 |
-| Runtime/UI-substrate consolidation, action DSL, settings fragments, unified catalog/registry | ADR 0026, ADR 0027, ADR 0028, ADR 0029, ADR 0030, ADR 0031, `docs/plans/v0.31-plan.md` | v0.31 |
+| Runtime/UI-substrate consolidation, action DSL, settings fragments, unified catalog/registry | ADR 0026, ADR 0027, ADR 0028, ADR 0029, ADR 0030, ADR 0031, `docs/plans/v0.31-plan.md`, `docs/developer/runtime-boundary-map.md` | v0.31 |
 | Workspace-only plugin UI, panel surfaces, named zones, workspace Settings Central | ADR 0024, ADR 0015, ADR 0023, `docs/plans/v0.32-plan.md` | v0.32 |
 | User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.33-plan.md` | v0.33 |
 | Dynamic plugin/app generation and sandboxed module loading | ADR 0032, ADR 0033, ADR 0009, ADR 0021, `docs/plans/v0.34-plan.md` | v0.34 |

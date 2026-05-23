@@ -1,5 +1,11 @@
 defmodule AllbertAssist.Settings.Schema do
-  @moduledoc false
+  @moduledoc """
+  Monolithic Settings Central schema.
+
+  v0.31 marks this as a compatibility shim. M8 splits this schema into
+  registered `AllbertAssist.Settings.Fragment` owners while preserving all
+  keys, defaults, validation, safe-write policy, and secret behavior.
+  """
 
   require Logger
 
