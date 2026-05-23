@@ -818,6 +818,33 @@ defmodule AllbertAssistWeb.AgentLiveTest do
     assert_reply(view, %{status: "rejected", reason: ":unsupported_tile_kind"})
   end
 
+  test "renders durable StockSage canvas tiles with real card renderers", %{conn: conn} do
+    ensure_stocksage_app_registered()
+    thread = create_workspace_thread("StockSage canvas thread")
+
+    envelope =
+      signed_envelope(%{
+        id: "stocksage_analysis_ana_live_canvas",
+        user_id: "local",
+        thread_id: thread.id,
+        emitter_id: "StockSage.Actions.RunAnalysis",
+        scope: :canvas,
+        kind: :analysis_card,
+        surface: stocksage_analysis_surface("ana_live_canvas")
+      })
+
+    assert :ok = Workspace.emit_fragment(envelope)
+
+    {:ok, view, html} = live(conn, ~p"/agent?thread_id=#{thread.id}&app_id=stocksage")
+
+    assert has_element?(view, ~s([data-stocksage-component="analysis_card"]))
+    assert has_element?(view, "#workspace-tile-menu-button-stocksage_analysis_ana_live_canvas")
+    assert html =~ "AAPL analysis completed"
+    assert html =~ "Constructive setup."
+    refute html =~ "v0.26 stub"
+    refute html =~ "workspace-card-stub"
+  end
+
   test "submits prompts through the runtime boundary", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/agent")
     thread_id = workspace_thread_id(view)
@@ -1088,6 +1115,39 @@ defmodule AllbertAssistWeb.AgentLiveTest do
         }
       ],
       fallback_text: "Fragment fallback"
+    }
+  end
+
+  defp stocksage_analysis_surface(analysis_id) do
+    %Surface{
+      id: :stocksage_analysis_card,
+      app_id: :stocksage,
+      label: "StockSage Analysis",
+      path: "/stocksage/analyses/#{analysis_id}",
+      kind: :analysis,
+      status: :available,
+      nodes: [
+        %Node{
+          id: "analysis-#{analysis_id}",
+          component: :analysis_card,
+          props: %{
+            title: "AAPL analysis completed",
+            analysis_id: analysis_id,
+            ticker: "AAPL",
+            symbol: "AAPL",
+            analysis_date: "2026-05-18",
+            engine: "native",
+            status: "completed",
+            rating: "Overweight",
+            recommendation: "Overweight",
+            confidence: 0.82,
+            summary: "Constructive setup.",
+            route: "/stocksage/analyses/#{analysis_id}"
+          }
+        }
+      ],
+      fallback_text: "AAPL analysis completed",
+      metadata: %{source: "stocksage", fragment_id: "stocksage_analysis_#{analysis_id}"}
     }
   end
 
