@@ -23,14 +23,13 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is the released `v0.32.0`. `/workspace` is the
-only operator home: the old `/agent`, `/settings`, and `/stocksage/*`
-operator routes are removed without compatibility redirects. Settings Central
-now lives inside the workspace utility drawer, CoreApp domain cards compose as
-workspace panels, and StockSage dashboard/recent/queue/trends render as
-catalog-validated panels after explicit app selection. The retained StockSage
-analysis detail page is the rare page-shaped route at
-`/apps/stocksage/analyses/:id`.
+The current implementation is the released `v0.33.0`. `/workspace` is the
+only operator home, and neutral workspace chat can now recognize reviewed
+app-owned capabilities without silently running them. Plain questions use the
+side-effect-free direct-answer path; neutral app-like prompts such as
+`analyze CIEN` render an explicit StockSage handoff or targeted clarification;
+accepting the handoff sets active app context before the normal confirmation
+flow begins.
 
 Recent platform contracts now in place:
 
@@ -45,6 +44,9 @@ Recent platform contracts now in place:
   theming, dynamic draft, and generator arc.
 - `v0.32.0`: workspace-only app UI and Settings Central, with app UI composed
   through host-owned panel zones in `/workspace`.
+- `v0.33.0`: conversational app intent handoff and direct-answer foundation,
+  with app-contributed intent descriptors, explicit neutral handoff, targeted
+  clarification, and advisory-only classifier selection.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -86,12 +88,12 @@ Near-term milestones:
 - `v0.31`: runtime and UI-substrate consolidation — action DSL, unified
   surface/catalog/registry paths, settings fragments, typed responses, and
   shared path/redaction/audit/persistence facades.
-- `v0.32`: workspace-only app UI — implemented as the current release
-  candidate; `/workspace` is the operator home, Settings Central is in the
-  workspace, and apps contribute panels instead of separate app shells.
+- `v0.32`: workspace-only app UI — `/workspace` is the operator home,
+  Settings Central is in the workspace, and apps contribute panels instead of
+  separate app shells.
 - `v0.33`: conversational app intent handoff and direct-answer foundation —
-  neutral workspace prompts can propose app handoff or clarification without
-  silently executing app-owned actions.
+  implemented as the current release; neutral workspace prompts can propose
+  app handoff or clarification without silently executing app-owned actions.
 - `v0.34`: user theming and layout overrides from `~/.allbert`, with token
   themes, opt-in sanitized CSS snippets, and validated workspace layout data.
 - `v0.35`: dynamic plugin/app generation and sandboxed module loading for
@@ -113,10 +115,10 @@ Near-term milestones:
   milestones.
 - [CHANGELOG.md](CHANGELOG.md): released-history details.
 - [docs/adr](docs/adr): architectural decisions.
-- [docs/plans/v0.32-plan.md](docs/plans/v0.32-plan.md): current implemented
+- [docs/plans/v0.33-plan.md](docs/plans/v0.33-plan.md): current implemented
   milestone plan.
-- [docs/plans/v0.32-request-flow.md](docs/plans/v0.32-request-flow.md):
-  request flows and manual verification notes for `v0.32.0`.
+- [docs/plans/v0.33-request-flow.md](docs/plans/v0.33-request-flow.md):
+  request flows and manual verification notes for `v0.33.0`.
 
 ## Local Development
 

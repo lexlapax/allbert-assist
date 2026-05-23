@@ -15,7 +15,7 @@ defmodule StockSage.Plugin do
   def display_name, do: "StockSage"
 
   @impl true
-  def version, do: "0.32.0"
+  def version, do: "0.33.0"
 
   @impl true
   def validate(_opts), do: :ok

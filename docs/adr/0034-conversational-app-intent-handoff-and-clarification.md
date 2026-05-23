@@ -101,6 +101,13 @@ validation are accepted, app descriptor selections still produce handoff or
 clarification rather than execution, and rejected/unknown proposals fall back to
 deterministic routing. Raw classifier prompts and completions are not traced.
 
+M5 implementation on 2026-05-23 retired the StockSage-specific core
+`run_analysis` keyword and parameter shortcut. StockSage active-app routing now
+uses the same app intent descriptor candidate path as neutral handoff, while
+StockSage owns its missing analysis-date default before confirmation. The
+StockSage objective-framing helpers remain intentionally deferred carryover and
+still require active StockSage app context.
+
 ## References
 
 - Amazon Lex Intent Disambiguation:
