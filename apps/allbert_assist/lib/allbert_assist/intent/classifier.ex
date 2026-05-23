@@ -8,7 +8,7 @@ defmodule AllbertAssist.Intent.Classifier do
   """
 
   alias AllbertAssist.Intent.Candidate
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
 
   defmodule Behaviour do

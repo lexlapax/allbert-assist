@@ -4,7 +4,7 @@ defmodule AllbertAssist.Security.Review do
   """
 
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
 
   @default_limit 10

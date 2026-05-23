@@ -9,7 +9,7 @@ defmodule AllbertAssist.Intent.Candidate do
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
 
   @kinds ~w[action skill surface job channel memory objective refusal direct_answer]a
   @sources ~w[deterministic registry app plugin job channel memory objective trace model]a

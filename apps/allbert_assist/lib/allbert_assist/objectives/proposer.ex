@@ -24,7 +24,7 @@ defmodule AllbertAssist.Objectives.Proposer do
   """
 
   alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
 
   @registry_key {__MODULE__, :registered_proposers}
   @max_state_bytes 3_500

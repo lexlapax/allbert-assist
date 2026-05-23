@@ -8,7 +8,7 @@ defmodule AllbertAssist.JidoBacked do
   projection, not a new security or persistence boundary.
   """
 
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias Jido.AgentServer
   alias Jido.Signal

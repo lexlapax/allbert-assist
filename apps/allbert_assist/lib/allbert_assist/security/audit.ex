@@ -6,7 +6,7 @@ defmodule AllbertAssist.Security.Audit do
   persistence can build on this shape later.
   """
 
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
 
   @doc "Build a redacted audit event map from a Security Central decision."
   @spec event(map()) :: map()

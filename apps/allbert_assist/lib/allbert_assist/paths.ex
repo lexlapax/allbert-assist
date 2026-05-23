@@ -6,6 +6,10 @@ defmodule AllbertAssist.Paths do
   databases, skills, caches, and temporary runtime files. Specific subsystem
   roots remain available as test, migration, compatibility, and operator escape
   hatches.
+
+  v0.31 adds `AllbertAssist.Runtime.Paths` as the runtime-facing facade for
+  new code. This module remains callable for compatibility and owns the
+  existing path-resolution behavior until the facade fully absorbs it.
   """
 
   @app :allbert_assist
