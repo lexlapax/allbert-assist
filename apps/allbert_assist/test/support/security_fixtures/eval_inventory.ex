@@ -182,6 +182,26 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
     },
     %{
+      id: "panel-catalog-bypass-001",
+      milestone: :m5,
+      surface: :surface_workspace_namespace,
+      scenario: "panel surface emits an app card component outside its declared catalog",
+      boundary: :panel_catalog_owner_check,
+      expected: :dropped,
+      assert: [:dropped, :foreign_component_rejected],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
+      id: "zone-injection-001",
+      milestone: :m5,
+      surface: :surface_workspace_namespace,
+      scenario: "panel surface attempts to target an unknown host workspace zone",
+      boundary: :workspace_zone_registry,
+      expected: :dropped,
+      assert: [:dropped, :unknown_zone_rejected],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
       id: "fragment-forgery-001",
       milestone: :m5,
       surface: :surface_workspace_namespace,

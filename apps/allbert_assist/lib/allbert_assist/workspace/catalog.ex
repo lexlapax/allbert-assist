@@ -23,11 +23,12 @@ defmodule AllbertAssist.Workspace.Catalog do
   @spec workspace_tree(keyword() | map()) :: Surface.t()
   def workspace_tree(context \\ %{}) do
     context = context_map(context)
+    panel_context = panel_context(context)
 
     :workspace
     |> core_surface!()
-    |> Map.update!(:metadata, &Map.merge(&1 || %{}, workspace_metadata(context)))
-    |> Map.update!(:nodes, &inject_runtime_nodes(&1, context))
+    |> Map.update!(:metadata, &Map.merge(&1 || %{}, workspace_metadata(context, panel_context)))
+    |> Map.update!(:nodes, &inject_runtime_nodes(&1, context, panel_context))
   end
 
   defp core_surface!(surface_id) do
@@ -35,48 +36,198 @@ defmodule AllbertAssist.Workspace.Catalog do
       raise ArgumentError, "unknown core workspace surface: #{inspect(surface_id)}"
   end
 
-  defp workspace_metadata(context) when is_map(context) do
-    context
-    |> Map.take([:user_id, :thread_id])
-    |> Map.reject(fn {_key, value} -> is_nil(value) end)
-    |> then(&%{workspace: &1})
+  defp workspace_metadata(context, panel_context) when is_map(context) do
+    workspace =
+      context
+      |> Map.take([:user_id, :thread_id])
+      |> Map.reject(fn {_key, value} -> is_nil(value) end)
+
+    metadata = %{workspace: workspace}
+
+    case panel_context.diagnostics do
+      [] -> metadata
+      diagnostics -> Map.put(metadata, :panel_diagnostics, diagnostics)
+    end
   end
 
   defp context_map(context) when is_list(context), do: Map.new(context)
   defp context_map(context) when is_map(context), do: context
 
-  defp inject_runtime_nodes(nodes, context) do
-    Enum.map(nodes, &inject_runtime_node(&1, context))
+  defp panel_context(context) do
+    catalogs = Map.get(context, :surface_catalogs, %{})
+
+    context
+    |> Map.get(:panel_surfaces, [])
+    |> panel_surface_list()
+    |> Enum.reduce(%{nodes_by_zone: %{}, diagnostics: []}, &put_panel_context(&1, &2, catalogs))
   end
 
-  defp inject_runtime_node(%Node{component: :canvas} = node, context) do
-    tiles = Map.get(context, :canvas_tiles, [])
+  defp panel_surface_list(surfaces) when is_list(surfaces), do: surfaces
+  defp panel_surface_list(_surfaces), do: [:invalid_panel_surfaces]
 
-    if tiles == [] do
-      node
-    else
-      %{node | props: Map.put(node.props || %{}, :empty?, false), children: tile_nodes(tiles)}
+  defp put_panel_context(surface, acc, catalogs) do
+    case validate_panel_surface(surface, catalogs) do
+      {:ok, %Surface{zone: zone} = surface} ->
+        put_panel_nodes(acc, zone, panel_surface_nodes(surface))
+
+      {:error, diagnostics} ->
+        put_panel_diagnostics(acc, surface, diagnostics)
     end
   end
 
-  defp inject_runtime_node(%Node{component: :ephemeral_surface} = node, context) do
-    surfaces = Map.get(context, :ephemeral_surfaces, [])
+  defp put_panel_nodes(acc, zone, panel_nodes) do
+    Map.update!(
+      acc,
+      :nodes_by_zone,
+      &Map.update(&1, zone, panel_nodes, fn nodes -> nodes ++ panel_nodes end)
+    )
+  end
 
-    if surfaces == [] do
+  defp put_panel_diagnostics(acc, surface, diagnostics) do
+    Map.update!(acc, :diagnostics, &(&1 ++ bounded_panel_diagnostics(surface, diagnostics)))
+  end
+
+  defp validate_panel_surface(%Surface{} = surface, catalogs) do
+    with {:ok, %Surface{kind: :panel} = surface} <- Surface.validate_surface(surface),
+         :ok <- validate_panel_surface_catalog(surface, catalogs) do
+      {:ok, surface}
+    else
+      {:ok, %Surface{} = surface} ->
+        {:error,
+         [
+           %{
+             kind: :invalid_panel_surface,
+             message: "Workspace panel context can only render panel surfaces.",
+             detail: %{surface_id: surface.id, kind: surface.kind}
+           }
+         ]}
+
+      {:error, diagnostics} ->
+        {:error, diagnostics}
+    end
+  end
+
+  defp validate_panel_surface(_surface, _catalogs) do
+    {:error,
+     [
+       %{
+         kind: :invalid_panel_surface,
+         message: "Workspace panel context entry must be an AllbertAssist.Surface struct.",
+         detail: %{}
+       }
+     ]}
+  end
+
+  defp validate_panel_surface_catalog(%Surface{app_id: app_id} = surface, catalogs) do
+    case Map.get(catalogs, app_id) || Map.get(catalogs, Atom.to_string(app_id)) do
+      nil -> :ok
+      catalog -> Surface.validate_surface_catalog(surface, catalog)
+    end
+  end
+
+  defp panel_surface_nodes(%Surface{} = surface) do
+    Enum.map(surface.nodes, &namespace_panel_node(&1, surface))
+  end
+
+  defp namespace_panel_node(%Node{} = node, %Surface{} = surface) do
+    prefix = "workspace-panel-#{safe_id(surface.app_id)}-#{safe_id(surface.id)}"
+
+    namespace_node(node, prefix, %{
+      app_id: surface.app_id,
+      surface_id: surface.id,
+      zone: surface.zone
+    })
+  end
+
+  defp namespace_node(%Node{} = node, prefix, props) do
+    %{
+      node
+      | id: "#{prefix}-#{safe_id(node.id)}",
+        props: Map.merge(node.props || %{}, props),
+        children: Enum.map(node.children, &namespace_node(&1, prefix, %{}))
+    }
+  end
+
+  defp bounded_panel_diagnostics(surface, diagnostics) do
+    diagnostics
+    |> List.wrap()
+    |> Enum.take(8)
+    |> Enum.map(fn diagnostic ->
+      %{
+        kind: Map.get(diagnostic, :kind, :invalid_panel_surface),
+        message: Map.get(diagnostic, :message, "Panel surface was rejected."),
+        detail:
+          diagnostic
+          |> diagnostic_detail()
+          |> Map.put_new(:surface_id, panel_surface_id(surface))
+      }
+    end)
+  end
+
+  defp diagnostic_detail(%{} = diagnostic) do
+    case Map.get(diagnostic, :detail, %{}) do
+      %{} = detail -> detail
+      _detail -> %{}
+    end
+  end
+
+  defp panel_surface_id(%Surface{id: id}), do: id
+  defp panel_surface_id(_surface), do: nil
+
+  defp inject_runtime_nodes(nodes, context, panel_context) do
+    Enum.map(nodes, &inject_runtime_node(&1, context, panel_context))
+  end
+
+  defp inject_runtime_node(%Node{component: :canvas} = node, context, panel_context) do
+    tiles = Map.get(context, :canvas_tiles, [])
+    panels = Map.get(panel_context.nodes_by_zone, :canvas_panels, [])
+
+    if tiles == [] and panels == [] do
       node
     else
+      runtime_children =
+        if tiles == [] do
+          node.children
+        else
+          tile_nodes(tiles)
+        end
+
       %{
         node
-        | props: Map.put(node.props || %{}, :empty?, false),
-          children: ephemeral_nodes(surfaces)
+        | props:
+            Map.merge(node.props || %{}, %{
+              empty?: false,
+              zones: [:canvas_panels]
+            }),
+          children: runtime_children ++ panels
       }
     end
   end
 
-  defp inject_runtime_node(%Node{component: :badge_strip} = node, context) do
-    badges = Map.get(context, :workspace_badges, [])
+  defp inject_runtime_node(%Node{component: :ephemeral_surface} = node, context, panel_context) do
+    surfaces = Map.get(context, :ephemeral_surfaces, [])
+    panels = Map.get(panel_context.nodes_by_zone, :ephemeral, [])
 
-    if badges == [] do
+    if surfaces == [] and panels == [] do
+      node
+    else
+      %{
+        node
+        | props:
+            Map.merge(node.props || %{}, %{
+              empty?: false,
+              zones: [:ephemeral]
+            }),
+          children: ephemeral_nodes(surfaces) ++ panels
+      }
+    end
+  end
+
+  defp inject_runtime_node(%Node{component: :badge_strip} = node, context, panel_context) do
+    badges = Map.get(context, :workspace_badges, [])
+    panels = Map.get(panel_context.nodes_by_zone, :context_rail, [])
+
+    if badges == [] and panels == [] do
       node
     else
       %{
@@ -84,15 +235,16 @@ defmodule AllbertAssist.Workspace.Catalog do
         | props:
             Map.merge(node.props || %{}, %{
               title: "Workspace notices",
-              body: "#{length(badges)} active notice(s)"
+              body: "#{length(badges)} active notice(s)",
+              zones: [:context_rail]
             }),
-          children: badge_nodes(badges)
+          children: badge_nodes(badges) ++ panels
       }
     end
   end
 
-  defp inject_runtime_node(%Node{children: children} = node, context) do
-    %{node | children: inject_runtime_nodes(children, context)}
+  defp inject_runtime_node(%Node{children: children} = node, context, panel_context) do
+    %{node | children: inject_runtime_nodes(children, context, panel_context)}
   end
 
   defp tile_nodes(tiles) do

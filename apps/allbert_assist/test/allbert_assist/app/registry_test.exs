@@ -151,6 +151,78 @@ defmodule AllbertAssist.App.RegistryTest do
     def surface_catalog, do: [%{component: :route, allowed_props: [], allowed_bindings: []}]
   end
 
+  defmodule PanelProviderApp do
+    use AllbertAssist.App
+    use AllbertAssist.App.SurfaceProvider
+
+    @impl true
+    def app_id, do: :panel_provider_app
+
+    @impl true
+    def display_name, do: "Panel Provider"
+
+    @impl true
+    def version, do: "0.32.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def surfaces do
+      [
+        %Surface{
+          id: :summary_panel,
+          app_id: :panel_provider_app,
+          label: "Summary Panel",
+          path: "/workspace",
+          kind: :panel,
+          zone: :canvas_panels,
+          status: :available,
+          nodes: [%Node{id: "summary-panel-root", component: :panel}],
+          fallback_text: "Summary panel."
+        }
+      ]
+    end
+
+    def surface_catalog, do: []
+  end
+
+  defmodule AnotherPanelProviderApp do
+    use AllbertAssist.App
+    use AllbertAssist.App.SurfaceProvider
+
+    @impl true
+    def app_id, do: :another_panel_provider_app
+
+    @impl true
+    def display_name, do: "Another Panel Provider"
+
+    @impl true
+    def version, do: "0.32.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def surfaces do
+      [
+        %Surface{
+          id: :activity_panel,
+          app_id: :another_panel_provider_app,
+          label: "Activity Panel",
+          path: "/workspace",
+          kind: :panel,
+          zone: :context_rail,
+          status: :available,
+          nodes: [%Node{id: "activity-panel-root", component: :panel}],
+          fallback_text: "Activity panel."
+        }
+      ]
+    end
+
+    def surface_catalog, do: []
+  end
+
   defmodule DuplicateSurfaceApp do
     use AllbertAssist.App
 
@@ -368,6 +440,13 @@ defmodule AllbertAssist.App.RegistryTest do
                }
              ]
            } = Registry.diagnostics(opts)
+  end
+
+  test "panel surfaces may share the workspace path without route diagnostics", %{opts: opts} do
+    assert {:ok, :panel_provider_app} = Registry.register(PanelProviderApp, opts)
+    assert {:ok, :another_panel_provider_app} = Registry.register(AnotherPanelProviderApp, opts)
+
+    assert Registry.diagnostics(opts) == %{}
   end
 
   test "rejects duplicate app ids without disturbing existing registration", %{opts: opts} do
