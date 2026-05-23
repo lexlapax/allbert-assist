@@ -8,6 +8,13 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
   alias AllbertAssistWeb.Workspace.Components.Placeholder
   alias AllbertAssistWeb.Workspace.Renderer
 
+  @stocksage_card_components [
+    :analysis_card,
+    :agent_report_card,
+    :parity_card,
+    :debate_round_card
+  ]
+
   test "dispatch covers every known catalog component" do
     for component <- Catalog.known_components() do
       assert Renderer.renderer_for(component) != Placeholder
@@ -31,8 +38,10 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
       assert html =~ ~s(data-workspace-component="#{component}")
       refute html =~ "component not implemented"
 
-      if component in [:analysis_card, :agent_report_card, :parity_card, :debate_round_card] do
-        assert html =~ "stub"
+      if component in @stocksage_card_components do
+        assert html =~ ~s(data-stocksage-component="#{component}")
+        refute html =~ "v0.26 stub"
+        refute html =~ "workspace-card-stub"
       end
     end
   end
@@ -263,6 +272,56 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
   defp sample_props(:empty_state), do: %{title: "Empty", body: "Nothing to render yet."}
   defp sample_props(:link), do: %{label: "Open trace", body: "/trace/example"}
   defp sample_props(:status_badge), do: %{label: "Status", value: "ready"}
+
+  defp sample_props(:analysis_card) do
+    %{
+      title: "AAPL analysis completed",
+      ticker: "AAPL",
+      engine: "native",
+      rating: "Overweight",
+      confidence: 0.82,
+      status: "completed",
+      summary: "Constructive setup.",
+      analysis_id: "ana_renderer"
+    }
+  end
+
+  defp sample_props(:agent_report_card) do
+    %{
+      agent: "stocksage.market_context",
+      role: "analyst",
+      rating: "Hold",
+      confidence: 0.7,
+      status: "completed",
+      summary: "Market context is mixed.",
+      key_points: ["Momentum improving"]
+    }
+  end
+
+  defp sample_props(:parity_card) do
+    %{
+      native_rating: "Overweight",
+      python_rating: "Overweight",
+      rating_agreement: "exact",
+      confidence_delta: 0.04,
+      parity_pass: true,
+      status: "completed",
+      summary: "Native and Python agree."
+    }
+  end
+
+  defp sample_props(:debate_round_card) do
+    %{
+      round: 1,
+      side: "bull",
+      agent: "bull_thesis",
+      rating: "Buy",
+      status: "completed",
+      summary: "Bull case leads.",
+      counterpoints: ["Valuation risk"]
+    }
+  end
+
   defp sample_props(_component), do: %{title: "Renderer sample", body: "Rendered output"}
 
   defp renderer_context do
