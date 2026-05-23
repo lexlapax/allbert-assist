@@ -49,6 +49,20 @@ recognition and app-owned action execution.
    implicitly on), redacted and traced per ADR 0019, and grants no Resource
    Access escalation. When the model is disabled or unavailable it returns a
    deterministic bounded fallback.
+9. Descriptor candidates are collected through `AllbertAssist.Extensions.Registry`
+   from an optional `SurfaceProvider.intent_descriptors/0` callback and validated
+   by `AllbertAssist.Intent.Descriptor`. A descriptor whose `app_id`/`action_name`
+   is unregistered, disabled, or not agent-exposed is inert.
+10. The deterministic decision rule selects `:app_handoff`, `:clarify_intent`, or
+    `:direct_answer` from descriptor scores using Settings-Central thresholds
+    (`intent.handoff_threshold`, `intent.handoff_margin`, `intent.clarify_floor`).
+    The classifier may only re-rank or select within the already-collected
+    candidate set; it never changes the outcome's authority.
+11. The handoff/clarify proposal is surfaced as a v0.26 ephemeral surface
+    composed from existing catalog primitives; v0.33 adds no catalog atom and
+    requires no ADR 0030 amendment. Slot extraction is descriptor-declared and
+    conservative — missing or ambiguous slots produce clarification, never a
+    guessed value.
 
 ## Consequences
 
@@ -85,4 +99,10 @@ recognition and app-owned action execution.
   authority rules.
 - Constrained by: ADR 0015, ADR 0017, ADR 0024, and v0.28 app-scope security
   evals.
+- Reuses (no amendment): ADR 0030 (Unified Surface Catalog/Renderer And
+  Extension Registry) — handoff/clarify compose from existing primitives via the
+  ephemeral substrate, and descriptors flow through the extension registry.
+- Owns settings through: ADR 0031 (Settings Schema Fragments And Authority) —
+  the new `intent.*` handoff/clarify/direct-answer keys live in the intent
+  settings fragment and are written only through Settings Central actions.
 - Enables: v0.36 generator scaffolding for app intent descriptors.
