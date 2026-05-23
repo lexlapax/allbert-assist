@@ -1,0 +1,314 @@
+defmodule AllbertAssist.Intent.Descriptor do
+  @moduledoc """
+  Inert app intent descriptor metadata.
+
+  Descriptors help the intent engine recognize app-owned capability proposals.
+  They never register actions, grant permission, set active app context, or
+  bypass confirmations.
+  """
+
+  alias AllbertAssist.Actions.Capability
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
+  alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Runtime.Redactor
+
+  @enforce_keys [:id, :app_id, :action_name, :label]
+  defstruct [
+    :id,
+    :app_id,
+    :action_name,
+    :label,
+    :source,
+    :source_module,
+    examples: [],
+    synonyms: [],
+    required_slots: [],
+    slot_extractors: %{},
+    handoff_required?: true,
+    capability: %{}
+  ]
+
+  @type t :: %__MODULE__{
+          id: String.t(),
+          app_id: atom(),
+          action_name: String.t(),
+          label: String.t(),
+          source: atom() | nil,
+          source_module: module() | nil,
+          examples: [String.t()],
+          synonyms: [String.t()],
+          required_slots: [atom()],
+          slot_extractors: %{atom() => atom()},
+          handoff_required?: boolean(),
+          capability: map()
+        }
+
+  @slot_extractors [:ticker_symbol]
+  @max_descriptor_text 120
+  @max_list_items 20
+  @slot_regex ~r/^[a-z][a-z0-9_]*$/
+
+  @spec normalize(map(), keyword()) :: {:ok, t()} | {:error, map()}
+  def normalize(attrs, opts \\ [])
+
+  def normalize(attrs, opts) when is_map(attrs) and is_list(opts) do
+    with {:ok, app_id} <- app_id(field(attrs, :app_id), Keyword.get(opts, :app_id)),
+         {:ok, action_name} <- action_name(field(attrs, :action_name)),
+         {:ok, capability} <- capability(app_id, action_name),
+         {:ok, label} <- bounded_required_string(field(attrs, :label), :label),
+         {:ok, examples} <- bounded_string_list(field(attrs, :examples, []), :examples),
+         {:ok, synonyms} <- bounded_string_list(field(attrs, :synonyms, []), :synonyms),
+         {:ok, required_slots} <- slot_list(field(attrs, :required_slots, [])),
+         {:ok, slot_extractors} <-
+           slot_extractors(field(attrs, :slot_extractors, %{}), required_slots) do
+      {:ok,
+       %__MODULE__{
+         id: "#{app_id}:#{action_name}",
+         app_id: app_id,
+         action_name: action_name,
+         label: label,
+         source: Keyword.get(opts, :source, :app),
+         source_module: Keyword.get(opts, :source_module),
+         examples: examples,
+         synonyms: synonyms,
+         required_slots: required_slots,
+         slot_extractors: slot_extractors,
+         handoff_required?: field(attrs, :handoff_required?, true) == true,
+         capability: capability
+       }}
+    else
+      {:error, reason} ->
+        {:error, diagnostic(reason, attrs, opts)}
+    end
+  end
+
+  def normalize(value, opts), do: {:error, diagnostic(:invalid_descriptor, value, opts)}
+
+  @spec normalize_many([map()], keyword()) :: %{descriptors: [t()], diagnostics: [map()]}
+  def normalize_many(values, opts \\ [])
+
+  def normalize_many(values, opts) when is_list(values) do
+    Enum.reduce(values, %{descriptors: [], diagnostics: []}, fn value, acc ->
+      case normalize(value, opts) do
+        {:ok, descriptor} ->
+          %{acc | descriptors: [descriptor | acc.descriptors]}
+
+        {:error, diagnostic} ->
+          %{acc | diagnostics: [diagnostic | acc.diagnostics]}
+      end
+    end)
+    |> then(fn result ->
+      %{
+        descriptors: Enum.reverse(result.descriptors),
+        diagnostics: Enum.reverse(result.diagnostics)
+      }
+    end)
+  end
+
+  def normalize_many(_values, opts),
+    do: %{descriptors: [], diagnostics: [diagnostic(:invalid_descriptors, [], opts)]}
+
+  @spec extract_slots(t(), String.t()) :: %{extracted_slots: map(), missing_slots: [atom()]}
+  def extract_slots(%__MODULE__{} = descriptor, text) when is_binary(text) do
+    extracted =
+      descriptor.required_slots
+      |> Enum.reduce(%{}, fn slot, acc ->
+        case extract_slot(Map.get(descriptor.slot_extractors, slot), text) do
+          nil -> acc
+          value -> Map.put(acc, slot, value)
+        end
+      end)
+
+    missing = Enum.reject(descriptor.required_slots, &Map.has_key?(extracted, &1))
+
+    %{extracted_slots: extracted, missing_slots: missing}
+  end
+
+  def extract_slots(%__MODULE__{} = descriptor, _text) do
+    %{extracted_slots: %{}, missing_slots: descriptor.required_slots}
+  end
+
+  @spec to_map(t()) :: map()
+  def to_map(%__MODULE__{} = descriptor) do
+    descriptor
+    |> Map.from_struct()
+    |> Redactor.redact()
+  end
+
+  defp app_id(nil, nil), do: {:error, :missing_app_id}
+
+  defp app_id(value, fallback) do
+    value = value || fallback
+
+    case AppRegistry.normalize_app_id(value) do
+      {:ok, app_id} when is_atom(app_id) -> {:ok, app_id}
+      {:error, reason} -> {:error, {:invalid_app_id, reason}}
+    end
+  catch
+    :exit, reason -> {:error, {:invalid_app_id, reason}}
+  end
+
+  defp action_name(value) when is_atom(value), do: action_name(Atom.to_string(value))
+
+  defp action_name(value) when is_binary(value) do
+    normalized =
+      value
+      |> String.trim()
+      |> String.downcase()
+
+    if Regex.match?(~r/^[a-z][a-z0-9_]*$/, normalized) do
+      {:ok, normalized}
+    else
+      {:error, {:invalid_action_name, value}}
+    end
+  end
+
+  defp action_name(value), do: {:error, {:invalid_action_name, value}}
+
+  defp capability(app_id, action_name) do
+    case ActionsRegistry.capability(action_name) do
+      {:ok, capability} ->
+        cond do
+          capability.app_id != app_id ->
+            {:error, {:action_app_mismatch, app_id, action_name}}
+
+          capability.exposure != :agent ->
+            {:error, {:action_not_agent_exposed, action_name}}
+
+          true ->
+            {:ok, Capability.summary(capability)}
+        end
+
+      {:error, reason} ->
+        {:error, {:unknown_action, action_name, reason}}
+    end
+  end
+
+  defp bounded_required_string(value, field_name) do
+    case bounded_string(value) do
+      string when is_binary(string) and string != "" -> {:ok, string}
+      _other -> {:error, {:invalid_field, field_name}}
+    end
+  end
+
+  defp bounded_string_list(values, field_name) when is_list(values) do
+    values =
+      values
+      |> Enum.map(&bounded_string/1)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+      |> Enum.take(@max_list_items)
+
+    {:ok, values}
+  rescue
+    _exception -> {:error, {:invalid_field, field_name}}
+  end
+
+  defp bounded_string_list(_values, field_name), do: {:error, {:invalid_field, field_name}}
+
+  defp bounded_string(value) when is_atom(value), do: bounded_string(Atom.to_string(value))
+
+  defp bounded_string(value) when is_binary(value) do
+    value = String.trim(value)
+
+    cond do
+      value == "" -> nil
+      byte_size(value) <= @max_descriptor_text -> value
+      true -> binary_part(value, 0, @max_descriptor_text)
+    end
+  end
+
+  defp bounded_string(_value), do: nil
+
+  defp slot_list(values) when is_list(values) do
+    values
+    |> Enum.map(&slot_name/1)
+    |> Enum.reduce_while({:ok, []}, fn
+      {:ok, slot}, {:ok, acc} -> {:cont, {:ok, [slot | acc]}}
+      {:error, reason}, _acc -> {:halt, {:error, reason}}
+    end)
+    |> case do
+      {:ok, slots} -> {:ok, slots |> Enum.reverse() |> Enum.uniq()}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp slot_list(_values), do: {:error, :invalid_required_slots}
+
+  defp slot_name(value) when is_atom(value), do: slot_name(Atom.to_string(value))
+
+  defp slot_name(value) when is_binary(value) do
+    value = String.trim(value)
+
+    if Regex.match?(@slot_regex, value) do
+      {:ok, String.to_atom(value)}
+    else
+      {:error, {:invalid_slot, value}}
+    end
+  end
+
+  defp slot_name(value), do: {:error, {:invalid_slot, value}}
+
+  defp slot_extractors(values, required_slots) when is_map(values) do
+    Enum.reduce_while(values, {:ok, %{}}, fn {slot_key, extractor}, {:ok, acc} ->
+      with {:ok, slot} <- slot_name(slot_key),
+           true <- slot in required_slots,
+           {:ok, extractor} <- slot_extractor(extractor) do
+        {:cont, {:ok, Map.put(acc, slot, extractor)}}
+      else
+        false -> {:halt, {:error, {:unknown_slot_extractor_slot, slot_key}}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp slot_extractors(_values, _required_slots), do: {:error, :invalid_slot_extractors}
+
+  defp slot_extractor(value) when is_atom(value) and value in @slot_extractors, do: {:ok, value}
+
+  defp slot_extractor(value) when is_binary(value) do
+    value
+    |> String.trim()
+    |> String.downcase()
+    |> String.to_existing_atom()
+    |> slot_extractor()
+  rescue
+    ArgumentError -> {:error, {:invalid_slot_extractor, value}}
+  end
+
+  defp slot_extractor(value), do: {:error, {:invalid_slot_extractor, value}}
+
+  defp extract_slot(:ticker_symbol, text) do
+    case Regex.run(~r/\b[A-Z]{1,5}(?:[._-][A-Z]{1,4})?\b/, text) do
+      [ticker] -> ticker
+      _other -> nil
+    end
+  end
+
+  defp extract_slot(_extractor, _text), do: nil
+
+  defp diagnostic(reason, attrs, opts) do
+    %{
+      kind: :invalid_intent_descriptor,
+      reason: Redactor.redact(reason),
+      app_id: Keyword.get(opts, :app_id),
+      source: Keyword.get(opts, :source, :app),
+      source_module: Keyword.get(opts, :source_module),
+      descriptor: attrs |> descriptor_summary() |> Redactor.redact()
+    }
+  end
+
+  defp descriptor_summary(attrs) when is_map(attrs) do
+    attrs
+    |> Map.take([:app_id, :action_name, :label])
+    |> Map.merge(Map.take(attrs, ["app_id", "action_name", "label"]))
+  end
+
+  defp descriptor_summary(_attrs), do: %{}
+
+  defp field(map, key, default \\ nil)
+
+  defp field(map, key, default) when is_map(map) do
+    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+  end
+end

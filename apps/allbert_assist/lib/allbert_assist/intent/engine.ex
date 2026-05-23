@@ -12,9 +12,11 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Channels
+  alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Intent.Candidate
   alias AllbertAssist.Intent.Classifier
   alias AllbertAssist.Intent.Decision
+  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Ranker
   alias AllbertAssist.Jobs
   alias AllbertAssist.Memory
@@ -78,6 +80,7 @@ defmodule AllbertAssist.Intent.Engine do
       |> Map.put(:intent_candidates, %{
         selected: selected |> Candidate.to_map(),
         rejected: rejected,
+        descriptors: descriptor_candidate_maps(candidates),
         memory: memory_candidate_maps(candidates),
         objectives: objective_candidate_maps(candidates),
         total: length(candidates),
@@ -394,6 +397,7 @@ defmodule AllbertAssist.Intent.Engine do
   defp do_collect_candidates(request, opts) do
     route_hint_candidates(request) ++
       action_candidates(request) ++
+      descriptor_candidates(request) ++
       surface_candidates() ++
       relevant_job_candidates(request) ++
       relevant_channel_candidates(request) ++
@@ -401,6 +405,46 @@ defmodule AllbertAssist.Intent.Engine do
       objective_candidates(request, Keyword.get(opts, :objective)) ++
       refusal_candidates(request) ++
       relevant_skill_candidates(request)
+  end
+
+  defp descriptor_candidates(request) do
+    ExtensionsRegistry.registered_intent_descriptors()
+    |> Enum.map(&candidate_from_descriptor(&1, request))
+    |> Enum.reject(&is_nil/1)
+  rescue
+    _exception -> []
+  catch
+    :exit, _reason -> []
+  end
+
+  defp candidate_from_descriptor(descriptor, request) do
+    slots = Descriptor.extract_slots(descriptor, field(request, :text) || "")
+    capability = descriptor.capability
+
+    Candidate.new!(%{
+      kind: :app_intent,
+      id: descriptor.id,
+      label: descriptor.label,
+      source: descriptor.source || :app,
+      status: :candidate,
+      score: 0.2,
+      reason: "App intent descriptor #{descriptor.label}.",
+      action_name: descriptor.action_name,
+      app_id: descriptor.app_id,
+      plugin_id: Map.get(capability, :plugin_id),
+      permission: Map.get(capability, :permission),
+      execution_mode: Map.get(capability, :execution_mode),
+      confirmation: Map.get(capability, :confirmation),
+      trace_metadata: %{
+        intent: :app_intent,
+        descriptor: Descriptor.to_map(descriptor),
+        extracted_slots: slots.extracted_slots,
+        missing_slots: slots.missing_slots,
+        handoff_required?: descriptor.handoff_required?
+      }
+    })
+  rescue
+    _exception -> nil
   end
 
   defp action_candidates(request) do
@@ -945,6 +989,17 @@ defmodule AllbertAssist.Intent.Engine do
       candidate
       |> Candidate.to_map()
       |> Map.take([:kind, :id, :source, :score, :reason, :trace_metadata])
+    end)
+  end
+
+  defp descriptor_candidate_maps(candidates) do
+    candidates
+    |> Enum.filter(&(field(&1, :kind) == :app_intent))
+    |> Enum.take(10)
+    |> Enum.map(fn candidate ->
+      candidate
+      |> Candidate.to_map()
+      |> Map.take([:kind, :id, :source, :score, :reason, :app_id, :action_name, :trace_metadata])
     end)
   end
 
