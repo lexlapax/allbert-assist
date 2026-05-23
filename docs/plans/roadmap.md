@@ -1587,10 +1587,10 @@ Expected direction:
 Plan: `docs/plans/v0.30-plan.md`
 Request flow: `docs/plans/v0.30-request-flow.md`
 
-Status: implemented. Formerly M-Canvas, previously planned as v0.28 before the
+Status: released. Formerly M-Canvas, previously planned as v0.28 before the
 project-direction rethink. Renamed after the post-v0.26 roadmap reconciliation
 to make the platform contract explicit. Version metadata is `0.30.0`; release
-tag `v0.30.0` is ready after operator acceptance.
+tag `v0.30.0` was created after operator manual verification was accepted.
 
 Implemented:
 
