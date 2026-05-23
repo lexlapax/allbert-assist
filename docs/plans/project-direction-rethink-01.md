@@ -840,7 +840,9 @@ Objective-Runtime insertion — see Decisions Locked In):
 - v0.28: Security Hardening And Evals, formerly v0.26.
 - v0.29: App Memory + Outcomes Contract - StockSage Polish, formerly v0.27.
 - v0.30: App Canvas Contract - StockSage Canvas Integration, formerly v0.28.
-- v0.31: Plugin And App Generator, formerly v0.29.
+- v0.31: Workspace-Only App UI And Settings Central.
+- v0.32: User Theming And Layout Overrides.
+- v0.33: Plugin And App Generator.
 
 ## Proposed v0.23 Scope (decision-grade for minimum slice; exploratory for reserved)
 
