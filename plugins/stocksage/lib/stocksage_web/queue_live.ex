@@ -22,7 +22,7 @@ defmodule StockSageWeb.QueueLive do
     ~H"""
     <main
       id="stocksage-queue"
-      class="min-h-screen bg-zinc-950 px-6 py-6 text-zinc-100"
+      class="min-h-screen overflow-x-hidden bg-zinc-950 px-4 py-6 text-zinc-100 sm:px-6"
       data-active-app={@active_app}
       data-surface={@stocksage_surface}
     >
@@ -41,7 +41,7 @@ defmodule StockSageWeb.QueueLive do
         >
           <div class="min-w-0">
             <p class="text-sm font-semibold uppercase text-emerald-300">StockSage</p>
-            <h1 class="text-3xl font-semibold tracking-normal">Analysis queue</h1>
+            <h1 class="break-words text-3xl font-semibold tracking-normal">Analysis queue</h1>
           </div>
           <AppShell.nav current={:queue} />
         </header>
