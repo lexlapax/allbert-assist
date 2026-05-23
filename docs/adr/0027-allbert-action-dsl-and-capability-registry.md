@@ -42,3 +42,23 @@ and must not appear in the Allbert action registry or intent candidates.
 - No replacement of Jido.
 - No automatic permission grants.
 - No registration of private agent commands as public actions.
+
+## Terminology
+
+Three "registry"-like concepts are distinct and must not be conflated:
+
+- **Action registry** (this ADR): the capability *metadata* the runtime action
+  registry derives from each `use AllbertAssist.Action` module. "Capability
+  metadata" here is action metadata, not a new registry artifact.
+- **Extension registry** (ADR 0030): compiled app/plugin contributions (apps,
+  surfaces, actions, skill roots, settings fragments, child specs).
+- **Capability inventory / gap** (ADR 0021, ADR 0033): objective-owned
+  acquisition vocabulary for missing capabilities.
+
+## Relates To
+
+- Refines: ADR 0006 (permission classes and safety floors), ADR 0007 (action
+  runner boundary), ADR 0015 (app-scoped actions).
+- Under: ADR 0026 facade discipline.
+- Enables: v0.35 generator scaffolds `use AllbertAssist.Action`; v0.34 generated
+  drafts use the same shape.
