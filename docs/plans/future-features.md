@@ -42,8 +42,9 @@ homes:
 - Security hardening and evals: v0.28 (formerly v0.26).
 - StockSage polish, outcomes, and trends: v0.29 (formerly v0.27).
 - StockSage canvas integration: v0.30 (formerly v0.28).
-- Workspace-native plugin UI, named workspace zones, and user theming: v0.31.
-- Allbert plugin and app generator: v0.32 (formerly v0.29, then v0.31).
+- Workspace-only plugin UI, named workspace zones, and workspace Settings Central: v0.31.
+- User theming and layout overrides: v0.32.
+- Allbert plugin and app generator: v0.33.
 
 Do not duplicate those here unless the future feature is broader than the
 existing plan.
@@ -52,18 +53,18 @@ existing plan.
 
 ### Autonomous Skill Creation
 
-Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, and v0.31
-(formerly v0.29) generator planning.
+Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, and v0.33
+generator planning.
 
 Allbert should eventually help create new skills from traces, repeated tasks,
-corrections, or explicit user requests. v0.31 covers manual plugin/app
+corrections, or explicit user requests. v0.33 covers manual plugin/app
 scaffolding only: it may generate ordinary source files, sample actions, sample
 skills, and validation docs, but it does not autonomously infer, trust, enable,
 publish, or activate new capabilities from traces.
 
 Needed before planning:
 
-- v0.32 (formerly v0.29, then v0.31) manual plugin/app generator accepted
+- v0.33 manual plugin/app generator accepted
   through user testing
 - review and trust workflow
 - trace-to-skill draft workflow
@@ -74,32 +75,31 @@ Needed before planning:
 
 ### Dynamic Elixir Code Generation Or Module Loading
 
-Source: v0.03/v0.06 execution-boundary clarification and v0.31 (formerly
-v0.29) generator planning.
+Source: v0.03/v0.06 execution-boundary clarification and v0.33 generator
+planning.
 
 Allbert should not auto-generate, compile, or load Elixir modules from
-arbitrary plugin, app, or skill folders. v0.31 may scaffold ordinary source
+arbitrary plugin, app, or skill folders. v0.33 may scaffold ordinary source
 files into the project for review, compile, and validation, but runtime module
 loading from untrusted plugin/app/skill folders remains unplanned.
 
 Needed before planning:
 
 - separate ADR for code-generation boundaries
-- v0.31 (formerly v0.29) scaffold/review/compile/test workflow proven
+- v0.33 scaffold/review/compile/test workflow proven
 - explicit distinction between generating source and enabling capability
 - rollback and migration story
 - policy for generated migrations, dependency additions, and operator review
 
 ### Remote Plugin Marketplace And Code-Bearing Plugin Distribution
 
-Source: v0.17 plugin substrate and v0.32 (formerly v0.29, then v0.31) generator
-planning.
+Source: v0.17 plugin substrate and v0.33 generator planning.
 
 v0.17 creates local plugin discovery and ships Telegram/email as source-tree
 plugins under `./plugins`, but it does not install remote plugins, resolve
 dependencies, automatically compile arbitrary `./plugins/*/lib` directories,
 compile code from `<ALLBERT_HOME>/plugins`, hot-reload code-bearing plugins,
-or sandbox untrusted plugin execution. v0.31 (formerly v0.29) may scaffold
+or sandbox untrusted plugin execution. v0.33 may scaffold
 plugin source for
 developer review, compile, and test, but marketplace distribution and
 arbitrary runtime loading remain parked here.
@@ -108,7 +108,7 @@ Needed before planning:
 
 - v0.17 plugin registry accepted through user testing
 - v0.26 plugin-boundary security evals accepted
-- v0.32 (formerly v0.29, then v0.31) plugin/app generator accepted through user
+- v0.33 plugin/app generator accepted through user
   testing
 - dependency install/update policy
 - plugin signing, provenance, versioning, and rollback model
@@ -322,7 +322,7 @@ Needed before planning:
 - secret entry UX
 - accessibility and mobile behavior
 
-### Post-v0.31 UI Protocol Interop
+### Post-v0.33 UI Protocol Interop
 
 Source: operator UI discussion, v0.16 channel planning, v0.21 memory review,
 v0.19 intent enrichment, v0.28 (formerly v0.26) security hardening, and
@@ -369,7 +369,7 @@ The documented v0.26 internal mapping (per ADR 0023 §8):
 | `allbert.action.completed` | `TOOL_CALL_END` |
 | `allbert.action.failed` | `TOOL_CALL_ERROR` |
 
-Needed before broader post-v0.31 planning:
+Needed before broader post-v0.33 planning:
 
 - v0.24 local workspace and surface contracts accepted through user testing
 - v0.26 workspace shell + canvas + ephemeral substrate accepted through user
@@ -391,13 +391,14 @@ Needed before broader post-v0.31 planning:
   sandboxed-iframe model; reconciling the two requires a trust-policy ADR)
 - cross-client fallback, redaction, provenance, and accessibility rules
   (v0.26 ships fallback text, redaction, accessibility; cross-client
-  provenance for federated workspaces is the post-v0.31 surface)
+  provenance for federated workspaces is the post-v0.33 surface)
 - Multi-user collaborative cursors (deferred from v0.26; reserved as
   "Cursor" vocabulary in ADR 0023 §1)
-- Plugin-contributed workspace regions — graduated to v0.31 (ADR 0024);
-  formerly "Workspace Hooks" reserved in ADR 0023 §1. User theming/layout
-  override (tokens, sanitized snippets, layout config) also landed in v0.31
-  (ADR 0025)
+- Plugin-contributed workspace regions and workspace Settings Central —
+  graduated to v0.31 (ADR 0024); formerly "Workspace Hooks" reserved in ADR
+  0023 §1.
+- User theming/layout override (tokens, sanitized snippets, layout config) —
+  graduated to v0.32 (ADR 0025).
 - Canvas snapshot / undo / time-travel (deferred from v0.26; "Canvas
   Snapshot" reserved in ADR 0023 §1; signal topic
   `allbert.workspace.canvas.snapshot.requested` reserved as v0.26 no-op)
