@@ -6,6 +6,10 @@ defmodule AllbertAssist.Workspace.Catalog do
   workspace shell, canvas tiles, ephemeral surfaces, and reserved StockSage
   cards. The web tier owns concrete LiveComponent modules; this module keeps
   the core allow-list and workspace tree metadata web-agnostic.
+
+  v0.31 keeps this as the current workspace facade while M7 introduces the
+  shared `AllbertAssist.Surface.Catalog` authority for component membership,
+  app catalog metadata, and renderer dispatch.
   """
 
   alias AllbertAssist.App.CoreApp
