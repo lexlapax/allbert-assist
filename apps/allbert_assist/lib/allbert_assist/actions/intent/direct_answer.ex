@@ -23,36 +23,158 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Settings
+
+  @answerer_config __MODULE__
+  @default_answerer __MODULE__.ReqLLMAnswerer
+  @fallback_source :bounded_fallback
+  @max_reason_bytes 240
 
   @impl true
   def run(%{text: text}, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
+    {message, direct_answer} = answer(text, context, permission_decision)
 
     {:ok,
      %{
-       message: message(text),
+       message: message,
        status: PermissionGate.response_status(permission_decision),
        permission_decision: permission_decision,
+       direct_answer: direct_answer,
        actions: [
          %{
            name: "direct_answer",
            status: :completed,
            permission: :read_only,
-           permission_decision: permission_decision
+           permission_decision: permission_decision,
+           direct_answer: direct_answer
          }
        ]
      }}
   end
 
-  defp message(text) do
+  defp answer(text, context, permission_decision) do
+    if PermissionGate.allowed?(permission_decision) do
+      case Settings.get("intent.direct_answer_model_enabled") do
+        {:ok, true} -> model_answer(text, context)
+        {:ok, false} -> fallback(:model_disabled)
+        {:error, reason} -> fallback({:settings_unavailable, reason})
+      end
+    else
+      fallback(:permission_denied)
+    end
+  end
+
+  defp model_answer(text, context) do
+    with {:ok, profile_name} <- direct_answer_model_profile(),
+         {:ok, profile} <- Settings.resolve_model_profile(profile_name),
+         :ok <- ensure_provider_enabled(profile),
+         {:ok, response} <-
+           answerer().answer(text, Map.merge(context, %{model_profile: profile})) do
+      {
+        response.message,
+        %{
+          source: :model,
+          model_profile: profile.name,
+          provider: profile.provider,
+          model: profile.model,
+          diagnostic: Map.get(response, :diagnostic, %{status: :used})
+        }
+      }
+    else
+      {:error, reason} -> fallback({:model_unavailable, reason})
+    end
+  end
+
+  defp ensure_provider_enabled(%{provider: provider}) when is_binary(provider) do
+    case Settings.list_provider_profiles() do
+      {:ok, providers} ->
+        case Enum.find(providers, &(&1.name == provider)) do
+          %{enabled: true} -> :ok
+          %{enabled: false} -> {:error, {:provider_disabled, provider}}
+          nil -> {:error, {:unknown_provider, provider}}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp ensure_provider_enabled(profile), do: {:error, {:invalid_model_profile, profile}}
+
+  defp direct_answer_model_profile do
+    case Settings.get("intent.direct_answer_model_profile") do
+      {:ok, profile} when is_binary(profile) and profile != "" ->
+        {:ok, profile}
+
+      _missing_or_invalid ->
+        Settings.get("intent.model_profile")
+    end
+  end
+
+  defp fallback(reason) do
+    {
+      fallback_message(reason),
+      %{
+        source: @fallback_source,
+        reason: bounded_reason(reason),
+        model_enabled?: model_enabled?(),
+        diagnostic: %{status: :fallback}
+      }
+    }
+  end
+
+  defp fallback_message(reason) do
+    detail =
+      case reason do
+        :model_disabled ->
+          "The direct-answer model is disabled."
+
+        :permission_denied ->
+          "The read-only answer boundary was denied."
+
+        {:settings_unavailable, _reason} ->
+          "The direct-answer settings could not be read."
+
+        {:model_unavailable, _reason} ->
+          "The configured direct-answer model was unavailable."
+      end
+
     """
-    I can answer from the current v0.26 Allbert runtime.
+    I kept this turn side-effect-free and did not run tools, app actions, memory writes, shell commands, package installs, browser actions, or resource requests.
 
-    You said: #{text}
-
-    I will keep this turn side-effect-free unless you ask for a registered capability that requires confirmation or execution.
+    #{detail}
     """
     |> String.trim()
+  end
+
+  defp answerer do
+    :allbert_assist
+    |> Application.get_env(@answerer_config, [])
+    |> Keyword.get(:answerer, @default_answerer)
+  end
+
+  defp model_enabled? do
+    case Settings.get("intent.direct_answer_model_enabled") do
+      {:ok, enabled?} -> enabled?
+      _other -> false
+    end
+  rescue
+    _exception -> false
+  end
+
+  defp bounded_reason(reason) do
+    reason
+    |> Redactor.redact()
+    |> inspect()
+    |> then(fn value ->
+      if byte_size(value) <= @max_reason_bytes do
+        value
+      else
+        binary_part(value, 0, @max_reason_bytes) <> "...[truncated]"
+      end
+    end)
   end
 end
