@@ -1,11 +1,10 @@
 defmodule StockSageWeb.Components.CardsTest do
   use AllbertAssistWeb.ConnCase, async: true
 
-  import Phoenix.Component
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.Surface.Node
-  alias StockSageWeb.Components.SurfaceRenderer
+  alias AllbertAssistWeb.Surface.Renderer, as: SurfaceRenderer
 
   test "renders all StockSage card atoms without the v0.26 stub marker" do
     for {component, props, expected} <- card_cases() do
@@ -17,7 +16,8 @@ defmodule StockSageWeb.Components.CardsTest do
         }
       }
 
-      html = rendered_to_string(~H"<SurfaceRenderer.node node={@node} />")
+      html =
+        render_component(SurfaceRenderer, id: "surface-node-#{component}", node: assigns.node)
 
       assert html =~ ~s(data-stocksage-component="#{component}")
       assert html =~ expected
@@ -39,19 +39,20 @@ defmodule StockSageWeb.Components.CardsTest do
       }
     }
 
-    html = rendered_to_string(~H"<SurfaceRenderer.node node={@node} />")
+    html = render_component(SurfaceRenderer, id: "surface-node-unsafe", node: assigns.node)
 
     assert html =~ "&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;"
     refute html =~ "<script>"
   end
 
-  test "unsupported StockSage nodes render a bounded fallback" do
+  test "unsupported nodes render through the shared bounded fallback" do
     assigns = %{node: %Node{id: "unknown", component: :invented_card, props: %{}}}
 
-    html = rendered_to_string(~H"<SurfaceRenderer.node node={@node} />")
+    html = render_component(SurfaceRenderer, id: "surface-node-unknown", node: assigns.node)
 
-    assert html =~ ~s(data-stocksage-component="unsupported")
+    assert html =~ ~s(data-placeholder-component="invented_card")
     assert html =~ "invented_card"
+    assert html =~ "unknown workspace component"
   end
 
   defp card_cases do

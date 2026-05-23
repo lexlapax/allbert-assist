@@ -14,7 +14,7 @@ defmodule StockSageWeb.AnalysisLive do
   alias StockSage.Progress
   alias StockSage.SurfaceNodes
   alias StockSageWeb.Components.AppShell
-  alias StockSageWeb.Components.SurfaceRenderer
+  alias AllbertAssistWeb.Surface.Renderer, as: SurfaceRenderer
   alias StockSageWeb.Live
 
   @impl true
@@ -307,7 +307,12 @@ defmodule StockSageWeb.AnalysisLive do
           class="grid gap-4"
           aria-label="StockSage analysis cards"
         >
-          <SurfaceRenderer.node :for={node <- @surface_nodes} node={node} />
+          <.live_component
+            :for={node <- @surface_nodes}
+            module={SurfaceRenderer}
+            id={"stocksage-surface-node-#{node.id}"}
+            node={node}
+          />
         </section>
 
         <AppShell.state_panel

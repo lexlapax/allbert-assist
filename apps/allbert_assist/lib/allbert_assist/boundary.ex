@@ -240,7 +240,7 @@ defmodule AllbertAssist.Boundary do
     },
     %{
       id: :extension_registry,
-      role: :planned_facade,
+      role: :active_facade,
       subsystem: :extension_registry,
       module: AllbertAssist.Extensions.Registry,
       milestone: :m7,
@@ -248,7 +248,7 @@ defmodule AllbertAssist.Boundary do
     },
     %{
       id: :surface_catalog,
-      role: :planned_facade,
+      role: :active_facade,
       subsystem: :surface,
       module: AllbertAssist.Surface.Catalog,
       milestone: :m7,
@@ -282,29 +282,6 @@ defmodule AllbertAssist.Boundary do
       target: AllbertAssist.Settings.Fragment,
       milestone: :m8,
       notes: "Split into registered fragments without changing keys/defaults."
-    },
-    %{
-      id: :stocksage_app_surface_renderer,
-      role: :compatibility_shim,
-      subsystem: :surface,
-      module: StockSageWeb.Components.SurfaceRenderer,
-      target: AllbertAssist.Surface.Catalog,
-      milestone: :m7,
-      notes: "StockSage-specific renderer dispatch retires after shared renderer registration."
-    },
-    %{
-      id: :stocksage_workspace_card_adapters,
-      role: :compatibility_shim,
-      subsystem: :surface,
-      modules: [
-        AllbertAssistWeb.Workspace.Components.AnalysisCard,
-        AllbertAssistWeb.Workspace.Components.AgentReportCard,
-        AllbertAssistWeb.Workspace.Components.ParityCard,
-        AllbertAssistWeb.Workspace.Components.DebateRoundCard
-      ],
-      target: AllbertAssist.Surface.Catalog,
-      milestone: :m7,
-      notes: "v0.30 pass-through adapters retire after StockSage cards register shared renderers."
     }
   ]
 
@@ -316,27 +293,6 @@ defmodule AllbertAssist.Boundary do
       module: AllbertAssist.Security.PermissionGate,
       milestone: :m8,
       notes: "Delete only after all callers use Security Central directly."
-    },
-    %{
-      id: :stocksage_app_surface_renderer,
-      role: :deletion_candidate,
-      subsystem: :surface,
-      module: StockSageWeb.Components.SurfaceRenderer,
-      milestone: :m7,
-      notes: "Delete only after StockSage app surfaces use shared renderer dispatch."
-    },
-    %{
-      id: :stocksage_workspace_card_adapters,
-      role: :deletion_candidate,
-      subsystem: :surface,
-      modules: [
-        AllbertAssistWeb.Workspace.Components.AnalysisCard,
-        AllbertAssistWeb.Workspace.Components.AgentReportCard,
-        AllbertAssistWeb.Workspace.Components.ParityCard,
-        AllbertAssistWeb.Workspace.Components.DebateRoundCard
-      ],
-      milestone: :m7,
-      notes: "Delete only after workspace renderer dispatches StockSage card modules directly."
     }
   ]
 

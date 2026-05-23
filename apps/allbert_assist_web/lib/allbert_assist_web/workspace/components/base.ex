@@ -7,6 +7,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
 
   import AllbertAssistWeb.CoreComponents, only: [icon: 1]
 
+  alias AllbertAssist.Surface.Catalog
+
   defmacro __using__(opts) do
     component = Keyword.fetch!(opts, :component)
     title = Keyword.get(opts, :title, titleize(component))
@@ -223,24 +225,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
   def present?(value) when value in [nil, ""], do: false
   def present?(_value), do: true
 
-  def component_icon(:trace_link), do: "hero-link-micro"
-  def component_icon(:trace_viewer), do: "hero-document-text-micro"
-  def component_icon(:objective_card), do: "hero-flag-micro"
-  def component_icon(:confirmation_card), do: "hero-shield-check-micro"
-  def component_icon(:approval_card), do: "hero-check-circle-micro"
-  def component_icon(:approval_inspector), do: "hero-magnifying-glass-micro"
-  def component_icon(:memory_review_card), do: "hero-book-open-micro"
-  def component_icon(:job_card), do: "hero-clock-micro"
-  def component_icon(:channel_card), do: "hero-inbox-micro"
-  def component_icon(:settings_card), do: "hero-adjustments-horizontal-micro"
-  def component_icon(:analysis_card), do: "hero-chart-bar-micro"
-  def component_icon(:agent_report_card), do: "hero-document-chart-bar-micro"
-  def component_icon(:parity_card), do: "hero-scale-micro"
-  def component_icon(:debate_round_card), do: "hero-chat-bubble-left-right-micro"
-  def component_icon(:button), do: "hero-play-micro"
-  def component_icon(:action_button), do: "hero-bolt-micro"
-  def component_icon(:status_badge), do: "hero-signal-micro"
-  def component_icon(_component), do: "hero-squares-2x2-micro"
+  def component_icon(component), do: Catalog.icon_for(component)
 
   defp count_metric(context, key, label) do
     count =

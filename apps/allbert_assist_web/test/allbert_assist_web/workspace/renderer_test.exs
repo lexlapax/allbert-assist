@@ -3,6 +3,7 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
 
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.Surface.Catalog, as: SurfaceCatalog
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Catalog
   alias AllbertAssistWeb.Workspace.Components.Placeholder
@@ -18,6 +19,7 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
   test "dispatch covers every known catalog component" do
     for component <- Catalog.known_components() do
       assert Renderer.renderer_for(component) != Placeholder
+      assert Renderer.renderer_descriptor_for(component) == SurfaceCatalog.renderer_for(component)
     end
   end
 
@@ -42,6 +44,7 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
         assert html =~ ~s(data-stocksage-component="#{component}")
         refute html =~ "v0.26 stub"
         refute html =~ "workspace-card-stub"
+        refute html =~ "data-workspace-stocksage-adapter"
       end
     end
   end

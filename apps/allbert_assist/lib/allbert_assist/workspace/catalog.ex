@@ -7,18 +7,18 @@ defmodule AllbertAssist.Workspace.Catalog do
   cards. The web tier owns concrete LiveComponent modules; this module keeps
   the core allow-list and workspace tree metadata web-agnostic.
 
-  v0.31 keeps this as the current workspace facade while M7 introduces the
-  shared `AllbertAssist.Surface.Catalog` authority for component membership,
-  app catalog metadata, and renderer dispatch.
+  v0.31 M7 keeps this module as the workspace tree builder and delegates
+  component membership to `AllbertAssist.Surface.Catalog`.
   """
 
   alias AllbertAssist.App.CoreApp
   alias AllbertAssist.Runtime.Persistence
   alias AllbertAssist.Surface
+  alias AllbertAssist.Surface.Catalog, as: SurfaceCatalog
   alias AllbertAssist.Surface.Node
 
   @spec known_components() :: [AllbertAssist.Surface.component(), ...]
-  def known_components, do: AllbertAssist.Surface.known_components()
+  def known_components, do: SurfaceCatalog.known_components()
 
   @spec workspace_tree(keyword() | map()) :: Surface.t()
   def workspace_tree(context \\ %{}) do
