@@ -15,6 +15,7 @@ defmodule AllbertAssist.Workspace.Fragment.Guard do
 
   @internal_emitters MapSet.new([
                        "AllbertAssist.Confirmations",
+                       "AllbertAssist.Agents.IntentAgent",
                        "AllbertAssist.Objectives",
                        "AllbertAssist.Workspace.Canvas",
                        "StockSage.Actions.RunAnalysis",

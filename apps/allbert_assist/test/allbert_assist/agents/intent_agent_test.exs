@@ -3,10 +3,12 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Agents.IntentAgent
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
 
@@ -95,6 +97,53 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     ]
 
     assert action_names in [core_actions, core_actions ++ stocksage_actions]
+  end
+
+  test "neutral app descriptor returns handoff response without running the app action" do
+    with_stocksage_registered(fn ->
+      assert {:ok, response} =
+               IntentAgent.respond(%{
+                 text: "analyze CIEN",
+                 channel: :test,
+                 user_id: "local",
+                 operator_id: "local",
+                 thread_id: "thr-intent-handoff",
+                 session_id: "sess-intent-handoff",
+                 active_app: :allbert,
+                 input_signal_id: "sig-intent-handoff"
+               })
+
+      assert response.status == :completed
+      assert response.decision.intent == :app_handoff
+      assert response.decision.active_app == :allbert
+      assert response.intent_handoff.app_id == :stocksage
+      assert response.intent_handoff.action_name == "run_analysis"
+      assert response.intent_handoff.extracted_slots == %{"ticker" => "CIEN"}
+      refute response.approval_handoff
+      refute Enum.any?(response.actions, &Map.has_key?(&1, :confirmation_id))
+    end)
+  end
+
+  test "neutral app descriptor with missing slot returns clarification response" do
+    with_stocksage_registered(fn ->
+      assert {:ok, response} =
+               IntentAgent.respond(%{
+                 text: "analyze",
+                 channel: :test,
+                 user_id: "local",
+                 operator_id: "local",
+                 thread_id: "thr-intent-clarify",
+                 session_id: "sess-intent-clarify",
+                 active_app: :allbert,
+                 input_signal_id: "sig-intent-clarify"
+               })
+
+      assert response.status == :completed
+      assert response.decision.intent == :clarify_intent
+      assert response.message =~ "Which ticker"
+      assert response.intent_handoff.missing_slots == ["ticker"]
+      refute Enum.any?(response.actions, &Map.has_key?(&1, :confirmation_id))
+    end)
   end
 
   test "routes explicit settings prompts to settings actions" do
@@ -753,6 +802,28 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp with_stocksage_registered(fun) do
+    original_plugins = PluginRegistry.registered_plugins()
+    original_diagnostics = PluginRegistry.diagnostics()
+    app_registered? = AppRegistry.known_app_id?(:stocksage)
+
+    PluginRegistry.clear()
+    assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
+    unless app_registered?, do: assert({:ok, :stocksage} = AppRegistry.register(StockSage.App))
+
+    try do
+      fun.()
+    after
+      PluginRegistry.clear()
+      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+      unless app_registered?, do: AppRegistry.unregister(:stocksage)
+
+      Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
+        PluginRegistry.put_diagnostics(plugin_id, diagnostics)
+      end)
+    end
+  end
 
   defp configure_external do
     assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
