@@ -34,6 +34,8 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.model_min_confidence",
     "intent.max_candidates",
     "intent.trace_rejected_candidates",
+    "intent.direct_answer_model_enabled",
+    "intent.direct_answer_model_profile",
     "providers.*.enabled",
     "providers.*.base_url",
     "providers.*.api_key_ref",
@@ -344,6 +346,18 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.trace_rejected_candidates" => %{
       type: :boolean,
       default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "intent.direct_answer_model_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "intent.direct_answer_model_profile" => %{
+      type: :profile_ref,
+      default: "fast",
       writable?: true,
       sensitive?: false
     },
@@ -1351,7 +1365,9 @@ defmodule AllbertAssist.Settings.Schema do
       "model_timeout_ms" => 3000,
       "model_min_confidence" => 0.72,
       "max_candidates" => 80,
-      "trace_rejected_candidates" => true
+      "trace_rejected_candidates" => true,
+      "direct_answer_model_enabled" => false,
+      "direct_answer_model_profile" => "fast"
     },
     "providers" => %{
       "local_ollama" => %{
