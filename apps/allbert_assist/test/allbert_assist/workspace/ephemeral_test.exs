@@ -138,6 +138,44 @@ defmodule AllbertAssist.Workspace.EphemeralTest do
              Ephemeral.dismiss(surface.id, user_id, :operator, thread_id: "other-thread")
   end
 
+  test "open reactivates a dismissed surface id in the same thread" do
+    thread_id = "thread-eph-reopen"
+    user_id = "user-eph-reopen"
+
+    assert {:ok, surface} =
+             Ephemeral.open(%{
+               id: "eph_reopen_same_prompt",
+               thread_id: thread_id,
+               user_id: user_id,
+               kind: :approval_card,
+               body: %{title: "Approval", sequence: 1},
+               metadata: %{sequence: 1}
+             })
+
+    assert {:ok, dismissed} = Ephemeral.dismiss(surface.id, user_id, :operator)
+    assert dismissed.dismissed_by == "operator"
+
+    assert {:ok, reopened} =
+             Ephemeral.open(%{
+               id: surface.id,
+               thread_id: thread_id,
+               user_id: user_id,
+               kind: :approval_card,
+               body: %{title: "Approval", sequence: 2},
+               metadata: %{sequence: 2}
+             })
+
+    assert reopened.id == surface.id
+    assert is_nil(reopened.dismissed_at)
+    assert is_nil(reopened.dismissed_by)
+    assert reopened.body == %{"sequence" => 2, "title" => "Approval"}
+    assert (reopened.metadata[:sequence] || reopened.metadata["sequence"]) == 2
+
+    assert {:ok, [active]} = Ephemeral.surfaces_for_thread(thread_id, user_id)
+    assert active.id == surface.id
+    assert active.body == %{"sequence" => 2, "title" => "Approval"}
+  end
+
   test "registered dismissal action dismisses through workspace write permission metadata" do
     thread_id = "thread-eph-action"
     user_id = "user-eph-action"

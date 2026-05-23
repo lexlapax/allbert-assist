@@ -91,6 +91,10 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 0.72} = Settings.get("intent.model_min_confidence")
     assert {:ok, 80} = Settings.get("intent.max_candidates")
     assert {:ok, true} = Settings.get("intent.trace_rejected_candidates")
+    assert {:ok, true} = Settings.get("intent.descriptors_enabled")
+    assert {:ok, 0.6} = Settings.get("intent.handoff_threshold")
+    assert {:ok, 0.15} = Settings.get("intent.handoff_margin")
+    assert {:ok, 0.3} = Settings.get("intent.clarify_floor")
 
     assert {:ok, resolved} =
              Settings.put("intent.max_candidates", 120, %{audit?: false})
@@ -100,6 +104,9 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:error, {:invalid_setting, "intent.model_min_confidence", _reason}} =
              Settings.put("intent.model_min_confidence", 1.5, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "intent.handoff_threshold", _reason}} =
+             Settings.put("intent.handoff_threshold", 1.5, %{audit?: false})
 
     assert {:error, {:invalid_setting, "intent.max_candidates", _reason}} =
              Settings.put("intent.max_candidates", 0, %{audit?: false})

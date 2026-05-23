@@ -59,7 +59,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
   def render_simple(assigns) do
     ~H"""
     <article
-      id={"workspace-component-#{@node.id}"}
+      id={dom_id(@node)}
       class={component_class(@component, @stub?)}
       data-workspace-component={@component}
       data-workspace-renderer="component"
@@ -193,6 +193,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Base do
   def component_class(_component, false) do
     "workspace-card"
   end
+
+  def dom_id(node), do: prop(node, :dom_id, "workspace-component-#{node.id}")
 
   def title(node, fallback), do: prop(node, :title, prop(node, :label, fallback))
 
