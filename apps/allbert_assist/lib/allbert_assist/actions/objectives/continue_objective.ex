@@ -23,6 +23,7 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
     ]
 
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -129,32 +130,27 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
   end
 
   defp denied(permission_decision) do
-    %{
-      message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+    Response.denied(permission_decision.reason,
       permission_decision: permission_decision,
       actions: [action(:denied, permission_decision, %{error: :permission_denied})]
-    }
+    )
   end
 
   defp not_found(permission_decision) do
-    %{
+    Response.normalize(%{
       message: "Objective not found.",
       status: :not_found,
       error: :not_found,
       permission_decision: permission_decision,
       actions: [action(:not_found, permission_decision, %{error: :not_found})]
-    }
+    })
   end
 
   defp error(permission_decision, reason) do
-    %{
-      message: "Unable to continue objective: #{inspect(reason)}",
-      status: :error,
-      error: reason,
+    Response.error("Unable to continue objective: #{inspect(reason)}", reason,
       permission_decision: permission_decision,
       actions: [action(:error, permission_decision, %{error: reason})]
-    }
+    )
   end
 
   defp action(status, permission_decision, metadata) do

@@ -26,6 +26,15 @@ Allbert will add a typed runtime response contract for common outcomes:
 The contract should be convenient for actions and objective steps while still
 rendering the same CLI and LiveView behavior that operators see today.
 
+## Implementation Notes
+
+v0.31 M6 adds `AllbertAssist.Runtime.Response` with builders and normalizers
+for completed, confirmation-needed, denied, advisory, error, unsupported, and
+unavailable results. `AllbertAssist.Runtime`, `AllbertAssist.Actions.Runner`,
+`PermissionGate.response_status/1`, and representative objective execution
+branches use the helper without changing existing operator-facing copy,
+confirmation semantics, or transport protocol fields.
+
 ## Consequences
 
 - v0.32 panels can render action/objective status without special cases.

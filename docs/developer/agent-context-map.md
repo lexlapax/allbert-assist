@@ -175,7 +175,9 @@ Do not load every section by default.
   `AllbertAssist.Runtime.Paths` and `AllbertAssist.Runtime.Redactor`; M4 adds
   `AllbertAssist.Runtime.Audit`, `AllbertAssist.Runtime.Persistence`, and
   `AllbertAssist.Runtime.Trace`; M5 adds `AllbertAssist.Action` and
-  module-owned capability metadata for registered actions. Per ADR 0026-0031.
+  module-owned capability metadata for registered actions; M6 adds
+  `AllbertAssist.Runtime.Response` for shared Runtime/Runner/objective response
+  normalization. Per ADR 0026-0031.
 - v0.32 (planned): Workspace-Only App UI And Settings Central. Makes
   `/workspace` the operator home; removes `/agent`, `/settings`, and
   `/stocksage/*` without compatibility redirects; adds `:panel` surfaces into
