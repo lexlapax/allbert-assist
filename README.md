@@ -23,10 +23,10 @@ to generate and reuse.
 
 ## Current State
 
-The current release is `v0.29.0`. It completes the StockSage app memory and
-outcomes contract: outcome resolution, trend calibration, local reflections,
-explicit confirmation-gated lesson sync, analysis reruns, and polished
-StockSage app-flow UX.
+The current release is `v0.30.0`. It completes the app canvas contract:
+StockSage analysis lifecycle signals now emit durable `/agent` workspace
+canvas tiles through the audited Fragment/canvas path, and those tiles render
+with the same StockSage card components proven in `/stocksage/*`.
 
 Recent platform contracts now in place:
 
@@ -35,6 +35,8 @@ Recent platform contracts now in place:
 - `v0.28.0`: security hardening and adversarial evals across app surfaces,
   workspace fragments, objectives, resource access, and StockSage boundaries.
 - `v0.29.0`: app memory and outcomes contract, proven through StockSage.
+- `v0.30.0`: app canvas contract, proven through durable StockSage canvas
+  tiles in `/agent`.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -48,8 +50,8 @@ objectives, inspect traces, review markdown memory, and host reviewed plugin
 apps.
 
 StockSage is the reference plugin app. It exercises the app, objective,
-security, native-agent, LiveView surface, memory-sync, and future canvas
-contracts through a concrete financial-analysis workflow.
+security, native-agent, LiveView surface, memory-sync, and canvas contracts
+through a concrete financial-analysis workflow.
 
 ## Built On
 
@@ -73,8 +75,6 @@ manually proven first.
 
 Near-term milestones:
 
-- `v0.30`: app canvas contract, wiring StockSage's proven components into
-  durable `/agent` canvas tiles through the audited canvas APIs.
 - `v0.31`: plugin/app generator, scaffolding the surface, memory, action,
   objective, and canvas contracts after they have been proven manually.
 - Post-`v0.31`: broader UI protocol interop, richer generated app workflows,
@@ -91,10 +91,10 @@ Near-term milestones:
   milestones.
 - [CHANGELOG.md](CHANGELOG.md): released-history details.
 - [docs/adr](docs/adr): architectural decisions.
-- [docs/plans/v0.29-plan.md](docs/plans/v0.29-plan.md): current implemented
-  release candidate plan.
-- [docs/plans/v0.29-request-flow.md](docs/plans/v0.29-request-flow.md):
-  request flows and manual verification notes for `v0.29.0`.
+- [docs/plans/v0.30-plan.md](docs/plans/v0.30-plan.md): current implemented
+  milestone plan.
+- [docs/plans/v0.30-request-flow.md](docs/plans/v0.30-request-flow.md):
+  request flows and manual verification notes for `v0.30.0`.
 
 ## Local Development
 

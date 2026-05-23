@@ -58,5 +58,12 @@ router mounts reviewed `StockSageWeb.*Live` modules, while
 `StockSage.App.surfaces/0` remains the provider metadata source validated by
 the app registry. These routes render real StockSage cards, objective and
 confirmation state, progress streaming, queue rows, and trends in the
-StockSage app surface. They do not emit durable `/agent` canvas tiles; that
-contract is deferred to v0.30.
+StockSage app surface.
+
+v0.30 wires those same StockSage cards into durable `/agent` canvas tiles.
+`RunAnalysis` lifecycle signals flow through
+`AllbertAssist.Workspace.Emitters.stocksage_signal/2`, signed
+`Workspace.Fragment.Envelope` validation, and the existing
+`workspace_canvas_tiles` + YAML body store. The web renderer adapts the
+v0.27 `StockSageWeb.Components.Cards` functions; it does not reintroduce the
+v0.26 stubs or add a new `:stock_chart` component atom.
