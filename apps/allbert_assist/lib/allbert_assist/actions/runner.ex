@@ -5,7 +5,7 @@ defmodule AllbertAssist.Actions.Runner do
 
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Registry
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Signals
   alias Jido.Signal
 

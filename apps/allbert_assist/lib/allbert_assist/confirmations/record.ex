@@ -1,7 +1,7 @@
 defmodule AllbertAssist.Confirmations.Record do
   @moduledoc false
 
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
 
   @pending_status "pending"
   @statuses ~w(pending approved denied expired cancelled adapter_unavailable)

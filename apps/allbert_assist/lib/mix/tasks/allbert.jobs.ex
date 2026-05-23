@@ -23,7 +23,7 @@ defmodule Mix.Tasks.Allbert.Jobs do
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Runner
   alias AllbertAssist.Jobs.Templates
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
 
   @shortdoc "Manage local scheduled jobs"
 

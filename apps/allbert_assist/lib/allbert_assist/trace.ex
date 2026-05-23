@@ -13,7 +13,7 @@ defmodule AllbertAssist.Trace do
   alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Memory
-  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Workspace
 
   @model_alias :local

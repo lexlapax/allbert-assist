@@ -1,6 +1,10 @@
 defmodule AllbertAssist.Security.Redactor do
   @moduledoc """
   Central redaction policy for Security Central-facing values and metadata.
+
+  v0.31 adds `AllbertAssist.Runtime.Redactor` as the runtime-facing facade for
+  new code. This module remains the underlying compatibility policy so existing
+  callers keep the exact same redaction behavior.
   """
 
   @redacted "[REDACTED]"
