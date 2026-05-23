@@ -155,6 +155,77 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
     assert Enum.any?(eval.result.diagnostics, &(&1.kind == :component_not_in_app_catalog))
   end
 
+  test "panel-catalog-bypass-001: panel app components must be declared by catalog" do
+    fixture = EvalInventory.row!("panel-catalog-bypass-001")
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            panel =
+              surface(
+                [
+                  %Node{
+                    id: "panel-root",
+                    component: :panel,
+                    children: [%Node{id: "undeclared-analysis", component: :analysis_card}]
+                  }
+                ],
+                app_id: :stocksage,
+                kind: :panel,
+                zone: :canvas_panels
+              )
+
+            with {:ok, validated} <- Surface.validate_surface(panel),
+                 :ok <- Surface.validate_surface_catalog(validated, []) do
+              %{decision: :allowed, result: validated, trace: %{fixture_id: fixture.id}}
+            else
+              {:error, diagnostics} ->
+                %{
+                  decision: :dropped,
+                  result: %{diagnostics: diagnostics},
+                  trace: %{fixture_id: fixture.id, boundary: :panel_catalog_owner_check}
+                }
+            end
+          end
+        })
+      )
+
+    assert_dropped(eval)
+    assert Enum.any?(eval.result.diagnostics, &(&1.kind == :component_not_in_app_catalog))
+  end
+
+  test "zone-injection-001: unknown panel zones are rejected before workspace render" do
+    fixture = EvalInventory.row!("zone-injection-001")
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            case Surface.validate_surface(
+                   surface([%Node{id: "panel-root", component: :panel}],
+                     kind: :panel,
+                     zone: :operator_shell
+                   )
+                 ) do
+              {:error, diagnostics} ->
+                %{
+                  decision: :dropped,
+                  result: %{diagnostics: diagnostics},
+                  trace: %{fixture_id: fixture.id, boundary: :workspace_zone_registry}
+                }
+
+              {:ok, surface} ->
+                %{decision: :allowed, result: surface, trace: %{fixture_id: fixture.id}}
+            end
+          end
+        })
+      )
+
+    assert_dropped(eval)
+    assert Enum.any?(eval.result.diagnostics, &(&1.kind == :unknown_zone))
+  end
+
   test "fragment-forgery-001: unsigned fragment envelopes never persist or render" do
     fixture = EvalInventory.row!("fragment-forgery-001")
     assert {:ok, unsigned} = Envelope.new(fragment_attrs())
@@ -350,6 +421,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
       label: Keyword.get(opts, :label, "Fragment"),
       path: Keyword.get(opts, :path, "/workspace"),
       kind: Keyword.get(opts, :kind, :canvas),
+      zone: Keyword.get(opts, :zone),
       status: Keyword.get(opts, :status, :available),
       nodes: nodes,
       fallback_text: Keyword.get(opts, :fallback_text, "Fragment fallback"),

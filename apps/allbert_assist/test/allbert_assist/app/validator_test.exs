@@ -479,6 +479,81 @@ defmodule AllbertAssist.App.ValidatorTest do
     def surface_catalog, do: [%{component: :route, allowed_props: [], allowed_bindings: []}]
   end
 
+  defmodule PanelProviderApp do
+    use AllbertAssist.App.ValidatorTest.ValidAppCase
+    use AllbertAssist.App.SurfaceProvider
+
+    @impl true
+    def app_id, do: :panel_provider_app
+
+    @impl true
+    def display_name, do: "Panel Provider"
+
+    @impl true
+    def version, do: "0.32.0"
+
+    @impl true
+    def surfaces do
+      [
+        %Surface{
+          id: :summary_panel,
+          app_id: :panel_provider_app,
+          label: "Summary Panel",
+          path: "/workspace",
+          kind: :panel,
+          zone: :canvas_panels,
+          status: :available,
+          nodes: [
+            %Node{
+              id: "summary-panel-root",
+              component: :panel,
+              props: %{title: "Summary panel"},
+              children: [%Node{id: "summary-panel-text", component: :text, props: %{body: "ok"}}]
+            }
+          ],
+          fallback_text: "Summary panel.",
+          metadata: %{visible_when: :active_app, order: 10}
+        }
+      ]
+    end
+
+    def surface_catalog, do: []
+  end
+
+  defmodule InvalidPanelProviderApp do
+    use AllbertAssist.App.ValidatorTest.ValidAppCase
+    use AllbertAssist.App.SurfaceProvider
+
+    @impl true
+    def app_id, do: :invalid_panel_provider_app
+
+    @impl true
+    def display_name, do: "Invalid Panel Provider"
+
+    @impl true
+    def version, do: "0.32.0"
+
+    @impl true
+    def surfaces do
+      [
+        %Surface{
+          id: :bad_panel,
+          app_id: :invalid_panel_provider_app,
+          label: "Bad Panel",
+          path: "/workspace",
+          kind: :panel,
+          zone: :not_a_zone,
+          status: :available,
+          nodes: [%Node{id: "bad-panel-root", component: :section}],
+          fallback_text: "Bad panel.",
+          metadata: %{visible_when: :invented}
+        }
+      ]
+    end
+
+    def surface_catalog, do: []
+  end
+
   test "accepts valid app modules and built-in reserved-id owners" do
     assert {:ok, %{app_id: :validator_valid_app}} = Validator.validate(ValidApp, [])
 
@@ -530,6 +605,19 @@ defmodule AllbertAssist.App.ValidatorTest do
     assert [%{component: :route}] = attrs.surface_catalog
   end
 
+  test "validates v0.32 panel provider surfaces" do
+    assert {:ok, attrs} = Validator.validate(PanelProviderApp, [])
+
+    assert [
+             %Surface{
+               id: :summary_panel,
+               kind: :panel,
+               zone: :canvas_panels,
+               metadata: %{visible_when: :active_app, order: 10}
+             }
+           ] = attrs.provider_surfaces
+  end
+
   test "rejects invalid v0.18 contract fields" do
     assert_error(InvalidAgentApp, {:invalid_agents, InvalidAgentApp})
     assert_error(InvalidSignalsApp, {:invalid_signals, :topic})
@@ -539,6 +627,14 @@ defmodule AllbertAssist.App.ValidatorTest do
     assert {:error, {:invalid_surface_provider, _diagnostics},
             [%{kind: :invalid_surface_provider}]} =
              Validator.validate(InvalidProviderApp, [])
+
+    assert {:error, {:invalid_surface_provider, diagnostics},
+            [%{kind: :invalid_surface_provider}]} =
+             Validator.validate(InvalidPanelProviderApp, [])
+
+    assert Enum.any?(diagnostics, &(&1.kind == :unknown_zone))
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_panel_node))
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_visible_when))
   end
 
   defp assert_error(module, reason) do

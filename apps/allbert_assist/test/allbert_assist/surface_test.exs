@@ -6,6 +6,7 @@ defmodule AllbertAssist.SurfaceTest do
   alias AllbertAssist.Surface.ActionBinding
   alias AllbertAssist.Surface.Encoder
   alias AllbertAssist.Surface.Node
+  alias StockSage.Actions.ListAnalyses
 
   defp valid_surface(attrs \\ %{}) do
     struct!(
@@ -35,8 +36,50 @@ defmodule AllbertAssist.SurfaceTest do
     )
   end
 
+  defp valid_panel(attrs \\ %{}) do
+    struct!(
+      Surface,
+      Map.merge(
+        %{
+          id: :fixture_panel,
+          app_id: :allbert,
+          label: "Fixture Panel",
+          path: "/workspace",
+          kind: :panel,
+          zone: :canvas_panels,
+          status: :available,
+          fallback_text: "Fixture panel is available in the workspace.",
+          metadata: %{visible_when: :active_app, order: 10},
+          nodes: [
+            %Node{
+              id: "fixture-panel-root",
+              component: :panel,
+              props: %{title: "Fixture panel"},
+              children: [%Node{id: "fixture-panel-body", component: :text, props: %{body: "ok"}}]
+            }
+          ]
+        },
+        attrs
+      )
+    )
+  end
+
   test "valid chat surface validates" do
     assert {:ok, %Surface{id: :agent}} = Surface.validate_surface(valid_surface())
+  end
+
+  test "valid panel surface validates with a known workspace zone" do
+    assert {:ok, %Surface{id: :fixture_panel, zone: :canvas_panels, kind: :panel}} =
+             Surface.validate_surface(valid_panel())
+
+    assert {:ok, %Surface{zone: :utility_drawer}} =
+             Surface.validate_surface(
+               valid_panel(%{
+                 id: :metadata_zone_panel,
+                 zone: nil,
+                 metadata: %{zone: "utility_drawer", visible_when: "operator_opened"}
+               })
+             )
   end
 
   test "known components include the v0.26 workspace catalog" do
@@ -48,6 +91,24 @@ defmodule AllbertAssist.SurfaceTest do
     assert :canvas in Surface.known_components()
     assert :approval_card in Surface.known_components()
     assert :debate_round_card in Surface.known_components()
+  end
+
+  test "rejects invalid panel zones and panel roots" do
+    for attrs <- [
+          %{zone: :unknown_zone},
+          %{zone: nil, metadata: %{}},
+          %{nodes: [%Node{id: "not-panel", component: :section}]},
+          %{metadata: %{visible_when: :after_midnight}},
+          %{metadata: %{order: -1}}
+        ] do
+      assert {:error, diagnostics} = Surface.validate_surface(valid_panel(attrs))
+      assert diagnostics != []
+    end
+
+    assert {:error, diagnostics} =
+             Surface.validate_surface(valid_surface(%{kind: :chat, zone: :canvas_panels}))
+
+    assert Enum.any?(diagnostics, &(&1.kind == :unexpected_zone))
   end
 
   test "rejects unknown component and duplicate node ids" do
@@ -132,6 +193,30 @@ defmodule AllbertAssist.SurfaceTest do
 
       assert diagnostics != []
     end
+  end
+
+  test "panel action bindings cannot target another app action" do
+    assert {:error, diagnostics} =
+             Surface.validate_surface(
+               valid_panel(%{
+                 app_id: :allbert,
+                 nodes: [
+                   %Node{
+                     id: "foreign-action",
+                     component: :panel,
+                     children: [
+                       %Node{
+                         id: "foreign-action-button",
+                         component: :action_button,
+                         bindings: [%ActionBinding{action_name: ListAnalyses.name()}]
+                       }
+                     ]
+                   }
+                 ]
+               })
+             )
+
+    assert Enum.any?(diagnostics, &(&1.kind == :foreign_action_binding))
   end
 
   test "catalog validation and A2UI stub" do

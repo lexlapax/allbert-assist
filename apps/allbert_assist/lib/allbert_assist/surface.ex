@@ -17,14 +17,16 @@ defmodule AllbertAssist.Surface do
     :label,
     :path,
     :kind,
+    :zone,
     :status,
     nodes: [],
     fallback_text: "",
     metadata: %{}
   ]
 
-  @known_kinds [:route, :chat, :workspace, :analysis, :canvas, :settings]
+  @known_kinds [:route, :chat, :workspace, :analysis, :canvas, :settings, :panel]
   @known_statuses [:available, :placeholder, :disabled]
+  @known_visible_when [:always, :active_app, :selected_app, :has_context, :operator_opened]
   @secret_key_regex ~r/(^|_)(key|secret|token|password|credential|api_key)$/i
 
   @type diagnostic :: %{
@@ -89,6 +91,7 @@ defmodule AllbertAssist.Surface do
           label: String.t(),
           path: String.t(),
           kind: atom(),
+          zone: atom() | nil,
           status: atom(),
           nodes: [Node.t()],
           fallback_text: String.t(),
@@ -98,6 +101,9 @@ defmodule AllbertAssist.Surface do
   @spec known_components() :: [component(), ...]
   def known_components, do: Catalog.known_components()
 
+  @spec known_zones() :: [Catalog.zone(), ...]
+  def known_zones, do: Catalog.known_zones()
+
   @spec validate_surface(t()) :: {:ok, t()} | {:error, [diagnostic()]}
   def validate_surface(%__MODULE__{} = surface) do
     diagnostics =
@@ -106,7 +112,12 @@ defmodule AllbertAssist.Surface do
       |> validate_surface_nodes(surface)
 
     if diagnostics == [] do
-      {:ok, %{surface | nodes: validate_nodes!(surface.nodes)}}
+      {:ok,
+       %{
+         surface
+         | nodes: validate_nodes!(surface.nodes),
+           zone: normalized_surface_zone(surface)
+       }}
     else
       {:error, Enum.reverse(diagnostics)}
     end
@@ -188,6 +199,7 @@ defmodule AllbertAssist.Surface do
     |> require_member(surface.status, @known_statuses, :status)
     |> require_bounded_string(surface.fallback_text, :fallback_text, 1, 512)
     |> validate_metadata(surface.metadata)
+    |> validate_panel_contract(surface)
   end
 
   defp validate_surface_nodes(diagnostics, surface) do
@@ -196,7 +208,7 @@ defmodule AllbertAssist.Surface do
     diagnostics
     |> validate_node_count(node_count)
     |> validate_duplicate_node_ids(surface.nodes)
-    |> validate_node_list(surface.nodes)
+    |> validate_node_list(surface.nodes, surface.app_id)
   end
 
   defp validate_node_count(diagnostics, count) when count <= 256, do: diagnostics
@@ -206,23 +218,23 @@ defmodule AllbertAssist.Surface do
       diagnostic(:surface_too_large, "Surface has too many nodes.", %{count: count}) | diagnostics
     ]
 
-  defp validate_node_list(diagnostics, nodes) when is_list(nodes) do
-    Enum.reduce(nodes, diagnostics, &validate_node/2)
+  defp validate_node_list(diagnostics, nodes, app_id) when is_list(nodes) do
+    Enum.reduce(nodes, diagnostics, &validate_node(&1, &2, app_id))
   end
 
-  defp validate_node_list(diagnostics, _nodes),
+  defp validate_node_list(diagnostics, _nodes, _app_id),
     do: [diagnostic(:invalid_nodes, "Surface nodes must be a list.") | diagnostics]
 
-  defp validate_node(%Node{} = node, diagnostics) do
+  defp validate_node(%Node{} = node, diagnostics, app_id) do
     diagnostics
     |> require_bounded_string(node.id, :node_id, 1, 64)
     |> require_member(node.component, Catalog.known_components(), :component)
     |> validate_props(node.props)
-    |> validate_bindings(node.bindings)
-    |> validate_node_list(node.children)
+    |> validate_bindings(node.bindings, app_id)
+    |> validate_node_list(node.children, app_id)
   end
 
-  defp validate_node(_node, diagnostics),
+  defp validate_node(_node, diagnostics, _app_id),
     do: [
       diagnostic(:invalid_node, "Surface node must be an AllbertAssist.Surface.Node struct.")
       | diagnostics
@@ -321,27 +333,27 @@ defmodule AllbertAssist.Surface do
 
   defp validate_prop_value(diagnostics, _key, _value), do: diagnostics
 
-  defp validate_bindings(diagnostics, bindings) when is_list(bindings) do
-    Enum.reduce(bindings, diagnostics, &validate_binding/2)
+  defp validate_bindings(diagnostics, bindings, app_id) when is_list(bindings) do
+    Enum.reduce(bindings, diagnostics, &validate_binding(&1, &2, app_id))
   end
 
-  defp validate_bindings(diagnostics, _bindings),
+  defp validate_bindings(diagnostics, _bindings, _app_id),
     do: [diagnostic(:invalid_bindings, "Surface action bindings must be a list.") | diagnostics]
 
-  defp validate_binding(%ActionBinding{} = binding, diagnostics) do
-    case binding_error(binding) do
+  defp validate_binding(%ActionBinding{} = binding, diagnostics, app_id) do
+    case binding_error(binding, app_id) do
       nil -> diagnostics
       diagnostic -> [diagnostic | diagnostics]
     end
   end
 
-  defp validate_binding(_binding, diagnostics),
+  defp validate_binding(_binding, diagnostics, _app_id),
     do: [
       diagnostic(:invalid_action_binding, "Action binding must be an ActionBinding struct.")
       | diagnostics
     ]
 
-  defp binding_error(%ActionBinding{} = binding) do
+  defp binding_error(%ActionBinding{} = binding, app_id) do
     cond do
       not is_binary(binding.action_name) or String.trim(binding.action_name) == "" ->
         diagnostic(:invalid_action_binding, "Action binding requires a non-empty action name.")
@@ -350,11 +362,11 @@ defmodule AllbertAssist.Surface do
         diagnostic(:unsafe_action_binding, "Action binding contains an unsafe value.")
 
       true ->
-        binding_capability_error(binding, ActionsRegistry.capability(binding.action_name))
+        binding_capability_error(binding, ActionsRegistry.capability(binding.action_name), app_id)
     end
   end
 
-  defp binding_capability_error(binding, {:ok, capability}) do
+  defp binding_capability_error(binding, {:ok, capability}, app_id) do
     cond do
       capability.permission == :command_execute ->
         diagnostic(
@@ -370,12 +382,23 @@ defmodule AllbertAssist.Surface do
           %{action_name: binding.action_name}
         )
 
+      capability.app_id && capability.app_id != app_id ->
+        diagnostic(
+          :foreign_action_binding,
+          "Surface binding references an action owned by another app.",
+          %{
+            action_name: binding.action_name,
+            surface_app_id: app_id,
+            action_app_id: capability.app_id
+          }
+        )
+
       true ->
         nil
     end
   end
 
-  defp binding_capability_error(binding, {:error, _reason}) do
+  defp binding_capability_error(binding, {:error, _reason}, _app_id) do
     diagnostic(:unknown_action_binding, "Action binding references an unknown action.", %{
       action_name: binding.action_name
     })
@@ -490,11 +513,187 @@ defmodule AllbertAssist.Surface do
   end
 
   defp validate_metadata(diagnostics, metadata)
-       when is_map(metadata) and map_size(metadata) <= 64,
-       do: diagnostics
+       when is_map(metadata) and map_size(metadata) <= 64 do
+    Enum.reduce(metadata, diagnostics, fn {key, value}, acc ->
+      acc
+      |> validate_metadata_key(key)
+      |> validate_prop_value(key, value)
+    end)
+  end
 
   defp validate_metadata(diagnostics, _metadata),
     do: [diagnostic(:invalid_metadata, "Surface metadata must be a bounded map.") | diagnostics]
+
+  defp validate_metadata_key(diagnostics, key) when is_atom(key) or is_binary(key) do
+    validate_prop_key(diagnostics, key)
+  end
+
+  defp validate_metadata_key(diagnostics, key) do
+    [
+      diagnostic(:invalid_metadata, "Surface metadata keys must be atoms or strings.", %{
+        key: inspect(key)
+      })
+      | diagnostics
+    ]
+  end
+
+  defp validate_panel_contract(diagnostics, %{kind: :panel} = surface) do
+    zone = normalized_surface_zone(surface)
+
+    diagnostics
+    |> validate_panel_zone(surface, zone)
+    |> validate_panel_metadata(surface)
+    |> validate_panel_nodes(surface.nodes)
+  end
+
+  defp validate_panel_contract(diagnostics, surface) do
+    if normalized_surface_zone(surface) do
+      [
+        diagnostic(:unexpected_zone, "Only panel surfaces may target workspace zones.", %{
+          surface_id: surface.id,
+          kind: surface.kind
+        })
+        | diagnostics
+      ]
+    else
+      diagnostics
+    end
+  end
+
+  defp validate_panel_zone(diagnostics, surface, zone) do
+    top_level_zone = normalize_zone(surface.zone)
+    metadata_zone = normalize_zone(metadata_value(surface.metadata, :zone))
+
+    cond do
+      is_nil(surface.zone) and is_nil(metadata_value(surface.metadata, :zone)) ->
+        [
+          diagnostic(:missing_panel_zone, "Panel surfaces must target a known workspace zone.", %{
+            surface_id: surface.id,
+            zones: Catalog.known_zones()
+          })
+          | diagnostics
+        ]
+
+      is_nil(zone) ->
+        [
+          diagnostic(:unknown_zone, "Panel surface targets an unknown workspace zone.", %{
+            surface_id: surface.id,
+            zone: inspect(surface.zone || metadata_value(surface.metadata, :zone)),
+            zones: Catalog.known_zones()
+          })
+          | diagnostics
+        ]
+
+      top_level_zone && metadata_zone && top_level_zone != metadata_zone ->
+        [
+          diagnostic(:zone_conflict, "Panel surface has conflicting zone declarations.", %{
+            surface_id: surface.id,
+            zone: top_level_zone,
+            metadata_zone: metadata_zone
+          })
+          | diagnostics
+        ]
+
+      true ->
+        diagnostics
+    end
+  end
+
+  defp validate_panel_metadata(diagnostics, %{metadata: metadata}) when is_map(metadata) do
+    diagnostics
+    |> validate_visible_when(metadata_value(metadata, :visible_when))
+    |> validate_panel_order(metadata_value(metadata, :order))
+  end
+
+  defp validate_panel_metadata(diagnostics, _surface), do: diagnostics
+
+  defp validate_visible_when(diagnostics, nil), do: diagnostics
+
+  defp validate_visible_when(diagnostics, value) do
+    if normalize_visible_when(value) do
+      diagnostics
+    else
+      [
+        diagnostic(:invalid_visible_when, "Panel visible_when metadata is not allowed.", %{
+          value: inspect(value),
+          allowed: @known_visible_when
+        })
+        | diagnostics
+      ]
+    end
+  end
+
+  defp validate_panel_order(diagnostics, nil), do: diagnostics
+
+  defp validate_panel_order(diagnostics, order) when is_integer(order) and order in 0..10_000,
+    do: diagnostics
+
+  defp validate_panel_order(diagnostics, order) do
+    [
+      diagnostic(:invalid_panel_order, "Panel order metadata must be an integer 0..10000.", %{
+        value: inspect(order)
+      })
+      | diagnostics
+    ]
+  end
+
+  defp validate_panel_nodes(diagnostics, nodes) when is_list(nodes) do
+    cond do
+      nodes == [] ->
+        [
+          diagnostic(:missing_panel_node, "Panel surfaces must include a panel root node.")
+          | diagnostics
+        ]
+
+      Enum.any?(nodes, &match?(%Node{component: component} when component != :panel, &1)) ->
+        [
+          diagnostic(
+            :invalid_panel_node,
+            "Panel surface root nodes must use the panel component."
+          )
+          | diagnostics
+        ]
+
+      true ->
+        diagnostics
+    end
+  end
+
+  defp validate_panel_nodes(diagnostics, _nodes), do: diagnostics
+
+  defp normalized_surface_zone(surface) do
+    normalize_zone(surface.zone) || normalize_zone(metadata_value(surface.metadata, :zone))
+  end
+
+  defp normalize_zone(zone) when is_atom(zone) do
+    if Catalog.known_zone?(zone), do: zone
+  end
+
+  defp normalize_zone(zone) when is_binary(zone) do
+    normalized = String.trim(zone)
+
+    Enum.find(Catalog.known_zones(), &(Atom.to_string(&1) == normalized))
+  end
+
+  defp normalize_zone(_zone), do: nil
+
+  defp normalize_visible_when(value) when is_atom(value) do
+    if value in @known_visible_when, do: value
+  end
+
+  defp normalize_visible_when(value) when is_binary(value) do
+    normalized = String.trim(value)
+
+    Enum.find(@known_visible_when, &(Atom.to_string(&1) == normalized))
+  end
+
+  defp normalize_visible_when(_value), do: nil
+
+  defp metadata_value(metadata, key) when is_map(metadata) do
+    Map.get(metadata, key) || Map.get(metadata, Atom.to_string(key))
+  end
+
+  defp metadata_value(_metadata, _key), do: nil
 
   defp validate_atom_list(diagnostics, values, _field) when is_list(values) do
     if Enum.all?(values, &is_atom/1),
