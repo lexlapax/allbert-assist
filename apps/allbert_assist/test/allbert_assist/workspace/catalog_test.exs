@@ -7,10 +7,10 @@ defmodule AllbertAssist.Workspace.CatalogTest do
   alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
   alias AllbertAssist.Workspace.Fragment.Envelope
 
-  test "known components returns the 42-component v0.26 allow-list" do
+  test "known components returns the v0.32 workspace allow-list" do
     components = Catalog.known_components()
 
-    assert length(components) == 42
+    assert length(components) == 48
     assert Enum.uniq(components) == components
 
     assert Enum.all?(
@@ -20,6 +20,12 @@ defmodule AllbertAssist.Workspace.CatalogTest do
                :timeline,
                :composer,
                :status_badge,
+               :workspace_shell,
+               :nav_rail,
+               :thread_list,
+               :app_launcher,
+               :utility_drawer,
+               :workspace_panel,
                :workspace,
                :canvas,
                :tile,
@@ -41,9 +47,11 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     assert surface.kind == :workspace
     assert surface.metadata.workspace == %{user_id: "local", thread_id: "thread-1"}
 
-    assert [%Node{component: :workspace, children: children}] = surface.nodes
+    assert [%Node{component: :workspace_shell, children: children}] = surface.nodes
     assert Enum.any?(children, &match?(%Node{component: :chat}, &1))
     assert Enum.any?(children, &match?(%Node{component: :canvas}, &1))
+    assert Enum.any?(children, &match?(%Node{component: :nav_rail}, &1))
+    assert Enum.any?(children, &match?(%Node{component: :utility_drawer}, &1))
     assert Enum.any?(children, &match?(%Node{component: :ephemeral_surface}, &1))
   end
 
@@ -64,7 +72,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
         ]
       )
 
-    assert [%Node{component: :workspace, children: children}] = surface.nodes
+    assert [%Node{component: :workspace_shell, children: children}] = surface.nodes
 
     assert %Node{children: [%Node{component: :tile, children: [canvas_child]}]} =
              Enum.find(children, &(&1.component == :canvas))
@@ -87,7 +95,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
         panel_surfaces: [panel_surface()]
       )
 
-    assert [%Node{component: :workspace, children: children}] = surface.nodes
+    assert [%Node{component: :workspace_shell, children: children}] = surface.nodes
 
     assert %Node{component: :canvas, children: canvas_children} =
              Enum.find(children, &(&1.component == :canvas))
@@ -110,7 +118,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
         ]
       )
 
-    assert [%Node{component: :workspace, children: children}] = surface.nodes
+    assert [%Node{component: :workspace_shell, children: children}] = surface.nodes
 
     assert %Node{component: :canvas, children: canvas_children} =
              Enum.find(children, &(&1.component == :canvas))

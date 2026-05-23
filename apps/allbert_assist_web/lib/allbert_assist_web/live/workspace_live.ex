@@ -64,7 +64,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         workspace_theme: workspace_theme(),
         workspace_high_contrast?: workspace_high_contrast?(),
         workspace_reduce_motion?: workspace_reduce_motion?(),
-        workspace_mobile_tab: "chat",
+        workspace_mobile_tab: "nav",
         workspace_offline_enabled?: workspace_offline_enabled?(),
         workspace_indexeddb_quota_bytes: workspace_indexeddb_quota_bytes(),
         workspace_canvas_max_tiles_per_thread: workspace_canvas_max_tiles_per_thread(),
@@ -226,11 +226,31 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   def handle_event("select_workspace_mobile_tab", %{"tab" => tab}, socket)
-      when tab in ["chat", "canvas", "ephemeral"] do
+      when tab in ["nav", "chat", "canvas", "utility", "ephemeral"] do
     {:noreply, assign(socket, :workspace_mobile_tab, tab)}
   end
 
   def handle_event("select_workspace_mobile_tab", _params, socket), do: {:noreply, socket}
+
+  def handle_event("select_workspace_app", %{"app-id" => app_id}, socket)
+      when is_binary(app_id) and app_id != "" do
+    case run_workspace_action(socket, "set_active_app", %{
+           user_id: socket.assigns.user_id,
+           session_id: socket.assigns.session_id,
+           app_id: app_id
+         }) do
+      {:ok, %{status: :completed, session: %{active_app: active_app}}} ->
+        {:noreply,
+         socket
+         |> assign(active_app: active_app, workspace_mobile_tab: "chat")
+         |> push_patch(to: workspace_path(socket.assigns.thread_id, active_app))}
+
+      {:ok, response} ->
+        {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
+    end
+  end
+
+  def handle_event("select_workspace_app", _params, socket), do: {:noreply, socket}
 
   def handle_event("workspace_tile_editor_sync", params, socket) do
     {:reply, workspace_tile_editor_reply(params, socket), socket}
@@ -757,6 +777,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       ephemeral_surfaces: surfaces,
       conversation_messages: conversation_messages(thread_id, user_id),
       recent_threads: recent_threads(user_id),
+      registered_apps: registered_apps(),
       workspace_badges: workspace_badges,
       workspace_surface:
         WorkspaceCatalog.workspace_tree(
@@ -793,6 +814,23 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp recent_threads(user_id) do
     Conversations.list_threads(user_id, limit: 8)
+  end
+
+  defp registered_apps do
+    case AppRegistry.registered_apps() do
+      [] -> [%{app_id: :allbert, display_name: "Allbert"}]
+      apps -> ensure_allbert_app(apps)
+    end
+  catch
+    :exit, _reason -> [%{app_id: :allbert, display_name: "Allbert"}]
+  end
+
+  defp ensure_allbert_app(apps) do
+    if Enum.any?(apps, &(Map.get(&1, :app_id) == :allbert)) do
+      apps
+    else
+      [%{app_id: :allbert, display_name: "Allbert"} | apps]
+    end
   end
 
   defp tile_by_id(tiles, tile_id) when is_list(tiles) and is_binary(tile_id) do
@@ -886,7 +924,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     Runner.run(action_name, params, %{
       actor: socket.assigns.user_id,
       user_id: socket.assigns.user_id,
+      operator_id: socket.assigns.user_id,
       thread_id: socket.assigns.thread_id,
+      session_id: socket.assigns.session_id,
+      active_app: socket.assigns.active_app,
       channel: :live_view
     })
   end
@@ -916,8 +957,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp workspace_mobile_tabs do
     [
+      %{id: "nav", label: "Nav", controls: "workspace-node-workspace-nav-rail"},
       %{id: "chat", label: "Chat", controls: "workspace-node-workspace-chat"},
       %{id: "canvas", label: "Canvas", controls: "workspace-node-workspace-canvas-region"},
+      %{id: "utility", label: "Tools", controls: "workspace-node-workspace-utility-drawer"},
       %{
         id: "ephemeral",
         label: "Ephemeral",
@@ -953,6 +996,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       active_objectives: assigns.active_objectives,
       conversation_messages: assigns.conversation_messages,
       recent_threads: assigns.recent_threads,
+      registered_apps: assigns.registered_apps,
       canvas_tiles: assigns.canvas_tiles,
       ephemeral_surfaces: assigns.ephemeral_surfaces,
       workspace_badges: assigns.workspace_badges,
