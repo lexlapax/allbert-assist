@@ -167,7 +167,7 @@ Do not load every section by default.
   `workspace_canvas_tiles` + YAML body store. v0.30 adds no `:stock_chart`
   atom, no migration, no new StockSage domain behavior, and no private
   canvas-write path.
-- v0.31 (planned): Runtime And UI-Substrate Consolidation. Consolidates the
+- v0.31 (in progress): Runtime And UI-Substrate Consolidation. Consolidates the
   action DSL, typed runtime responses, shared paths/redaction/audit/persistence
   facades, unified Surface catalog/renderer path, unified extension registry,
   and settings fragments. Behavior-preserving: no route removals, theming,
@@ -177,7 +177,9 @@ Do not load every section by default.
   `AllbertAssist.Runtime.Trace`; M5 adds `AllbertAssist.Action` and
   module-owned capability metadata for registered actions; M6 adds
   `AllbertAssist.Runtime.Response` for shared Runtime/Runner/objective response
-  normalization. Per ADR 0026-0031.
+  normalization; M7 adds `AllbertAssist.Surface.Catalog`,
+  `AllbertAssistWeb.Surface.Renderer`, and `AllbertAssist.Extensions.Registry`
+  while retiring the StockSage-only renderer/adapters. Per ADR 0026-0031.
 - v0.32 (planned): Workspace-Only App UI And Settings Central. Makes
   `/workspace` the operator home; removes `/agent`, `/settings`, and
   `/stocksage/*` without compatibility redirects; adds `:panel` surfaces into
@@ -364,10 +366,9 @@ LiveView to the shipped **agentic workspace shell**:
 - The workspace shell IS itself a Surface tree (per ADR 0023 §2 + the
   v0.26 design choice). `CoreApp.surfaces/0` declares the workspace
   tree at boot; the web renderer walks it and dispatches each node's
-  `:component` atom to a LiveComponent module through
-  `AllbertAssistWeb.Workspace.Renderer`. M7 moves this dispatch table
-  into the unified `AllbertAssist.Surface.Catalog`. There is NO hardcoded
-  HEEx layout for regions.
+  `:component` atom through the v0.31 `AllbertAssist.Surface.Catalog` and
+  `AllbertAssistWeb.Surface.Renderer` path. There is NO hardcoded HEEx layout
+  for regions.
 - Per-thread Canvas (persistent tiles) lives in SQLite metadata +
   YAML body under `<ALLBERT_HOME>/workspace/canvas/<user_id>/<thread_id>/`.
   Per-thread Ephemeral Surfaces live in SQLite + YAML under
