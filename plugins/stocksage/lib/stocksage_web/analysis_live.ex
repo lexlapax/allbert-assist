@@ -38,6 +38,7 @@ defmodule StockSageWeb.AnalysisLive do
      |> assign(:sync_notice, nil)
      |> assign(:surface_nodes, [])
      |> assign(:progress_topic, nil)
+     |> assign(:progress_count, 0)
      |> stream(:progress, [])}
   end
 
@@ -190,7 +191,10 @@ defmodule StockSageWeb.AnalysisLive do
 
   @impl true
   def handle_info({:stocksage_progress, payload}, socket) do
-    {:noreply, stream_insert(socket, :progress, Progress.normalize_payload(payload), at: -1)}
+    {:noreply,
+     socket
+     |> update(:progress_count, &(&1 + 1))
+     |> stream_insert(:progress, Progress.normalize_payload(payload), at: -1)}
   end
 
   @impl true
@@ -271,6 +275,32 @@ defmodule StockSageWeb.AnalysisLive do
           tone={:muted}
           role="status"
         />
+
+        <section
+          :if={@analysis}
+          id="stocksage-analysis-run-context"
+          class="grid gap-3 md:grid-cols-3"
+          aria-label="StockSage run context"
+        >
+          <article
+            :for={item <- run_context_items(@analysis)}
+            id={"stocksage-engine-#{item.id}"}
+            class={[
+              "rounded border p-4",
+              run_context_class(item.tone)
+            ]}
+            data-run-state={item.state}
+          >
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-sm font-semibold uppercase text-zinc-400">{item.label}</p>
+              <span class={["rounded px-2 py-1 text-xs font-semibold", run_badge_class(item.tone)]}>
+                {item.state}
+              </span>
+            </div>
+            <p class="mt-2 min-h-10 break-words text-sm text-zinc-300">{item.detail}</p>
+          </article>
+        </section>
+
         <section
           :if={@surface_nodes != []}
           id="stocksage-analysis-surface-nodes"
@@ -347,27 +377,27 @@ defmodule StockSageWeb.AnalysisLive do
                 type="button"
                 phx-click="rerun_analysis"
                 phx-value-engine="native"
-                class="rounded border border-emerald-500/60 px-3 py-2 text-sm text-emerald-100 hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                class="inline-flex min-h-10 items-center gap-2 rounded border border-emerald-500/60 px-3 py-2 text-sm text-emerald-100 hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
               >
-                Native
+                <.icon name="hero-cpu-chip-micro" class="size-4 shrink-0" /> Native
               </button>
               <button
                 id="stocksage-rerun-python"
                 type="button"
                 phx-click="rerun_analysis"
                 phx-value-engine="python"
-                class="rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                class="inline-flex min-h-10 items-center gap-2 rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
               >
-                Python
+                <.icon name="hero-command-line-micro" class="size-4 shrink-0" /> Python
               </button>
               <button
                 id="stocksage-rerun-both"
                 type="button"
                 phx-click="rerun_analysis"
                 phx-value-engine="both"
-                class="rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                class="inline-flex min-h-10 items-center gap-2 rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
               >
-                Parity
+                <.icon name="hero-scale-micro" class="size-4 shrink-0" /> Parity
               </button>
             </div>
           </div>
@@ -417,6 +447,15 @@ defmodule StockSageWeb.AnalysisLive do
           </div>
         </section>
 
+        <AppShell.state_panel
+          :if={@analysis && @analysis.outcomes == []}
+          id="stocksage-outcomes-empty"
+          title="No resolved outcomes"
+          body="Outcome rows appear after StockSage records a holding-period observation."
+          tone={:muted}
+          role="status"
+        />
+
         <section
           :if={@reflection_entries != []}
           id="stocksage-reflections"
@@ -450,8 +489,26 @@ defmodule StockSageWeb.AnalysisLive do
           </article>
         </section>
 
+        <AppShell.state_panel
+          :if={@analysis && @analysis.outcomes != [] && @reflection_entries == []}
+          id="stocksage-reflections-empty"
+          title="No local reflections"
+          body="Generated StockSage-local reflections will appear here before any explicit Allbert memory sync."
+          tone={:muted}
+          role="status"
+        />
+
+        <AppShell.state_panel
+          :if={@analysis_id && is_nil(@load_error) && @progress_count == 0}
+          id="stocksage-progress-empty"
+          title="No progress events"
+          body="Progress events appear after a running analysis emits StockSage progress."
+          tone={:muted}
+          role="status"
+        />
+
         <section
-          :if={@analysis_id && is_nil(@load_error)}
+          :if={@analysis_id && is_nil(@load_error) && @progress_count > 0}
           id="stocksage-progress"
           class="rounded border border-zinc-800 bg-zinc-900 p-5"
           aria-label="StockSage analysis progress"
@@ -565,6 +622,7 @@ defmodule StockSageWeb.AnalysisLive do
     |> assign(:pending_confirmations, [])
     |> assign(:reflection_entries, [])
     |> assign(:surface_nodes, [])
+    |> assign(:progress_count, 0)
     |> stream(:progress, [], reset: true)
   end
 
@@ -589,6 +647,7 @@ defmodule StockSageWeb.AnalysisLive do
         |> assign(:pending_confirmations, pending_confirmations(analysis, objective))
         |> assign(:reflection_entries, reflection_entries(socket.assigns.user_id, analysis.id))
         |> assign(:surface_nodes, surface_nodes)
+        |> assign(:progress_count, length(progress_items))
         |> stream(:progress, progress_items, reset: true)
 
       {:error, :not_found} ->
@@ -601,6 +660,7 @@ defmodule StockSageWeb.AnalysisLive do
         |> assign(:pending_confirmations, [])
         |> assign(:reflection_entries, [])
         |> assign(:surface_nodes, [])
+        |> assign(:progress_count, 0)
         |> stream(:progress, [], reset: true)
     end
   end
@@ -738,6 +798,127 @@ defmodule StockSageWeb.AnalysisLive do
   defp rerun_label("python"), do: "Python comparison"
   defp rerun_label("both"), do: "parity"
   defp rerun_label(engine), do: engine
+
+  defp run_context_items(analysis) do
+    engine = context_text(analysis.engine)
+    source = context_text(analysis.source)
+    parity_diff = context_text(analysis.parity_diff)
+    source_analysis_id = analysis_metadata(analysis, "source_analysis_id")
+
+    [
+      native_context_item(engine, source),
+      python_context_item(engine, source),
+      parity_context_item(engine, source, parity_diff, source_analysis_id)
+    ]
+  end
+
+  defp native_context_item(engine, source) do
+    if engine in ["native", "both"] or source in ["native", "native_python_parity"] do
+      %{
+        id: "native",
+        label: "Native",
+        state: "current",
+        detail: "Native specialist agents produced this analysis.",
+        tone: :success
+      }
+    else
+      %{
+        id: "native",
+        label: "Native",
+        state: "available",
+        detail: "A native rerun can be queued through the existing confirmation flow.",
+        tone: :neutral
+      }
+    end
+  end
+
+  defp python_context_item(engine, source) do
+    cond do
+      engine in ["python", "tradingagents"] or source == "python_bridge" ->
+        %{
+          id: "python",
+          label: "Python",
+          state: "current",
+          detail: "Python bridge output is the recorded result for this run.",
+          tone: :compare
+        }
+
+      engine == "both" or source == "native_python_parity" ->
+        %{
+          id: "python",
+          label: "Python",
+          state: "included",
+          detail: "Python bridge output was included for parity comparison.",
+          tone: :compare
+        }
+
+      true ->
+        %{
+          id: "python",
+          label: "Python",
+          state: "explicit",
+          detail: "Python comparison remains an explicit reference rerun.",
+          tone: :neutral
+        }
+    end
+  end
+
+  defp parity_context_item(engine, source, parity_diff, source_analysis_id) do
+    source_suffix =
+      case source_analysis_id do
+        nil -> ""
+        "" -> ""
+        id -> " Source run: #{id}."
+      end
+
+    cond do
+      parity_diff != "" ->
+        %{
+          id: "parity",
+          label: "Parity",
+          state: "captured",
+          detail: "Parity diff: #{parity_diff}.#{source_suffix}",
+          tone: :success
+        }
+
+      engine == "both" or source == "native_python_parity" ->
+        %{
+          id: "parity",
+          label: "Parity",
+          state: "captured",
+          detail: "Native and Python comparison completed for this run.#{source_suffix}",
+          tone: :success
+        }
+
+      true ->
+        %{
+          id: "parity",
+          label: "Parity",
+          state: "available",
+          detail: "Parity rerun queues native and Python comparison together.#{source_suffix}",
+          tone: :neutral
+        }
+    end
+  end
+
+  defp run_context_class(:success), do: "border-emerald-500/40 bg-emerald-500/10"
+  defp run_context_class(:compare), do: "border-sky-500/40 bg-sky-500/10"
+  defp run_context_class(_tone), do: "border-zinc-800 bg-zinc-900"
+
+  defp run_badge_class(:success), do: "bg-emerald-500/20 text-emerald-100"
+  defp run_badge_class(:compare), do: "bg-sky-500/20 text-sky-100"
+  defp run_badge_class(_tone), do: "bg-zinc-800 text-zinc-200"
+
+  defp analysis_metadata(%{metadata: metadata}, key) when is_map(metadata) do
+    Map.get(metadata, key) || Map.get(metadata, :source_analysis_id)
+  end
+
+  defp analysis_metadata(_analysis, _key), do: nil
+
+  defp context_text(nil), do: ""
+  defp context_text(value) when is_binary(value), do: value
+  defp context_text(value) when is_atom(value), do: Atom.to_string(value)
+  defp context_text(value), do: to_string(value)
 
   defp sync_lesson_context(socket) do
     %{
