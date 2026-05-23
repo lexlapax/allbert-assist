@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for v0.31 Runtime And UI-Substrate Consolidation
+Accepted in v0.31 M7 Runtime And UI-Substrate Consolidation
 (`docs/plans/v0.31-plan.md`).
 
 ## Context
@@ -25,6 +25,13 @@ v0.31 will converge on:
 
 Apps and plugins remain distinct concepts. The unified registry is a discovery
 and inspection path, not an authority grant.
+
+Implementation note: M7 introduced `AllbertAssist.Surface.Catalog`,
+`AllbertAssistWeb.Surface.Renderer`, and `AllbertAssist.Extensions.Registry`.
+The v0.30 StockSage pass-through workspace adapters and
+`StockSageWeb.Components.SurfaceRenderer` were retired after focused render
+tests proved `/agent` and `/stocksage/*` still render the v0.27 StockSage card
+DOM handles through the shared catalog path.
 
 ## Consequences
 
