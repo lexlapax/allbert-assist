@@ -1746,8 +1746,10 @@ Plan: `docs/plans/v0.33-plan.md`
 Request flow: `docs/plans/v0.33-request-flow.md`
 ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`
 
-Status: research (unstarted). Inserted after v0.32 so workspace app selection
-and neutral conversational handoff remain separate.
+Status: implementation in progress. M0 documentation and contract preflight
+verified the released v0.32 workspace/app-selection baseline and confirmed that
+v0.33 can compose handoff/clarification from existing ephemeral surface
+primitives without adding a catalog atom or amending ADR 0030.
 
 Prerequisite: v0.31 consolidated intent/action/response/catalog substrates and
 v0.32 workspace app selection, panel zones, and Settings Central inside
