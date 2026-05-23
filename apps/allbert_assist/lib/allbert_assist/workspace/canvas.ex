@@ -205,7 +205,7 @@ defmodule AllbertAssist.Workspace.Canvas do
   defp duplicate_body_result(%Tile{} = tile, attrs) do
     case load_body(tile) do
       {:ok, %Tile{} = loaded} ->
-        if loaded.body == BodyStore.normalize_body(attrs.body) do
+        if semantic_body(loaded.body) == semantic_body(BodyStore.normalize_body(attrs.body)) do
           {:ok, loaded}
         else
           {:error, :fragment_body_conflict}
@@ -213,6 +213,16 @@ defmodule AllbertAssist.Workspace.Canvas do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp semantic_body(body) when is_map(body) do
+    case Map.get(body, "fragment") do
+      fragment when is_map(fragment) ->
+        Map.put(body, "fragment", Map.drop(fragment, ["emitted_at"]))
+
+      _fragment ->
+        body
     end
   end
 

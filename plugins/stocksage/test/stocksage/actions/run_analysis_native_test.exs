@@ -52,6 +52,7 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Fragment.Guard
   alias Jido.Signal.Bus
   alias StockSage.Analyses
@@ -151,6 +152,21 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
     assert :analysis_card in kinds
     assert :agent_report_card in kinds
     assert :debate_round_card in kinds
+
+    assert {:ok, canvas_tiles} = Workspace.canvas_tiles("thr_native_analysis", "alice")
+    assert Enum.any?(canvas_tiles, &(&1.id == "stocksage_analysis_#{response.analysis_id}"))
+
+    analysis_tile =
+      Enum.find(canvas_tiles, &(&1.id == "stocksage_analysis_#{response.analysis_id}"))
+
+    assert analysis_tile.metadata["emitter_id"] == "StockSage.Actions.RunAnalysis"
+    assert analysis_tile.metadata["scope"] == "canvas"
+    assert get_in(analysis_tile.body, ["surface", "app_id"]) == "stocksage"
+
+    [analysis_node | _] = get_in(analysis_tile.body, ["surface", "nodes"])
+    assert analysis_node["component"] == "analysis_card"
+    assert analysis_node["props"]["analysis_id"] == response.analysis_id
+    assert analysis_node["props"]["ticker"] == "AAPL"
   end
 
   test "native engine is the default when no engine is passed" do

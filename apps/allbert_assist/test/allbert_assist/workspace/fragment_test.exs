@@ -65,6 +65,25 @@ defmodule AllbertAssist.Workspace.FragmentTest do
     assert tile.id == envelope.id
   end
 
+  test "duplicate semantic fragments with a newer emitted_at stay idempotent" do
+    attrs = %{
+      id: "frag_duplicate_newer_timestamp",
+      user_id: "user-duplicate-timestamp",
+      thread_id: "thread-duplicate-timestamp",
+      emitted_at: ~U[2026-05-18 00:00:00Z]
+    }
+
+    first = signed_envelope(attrs)
+    second = signed_envelope(%{attrs | emitted_at: ~U[2026-05-18 00:00:01Z]})
+
+    assert :ok = Fragment.emit(first)
+    assert :ok = Fragment.emit(second)
+
+    assert {:ok, [tile]} = Workspace.canvas_tiles(first.thread_id, first.user_id)
+    assert tile.id == first.id
+    assert get_in(tile.body, ["fragment", "emitted_at"]) == "2026-05-18T00:00:00Z"
+  end
+
   test "duplicate different-body fragments fail without overwriting stored body" do
     first =
       signed_envelope(%{
