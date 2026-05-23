@@ -153,7 +153,8 @@ Do not load every section by default.
   and polished app-flow UX for run context, empty/error states, and mobile-safe
   StockSage surfaces. v0.29 consumes the namespace declared in v0.27 and
   audited in v0.28; it still does not emit durable `/agent` canvas tiles.
-- v0.30: App Canvas Contract - StockSage Canvas Integration. `/agent` now
+- v0.30: App Canvas Contract - StockSage Canvas Integration. Released and
+  tagged as `v0.30.0` after operator manual verification. `/agent` now
   renders durable StockSage canvas tiles with the v0.27
   `StockSageWeb.Components.Cards` renderers instead of v0.26 stubs.
   `RunAnalysis` lifecycle signals flow through
