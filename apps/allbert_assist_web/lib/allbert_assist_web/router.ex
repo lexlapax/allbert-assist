@@ -18,20 +18,15 @@ defmodule AllbertAssistWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
-    live "/agent", AgentLive
+    live "/workspace", WorkspaceLive
     live "/jobs", JobsLive
     live "/objectives/:id", ObjectiveLive
-    live "/settings", SettingsLive
   end
 
   scope "/" do
     pipe_through :browser
 
-    live "/stocksage", StockSageWeb.WorkspaceLive, :index
-    live "/stocksage/analyses", StockSageWeb.AnalysisLive, :index
-    live "/stocksage/analyses/:id", StockSageWeb.AnalysisLive, :show
-    live "/stocksage/queue", StockSageWeb.QueueLive, :index
-    live "/stocksage/trends", StockSageWeb.TrendsLive, :index
+    live "/apps/stocksage/analyses/:id", StockSageWeb.AnalysisLive, :show
   end
 
   # Other scopes may use custom stacks.

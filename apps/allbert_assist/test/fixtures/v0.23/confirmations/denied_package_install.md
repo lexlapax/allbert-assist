@@ -33,7 +33,7 @@
 - origin_channel: cli
 - resolver_actor: alice
 - resolver_channel: liveview
-- resolver_surface: /settings
+- resolver_surface: /workspace
 - same_channel: false
 - resolution_reason: package not needed
 - decision_source: operator

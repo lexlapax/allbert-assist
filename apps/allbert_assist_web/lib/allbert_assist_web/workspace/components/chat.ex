@@ -1,6 +1,6 @@
 defmodule AllbertAssistWeb.Workspace.Components.Chat do
   @moduledoc """
-  Workspace fallback renderer for the existing `/agent` runtime chat loop.
+  Workspace fallback renderer for the existing `/workspace` runtime chat loop.
   """
 
   use AllbertAssistWeb, :live_component

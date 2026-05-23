@@ -482,7 +482,7 @@ defmodule AllbertAssist.App.ValidatorTest do
   test "accepts valid app modules and built-in reserved-id owners" do
     assert {:ok, %{app_id: :validator_valid_app}} = Validator.validate(ValidApp, [])
 
-    assert {:ok, %{app_id: :allbert, provider_surfaces: [%Surface{id: :agent}]}} =
+    assert {:ok, %{app_id: :allbert, provider_surfaces: [%Surface{id: :workspace}]}} =
              Validator.validate(AllbertAssist.App.CoreApp, [])
 
     assert {:ok, %{app_id: :stocksage}} = Validator.validate(StockSage.App, [])

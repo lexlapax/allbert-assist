@@ -224,7 +224,7 @@ defmodule AllbertAssist.Workspace.Events do
       id: :workspace_canvas_eviction_badge,
       app_id: :allbert,
       label: "Canvas Archive Notice",
-      path: "/agent",
+      path: "/workspace",
       kind: :canvas,
       status: :available,
       fallback_text: message,

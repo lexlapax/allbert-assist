@@ -33,11 +33,11 @@ defmodule AllbertAssist.Workspace.CatalogTest do
            )
   end
 
-  test "workspace tree returns the v0.26 core /agent surface" do
+  test "workspace tree returns the v0.26 core /workspace surface" do
     surface = Catalog.workspace_tree(user_id: "local", thread_id: "thread-1")
 
-    assert surface.id == :agent
-    assert surface.path == "/agent"
+    assert surface.id == :workspace
+    assert surface.path == "/workspace"
     assert surface.kind == :workspace
     assert surface.metadata.workspace == %{user_id: "local", thread_id: "thread-1"}
 
@@ -86,7 +86,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
         id: :fragment,
         app_id: :allbert,
         label: "Fragment",
-        path: "/agent",
+        path: "/workspace",
         kind: :canvas,
         status: :available,
         nodes: [

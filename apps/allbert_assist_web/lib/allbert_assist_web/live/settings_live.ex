@@ -168,7 +168,7 @@ defmodule AllbertAssistWeb.SettingsLive do
     socket =
       case completed_action("revoke_resource_grant", %{
              id: id,
-             reason: "Revoked from /settings"
+             reason: "Revoked from /workspace"
            }) do
         {:ok, _response} ->
           socket
@@ -747,7 +747,7 @@ defmodule AllbertAssistWeb.SettingsLive do
   end
 
   defp context do
-    %{actor: "local", channel: :live_view, surface: "/settings"}
+    %{actor: "local", channel: :live_view, surface: "/workspace"}
   end
 
   defp confirmation_form(confirmation) do
