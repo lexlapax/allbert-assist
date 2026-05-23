@@ -1634,7 +1634,7 @@ ADRs: `docs/adr/0026-runtime-public-facades-and-boundaries.md`,
 
 Status: implementation in progress. Inserted after v0.30 so the workspace UI,
 theming, dynamic plugin trials, and generator build on one consolidated
-runtime/UI substrate instead of encoding duplicated seams. M1-M7 are complete.
+runtime/UI substrate instead of encoding duplicated seams. M1-M8 are complete.
 
 Prerequisite: v0.26 workspace shell, v0.27 StockSage renderers, v0.28 security
 evals, v0.29 memory/outcomes, and v0.30 canvas emission.
@@ -1679,6 +1679,11 @@ Implemented so far:
   workspace and StockSage app surfaces now render through one catalog-backed
   path, and the v0.30 StockSage pass-through adapters plus
   `StockSageWeb.Components.SurfaceRenderer` were retired.
+- M8: added `AllbertAssist.Settings.Fragment` and
+  `AllbertAssist.Settings.Fragments`; `Settings.Schema` now assembles schema,
+  defaults, and safe-write keys from registered core/app/plugin fragments
+  without changing Settings Central behavior. `PermissionGate` remains a
+  compatibility shim over Security Central for remaining live callers.
 
 ## v0.32: Workspace-Only App UI And Settings Central
 

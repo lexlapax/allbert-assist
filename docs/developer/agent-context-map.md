@@ -179,7 +179,12 @@ Do not load every section by default.
   `AllbertAssist.Runtime.Response` for shared Runtime/Runner/objective response
   normalization; M7 adds `AllbertAssist.Surface.Catalog`,
   `AllbertAssistWeb.Surface.Renderer`, and `AllbertAssist.Extensions.Registry`
-  while retiring the StockSage-only renderer/adapters. Per ADR 0026-0031.
+  while retiring the StockSage-only renderer/adapters; M8 adds
+  `AllbertAssist.Settings.Fragment` and `AllbertAssist.Settings.Fragments` so
+  Settings Central schema/default/safe-write assembly comes from registered
+  core/app/plugin fragments. `PermissionGate` remains a compatibility shim over
+  Security Central pending a later caller-migration parity pass. Per ADR
+  0026-0031.
 - v0.32 (planned): Workspace-Only App UI And Settings Central. Makes
   `/workspace` the operator home; removes `/agent`, `/settings`, and
   `/stocksage/*` without compatibility redirects; adds `:panel` surfaces into
