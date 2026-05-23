@@ -124,7 +124,14 @@ defmodule AllbertAssist.App.CoreApp do
           %Node{
             id: "workspace-utility-drawer",
             component: :utility_drawer,
-            props: %{zone: "utility_drawer"}
+            props: %{zone: "utility_drawer"},
+            children: [
+              %Node{
+                id: "workspace-settings-panel",
+                component: :settings_panel,
+                props: %{zone: "utility_drawer", title: "Settings Central"}
+              }
+            ]
           },
           %Node{
             id: "workspace-ephemeral-region",

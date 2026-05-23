@@ -10,7 +10,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
   test "known components returns the v0.32 workspace allow-list" do
     components = Catalog.known_components()
 
-    assert length(components) == 48
+    assert length(components) == 49
     assert Enum.uniq(components) == components
 
     assert Enum.all?(
@@ -26,6 +26,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
                :app_launcher,
                :utility_drawer,
                :workspace_panel,
+               :settings_panel,
                :workspace,
                :canvas,
                :tile,
@@ -51,7 +52,11 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     assert Enum.any?(children, &match?(%Node{component: :chat}, &1))
     assert Enum.any?(children, &match?(%Node{component: :canvas}, &1))
     assert Enum.any?(children, &match?(%Node{component: :nav_rail}, &1))
-    assert Enum.any?(children, &match?(%Node{component: :utility_drawer}, &1))
+
+    assert %Node{component: :utility_drawer, children: utility_children} =
+             Enum.find(children, &match?(%Node{component: :utility_drawer}, &1))
+
+    assert Enum.any?(utility_children, &match?(%Node{component: :settings_panel}, &1))
     assert Enum.any?(children, &match?(%Node{component: :ephemeral_surface}, &1))
   end
 

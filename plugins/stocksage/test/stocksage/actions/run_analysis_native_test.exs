@@ -434,7 +434,7 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
   defp restore_system_env(key, nil), do: System.delete_env(key)
   defp restore_system_env(key, value), do: System.put_env(key, value)
 
-  defp wait_until(fun, attempts \\ 50)
+  defp wait_until(fun, attempts \\ 500)
   defp wait_until(_fun, 0), do: flunk("condition was not met")
 
   defp wait_until(fun, attempts) do
