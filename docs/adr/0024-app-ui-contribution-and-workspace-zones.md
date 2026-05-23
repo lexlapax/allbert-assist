@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for v0.32 Workspace-Only App UI And Settings Central
+Accepted and implemented in v0.32 Workspace-Only App UI And Settings Central
 (`docs/plans/v0.32-plan.md`). This ADR graduates the "Workspace Hooks" /
 plugin-contributed workspace regions reserved in ADR 0023 §1, extends the
 Surface DSL of ADR 0015 with a panel contribution tier and host-owned zones,
@@ -13,7 +13,7 @@ after the workspace app selector exists.
 
 ## Context
 
-Allbert has historically had several operator UI surfaces:
+Before v0.32, Allbert had several operator UI surfaces:
 
 - `/agent` is the dynamic workspace shell built from
   `AllbertAssist.Workspace.Catalog.workspace_tree/1`, rendered through the
@@ -23,11 +23,11 @@ Allbert has historically had several operator UI surfaces:
   `/stocksage/*`, with private navigation and app-specific page chrome.
 
 v0.30 lets StockSage emit durable canvas tiles into the workspace, but app
-dashboard/list/queue/trend UI still lives outside the workspace. v0.31
-consolidates the runtime/catalog/settings substrate first. The operator
-direction for v0.32 is sharper: the product home is `/workspace`, most app UI
-is a panel inside that workspace, Settings Central is a workspace utility
-panel, and old operator routes are removed rather than redirected.
+dashboard/list/queue/trend UI still lived outside the workspace. v0.31
+consolidated the runtime/catalog/settings substrate first. v0.32 sharpens the
+operator model: the product home is `/workspace`, most app UI is a panel
+inside that workspace, Settings Central is a workspace utility panel, and old
+operator routes are removed rather than redirected.
 
 Mature extensible apps converge on a host-owned slot model: rare page
 surfaces for deep-linkable page flows, and default panels/cards/views that
@@ -129,8 +129,10 @@ Panels and zones add no new authority:
   separate route.
 - StockSage loses its private dashboard/list/queue/trend routes and app nav;
   those workflows become workspace panels.
-- `StockSageWeb.AnalysisLive` may remain under `/apps/stocksage/analyses/:id`
-  only if implementation confirms page-level detail is still needed.
+- `StockSageWeb.AnalysisLive` remains under `/apps/stocksage/analyses/:id`
+  because the detail flow is page-shaped: long-form surface-node review,
+  objective/progress streaming, rerun controls, reflection generation, and
+  explicit lesson-sync confirmation do not fit the v0.32 panel surface well.
 - The catalog grows by host structural atoms and panel wrappers; ADR 0015 is
   amended accordingly.
 - The fixed zone set may need to become richer after more apps contribute

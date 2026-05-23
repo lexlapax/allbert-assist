@@ -252,6 +252,17 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
     },
     %{
+      id: "settings-action-bypass-001",
+      milestone: :m5,
+      surface: :surface_workspace_namespace,
+      scenario:
+        "workspace panel attempts a Settings Central write while settings_write policy is denied",
+      boundary: :settings_central_action,
+      expected: :denied,
+      assert: [:denied, :settings_action_boundary_enforced],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
       id: "objective-authority-001",
       milestone: :m6,
       surface: :objective_financial_bridge,
