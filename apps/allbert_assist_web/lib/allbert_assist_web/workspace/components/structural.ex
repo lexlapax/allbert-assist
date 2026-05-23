@@ -30,6 +30,278 @@ defmodule AllbertAssistWeb.Workspace.Components.Workspace do
   end
 end
 
+defmodule AllbertAssistWeb.Workspace.Components.WorkspaceShell do
+  use AllbertAssistWeb.Workspace.Components.Base,
+    component: :workspace_shell,
+    description: "Workspace shell",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <div
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-root-sentinel"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <h2 id={Base.component_title_id(@node)} class="sr-only">
+        Allbert workspace
+      </h2>
+    </div>
+    """
+  end
+end
+
+defmodule AllbertAssistWeb.Workspace.Components.NavRail do
+  use AllbertAssistWeb.Workspace.Components.Base,
+    component: :nav_rail,
+    description: "Workspace navigation rail",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <aside
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-nav-rail-shell"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <div class="workspace-rail-head">
+        <h2 id={Base.component_title_id(@node)} class="workspace-rail-title">Workspace</h2>
+        <button
+          id="workspace-rail-new-thread"
+          type="button"
+          class="allbert-icon-button"
+          phx-click="new_thread"
+          aria-label="New thread"
+          title="New thread"
+        >
+          <.icon name="hero-plus-micro" class="size-4" />
+        </button>
+      </div>
+    </aside>
+    """
+  end
+end
+
+defmodule AllbertAssistWeb.Workspace.Components.ThreadList do
+  use AllbertAssistWeb.Workspace.Components.Base,
+    component: :thread_list,
+    description: "Recent workspace threads",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket) do
+    context = Map.get(assigns, :renderer_context, %{})
+
+    {:ok,
+     socket
+     |> Base.assign_defaults(assigns)
+     |> assign(
+       recent_threads: Map.get(context, :recent_threads, []),
+       thread_id: Map.get(context, :thread_id)
+     )}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <section
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-thread-list"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <h3 id={Base.component_title_id(@node)} class="workspace-rail-section-title">
+        Threads
+      </h3>
+      <div class="workspace-rail-list" role="list">
+        <button
+          :for={thread <- @recent_threads}
+          id={"workspace-rail-thread-#{thread.id}"}
+          type="button"
+          role="listitem"
+          class={[
+            "workspace-rail-item",
+            thread.id == @thread_id && "workspace-rail-item-active"
+          ]}
+          phx-click="switch_workspace_thread"
+          phx-value-thread-id={thread.id}
+          title={thread.title}
+        >
+          <span class="workspace-rail-item-title">{thread.title}</span>
+          <span class="workspace-rail-item-meta">{short_id(thread.id)}</span>
+        </button>
+        <p :if={@recent_threads == []} class="workspace-rail-empty">No threads yet.</p>
+      </div>
+    </section>
+    """
+  end
+
+  defp short_id(nil), do: "thread"
+
+  defp short_id(id) when is_binary(id) do
+    if String.length(id) > 14, do: String.slice(id, 0, 10) <> "...", else: id
+  end
+end
+
+defmodule AllbertAssistWeb.Workspace.Components.AppLauncher do
+  use AllbertAssistWeb.Workspace.Components.Base,
+    component: :app_launcher,
+    description: "Workspace app launcher",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket) do
+    context = Map.get(assigns, :renderer_context, %{})
+
+    {:ok,
+     socket
+     |> Base.assign_defaults(assigns)
+     |> assign(
+       active_app: Map.get(context, :active_app, :allbert),
+       registered_apps: Map.get(context, :registered_apps, [])
+     )}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <section
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-app-launcher"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <h3 id={Base.component_title_id(@node)} class="workspace-rail-section-title">
+        Apps
+      </h3>
+      <div class="workspace-rail-list" role="list">
+        <button
+          :for={app <- workspace_apps(@registered_apps)}
+          id={"workspace-app-launcher-#{app_id(app)}"}
+          type="button"
+          role="listitem"
+          class={[
+            "workspace-rail-item workspace-app-launcher-item",
+            active_app?(app, @active_app) && "workspace-rail-item-active"
+          ]}
+          phx-click="select_workspace_app"
+          phx-value-app-id={app_id(app)}
+          data-app-id={app_id(app)}
+          aria-pressed={bool_attribute(active_app?(app, @active_app))}
+          title={app_label(app)}
+        >
+          <span class="workspace-app-icon" aria-hidden="true">
+            <.icon name={app_icon(app)} class="size-4" />
+          </span>
+          <span class="workspace-rail-item-title">{app_label(app)}</span>
+        </button>
+      </div>
+    </section>
+    """
+  end
+
+  defp workspace_apps([]), do: [%{app_id: :allbert, display_name: "Allbert"}]
+  defp workspace_apps(apps), do: apps
+
+  defp active_app?(app, active_app), do: app_id(app) == app_id(%{app_id: active_app})
+
+  defp app_id(app), do: app |> field(:app_id, :allbert) |> to_string()
+  defp app_label(app), do: field(app, :display_name, app_id(app)) |> to_string()
+
+  defp app_icon(app) do
+    case app_id(app) do
+      "stocksage" -> "hero-chart-bar-micro"
+      _app_id -> "hero-squares-2x2-micro"
+    end
+  end
+
+  defp field(map, key, fallback) when is_map(map) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key), fallback)
+  end
+
+  defp bool_attribute(true), do: "true"
+  defp bool_attribute(false), do: "false"
+end
+
+defmodule AllbertAssistWeb.Workspace.Components.UtilityDrawer do
+  use AllbertAssistWeb.Workspace.Components.Base,
+    component: :utility_drawer,
+    description: "Workspace utility drawer",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket) do
+    context = Map.get(assigns, :renderer_context, %{})
+
+    {:ok,
+     socket
+     |> Base.assign_defaults(assigns)
+     |> assign(
+       active_objectives: Map.get(context, :active_objectives, []),
+       workspace_badges: Map.get(context, :workspace_badges, [])
+     )}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <aside
+      id={"workspace-component-#{@node.id}"}
+      class="workspace-utility-drawer-shell"
+      data-workspace-component={@node.component}
+      data-workspace-renderer="component"
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <div class="workspace-utility-head">
+        <h2 id={Base.component_title_id(@node)} class="workspace-rail-title">Tools</h2>
+        <span class="allbert-chip">
+          <.icon name="hero-bell-alert-micro" class="size-4" />
+          {length(@workspace_badges)}
+        </span>
+      </div>
+      <div class="workspace-utility-actions">
+        <.link navigate="/jobs" class="workspace-utility-link">
+          <.icon name="hero-clock-micro" class="size-4" /> Jobs
+        </.link>
+        <.link navigate="/objectives" class="workspace-utility-link">
+          <.icon name="hero-flag-micro" class="size-4" /> Objectives
+        </.link>
+      </div>
+    </aside>
+    """
+  end
+end
+
+defmodule AllbertAssistWeb.Workspace.Components.WorkspacePanel do
+  use AllbertAssistWeb.Workspace.Components.Base,
+    component: :workspace_panel,
+    description: "Workspace zone panel"
+end
+
 defmodule AllbertAssistWeb.Workspace.Components.Canvas do
   use AllbertAssistWeb.Workspace.Components.Base,
     component: :canvas,
