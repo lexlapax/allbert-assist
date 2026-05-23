@@ -11,7 +11,9 @@ the v0.26 catalog expansion from 12 → 42 components — see the "v0.26
 Catalog Expansion" subsection under Surface DSL. The catalog expansion is the
 substrate ADR 0023 builds on for the workspace canvas + ephemeral surface
 implementation, and was confirmed in place during v0.26 M20 closeout.
-Extended by ADR 0024 (v0.31): the Surface DSL gains a `:panel` surface kind
+Extended by ADR 0030 (v0.31): Surface catalog and renderer dispatch consolidate
+behind one authority. Extended by ADR 0024 (v0.32): the Surface DSL gains a
+`:panel` surface kind
 contributed into host-owned `/workspace` zones, the `/apps/<app_id>` page-route
 convention for rare app pages, and host structural catalog atoms for the
 workspace shell, app launcher, utility drawer, and workspace panels. ADR 0024
@@ -313,8 +315,9 @@ explicit StockSage lesson/memory sync.
 - `mix allbert.gen.plugin` and `mix allbert.gen.app` scaffolding, until
   StockSage proves the plugin/app contract, StockSage SurfaceProvider
   LiveViews, memory namespace declaration plus consumption, and canvas path
-  through v0.30, workspace panels in v0.31, and theming/layout hooks in v0.32.
-  Planned for v0.33.
+  through v0.30, catalog/registry consolidation in v0.31, workspace panels in
+  v0.32, theming/layout hooks in v0.33, and sandboxed dynamic drafts in v0.34.
+  Planned for v0.35.
 - AG-UI streaming endpoints, A2UI renderer compatibility, MCP Apps, and
   third-party remote UI execution.
 - Dynamic runtime mounting of arbitrary routes or LiveView components from
