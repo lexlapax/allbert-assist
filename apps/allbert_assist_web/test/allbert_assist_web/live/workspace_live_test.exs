@@ -79,6 +79,10 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert has_element?(view, "#workspace-renderer")
     assert has_element?(view, "#allbert-appbar")
+    assert has_element?(view, "#workspace-node-workspace-nav-rail")
+    assert has_element?(view, "#workspace-component-workspace-thread-list")
+    assert has_element?(view, "#workspace-component-workspace-app-launcher")
+    assert has_element?(view, "#workspace-node-workspace-utility-drawer")
     assert has_element?(view, "#workspace-active-app-chip")
     assert has_element?(view, "#workspace-thread-switcher-toggle")
     assert has_element?(view, "#workspace-chat-region")
@@ -228,9 +232,10 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   test "workspace mobile tab toggle switches active section", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
-    assert has_element?(view, "#workspace-shell[data-mobile-tab='chat']")
+    assert has_element?(view, "#workspace-shell[data-mobile-tab='nav']")
     assert has_element?(view, "#workspace-mobile-tabs[role='tablist']")
-    assert has_element?(view, "#workspace-mobile-tab-chat[aria-selected='true']")
+    assert has_element?(view, "#workspace-mobile-tab-nav[aria-selected='true']")
+    assert has_element?(view, "#workspace-mobile-tab-chat[aria-selected='false']")
     assert has_element?(view, "#workspace-mobile-tab-canvas[aria-selected='false']")
 
     html =
@@ -241,6 +246,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert html =~ ~s(data-mobile-tab="canvas")
     assert has_element?(view, "#workspace-mobile-tab-chat[aria-selected='false']")
     assert has_element?(view, "#workspace-mobile-tab-canvas[aria-selected='true']")
+
+    html =
+      view
+      |> element("#workspace-mobile-tab-utility")
+      |> render_click()
+
+    assert html =~ ~s(data-mobile-tab="utility")
+    assert has_element?(view, "#workspace-mobile-tab-utility[aria-selected='true']")
 
     html =
       view
@@ -883,6 +896,35 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     view
     |> element("#agent-form")
     |> render_submit(%{"prompt" => "analyze AAPL"})
+
+    _html = render_async(view, @runtime_async_timeout)
+
+    assert_receive {:runtime_request, request}
+    assert request.thread_id == thread_id
+    assert request.session_id == "web-local"
+    assert request.active_app == :stocksage
+  end
+
+  test "app launcher selection sets active app through session action", %{conn: conn} do
+    ensure_stocksage_app_registered()
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    thread_id = workspace_thread_id(view)
+
+    assert has_element?(view, "#workspace-app-launcher-stocksage")
+
+    view
+    |> element("#workspace-app-launcher-stocksage")
+    |> render_click()
+
+    assert_patch(view, "/workspace?app_id=stocksage&thread_id=#{thread_id}")
+    assert {:ok, %{active_app: :stocksage}} = Session.get("local", "web-local")
+    assert has_element?(view, "#workspace-shell[data-active-app='stocksage']")
+    assert has_element?(view, "#workspace-app-launcher-stocksage[aria-pressed='true']")
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "analyze CIEN"})
 
     _html = render_async(view, @runtime_async_timeout)
 
