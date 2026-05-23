@@ -12,6 +12,12 @@ infrastructure under this ADR's invariants; multi-step / cross-turn work
 state lives in the v0.24 objective runtime
 (`AllbertAssist.Objectives`).
 
+ADR 0034 (planned for v0.33) proposes explicit app handoff and clarification
+decision shapes for neutral workspace requests. That amendment preserves this
+ADR's authority rules: model output and ranking scores remain proposals only,
+and app-owned actions still require an explicit matching active app context
+before `Actions.Runner.run/3`.
+
 ### v0.24 Amendment (2026-05-16): `:objective` candidate kind registered
 
 v0.24 M2 amends this ADR to formally register `:objective` as a
@@ -193,7 +199,7 @@ operation classes, share grants across consumers, or bypass confirmation.
 - StockSage registers its app, actions, skill paths, and surfaces through the
   normal plugin/app contracts. The intent engine sees these through the
   registries.
-- No StockSage-specific predicates are needed in the core intent agent.
+- No StockSage-specific core predicates are needed in the intent agent.
 - `active_app: :stocksage` boosts StockSage candidates but does not grant
   StockSage actions elevated permissions.
 

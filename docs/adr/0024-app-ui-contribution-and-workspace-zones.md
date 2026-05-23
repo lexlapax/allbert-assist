@@ -7,7 +7,9 @@ Proposed for v0.32 Workspace-Only App UI And Settings Central
 plugin-contributed workspace regions reserved in ADR 0023 §1, extends the
 Surface DSL of ADR 0015 with a panel contribution tier and host-owned zones,
 pins `/workspace` as the canonical operator route, and moves Settings Central
-into the workspace utility drawer.
+into the workspace utility drawer. Conversational app-intent inference is not
+part of this ADR; v0.33 / ADR 0034 adds explicit handoff and clarification
+after the workspace app selector exists.
 
 ## Context
 
@@ -75,6 +77,11 @@ these zones. Expanding the zone set later is a catalog amendment, not an open
 registration surface. A panel's `zone`, `order`, and `visible_when` are
 visibility/ranking metadata only, never authority.
 
+The `:nav_apps` zone owns explicit app selection. Selecting an app sets active
+app context through the existing registered/session boundary. It is context for
+ranking and panel visibility, not authorization, and it does not execute an
+action.
+
 ### 4. Workspace shell
 
 `CoreApp.surfaces/0` declares the `/workspace` shell: a collapsible left rail,
@@ -112,6 +119,7 @@ Panels and zones add no new authority:
 - Settings writes still flow through Settings Central actions and existing
   security decisions.
 - App-scoped actions still require explicit `active_app`.
+- App selection is an explicit context transition, not permission.
 - `zone`, `order`, and `visible_when` never authorize behavior.
 
 ## Consequences
@@ -138,5 +146,6 @@ Panels and zones add no new authority:
 - Graduates: ADR 0023 §1 "Workspace Hooks" / §2 plugin-contributed regions.
 - Constrained by: ADR 0019 and ADR 0021 (metadata is not authority), ADR 0017
   (plugin contract), and v0.28 security posture.
-- Enables: ADR 0025 / v0.33 user theming and layout overrides, v0.34 dynamic
-  plugin/app draft trials, then v0.35 Plugin And App Generator.
+- Enables: ADR 0034 / v0.33 app intent handoff and clarification, ADR 0025 /
+  v0.34 user theming and layout overrides, v0.35 dynamic plugin/app draft
+  trials, then v0.36 Plugin And App Generator.

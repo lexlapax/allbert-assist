@@ -67,7 +67,7 @@ don't defer things we can do."
 Reserved (named, not implemented in v0.26):
 
 - **Canvas Snapshot** (versioned canvas state for time-travel / undo) — reserved
-- **Cursor** (multi-user collaborative cursor) — post-v0.35
+- **Cursor** (multi-user collaborative cursor) — post-v0.36
 - **Workspace Hooks** (plugin-contributed workspace extensions) — graduated in
   v0.32 as panel surfaces + host-owned named zones; see ADR 0024
 
@@ -342,7 +342,7 @@ AG-UI event-shape JSON.
 Scope bound for v0.26:
 
 - Bridge is internal-only. NOT exposed over HTTP / WebSocket /
-  SSE in v0.26. (Public AG-UI endpoints are post-v0.35 work.)
+  SSE in v0.26. (Public AG-UI endpoints are post-v0.36 work.)
 - Used for two purposes: (1) test the semantic mapping early so
   future external bridge work has a validated contract; (2)
   internal observability — the workspace LiveView can subscribe
@@ -352,7 +352,7 @@ Scope bound for v0.26:
   map to which AG-UI events. The mapping is the binding artifact;
   the code is implementation detail.
 
-Future work (post-v0.35, parked in `docs/plans/future-features.md`):
+Future work (post-v0.36, parked in `docs/plans/future-features.md`):
 expose the bridge over SSE or WebSocket; add the inverse direction
 (AG-UI client emits events into Allbert as registered-action
 calls); validate against an A2UI client.
@@ -408,7 +408,7 @@ go through a new Security Central permission class:
 
 The class exists for symmetry with other `_write` classes and to
 provide a future per-user / per-thread ACL hook when hosted
-multi-user lands (post-v0.35).
+multi-user lands (post-v0.36).
 
 ### 12. Settings keys (workspace.*)
 
@@ -542,10 +542,10 @@ The v0.24 PubSub topic shape (`<namespace>:<user_id>`) extends:
 - Canvas Snapshot (versioned undo / time-travel) — reserved name only.
 - Drag-drop tile reordering — deferred to v0.27+.
 - Multi-canvas-per-thread — deferred.
-- Cursor (multi-user collaborative cursors) — post-v0.35.
+- Cursor (multi-user collaborative cursors) — post-v0.36.
 - Plugin-contributed workspace regions — graduated in v0.32 (ADR 0024).
-- Public AG-UI HTTP endpoint — post-v0.35.
-- A2UI / MCP Apps interop — post-v0.35.
+- Public AG-UI HTTP endpoint — post-v0.36.
+- A2UI / MCP Apps interop — post-v0.36.
 - Offline editing of non-text tile kinds (confirmation card edits,
   trace inspector annotations) — post-v0.27.
 
@@ -609,7 +609,7 @@ target in v0.27+). Two ADRs let each contract evolve independently.
 
 ### Public AG-UI HTTP endpoint in v0.26
 
-Rejected. Post-v0.35 work (per Future Features UI Protocol
+Rejected. Post-v0.36 work (per Future Features UI Protocol
 Interop). v0.26 ships the internal bridge contract; external
 exposure waits for a real consumer.
 

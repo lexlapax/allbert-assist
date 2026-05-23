@@ -85,14 +85,17 @@ Near-term milestones:
 - `v0.32`: workspace-only app UI — `/workspace` becomes the operator home,
   Settings Central moves into the workspace, and apps contribute panels instead
   of separate app shells.
-- `v0.33`: user theming and layout overrides from `~/.allbert`, with token
+- `v0.33`: conversational app intent handoff and direct-answer foundation —
+  neutral workspace prompts can propose app handoff or clarification without
+  silently executing app-owned actions.
+- `v0.34`: user theming and layout overrides from `~/.allbert`, with token
   themes, opt-in sanitized CSS snippets, and validated workspace layout data.
-- `v0.34`: dynamic plugin/app generation and sandboxed module loading for
+- `v0.35`: dynamic plugin/app generation and sandboxed module loading for
   inert local drafts under Allbert Home, compiled and tried only out of node.
-- `v0.35`: plugin/app generator, scaffolding the surface, panel, settings,
-  memory, action, objective, canvas, theming, and dynamic-draft review
-  contracts after they have been proven manually.
-- Post-`v0.35`: broader UI protocol interop, richer generated app workflows,
+- `v0.36`: plugin/app generator, scaffolding the surface, panel, settings,
+  intent descriptor, memory, action, objective, canvas, theming, and
+  dynamic-draft review contracts after they have been proven manually.
+- Post-`v0.36`: broader UI protocol interop, richer generated app workflows,
   and additional reviewed app/plugin surfaces.
 
 ## Start Here

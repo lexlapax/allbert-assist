@@ -30,10 +30,10 @@ assembly now flows through registered core/app/plugin fragments.
 ## Consequences
 
 - v0.32 can render Settings Central inside `/workspace` from fragments.
-- v0.33 theming can add theme/layout keys without editing a monolith.
-- v0.34 dynamic-plugin policy keys can be declared without giving generated
+- v0.34 theming can add theme/layout keys without editing a monolith.
+- v0.35 dynamic-plugin policy keys can be declared without giving generated
   drafts authority.
-- v0.35 can scaffold `schema_fragment/0` safely.
+- v0.36 can scaffold `schema_fragment/0` safely.
 
 ## Non-Goals
 
@@ -60,5 +60,5 @@ lands only with parity tests and eval coverage, not as casual cleanup.
 - Refines: ADR 0006 (Security Central as the permission authority) and the
   Settings Central foundation.
 - Under: ADR 0026 facade discipline.
-- Enables: v0.32 workspace Settings Central panel, v0.33 theme/layout keys,
-  v0.34 dynamic-plugin policy keys, and v0.35 `schema_fragment/0` scaffolding.
+- Enables: v0.32 workspace Settings Central panel, v0.34 theme/layout keys,
+  v0.35 dynamic-plugin policy keys, and v0.36 `schema_fragment/0` scaffolding.
