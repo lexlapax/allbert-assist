@@ -167,12 +167,18 @@ Dependency order from here:
     explicit memory sync through the namespace declared before security evals.
 29. App Canvas Contract: StockSage canvas integration wiring proven components
     into durable `/agent` tiles through the audited workspace canvas mechanism.
-30. Workspace-only app UI: `/workspace` becomes the operator home, app UI moves
+30. v0.31 Runtime and UI-substrate consolidation: action DSL, typed responses,
+    shared path/redaction/audit/persistence facades, unified surface catalog
+    and extension registry, and settings schema fragments.
+31. v0.32 Workspace-only app UI: `/workspace` becomes the operator home, app UI moves
     into host-owned workspace panels, and Settings Central becomes a workspace
     utility panel.
-31. User theming and layout overrides from Allbert Home after the workspace
+32. v0.33 User theming and layout overrides from Allbert Home after the workspace
     panel/zone contract is proven.
-32. Plugin and app generator encoding only the shape already proven end to end.
+33. v0.34 Dynamic plugin/app generation and sandboxed module loading for
+    inert local drafts under Allbert Home, compiled and tried only out of node.
+34. v0.35 Plugin and app generator encoding only the shape already proven end
+    to end.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -1360,7 +1366,7 @@ Shipped direction:
 - **Internal `AllbertAssist.Workspace.AGUI.Bridge`** translates curated
   Allbert signals to AG-UI event shape for test-only semantic mapping.
   NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps interop is
-  post-v0.33 (per Future Features Post-v0.33 UI Protocol Interop).
+  post-v0.35 (per Future Features Post-v0.35 UI Protocol Interop).
 - **`StockSage.Actions.RunAnalysis`** + objective engine + v0.25 native
   specialist agents emit Fragments rendering as canvas tiles + ephemeral
   approval cards. Operator sees the analysis stream in real-time as
@@ -1385,8 +1391,8 @@ Shipped direction:
   (Workspace Canvas And Ephemeral Surface Substrate) reaches Accepted
   at v0.26 M20 with all binding decisions.
 - Defer to v0.27+: drag-drop tile reordering, real StockSage card
-  rendering. Plugin-contributed workspace regions graduated to v0.31
-  (ADR 0024). Defer to post-v0.33: multi-user collaborative cursors,
+  rendering. Plugin-contributed workspace regions graduated to v0.32
+  (ADR 0024). Defer to post-v0.35: multi-user collaborative cursors,
   public AG-UI HTTP endpoint, A2UI / MCP Apps interop, canvas snapshot /
   undo / time-travel.
 
@@ -1562,7 +1568,7 @@ Risk reassessment for the next contracts:
 - v0.30 canvas work should reuse the v0.26/v0.28-audited fragment and canvas
   mechanism. It should not introduce a new renderer contract, bypass app
   surface catalogs, or persist unaudited component atoms.
-- v0.33 generator scaffolding should emit inert-by-default SurfaceProvider,
+- v0.35 generator scaffolding should emit inert-by-default SurfaceProvider,
   memory namespace, action/objective, and canvas stubs only because the
   contracts were manually proven first. Generated files and metadata still do
   not grant permission.
@@ -1614,54 +1620,80 @@ Implemented:
 - No new StockSage domain model, analysis behavior, migration, renderer
   contract, or workspace setting was added.
 
-## v0.31: Workspace-Only App UI And Settings Central
+## v0.31: Runtime And UI-Substrate Consolidation
 
 Plan: `docs/plans/v0.31-plan.md`
 Request flow: `docs/plans/v0.31-request-flow.md`
-ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
+ADRs: `docs/adr/0026-runtime-public-facades-and-boundaries.md`,
+`docs/adr/0027-allbert-action-dsl-and-capability-registry.md`,
+`docs/adr/0028-shared-runtime-substrates.md`,
+`docs/adr/0029-typed-runtime-response-contracts.md`,
+`docs/adr/0030-unified-surface-catalog-renderer-and-extension-registry.md`,
+`docs/adr/0031-settings-schema-fragments-and-authority.md`
 
-Status: research (unstarted). Inserted after v0.30; theming moved to v0.32 and
-the Plugin And App Generator moved to v0.33 so each generated layer is proven
-manually first.
+Status: research (unstarted). Inserted after v0.30 so the workspace UI,
+theming, dynamic plugin trials, and generator build on one consolidated
+runtime/UI substrate instead of encoding duplicated seams.
 
 Prerequisite: v0.26 workspace shell, v0.27 StockSage renderers, v0.28 security
-evals, and v0.30 canvas emission.
+evals, v0.29 memory/outcomes, and v0.30 canvas emission.
+
+Expected direction:
+
+- Behavior-preserving consolidation: no route removals, no theming, no dynamic
+  code, no generator, no domain changes, no migration.
+- Introduce public facades and retirement criteria for compatibility shims.
+- Add `use AllbertAssist.Action` and a compile-time capability registry for
+  runtime-facing actions while keeping private Jido command modules private.
+- Consolidate path, redaction, audit, trace, persistence, and response helper
+  substrates behind documented facades.
+- Unify Surface component catalog, renderer dispatch, app surface metadata,
+  and plugin/app contribution discovery.
+- Split Settings Central schema into registered fragments while preserving
+  keys, defaults, validation, secret handling, and action-backed writes.
+
+## v0.32: Workspace-Only App UI And Settings Central
+
+Plan: `docs/plans/v0.32-plan.md`
+Request flow: `docs/plans/v0.32-request-flow.md`
+ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
+
+Status: research (unstarted). Shifted from v0.31 after the consolidation
+insert.
+
+Prerequisite: v0.31 consolidated action, catalog, registry, response, path,
+redaction, audit, persistence, and settings-fragment substrates.
 
 Expected direction:
 
 - Add a two-tier app UI contribution model: rare `page` surfaces (own route,
   now under `/apps/<app_id>`) and default `:panel` surfaces composed into
   host-owned named workspace zones (`:nav_apps`, `:context_rail`,
-  `:canvas_panels`, `:utility_drawer`, `:ephemeral`). Graduates the
-  "Workspace Hooks" reservation from ADR 0023 §1.
+  `:canvas_panels`, `:utility_drawer`, `:ephemeral`).
 - Make `/workspace` the only operator home. `/agent`, `/settings`, and
   `/stocksage/*` are removed rather than redirected.
-- Rebuild the workspace into a ChatGPT-style shell: left rail (new-chat +
-  thread history + app launcher) + center chat + right canvas + utility drawer,
-  with new structural catalog atoms and existing offline/a11y/mobile behaviors
-  preserved.
+- Rebuild the workspace into a ChatGPT-style shell while preserving existing
+  offline/a11y/mobile behavior.
 - Move Settings Central into the workspace utility drawer while preserving
   existing action/security boundaries.
-- Move StockSage dashboard/recent/queue/trends into workspace panels and reduce
-  StockSage to a panel-based workspace app; keep `/apps/stocksage/analyses/:id`
-  only if analysis detail genuinely needs page-level focus. Migrate CoreApp
-  domain cards to the same panel-zone path so built-in and plugin apps share
-  one mechanism.
+- Move StockSage dashboard/recent/queue/trends into workspace panels and use
+  the same panel-zone path for CoreApp cards.
 - Add no new domain behavior, analysis engine, execution authority, dynamic
-  routing, arbitrary model-generated UI, theming system, or external UI
-  protocol bridge.
+  routing, arbitrary model-generated UI, theming system, dynamic code, or
+  external UI protocol bridge.
 
-## v0.32: User Theming And Layout Overrides
+## v0.33: User Theming And Layout Overrides
 
-Plan: `docs/plans/v0.32-plan.md`
-Request flow: `docs/plans/v0.32-request-flow.md`
+Plan: `docs/plans/v0.33-plan.md`
+Request flow: `docs/plans/v0.33-request-flow.md`
 ADR: `docs/adr/0025-user-theming-and-override-security.md`
 
-Status: research (unstarted). Split out of the prior v0.31 plan so workspace
-composition lands before operator theming/layout overrides.
+Status: research (unstarted). Shifted from v0.32 so v0.31 consolidation and
+v0.32 workspace composition land first.
 
-Prerequisite: v0.31 workspace-only app UI, host-owned zones, panel surfaces,
-and Settings Central inside `/workspace`.
+Prerequisite: v0.31 shared paths/settings fragments and v0.32 workspace-only
+app UI, host-owned zones, panel surfaces, and Settings Central inside
+`/workspace`.
 
 Expected direction:
 
@@ -1678,18 +1710,48 @@ Expected direction:
 - Add CSP regression coverage and Chrome verification for desktop/narrow
   workspace retinting, snippet blocking, and layout fallback behavior.
 
-## v0.33: Allbert Plugin And App Generator
+## v0.34: Dynamic Plugin/App Generation And Sandboxed Module Loading
 
-Plan: `docs/plans/v0.33-plan.md`
-Request flow: `docs/plans/v0.33-request-flow.md`
+Plan: `docs/plans/v0.34-plan.md`
+Request flow: `docs/plans/v0.34-request-flow.md`
+ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
+`docs/adr/0033-capability-gap-acquisition-and-trust-tiers.md`
 
-Status: research (unstarted). Moved to v0.33 so v0.31 workspace panels and
-v0.32 theming/layout hooks are proven before scaffolding.
+Status: research (unstarted). Graduated from
+`docs/plans/future-features.md` with a bounded sandbox architecture.
+
+Prerequisite: v0.31 consolidated runtime substrates, v0.32 workspace Settings
+Central/panels, and v0.33 Allbert Home theming/layout roots.
+
+Expected direction:
+
+- Detect missing capability through the objective runtime and propose a local
+  generated plugin/app draft as an operator-confirmed acquisition option.
+- Write inert draft source under `<ALLBERT_HOME>/plugins/<slug>` without
+  trust, compile-path changes, route authority, skill enablement, settings
+  authority, permissions, or child supervision.
+- Compile and load generated modules only in an out-of-node sandbox/trial
+  runner; the core Allbert BEAM node must not dynamically compile, evaluate,
+  or load generated Elixir code.
+- Run bounded sandbox trial scenarios and return redacted diagnostics.
+- Let the operator discard the draft or mark it as a promotion candidate.
+- Forbid dependencies, package-manager execution, migrations, NIFs, secrets,
+  unrestricted network, and automatic promotion.
+
+## v0.35: Allbert Plugin And App Generator
+
+Plan: `docs/plans/v0.35-plan.md`
+Request flow: `docs/plans/v0.35-request-flow.md`
+
+Status: research (unstarted). Shifted from v0.33 so v0.31 consolidation,
+v0.32 workspace panels, v0.33 theming/layout hooks, and v0.34 dynamic-draft
+trial substrate are proven before scaffolding.
 
 Prerequisite: StockSage proves the plugin/app path in v0.20, the app surface
 contract in v0.27, the app memory/outcomes contract in v0.29, the app canvas
-contract in v0.30, the workspace-panel/settings contract in v0.31, and the
-theming/layout contract in v0.32.
+contract in v0.30, the runtime/UI-substrate contract in v0.31, the
+workspace-panel/settings contract in v0.32, the theming/layout contract in
+v0.33, and the dynamic-draft trial contract in v0.34.
 
 Expected direction:
 
@@ -1698,20 +1760,22 @@ Expected direction:
   and explicit compile-path/project-integration instructions.
 - `mix allbert.gen.app MyApp` scaffolds an app plugin that includes the
   app/surface contract layers, including panel surface stubs, Settings Central
-  schema stub, and a memory namespace stub.
+  schema-fragment stub, and a memory namespace stub.
 - Generated app-plugin output includes a plugin module, app module, app
-  supervision wiring, sample Jido action, sample `SKILL.md`, sample panel
-  surface, optional page surface notes, sample Ecto domain stub, optional
-  objective scaffolding for multi-step capabilities, canvas wiring stub,
-  theming/layout docs, and validation docs.
+  supervision wiring, sample `AllbertAssist.Action` action, sample `SKILL.md`,
+  sample panel surface, optional page surface notes, sample Ecto domain stub,
+  optional objective scaffolding for multi-step capabilities, canvas wiring
+  stub, theming/layout docs, dynamic-draft review notes, and validation docs.
 - `mix allbert.validate_app MyApp` passes on first run.
 - Generated code is inert by default: no automatic compile-path changes,
   trust, skill enablement, publishing, route authority, permission grants, or
   execution authority.
+- Optionally inspect a v0.34 promotion-candidate draft as reviewed-source
+  input, without promoting it automatically.
 - Optionally add `mix allbert.publish_skills` for publishing app `SKILL.md`
   files to agentskills.io after the local app contract is proven.
 
-Post-v0.33 candidates remain in `docs/plans/future-features.md` until
+Post-v0.35 candidates remain in `docs/plans/future-features.md` until
 promoted.
 
 ## Future: Distillation And Self-Improvement

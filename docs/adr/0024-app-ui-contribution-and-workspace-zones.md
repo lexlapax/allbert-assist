@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed for v0.31 Workspace-Only App UI And Settings Central
-(`docs/plans/v0.31-plan.md`). This ADR graduates the "Workspace Hooks" /
+Proposed for v0.32 Workspace-Only App UI And Settings Central
+(`docs/plans/v0.32-plan.md`). This ADR graduates the "Workspace Hooks" /
 plugin-contributed workspace regions reserved in ADR 0023 §1, extends the
 Surface DSL of ADR 0015 with a panel contribution tier and host-owned zones,
 pins `/workspace` as the canonical operator route, and moves Settings Central
@@ -21,8 +21,9 @@ Allbert has historically had several operator UI surfaces:
   `/stocksage/*`, with private navigation and app-specific page chrome.
 
 v0.30 lets StockSage emit durable canvas tiles into the workspace, but app
-dashboard/list/queue/trend UI still lives outside the workspace. The operator
-direction for v0.31 is sharper: the product home is `/workspace`, most app UI
+dashboard/list/queue/trend UI still lives outside the workspace. v0.31
+consolidates the runtime/catalog/settings substrate first. The operator
+direction for v0.32 is sharper: the product home is `/workspace`, most app UI
 is a panel inside that workspace, Settings Central is a workspace utility
 panel, and old operator routes are removed rather than redirected.
 
@@ -30,9 +31,9 @@ Mature extensible apps converge on a host-owned slot model: rare page
 surfaces for deep-linkable page flows, and default panels/cards/views that
 target named host regions. The host owns layout and slots; the app declares
 what it can contribute and where it prefers to appear. Allbert already has the
-substrate for this through Surface trees and a curated component catalog, so
-v0.31 adds a contribution tier and zone registry rather than a new rendering
-mechanism.
+substrate for this through Surface trees and the v0.31 unified component
+catalog, so v0.32 adds a contribution tier and zone registry rather than a new
+rendering mechanism.
 
 ## Decision
 
@@ -40,7 +41,7 @@ mechanism.
 
 The operator product route is `/workspace`.
 
-`/agent`, `/settings`, and `/stocksage/*` are removed in v0.31. They are not
+`/agent`, `/settings`, and `/stocksage/*` are removed in v0.32. They are not
 redirected, aliased, or retained as compatibility routes. Historical docs may
 continue to describe those routes for v0.30 and earlier.
 
@@ -61,7 +62,7 @@ not grant route or layout authority.
 
 ### 3. Host-owned named zones
 
-`AllbertAssist.Workspace.Catalog` declares a fixed zone set for v0.31:
+The v0.31 unified Surface catalog declares a fixed zone set for v0.32:
 
 - `:nav_apps`
 - `:context_rail`
@@ -125,15 +126,17 @@ Panels and zones add no new authority:
 - The catalog grows by host structural atoms and panel wrappers; ADR 0015 is
   amended accordingly.
 - The fixed zone set may need to become richer after more apps contribute
-  panels, but v0.31 keeps the surface intentionally small.
+  panels, but v0.32 keeps the surface intentionally small.
 
 ## Relates To
 
 - Extends: ADR 0015 (Allbert App Contract And Surface DSL) — adds the `:panel`
   surface kind, named zones, `/workspace` as canonical operator route, and the
   `/apps/<app_id>` convention for rare page surfaces.
+- Depends on: ADR 0030 / v0.31 unified Surface catalog and extension registry,
+  and ADR 0031 / v0.31 settings fragments.
 - Graduates: ADR 0023 §1 "Workspace Hooks" / §2 plugin-contributed regions.
 - Constrained by: ADR 0019 and ADR 0021 (metadata is not authority), ADR 0017
   (plugin contract), and v0.28 security posture.
-- Enables: ADR 0025 / v0.32 user theming and layout overrides, then v0.33
-  Plugin And App Generator.
+- Enables: ADR 0025 / v0.33 user theming and layout overrides, v0.34 dynamic
+  plugin/app draft trials, then v0.35 Plugin And App Generator.
