@@ -164,12 +164,22 @@ defmodule StockSage.PluginTest do
     assert attrs.provider_surfaces == StockSage.App.surfaces()
     assert attrs.surfaces == []
 
-    assert Enum.map(attrs.provider_surfaces, & &1.path) == [
-             "/stocksage",
-             "/stocksage/analyses",
-             "/stocksage/queue",
-             "/stocksage/trends"
+    assert Enum.map(attrs.provider_surfaces, & &1.id) == [
+             :stocksage_dashboard_panel,
+             :stocksage_recent_analyses_panel,
+             :stocksage_queue_panel,
+             :stocksage_trends_panel
            ]
+
+    assert Enum.map(attrs.provider_surfaces, & &1.path) == [
+             "/workspace",
+             "/workspace",
+             "/workspace",
+             "/workspace"
+           ]
+
+    assert Enum.all?(attrs.provider_surfaces, &match?(%Surface{kind: :panel}, &1))
+    assert Enum.all?(attrs.provider_surfaces, &(&1.metadata.visible_when == :selected_app))
 
     assert Enum.all?(attrs.provider_surfaces, &match?(%Surface{app_id: :stocksage}, &1))
 

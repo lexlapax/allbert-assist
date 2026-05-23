@@ -226,7 +226,6 @@ defmodule StockSageWeb.AnalysisLive do
               {if @analysis_id, do: "Analysis #{@analysis_id}", else: "Analyses"}
             </h1>
           </div>
-          <AppShell.nav current={:analyses} />
         </header>
 
         <AppShell.state_panel
