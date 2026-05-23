@@ -26,29 +26,101 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCard do
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.AnalysisCard do
-  use AllbertAssistWeb.Workspace.Components.Base,
-    component: :analysis_card,
-    description: "StockSage analysis card reserved for v0.27",
-    stub?: true
+  @moduledoc "Workspace adapter for the StockSage `:analysis_card` renderer."
+
+  use AllbertAssistWeb, :live_component
+
+  @impl true
+  def update(assigns, socket), do: {:ok, assign_stocksage_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <div data-workspace-stocksage-adapter="analysis_card">
+      <StockSageWeb.Components.Cards.analysis_card node={@node} />
+    </div>
+    """
+  end
+
+  defp assign_stocksage_defaults(socket, assigns) do
+    socket
+    |> assign(assigns)
+    |> assign_new(:renderer_context, fn -> %{} end)
+    |> assign_new(:workspace_state, fn -> %{} end)
+  end
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.AgentReportCard do
-  use AllbertAssistWeb.Workspace.Components.Base,
-    component: :agent_report_card,
-    description: "StockSage agent report card reserved for v0.27",
-    stub?: true
+  @moduledoc "Workspace adapter for the StockSage `:agent_report_card` renderer."
+
+  use AllbertAssistWeb, :live_component
+
+  @impl true
+  def update(assigns, socket), do: {:ok, assign_stocksage_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <div data-workspace-stocksage-adapter="agent_report_card">
+      <StockSageWeb.Components.Cards.agent_report_card node={@node} />
+    </div>
+    """
+  end
+
+  defp assign_stocksage_defaults(socket, assigns) do
+    socket
+    |> assign(assigns)
+    |> assign_new(:renderer_context, fn -> %{} end)
+    |> assign_new(:workspace_state, fn -> %{} end)
+  end
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.ParityCard do
-  use AllbertAssistWeb.Workspace.Components.Base,
-    component: :parity_card,
-    description: "StockSage parity card reserved for v0.27",
-    stub?: true
+  @moduledoc "Workspace adapter for the StockSage `:parity_card` renderer."
+
+  use AllbertAssistWeb, :live_component
+
+  @impl true
+  def update(assigns, socket), do: {:ok, assign_stocksage_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <div data-workspace-stocksage-adapter="parity_card">
+      <StockSageWeb.Components.Cards.parity_card node={@node} />
+    </div>
+    """
+  end
+
+  defp assign_stocksage_defaults(socket, assigns) do
+    socket
+    |> assign(assigns)
+    |> assign_new(:renderer_context, fn -> %{} end)
+    |> assign_new(:workspace_state, fn -> %{} end)
+  end
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.DebateRoundCard do
-  use AllbertAssistWeb.Workspace.Components.Base,
-    component: :debate_round_card,
-    description: "StockSage debate round card reserved for v0.27",
-    stub?: true
+  @moduledoc "Workspace adapter for the StockSage `:debate_round_card` renderer."
+
+  use AllbertAssistWeb, :live_component
+
+  @impl true
+  def update(assigns, socket), do: {:ok, assign_stocksage_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <div data-workspace-stocksage-adapter="debate_round_card">
+      <StockSageWeb.Components.Cards.debate_round_card node={@node} />
+    </div>
+    """
+  end
+
+  defp assign_stocksage_defaults(socket, assigns) do
+    socket
+    |> assign(assigns)
+    |> assign_new(:renderer_context, fn -> %{} end)
+    |> assign_new(:workspace_state, fn -> %{} end)
+  end
 end
