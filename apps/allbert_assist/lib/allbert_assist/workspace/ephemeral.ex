@@ -203,11 +203,15 @@ defmodule AllbertAssist.Workspace.Ephemeral do
     if surface.user_id != attrs.user_id or surface.thread_id != attrs.thread_id do
       {:error, :fragment_id_conflict}
     else
-      duplicate_body_result(surface, attrs)
+      duplicate_surface_body_result(surface, attrs)
     end
   end
 
-  defp duplicate_body_result(%Surface{} = surface, attrs) do
+  defp duplicate_surface_body_result(%Surface{dismissed_at: %DateTime{}} = surface, attrs) do
+    reopen_dismissed_surface(surface, attrs)
+  end
+
+  defp duplicate_surface_body_result(%Surface{} = surface, attrs) do
     case load_body(surface) do
       {:ok, %Surface{} = loaded} ->
         if loaded.body == Persistence.normalize_body(attrs.body) do
@@ -218,6 +222,25 @@ defmodule AllbertAssist.Workspace.Ephemeral do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp reopen_dismissed_surface(%Surface{} = surface, attrs) do
+    with :ok <- enforce_cap(attrs.user_id, attrs.thread_id),
+         :ok <- Persistence.write_body(attrs.body_yaml_path, attrs.body) do
+      surface
+      |> Surface.changeset(%{
+        kind: attrs.kind,
+        body_yaml_path: attrs.body_yaml_path,
+        pinned: attrs.pinned,
+        metadata: attrs.metadata,
+        opened_at: attrs.opened_at,
+        dismissed_at: nil,
+        dismissed_by: nil
+      })
+      |> Repo.update()
+      |> load_body_result()
+      |> tap_ok(&Events.ephemeral_opened/1)
     end
   end
 

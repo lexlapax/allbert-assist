@@ -15,6 +15,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Engine
+  alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.Intent.ResourceAccess
   alias AllbertAssist.Objectives.Engine.Agent, as: ObjectivesEngine
   alias AllbertAssist.Resources.Ref
@@ -24,6 +25,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
+  alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
   alias Jido.Agent, as: JidoAgent
   alias Jido.Agent.State, as: JidoAgentState
   alias Jido.Error, as: JidoError
@@ -219,6 +221,9 @@ defmodule AllbertAssist.Agents.IntentAgent do
     cond do
       Decision.refused?(decision) ->
         {:ok, decision_refusal_response(decision)}
+
+      intent_handoff_decision?(decision) ->
+        {:ok, intent_handoff_response(decision, context)}
 
       objective_framing_candidate?(decision) ->
         text
@@ -981,6 +986,47 @@ defmodule AllbertAssist.Agents.IntentAgent do
     |> case do
       [symbol] -> symbol
       _other -> nil
+    end
+  end
+
+  defp intent_handoff_decision?(%Decision{intent: intent})
+       when intent in [:app_handoff, :clarify_intent],
+       do: true
+
+  defp intent_handoff_decision?(_decision), do: false
+
+  defp intent_handoff_response(%Decision{} = decision, context) do
+    decision = Engine.put_candidate_metadata(decision, context)
+
+    case Handoff.from_decision(decision) do
+      {:ok, handoff} ->
+        WorkspaceEmitters.intent_proposal(handoff, context.request)
+        handoff_map = Handoff.to_map(handoff)
+
+        %{
+          message: Handoff.message(handoff),
+          status: :completed,
+          active_app: decision.active_app,
+          decision: decision,
+          resource_access: [],
+          approval_handoff: nil,
+          intent_handoff: handoff_map,
+          diagnostics: decision.diagnostics,
+          actions: [
+            %{
+              name: Atom.to_string(handoff.kind),
+              status: :completed,
+              permission: :read_only,
+              intent_handoff: handoff_map
+            }
+          ]
+        }
+
+      {:error, reason} ->
+        Response.error("Unable to prepare app handoff: #{inspect(reason)}", reason,
+          actions: [],
+          diagnostics: decision.diagnostics
+        )
     end
   end
 

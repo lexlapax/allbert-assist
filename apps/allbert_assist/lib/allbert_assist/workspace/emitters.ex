@@ -9,6 +9,7 @@ defmodule AllbertAssist.Workspace.Emitters do
 
   require Logger
 
+  alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
@@ -18,6 +19,7 @@ defmodule AllbertAssist.Workspace.Emitters do
   alias AllbertAssist.Workspace.Fragment.SigningSecret
 
   @confirmation_emitter "AllbertAssist.Confirmations"
+  @intent_emitter "AllbertAssist.Agents.IntentAgent"
   @objective_emitter "AllbertAssist.Objectives"
   @stocksage_emitter "StockSage.Actions.RunAnalysis"
 
@@ -52,6 +54,35 @@ defmodule AllbertAssist.Workspace.Emitters do
   end
 
   def confirmation_requested(_record), do: :ok
+
+  @spec intent_proposal(Handoff.t() | map(), map()) :: :ok
+  def intent_proposal(handoff, context) when is_map(context) do
+    safe_emit(fn ->
+      with {:ok, %Handoff{} = handoff} <- normalize_handoff(handoff),
+           {:ok, context} <-
+             context(string_value(context, :user_id), string_value(context, :thread_id)) do
+        emit_fragment(%{
+          id: handoff.surface_id,
+          surface: intent_surface(handoff),
+          emitter_id: @intent_emitter,
+          user_id: context.user_id,
+          thread_id: context.thread_id,
+          scope: :ephemeral,
+          kind: :approval_card,
+          emitted_at: DateTime.utc_now(),
+          metadata:
+            bounded_map(%{
+              source: "intent_handoff",
+              kind: handoff.kind,
+              app_id: handoff.app_id,
+              action_name: handoff.action_name
+            })
+        })
+      end
+    end)
+  end
+
+  def intent_proposal(_handoff, _context), do: :ok
 
   @spec confirmation_resolved(map()) :: :ok
   def confirmation_resolved(record) when is_map(record) do
@@ -164,6 +195,90 @@ defmodule AllbertAssist.Workspace.Emitters do
       %{source: "confirmations", confirmation_id: id}
     )
   end
+
+  defp intent_surface(%Handoff{} = handoff) do
+    handoff_map = Handoff.to_map(handoff)
+    body = Handoff.message(handoff)
+
+    surface(
+      :workspace_intent_handoff,
+      :allbert,
+      intent_surface_title(handoff),
+      "/workspace",
+      :workspace,
+      body,
+      intent_nodes(handoff, handoff_map, body),
+      %{source: "intent_handoff", handoff: handoff_map}
+    )
+  end
+
+  defp intent_nodes(%Handoff{kind: :app_handoff} = handoff, handoff_map, body) do
+    [
+      node("intent-handoff", :approval_card, %{
+        dom_id: "intent-handoff",
+        title: "Open #{app_label(handoff.app_id)}?",
+        body: body,
+        status: "handoff",
+        external_id: handoff.surface_id
+      }),
+      node("intent-handoff-accept", :action_button, intent_button_props(handoff_map, "Accept")),
+      node(
+        "intent-handoff-decline",
+        :button,
+        intent_button_props(handoff_map, "Decline")
+        |> Map.put(:dom_id, "intent-handoff-decline")
+        |> Map.put(:phx_click, "decline_intent_handoff")
+      )
+    ]
+  end
+
+  defp intent_nodes(%Handoff{kind: :clarify_intent} = handoff, handoff_map, body) do
+    [
+      node("intent-clarification", :approval_card, %{
+        dom_id: "intent-clarification",
+        title: "Clarify #{app_label(handoff.app_id)}",
+        body: body,
+        status: "clarify",
+        external_id: handoff.surface_id
+      })
+      | intent_option_nodes(handoff_map)
+    ]
+  end
+
+  defp intent_option_nodes(%{options: options} = handoff_map) when is_list(options) do
+    options
+    |> Enum.with_index(1)
+    |> Enum.map(fn {option, index} ->
+      node("intent-option-#{index}", :button, %{
+        title: string_value(option, :label) || "Option #{index}",
+        dom_id: "intent-option-#{index}",
+        phx_click: "select_intent_option",
+        surface_id: string_value(handoff_map, :surface_id),
+        app_id: string_value(option, :app_id),
+        action_name: string_value(option, :action_name),
+        source_text: string_value(handoff_map, :source_text),
+        intent_option?: true
+      })
+    end)
+  end
+
+  defp intent_option_nodes(_handoff_map), do: []
+
+  defp intent_button_props(handoff_map, title) do
+    %{
+      title: title,
+      dom_id: "intent-handoff-accept",
+      phx_click: "accept_intent_handoff",
+      surface_id: string_value(handoff_map, :surface_id),
+      app_id: string_value(handoff_map, :app_id),
+      action_name: string_value(handoff_map, :action_name),
+      source_text: string_value(handoff_map, :source_text),
+      ticker: string_value(handoff_map[:extracted_slots] || %{}, :ticker)
+    }
+  end
+
+  defp intent_surface_title(%Handoff{kind: :app_handoff}), do: "App Handoff"
+  defp intent_surface_title(%Handoff{kind: :clarify_intent}), do: "Clarification"
 
   defp objective_surface(kind, objective, metadata) do
     objective_id = Map.get(objective, :id)
@@ -428,6 +543,9 @@ defmodule AllbertAssist.Workspace.Emitters do
     context(Map.get(objective, :user_id), Map.get(objective, :source_thread_id))
   end
 
+  defp normalize_handoff(%Handoff{} = handoff), do: {:ok, handoff}
+  defp normalize_handoff(%{} = attrs), do: Handoff.new(attrs)
+
   defp payload_context(payload) do
     context(string_value(payload, :user_id), string_value(payload, :thread_id))
   end
@@ -438,6 +556,14 @@ defmodule AllbertAssist.Workspace.Emitters do
   end
 
   defp context(_user_id, _thread_id), do: {:error, :missing_workspace_context}
+
+  defp app_label(:stocksage), do: "StockSage"
+
+  defp app_label(app_id) when is_atom(app_id) do
+    app_id
+    |> Atom.to_string()
+    |> String.replace("_", " ")
+  end
 
   defp target_action_name(record) do
     record

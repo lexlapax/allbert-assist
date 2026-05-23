@@ -17,6 +17,7 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Intent.Classifier
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Descriptor
+  alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.Intent.Ranker
   alias AllbertAssist.Jobs
   alias AllbertAssist.Memory
@@ -47,13 +48,14 @@ defmodule AllbertAssist.Intent.Engine do
     {classifier_candidate, classifier_diagnostic} = classifier_candidate(candidates, request)
 
     attrs =
-      case selected_route_candidate(classifier_candidate, candidates, request) do
-        nil ->
-          direct_answer_attrs(request, app_context, classifier_diagnostic)
+      descriptor_decision_attrs(candidates, request, app_context, classifier_diagnostic) ||
+        case selected_route_candidate(classifier_candidate, candidates, request) do
+          nil ->
+            direct_answer_attrs(request, app_context, classifier_diagnostic)
 
-        candidate ->
-          decision_attrs_for_candidate(candidate, request, app_context, classifier_diagnostic)
-      end
+          candidate ->
+            decision_attrs_for_candidate(candidate, request, app_context, classifier_diagnostic)
+        end
 
     with {:ok, decision} <- build_decision(attrs, request, classifier_diagnostic) do
       {:ok, put_candidate_metadata(decision, %{request: request})}
@@ -240,6 +242,16 @@ defmodule AllbertAssist.Intent.Engine do
   end
 
   defp decision_attrs_for_candidate(
+         %{kind: :app_intent} = candidate,
+         request,
+         app_context,
+         classifier_diagnostic
+       ) do
+    descriptor_decision_attrs([candidate], request, app_context, classifier_diagnostic) ||
+      direct_answer_attrs(request, app_context, classifier_diagnostic)
+  end
+
+  defp decision_attrs_for_candidate(
          %{kind: kind} = candidate,
          request,
          app_context,
@@ -392,6 +404,32 @@ defmodule AllbertAssist.Intent.Engine do
     end
   end
 
+  defp selected_candidate(%Decision{intent: intent} = decision)
+       when intent in [:app_handoff, :clarify_intent] do
+    handoff = field(decision.trace_metadata, :intent_handoff, %{})
+
+    Candidate.new!(%{
+      kind: :app_intent,
+      id:
+        field(handoff, :candidate_id) ||
+          "#{field(handoff, :app_id)}:#{field(handoff, :action_name)}",
+      label: field(handoff, :label),
+      source: :app,
+      status: :selected,
+      selected?: true,
+      score: decision.confidence,
+      reason: decision.reason,
+      action_name: field(handoff, :action_name),
+      app_id: field(handoff, :app_id),
+      permission: field(handoff, :permission),
+      execution_mode: field(handoff, :execution_mode),
+      confirmation: field(handoff, :confirmation),
+      trace_metadata: %{intent: intent, intent_handoff: handoff}
+    })
+  rescue
+    _exception -> Candidate.selected_from_decision(decision)
+  end
+
   defp selected_candidate(%Decision{} = decision), do: Candidate.selected_from_decision(decision)
 
   defp do_collect_candidates(request, opts) do
@@ -408,13 +446,140 @@ defmodule AllbertAssist.Intent.Engine do
   end
 
   defp descriptor_candidates(request) do
-    ExtensionsRegistry.registered_intent_descriptors()
-    |> Enum.map(&candidate_from_descriptor(&1, request))
-    |> Enum.reject(&is_nil/1)
+    if descriptors_enabled?() do
+      ExtensionsRegistry.registered_intent_descriptors()
+      |> Enum.map(&candidate_from_descriptor(&1, request))
+      |> Enum.reject(&is_nil/1)
+    else
+      []
+    end
   rescue
     _exception -> []
   catch
     :exit, _reason -> []
+  end
+
+  defp descriptor_decision_attrs(candidates, request, app_context, classifier_diagnostic) do
+    with true <- descriptors_enabled?(),
+         true <- neutral_app?(app_context.active_app),
+         [%{} = top | _rest] <- descriptor_candidates_for_decision(candidates),
+         score <- Ranker.score(top),
+         true <- score >= clarify_floor(),
+         {:ok, handoff} <-
+           Handoff.new(
+             handoff_attrs(
+               descriptor_decision_kind(top, candidates),
+               top,
+               request,
+               descriptor_margin(top, candidates)
+             )
+           ) do
+      %{
+        intent: handoff.kind,
+        confidence: handoff.confidence,
+        reason: handoff.reason,
+        selected_action: nil,
+        active_app: app_context.active_app,
+        diagnostics: app_context.diagnostics,
+        trace_metadata:
+          %{
+            source_text: field(request, :text),
+            candidate_kind: :app_intent,
+            intent_handoff: Handoff.to_map(handoff),
+            classifier_selected?: not is_nil(classifier_diagnostic)
+          }
+          |> put_classifier(classifier_diagnostic),
+        context: %{request: request}
+      }
+    else
+      _no_descriptor_handoff -> nil
+    end
+  end
+
+  defp descriptor_candidates_for_decision(candidates) do
+    candidates
+    |> Enum.filter(&(field(&1, :kind) == :app_intent))
+    |> Enum.sort_by(&Ranker.score/1, :desc)
+  end
+
+  defp descriptor_decision_kind(candidate, candidates) do
+    missing_slots = get_in_trace(candidate, :missing_slots) || []
+    score = Ranker.score(candidate)
+    margin = descriptor_margin(candidate, candidates)
+
+    cond do
+      missing_slots != [] ->
+        :clarify_intent
+
+      score >= handoff_threshold() and margin >= handoff_margin() ->
+        :app_handoff
+
+      true ->
+        :clarify_intent
+    end
+  end
+
+  defp descriptor_margin(candidate, candidates) do
+    score = Ranker.score(candidate)
+
+    candidates
+    |> descriptor_candidates_for_decision()
+    |> Enum.reject(&(field(&1, :id) == field(candidate, :id)))
+    |> Enum.map(&Ranker.score/1)
+    |> List.first()
+    |> case do
+      value when is_float(value) -> max(score - value, 0.0)
+      _none -> 1.0
+    end
+  end
+
+  defp handoff_attrs(kind, candidate, request, margin) do
+    trace_metadata = field(candidate, :trace_metadata, %{})
+    descriptor = field(trace_metadata, :descriptor, %{})
+
+    %{
+      kind: kind,
+      app_id: field(candidate, :app_id),
+      action_name: field(candidate, :action_name),
+      label: field(candidate, :label) || field(descriptor, :label) || field(candidate, :id),
+      candidate_id: field(candidate, :id),
+      source_text: field(request, :text),
+      reason: descriptor_reason(kind, candidate),
+      confidence: Ranker.score(candidate),
+      margin: margin,
+      permission: field(candidate, :permission),
+      execution_mode: field(candidate, :execution_mode),
+      confirmation: field(candidate, :confirmation),
+      extracted_slots: get_in_trace(candidate, :extracted_slots) || %{},
+      missing_slots: get_in_trace(candidate, :missing_slots) || [],
+      descriptor: descriptor,
+      options: descriptor_options(candidate)
+    }
+  end
+
+  defp descriptor_reason(:app_handoff, candidate) do
+    "Request matched #{field(candidate, :label)} and all required slots were present."
+  end
+
+  defp descriptor_reason(:clarify_intent, candidate) do
+    missing_slots = get_in_trace(candidate, :missing_slots) || []
+
+    if missing_slots == [] do
+      "Request matched an app intent descriptor but needs operator clarification."
+    else
+      "Request matched #{field(candidate, :label)} but is missing #{Enum.join(missing_slots, ", ")}."
+    end
+  end
+
+  defp descriptor_options(candidate) do
+    [
+      %{
+        app_id: field(candidate, :app_id),
+        action_name: field(candidate, :action_name),
+        label: field(candidate, :label),
+        candidate_id: field(candidate, :id)
+      }
+    ]
   end
 
   defp candidate_from_descriptor(descriptor, request) do
@@ -1024,6 +1189,33 @@ defmodule AllbertAssist.Intent.Engine do
   rescue
     _exception -> true
   end
+
+  defp descriptors_enabled? do
+    case Settings.get("intent.descriptors_enabled") do
+      {:ok, false} -> false
+      _other -> true
+    end
+  rescue
+    _exception -> true
+  end
+
+  defp handoff_threshold, do: bounded_setting("intent.handoff_threshold", 0.6)
+  defp handoff_margin, do: bounded_setting("intent.handoff_margin", 0.15)
+  defp clarify_floor, do: bounded_setting("intent.clarify_floor", 0.3)
+
+  defp bounded_setting(key, default) do
+    case Settings.get(key) do
+      {:ok, value} when is_float(value) -> value |> max(0.0) |> min(1.0)
+      {:ok, value} when is_integer(value) -> (value / 1) |> max(0.0) |> min(1.0)
+      _other -> default
+    end
+  rescue
+    _exception -> default
+  end
+
+  defp neutral_app?(nil), do: true
+  defp neutral_app?(:allbert), do: true
+  defp neutral_app?(_app_id), do: false
 
   defp action_resource_access(%Capability{name: name}, request) do
     request
