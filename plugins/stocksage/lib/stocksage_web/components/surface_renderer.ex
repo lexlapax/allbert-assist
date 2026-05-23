@@ -1,6 +1,9 @@
 defmodule StockSageWeb.Components.SurfaceRenderer do
   @moduledoc """
   StockSage app-surface dispatcher for validated Surface nodes.
+
+  v0.31 marks this as a compatibility shim. M7 retires it when StockSage app
+  surfaces dispatch through the shared Surface catalog renderer path.
   """
 
   use Phoenix.Component

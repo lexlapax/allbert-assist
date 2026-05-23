@@ -26,7 +26,12 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCard do
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.AnalysisCard do
-  @moduledoc "Workspace adapter for the StockSage `:analysis_card` renderer."
+  @moduledoc """
+  Workspace adapter for the StockSage `:analysis_card` renderer.
+
+  v0.31 marks this as a compatibility shim. M7 retires it when StockSage card
+  renderers register through the shared Surface catalog.
+  """
 
   use AllbertAssistWeb, :live_component
 
@@ -51,7 +56,12 @@ defmodule AllbertAssistWeb.Workspace.Components.AnalysisCard do
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.AgentReportCard do
-  @moduledoc "Workspace adapter for the StockSage `:agent_report_card` renderer."
+  @moduledoc """
+  Workspace adapter for the StockSage `:agent_report_card` renderer.
+
+  v0.31 marks this as a compatibility shim. M7 retires it when StockSage card
+  renderers register through the shared Surface catalog.
+  """
 
   use AllbertAssistWeb, :live_component
 
@@ -76,7 +86,12 @@ defmodule AllbertAssistWeb.Workspace.Components.AgentReportCard do
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.ParityCard do
-  @moduledoc "Workspace adapter for the StockSage `:parity_card` renderer."
+  @moduledoc """
+  Workspace adapter for the StockSage `:parity_card` renderer.
+
+  v0.31 marks this as a compatibility shim. M7 retires it when StockSage card
+  renderers register through the shared Surface catalog.
+  """
 
   use AllbertAssistWeb, :live_component
 
@@ -101,7 +116,12 @@ defmodule AllbertAssistWeb.Workspace.Components.ParityCard do
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.DebateRoundCard do
-  @moduledoc "Workspace adapter for the StockSage `:debate_round_card` renderer."
+  @moduledoc """
+  Workspace adapter for the StockSage `:debate_round_card` renderer.
+
+  v0.31 marks this as a compatibility shim. M7 retires it when StockSage card
+  renderers register through the shared Surface catalog.
+  """
 
   use AllbertAssistWeb, :live_component
 

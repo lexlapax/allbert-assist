@@ -1,6 +1,10 @@
 defmodule AllbertAssist.Plugin.Registry do
   @moduledoc """
   Volatile registry for local Allbert plugin contributions.
+
+  v0.31 keeps this as the current plugin registry facade. M7 adds
+  `AllbertAssist.Extensions.Registry` as the unified contribution index over
+  compiled app and plugin contributions.
   """
 
   use GenServer

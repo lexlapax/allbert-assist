@@ -1,6 +1,10 @@
 defmodule AllbertAssist.App.Registry do
   @moduledoc """
   Volatile registry for lite Allbert workspace app contracts.
+
+  v0.31 keeps this as the current app registry facade. M7 adds
+  `AllbertAssist.Extensions.Registry` as the unified contribution index over
+  compiled app and plugin contributions.
   """
 
   use GenServer
