@@ -38,14 +38,14 @@ defmodule AllbertAssist.App.CoreApp do
   def surfaces do
     [
       %Surface{
-        id: :agent,
+        id: :workspace,
         app_id: :allbert,
         label: "Allbert Workspace",
-        path: "/agent",
+        path: "/workspace",
         kind: :workspace,
         status: :available,
         nodes: workspace_nodes(),
-        fallback_text: "Allbert workspace is available at /agent."
+        fallback_text: "Allbert workspace is available at /workspace."
       }
     ]
   end
@@ -56,7 +56,7 @@ defmodule AllbertAssist.App.CoreApp do
     end)
   end
 
-  def fallback_surface(:agent), do: {:ok, "Allbert workspace is available at /agent."}
+  def fallback_surface(:workspace), do: {:ok, "Allbert workspace is available at /workspace."}
 
   def fallback_surface(_surface_id), do: {:error, :not_found}
 
@@ -65,7 +65,7 @@ defmodule AllbertAssist.App.CoreApp do
       %Node{
         id: "workspace-root",
         component: :workspace,
-        props: %{layout: "agent_shell"},
+        props: %{layout: "workspace_shell"},
         children: [
           %Node{
             id: "workspace-header",

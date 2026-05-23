@@ -80,7 +80,7 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
                %{
                  resolver_actor: "alice",
                  resolver_channel: :liveview,
-                 resolver_surface: "/settings",
+                 resolver_surface: "/workspace",
                  resolution_reason: "package not needed",
                  same_channel?: false
                },

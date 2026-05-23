@@ -217,7 +217,7 @@ defmodule AllbertAssist.Workspace.EmittersTest do
       origin: %{
         actor: "alice",
         channel: :live_view,
-        surface: "AllbertAssistWeb.AgentLive",
+        surface: "AllbertAssistWeb.WorkspaceLive",
         user_id: "alice",
         thread_id: "thr_confirmation",
         session_id: "sess_confirmation"

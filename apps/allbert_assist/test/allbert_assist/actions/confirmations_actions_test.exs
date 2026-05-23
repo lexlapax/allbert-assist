@@ -101,7 +101,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
              Runner.run(
                "deny_confirmation",
                %{id: denial_candidate["id"], reason: "not needed"},
-               %{actor: "local", channel: :liveview, surface: "/settings"}
+               %{actor: "local", channel: :liveview, surface: "/workspace"}
              )
 
     assert deny_response.status == :completed
@@ -165,7 +165,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
              Runner.run("approve_confirmation", %{id: record["id"]}, %{
                actor: "local",
                channel: :liveview,
-               surface: "/settings"
+               surface: "/workspace"
              })
 
     assert response.status == :denied

@@ -54,7 +54,7 @@ self.addEventListener("fetch", event => {
 
   if (url.origin !== self.location.origin) return;
 
-  if (request.mode === "navigate" && url.pathname.startsWith("/agent")) {
+  if (request.mode === "navigate" && url.pathname.startsWith("/workspace")) {
     event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_SHELL_URL)));
     return;
   }

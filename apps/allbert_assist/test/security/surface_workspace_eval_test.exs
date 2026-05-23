@@ -127,7 +127,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
               surface([%Node{id: "stolen-approval", component: :approval_card}],
                 app_id: :stocksage,
                 kind: :analysis,
-                path: "/stocksage/analyses"
+                path: "/workspace"
               )
 
             with {:ok, validated} <- Surface.validate_surface(stock_surface),
@@ -348,7 +348,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
       id: Keyword.get(opts, :id, :fragment),
       app_id: Keyword.get(opts, :app_id, :allbert),
       label: Keyword.get(opts, :label, "Fragment"),
-      path: Keyword.get(opts, :path, "/agent"),
+      path: Keyword.get(opts, :path, "/workspace"),
       kind: Keyword.get(opts, :kind, :canvas),
       status: Keyword.get(opts, :status, :available),
       nodes: nodes,

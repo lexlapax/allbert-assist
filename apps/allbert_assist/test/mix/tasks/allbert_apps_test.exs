@@ -37,7 +37,7 @@ defmodule Mix.Tasks.Allbert.AppsTest do
     assert show_output =~ "Display name: Allbert"
     assert show_output =~ "Actions: (none)"
     assert show_output =~ "Skill paths: (none)"
-    assert show_output =~ "Surface provider surfaces: agent:/agent"
+    assert show_output =~ "Surface provider surfaces: workspace:/workspace"
     refute show_output =~ "chat-root"
   end
 
@@ -51,7 +51,7 @@ defmodule Mix.Tasks.Allbert.AppsTest do
 
     assert output =~ "Validation: ok"
     assert output =~ "App: allbert"
-    assert output =~ "Provider surfaces: agent:/agent"
+    assert output =~ "Provider surfaces: workspace:/workspace"
     assert length(AppRegistry.registered_apps()) == before_count
   end
 
@@ -63,7 +63,7 @@ defmodule Mix.Tasks.Allbert.AppsTest do
 
     assert output =~ "Validation: ok"
     assert output =~ "app_id: allbert"
-    assert output =~ "provider_surfaces: :agent:/agent"
+    assert output =~ "provider_surfaces: :workspace:/workspace"
     refute output =~ "chat-root"
   end
 
