@@ -6,6 +6,7 @@ defmodule AllbertAssist.Actions.Runner do
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Signals
   alias Jido.Signal
 
@@ -50,7 +51,7 @@ defmodule AllbertAssist.Actions.Runner do
         :ok -> safe_run(action_module, params, runner_context)
         {:denied, response} -> {:ok, response}
       end
-      |> normalize_response(action_name)
+      |> Response.from_action_result(action_name)
 
     duration_ms = System.monotonic_time(:millisecond) - started_at
     status = response_status(response)
@@ -99,38 +100,6 @@ defmodule AllbertAssist.Actions.Runner do
     })
   end
 
-  defp normalize_response({:ok, response}, _action_name) when is_map(response), do: response
-
-  defp normalize_response({:error, reason}, action_name) do
-    %{
-      message: "Action #{action_name} failed: #{inspect(reason)}",
-      status: :error,
-      error: reason,
-      actions: [
-        %{
-          name: action_name,
-          status: :error,
-          error: inspect(reason)
-        }
-      ]
-    }
-  end
-
-  defp normalize_response(other, action_name) do
-    %{
-      message: "Action #{action_name} returned an invalid result: #{inspect(other)}",
-      status: :error,
-      error: {:invalid_action_result, other},
-      actions: [
-        %{
-          name: action_name,
-          status: :error,
-          error: inspect(other)
-        }
-      ]
-    }
-  end
-
   defp unknown_action_response(unknown, params, context) do
     action_name = unknown_action_name(unknown)
     started_at = System.monotonic_time(:millisecond)
@@ -140,18 +109,7 @@ defmodule AllbertAssist.Actions.Runner do
       |> Signals.action_requested(nil, params, context)
       |> log_signal()
 
-    response = %{
-      message: "Action is not registered: #{inspect(unknown)}",
-      status: :denied,
-      error: {:unknown_action, unknown},
-      actions: [
-        %{
-          name: action_name,
-          status: :denied,
-          error: {:unknown_action, unknown}
-        }
-      ]
-    }
+    response = Response.unknown_action(unknown, action_name)
 
     duration_ms = System.monotonic_time(:millisecond) - started_at
 
@@ -196,17 +154,18 @@ defmodule AllbertAssist.Actions.Runner do
   defp put_if_absent(action, _key, nil), do: action
   defp put_if_absent(action, key, value), do: Map.put_new(action, key, value)
 
-  defp response_status(%{status: status}) when is_atom(status), do: status
-  defp response_status(_response), do: :completed
+  defp response_status(response), do: Response.status(response)
 
-  defp permission_decision(%{permission_decision: decision}), do: Redactor.redact(decision)
+  defp permission_decision(response) do
+    direct_decision = Map.get(response, :permission_decision)
 
-  defp permission_decision(%{actions: actions}) when is_list(actions) do
-    Enum.find_value(actions, &Map.get(&1, :permission_decision))
-    |> Redactor.redact()
+    action_decision =
+      response
+      |> Map.get(:actions, [])
+      |> Enum.find_value(&Map.get(&1, :permission_decision))
+
+    Redactor.redact(direct_decision || action_decision)
   end
-
-  defp permission_decision(_response), do: nil
 
   defp action_capability(context, action_module) do
     Map.get(context, :action_capability) ||
