@@ -105,6 +105,32 @@ defmodule StockSage.App do
     ]
   end
 
+  def intent_descriptors do
+    [
+      %{
+        app_id: :stocksage,
+        action_name: "run_analysis",
+        label: "Run StockSage analysis",
+        examples: [
+          "analyze AAPL",
+          "run StockSage analysis for TSLA",
+          "analyze CIEN"
+        ],
+        synonyms: [
+          "analyze",
+          "analyse",
+          "analysis",
+          "stock analysis",
+          "financial analysis",
+          "stocksage"
+        ],
+        required_slots: [:ticker],
+        slot_extractors: %{ticker: :ticker_symbol},
+        handoff_required?: true
+      }
+    ]
+  end
+
   defp dashboard_panel(children),
     do: panel(@dashboard_panel_id, "StockSage dashboard", :context_rail, 100, children)
 

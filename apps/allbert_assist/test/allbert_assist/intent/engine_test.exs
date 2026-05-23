@@ -42,10 +42,18 @@ defmodule AllbertAssist.Intent.EngineTest do
              PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
 
     assert {:ok, "allbert.email"} = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+    assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
+
+    app_registered? = AppRegistry.known_app_id?(:stocksage)
+
+    unless app_registered? do
+      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+    end
 
     on_exit(fn ->
       PluginRegistry.clear()
       Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+      unless app_registered?, do: AppRegistry.unregister(:stocksage)
 
       Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
         PluginRegistry.put_diagnostics(plugin_id, diagnostics)
@@ -116,6 +124,29 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert Enum.any?(candidates, &match?(%{kind: :skill, skill_name: "direct-answer"}, &1))
     assert Enum.any?(candidates, &match?(%{kind: :surface, app_id: :allbert}, &1))
     assert length(candidates) <= 80
+  end
+
+  test "collects app intent descriptor candidates without selecting app actions" do
+    request = EvalFixtures.request(text: "analyze CIEN", active_app: :allbert)
+    candidates = Engine.collect_candidates(request)
+
+    assert descriptor =
+             Enum.find(
+               candidates,
+               &match?(%{kind: :app_intent, app_id: :stocksage, action_name: "run_analysis"}, &1)
+             )
+
+    assert descriptor.score >= 0.6
+    assert descriptor.trace_metadata.extracted_slots == %{ticker: "CIEN"}
+    assert descriptor.trace_metadata.missing_slots == []
+
+    assert {:ok, decision} = Engine.decide(request)
+    assert decision.selected_action == "direct_answer"
+
+    assert Enum.any?(
+             decision.trace_metadata.intent_candidates.descriptors,
+             &(&1.app_id == :stocksage and &1.action_name == "run_analysis")
+           )
   end
 
   test "plugin-contributed action candidates carry plugin provenance" do
