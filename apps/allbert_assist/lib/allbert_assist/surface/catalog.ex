@@ -52,6 +52,14 @@ defmodule AllbertAssist.Surface.Catalog do
     :debate_round_card
   ]
 
+  @known_zones [
+    :nav_apps,
+    :context_rail,
+    :canvas_panels,
+    :utility_drawer,
+    :ephemeral
+  ]
+
   @primitive_components [
     :route,
     :chat,
@@ -154,6 +162,8 @@ defmodule AllbertAssist.Surface.Catalog do
   @placeholder_renderer {:live_component, AllbertAssistWeb.Workspace.Components.Placeholder}
   @default_icon "hero-squares-2x2-micro"
 
+  @type zone :: :nav_apps | :context_rail | :canvas_panels | :utility_drawer | :ephemeral
+
   @type renderer_descriptor ::
           {:live_component, module()}
           | {:function_component, module(), atom()}
@@ -161,11 +171,17 @@ defmodule AllbertAssist.Surface.Catalog do
   @spec known_components() :: [atom(), ...]
   def known_components, do: @known_components
 
+  @spec known_zones() :: [zone(), ...]
+  def known_zones, do: @known_zones
+
   @spec primitive_components() :: [atom(), ...]
   def primitive_components, do: @primitive_components
 
   @spec known_component?(term()) :: boolean()
   def known_component?(component), do: component in @known_components
+
+  @spec known_zone?(term()) :: boolean()
+  def known_zone?(zone), do: zone in @known_zones
 
   @spec primitive_component?(term()) :: boolean()
   def primitive_component?(component), do: component in @primitive_components

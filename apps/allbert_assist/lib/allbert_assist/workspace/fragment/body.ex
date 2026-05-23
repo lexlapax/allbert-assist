@@ -51,6 +51,7 @@ defmodule AllbertAssist.Workspace.Fragment.Body do
       label: surface.label,
       path: surface.path,
       kind: surface.kind,
+      zone: surface.zone,
       status: surface.status,
       nodes: Enum.map(surface.nodes, &encode_node/1),
       fallback_text: surface.fallback_text,
@@ -93,6 +94,7 @@ defmodule AllbertAssist.Workspace.Fragment.Body do
          label: value(attrs, :label),
          path: value(attrs, :path),
          kind: kind,
+         zone: optional_zone_value(value(attrs, :zone)),
          status: status,
          nodes: nodes,
          fallback_text: value(attrs, :fallback_text),
@@ -195,6 +197,15 @@ defmodule AllbertAssist.Workspace.Fragment.Body do
 
   defp optional_atom_value(nil), do: {:ok, nil}
   defp optional_atom_value(value), do: atom_value(value)
+
+  defp optional_zone_value(nil), do: nil
+
+  defp optional_zone_value(value) do
+    case optional_atom_value(value) do
+      {:ok, zone} -> zone
+      {:error, :invalid_fragment_body} -> nil
+    end
+  end
 
   defp atom_value(value) when is_atom(value) and not is_nil(value), do: {:ok, value}
 

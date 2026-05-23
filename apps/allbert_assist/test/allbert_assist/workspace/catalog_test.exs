@@ -79,6 +79,48 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     assert ephemeral_child.props.body == "Approval text"
   end
 
+  test "workspace tree injects valid panel surfaces into their host zone" do
+    surface =
+      Catalog.workspace_tree(
+        user_id: "local",
+        thread_id: "thread-1",
+        panel_surfaces: [panel_surface()]
+      )
+
+    assert [%Node{component: :workspace, children: children}] = surface.nodes
+
+    assert %Node{component: :canvas, children: canvas_children} =
+             Enum.find(children, &(&1.component == :canvas))
+
+    assert %Node{
+             id: "workspace-panel-allbert-fixture_panel-fixture-panel-root",
+             component: :panel,
+             props: %{zone: :canvas_panels, surface_id: :fixture_panel, app_id: :allbert}
+           } = Enum.find(canvas_children, &(&1.props[:surface_id] == :fixture_panel))
+
+    refute Map.has_key?(surface.metadata, :panel_diagnostics)
+  end
+
+  test "workspace tree drops invalid panel surfaces with bounded diagnostics" do
+    surface =
+      Catalog.workspace_tree(
+        panel_surfaces: [
+          panel_surface(%{zone: :made_up}),
+          panel_surface(%{id: :wrong_kind, kind: :route, zone: nil})
+        ]
+      )
+
+    assert [%Node{component: :workspace, children: children}] = surface.nodes
+
+    assert %Node{component: :canvas, children: canvas_children} =
+             Enum.find(children, &(&1.component == :canvas))
+
+    refute Enum.any?(canvas_children, &match?(%Node{component: :panel}, &1))
+
+    assert [%{kind: :unknown_zone}, %{kind: :invalid_panel_surface}] =
+             surface.metadata.panel_diagnostics
+  end
+
   defp fragment_body(component, body) do
     FragmentBody.encode(%Envelope{
       id: "frag-catalog",
@@ -102,5 +144,32 @@ defmodule AllbertAssist.Workspace.CatalogTest do
       emitted_at: ~U[2026-05-18 00:00:00Z],
       signature: "already-validated"
     })
+  end
+
+  defp panel_surface(attrs \\ %{}) do
+    struct!(
+      Surface,
+      Map.merge(
+        %{
+          id: :fixture_panel,
+          app_id: :allbert,
+          label: "Fixture Panel",
+          path: "/workspace",
+          kind: :panel,
+          zone: :canvas_panels,
+          status: :available,
+          nodes: [
+            %Node{
+              id: "fixture-panel-root",
+              component: :panel,
+              props: %{title: "Fixture panel"},
+              children: [%Node{id: "fixture-panel-body", component: :text, props: %{body: "ok"}}]
+            }
+          ],
+          fallback_text: "Fixture panel."
+        },
+        attrs
+      )
+    )
   end
 end
