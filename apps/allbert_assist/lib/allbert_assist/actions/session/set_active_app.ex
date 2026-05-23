@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Session.SetActiveApp do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :settings_write,
+    exposure: :internal,
+    execution_mode: :settings_write,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "set_active_app",
     description: "Set the active app for a volatile local session.",
     category: "session",

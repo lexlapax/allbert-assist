@@ -3,7 +3,12 @@ defmodule AllbertAssist.Actions.Intent.ReadRecentMemory do
   Reads recent markdown-backed memory entries.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :read_only,
+    skill_backed?: true,
+    confirmation: :not_required,
     name: "read_recent_memory",
     description: "Read recent entries from the markdown-backed memory store.",
     category: "intent",

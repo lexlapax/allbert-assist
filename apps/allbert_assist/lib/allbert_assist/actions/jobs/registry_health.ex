@@ -3,7 +3,12 @@ defmodule AllbertAssist.Actions.Jobs.RegistryHealth do
   Read-only registry health summary for scheduled job templates.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :read_only,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "registry_health",
     description: "Summarize action, skill, and settings registry health.",
     category: "jobs",

@@ -7,7 +7,14 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
    request into a partial fetch, import, file read, or execution path.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :unsupported_resource_workflow,
+    skill_backed?: true,
+    confirmation: :not_required,
+    notes:
+      "Inert v0.10 explanation for URL/document/MCP/agent/channel workflows owned by v0.11+.",
     name: "unsupported_resource_workflow",
     description: "Explain resource workflows that v0.11 does not execute.",
     category: "intent",

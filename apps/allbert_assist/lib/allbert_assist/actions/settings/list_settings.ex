@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Settings.ListSettings do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :settings_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "list_settings",
     description: "List Settings Central values with source metadata.",
     category: "settings",

@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Confirmations.ExpireConfirmations do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :confirmation_decide,
+    exposure: :internal,
+    execution_mode: :confirmation_cleanup,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "expire_confirmations",
     description: "Expire pending confirmation requests past their TTL.",
     category: "confirmations",

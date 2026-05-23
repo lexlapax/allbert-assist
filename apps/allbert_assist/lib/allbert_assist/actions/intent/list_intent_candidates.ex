@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Intent.ListIntentCandidates do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :read_only,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "list_intent_candidates",
     description: "List bounded registry-aware intent candidates for text without executing them.",
     category: "intent",

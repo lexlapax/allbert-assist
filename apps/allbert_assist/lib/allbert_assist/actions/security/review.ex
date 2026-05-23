@@ -3,7 +3,12 @@ defmodule AllbertAssist.Actions.Security.Review do
   Read-only recent security review action for operator surfaces.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :security_status,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "security_review",
     description: "Review recent Security Central decisions and emergency disable switches.",
     category: "security",

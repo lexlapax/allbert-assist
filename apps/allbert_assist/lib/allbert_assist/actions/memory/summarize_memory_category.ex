@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Memory.SummarizeMemoryCategory do
   @moduledoc "Builds a derived category summary markdown file."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :memory_summary_compile,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "summarize_memory_category",
     description: "Build a derived memory category summary without model calls.",
     category: "memory",

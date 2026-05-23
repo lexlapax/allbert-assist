@@ -1,7 +1,14 @@
 defmodule StockSage.Actions.ShowAnalysis do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :local_domain,
+    skill_backed?: true,
+    confirmation: :not_required,
+    app_id: :stocksage,
+    plugin_id: "stocksage",
     name: "show_analysis",
     description: "Show one bounded local StockSage analysis for the current user.",
     category: "stocksage",

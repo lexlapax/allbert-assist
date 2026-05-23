@@ -3,7 +3,15 @@ defmodule AllbertAssist.Actions.Skills.ImportLocalSkill do
   Confirmed local directory skill import action boundary.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :skill_write,
+    exposure: :internal,
+    execution_mode: :local_skill_import,
+    skill_backed?: false,
+    confirmation: :required,
+    resumable?: true,
+    notes:
+      "Imports a local skill directory into the disabled, untrusted cache after confirmation.",
     name: "import_local_skill",
     description: "Import a local skill directory disabled and untrusted after approval.",
     category: "skills",

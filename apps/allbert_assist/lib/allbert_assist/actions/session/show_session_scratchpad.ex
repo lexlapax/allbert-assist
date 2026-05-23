@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Session.ShowSessionScratchpad do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :settings_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "show_session_scratchpad",
     description: "Show trace-safe volatile session scratchpad metadata.",
     category: "session",

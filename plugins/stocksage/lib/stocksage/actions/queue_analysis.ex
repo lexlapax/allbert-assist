@@ -1,7 +1,14 @@
 defmodule StockSage.Actions.QueueAnalysis do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :stocksage_write,
+    exposure: :agent,
+    execution_mode: :local_domain,
+    skill_backed?: true,
+    confirmation: :not_required,
+    app_id: :stocksage,
+    plugin_id: "stocksage",
     name: "queue_analysis",
     description: "Create a local StockSage queue row without running analysis.",
     category: "stocksage",

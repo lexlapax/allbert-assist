@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :settings_secret_write,
+    exposure: :agent,
+    execution_mode: :secret_write,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "set_provider_credential",
     description: "Guide explicit provider credential configuration.",
     category: "settings",

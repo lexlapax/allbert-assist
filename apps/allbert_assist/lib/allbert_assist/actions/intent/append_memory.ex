@@ -3,7 +3,12 @@ defmodule AllbertAssist.Actions.Intent.AppendMemory do
   Appends a markdown memory entry.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :memory_write,
+    exposure: :agent,
+    execution_mode: :memory_write,
+    skill_backed?: true,
+    confirmation: :not_required,
     name: "append_memory",
     description: "Append a user memory to the markdown-backed memory store.",
     category: "intent",

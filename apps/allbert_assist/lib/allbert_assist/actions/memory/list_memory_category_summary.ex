@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Memory.ListMemoryCategorySummary do
   @moduledoc "Reads a derived memory category summary."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :memory_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "list_memory_category_summary",
     description: "Read the derived summary for one memory category.",
     category: "memory",

@@ -8,7 +8,15 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
   approval resume path.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :command_execute,
+    exposure: :agent,
+    execution_mode: :local_process,
+    skill_backed?: false,
+    confirmation: :required,
+    resumable?: true,
+    notes:
+      "v0.08 Level 1 local process execution; creates a durable confirmation before running.",
     name: "run_shell_command",
     description: "Run a confirmed Level 1 local command spec through the local runner.",
     category: "intent",

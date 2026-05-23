@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Resources.RememberResourceGrant do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :confirmation_decide,
+    exposure: :internal,
+    execution_mode: :resource_grant_remember,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "remember_resource_grant",
     description: "Remember a resource grant from a durable confirmation request.",
     category: "resources",

@@ -3,7 +3,15 @@ defmodule AllbertAssist.Actions.Skills.ImportRemoteSkill do
   Confirmed direct HTTPS skill import action boundary.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :online_skill_import,
+    exposure: :internal,
+    execution_mode: :direct_skill_import,
+    skill_backed?: false,
+    confirmation: :required,
+    resumable?: true,
+    notes:
+      "Imports a direct HTTPS skill URL into the disabled, untrusted cache after confirmation.",
     name: "import_remote_skill",
     description: "Import a direct HTTPS skill URL disabled and untrusted after approval.",
     category: "skills",

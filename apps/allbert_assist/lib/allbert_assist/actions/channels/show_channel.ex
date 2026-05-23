@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Channels.ShowChannel do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :settings_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "show_channel",
     description: "Show one configured Allbert channel adapter.",
     category: "channels",

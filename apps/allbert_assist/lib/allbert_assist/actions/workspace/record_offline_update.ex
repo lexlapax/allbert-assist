@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Workspace.RecordOfflineUpdate do
   @moduledoc "Record a browser-originated workspace editor update through Security Central."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :workspace_canvas_write,
+    exposure: :internal,
+    execution_mode: :workspace_canvas_write,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "record_workspace_offline_update",
     description: "Record a browser-originated workspace canvas editor revision.",
     category: "workspace",

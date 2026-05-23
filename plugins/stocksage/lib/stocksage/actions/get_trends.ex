@@ -1,7 +1,14 @@
 defmodule StockSage.Actions.GetTrends do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :local_domain,
+    skill_backed?: true,
+    confirmation: :not_required,
+    app_id: :stocksage,
+    plugin_id: "stocksage",
     name: "get_trends",
     description: "Summarize local StockSage outcome trends without fetching market data.",
     category: "stocksage",

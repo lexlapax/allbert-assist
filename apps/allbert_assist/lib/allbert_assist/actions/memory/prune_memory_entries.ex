@@ -1,7 +1,13 @@
 defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
   @moduledoc "Finds and archives memory prune candidates."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :memory_write,
+    exposure: :internal,
+    execution_mode: :memory_archive,
+    skill_backed?: false,
+    confirmation: :required,
+    resumable?: true,
     name: "prune_memory_entries",
     description: "Dry-run or confirm archival of prune-nominated markdown memory entries.",
     category: "memory",

@@ -3,7 +3,14 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
   Confirmed disabled-by-default online skill import action boundary.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :online_skill_import,
+    exposure: :internal,
+    execution_mode: :online_skill_import,
+    skill_backed?: false,
+    confirmation: :required,
+    resumable?: true,
+    notes: "Imports online skill files into the disabled, untrusted cache after confirmation.",
     name: "import_online_skill",
     description:
       "Import a cached online skill only after audit, confirmation, and policy allow it.",

@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Plugins.ListPlugins do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :settings_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "list_plugins",
     description: "List registered Allbert plugins.",
     category: "plugins",

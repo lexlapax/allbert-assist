@@ -1,7 +1,14 @@
 defmodule StockSage.Actions.Agents.ShowAgent do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :read_only,
+    skill_backed?: false,
+    confirmation: :not_required,
+    app_id: :stocksage,
+    plugin_id: "stocksage",
     name: "show_stocksage_agent",
     description: "Show one StockSage native specialist agent.",
     category: "stocksage",
