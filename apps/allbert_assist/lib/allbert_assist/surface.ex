@@ -8,6 +8,7 @@ defmodule AllbertAssist.Surface do
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Surface.ActionBinding
+  alias AllbertAssist.Surface.Catalog
   alias AllbertAssist.Surface.Node
 
   defstruct [
@@ -22,85 +23,8 @@ defmodule AllbertAssist.Surface do
     metadata: %{}
   ]
 
-  @known_components [
-    :route,
-    :chat,
-    :timeline,
-    :composer,
-    :panel,
-    :section,
-    :text,
-    :list,
-    :empty_state,
-    :button,
-    :action_button,
-    :status_badge,
-    :workspace,
-    :canvas,
-    :tile,
-    :ephemeral_surface,
-    :header,
-    :badge_strip,
-    :tabs,
-    :tab,
-    :tab_panel,
-    :diff,
-    :trace_link,
-    :trace_viewer,
-    :icon,
-    :link,
-    :divider,
-    :table,
-    :row,
-    :column,
-    :objective_card,
-    :confirmation_card,
-    :approval_card,
-    :approval_inspector,
-    :memory_review_card,
-    :job_card,
-    :channel_card,
-    :settings_card,
-    :analysis_card,
-    :agent_report_card,
-    :parity_card,
-    :debate_round_card
-  ]
-
   @known_kinds [:route, :chat, :workspace, :analysis, :canvas, :settings]
   @known_statuses [:available, :placeholder, :disabled]
-  @primitive_components [
-    :route,
-    :chat,
-    :timeline,
-    :composer,
-    :panel,
-    :section,
-    :text,
-    :list,
-    :empty_state,
-    :button,
-    :action_button,
-    :status_badge,
-    :workspace,
-    :canvas,
-    :tile,
-    :ephemeral_surface,
-    :header,
-    :badge_strip,
-    :tabs,
-    :tab,
-    :tab_panel,
-    :diff,
-    :trace_link,
-    :trace_viewer,
-    :icon,
-    :link,
-    :divider,
-    :table,
-    :row,
-    :column
-  ]
   @secret_key_regex ~r/(^|_)(key|secret|token|password|credential|api_key)$/i
 
   @type diagnostic :: %{
@@ -172,7 +96,7 @@ defmodule AllbertAssist.Surface do
         }
 
   @spec known_components() :: [component(), ...]
-  def known_components, do: @known_components
+  def known_components, do: Catalog.known_components()
 
   @spec validate_surface(t()) :: {:ok, t()} | {:error, [diagnostic()]}
   def validate_surface(%__MODULE__{} = surface) do
@@ -234,7 +158,7 @@ defmodule AllbertAssist.Surface do
       {:error, [diagnostic(:invalid_surface, "Surface must be an AllbertAssist.Surface struct.")]}
 
   defp catalog_node_diagnostics(%Node{} = node, acc, allowed, app_id) do
-    if node.component in @primitive_components or MapSet.member?(allowed, node.component) do
+    if Catalog.primitive_component?(node.component) or MapSet.member?(allowed, node.component) do
       acc
     else
       [
@@ -292,7 +216,7 @@ defmodule AllbertAssist.Surface do
   defp validate_node(%Node{} = node, diagnostics) do
     diagnostics
     |> require_bounded_string(node.id, :node_id, 1, 64)
-    |> require_member(node.component, @known_components, :component)
+    |> require_member(node.component, Catalog.known_components(), :component)
     |> validate_props(node.props)
     |> validate_bindings(node.bindings)
     |> validate_node_list(node.children)
@@ -490,7 +414,7 @@ defmodule AllbertAssist.Surface do
     allowed_bindings = Map.get(entry, :allowed_bindings, Map.get(entry, "allowed_bindings", []))
 
     []
-    |> require_member(component, @known_components, :catalog_component)
+    |> require_member(component, Catalog.known_components(), :catalog_component)
     |> validate_atom_list(allowed_props, :catalog_allowed_props)
     |> validate_string_list(allowed_bindings, :catalog_allowed_bindings)
     |> Enum.map(&put_in(&1[:detail][:index], index))

@@ -117,10 +117,24 @@ defmodule AllbertAssist.BoundaryTest do
     assert Code.ensure_loaded?(AllbertAssist.Runtime.Response)
   end
 
+  test "implemented M7 catalog and extension facades load" do
+    m7_modules =
+      Boundary.planned_facades()
+      |> Enum.filter(&(&1.milestone == :m7))
+      |> Boundary.modules()
+
+    assert AllbertAssist.Extensions.Registry in m7_modules
+    assert AllbertAssist.Surface.Catalog in m7_modules
+
+    for module <- m7_modules do
+      assert Code.ensure_loaded?(module)
+    end
+  end
+
   test "compatibility shims and deletion candidates have owner milestones" do
     for entry <- Boundary.compatibility_shims() ++ Boundary.deletion_candidates() do
       assert entry.role in [:compatibility_shim, :deletion_candidate]
-      assert entry.milestone in [:m7, :m8]
+      assert entry.milestone == :m8
       assert is_binary(entry.notes)
     end
   end
@@ -138,16 +152,14 @@ defmodule AllbertAssist.BoundaryTest do
     end
   end
 
-  test "web and plugin renderer shims are tracked without loading them into the core app" do
+  test "m7 retired web and plugin renderer shims" do
     shim_modules = Boundary.modules(Boundary.compatibility_shims())
+    deletion_modules = Boundary.modules(Boundary.deletion_candidates())
 
-    assert StockSageWeb.Components.SurfaceRenderer in shim_modules
-    assert AllbertAssistWeb.Workspace.Components.AnalysisCard in shim_modules
-
-    assert Enum.any?(
-             Boundary.compatibility_shims(),
-             &(&1.id == :stocksage_workspace_card_adapters and &1.milestone == :m7)
-           )
+    refute StockSageWeb.Components.SurfaceRenderer in shim_modules
+    refute StockSageWeb.Components.SurfaceRenderer in deletion_modules
+    refute AllbertAssistWeb.Workspace.Components.AnalysisCard in shim_modules
+    refute AllbertAssistWeb.Workspace.Components.AnalysisCard in deletion_modules
   end
 
   test "inventory can be filtered by subsystem" do

@@ -49,8 +49,8 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | M4 | `AllbertAssist.Runtime.Trace` | Implemented shared trace facade over the existing markdown trace writer. |
 | M5 | `AllbertAssist.Action` | Implemented thin Allbert-facing wrapper over `Jido.Action`; registered action modules now declare capability metadata directly. |
 | M6 | `AllbertAssist.Runtime.Response` | Implemented typed runtime response helpers used by Runtime, Runner, PermissionGate status mapping, and representative objective branches. |
-| M7 | `AllbertAssist.Extensions.Registry` | Unified compiled plugin/app contribution facade. |
-| M7 | `AllbertAssist.Surface.Catalog` | Single Surface component/catalog/renderer authority. |
+| M7 | `AllbertAssist.Extensions.Registry` | Implemented unified compiled plugin/app contribution facade. |
+| M7 | `AllbertAssist.Surface.Catalog` | Implemented single Surface component/catalog/renderer authority. |
 | M8 | `AllbertAssist.Settings.Fragment` | Per-context/app/plugin settings schema fragments. |
 
 ## Compatibility Shims And Exit Criteria
@@ -59,13 +59,10 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 |---|---|---|
 | `AllbertAssist.Security.PermissionGate` | M8 | All runtime-facing callers use `AllbertAssist.Security` directly and security eval parity is explicit. |
 | `AllbertAssist.Settings.Schema` monolith | M8 | Every key is owned by registered fragments with unchanged defaults, validation, secret handling, and safe-write policy. |
-| `StockSageWeb.Components.SurfaceRenderer` | M7 | StockSage app surfaces dispatch through the shared catalog/renderer path. |
-| `AllbertAssistWeb.Workspace.Components.*Card` StockSage adapters | M7 | Workspace renderer dispatches StockSage card renderers directly through the shared catalog. |
 
 M2 removed the obsolete `AllbertAssist.Workspace.Catalog.component_renderer/1`
 membership probe. Workspace component membership remains available through
-`AllbertAssist.Workspace.Catalog.known_components/0`; renderer dispatch remains
-in `AllbertAssistWeb.Workspace.Renderer` until M7 moves dispatch into
+`AllbertAssist.Workspace.Catalog.known_components/0`, which now delegates to
 `AllbertAssist.Surface.Catalog`.
 
 M3 added the runtime-facing `AllbertAssist.Runtime.Paths` and
@@ -84,6 +81,13 @@ StockSage action modules from raw `use Jido.Action` to
 from modules instead of a duplicate central map. Raw `Jido.Action` remains
 allowed for unregistered/private/test-only commands such as the `Multiply`
 fixture.
+
+M7 added `AllbertAssist.Surface.Catalog`,
+`AllbertAssistWeb.Surface.Renderer`, and `AllbertAssist.Extensions.Registry`.
+The v0.30 StockSage pass-through workspace adapters and
+`StockSageWeb.Components.SurfaceRenderer` are retired; workspace and
+StockSage-owned app surfaces now dispatch through the same catalog-backed
+renderer path while preserving the v0.30 DOM handles.
 
 ## Internal Modules
 
