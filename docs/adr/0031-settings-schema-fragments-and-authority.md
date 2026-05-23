@@ -36,3 +36,22 @@ enable capabilities by itself.
 - No defaults change.
 - No separate `/settings` route decision; that belongs to v0.32.
 - No settings-write permission relaxation.
+
+## Authority Consolidation
+
+Security Central (`AllbertAssist.Security.authorize/2`) is the sole runtime
+authority for permission decisions. The compatibility
+`AllbertAssist.Security.PermissionGate` shim is retired once Security Central
+parity and eval coverage are explicit; callers move to Security Central
+directly. Resource grants then perform scope/expiry/revocation matching against
+an already-resolved decision rather than re-authorizing, removing the redundant
+per-request authorization paths. This is a security-gated change: retirement
+lands only with parity tests and eval coverage, not as casual cleanup.
+
+## Relates To
+
+- Refines: ADR 0006 (Security Central as the permission authority) and the
+  Settings Central foundation.
+- Under: ADR 0026 facade discipline.
+- Enables: v0.32 workspace Settings Central panel, v0.33 theme/layout keys,
+  v0.34 dynamic-plugin policy keys, and v0.35 `schema_fragment/0` scaffolding.

@@ -42,3 +42,13 @@ Central, Settings Central, confirmations, and audited runtime contexts.
 - No user-visible behavior changes.
 - No dynamic module loading.
 - No permission or confirmation policy changes.
+
+## Relates To
+
+- Applied by: ADR 0027, ADR 0028, ADR 0029, ADR 0030, and ADR 0031 — each v0.31
+  consolidation ADR names its public facade, internal helpers, and shim
+  retirement criteria under this discipline.
+- Builds on: ADR 0007 (Jido-native internal runtime boundaries).
+- Authority unchanged: this ADR is not a security boundary; permission authority
+  remains ADR 0006 (Security Central).
+- Enables: v0.32-v0.35 target stable facades instead of incidental modules.

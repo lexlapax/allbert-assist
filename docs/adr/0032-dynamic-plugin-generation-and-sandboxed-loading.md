@@ -50,3 +50,29 @@ manifests, remote plugins, or arbitrary user-created code.
 - No new dependencies or migrations in generated drafts.
 - No automatic promotion into reviewed source.
 - No arbitrary BEAM hot loading in the core node.
+- No treating a separate or hidden BEAM/distributed-Erlang node as the isolation
+  boundary.
+
+## Sandbox Isolation Requirement (decision detail)
+
+"Out-of-node" means a real OS-level isolation boundary: a separate OS process
+with dropped privileges and restricted filesystem/network access, or a
+container/VM. It does **not** mean a separate or hidden BEAM/distributed-Erlang
+node, and not an in-VM "disposable process," because BEAM processes share the
+host VM's privileges (ADR 0009). v0.34 must select a concrete backend that
+provides an OS-level boundary before sandbox compilation lands; the parked
+"Container And Remote Execution Sandboxes" Level-2/Level-3 work is a
+prerequisite of v0.34, not an implementation detail. If no OS-level backend is
+available on the host, dynamic trials remain disabled rather than degrading to
+an in-VM process.
+
+## Relates To
+
+- Bounded exception to: the AGENTS.md "no dynamic module loading" non-negotiable
+  and ADR 0017 (home plugins stay metadata-only by default).
+- Constrained by: ADR 0009 (BEAM and child processes are not an OS boundary) and
+  ADR 0006 (Security Central authority).
+- Depends on: ADR 0026-0031 (v0.31 consolidated facades — paths, redaction,
+  audit, action DSL, typed responses, extension registry) and a graduated
+  Level-2/Level-3 execution sandbox.
+- Paired with: ADR 0033 (capability-gap acquisition and trust tiers).
