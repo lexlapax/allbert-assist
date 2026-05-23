@@ -506,7 +506,11 @@ historical aliases only and remain in old reference notes for continuity.
   reflections, reruns, and explicit namespace-scoped memory sync.
 - v0.30: App Canvas Contract - StockSage canvas integration; proven v0.27
   components become durable `/agent` canvas tiles through audited canvas ops.
-- v0.31: Allbert plugin and app generator.
+- v0.31: Workspace-native plugin UI — apps contribute panels into the dynamic
+  `/agent` workspace, dedicated routes move under `/apps/<app_id>`, and operators
+  retheme/re-lay-out the UI from `~/.allbert` (tokens, sanitized CSS snippets,
+  layout config).
+- v0.32: Allbert plugin and app generator.
 
 ## Deferred Until The Foundation Settles
 

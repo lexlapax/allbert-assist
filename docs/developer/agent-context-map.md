@@ -41,7 +41,8 @@ Do not load every section by default.
 | StockSage app memory, outcomes, reflection sync, reruns | `docs/plans/v0.29-plan.md`, `docs/plans/v0.29-request-flow.md`, ADR 0015, ADR 0018, ADR 0022 | v0.29 |
 | Workspace shell, canvas, ephemeral UI substrate | ADR 0015 (catalog), ADR 0023 (workspace substrate), `docs/plans/v0.26-plan.md`, `docs/plans/v0.26-request-flow.md` | v0.26 |
 | StockSage canvas integration, workspace plugin contributions | `docs/plans/v0.30-plan.md`, `docs/plans/v0.30-request-flow.md`, ADR 0015, ADR 0023 | v0.30 |
-| Plugin/app generator | ADR 0017, ADR 0015, v0.31 plan | v0.31 |
+| Workspace-native plugin UI, panel surfaces, named zones, user theming | ADR 0024, ADR 0025, ADR 0015, ADR 0023, `docs/plans/v0.31-plan.md` | v0.31 |
+| Plugin/app generator | ADR 0017, ADR 0015, `docs/plans/v0.32-plan.md` | v0.32 |
 
 ## Version Map
 
@@ -163,6 +164,23 @@ Do not load every section by default.
   `workspace_canvas_tiles` + YAML body store. v0.30 adds no `:stock_chart`
   atom, no migration, no new StockSage domain behavior, and no private
   canvas-write path.
+- v0.31 (planned): Workspace-Native Plugin UI And User Theming. Adds a two-tier
+  app UI contribution model — rare `page` surfaces under `/apps/<app_id>` and
+  default `:panel` surfaces composed into host-owned named workspace zones
+  (`:nav_apps`, `:context_rail`, `:canvas_panels`, `:ephemeral`) — graduating
+  ADR 0023's reserved "Workspace Hooks". Rebuilds `/agent` into a ChatGPT-style
+  three-zone shell (left rail with threads + app launcher, center chat, right
+  canvas) with new `:nav_rail`/`:thread_list`/`:app_launcher` catalog atoms.
+  Moves StockSage dashboard/recent/queue/trends into workspace panels (only
+  `/apps/stocksage/analyses/:id` keeps a route) and migrates CoreApp domain
+  cards to the same panel-zone path. Adds user theming/override from
+  `<ALLBERT_HOME>`: design tokens, opt-in strip-and-warn CSS snippets, and
+  validated layout config, served by a new theme controller behind a CSP. Per
+  ADR 0024 and ADR 0025. No new domain behavior, dynamic routing, or
+  model-generated UI.
+- v0.32 (planned): Allbert Plugin And App Generator (formerly v0.31). Scaffolds
+  the proven plugin/app shape, now including panel surfaces, named zones, the
+  `/apps/<app_id>` route convention, and theming wiring.
 
 ## Area Notes
 
