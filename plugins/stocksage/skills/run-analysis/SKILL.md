@@ -4,7 +4,7 @@ description: Run a StockSage analysis for a ticker through the native engine or 
 allowed-tools: allbert:action:run_analysis
 metadata:
   allbert.kind: native_action
-  allbert.version: "0.28.0"
+  allbert.version: "0.29.0"
   allbert.actions: run_analysis
   allbert.permissions: stocksage_analyze
   allbert.confirmation: required

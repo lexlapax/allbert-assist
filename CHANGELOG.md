@@ -12,13 +12,13 @@ changelog entries or release notes.
 
 ## v0.29.0 - App Memory + Outcomes Contract - StockSage Polish
 
-Status: in progress. Milestones M1-M6 are implemented; release closeout remains
-before release readiness.
+Status: implemented and ready for operator manual verification. Version
+metadata is `0.29.0`; release tag `v0.29.0` is pending operator acceptance.
 
 Plan: `docs/plans/v0.29-plan.md`.
 Request flow: `docs/plans/v0.29-request-flow.md`.
 
-### Added (v0.29.0 In Progress)
+### Added (v0.29.0)
 
 - StockSage outcome resolver (`resolve_outcomes`) with idempotent fixture-backed
   post-holding-period returns, outcome provenance metadata, and resolver
@@ -41,7 +41,7 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
   comparison state, plus bounded empty states for outcomes, reflections, and
   progress.
 
-### Changed (v0.29.0 In Progress)
+### Changed (v0.29.0)
 
 - `StockSage.App.memory_namespace/0` is now `writable: true`; the only v0.29
   Allbert markdown write path remains explicit `sync_app_lesson` confirmation
@@ -54,8 +54,12 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
 - StockSage app shells now use consistent mobile-safe spacing, wrapped
   headings/navigation, table overflow guards, success-tone state panels, and
   icon-backed rerun buttons.
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app metadata,
+  `StockSage.App.version/0`, `StockSage.Plugin.version/0`,
+  `plugins/stocksage/allbert_plugin.json`, and the `run-analysis` skill
+  metadata are bumped to `0.29.0`.
 
-### Verification (v0.29.0 In Progress)
+### Verification (v0.29.0)
 
 - M1 focused tests passed for `StockSage.Outcomes`, `resolve_outcomes`, plugin
   registration, and settings schema.
@@ -88,6 +92,14 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
   Chrome viewport; analysis detail exposed native/Python/parity
   `data-run-state` values, rerun buttons met the 40px hit target, and no
   console errors appeared.
+- M7 release closeout passed `mix format --check-formatted`,
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  and `mix precommit`. Final `mix precommit` covered 794 core tests,
+  97 web tests, 187 StockSage tests, and 2 channel-plugin tests with
+  0 failures.
+- README was reset to a concise project overview, and
+  `docs/developer/agent-context-map.md` now routes v0.28 security and v0.29
+  app-memory/outcomes work explicitly for future implementation agents.
 
 ## v0.28.0 - Security Hardening And Evals
 

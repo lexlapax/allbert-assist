@@ -2,7 +2,7 @@
   "schema_version": 1,
   "plugin_id": "stocksage",
   "name": "StockSage",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "kind": "app",
   "module": "StockSage.Plugin",
   "contributions": {
@@ -11,6 +11,8 @@
       "StockSage.Actions.ListAnalyses",
       "StockSage.Actions.ShowAnalysis",
       "StockSage.Actions.GetTrends",
+      "StockSage.Actions.ResolveOutcomes",
+      "StockSage.Actions.GenerateReflection",
       "StockSage.Actions.QueueAnalysis",
       "StockSage.Actions.ListQueue",
       "StockSage.Actions.ImportSqlite",
