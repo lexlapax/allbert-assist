@@ -12,8 +12,8 @@ changelog entries or release notes.
 
 ## v0.29.0 - App Memory + Outcomes Contract - StockSage Polish
 
-Status: implemented and ready for operator manual verification. Version
-metadata is `0.29.0`; release tag `v0.29.0` is pending operator acceptance.
+Status: released. Version metadata is `0.29.0`; release tag `v0.29.0` was
+created after the full gate and operator smoke passed.
 
 Plan: `docs/plans/v0.29-plan.md`.
 Request flow: `docs/plans/v0.29-request-flow.md`.
@@ -33,6 +33,8 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
   and idempotently updating matching app-memory entries.
 - `sync_app_lesson`, a confirmation-required registered action that centrally
   stamps advisory context before initial memory-write authorization.
+- `sync_app_lesson` lesson text is redacted and capped at 4000 characters
+  before markdown memory write, with regression coverage for oversized input.
 - StockSage analysis-detail `Sync lesson` control, which queues lesson-sync
   confirmation and writes no Allbert markdown memory until approval.
 - StockSage analysis-detail rerun controls for native, Python comparison, and
@@ -94,17 +96,23 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
   console errors appeared.
 - M7 release closeout passed `mix format --check-formatted`,
   `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
-  and `mix precommit`. Final `mix precommit` covered 794 core tests,
+  and `mix precommit`. Final `mix precommit` covered 795 core tests,
   97 web tests, 187 StockSage tests, and 2 channel-plugin tests with
   0 failures.
 - README was reset to a concise project overview, and
   `docs/developer/agent-context-map.md` now routes v0.28 security and v0.29
   app-memory/outcomes work explicitly for future implementation agents.
+- Release operator smoke passed against disposable
+  `ALLBERT_HOME=/tmp/allbert-v029-release.LU9kUP`: Chrome generated a
+  StockSage reflection, clicked `Sync lesson`, verified pending state and no
+  Allbert markdown memory before approval, approved the confirmation through
+  `mix allbert.confirmations approve`, reloaded the analysis detail page, and
+  verified one namespaced lesson plus `promoted_to_allbert_memory=true`.
 
 ## v0.28.0 - Security Hardening And Evals
 
-Status: implemented and ready for operator manual verification. Version
-metadata is `0.28.0`; release tag `v0.28.0` is pending operator acceptance.
+Status: released. Version metadata is `0.28.0`; release tag `v0.28.0` was
+reconciled during the v0.29 release closeout.
 
 Plan: `docs/plans/v0.28-plan.md`.
 Request flow: `docs/plans/v0.28-request-flow.md`.
@@ -193,8 +201,7 @@ Use a disposable Allbert Home:
 
 ## v0.27.0 - App Surface Contract: StockSage LiveViews
 
-Status: implemented and ready for operator manual verification. Version
-metadata is `0.27.0`; release tag `v0.27.0` is pending operator acceptance.
+Status: released. Version metadata is `0.27.0`; release tag `v0.27.0` exists.
 
 Plan: `docs/plans/v0.27-plan.md`.
 Request flow: `docs/plans/v0.27-request-flow.md`.
@@ -270,8 +277,7 @@ Use a disposable Allbert Home:
 
 ## v0.26.2 - Workspace UX Closeout
 
-Status: implemented and ready for operator manual verification. Version
-metadata is `0.26.2`; release tag `v0.26.2` is pending operator acceptance.
+Status: released. Version metadata is `0.26.2`; release tag `v0.26.2` exists.
 
 Plan: `docs/plans/v0.26c-ux-closeout-plan.md`.
 Request flow: `docs/plans/v0.26c-request-flow.md`.
@@ -552,8 +558,9 @@ follow-up.
 
 ## v0.25 - Native Financial Specialist Agents
 
-Status: implemented through M6 closeout on 2026-05-17 and ready for
-operator manual verification. Version metadata is `0.25.0`.
+Status: released. Implemented through M6 closeout on 2026-05-17. Version
+metadata is `0.25.0`; release tag `v0.25.0` was reconciled during the
+v0.29 release closeout.
 
 ### Added (v0.25)
 
