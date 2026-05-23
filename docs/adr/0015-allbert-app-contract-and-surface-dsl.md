@@ -313,7 +313,8 @@ explicit StockSage lesson/memory sync.
 - `mix allbert.gen.plugin` and `mix allbert.gen.app` scaffolding, until
   StockSage proves the plugin/app contract, StockSage SurfaceProvider
   LiveViews, memory namespace declaration plus consumption, and canvas path
-  through v0.30 (formerly v0.28). Planned for v0.31 (formerly v0.29).
+  through v0.30, workspace panels in v0.31, and theming/layout hooks in v0.32.
+  Planned for v0.33.
 - AG-UI streaming endpoints, A2UI renderer compatibility, MCP Apps, and
   third-party remote UI execution.
 - Dynamic runtime mounting of arbitrary routes or LiveView components from

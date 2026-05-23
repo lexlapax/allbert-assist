@@ -1683,9 +1683,8 @@ Expected direction:
 Plan: `docs/plans/v0.33-plan.md`
 Request flow: `docs/plans/v0.33-request-flow.md`
 
-Status: research (unstarted). Previously planned as v0.29 before the
-project-direction rethink, then v0.31, then v0.32; moved to v0.33 so v0.31
-workspace panels and v0.32 theming/layout hooks are proven before scaffolding.
+Status: research (unstarted). Moved to v0.33 so v0.31 workspace panels and
+v0.32 theming/layout hooks are proven before scaffolding.
 
 Prerequisite: StockSage proves the plugin/app path in v0.20, the app surface
 contract in v0.27, the app memory/outcomes contract in v0.29, the app canvas

@@ -385,12 +385,12 @@ LiveView to the shipped **agentic workspace shell**:
   interop is post-v0.33 (per Future Features Post-v0.33 UI Protocol
   Interop).
 
-Sibling routes (`/objectives/:id`, `/jobs`, `/settings`) remain
-top-level for deep-linking. The workspace can render catalog-backed
-summary tiles for those domains, but it does not replace the sibling
-routes in v0.26. Plugins do NOT contribute workspace regions in
-v0.26 (graduated in v0.31 as workspace panels); plugins MAY emit Fragments via the
-SignalBus topic (existing v0.26 emission path).
+In v0.26, sibling routes (`/objectives/:id`, `/jobs`, `/settings`) remain
+top-level for deep-linking. The workspace can render catalog-backed summary
+tiles for those domains, but it does not replace the sibling routes in v0.26.
+v0.31 supersedes this route shape for operator UI: Settings Central moves into
+`/workspace`, and plugin workspace regions graduate as panels. Plugins MAY
+emit Fragments via the SignalBus topic (existing v0.26 emission path).
 
 ### Jido.Agent vs. GenServer Substrate (v0.23)
 
