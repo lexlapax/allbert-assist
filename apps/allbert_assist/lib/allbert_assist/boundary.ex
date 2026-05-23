@@ -14,6 +14,7 @@ defmodule AllbertAssist.Boundary do
 
   @type role ::
           :current_facade
+          | :active_facade
           | :planned_facade
           | :compatibility_shim
           | :deletion_candidate
@@ -191,7 +192,7 @@ defmodule AllbertAssist.Boundary do
     },
     %{
       id: :runtime_response,
-      role: :planned_facade,
+      role: :active_facade,
       subsystem: :runtime,
       module: AllbertAssist.Runtime.Response,
       milestone: :m6,

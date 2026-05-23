@@ -48,7 +48,7 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | M4 | `AllbertAssist.Runtime.Persistence` | Implemented shared persistence facade for hybrid metadata/body stores and Fragment body codecs. |
 | M4 | `AllbertAssist.Runtime.Trace` | Implemented shared trace facade over the existing markdown trace writer. |
 | M5 | `AllbertAssist.Action` | Implemented thin Allbert-facing wrapper over `Jido.Action`; registered action modules now declare capability metadata directly. |
-| M6 | `AllbertAssist.Runtime.Response` | Typed runtime response helpers. |
+| M6 | `AllbertAssist.Runtime.Response` | Implemented typed runtime response helpers used by Runtime, Runner, PermissionGate status mapping, and representative objective branches. |
 | M7 | `AllbertAssist.Extensions.Registry` | Unified compiled plugin/app contribution facade. |
 | M7 | `AllbertAssist.Surface.Catalog` | Single Surface component/catalog/renderer authority. |
 | M8 | `AllbertAssist.Settings.Fragment` | Per-context/app/plugin settings schema fragments. |

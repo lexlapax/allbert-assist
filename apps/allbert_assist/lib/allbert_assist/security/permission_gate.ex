@@ -10,6 +10,7 @@ defmodule AllbertAssist.Security.PermissionGate do
   tests and security eval coverage.
   """
 
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Security
   alias AllbertAssist.Security.Policy
 
@@ -56,9 +57,7 @@ defmodule AllbertAssist.Security.PermissionGate do
 
   @doc "Map a permission decision to the runtime response status vocabulary."
   @spec response_status(decision()) :: :completed | :needs_confirmation | :denied
-  def response_status(%{decision: :allowed}), do: :completed
-  def response_status(%{decision: :needs_confirmation}), do: :needs_confirmation
-  def response_status(%{decision: :denied}), do: :denied
+  def response_status(decision), do: Response.permission_status(decision)
 
   @doc "Return true only when the gate allowed the permission."
   @spec allowed?(decision()) :: boolean()

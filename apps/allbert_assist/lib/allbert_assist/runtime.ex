@@ -23,10 +23,8 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Conversations
-  alias AllbertAssist.Intent.ApprovalHandoff
-  alias AllbertAssist.Intent.Decision
-  alias AllbertAssist.Intent.ResourceAccess
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Session
   alias AllbertAssist.Signals
   alias Jido.Signal
@@ -274,21 +272,23 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp new_response_signal(input_signal, request, agent_response) do
+    agent_response = Response.normalize(agent_response)
+
     Signal.new(
       @agent_responded,
       %{
         input_signal_id: input_signal.id,
-        message: response_message(agent_response),
-        status: response_status(agent_response),
+        message: agent_response.message,
+        status: agent_response.status,
         user_id: request.user_id,
         operator_id: request.operator_id,
         thread_id: request.thread_id,
         session_id: request.session_id,
-        actions: response_actions(agent_response),
-        decision: response_decision(agent_response),
-        resource_access: response_resource_access(agent_response),
-        approval_handoff: response_approval_handoff(agent_response),
-        diagnostics: request.diagnostics ++ response_diagnostics(agent_response)
+        actions: agent_response.actions,
+        decision: agent_response.decision,
+        resource_access: agent_response.resource_access,
+        approval_handoff: agent_response.approval_handoff,
+        diagnostics: request.diagnostics ++ agent_response.diagnostics
       }
       |> maybe_put(:active_app, request.active_app),
       source: "/allbert/runtime",
@@ -333,15 +333,12 @@ defmodule AllbertAssist.Runtime do
     })
   end
 
-  defp format_agent_result(%{message: message}) when is_binary(message), do: message
-  defp format_agent_result(%{content: content}) when is_binary(content), do: content
-  defp format_agent_result(message) when is_binary(message), do: message
-  defp format_agent_result(other), do: inspect(other, pretty: true)
-
   defp build_response(input_signal, response_signal, agent_response, request) do
+    agent_response = Response.normalize(agent_response)
+
     %{
-      message: response_message(agent_response),
-      status: response_status(agent_response),
+      message: agent_response.message,
+      status: agent_response.status,
       trace_id: nil,
       signal_id: response_signal.id,
       input_signal_id: input_signal.id,
@@ -350,11 +347,11 @@ defmodule AllbertAssist.Runtime do
       thread_id: request.thread_id,
       session_id: request.session_id,
       active_app: request.active_app,
-      actions: response_actions(agent_response),
-      decision: response_decision(agent_response),
-      resource_access: response_resource_access(agent_response),
-      approval_handoff: response_approval_handoff(agent_response),
-      diagnostics: request.diagnostics ++ response_diagnostics(agent_response)
+      actions: agent_response.actions,
+      decision: agent_response.decision,
+      resource_access: agent_response.resource_access,
+      approval_handoff: agent_response.approval_handoff,
+      diagnostics: request.diagnostics ++ agent_response.diagnostics
     }
   end
 
@@ -567,72 +564,7 @@ defmodule AllbertAssist.Runtime do
     response
   end
 
-  defp add_diagnostic(response, diagnostic) do
-    Map.update!(response, :diagnostics, &(&1 ++ [diagnostic]))
-  end
-
-  defp response_message(%{message: message}) when is_binary(message), do: message
-  defp response_message(%{"message" => message}) when is_binary(message), do: message
-  defp response_message(other), do: format_agent_result(other)
-
-  defp response_status(%{status: status}) when is_atom(status), do: status
-  defp response_status(%{"status" => status}) when is_atom(status), do: status
-  defp response_status(_other), do: :completed
-
-  defp response_actions(%{actions: actions}) when is_list(actions), do: actions
-  defp response_actions(%{"actions" => actions}) when is_list(actions), do: actions
-  defp response_actions(_other), do: []
-
-  defp response_decision(%{decision: %Decision{} = decision}), do: Decision.to_map(decision)
-
-  defp response_decision(%{decision: decision}) when is_map(decision),
-    do: Decision.to_map(decision)
-
-  defp response_decision(%{"decision" => decision}) when is_map(decision),
-    do: Decision.to_map(decision)
-
-  defp response_decision(_other), do: nil
-
-  defp response_resource_access(%{resource_access: entries}) when is_list(entries),
-    do: ResourceAccess.to_maps(entries)
-
-  defp response_resource_access(%{"resource_access" => entries}) when is_list(entries),
-    do: ResourceAccess.to_maps(entries)
-
-  defp response_resource_access(%{decision: %Decision{} = decision}),
-    do: ResourceAccess.to_maps(decision.resource_access)
-
-  defp response_resource_access(%{decision: decision}) when is_map(decision) do
-    decision
-    |> Decision.to_map()
-    |> Map.get(:resource_access, [])
-    |> ResourceAccess.to_maps()
-  end
-
-  defp response_resource_access(_other), do: []
-
-  defp response_approval_handoff(%{approval_handoff: %ApprovalHandoff{} = handoff}),
-    do: ApprovalHandoff.to_map(handoff)
-
-  defp response_approval_handoff(%{approval_handoff: handoff}) when is_map(handoff),
-    do: ApprovalHandoff.to_map(handoff)
-
-  defp response_approval_handoff(%{"approval_handoff" => handoff}) when is_map(handoff),
-    do: ApprovalHandoff.to_map(handoff)
-
-  defp response_approval_handoff(%{decision: %Decision{} = decision}),
-    do: ApprovalHandoff.to_map(decision.approval_handoff)
-
-  defp response_approval_handoff(_other), do: nil
-
-  defp response_diagnostics(%{diagnostics: diagnostics}) when is_list(diagnostics),
-    do: diagnostics
-
-  defp response_diagnostics(%{"diagnostics" => diagnostics}) when is_list(diagnostics),
-    do: diagnostics
-
-  defp response_diagnostics(%{decision: %Decision{} = decision}), do: decision.diagnostics
-  defp response_diagnostics(_other), do: []
+  defp add_diagnostic(response, diagnostic), do: Response.append_diagnostic(response, diagnostic)
 
   defp normalize_session_id(attrs) do
     case fetch_value(attrs, :session_id) do
