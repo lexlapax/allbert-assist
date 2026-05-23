@@ -1,10 +1,10 @@
 defmodule AllbertAssist.Settings.Schema do
   @moduledoc """
-  Monolithic Settings Central schema.
+  Settings Central schema compatibility facade.
 
-  v0.31 marks this as a compatibility shim. M8 splits this schema into
-  registered `AllbertAssist.Settings.Fragment` owners while preserving all
-  keys, defaults, validation, safe-write policy, and secret behavior.
+  v0.31 M8 assembles schema, defaults, and safe-write keys from registered
+  `AllbertAssist.Settings.Fragment` owners while preserving the pre-M8 public
+  API for callers.
   """
 
   require Logger
@@ -14,6 +14,7 @@ defmodule AllbertAssist.Settings.Schema do
   alias AllbertAssist.Resources.OperationClass
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
+  alias AllbertAssist.Settings.Fragments
 
   @safe_write_keys [
     "operator.display_name",
@@ -1613,22 +1614,22 @@ defmodule AllbertAssist.Settings.Schema do
     }
   }
 
-  def defaults do
-    plugin_defaults()
-    |> deep_merge(app_defaults())
-    |> deep_merge(@defaults)
-  end
+  def defaults, do: Fragments.defaults()
 
   def runtime_schema, do: schema()
 
-  def schema do
-    plugin_schema()
-    |> Map.merge(app_schema())
-    |> Map.merge(@schema)
-  end
+  def schema, do: Fragments.schema()
 
-  def safe_write_keys,
-    do: Enum.uniq(@safe_write_keys ++ app_safe_write_keys() ++ plugin_safe_write_keys())
+  def safe_write_keys, do: Fragments.safe_write_keys()
+
+  @doc false
+  def core_schema, do: @schema
+
+  @doc false
+  def core_defaults, do: @defaults
+
+  @doc false
+  def core_safe_write_keys, do: @safe_write_keys
 
   def safe_write_key?(key) when is_binary(key) do
     Enum.any?(safe_write_keys(), &key_matches?(&1, key))
@@ -2369,41 +2370,47 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp split_key(key), do: String.split(key, ".", trim: true)
 
-  defp app_schema do
+  @doc false
+  def app_schema do
     :app
     |> safe_registered_settings()
     |> Enum.flat_map(&normalize_app_schema_entry/1)
     |> Map.new()
   end
 
-  defp app_defaults do
+  @doc false
+  def app_defaults do
     app_schema()
     |> Enum.reduce(%{}, fn {key, schema}, defaults ->
       put_dotted(defaults, key, Map.fetch!(schema, :default))
     end)
   end
 
-  defp app_safe_write_keys do
+  @doc false
+  def app_safe_write_keys do
     app_schema()
     |> Enum.filter(fn {_key, schema} -> Map.get(schema, :writable?, true) end)
     |> Enum.map(fn {key, _schema} -> key end)
   end
 
-  defp plugin_schema do
+  @doc false
+  def plugin_schema do
     :plugin
     |> safe_registered_settings()
     |> Enum.flat_map(&normalize_plugin_schema_entry/1)
     |> Map.new()
   end
 
-  defp plugin_defaults do
+  @doc false
+  def plugin_defaults do
     plugin_schema()
     |> Enum.reduce(%{}, fn {key, schema}, defaults ->
       put_dotted(defaults, key, Map.fetch!(schema, :default))
     end)
   end
 
-  defp plugin_safe_write_keys do
+  @doc false
+  def plugin_safe_write_keys do
     plugin_schema()
     |> Enum.filter(fn {_key, schema} -> Map.get(schema, :writable?, true) end)
     |> Enum.map(fn {key, _schema} -> key end)
@@ -2433,6 +2440,15 @@ defmodule AllbertAssist.Settings.Schema do
       []
   end
 
+  @doc false
+  def normalize_app_schema_entries(entries) when is_list(entries) do
+    entries
+    |> Enum.flat_map(&normalize_app_schema_entry/1)
+    |> Map.new()
+  end
+
+  def normalize_app_schema_entries(_entries), do: %{}
+
   defp normalize_app_schema_entry(entry) when is_map(entry) do
     key = schema_field(entry, :key)
 
@@ -2444,6 +2460,15 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp normalize_app_schema_entry(_entry), do: []
+
+  @doc false
+  def normalize_plugin_schema_entries(entries) when is_list(entries) do
+    entries
+    |> Enum.flat_map(&normalize_plugin_schema_entry/1)
+    |> Map.new()
+  end
+
+  def normalize_plugin_schema_entries(_entries), do: %{}
 
   defp normalize_plugin_schema_entry(entry) when is_map(entry) do
     key = schema_field(entry, :key)
@@ -2546,14 +2571,6 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp valid_app_setting_key?(_key), do: false
-
-  defp deep_merge(left, right) when is_map(left) and is_map(right) do
-    Map.merge(left, right, fn _key, left_value, right_value ->
-      deep_merge(left_value, right_value)
-    end)
-  end
-
-  defp deep_merge(_left, right), do: right
 
   defp put_in_segments(_settings, [], value), do: value
 

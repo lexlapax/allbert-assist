@@ -34,7 +34,8 @@ defmodule AllbertAssist.BoundaryTest do
     AllbertAssist.Runtime.Trace,
     AllbertAssist.Extensions.Registry,
     AllbertAssist.Surface.Catalog,
-    AllbertAssist.Settings.Fragment
+    AllbertAssist.Settings.Fragment,
+    AllbertAssist.Settings.Fragments
   ]
 
   test "current public facade inventory covers the v0.31 M1 subsystems" do
@@ -134,7 +135,7 @@ defmodule AllbertAssist.BoundaryTest do
   test "compatibility shims and deletion candidates have owner milestones" do
     for entry <- Boundary.compatibility_shims() ++ Boundary.deletion_candidates() do
       assert entry.role in [:compatibility_shim, :deletion_candidate]
-      assert entry.milestone == :m8
+      assert entry.milestone in [:m8, :post_v0_31]
       assert is_binary(entry.notes)
     end
   end

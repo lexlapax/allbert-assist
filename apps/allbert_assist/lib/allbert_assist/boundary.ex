@@ -256,11 +256,19 @@ defmodule AllbertAssist.Boundary do
     },
     %{
       id: :settings_fragment,
-      role: :planned_facade,
+      role: :active_facade,
       subsystem: :settings,
       module: AllbertAssist.Settings.Fragment,
       milestone: :m8,
       notes: "Per-context/app/plugin settings schema fragment contract."
+    },
+    %{
+      id: :settings_fragments,
+      role: :active_facade,
+      subsystem: :settings,
+      module: AllbertAssist.Settings.Fragments,
+      milestone: :m8,
+      notes: "Settings schema fragment registry and composition facade."
     }
   ]
 
@@ -279,9 +287,9 @@ defmodule AllbertAssist.Boundary do
       role: :compatibility_shim,
       subsystem: :settings,
       module: AllbertAssist.Settings.Schema,
-      target: AllbertAssist.Settings.Fragment,
+      target: AllbertAssist.Settings.Fragments,
       milestone: :m8,
-      notes: "Split into registered fragments without changing keys/defaults."
+      notes: "Compatibility facade over registered fragments with unchanged keys/defaults."
     }
   ]
 
@@ -291,8 +299,9 @@ defmodule AllbertAssist.Boundary do
       role: :deletion_candidate,
       subsystem: :security,
       module: AllbertAssist.Security.PermissionGate,
-      milestone: :m8,
-      notes: "Delete only after all callers use Security Central directly."
+      milestone: :post_v0_31,
+      notes:
+        "Retire only after all callers use Security Central directly in a future parity pass."
     }
   ]
 

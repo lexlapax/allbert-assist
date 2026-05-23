@@ -51,14 +51,15 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | M6 | `AllbertAssist.Runtime.Response` | Implemented typed runtime response helpers used by Runtime, Runner, PermissionGate status mapping, and representative objective branches. |
 | M7 | `AllbertAssist.Extensions.Registry` | Implemented unified compiled plugin/app contribution facade. |
 | M7 | `AllbertAssist.Surface.Catalog` | Implemented single Surface component/catalog/renderer authority. |
-| M8 | `AllbertAssist.Settings.Fragment` | Per-context/app/plugin settings schema fragments. |
+| M8 | `AllbertAssist.Settings.Fragment` | Implemented per-context/app/plugin settings schema fragment contract. |
+| M8 | `AllbertAssist.Settings.Fragments` | Implemented settings schema fragment registry and composition facade. |
 
 ## Compatibility Shims And Exit Criteria
 
 | Shim | Owning milestone | Exit criteria |
 |---|---|---|
-| `AllbertAssist.Security.PermissionGate` | M8 | All runtime-facing callers use `AllbertAssist.Security` directly and security eval parity is explicit. |
-| `AllbertAssist.Settings.Schema` monolith | M8 | Every key is owned by registered fragments with unchanged defaults, validation, secret handling, and safe-write policy. |
+| `AllbertAssist.Security.PermissionGate` | post-v0.31 | Retire only after all runtime-facing callers use `AllbertAssist.Security` directly and security eval parity is explicit. |
+| `AllbertAssist.Settings.Schema` compatibility facade | M8 | Every key is owned by registered fragments with unchanged defaults, validation, secret handling, and safe-write policy. |
 
 M2 removed the obsolete `AllbertAssist.Workspace.Catalog.component_renderer/1`
 membership probe. Workspace component membership remains available through
@@ -88,6 +89,13 @@ The v0.30 StockSage pass-through workspace adapters and
 `StockSageWeb.Components.SurfaceRenderer` are retired; workspace and
 StockSage-owned app surfaces now dispatch through the same catalog-backed
 renderer path while preserving the v0.30 DOM handles.
+
+M8 added `AllbertAssist.Settings.Fragment` and
+`AllbertAssist.Settings.Fragments`. `AllbertAssist.Settings.Schema` remains as
+the public compatibility facade used by current callers, but its schema,
+defaults, and safe-write key assembly now come from core/app/plugin fragments.
+`AllbertAssist.Security.PermissionGate` remains a compatibility shim over
+Security Central until a future parity pass migrates the remaining live callers.
 
 ## Internal Modules
 
