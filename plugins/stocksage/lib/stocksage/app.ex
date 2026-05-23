@@ -30,7 +30,7 @@ defmodule StockSage.App do
   # v0.32 M6 moves StockSage dashboard/list/queue/trend UI into the shared
   # workspace panel substrate.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.32.0"
+  def version, do: "0.33.0"
 
   @impl true
   def validate(_opts), do: :ok
@@ -119,7 +119,6 @@ defmodule StockSage.App do
         synonyms: [
           "analyze",
           "analyse",
-          "analysis",
           "stock analysis",
           "financial analysis",
           "stocksage"

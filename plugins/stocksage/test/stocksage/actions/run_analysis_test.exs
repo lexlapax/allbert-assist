@@ -116,6 +116,21 @@ defmodule StockSage.Actions.RunAnalysisTest do
       assert envelope.thread_id == "thr_run_analysis_test"
     end
 
+    test "defaults missing analysis_date to today before confirmation" do
+      assert {:ok, response} =
+               Runner.run(
+                 "run_analysis",
+                 %{ticker: "AAPL", user_id: "alice"},
+                 stocksage_context()
+               )
+
+      assert response.status == :needs_confirmation
+
+      {:ok, record} = Confirmations.read(response.confirmation_id)
+      assert record["params_summary"]["ticker"] == "AAPL"
+      assert record["params_summary"]["analysis_date"] == Date.to_iso8601(Date.utc_today())
+    end
+
     test "rejects invalid ticker before creating a confirmation" do
       assert {:ok, response} =
                Runner.run(

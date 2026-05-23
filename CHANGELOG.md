@@ -10,6 +10,55 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.33.0 - Conversational App Intent Handoff And Direct Answer Foundation
+
+Status: released. Version metadata is `0.33.0`; release tag `v0.33.0` exists.
+
+Plan: `docs/plans/v0.33-plan.md`.
+Request flow: `docs/plans/v0.33-request-flow.md`.
+ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`.
+
+### Added (v0.33.0)
+
+- Model-gated, side-effect-free direct answers with a deterministic bounded
+  fallback when the configured answer profile is disabled or unavailable.
+- App intent descriptors via `SurfaceProvider.intent_descriptors/0` and the
+  extension registry, validated against registered agent-exposed actions.
+- StockSage `run_analysis` descriptor support with conservative ticker slot
+  extraction, explicit neutral handoff, missing-slot clarification, and
+  stable workspace DOM handles for manual verification.
+- Advisory classifier summaries that include bounded descriptor/handoff
+  metadata and active-app context while accepting only already-collected
+  candidates that meet confidence thresholds.
+
+### Changed (v0.33.0)
+
+- Neutral `analyze CIEN` now produces an inert app handoff proposal instead of
+  falling through to a static echo or silently executing StockSage.
+- Accepting the handoff sets active app context through the existing
+  registered session action and then reaches the normal StockSage confirmation
+  path; declining only dismisses the ephemeral proposal.
+- In StockSage-selected context, `analyze CIEN` routes through the same generic
+  descriptor path to `run_analysis`; the old core StockSage keyword ranker and
+  run-analysis ticker/date parameter shortcut are retired.
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app
+  metadata, `StockSage.App.version/0`, `StockSage.Plugin.version/0`,
+  `plugins/stocksage/allbert_plugin.json`, and the StockSage `run-analysis`
+  skill metadata are bumped to `0.33.0`.
+
+### Verification (v0.33.0)
+
+- M0-M5 were implemented, focused-tested, committed, and pushed as separate
+  milestones.
+- Security eval coverage proves neutral handoff cannot bypass app scope or
+  create a StockSage confirmation before explicit acceptance, and runner
+  app-scope denial remains intact for missing/mismatched active app context.
+- Chrome extension verification passed for the workspace handoff/decline/
+  re-offer/accept flow and missing-slot clarification handles.
+- Final release gate passed: `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
+  `git diff --check`.
+
 ## v0.32.0 - Workspace-Only App UI And Settings Central
 
 Status: released. Version metadata is `0.32.0`; release tag `v0.32.0` exists.
