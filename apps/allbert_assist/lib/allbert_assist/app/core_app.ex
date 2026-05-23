@@ -15,10 +15,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.27 proves plugin-owned
-  # app surfaces through StockSage while preserving `/agent` authority.
+  # the app (release-pinned, not semantic-per-app). v0.29 consumes plugin app
+  # memory/outcome contracts while preserving `/agent` authority.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.28.0"
+  def version, do: "0.29.0"
 
   @impl true
   def validate(_opts), do: :ok

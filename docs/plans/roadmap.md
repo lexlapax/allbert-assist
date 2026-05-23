@@ -1565,9 +1565,11 @@ Risk reassessment for the next contracts:
 Plan: `docs/plans/v0.29-plan.md`
 Request flow: `docs/plans/v0.29-request-flow.md`
 
-Status: planned. Formerly M-D3b, previously planned as v0.27 before the
-project-direction rethink. Renamed after the post-v0.26 roadmap reconciliation
-to make the platform contract explicit.
+Status: implemented and ready for operator manual verification. Formerly
+M-D3b, previously planned as v0.27 before the project-direction rethink.
+Renamed after the post-v0.26 roadmap reconciliation to make the platform
+contract explicit. Version metadata is `0.29.0`; release tag `v0.29.0` is
+pending operator acceptance.
 
 Expected direction:
 
