@@ -31,6 +31,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     configure_external()
+    Settings.put("workspace.signal_bridge.log_dropped_fragments", false, %{audit?: false})
 
     on_exit(fn ->
       if original_config do

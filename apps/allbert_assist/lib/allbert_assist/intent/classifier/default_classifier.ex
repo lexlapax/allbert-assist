@@ -95,8 +95,13 @@ defmodule AllbertAssist.Intent.Classifier.DefaultClassifier do
     Safety rules:
     - Pick only a candidate id and kind from the supplied candidates.
     - Do not invent actions, tools, routes, apps, users, URLs, files, or permissions.
+    - Treat app_intent candidates as handoff or clarification proposals, not execution approval.
+    - Do not select an app-owned action to bypass active-app context or confirmation.
     - Prefer deterministic, read-only, and exact text matches when uncertain.
     - Return low confidence if the candidates are ambiguous.
+
+    Active app context:
+    #{inspect(Map.get(context, :active_app))}
 
     Operator request:
     #{Map.get(context, :text, "")}
