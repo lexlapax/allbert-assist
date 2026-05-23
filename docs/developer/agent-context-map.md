@@ -357,10 +357,11 @@ LiveView to the shipped **agentic workspace shell**:
 
 - The workspace shell IS itself a Surface tree (per ADR 0023 §2 + the
   v0.26 design choice). `CoreApp.surfaces/0` declares the workspace
-  tree at boot; the renderer walks it and dispatches each node's
-  `:component` atom to a LiveComponent module via
-  `AllbertAssist.Workspace.Catalog.component_renderer/1`. There is
-  NO hardcoded HEEx layout for regions.
+  tree at boot; the web renderer walks it and dispatches each node's
+  `:component` atom to a LiveComponent module through
+  `AllbertAssistWeb.Workspace.Renderer`. M7 moves this dispatch table
+  into the unified `AllbertAssist.Surface.Catalog`. There is NO hardcoded
+  HEEx layout for regions.
 - Per-thread Canvas (persistent tiles) lives in SQLite metadata +
   YAML body under `<ALLBERT_HOME>/workspace/canvas/<user_id>/<thread_id>/`.
   Per-thread Ephemeral Surfaces live in SQLite + YAML under
