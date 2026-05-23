@@ -6,6 +6,7 @@ defmodule AllbertAssist.SettingsTest do
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
 
   @env_vars [
@@ -198,6 +199,25 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("workspace.mobile.breakpoint_px", 200, %{audit?: false})
   end
 
+  test "core settings schema is assembled from fragments" do
+    schema = Settings.schema()
+    fragments = Fragments.registered_fragments()
+    fragment_schema = Fragments.schema()
+    fragment_keys = fragments |> Enum.flat_map(&Map.keys(&1.schema)) |> MapSet.new()
+
+    assert fragment_schema == schema
+    assert map_size(fragment_schema) == map_size(schema)
+    assert MapSet.new(Map.keys(schema)) == fragment_keys
+
+    workspace = Enum.find(fragments, &(&1.id == "core:workspace"))
+    assert workspace.source == :core
+    assert Map.has_key?(workspace.schema, "workspace.theme")
+    assert "workspace.theme" in workspace.safe_write_keys
+    assert get_in(workspace.defaults, ["workspace", "theme"]) == "system"
+
+    assert {:ok, ^workspace} = Fragments.fragment_for_key("workspace.theme")
+  end
+
   test "memory review settings are writable and validate bounds" do
     assert {:ok, "manual"} = Settings.get("memory.review_cadence")
     assert {:ok, false} = Settings.get("memory.auto_promote_sensitive_entries")
@@ -363,6 +383,13 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, "safe"} = Settings.get("plugins.example.settings.mode")
     assert "plugins.example.settings.enabled" in Settings.safe_write_keys()
 
+    assert {:ok, plugin_fragment} =
+             Fragments.fragment_for_key("plugins.example.settings.enabled")
+
+    assert plugin_fragment.id == "plugin:example.settings"
+    assert plugin_fragment.source == :plugin
+    assert "plugins.example.settings.enabled" in plugin_fragment.safe_write_keys
+
     assert {:ok, resolved} =
              Settings.put("plugins.example.settings.enabled", true, %{audit?: false})
 
@@ -378,6 +405,10 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:ok, false} = Settings.get("apps.settings_fixture_app.enabled")
     assert "apps.settings_fixture_app.enabled" in Settings.safe_write_keys()
+
+    assert {:ok, app_fragment} = Fragments.fragment_for_key("apps.settings_fixture_app.enabled")
+    assert app_fragment.id == "app:settings_fixture_app"
+    assert app_fragment.source == :app
 
     assert {:ok, resolved} =
              Settings.put("apps.settings_fixture_app.enabled", true, %{audit?: false})
