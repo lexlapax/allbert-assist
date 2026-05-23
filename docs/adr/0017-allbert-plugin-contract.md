@@ -149,8 +149,8 @@ app registry. ADR 0018 owns StockSage's local domain and persistence boundary.
   compilation, and tests before they can participate in runtime behavior.
 - v0.18 app/surface work can build on the plugin layer instead of broadening
   app registration into a catch-all extension registry.
-- v0.35 generator work should generate plugin scaffolds, not only app modules.
-- v0.34 / ADR 0032 defines a bounded sandboxed exception for generated local
+- v0.36 generator work should generate plugin scaffolds, not only app modules.
+- v0.35 / ADR 0032 defines a bounded sandboxed exception for generated local
   plugin/app drafts under `<ALLBERT_HOME>/plugins`; ADR 0017's default rule
   still forbids arbitrary home-plugin code loading in the core node.
 
