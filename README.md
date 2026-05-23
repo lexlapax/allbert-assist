@@ -23,10 +23,12 @@ to generate and reuse.
 
 ## Current State
 
-The current release is `v0.30.0`. It completes the app canvas contract:
-StockSage analysis lifecycle signals now emit durable `/agent` workspace
-canvas tiles through the audited Fragment/canvas path, and those tiles render
-with the same StockSage card components proven in `/stocksage/*`.
+The current implementation is the `v0.31.0` release candidate. It completes
+the runtime and UI-substrate consolidation: action metadata, runtime response
+helpers, paths, redaction, audit, persistence, trace, Surface catalog/renderer
+dispatch, extension discovery, and settings schema fragments now have
+documented facades. Operator behavior remains the same as `v0.30.0`; the
+workspace route reset is still planned for `v0.32`.
 
 Recent platform contracts now in place:
 
@@ -37,6 +39,8 @@ Recent platform contracts now in place:
 - `v0.29.0`: app memory and outcomes contract, proven through StockSage.
 - `v0.30.0`: app canvas contract, proven through durable StockSage canvas
   tiles in `/agent`.
+- `v0.31.0`: runtime and UI-substrate consolidation before the workspace UI,
+  theming, dynamic draft, and generator arc.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -102,10 +106,10 @@ Near-term milestones:
   milestones.
 - [CHANGELOG.md](CHANGELOG.md): released-history details.
 - [docs/adr](docs/adr): architectural decisions.
-- [docs/plans/v0.30-plan.md](docs/plans/v0.30-plan.md): current implemented
+- [docs/plans/v0.31-plan.md](docs/plans/v0.31-plan.md): current implemented
   milestone plan.
-- [docs/plans/v0.30-request-flow.md](docs/plans/v0.30-request-flow.md):
-  request flows and manual verification notes for `v0.30.0`.
+- [docs/plans/v0.31-request-flow.md](docs/plans/v0.31-request-flow.md):
+  request flows and manual verification notes for `v0.31.0`.
 
 ## Local Development
 

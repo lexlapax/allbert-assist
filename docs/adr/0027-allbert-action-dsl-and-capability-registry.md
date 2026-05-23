@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for v0.31 Runtime And UI-Substrate Consolidation
+Accepted in v0.31 M5 Runtime And UI-Substrate Consolidation
 (`docs/plans/v0.31-plan.md`).
 
 ## Context
