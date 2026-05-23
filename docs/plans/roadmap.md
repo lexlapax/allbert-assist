@@ -1380,9 +1380,10 @@ Shipped direction:
   (Workspace Canvas And Ephemeral Surface Substrate) reaches Accepted
   at v0.26 M20 with all binding decisions.
 - Defer to v0.27+: drag-drop tile reordering, real StockSage card
-  rendering. Defer to post-v0.31: multi-user collaborative cursors,
-  plugin-contributed workspace regions, public AG-UI HTTP endpoint,
-  A2UI / MCP Apps interop, canvas snapshot / undo / time-travel.
+  rendering. Plugin-contributed workspace regions graduated to v0.31
+  (ADR 0024). Defer to post-v0.31: multi-user collaborative cursors,
+  public AG-UI HTTP endpoint, A2UI / MCP Apps interop, canvas snapshot /
+  undo / time-travel.
 
 ## v0.26a: Workspace UX/UI Substrate Pass
 
@@ -1556,7 +1557,7 @@ Risk reassessment for the next contracts:
 - v0.30 canvas work should reuse the v0.26/v0.28-audited fragment and canvas
   mechanism. It should not introduce a new renderer contract, bypass app
   surface catalogs, or persist unaudited component atoms.
-- v0.31 generator scaffolding should emit inert-by-default SurfaceProvider,
+- v0.32 generator scaffolding should emit inert-by-default SurfaceProvider,
   memory namespace, action/objective, and canvas stubs only because the
   contracts were manually proven first. Generated files and metadata still do
   not grant permission.
@@ -1608,17 +1609,54 @@ Implemented:
 - No new StockSage domain model, analysis behavior, migration, renderer
   contract, or workspace setting was added.
 
-## v0.31: Allbert Plugin And App Generator
+## v0.31: Workspace-Native Plugin UI And User Theming
 
 Plan: `docs/plans/v0.31-plan.md`
 Request flow: `docs/plans/v0.31-request-flow.md`
+ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
+ADR: `docs/adr/0025-user-theming-and-override-security.md`
+
+Status: research (unstarted). Inserted after v0.30; the Plugin And App
+Generator that previously held this slot moved to v0.32 so it can scaffold the
+shape this release proves.
+
+Prerequisite: v0.26 workspace shell, v0.27 StockSage renderers, v0.28 security
+evals, and v0.30 canvas emission.
+
+Expected direction:
+
+- Add a two-tier app UI contribution model: rare `page` surfaces (own route,
+  now under `/apps/<app_id>`) and default `:panel` surfaces composed into
+  host-owned named workspace zones (`:nav_apps`, `:context_rail`,
+  `:canvas_panels`, `:ephemeral`). Graduates the "Workspace Hooks" reservation
+  from ADR 0023 §1.
+- Rebuild `/agent` into a ChatGPT-style three-zone shell: left rail
+  (new-chat + thread history + app launcher) + center chat + right canvas, with
+  new `:nav_rail`/`:thread_list`/`:app_launcher` catalog atoms and existing
+  offline/a11y/mobile behaviors preserved.
+- Move StockSage dashboard/recent/queue/trends into workspace panels and reduce
+  StockSage to a single page route, `/apps/stocksage/analyses/:id`. Migrate
+  CoreApp domain cards to the same panel-zone path so built-in and plugin apps
+  share one mechanism.
+- Add user theming/override from `<ALLBERT_HOME>` with no rebuild and no core
+  edits: design tokens (default), opt-in sanitized CSS snippets
+  (strip-and-warn), and validated layout override config, served by a new theme
+  controller behind a CSP. Per ADR 0024 and ADR 0025.
+- Add no new domain behavior, analysis engine, execution authority, dynamic
+  routing, arbitrary model-generated UI, or external UI protocol bridge.
+
+## v0.32: Allbert Plugin And App Generator
+
+Plan: `docs/plans/v0.32-plan.md`
+Request flow: `docs/plans/v0.32-request-flow.md`
 
 Status: research (unstarted). Previously planned as v0.29 before the
-project-direction rethink.
+project-direction rethink, then v0.31; moved to v0.32 when v0.31 was reassigned
+to Workspace-Native Plugin UI And User Theming.
 
 Prerequisite: StockSage proves the plugin/app path in v0.20, the app surface
-contract in v0.27, the app memory/outcomes contract in v0.29, and the app
-canvas contract in v0.30.
+contract in v0.27, the app memory/outcomes contract in v0.29, the app canvas
+contract in v0.30, and the workspace-panel/theming contract in v0.31.
 
 Expected direction:
 
