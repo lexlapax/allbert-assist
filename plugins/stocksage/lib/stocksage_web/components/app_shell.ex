@@ -79,6 +79,7 @@ defmodule StockSageWeb.Components.AppShell do
   defp nav_class(_id, _current), do: "border-zinc-700 text-zinc-200 hover:border-emerald-400"
 
   defp panel_class(:error), do: "border-red-500/40 bg-red-500/10"
+  defp panel_class(:success), do: "border-emerald-500/40 bg-emerald-500/10"
   defp panel_class(:warning), do: "border-amber-500/40 bg-amber-500/10"
   defp panel_class(:muted), do: "border-zinc-800 bg-zinc-900"
   defp panel_class(_tone), do: "border-zinc-800 bg-zinc-900"

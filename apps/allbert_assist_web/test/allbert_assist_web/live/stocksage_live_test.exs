@@ -145,6 +145,20 @@ defmodule StockSageWeb.LiveTest do
     refute html =~ "v0.26 stub"
   end
 
+  test "analysis detail renders comparison affordances and bounded empty states", %{conn: conn} do
+    analysis = create_minimal_analysis_fixture()
+
+    {:ok, view, html} = live(conn, ~p"/stocksage/analyses/#{analysis.id}")
+
+    assert has_element?(view, "#stocksage-analysis-run-context")
+    assert has_element?(view, "#stocksage-engine-native[data-run-state='current']")
+    assert has_element?(view, "#stocksage-engine-python[data-run-state='explicit']")
+    assert has_element?(view, "#stocksage-engine-parity[data-run-state='available']")
+    assert has_element?(view, "#stocksage-outcomes-empty")
+    assert has_element?(view, "#stocksage-progress-stream")
+    refute html =~ "StockSage local"
+  end
+
   test "analysis detail renders persisted cards, objective state, and confirmation links", %{
     conn: conn
   } do
@@ -215,6 +229,7 @@ defmodule StockSageWeb.LiveTest do
     {:ok, view, html} = live(conn, ~p"/stocksage/analyses/#{analysis.id}")
 
     assert has_element?(view, "#stocksage-outcome-reflection-actions")
+    assert has_element?(view, "#stocksage-reflections-empty")
     assert html =~ ~s(id="stocksage-generate-reflection-#{outcome.id}")
 
     view
@@ -261,6 +276,23 @@ defmodule StockSageWeb.LiveTest do
     unless App.Registry.known_app_id?(:stocksage) do
       assert {:ok, :stocksage} = App.Registry.register(StockSage.App)
     end
+  end
+
+  defp create_minimal_analysis_fixture do
+    assert {:ok, analysis} =
+             Analyses.create_analysis(%{
+               user_id: "local",
+               symbol: "MSFT",
+               status: "completed",
+               source: "native",
+               engine: "native",
+               recommendation: "Hold",
+               summary: "MSFT native analysis completed without outcomes yet.",
+               thread_id: "thr_stocksage_live",
+               session_id: "web-local"
+             })
+
+    analysis
   end
 
   defp create_analysis_detail_fixture do
