@@ -230,6 +230,14 @@ defmodule AllbertAssist.Boundary do
       notes: "Shared persistence facade for hybrid metadata/body stores."
     },
     %{
+      id: :runtime_trace,
+      role: :planned_facade,
+      subsystem: :trace,
+      module: AllbertAssist.Runtime.Trace,
+      milestone: :m4,
+      notes: "Shared trace facade over the existing markdown trace writer."
+    },
+    %{
       id: :extension_registry,
       role: :planned_facade,
       subsystem: :extension_registry,

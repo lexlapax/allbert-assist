@@ -5,6 +5,9 @@ defmodule AllbertAssist.Execution.SkillScriptAudit do
   Audit records are bounded, redacted summaries. Script policy and execution
   remain owned by `run_skill_script`, Security Central, confirmations, and the
   runner.
+
+  v0.31 keeps this module as the skill-script audit writer. New
+  runtime-facing code should call `AllbertAssist.Runtime.Audit`.
   """
 
   alias AllbertAssist.Execution.SkillScriptSpec

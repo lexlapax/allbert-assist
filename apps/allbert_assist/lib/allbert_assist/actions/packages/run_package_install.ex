@@ -34,9 +34,9 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Execution.CommandSpec
   alias AllbertAssist.Execution.LocalRunner
-  alias AllbertAssist.Packages.Audit
   alias AllbertAssist.Packages.InstallSpec
   alias AllbertAssist.Resources.GrantHandoff
+  alias AllbertAssist.Runtime.Audit
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -84,7 +84,9 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
 
   defp denied_response(spec, permission_decision, :preview_only) do
     reason = "pip execution requires strict hash and binary policy; preview only in v0.10."
-    _audit = Audit.append(:denied, spec, permission_decision, %{denial_reason: reason})
+
+    _audit =
+      Audit.append(:package_install, :denied, spec, permission_decision, %{denial_reason: reason})
 
     {:ok,
      %{
@@ -107,7 +109,10 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
   end
 
   defp denied_response(spec, permission_decision, reason) do
-    _audit = Audit.append(:denied, spec, permission_decision, %{denial_reason: reason})
+    _audit =
+      Audit.append(:package_install, :denied, spec, permission_decision, %{
+        denial_reason: reason
+      })
 
     {:ok,
      %{
@@ -148,7 +153,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
     case Confirmations.create(attrs) do
       {:ok, confirmation} ->
         _audit =
-          Audit.append(:requested, spec, permission_decision, %{
+          Audit.append(:package_install, :requested, spec, permission_decision, %{
             confirmation_id: confirmation_id(confirmation)
           })
 
@@ -204,6 +209,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
     with {:ok, result} <- LocalRunner.run(command_spec) do
       _approved_audit =
         Audit.append(
+          :package_install,
           :approved,
           spec,
           permission_decision,
@@ -211,7 +217,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
         )
 
       _result_audit =
-        Audit.append(result_event(result), spec, permission_decision, %{
+        Audit.append(:package_install, result_event(result), spec, permission_decision, %{
           confirmation_id: confirmation_id,
           grant_ids: grant_ids(context),
           result: result_summary(result)

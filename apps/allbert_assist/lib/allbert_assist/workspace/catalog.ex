@@ -13,9 +13,9 @@ defmodule AllbertAssist.Workspace.Catalog do
   """
 
   alias AllbertAssist.App.CoreApp
+  alias AllbertAssist.Runtime.Persistence
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
-  alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
 
   @spec known_components() :: [AllbertAssist.Surface.component(), ...]
   def known_components, do: AllbertAssist.Surface.known_components()
@@ -143,7 +143,7 @@ defmodule AllbertAssist.Workspace.Catalog do
   end
 
   defp stored_surface_nodes(%{body: body}) do
-    case FragmentBody.surface_from_body(body) do
+    case Persistence.surface_from_fragment_body(body) do
       {:ok, %Surface{nodes: nodes}} -> nodes
       {:error, _reason} -> []
     end
@@ -258,7 +258,7 @@ defmodule AllbertAssist.Workspace.Catalog do
 
   defp title(%{body: body, id: id}, fallback) when is_map(body) do
     body
-    |> FragmentBody.surface_from_body()
+    |> Persistence.surface_from_fragment_body()
     |> case do
       {:ok, %Surface{label: label}} when is_binary(label) and label != "" -> label
       _other -> "#{fallback} #{id}"

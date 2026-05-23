@@ -42,7 +42,6 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
-  alias AllbertAssist.External.Audit
   alias AllbertAssist.External.HttpClient
   alias AllbertAssist.External.RequestSpec
   alias AllbertAssist.Resources.GrantHandoff
@@ -50,6 +49,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
+  alias AllbertAssist.Runtime.Audit
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -118,7 +118,11 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
 
   defp denied_response(spec, params, permission_decision, reason) do
     summary = request_summary(spec, params)
-    _audit = Audit.append(:denied, spec, permission_decision, %{denial_reason: reason})
+
+    _audit =
+      Audit.append(:external_request, :denied, spec, permission_decision, %{
+        denial_reason: reason
+      })
 
     {:ok,
      %{
@@ -171,7 +175,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
     case Confirmations.create(attrs) do
       {:ok, confirmation} ->
         _audit =
-          Audit.append(:requested, spec, permission_decision, %{
+          Audit.append(:external_request, :requested, spec, permission_decision, %{
             confirmation_id: confirmation_id(confirmation)
           })
 
@@ -232,6 +236,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
 
       _approved_audit =
         Audit.append(
+          :external_request,
           :approved,
           spec,
           permission_decision,
@@ -239,7 +244,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
         )
 
       _result_audit =
-        Audit.append(result_event(result), spec, permission_decision, %{
+        Audit.append(:external_request, result_event(result), spec, permission_decision, %{
           confirmation_id: confirmation_id,
           grant_ids: grant_ids(context),
           result: result

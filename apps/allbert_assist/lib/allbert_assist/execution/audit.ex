@@ -4,6 +4,9 @@ defmodule AllbertAssist.Execution.Audit do
 
   Audit records are bounded, redacted summaries. They do not own policy or
   execution semantics; registered actions call this module after decisions.
+
+  v0.31 keeps this module as the shell-command audit writer. New
+  runtime-facing code should call `AllbertAssist.Runtime.Audit`.
   """
 
   alias AllbertAssist.Execution.CommandSpec

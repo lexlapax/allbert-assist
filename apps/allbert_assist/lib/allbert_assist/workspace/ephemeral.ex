@@ -6,8 +6,8 @@ defmodule AllbertAssist.Workspace.Ephemeral do
   import Ecto.Query
 
   alias AllbertAssist.Repo
+  alias AllbertAssist.Runtime.Persistence
   alias AllbertAssist.Settings
-  alias AllbertAssist.Workspace.BodyStore
   alias AllbertAssist.Workspace.Ephemeral.Surface
   alias AllbertAssist.Workspace.Events
 
@@ -46,7 +46,7 @@ defmodule AllbertAssist.Workspace.Ephemeral do
 
   defp insert_new_surface(attrs) do
     with :ok <- enforce_cap(attrs.user_id, attrs.thread_id),
-         :ok <- BodyStore.write_body(attrs.body_yaml_path, attrs.body) do
+         :ok <- Persistence.write_body(attrs.body_yaml_path, attrs.body) do
       insert_surface(attrs)
     end
   end
@@ -210,7 +210,7 @@ defmodule AllbertAssist.Workspace.Ephemeral do
   defp duplicate_body_result(%Surface{} = surface, attrs) do
     case load_body(surface) do
       {:ok, %Surface{} = loaded} ->
-        if loaded.body == BodyStore.normalize_body(attrs.body) do
+        if loaded.body == Persistence.normalize_body(attrs.body) do
           {:ok, loaded}
         else
           {:error, :fragment_body_conflict}
@@ -244,7 +244,7 @@ defmodule AllbertAssist.Workspace.Ephemeral do
     |> Map.put_new(:metadata, %{})
     |> Map.put_new(:body, %{})
     |> Map.put_new(:opened_at, DateTime.utc_now())
-    |> Map.put_new(:body_yaml_path, BodyStore.ephemeral_body_path(user_id, thread_id, id))
+    |> Map.put_new(:body_yaml_path, Persistence.ephemeral_body_path(user_id, thread_id, id))
   end
 
   defp enforce_cap(user_id, thread_id) do
@@ -319,7 +319,7 @@ defmodule AllbertAssist.Workspace.Ephemeral do
   defp load_body_result({:error, reason}), do: {:error, reason}
 
   defp load_body(%Surface{} = surface) do
-    with {:ok, body} <- BodyStore.read_body(surface.body_yaml_path) do
+    with {:ok, body} <- Persistence.read_body(surface.body_yaml_path) do
       {:ok, %{surface | body: body}}
     end
   end
