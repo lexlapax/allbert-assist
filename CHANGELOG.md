@@ -12,8 +12,7 @@ changelog entries or release notes.
 
 ## v0.32.0 - Workspace-Only App UI And Settings Central
 
-Status: implemented and ready for operator manual verification before the
-release tag. Version metadata is `0.32.0`.
+Status: released. Version metadata is `0.32.0`; release tag `v0.32.0` exists.
 
 Plan: `docs/plans/v0.32-plan.md`.
 Request flow: `docs/plans/v0.32-request-flow.md`.
