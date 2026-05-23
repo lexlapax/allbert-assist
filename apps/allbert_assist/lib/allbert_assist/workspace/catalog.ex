@@ -56,23 +56,67 @@ defmodule AllbertAssist.Workspace.Catalog do
   defp panel_context(context) do
     catalogs = Map.get(context, :surface_catalogs, %{})
 
-    context
-    |> Map.get(:panel_surfaces, [])
-    |> panel_surface_list()
-    |> Enum.reduce(%{nodes_by_zone: %{}, diagnostics: []}, &put_panel_context(&1, &2, catalogs))
+    {entries, diagnostics} =
+      context
+      |> panel_surfaces()
+      |> Enum.with_index()
+      |> Enum.reduce({[], []}, &validate_panel_context_entry(&1, &2, catalogs, context))
+
+    entries
+    |> Enum.sort_by(fn %{surface: surface, index: index} -> {panel_order(surface), index} end)
+    |> Enum.reduce(%{nodes_by_zone: %{}, diagnostics: diagnostics}, &put_panel_context/2)
   end
 
   defp panel_surface_list(surfaces) when is_list(surfaces), do: surfaces
   defp panel_surface_list(_surfaces), do: [:invalid_panel_surfaces]
 
-  defp put_panel_context(surface, acc, catalogs) do
+  defp panel_surfaces(context) do
+    context
+    |> Map.get(:panel_surfaces, [])
+    |> panel_surface_list()
+    |> include_core_panel_surfaces()
+  end
+
+  defp include_core_panel_surfaces(surfaces) do
+    (surfaces ++ core_panel_surfaces())
+    |> Enum.reduce({MapSet.new(), []}, fn
+      %Surface{kind: :panel, app_id: app_id, id: id} = surface, {seen, acc} ->
+        key = {app_id, id}
+
+        if MapSet.member?(seen, key) do
+          {seen, acc}
+        else
+          {MapSet.put(seen, key), [surface | acc]}
+        end
+
+      surface, {seen, acc} ->
+        {seen, [surface | acc]}
+    end)
+    |> elem(1)
+    |> Enum.reverse()
+  end
+
+  defp core_panel_surfaces do
+    CoreApp.surfaces()
+    |> Enum.filter(&match?(%Surface{kind: :panel}, &1))
+  end
+
+  defp validate_panel_context_entry({surface, index}, {entries, diagnostics}, catalogs, context) do
     case validate_panel_surface(surface, catalogs) do
       {:ok, %Surface{zone: zone} = surface} ->
-        put_panel_nodes(acc, zone, panel_surface_nodes(surface))
+        if panel_visible?(surface, context) do
+          {[%{surface: surface, zone: zone, index: index} | entries], diagnostics}
+        else
+          {entries, diagnostics}
+        end
 
-      {:error, diagnostics} ->
-        put_panel_diagnostics(acc, surface, diagnostics)
+      {:error, surface_diagnostics} ->
+        {entries, diagnostics ++ bounded_panel_diagnostics(surface, surface_diagnostics)}
     end
+  end
+
+  defp put_panel_context(%{surface: %Surface{} = surface, zone: zone}, acc) do
+    put_panel_nodes(acc, zone, panel_surface_nodes(surface))
   end
 
   defp put_panel_nodes(acc, zone, panel_nodes) do
@@ -81,10 +125,6 @@ defmodule AllbertAssist.Workspace.Catalog do
       :nodes_by_zone,
       &Map.update(&1, zone, panel_nodes, fn nodes -> nodes ++ panel_nodes end)
     )
-  end
-
-  defp put_panel_diagnostics(acc, surface, diagnostics) do
-    Map.update!(acc, :diagnostics, &(&1 ++ bounded_panel_diagnostics(surface, diagnostics)))
   end
 
   defp validate_panel_surface(%Surface{} = surface, catalogs) do
@@ -174,6 +214,73 @@ defmodule AllbertAssist.Workspace.Catalog do
   defp panel_surface_id(%Surface{id: id}), do: id
   defp panel_surface_id(_surface), do: nil
 
+  defp panel_order(%Surface{metadata: metadata}) do
+    case metadata_value(metadata, :order) do
+      order when is_integer(order) -> order
+      _order -> 5_000
+    end
+  end
+
+  defp panel_visible?(%Surface{} = surface, context) do
+    case visible_when(surface) do
+      :always -> true
+      :active_app -> active_app_surface?(surface, context)
+      :selected_app -> active_app_surface?(surface, context)
+      :has_context -> context_has_runtime_scope?(context)
+      :operator_opened -> operator_opened_surface?(surface, context)
+    end
+  end
+
+  defp visible_when(%Surface{metadata: metadata}) do
+    case metadata_value(metadata, :visible_when) do
+      nil ->
+        :always
+
+      value when value in [:always, :active_app, :selected_app, :has_context, :operator_opened] ->
+        value
+
+      value when is_binary(value) ->
+        visible_when_string(value)
+    end
+  end
+
+  defp visible_when_string(value) do
+    case String.trim(value) do
+      "always" -> :always
+      "active_app" -> :active_app
+      "selected_app" -> :selected_app
+      "has_context" -> :has_context
+      "operator_opened" -> :operator_opened
+    end
+  end
+
+  defp active_app_surface?(%Surface{app_id: app_id}, context) do
+    normalize_app_id(app_id) == normalize_app_id(Map.get(context, :active_app))
+  end
+
+  defp context_has_runtime_scope?(context) do
+    not is_nil(Map.get(context, :user_id)) or not is_nil(Map.get(context, :thread_id))
+  end
+
+  defp operator_opened_surface?(%Surface{} = surface, context) do
+    open_panels = context |> Map.get(:operator_opened_panels, []) |> List.wrap()
+
+    surface.id in open_panels or
+      to_string(surface.id) in open_panels or
+      {surface.app_id, surface.id} in open_panels or
+      "#{surface.app_id}:#{surface.id}" in open_panels
+  end
+
+  defp normalize_app_id(app_id) when is_atom(app_id), do: Atom.to_string(app_id)
+  defp normalize_app_id(app_id) when is_binary(app_id), do: app_id
+  defp normalize_app_id(_app_id), do: nil
+
+  defp metadata_value(metadata, key) when is_map(metadata) do
+    Map.get(metadata, key) || Map.get(metadata, Atom.to_string(key))
+  end
+
+  defp metadata_value(_metadata, _key), do: nil
+
   defp inject_runtime_nodes(nodes, context, panel_context) do
     Enum.map(nodes, &inject_runtime_node(&1, context, panel_context))
   end
@@ -239,6 +346,36 @@ defmodule AllbertAssist.Workspace.Catalog do
               zones: [:context_rail]
             }),
           children: badge_nodes(badges) ++ panels
+      }
+    end
+  end
+
+  defp inject_runtime_node(%Node{component: :nav_rail} = node, context, panel_context) do
+    panels = Map.get(panel_context.nodes_by_zone, :nav_apps, [])
+    children = inject_runtime_nodes(node.children, context, panel_context)
+
+    if panels == [] do
+      %{node | children: children}
+    else
+      %{
+        node
+        | props: Map.merge(node.props || %{}, %{zones: [:nav_apps]}),
+          children: children ++ panels
+      }
+    end
+  end
+
+  defp inject_runtime_node(%Node{component: :utility_drawer} = node, context, panel_context) do
+    panels = Map.get(panel_context.nodes_by_zone, :utility_drawer, [])
+    children = inject_runtime_nodes(node.children, context, panel_context)
+
+    if panels == [] do
+      %{node | children: children}
+    else
+      %{
+        node
+        | props: Map.merge(node.props || %{}, %{zones: [:utility_drawer]}),
+          children: children ++ panels
       }
     end
   end
