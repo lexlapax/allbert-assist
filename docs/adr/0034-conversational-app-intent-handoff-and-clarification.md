@@ -85,6 +85,15 @@ actions, and v0.26 ephemeral surface renderer. The implementation should add
 descriptor discovery and handoff/clarification data without adding a new
 Surface catalog atom or changing ADR 0030.
 
+M3 implementation on 2026-05-23 added `AllbertAssist.Intent.Handoff` as the
+inert trace payload, deterministic `:app_handoff` / `:clarify_intent` decisions
+behind Settings Central thresholds, and workspace ephemeral proposals composed
+from existing catalog primitives. Accept still routes through the registered
+`set_active_app` action before re-submitting the prompt; decline only routes
+through `dismiss_workspace_ephemeral`. Dismissed ephemeral proposal ids may be
+re-opened in the same user/thread so a repeated prompt after decline can show a
+fresh handoff instead of being blocked as a body conflict.
+
 ## References
 
 - Amazon Lex Intent Disambiguation:

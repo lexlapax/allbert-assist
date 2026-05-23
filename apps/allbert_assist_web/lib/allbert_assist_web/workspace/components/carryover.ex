@@ -153,15 +153,26 @@ defmodule AllbertAssistWeb.Workspace.Components.Button do
   def render(assigns) do
     ~H"""
     <button
-      id={"workspace-component-#{@node.id}"}
+      id={Base.dom_id(@node)}
       type="button"
       class="workspace-button workspace-button-secondary"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
+      data-intent-option={intent_option(@node)}
+      phx-click={Base.prop(@node, :phx_click, nil)}
+      phx-value-surface-id={Base.prop(@node, :surface_id, nil)}
+      phx-value-app-id={Base.prop(@node, :app_id, nil)}
+      phx-value-action-name={Base.prop(@node, :action_name, nil)}
+      phx-value-source-text={Base.prop(@node, :source_text, nil)}
+      phx-value-ticker={Base.prop(@node, :ticker, nil)}
     >
       {Base.title(@node, "Button")}
     </button>
     """
+  end
+
+  defp intent_option(node) do
+    if Base.prop(node, :intent_option?, false), do: "true"
   end
 end
 
@@ -180,11 +191,17 @@ defmodule AllbertAssistWeb.Workspace.Components.ActionButton do
   def render(assigns) do
     ~H"""
     <button
-      id={"workspace-component-#{@node.id}"}
+      id={Base.dom_id(@node)}
       type="button"
       class="workspace-button workspace-button-primary"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
+      phx-click={Base.prop(@node, :phx_click, nil)}
+      phx-value-surface-id={Base.prop(@node, :surface_id, nil)}
+      phx-value-app-id={Base.prop(@node, :app_id, nil)}
+      phx-value-action-name={Base.prop(@node, :action_name, nil)}
+      phx-value-source-text={Base.prop(@node, :source_text, nil)}
+      phx-value-ticker={Base.prop(@node, :ticker, nil)}
     >
       <.icon name="hero-bolt-micro" class="size-4" />
       {Base.title(@node, "Action")}

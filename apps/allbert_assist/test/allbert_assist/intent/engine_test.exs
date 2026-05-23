@@ -126,7 +126,7 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert length(candidates) <= 80
   end
 
-  test "collects app intent descriptor candidates without selecting app actions" do
+  test "neutral app intent descriptor produces handoff without executing app action" do
     request = EvalFixtures.request(text: "analyze CIEN", active_app: :allbert)
     candidates = Engine.collect_candidates(request)
 
@@ -141,12 +141,39 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert descriptor.trace_metadata.missing_slots == []
 
     assert {:ok, decision} = Engine.decide(request)
-    assert decision.selected_action == "direct_answer"
+    assert decision.intent == :app_handoff
+    refute decision.selected_action == "run_analysis"
+    assert decision.active_app == :allbert
+    assert decision.trace_metadata.intent_handoff.app_id == :stocksage
+    assert decision.trace_metadata.intent_handoff.action_name == "run_analysis"
+    assert decision.trace_metadata.intent_handoff.extracted_slots == %{"ticker" => "CIEN"}
 
     assert Enum.any?(
              decision.trace_metadata.intent_candidates.descriptors,
              &(&1.app_id == :stocksage and &1.action_name == "run_analysis")
            )
+  end
+
+  test "missing app descriptor slots ask for clarification" do
+    assert {:ok, decision} =
+             Engine.decide(EvalFixtures.request(text: "analyze", active_app: :allbert))
+
+    assert decision.intent == :clarify_intent
+    refute decision.selected_action == "run_analysis"
+    assert decision.trace_metadata.intent_handoff.action_name == "run_analysis"
+    assert decision.trace_metadata.intent_handoff.missing_slots == ["ticker"]
+  end
+
+  test "descriptor handoff can be disabled through Settings Central" do
+    on_exit(fn -> Settings.put("intent.descriptors_enabled", true, %{audit?: false}) end)
+
+    assert {:ok, _setting} = Settings.put("intent.descriptors_enabled", false, %{audit?: false})
+
+    assert {:ok, decision} =
+             Engine.decide(EvalFixtures.request(text: "analyze CIEN", active_app: :allbert))
+
+    assert decision.intent == :direct_answer
+    assert decision.selected_action == "direct_answer"
   end
 
   test "plugin-contributed action candidates carry plugin provenance" do

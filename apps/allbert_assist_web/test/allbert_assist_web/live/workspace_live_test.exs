@@ -14,9 +14,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     Workspace
   }
 
+  alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.Resources.{Grants, ResourceURI, Scope}
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
   alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.SigningSecret
@@ -577,6 +579,84 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert action_signal.data.status == :completed
     assert action_signal.data.permission_decision.permission == :workspace_canvas_write
     assert {:ok, []} = Workspace.ephemeral_surfaces(thread.id, "local")
+  end
+
+  test "intent handoff accept sets active app and resubmits the prompt", %{conn: conn} do
+    thread = create_workspace_thread()
+
+    handoff =
+      Handoff.new!(%{
+        kind: :app_handoff,
+        app_id: :stocksage,
+        action_name: "run_analysis",
+        label: "Run StockSage analysis",
+        source_text: "analyze CIEN",
+        extracted_slots: %{ticker: "CIEN"}
+      })
+
+    assert :ok =
+             WorkspaceEmitters.intent_proposal(handoff, %{
+               user_id: "local",
+               thread_id: thread.id
+             })
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+    html = render_until(view, "Open StockSage?")
+
+    assert has_element?(view, "#intent-handoff")
+    assert has_element?(view, "#intent-handoff-accept")
+    assert has_element?(view, "#intent-handoff-decline")
+    assert html =~ "Accept the handoff"
+
+    subscribe_actions()
+
+    view
+    |> element("#intent-handoff-accept")
+    |> render_click()
+
+    assert_receive {:runtime_request, %{text: "analyze CIEN", active_app: :stocksage}},
+                   @runtime_async_timeout
+
+    assert receive_action_completed("set_active_app").data.status == :completed
+
+    html = render_until(view, "Runtime LiveView response: analyze CIEN")
+    assert html =~ ~s(data-active-app="stocksage")
+    assert {:ok, []} = Workspace.ephemeral_surfaces(thread.id, "local")
+  end
+
+  test "intent handoff decline dismisses without setting active app", %{conn: conn} do
+    thread = create_workspace_thread()
+
+    handoff =
+      Handoff.new!(%{
+        kind: :app_handoff,
+        app_id: :stocksage,
+        action_name: "run_analysis",
+        label: "Run StockSage analysis",
+        source_text: "analyze CIEN",
+        extracted_slots: %{ticker: "CIEN"}
+      })
+
+    assert :ok =
+             WorkspaceEmitters.intent_proposal(handoff, %{
+               user_id: "local",
+               thread_id: thread.id
+             })
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+    assert render_until(view, "Open StockSage?") =~ "Accept the handoff"
+
+    subscribe_actions()
+
+    view
+    |> element("#intent-handoff-decline")
+    |> render_click()
+
+    action_signal = receive_action_completed("dismiss_workspace_ephemeral")
+    assert action_signal.data.status == :completed
+    assert {:ok, []} = Workspace.ephemeral_surfaces(thread.id, "local")
+    refute_received {:runtime_request, _request}
+    assert render(view) =~ ~s(data-active-app="allbert")
   end
 
   test "canvas tile controls route through the workspace action boundary", %{conn: conn} do

@@ -107,36 +107,47 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   @impl true
   def handle_event("ask", %{"prompt" => prompt}, socket) do
-    runtime_request = %{
-      text: prompt,
-      channel: :live_view,
-      user_id: socket.assigns.user_id,
-      operator_id: socket.assigns.user_id,
-      thread_id: socket.assigns.thread_id,
-      session_id: socket.assigns.session_id,
-      active_app: socket.assigns.active_app
-    }
+    {:noreply, submit_workspace_prompt(socket, prompt)}
+  end
 
-    socket =
-      socket
-      |> assign(
-        prompt: prompt,
-        response: nil,
-        error: nil,
-        asking?: true,
-        status: nil,
-        signal_id: nil,
-        trace_id: nil,
-        approval_handoff: nil,
-        approval_lines: [],
-        approval_result: nil,
-        show_approval_details?: false
-      )
-      |> start_async(:ask, fn ->
-        Runtime.submit_user_input(runtime_request)
-      end)
+  def handle_event("ask", _params, socket), do: {:noreply, socket}
 
-    {:noreply, socket}
+  def handle_event("accept_intent_handoff", params, socket) do
+    with {:ok, app_id} <- required_param(params, "app-id"),
+         {:ok, source_text} <- required_param(params, "source-text"),
+         {:ok, %{status: :completed, session: %{active_app: active_app}}} <-
+           run_workspace_action(socket, "set_active_app", %{
+             user_id: socket.assigns.user_id,
+             session_id: socket.assigns.session_id,
+             app_id: app_id
+           }) do
+      socket =
+        socket
+        |> assign(active_app: active_app, workspace_mobile_tab: "chat", error: nil)
+        |> dismiss_intent_surface(params, "handoff_accepted")
+        |> refresh_workspace()
+        |> push_patch(to: workspace_path(socket.assigns.thread_id, active_app))
+        |> submit_workspace_prompt(source_text)
+
+      {:noreply, socket}
+    else
+      {:error, reason} ->
+        {:noreply, assign(socket, :error, "Could not accept app handoff: #{inspect(reason)}")}
+
+      {:ok, response} ->
+        {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
+    end
+  end
+
+  def handle_event("decline_intent_handoff", params, socket) do
+    {:noreply,
+     socket
+     |> dismiss_intent_surface(params, "handoff_declined")
+     |> refresh_workspace()}
+  end
+
+  def handle_event("select_intent_option", params, socket) do
+    handle_event("accept_intent_handoff", params, socket)
   end
 
   def handle_event("toggle_approval_details", _params, socket) do
@@ -1009,6 +1020,102 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       {:ok, response} ->
         %{status: "rejected", reason: inspect(Map.get(response, :reason, response.status))}
     end
+  end
+
+  defp submit_workspace_prompt(socket, prompt) when is_binary(prompt) do
+    prompt = String.trim(prompt)
+
+    if prompt == "" do
+      socket
+    else
+      do_submit_workspace_prompt(socket, prompt)
+    end
+  end
+
+  defp submit_workspace_prompt(socket, _prompt), do: socket
+
+  defp do_submit_workspace_prompt(socket, prompt) do
+    runtime_request = %{
+      text: prompt,
+      channel: :live_view,
+      user_id: socket.assigns.user_id,
+      operator_id: socket.assigns.user_id,
+      thread_id: socket.assigns.thread_id,
+      session_id: socket.assigns.session_id,
+      active_app: socket.assigns.active_app
+    }
+
+    socket
+    |> assign(
+      prompt: prompt,
+      response: nil,
+      error: nil,
+      asking?: true,
+      status: nil,
+      signal_id: nil,
+      trace_id: nil,
+      approval_handoff: nil,
+      approval_lines: [],
+      approval_result: nil,
+      show_approval_details?: false
+    )
+    |> start_async(:ask, fn ->
+      Runtime.submit_user_input(runtime_request)
+    end)
+  end
+
+  defp dismiss_intent_surface(socket, params, _dismissed_by) do
+    case optional_param(params, "surface-id") do
+      nil ->
+        socket
+
+      surface_id ->
+        case run_workspace_action(socket, "dismiss_workspace_ephemeral", %{
+               surface_id: surface_id,
+               dismissed_by: "operator"
+             }) do
+          {:ok, %{status: :completed}} ->
+            socket
+
+          {:ok, %{reason: :not_found}} ->
+            socket
+
+          {:ok, response} ->
+            assign(socket, :error, Map.get(response, :message, inspect(response)))
+        end
+    end
+  end
+
+  defp required_param(params, name) do
+    case optional_param(params, name) do
+      value when is_binary(value) and value != "" -> {:ok, value}
+      _other -> {:error, {:missing_required, name}}
+    end
+  end
+
+  defp optional_param(params, name) when is_map(params) do
+    underscore = String.replace(name, "-", "_")
+
+    [
+      name,
+      underscore,
+      existing_atom(name),
+      existing_atom(underscore)
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.find_value(fn key ->
+      case Map.get(params, key) do
+        value when is_binary(value) -> String.trim(value)
+        value when is_atom(value) -> Atom.to_string(value)
+        _other -> nil
+      end
+    end)
+  end
+
+  defp existing_atom(value) do
+    String.to_existing_atom(value)
+  rescue
+    ArgumentError -> nil
   end
 
   defp run_workspace_action(socket, action_name, params) do
