@@ -12,8 +12,8 @@ changelog entries or release notes.
 
 ## v0.29.0 - App Memory + Outcomes Contract - StockSage Polish
 
-Status: in progress. Milestones M1-M4 are implemented; rerun/product polish and
-closeout remain before release readiness.
+Status: in progress. Milestones M1-M6 are implemented; release closeout remains
+before release readiness.
 
 Plan: `docs/plans/v0.29-plan.md`.
 Request flow: `docs/plans/v0.29-request-flow.md`.
@@ -37,6 +37,9 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
   confirmation and writes no Allbert markdown memory until approval.
 - StockSage analysis-detail rerun controls for native, Python comparison, and
   parity reruns, backed by the existing `run_analysis` confirmation flow.
+- StockSage analysis-detail run-context affordances for native/Python/parity
+  comparison state, plus bounded empty states for outcomes, reflections, and
+  progress.
 
 ### Changed (v0.29.0 In Progress)
 
@@ -48,6 +51,9 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
 - `run_analysis` carries optional `source_analysis_id` through confirmations,
   resume params, action metadata, signals, and persisted analysis metadata so
   reruns are distinguishable from their source analysis.
+- StockSage app shells now use consistent mobile-safe spacing, wrapped
+  headings/navigation, table overflow guards, success-tone state panels, and
+  icon-backed rerun buttons.
 
 ### Verification (v0.29.0 In Progress)
 
@@ -74,6 +80,14 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
   source analysis page, no rerun error or StockSage console errors appeared,
   and the analysis list still contained only the source analysis before
   approval.
+- M6 focused LiveView tests passed for comparison affordances, bounded empty
+  states, rerun controls, and existing StockSage app-flow coverage.
+- M6 Chrome extension verification passed against the disposable Allbert Home:
+  `/stocksage`, `/stocksage/analyses`, `/stocksage/queue`, `/stocksage/trends`,
+  and an analysis detail page rendered with zero page overflow at the available
+  Chrome viewport; analysis detail exposed native/Python/parity
+  `data-run-state` values, rerun buttons met the 40px hit target, and no
+  console errors appeared.
 
 ## v0.28.0 - Security Hardening And Evals
 
