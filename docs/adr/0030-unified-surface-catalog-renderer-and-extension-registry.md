@@ -1,0 +1,41 @@
+# ADR 0030: Unified Surface Catalog, Renderer, And Extension Registry
+
+## Status
+
+Proposed for v0.31 Runtime And UI-Substrate Consolidation
+(`docs/plans/v0.31-plan.md`).
+
+## Context
+
+Surface component truth is currently spread across the Surface DSL, workspace
+catalog helpers, web renderer dispatch, app surface catalog metadata, and
+StockSage-specific rendering paths. App and plugin registries also expose
+related contribution data through separate facades. v0.32 workspace panels and
+v0.35 generation should not depend on several overlapping sources of truth.
+
+## Decision
+
+v0.31 will converge on:
+
+- one Surface catalog facade for known component atoms, primitive status,
+  catalog validation, app-declared metadata, and renderer dispatch;
+- one normalized extension registry facade for compiled plugin/app
+  contributions, including apps, surfaces, actions, skill roots, settings
+  fragments, child specs, diagnostics, and metadata.
+
+Apps and plugins remain distinct concepts. The unified registry is a discovery
+and inspection path, not an authority grant.
+
+## Consequences
+
+- v0.32 adds workspace panels by extending one catalog/registry path.
+- v0.35 scaffolds one contribution shape.
+- StockSage renderers can participate in the same catalog mechanism as core
+  workspace components.
+
+## Non-Goals
+
+- No arbitrary generated UI.
+- No metadata-granted permission.
+- No dynamic route creation.
+- No runtime loading of home-plugin Elixir modules.

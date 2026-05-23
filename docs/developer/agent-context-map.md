@@ -41,9 +41,11 @@ Do not load every section by default.
 | StockSage app memory, outcomes, reflection sync, reruns | `docs/plans/v0.29-plan.md`, `docs/plans/v0.29-request-flow.md`, ADR 0015, ADR 0018, ADR 0022 | v0.29 |
 | Workspace shell, canvas, ephemeral UI substrate | ADR 0015 (catalog), ADR 0023 (workspace substrate), `docs/plans/v0.26-plan.md`, `docs/plans/v0.26-request-flow.md` | v0.26 |
 | StockSage canvas integration, workspace plugin contributions | `docs/plans/v0.30-plan.md`, `docs/plans/v0.30-request-flow.md`, ADR 0015, ADR 0023 | v0.30 |
-| Workspace-only plugin UI, panel surfaces, named zones, workspace Settings Central | ADR 0024, ADR 0015, ADR 0023, `docs/plans/v0.31-plan.md` | v0.31 |
-| User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.32-plan.md` | v0.32 |
-| Plugin/app generator | ADR 0017, ADR 0015, ADR 0024, ADR 0025, `docs/plans/v0.33-plan.md` | v0.33 |
+| Runtime/UI-substrate consolidation, action DSL, settings fragments, unified catalog/registry | ADR 0026, ADR 0027, ADR 0028, ADR 0029, ADR 0030, ADR 0031, `docs/plans/v0.31-plan.md` | v0.31 |
+| Workspace-only plugin UI, panel surfaces, named zones, workspace Settings Central | ADR 0024, ADR 0015, ADR 0023, `docs/plans/v0.32-plan.md` | v0.32 |
+| User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.33-plan.md` | v0.33 |
+| Dynamic plugin/app generation and sandboxed module loading | ADR 0032, ADR 0033, ADR 0009, ADR 0021, `docs/plans/v0.34-plan.md` | v0.34 |
+| Plugin/app generator | ADR 0017, ADR 0015, ADR 0024, ADR 0025, ADR 0030, ADR 0031, ADR 0032, `docs/plans/v0.35-plan.md` | v0.35 |
 
 ## Version Map
 
@@ -165,7 +167,12 @@ Do not load every section by default.
   `workspace_canvas_tiles` + YAML body store. v0.30 adds no `:stock_chart`
   atom, no migration, no new StockSage domain behavior, and no private
   canvas-write path.
-- v0.31 (planned): Workspace-Only App UI And Settings Central. Makes
+- v0.31 (planned): Runtime And UI-Substrate Consolidation. Consolidates the
+  action DSL, typed runtime responses, shared paths/redaction/audit/persistence
+  facades, unified Surface catalog/renderer path, unified extension registry,
+  and settings fragments. Behavior-preserving: no route removals, theming,
+  dynamic code, generator, domain behavior, or migrations. Per ADR 0026-0031.
+- v0.32 (planned): Workspace-Only App UI And Settings Central. Makes
   `/workspace` the operator home; removes `/agent`, `/settings`, and
   `/stocksage/*` without compatibility redirects; adds `:panel` surfaces into
   host-owned zones (`:nav_apps`, `:context_rail`, `:canvas_panels`,
@@ -174,14 +181,20 @@ Do not load every section by default.
   panels; and migrates CoreApp domain cards to the same panel-zone path. Per
   ADR 0024. No new domain behavior, theming system, dynamic routing, or
   model-generated UI.
-- v0.32 (planned): User Theming And Layout Overrides. Adds Allbert Home theme
+- v0.33 (planned): User Theming And Layout Overrides. Adds Allbert Home theme
   roots, token YAML, opt-in sanitized CSS snippets, validated workspace layout
   YAML, Settings Central keys, and CSP regression coverage for `/workspace`.
   Per ADR 0025.
-- v0.33 (planned): Allbert Plugin And App Generator. Scaffolds the proven
-  plugin/app shape, now including panel surfaces, named zones, workspace
-  settings hooks, the `/apps/<app_id>` route convention for rare pages,
-  memory/action/objective/canvas stubs, and v0.32 theming docs.
+- v0.34 (planned): Dynamic Plugin/App Generation And Sandboxed Module Loading.
+  Generates inert local plugin/app drafts under `<ALLBERT_HOME>/plugins`,
+  compiles and tries them only in an out-of-node sandbox, reports redacted
+  diagnostics, and never loads generated modules into the core node. Per ADR
+  0032 and ADR 0033.
+- v0.35 (planned): Allbert Plugin And App Generator. Scaffolds the proven
+  plugin/app shape, now including post-v0.31 action/settings/catalog shapes,
+  panel surfaces, named zones, workspace settings hooks, the
+  `/apps/<app_id>` route convention for rare pages, memory/action/objective/
+  canvas stubs, v0.33 theming docs, and v0.34 dynamic-draft review notes.
 
 ## Area Notes
 
@@ -209,7 +222,7 @@ scope fails closed, and non-interactive jobs/objectives must propagate trusted
 active-app context before reaching `Actions.Runner.run/3`.
 
 The `to_a2ui` redaction eval is a stub tripwire until protocol emission is
-implemented after v0.31; do not treat it as full redaction coverage. Advisory
+implemented after v0.35; do not treat it as full redaction coverage. Advisory
 or proposer-origin memory writes must be stamped centrally by the objective or
 memory-sync boundary, not by scattered callers.
 
@@ -382,13 +395,13 @@ LiveView to the shipped **agentic workspace shell**:
 - Internal `AllbertAssist.Workspace.AGUI.Bridge` translates curated
   Allbert signals to AG-UI event shape for test-only semantic
   mapping; NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps
-  interop is post-v0.33 (per Future Features Post-v0.33 UI Protocol
+  interop is post-v0.35 (per Future Features UI Protocol
   Interop).
 
 In v0.26, sibling routes (`/objectives/:id`, `/jobs`, `/settings`) remain
 top-level for deep-linking. The workspace can render catalog-backed summary
 tiles for those domains, but it does not replace the sibling routes in v0.26.
-v0.31 supersedes this route shape for operator UI: Settings Central moves into
+v0.32 supersedes this route shape for operator UI: Settings Central moves into
 `/workspace`, and plugin workspace regions graduate as panels. Plugins MAY
 emit Fragments via the SignalBus topic (existing v0.26 emission path).
 

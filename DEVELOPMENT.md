@@ -319,6 +319,10 @@ actions and known permission classes through Security Central. Do not
 auto-generate, compile, or load Elixir modules from arbitrary skill folders. If
 a new side effect is needed, add or scaffold ordinary Elixir action code,
 review it, test it, compile it, and register it before a skill can invoke it.
+v0.34 / ADR 0032 is planned to define a narrow sandboxed exception for
+generated local plugin/app drafts compiled and tried out of node; until that
+implementation ships, arbitrary generated Elixir module loading remains
+forbidden.
 
 v0.07 confirmation workflow stores durable pending action requests under
 Allbert Home and resolves them through registered Jido actions. Approval,
@@ -645,6 +649,8 @@ constraints, document the exact blocker and ask before deferring it.
   re-checked.
 - No arbitrary skill script execution.
 - No arbitrary Elixir module loading from YAML or skill files.
+- Planned v0.34 dynamic plugin/app drafts remain forbidden until ADR 0032 is
+  implemented; the exception is sandbox-only and never core-node hot loading.
 - No raw secret display.
 - No hidden subsystem-specific settings roots.
 - No destructive changes to user-owned data without explicit user instruction.
