@@ -2,7 +2,7 @@
 
 Core runtime app for Allbert Assist.
 
-The current v0.26 runtime exposes:
+The current v0.33 runtime exposes:
 
 - `AllbertAssist.Runtime.submit_user_input/1`
 - `AllbertAssist.JidoBacked`
@@ -34,7 +34,9 @@ The current v0.26 runtime exposes:
 - `AllbertAssist.Actions.Registry`
 - `AllbertAssist.Actions.Runner`
 - `AllbertAssist.Intent.Candidate`
+- `AllbertAssist.Intent.Descriptor`
 - `AllbertAssist.Intent.Engine`
+- `AllbertAssist.Intent.Handoff`
 - `AllbertAssist.Intent.Ranker`
 - `AllbertAssist.Intent.Classifier`
 - `AllbertAssist.App`

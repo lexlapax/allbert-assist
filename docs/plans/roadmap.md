@@ -1746,16 +1746,17 @@ Plan: `docs/plans/v0.33-plan.md`
 Request flow: `docs/plans/v0.33-request-flow.md`
 ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`
 
-Status: implementation in progress. M0 documentation and contract preflight
-verified the released v0.32 workspace/app-selection baseline and confirmed that
-v0.33 can compose handoff/clarification from existing ephemeral surface
-primitives without adding a catalog atom or amending ADR 0030.
+Status: released as `v0.33.0`. M0-M5 implemented the direct-answer
+foundation, descriptor contribution and validation, explicit app handoff,
+targeted clarification, advisory-only classifier integration, StockSage
+hardcode retirement, release metadata, manual verification docs, and final
+release gate.
 
 Prerequisite: v0.31 consolidated intent/action/response/catalog substrates and
 v0.32 workspace app selection, panel zones, and Settings Central inside
 `/workspace`.
 
-Expected direction:
+Implemented direction:
 
 - Replace the static direct-answer echo with a real side-effect-free direct
   answer path; remove stale version-specific copy from fallback responses.
@@ -1777,6 +1778,17 @@ Expected direction:
   descriptors cover the StockSage `run_analysis` examples.
 - Preserve v0.28 app-scope hardening: app-owned actions still require explicit
   matching `active_app` before `Actions.Runner.run/3`.
+
+Closeout:
+
+- M3 Chrome extension verification covered neutral handoff render, Decline,
+  re-offer after dismissal, Accept into StockSage with the normal confirmation
+  path, and missing-slot clarification.
+- M5 security evals cover handoff bypass denial and unchanged runner
+  app-scope denial for missing/mismatched active app context.
+- Final release gate passed `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
+  `git diff --check`; version metadata is `0.33.0`.
 
 ## v0.34: User Theming And Layout Overrides
 

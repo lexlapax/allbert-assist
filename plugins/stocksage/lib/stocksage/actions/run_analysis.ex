@@ -61,7 +61,7 @@ defmodule StockSage.Actions.RunAnalysis do
     tags: ["stocksage", "analysis", "confirmation"],
     schema: [
       ticker: [type: :string, required: true],
-      analysis_date: [type: :string, required: true],
+      analysis_date: [type: :string, required: false],
       engine: [type: :string, required: false],
       compare_python: [type: :boolean, required: false],
       evidence_mode: [type: :string, required: false],
@@ -1026,6 +1026,8 @@ defmodule StockSage.Actions.RunAnalysis do
   defp normalize_ticker(_), do: {:error, :invalid_ticker}
 
   defp normalize_analysis_date(%Date{} = date), do: validate_date_range(date)
+
+  defp normalize_analysis_date(nil), do: validate_date_range(Date.utc_today())
 
   defp normalize_analysis_date(value) when is_binary(value) do
     case Date.from_iso8601(String.trim(value)) do
