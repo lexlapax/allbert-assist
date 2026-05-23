@@ -34,7 +34,7 @@ behind the public facades named by ADR 0027-0031.
 
 ## Consequences
 
-- Downstream v0.32-v0.35 plans can target stable facades instead of incidental
+- Downstream v0.32-v0.36 plans can target stable facades instead of incidental
   modules.
 - Deletions are safer because compatibility shims have owners and exit
   criteria.
@@ -55,4 +55,4 @@ behind the public facades named by ADR 0027-0031.
 - Builds on: ADR 0007 (Jido-native internal runtime boundaries).
 - Authority unchanged: this ADR is not a security boundary; permission authority
   remains ADR 0006 (Security Central).
-- Enables: v0.32-v0.35 target stable facades instead of incidental modules.
+- Enables: v0.32-v0.36 target stable facades instead of incidental modules.

@@ -43,9 +43,10 @@ Do not load every section by default.
 | StockSage canvas integration, workspace plugin contributions | `docs/plans/v0.30-plan.md`, `docs/plans/v0.30-request-flow.md`, ADR 0015, ADR 0023 | v0.30 |
 | Runtime/UI-substrate consolidation, action DSL, settings fragments, unified catalog/registry | ADR 0026, ADR 0027, ADR 0028, ADR 0029, ADR 0030, ADR 0031, `docs/plans/v0.31-plan.md`, `docs/developer/runtime-boundary-map.md` | v0.31 |
 | Workspace-only plugin UI, panel surfaces, named zones, workspace Settings Central | ADR 0024, ADR 0015, ADR 0023, `docs/plans/v0.32-plan.md` | v0.32 |
-| User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.33-plan.md` | v0.33 |
-| Dynamic plugin/app generation and sandboxed module loading | ADR 0032, ADR 0033, ADR 0009, ADR 0021, `docs/plans/v0.34-plan.md` | v0.34 |
-| Plugin/app generator | ADR 0017, ADR 0015, ADR 0024, ADR 0025, ADR 0030, ADR 0031, ADR 0032, `docs/plans/v0.35-plan.md` | v0.35 |
+| Conversational app intent handoff, clarification, and direct answer | ADR 0034, ADR 0019, ADR 0021, `docs/plans/v0.33-plan.md` | v0.33 |
+| User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.34-plan.md` | v0.34 |
+| Dynamic plugin/app generation and sandboxed module loading | ADR 0032, ADR 0033, ADR 0009, ADR 0021, `docs/plans/v0.35-plan.md` | v0.35 |
+| Plugin/app generator | ADR 0017, ADR 0015, ADR 0024, ADR 0025, ADR 0030, ADR 0031, ADR 0032, ADR 0034, `docs/plans/v0.36-plan.md` | v0.36 |
 
 ## Version Map
 
@@ -193,22 +194,28 @@ Do not load every section by default.
   `:utility_drawer`, `:ephemeral`); moves Settings Central into the workspace
   utility drawer; moves StockSage dashboard/recent/queue/trends into workspace
   panels; and migrates CoreApp domain cards to the same panel-zone path. Per
-  ADR 0024. No new domain behavior, theming system, dynamic routing, or
-  model-generated UI.
-- v0.33 (planned): User Theming And Layout Overrides. Adds Allbert Home theme
+  ADR 0024. No new domain behavior, theming system, neutral app-intent
+  inference, or model-generated UI.
+- v0.33 (planned): Conversational App Intent Handoff And Direct Answer
+  Foundation. Replaces the static direct-answer fallback with a real
+  side-effect-free answer path, adds app-contributed intent descriptors,
+  proposes explicit app handoff from neutral workspace context, asks targeted
+  clarification when slots are missing or candidates are close, and preserves
+  app-scope denial until a handoff is accepted. Per ADR 0034.
+- v0.34 (planned): User Theming And Layout Overrides. Adds Allbert Home theme
   roots, token YAML, opt-in sanitized CSS snippets, validated workspace layout
   YAML, Settings Central keys, and CSP regression coverage for `/workspace`.
   Per ADR 0025.
-- v0.34 (planned): Dynamic Plugin/App Generation And Sandboxed Module Loading.
+- v0.35 (planned): Dynamic Plugin/App Generation And Sandboxed Module Loading.
   Generates inert local plugin/app drafts under `<ALLBERT_HOME>/plugins`,
   compiles and tries them only in an out-of-node sandbox, reports redacted
   diagnostics, and never loads generated modules into the core node. Per ADR
   0032 and ADR 0033.
-- v0.35 (planned): Allbert Plugin And App Generator. Scaffolds the proven
+- v0.36 (planned): Allbert Plugin And App Generator. Scaffolds the proven
   plugin/app shape, now including post-v0.31 action/settings/catalog shapes,
-  panel surfaces, named zones, workspace settings hooks, the
+  panel surfaces, named zones, workspace settings hooks, intent descriptors, the
   `/apps/<app_id>` route convention for rare pages, memory/action/objective/
-  canvas stubs, v0.33 theming docs, and v0.34 dynamic-draft review notes.
+  canvas stubs, v0.34 theming docs, and v0.35 dynamic-draft review notes.
 
 ## Area Notes
 
@@ -236,7 +243,7 @@ scope fails closed, and non-interactive jobs/objectives must propagate trusted
 active-app context before reaching `Actions.Runner.run/3`.
 
 The `to_a2ui` redaction eval is a stub tripwire until protocol emission is
-implemented after v0.35; do not treat it as full redaction coverage. Advisory
+implemented after v0.36; do not treat it as full redaction coverage. Advisory
 or proposer-origin memory writes must be stamped centrally by the objective or
 memory-sync boundary, not by scattered callers.
 
@@ -409,7 +416,7 @@ LiveView to the shipped **agentic workspace shell**:
 - Internal `AllbertAssist.Workspace.AGUI.Bridge` translates curated
   Allbert signals to AG-UI event shape for test-only semantic
   mapping; NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps
-  interop is post-v0.35 (per Future Features UI Protocol
+  interop is post-v0.36 (per Future Features UI Protocol
   Interop).
 
 In v0.26, sibling routes (`/objectives/:id`, `/jobs`, `/settings`) remain

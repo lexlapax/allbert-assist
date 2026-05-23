@@ -55,6 +55,11 @@ options). That vocabulary needs an authority rule that survives all
 future provider implementations, so this ADR records it now even
 though most providers are not implemented in v0.24.
 
+ADR 0034 (planned for v0.33) is the first narrow consumer of the reserved
+intent/route advisory vocabulary. It limits that consumer to app-intent
+handoff and clarification proposals; it does not authorize execution, trust,
+permission, objective transitions, or capability acquisition.
+
 ## Decision
 
 ### 1. Three durable layers, not two

@@ -2,13 +2,13 @@
 
 ## Status
 
-Proposed for v0.33 User Theming And Layout Overrides
-(`docs/plans/v0.33-plan.md`). This ADR pins how operators retheme and
+Proposed for v0.34 User Theming And Layout Overrides
+(`docs/plans/v0.34-plan.md`). This ADR pins how operators retheme and
 re-lay-out the Allbert UI from `<ALLBERT_HOME>` without editing core code, and
 the security posture for serving operator-supplied styling. It pairs with ADR
 0024, which owns the `/workspace` route, workspace zones, and utility drawer
 that the layout-override layer reorders. ADR 0025 does not block v0.31 or
-v0.32.
+v0.32, and it does not change the v0.33 app-intent handoff contract.
 
 ## Context
 
@@ -95,7 +95,7 @@ per-key with bounded warnings, never a crash. Theming reads only
   served route surface (`/theme/*`) are added; both are covered by v0.28 eval
   additions (sanitizer bypass, CSP regression, exfiltration attempts).
 - A future milestone may add a file watcher for live reload and an OS-keychain/
-  remote theme source; v0.33 recomputes on request with a version stamp.
+  remote theme source; v0.34 recomputes on request with a version stamp.
 
 ## Relates To
 
