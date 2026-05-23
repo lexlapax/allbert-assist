@@ -388,6 +388,12 @@ Where this gets enforced:
   v0.26a added the workspace UX/UI substrate pass and v0.26b fixed
   setting-shaped intent fallback, visible native StockSage LLM failure
   reasons, and empty `/agent` composer state.
+- The v0.32 closeout bumped umbrella metadata, child app metadata,
+  `AllbertAssist.App.CoreApp.version/0`, `StockSage.App.version/0`,
+  `StockSage.Plugin.version/0`, `./plugins/stocksage/allbert_plugin.json`,
+  and the StockSage `run-analysis` skill metadata to `"0.32.0"` because
+  `/workspace` became the only operator home and app UI moved into
+  catalog-validated workspace panels.
 
 ## Component Substrate: Jido.Agent vs. GenServer
 

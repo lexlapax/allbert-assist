@@ -127,16 +127,16 @@ Do not load every section by default.
   section + inline `### Workspace` subsection. `mix
   allbert.workspace canvas|ephemeral|inspect|rotate-signing-secret`
   Mix tasks. Per ADR 0023.
-- v0.27: App Surface Contract - StockSage LiveViews. StockSage now has
+- v0.27: App Surface Contract - StockSage LiveViews. Historically introduced
   plugin-owned `StockSageWeb.WorkspaceLive`, `AnalysisLive`, `QueueLive`, and
   `TrendsLive` mounted by the host router at `/stocksage/*` and declared
-  through `StockSage.App.surfaces/0`. It ships real StockSage-owned renderers
-  for `:analysis_card`, `:agent_report_card`, `:parity_card`, and
-  `:debate_round_card`, `RunAnalysis` validated `surface_nodes`, objective and
-  confirmation state on analysis pages, PubSub progress streaming, and an inert
-  `StockSage.App.memory_namespace/0` declaration with `writable: false`.
-  v0.27 does not write markdown memory and does not emit durable `/agent`
-  canvas tiles; those contracts remain v0.29 and v0.30 respectively.
+  through `StockSage.App.surfaces/0`. v0.32 removes the dashboard/list/queue/
+  trend routes in favor of `/workspace` panels, retaining only
+  `StockSageWeb.AnalysisLive` at `/apps/stocksage/analyses/:id`. StockSage
+  still ships real renderers for `:analysis_card`, `:agent_report_card`,
+  `:parity_card`, and `:debate_round_card`, `RunAnalysis` validated
+  `surface_nodes`, objective and confirmation state on analysis pages, PubSub
+  progress streaming, and the app memory namespace declaration.
 - v0.28: Security Hardening And Evals. This is the security routing anchor
   after v0.26 workspace surfaces and v0.27 real StockSage app surfaces. It
   adds the shared security eval harness under `apps/allbert_assist/test/security`,
@@ -187,15 +187,17 @@ Do not load every section by default.
   core/app/plugin fragments. `PermissionGate` remains a compatibility shim over
   Security Central pending a later caller-migration parity pass. Per ADR
   0026-0031.
-- v0.32 (planned): Workspace-Only App UI And Settings Central. Makes
+- v0.32 (implemented; pending operator manual verification): Workspace-Only
+  App UI And Settings Central. Makes
   `/workspace` the operator home; removes `/agent`, `/settings`, and
   `/stocksage/*` without compatibility redirects; adds `:panel` surfaces into
   host-owned zones (`:nav_apps`, `:context_rail`, `:canvas_panels`,
   `:utility_drawer`, `:ephemeral`); moves Settings Central into the workspace
   utility drawer; moves StockSage dashboard/recent/queue/trends into workspace
-  panels; and migrates CoreApp domain cards to the same panel-zone path. Per
-  ADR 0024. No new domain behavior, theming system, neutral app-intent
-  inference, or model-generated UI.
+  panels; migrates CoreApp domain cards to the same panel-zone path; and keeps
+  StockSage analysis detail as `/apps/stocksage/analyses/:id`. Per ADR 0024.
+  No new domain behavior, theming system, neutral app-intent inference, or
+  model-generated UI.
 - v0.33 (planned): Conversational App Intent Handoff And Direct Answer
   Foundation. Replaces the static direct-answer fallback with a real
   side-effect-free answer path, adds app-contributed intent descriptors,
@@ -278,12 +280,12 @@ It uses `AllbertAssist.Repo` and `stocksage_*` tables. Do not create
 Permission for local domain writes does not authorize financial API calls or
 analysis execution.
 
-For StockSage surface work, read `docs/plans/v0.27-plan.md` and
-`docs/plans/v0.27-request-flow.md` first. v0.27 owns `/stocksage/*`
-LiveViews, real StockSage card renderers, validated `RunAnalysis`
-`surface_nodes`, progress streaming, and the inert memory namespace
-declaration. It does not write markdown memory and does not emit durable
-workspace canvas tiles.
+For StockSage surface work, read `docs/plans/v0.32-plan.md`,
+`docs/plans/v0.32-request-flow.md`, then the v0.27 docs for historical
+renderer/detail context. v0.32 owns the current operator shape: dashboard,
+recent analyses, queue, and trends are `/workspace` panels selected through
+the app launcher; `/stocksage/*` routes are gone; analysis detail remains
+`/apps/stocksage/analyses/:id`.
 
 For StockSage security work, read v0.28 before editing runtime boundaries.
 v0.28 added app-scope, registry, surface/catalog, namespace, Resource Access,
@@ -401,9 +403,9 @@ LiveView to the shipped **agentic workspace shell**:
 - 42-component catalog (per ADR 0015 v0.26 amendment): 12 v0.18
   carryover + 10 workspace structural + 12 Allbert-domain + 4
   Allbert-app cards + 4 reserved StockSage cards. v0.27 ships real
-  StockSage-owned app-surface renderers for those cards under `/stocksage/*`;
-  v0.30 wires those same renderers into durable `/agent` canvas tiles without
-  adding a new `:stock_chart` atom.
+  StockSage-owned renderers for those cards; v0.30 wires those renderers into
+  durable canvas tiles without adding a new `:stock_chart` atom; v0.32 reuses
+  them in StockSage workspace panels.
 - 14 new `workspace.*` settings (theme, offline, accessibility,
   fixed read-only mobile breakpoint, fragment rate limits, etc.). New
   `:workspace_canvas_write` permission class.

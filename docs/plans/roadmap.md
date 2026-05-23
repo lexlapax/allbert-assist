@@ -1698,13 +1698,14 @@ Plan: `docs/plans/v0.32-plan.md`
 Request flow: `docs/plans/v0.32-request-flow.md`
 ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
 
-Status: research (unstarted). Shifted from v0.31 after the consolidation
-insert.
+Status: implemented and ready for operator manual verification before release
+tag. Shifted from v0.31 after the consolidation insert and completed as
+`v0.32.0`.
 
 Prerequisite: v0.31 consolidated action, catalog, registry, response, path,
 redaction, audit, persistence, and settings-fragment substrates.
 
-Expected direction:
+Implemented:
 
 - Add a two-tier app UI contribution model: rare `page` surfaces (own route,
   now under `/apps/<app_id>`) and default `:panel` surfaces composed into
@@ -1725,6 +1726,20 @@ Expected direction:
   natural-language app inference, arbitrary model-generated UI, theming
   system, dynamic code, or external UI protocol bridge. Conversational app
   handoff belongs to v0.33.
+
+Closeout:
+
+- M1 removed `/agent`, `/settings`, and `/stocksage/*` operator routes and
+  made `/workspace` the canonical shell.
+- M2 added panel and zone validation plus security eval rows for panel catalog
+  bypass and zone injection.
+- M3-M4 added the workspace shell, app launcher, mobile tabs, and Settings
+  Central utility drawer through registered actions.
+- M5-M6 moved CoreApp and StockSage operator UI into workspace panels while
+  retaining StockSage analysis detail at `/apps/stocksage/analyses/:id`.
+- M7 bumped release metadata to `0.32.0`, updated README/CHANGELOG/ADR
+  0024/request-flow/developer context, extended the settings-action bypass
+  eval, and ran the final release gate.
 
 ## v0.33: Conversational App Intent Handoff And Direct Answer Foundation
 

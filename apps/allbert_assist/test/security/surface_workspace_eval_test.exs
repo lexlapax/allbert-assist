@@ -396,6 +396,48 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
     assert eval.result.reason == {:unsupported_operation, "resolve_confirmation"}
   end
 
+  test "settings-action-bypass-001: denied Settings Central writes do not persist" do
+    fixture = EvalInventory.row!("settings-action-bypass-001")
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.settings_write", "denied", %{audit?: false})
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            {:ok, response} =
+              Runner.run(
+                "update_setting",
+                %{key: "operator.communication_style", value: "verbose"},
+                %{actor: "alice", channel: :workspace}
+              )
+
+            %{
+              decision: response.status,
+              result: %{
+                response: response,
+                setting: Settings.get("operator.communication_style")
+              },
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :settings_central_action,
+                permission: :settings_write
+              }
+            }
+          end
+        })
+      )
+
+    assert_denied(eval)
+
+    assert get_in(eval.result.response.actions, [Access.at(0), :permission_decision, :decision]) ==
+             :denied
+
+    assert {:ok, value} = eval.result.setting
+    refute value == "verbose"
+  end
+
   defp fragment_attrs(attrs \\ %{}) do
     Map.merge(
       %{
