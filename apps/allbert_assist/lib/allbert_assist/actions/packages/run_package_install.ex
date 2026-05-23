@@ -6,7 +6,14 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
   Central, and durable confirmation. pip remains preview-only.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :package_install,
+    exposure: :internal,
+    execution_mode: :package_manager_process,
+    skill_backed?: true,
+    confirmation: :required,
+    resumable?: true,
+    notes: "Runs confirmed npm package-manager process execution; pip remains preview-only.",
     name: "run_package_install",
     description: "Run a confirmed package manager install through v0.10 policy.",
     category: "packages",

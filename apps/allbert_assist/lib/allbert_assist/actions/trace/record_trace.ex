@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Trace.RecordTrace do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :memory_write,
+    exposure: :internal,
+    execution_mode: :internal_trace,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "record_trace",
     description: "Record an inspectable markdown runtime trace when tracing is enabled.",
     category: "trace",

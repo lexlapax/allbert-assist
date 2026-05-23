@@ -3,7 +3,13 @@ defmodule AllbertAssist.Actions.Intent.ActivateSkill do
   Activates one trusted skill for v0.03 progressive disclosure.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :read_only,
+    skill_backed?: false,
+    confirmation: :not_required,
+    notes: "Progressive disclosure only; does not run the activated skill.",
     name: "activate_skill",
     description:
       "Load trusted skill instructions and resource inventory without executing resources.",

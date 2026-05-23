@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Apps.ShowApp do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :settings_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "show_app",
     description: "Show one registered Allbert workspace app.",
     category: "apps",

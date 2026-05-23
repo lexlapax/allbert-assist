@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Resources.RevokeResourceGrant do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :confirmation_decide,
+    exposure: :internal,
+    execution_mode: :resource_grant_revoke,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "revoke_resource_grant",
     description: "Revoke a remembered resource grant.",
     category: "resources",

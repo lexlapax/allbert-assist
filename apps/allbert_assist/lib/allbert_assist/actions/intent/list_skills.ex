@@ -3,7 +3,12 @@ defmodule AllbertAssist.Actions.Intent.ListSkills do
   Lists registered skill declarations and read-only capability context.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :read_only,
+    skill_backed?: true,
+    confirmation: :not_required,
     name: "list_skills",
     description: "List the read-only capabilities available to the intent agent.",
     category: "intent",

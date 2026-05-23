@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Memory.ReviewMemoryEntry do
   @moduledoc "Reviews a markdown memory entry without deleting it."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :memory_write,
+    exposure: :internal,
+    execution_mode: :memory_review,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "review_memory_entry",
     description: "Set the review status for one markdown memory entry.",
     category: "memory",

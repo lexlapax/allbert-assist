@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Memory.ReadMemoryEntry do
   @moduledoc "Reads one markdown-backed memory entry through the action boundary."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :memory_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "read_memory_entry",
     description: "Read one markdown memory entry for one local user.",
     category: "memory",

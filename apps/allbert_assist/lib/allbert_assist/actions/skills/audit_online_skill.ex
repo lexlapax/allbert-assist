@@ -3,7 +3,14 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
   Confirmed online skill audit over fetched source metadata.
   """
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :external_network,
+    exposure: :internal,
+    execution_mode: :online_skill_audit,
+    skill_backed?: false,
+    confirmation: :required,
+    resumable?: true,
+    notes: "Fetches and audits online skill metadata only after external-network confirmation.",
     name: "audit_online_skill",
     description: "Audit online skill metadata before any disabled-by-default import.",
     category: "skills",

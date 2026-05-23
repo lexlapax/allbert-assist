@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
   @moduledoc "Dispatch a bounded objective step to a registered delegate agent."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :objective_write,
+    exposure: :internal,
+    execution_mode: :objective_delegate,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "delegate_agent",
     description: "Dispatch a delegated objective step to a registered objective agent.",
     category: "objectives",

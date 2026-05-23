@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Objectives.CancelObjective do
   @moduledoc "Cooperatively cancel a durable objective."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :objective_write,
+    exposure: :internal,
+    execution_mode: :objective_engine,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "cancel_objective",
     description: "Cancel a durable objective without revoking in-flight confirmations.",
     category: "objectives",

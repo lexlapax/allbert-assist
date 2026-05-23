@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Settings.UpdateSetting do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :settings_write,
+    exposure: :agent,
+    execution_mode: :settings_write,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "update_setting",
     description: "Update one safe Settings Central key.",
     category: "settings",

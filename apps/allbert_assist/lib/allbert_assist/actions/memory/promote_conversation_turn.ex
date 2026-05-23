@@ -1,7 +1,13 @@
 defmodule AllbertAssist.Actions.Memory.PromoteConversationTurn do
   @moduledoc "Promotes one explicitly selected conversation turn to markdown memory."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :memory_write,
+    exposure: :internal,
+    execution_mode: :memory_promotion,
+    skill_backed?: false,
+    confirmation: :required,
+    resumable?: true,
     name: "promote_conversation_turn",
     description: "Promote one user-owned conversation message to markdown memory.",
     category: "memory",

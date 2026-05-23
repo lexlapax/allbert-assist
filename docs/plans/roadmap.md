@@ -1634,7 +1634,7 @@ ADRs: `docs/adr/0026-runtime-public-facades-and-boundaries.md`,
 
 Status: implementation in progress. Inserted after v0.30 so the workspace UI,
 theming, dynamic plugin trials, and generator build on one consolidated
-runtime/UI substrate instead of encoding duplicated seams. M1-M4 are complete.
+runtime/UI substrate instead of encoding duplicated seams. M1-M5 are complete.
 
 Prerequisite: v0.26 workspace shell, v0.27 StockSage renderers, v0.28 security
 evals, v0.29 memory/outcomes, and v0.30 canvas emission.
@@ -1667,6 +1667,9 @@ Implemented so far:
   `AllbertAssist.Runtime.Persistence`, and `AllbertAssist.Runtime.Trace`;
   audit, trace, workspace body persistence, and Fragment body decoding route
   through the runtime facades without changing durable formats.
+- M5: added `AllbertAssist.Action`, migrated registered core and StockSage
+  actions to declare capability metadata on the action module, and removed the
+  duplicate central registry capability map.
 
 ## v0.32: Workspace-Only App UI And Settings Central
 

@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Actions.RegistryTest do
   use ExUnit.Case, async: false
 
+  alias AllbertAssist.Action
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Multiply
@@ -464,6 +465,22 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute Registry.resumable?("direct_answer")
     refute Registry.resumable?("plan_package_install")
     refute Registry.resumable?("missing_action")
+  end
+
+  test "built-in registered actions declare capability metadata on their modules" do
+    for module <- Registry.modules() do
+      assert Action.allbert_action?(module)
+      assert {:ok, module_capability} = Action.validate_capability(module.capability())
+      assert {:ok, registry_capability} = Registry.capability(module)
+
+      assert registry_capability.permission == module_capability.permission
+      assert registry_capability.exposure == module_capability.exposure
+      assert registry_capability.execution_mode == module_capability.execution_mode
+      assert registry_capability.skill_backed? == module_capability.skill_backed?
+      assert registry_capability.confirmation == module_capability.confirmation
+    end
+
+    refute Action.allbert_action?(Multiply)
   end
 
   test "resolves registered actions by name and module only" do

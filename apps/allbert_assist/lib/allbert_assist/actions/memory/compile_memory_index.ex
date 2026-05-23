@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Memory.CompileMemoryIndex do
   @moduledoc "Rebuilds the derived markdown memory index."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :memory_index_compile,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "compile_memory_index",
     description: "Rebuild the derived memory index from markdown source files.",
     category: "memory",

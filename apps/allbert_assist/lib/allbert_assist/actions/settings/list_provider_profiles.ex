@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Settings.ListProviderProfiles do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :agent,
+    execution_mode: :settings_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "list_provider_profiles",
     description: "List provider profiles with redacted credential status.",
     category: "settings",

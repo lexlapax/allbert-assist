@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Memory.SearchMemory do
   @moduledoc "Searches markdown memory using the derived index when possible."
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :memory_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "search_memory",
     description: "Search markdown memory entries by keyword and recency.",
     category: "memory",

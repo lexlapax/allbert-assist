@@ -1,7 +1,13 @@
 defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :confirmation_decide,
+    exposure: :internal,
+    execution_mode: :confirmation_decision,
+    skill_backed?: false,
+    confirmation: :not_required,
+    notes: "Approves a pending request; target resumption remains version-scoped.",
     name: "approve_confirmation",
     description: "Approve a durable confirmation request without bypassing target action policy.",
     category: "confirmations",

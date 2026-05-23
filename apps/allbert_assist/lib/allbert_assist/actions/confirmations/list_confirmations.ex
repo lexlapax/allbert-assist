@@ -1,7 +1,12 @@
 defmodule AllbertAssist.Actions.Confirmations.ListConfirmations do
   @moduledoc false
 
-  use Jido.Action,
+  use AllbertAssist.Action,
+    permission: :read_only,
+    exposure: :internal,
+    execution_mode: :confirmation_read,
+    skill_backed?: false,
+    confirmation: :not_required,
     name: "list_confirmations",
     description: "List durable confirmation requests.",
     category: "confirmations",
