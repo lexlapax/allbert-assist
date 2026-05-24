@@ -53,7 +53,7 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | M7 | `AllbertAssist.Surface.Catalog` | Implemented single Surface component/catalog/renderer authority. |
 | M8 | `AllbertAssist.Settings.Fragment` | Implemented per-context/app/plugin settings schema fragment contract. |
 | M8 | `AllbertAssist.Settings.Fragments` | Implemented settings schema fragment registry and composition facade. |
-| v0.36 | `AllbertAssist.Sandbox` | Planned report-only facade for doctor, bundle, command, gate, and cleanup. |
+| v0.36 | `AllbertAssist.Sandbox` | Implemented report-only facade for doctor, bundle, command, gate, and cleanup. |
 
 ## Compatibility Shims And Exit Criteria
 

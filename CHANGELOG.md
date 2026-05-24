@@ -10,6 +10,63 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
+
+Status: implemented and release-ready on 2026-05-24. Version metadata is
+`0.36.0`; ready for operator manual verification before a release tag.
+
+Plan: `docs/plans/v0.36-plan.md`.
+Request flow: `docs/plans/v0.36-request-flow.md`.
+ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
+`docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`.
+
+### Added (v0.36.0)
+
+- Default-off `sandbox.elixir.*` Settings Central policy, sandbox roots under
+  Allbert Home, typed doctor and command reports, and `mix allbert.sandbox
+  doctor` for local readiness inspection.
+- OS-aware sandbox backend registry and resolver with Docker, Docker+runsc,
+  rootless Podman, and optional doctor-gated Apple `container` candidates.
+- Copy-in/copy-out sandbox bundle builder with a disposable sandbox
+  `ALLBERT_HOME`, bounded metadata, symlink/traversal denial, real-home
+  exclusion, and report roots.
+- Strict `CommandSpec` validation for explicit `mix`, `elixir`, and `erl` argv
+  commands, plus `SourcePolicy` checks for dangerous Elixir/OTP constructs.
+- Hardened Docker/Podman/runsc command builders that use approved local images,
+  `--network none`, dropped capabilities, `no-new-privileges`, bounded
+  resources, read-only project/draft/test mounts, and writable bundle-local
+  sandbox-home/report mounts.
+- Public `AllbertAssist.Sandbox` facade, reviewed gate profiles, sandbox
+  lifecycle signals, internal sandbox actions, and bounded redacted report
+  writing.
+- v0.36 security eval rows for disabled/missing backends, backend resolver
+  fail-closed behavior, no image pulls, source policy, shell denial, network
+  denial, secret denial, home isolation, package-manager denial, NIF/port
+  denial, core-load denial, and report redaction.
+
+### Changed (v0.36.0)
+
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, and child app
+  metadata are bumped to `0.36.0` because v0.36 adds internal sandbox actions
+  and sandbox lifecycle signals to the core runtime boundary.
+- ADR 0037 is accepted for v0.36 and ADR 0009's Level-3 local container
+  sandbox amendment is implemented for this narrow Elixir/OTP trial/gate scope.
+- Operator, developer, roadmap, onboarding, security-hardening,
+  runtime-boundary, agent-context, and future-feature docs now point at the
+  implemented v0.36 sandbox contract and report-only authority boundary.
+
+### Verification (v0.36.0)
+
+- M0-M5 were implemented, focused-tested, and committed separately.
+- Focused sandbox, action registry, Settings Central, Security Central, backend
+  runner, bundle, command-spec, source-policy, CLI doctor, and security-eval
+  suites passed during milestone work.
+- No UI/UX behavior changed in v0.36, so Chrome extension browser verification
+  was not required for this release.
+- Final release gate passed: `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
+  `git diff --check`.
+
 ## v0.35.0 - User Theming And Layout Overrides
 
 Status: implemented and release-ready on 2026-05-24. Version metadata is

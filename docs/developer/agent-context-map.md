@@ -227,7 +227,7 @@ Do not load every section by default.
   Output is the neutral destination, `app:allbert` is not a layout destination,
   launcher/layout state is view-only, AppBar is fixed chrome, Settings/Output
   are non-hideable, and `active_app` remains handoff-only.
-- v0.36 (implementation in progress): Elixir/OTP Sandbox And Gate Runner. Adds the default-off,
+- v0.36 (implemented as `v0.36.0`): Elixir/OTP Sandbox And Gate Runner. Adds the default-off,
   OS-aware sandbox facade (pluggable backend registry + `"auto"` resolver:
   optional doctor-gated Apple `container`, rootless Podman, Docker+runsc/gVisor
   preferred over plain Docker, Docker fallback), approved local images only,
