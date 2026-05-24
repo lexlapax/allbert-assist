@@ -309,6 +309,9 @@ Needed before broader post-v0.37 planning:
 - MCP Apps sandboxing and third-party UI trust policy (Allbert's
   "declarative + catalog-bound" stance explicitly rejects MCP Apps'
   sandboxed-iframe model; reconciling the two requires a trust-policy ADR)
+- CSP reconciliation: the v0.35 Content-Security-Policy baseline (ADR 0025,
+  `style-src 'self'`, no remote fetch) must be re-evaluated before any external
+  UI protocol bridge is exposed, since such bridges may need additional sources.
 - cross-client fallback, redaction, provenance, and accessibility rules
   (v0.26 ships fallback text, redaction, accessibility; cross-client
   provenance for federated workspaces is the post-v0.37 surface)
