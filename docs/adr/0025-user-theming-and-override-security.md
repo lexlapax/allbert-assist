@@ -6,9 +6,10 @@ Proposed for v0.35 User Theming And Layout Overrides
 (`docs/plans/v0.35-plan.md`). This ADR pins how operators retheme and
 re-lay-out the Allbert UI from `<ALLBERT_HOME>` without editing core code, and
 the security posture for serving operator-supplied styling. It pairs with ADR
-0024, which owns the `/workspace` route, workspace zones, and utility drawer
-that the layout-override layer reorders. ADR 0025 does not block v0.31 or
-v0.32, and it does not change the v0.33 app-intent handoff contract.
+0024, which owns the `/workspace` route, panel contribution contract, and
+v0.34 launcher/Canvas destination model that the layout-override layer
+reorders. ADR 0025 does not block v0.31 or v0.32, and it does not change the
+v0.33 app-intent handoff contract or v0.34 handoff-only routing context.
 
 ## Context
 
@@ -55,9 +56,11 @@ the home dir). Each layer is gated by Settings Central `workspace.theme.*`:
    `workspace.theme.snippets_enabled` (default false). Served last, outside
    Tailwind layers, at `/theme/snippets/<name>.css`.
 3. **Layout override (data, validated).** `workspace/layout.yaml`
-   enables/disables/reorders ADR 0024 zones and pins panels. It is a selection
-   of catalog-allowed atoms and registered zones — never code — validated
-   against the catalog and registered surfaces. Gated by
+   enables/disables/reorders v0.34 launcher destinations, sets a default
+   Canvas destination, and pins panels into allowed destination groups. It is a
+   selection of catalog-allowed atoms, registered destinations, retained panel
+   zone labels, and registered surfaces — never code — validated against the
+   catalog and registered surfaces. Gated by
    `workspace.layout.override_enabled`.
 
 ### 2. Strip-and-warn sanitization for snippets
@@ -88,6 +91,10 @@ per-key with bounded warnings, never a crash. Theming reads only
   rebuild and no core edits.
 - The powerful, riskier paths (raw CSS, layout) are opt-in and bounded;
   unsanitized CSS is never served, and CSP backs the sanitizer.
+- Layout override changes view composition only. It cannot create components,
+  routes, action bindings, permissions, or `active_app` routing context, and it
+  cannot restore the retired v0.32 utility drawer or context rail as authority
+  surfaces.
 - For a local single-user app the residual CSS risk is mostly self-inflicted;
   the sanitizer + CSP + opt-in keep it from becoming a regression as channels
   and multi-user scenarios arrive.
@@ -100,7 +107,8 @@ per-key with bounded warnings, never a crash. Theming reads only
 ## Relates To
 
 - Pairs with: ADR 0024 (App UI Contribution And Workspace Zones) — the
-  layout-override layer reorders the zones ADR 0024 defines.
+  layout-override layer reorders the v0.34 launcher destinations and Canvas
+  destination groups that ADR 0024 defines.
 - Builds on: ADR 0023 (workspace substrate, `#workspace-shell` token scope), the
   Allbert Home / v0.31 runtime path precedence model, and Settings Central.
 - Constrained by: ADR 0006 (Security Central) redaction/audit posture and the

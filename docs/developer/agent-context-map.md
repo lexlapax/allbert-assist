@@ -209,10 +209,17 @@ Do not load every section by default.
   optional descriptor slots, descriptorizes StockSage `get_trends` and
   `queue_analysis`, and removes the remaining core StockSage symbol parser.
   Per ADR 0034.
+- v0.34 (planned): Workspace UX Refresh. Revises the v0.32 shell into a
+  chat-primary layout with a view-only launcher, single-destination Canvas,
+  Output as the durable-tile destination, Settings/tools as Canvas
+  destinations, and a passive top-bar context indicator. Launcher selection and
+  URL destination state are view-only; `active_app` is set only by accepting a
+  v0.33 handoff, and legacy `?app_id=` / app-launcher setters are migration
+  targets. Per ADR 0024's v0.34 revision.
 - v0.35 (planned): User Theming And Layout Overrides. Adds Allbert Home theme
-  roots, token YAML, opt-in sanitized CSS snippets, validated workspace layout
-  YAML, Settings Central keys, and CSP regression coverage for `/workspace`.
-  Per ADR 0025.
+  roots, token YAML, opt-in sanitized CSS snippets, validated v0.34
+  launcher/Canvas-destination layout YAML, Settings Central keys, and CSP
+  regression coverage for `/workspace`. Per ADR 0025.
 - v0.36 (planned): Dynamic Plugin/App Generation And Sandboxed Module Loading.
   Generates inert local plugin/app drafts under `<ALLBERT_HOME>/plugins`,
   compiles and tries them only in an out-of-node sandbox, reports redacted
@@ -286,11 +293,13 @@ Permission for local domain writes does not authorize financial API calls or
 analysis execution.
 
 For StockSage surface work, read `docs/plans/v0.32-plan.md`,
-`docs/plans/v0.32-request-flow.md`, then the v0.27 docs for historical
-renderer/detail context. v0.32 owns the current operator shape: dashboard,
-recent analyses, queue, and trends are `/workspace` panels selected through
-the app launcher; `/stocksage/*` routes are gone; analysis detail remains
-`/apps/stocksage/analyses/:id`.
+`docs/plans/v0.32-request-flow.md`, `docs/plans/v0.34-plan.md`, and
+`docs/plans/v0.34-request-flow.md`, then the v0.27 docs for historical
+renderer/detail context. v0.34 owns the planned operator shape after the
+v0.32 shell: dashboard, recent analyses, queue, and trends are `/workspace`
+Canvas destinations selected through the view-only launcher; selecting
+StockSage does not set `active_app`; `/stocksage/*` routes are gone; analysis
+detail remains `/apps/stocksage/analyses/:id`.
 
 For StockSage security work, read v0.28 before editing runtime boundaries.
 v0.28 added app-scope, registry, surface/catalog, namespace, Resource Access,

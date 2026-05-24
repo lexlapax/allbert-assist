@@ -317,8 +317,8 @@ Needed before broader post-v0.37 planning:
 - Plugin-contributed workspace regions and workspace Settings Central —
   graduated to v0.32 (ADR 0024); formerly "Workspace Hooks" reserved in ADR
   0023 §1.
-- User theming/layout override (tokens, sanitized snippets, layout config) -
-  graduated to v0.35 (ADR 0025).
+- User theming/layout override (tokens, sanitized snippets, v0.34
+  launcher/Canvas destination layout config) - graduated to v0.35 (ADR 0025).
 - Canvas snapshot / undo / time-travel (deferred from v0.26; "Canvas
   Snapshot" reserved in ADR 0023 §1; signal topic
   `allbert.workspace.canvas.snapshot.requested` reserved as v0.26 no-op)
