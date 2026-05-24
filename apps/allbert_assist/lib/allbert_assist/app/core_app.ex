@@ -161,11 +161,6 @@ defmodule AllbertAssist.App.CoreApp do
             }
           },
           %Node{
-            id: "workspace-objectives",
-            component: :badge_strip,
-            props: %{source: "objectives"}
-          },
-          %Node{
             id: "workspace-nav-rail",
             component: :nav_rail,
             props: %{zone: "nav_apps"},
@@ -205,11 +200,6 @@ defmodule AllbertAssist.App.CoreApp do
                 }
               }
             ]
-          },
-          %Node{
-            id: "workspace-utility-drawer",
-            component: :utility_drawer,
-            props: %{zone: "utility_drawer"}
           },
           %Node{
             id: "workspace-ephemeral-region",
