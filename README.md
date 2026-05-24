@@ -23,11 +23,11 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.36.0`, with release gate in progress after
-adding the local sandbox image-preparation task. `/workspace` is the only
-operator home: chat is the primary spine, the left rail is a view-only
-launcher, and Canvas shows one destination at a time (Output, an app, or a
-workspace tool).
+The current implementation is `v0.36.0`, ready for operator manual
+verification after adding the local sandbox image-preparation task.
+`/workspace` is the only operator home: chat is the primary spine, the left
+rail is a view-only launcher, and Canvas shows one destination at a time
+(Output, an app, or a workspace tool).
 Operators can retheme and re-lay-out the workspace from local Allbert Home
 files through Settings Central-accountable gates, while the runtime now has a
 default-off, report-only Elixir/OTP sandbox and gate runner for future
