@@ -16,6 +16,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
   alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.Resources.{Grants, ResourceURI, Scope}
+  alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
@@ -1158,9 +1159,12 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   end
 
   test "stale app query params do not set runtime active app context", %{conn: conn} do
+    fixture = EvalInventory.row!("stale-url-handoff-bypass-001")
     ensure_stocksage_app_registered()
 
-    {:ok, view, _html} = live(conn, ~p"/workspace?app_id=stocksage")
+    {:ok, view, _html} =
+      live(conn, ~p"/workspace?#{[app_id: "stocksage", active_app: "stocksage"]}")
+
     thread_id = workspace_thread_id(view)
 
     view
@@ -1173,9 +1177,26 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert request.thread_id == thread_id
     assert request.session_id == "web-local"
     assert request.active_app == :allbert
+
+    eval =
+      live_security_eval(
+        fixture,
+        if(request.active_app == :allbert and neutral_session?(Session.get("local", "web-local")),
+          do: :denied,
+          else: :allowed
+        ),
+        %{
+          boundary: :workspace_url_params,
+          stale_params: [:app_id, :active_app],
+          active_app: request.active_app
+        }
+      )
+
+    assert eval.decision == fixture.expected
   end
 
   test "app launcher selection changes only canvas destination", %{conn: conn} do
+    fixture = EvalInventory.row!("launcher-destination-context-001")
     ensure_stocksage_app_registered()
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -1203,6 +1224,23 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert request.thread_id == thread_id
     assert request.session_id == "web-local"
     assert request.active_app == :allbert
+
+    eval =
+      live_security_eval(
+        fixture,
+        if(request.active_app == :allbert and neutral_session?(Session.get("local", "web-local")),
+          do: :denied,
+          else: :allowed
+        ),
+        %{
+          boundary: :workspace_launcher_destination,
+          canvas_destination: "app:stocksage",
+          actions_executed: [],
+          active_app: request.active_app
+        }
+      )
+
+    assert eval.decision == fixture.expected
   end
 
   test "app launcher selection renders hydrated StockSage workspace panels", %{conn: conn} do
@@ -1601,6 +1639,17 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   defp render_until_missing(view, selector, 0) do
     refute has_element?(view, selector)
     render(view)
+  end
+
+  defp live_security_eval(fixture, decision, trace) do
+    %{
+      decision: decision,
+      trace:
+        trace
+        |> Map.put_new(:fixture_id, fixture.id)
+        |> Map.put_new(:boundary, fixture.boundary),
+      fixture: fixture
+    }
   end
 
   defp neutral_session?({:error, :not_found}), do: true
