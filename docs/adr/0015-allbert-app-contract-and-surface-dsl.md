@@ -317,8 +317,9 @@ explicit StockSage lesson/memory sync.
   LiveViews, memory namespace declaration plus consumption, and canvas path
   through v0.30, catalog/registry consolidation in v0.31, workspace panels in
   v0.32, app intent descriptors/handoff in v0.33, the workspace UX refresh in
-  v0.34, theming/layout hooks in v0.35, and sandboxed dynamic drafts in v0.36.
-  Planned for v0.37.
+  v0.34, theming/layout hooks in v0.35, the sandbox/gate substrate in v0.36,
+  dynamic draft/live integration in v0.37, and deterministic templated
+  creation in v0.38.
 - AG-UI streaming endpoints, A2UI renderer compatibility, MCP Apps, and
   third-party remote UI execution.
 - Dynamic runtime mounting of arbitrary routes or LiveView components from

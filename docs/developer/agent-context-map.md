@@ -17,7 +17,7 @@ Do not load every section by default.
 
 ## Subsystem To Docs Map
 
-| Area | Start With | Released History |
+| Area | Start With | History / Anchor |
 | --- | --- | --- |
 | Runtime, signals, agents, action runner | ADR 0001, ADR 0007, active plan | v0.01, v0.04, v0.06 |
 | Security Central, permissions, trust, redaction, eval harness | ADR 0006, ADR 0007, ADR 0012, `docs/plans/v0.28-plan.md`, `docs/plans/v0.28-request-flow.md` | v0.05, v0.06, v0.11, v0.28 |
@@ -228,20 +228,26 @@ Do not load every section by default.
   launcher/layout state is view-only, AppBar is fixed chrome, Settings/Output
   are non-hideable, and `active_app` remains handoff-only.
 - v0.36 (planned): Elixir/OTP Sandbox And Gate Runner. Adds the default-off,
-  OS-aware sandbox facade (pluggable backend registry + `:auto` resolver: Apple
-  `container` on supported macOS, Podman/Docker on Linux, Docker fallback,
-  optional `runsc`), copy-in/copy-out bundles, explicit `mix` /
+  OS-aware sandbox facade (pluggable backend registry + `"auto"` resolver:
+  optional doctor-gated Apple `container`, rootless Podman, Docker+runsc/gVisor
+  preferred over plain Docker, Docker fallback), approved local images only,
+  source-policy checks, copy-in/copy-out bundles, explicit `mix` /
   `elixir` / `erl` gate commands, bounded reports, and fail-closed denial of
   network, secrets, real Allbert Home, package-manager execution, NIFs, ports,
   shell strings, and untrusted core loading. Per ADR 0037 and ADR 0009.
 - v0.37 (planned): Dynamic Code & Config Generation And Live Capability
-  Integration. Generates Elixir/OTP code/config through advisory agents, trials
-  and gates it through v0.36, and hot-loads/registers it live only after the
-  warning gate plus operator confirmation, with rollback. Per ADR 0032, ADR
-  0033, and ADR 0035.
+  Integration. Generates Elixir/OTP code/config through advisory agents, stores
+  file-backed draft metadata under
+  `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, trials and gates it through
+  v0.36, and hot-loads/registers it live only after the warning gate plus
+  operator confirmation. Rollback also requires confirmation and removes live
+  authority; module purge is best-effort/audited. Per ADR 0032, ADR 0033, and
+  ADR 0035.
 - v0.38 (planned): Templated Creation. Scaffolds the proven plugin/app/tool/flow
-  shapes through Mix tasks and a `workspace:create` Canvas destination, reusing
-  the v0.36 sandbox and v0.37 loader for optional live integration.
+  shapes through Mix tasks (`--target` defaults to `./plugins/<name>` and
+  existing roots require `--force` plus preview/diff) and a `workspace:create`
+  Canvas destination, reusing the v0.36 sandbox and v0.37 loader for optional
+  live integration.
 
 ## Area Notes
 
@@ -273,6 +279,12 @@ implemented after v0.38; do not treat it as full redaction coverage. Advisory
 or proposer-origin memory writes must be stamped centrally by the objective or
 memory-sync boundary, not by scattered callers.
 
+For v0.36-v0.38 work, keep the authority split explicit: v0.36 sandbox runs
+produce bounded reports only; v0.37 file-backed dynamic drafts can integrate
+only after the v0.36 gate plus Security Central confirmation; v0.38 templates
+add deterministic creation surfaces, not new sandbox, loader, permission, route,
+or `active_app` authority.
+
 ### Memory
 
 Markdown memory is the long-term, inspectable source of truth. SQLite
@@ -295,6 +307,13 @@ apps, actions, skills, settings schema entries, channel descriptors, and
 supervised children. They must not load arbitrary code from user folders, grant
 trust, grant permissions, bypass confirmations, or execute package managers
 during discovery.
+
+For planned generation work, keep three roots distinct: source-tree plugins
+under `./plugins`, v0.37 untrusted draft metadata/source under
+`<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` that ordinary plugin discovery
+must not scan, and v0.38 developer scaffolds whose `--target` defaults to
+`./plugins/<name>` but remain inert until reviewed, compiled, tested, and
+registered through normal paths.
 
 ### StockSage
 
@@ -393,6 +412,12 @@ Apps may have reviewed Phoenix LiveViews and routes, but web surfaces must be
 declared through `AllbertAssist.App.SurfaceProvider` and validated by
 `AllbertAssist.Surface`. Surface metadata is not authority and must not create
 routes dynamically without an explicit plan.
+
+v0.38's `workspace:create` surface consumes the v0.34/v0.35 workspace
+contracts: launcher/layout state is view-only, Output and Settings remain
+non-hideable, `app:allbert` is not a layout destination, generated
+theme/snippet/layout stubs are disabled by default, and any live integration
+routes through the v0.37 loader instead of private LiveView logic.
 
 v0.28 is the security reference for this substrate: catalog bypass, component
 injection, fragment replay/tampering, emitter allow-list, app-scope routing,

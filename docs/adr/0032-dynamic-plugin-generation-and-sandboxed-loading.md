@@ -25,11 +25,13 @@ outside the core node. v0.37 uses that evidence to add a gated integration path.
 
 Generated code has three phases:
 
-1. **Untrusted phase.** Generated source may be written inertly under
-   `<ALLBERT_HOME>/plugins/<slug>`. Compile, trial, and warning gate run only
-   through the v0.36 sandbox/gate runner. The core node must not call
-   `Code.compile_*`, `Code.eval_*`, `Code.require_*`, or equivalent APIs on an
-   untrusted draft.
+1. **Untrusted phase.** Generated source is written inertly under
+   `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, with file-backed
+   `metadata.yaml`, provenance, source hash, diagnostics, and sandbox reports.
+   Ordinary plugin discovery does not scan this root. Compile, trial, and
+   warning gate run only through the v0.36 sandbox/gate runner. The core node
+   must not call `Code.compile_*`, `Code.eval_*`, `Code.require_*`, or
+   equivalent APIs on an untrusted draft.
 2. **Integration gate.** A draft may become eligible for live integration only
    when the v0.36 sandbox trial passed, the v0.36 warning gate passed, v0.37
    static/integrity checks passed, and the operator explicitly confirms the
@@ -38,8 +40,8 @@ Generated code has three phases:
 3. **Trusted phase.** A gate-passing, operator-confirmed artifact may be
    hot-loaded into the core BEAM node and registered live without a restart via
    the audited reversible loader in ADR 0035. The loader recompiles the
-   operator-reviewed source in core with an integrity hash; it does not trust an
-   opaque sandbox-built binary.
+   operator-reviewed source in core with an integrity hash and generated
+   namespace checks; it does not trust an opaque sandbox-built binary.
 
 Route-based Phoenix page surfaces still require a restart or a later route
 bridge. Panel/destination apps integrate live.
@@ -54,8 +56,9 @@ manifests, remote plugins, or arbitrary user-created code.
 - v0.37 adds a precise reviewed integration path instead of a broad dynamic
   loading loophole.
 - Security evals must prove core-load attempts, gate skip, operator-confirm
-  bypass, dependency injection, migration injection, secret access, sandbox
-  bypass, and loader integrity tamper all fail closed.
+  bypass, core-module replacement, action shadowing, dependency injection,
+  migration injection, secret access, sandbox bypass, and loader integrity
+  tamper all fail closed.
 
 ## Non-Goals
 
@@ -67,6 +70,8 @@ manifests, remote plugins, or arbitrary user-created code.
   host child process as the untrusted-trial isolation boundary.
 - No integration authorized by advisory/agent output or by a sandbox/gate result
   alone.
+- No generated module replacement of core/static modules, dynamic protocol or
+  router generation, application env mutation, or action shadowing.
 - No template gallery or Mix generator UX; that is v0.38.
 
 ## Sandbox Isolation Requirement
