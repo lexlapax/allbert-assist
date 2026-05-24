@@ -63,6 +63,8 @@ defmodule AllbertAssist.Paths do
       workspace_canvas_root(),
       workspace_ephemeral_root(),
       workspace_secrets_root(),
+      themes_root(),
+      theme_snippets_root(),
       Path.dirname(db_path()),
       skills_root(),
       cache_root(),
@@ -196,6 +198,16 @@ defmodule AllbertAssist.Paths do
   @doc "Return the workspace secret root."
   @spec workspace_secrets_root() :: String.t()
   def workspace_secrets_root, do: Path.join(workspace_root(), "secrets")
+
+  @doc "Return the operator theme root."
+  @spec themes_root() :: String.t()
+  def themes_root do
+    first_path([configured(:themes_root)], Path.join(home(), "themes"))
+  end
+
+  @doc "Return the operator CSS snippet root."
+  @spec theme_snippets_root() :: String.t()
+  def theme_snippets_root, do: Path.join(themes_root(), "snippets")
 
   defp first_path(paths, default) do
     Enum.find(paths, default, &is_binary/1)

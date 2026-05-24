@@ -195,9 +195,9 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              })
 
     assert generic_update.status == :completed
-    assert generic_update.message =~ "Updated workspace.theme"
+    assert generic_update.message =~ "Updated workspace.theme.mode"
     assert [%{name: "update_setting"}] = generic_update.actions
-    assert {:ok, "dark"} = Settings.get("workspace.theme")
+    assert {:ok, "dark"} = Settings.get("workspace.theme.mode")
 
     assert {:ok, read_only_update} =
              IntentAgent.respond(%{

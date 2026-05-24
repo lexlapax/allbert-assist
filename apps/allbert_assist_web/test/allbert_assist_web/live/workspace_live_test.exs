@@ -206,7 +206,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   end
 
   test "mount applies workspace theme from settings", %{conn: conn} do
-    assert {:ok, _setting} = Settings.put("workspace.theme", "dark", %{audit?: false})
+    assert {:ok, _setting} = Settings.put("workspace.theme.mode", "dark", %{audit?: false})
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
@@ -231,7 +231,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     action_signal = receive_action_completed("set_workspace_theme")
     assert action_signal.data.status == :completed
     assert action_signal.data.permission_decision.permission == :settings_write
-    assert {:ok, "dark"} = Settings.get("workspace.theme")
+    assert {:ok, "dark"} = Settings.get("workspace.theme.mode")
     assert has_element?(view, "#workspace-shell[data-theme='dark'][data-workspace-theme='dark']")
 
     assert has_element?(
@@ -350,6 +350,10 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     refute has_element?(view, "[data-workspace-component='confirmation_card']")
     assert has_element?(view, "#settings-list")
     assert has_element?(view, "#settings-form")
+    assert has_element?(view, "#workspace-theme-diagnostics")
+    assert has_element?(view, "#workspace-theme-token-status")
+    assert has_element?(view, "#workspace-theme-snippet-status")
+    assert has_element?(view, "#workspace-layout-status")
     assert has_element?(view, "#security-status")
     assert has_element?(view, "#confirmation-requests")
     assert has_element?(view, "#remembered-resource-grants")
@@ -538,7 +542,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   end
 
   test "mount applies high contrast workspace variant", %{conn: conn} do
-    assert {:ok, _setting} = Settings.put("workspace.theme", "dark", %{audit?: false})
+    assert {:ok, _setting} = Settings.put("workspace.theme.mode", "dark", %{audit?: false})
 
     assert {:ok, _setting} =
              Settings.put("workspace.accessibility.high_contrast", true, %{audit?: false})

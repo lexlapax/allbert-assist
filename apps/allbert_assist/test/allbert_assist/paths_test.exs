@@ -82,6 +82,8 @@ defmodule AllbertAssist.PathsTest do
     assert Paths.skills_root() == Path.join(home, "skills")
     assert Paths.cache_root() == Path.join(home, "cache")
     assert Paths.tmp_root() == Path.join(home, "tmp")
+    assert Paths.themes_root() == Path.join(home, "themes")
+    assert Paths.theme_snippets_root() == Path.join([home, "themes", "snippets"])
   end
 
   test "specific root overrides take precedence over derived home paths" do
@@ -141,6 +143,12 @@ defmodule AllbertAssist.PathsTest do
           Path.join([home, "memory", "preferences"]),
           Path.join([home, "memory", "traces"]),
           Path.join([home, "memory", "skills"]),
+          Path.join(home, "workspace"),
+          Path.join([home, "workspace", "canvas"]),
+          Path.join([home, "workspace", "ephemeral"]),
+          Path.join([home, "workspace", "secrets"]),
+          Path.join(home, "themes"),
+          Path.join([home, "themes", "snippets"]),
           Path.join(home, "db"),
           Path.join(home, "skills"),
           Path.join(home, "cache"),

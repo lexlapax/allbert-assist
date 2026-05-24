@@ -171,7 +171,7 @@ defmodule Mix.Tasks.Allbert.Workspace do
 
     Mix.shell().info("Resolved workspace Surface tree")
     Mix.shell().info("Surface: #{inspect(surface.id)} #{surface.path} kind=#{surface.kind}")
-    Mix.shell().info("workspace.theme=#{workspace_theme()}")
+    Mix.shell().info("workspace.theme.mode=#{workspace_theme()}")
     Mix.shell().info("user_id=#{user_id} thread_id=#{thread_id}")
 
     Enum.each(surface.nodes, &print_node(&1, 0))
@@ -256,7 +256,7 @@ defmodule Mix.Tasks.Allbert.Workspace do
   end
 
   defp workspace_theme do
-    case Settings.get("workspace.theme") do
+    case Settings.get("workspace.theme.mode") do
       {:ok, theme} -> theme
       _other -> "system"
     end

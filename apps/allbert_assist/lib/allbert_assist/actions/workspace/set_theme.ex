@@ -31,7 +31,11 @@ defmodule AllbertAssist.Actions.Workspace.SetTheme do
     with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
          theme when is_binary(theme) and theme != "" <- theme,
          {:ok, setting} <-
-           Settings.put("workspace.theme", theme, action_context(context, permission_decision)) do
+           Settings.put(
+             "workspace.theme.mode",
+             theme,
+             action_context(context, permission_decision)
+           ) do
       {:ok, completed(setting, permission_decision)}
     else
       {:allowed, false} ->
@@ -81,7 +85,7 @@ defmodule AllbertAssist.Actions.Workspace.SetTheme do
       permission_decision: permission_decision,
       actions: [
         action(:denied, permission_decision, %{
-          setting_key: "workspace.theme",
+          setting_key: "workspace.theme.mode",
           theme: theme,
           error: reason
         })

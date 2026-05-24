@@ -1022,7 +1022,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp tile_by_id(_tiles, _tile_id), do: nil
 
   defp workspace_theme do
-    case Settings.get("workspace.theme") do
+    case Settings.get("workspace.theme.mode") do
       {:ok, theme} when theme in ["dark", "light", "system"] -> theme
       _other -> "system"
     end
@@ -1225,8 +1225,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
-  # v0.26a M34: theme cycles system → dark → light → system so operators
-  # reach all three workspace.theme values from the AppBar without dropping
+  # v0.26a M34 / v0.35: theme cycles system → dark → light → system so operators
+  # reach all three workspace.theme.mode values from the AppBar without dropping
   # to `mix allbert.settings`. Default boot starts at "system" → dark to
   # preserve the prior light↔dark first-click semantics.
   defp next_workspace_theme("system"), do: "dark"
