@@ -209,13 +209,14 @@ Do not load every section by default.
   optional descriptor slots, descriptorizes StockSage `get_trends` and
   `queue_analysis`, and removes the remaining core StockSage symbol parser.
   Per ADR 0034.
-- v0.34 (release-ready): Workspace UX Refresh. Revises the v0.32 shell into a
+- v0.34 (released): Workspace UX Refresh. Revises the v0.32 shell into a
   chat-primary layout with a view-only launcher, single-destination Canvas,
   Output as the durable-tile destination, Settings/tools as Canvas
   destinations, and a passive top-bar context indicator. Launcher selection and
   URL destination state are view-only; `active_app` is set only by accepting a
   v0.33 handoff, and legacy `?app_id=` / app-launcher setters are retired as
-  routing authority. Per ADR 0024's v0.34 revision.
+  routing authority. Released and tagged as `v0.34.0` on 2026-05-24. Per ADR
+  0024's v0.34 revision.
 - v0.35 (planned): User Theming And Layout Overrides. Adds Allbert Home theme
   roots, token YAML, opt-in sanitized CSS snippets, validated v0.34
   launcher/Canvas-destination layout YAML, Settings Central keys, and CSP
