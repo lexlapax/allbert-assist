@@ -1076,6 +1076,15 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
           <.icon name="hero-bolt-micro" class="size-4" />
           {count_label(@ephemeral_surfaces, "ephemeral")}
         </a>
+        <span
+          :for={badge <- @workspace_badges}
+          id={"workspace-header-badge-#{badge_id(badge)}"}
+          class="allbert-chip"
+          title={badge_label(badge)}
+        >
+          <.icon name="hero-information-circle-micro" class="size-4" />
+          {badge_label(badge)}
+        </span>
       </div>
 
       <div class="allbert-appbar-actions">
@@ -1201,6 +1210,19 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
   end
 
   defp count_label(_items, label), do: "0 #{pluralize(label, 0)}"
+
+  defp badge_id(%{id: id}) when is_binary(id), do: id
+  defp badge_id(_badge), do: "notice"
+
+  defp badge_label(%{surface: %{nodes: [%{props: props} | _nodes]}}) when is_map(props) do
+    Map.get(props, :body) ||
+      Map.get(props, "body") ||
+      Map.get(props, :title) ||
+      Map.get(props, "title") ||
+      "Workspace notice"
+  end
+
+  defp badge_label(_badge), do: "Workspace notice"
 
   defp pluralize("ephemeral", 1), do: "ephemeral"
   defp pluralize("ephemeral", _count), do: "ephemerals"

@@ -1,22 +1,11 @@
 defmodule AllbertAssist.Intent.DescriptorTest do
   use ExUnit.Case, async: false
 
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Descriptor
 
-  setup do
-    app_registered? = AppRegistry.known_app_id?(:stocksage)
+  setup :setup_stocksage_registry
 
-    unless app_registered? do
-      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
-    end
-
-    on_exit(fn ->
-      unless app_registered?, do: AppRegistry.unregister(:stocksage)
-    end)
-
-    :ok
-  end
+  defp setup_stocksage_registry(context), do: AllbertAssist.StockSageRegistryCase.setup(context)
 
   test "normalizes inert descriptors for registered app actions" do
     assert {:ok, descriptor} =

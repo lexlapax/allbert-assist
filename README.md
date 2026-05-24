@@ -23,15 +23,12 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is the released `v0.33.1`. `/workspace` is the
-only operator home, and neutral workspace chat can now recognize reviewed
-app-owned capabilities without silently running them. Plain questions use the
-side-effect-free direct-answer path; neutral app-like prompts such as
-`analyze CIEN` render an explicit StockSage handoff or targeted clarification;
-accepting the handoff sets active app context before the normal confirmation
-flow begins. StockSage `run_analysis`, `get_trends`, and `queue_analysis`
-conversational routing now all use app-contributed intent descriptors rather
-than core StockSage symbol-parsing shortcuts.
+The current implementation is the release-ready `v0.34.0`. `/workspace` is the
+only operator home: chat is the primary spine, the left rail is a view-only
+launcher, and Canvas shows one destination at a time (Output, an app, or a
+workspace tool). Neutral workspace chat can recognize reviewed app-owned
+capabilities without silently running them; app routing context is still set
+only by accepting an explicit conversational handoff.
 
 Recent platform contracts now in place:
 
@@ -50,6 +47,10 @@ Recent platform contracts now in place:
   with app-contributed intent descriptors, explicit neutral handoff, targeted
   clarification, advisory-only classifier selection, and descriptor-backed
   StockSage analysis/trend/queue prompts.
+- `v0.34.0`: workspace UX refresh with chat-primary shell, view-only launcher,
+  single-destination Canvas, Settings/tools in Canvas, passive context
+  indicator, desktop Canvas focus, and mobile launcher sheet + Chat/Canvas
+  tabs.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -95,12 +96,12 @@ Near-term milestones:
   Settings Central is in the workspace, and apps contribute panels instead of
   separate app shells.
 - `v0.33`: conversational app intent handoff and direct-answer foundation —
-  implemented as the current release; neutral workspace prompts can propose
-  app handoff or clarification without silently executing app-owned actions.
-- `v0.34`: workspace UX refresh — chat-centered shell, a view-only left
-  launcher, a single-destination Canvas, and routing context set
-  conversationally through the v0.33 handoff (no permanent Tools column or
-  floating panel band).
+  neutral workspace prompts can propose app handoff or clarification without
+  silently executing app-owned actions.
+- `v0.34`: workspace UX refresh — implemented as the current release with a
+  chat-centered shell, a view-only left launcher, a single-destination Canvas,
+  and routing context set conversationally through the v0.33 handoff (no
+  permanent Tools column or floating panel band).
 - `v0.35`: user theming and layout overrides from `~/.allbert`, with token
   themes, opt-in sanitized CSS snippets, and validated workspace layout data.
 - `v0.36`: dynamic plugin/app generation and sandboxed module loading for
@@ -122,10 +123,10 @@ Near-term milestones:
   milestones.
 - [CHANGELOG.md](CHANGELOG.md): released-history details.
 - [docs/adr](docs/adr): architectural decisions.
-- [docs/plans/v0.33-plan.md](docs/plans/v0.33-plan.md): current implemented
+- [docs/plans/v0.34-plan.md](docs/plans/v0.34-plan.md): current implemented
   milestone plan.
-- [docs/plans/v0.33-request-flow.md](docs/plans/v0.33-request-flow.md):
-  request flows and manual verification notes for `v0.33.1`.
+- [docs/plans/v0.34-request-flow.md](docs/plans/v0.34-request-flow.md):
+  request flows and manual verification notes for `v0.34.0`.
 
 ## Local Development
 
