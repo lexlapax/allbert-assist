@@ -4,7 +4,7 @@ description: Summarize local StockSage outcome trends for the current user.
 allowed-tools: allbert:action:get_trends
 metadata:
   allbert.kind: native_action
-  allbert.version: "0.34.0"
+  allbert.version: "0.35.0"
   allbert.actions: get_trends
   allbert.permissions: read_only
   allbert.confirmation: not_required

@@ -373,6 +373,16 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
     },
     %{
+      id: "theme-csp-regression-001",
+      milestone: :m6,
+      surface: :workspace_live_navigation,
+      scenario: "v0.35 workspace/theme CSP regresses to permit remote style or image fetches",
+      boundary: :workspace_theme_csp,
+      expected: :denied,
+      assert: [:denied, :remote_style_image_sources_blocked],
+      test_module: "AllbertAssistWeb.ThemeControllerTest"
+    },
+    %{
       id: "objective-authority-001",
       milestone: :m6,
       surface: :objective_financial_bridge,

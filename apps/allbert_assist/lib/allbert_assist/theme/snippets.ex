@@ -152,9 +152,10 @@ defmodule AllbertAssist.Theme.Snippets do
     root = Path.expand(Paths.theme_snippets_root())
     path = Path.expand(Path.join(root, basename))
 
-    cond do
-      not String.starts_with?(path, root <> "/") -> {:error, "unsafe snippet name"}
-      true -> {:ok, path}
+    if String.starts_with?(path, root <> "/") do
+      {:ok, path}
+    else
+      {:error, "unsafe snippet name"}
     end
   end
 

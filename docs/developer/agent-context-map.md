@@ -45,7 +45,7 @@ Do not load every section by default.
 | Workspace-only plugin UI, panel surfaces, named zones, workspace Settings Central | ADR 0024, ADR 0015, ADR 0023, `docs/plans/v0.32-plan.md` | v0.32 |
 | Conversational app intent handoff, clarification, and direct answer | ADR 0034, ADR 0019, ADR 0021, `docs/plans/v0.33-plan.md` | v0.33 |
 | Workspace UX refresh: chat-primary shell, view-only launcher, single-destination Canvas, conversational context indicator | ADR 0024 (v0.34 revision), `docs/plans/v0.34-plan.md`, `docs/plans/v0.34-request-flow.md` | v0.34 |
-| User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.35-plan.md` | v0.35 |
+| User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.35-plan.md`, `docs/plans/v0.35-request-flow.md` | v0.35 |
 | Dynamic plugin/app generation and sandboxed module loading | ADR 0032, ADR 0033, ADR 0009, ADR 0021, `docs/plans/v0.36-plan.md` | v0.36 |
 | Plugin/app generator | ADR 0017, ADR 0015, ADR 0024, ADR 0025, ADR 0030, ADR 0031, ADR 0032, ADR 0034, `docs/plans/v0.37-plan.md` | v0.37 |
 
@@ -217,11 +217,11 @@ Do not load every section by default.
   v0.33 handoff, and legacy `?app_id=` / app-launcher setters are retired as
   routing authority. Released and tagged as `v0.34.0` on 2026-05-24. Per ADR
   0024's v0.34 revision.
-- v0.35 (planned): User Theming And Layout Overrides. Adds Allbert Home theme
-  roots, token YAML, opt-in sanitized CSS snippets, validated v0.34
-  launcher/Canvas-destination layout YAML, Settings Central-accountable gates
-  and selections, and CSP regression coverage for `/workspace`. Start with ADR
-  0025 plus `docs/plans/v0.35-plan.md` /
+- v0.35 (implemented as `v0.35.0`): User Theming And Layout Overrides. Adds
+  Allbert Home theme roots, token YAML, opt-in sanitized CSS snippets, validated
+  v0.34 launcher/Canvas-destination layout YAML, Settings Central-accountable
+  gates and selections, and CSP regression coverage for `/workspace`. Start
+  with ADR 0025 plus `docs/plans/v0.35-plan.md` /
   `docs/plans/v0.35-request-flow.md`, and carry forward v0.34 constraints:
   Output is the neutral destination, `app:allbert` is not a layout destination,
   launcher/layout state is view-only, AppBar is fixed chrome, Settings/Output

@@ -10,6 +10,63 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.35.0 - User Theming And Layout Overrides
+
+Status: implemented and release-ready on 2026-05-24. Version metadata is
+`0.35.0`; ready for operator manual verification before a release tag.
+
+Plan: `docs/plans/v0.35-plan.md`.
+Request flow: `docs/plans/v0.35-request-flow.md`.
+ADR: `docs/adr/0025-user-theming-and-override-security.md`.
+
+### Added (v0.35.0)
+
+- Allbert Home appearance roots under `<ALLBERT_HOME>/themes`,
+  `<ALLBERT_HOME>/themes/snippets`, and `<ALLBERT_HOME>/workspace`.
+- Settings Central keys for `workspace.theme.mode`,
+  `workspace.theme.active`, `workspace.theme.snippets_enabled`,
+  `workspace.theme.enabled_snippets`, and
+  `workspace.layout.override_enabled`, with audited gates/selections and
+  read-only Settings Canvas status/diagnostics.
+- Token YAML themes served through `/theme/user.css`, linked after app CSS, and
+  scoped to presentational `#workspace-shell` `--allbert-*` variables.
+- Opt-in sanitized CSS snippets served through `/theme/snippets.css` and
+  `/theme/snippets/:name`, with traversal rejection and stripping of remote
+  fetch/import/font constructs.
+- Validated `<ALLBERT_HOME>/workspace/layout.yaml` for launcher destination
+  order/hide, default Canvas destination, and panel pins without granting
+  `active_app`, route, action, component, or permission authority.
+- CSP and cache coverage for browser/theme routes, including ETag/304 behavior
+  and the `theme-csp-regression-001` eval row.
+
+### Changed (v0.35.0)
+
+- The shipped scalar `workspace.theme` setting migrates to
+  `workspace.theme.mode` with compatibility reads/writes for existing values.
+- `/workspace` root layout loads local token CSS and snippet CSS after the
+  compiled app stylesheet with versioned links derived from selected settings
+  and local file fingerprints.
+- The v0.34 launcher and Canvas destination registry are now reusable by the
+  layout validator, while Output and Settings remain non-hideable and
+  `app:allbert` remains invalid.
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app
+  metadata, `StockSage.App.version/0`, `StockSage.Plugin.version/0`,
+  `plugins/stocksage/allbert_plugin.json`, and affected StockSage skill
+  metadata are bumped to `0.35.0`.
+
+### Verification (v0.35.0)
+
+- M1-M6 were implemented, focused-tested, Chrome-verified where UI/UX changed,
+  and committed separately.
+- Chrome extension verification covered token retinting, no-inline-script CSP
+  behavior, sanitized snippet application, valid/invalid layout overrides,
+  Settings/Output escape hatches, AppBar preservation, and clean console logs.
+- Focused path/settings/theme/status/controller/LiveView/catalog/security-eval
+  suites passed during milestone work.
+- Final release gate passed: `mix format --check-formatted`,
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+
 ## v0.34.0 - Workspace UX Refresh
 
 Status: released and tagged as `v0.34.0` on 2026-05-24. Version metadata is
