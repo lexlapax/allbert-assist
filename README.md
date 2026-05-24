@@ -111,11 +111,13 @@ Near-term milestones:
 - `v0.35`: user theming and layout overrides from `~/.allbert` — implemented as
   the current milestone with token themes, opt-in sanitized CSS snippets,
   validated workspace layout data, Settings accountability, and CSP checks.
-- `v0.36`: dynamic plugin/app generation and sandboxed module loading for
-  inert local drafts under Allbert Home, compiled and tried only out of node.
-- `v0.37`: plugin/app generator, scaffolding the surface, panel, settings,
-  intent descriptor, memory, action, objective, canvas, theming, and
-  dynamic-draft review contracts after they have been proven manually.
+- `v0.36`: dynamic code & config generation and live capability integration —
+  LLM code-gen agents generate to the proven shapes, trial in an OS sandbox, and
+  (after the warning gate plus operator confirmation) hot-load into the live
+  runtime without a restart (audited and reversible).
+- `v0.37`: templated creation — vetted plugin/app/LLM-tool/code templates via
+  Mix tasks, operator workspace flows, and a Canvas Create surface, reusing the
+  v0.36 sandbox/gate/loader engine.
 - Post-`v0.37`: broader UI protocol interop, richer generated app workflows,
   and additional reviewed app/plugin surfaces.
 

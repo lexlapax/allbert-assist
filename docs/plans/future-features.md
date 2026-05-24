@@ -47,8 +47,10 @@ homes:
 - Conversational app intent handoff and direct-answer foundation: v0.33.
 - Workspace UX refresh (chat-primary shell, view-only launcher, single Canvas): v0.34.
 - User theming and layout overrides: v0.35.
-- Dynamic plugin/app generation and sandboxed module loading: v0.36.
-- Allbert plugin and app generator: v0.37.
+- Dynamic code & config generation, OS-sandbox trial, and gated live capability
+  integration: v0.36.
+- Templated creation (plugin/app/LLM-tool/code templates, Mix tasks, operator
+  flows, Canvas Create surface): v0.37.
 
 Do not duplicate those here unless the future feature is broader than the
 existing plan.
@@ -58,13 +60,14 @@ existing plan.
 ### Autonomous Skill Creation
 
 Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, v0.36 dynamic
-draft planning, and v0.37 generator planning.
+code/config generation planning, and v0.37 templated-creation planning.
 
 Allbert should eventually help create new skills from traces, repeated tasks,
-corrections, or explicit user requests. v0.36 covers operator-confirmed
-dynamic plugin/app drafts for explicit capability gaps only, and v0.37 covers
-manual plugin/app scaffolding. Neither milestone autonomously infers, trusts,
-enables, publishes, or activates new capabilities from traces.
+corrections, or explicit user requests. v0.36 covers operator-confirmed dynamic
+generation, sandbox trial, and gated live integration for explicit capability
+gaps; v0.37 covers templated creation (vetted plugin/app/tool/code templates via
+Mix tasks, operator flows, and a Canvas surface). Neither milestone autonomously
+infers, trusts, enables, publishes, or activates new capabilities from traces.
 
 Needed before planning:
 

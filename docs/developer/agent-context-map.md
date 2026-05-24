@@ -46,8 +46,8 @@ Do not load every section by default.
 | Conversational app intent handoff, clarification, and direct answer | ADR 0034, ADR 0019, ADR 0021, `docs/plans/v0.33-plan.md` | v0.33 |
 | Workspace UX refresh: chat-primary shell, view-only launcher, single-destination Canvas, conversational context indicator | ADR 0024 (v0.34 revision), `docs/plans/v0.34-plan.md`, `docs/plans/v0.34-request-flow.md` | v0.34 |
 | User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.35-plan.md`, `docs/plans/v0.35-request-flow.md` | v0.35 |
-| Dynamic plugin/app generation and sandboxed module loading | ADR 0032, ADR 0033, ADR 0009, ADR 0021, `docs/plans/v0.36-plan.md` | v0.36 |
-| Plugin/app generator | ADR 0017, ADR 0015, ADR 0024, ADR 0025, ADR 0030, ADR 0031, ADR 0032, ADR 0034, `docs/plans/v0.37-plan.md` | v0.37 |
+| Dynamic code & config generation, code-gen agents, OS-sandbox trial, gated live integration | ADR 0032, ADR 0033, ADR 0035, ADR 0009, ADR 0021, ADR 0027, `docs/plans/v0.36-plan.md`, `docs/plans/v0.36-request-flow.md` | v0.36 |
+| Templated creation: plugin/app/LLM-tool/code templates, Mix tasks, operator flows, Canvas Create surface | ADR 0036, ADR 0035, ADR 0017, ADR 0015, `docs/plans/v0.37-plan.md`, `docs/plans/v0.37-request-flow.md` | v0.37 |
 
 ## Version Map
 
