@@ -12,8 +12,9 @@ changelog entries or release notes.
 
 ## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
 
-Status: implemented and release-ready on 2026-05-24. Version metadata is
-`0.36.0`; ready for operator manual verification before a release tag.
+Status: implementation reopened for local sandbox image preparation on
+2026-05-24. Version metadata is `0.36.0`; release readiness now requires
+`mix allbert.sandbox image build` and `mix allbert.sandbox image verify`.
 
 Plan: `docs/plans/v0.36-plan.md`.
 Request flow: `docs/plans/v0.36-request-flow.md`.

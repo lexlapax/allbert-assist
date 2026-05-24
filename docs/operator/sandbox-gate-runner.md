@@ -38,8 +38,15 @@ Enable only in a disposable smoke home:
 export SMOKE_HOME="$(mktemp -d /tmp/allbert-v036-smoke.XXXXXX)"
 ALLBERT_HOME="$SMOKE_HOME" mix ecto.migrate.allbert
 ALLBERT_HOME="$SMOKE_HOME" mix allbert.settings set sandbox.elixir.enabled true
+ALLBERT_HOME="$SMOKE_HOME" mix allbert.sandbox image build
+ALLBERT_HOME="$SMOKE_HOME" mix allbert.sandbox image verify
 ALLBERT_HOME="$SMOKE_HOME" mix allbert.sandbox doctor
 ```
+
+`image build` prepares the configured approved local image
+(`allbert-elixir-otp:local` by default). `image verify` checks the local image
+and runs a small local-only container check. Sandbox gate runs still never pull
+images; they use `--pull=never` and fail closed if the image is absent.
 
 ## Backend Selection
 
@@ -101,6 +108,7 @@ Treat these as expected fail-closed results:
 - no backend on the current OS can enforce policy;
 - pinned backend unavailable;
 - configured image is missing or not approved locally;
+- image labels or local verification do not match v0.36 policy;
 - command is not `mix`, `elixir`, or `erl`;
 - argv shape requests package installs, migrations, shell syntax, eval,
   daemon control, network, NIFs, ports, or core-node loading;
