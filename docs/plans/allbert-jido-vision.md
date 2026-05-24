@@ -523,14 +523,14 @@ historical aliases only and remain in old reference notes for continuity.
   neutral workspace requests can propose explicit app handoff or ask targeted
   clarification while preserving the rule that app actions never execute
   silently.
-- v0.34: User Theming And Layout Overrides — operators retheme and re-layout
+- v0.35: User Theming And Layout Overrides — operators retheme and re-layout
   `/workspace` from Allbert Home using token YAML, opt-in sanitized CSS
   snippets, and validated layout data.
-- v0.35: Dynamic Plugin/App Generation And Sandboxed Module Loading — Allbert
+- v0.36: Dynamic Plugin/App Generation And Sandboxed Module Loading — Allbert
   can generate inert local plugin/app drafts for objective-owned capability
   gaps, compile and try them only in an out-of-node sandbox, and report
   redacted results without loading generated modules into the core node.
-- v0.36: Allbert plugin and app generator.
+- v0.37: Allbert plugin and app generator.
 
 ## Deferred Until The Foundation Settles
 

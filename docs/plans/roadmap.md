@@ -176,11 +176,14 @@ Dependency order from here:
 32. v0.33 Conversational app intent handoff and direct-answer foundation:
     neutral workspace requests can propose explicit app handoff or ask
     clarification without silently executing app actions.
-33. v0.34 User theming and layout overrides from Allbert Home after the workspace
+33. v0.34 Workspace UX refresh: a chat-centered shell, a view-only left
+    launcher, a single-destination Canvas, and routing context set
+    conversationally through the v0.33 handoff.
+34. v0.35 User theming and layout overrides from Allbert Home after the workspace
     panel/zone contract and app-intent descriptor path are proven.
-34. v0.35 Dynamic plugin/app generation and sandboxed module loading for
+35. v0.36 Dynamic plugin/app generation and sandboxed module loading for
     inert local drafts under Allbert Home, compiled and tried only out of node.
-35. v0.36 Plugin and app generator encoding only the shape already proven end
+36. v0.37 Plugin and app generator encoding only the shape already proven end
     to end.
 
 `config.exs` remains deployment and boot configuration. It should not become
@@ -1370,7 +1373,7 @@ Shipped direction:
 - **Internal `AllbertAssist.Workspace.AGUI.Bridge`** translates curated
   Allbert signals to AG-UI event shape for test-only semantic mapping.
   NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps interop is
-  post-v0.36 (per Future Features Post-v0.36 UI Protocol Interop).
+  post-v0.37 (per Future Features Post-v0.37 UI Protocol Interop).
 - **`StockSage.Actions.RunAnalysis`** + objective engine + v0.25 native
   specialist agents emit Fragments rendering as canvas tiles + ephemeral
   approval cards. Operator sees the analysis stream in real-time as
@@ -1396,7 +1399,7 @@ Shipped direction:
   at v0.26 M20 with all binding decisions.
 - Defer to v0.27+: drag-drop tile reordering, real StockSage card
   rendering. Plugin-contributed workspace regions graduated to v0.32
-  (ADR 0024). Defer to post-v0.36: multi-user collaborative cursors,
+  (ADR 0024). Defer to post-v0.37: multi-user collaborative cursors,
   public AG-UI HTTP endpoint, A2UI / MCP Apps interop, canvas snapshot /
   undo / time-travel.
 
@@ -1572,7 +1575,7 @@ Risk reassessment for the next contracts:
 - v0.30 canvas work should reuse the v0.26/v0.28-audited fragment and canvas
   mechanism. It should not introduce a new renderer contract, bypass app
   surface catalogs, or persist unaudited component atoms.
-- v0.36 generator scaffolding should emit inert-by-default SurfaceProvider,
+- v0.37 generator scaffolding should emit inert-by-default SurfaceProvider,
   memory namespace, action/objective, and canvas stubs only because the
   contracts were manually proven first. Generated files and metadata still do
   not grant permission.
@@ -1690,7 +1693,7 @@ Implemented so far:
   compatibility shim over Security Central for remaining live callers.
 - M9: bumped release metadata to `0.31.0`, accepted ADR 0026-0031, updated
   README/CHANGELOG/roadmap/request-flow/developer context, and reconciled
-  downstream v0.32-v0.36 handoffs.
+  downstream v0.32-v0.37 handoffs.
 
 ## v0.32: Workspace-Only App UI And Settings Central
 
@@ -1746,11 +1749,11 @@ Plan: `docs/plans/v0.33-plan.md`
 Request flow: `docs/plans/v0.33-request-flow.md`
 ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`
 
-Status: released as `v0.33.0`. M0-M5 implemented the direct-answer
+Status: released as `v0.33.1`. M0-M6 implemented the direct-answer
 foundation, descriptor contribution and validation, explicit app handoff,
 targeted clarification, advisory-only classifier integration, StockSage
-hardcode retirement, release metadata, manual verification docs, and final
-release gate.
+hardcode retirement, descriptorized StockSage trend/queue prompts, release
+metadata, manual verification docs, and final release gate.
 
 Prerequisite: v0.31 consolidated intent/action/response/catalog substrates and
 v0.32 workspace app selection, panel zones, and Settings Central inside
@@ -1776,6 +1779,8 @@ Implemented direction:
   permissions, set trust, or bypass confirmation.
 - Retire the current StockSage-specific ranker hardcode once app-contributed
   descriptors cover the StockSage `run_analysis` examples.
+- Remove the remaining StockSage symbol parser from core once descriptors also
+  cover `get_trends` and `queue_analysis`.
 - Preserve v0.28 app-scope hardening: app-owned actions still require explicit
   matching `active_app` before `Actions.Runner.run/3`.
 
@@ -1786,14 +1791,57 @@ Closeout:
   path, and missing-slot clarification.
 - M5 security evals cover handoff bypass denial and unchanged runner
   app-scope denial for missing/mismatched active app context.
+- M6 descriptorizes `get_trends` and `queue_analysis`, adds optional
+  descriptor slots, and removes the last core StockSage symbol regex.
 - Final release gate passed `mix compile --warnings-as-errors`,
   `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
-  `git diff --check`; version metadata is `0.33.0`.
+  `git diff --check`; version metadata is `0.33.1`.
 
-## v0.34: User Theming And Layout Overrides
+## v0.34: Workspace UX Refresh
 
 Plan: `docs/plans/v0.34-plan.md`
 Request flow: `docs/plans/v0.34-request-flow.md`
+ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md` (v0.34 revision)
+
+Status: research (unstarted). Inserted after v0.33 because the shipped v0.32
+workspace shell renders too many simultaneous regions (left rail, a floating
+app/objectives band, chat, a permanent Canvas column, and a permanent Tools
+column) with no clear primary, and v0.33 made conversational handoff the way to
+enter app context. v0.34 restructures the shell around that model without
+changing domain behavior, security, or routing authority.
+
+Prerequisite: v0.32 workspace route, panels, named zones, and Settings Central;
+v0.33 conversational app-intent handoff (the only way to set `active_app`).
+
+Expected direction:
+
+- Keep the left rail and the center chat spine; make the chat the visual
+  primary.
+- Make the left rail a view-only launcher (Threads switch chat; Apps, Output,
+  and Workspace tools/Settings are destinations that render in Canvas).
+  Launcher selection never changes routing context.
+- Collapse the right side to a single Canvas that shows exactly one selected
+  destination at a time (replace model); Output (durable tiles) is the default
+  view. Chat pushes narrower when Canvas is open; a focus toggle collapses chat
+  to a strip for a full app view.
+- Remove the permanent Tools column and the floating top band. Settings/Tools
+  become launcher destinations; `:utility_drawer` is retired as a region.
+- Set routing context (`active_app`) conversationally only, via the v0.33
+  handoff. A passive top-bar context indicator shows Neutral vs the active app
+  with an exit-to-neutral affordance; it does not set context.
+- Apps (e.g., StockSage) work inside Canvas and take input through the chat
+  composer or scoped pop-ups; no app-private shell chrome returns.
+- Make desktop and mobile first-class: side-by-side on wide screens, a single
+  surface with `[Chat | Canvas]` tabs and a launcher sheet on narrow screens.
+- No new domain behavior, analysis engine, theming system, dynamic code,
+  generator, route compatibility shim, or new Surface catalog atom. This is a
+  composition/navigation refresh of the v0.32 shell, amending ADR 0024's zone
+  model.
+
+## v0.35: User Theming And Layout Overrides
+
+Plan: `docs/plans/v0.35-plan.md`
+Request flow: `docs/plans/v0.35-request-flow.md`
 ADR: `docs/adr/0025-user-theming-and-override-security.md`
 
 Status: research (unstarted). Shifted from v0.33 so v0.31 consolidation,
@@ -1818,10 +1866,10 @@ Expected direction:
 - Add CSP regression coverage and Chrome verification for desktop/narrow
   workspace retinting, snippet blocking, and layout fallback behavior.
 
-## v0.35: Dynamic Plugin/App Generation And Sandboxed Module Loading
+## v0.36: Dynamic Plugin/App Generation And Sandboxed Module Loading
 
-Plan: `docs/plans/v0.35-plan.md`
-Request flow: `docs/plans/v0.35-request-flow.md`
+Plan: `docs/plans/v0.36-plan.md`
+Request flow: `docs/plans/v0.36-request-flow.md`
 ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 `docs/adr/0033-capability-gap-acquisition-and-trust-tiers.md`
 
@@ -1830,8 +1878,8 @@ Status: research (unstarted). Graduated from
 
 Prerequisite: v0.24 objective runtime and v0.31 consolidated runtime substrates
 (hard dependencies), plus a concrete OS-level sandbox backend (ADR 0032 and the
-parked Level-2/Level-3 execution-sandbox work). v0.32 through v0.34 precede
-v0.35 in order but are sequencing context, not hard technical prerequisites.
+parked Level-2/Level-3 execution-sandbox work). v0.32 through v0.35 precede
+v0.36 in order but are sequencing context, not hard technical prerequisites.
 
 Expected direction:
 
@@ -1848,22 +1896,22 @@ Expected direction:
 - Forbid dependencies, package-manager execution, migrations, NIFs, secrets,
   unrestricted network, and automatic promotion.
 
-## v0.36: Allbert Plugin And App Generator
+## v0.37: Allbert Plugin And App Generator
 
-Plan: `docs/plans/v0.36-plan.md`
-Request flow: `docs/plans/v0.36-request-flow.md`
+Plan: `docs/plans/v0.37-plan.md`
+Request flow: `docs/plans/v0.37-request-flow.md`
 
 Status: research (unstarted). Shifted from v0.33 so v0.31 consolidation,
-v0.32 workspace panels, v0.33 intent descriptors/handoff, v0.34
-theming/layout hooks, and v0.35 dynamic-draft trial substrate are proven
+v0.32 workspace panels, v0.33 intent descriptors/handoff, v0.35
+theming/layout hooks, and v0.36 dynamic-draft trial substrate are proven
 before scaffolding.
 
 Prerequisite: StockSage proves the plugin/app path in v0.20, the app surface
 contract in v0.27, the app memory/outcomes contract in v0.29, the app canvas
 contract in v0.30, the runtime/UI-substrate contract in v0.31, the
 workspace-panel/settings contract in v0.32, the app-intent descriptor/handoff
-contract in v0.33, the theming/layout contract in v0.34, and the
-dynamic-draft trial contract in v0.35.
+contract in v0.33, the theming/layout contract in v0.35, and the
+dynamic-draft trial contract in v0.36.
 
 Expected direction:
 
@@ -1883,12 +1931,12 @@ Expected direction:
 - Generated code is inert by default: no automatic compile-path changes,
   trust, skill enablement, publishing, route authority, permission grants, or
   execution authority.
-- Optionally inspect a v0.35 promotion-candidate draft as reviewed-source
+- Optionally inspect a v0.36 promotion-candidate draft as reviewed-source
   input, without promoting it automatically.
 - Optionally add `mix allbert.publish_skills` for publishing app `SKILL.md`
   files to agentskills.io after the local app contract is proven.
 
-Post-v0.36 candidates remain in `docs/plans/future-features.md` until
+Post-v0.37 candidates remain in `docs/plans/future-features.md` until
 promoted.
 
 ## Future: Distillation And Self-Improvement
