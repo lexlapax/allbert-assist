@@ -18,6 +18,7 @@ defmodule AllbertAssist.Security.Policy do
     confirmation_decide: "permissions.confirmation_decide",
     objective_write: "permissions.objective_write",
     workspace_canvas_write: "permissions.workspace_canvas_write",
+    sandbox_trial: "permissions.sandbox_trial",
     stocksage_write: "permissions.stocksage_write",
     stocksage_analyze: "permissions.stocksage_analyze",
     stocksage_evidence_fetch: "permissions.stocksage_evidence_fetch"
@@ -37,6 +38,7 @@ defmodule AllbertAssist.Security.Policy do
     confirmation_decide: :allowed,
     objective_write: :allowed,
     workspace_canvas_write: :allowed,
+    sandbox_trial: :allowed,
     stocksage_write: :allowed,
     stocksage_analyze: :needs_confirmation,
     stocksage_evidence_fetch: :allowed,
@@ -60,6 +62,7 @@ defmodule AllbertAssist.Security.Policy do
           | :confirmation_decide
           | :objective_write
           | :workspace_canvas_write
+          | :sandbox_trial
           | :stocksage_write
           | :stocksage_analyze
           | :stocksage_evidence_fetch
@@ -83,6 +86,7 @@ defmodule AllbertAssist.Security.Policy do
       :confirmation_decide,
       :objective_write,
       :workspace_canvas_write,
+      :sandbox_trial,
       :stocksage_write,
       :stocksage_analyze,
       :stocksage_evidence_fetch,
@@ -286,6 +290,13 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:workspace_canvas_write, :denied, _configured, _floor, _context),
     do: "Workspace canvas writes are denied by current policy."
+
+  defp reason(:sandbox_trial, :allowed, _configured, _floor, _context),
+    do:
+      "Sandbox trial execution is allowed only through default-off sandbox settings and registered sandbox actions."
+
+  defp reason(:sandbox_trial, :denied, _configured, _floor, _context),
+    do: "Sandbox trial execution is denied by current policy."
 
   defp reason(:stocksage_write, :allowed, _configured, _floor, _context),
     do: "Local StockSage domain writes are allowed through registered StockSage actions."

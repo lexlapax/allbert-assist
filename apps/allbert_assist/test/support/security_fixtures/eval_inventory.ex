@@ -471,6 +471,126 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:allowed, :gated_behavior_flips],
       test_module: "AllbertAssist.Security.OperatorReviewTest"
+    },
+    %{
+      id: "sandbox-backend-disabled-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "sandbox command is requested while sandbox.elixir.enabled is false",
+      boundary: :sandbox_facade,
+      expected: :denied,
+      assert: [:denied, :no_backend_execution],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-backend-resolver-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "auto backend resolution picks only doctor-green on-platform backends",
+      boundary: :sandbox_backend_resolver,
+      expected: :denied,
+      assert: [:denied, :unsupported_backend_not_selected],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-image-local-only-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "container argv attempts image pull or registry access",
+      boundary: :sandbox_backend_argv,
+      expected: :denied,
+      assert: [:denied, :no_image_pull],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-source-policy-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "generated Elixir source tries System.cmd before backend execution",
+      boundary: :sandbox_source_policy,
+      expected: :denied,
+      assert: [:denied, :source_policy_preflight],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-command-shell-deny-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "CommandSpec includes shell chaining/redirection",
+      boundary: :sandbox_command_spec,
+      expected: :denied,
+      assert: [:denied, :explicit_argv_only],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-network-deny-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "container run would enable outbound network",
+      boundary: :sandbox_backend_argv,
+      expected: :denied,
+      assert: [:denied, :network_none],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-secret-deny-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "command env attempts to pass provider credentials",
+      boundary: :sandbox_command_spec,
+      expected: :denied,
+      assert: [:denied, :secret_env_not_allowed],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-home-isolation-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "container mounts the operator's real Allbert Home",
+      boundary: :sandbox_bundle_mounts,
+      expected: :denied,
+      assert: [:denied, :disposable_home_only],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-package-manager-deny-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "sandbox command attempts mix deps.get",
+      boundary: :sandbox_command_spec,
+      expected: :denied,
+      assert: [:denied, :package_manager_blocked],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-nif-port-deny-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "generated source attempts Port.open and load_nif",
+      boundary: :sandbox_source_policy,
+      expected: :denied,
+      assert: [:denied, :native_execution_blocked],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-core-load-deny-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "generated source attempts Code.require into the core node",
+      boundary: :sandbox_source_policy,
+      expected: :denied,
+      assert: [:denied, :core_load_blocked],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-report-redaction-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "sandbox report contains absolute Allbert Home or secret values",
+      boundary: :sandbox_report_writer,
+      expected: :denied,
+      assert: [:denied, :redacted_report],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
     }
   ]
 
@@ -480,6 +600,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     :plugin_app_registry,
     :surface_workspace_namespace,
     :objective_financial_bridge,
+    :elixir_sandbox,
     :operator_review
   ]
 

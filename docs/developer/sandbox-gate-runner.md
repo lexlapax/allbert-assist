@@ -19,14 +19,16 @@ The public context is `AllbertAssist.Sandbox`:
 
 Runtime-facing calls also have registered actions:
 
-- `SandboxDoctor`
-- `BuildSandboxBundle`
-- `RunSandboxCommand`
-- `RunSandboxGate`
-- `DiscardSandboxBundle`
+- `AllbertAssist.Actions.Sandbox.Doctor` (`sandbox_doctor`)
+- `AllbertAssist.Actions.Sandbox.BuildBundle` (`build_sandbox_bundle`)
+- `AllbertAssist.Actions.Sandbox.RunCommand` (`run_sandbox_command`)
+- `AllbertAssist.Actions.Sandbox.RunGate` (`run_sandbox_gate`)
+- `AllbertAssist.Actions.Sandbox.DiscardBundle` (`discard_sandbox_bundle`)
 
 These actions produce report data only. No action may load generated code into
-the core BEAM node or grant authority.
+the core BEAM node or grant authority. They use the `:sandbox_trial` Security
+Central permission and still require `sandbox.elixir.enabled=true` before any
+backend command can run.
 
 ## CommandSpec
 
