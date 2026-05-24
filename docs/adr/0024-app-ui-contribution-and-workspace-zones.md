@@ -9,7 +9,9 @@ Surface DSL of ADR 0015 with a panel contribution tier and host-owned zones,
 pins `/workspace` as the canonical operator route, and moves Settings Central
 into the workspace utility drawer. Conversational app-intent inference is not
 part of this ADR; v0.33 / ADR 0034 adds explicit handoff and clarification
-after the workspace app selector exists.
+after the workspace app selector exists. The v0.34 revision below supersedes
+the v0.32 app-selection, context-rail, and utility-drawer composition rules
+where they conflict.
 
 ### v0.34 Revision (2026-05-23): Workspace UX refresh
 
@@ -36,8 +38,10 @@ composition/navigation only; it adds no new authority, route, or catalog atom.
 
 Authority rules from this ADR and ADR 0034 are unchanged: metadata grants no
 authority, app-scoped actions still require explicit `active_app` at the runner,
-Settings writes stay action-gated, and `active_app` is set only by accepting a
-v0.33 handoff.
+Settings writes stay action-gated, launcher selection is view-only, and
+`active_app` is set only by accepting a v0.33 handoff. Legacy URL/app-launcher
+paths that set `active_app` are v0.34 migration targets, not preserved
+authority paths.
 
 ## Context
 
@@ -92,7 +96,7 @@ not grant route or layout authority.
 
 ### 3. Host-owned named zones
 
-The v0.31 unified Surface catalog declares a fixed zone set for v0.32:
+The v0.31 unified Surface catalog declared a fixed zone set for v0.32:
 
 - `:nav_apps`
 - `:context_rail`
@@ -105,30 +109,35 @@ these zones. Expanding the zone set later is a catalog amendment, not an open
 registration surface. A panel's `zone`, `order`, and `visible_when` are
 visibility/ranking metadata only, never authority.
 
-The `:nav_apps` zone owns explicit app selection. Selecting an app sets active
-app context through the existing registered/session boundary. It is context for
-ranking and panel visibility, not authorization, and it does not execute an
-action.
+In v0.32, the `:nav_apps` zone owned explicit app selection and selecting an app
+set active app context through the registered/session boundary. In v0.34 this is
+superseded: `:nav_apps` becomes a view-only launcher, selection changes only the
+Canvas destination, and handoff accept is the only workspace UI path that sets
+`active_app`.
 
 ### 4. Workspace shell
 
-`CoreApp.surfaces/0` declares the `/workspace` shell: a collapsible left rail,
-center thread, right canvas/panel area, and utility drawer. New structural
-catalog atoms include `:workspace_shell`, `:nav_rail`, `:thread_list`,
-`:app_launcher`, `:utility_drawer`, and `:workspace_panel`. These are host
-structural chrome, not model-facing component types.
+`CoreApp.surfaces/0` declares the `/workspace` shell. In v0.32 this was a
+collapsible left rail, center thread, right canvas/panel area, and utility
+drawer. v0.34 re-declares the shell as a chat-primary layout with a view-only
+left launcher and a single Canvas destination host. Existing structural catalog
+atoms such as `:workspace_shell`, `:nav_rail`, `:thread_list`,
+`:app_launcher`, `:utility_drawer`, and `:workspace_panel` may remain for
+compatibility, but v0.34 adds no new catalog atom and retires
+`:utility_drawer` and `:context_rail` as rendered shell regions.
 
 Existing canvas and ephemeral behaviors from ADR 0023 remain: signed Fragment
 emission, durable tile persistence, multi-tab sync, accessibility, mobile
 responsiveness, and offline editing.
 
-### 5. Settings Central is a utility panel
+### 5. Settings Central is a workspace destination
 
-Settings Central renders inside `/workspace` through the utility drawer. It
-uses the existing Settings Central actions, redaction helpers, confirmation
-flows, remembered-grant controls, and audit behavior. The UI does not own
-settings semantics, secret storage, permission decisions, or confirmation
-policy.
+Settings Central renders inside `/workspace`. In v0.32 it rendered through the
+utility drawer; in v0.34 it becomes a WORKSPACE launcher destination rendered in
+Canvas. It uses the existing Settings Central actions, redaction helpers,
+confirmation flows, remembered-grant controls, and audit behavior. The UI does
+not own settings semantics, secret storage, permission decisions, or
+confirmation policy.
 
 ### 6. One path for built-in and plugin apps
 
@@ -147,7 +156,8 @@ Panels and zones add no new authority:
 - Settings writes still flow through Settings Central actions and existing
   security decisions.
 - App-scoped actions still require explicit `active_app`.
-- App selection is an explicit context transition, not permission.
+- Launcher/app selection is a view transition, not context and not permission.
+- Accepting a v0.33 handoff is an explicit context transition, not permission.
 - `zone`, `order`, and `visible_when` never authorize behavior.
 
 ## Consequences
@@ -155,6 +165,10 @@ Panels and zones add no new authority:
 - `/workspace` becomes the single operator product surface.
 - Settings Central is available where the operator works, rather than as a
   separate route.
+- v0.34 moves Settings Central and workspace tools from the permanent utility
+  drawer into Canvas destinations.
+- v0.34 separates launcher view selection from routing context; operators can
+  view an app dashboard while remaining in Neutral/Allbert context.
 - StockSage loses its private dashboard/list/queue/trend routes and app nav;
   those workflows become workspace panels.
 - `StockSageWeb.AnalysisLive` remains under `/apps/stocksage/analyses/:id`

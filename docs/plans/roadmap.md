@@ -1848,8 +1848,9 @@ Status: research (unstarted). Shifted from v0.33 so v0.31 consolidation,
 v0.32 workspace composition, and v0.33 app-intent descriptors land first.
 
 Prerequisite: v0.31 shared paths/settings fragments, v0.32 workspace-only app
-UI, host-owned zones, panel surfaces, Settings Central inside `/workspace`,
-and v0.33 app intent descriptor/handoff behavior.
+UI and panel-surface substrate, v0.33 app intent descriptor/handoff behavior,
+and v0.34 chat-primary workspace shell with view-only launcher and
+single-destination Canvas.
 
 Expected direction:
 
@@ -1859,10 +1860,10 @@ Expected direction:
   no asset rebuild.
 - Add opt-in sanitized CSS snippets with reject/strip/warn behavior for remote
   fetch and import constructs.
-- Add validated `<ALLBERT_HOME>/workspace/layout.yaml` for zone ordering,
-  hiding, and panel pins.
+- Add validated `<ALLBERT_HOME>/workspace/layout.yaml` for v0.34 launcher
+  destination ordering, hiding, default Canvas destination, and panel pins.
 - Add Settings Central keys for theme selection, snippets, and layout override;
-  expose them inside the workspace Settings Central panel.
+  expose them inside the v0.34 Settings Canvas destination.
 - Add CSP regression coverage and Chrome verification for desktop/narrow
   workspace retinting, snippet blocking, and layout fallback behavior.
 
@@ -1902,16 +1903,17 @@ Plan: `docs/plans/v0.37-plan.md`
 Request flow: `docs/plans/v0.37-request-flow.md`
 
 Status: research (unstarted). Shifted from v0.33 so v0.31 consolidation,
-v0.32 workspace panels, v0.33 intent descriptors/handoff, v0.35
-theming/layout hooks, and v0.36 dynamic-draft trial substrate are proven
-before scaffolding.
+v0.32 workspace panels, v0.33 intent descriptors/handoff, v0.34
+launcher/Canvas destination UX, v0.35 theming/layout hooks, and v0.36
+dynamic-draft trial substrate are proven before scaffolding.
 
 Prerequisite: StockSage proves the plugin/app path in v0.20, the app surface
 contract in v0.27, the app memory/outcomes contract in v0.29, the app canvas
 contract in v0.30, the runtime/UI-substrate contract in v0.31, the
 workspace-panel/settings contract in v0.32, the app-intent descriptor/handoff
-contract in v0.33, the theming/layout contract in v0.35, and the
-dynamic-draft trial contract in v0.36.
+contract in v0.33, the launcher/Canvas destination contract in v0.34, the
+theming/layout contract in v0.35, and the dynamic-draft trial contract in
+v0.36.
 
 Expected direction:
 
@@ -1920,7 +1922,8 @@ Expected direction:
   and explicit compile-path/project-integration instructions.
 - `mix allbert.gen.app MyApp` scaffolds an app plugin that includes the
   app/surface contract layers, including panel surface stubs, Settings Central
-  schema-fragment stub, intent descriptor stub, and a memory namespace stub.
+  schema-fragment stub, v0.34 destination metadata, intent descriptor stub,
+  and a memory namespace stub.
 - Generated app-plugin output includes a plugin module, app module, app
   supervision wiring, sample `AllbertAssist.Action` action, sample `SKILL.md`,
   sample panel surface, optional page surface notes, sample Ecto domain stub,
