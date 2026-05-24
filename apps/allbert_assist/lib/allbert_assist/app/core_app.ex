@@ -18,7 +18,7 @@ defmodule AllbertAssist.App.CoreApp do
   # the app (release-pinned, not semantic-per-app). v0.32 moves CoreApp
   # domain cards into the shared workspace panel path.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.33.0"
+  def version, do: "0.33.1"
 
   @impl true
   def validate(_opts), do: :ok
