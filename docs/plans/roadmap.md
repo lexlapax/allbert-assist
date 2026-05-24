@@ -1886,8 +1886,10 @@ Request flow: `docs/plans/v0.36-request-flow.md`
 ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`
 
-Status: implemented and release-ready as `v0.36.0` on 2026-05-24; ready for
-operator manual verification. Inserted as the concrete sandbox substrate before
+Status: implementation reopened for local sandbox image preparation after the
+M0-M5 substrate landed as `v0.36.0` on 2026-05-24. v0.36 is not release-ready
+until the default approved local image can be built and verified through
+Allbert-owned Mix tasks. Inserted as the concrete sandbox substrate before
 dynamic generation/live integration. v0.36 is deliberately narrow: Elixir/OTP
 generated drafts plus explicit shell-command gate profiles only. It produces
 reports, not trust grants.
@@ -1904,6 +1906,8 @@ work.
 Implemented:
 
 - Add Settings Central keys and `mix allbert.sandbox doctor`.
+- Add `mix allbert.sandbox image build` and `mix allbert.sandbox image verify`
+  so the default approved local image is not an undocumented prerequisite.
 - Build copy-in/copy-out sandbox bundles with a disposable Allbert Home.
 - Require approved local images; sandbox runs never pull from registries.
 - Add static `SourcePolicy` checks for dangerous Elixir constructs before
