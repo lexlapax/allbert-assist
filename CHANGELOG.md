@@ -25,6 +25,9 @@ revision).
   workspace tools.
 - `canvas_destination` routing for Canvas presentation state, persisted through
   a view-only `destination` query param.
+- v0.34 M7 security eval rows for launcher view-only selection, Canvas
+  app-scope enforcement, Settings action gating, and stale URL/query handoff
+  bypass.
 - Passive top-bar context indicator with an exit-to-neutral affordance through
   the registered action path.
 - Mobile launcher sheet with Chat/Canvas tabs and an in-flow bottom shellbar.
@@ -40,6 +43,10 @@ revision).
 - StockSage dashboard/recent/queue/trends panels render inside Canvas as the
   `app:stocksage` destination.
 - Stale `app_id` / `active_app` URL params no longer set routing context.
+- AppBar Objectives and Settings links now open workspace Canvas destinations
+  instead of dead `/objectives` or root `/workspace` links.
+- Desktop workspace root-grid CSS now has one effective four-column layout rule
+  guarded by the responsive regression test.
 - `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app
   metadata, `StockSage.App.version/0`, `StockSage.Plugin.version/0`,
   `plugins/stocksage/allbert_plugin.json`, and affected StockSage skill
@@ -53,6 +60,8 @@ revision).
   Chat/Canvas tabs, Settings destination, and bottom-shellbar non-overlap.
 - Focused LiveView, workspace catalog, StockSage panel, and handoff/context
   tests passed during milestone work.
+- Post-check focused suites passed for the extended security eval harness,
+  Workspace LiveView destination links, and responsive root-grid CSS.
 - Final release gate passed: `mix compile --warnings-as-errors`,
   `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
   `git diff --check`.
