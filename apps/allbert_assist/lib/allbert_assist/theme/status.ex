@@ -8,6 +8,7 @@ defmodule AllbertAssist.Theme.Status do
 
   alias AllbertAssist.Runtime.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.Theme.Tokens
 
   @max_diagnostics 8
   @max_message_length 180
@@ -35,21 +36,9 @@ defmodule AllbertAssist.Theme.Status do
   end
 
   defp token_status do
-    active = setting("workspace.theme.active", nil)
+    status = Tokens.selected()
 
-    case theme_basename(active) do
-      nil ->
-        {%{basename: nil, fingerprint: nil, mtime: nil, status: :not_selected}, []}
-
-      {:error, reason} ->
-        {%{basename: nil, fingerprint: nil, mtime: nil, status: :invalid_selection},
-         ["Token theme selection ignored: #{reason}."]}
-
-      basename ->
-        path = Path.join(Paths.themes_root(), basename)
-
-        file_status(path, basename, :token)
-    end
+    {Map.drop(status, [:declarations, :diagnostics]), status.diagnostics}
   end
 
   defp snippets_status do
@@ -125,31 +114,6 @@ defmodule AllbertAssist.Theme.Status do
   defp snippets_state(items) do
     if Enum.any?(items, &(&1.status == :present)), do: :present, else: :unavailable
   end
-
-  defp theme_basename(value) when value in [nil, ""], do: nil
-
-  defp theme_basename(value) when is_binary(value) do
-    value = String.trim(value)
-
-    cond do
-      value == "" ->
-        nil
-
-      unsafe_path?(value) ->
-        {:error, "unsafe theme name"}
-
-      not Regex.match?(@safe_basename, value) ->
-        {:error, "theme name has unsupported characters"}
-
-      String.ends_with?(value, ".yaml") ->
-        value
-
-      true ->
-        value <> ".yaml"
-    end
-  end
-
-  defp theme_basename(_value), do: {:error, "theme name must be text"}
 
   defp css_basename(value) when is_binary(value) do
     value = String.trim(value)

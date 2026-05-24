@@ -113,6 +113,13 @@
   --allbert-warn-soft: #fffbeb;
   --allbert-danger: #b91c1c;
   --allbert-success: #15803d;
+  --allbert-font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --allbert-font-scale: 1;
+  --allbert-density: 1;
+  --allbert-radius: 0.5rem;
+  --allbert-border-width: 1px;
+  --allbert-motion-scale: 1;
   --workspace-bg: var(--allbert-surface-0);
   --workspace-panel: var(--allbert-surface-1);
   --workspace-panel-muted: var(--allbert-surface-2);
@@ -123,13 +130,8 @@
   --workspace-focus: var(--allbert-accent);
   background: var(--workspace-bg);
   color: var(--workspace-fg);
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: var(--allbert-font-family);
+  font-size: calc(1rem * var(--allbert-font-scale));
 }
 
 #workspace-shell[data-theme="dark"] {
@@ -179,6 +181,8 @@
 #workspace-shell #approval-handoff {
   background: var(--workspace-panel);
   border-color: var(--workspace-border);
+  border-radius: var(--allbert-radius);
+  border-width: var(--allbert-border-width);
   color: var(--workspace-fg);
 }
 
@@ -190,14 +194,14 @@
 .allbert-appbar {
   display: grid;
   grid-template-columns: minmax(12rem, 1fr) minmax(0, auto) auto;
-  gap: 1rem;
+  gap: calc(1rem * var(--allbert-density));
   align-items: center;
   min-height: 56px;
-  border: 1px solid var(--workspace-border);
-  border-radius: 0.5rem;
+  border: var(--allbert-border-width) solid var(--workspace-border);
+  border-radius: var(--allbert-radius);
   background: color-mix(in srgb, var(--workspace-panel) 94%, transparent);
   color: var(--workspace-fg);
-  padding: 0.625rem 0.75rem;
+  padding: calc(0.625rem * var(--allbert-density)) calc(0.75rem * var(--allbert-density));
   box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
 }
 
