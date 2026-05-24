@@ -200,6 +200,7 @@ defmodule AllbertAssist.Intent.Classifier do
       descriptor_summary =
         %{
           required_slots: field(descriptor, :required_slots, []),
+          optional_slots: field(descriptor, :optional_slots, []),
           missing_slots: field(trace_metadata, :missing_slots, []),
           extracted_slots: field(trace_metadata, :extracted_slots, %{}),
           handoff_required?: field(trace_metadata, :handoff_required?),

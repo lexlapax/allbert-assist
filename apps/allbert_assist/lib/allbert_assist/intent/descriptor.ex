@@ -23,6 +23,7 @@ defmodule AllbertAssist.Intent.Descriptor do
     examples: [],
     synonyms: [],
     required_slots: [],
+    optional_slots: [],
     slot_extractors: %{},
     handoff_required?: true,
     capability: %{}
@@ -38,6 +39,7 @@ defmodule AllbertAssist.Intent.Descriptor do
           examples: [String.t()],
           synonyms: [String.t()],
           required_slots: [atom()],
+          optional_slots: [atom()],
           slot_extractors: %{atom() => atom()},
           handoff_required?: boolean(),
           capability: map()
@@ -59,8 +61,9 @@ defmodule AllbertAssist.Intent.Descriptor do
          {:ok, examples} <- bounded_string_list(field(attrs, :examples, []), :examples),
          {:ok, synonyms} <- bounded_string_list(field(attrs, :synonyms, []), :synonyms),
          {:ok, required_slots} <- slot_list(field(attrs, :required_slots, [])),
+         {:ok, optional_slots} <- slot_list(field(attrs, :optional_slots, [])),
          {:ok, slot_extractors} <-
-           slot_extractors(field(attrs, :slot_extractors, %{}), required_slots) do
+           slot_extractors(field(attrs, :slot_extractors, %{}), required_slots ++ optional_slots) do
       {:ok,
        %__MODULE__{
          id: "#{app_id}:#{action_name}",
@@ -72,6 +75,7 @@ defmodule AllbertAssist.Intent.Descriptor do
          examples: examples,
          synonyms: synonyms,
          required_slots: required_slots,
+         optional_slots: optional_slots -- required_slots,
          slot_extractors: slot_extractors,
          handoff_required?: field(attrs, :handoff_required?, true) == true,
          capability: capability
@@ -111,7 +115,7 @@ defmodule AllbertAssist.Intent.Descriptor do
   @spec extract_slots(t(), String.t()) :: %{extracted_slots: map(), missing_slots: [atom()]}
   def extract_slots(%__MODULE__{} = descriptor, text) when is_binary(text) do
     extracted =
-      descriptor.required_slots
+      (descriptor.required_slots ++ descriptor.optional_slots)
       |> Enum.reduce(%{}, fn slot, acc ->
         case extract_slot(Map.get(descriptor.slot_extractors, slot), text) do
           nil -> acc

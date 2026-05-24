@@ -164,6 +164,48 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.intent_handoff.missing_slots == ["ticker"]
   end
 
+  test "active app descriptor with optional symbol selects get_trends" do
+    request = EvalFixtures.request(text: "show trends for AAPL", active_app: :stocksage)
+    candidates = Engine.collect_candidates(request)
+
+    assert descriptor =
+             Enum.find(
+               candidates,
+               &match?(%{kind: :app_intent, app_id: :stocksage, action_name: "get_trends"}, &1)
+             )
+
+    assert descriptor.trace_metadata.extracted_slots == %{symbol: "AAPL"}
+    assert descriptor.trace_metadata.missing_slots == []
+
+    assert {:ok, decision} = Engine.decide(request)
+    assert decision.intent == :registry_action
+    assert decision.selected_action == "get_trends"
+    assert decision.trace_metadata.descriptor_candidate_id == "stocksage:get_trends"
+    assert decision.trace_metadata.extracted_slots == %{symbol: "AAPL"}
+  end
+
+  test "neutral queue descriptor produces handoff without executing queue action" do
+    assert {:ok, decision} =
+             Engine.decide(
+               EvalFixtures.request(text: "queue analysis for AAPL", active_app: :allbert)
+             )
+
+    assert decision.intent == :app_handoff
+    refute decision.selected_action == "queue_analysis"
+    assert decision.trace_metadata.intent_handoff.action_name == "queue_analysis"
+    assert decision.trace_metadata.intent_handoff.extracted_slots == %{"symbol" => "AAPL"}
+  end
+
+  test "neutral queue descriptor with missing symbol asks for clarification" do
+    assert {:ok, decision} =
+             Engine.decide(EvalFixtures.request(text: "queue analysis", active_app: :allbert))
+
+    assert decision.intent == :clarify_intent
+    refute decision.selected_action == "queue_analysis"
+    assert decision.trace_metadata.intent_handoff.action_name == "queue_analysis"
+    assert decision.trace_metadata.intent_handoff.missing_slots == ["symbol"]
+  end
+
   test "descriptor handoff can be disabled through Settings Central" do
     on_exit(fn -> Settings.put("intent.descriptors_enabled", true, %{audit?: false}) end)
 
