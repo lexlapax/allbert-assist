@@ -380,6 +380,48 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert action_signal.data.permission_decision.permission == :settings_write
   end
 
+  test "layout override sets default Canvas destination and reorders launcher only", %{conn: conn} do
+    Paths.ensure_home!()
+
+    File.write!(
+      Path.join([Paths.home(), "workspace", "layout.yaml"]),
+      """
+      default_destination: workspace:settings
+      launcher_order:
+        - workspace:settings
+        - output
+        - workspace:security
+      hidden_destinations:
+        - workspace:jobs
+        - output
+        - workspace:settings
+      """
+    )
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.layout.override_enabled", true, %{audit?: false})
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:settings']")
+    assert has_element?(view, "#workspace-canvas[data-destination='workspace:settings']")
+    assert has_element?(view, "#workspace-dest-workspace-settings")
+    assert has_element?(view, "#workspace-dest-output")
+    refute has_element?(view, "#workspace-dest-workspace-jobs")
+
+    assert has_element?(view, "#allbert-appbar")
+    assert has_element?(view, "#workspace-theme-toggle")
+    assert has_element?(view, "#workspace-context-indicator")
+
+    html = render(view)
+
+    assert html_position(html, ~s(id="workspace-dest-workspace-settings")) <
+             html_position(html, ~s(id="workspace-dest-output"))
+
+    assert html_position(html, ~s(id="workspace-dest-output")) <
+             html_position(html, ~s(id="workspace-dest-workspace-security"))
+  end
+
   test "workspace Settings Central stores provider keys without exposing the secret", %{
     conn: conn
   } do
@@ -1538,6 +1580,13 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     html = render(view)
     assert [_, thread_id] = Regex.run(~r/data-thread-id="([^"]+)"/, html)
     thread_id
+  end
+
+  defp html_position(html, marker) do
+    case :binary.match(html, marker) do
+      {position, _length} -> position
+      :nomatch -> flunk("expected rendered HTML to contain #{inspect(marker)}")
+    end
   end
 
   defp ensure_stocksage_app_registered do

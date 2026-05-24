@@ -6,8 +6,7 @@ defmodule AllbertAssist.Theme.Status do
   corresponding Allbert Home files without storing their contents as settings.
   """
 
-  alias AllbertAssist.Runtime.Paths
-  alias AllbertAssist.Settings
+  alias AllbertAssist.Theme.Layout
   alias AllbertAssist.Theme.Snippets
   alias AllbertAssist.Theme.Tokens
 
@@ -48,70 +47,10 @@ defmodule AllbertAssist.Theme.Status do
   end
 
   defp layout_status do
-    enabled? = setting("workspace.layout.override_enabled", false)
-    path = Path.join(Paths.workspace_root(), "layout.yaml")
+    layout = Layout.current()
 
-    if enabled? do
-      {status, diagnostics} = file_status(path, "layout.yaml", :layout)
-      {Map.put(status, :enabled?, true), diagnostics}
-    else
-      {%{
-         enabled?: false,
-         basename: "layout.yaml",
-         fingerprint: nil,
-         mtime: nil,
-         status: :disabled
-       }, []}
-    end
+    {Map.drop(layout, [:diagnostics, :panel_pins]), layout.diagnostics}
   end
-
-  defp file_status(path, basename, kind) do
-    cond do
-      not File.exists?(path) ->
-        {%{basename: basename, fingerprint: nil, mtime: nil, status: :missing},
-         ["#{label(kind)} file #{basename} is missing."]}
-
-      File.dir?(path) ->
-        {%{basename: basename, fingerprint: nil, mtime: nil, status: :invalid},
-         ["#{label(kind)} file #{basename} is a directory."]}
-
-      true ->
-        {%{
-           basename: basename,
-           fingerprint: fingerprint(path),
-           mtime: mtime(path),
-           status: :present
-         }, []}
-    end
-  end
-
-  defp setting(key, default) do
-    case Settings.get(key) do
-      {:ok, value} -> value
-      _other -> default
-    end
-  end
-
-  defp fingerprint(path) do
-    path
-    |> File.read!()
-    |> then(&:crypto.hash(:sha256, &1))
-    |> Base.encode16(case: :lower)
-    |> String.slice(0, 16)
-  rescue
-    _exception -> nil
-  end
-
-  defp mtime(path) do
-    case File.stat(path, time: :posix) do
-      {:ok, %{mtime: mtime}} -> mtime
-      _other -> nil
-    end
-  end
-
-  defp label(:token), do: "Token theme"
-  defp label(:snippet), do: "Snippet"
-  defp label(:layout), do: "Layout"
 
   defp cap_diagnostics(diagnostics) do
     diagnostics
