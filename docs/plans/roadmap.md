@@ -1803,12 +1803,13 @@ Plan: `docs/plans/v0.34-plan.md`
 Request flow: `docs/plans/v0.34-request-flow.md`
 ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md` (v0.34 revision)
 
-Status: release-ready as `v0.34.0`. Inserted after v0.33 because the shipped
-v0.32 workspace shell rendered too many simultaneous regions (left rail, a
-floating app/objectives band, chat, a permanent Canvas column, and a permanent
-Tools column) with no clear primary, and v0.33 made conversational handoff the
-way to enter app context. v0.34 restructures the shell around that model
-without changing domain behavior, security, or routing authority.
+Status: released and tagged as `v0.34.0` on 2026-05-24. Inserted after v0.33
+because the shipped v0.32 workspace shell rendered too many simultaneous
+regions (left rail, a floating app/objectives band, chat, a permanent Canvas
+column, and a permanent Tools column) with no clear primary, and v0.33 made
+conversational handoff the way to enter app context. v0.34 restructures the
+shell around that model without changing domain behavior, security, or routing
+authority.
 
 Prerequisite: v0.32 workspace route, panels, named zones, and Settings Central;
 v0.33 conversational app-intent handoff (the only way to set `active_app`).
