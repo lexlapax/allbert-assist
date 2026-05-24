@@ -40,7 +40,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
            )
   end
 
-  test "workspace tree returns the v0.26 core /workspace surface" do
+  test "workspace tree returns the v0.34 core /workspace surface" do
     surface = Catalog.workspace_tree(user_id: "local", thread_id: "thread-1")
 
     assert surface.id == :workspace
@@ -52,11 +52,8 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     assert Enum.any?(children, &match?(%Node{component: :chat}, &1))
     assert Enum.any?(children, &match?(%Node{component: :canvas}, &1))
     assert Enum.any?(children, &match?(%Node{component: :nav_rail}, &1))
-
-    assert %Node{component: :utility_drawer, children: utility_children} =
-             Enum.find(children, &match?(%Node{component: :utility_drawer}, &1))
-
-    assert find_node(utility_children, :settings_panel, :core_settings_panel)
+    refute Enum.any?(children, &match?(%Node{component: :utility_drawer}, &1))
+    refute Enum.any?(children, &match?(%Node{component: :badge_strip}, &1))
     assert Enum.any?(children, &match?(%Node{component: :ephemeral_surface}, &1))
   end
 
@@ -114,24 +111,19 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     refute Map.has_key?(surface.metadata, :panel_diagnostics)
   end
 
-  test "workspace tree composes CoreApp cards through panel surfaces" do
+  test "workspace tree does not render retired CoreApp regions by default" do
     surface = Catalog.workspace_tree(user_id: "local", thread_id: "thread-1")
 
     assert [%Node{component: :workspace_shell, children: children}] = surface.nodes
 
-    assert %Node{component: :badge_strip, children: context_children} =
-             Enum.find(children, &(&1.component == :badge_strip))
+    assert %Node{component: :canvas, children: canvas_children} =
+             Enum.find(children, &(&1.component == :canvas))
 
-    assert %Node{component: :objective_card} =
-             find_node(context_children, :objective_card, :core_objectives_panel)
-
-    assert %Node{component: :utility_drawer, children: utility_children} =
-             Enum.find(children, &(&1.component == :utility_drawer))
-
-    assert find_node(utility_children, :job_card, :core_jobs_panel)
-    assert find_node(utility_children, :confirmation_card, :core_confirmations_panel)
-    assert find_node(utility_children, :settings_card, :core_security_panel)
-    assert find_node(utility_children, :settings_panel, :core_settings_panel)
+    refute find_node(canvas_children, :objective_card, :core_objectives_panel)
+    refute find_node(canvas_children, :job_card, :core_jobs_panel)
+    refute find_node(canvas_children, :confirmation_card, :core_confirmations_panel)
+    refute find_node(canvas_children, :settings_card, :core_security_panel)
+    refute find_node(canvas_children, :settings_panel, :core_settings_panel)
     refute Map.has_key?(surface.metadata, :panel_diagnostics)
   end
 
