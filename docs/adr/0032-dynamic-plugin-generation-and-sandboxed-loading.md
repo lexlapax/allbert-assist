@@ -2,8 +2,48 @@
 
 ## Status
 
-Proposed for v0.36 Dynamic Plugin/App Generation And Sandboxed Module Loading
-(`docs/plans/v0.36-plan.md`).
+Proposed for v0.36 Dynamic Code & Config Generation and Live Capability
+Integration (`docs/plans/v0.36-plan.md`). Amended below for the v0.36 reframe:
+the milestone now adds a gated in-core integration path on top of the
+untrusted-trial sandbox, driven by an LLM code-gen agent committee. The
+deterministic, template-driven developer/operator generator stays a separate
+milestone, v0.37 (Templated Creation), which reuses this sandbox/gate/loader
+path. See ADR 0033 (trust tiers) and ADR 0035 (code-gen agents and the
+live-integration loader).
+
+## v0.36 Reframe Amendment (Untrusted Trial vs Gated In-Core Integration)
+
+The original decision (below) forbade any core-node loading of generated code.
+The reframe keeps that rule for **untrusted** generated code and adds a single,
+narrow, **gated** exception for **trusted** integration. The two phases are
+strictly separated:
+
+1. **Untrusted phase (unchanged):** generated code is compiled and trialed only
+   in an OS-level sandbox. The default backend is a **local container
+   (Docker/Podman)**; gVisor/Firecracker-class microVMs are the stronger future
+   tier. BEAM processes and distributed-Erlang nodes are still **not** a valid
+   boundary (ADR 0009). If no OS backend is configured, the workflow stays
+   disabled. Proactive auto-generation and auto-trial are permitted in this
+   phase; they grant no authority.
+2. **Integration gate (new — the trust grant):** an artifact may leave the
+   untrusted phase only when it (a) passed the sandbox trial, (b) passed the
+   **same warning gate as human-authored code inside the sandbox**
+   (`compile --warnings-as-errors`, `credo --strict`, `dialyzer`, focused
+   tests, and the v0.36 security evals), and (c) received **explicit operator
+   confirmation**. That confirmation is the trust grant at the Security Central
+   action boundary; advisory/agent output and auto-trials never authorize it.
+3. **Trusted phase (new):** a gate-passing, operator-confirmed artifact may be
+   **hot-loaded into the core BEAM node and registered live without a restart**
+   (trust tier `:integrated`, ADR 0033), via the audited, reversible loader in
+   ADR 0035. Integration is reversible without a restart (tier `:rolled_back`).
+   Loader provenance: the loader recompiles the **operator-reviewed source** in
+   core (you load the source you reviewed) with an integrity hash; it does not
+   trust an opaque sandbox-built artifact.
+
+Route-based page surfaces still require a restart (compile-time router);
+panel/destination apps (v0.34) integrate fully live.
+
+## Context
 
 ## Context
 
@@ -48,10 +88,14 @@ manifests, remote plugins, or arbitrary user-created code.
 - No remote marketplace.
 - No package-manager execution.
 - No new dependencies or migrations in generated drafts.
-- No automatic promotion into reviewed source.
-- No arbitrary BEAM hot loading in the core node.
-- No treating a separate or hidden BEAM/distributed-Erlang node as the isolation
-  boundary.
+- No **untrusted** in-core loading: only a gate-passing, operator-confirmed
+  artifact may be hot-loaded into the core node (see the v0.36 Reframe
+  Amendment). Integration without the gate or without operator confirmation is
+  forbidden.
+- No treating a separate or hidden BEAM/distributed-Erlang node as the
+  untrusted-trial isolation boundary.
+- No integration authorized by advisory/agent output or by an auto-trial result
+  alone.
 
 ## Sandbox Isolation Requirement (decision detail)
 
