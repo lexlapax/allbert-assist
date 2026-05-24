@@ -68,6 +68,16 @@ v0.38 ships reviewed templates for:
 
 Future patterns register through the same behaviour without granting authority.
 
+### 5. Settings Central owns the create surface
+
+The operator `workspace:create` destination is gated by a default-off
+`templates.create.enabled` switch, with `templates.allowed_patterns` bounding the
+gallery. Developer Mix-task scaffolds are inert and dev-time and need no runtime
+settings. Operator live integration adds no new authority: it additionally
+requires the v0.37 `dynamic_codegen.*` switches and the v0.36
+`sandbox.elixir.enabled` gate, and routes through registered actions and Security
+Central like any effectful work.
+
 ## Consequences
 
 - Common creation patterns become one-command or one-flow with first-run
