@@ -107,7 +107,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
            )
 
     assert has_element?(view, "#workspace-node-workspace-canvas-region")
-    assert has_element?(view, "#workspace-component-workspace-canvas-region")
+    assert has_element?(view, "#workspace-canvas[data-destination='output']")
     assert has_element?(view, "#workspace-canvas-cap-chip")
     assert has_element?(view, "#workspace-shell[data-canvas-destination='output']")
     assert html =~ "canvas"
@@ -256,20 +256,19 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     refute has_element?(view, "#workspace-mobile-tab-ephemeral")
   end
 
-  test "workspace utility drawer renders Settings Central and updates a safe setting through actions",
+  test "workspace settings destination renders Settings Central and updates through actions",
        %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
     html =
       view
-      |> element("#workspace-mobile-tab-utility")
+      |> element("#workspace-dest-workspace-settings")
       |> render_click()
 
     assert html =~ "Settings Central"
     assert has_element?(view, "#workspace-settings-panel")
-    assert has_element?(view, "[data-workspace-component='job_card']")
-    assert has_element?(view, "[data-workspace-component='confirmation_card']")
-    assert has_element?(view, "[data-workspace-component='settings_card']")
+    refute has_element?(view, "[data-workspace-component='job_card']")
+    refute has_element?(view, "[data-workspace-component='confirmation_card']")
     assert has_element?(view, "#settings-list")
     assert has_element?(view, "#settings-form")
     assert has_element?(view, "#security-status")
@@ -304,7 +303,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
     view
-    |> element("#workspace-mobile-tab-utility")
+    |> element("#workspace-dest-workspace-settings")
     |> render_click()
 
     subscribe_actions()
@@ -346,7 +345,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     html =
       view
-      |> element("#workspace-mobile-tab-utility")
+      |> element("#workspace-dest-workspace-settings")
       |> render_click()
 
     assert html =~ approve_candidate["id"]
@@ -1171,10 +1170,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
     view
-    |> element("#workspace-app-launcher-stocksage")
+    |> element("#workspace-dest-app-stocksage")
     |> render_click()
 
-    assert has_element?(view, "#workspace-shell[data-active-app='stocksage']")
+    assert has_element?(view, "#workspace-shell[data-active-app='allbert']")
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='app:stocksage']")
 
     assert has_element?(
              view,

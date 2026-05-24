@@ -23,7 +23,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
     open? =
       Map.get(socket.assigns, :settings_panel_open?, false) ||
-        Map.get(context, :workspace_mobile_tab) == "utility"
+        Map.get(context, :canvas_destination) == "workspace:settings"
 
     socket =
       socket
@@ -811,8 +811,8 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   defp workspace_settings_path(context) do
     params =
       [
-        app_id: app_id(Map.get(context, :active_app, :allbert)),
-        tab: "utility"
+        destination: "workspace:settings",
+        tab: "canvas"
       ]
       |> maybe_put_param(:thread_id, Map.get(context, :thread_id))
 
@@ -821,9 +821,6 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
   defp maybe_put_param(params, _key, value) when value in [nil, ""], do: params
   defp maybe_put_param(params, key, value), do: Keyword.put(params, key, value)
-
-  defp app_id(nil), do: "allbert"
-  defp app_id(app_id), do: to_string(app_id)
 
   defp confirmation_form(confirmation) do
     to_form(%{"id" => confirmation["id"], "reason" => ""}, as: :confirmation)

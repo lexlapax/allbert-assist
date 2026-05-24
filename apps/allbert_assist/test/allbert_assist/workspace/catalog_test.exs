@@ -94,7 +94,8 @@ defmodule AllbertAssist.Workspace.CatalogTest do
       Catalog.workspace_tree(
         user_id: "local",
         thread_id: "thread-1",
-        panel_surfaces: [panel_surface()]
+        canvas_destination: "app:fixture_app",
+        panel_surfaces: [panel_surface(%{app_id: :fixture_app})]
       )
 
     assert [%Node{component: :workspace_shell, children: children}] = surface.nodes
@@ -103,9 +104,9 @@ defmodule AllbertAssist.Workspace.CatalogTest do
              Enum.find(children, &(&1.component == :canvas))
 
     assert %Node{
-             id: "workspace-panel-allbert-fixture_panel-fixture-panel-root",
+             id: "workspace-panel-fixture_app-fixture_panel-fixture-panel-root",
              component: :panel,
-             props: %{zone: :canvas_panels, surface_id: :fixture_panel, app_id: :allbert}
+             props: %{zone: :canvas_panels, surface_id: :fixture_panel, app_id: :fixture_app}
            } = Enum.find(canvas_children, &(&1.props[:surface_id] == :fixture_panel))
 
     refute Map.has_key?(surface.metadata, :panel_diagnostics)
@@ -127,10 +128,29 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     refute Map.has_key?(surface.metadata, :panel_diagnostics)
   end
 
-  test "workspace tree filters active-app panels by explicit app context" do
+  test "workspace tree renders one selected workspace tool destination" do
+    surface =
+      Catalog.workspace_tree(
+        user_id: "local",
+        thread_id: "thread-1",
+        canvas_destination: "workspace:settings"
+      )
+
+    assert [%Node{component: :workspace_shell, children: children}] = surface.nodes
+
+    assert %Node{component: :canvas, children: canvas_children} =
+             Enum.find(children, &(&1.component == :canvas))
+
+    assert find_node(canvas_children, :settings_panel, :core_settings_panel)
+    refute find_node(canvas_children, :job_card, :core_jobs_panel)
+    refute find_node(canvas_children, :objective_card, :core_objectives_panel)
+  end
+
+  test "workspace tree filters app panels by canvas destination, not active app" do
     hidden =
       Catalog.workspace_tree(
-        active_app: :allbert,
+        active_app: :stocksage,
+        canvas_destination: "output",
         panel_surfaces: [
           panel_surface(%{
             id: :stocksage_fixture_panel,
@@ -142,7 +162,8 @@ defmodule AllbertAssist.Workspace.CatalogTest do
 
     shown =
       Catalog.workspace_tree(
-        active_app: :stocksage,
+        active_app: :allbert,
+        canvas_destination: "app:stocksage",
         panel_surfaces: [
           panel_surface(%{
             id: :stocksage_fixture_panel,
@@ -201,7 +222,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     })
   end
 
-  defp panel_surface(attrs \\ %{}) do
+  defp panel_surface(attrs) do
     struct!(
       Surface,
       Map.merge(
